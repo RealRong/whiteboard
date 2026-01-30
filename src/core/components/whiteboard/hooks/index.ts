@@ -1,0 +1,1 @@
+export { useWhiteboardInstance } from './useWhiteboardInstance'
