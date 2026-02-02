@@ -1,0 +1,131 @@
+import { useCallback, useEffect, useRef } from 'react'
+import type { PointerEvent, WheelEvent, RefObject } from 'react'
+import type { Core, Point, Viewport } from '@whiteboard/core'
+
+type Options = {
+  core: Core
+  viewport: Viewport
+  screenToWorld: (point: Point) => Point
+  containerRef: RefObject<HTMLElement>
+  minZoom?: number
+  maxZoom?: number
+  enablePan?: boolean
+  enableWheel?: boolean
+}
+
+type DragState = {
+  pointerId: number
+  start: Point
+  startCenter: Point
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+export const useViewportControls = ({
+  core,
+  viewport,
+  screenToWorld,
+  containerRef,
+  minZoom = 0.1,
+  maxZoom = 4,
+  enablePan = true,
+  enableWheel = true
+}: Options) => {
+  const dragRef = useRef<DragState | null>(null)
+  const spacePressedRef = useRef(false)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        event.preventDefault()
+        spacePressedRef.current = true
+      }
+    }
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        event.preventDefault()
+        spacePressedRef.current = false
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLElement>) => {
+      if (!enablePan) return
+      const isMiddle = event.button === 1
+      const isSpaceLeft = event.button === 0 && spacePressedRef.current
+      if (!isMiddle && !isSpaceLeft) return
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      dragRef.current = {
+        pointerId: event.pointerId,
+        start: { x: event.clientX, y: event.clientY },
+        startCenter: { ...viewport.center }
+      }
+    },
+    [enablePan, viewport.center.x, viewport.center.y]
+  )
+
+  const onPointerMove = useCallback(
+    (event: PointerEvent<HTMLElement>) => {
+      const drag = dragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+      const dx = event.clientX - drag.start.x
+      const dy = event.clientY - drag.start.y
+      core.dispatch({
+        type: 'viewport.set',
+        viewport: {
+          center: {
+            x: drag.startCenter.x - dx / viewport.zoom,
+            y: drag.startCenter.y - dy / viewport.zoom
+          },
+          zoom: viewport.zoom
+        }
+      })
+    },
+    [core, viewport.zoom]
+  )
+
+  const onPointerUp = useCallback((event: PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }, [])
+
+  const onWheel = useCallback(
+    (event: WheelEvent<HTMLElement>) => {
+      if (!enableWheel) return
+      const element = containerRef.current
+      if (!element) return
+      event.preventDefault()
+      const rect = element.getBoundingClientRect()
+      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      const anchor = screenToWorld(screenPoint)
+      const factor = Math.exp(-event.deltaY * 0.001)
+      const nextZoom = clamp(viewport.zoom * factor, minZoom, maxZoom)
+      const appliedFactor = nextZoom / viewport.zoom
+      if (appliedFactor === 1) return
+      core.dispatch({
+        type: 'viewport.zoom',
+        factor: appliedFactor,
+        anchor
+      })
+    },
+    [containerRef, core, enableWheel, maxZoom, minZoom, screenToWorld, viewport.zoom]
+  )
+
+  return {
+    onPointerDownCapture: onPointerDown,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onWheel
+  }
+}
