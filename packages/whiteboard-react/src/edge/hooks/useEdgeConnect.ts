@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Core, Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../types'
-import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, isPointInRotatedRect, rotatePoint } from '../utils/geometry'
+import type { Size } from '../../common/types'
+import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, isPointInRotatedRect, rotatePoint } from '../../common/utils/geometry'
 
 type ConnectFrom = {
   nodeId: string

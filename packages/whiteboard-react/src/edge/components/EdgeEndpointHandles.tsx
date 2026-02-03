@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@whiteboard/core'
 import type { PointerEvent } from 'react'
-import type { Size } from '../types'
-import { getAnchorPoint, getNodeRect, getRectCenter } from '../utils/geometry'
+import type { Size } from '../../common/types'
+import { getAnchorPoint, getNodeRect, getRectCenter } from '../../common/utils/geometry'
 
 type EdgeEndpointHandlesProps = {
   edges: Edge[]

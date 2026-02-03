@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject, ReactNode } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../types'
+import type { Size } from '../../common/types'
 import type { Guide, SnapCandidate } from '../utils/snap'
-import { getNodeRect, getRectCenter, rotatePoint } from '../utils/geometry'
+import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
 
 type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 type HandleKind = 'resize' | 'rotate'

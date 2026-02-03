@@ -2,7 +2,7 @@ import { atom, useAtom } from 'jotai'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../types'
+import type { Size } from '../../common/types'
 import {
   getNodeRect,
   rectContains,
@@ -10,7 +10,7 @@ import {
   rectFromPoints,
   rectIntersects,
   rectIntersectsRotatedRect
-} from '../utils/geometry'
+} from '../../common/utils/geometry'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 

@@ -3,9 +3,9 @@ import type { PointerEvent } from 'react'
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { Guide, SnapCandidate, SnapResult } from '../utils/snap'
 import { computeSnap } from '../utils/snap'
-import type { Size } from '../types'
+import type { Size } from '../../common/types'
 import { findSmallestGroupContainingPoint, getGroupDescendants, getNodesBoundingRect, expandGroupRect, rectEquals } from '../utils/group'
-import { getNodeAABB, rectContains } from '../utils/geometry'
+import { getNodeAABB, rectContains } from '../../common/utils/geometry'
 
 type DragState = {
   pointerId: number

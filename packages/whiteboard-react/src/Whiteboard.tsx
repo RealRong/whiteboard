@@ -5,23 +5,23 @@ import { Provider as JotaiProvider } from 'jotai'
 import { createStore } from 'jotai/vanilla'
 import type { DispatchResult, Edge, Node, NodeId, Point } from '@whiteboard/core'
 import { enlargeBox } from '@whiteboard/core'
-import { NodeLayer } from './layers/NodeLayer'
-import { EdgeLayer } from './layers/EdgeLayer'
-import { SelectionLayer } from './layers/SelectionLayer'
-import { EdgePreviewLayer } from './layers/EdgePreviewLayer'
-import { EdgeControlPointHandles } from './layers/EdgeControlPointHandles'
-import { EdgeEndpointHandles } from './layers/EdgeEndpointHandles'
-import { DragGuidesLayer } from './layers/DragGuidesLayer'
-import { useCore } from './hooks/useCore'
-import { useViewport } from './hooks/useViewport'
-import { useViewportControls } from './hooks/useViewportControls'
-import { useSelection } from './hooks/useSelection'
-import { useEdgeConnect } from './hooks/useEdgeConnect'
-import { NodeRegistryProvider } from './registry/nodeRegistry'
-import { createDefaultNodeRegistry } from './registry/defaultNodes'
+import { NodeLayer } from './node/components/NodeLayer'
+import { SelectionLayer } from './node/components/SelectionLayer'
+import { DragGuidesLayer } from './node/components/DragGuidesLayer'
+import { EdgeLayer } from './edge/components/EdgeLayer'
+import { EdgePreviewLayer } from './edge/components/EdgePreviewLayer'
+import { EdgeControlPointHandles } from './edge/components/EdgeControlPointHandles'
+import { EdgeEndpointHandles } from './edge/components/EdgeEndpointHandles'
+import { useCore } from './common/hooks/useCore'
+import { useViewport } from './common/hooks/useViewport'
+import { useViewportControls } from './common/hooks/useViewportControls'
+import { useSelection } from './node/hooks/useSelection'
+import { useEdgeConnect } from './edge/hooks/useEdgeConnect'
+import { NodeRegistryProvider } from './node/registry/nodeRegistry'
+import { createDefaultNodeRegistry } from './node/registry/defaultNodes'
 import type { WhiteboardProps } from './types'
-import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE, getAnchorPoint, getNodeAABB, getNodeRect } from './utils/geometry'
-import { buildSnapCandidates, createGridIndex, queryGridIndex, type Guide } from './utils/snap'
+import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE, getAnchorPoint, getNodeAABB, getNodeRect } from './common/utils/geometry'
+import { buildSnapCandidates, createGridIndex, queryGridIndex, type Guide } from './node/utils/snap'
 import {
   expandGroupRect,
   getCollapsedGroupIds,
@@ -29,7 +29,7 @@ import {
   getNodesBoundingRect,
   isNodeHiddenByCollapsedGroup,
   rectEquals
-} from './utils/group'
+} from './node/utils/group'
 
 const DEFAULT_GROUP_PADDING = 24
 
