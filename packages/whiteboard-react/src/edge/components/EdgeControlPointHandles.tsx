@@ -185,8 +185,8 @@ export const EdgeControlPointHandles = ({
           onPointerLeave={() => setHoverIndex((prev) => (prev === index ? null : prev))}
           style={{
             position: 'absolute',
-            left: point.x - HANDLE_SIZE / 2,
-            top: point.y - HANDLE_SIZE / 2,
+            left: 0,
+            top: 0,
             width: HANDLE_SIZE,
             height: HANDLE_SIZE,
             borderRadius: 999,
@@ -197,7 +197,9 @@ export const EdgeControlPointHandles = ({
                 ? '0 4px 12px rgba(37, 99, 235, 0.35)'
                 : '0 4px 10px rgba(37, 99, 235, 0.25)',
             cursor: 'grab',
-            transform: index === activeIndex ? 'scale(1.08)' : 'scale(1)',
+            transform: `translate(${point.x - HANDLE_SIZE / 2}px, ${point.y - HANDLE_SIZE / 2}px) ${
+              index === activeIndex ? 'scale(1.08)' : 'scale(1)'
+            }`,
             pointerEvents: 'auto'
           }}
         />

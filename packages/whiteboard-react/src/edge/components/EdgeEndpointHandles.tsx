@@ -51,8 +51,8 @@ export const EdgeEndpointHandles = ({
       onPointerDown={(event) => onStartReconnect(edge.id, end, event)}
       style={{
         position: 'absolute',
-        left: point.x - 6,
-        top: point.y - 6,
+        left: 0,
+        top: 0,
         width: 12,
         height: 12,
         borderRadius: 999,
@@ -61,7 +61,8 @@ export const EdgeEndpointHandles = ({
         boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
         cursor: 'grab',
         pointerEvents: 'auto',
-        zIndex: 8
+        zIndex: 8,
+        transform: `translate(${point.x - 6}px, ${point.y - 6}px)`
       }}
     />
   )

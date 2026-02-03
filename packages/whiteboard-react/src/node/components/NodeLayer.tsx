@@ -8,6 +8,7 @@ import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { MindmapLayer } from '../../mindmap/components/MindmapLayer'
 import { NodeItem } from './NodeItem'
+import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 
 type NodeLayerProps = {
   nodes: Node[]
@@ -70,6 +71,7 @@ export const NodeLayer = ({
     })
     return [...groups, ...rest]
   }, [nodes])
+  useNodeSizeObserver({ core, nodes: orderedNodes, containerRef, enabled: true })
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {mindmap ? (

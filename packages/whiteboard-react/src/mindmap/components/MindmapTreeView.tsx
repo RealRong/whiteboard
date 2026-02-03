@@ -232,7 +232,15 @@ export const MindmapTreeView = ({
   )
 
   return (
-    <div style={{ position: 'absolute', left: baseOffset.x, top: baseOffset.y, pointerEvents: 'auto' }}>
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        pointerEvents: 'auto',
+        transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)`
+      }}
+    >
       <svg
         width={computed.bbox.width}
         height={computed.bbox.height}
@@ -310,14 +318,15 @@ export const MindmapTreeView = ({
           <div
             style={{
               position: 'absolute',
-              left: dragPreview.ghost.x - baseOffset.x,
-              top: dragPreview.ghost.y - baseOffset.y,
+              left: 0,
+              top: 0,
               width: dragPreview.ghost.width,
               height: dragPreview.ghost.height,
               borderRadius: 12,
               border: '1px dashed #2563eb',
               background: 'rgba(59, 130, 246, 0.08)',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              transform: `translate(${dragPreview.ghost.x - baseOffset.x}px, ${dragPreview.ghost.y - baseOffset.y}px)`
             }}
           />
         </>

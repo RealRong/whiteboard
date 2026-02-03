@@ -123,24 +123,25 @@ export const useNodeDrag = (
       }
       drag.last = { x: nextX, y: nextY }
       if (isGroup && drag.children) {
-        core.dispatch({
-          type: 'node.update',
-          id: nodeId,
-          patch: {
-            position: { x: nextX, y: nextY }
+        const updates = [
+          {
+            id: nodeId,
+            patch: {
+              position: { x: nextX, y: nextY }
+            }
           }
-        })
+        ]
         drag.children.ids.forEach((childId) => {
           const offset = drag.children?.offsets.get(childId)
           if (!offset) return
-          core.dispatch({
-            type: 'node.update',
+          updates.push({
             id: childId,
             patch: {
               position: { x: nextX + offset.x, y: nextY + offset.y }
             }
           })
         })
+        core.model.node.updateMany(updates)
         return
       }
 

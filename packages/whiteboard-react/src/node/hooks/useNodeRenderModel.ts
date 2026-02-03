@@ -41,7 +41,7 @@ export const useNodeRenderModel = ({
       rect,
       nodeId: node.id,
       selected,
-      style: { ...nodeStyle, ...rotationStyle, pointerEvents: 'auto' },
+      style: buildContainerStyle(rect, nodeStyle, rotationStyle),
       onPointerDown: handlePointerDown,
       onPointerMove: dragHandlers.onPointerMove,
       onPointerUp: dragHandlers.onPointerUp
@@ -74,4 +74,23 @@ export const useNodeRenderModel = ({
   const content = renderNodeDefinition(definition, renderProps)
 
   return { containerProps, renderProps, content }
+}
+
+const buildContainerStyle = (
+  rect: Rect,
+  nodeStyle: CSSProperties,
+  rotationStyle?: CSSProperties
+): CSSProperties => {
+  const baseTransform = `translate(${rect.x}px, ${rect.y}px)`
+  const extraTransform = nodeStyle.transform
+  const rotationTransform = rotationStyle?.transform
+  const combinedTransform = [baseTransform, extraTransform, rotationTransform].filter(Boolean).join(' ')
+
+  return {
+    ...nodeStyle,
+    ...rotationStyle,
+    pointerEvents: 'auto',
+    transform: combinedTransform,
+    transformOrigin: rotationStyle?.transformOrigin ?? nodeStyle.transformOrigin
+  }
 }

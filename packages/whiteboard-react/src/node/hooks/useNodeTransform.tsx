@@ -434,8 +434,8 @@ export const useNodeTransform = ({
             data-selection-ignore
             style={{
               position: 'absolute',
-              left: handle.position.x - half,
-              top: handle.position.y - half,
+              left: 0,
+              top: 0,
               width: sizeWorld,
               height: sizeWorld,
               borderRadius: isRotate ? 999 : 3,
@@ -444,7 +444,8 @@ export const useNodeTransform = ({
               boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
               cursor: handle.cursor,
               pointerEvents: 'auto',
-              zIndex: 9
+              zIndex: 9,
+              transform: `translate(${handle.position.x - half}px, ${handle.position.y - half}px)`
             }}
             {...props}
           />

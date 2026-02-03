@@ -40,8 +40,8 @@ export const NodeBlock = ({
       onPointerUp={onPointerUp}
       style={{
         position: 'absolute',
-        left: rect.x,
-        top: rect.y,
+        left: 0,
+        top: 0,
         width: rect.width,
         height: rect.height,
         borderRadius: 8,

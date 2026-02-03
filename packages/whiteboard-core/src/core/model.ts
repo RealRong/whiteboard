@@ -38,6 +38,21 @@ export const createModel = (deps: {
           throw new Error(result.message ?? `Failed to update node ${id}.`)
         }
       },
+      updateMany: (updates) => {
+        if (updates.length === 0) return
+        const operations = updates
+          .map((update) => {
+            const node = state.maps.nodes.get(update.id)
+            if (!node) return null
+            return { type: 'node.update', id: update.id, patch: update.patch, before: state.cloneNode(node) } as const
+          })
+          .filter((item): item is { type: 'node.update'; id: string; patch: any; before: Node } => Boolean(item))
+        if (operations.length === 0) return
+        const result = applyOperations(operations, getOrigin())
+        if (!result.ok) {
+          throw new Error(result.message ?? 'Failed to update nodes.')
+        }
+      },
       delete: (ids) => {
         if (ids.length === 0) return
         const operations = ids

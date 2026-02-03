@@ -60,13 +60,14 @@ export const MindmapNodeItem = ({
       onPointerLeave={() => onHoverLeave(id)}
       style={{
         ...MINDMAP_NODE_BASE_STYLE,
-        left: rect.x + shiftX,
-        top: rect.y + shiftY,
+        left: 0,
+        top: 0,
         width: rect.width,
         height: rect.height,
         border,
         opacity: dragActive ? 0.35 : 1,
-        transition
+        transition,
+        transform: `translate(${rect.x + shiftX}px, ${rect.y + shiftY}px)`
       }}
     >
       <div style={MINDMAP_NODE_LABEL_STYLE}>{label}</div>

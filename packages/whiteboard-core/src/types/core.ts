@@ -452,6 +452,7 @@ export interface Core {
     node: {
       create(input: NodeInput): NodeId
       update(id: NodeId, patch: NodePatch): void
+      updateMany(updates: Array<{ id: NodeId; patch: NodePatch }>): void
       delete(ids: NodeId[]): void
     }
     edge: {
