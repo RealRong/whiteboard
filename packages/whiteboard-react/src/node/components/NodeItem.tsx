@@ -6,6 +6,7 @@ import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { NodeBlock } from './NodeBlock'
 import { useNodeItem } from '../hooks/useNodeItem'
+import type { NodeTransientApi } from '../hooks/useNodeViewState'
 
 export type NodeItemProps = {
   node: Node
@@ -32,6 +33,7 @@ export type NodeItemProps = {
     zoom: number
     onGuidesChange?: (guides: Guide[]) => void
   }
+  transient?: NodeTransientApi
 }
 
 export const NodeItem = (props: NodeItemProps) => {
@@ -47,7 +49,8 @@ export const NodeItem = (props: NodeItemProps) => {
       containerRef: props.containerRef,
       screenToWorld: props.screenToWorld,
       group: props.group,
-      snap: props.snap
+      snap: props.snap,
+      transient: props.transient
     })
 
   return (

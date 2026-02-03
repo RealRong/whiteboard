@@ -9,6 +9,7 @@ import type { Guide, SnapCandidate } from '../utils/snap'
 import { MindmapLayer } from '../../mindmap/components/MindmapLayer'
 import { NodeItem } from './NodeItem'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
+import type { NodeTransientApi } from '../hooks/useNodeViewState'
 
 type NodeLayerProps = {
   nodes: Node[]
@@ -43,6 +44,7 @@ type NodeLayerProps = {
     zoom: number
     onGuidesChange?: (guides: Guide[]) => void
   }
+  transient?: NodeTransientApi
 }
 
 export const NodeLayer = ({
@@ -57,7 +59,8 @@ export const NodeLayer = ({
   screenToWorld,
   group,
   mindmap,
-  snap
+  snap,
+  transient
 }: NodeLayerProps) => {
   const orderedNodes = useMemo(() => {
     const groups: Node[] = []
@@ -98,6 +101,7 @@ export const NodeLayer = ({
           screenToWorld={screenToWorld}
           group={group}
           snap={snap}
+          transient={transient}
         />
       ))}
     </div>

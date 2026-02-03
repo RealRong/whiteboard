@@ -11,6 +11,7 @@ import { useNodeRegistry } from '../registry/nodeRegistry'
 import { useNodeInteraction } from './useNodeInteraction'
 import { useNodeStyle } from './useNodeStyle'
 import { useNodeRenderModel } from './useNodeRenderModel'
+import type { NodeTransientApi } from './useNodeViewState'
 
 export type UseNodeItemOptions = {
   node: Node
@@ -37,6 +38,7 @@ export type UseNodeItemOptions = {
     zoom: number
     onGuidesChange?: (guides: Guide[]) => void
   }
+  transient?: NodeTransientApi
 }
 
 export const useNodeItem = ({
@@ -50,7 +52,8 @@ export const useNodeItem = ({
   containerRef,
   screenToWorld,
   group,
-  snap
+  snap,
+  transient
 }: UseNodeItemOptions) => {
   const registry = useNodeRegistry()
   const definition = registry.get(node.type)
@@ -68,7 +71,8 @@ export const useNodeItem = ({
     edgeConnect,
     tool,
     group,
-    snap
+    snap,
+    transient
   })
   const { nodeStyle, rotationStyle } = useNodeStyle({
     core,

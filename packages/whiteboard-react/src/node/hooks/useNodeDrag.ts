@@ -6,6 +6,9 @@ import { computeSnap } from '../utils/snap'
 import type { Size } from '../../common/types'
 import { findSmallestGroupContainingPoint, getGroupDescendants, getNodesBoundingRect, expandGroupRect, rectEquals } from '../utils/group'
 import { getNodeAABB, rectContains } from '../../common/utils/geometry'
+import type { NodeTransientApi, NodeViewUpdate } from './useNodeViewState'
+
+const SNAP_MAX_THRESHOLD_WORLD = 24
 
 type DragState = {
   pointerId: number
@@ -41,7 +44,8 @@ export const useNodeDrag = (
   size: { width: number; height: number },
   zoom = 1,
   snap?: SnapOptions,
-  group?: GroupOptions
+  group?: GroupOptions,
+  transient?: NodeTransientApi
 ) => {
   const dragRef = useRef<DragState | null>(null)
   const hoverGroupRef = useRef<NodeId | undefined>(undefined)
@@ -104,7 +108,10 @@ export const useNodeDrag = (
       const currentNode = group?.nodes.find((node) => node.id === nodeId)
       const isGroup = currentNode?.type === 'group'
       if (snap?.enabled) {
-        const thresholdWorld = snap.thresholdScreen / Math.max(snap.zoom, 0.0001)
+        const thresholdWorld = Math.min(
+          snap.thresholdScreen / Math.max(snap.zoom, 0.0001),
+          SNAP_MAX_THRESHOLD_WORLD
+        )
         const movingRect: Rect = { x: nextX, y: nextY, width: size.width, height: size.height }
         const queryRect: Rect = {
           x: movingRect.x - thresholdWorld,
@@ -112,7 +119,9 @@ export const useNodeDrag = (
           width: movingRect.width + thresholdWorld * 2,
           height: movingRect.height + thresholdWorld * 2
         }
-        const candidates = snap.getCandidates ? snap.getCandidates(queryRect) : snap.candidates
+        const baseCandidates = snap.getCandidates ? snap.getCandidates(queryRect) : snap.candidates
+        const excludeSet = drag.children?.ids?.length ? new Set([nodeId, ...drag.children.ids]) : undefined
+        const candidates = excludeSet ? baseCandidates.filter((candidate) => !excludeSet.has(candidate.id)) : baseCandidates
         const result: SnapResult = computeSnap(movingRect, candidates, thresholdWorld, nodeId, {
           allowCross: event.altKey,
           crossThreshold: thresholdWorld * 0.6
@@ -123,12 +132,10 @@ export const useNodeDrag = (
       }
       drag.last = { x: nextX, y: nextY }
       if (isGroup && drag.children) {
-        const updates = [
+        const updates: NodeViewUpdate[] = [
           {
             id: nodeId,
-            patch: {
-              position: { x: nextX, y: nextY }
-            }
+            position: { x: nextX, y: nextY }
           }
         ]
         drag.children.ids.forEach((childId) => {
@@ -136,12 +143,16 @@ export const useNodeDrag = (
           if (!offset) return
           updates.push({
             id: childId,
-            patch: {
-              position: { x: nextX + offset.x, y: nextY + offset.y }
-            }
+            position: { x: nextX + offset.x, y: nextY + offset.y }
           })
         })
-        core.model.node.updateMany(updates)
+        if (transient) {
+          transient.setOverrides(updates)
+        } else {
+          core.model.node.updateMany(
+            updates.map((item) => ({ id: item.id, patch: { position: item.position as Point } }))
+          )
+        }
         return
       }
 
@@ -149,6 +160,11 @@ export const useNodeDrag = (
         const center = { x: nextX + size.width / 2, y: nextY + size.height / 2 }
         const hovered = findSmallestGroupContainingPoint(group.nodes, group.nodeSize, center, nodeId)
         updateHoverGroup(hovered?.id)
+      }
+
+      if (transient) {
+        transient.setOverrides([{ id: nodeId, position: { x: nextX, y: nextY } }])
+        return
       }
 
       core.dispatch({
@@ -159,7 +175,7 @@ export const useNodeDrag = (
         }
       })
     },
-    [core, group, nodeId, size.height, size.width, snap, updateHoverGroup, zoom]
+    [core, group, nodeId, size.height, size.width, snap, transient, updateHoverGroup, zoom]
   )
 
   const onPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -168,6 +184,18 @@ export const useNodeDrag = (
     dragRef.current = null
     event.currentTarget.releasePointerCapture(event.pointerId)
     snap?.onGuidesChange?.([])
+    if (transient) {
+      const finalPos = drag.last ?? { x: position.x, y: position.y }
+      const updates: NodeViewUpdate[] = [{ id: nodeId, position: finalPos }]
+      if (drag.children) {
+        drag.children.ids.forEach((childId) => {
+          const offset = drag.children?.offsets.get(childId)
+          if (!offset) return
+          updates.push({ id: childId, position: { x: finalPos.x + offset.x, y: finalPos.y + offset.y } })
+        })
+      }
+      transient.commitOverrides(updates)
+    }
     if (group) {
       const currentNode = group.nodes.find((node) => node.id === nodeId)
       const isGroup = currentNode?.type === 'group'
@@ -216,7 +244,7 @@ export const useNodeDrag = (
       }
       updateHoverGroup(undefined)
     }
-  }, [core, group, nodeId, size.height, size.width, snap, updateHoverGroup])
+  }, [core, group, nodeId, position.x, position.y, size.height, size.width, snap, transient, updateHoverGroup])
 
   return {
     onPointerDown,

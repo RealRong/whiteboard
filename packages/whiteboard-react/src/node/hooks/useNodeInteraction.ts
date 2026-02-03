@@ -6,6 +6,7 @@ import { useNodeDrag } from './useNodeDrag'
 import type { UseSelectionReturn } from './useSelection'
 import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
 import type { Guide, SnapCandidate } from '../utils/snap'
+import type { NodeTransientApi } from './useNodeViewState'
 
 type Options = {
   node: Node
@@ -30,6 +31,7 @@ type Options = {
     zoom: number
     onGuidesChange?: (guides: Guide[]) => void
   }
+  transient?: NodeTransientApi
 }
 
 export const useNodeInteraction = ({
@@ -41,7 +43,8 @@ export const useNodeInteraction = ({
   edgeConnect,
   tool,
   group,
-  snap
+  snap,
+  transient
 }: Options) => {
   const dragHandlers = useNodeDrag(
     core,
@@ -50,7 +53,8 @@ export const useNodeInteraction = ({
     { width: rect.width, height: rect.height },
     zoom,
     snap,
-    group
+    group,
+    transient
   )
 
   const handlePointerDown = useCallback(

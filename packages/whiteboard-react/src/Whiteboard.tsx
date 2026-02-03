@@ -17,6 +17,7 @@ import { useViewport } from './common/hooks/useViewport'
 import { useViewportControls } from './common/hooks/useViewportControls'
 import { useSelection } from './node/hooks/useSelection'
 import { useEdgeConnect } from './edge/hooks/useEdgeConnect'
+import { useNodeViewState } from './node/hooks/useNodeViewState'
 import { NodeRegistryProvider } from './node/registry/nodeRegistry'
 import { createDefaultNodeRegistry } from './node/registry/defaultNodes'
 import type { WhiteboardProps } from './types'
@@ -49,25 +50,27 @@ const WhiteboardInner = ({
   tool = 'select'
 }: WhiteboardProps) => {
   const { core } = useCore({ doc, onDocChange, core: externalCore })
+  const nodeView = useNodeViewState(doc.nodes, core)
+  const viewNodes = nodeView.viewNodes
   const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
   const containerRef = useRef<HTMLDivElement>(null)
   const { viewport, transformStyle, screenToWorld } = useViewport(doc.viewport, containerRef)
   const [dragGuides, setDragGuides] = useState<Guide[]>([])
   const [hoverGroupId, setHoverGroupId] = useState<NodeId | undefined>(undefined)
-  const nodeMap = useMemo(() => new Map(doc.nodes.map((node) => [node.id, node])), [doc.nodes])
-  const collapsedGroupIds = useMemo(() => getCollapsedGroupIds(doc.nodes), [doc.nodes])
+  const nodeMap = useMemo(() => new Map(viewNodes.map((node) => [node.id, node])), [viewNodes])
+  const collapsedGroupIds = useMemo(() => getCollapsedGroupIds(viewNodes), [viewNodes])
   const hiddenNodeIds = useMemo(() => {
     const set = new Set<NodeId>()
-    doc.nodes.forEach((node) => {
+    viewNodes.forEach((node) => {
       if (isNodeHiddenByCollapsedGroup(node, nodeMap, collapsedGroupIds)) {
         set.add(node.id)
       }
     })
     return set
-  }, [collapsedGroupIds, doc.nodes, nodeMap])
+  }, [collapsedGroupIds, nodeMap, viewNodes])
   const visibleNodes = useMemo(
-    () => doc.nodes.filter((node) => !hiddenNodeIds.has(node.id)),
-    [doc.nodes, hiddenNodeIds]
+    () => viewNodes.filter((node) => !hiddenNodeIds.has(node.id)),
+    [hiddenNodeIds, viewNodes]
   )
   const mindmapNodes = useMemo(() => visibleNodes.filter((node) => node.type === 'mindmap'), [visibleNodes])
   const canvasNodes = useMemo(() => visibleNodes.filter((node) => node.type !== 'mindmap'), [visibleNodes])
@@ -286,7 +289,7 @@ const WhiteboardInner = ({
   const previewFrom = (() => {
     const from = edgeConnect.state.from
     if (!from) return undefined
-    const node = doc.nodes.find((item) => item.id === from.nodeId)
+    const node = nodeMap.get(from.nodeId)
     if (!node) return undefined
     const rect = getNodeRect(node, nodeSize)
     const rotation = typeof node.rotation === 'number' ? node.rotation : 0
@@ -297,7 +300,7 @@ const WhiteboardInner = ({
     const to = edgeConnect.state.to
     if (!to) return undefined
     if (to.nodeId && to.anchor) {
-      const node = doc.nodes.find((item) => item.id === to.nodeId)
+      const node = nodeMap.get(to.nodeId)
       if (!node) return to.pointWorld
       const rect = getNodeRect(node, nodeSize)
       const rotation = typeof node.rotation === 'number' ? node.rotation : 0
@@ -310,7 +313,7 @@ const WhiteboardInner = ({
     const hover = edgeConnect.state.hover
     if (!hover) return undefined
     if (hover.nodeId && hover.anchor) {
-      const node = doc.nodes.find((item) => item.id === hover.nodeId)
+      const node = nodeMap.get(hover.nodeId)
       if (!node) return hover.pointWorld
       const rect = getNodeRect(node, nodeSize)
       const rotation = typeof node.rotation === 'number' ? node.rotation : 0
@@ -401,6 +404,7 @@ const WhiteboardInner = ({
               zoom: viewport.zoom,
               onGuidesChange: setDragGuides
             }}
+            transient={nodeView}
           />
         </div>
         <SelectionLayer rect={tool === 'edge' ? undefined : selection.selectionRect} />
