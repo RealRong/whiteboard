@@ -14,6 +14,8 @@ type NodeBlockProps = {
   onPointerDown?: PointerEventHandler<HTMLDivElement>
   onPointerMove?: PointerEventHandler<HTMLDivElement>
   onPointerUp?: PointerEventHandler<HTMLDivElement>
+  onPointerEnter?: PointerEventHandler<HTMLDivElement>
+  onPointerLeave?: PointerEventHandler<HTMLDivElement>
 }
 
 export const NodeBlock = ({
@@ -27,7 +29,9 @@ export const NodeBlock = ({
   style,
   onPointerDown,
   onPointerMove,
-  onPointerUp
+  onPointerUp,
+  onPointerEnter,
+  onPointerLeave
 }: NodeBlockProps) => {
   const borderColor = selected ? '#3b82f6' : '#1d1d1f'
   const boxShadow = selected ? '0 0 0 2px rgba(59, 130, 246, 0.4)' : '0 6px 16px rgba(0, 0, 0, 0.08)'
@@ -38,6 +42,8 @@ export const NodeBlock = ({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       style={{
         position: 'absolute',
         left: 0,

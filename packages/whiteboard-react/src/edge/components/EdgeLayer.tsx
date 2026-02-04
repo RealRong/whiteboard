@@ -1,12 +1,14 @@
 import type { Edge, Node } from '@whiteboard/core'
 import type { RefObject } from 'react'
-import { useState } from 'react'
-import type { EdgeConnectState } from '../hooks/useEdgeConnect'
+import { useEffect, useState } from 'react'
+import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
 import { useEdgeGeometry } from '../hooks/useEdgeGeometry'
 import { useEdgeHitTest } from '../hooks/useEdgeHitTest'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import type { Size } from '../../common/types'
+import { useSetAtom } from 'jotai'
+import { updateInteractionAtom } from '../../common/state/whiteboardAtoms'
 
 type EdgeLayerProps = {
   nodes: Node[]
@@ -36,6 +38,7 @@ export const EdgeLayer = ({
   connectState
 }: EdgeLayerProps) => {
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | undefined>(undefined)
+  const updateInteraction = useSetAtom(updateInteractionAtom)
   const paths = useEdgeGeometry({ nodes, edges, nodeSize, connectState })
   const { handlePathPointerDown, handlePathClick } = useEdgeHitTest({
     containerRef,
@@ -43,6 +46,10 @@ export const EdgeLayer = ({
     onInsertPoint,
     onSelectEdge
   })
+
+  useEffect(() => {
+    updateInteraction({ hover: { edgeId: hoveredEdgeId } })
+  }, [hoveredEdgeId, updateInteraction])
 
   return (
     <svg

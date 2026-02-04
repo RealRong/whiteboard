@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { Size } from '../../common/types'
@@ -12,6 +12,8 @@ import { useNodeInteraction } from './useNodeInteraction'
 import { useNodeStyle } from './useNodeStyle'
 import { useNodeRenderModel } from './useNodeRenderModel'
 import type { NodeTransientApi } from './useNodeViewState'
+import { useSetAtom } from 'jotai'
+import { updateInteractionAtom } from '../../common/state/whiteboardAtoms'
 
 export type UseNodeItemOptions = {
   node: Node
@@ -62,6 +64,13 @@ export const useNodeItem = ({
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
   const selected = selection?.isSelected(node.id) ?? false
   const hoveredGroup = group?.hoveredGroupId === node.id
+  const updateInteraction = useSetAtom(updateInteractionAtom)
+  const handlePointerEnter = useCallback(() => {
+    updateInteraction({ hover: { nodeId: node.id } })
+  }, [node.id, updateInteraction])
+  const handlePointerLeave = useCallback(() => {
+    updateInteraction({ hover: { nodeId: undefined } })
+  }, [updateInteraction])
   const { dragHandlers, handlePointerDown, handleEdgeHandlePointerDown } = useNodeInteraction({
     node,
     core,
@@ -105,7 +114,9 @@ export const useNodeItem = ({
     nodeStyle,
     rotationStyle,
     dragHandlers,
-    handlePointerDown
+    handlePointerDown,
+    onPointerEnter: handlePointerEnter,
+    onPointerLeave: handlePointerLeave
   })
 
   return {

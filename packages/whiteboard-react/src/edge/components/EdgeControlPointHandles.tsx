@@ -1,5 +1,5 @@
 import type { Core, Edge, Point } from '@whiteboard/core'
-import type { MouseEvent, PointerEvent, RefObject } from 'react'
+import type { KeyboardEvent, MouseEvent, PointerEvent, RefObject } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const HANDLE_SIZE = 10
@@ -71,44 +71,11 @@ export const EdgeControlPointHandles = ({
     [core, edge]
   )
 
-  useEffect(() => {
-    if (!edge || activeIndex === null) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setActiveIndex(null)
-        return
-      }
-      if (event.key !== 'Backspace' && event.key !== 'Delete') return
-      event.preventDefault()
-      const nextPoints = points.filter((_, idx) => idx !== activeIndex)
-      if (nextPoints.length === 0) {
-        core.dispatch({
-          type: 'edge.update',
-          id: edge.id,
-          patch: {
-            routing: {
-              ...(edge.routing ?? {}),
-              mode: 'auto',
-              points: undefined
-            }
-          }
-        })
-        setActiveIndex(null)
-        return
-      }
-      updatePoints(nextPoints)
-      setActiveIndex(Math.min(activeIndex, nextPoints.length - 1))
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [activeIndex, core, edge, points, updatePoints])
-
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
     if (!edge) return
     event.preventDefault()
     event.stopPropagation()
+    event.currentTarget.focus({ preventScroll: true })
     event.currentTarget.setPointerCapture(event.pointerId)
     setActiveIndex(index)
     const start = getWorldPoint(event)
@@ -181,6 +148,35 @@ export const EdgeControlPointHandles = ({
           onPointerMove={handlePointerMove(index)}
           onPointerUp={handlePointerUp(index)}
           onDoubleClick={handleDoubleClick(index)}
+          onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              setActiveIndex(null)
+              return
+            }
+            if (event.key !== 'Backspace' && event.key !== 'Delete') return
+            event.preventDefault()
+            event.stopPropagation()
+            const nextPoints = points.filter((_, idx) => idx !== index)
+            if (nextPoints.length === 0) {
+              core.dispatch({
+                type: 'edge.update',
+                id: edge.id,
+                patch: {
+                  routing: {
+                    ...(edge.routing ?? {}),
+                    mode: 'auto',
+                    points: undefined
+                  }
+                }
+              })
+              setActiveIndex(null)
+              return
+            }
+            updatePoints(nextPoints)
+            setActiveIndex(Math.min(index, nextPoints.length - 1))
+          }}
           onPointerEnter={() => setHoverIndex(index)}
           onPointerLeave={() => setHoverIndex((prev) => (prev === index ? null : prev))}
           style={{
@@ -202,6 +198,7 @@ export const EdgeControlPointHandles = ({
             }`,
             pointerEvents: 'auto'
           }}
+          tabIndex={0}
         />
       ))}
     </div>

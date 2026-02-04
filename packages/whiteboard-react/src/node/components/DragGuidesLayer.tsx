@@ -1,18 +1,22 @@
+import { useAtomValue } from 'jotai'
 import type { Guide } from '../utils/snap'
+import { dragGuidesAtom } from '../state/dragGuidesAtom'
 
 type DragGuidesLayerProps = {
-  guides: Guide[]
+  guides?: Guide[]
 }
 
 export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
-  if (!guides.length) return null
+  const atomGuides = useAtomValue(dragGuidesAtom)
+  const resolvedGuides = guides ?? atomGuides
+  if (!resolvedGuides.length) return null
   return (
     <svg
       width="100%"
       height="100%"
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}
     >
-      {guides.map((guide, index) => {
+      {resolvedGuides.map((guide, index) => {
         if (guide.axis === 'x') {
           return (
             <line

@@ -21,6 +21,8 @@ type Options = {
   rotationStyle?: CSSProperties
   dragHandlers: DragHandlers
   handlePointerDown: (event: PointerEvent<HTMLDivElement>) => void
+  onPointerEnter?: (event: PointerEvent<HTMLDivElement>) => void
+  onPointerLeave?: (event: PointerEvent<HTMLDivElement>) => void
 }
 
 export const useNodeRenderModel = ({
@@ -34,7 +36,9 @@ export const useNodeRenderModel = ({
   nodeStyle,
   rotationStyle,
   dragHandlers,
-  handlePointerDown
+  handlePointerDown,
+  onPointerEnter,
+  onPointerLeave
 }: Options) => {
   const containerProps = useMemo<NodeContainerProps>(
     () => ({
@@ -44,7 +48,9 @@ export const useNodeRenderModel = ({
       style: buildContainerStyle(rect, nodeStyle, rotationStyle),
       onPointerDown: handlePointerDown,
       onPointerMove: dragHandlers.onPointerMove,
-      onPointerUp: dragHandlers.onPointerUp
+      onPointerUp: dragHandlers.onPointerUp,
+      onPointerEnter,
+      onPointerLeave
     }),
     [
       dragHandlers.onPointerMove,
@@ -52,6 +58,8 @@ export const useNodeRenderModel = ({
       handlePointerDown,
       node.id,
       nodeStyle,
+      onPointerEnter,
+      onPointerLeave,
       rect,
       rotationStyle,
       selected

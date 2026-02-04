@@ -1,8 +1,11 @@
-import { atom, useAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
+import type { SelectionMode, SelectionState } from '../../common/state/whiteboardAtoms'
+import { selectionAtom, setSelectionAtom } from '../../common/state/whiteboardAtoms'
+import { useInstance } from '../../common/hooks/useInstance'
 import {
   getNodeRect,
   rectContains,
@@ -12,23 +15,7 @@ import {
   rectIntersectsRotatedRect
 } from '../../common/utils/geometry'
 
-export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
-
-export type SelectionState = {
-  selectedNodeIds: Set<string>
-  isSelecting: boolean
-  selectionRect?: Rect
-  selectionRectWorld?: Rect
-  mode: SelectionMode
-}
-
-const createInitialState = (): SelectionState => ({
-  selectedNodeIds: new Set<string>(),
-  isSelecting: false,
-  mode: 'replace'
-})
-
-const selectionAtom = atom<SelectionState>(createInitialState())
+export type { SelectionMode, SelectionState }
 
 export type UseSelectionOptions = {
   containerRef?: RefObject<HTMLElement>
@@ -55,9 +42,9 @@ export type UseSelectionReturn = {
   getModeFromEvent: (event: PointerEvent | MouseEvent) => SelectionMode
   getClickModeFromEvent: (event: PointerEvent | MouseEvent) => SelectionMode
   handlers?: {
-    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
-    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
-    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
+    onPointerDown: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => void
+    onPointerMove: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => void
+    onPointerUp: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => void
   }
 }
 
@@ -87,7 +74,9 @@ const applySelectionMode = (current: Set<string>, ids: string[], mode: Selection
 }
 
 export const useSelection = (options: UseSelectionOptions = {}): UseSelectionReturn => {
-  const [state, setState] = useAtom(selectionAtom)
+  const state = useAtomValue(selectionAtom)
+  const setSelection = useSetAtom(setSelectionAtom)
+  const instance = useInstance()
   const startRef = useRef<Point | null>(null)
   const modeRef = useRef<SelectionMode>('replace')
   const rafRef = useRef<number | null>(null)
@@ -106,13 +95,13 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         spacePressedRef.current = false
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
+    const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
+    const offKeyUp = instance.addWindowEventListener('keyup', onKeyUp)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
+      offKeyDown()
+      offKeyUp()
     }
-  }, [])
+  }, [instance])
 
   useEffect(() => {
     return () => {
@@ -134,41 +123,41 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
 
   const select = useCallback(
     (ids: string[], mode: SelectionMode = 'replace') => {
-      setState((prev) => ({
+      setSelection((prev) => ({
         ...prev,
         mode,
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, mode)
       }))
     },
-    [setState]
+    [setSelection]
   )
 
   const toggle = useCallback(
     (ids: string[]) => {
-      setState((prev) => ({
+      setSelection((prev) => ({
         ...prev,
         mode: 'toggle',
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, 'toggle')
       }))
     },
-    [setState]
+    [setSelection]
   )
 
   const clear = useCallback(() => {
-    setState((prev) => ({
+    setSelection((prev) => ({
       ...prev,
       selectedNodeIds: new Set<string>(),
       isSelecting: false,
       selectionRect: undefined,
       selectionRectWorld: undefined
     }))
-  }, [setState])
+  }, [setSelection])
 
   const beginBox = useCallback(
     (pointScreen: Point, mode: SelectionMode = 'replace') => {
       startRef.current = pointScreen
       modeRef.current = mode
-      setState((prev) => ({
+      setSelection((prev) => ({
         ...prev,
         mode,
         isSelecting: false,
@@ -176,7 +165,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         selectionRectWorld: undefined
       }))
     },
-    [setState]
+    [setSelection]
   )
 
   const hitTest = useCallback(
@@ -211,7 +200,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         })
         rectWorld = rectFromPoints(startWorld, endWorld)
       }
-      setState((prev) => ({
+      setSelection((prev) => ({
         ...prev,
         isSelecting: true,
         selectionRect: rectScreen,
@@ -225,7 +214,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         })
       }
     },
-    [hitTest, options.screenToWorld, setState]
+    [hitTest, options.screenToWorld, setSelection]
   )
 
   const endBox = useCallback(() => {
@@ -234,13 +223,13 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    setState((prev) => ({
+    setSelection((prev) => ({
       ...prev,
       isSelecting: false,
       selectionRect: undefined,
       selectionRectWorld: undefined
     }))
-  }, [setState])
+  }, [setSelection])
 
   const isSelected = useCallback((id: string) => state.selectedNodeIds.has(id), [state.selectedNodeIds])
   const hasSelection = useCallback(() => state.selectedNodeIds.size > 0, [state.selectedNodeIds])
@@ -250,7 +239,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
     if (!options.containerRef || !options.screenToWorld) return undefined
     const container = options.containerRef
 
-    const getScreenPoint = (event: ReactPointerEvent<HTMLElement>) => {
+    const getScreenPoint = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
       const element = container.current
       if (!element) return null
       const rect = element.getBoundingClientRect()
@@ -260,7 +249,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       }
     }
 
-    const isEventOnEmptyCanvas = (event: ReactPointerEvent<HTMLElement>) => {
+    const isEventOnEmptyCanvas = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
       const element = container.current
       if (!element) return false
       const target = event.target as HTMLElement
@@ -272,7 +261,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
     }
 
     return {
-      onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      onPointerDown: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (event.button !== 0) return
         if (spacePressedRef.current) return
         if (!isEventOnEmptyCanvas(event)) return
@@ -280,7 +269,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         if (!point) return
         beginBox(point, getModeFromEvent(event))
       },
-      onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      onPointerMove: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (!startRef.current) return
         const point = getScreenPoint(event)
         if (!point) return
@@ -293,7 +282,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         event.preventDefault()
         updateBox(point)
       },
-      onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+      onPointerUp: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (!startRef.current) return
         if (!state.isSelecting) {
           const mode = modeRef.current

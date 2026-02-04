@@ -1,45 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { Core, Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
+import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type { Size } from '../../common/types'
-import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, isPointInRotatedRect, rotatePoint } from '../../common/utils/geometry'
+import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, rotatePoint } from '../../common/utils/geometry'
+import { viewGraphAtom } from '../../common/state/whiteboardDerivedAtoms'
+import { whiteboardInputAtom, nodeSizeAtom } from '../../common/state/whiteboardInputAtoms'
+import { edgeConnectAtom, selectionAtom, viewportAtom } from '../../common/state/whiteboardAtoms'
+import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
+import { useInstance } from '../../common/hooks/useInstance'
 
-type ConnectFrom = {
-  nodeId: string
-  anchor: EdgeAnchor
-}
-
-type ConnectTo = {
-  nodeId?: string
-  anchor?: EdgeAnchor
-  pointWorld?: Point
-}
-
-type ReconnectInfo = {
-  edgeId: string
-  end: 'source' | 'target'
-}
-
-export type EdgeConnectState = {
-  isConnecting: boolean
-  from?: ConnectFrom
-  to?: ConnectTo
-  hover?: ConnectTo
-  reconnect?: ReconnectInfo
-  selectedEdgeId?: string
-}
-
-type Options = {
-  core: Core
-  nodes: Node[]
-  edges: Edge[]
-  nodeSize: Size
-  zoom?: number
-  screenToWorld?: (point: Point) => Point
-  containerRef?: RefObject<HTMLElement>
-  tool?: 'select' | 'edge'
-  edgeType?: Edge['type']
-}
+type ConnectTo = NonNullable<EdgeConnectState['to']>
 
 type AnchorResult = {
   anchor: EdgeAnchor
@@ -90,6 +61,7 @@ const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point): AnchorR
 
 export type UseEdgeConnectReturn = {
   state: EdgeConnectState
+  selectedEdgeId?: string
   tool: 'select' | 'edge'
   containerRef?: RefObject<HTMLElement>
   screenToWorld?: (point: Point) => Point
@@ -106,42 +78,34 @@ export type UseEdgeConnectReturn = {
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => AnchorResult
 }
 
-export const useEdgeConnect = ({
-  core,
-  nodes,
-  edges,
-  nodeSize,
-  zoom = 1,
-  screenToWorld,
-  containerRef,
-  tool = 'select',
-  edgeType = 'linear'
-}: Options): UseEdgeConnectReturn => {
-  const [state, setState] = useState<EdgeConnectState>({ isConnecting: false })
-  const pointerIdRef = useRef<number | null>(null)
+const emptySize: Size = { width: 1, height: 1 }
+
+export const useEdgeConnect = (): UseEdgeConnectReturn => {
+  const input = useAtomValue(whiteboardInputAtom)
+  const instance = useInstance()
+  const viewGraph = useAtomValue(viewGraphAtom)
+  const nodeSize = useAtomValue(nodeSizeAtom) ?? emptySize
+  const viewport = useAtomValue(viewportAtom)
+  const screenToWorld = input.screenToWorld ?? undefined
+  const containerRef = instance.containerRef ?? undefined
+  const selectionState = useAtomValue(selectionAtom)
+  const [state, setState] = useAtom(edgeConnectAtom)
+  const setSelection = useSetAtom(selectionAtom)
+
+  const tool = (selectionState.tool as 'select' | 'edge') ?? 'select'
+  const selectedEdgeId = selectionState.selectedEdgeId
+  const zoom = viewport.zoom
+  const edgeType: Edge['type'] = 'linear'
   const snapThresholdWorld = Math.max(12, Math.min(nodeSize.width, nodeSize.height) * 0.18) / Math.max(zoom, 0.0001)
 
   const nodeRects = useMemo(() => {
-    return nodes.map((node) => ({
+    return viewGraph.canvasNodes.map((node) => ({
       node,
       rect: getNodeRect(node, nodeSize),
       aabb: getNodeAABB(node, nodeSize),
       rotation: typeof node.rotation === 'number' ? node.rotation : 0
     }))
-  }, [nodes, nodeSize])
-
-  const getNodeAtPoint = useCallback(
-    (point: Point) => {
-      for (let i = nodeRects.length - 1; i >= 0; i -= 1) {
-        const entry = nodeRects[i]
-        if (isPointInRotatedRect(point, entry.rect, entry.rotation)) {
-          return entry
-        }
-      }
-      return undefined
-    },
-    [nodeRects]
-  )
+  }, [nodeSize, viewGraph.canvasNodes])
 
   const getSnapAtPoint = useCallback(
     (point: Point): ConnectTo | undefined => {
@@ -166,55 +130,71 @@ export const useEdgeConnect = ({
         pointWorld: best.pointWorld
       }
     },
-    [getAnchorFromPoint, nodeRects, snapThresholdWorld]
+    [nodeRects, snapThresholdWorld]
   )
 
   const startFromHandle = useCallback((nodeId: string, side: EdgeAnchor['side'], pointerId?: number) => {
     const anchor: EdgeAnchor = { side, offset: 0.5 }
-    pointerIdRef.current = pointerId ?? null
-    setState({ isConnecting: true, from: { nodeId, anchor } })
-  }, [])
+    const next: EdgeConnectState = {
+      isConnecting: true,
+      from: { nodeId, anchor },
+      to: undefined,
+      hover: undefined,
+      reconnect: undefined,
+      pointerId: pointerId ?? null
+    }
+    setState(next)
+  }, [setState])
 
   const startFromPoint = useCallback(
     (nodeId: string, pointWorld: Point, pointerId?: number) => {
       const entry = nodeRects.find((item) => item.node.id === nodeId)
       if (!entry) return
       const { anchor } = getAnchorFromPoint(entry.rect, entry.rotation, pointWorld)
-      pointerIdRef.current = pointerId ?? null
-      setState({ isConnecting: true, from: { nodeId, anchor }, to: { pointWorld } })
+      const next: EdgeConnectState = {
+        isConnecting: true,
+        from: { nodeId, anchor },
+        to: { pointWorld },
+        hover: undefined,
+        reconnect: undefined,
+        pointerId: pointerId ?? null
+      }
+      setState(next)
     },
-    [nodeRects]
+    [nodeRects, setState]
   )
 
   const startReconnect = useCallback(
     (edgeId: string, end: 'source' | 'target', pointerId?: number) => {
-      const edge = edges.find((item) => item.id === edgeId)
+      const edge = viewGraph.visibleEdges.find((item) => item.id === edgeId)
       if (!edge) return
       const endpoint = edge[end]
       const anchor = endpoint.anchor ?? { side: 'right', offset: 0.5 }
-      pointerIdRef.current = pointerId ?? null
-      setState({ isConnecting: true, from: { nodeId: endpoint.nodeId, anchor }, reconnect: { edgeId, end } })
+      const next: EdgeConnectState = {
+        isConnecting: true,
+        from: { nodeId: endpoint.nodeId, anchor },
+        to: undefined,
+        hover: undefined,
+        reconnect: { edgeId, end },
+        pointerId: pointerId ?? null
+      }
+      setState(next)
     },
-    [edges]
+    [setState, viewGraph.visibleEdges]
   )
 
   const updateTo = useCallback(
     (pointWorld: Point) => {
-      if (!state.isConnecting || !state.from) return
-      const snap = getSnapAtPoint(pointWorld)
-      if (snap) {
-        setState((prev) => ({
-          ...prev,
-          to: snap
-        }))
-        return
-      }
-      setState((prev) => ({
-        ...prev,
-        to: { pointWorld }
-      }))
+      setState((prev) => {
+        if (!prev.isConnecting || !prev.from) return prev
+        const snap = getSnapAtPoint(pointWorld)
+        if (snap) {
+          return { ...prev, to: snap }
+        }
+        return { ...prev, to: { pointWorld } }
+      })
     },
-    [getSnapAtPoint, state.from, state.isConnecting]
+    [getSnapAtPoint, setState]
   )
 
   const commitTo = useCallback(
@@ -222,13 +202,31 @@ export const useEdgeConnect = ({
       if (!state.isConnecting || !state.from) return
       const snap = getSnapAtPoint(pointWorld)
       if (!snap || !snap.nodeId || !snap.anchor) {
-        setState((prev) => ({ ...prev, isConnecting: false, from: undefined, to: undefined, reconnect: undefined }))
+        setState((prev) => ({
+          ...prev,
+          isConnecting: false,
+          from: undefined,
+          to: undefined,
+          reconnect: undefined,
+          pointerId: null
+        }))
+        return
+      }
+      if (!instance.core) {
+        setState((prev) => ({
+          ...prev,
+          isConnecting: false,
+          from: undefined,
+          to: undefined,
+          reconnect: undefined,
+          pointerId: null
+        }))
         return
       }
       if (state.reconnect) {
-        const edge = edges.find((item) => item.id === state.reconnect?.edgeId)
+        const edge = viewGraph.visibleEdges.find((item) => item.id === state.reconnect?.edgeId)
         if (edge) {
-          core.dispatch({
+          instance.core.dispatch({
             type: 'edge.update',
             id: edge.id,
             patch:
@@ -238,7 +236,7 @@ export const useEdgeConnect = ({
           })
         }
       } else {
-        core.dispatch({
+        instance.core.dispatch({
           type: 'edge.create',
           payload: {
             source: { nodeId: state.from.nodeId, anchor: state.from.anchor },
@@ -252,19 +250,30 @@ export const useEdgeConnect = ({
         isConnecting: false,
         from: undefined,
         to: undefined,
-        reconnect: undefined
+        reconnect: undefined,
+        pointerId: null
       }))
     },
-    [core, edgeType, edges, getSnapAtPoint, state.from, state.isConnecting, state.reconnect]
+    [edgeType, getSnapAtPoint, instance.core, setState, state.from, state.isConnecting, state.reconnect, viewGraph.visibleEdges]
   )
 
   const cancel = useCallback(() => {
-    setState((prev) => ({ ...prev, isConnecting: false, from: undefined, to: undefined, reconnect: undefined }))
-  }, [])
+    setState((prev) => ({
+      ...prev,
+      isConnecting: false,
+      from: undefined,
+      to: undefined,
+      reconnect: undefined,
+      pointerId: null
+    }))
+  }, [setState])
 
   const selectEdge = useCallback((edgeId?: string) => {
-    setState((prev) => ({ ...prev, selectedEdgeId: edgeId }))
-  }, [])
+    setSelection((prev) => {
+      if (prev.selectedEdgeId === edgeId) return prev
+      return { ...prev, selectedEdgeId: edgeId }
+    })
+  }, [setSelection])
 
   const updateHover = useCallback(
     (pointWorld: Point) => {
@@ -276,33 +285,8 @@ export const useEdgeConnect = ({
       }
       setState((prev) => ({ ...prev, hover: snap }))
     },
-    [getSnapAtPoint, state.isConnecting, tool]
+    [getSnapAtPoint, setState, state.isConnecting, tool]
   )
-
-  useEffect(() => {
-    if (!state.isConnecting) return
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!screenToWorld || !containerRef?.current) return
-      if (pointerIdRef.current !== null && event.pointerId !== pointerIdRef.current) return
-      const rect = containerRef.current.getBoundingClientRect()
-      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      updateTo(screenToWorld(point))
-    }
-    const handlePointerUp = (event: PointerEvent) => {
-      if (!screenToWorld || !containerRef?.current) return
-      if (pointerIdRef.current !== null && event.pointerId !== pointerIdRef.current) return
-      const rect = containerRef.current.getBoundingClientRect()
-      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      commitTo(screenToWorld(point))
-      pointerIdRef.current = null
-    }
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-    }
-  }, [commitTo, containerRef, screenToWorld, state.isConnecting, updateTo])
 
   const handleNodePointerDown = useCallback(
     (nodeId: string, pointWorld: Point, event: ReactPointerEvent<HTMLElement>) => {
@@ -317,6 +301,7 @@ export const useEdgeConnect = ({
 
   return {
     state,
+    selectedEdgeId,
     tool,
     containerRef,
     screenToWorld,
@@ -332,4 +317,37 @@ export const useEdgeConnect = ({
     nodeRects,
     getAnchorFromPoint
   }
+}
+
+export const useEdgeConnectManager = () => {
+  const edgeConnect = useEdgeConnect()
+  const instance = useInstance()
+  const { state, screenToWorld, containerRef, updateTo, commitTo } = edgeConnect
+
+  useEffect(() => {
+    if (!state.isConnecting) return
+    if (!screenToWorld || !containerRef?.current) return
+    const handlePointerMove = (event: PointerEvent) => {
+      if (state.pointerId !== undefined && state.pointerId !== null && event.pointerId !== state.pointerId) return
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      updateTo(screenToWorld(point))
+    }
+    const handlePointerUp = (event: PointerEvent) => {
+      if (state.pointerId !== undefined && state.pointerId !== null && event.pointerId !== state.pointerId) return
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      commitTo(screenToWorld(point))
+    }
+    const offMove = instance.addWindowEventListener('pointermove', handlePointerMove)
+    const offUp = instance.addWindowEventListener('pointerup', handlePointerUp)
+    return () => {
+      offMove()
+      offUp()
+    }
+  }, [commitTo, containerRef, instance, screenToWorld, state.isConnecting, state.pointerId, updateTo])
+
+  return edgeConnect
 }

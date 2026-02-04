@@ -3,6 +3,7 @@ import type { Core, Document, EdgeId, NodeId } from '@whiteboard/core'
 import type { NodeRegistry } from './node/registry/nodeRegistry'
 import type { Size, ViewportConfig } from './common/types'
 import type { MindmapLayoutConfig } from './mindmap/types'
+import type { Shortcut } from './common/shortcuts/types'
 
 export type { Size, ViewportConfig } from './common/types'
 export type { MindmapLayoutMode, MindmapLayoutConfig } from './mindmap/types'
@@ -21,4 +22,5 @@ export type WhiteboardProps = {
   mindmapLayout?: MindmapLayoutConfig
   viewport?: ViewportConfig
   tool?: 'select' | 'edge'
+  shortcuts?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
 }

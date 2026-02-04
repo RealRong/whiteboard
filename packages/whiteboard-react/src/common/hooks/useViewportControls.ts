@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { PointerEvent, WheelEvent, RefObject } from 'react'
+import type { RefObject } from 'react'
 import type { Core, Point, Viewport } from '@whiteboard/core'
+import { useInstance } from './useInstance'
 
 type Options = {
   core: Core
@@ -31,6 +32,7 @@ export const useViewportControls = ({
   enablePan = true,
   enableWheel = true
 }: Options) => {
+  const instance = useInstance()
   const dragRef = useRef<DragState | null>(null)
   const spacePressedRef = useRef(false)
 
@@ -47,22 +49,23 @@ export const useViewportControls = ({
         spacePressedRef.current = false
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
+    const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
+    const offKeyUp = instance.addWindowEventListener('keyup', onKeyUp)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
+      offKeyDown()
+      offKeyUp()
     }
-  }, [])
+  }, [instance])
 
   const onPointerDown = useCallback(
-    (event: PointerEvent<HTMLElement>) => {
+    (event: PointerEvent | (PointerEvent & { currentTarget: HTMLElement })) => {
       if (!enablePan) return
       const isMiddle = event.button === 1
       const isSpaceLeft = event.button === 0 && spacePressedRef.current
       if (!isMiddle && !isSpaceLeft) return
       event.preventDefault()
-      event.currentTarget.setPointerCapture(event.pointerId)
+      const target = event.currentTarget as HTMLElement | null
+      target?.setPointerCapture(event.pointerId)
       dragRef.current = {
         pointerId: event.pointerId,
         start: { x: event.clientX, y: event.clientY },
@@ -73,7 +76,7 @@ export const useViewportControls = ({
   )
 
   const onPointerMove = useCallback(
-    (event: PointerEvent<HTMLElement>) => {
+    (event: PointerEvent) => {
       const drag = dragRef.current
       if (!drag || drag.pointerId !== event.pointerId) return
       const dx = event.clientX - drag.start.x
@@ -92,15 +95,16 @@ export const useViewportControls = ({
     [core, viewport.zoom]
   )
 
-  const onPointerUp = useCallback((event: PointerEvent<HTMLElement>) => {
+  const onPointerUp = useCallback((event: PointerEvent) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
-    event.currentTarget.releasePointerCapture(event.pointerId)
+    const target = event.currentTarget as HTMLElement | null
+    target?.releasePointerCapture(event.pointerId)
   }, [])
 
   const onWheel = useCallback(
-    (event: WheelEvent<HTMLElement>) => {
+    (event: WheelEvent) => {
       if (!enableWheel) return
       const element = containerRef.current
       if (!element) return
