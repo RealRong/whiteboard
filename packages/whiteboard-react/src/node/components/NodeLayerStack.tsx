@@ -1,33 +1,35 @@
 import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
 import { NodeLayer } from './NodeLayer'
 import { useGroupHover } from '../hooks/useGroupHover'
 import { useSnapIndex } from '../hooks/useSnapIndex'
 import { useGroupAutoFit } from '../hooks/useGroupAutoFit'
 import { DEFAULT_GROUP_PADDING } from '../constants'
-import { dragGuidesAtom } from '../state/dragGuidesAtom'
-import { whiteboardInputAtom, mindmapNodeSizeAtom, nodeSizeAtom } from '../../common/state/whiteboardInputAtoms'
-import { viewGraphAtom } from '../../common/state/whiteboardDerivedAtoms'
 import { useSelection } from '../hooks/useSelection'
-import { selectionAtom, viewportAtom } from '../../common/state/whiteboardAtoms'
 import { useNodeViewState } from '../hooks/useNodeViewState'
-import { viewNodesAtom } from '../state/viewNodesAtom'
-import { selectionApiAtom } from '../state/selectionApiAtom'
 import { useEdgeConnect } from '../../edge/hooks/useEdgeConnect'
+import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
+import { useNodeSize } from '../../common/hooks/useNodeSize'
+import { useMindmapNodeSize } from '../../common/hooks/useMindmapNodeSize'
+import { useViewGraph } from '../../common/hooks/useViewGraph'
+import { useSelectionStore } from '../../common/hooks/useSelectionStore'
+import { useViewportStore } from '../../common/hooks/useViewportStore'
+import { useDragGuides } from '../hooks/useDragGuides'
+import { useViewNodesStore } from '../hooks/useViewNodesStore'
+import { useSelectionApi } from '../hooks/useSelectionApi'
 
 export const NodeLayerStack = () => {
-  const input = useAtomValue(whiteboardInputAtom)
-  const nodeSize = useAtomValue(nodeSizeAtom)
-  const mindmapNodeSize = useAtomValue(mindmapNodeSizeAtom)
-  const viewGraph = useAtomValue(viewGraphAtom)
-  const selectionState = useAtomValue(selectionAtom)
-  const viewportState = useAtomValue(viewportAtom)
+  const input = useWhiteboardInput()
+  const nodeSize = useNodeSize()
+  const mindmapNodeSize = useMindmapNodeSize()
+  const viewGraph = useViewGraph()
+  const selectionState = useSelectionStore()
+  const viewportState = useViewportStore()
   const edgeConnect = useEdgeConnect()
   const { hoverGroupId, handleHoverGroupChange } = useGroupHover()
   const { snapCandidates, getCandidates } = useSnapIndex(viewGraph.canvasNodes, nodeSize ?? { width: 1, height: 1 })
-  const setDragGuides = useSetAtom(dragGuidesAtom)
-  const setViewNodes = useSetAtom(viewNodesAtom)
-  const setSelectionApi = useSetAtom(selectionApiAtom)
+  const { setGuides } = useDragGuides()
+  const { setViewNodes } = useViewNodesStore()
+  const { setSelectionApi } = useSelectionApi()
 
   const nodeView = useNodeViewState(input.doc?.nodes ?? [], input.core!)
   const selection = useSelection({
@@ -87,9 +89,9 @@ export const NodeLayerStack = () => {
       getCandidates,
       thresholdScreen: 8,
       zoom: viewportState.zoom,
-      onGuidesChange: setDragGuides
+      onGuidesChange: setGuides
     }),
-    [getCandidates, setDragGuides, snapCandidates, selectionState.tool, viewportState.zoom]
+    [getCandidates, setGuides, snapCandidates, selectionState.tool, viewportState.zoom]
   )
 
   return (

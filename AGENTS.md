@@ -36,3 +36,22 @@ Always reply in Chinese.
 ## Configuration & Migration Notes
 - The workspace is intended to split legacy code into core/react/plugins; keep changes aligned with that goal.
 - If a change depends on missing legacy dependencies, document the adapter or stub you introduce.
+
+## AI Development Guidelines (English)
+- Use Jotai for shared state; do not introduce React Providers.
+- Aggregate atoms by responsibility; avoid overly granular atoms.
+- Components must not read/write atoms directly; only hooks access atoms.
+- Hooks are semantic and single-responsibility; avoid `useXxxState/useXxxModel` naming.
+- Prefer small composable hooks; avoid “mega hooks”.
+- Components compose multiple hooks and small components; keep props minimal when data can be read via hooks.
+- Rendering inside hooks should be thin: return props or thin render helpers; avoid large JSX blocks in hooks.
+- Separate concerns: instance/services handle side effects and DOM bindings; atoms represent UI state.
+- Instance/services structure:
+  - Place instance and services under `packages/whiteboard-react/src/common/instance/`.
+  - Hooks that expose instance access live in `packages/whiteboard-react/src/common/hooks/`.
+  - Services are pure side-effect handlers (DOM events, observers), no React rendering.
+  - Instance is the integration point for services; avoid storing UI state inside instance.
+- Naming conventions:
+  - Hooks: `useXxx` (semantic responsibility).
+  - Services: `xxxService` (e.g., `nodeSizeObserverService`).
+  - Instances: `whiteboardInstance` (single entry), export factory/initializer when needed.

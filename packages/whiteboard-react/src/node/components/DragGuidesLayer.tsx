@@ -1,13 +1,12 @@
-import { useAtomValue } from 'jotai'
 import type { Guide } from '../utils/snap'
-import { dragGuidesAtom } from '../state/dragGuidesAtom'
+import { useDragGuides } from '../hooks/useDragGuides'
 
 type DragGuidesLayerProps = {
   guides?: Guide[]
 }
 
 export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
-  const atomGuides = useAtomValue(dragGuidesAtom)
+  const { guides: atomGuides } = useDragGuides()
   const resolvedGuides = guides ?? atomGuides
   if (!resolvedGuides.length) return null
   return (

@@ -1,20 +1,21 @@
-import { useAtomValue } from 'jotai'
 import { useEdgeLayerModel } from '../hooks/useEdgeLayerModel'
 import { EdgeLayer } from './EdgeLayer'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgePreviewLayer } from './EdgePreviewLayer'
-import { whiteboardInputAtom, nodeSizeAtom } from '../../common/state/whiteboardInputAtoms'
-import { viewGraphAtom } from '../../common/state/whiteboardDerivedAtoms'
-import { selectionAtom, viewportAtom } from '../../common/state/whiteboardAtoms'
 import { useEdgeConnectManager } from '../hooks/useEdgeConnect'
+import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
+import { useNodeSize } from '../../common/hooks/useNodeSize'
+import { useViewGraph } from '../../common/hooks/useViewGraph'
+import { useSelectionStore } from '../../common/hooks/useSelectionStore'
+import { useViewportStore } from '../../common/hooks/useViewportStore'
 
 export const EdgeLayerStack = () => {
-  const input = useAtomValue(whiteboardInputAtom)
-  const nodeSize = useAtomValue(nodeSizeAtom)
-  const viewGraph = useAtomValue(viewGraphAtom)
-  const selectionState = useAtomValue(selectionAtom)
-  const viewportState = useAtomValue(viewportAtom)
+  const input = useWhiteboardInput()
+  const nodeSize = useNodeSize()
+  const viewGraph = useViewGraph()
+  const selectionState = useSelectionStore()
+  const viewportState = useViewportStore()
   const edgeConnect = useEdgeConnectManager()
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({

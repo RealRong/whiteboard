@@ -1,7 +1,5 @@
 import { useMemo, useRef } from 'react'
-import { Provider as JotaiProvider, useAtomValue, useSetAtom } from 'jotai'
 import { useHydrateAtoms } from 'jotai/utils'
-import { createStore } from 'jotai/vanilla'
 import { SelectionLayer } from './node/components/SelectionLayer'
 import { DragGuidesLayer } from './node/components/DragGuidesLayer'
 import { NodeLayerStack } from './node/components/NodeLayerStack'
@@ -22,7 +20,6 @@ import { NodeRegistryProvider } from './node/registry/nodeRegistry'
 import { useResolvedNodeRegistry } from './common/hooks/useResolvedNodeRegistry'
 import type { WhiteboardProps } from './types'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
-import { selectionAtom, shortcutContextAtom, updateInteractionAtom } from './common/state/whiteboardAtoms'
 import { DEFAULT_GROUP_PADDING } from './node/constants'
 import {
   whiteboardInputAtom,
@@ -30,6 +27,9 @@ import {
   nodeSizeAtom
 } from './common/state/whiteboardInputAtoms'
 import { createWhiteboardInstance } from './common/instance/whiteboardInstance'
+import { useSelectionStore } from './common/hooks/useSelectionStore'
+import { useShortcutContextValue } from './common/hooks/useShortcutContextValue'
+import { useInteractionActions } from './common/hooks/useInteractionActions'
 
 const WhiteboardInner = ({
   doc,
@@ -51,7 +51,7 @@ const WhiteboardInner = ({
   const registry = useResolvedNodeRegistry(nodeRegistry)
   const containerRef = useRef<HTMLDivElement>(null)
   const { viewport, transformStyle, screenToWorld } = useViewport(doc.viewport, containerRef)
-  const selectionState = useAtomValue(selectionAtom)
+  const selectionState = useSelectionStore()
   const instance = useMemo(
     () => createWhiteboardInstance({ core, docRef, containerRef }),
     [core, docRef]
@@ -86,8 +86,8 @@ const WhiteboardInner = ({
 
   useShortcutStateSync({ tool, viewport })
 
-  const shortcutContext = useAtomValue(shortcutContextAtom)
-  const updateInteraction = useSetAtom(updateInteractionAtom)
+  const shortcutContext = useShortcutContextValue()
+  const { updateInteraction } = useInteractionActions()
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({ shortcutManager, shortcutContext, updateInteraction })
   useSelectionNotifications(selectionState.selectedNodeIds, onSelectionChange)
@@ -149,9 +149,5 @@ const WhiteboardInner = ({
 }
 
 export const Whiteboard = (props: WhiteboardProps) => {
-  return (
-    <JotaiProvider store={useMemo(createStore, [])}>
-      <WhiteboardInner {...props} />
-    </JotaiProvider>
-  )
+  return <WhiteboardInner {...props} />
 }

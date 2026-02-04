@@ -1,14 +1,12 @@
 import type { Rect } from '@whiteboard/core'
-import { useAtomValue } from 'jotai'
-import { selectionAtom } from '../../common/state/whiteboardAtoms'
+import { useSelectionOverlay } from '../hooks/useSelectionOverlay'
 
 type SelectionLayerProps = {
   rect?: Rect
 }
 
 export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
-  const selection = useAtomValue(selectionAtom)
-  const resolvedRect = rect ?? (selection.tool === 'edge' ? undefined : selection.selectionRect)
+  const resolvedRect = useSelectionOverlay(rect)
   if (!resolvedRect) return null
   return (
     <div

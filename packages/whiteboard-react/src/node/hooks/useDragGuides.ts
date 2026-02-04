@@ -1,11 +1,16 @@
-import { useCallback, useState } from 'react'
+import { useAtom } from 'jotai'
+import { useCallback } from 'react'
 import type { Guide } from '../utils/snap'
+import { dragGuidesAtom } from '../state/dragGuidesAtom'
 
 export const useDragGuides = () => {
-  const [guides, setGuides] = useState<Guide[]>([])
-  const handleGuidesChange = useCallback((next: Guide[]) => {
-    setGuides(next)
-  }, [])
+  const [guides, setGuides] = useAtom(dragGuidesAtom)
+  const handleGuidesChange = useCallback(
+    (next: Guide[]) => {
+      setGuides(next)
+    },
+    [setGuides]
+  )
 
-  return { guides, handleGuidesChange }
+  return { guides, setGuides: handleGuidesChange }
 }
