@@ -11,15 +11,17 @@ type UseNodeSizeObserverOptions = {
 }
 
 export const useNodeSizeObserver = ({ core, nodes, enabled = true }: UseNodeSizeObserverOptions) => {
-  const instance = useInstance()
+  const instance = useInstance({ required: false })
 
   useLayoutEffect(() => {
+    if (!instance) return
     if (instance.core !== core) return
     instance.services.nodeSizeObserver.sync(nodes, enabled)
   }, [core, enabled, instance, nodes])
 
   useEffect(() => {
     return () => {
+      if (!instance) return
       if (instance.core !== core) return
       instance.services.nodeSizeObserver.dispose()
     }

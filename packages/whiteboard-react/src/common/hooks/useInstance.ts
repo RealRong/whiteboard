@@ -1,9 +1,14 @@
 import { useAtomValue } from 'jotai'
 import { instanceAtom } from '../state/whiteboardInputAtoms'
 
-export const useInstance = () => {
+type Options = {
+  required?: boolean
+}
+
+export const useInstance = (options: Options = {}) => {
   const instance = useAtomValue(instanceAtom)
-  if (!instance) {
+  const required = options.required ?? true
+  if (!instance && required) {
     throw new Error('Whiteboard instance is not initialized')
   }
   return instance

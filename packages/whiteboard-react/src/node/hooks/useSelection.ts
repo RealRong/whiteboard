@@ -1,11 +1,14 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { SelectionMode, SelectionState } from '../../common/state/whiteboardAtoms'
 import { selectionAtom, setSelectionAtom } from '../../common/state/whiteboardAtoms'
-import { useInstance } from '../../common/hooks/useInstance'
+import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
+import { useViewGraph } from '../../common/hooks/useViewGraph'
+import { useNodeSize } from '../../common/hooks/useNodeSize'
+import { useSpacePressed } from '../../common/hooks/useSpacePressed'
 import {
   getNodeRect,
   rectContains,
@@ -27,6 +30,8 @@ export type UseSelectionOptions = {
 }
 
 export type UseSelectionReturn = {
+  tool: string
+  selectedEdgeId?: string
   selectedNodeIds: Set<string>
   isSelecting: boolean
   selectionRect?: Rect
@@ -46,6 +51,7 @@ export type UseSelectionReturn = {
     onPointerMove: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => void
     onPointerUp: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => void
   }
+  cancelPendingRaf: () => void
 }
 
 const applySelectionMode = (current: Set<string>, ids: string[], mode: SelectionMode) => {
@@ -76,41 +82,19 @@ const applySelectionMode = (current: Set<string>, ids: string[], mode: Selection
 export const useSelection = (options: UseSelectionOptions = {}): UseSelectionReturn => {
   const state = useAtomValue(selectionAtom)
   const setSelection = useSetAtom(setSelectionAtom)
-  const instance = useInstance()
+  const input = useWhiteboardInput()
+  const viewGraph = useViewGraph()
+  const fallbackNodeSize = useNodeSize()
+  const spacePressed = useSpacePressed()
   const startRef = useRef<Point | null>(null)
   const modeRef = useRef<SelectionMode>('replace')
   const rafRef = useRef<number | null>(null)
-  const spacePressedRef = useRef(false)
   const minDragDistance = options.minDragDistance ?? 3
-  const enabled = options.enabled ?? true
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        spacePressedRef.current = true
-      }
-    }
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        spacePressedRef.current = false
-      }
-    }
-    const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
-    const offKeyUp = instance.addWindowEventListener('keyup', onKeyUp)
-    return () => {
-      offKeyDown()
-      offKeyUp()
-    }
-  }, [instance])
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [])
+  const enabled = options.enabled ?? state.tool !== 'edge'
+  const containerRef = options.containerRef ?? input.containerRef ?? undefined
+  const screenToWorld = options.screenToWorld ?? input.screenToWorld ?? undefined
+  const nodes = options.nodes ?? viewGraph.canvasNodes
+  const nodeSize = options.nodeSize ?? fallbackNodeSize ?? { width: 1, height: 1 }
 
   const getModeFromEvent = useCallback((event: PointerEvent | MouseEvent): SelectionMode => {
     if (event.altKey) return 'subtract'
@@ -170,10 +154,10 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
 
   const hitTest = useCallback(
     (rectWorld: Rect, mode: SelectionMode) => {
-      if (!options.nodes || !options.nodeSize) return
+      if (!nodes.length) return
       const matched: string[] = []
-      options.nodes.forEach((node) => {
-        const nodeRect = getNodeRect(node, options.nodeSize as Size)
+      nodes.forEach((node) => {
+        const nodeRect = getNodeRect(node, nodeSize as Size)
         const rotation = typeof node.rotation === 'number' ? node.rotation : 0
         const hit =
           node.type === 'group'
@@ -183,7 +167,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       })
       select(matched, mode)
     },
-    [options.nodeSize, options.nodes, select]
+    [nodeSize, nodes, select]
   )
 
   const updateBox = useCallback(
@@ -192,9 +176,9 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       if (!start) return
       const rectScreen = rectFromPoints(start, pointScreen)
       let rectWorld: Rect | undefined
-      if (options.screenToWorld) {
-        const startWorld = options.screenToWorld({ x: rectScreen.x, y: rectScreen.y })
-        const endWorld = options.screenToWorld({
+      if (screenToWorld) {
+        const startWorld = screenToWorld({ x: rectScreen.x, y: rectScreen.y })
+        const endWorld = screenToWorld({
           x: rectScreen.x + rectScreen.width,
           y: rectScreen.y + rectScreen.height
         })
@@ -214,30 +198,34 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         })
       }
     },
-    [hitTest, options.screenToWorld, setSelection]
+    [hitTest, screenToWorld, setSelection]
   )
 
-  const endBox = useCallback(() => {
-    startRef.current = null
+  const cancelPendingRaf = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+  }, [])
+
+  const endBox = useCallback(() => {
+    startRef.current = null
+    cancelPendingRaf()
     setSelection((prev) => ({
       ...prev,
       isSelecting: false,
       selectionRect: undefined,
       selectionRectWorld: undefined
     }))
-  }, [setSelection])
+  }, [cancelPendingRaf, setSelection])
 
   const isSelected = useCallback((id: string) => state.selectedNodeIds.has(id), [state.selectedNodeIds])
   const hasSelection = useCallback(() => state.selectedNodeIds.size > 0, [state.selectedNodeIds])
 
   const handlers = useMemo(() => {
     if (!enabled) return undefined
-    if (!options.containerRef || !options.screenToWorld) return undefined
-    const container = options.containerRef
+    if (!containerRef || !screenToWorld) return undefined
+    const container = containerRef
 
     const getScreenPoint = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
       const element = container.current
@@ -263,7 +251,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
     return {
       onPointerDown: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (event.button !== 0) return
-        if (spacePressedRef.current) return
+        if (spacePressed) return
         if (!isEventOnEmptyCanvas(event)) return
         const point = getScreenPoint(event)
         if (!point) return
@@ -299,27 +287,56 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
     endBox,
     getModeFromEvent,
     minDragDistance,
-    options.containerRef,
-    options.screenToWorld,
+    containerRef,
+    screenToWorld,
     state.isSelecting,
-    updateBox
+    updateBox,
+    enabled,
+    spacePressed
   ])
 
-  return {
-    selectedNodeIds: state.selectedNodeIds,
-    isSelecting: state.isSelecting,
-    selectionRect: state.selectionRect,
-    selectionRectWorld: state.selectionRectWorld,
-    isSelected,
-    hasSelection,
-    select,
-    toggle,
-    clear,
-    beginBox,
-    updateBox,
-    endBox,
-    getModeFromEvent,
-    getClickModeFromEvent,
-    handlers
-  }
+  const api = useMemo(
+    () => ({
+      tool: state.tool,
+      selectedEdgeId: state.selectedEdgeId,
+      selectedNodeIds: state.selectedNodeIds,
+      isSelecting: state.isSelecting,
+      selectionRect: state.selectionRect,
+      selectionRectWorld: state.selectionRectWorld,
+      isSelected,
+      hasSelection,
+      select,
+      toggle,
+      clear,
+      beginBox,
+      updateBox,
+      endBox,
+      getModeFromEvent,
+      getClickModeFromEvent,
+      handlers,
+      cancelPendingRaf
+    }),
+    [
+      beginBox,
+      cancelPendingRaf,
+      clear,
+      endBox,
+      getClickModeFromEvent,
+      getModeFromEvent,
+      handlers,
+      hasSelection,
+      isSelected,
+      select,
+      state.selectedEdgeId,
+      state.isSelecting,
+      state.selectedNodeIds,
+      state.selectionRect,
+      state.selectionRectWorld,
+      state.tool,
+      toggle,
+      updateBox
+    ]
+  )
+
+  return api
 }

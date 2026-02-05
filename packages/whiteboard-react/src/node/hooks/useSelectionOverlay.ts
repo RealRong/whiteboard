@@ -1,8 +1,8 @@
 import type { Rect } from '@whiteboard/core'
-import { useSelectionStore } from '../../common/hooks/useSelectionStore'
+import { useSelection } from './useSelection'
 
 export const useSelectionOverlay = (override?: Rect) => {
-  const selection = useSelectionStore()
+  const selection = useSelection()
   if (override) return override
   if (selection.tool === 'edge') return undefined
   return selection.selectionRect

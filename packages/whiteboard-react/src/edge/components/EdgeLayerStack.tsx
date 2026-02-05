@@ -3,20 +3,22 @@ import { EdgeLayer } from './EdgeLayer'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgePreviewLayer } from './EdgePreviewLayer'
-import { useEdgeConnectManager } from '../hooks/useEdgeConnect'
+import { useEdgeConnect } from '../hooks/useEdgeConnect'
+import { useEdgeConnectLifecycle } from '../lifecycle/useEdgeConnectLifecycle'
 import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
 import { useNodeSize } from '../../common/hooks/useNodeSize'
 import { useViewGraph } from '../../common/hooks/useViewGraph'
-import { useSelectionStore } from '../../common/hooks/useSelectionStore'
 import { useViewportStore } from '../../common/hooks/useViewportStore'
+import { useSelection } from '../../node/hooks/useSelection'
 
 export const EdgeLayerStack = () => {
   const input = useWhiteboardInput()
   const nodeSize = useNodeSize()
   const viewGraph = useViewGraph()
-  const selectionState = useSelectionStore()
+  const selectionState = useSelection()
   const viewportState = useViewportStore()
-  const edgeConnect = useEdgeConnectManager()
+  const edgeConnect = useEdgeConnect()
+  useEdgeConnectLifecycle(edgeConnect)
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
     core: input.core!,

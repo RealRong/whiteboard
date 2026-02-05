@@ -6,16 +6,17 @@ import { NodeLayerStack } from './node/components/NodeLayerStack'
 import { EdgeLayerStack } from './edge/components/EdgeLayerStack'
 import { useCore } from './common/hooks/useCore'
 import { useViewport } from './common/hooks/useViewport'
+import { useViewportSize } from './common/lifecycle/useViewportSize'
 import { useViewportInteraction } from './common/hooks/useViewportInteraction'
 import { useCanvasHandlers } from './common/hooks/useCanvasHandlers'
 import { useCanvasStyle } from './common/hooks/useCanvasStyle'
-import { useCanvasEventBindings } from './common/hooks/useCanvasEventBindings'
-import { useSelectionNotifications } from './common/hooks/useSelectionNotifications'
-import { useEdgeSelectionNotifications } from './common/hooks/useEdgeSelectionNotifications'
+import { useCanvasEventBindings } from './common/lifecycle/useCanvasEventBindings'
+import { useSelectionNotifications } from './common/lifecycle/useSelectionNotifications'
+import { useEdgeSelectionNotifications } from './common/lifecycle/useEdgeSelectionNotifications'
 import { createShortcutManager } from './common/shortcuts/shortcutManager'
-import { useShortcutRegistry } from './common/shortcuts/useShortcutRegistry'
+import { useShortcutRegistry } from './common/shortcuts/lifecycle/useShortcutRegistry'
 import { useShortcutHandlers } from './common/shortcuts/useShortcutHandlers'
-import { useShortcutStateSync } from './common/shortcuts/useShortcutStateSync'
+import { useShortcutStateSync } from './common/shortcuts/lifecycle/useShortcutStateSync'
 import { NodeRegistryProvider } from './node/registry/nodeRegistry'
 import { useResolvedNodeRegistry } from './common/hooks/useResolvedNodeRegistry'
 import type { WhiteboardProps } from './types'
@@ -27,9 +28,10 @@ import {
   nodeSizeAtom
 } from './common/state/whiteboardInputAtoms'
 import { createWhiteboardInstance } from './common/instance/whiteboardInstance'
-import { useSelectionStore } from './common/hooks/useSelectionStore'
 import { useShortcutContextValue } from './common/hooks/useShortcutContextValue'
 import { useInteractionActions } from './common/hooks/useInteractionActions'
+import { useSelection } from './node/hooks/useSelection'
+import { useSpacePressedLifecycle } from './common/lifecycle/useSpacePressedLifecycle'
 
 const WhiteboardInner = ({
   doc,
@@ -50,8 +52,9 @@ const WhiteboardInner = ({
   const { core, docRef } = useCore({ doc, onDocChange, core: externalCore })
   const registry = useResolvedNodeRegistry(nodeRegistry)
   const containerRef = useRef<HTMLDivElement>(null)
-  const { viewport, transformStyle, screenToWorld } = useViewport(doc.viewport, containerRef)
-  const selectionState = useSelectionStore()
+  const containerSize = useViewportSize(containerRef)
+  const { viewport, transformStyle, screenToWorld } = useViewport(doc.viewport, containerSize)
+  const selectionState = useSelection()
   const instance = useMemo(
     () => createWhiteboardInstance({ core, docRef, containerRef }),
     [core, docRef]
@@ -74,6 +77,7 @@ const WhiteboardInner = ({
     [nodeSizeAtom, nodeSize],
     [mindmapNodeSizeAtom, mindmapNodeSize]
   ])
+  useSpacePressedLifecycle()
 
   const shortcutManager = useMemo(() => createShortcutManager(), [])
   useShortcutRegistry({

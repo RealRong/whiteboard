@@ -46,6 +46,8 @@ Always reply in Chinese.
 - Components compose multiple hooks and small components; keep props minimal when data can be read via hooks.
 - Rendering inside hooks should be thin: return props or thin render helpers; avoid large JSX blocks in hooks.
 - Separate concerns: instance/services handle side effects and DOM bindings; atoms represent UI state.
+- Hooks must be pure: only read/write state, compose business APIs and render helpers; no lifecycle or side effects.
+- All lifecycle and side effects (event listeners, observers, external callbacks, core.dispatch) live in components or a dedicated lifecycle layer that imports hooks.
 - Instance/services structure:
   - Place instance and services under `packages/whiteboard-react/src/common/instance/`.
   - Hooks that expose instance access live in `packages/whiteboard-react/src/common/hooks/`.

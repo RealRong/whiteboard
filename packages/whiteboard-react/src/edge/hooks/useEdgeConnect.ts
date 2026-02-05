@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -317,37 +317,4 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
     nodeRects,
     getAnchorFromPoint
   }
-}
-
-export const useEdgeConnectManager = () => {
-  const edgeConnect = useEdgeConnect()
-  const instance = useInstance()
-  const { state, screenToWorld, containerRef, updateTo, commitTo } = edgeConnect
-
-  useEffect(() => {
-    if (!state.isConnecting) return
-    if (!screenToWorld || !containerRef?.current) return
-    const handlePointerMove = (event: PointerEvent) => {
-      if (state.pointerId !== undefined && state.pointerId !== null && event.pointerId !== state.pointerId) return
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      updateTo(screenToWorld(point))
-    }
-    const handlePointerUp = (event: PointerEvent) => {
-      if (state.pointerId !== undefined && state.pointerId !== null && event.pointerId !== state.pointerId) return
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      commitTo(screenToWorld(point))
-    }
-    const offMove = instance.addWindowEventListener('pointermove', handlePointerMove)
-    const offUp = instance.addWindowEventListener('pointerup', handlePointerUp)
-    return () => {
-      offMove()
-      offUp()
-    }
-  }, [commitTo, containerRef, instance, screenToWorld, state.isConnecting, state.pointerId, updateTo])
-
-  return edgeConnect
 }

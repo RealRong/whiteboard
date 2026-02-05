@@ -1,9 +1,8 @@
 import { useCallback } from 'react'
-import { useAtomValue } from 'jotai'
 import type { RefObject } from 'react'
 import type { Point } from '@whiteboard/core'
-import { selectionApiAtom } from '../../node/state/selectionApiAtom'
 import { useEdgeConnect } from '../../edge/hooks/useEdgeConnect'
+import { useSelection } from '../../node/hooks/useSelection'
 
 type ViewportHandlers = {
   onPointerDownCapture: (event: PointerEvent) => void
@@ -29,9 +28,9 @@ export const useCanvasHandlers = ({
   onShortcutPointerDownCapture,
   onShortcutKeyDown
 }: Options) => {
-  const selectionApi = useAtomValue(selectionApiAtom)
+  const selection = useSelection()
   const { selectEdge, updateHover } = useEdgeConnect()
-  const selectionHandlers = selectionApi?.handlers
+  const selectionHandlers = selection.handlers
 
   const handlePointerDown = useCallback(
     (event: PointerEvent) => {

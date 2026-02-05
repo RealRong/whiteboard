@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { Core, Point, Viewport } from '@whiteboard/core'
-import { useInstance } from './useInstance'
+import { useSpacePressed } from './useSpacePressed'
 
 type Options = {
   core: Core
@@ -32,36 +32,14 @@ export const useViewportControls = ({
   enablePan = true,
   enableWheel = true
 }: Options) => {
-  const instance = useInstance()
   const dragRef = useRef<DragState | null>(null)
-  const spacePressedRef = useRef(false)
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault()
-        spacePressedRef.current = true
-      }
-    }
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault()
-        spacePressedRef.current = false
-      }
-    }
-    const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
-    const offKeyUp = instance.addWindowEventListener('keyup', onKeyUp)
-    return () => {
-      offKeyDown()
-      offKeyUp()
-    }
-  }, [instance])
+  const spacePressed = useSpacePressed()
 
   const onPointerDown = useCallback(
     (event: PointerEvent | (PointerEvent & { currentTarget: HTMLElement })) => {
       if (!enablePan) return
       const isMiddle = event.button === 1
-      const isSpaceLeft = event.button === 0 && spacePressedRef.current
+      const isSpaceLeft = event.button === 0 && spacePressed
       if (!isMiddle && !isSpaceLeft) return
       event.preventDefault()
       const target = event.currentTarget as HTMLElement | null
@@ -72,7 +50,7 @@ export const useViewportControls = ({
         startCenter: { ...viewport.center }
       }
     },
-    [enablePan, viewport.center.x, viewport.center.y]
+    [enablePan, spacePressed, viewport.center.x, viewport.center.y]
   )
 
   const onPointerMove = useCallback(

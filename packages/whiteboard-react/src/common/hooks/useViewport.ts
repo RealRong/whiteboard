@@ -1,5 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
-import type { RefObject } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { Point, Viewport } from '@whiteboard/core'
 
 const DEFAULT_VIEWPORT: Viewport = {
@@ -9,22 +8,7 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 type Size = { width: number; height: number }
 
-export const useViewport = (viewport: Viewport | undefined, container: RefObject<HTMLElement>) => {
-  const [size, setSize] = useState<Size>({ width: 0, height: 0 })
-
-  useLayoutEffect(() => {
-    const element = container.current
-    if (!element) return
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const { width, height } = entry.contentRect
-      setSize({ width, height })
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [container])
-
+export const useViewport = (viewport: Viewport | undefined, size: Size) => {
   const actual = viewport ?? DEFAULT_VIEWPORT
   const screenCenter = useMemo(
     () => ({ x: size.width / 2, y: size.height / 2 }),

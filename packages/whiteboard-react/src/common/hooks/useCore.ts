@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { createCore, type Core, type Document } from '@whiteboard/core'
 
 type UseCoreOptions = {
@@ -12,13 +12,8 @@ export const useCore = ({ doc, onDocChange, core }: UseCoreOptions) => {
   const onDocChangeRef = useRef(onDocChange)
   const coreRef = useRef<Core>()
 
-  useEffect(() => {
-    docRef.current = doc
-  }, [doc])
-
-  useEffect(() => {
-    onDocChangeRef.current = onDocChange
-  }, [onDocChange])
+  docRef.current = doc
+  onDocChangeRef.current = onDocChange
 
   if (!coreRef.current) {
     coreRef.current =
@@ -29,11 +24,9 @@ export const useCore = ({ doc, onDocChange, core }: UseCoreOptions) => {
       })
   }
 
-  useEffect(() => {
-    if (core && coreRef.current !== core) {
-      coreRef.current = core
-    }
-  }, [core])
+  if (core && coreRef.current !== core) {
+    coreRef.current = core
+  }
 
   const instance = coreRef.current as Core
   return {

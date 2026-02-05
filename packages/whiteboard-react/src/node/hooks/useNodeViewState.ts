@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Core, Node, NodeId, Point, Size } from '@whiteboard/core'
 
 type NodeOverride = {
@@ -26,9 +26,7 @@ export const useNodeViewState = (nodes: Node[], core: Core): NodeViewState => {
   const [overrides, setOverridesState] = useState<Map<NodeId, NodeOverride>>(() => new Map())
   const overridesRef = useRef(overrides)
 
-  useEffect(() => {
-    overridesRef.current = overrides
-  }, [overrides])
+  overridesRef.current = overrides
 
   const setOverrides = useCallback((updates: NodeViewUpdate[]) => {
     if (!updates.length) return

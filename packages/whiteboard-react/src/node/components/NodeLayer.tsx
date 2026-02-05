@@ -8,7 +8,7 @@ import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { MindmapLayer } from '../../mindmap/components/MindmapLayer'
 import { NodeItem } from './NodeItem'
-import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
+import { useNodeSizeObserver } from '../lifecycle/useNodeSizeObserver'
 import type { NodeTransientApi } from '../hooks/useNodeViewState'
 
 type NodeLayerProps = {

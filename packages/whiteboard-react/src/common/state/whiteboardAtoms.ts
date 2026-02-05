@@ -103,6 +103,8 @@ export const interactionAtom = atom<InteractionState>({
   }
 })
 
+export const spacePressedAtom = atom<boolean>(false)
+
 export const selectionAtom = atom<SelectionStore>(createSelectionState())
 
 export const viewportAtom = atom<ViewportState>({

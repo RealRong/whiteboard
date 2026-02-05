@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
-import { useInstance } from './useInstance'
+import { useInstance } from '../hooks/useInstance'
 
 type CanvasHandlers = {
   handlePointerDown: (event: PointerEvent) => void
@@ -17,7 +17,7 @@ type Options = {
 }
 
 export const useCanvasEventBindings = ({ containerRef, handlers, onWheel }: Options) => {
-  const instance = useInstance()
+  const instance = useInstance({ required: false })
   const {
     handlePointerDown,
     handlePointerDownCapture,
@@ -27,6 +27,7 @@ export const useCanvasEventBindings = ({ containerRef, handlers, onWheel }: Opti
   } = handlers
 
   useEffect(() => {
+    if (!instance) return
     if (!containerRef.current) return
 
     const offPointerDownCapture = instance.addContainerEventListener(

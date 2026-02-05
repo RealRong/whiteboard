@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import { useAtomValue } from 'jotai'
 import type { Core, Document } from '@whiteboard/core'
-import { createDefaultShortcuts } from './defaultShortcuts'
-import type { Shortcut } from './types'
-import type { ShortcutManager } from './shortcutManager'
-import { viewGraphAtom } from '../state/whiteboardDerivedAtoms'
-import { nodeSizeAtom } from '../state/whiteboardInputAtoms'
-import { selectionApiAtom } from '../../node/state/selectionApiAtom'
-import { useEdgeConnect } from '../../edge/hooks/useEdgeConnect'
+import { createDefaultShortcuts } from '../defaultShortcuts'
+import type { Shortcut } from '../types'
+import type { ShortcutManager } from '../shortcutManager'
+import { viewGraphAtom } from '../../state/whiteboardDerivedAtoms'
+import { nodeSizeAtom } from '../../state/whiteboardInputAtoms'
+import { useSelection } from '../../../node/hooks/useSelection'
+import { useEdgeConnect } from '../../../edge/hooks/useEdgeConnect'
 
 type Options = {
   core: Core
@@ -38,7 +38,7 @@ export const useShortcutRegistry = ({
   shortcutsProp,
   shortcutManager
 }: Options) => {
-  const selection = useAtomValue(selectionApiAtom)
+  const selection = useSelection()
   const { selectEdge } = useEdgeConnect()
   const nodeSize = useAtomValue(nodeSizeAtom)
   const viewGraph = useAtomValue(viewGraphAtom)
