@@ -3,11 +3,10 @@ import { useInstance } from '../../common/hooks/useInstance'
 import type { UseEdgeConnectReturn } from '../hooks/useEdgeConnect'
 
 export const useEdgeConnectLifecycle = (edgeConnect: UseEdgeConnectReturn) => {
-  const instance = useInstance({ required: false })
+  const instance = useInstance()
   const { state, screenToWorld, containerRef, updateTo, commitTo } = edgeConnect
 
   useEffect(() => {
-    if (!instance) return
     if (!state.isConnecting) return
     if (!screenToWorld || !containerRef?.current) return
     const handlePointerMove = (event: PointerEvent) => {

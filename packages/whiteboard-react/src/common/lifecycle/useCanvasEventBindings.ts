@@ -17,7 +17,7 @@ type Options = {
 }
 
 export const useCanvasEventBindings = ({ containerRef, handlers, onWheel }: Options) => {
-  const instance = useInstance({ required: false })
+  const instance = useInstance()
   const {
     handlePointerDown,
     handlePointerDownCapture,
@@ -27,7 +27,6 @@ export const useCanvasEventBindings = ({ containerRef, handlers, onWheel }: Opti
   } = handlers
 
   useEffect(() => {
-    if (!instance) return
     if (!containerRef.current) return
 
     const offPointerDownCapture = instance.addContainerEventListener(

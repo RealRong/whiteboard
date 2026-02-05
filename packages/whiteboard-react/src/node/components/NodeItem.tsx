@@ -1,12 +1,11 @@
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { Size } from '../../common/types'
-import type { UseSelectionReturn } from '../hooks/useSelection'
-import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
+import type { NodeTransientApi, UseSelectionReturn } from '../hooks'
+import type { UseEdgeConnectReturn } from '../../edge/hooks'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { NodeBlock } from './NodeBlock'
-import { useNodeItem } from '../hooks/useNodeItem'
-import type { NodeTransientApi } from '../hooks/useNodeViewState'
+import { useNodeItem } from '../hooks'
 
 export type NodeItemProps = {
   node: Node

@@ -1,19 +1,23 @@
 import { useLayoutEffect, useMemo } from 'react'
 import { NodeLayer } from './NodeLayer'
-import { useGroupHover } from '../hooks/useGroupHover'
-import { useSnapIndex } from '../hooks/useSnapIndex'
-import { useGroupAutoFit } from '../lifecycle/useGroupAutoFit'
+import { useGroupAutoFit } from '../lifecycle'
 import { DEFAULT_GROUP_PADDING } from '../constants'
-import { useNodeViewState } from '../hooks/useNodeViewState'
-import { useEdgeConnect } from '../../edge/hooks/useEdgeConnect'
-import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
-import { useNodeSize } from '../../common/hooks/useNodeSize'
-import { useMindmapNodeSize } from '../../common/hooks/useMindmapNodeSize'
-import { useViewGraph } from '../../common/hooks/useViewGraph'
-import { useViewportStore } from '../../common/hooks/useViewportStore'
-import { useDragGuides } from '../hooks/useDragGuides'
-import { useViewNodesStore } from '../hooks/useViewNodesStore'
-import { useSelection } from '../hooks/useSelection'
+import {
+  useDragGuides,
+  useGroupHover,
+  useNodeViewState,
+  useSelection,
+  useSnapIndex,
+  useViewNodesStore
+} from '../hooks'
+import { useEdgeConnect } from '../../edge/hooks'
+import {
+  useMindmapNodeSize,
+  useNodeSize,
+  useViewportStore,
+  useViewGraph,
+  useWhiteboardInput
+} from '../../common/hooks'
 
 export const NodeLayerStack = () => {
   const input = useWhiteboardInput()

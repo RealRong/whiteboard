@@ -1,5 +1,5 @@
 import type { Rect } from '@whiteboard/core'
-import { useSelectionOverlay } from '../hooks/useSelectionOverlay'
+import { useSelectionOverlay } from '../hooks'
 
 type SelectionLayerProps = {
   rect?: Rect

@@ -1,12 +1,10 @@
 import type { Edge, Node, Point } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
-import { useEdgeGeometry } from '../hooks/useEdgeGeometry'
-import { useEdgeHitTest } from '../hooks/useEdgeHitTest'
+import { useEdgeGeometry, useEdgeHitTest, useEdgeHover } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import type { Size } from '../../common/types'
-import { useEdgeHover } from '../hooks/useEdgeHover'
 
 type EdgeLayerProps = {
   nodes: Node[]

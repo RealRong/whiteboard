@@ -1,67 +1,75 @@
 import { useCallback } from 'react'
-import type { RefObject } from 'react'
-import type { Point } from '@whiteboard/core'
-import { useEdgeConnect } from '../../edge/hooks/useEdgeConnect'
-import { useSelection } from '../../node/hooks/useSelection'
-
-type ViewportHandlers = {
-  onPointerDownCapture: (event: PointerEvent) => void
-  onPointerDown: (event: PointerEvent) => void
-  onPointerMove: (event: PointerEvent) => void
-  onPointerUp: (event: PointerEvent) => void
-}
+import type { Point, Viewport } from '@whiteboard/core'
+import type { ViewportConfig } from '../types'
+import { useEdgeConnect } from '../../edge/hooks'
+import { useSelection } from '../../node/hooks'
+import { useInstance } from './useInstance'
+import { useInteractionActions } from './useInteractionActions'
+import { useShortcutContextValue } from './useShortcutContextValue'
+import { useViewportInteraction } from './useViewportInteraction'
+import { useWhiteboardInput } from './useWhiteboardInput'
+import { useShortcutHandlers } from '../shortcuts/useShortcutHandlers'
 
 type Options = {
-  containerRef: RefObject<HTMLDivElement>
-  viewportHandlers: ViewportHandlers
-  screenToWorld?: (point: Point) => Point
   tool?: 'select' | 'edge'
-  onShortcutPointerDownCapture: (event: PointerEvent, onUnhandled?: () => void) => void
-  onShortcutKeyDown: (event: KeyboardEvent) => void
+  viewport: Viewport
+  viewportConfig?: ViewportConfig
 }
 
-export const useCanvasHandlers = ({
-  containerRef,
-  viewportHandlers,
-  screenToWorld,
-  tool = 'select',
-  onShortcutPointerDownCapture,
-  onShortcutKeyDown
-}: Options) => {
+const identityScreenToWorld = (point: Point) => point
+
+export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }: Options) => {
+  const instance = useInstance()
+  const input = useWhiteboardInput()
   const selection = useSelection()
   const { selectEdge, updateHover } = useEdgeConnect()
   const selectionHandlers = selection.handlers
-
+  const shortcutContext = useShortcutContextValue()
+  const { updateInteraction } = useInteractionActions()
+  const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
+    useShortcutHandlers({
+      shortcutManager: instance.shortcutManager,
+      shortcutContext,
+      updateInteraction
+    })
+  const screenToWorld = input.screenToWorld ?? identityScreenToWorld
+  const { viewportHandlers, onWheel } = useViewportInteraction({
+    core: instance.core,
+    viewport,
+    screenToWorld,
+    containerRef: instance.containerRef,
+    config: viewportConfig
+  })
   const handlePointerDown = useCallback(
     (event: PointerEvent) => {
-      containerRef.current?.focus({ preventScroll: true })
+      instance.containerRef.current?.focus({ preventScroll: true })
       viewportHandlers.onPointerDown(event)
       selectionHandlers?.onPointerDown(event)
-      if (event.target === containerRef.current) {
+      if (event.target === instance.containerRef.current) {
         selectEdge(undefined)
       }
     },
-    [containerRef, selectEdge, selectionHandlers, viewportHandlers]
+    [instance.containerRef, selectEdge, selectionHandlers, viewportHandlers]
   )
 
   const handlePointerDownCapture = useCallback(
     (event: PointerEvent) => {
-      onShortcutPointerDownCapture(event, () => viewportHandlers.onPointerDownCapture(event))
+      handleShortcutPointerDownCapture(event, () => viewportHandlers.onPointerDownCapture(event))
     },
-    [onShortcutPointerDownCapture, viewportHandlers]
+    [handleShortcutPointerDownCapture, viewportHandlers]
   )
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
       viewportHandlers.onPointerMove(event)
       selectionHandlers?.onPointerMove(event)
-      if (tool === 'edge' && screenToWorld && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
+      if (tool === 'edge' && screenToWorld && instance.containerRef.current) {
+        const rect = instance.containerRef.current.getBoundingClientRect()
         const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
         updateHover(screenToWorld(point))
       }
     },
-    [containerRef, screenToWorld, selectionHandlers, tool, updateHover, viewportHandlers]
+    [instance.containerRef, screenToWorld, selectionHandlers, tool, updateHover, viewportHandlers]
   )
 
   const handlePointerUp = useCallback(
@@ -74,16 +82,19 @@ export const useCanvasHandlers = ({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      onShortcutKeyDown(event)
+      handleShortcutKeyDown(event)
     },
-    [onShortcutKeyDown]
+    [handleShortcutKeyDown]
   )
 
   return {
-    handlePointerDown,
-    handlePointerDownCapture,
-    handlePointerMove,
-    handlePointerUp,
-    handleKeyDown
+    handlers: {
+      handlePointerDown,
+      handlePointerDownCapture,
+      handlePointerMove,
+      handlePointerUp,
+      handleKeyDown
+    },
+    onWheel
   }
 }

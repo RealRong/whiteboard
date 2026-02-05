@@ -3,13 +3,12 @@ import type { RefObject } from 'react'
 import { useMemo } from 'react'
 import type { MindmapLayoutConfig } from '../../mindmap/types'
 import type { Size } from '../../common/types'
-import type { UseSelectionReturn } from '../hooks/useSelection'
-import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
+import type { NodeTransientApi, UseSelectionReturn } from '../hooks'
+import type { UseEdgeConnectReturn } from '../../edge/hooks'
 import type { Guide, SnapCandidate } from '../utils/snap'
-import { MindmapLayer } from '../../mindmap/components/MindmapLayer'
+import { MindmapLayer } from '../../mindmap/components'
 import { NodeItem } from './NodeItem'
-import { useNodeSizeObserver } from '../lifecycle/useNodeSizeObserver'
-import type { NodeTransientApi } from '../hooks/useNodeViewState'
+import { useNodeSizeObserver } from '../lifecycle'
 
 type NodeLayerProps = {
   nodes: Node[]

@@ -4,11 +4,10 @@ import { spacePressedAtom } from '../state/whiteboardAtoms'
 import { useInstance } from '../hooks/useInstance'
 
 export const useSpacePressedLifecycle = () => {
-  const instance = useInstance({ required: false })
+  const instance = useInstance()
   const setSpacePressed = useSetAtom(spacePressedAtom)
 
   useEffect(() => {
-    if (!instance) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault()

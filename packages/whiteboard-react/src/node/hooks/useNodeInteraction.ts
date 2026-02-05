@@ -4,7 +4,7 @@ import type { PointerEvent } from 'react'
 import type { Size } from '../../common/types'
 import { useNodeDrag } from './useNodeDrag'
 import type { UseSelectionReturn } from './useSelection'
-import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
+import type { UseEdgeConnectReturn } from '../../edge/hooks'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import type { NodeTransientApi } from './useNodeViewState'
 

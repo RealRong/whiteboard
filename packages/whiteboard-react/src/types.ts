@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Core, Document, EdgeId, NodeId } from '@whiteboard/core'
-import type { NodeRegistry } from './node/registry/nodeRegistry'
+import type { NodeRegistry } from './node/registry'
 import type { Size, ViewportConfig } from './common/types'
 import type { MindmapLayoutConfig } from './mindmap/types'
 import type { Shortcut } from './common/shortcuts/types'

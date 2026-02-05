@@ -26,9 +26,9 @@ export { useSelection } from './node/hooks/useSelection'
 export { useNodeItem } from './node/hooks/useNodeItem'
 export { useEdgeConnect } from './edge/hooks/useEdgeConnect'
 export { useMindmapLayout } from './mindmap/hooks/useMindmapLayout'
-export { createNodeRegistry, NodeRegistryProvider, useNodeRegistry } from './node/registry/nodeRegistry'
-export type { NodeContainerProps, NodeDefinition, NodeRenderProps, NodeRegistry } from './node/registry/nodeRegistry'
-export { createDefaultNodeRegistry } from './node/registry/defaultNodes'
+export { createNodeRegistry, NodeRegistryProvider, useNodeRegistry } from './node/registry'
+export type { NodeContainerProps, NodeDefinition, NodeRenderProps, NodeRegistry } from './node/registry'
+export { createDefaultNodeRegistry } from './node/registry'
 export {
   createFieldRendererRegistry,
   FieldRendererRegistryProvider,

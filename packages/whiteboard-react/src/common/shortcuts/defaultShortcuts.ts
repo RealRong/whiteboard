@@ -3,7 +3,7 @@ import { enlargeBox } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import { getGroupDescendants, getNodesBoundingRect } from '../../node/utils/group'
 import type { Shortcut, ShortcutContext } from './types'
-import type { UseSelectionReturn } from '../../node/hooks/useSelection'
+import type { UseSelectionReturn } from '../../node/hooks'
 
 const extractNodeId = (result: { ok: boolean; changes?: { operations: Array<any> } }) => {
   if (!result.ok || !result.changes) return undefined

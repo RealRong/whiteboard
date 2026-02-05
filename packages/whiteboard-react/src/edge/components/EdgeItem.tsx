@@ -1,6 +1,6 @@
 import type { Edge, Point } from '@whiteboard/core'
 import type { MouseEvent, PointerEvent } from 'react'
-import { useEdgeStyle } from '../hooks/useEdgeStyle'
+import { useEdgeStyle } from '../hooks'
 
 type EdgeItemProps = {
   edge: Edge

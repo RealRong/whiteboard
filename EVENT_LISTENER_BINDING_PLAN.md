@@ -19,8 +19,9 @@
   - `edge/lifecycle/useEdgeConnectLifecycle`
   - `common/shortcuts/lifecycle/useShortcutRegistry`
   - `common/shortcuts/lifecycle/useShortcutStateSync`
-  - `common/lifecycle/useSelectionNotifications`
-  - `common/lifecycle/useEdgeSelectionNotifications`
+- `common/lifecycle/useSelectionNotifications`
+- `common/lifecycle/useEdgeSelectionNotifications`
+- `common/lifecycle/useSelectionLifecycle`
 
 ## 监听注册点（已迁移到 lifecycle）
 以下监听已从 hooks 迁移到 lifecycle 层，集中注册/清理：

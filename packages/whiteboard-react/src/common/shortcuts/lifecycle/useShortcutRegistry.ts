@@ -6,8 +6,8 @@ import type { Shortcut } from '../types'
 import type { ShortcutManager } from '../shortcutManager'
 import { viewGraphAtom } from '../../state/whiteboardDerivedAtoms'
 import { nodeSizeAtom } from '../../state/whiteboardInputAtoms'
-import { useSelection } from '../../../node/hooks/useSelection'
-import { useEdgeConnect } from '../../../edge/hooks/useEdgeConnect'
+import { useSelection } from '../../../node/hooks'
+import { useEdgeConnect } from '../../../edge/hooks'
 
 type Options = {
   core: Core
