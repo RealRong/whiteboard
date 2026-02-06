@@ -48,6 +48,10 @@ Always reply in Chinese.
 - Separate concerns: instance/services handle side effects and DOM bindings; atoms represent UI state.
 - Hooks must be pure: only read/write state, compose business APIs and render helpers; no lifecycle or side effects.
 - All lifecycle and side effects (event listeners, observers, external callbacks, core.dispatch) live in components or a dedicated lifecycle layer that imports hooks.
+- Prefer local semantic hooks in `xxx/hooks` and renderers in `xxx/components`; keep component files focused on composition.
+- Event handlers for UI interaction should be exposed by hooks (e.g. hover/selection handlers), not built directly in components.
+- Avoid wrapper “aggregator” hooks that only pass data through; inline in the component or split into small semantic hooks.
+- Hooks may return render helpers, but keep them small and avoid large JSX blocks in hooks.
 - Instance/services structure:
   - Place instance and services under `packages/whiteboard-react/src/common/instance/`.
   - Hooks that expose instance access live in `packages/whiteboard-react/src/common/hooks/`.
@@ -57,3 +61,34 @@ Always reply in Chinese.
   - Hooks: `useXxx` (semantic responsibility).
   - Services: `xxxService` (e.g., `nodeSizeObserverService`).
   - Instances: `whiteboardInstance` (single entry), export factory/initializer when needed.
+- Preferred architecture pattern (best practice):
+  - Core runtime (drag/resize/snap/group) follows the legacy style: instance-centric, command/handler driven, event flow first.
+  - UI composition (layers/components) follows the new style: semantic hooks + thin components + Jotai state.
+  - Keep the boundary explicit: runtime owns behavior; UI owns composition.
+- Example (how to emulate the pattern):
+```ts
+// runtime action hook (legacy-style behavior module)
+export const useNodeInteraction = (node, rect) => {
+  const instance = useInstance()
+  const selection = useSelection()
+  const dragHandlers = useNodeDragRuntime(instance, node, rect)
+  const onPointerDown = (event) => {
+    selection.handlePointerDown(event, node.id)
+    dragHandlers.onPointerDown(event)
+  }
+  return { dragHandlers, onPointerDown }
+}
+
+// UI component (new-style composition)
+export const NodeItem = ({ node }) => {
+  const presentation = useNodePresentation(node)
+  const interaction = useNodeInteraction(node, presentation.rect)
+  const transform = useNodeTransform(node)
+  return (
+    <>
+      <NodeBlock {...presentation.containerProps} {...interaction.dragHandlers} />
+      {transform.renderHandles()}
+    </>
+  )
+}
+```

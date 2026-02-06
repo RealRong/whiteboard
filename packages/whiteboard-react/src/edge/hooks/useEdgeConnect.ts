@@ -2,13 +2,11 @@ import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import type { Size } from '../../common/types'
 import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, rotatePoint } from '../../common/utils/geometry'
 import { viewGraphAtom } from '../../common/state/whiteboardDerivedAtoms'
-import { whiteboardInputAtom, nodeSizeAtom } from '../../common/state/whiteboardInputAtoms'
 import { edgeConnectAtom, selectionAtom, viewportAtom } from '../../common/state/whiteboardAtoms'
 import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
-import { useInstance } from '../../common/hooks/useInstance'
+import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 
 type ConnectTo = NonNullable<EdgeConnectState['to']>
 
@@ -78,15 +76,12 @@ export type UseEdgeConnectReturn = {
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => AnchorResult
 }
 
-const emptySize: Size = { width: 1, height: 1 }
-
 export const useEdgeConnect = (): UseEdgeConnectReturn => {
-  const input = useAtomValue(whiteboardInputAtom)
   const instance = useInstance()
   const viewGraph = useAtomValue(viewGraphAtom)
-  const nodeSize = useAtomValue(nodeSizeAtom) ?? emptySize
+  const { nodeSize } = useWhiteboardConfig()
   const viewport = useAtomValue(viewportAtom)
-  const screenToWorld = input.screenToWorld ?? undefined
+  const screenToWorld = instance.viewport.screenToWorld ?? undefined
   const containerRef = instance.containerRef ?? undefined
   const selectionState = useAtomValue(selectionAtom)
   const [state, setState] = useAtom(edgeConnectAtom)

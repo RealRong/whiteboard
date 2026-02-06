@@ -1,73 +1,61 @@
-import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { RefObject } from 'react'
-import type { Size } from '../../common/types'
-import type { NodeTransientApi, UseSelectionReturn } from '../hooks'
-import type { UseEdgeConnectReturn } from '../../edge/hooks'
-import type { Guide, SnapCandidate } from '../utils/snap'
+import type { Node } from '@whiteboard/core'
+import { useCallback, useRef } from 'react'
+import { useInstance } from '../../common/hooks'
+import { useNodeInteraction, useNodePresentation, useNodeTransform } from '../hooks'
 import { NodeBlock } from './NodeBlock'
-import { useNodeItem } from '../hooks'
 
 export type NodeItemProps = {
   node: Node
-  core: Core
-  fallbackSize: Size
-  zoom: number
-  selection?: UseSelectionReturn
-  edgeConnect?: UseEdgeConnectReturn
-  tool?: 'select' | 'edge'
-  containerRef?: RefObject<HTMLElement>
-  screenToWorld?: (point: Point) => Point
-  group?: {
-    nodes: Node[]
-    nodeSize: Size
-    padding?: number
-    hoveredGroupId?: NodeId
-    onHoverGroupChange?: (groupId?: NodeId) => void
-  }
-  snap?: {
-    enabled: boolean
-    candidates: SnapCandidate[]
-    getCandidates?: (rect: Rect) => SnapCandidate[]
-    thresholdScreen: number
-    zoom: number
-    onGuidesChange?: (guides: Guide[]) => void
-  }
-  transient?: NodeTransientApi
 }
 
-export const NodeItem = (props: NodeItemProps) => {
-  const { definition, rect, selected, renderProps, content, containerProps, transform, handleEdgeHandlePointerDown } =
-    useNodeItem({
-      node: props.node,
-      core: props.core,
-      fallbackSize: props.fallbackSize,
-      zoom: props.zoom,
-      selection: props.selection,
-      edgeConnect: props.edgeConnect,
-      tool: props.tool,
-      containerRef: props.containerRef,
-      screenToWorld: props.screenToWorld,
-      group: props.group,
-      snap: props.snap,
-      transient: props.transient
-    })
-
+export const NodeItem = ({ node }: NodeItemProps) => {
+  const instance = useInstance()
+  const interaction = useNodeInteraction({ node })
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const setContainerRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (containerRef.current === element) return
+      if (containerRef.current) {
+        instance.services.nodeSizeObserver.unobserve(node.id)
+      }
+      containerRef.current = element
+      if (element) {
+        instance.services.nodeSizeObserver.observe(node.id, element, true)
+      }
+    },
+    [instance, node.id]
+  )
+  const presentation = useNodePresentation({
+    node,
+    dragHandlers: interaction.dragHandlers,
+    handlePointerDown: interaction.handlePointerDown,
+    onPointerEnter: interaction.onPointerEnter,
+    onPointerLeave: interaction.onPointerLeave,
+    containerRef: setContainerRef
+  })
+  const transform = useNodeTransform({
+    node,
+    canRotate: presentation.canRotate
+  })
   return (
     <>
-      {definition?.renderContainer ? (
-        definition.renderContainer(renderProps, content)
+      {presentation.definition?.renderContainer ? (
+        presentation.definition.renderContainer(presentation.renderProps, presentation.content)
       ) : (
         <NodeBlock
-          rect={rect}
-          label={content}
-          nodeId={props.node.id}
-          selected={selected}
+          rect={presentation.rect}
+          label={presentation.content}
+          nodeId={node.id}
+          selected={presentation.selected}
           showHandles={false}
-          style={containerProps.style}
-          onHandlePointerDown={handleEdgeHandlePointerDown}
-          onPointerDown={containerProps.onPointerDown}
-          onPointerMove={containerProps.onPointerMove}
-          onPointerUp={containerProps.onPointerUp}
+          ref={presentation.containerProps.ref}
+          style={presentation.containerProps.style}
+          onHandlePointerDown={interaction.handleEdgeHandlePointerDown}
+          onPointerDown={presentation.containerProps.onPointerDown}
+          onPointerMove={presentation.containerProps.onPointerMove}
+          onPointerUp={presentation.containerProps.onPointerUp}
+          onPointerEnter={presentation.containerProps.onPointerEnter}
+          onPointerLeave={presentation.containerProps.onPointerLeave}
         />
       )}
       {transform.renderHandles()}

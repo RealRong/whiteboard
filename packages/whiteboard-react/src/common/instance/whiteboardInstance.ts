@@ -18,6 +18,8 @@ import type { NodeSizeObserverService } from './nodeSizeObserverService'
 import type { SelectionMode } from '../state/whiteboardAtoms'
 import { createShortcutManager } from '../shortcuts/shortcutManager'
 import type { ShortcutManager } from '../shortcuts/shortcutManager'
+import type { Size } from '../types'
+import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from '../utils/geometry'
 
 export type WhiteboardCommands = {
   selection: {
@@ -140,10 +142,26 @@ export type WhiteboardInstance = {
   docRef: RefObject<Document>
   containerRef: RefObject<HTMLDivElement>
   getContainer: () => HTMLDivElement | null
+  config: WhiteboardInstanceConfig
   services: {
     nodeSizeObserver: NodeSizeObserverService
   }
   shortcutManager: ShortcutManager
+  viewport: {
+    get: () => Viewport
+    getZoom: () => number
+    screenToWorld: (point: Point) => Point
+    worldToScreen: (point: Point) => Point
+    getScreenCenter: () => Point
+    getContainerSize: () => Size
+    set: (next: {
+      viewport: Viewport
+      screenToWorld: (point: Point) => Point
+      worldToScreen: (point: Point) => Point
+      screenCenter: Point
+      containerSize: Size
+    }) => void
+  }
   commands: WhiteboardCommands
   setCommands: (partial: Partial<WhiteboardCommands>) => void
   addWindowEventListener: <K extends keyof WindowEventMap>(
@@ -163,19 +181,51 @@ export type CreateWhiteboardInstanceOptions = {
   docRef: RefObject<Document>
   containerRef: RefObject<HTMLDivElement>
   shortcutManager?: ShortcutManager
+  config?: Partial<WhiteboardInstanceConfig>
+}
+
+export type WhiteboardInstanceConfig = {
+  nodeSize: Size
+  mindmapNodeSize: Size
 }
 
 export const createWhiteboardInstance = ({
   core,
   docRef,
   containerRef,
-  shortcutManager: externalShortcutManager
+  shortcutManager: externalShortcutManager,
+  config: configOverrides
 }: CreateWhiteboardInstanceOptions): WhiteboardInstance => {
+  const config: WhiteboardInstanceConfig = {
+    nodeSize: configOverrides?.nodeSize ?? DEFAULT_NODE_SIZE,
+    mindmapNodeSize: configOverrides?.mindmapNodeSize ?? DEFAULT_MINDMAP_NODE_SIZE
+  }
   const getContainer = () => containerRef.current
   const services = {
-    nodeSizeObserver: createNodeSizeObserverService(core, containerRef)
+    nodeSizeObserver: createNodeSizeObserverService(core)
   }
   const shortcutManager = externalShortcutManager ?? createShortcutManager()
+  const defaultViewport: Viewport = { center: { x: 0, y: 0 }, zoom: 1 }
+  let viewportSnapshot = defaultViewport
+  let screenCenter: Point = { x: 0, y: 0 }
+  let containerSize: Size = { width: 0, height: 0 }
+  let screenToWorld = (point: Point) => point
+  let worldToScreen = (point: Point) => point
+  const viewportRuntime: WhiteboardInstance['viewport'] = {
+    get: () => viewportSnapshot,
+    getZoom: () => viewportSnapshot.zoom,
+    screenToWorld: (point) => screenToWorld(point),
+    worldToScreen: (point) => worldToScreen(point),
+    getScreenCenter: () => screenCenter,
+    getContainerSize: () => containerSize,
+    set: (next) => {
+      viewportSnapshot = next.viewport
+      screenCenter = next.screenCenter
+      containerSize = next.containerSize
+      screenToWorld = next.screenToWorld
+      worldToScreen = next.worldToScreen
+    }
+  }
   const commands = createEmptyCommands()
   const setCommands: WhiteboardInstance['setCommands'] = (partial) => {
     Object.assign(commands, partial)
@@ -204,8 +254,10 @@ export const createWhiteboardInstance = ({
     docRef,
     containerRef,
     getContainer,
+    config,
     services,
     shortcutManager,
+    viewport: viewportRuntime,
     commands,
     setCommands,
     addWindowEventListener,

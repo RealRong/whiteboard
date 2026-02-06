@@ -1,4 +1,5 @@
 import type { CSSProperties, PointerEvent, PointerEventHandler, ReactNode } from 'react'
+import { forwardRef } from 'react'
 import type { Rect } from '@whiteboard/core'
 import { NodeHandles, type NodeHandleSide } from './NodeHandles'
 
@@ -18,7 +19,7 @@ type NodeBlockProps = {
   onPointerLeave?: PointerEventHandler<HTMLDivElement>
 }
 
-export const NodeBlock = ({
+export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   rect,
   label,
   nodeId,
@@ -32,11 +33,12 @@ export const NodeBlock = ({
   onPointerUp,
   onPointerEnter,
   onPointerLeave
-}: NodeBlockProps) => {
+}: NodeBlockProps, ref) => {
   const borderColor = selected ? '#3b82f6' : '#1d1d1f'
   const boxShadow = selected ? '0 0 0 2px rgba(59, 130, 246, 0.4)' : '0 6px 16px rgba(0, 0, 0, 0.08)'
   return (
     <div
+      ref={ref}
       className={className}
       data-node-id={nodeId}
       onPointerDown={onPointerDown}
@@ -69,4 +71,6 @@ export const NodeBlock = ({
       {label}
     </div>
   )
-}
+})
+
+NodeBlock.displayName = 'NodeBlock'

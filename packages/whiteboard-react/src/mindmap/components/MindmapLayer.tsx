@@ -17,6 +17,7 @@ type MindmapLayerProps = {
 
 export const MindmapLayer = ({ nodes, nodeSize, layout, core, screenToWorld, containerRef }: MindmapLayerProps) => {
   const mindmapNodes = useMemo(() => nodes.filter((node) => node.type === 'mindmap'), [nodes])
+  if (!mindmapNodes.length) return null
   return (
     <>
       {mindmapNodes.map((node) => {

@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { instanceAtom } from '../state/whiteboardInputAtoms'
+import { instanceAtom } from '../state/whiteboardContextAtoms'
 
 export const useInstance = () => {
   const instance = useAtomValue(instanceAtom)

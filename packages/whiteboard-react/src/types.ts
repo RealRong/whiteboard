@@ -8,13 +8,7 @@ import type { Shortcut } from './common/shortcuts/types'
 export type { Size, ViewportConfig } from './common/types'
 export type { MindmapLayoutMode, MindmapLayoutConfig } from './mindmap/types'
 
-export type WhiteboardProps = {
-  doc: Document
-  onDocChange: (recipe: (draft: Document) => void) => void
-  core?: Core
-  nodeRegistry?: NodeRegistry
-  onSelectionChange?: (ids: NodeId[]) => void
-  onEdgeSelectionChange?: (id?: EdgeId) => void
+export type WhiteboardConfig = {
   className?: string
   style?: CSSProperties
   nodeSize?: Size
@@ -23,4 +17,14 @@ export type WhiteboardProps = {
   viewport?: ViewportConfig
   tool?: 'select' | 'edge'
   shortcuts?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
+  onSelectionChange?: (ids: NodeId[]) => void
+  onEdgeSelectionChange?: (id?: EdgeId) => void
+}
+
+export type WhiteboardProps = {
+  doc: Document
+  onDocChange: (recipe: (draft: Document) => void) => void
+  core?: Core
+  nodeRegistry?: NodeRegistry
+  config?: WhiteboardConfig
 }

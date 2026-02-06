@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, RefObject, ReactNode } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
+import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
+import { useAtomValue } from 'jotai'
+import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
+import { selectionAtom } from '../../common/state/whiteboardAtoms'
 
 type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 type HandleKind = 'resize' | 'rotate'
@@ -17,25 +21,12 @@ export type TransformHandle = {
 }
 
 export type UseNodeTransformOptions = {
-  core: Core
   node: Node
-  nodeSize: Size
-  zoom?: number
-  containerRef?: RefObject<HTMLElement>
-  screenToWorld?: (point: Point) => Point
   enabled?: boolean
   canRotate?: boolean
   minSize?: Size
   handleSize?: number
   rotateHandleOffset?: number
-  snap?: {
-    enabled: boolean
-    candidates: SnapCandidate[]
-    getCandidates?: (rect: Rect) => SnapCandidate[]
-    thresholdScreen: number
-    zoom: number
-    onGuidesChange?: (guides: Guide[]) => void
-  }
 }
 
 type DragState =
@@ -120,19 +111,25 @@ const getWorldPoint = (
 const rotateVector = (vec: Point, rotation: number) => rotatePoint(vec, { x: 0, y: 0 }, rotation)
 
 export const useNodeTransform = ({
-  core,
   node,
-  nodeSize,
-  zoom = 1,
-  containerRef,
-  screenToWorld,
-  enabled = true,
+  enabled,
   canRotate = true,
   minSize = { width: 20, height: 20 },
   handleSize = 10,
-  rotateHandleOffset = 24,
-  snap
+  rotateHandleOffset = 24
 }: UseNodeTransformOptions) => {
+  const instance = useInstance()
+  const viewport = useViewportStore()
+  const { nodeSize } = useWhiteboardConfig()
+  const snap = useAtomValue(snapRuntimeAtom)
+  const selectionState = useAtomValue(selectionAtom)
+  const tool = (selectionState.tool as 'select' | 'edge') ?? 'select'
+  const resolvedEnabled =
+    enabled ?? (tool === 'select' && selectionState.selectedNodeIds.has(node.id))
+  const containerRef = instance.containerRef ?? undefined
+  const screenToWorld = instance.viewport.screenToWorld ?? undefined
+  const zoom = viewport.zoom
+  const core: Core = instance.core
   const dragRef = useRef<DragState | null>(null)
   const [state, setState] = useState<TransformState>({ isResizing: false, isRotating: false })
 
@@ -140,7 +137,7 @@ export const useNodeTransform = ({
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
 
   const handles = useMemo<TransformHandle[]>(() => {
-    if (!enabled || node.locked) return []
+    if (!resolvedEnabled || node.locked) return []
     const center = getRectCenter(rect)
     const cx = rect.x + rect.width / 2
     const cy = rect.y + rect.height / 2
@@ -178,7 +175,7 @@ export const useNodeTransform = ({
       cursor: 'grab'
     }
     return [...resizeHandles, rotateHandle]
-  }, [canRotate, enabled, node.locked, rect, rotation, rotateHandleOffset, zoom])
+  }, [canRotate, node.locked, rect, resolvedEnabled, rotation, rotateHandleOffset, zoom])
 
   const endDrag = useCallback(() => {
     dragRef.current = null
@@ -187,7 +184,7 @@ export const useNodeTransform = ({
 
   const handlePointerDown = useCallback(
     (handle: TransformHandle, event: ReactPointerEvent<HTMLElement>) => {
-      if (!enabled || node.locked) return
+      if (!resolvedEnabled || node.locked) return
       if (event.button !== 0) return
       event.preventDefault()
       event.stopPropagation()
@@ -224,7 +221,7 @@ export const useNodeTransform = ({
         setState({ isResizing: false, isRotating: true, activeHandleId: handle.id })
       }
     },
-    [canRotate, containerRef, enabled, node.locked, rect, rotation, screenToWorld]
+    [canRotate, containerRef, node.locked, rect, resolvedEnabled, rotation, screenToWorld]
   )
 
   const handlePointerMove = useCallback(

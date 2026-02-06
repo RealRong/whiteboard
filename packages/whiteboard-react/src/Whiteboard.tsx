@@ -1,4 +1,4 @@
-import { RefObject, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useHydrateAtoms } from 'jotai/utils'
 import { DragGuidesLayer, NodeLayerStack, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
@@ -8,78 +8,75 @@ import {
   useResolvedNodeRegistry,
   useViewport
 } from './common/hooks'
-import { useViewportSize, useWhiteboardLifecycle } from './common/lifecycle'
+import { useWhiteboardLifecycle } from './common/lifecycle'
 import { NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from './types'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
-import { mindmapNodeSizeAtom, nodeSizeAtom, whiteboardInputAtom } from './common/state'
+import { docAtom, instanceAtom } from './common/state'
 import { createWhiteboardInstance } from './common/instance'
+import { MindmapLayerStack } from './mindmap/components'
 
-const WhiteboardInner = ({
-  doc,
-  onDocChange,
-  core: externalCore,
-  nodeRegistry,
-  onSelectionChange,
-  onEdgeSelectionChange,
-  className,
-  style,
-  nodeSize = DEFAULT_NODE_SIZE,
-  mindmapNodeSize = DEFAULT_MINDMAP_NODE_SIZE,
-  mindmapLayout = {},
-  viewport: viewportConfig = {},
-  tool = 'select',
-  shortcuts: shortcutsProp
-}: WhiteboardProps) => {
+const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, config }: WhiteboardProps) => {
+  const resolvedConfig = {
+    className: config?.className,
+    style: config?.style,
+    nodeSize: config?.nodeSize ?? DEFAULT_NODE_SIZE,
+    mindmapNodeSize: config?.mindmapNodeSize ?? DEFAULT_MINDMAP_NODE_SIZE,
+    mindmapLayout: config?.mindmapLayout ?? {},
+    viewport: config?.viewport ?? {},
+    tool: config?.tool ?? 'select',
+    shortcuts: config?.shortcuts,
+    onSelectionChange: config?.onSelectionChange,
+    onEdgeSelectionChange: config?.onEdgeSelectionChange
+  }
   const { core, docRef } = useCore({ doc, onDocChange, core: externalCore })
   const registry = useResolvedNodeRegistry(nodeRegistry)
-  const containerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
-  const containerSize = useViewportSize(containerRef)
-  const { viewport, transformStyle, screenToWorld } = useViewport(doc.viewport, containerSize)
+  const containerRef = useRef<HTMLDivElement>(null)
   const instance = useMemo(
-    () => createWhiteboardInstance({ core, docRef, containerRef }),
-    [core, docRef]
+    () =>
+      createWhiteboardInstance({
+        core,
+        docRef,
+        containerRef,
+        config: {
+          nodeSize: resolvedConfig.nodeSize,
+          mindmapNodeSize: resolvedConfig.mindmapNodeSize
+        }
+      }),
+    [core, docRef, resolvedConfig.mindmapNodeSize, resolvedConfig.nodeSize]
   )
-  const inputState = useMemo(
-    () => ({
-      doc,
-      docRef,
-      core,
-      containerRef,
-      screenToWorld,
-      mindmapLayout,
-      instance
-    }),
-    [containerRef, core, doc, docRef, instance, mindmapLayout, screenToWorld]
-  )
-
+  const { viewport, transformStyle } = useViewport({
+    viewport: doc.viewport,
+    containerRef,
+    instance
+  })
   useHydrateAtoms([
-    [whiteboardInputAtom, inputState],
-    [nodeSizeAtom, nodeSize],
-    [mindmapNodeSizeAtom, mindmapNodeSize]
+    [docAtom, doc],
+    [instanceAtom, instance]
   ])
 
-  const containerStyle = useCanvasStyle(style)
+  const containerStyle = useCanvasStyle(resolvedConfig.style)
 
   useWhiteboardLifecycle({
-    shortcutsProp,
-    tool,
+    shortcutsProp: resolvedConfig.shortcuts,
+    tool: resolvedConfig.tool,
     viewport,
-    viewportConfig,
-    onSelectionChange,
-    onEdgeSelectionChange
+    viewportConfig: resolvedConfig.viewport,
+    onSelectionChange: resolvedConfig.onSelectionChange,
+    onEdgeSelectionChange: resolvedConfig.onEdgeSelectionChange
   })
 
   return (
     <NodeRegistryProvider registry={registry}>
       <div
         ref={containerRef}
-        className={className}
+        className={resolvedConfig.className}
         style={containerStyle}
         tabIndex={0}
       >
         <div style={{ position: 'absolute', inset: 0, ...transformStyle }}>
           <EdgeLayerStack />
+          <MindmapLayerStack layout={resolvedConfig.mindmapLayout} />
           <DragGuidesLayer />
           <NodeLayerStack />
         </div>

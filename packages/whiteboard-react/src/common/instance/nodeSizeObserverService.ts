@@ -1,9 +1,9 @@
 import { trimNumber } from '@whiteboard/core'
-import type { Core, Node, NodeId, Size } from '@whiteboard/core'
-import type { RefObject } from 'react'
+import type { Core, NodeId, Size } from '@whiteboard/core'
 
 export type NodeSizeObserverService = {
-  sync: (nodes: Node[], enabled: boolean) => void
+  observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
+  unobserve: (nodeId: NodeId) => void
   dispose: () => void
 }
 
@@ -12,25 +12,22 @@ type PendingUpdate = {
   size: Size
 }
 
-export const createNodeSizeObserverService = (core: Core, containerRef: RefObject<HTMLElement>): NodeSizeObserverService => {
+export const createNodeSizeObserverService = (core: Core): NodeSizeObserverService => {
   let observer: ResizeObserver | null = null
-  let enabled = true
   const observed = new Map<NodeId, Element>()
+  const elementToId = new WeakMap<Element, NodeId>()
+  const lastSize = new Map<NodeId, Size>()
   const pending = new Map<NodeId, Size>()
   let rafId: number | null = null
-  let nodeMap = new Map<NodeId, Node>()
 
   const flush = () => {
     rafId = null
     if (!pending.size) return
     const updates: PendingUpdate[] = []
     pending.forEach((size, id) => {
-      const node = nodeMap.get(id)
-      if (!node) return
-      const current = node.size
-      if (current && Math.abs(current.width - size.width) < 0.5 && Math.abs(current.height - size.height) < 0.5) {
-        return
-      }
+      const current = lastSize.get(id)
+      if (current && Math.abs(current.width - size.width) < 0.5 && Math.abs(current.height - size.height) < 0.5) return
+      lastSize.set(id, size)
       updates.push({ id, size })
     })
     pending.clear()
@@ -49,7 +46,7 @@ export const createNodeSizeObserverService = (core: Core, containerRef: RefObjec
       for (const entry of entries) {
         const target = entry.target as HTMLElement | null
         if (!target) continue
-        const nodeId = target.dataset.nodeId
+        const nodeId = elementToId.get(target)
         if (!nodeId) continue
         const box = entry.borderBoxSize?.[0]
         const width = trimNumber(box?.inlineSize ?? entry.contentRect.width)
@@ -63,34 +60,11 @@ export const createNodeSizeObserverService = (core: Core, containerRef: RefObjec
     })
   }
 
-  const syncObserved = () => {
-    if (!observer) return
-    const root = containerRef.current
-    if (!root) return
-
-    const nextObserved = new Map<NodeId, Element>()
-    nodeMap.forEach((_, id) => {
-      const element = root.querySelector(`[data-node-id="${id}"]`)
-      if (!element) return
-      nextObserved.set(id, element)
-      if (!observed.has(id)) {
-        observer?.observe(element)
-      }
-    })
-
-    observed.forEach((element, id) => {
-      if (nextObserved.has(id)) return
-      observer?.unobserve(element)
-    })
-
-    observed.clear()
-    nextObserved.forEach((element, id) => observed.set(id, element))
-  }
-
   const disconnect = () => {
     observer?.disconnect()
     observer = null
     observed.clear()
+    lastSize.clear()
     pending.clear()
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
@@ -98,16 +72,34 @@ export const createNodeSizeObserverService = (core: Core, containerRef: RefObjec
     }
   }
 
-  const sync = (nodes: Node[], nextEnabled: boolean) => {
-    enabled = nextEnabled
-    nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const observe = (nodeId: NodeId, element: Element, enabled = true) => {
     if (!enabled) {
-      disconnect()
+      unobserve(nodeId)
       return
     }
-    if (!containerRef.current) return
     ensureObserver()
-    syncObserved()
+    const prev = observed.get(nodeId)
+    if (prev && prev !== element) {
+      observer?.unobserve(prev)
+    }
+    if (prev !== element) {
+      observed.set(nodeId, element)
+      elementToId.set(element, nodeId)
+      observer?.observe(element)
+    }
+  }
+
+  const unobserve = (nodeId: NodeId) => {
+    const prev = observed.get(nodeId)
+    if (prev) {
+      observer?.unobserve(prev)
+    }
+    observed.delete(nodeId)
+    lastSize.delete(nodeId)
+    pending.delete(nodeId)
+    if (!observed.size) {
+      disconnect()
+    }
   }
 
   const dispose = () => {
@@ -115,7 +107,8 @@ export const createNodeSizeObserverService = (core: Core, containerRef: RefObjec
   }
 
   return {
-    sync,
+    observe,
+    unobserve,
     dispose
   }
 }

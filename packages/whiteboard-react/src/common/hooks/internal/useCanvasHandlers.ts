@@ -1,14 +1,14 @@
 import { useCallback } from 'react'
 import type { Point, Viewport } from '@whiteboard/core'
-import type { ViewportConfig } from '../types'
-import { useEdgeConnect } from '../../edge/hooks'
-import { useSelection } from '../../node/hooks'
-import { useInstance } from './useInstance'
-import { useInteractionActions } from './useInteractionActions'
-import { useShortcutContextValue } from './useShortcutContextValue'
+import { useAtomValue } from 'jotai'
+import type { ViewportConfig } from '../../types'
+import { useEdgeConnect } from '../../../edge/hooks'
+import { useSelection } from '../../../node/hooks'
+import { useInstance } from '../useInstance'
+import { useInteraction } from '../useInteraction'
 import { useViewportInteraction } from './useViewportInteraction'
-import { useWhiteboardInput } from './useWhiteboardInput'
-import { useShortcutHandlers } from '../shortcuts/useShortcutHandlers'
+import { useShortcutHandlers } from '../../shortcuts/useShortcutHandlers'
+import { shortcutContextAtom } from '../../state/whiteboardAtoms'
 
 type Options = {
   tool?: 'select' | 'edge'
@@ -20,19 +20,18 @@ const identityScreenToWorld = (point: Point) => point
 
 export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }: Options) => {
   const instance = useInstance()
-  const input = useWhiteboardInput()
   const selection = useSelection()
   const { selectEdge, updateHover } = useEdgeConnect()
   const selectionHandlers = selection.handlers
-  const shortcutContext = useShortcutContextValue()
-  const { updateInteraction } = useInteractionActions()
+  const shortcutContext = useAtomValue(shortcutContextAtom)
+  const { update: updateInteraction } = useInteraction()
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({
       shortcutManager: instance.shortcutManager,
       shortcutContext,
       updateInteraction
     })
-  const screenToWorld = input.screenToWorld ?? identityScreenToWorld
+  const screenToWorld = instance.viewport.screenToWorld ?? identityScreenToWorld
   const { viewportHandlers, onWheel } = useViewportInteraction({
     core: instance.core,
     viewport,

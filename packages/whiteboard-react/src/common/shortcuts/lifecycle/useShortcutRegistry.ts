@@ -5,7 +5,7 @@ import { createDefaultShortcuts } from '../defaultShortcuts'
 import type { Shortcut } from '../types'
 import type { ShortcutManager } from '../shortcutManager'
 import { viewGraphAtom } from '../../state/whiteboardDerivedAtoms'
-import { nodeSizeAtom } from '../../state/whiteboardInputAtoms'
+import { useWhiteboardConfig } from '../../hooks'
 import { useSelection } from '../../../node/hooks'
 import { useEdgeConnect } from '../../../edge/hooks'
 
@@ -40,7 +40,7 @@ export const useShortcutRegistry = ({
 }: Options) => {
   const selection = useSelection()
   const { selectEdge } = useEdgeConnect()
-  const nodeSize = useAtomValue(nodeSizeAtom)
+  const { nodeSize } = useWhiteboardConfig()
   const viewGraph = useAtomValue(viewGraphAtom)
 
   const defaults = useMemo(

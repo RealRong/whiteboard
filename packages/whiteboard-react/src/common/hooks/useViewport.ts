@@ -1,14 +1,36 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import type { Point, Viewport } from '@whiteboard/core'
+import type { RefObject } from 'react'
+import type { Size } from '../types'
+import type { WhiteboardInstance } from '../instance/whiteboardInstance'
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },
   zoom: 1
 }
 
-type Size = { width: number; height: number }
+type Options = {
+  viewport?: Viewport
+  containerRef: RefObject<HTMLElement>
+  instance?: WhiteboardInstance
+}
 
-export const useViewport = (viewport: Viewport | undefined, size: Size) => {
+export const useViewport = ({ viewport, containerRef, instance }: Options) => {
+  const [size, setSize] = useState<Size>({ width: 0, height: 0 })
+
+  useLayoutEffect(() => {
+    const element = containerRef.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      setSize({ width, height })
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [containerRef])
+
   const actual = viewport ?? DEFAULT_VIEWPORT
   const screenCenter = useMemo(
     () => ({ x: size.width / 2, y: size.height / 2 }),
@@ -38,6 +60,17 @@ export const useViewport = (viewport: Viewport | undefined, size: Size) => {
     }),
     [actual.center.x, actual.center.y, actual.zoom, screenCenter.x, screenCenter.y]
   )
+
+  useLayoutEffect(() => {
+    if (!instance) return
+    instance.viewport.set({
+      viewport: actual,
+      screenToWorld,
+      worldToScreen,
+      screenCenter,
+      containerSize: size
+    })
+  }, [actual, instance, screenCenter, screenToWorld, size, worldToScreen])
 
   return {
     viewport: actual,

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { RefObject } from 'react'
 import type { Core, Point, Viewport } from '@whiteboard/core'
-import type { ViewportConfig } from '../types'
+import type { ViewportConfig } from '../../types'
 import { useViewportControls } from './useViewportControls'
 
 type Options = {

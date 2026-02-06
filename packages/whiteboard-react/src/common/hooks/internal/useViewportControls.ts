@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { Core, Point, Viewport } from '@whiteboard/core'
-import { useSpacePressed } from './useSpacePressed'
+import { useSpacePressed } from '../useSpacePressed'
 
 type Options = {
   core: Core

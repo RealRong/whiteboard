@@ -1,18 +1,19 @@
 import { useEffect, useMemo } from 'react'
 import { useSetAtom } from 'jotai'
 import type { EdgeInput, EdgePatch, NodeInput, NodePatch } from '@whiteboard/core'
-import { setSelectionAtom, updateInteractionAtom } from '../state/whiteboardAtoms'
+import { selectionAtom } from '../state/whiteboardAtoms'
 import { useSelection } from '../../node/hooks'
 import { useEdgeConnect } from '../../edge/hooks'
 import { useInstance } from '../hooks/useInstance'
+import { useInteraction } from '../hooks/useInteraction'
 import type { WhiteboardCommands } from '../instance/whiteboardInstance'
 
 export const useInstanceCommands = () => {
   const instance = useInstance()
   const selection = useSelection()
   const edgeConnect = useEdgeConnect()
-  const setSelection = useSetAtom(setSelectionAtom)
-  const updateInteraction = useSetAtom(updateInteractionAtom)
+  const setSelection = useSetAtom(selectionAtom)
+  const { update: updateInteraction } = useInteraction()
 
   const commands = useMemo<WhiteboardCommands>(() => {
     const core = instance.core

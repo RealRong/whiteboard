@@ -1,5 +1,6 @@
 export { useEdgeConnect } from './useEdgeConnect'
 export type { UseEdgeConnectReturn } from './useEdgeConnect'
+export { useEdgeConnectRuntime } from './useEdgeConnectRuntime'
 export { useEdgeGeometry } from './useEdgeGeometry'
 export { useEdgeHitTest } from './useEdgeHitTest'
 export { useEdgeHover } from './useEdgeHover'

@@ -1,66 +1,11 @@
-import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { RefObject } from 'react'
+import type { Node } from '@whiteboard/core'
 import { useMemo } from 'react'
-import type { MindmapLayoutConfig } from '../../mindmap/types'
-import type { Size } from '../../common/types'
-import type { NodeTransientApi, UseSelectionReturn } from '../hooks'
-import type { UseEdgeConnectReturn } from '../../edge/hooks'
-import type { Guide, SnapCandidate } from '../utils/snap'
-import { MindmapLayer } from '../../mindmap/components'
+import { useViewGraph } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
-import { useNodeSizeObserver } from '../lifecycle'
 
-type NodeLayerProps = {
-  nodes: Node[]
-  core: Core
-  nodeSize: Size
-  zoom: number
-  selection?: UseSelectionReturn
-  edgeConnect?: UseEdgeConnectReturn
-  tool?: 'select' | 'edge'
-  containerRef?: RefObject<HTMLElement>
-  screenToWorld?: (point: Point) => Point
-  group?: {
-    nodes: Node[]
-    nodeSize: Size
-    padding?: number
-    hoveredGroupId?: NodeId
-    onHoverGroupChange?: (groupId?: NodeId) => void
-  }
-  mindmap?: {
-    nodes: Node[]
-    nodeSize: Size
-    layout: MindmapLayoutConfig
-    core: Core
-    screenToWorld: (point: Point) => Point
-    containerRef?: RefObject<HTMLElement>
-  }
-  snap?: {
-    enabled: boolean
-    candidates: SnapCandidate[]
-    getCandidates?: (rect: Rect) => SnapCandidate[]
-    thresholdScreen: number
-    zoom: number
-    onGuidesChange?: (guides: Guide[]) => void
-  }
-  transient?: NodeTransientApi
-}
-
-export const NodeLayer = ({
-  nodes,
-  core,
-  nodeSize,
-  zoom,
-  selection,
-  edgeConnect,
-  tool,
-  containerRef,
-  screenToWorld,
-  group,
-  mindmap,
-  snap,
-  transient
-}: NodeLayerProps) => {
+export const NodeLayer = () => {
+  const viewGraph = useViewGraph()
+  const nodes = viewGraph.canvasNodes
   const orderedNodes = useMemo(() => {
     const groups: Node[] = []
     const rest: Node[] = []
@@ -73,35 +18,10 @@ export const NodeLayer = ({
     })
     return [...groups, ...rest]
   }, [nodes])
-  useNodeSizeObserver({ core, nodes: orderedNodes, containerRef, enabled: true })
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      {mindmap ? (
-        <MindmapLayer
-          nodes={mindmap.nodes}
-          nodeSize={mindmap.nodeSize}
-          layout={mindmap.layout}
-          core={mindmap.core}
-          screenToWorld={mindmap.screenToWorld}
-          containerRef={mindmap.containerRef}
-        />
-      ) : null}
       {orderedNodes.map((node) => (
-        <NodeItem
-          key={node.id}
-          node={node}
-          core={core}
-          fallbackSize={nodeSize}
-          zoom={zoom}
-          selection={selection}
-          edgeConnect={edgeConnect}
-          tool={tool}
-          containerRef={containerRef}
-          screenToWorld={screenToWorld}
-          group={group}
-          snap={snap}
-          transient={transient}
-        />
+        <NodeItem key={node.id} node={node} />
       ))}
     </div>
   )

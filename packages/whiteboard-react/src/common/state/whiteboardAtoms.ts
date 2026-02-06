@@ -115,34 +115,6 @@ export const edgeConnectAtom = atom<EdgeConnectState>({
   isConnecting: false
 })
 
-export const updateInteractionAtom = atom(null, (get, set, patch: Partial<InteractionState>) => {
-  const prev = get(interactionAtom)
-  set(interactionAtom, {
-    ...prev,
-    ...patch,
-    focus: patch.focus ? { ...prev.focus, ...patch.focus } : prev.focus,
-    pointer: patch.pointer
-      ? {
-          ...prev.pointer,
-          ...patch.pointer,
-          modifiers: patch.pointer.modifiers
-            ? { ...prev.pointer.modifiers, ...patch.pointer.modifiers }
-            : prev.pointer.modifiers
-        }
-      : prev.pointer,
-    hover: patch.hover ? { ...prev.hover, ...patch.hover } : prev.hover
-  })
-})
-
-export const setSelectionAtom = atom(null, (get, set, updater: (prev: SelectionStore) => SelectionStore) => {
-  set(selectionAtom, updater(get(selectionAtom)))
-})
-
-export const updateViewportAtom = atom(null, (get, set, patch: Partial<ViewportState>) => {
-  const prev = get(viewportAtom)
-  set(viewportAtom, { ...prev, ...patch })
-})
-
 export const shortcutContextAtom = atom<ShortcutContext>((get) => {
   const platform = get(platformAtom)
   const interaction = get(interactionAtom)

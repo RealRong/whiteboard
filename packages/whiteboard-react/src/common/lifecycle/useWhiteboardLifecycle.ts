@@ -11,7 +11,7 @@ import { useShortcutStateSync } from '../shortcuts/lifecycle/useShortcutStateSyn
 import { useSelection } from '../../node/hooks'
 import { useInstance } from '../hooks/useInstance'
 import { DEFAULT_GROUP_PADDING } from '../../node/constants'
-import { useCanvasHandlers } from '../hooks/useCanvasHandlers'
+import { useCanvasHandlers } from '../hooks/internal/useCanvasHandlers'
 import type { ViewportConfig } from '../types'
 
 type Options = {

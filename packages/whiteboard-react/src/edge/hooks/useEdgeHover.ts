@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react'
-import { useInteractionActions } from '../../common/hooks/useInteractionActions'
+import { useInteraction } from '../../common/hooks/useInteraction'
 
 export const useEdgeHover = () => {
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | undefined>(undefined)
-  const { updateInteraction } = useInteractionActions()
+  const { update: updateInteraction } = useInteraction()
 
   const handleHoverChange = useCallback(
     (edgeId: string, hovered: boolean) => {

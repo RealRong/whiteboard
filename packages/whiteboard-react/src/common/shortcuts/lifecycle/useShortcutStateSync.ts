@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { Viewport } from '@whiteboard/core'
 import { useSetAtom } from 'jotai'
-import { setSelectionAtom, updateViewportAtom } from '../../state/whiteboardAtoms'
+import { selectionAtom, viewportAtom } from '../../state/whiteboardAtoms'
 
 type Options = {
   tool: string
@@ -9,14 +9,14 @@ type Options = {
 }
 
 export const useShortcutStateSync = ({ tool, viewport }: Options) => {
-  const setSelection = useSetAtom(setSelectionAtom)
-  const updateViewport = useSetAtom(updateViewportAtom)
+  const setSelection = useSetAtom(selectionAtom)
+  const setViewport = useSetAtom(viewportAtom)
 
   useEffect(() => {
     setSelection((prev) => ({ ...prev, tool }))
   }, [setSelection, tool])
 
   useEffect(() => {
-    updateViewport({ zoom: viewport.zoom })
-  }, [updateViewport, viewport.zoom])
+    setViewport((prev) => ({ ...prev, zoom: viewport.zoom }))
+  }, [setViewport, viewport.zoom])
 }

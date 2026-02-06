@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEventHandler, ReactNode } from 'react'
+import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
 import { createContext, useContext } from 'react'
 import type { Core, Node, Rect } from '@whiteboard/core'
 
@@ -7,6 +7,7 @@ export type NodeContainerProps = {
   nodeId?: string
   selected: boolean
   style?: CSSProperties
+  ref?: Ref<HTMLDivElement>
   onPointerDown?: PointerEventHandler<HTMLDivElement>
   onPointerMove?: PointerEventHandler<HTMLDivElement>
   onPointerUp?: PointerEventHandler<HTMLDivElement>

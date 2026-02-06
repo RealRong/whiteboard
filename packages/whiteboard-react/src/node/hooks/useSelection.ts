@@ -4,10 +4,10 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { SelectionMode, SelectionState } from '../../common/state/whiteboardAtoms'
-import { selectionAtom, setSelectionAtom } from '../../common/state/whiteboardAtoms'
-import { useWhiteboardInput } from '../../common/hooks/useWhiteboardInput'
+import { selectionAtom } from '../../common/state/whiteboardAtoms'
+import { useInstance } from '../../common/hooks/useInstance'
 import { useViewGraph } from '../../common/hooks/useViewGraph'
-import { useNodeSize } from '../../common/hooks/useNodeSize'
+import { useWhiteboardConfig } from '../../common/hooks'
 import { useSpacePressed } from '../../common/hooks/useSpacePressed'
 import {
   getNodeRect,
@@ -17,6 +17,7 @@ import {
   rectIntersects,
   rectIntersectsRotatedRect
 } from '../../common/utils/geometry'
+import { applySelectionMode, getSelectionModeFromEvent } from '../utils/selection'
 
 export type { SelectionMode, SelectionState }
 
@@ -54,54 +55,24 @@ export type UseSelectionReturn = {
   cancelPendingRaf: () => void
 }
 
-const applySelectionMode = (current: Set<string>, ids: string[], mode: SelectionMode) => {
-  const next = new Set(current)
-  if (mode === 'replace') {
-    next.clear()
-    ids.forEach((id) => next.add(id))
-    return next
-  }
-  if (mode === 'add') {
-    ids.forEach((id) => next.add(id))
-    return next
-  }
-  if (mode === 'subtract') {
-    ids.forEach((id) => next.delete(id))
-    return next
-  }
-  ids.forEach((id) => {
-    if (next.has(id)) {
-      next.delete(id)
-    } else {
-      next.add(id)
-    }
-  })
-  return next
-}
-
 export const useSelection = (options: UseSelectionOptions = {}): UseSelectionReturn => {
   const state = useAtomValue(selectionAtom)
-  const setSelection = useSetAtom(setSelectionAtom)
-  const input = useWhiteboardInput()
+  const setSelection = useSetAtom(selectionAtom)
+  const instance = useInstance()
   const viewGraph = useViewGraph()
-  const fallbackNodeSize = useNodeSize()
+  const { nodeSize: fallbackNodeSize } = useWhiteboardConfig()
   const spacePressed = useSpacePressed()
   const startRef = useRef<Point | null>(null)
   const modeRef = useRef<SelectionMode>('replace')
   const rafRef = useRef<number | null>(null)
   const minDragDistance = options.minDragDistance ?? 3
   const enabled = options.enabled ?? state.tool !== 'edge'
-  const containerRef = options.containerRef ?? input.containerRef ?? undefined
-  const screenToWorld = options.screenToWorld ?? input.screenToWorld ?? undefined
+  const containerRef = options.containerRef ?? instance.containerRef ?? undefined
+  const screenToWorld = options.screenToWorld ?? instance.viewport.screenToWorld ?? undefined
   const nodes = options.nodes ?? viewGraph.canvasNodes
-  const nodeSize = options.nodeSize ?? fallbackNodeSize ?? { width: 1, height: 1 }
+  const nodeSize = options.nodeSize ?? fallbackNodeSize
 
-  const getModeFromEvent = useCallback((event: PointerEvent | MouseEvent): SelectionMode => {
-    if (event.altKey) return 'subtract'
-    if (event.metaKey || event.ctrlKey) return 'toggle'
-    if (event.shiftKey) return 'add'
-    return 'replace'
-  }, [])
+  const getModeFromEvent = useCallback(getSelectionModeFromEvent, [])
 
   const getClickModeFromEvent = getModeFromEvent
 

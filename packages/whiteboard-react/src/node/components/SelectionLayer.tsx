@@ -1,12 +1,13 @@
 import type { Rect } from '@whiteboard/core'
-import { useSelectionOverlay } from '../hooks'
+import { useSelection } from '../hooks'
 
 type SelectionLayerProps = {
   rect?: Rect
 }
 
 export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
-  const resolvedRect = useSelectionOverlay(rect)
+  const selection = useSelection()
+  const resolvedRect = rect ?? (selection.tool === 'edge' ? undefined : selection.selectionRect)
   if (!resolvedRect) return null
   return (
     <div
