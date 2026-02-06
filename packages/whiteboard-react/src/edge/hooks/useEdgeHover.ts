@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useInteraction } from '../../common/hooks/useInteraction'
+import { useInteraction } from '../../common/hooks'
 
 export const useEdgeHover = () => {
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | undefined>(undefined)

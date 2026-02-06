@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { Node, NodeId } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import { getAnchorPoint, getNodeRect } from '../../common/utils/geometry'
-import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
+import type { EdgeConnectState } from '../../common/state'
 
 type Options = {
   state: EdgeConnectState

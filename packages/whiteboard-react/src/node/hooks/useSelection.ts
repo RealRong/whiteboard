@@ -1,14 +1,11 @@
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom } from 'jotai'
 import { useCallback, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
-import type { SelectionMode, SelectionState } from '../../common/state/whiteboardAtoms'
-import { selectionAtom } from '../../common/state/whiteboardAtoms'
-import { useInstance } from '../../common/hooks/useInstance'
-import { useViewGraph } from '../../common/hooks/useViewGraph'
-import { useWhiteboardConfig } from '../../common/hooks'
-import { useSpacePressed } from '../../common/hooks/useSpacePressed'
+import type { SelectionMode, SelectionState } from '../../common/state'
+import { selectionAtom } from '../../common/state'
+import { useInstance, useSpacePressed, useViewGraph, useWhiteboardConfig } from '../../common/hooks'
 import {
   getNodeRect,
   rectContains,
@@ -56,8 +53,7 @@ export type UseSelectionReturn = {
 }
 
 export const useSelection = (options: UseSelectionOptions = {}): UseSelectionReturn => {
-  const state = useAtomValue(selectionAtom)
-  const setSelection = useSetAtom(selectionAtom)
+  const [state, setSelection] = useAtom(selectionAtom)
   const instance = useInstance()
   const viewGraph = useViewGraph()
   const { nodeSize: fallbackNodeSize } = useWhiteboardConfig()

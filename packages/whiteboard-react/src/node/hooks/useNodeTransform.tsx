@@ -7,7 +7,7 @@ import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geom
 import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
 import { useAtomValue } from 'jotai'
 import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
-import { selectionAtom } from '../../common/state/whiteboardAtoms'
+import { selectionAtom } from '../../common/state'
 
 type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 type HandleKind = 'resize' | 'rotate'

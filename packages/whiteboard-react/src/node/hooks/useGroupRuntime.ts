@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom } from 'jotai'
 import type { NodeId } from '@whiteboard/core'
 import type { GroupRuntime } from '../state/groupRuntimeAtom'
 import { groupRuntimeAtom } from '../state/groupRuntimeAtom'
@@ -10,8 +10,7 @@ export type GroupRuntimeStore = GroupRuntime & {
 }
 
 export const useGroupRuntime = (): GroupRuntimeStore => {
-  const runtime = useAtomValue(groupRuntimeAtom)
-  const setRuntimeAtom = useSetAtom(groupRuntimeAtom)
+  const [runtime, setRuntimeAtom] = useAtom(groupRuntimeAtom)
 
   const setRuntime = useCallback(
     (next: Pick<GroupRuntime, 'nodes' | 'nodeSize' | 'padding'>) => {

@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { PointerEvent } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { Guide, SnapCandidate, SnapResult } from '../utils/snap'
 import { computeSnap } from '../utils/snap'
@@ -11,9 +11,9 @@ import type { NodeTransientApi, NodeViewUpdate } from './useNodeViewState'
 import { useInstance, useInteraction, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
 import { useGroupRuntime } from './useGroupRuntime'
 import { useEdgeConnectRuntime } from '../../edge/hooks'
-import { selectionAtom } from '../../common/state/whiteboardAtoms'
+import { selectionAtom } from '../../common/state'
 import { applySelectionMode, getSelectionModeFromEvent } from '../utils/selection'
-import type { SelectionMode } from '../../common/state/whiteboardAtoms'
+import type { SelectionMode } from '../../common/state'
 import type { UseEdgeConnectReturn } from '../../edge/hooks'
 import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
 import { nodeTransientAtom } from '../state/nodeTransientAtom'
@@ -42,8 +42,7 @@ export const useNodeInteraction = ({ node }: Options) => {
   const instance = useInstance()
   const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
-  const selectionState = useAtomValue(selectionAtom)
-  const updateSelection = useSetAtom(selectionAtom)
+  const [selectionState, updateSelection] = useAtom(selectionAtom)
   const { update: updateInteraction } = useInteraction()
   const edgeConnectRuntime = useEdgeConnectRuntime()
   const groupRuntime = useGroupRuntime()

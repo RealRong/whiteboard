@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import { getEdgePath } from '@whiteboard/core'
-import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
+import type { EdgeConnectState } from '../../common/state'
 import type { Size } from '../../common/types'
 import { getAnchorPoint, getNodeRect, getRectCenter } from '../../common/utils/geometry'
 

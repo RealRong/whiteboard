@@ -7,7 +7,7 @@ import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaul
 import { useNodeRegistry } from '../registry'
 import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
-import { selectionAtom } from '../../common/state/whiteboardAtoms'
+import { selectionAtom } from '../../common/state'
 import { useGroupRuntime } from './useGroupRuntime'
 
 type DragHandlers = {

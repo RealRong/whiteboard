@@ -1,11 +1,10 @@
 import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, rotatePoint } from '../../common/utils/geometry'
-import { viewGraphAtom } from '../../common/state/whiteboardDerivedAtoms'
-import { edgeConnectAtom, selectionAtom, viewportAtom } from '../../common/state/whiteboardAtoms'
-import type { EdgeConnectState } from '../../common/state/whiteboardAtoms'
+import { edgeConnectAtom, selectionAtom, viewGraphAtom, viewportAtom } from '../../common/state'
+import type { EdgeConnectState } from '../../common/state'
 import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 
 type ConnectTo = NonNullable<EdgeConnectState['to']>
@@ -83,9 +82,8 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
   const viewport = useAtomValue(viewportAtom)
   const screenToWorld = instance.viewport.screenToWorld ?? undefined
   const containerRef = instance.containerRef ?? undefined
-  const selectionState = useAtomValue(selectionAtom)
+  const [selectionState, setSelection] = useAtom(selectionAtom)
   const [state, setState] = useAtom(edgeConnectAtom)
-  const setSelection = useSetAtom(selectionAtom)
 
   const tool = (selectionState.tool as 'select' | 'edge') ?? 'select'
   const selectedEdgeId = selectionState.selectedEdgeId
