@@ -7,7 +7,7 @@ type Options = {
   core: Core
   viewport: Viewport
   screenToWorld: (point: Point) => Point
-  containerRef: RefObject<HTMLElement>
+  containerRef: RefObject<HTMLElement | null>
   minZoom?: number
   maxZoom?: number
   enablePan?: boolean

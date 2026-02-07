@@ -42,6 +42,9 @@ export const EdgeItem = ({
         onClick={onClick}
         onPointerEnter={() => onHoverChange?.(true)}
         onPointerLeave={() => onHoverChange?.(false)}
+        style={{
+          vectorEffect: 'non-scaling-stroke'
+        }}
       />
       <path
         d={path.svgPath}

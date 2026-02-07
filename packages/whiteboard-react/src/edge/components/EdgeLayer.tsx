@@ -11,7 +11,7 @@ type EdgeLayerProps = {
   edges: Edge[]
   nodeSize: Size
   zoom?: number
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
   hitTestThresholdScreen?: number
   selectedEdgeId?: string

@@ -65,6 +65,25 @@ Always reply in Chinese.
   - Core runtime (drag/resize/snap/group) follows the legacy style: instance-centric, command/handler driven, event flow first.
   - UI composition (layers/components) follows the new style: semantic hooks + thin components + Jotai state.
   - Keep the boundary explicit: runtime owns behavior; UI owns composition.
+- Viewport/zoom performance pattern (getter + CSS variables):
+  - Prefer runtime getters (e.g. `instance.viewport.getZoom()`) for hot-path interaction math (drag, hit-test, snap threshold, reconnect calculations).
+  - Do not subscribe to atom/state for zoom in hot handlers unless rerender is strictly required.
+  - Use atom/state only when value changes must trigger React render/effect for UI composition.
+  - Inject `--wb-zoom` at a high-level container (from viewport runtime), then consume it in visual-only elements.
+  - Prefer CSS `calc(... / var(--wb-zoom, 1))` for handle sizes, offsets, border widths, icon/font sizes.
+  - Prefer `vectorEffect="non-scaling-stroke"` for SVG lines/paths that should keep screen-space stroke width.
+  - Keep zoom model single-source: document viewport in Jotai/core state, runtime geometry in instance, visual scaling in CSS vars.
+  - Decision rule:
+    - If it is interaction logic math: getter first.
+    - If it is visual scale only: CSS variable first.
+    - If it must drive React rendering semantics: state subscription.
+- Anti-patterns (avoid these):
+  - Do not pass `zoom` through many hooks/props only for math; read it from runtime getter at use-site.
+  - Do not create extra zoom atoms/selectors for each feature or layer.
+  - Do not use React state updates in `pointermove` for visual-only scale changes.
+  - Do not recompute zoom-based inline styles in large render loops when CSS vars can express them.
+  - Do not mix world-space and screen-space values without explicit naming (e.g. `thresholdScreen` vs `thresholdWorld`).
+  - Do not keep multiple zoom sources (atom + local state + ref) alive simultaneously.
 - Example (how to emulate the pattern):
 ```ts
 // runtime action hook (legacy-style behavior module)

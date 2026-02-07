@@ -175,7 +175,7 @@ export const createEmptyCommands = (): WhiteboardCommands => ({
 export type WhiteboardInstance = {
   core: Core
   docRef: RefObject<Document>
-  containerRef: RefObject<HTMLDivElement>
+  containerRef: RefObject<HTMLDivElement | null>
   getContainer: () => HTMLDivElement | null
   config: WhiteboardInstanceConfig
   services: {
@@ -219,7 +219,7 @@ export type WhiteboardInstance = {
 export type CreateWhiteboardInstanceOptions = {
   core: Core
   docRef: RefObject<Document>
-  containerRef: RefObject<HTMLDivElement>
+  containerRef: RefObject<HTMLDivElement | null>
   shortcutManager?: ShortcutManager
   config?: Partial<WhiteboardInstanceConfig>
 }

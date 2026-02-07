@@ -13,7 +13,7 @@ export { EdgeControlPointHandles } from './edge/components/EdgeControlPointHandl
 export { MindmapLayer } from './mindmap/components/MindmapLayer'
 export { PropertyPanel } from './common/components/PropertyPanel'
 export { SchemaForm } from './common/components/SchemaForm'
-export { useCore, useInteraction, useInstance, useViewport, useWhiteboardConfig } from './common/hooks'
+export { useCore, useInteraction, useInstance, useViewportRuntime, useWhiteboardConfig } from './common/hooks'
 export { useNodeInteraction } from './node/hooks/useNodeInteraction'
 export { useNodePresentation } from './node/hooks/useNodePresentation'
 export { useSnapRuntime } from './node/hooks/useSnapRuntime'

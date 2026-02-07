@@ -9,7 +9,6 @@ export type NodeDragSnapOptions = {
   candidates: SnapCandidate[]
   getCandidates?: (rect: Rect) => SnapCandidate[]
   thresholdScreen: number
-  zoom: number
   onGuidesChange?: (guides: Guide[]) => void
 }
 

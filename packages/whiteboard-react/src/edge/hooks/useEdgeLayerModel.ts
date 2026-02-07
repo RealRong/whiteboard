@@ -12,7 +12,7 @@ type Options = {
   edges: Edge[]
   nodeSize: Size
   zoom: number
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
   edgeConnect: UseEdgeConnectReturn
   nodeMap: Map<NodeId, Node>

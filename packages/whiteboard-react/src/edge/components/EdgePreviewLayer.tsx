@@ -8,6 +8,7 @@ type EdgePreviewLayerProps = {
 
 export const EdgePreviewLayer = ({ from, to, snap }: EdgePreviewLayerProps) => {
   if (!from && !to && !snap) return null
+  const pointScale = 'scale(calc(1 / var(--wb-zoom, 1)))'
   return (
     <svg
       width="100%"
@@ -24,9 +25,10 @@ export const EdgePreviewLayer = ({ from, to, snap }: EdgePreviewLayerProps) => {
             stroke="rgba(17,24,39,0.7)"
             strokeWidth={2}
             strokeDasharray="6 4"
+            vectorEffect="non-scaling-stroke"
           />
-          <circle cx={from.x} cy={from.y} r={4} fill="#111827" />
-          <circle cx={to.x} cy={to.y} r={4} fill="#111827" />
+          <circle cx={from.x} cy={from.y} r={4} fill="#111827" style={{ transformOrigin: 'center', transform: pointScale }} />
+          <circle cx={to.x} cy={to.y} r={4} fill="#111827" style={{ transformOrigin: 'center', transform: pointScale }} />
         </>
       )}
       {snap && (
@@ -37,6 +39,8 @@ export const EdgePreviewLayer = ({ from, to, snap }: EdgePreviewLayerProps) => {
           fill="rgba(59,130,246,0.2)"
           stroke="#2563eb"
           strokeWidth={2}
+          vectorEffect="non-scaling-stroke"
+          style={{ transformOrigin: 'center', transform: pointScale }}
         />
       )}
     </svg>

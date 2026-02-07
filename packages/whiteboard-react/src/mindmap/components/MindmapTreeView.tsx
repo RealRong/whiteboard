@@ -255,6 +255,7 @@ export const MindmapTreeView = ({
             y2={line.y2 + shiftY}
             stroke="#2f2f33"
             strokeWidth={2}
+            vectorEffect="non-scaling-stroke"
             style={{ transition: dragPreview ? 'none' : 'all 160ms ease' }}
           />
         ))}
@@ -302,6 +303,7 @@ export const MindmapTreeView = ({
                 stroke="#2563eb"
                 strokeWidth={2}
                 strokeDasharray="4 4"
+                vectorEffect="non-scaling-stroke"
               />
             )}
             {dragPreview.drop?.insertLine && (
@@ -312,6 +314,7 @@ export const MindmapTreeView = ({
                 y2={dragPreview.drop.insertLine.y2 - baseOffset.y}
                 stroke="#2563eb"
                 strokeWidth={2}
+                vectorEffect="non-scaling-stroke"
               />
             )}
           </svg>

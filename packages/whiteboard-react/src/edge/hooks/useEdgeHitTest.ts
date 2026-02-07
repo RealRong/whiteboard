@@ -4,7 +4,7 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, 
 import { distancePointToSegment } from '../../common/utils/geometry'
 
 type Options = {
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
   onSelectEdge?: (id?: string) => void
   onInsertPoint?: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void

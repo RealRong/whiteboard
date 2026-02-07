@@ -4,7 +4,7 @@ import type { Core, Node, Rect } from '@whiteboard/core'
 import type { NodeContainerProps, NodeDefinition, NodeRenderProps } from '../registry/nodeRegistry'
 import { getNodeDefinitionStyle } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
-import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
 import { useNodeSelectionFlags } from './useNodeSelectionFlags'
 
@@ -29,7 +29,7 @@ export const useNodePresentation = ({
 }: Options): NodePresentation => {
   const instance = useInstance()
   const registry = useNodeRegistry()
-  const viewport = useViewportStore()
+  const zoom = instance.viewport.getZoom()
   const { nodeSize } = useWhiteboardConfig()
   const { selected, hovered } = useNodeSelectionFlags(node.id)
 
@@ -38,8 +38,6 @@ export const useNodePresentation = ({
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
   const core: Core = instance.core
-  const zoom = viewport.zoom
-
   const nodeStyle = useMemo(
     () =>
       getNodeDefinitionStyle(definition, {

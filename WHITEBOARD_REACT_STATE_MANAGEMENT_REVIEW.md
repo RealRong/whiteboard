@@ -30,7 +30,7 @@
 | `edgeSelectionAtom` | 同上 | `useEdgeConnect.selectEdge`、节点选择清空联动 | Edge/UI、Shortcut 上下文 | 边选中态 |
 | `interactionAtom` | 同上 | `useInteraction.update`（快捷键、hover 等） | `shortcutContextAtom`、边 hover 同步 | 焦点/指针/hover 统一状态 |
 | `spacePressedAtom` | 同上 | `useSpacePressedLifecycle`（window keydown/up） | `useSelection`、`useViewportControls` | 空格拖拽画布模式开关 |
-| `viewportAtom` | 同上 | 无显式写入（由 `docAtom.viewport.zoom` 派生） | `useViewportStore`、`useEdgeConnect`、`snapRuntimeDataAtom` | `zoom` 单源化（移除同步 effect） |
+| `viewportAtom` | 同上 | 无显式写入（由 `docAtom.viewport` 派生） | `shortcutContextAtom` | 文档视口单源（`center + zoom`） |
 | `edgeConnectAtom` | 同上 | `useEdgeConnect` | Edge 预览/重连、`shortcutContextAtom` | 连线过程态（from/to/hover/reconnect/pointerId） |
 | `shortcutContextAtom`（派生） | 同上 | 无直接写入（derived） | `useCanvasHandlers` -> `shortcutManager` | 聚合 platform/focus/tool/selection/pointer/viewport/edgeConnect |
 
@@ -56,7 +56,7 @@
 
 | 状态 | 位置 | 影响 |
 |---|---|---|
-| `useViewport` 的 `size`（React state） | `common/hooks/useViewport.ts` | 通过 `instance.viewport.set()` 更新 screen/world 映射，Node/Edge/Mindmap 都依赖 |
+| `useViewportRuntime` 的 `size`（React state） | `common/hooks/useViewportRuntime.ts` | 通过 `instance.viewport.set()` 更新 screen/world 映射，并在容器注入 `--wb-zoom`，Node/Edge/Mindmap 都依赖 |
 | `whiteboardInstance.viewport` 内部快照（可变闭包状态） | `common/instance/whiteboardInstance.ts` | runtime 级共享读写，不走 React/Jotai；对交互几何计算关键 |
 | `useEdgeHover` 的 `hoveredEdgeId`（atom 派生读取） | `edge/hooks/useEdgeHover.ts` | 已统一读取 `hoveredEdgeIdAtom -> interactionAtom.hover.edgeId` 单源 |
 
@@ -74,7 +74,8 @@
 
 3. **存在“状态双源/同步态”（已收敛）**
    - 已删除 `useShortcutStateSync`。
-   - `viewportAtom.zoom` 改为从 `docAtom.viewport.zoom` 派生。
+   - `viewportAtom` 改为从 `docAtom.viewport` 派生（`center + zoom`）。
+   - zoom 策略收敛：视觉层用 CSS 变量 `--wb-zoom`，交互计算层用 `instance.viewport.getZoom()` 即时读取。
    - `tool` 同步由独立 `useToolLifecycle` 负责。
 
 4. **跨域 runtime 对象放入 atom（已下沉）**
@@ -121,7 +122,11 @@
 1. 已新增 `useWhiteboardContextHydration` 并接入。
 2. 已新增 `useEdgeConnectRuntimeSync`，并迁移到 instance service。
 3. 已拆分选择态为 `toolAtom/nodeSelectionAtom/edgeSelectionAtom`。
-4. 已移除 `useShortcutStateSync`，`viewportAtom` 改为派生。
+4. 已移除 `useShortcutStateSync`，并完成 viewport 分层：
+   - 文档态：`viewportAtom`（`center + zoom`）
+   - 视觉态：`--wb-zoom`（由 `useViewportRuntime` 注入）
+   - runtime 几何态：`useViewportRuntime` + `instance.viewport`（`getZoom/screenToWorld/worldToScreen`）
+   - 视觉变量已覆盖 Node/Edge/Mindmap 高频交互元素（handles/preview lines/add buttons 等），缩放时优先走 CSS 计算。
 
 ### P1（已完成）
 
@@ -147,7 +152,7 @@
    - `NodeLayerStack` 退役，Node 渲染改为直接使用 `NodeLayer`；
    - `useGroupAutoFit` 迁移到 `useNodeLifecycle`，由 `useWhiteboardLifecycle` 统一编排；
    - `useEdgeConnectLifecycle` 与 `useEdgeConnectRuntimeSync` 迁移到 `useEdgeLifecycle`，从 `EdgeLayerStack` 副作用剥离；
-   - `useViewport` 的容器 `ResizeObserver` 下沉为 `containerSizeObserverService`（instance service），hook 仅做状态编排；
+   - `useViewportRuntime` 的容器 `ResizeObserver` 下沉为 `containerSizeObserverService`（instance service），hook 仅做状态编排；
    - `useWhiteboardLifecycle` 卸载时统一释放 observer/service 资源（node/container observer + edge runtime 清理）。
 5. ✅ 已完成第五阶段（P1 性能项补齐）：
    - `useGroupAutoFit` 增加变更感知：仅对脏 group 及其祖先 group 执行 auto-fit，避免每次 nodes 变更全量扫描；

@@ -141,8 +141,6 @@ export const viewportAtom = atom<Viewport>((get) => {
   }
 })
 
-export const viewportZoomAtom = atom<number>((get) => get(viewportAtom).zoom)
-
 export const edgeConnectAtom = atom<EdgeConnectState>({
   isConnecting: false
 })
@@ -155,7 +153,7 @@ export const shortcutContextAtom = atom<ShortcutContext>((get) => {
   const tool = get(toolAtom)
   const selection = get(nodeSelectionAtom)
   const selectedEdgeId = get(edgeSelectionAtom)
-  const viewportZoom = get(viewportZoomAtom)
+  const viewport = get(viewportAtom)
   const edgeConnect = get(edgeConnectAtom)
   const selectedNodeIds = Array.from(selection.selectedNodeIds)
   return {
@@ -174,7 +172,7 @@ export const shortcutContextAtom = atom<ShortcutContext>((get) => {
       isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
     },
     viewport: {
-      zoom: viewportZoom
+      zoom: viewport.zoom
     }
   }
 })

@@ -11,7 +11,7 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 type Options = {
   viewport?: Viewport
-  containerRef: RefObject<HTMLElement>
+  containerRef: RefObject<HTMLElement | null>
   instance: WhiteboardInstance
 }
 
@@ -52,7 +52,8 @@ export const useViewportRuntime = ({ viewport, containerRef, instance }: Options
   const transformStyle = useMemo(
     () => ({
       transform: `translate(${screenCenter.x}px, ${screenCenter.y}px) scale(${actual.zoom}) translate(${-actual.center.x}px, ${-actual.center.y}px)`,
-      transformOrigin: '0 0'
+      transformOrigin: '0 0',
+      ['--wb-zoom' as const]: `${actual.zoom}`
     }),
     [actual.center.x, actual.center.y, actual.zoom, screenCenter.x, screenCenter.y]
   )

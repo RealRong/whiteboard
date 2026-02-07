@@ -4,14 +4,13 @@ import type { SnapCandidate } from '../utils/snap'
 import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../utils/snap'
 import { getNodeAABB } from '../../common/utils/geometry'
 import { groupRuntimeDataAtom } from './groupRuntimeAtom'
-import { toolAtom, viewportAtom } from '../../common/state'
+import { toolAtom } from '../../common/state'
 
 export type SnapRuntimeData = {
   enabled: boolean
   candidates: SnapCandidate[]
   getCandidates?: (rect: Rect) => SnapCandidate[]
   thresholdScreen: number
-  zoom: number
 }
 
 const DEFAULT_THRESHOLD = 8
@@ -19,7 +18,6 @@ const DEFAULT_THRESHOLD = 8
 export const snapRuntimeDataAtom = atom<SnapRuntimeData>((get) => {
   const groupRuntime = get(groupRuntimeDataAtom)
   const tool = get(toolAtom)
-  const viewport = get(viewportAtom)
   const enabled = tool === 'select'
   const nodes = groupRuntime.nodes
   if (!nodes.length) {
@@ -27,8 +25,7 @@ export const snapRuntimeDataAtom = atom<SnapRuntimeData>((get) => {
       enabled,
       candidates: [],
       getCandidates: undefined,
-      thresholdScreen: DEFAULT_THRESHOLD,
-      zoom: viewport.zoom
+      thresholdScreen: DEFAULT_THRESHOLD
     }
   }
   const snapCandidates = buildSnapCandidates(
@@ -43,7 +40,6 @@ export const snapRuntimeDataAtom = atom<SnapRuntimeData>((get) => {
     enabled,
     candidates: snapCandidates,
     getCandidates,
-    thresholdScreen: DEFAULT_THRESHOLD,
-    zoom: viewport.zoom
+    thresholdScreen: DEFAULT_THRESHOLD
   }
 })

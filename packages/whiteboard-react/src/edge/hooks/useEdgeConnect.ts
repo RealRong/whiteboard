@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { clamp, getAnchorPoint, getNodeAABB, getNodeRect, rotatePoint } from '../../common/utils/geometry'
-import { edgeConnectAtom, edgeSelectionAtom, toolAtom, viewportAtom } from '../../common/state'
+import { edgeConnectAtom, edgeSelectionAtom, toolAtom } from '../../common/state'
 import type { EdgeConnectState } from '../../common/state'
 import { useInstance, useVisibleEdges, useCanvasNodes, useWhiteboardConfig } from '../../common/hooks'
 
@@ -75,7 +75,7 @@ export type UseEdgeConnectReturn = {
   state: EdgeConnectState
   selectedEdgeId?: string
   tool: 'select' | 'edge'
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
   startFromHandle: (nodeId: string, side: EdgeAnchor['side'], pointerId?: number) => void
   startFromPoint: (nodeId: string, pointWorld: Point, pointerId?: number) => void
@@ -95,18 +95,16 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
   const canvasNodes = useCanvasNodes()
   const visibleEdges = useVisibleEdges()
   const { nodeSize } = useWhiteboardConfig()
-  const viewport = useAtomValue(viewportAtom)
   const tool = useAtomValue(toolAtom)
   const selectedEdgeId = useAtomValue(edgeSelectionAtom)
   const screenToWorld = instance.viewport.screenToWorld ?? undefined
   const containerRef = instance.containerRef ?? undefined
   const [state, setState] = useAtom(edgeConnectAtom)
   const setSelectedEdgeId = useSetAtom(edgeSelectionAtom)
+  const getZoom = instance.viewport.getZoom
 
   const activeTool = (tool as 'select' | 'edge') ?? 'select'
-  const zoom = viewport.zoom
   const edgeType: Edge['type'] = 'linear'
-  const snapThresholdWorld = Math.max(12, Math.min(nodeSize.width, nodeSize.height) * 0.18) / Math.max(zoom, 0.0001)
 
   const hoverRafRef = useRef<number | null>(null)
   const hoverPointRef = useRef<Point | null>(null)
@@ -124,6 +122,8 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
 
   const getSnapAtPoint = useCallback(
     (point: Point): ConnectTo | undefined => {
+      const snapThresholdWorld =
+        Math.max(12, Math.min(nodeSize.width, nodeSize.height) * 0.18) / Math.max(getZoom(), 0.0001)
       let best: { nodeId: string; anchor: EdgeAnchor; pointWorld: Point; distance: number } | undefined
       for (let i = 0; i < nodeRects.length; i += 1) {
         const entry = nodeRects[i]
@@ -145,7 +145,7 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
         pointWorld: best.pointWorld
       }
     },
-    [nodeRects, snapThresholdWorld]
+    [getZoom, nodeRects, nodeSize.height, nodeSize.width]
   )
 
   const getSnapAtPointRef = useRef(getSnapAtPoint)

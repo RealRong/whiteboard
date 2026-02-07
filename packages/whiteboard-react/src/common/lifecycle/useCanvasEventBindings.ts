@@ -11,7 +11,7 @@ type CanvasHandlers = {
 }
 
 type Options = {
-  containerRef: RefObject<HTMLDivElement>
+  containerRef: RefObject<HTMLDivElement | null>
   handlers: CanvasHandlers
   onWheel: (event: WheelEvent) => void
 }

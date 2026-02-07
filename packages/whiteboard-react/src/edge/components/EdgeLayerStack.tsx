@@ -8,7 +8,6 @@ import {
   useCanvasNodes,
   useInstance,
   useNodeMap,
-  useViewportStore,
   useVisibleEdges,
   useWhiteboardConfig
 } from '../../common/hooks'
@@ -21,7 +20,6 @@ export const EdgeLayerStack = () => {
   const visibleEdges = useVisibleEdges()
   const nodeMap = useNodeMap()
   const tool = useAtomValue(toolAtom)
-  const viewportState = useViewportStore()
   const edgeConnect = useEdgeConnect()
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
@@ -29,7 +27,7 @@ export const EdgeLayerStack = () => {
     nodes: canvasNodes,
     edges: visibleEdges,
     nodeSize,
-    zoom: viewportState.zoom,
+    zoom: instance.viewport.getZoom(),
     containerRef: instance.containerRef ?? undefined,
     screenToWorld: instance.viewport.screenToWorld ?? undefined,
     edgeConnect,

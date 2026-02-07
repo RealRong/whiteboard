@@ -1,4 +1,4 @@
-import type { Edge, Node } from '@whiteboard/core'
+import type { Edge, EdgeAnchor, Node } from '@whiteboard/core'
 import type { PointerEvent } from 'react'
 import type { Size } from '../../common/types'
 import { getAnchorPoint, getNodeRect, getRectCenter } from '../../common/utils/geometry'
@@ -18,6 +18,8 @@ export const EdgeEndpointHandles = ({
   selectedEdgeId,
   onStartReconnect
 }: EdgeEndpointHandlesProps) => {
+  const HANDLE_SIZE = 12
+  const handleHalfExpr = `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1) / 2)`
   if (!selectedEdgeId) return null
   const edge = edges.find((item) => item.id === selectedEdgeId)
   if (!edge) return null
@@ -35,7 +37,7 @@ export const EdgeEndpointHandles = ({
     const center = getRectCenter(rect)
     const dx = otherCenter.x - center.x
     const dy = otherCenter.y - center.y
-    const side =
+    const side: EdgeAnchor['side'] =
       Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'bottom' : 'top'
     return { side, offset: 0.5 }
   }
@@ -53,16 +55,16 @@ export const EdgeEndpointHandles = ({
         position: 'absolute',
         left: 0,
         top: 0,
-        width: 12,
-        height: 12,
+        width: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
+        height: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
         borderRadius: 999,
         background: '#ffffff',
-        border: '2px solid #2563eb',
+        border: 'calc(2px / var(--wb-zoom, 1)) solid #2563eb',
         boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
         cursor: 'grab',
         pointerEvents: 'auto',
         zIndex: 8,
-        transform: `translate(${point.x - 6}px, ${point.y - 6}px)`
+        transform: `translate(calc(${point.x}px - ${handleHalfExpr}), calc(${point.y}px - ${handleHalfExpr}))`
       }}
     />
   )

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react'
 import type { PointerEvent } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import type { Node } from '@whiteboard/core'
-import { useInstance, useInteraction, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance, useInteraction, useWhiteboardConfig } from '../../common/hooks'
 import { useGroupRuntime } from './useGroupRuntime'
 import { useSnapRuntime } from './useSnapRuntime'
 import { useNodeTransient } from './useNodeTransient'
@@ -27,7 +27,6 @@ type Options = {
 
 export const useNodeInteraction = ({ node }: Options) => {
   const instance = useInstance()
-  const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
   const updateSelection = useSetAtom(nodeSelectionAtom)
   const tool = useAtomValue(toolAtom)
@@ -78,7 +77,7 @@ export const useNodeInteraction = ({ node }: Options) => {
     nodeType: node.type,
     position: node.position,
     size,
-    zoom: viewport.zoom,
+    getZoom: instance.viewport.getZoom,
     snap: snapRuntime,
     group: groupRuntime,
     transient: transientRuntime

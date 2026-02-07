@@ -16,7 +16,7 @@ type EdgeControlPointHandlesProps = {
   core: Core
   edges: Edge[]
   selectedEdgeId?: string
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
 }
 
@@ -138,6 +138,8 @@ export const EdgeControlPointHandles = ({
 
   if (!editable || !hasPoints) return null
 
+  const handleHalfExpr = `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1) / 2)`
+
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 8 }}>
       {points.map((point, index) => (
@@ -183,17 +185,20 @@ export const EdgeControlPointHandles = ({
             position: 'absolute',
             left: 0,
             top: 0,
-            width: HANDLE_SIZE,
-            height: HANDLE_SIZE,
+            width: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
+            height: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
             borderRadius: 999,
             background: '#ffffff',
-            border: index === activeIndex ? '2px solid #1d4ed8' : '2px solid #2563eb',
+            border:
+              index === activeIndex
+                ? 'calc(2px / var(--wb-zoom, 1)) solid #1d4ed8'
+                : 'calc(2px / var(--wb-zoom, 1)) solid #2563eb',
             boxShadow:
               index === activeIndex || index === hoverIndex
                 ? '0 4px 12px rgba(37, 99, 235, 0.35)'
                 : '0 4px 10px rgba(37, 99, 235, 0.25)',
             cursor: 'grab',
-            transform: `translate(${point.x - HANDLE_SIZE / 2}px, ${point.y - HANDLE_SIZE / 2}px) ${
+            transform: `translate(calc(${point.x}px - ${handleHalfExpr}), calc(${point.y}px - ${handleHalfExpr})) ${
               index === activeIndex ? 'scale(1.08)' : 'scale(1)'
             }`,
             pointerEvents: 'auto'

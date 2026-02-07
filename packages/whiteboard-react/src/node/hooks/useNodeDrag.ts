@@ -19,7 +19,7 @@ type UseNodeDragOptions = {
   nodeType: Node['type']
   position: Node['position']
   size: { width: number; height: number }
-  zoom?: number
+  getZoom?: () => number
   snap?: NodeDragSnapOptions
   group?: NodeDragGroupOptions
   transient?: NodeDragTransientApi
@@ -33,7 +33,7 @@ export const useNodeDrag = ({
   nodeType,
   position,
   size,
-  zoom = 1,
+  getZoom,
   snap,
   group,
   transient
@@ -87,12 +87,13 @@ export const useNodeDrag = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       const dx = event.clientX - drag.start.x
       const dy = event.clientY - drag.start.y
+      const zoom = Math.max(getZoom?.() ?? 1, 0.0001)
       let nextX = drag.origin.x + dx / zoom
       let nextY = drag.origin.y + dy / zoom
 
       if (snap?.enabled) {
         const thresholdWorld = Math.min(
-          snap.thresholdScreen / Math.max(snap.zoom, 0.0001),
+          snap.thresholdScreen / Math.max(getZoom?.() ?? 1, 0.0001),
           SNAP_MAX_THRESHOLD_WORLD
         )
         const movingRect: Rect = { x: nextX, y: nextY, width: size.width, height: size.height }
@@ -130,7 +131,7 @@ export const useNodeDrag = ({
         nextPosition: { x: nextX, y: nextY }
       })
     },
-    [core, group, nodeId, nodeType, position, size, snap, strategy, transient, updateHoverGroup, zoom]
+    [core, getZoom, group, nodeId, nodeType, position, size, snap, strategy, transient, updateHoverGroup]
   )
 
   const onPointerUp = useCallback(

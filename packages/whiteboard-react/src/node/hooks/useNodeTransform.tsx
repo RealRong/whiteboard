@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
-import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 import { useSnapRuntime } from './useSnapRuntime'
 import { nodeSelectionAtom, toolAtom } from '../../common/state'
 
@@ -99,7 +99,7 @@ const getGuideForY = (movingRect: Rect, target: SnapCandidate, sourceEdge: strin
 
 const getWorldPoint = (
   event: ReactPointerEvent<HTMLElement>,
-  containerRef?: RefObject<HTMLElement>,
+  containerRef?: RefObject<HTMLElement | null>,
   screenToWorld?: (point: Point) => Point
 ) => {
   if (!containerRef?.current || !screenToWorld) return null
@@ -119,7 +119,6 @@ export const useNodeTransform = ({
   rotateHandleOffset = 24
 }: UseNodeTransformOptions) => {
   const instance = useInstance()
-  const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
   const snap = useSnapRuntime()
   const selectionState = useAtomValue(nodeSelectionAtom)
@@ -129,7 +128,7 @@ export const useNodeTransform = ({
     enabled ?? (activeTool === 'select' && selectionState.selectedNodeIds.has(node.id))
   const containerRef = instance.containerRef ?? undefined
   const screenToWorld = instance.viewport.screenToWorld ?? undefined
-  const zoom = viewport.zoom
+  const getZoom = instance.viewport.getZoom
   const core: Core = instance.core
   const dragRef = useRef<DragState | null>(null)
   const [state, setState] = useState<TransformState>({ isResizing: false, isRotating: false })
@@ -166,7 +165,8 @@ export const useNodeTransform = ({
       cursor: resizeMap[direction].cursor
     }))
     if (!canRotate) return resizeHandles
-    const offsetWorld = rotateHandleOffset / Math.max(zoom, 0.0001)
+    const zoom = Math.max(getZoom(), 0.0001)
+    const offsetWorld = rotateHandleOffset / zoom
     const topMid = positions.n
     const normal = rotateVector({ x: 0, y: -1 }, rotation)
     const rotateHandle: TransformHandle = {
@@ -176,7 +176,7 @@ export const useNodeTransform = ({
       cursor: 'grab'
     }
     return [...resizeHandles, rotateHandle]
-  }, [canRotate, node.locked, rect, resolvedEnabled, rotation, rotateHandleOffset, zoom])
+  }, [canRotate, getZoom, node.locked, rect, resolvedEnabled, rotation, rotateHandleOffset])
 
   const endDrag = useCallback(() => {
     dragRef.current = null
@@ -231,10 +231,11 @@ export const useNodeTransform = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       event.preventDefault()
       if (drag.mode === 'resize') {
+        const zoom = Math.max(getZoom(), 0.0001)
         const { handle, startScreen, startCenter, startRotation, startSize, startAspect } = drag
         const deltaWorld = {
-          x: (event.clientX - startScreen.x) / Math.max(zoom, 0.0001),
-          y: (event.clientY - startScreen.y) / Math.max(zoom, 0.0001)
+          x: (event.clientX - startScreen.x) / zoom,
+          y: (event.clientY - startScreen.y) / zoom
         }
         const localDelta = rotateVector(deltaWorld, -startRotation)
         const { sx, sy } = resizeMap[handle]
@@ -275,7 +276,7 @@ export const useNodeTransform = ({
           y: nextCenter.y - height / 2
         }
         if (snap?.enabled && rotation === 0 && !event.altKey) {
-          const thresholdWorld = snap.thresholdScreen / Math.max(snap.zoom, 0.0001)
+          const thresholdWorld = snap.thresholdScreen / Math.max(getZoom(), 0.0001)
           const movingRect: Rect = {
             x: nextRect.x,
             y: nextRect.y,
@@ -392,7 +393,7 @@ export const useNodeTransform = ({
         })
       }
     },
-    [containerRef, core, minSize.height, minSize.width, node.id, rotation, screenToWorld, snap, zoom]
+    [containerRef, core, getZoom, minSize.height, minSize.width, node.id, rotation, screenToWorld, snap]
   )
 
   const handlePointerUp = useCallback(
@@ -423,8 +424,7 @@ export const useNodeTransform = ({
         if (options?.renderHandle) {
           return options.renderHandle(handle, props)
         }
-        const sizeWorld = handleSize / Math.max(zoom, 0.0001)
-        const half = sizeWorld / 2
+        const half = handleSize / Math.max(getZoom(), 0.0001) / 2
         const isRotate = handle.kind === 'rotate'
         return (
           <div
@@ -434,8 +434,8 @@ export const useNodeTransform = ({
               position: 'absolute',
               left: 0,
               top: 0,
-              width: sizeWorld,
-              height: sizeWorld,
+              width: `calc(${handleSize}px / var(--wb-zoom, 1))`,
+              height: `calc(${handleSize}px / var(--wb-zoom, 1))`,
               borderRadius: isRotate ? 999 : 3,
               background: '#ffffff',
               border: '1px solid #2563eb',
@@ -450,7 +450,7 @@ export const useNodeTransform = ({
         )
       })
     },
-    [getHandleProps, handleSize, handles, zoom]
+    [getHandleProps, getZoom, handleSize, handles]
   )
 
   return {

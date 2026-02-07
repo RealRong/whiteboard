@@ -2,9 +2,7 @@ import type { PointerEvent } from 'react'
 import type { MindmapNodeId, Rect } from '@whiteboard/core'
 import { MindmapAddButton } from './MindmapAddButton'
 import {
-  MINDMAP_NODE_ACTIVE_BORDER,
   MINDMAP_NODE_BASE_STYLE,
-  MINDMAP_NODE_DEFAULT_BORDER,
   MINDMAP_NODE_LABEL_STYLE,
   MINDMAP_NODE_TRANSITION
 } from '../constants'
@@ -46,7 +44,9 @@ export const MindmapNodeItem = ({
   onHoverLeave,
   onAddChild
 }: MindmapNodeItemProps) => {
-  const border = attachTarget ? MINDMAP_NODE_ACTIVE_BORDER : MINDMAP_NODE_DEFAULT_BORDER
+  const border = attachTarget
+    ? `calc(2px / var(--wb-zoom, 1)) solid #2563eb`
+    : `calc(1px / var(--wb-zoom, 1)) solid #111`
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
 
   return (
