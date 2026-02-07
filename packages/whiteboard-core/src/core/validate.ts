@@ -28,6 +28,28 @@ export const createValidateIntent = (state: CoreState, registries: CoreRegistrie
         if (missing) return `Node ${missing} not found.`
         return
       }
+      case 'node.order.set': {
+        const ids = intent.ids
+        if (ids.length === 0) return 'No node ids provided.'
+        if (ids.length !== maps.nodes.size) return 'Node order length mismatch.'
+        const set = new Set(ids)
+        if (set.size !== ids.length) return 'Duplicate node ids in order.'
+        const missing = ids.find((id) => !maps.nodes.has(id))
+        if (missing) return `Node ${missing} not found.`
+        for (const id of maps.nodes.keys()) {
+          if (!set.has(id)) return `Node ${id} missing from order.`
+        }
+        return
+      }
+      case 'node.order.bringToFront':
+      case 'node.order.sendToBack':
+      case 'node.order.bringForward':
+      case 'node.order.sendBackward': {
+        if (intent.ids.length === 0) return 'No node ids provided.'
+        const missing = intent.ids.find((id) => !maps.nodes.has(id))
+        if (missing) return `Node ${missing} not found.`
+        return
+      }
       case 'edge.create': {
         const payload = intent.payload
         if (!payload.source?.nodeId || !payload.target?.nodeId) return 'Missing edge endpoints.'
@@ -52,6 +74,28 @@ export const createValidateIntent = (state: CoreState, registries: CoreRegistrie
         return
       }
       case 'edge.delete': {
+        if (intent.ids.length === 0) return 'No edge ids provided.'
+        const missing = intent.ids.find((id) => !maps.edges.has(id))
+        if (missing) return `Edge ${missing} not found.`
+        return
+      }
+      case 'edge.order.set': {
+        const ids = intent.ids
+        if (ids.length === 0) return 'No edge ids provided.'
+        if (ids.length !== maps.edges.size) return 'Edge order length mismatch.'
+        const set = new Set(ids)
+        if (set.size !== ids.length) return 'Duplicate edge ids in order.'
+        const missing = ids.find((id) => !maps.edges.has(id))
+        if (missing) return `Edge ${missing} not found.`
+        for (const id of maps.edges.keys()) {
+          if (!set.has(id)) return `Edge ${id} missing from order.`
+        }
+        return
+      }
+      case 'edge.order.bringToFront':
+      case 'edge.order.sendToBack':
+      case 'edge.order.bringForward':
+      case 'edge.order.sendBackward': {
         if (intent.ids.length === 0) return 'No edge ids provided.'
         const missing = intent.ids.find((id) => !maps.edges.has(id))
         if (missing) return `Edge ${missing} not found.`

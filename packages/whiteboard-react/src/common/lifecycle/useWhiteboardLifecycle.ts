@@ -6,10 +6,11 @@ import { useEdgeSelectionNotifications } from './useEdgeSelectionNotifications'
 import { useInstanceCommands } from './useInstanceCommands'
 import { useSelectionNotifications } from './useSelectionNotifications'
 import { useSpacePressedLifecycle } from './useSpacePressedLifecycle'
+import { useTransientLifecycle } from './useTransientLifecycle'
 import { useShortcutRegistry } from '../shortcuts/lifecycle/useShortcutRegistry'
-import { useShortcutStateSync } from '../shortcuts/lifecycle/useShortcutStateSync'
 import { useSelection } from '../../node/hooks'
 import { useInstance } from '../hooks/useInstance'
+import { useToolLifecycle } from './useToolLifecycle'
 import { DEFAULT_GROUP_PADDING } from '../../node/constants'
 import { useCanvasHandlers } from '../hooks/internal/useCanvasHandlers'
 import type { ViewportConfig } from '../types'
@@ -34,8 +35,13 @@ export const useWhiteboardLifecycle = ({
   const instance = useInstance()
   const selection = useSelection()
   const { core, docRef, containerRef, shortcutManager } = instance
-  const { handlers, onWheel } = useCanvasHandlers({ tool, viewport, viewportConfig })
+  const { handlers, onWheel } = useCanvasHandlers({
+    tool: (tool as 'select' | 'edge') ?? 'select',
+    viewport,
+    viewportConfig
+  })
   useSpacePressedLifecycle()
+  useTransientLifecycle()
   useInstanceCommands()
   useShortcutRegistry({
     core,
@@ -44,7 +50,7 @@ export const useWhiteboardLifecycle = ({
     shortcutsProp,
     shortcutManager
   })
-  useShortcutStateSync({ tool, viewport })
+  useToolLifecycle(tool)
   useSelectionNotifications(selection.selectedNodeIds, onSelectionChange)
   useEdgeSelectionNotifications(selection.selectedEdgeId, onEdgeSelectionChange)
   useCanvasEventBindings({ containerRef, handlers, onWheel })

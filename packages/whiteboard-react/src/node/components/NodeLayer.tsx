@@ -1,22 +1,27 @@
 import type { Node } from '@whiteboard/core'
 import { useMemo } from 'react'
-import { useViewGraph } from '../../common/hooks'
+import { useCanvasNodes } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
 export const NodeLayer = () => {
-  const viewGraph = useViewGraph()
-  const nodes = viewGraph.canvasNodes
+  const nodes = useCanvasNodes()
   const orderedNodes = useMemo(() => {
-    const groups: Node[] = []
-    const rest: Node[] = []
+    const background: Node[] = []
+    const normal: Node[] = []
+    const overlay: Node[] = []
     nodes.forEach((node) => {
-      if (node.type === 'group') {
-        groups.push(node)
-      } else {
-        rest.push(node)
+      const layer = node.layer ?? (node.type === 'group' ? 'background' : 'default')
+      if (layer === 'background') {
+        background.push(node)
+        return
       }
+      if (layer === 'overlay') {
+        overlay.push(node)
+        return
+      }
+      normal.push(node)
     })
-    return [...groups, ...rest]
+    return [...background, ...normal, ...overlay]
   }, [nodes])
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>

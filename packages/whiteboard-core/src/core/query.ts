@@ -9,6 +9,10 @@ export const createQuery = (state: CoreState): Core['query'] => ({
       nodes: document.nodes.map(state.cloneNode),
       edges: document.edges.map(state.cloneEdge),
       mindmaps: document.mindmaps?.map(state.cloneMindmapTree),
+      order: {
+        nodes: [...document.order.nodes],
+        edges: [...document.order.edges]
+      },
       background: document.background ? { ...document.background } : undefined,
       viewport: document.viewport
         ? {

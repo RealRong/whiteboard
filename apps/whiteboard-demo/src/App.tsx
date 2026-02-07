@@ -229,7 +229,28 @@ function App() {
         },
         style: { stroke: '#111827', markerEnd: 'arrow' }
       }
-    ]
+    ],
+    order: {
+      nodes: [
+        'n1',
+        'n2',
+        'n4',
+        'n5',
+        'n6',
+        'n7',
+        't1',
+        's1',
+        'n8',
+        'n9',
+        'n10',
+        'n11',
+        'g1',
+        'n3',
+        't2',
+        'mm1'
+      ],
+      edges: ['e1', 'e2', 'e3', 'e4', 'e5', 'e6']
+    }
   }))
   const [tool, setTool] = useState<'select' | 'edge'>('select')
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])

@@ -144,7 +144,8 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
         const id = input.id ?? createNodeId()
         const node: Node = {
           ...input,
-          id
+          id,
+          layer: input.type === 'group' ? (input.layer ?? 'background') : input.layer
         }
         return { operations: [{ type: 'node.create', node }] }
       }
@@ -171,6 +172,22 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
           })
           .filter((item): item is { type: 'node.delete'; id: NodeId; before: Node } => Boolean(item))
         return { operations }
+      }
+      case 'node.order.set':
+      case 'node.order.bringToFront':
+      case 'node.order.sendToBack':
+      case 'node.order.bringForward':
+      case 'node.order.sendBackward': {
+        const before = [...state.getDocument().order.nodes]
+        return {
+          operations: [
+            {
+              type: intent.type,
+              ids: [...intent.ids],
+              before
+            }
+          ]
+        }
       }
       case 'edge.create': {
         const input = applyEdgeDefaults(intent.payload, registries)
@@ -205,6 +222,22 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
           })
           .filter((item): item is { type: 'edge.delete'; id: EdgeId; before: Edge } => Boolean(item))
         return { operations }
+      }
+      case 'edge.order.set':
+      case 'edge.order.bringToFront':
+      case 'edge.order.sendToBack':
+      case 'edge.order.bringForward':
+      case 'edge.order.sendBackward': {
+        const before = [...state.getDocument().order.edges]
+        return {
+          operations: [
+            {
+              type: intent.type,
+              ids: [...intent.ids],
+              before
+            }
+          ]
+        }
       }
       case 'mindmap.create': {
         const payload = intent.payload

@@ -1,4 +1,6 @@
-import { useAtomValue } from 'jotai'
-import { edgeConnectRuntimeAtom } from '../state/edgeConnectRuntimeAtom'
+import { useInstance } from '../../common/hooks'
 
-export const useEdgeConnectRuntime = () => useAtomValue(edgeConnectRuntimeAtom)
+export const useEdgeConnectRuntime = () => {
+  const instance = useInstance()
+  return instance.services.edgeConnectRuntime.get()
+}

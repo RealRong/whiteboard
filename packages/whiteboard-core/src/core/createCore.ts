@@ -1,4 +1,4 @@
-import type { Core, DispatchFailure, DispatchOptions, DispatchResult, Intent, IntentHandler, Origin } from '../types/core'
+import type { Core, DispatchFailure, DispatchOptions, DispatchResult, Document, Intent, IntentHandler, Origin } from '../types/core'
 import { createApplyOperations } from './apply'
 import { createBuildOperations } from './build'
 import { createChangeHandlers, createChangeSetFactory, createTransaction, runAfterHandlers, runBeforeHandlers, TransactionContext } from './changes'
@@ -137,6 +137,12 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
         draft.nodes = snapshot.document.nodes ?? []
         draft.edges = snapshot.document.edges ?? []
         draft.mindmaps = snapshot.document.mindmaps ?? []
+        draft.order =
+          snapshot.document.order ??
+          ({
+            nodes: (snapshot.document.nodes ?? []).map((node) => node.id),
+            edges: (snapshot.document.edges ?? []).map((edge) => edge.id)
+          } as Document['order'])
         draft.background = snapshot.document.background
         draft.viewport = snapshot.document.viewport
         draft.meta = snapshot.document.meta

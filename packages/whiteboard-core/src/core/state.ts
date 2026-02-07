@@ -52,7 +52,11 @@ const createDefaultDocument = (id: DocumentId): Document => ({
   id,
   nodes: [],
   edges: [],
-  mindmaps: []
+  mindmaps: [],
+  order: {
+    nodes: [],
+    edges: []
+  }
 })
 
 export const createCoreState = (options: CreateCoreOptions = {}): CoreState => {
@@ -81,7 +85,13 @@ export const createCoreState = (options: CreateCoreOptions = {}): CoreState => {
     ...initialDocument,
     nodes: initialDocument.nodes ?? [],
     edges: initialDocument.edges ?? [],
-    mindmaps: initialDocument.mindmaps ?? []
+    mindmaps: initialDocument.mindmaps ?? [],
+    order:
+      initialDocument.order ??
+      ({
+        nodes: (initialDocument.nodes ?? []).map((node) => node.id),
+        edges: (initialDocument.edges ?? []).map((edge) => edge.id)
+      } as Document['order'])
   }
 
   const maps: Maps = {

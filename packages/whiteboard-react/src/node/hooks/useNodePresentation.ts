@@ -7,7 +7,7 @@ import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaul
 import { useNodeRegistry } from '../registry'
 import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
-import { selectionAtom } from '../../common/state'
+import { nodeSelectionAtom, toolAtom } from '../../common/state'
 import { useGroupRuntime } from './useGroupRuntime'
 
 type DragHandlers = {
@@ -47,13 +47,14 @@ export const useNodePresentation = ({
   const registry = useNodeRegistry()
   const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
-  const selection = useAtomValue(selectionAtom)
+  const selection = useAtomValue(nodeSelectionAtom)
+  const tool = useAtomValue(toolAtom)
   const groupRuntime = useGroupRuntime()
   const definition = registry.get(node.type)
   const rect = useMemo(() => getNodeRect(node, nodeSize), [node, nodeSize])
   const hovered = groupRuntime.hoveredGroupId === node.id
-  const tool = (selection.tool as 'select' | 'edge') ?? 'select'
-  const selected = tool === 'edge' ? false : selection.selectedNodeIds.has(node.id)
+  const activeTool = (tool as 'select' | 'edge') ?? 'select'
+  const selected = activeTool === 'edge' ? false : selection.selectedNodeIds.has(node.id)
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
   const core: Core = instance.core

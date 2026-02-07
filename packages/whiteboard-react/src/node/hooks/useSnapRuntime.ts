@@ -1,38 +1,20 @@
 import { useMemo } from 'react'
-import { useSetAtom } from 'jotai'
-import type { Node } from '@whiteboard/core'
-import type { Size } from '../../common/types'
-import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
+import { useAtomValue } from 'jotai'
+import type { Guide } from '../utils/snap'
+import { snapRuntimeDataAtom } from '../state/snapRuntimeAtom'
 import { useDragGuides } from './useDragGuides'
-import { useSnapIndex } from './useSnapIndex'
 
-type Options = {
-  nodes: Node[]
-  nodeSize: Size
-  enabled: boolean
-  zoom: number
-  thresholdScreen?: number
-}
+export type SnapRuntime = ReturnType<typeof useSnapRuntime>
 
-export const useSnapRuntime = ({ nodes, nodeSize, enabled, zoom, thresholdScreen = 8 }: Options) => {
-  const { snapCandidates, getCandidates } = useSnapIndex(nodes, nodeSize)
+export const useSnapRuntime = () => {
+  const data = useAtomValue(snapRuntimeDataAtom)
   const { setGuides } = useDragGuides()
-  const setRuntime = useSetAtom(snapRuntimeAtom)
 
-  const runtime = useMemo(
+  return useMemo(
     () => ({
-      enabled,
-      candidates: snapCandidates,
-      getCandidates,
-      thresholdScreen,
-      zoom,
-      onGuidesChange: setGuides
+      ...data,
+      onGuidesChange: (guides: Guide[]) => setGuides(guides)
     }),
-    [enabled, getCandidates, setGuides, snapCandidates, thresholdScreen, zoom]
+    [data, setGuides]
   )
-
-  return {
-    runtime,
-    setRuntime
-  }
 }

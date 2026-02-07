@@ -1,19 +1,17 @@
-import { useCallback, useState } from 'react'
-import { useInteraction } from '../../common/hooks'
+import { useAtom } from 'jotai'
+import { useCallback } from 'react'
+import { hoveredEdgeIdAtom } from '../../common/state'
 
 export const useEdgeHover = () => {
-  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | undefined>(undefined)
-  const { update: updateInteraction } = useInteraction()
+  const [hoveredEdgeId, setHoveredEdgeId] = useAtom(hoveredEdgeIdAtom)
 
   const handleHoverChange = useCallback(
     (edgeId: string, hovered: boolean) => {
       setHoveredEdgeId((prev) => {
-        const next = hovered ? edgeId : prev === edgeId ? undefined : prev
-        updateInteraction({ hover: { edgeId: next } })
-        return next
+        return hovered ? edgeId : prev === edgeId ? undefined : prev
       })
     },
-    [updateInteraction]
+    [setHoveredEdgeId]
   )
 
   return { hoveredEdgeId, handleHoverChange }

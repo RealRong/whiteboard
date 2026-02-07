@@ -20,6 +20,7 @@ import { createShortcutManager } from '../shortcuts/shortcutManager'
 import type { ShortcutManager } from '../shortcuts/shortcutManager'
 import type { Size } from '../types'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from '../utils/geometry'
+import type { UseEdgeConnectReturn } from '../../edge/hooks/useEdgeConnect'
 
 export type WhiteboardCommands = {
   selection: {
@@ -27,6 +28,22 @@ export type WhiteboardCommands = {
     toggle: (ids: NodeId[]) => void
     clear: () => void
     getSelectedNodeIds: () => NodeId[]
+  }
+  order: {
+    node: {
+      set: (ids: NodeId[]) => Promise<DispatchResult>
+      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
+      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
+      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
+      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
+    }
+    edge: {
+      set: (ids: EdgeId[]) => Promise<DispatchResult>
+      bringToFront: (ids: EdgeId[]) => Promise<DispatchResult>
+      sendToBack: (ids: EdgeId[]) => Promise<DispatchResult>
+      bringForward: (ids: EdgeId[]) => Promise<DispatchResult>
+      sendBackward: (ids: EdgeId[]) => Promise<DispatchResult>
+    }
   }
   tool: {
     setTool: (tool: string) => void
@@ -78,6 +95,22 @@ export const createEmptyCommands = (): WhiteboardCommands => ({
     toggle: () => {},
     clear: () => {},
     getSelectedNodeIds: () => []
+  },
+  order: {
+    node: {
+      set: createEmptyDispatch,
+      bringToFront: createEmptyDispatch,
+      sendToBack: createEmptyDispatch,
+      bringForward: createEmptyDispatch,
+      sendBackward: createEmptyDispatch
+    },
+    edge: {
+      set: createEmptyDispatch,
+      bringToFront: createEmptyDispatch,
+      sendToBack: createEmptyDispatch,
+      bringForward: createEmptyDispatch,
+      sendBackward: createEmptyDispatch
+    }
   },
   tool: {
     setTool: () => {}
@@ -145,6 +178,10 @@ export type WhiteboardInstance = {
   config: WhiteboardInstanceConfig
   services: {
     nodeSizeObserver: NodeSizeObserverService
+    edgeConnectRuntime: {
+      get: () => UseEdgeConnectReturn | null
+      set: (runtime: UseEdgeConnectReturn | null) => void
+    }
   }
   shortcutManager: ShortcutManager
   viewport: {
@@ -202,7 +239,16 @@ export const createWhiteboardInstance = ({
   }
   const getContainer = () => containerRef.current
   const services = {
-    nodeSizeObserver: createNodeSizeObserverService(core)
+    nodeSizeObserver: createNodeSizeObserverService(core),
+    edgeConnectRuntime: (() => {
+      let runtime: UseEdgeConnectReturn | null = null
+      return {
+        get: () => runtime,
+        set: (next: UseEdgeConnectReturn | null) => {
+          runtime = next
+        }
+      }
+    })()
   }
   const shortcutManager = externalShortcutManager ?? createShortcutManager()
   const defaultViewport: Viewport = { center: { x: 0, y: 0 }, zoom: 1 }

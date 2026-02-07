@@ -1,22 +1,23 @@
 import { useCallback, useRef } from 'react'
 import type { PointerEvent } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { Guide, SnapCandidate, SnapResult } from '../utils/snap'
 import { computeSnap } from '../utils/snap'
 import type { Size } from '../../common/types'
 import { findSmallestGroupContainingPoint, getGroupDescendants, getNodesBoundingRect, expandGroupRect, rectEquals } from '../utils/group'
 import { getNodeAABB, rectContains } from '../../common/utils/geometry'
-import type { NodeTransientApi, NodeViewUpdate } from './useNodeViewState'
+import type { NodeViewUpdate } from '../state/nodeViewOverridesAtom'
 import { useInstance, useInteraction, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
 import { useGroupRuntime } from './useGroupRuntime'
+import { useSnapRuntime } from './useSnapRuntime'
+import { useNodeTransient } from './useNodeTransient'
+import type { NodeTransientApi } from './useNodeTransient'
 import { useEdgeConnectRuntime } from '../../edge/hooks'
-import { selectionAtom } from '../../common/state'
+import { edgeSelectionAtom, nodeSelectionAtom, toolAtom } from '../../common/state'
 import { applySelectionMode, getSelectionModeFromEvent } from '../utils/selection'
 import type { SelectionMode } from '../../common/state'
 import type { UseEdgeConnectReturn } from '../../edge/hooks'
-import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
-import { nodeTransientAtom } from '../state/nodeTransientAtom'
 
 type SnapOptions = {
   enabled: boolean
@@ -42,17 +43,19 @@ export const useNodeInteraction = ({ node }: Options) => {
   const instance = useInstance()
   const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
-  const [selectionState, updateSelection] = useAtom(selectionAtom)
+  const [selectionState, updateSelection] = useAtom(nodeSelectionAtom)
+  const tool = useAtomValue(toolAtom)
+  const setEdgeSelection = useSetAtom(edgeSelectionAtom)
   const { update: updateInteraction } = useInteraction()
   const edgeConnectRuntime = useEdgeConnectRuntime()
   const groupRuntime = useGroupRuntime()
-  const snapRuntime = useAtomValue(snapRuntimeAtom)
-  const transientRuntime = useAtomValue(nodeTransientAtom)
-  const tool = (selectionState.tool as 'select' | 'edge') ?? 'select'
+  const snapRuntime = useSnapRuntime()
+  const transientRuntime = useNodeTransient()
+  const activeTool = (tool as 'select' | 'edge') ?? 'select'
   const edgeConnect: UseEdgeConnectReturn | undefined = edgeConnectRuntime ?? undefined
   const group: GroupOptions | undefined = groupRuntime ?? undefined
   const snap: SnapOptions | undefined = snapRuntime ?? undefined
-  const transient: NodeTransientApi | undefined = transientRuntime ?? undefined
+  const transient = transientRuntime
   const core: Core = instance.core
   const size = {
     width: node.size?.width ?? nodeSize.width,
@@ -61,24 +64,26 @@ export const useNodeInteraction = ({ node }: Options) => {
 
   const select = useCallback(
     (ids: string[], mode: SelectionMode = 'replace') => {
+      setEdgeSelection(undefined)
       updateSelection((prev) => ({
         ...prev,
         mode,
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, mode)
       }))
     },
-    [updateSelection]
+    [setEdgeSelection, updateSelection]
   )
 
   const toggle = useCallback(
     (ids: string[]) => {
+      setEdgeSelection(undefined)
       updateSelection((prev) => ({
         ...prev,
         mode: 'toggle',
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, 'toggle')
       }))
     },
-    [updateSelection]
+    [setEdgeSelection, updateSelection]
   )
 
   const dragHandlers = useNodeDrag(
@@ -94,7 +99,7 @@ export const useNodeInteraction = ({ node }: Options) => {
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (tool === 'edge' && edgeConnect) {
+      if (activeTool === 'edge' && edgeConnect) {
         const container = edgeConnect.containerRef?.current
         if (container && edgeConnect.screenToWorld) {
           const rect = container.getBoundingClientRect()
@@ -105,7 +110,7 @@ export const useNodeInteraction = ({ node }: Options) => {
         }
         return
       }
-      if (event.button === 0 && tool !== 'edge') {
+      if (event.button === 0 && activeTool !== 'edge') {
         const mode = getSelectionModeFromEvent(event)
         if (mode === 'toggle') {
           toggle([node.id])
@@ -115,7 +120,7 @@ export const useNodeInteraction = ({ node }: Options) => {
       }
       dragHandlers.onPointerDown(event)
     },
-    [dragHandlers, edgeConnect, node.id, select, toggle, tool]
+    [activeTool, dragHandlers, edgeConnect, node.id, select, toggle]
   )
 
   const handleEdgeHandlePointerDown = useCallback(

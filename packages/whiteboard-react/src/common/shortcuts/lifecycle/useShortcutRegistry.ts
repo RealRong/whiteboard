@@ -1,11 +1,9 @@
 import { useEffect, useMemo } from 'react'
-import { useAtomValue } from 'jotai'
 import type { Core, Document } from '@whiteboard/core'
 import { createDefaultShortcuts } from '../defaultShortcuts'
 import type { Shortcut } from '../types'
 import type { ShortcutManager } from '../shortcutManager'
-import { viewGraphAtom } from '../../state/whiteboardDerivedAtoms'
-import { useWhiteboardConfig } from '../../hooks'
+import { useCanvasNodes, useWhiteboardConfig } from '../../hooks'
 import { useSelection } from '../../../node/hooks'
 import { useEdgeConnect } from '../../../edge/hooks'
 
@@ -41,7 +39,7 @@ export const useShortcutRegistry = ({
   const selection = useSelection()
   const { selectEdge } = useEdgeConnect()
   const { nodeSize } = useWhiteboardConfig()
-  const viewGraph = useAtomValue(viewGraphAtom)
+  const canvasNodes = useCanvasNodes()
 
   const defaults = useMemo(
     () =>
@@ -49,14 +47,14 @@ export const useShortcutRegistry = ({
         ? createDefaultShortcuts({
             core,
             getDocument: () => docRef.current,
-            getSelectableNodeIds: () => viewGraph.canvasNodes.map((node) => node.id),
+            getSelectableNodeIds: () => canvasNodes.map((node) => node.id),
             nodeSize,
             defaultGroupPadding,
             selection,
             selectEdge
           })
         : [],
-    [core, defaultGroupPadding, docRef, nodeSize, selectEdge, selection, viewGraph.canvasNodes]
+    [canvasNodes, core, defaultGroupPadding, docRef, nodeSize, selectEdge, selection]
   )
 
   const resolved = useMemo(() => resolveShortcuts(defaults, shortcutsProp), [defaults, shortcutsProp])

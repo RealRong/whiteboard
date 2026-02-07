@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useSetAtom } from 'jotai'
 import type { EdgeInput, EdgePatch, NodeInput, NodePatch } from '@whiteboard/core'
-import { selectionAtom } from '../state/whiteboardAtoms'
+import { toolAtom } from '../state/whiteboardAtoms'
 import { useSelection } from '../../node/hooks'
 import { useEdgeConnect } from '../../edge/hooks'
 import { useInstance } from '../hooks/useInstance'
@@ -12,7 +12,7 @@ export const useInstanceCommands = () => {
   const instance = useInstance()
   const selection = useSelection()
   const edgeConnect = useEdgeConnect()
-  const setSelection = useSetAtom(selectionAtom)
+  const setTool = useSetAtom(toolAtom)
   const { update: updateInteraction } = useInteraction()
 
   const commands = useMemo<WhiteboardCommands>(() => {
@@ -24,9 +24,10 @@ export const useInstanceCommands = () => {
         clear: selection.clear,
         getSelectedNodeIds: () => Array.from(selection.selectedNodeIds)
       },
+      order: core.commands.order,
       tool: {
         setTool: (tool) => {
-          setSelection((prev) => ({ ...prev, tool }))
+          setTool(tool)
         }
       },
       interaction: {
@@ -62,7 +63,7 @@ export const useInstanceCommands = () => {
       group: core.commands.group,
       mindmap: core.commands.mindmap
     }
-  }, [edgeConnect, instance, selection, setSelection, updateInteraction])
+  }, [edgeConnect, instance, selection, setTool, updateInteraction])
 
   useEffect(() => {
     instance.setCommands(commands)

@@ -65,6 +65,22 @@ export const createCommands = (deps: CommandDeps): Core['commands'] => {
       resize: (id: NodeId, size: { width: number; height: number }) => dispatch({ type: 'node.update', id, patch: { size } }),
       rotate: (id: NodeId, angle: number) => dispatch({ type: 'node.update', id, patch: { rotation: angle } })
     },
+    order: {
+      node: {
+        set: (ids: NodeId[]) => dispatch({ type: 'node.order.set', ids }),
+        bringToFront: (ids: NodeId[]) => dispatch({ type: 'node.order.bringToFront', ids }),
+        sendToBack: (ids: NodeId[]) => dispatch({ type: 'node.order.sendToBack', ids }),
+        bringForward: (ids: NodeId[]) => dispatch({ type: 'node.order.bringForward', ids }),
+        sendBackward: (ids: NodeId[]) => dispatch({ type: 'node.order.sendBackward', ids })
+      },
+      edge: {
+        set: (ids: EdgeId[]) => dispatch({ type: 'edge.order.set', ids }),
+        bringToFront: (ids: EdgeId[]) => dispatch({ type: 'edge.order.bringToFront', ids }),
+        sendToBack: (ids: EdgeId[]) => dispatch({ type: 'edge.order.sendToBack', ids }),
+        bringForward: (ids: EdgeId[]) => dispatch({ type: 'edge.order.bringForward', ids }),
+        sendBackward: (ids: EdgeId[]) => dispatch({ type: 'edge.order.sendBackward', ids })
+      }
+    },
     edge: {
       connect: (source: { nodeId: NodeId; anchor?: EdgeAnchor }, target: { nodeId: NodeId; anchor?: EdgeAnchor }) =>
         dispatch({ type: 'edge.create', payload: { source, target, type: 'linear' } }),

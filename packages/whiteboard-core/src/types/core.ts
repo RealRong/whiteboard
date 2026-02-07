@@ -25,6 +25,7 @@ export interface Node {
   position: Point
   size?: Size
   rotation?: number
+  layer?: 'background' | 'default' | 'overlay'
   zIndex?: number
   parentId?: NodeId
   locked?: boolean
@@ -134,6 +135,10 @@ export interface Document {
   nodes: Node[]
   edges: Edge[]
   mindmaps?: MindmapTree[]
+  order: {
+    nodes: NodeId[]
+    edges: EdgeId[]
+  }
   background?: { type: 'dot' | 'line' | 'none'; color?: string }
   viewport?: Viewport
   meta?: { createdAt?: string; updatedAt?: string }
@@ -177,9 +182,19 @@ export type Intent =
   | { type: 'node.create'; payload: NodeInput }
   | { type: 'node.update'; id: NodeId; patch: NodePatch }
   | { type: 'node.delete'; ids: NodeId[] }
+  | { type: 'node.order.set'; ids: NodeId[] }
+  | { type: 'node.order.bringToFront'; ids: NodeId[] }
+  | { type: 'node.order.sendToBack'; ids: NodeId[] }
+  | { type: 'node.order.bringForward'; ids: NodeId[] }
+  | { type: 'node.order.sendBackward'; ids: NodeId[] }
   | { type: 'edge.create'; payload: EdgeInput }
   | { type: 'edge.update'; id: EdgeId; patch: EdgePatch }
   | { type: 'edge.delete'; ids: EdgeId[] }
+  | { type: 'edge.order.set'; ids: EdgeId[] }
+  | { type: 'edge.order.bringToFront'; ids: EdgeId[] }
+  | { type: 'edge.order.sendToBack'; ids: EdgeId[] }
+  | { type: 'edge.order.bringForward'; ids: EdgeId[] }
+  | { type: 'edge.order.sendBackward'; ids: EdgeId[] }
   | { type: 'mindmap.create'; payload?: MindmapCreateInput }
   | { type: 'mindmap.delete'; ids: MindmapId[] }
   | { type: 'mindmap.replace'; id: MindmapId; tree: MindmapTree }
@@ -231,9 +246,19 @@ export type Operation =
   | { type: 'node.create'; node: Node }
   | { type: 'node.update'; id: NodeId; patch: NodePatch; before?: Node }
   | { type: 'node.delete'; id: NodeId; before?: Node }
+  | { type: 'node.order.set'; ids: NodeId[]; before?: NodeId[] }
+  | { type: 'node.order.bringToFront'; ids: NodeId[]; before?: NodeId[] }
+  | { type: 'node.order.sendToBack'; ids: NodeId[]; before?: NodeId[] }
+  | { type: 'node.order.bringForward'; ids: NodeId[]; before?: NodeId[] }
+  | { type: 'node.order.sendBackward'; ids: NodeId[]; before?: NodeId[] }
   | { type: 'edge.create'; edge: Edge }
   | { type: 'edge.update'; id: EdgeId; patch: EdgePatch; before?: Edge }
   | { type: 'edge.delete'; id: EdgeId; before?: Edge }
+  | { type: 'edge.order.set'; ids: EdgeId[]; before?: EdgeId[] }
+  | { type: 'edge.order.bringToFront'; ids: EdgeId[]; before?: EdgeId[] }
+  | { type: 'edge.order.sendToBack'; ids: EdgeId[]; before?: EdgeId[] }
+  | { type: 'edge.order.bringForward'; ids: EdgeId[]; before?: EdgeId[] }
+  | { type: 'edge.order.sendBackward'; ids: EdgeId[]; before?: EdgeId[] }
   | { type: 'mindmap.create'; mindmap: MindmapTree }
   | { type: 'mindmap.replace'; id: MindmapId; before?: MindmapTree; after: MindmapTree }
   | { type: 'mindmap.delete'; id: MindmapId; before?: MindmapTree }
@@ -472,6 +497,22 @@ export interface Core {
       move(ids: NodeId[], delta: Point): Promise<DispatchResult>
       resize(id: NodeId, size: Size): Promise<DispatchResult>
       rotate?(id: NodeId, angle: number): Promise<DispatchResult>
+    }
+    order: {
+      node: {
+        set(ids: NodeId[]): Promise<DispatchResult>
+        bringToFront(ids: NodeId[]): Promise<DispatchResult>
+        sendToBack(ids: NodeId[]): Promise<DispatchResult>
+        bringForward(ids: NodeId[]): Promise<DispatchResult>
+        sendBackward(ids: NodeId[]): Promise<DispatchResult>
+      }
+      edge: {
+        set(ids: EdgeId[]): Promise<DispatchResult>
+        bringToFront(ids: EdgeId[]): Promise<DispatchResult>
+        sendToBack(ids: EdgeId[]): Promise<DispatchResult>
+        bringForward(ids: EdgeId[]): Promise<DispatchResult>
+        sendBackward(ids: EdgeId[]): Promise<DispatchResult>
+      }
     }
     edge: {
       connect(

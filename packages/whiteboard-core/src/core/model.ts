@@ -18,7 +18,11 @@ export const createModel = (deps: {
           throw new Error('Node input requires type and position.')
         }
         const normalized = applyNodeDefaults(input, registries)
-        const node: Node = { ...normalized, id: normalized.id ?? state.createNodeId() }
+        const node: Node = {
+          ...normalized,
+          id: normalized.id ?? state.createNodeId(),
+          layer: normalized.type === 'group' ? (normalized.layer ?? 'background') : normalized.layer
+        }
         if (state.maps.nodes.has(node.id)) {
           throw new Error(`Node ${node.id} already exists.`)
         }

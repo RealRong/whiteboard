@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { Guide, SnapCandidate } from '../utils/snap'
 import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
 import { useInstance, useViewportStore, useWhiteboardConfig } from '../../common/hooks'
-import { useAtomValue } from 'jotai'
-import { snapRuntimeAtom } from '../state/snapRuntimeAtom'
-import { selectionAtom } from '../../common/state'
+import { useSnapRuntime } from './useSnapRuntime'
+import { nodeSelectionAtom, toolAtom } from '../../common/state'
 
 type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 type HandleKind = 'resize' | 'rotate'
@@ -121,11 +121,12 @@ export const useNodeTransform = ({
   const instance = useInstance()
   const viewport = useViewportStore()
   const { nodeSize } = useWhiteboardConfig()
-  const snap = useAtomValue(snapRuntimeAtom)
-  const selectionState = useAtomValue(selectionAtom)
-  const tool = (selectionState.tool as 'select' | 'edge') ?? 'select'
+  const snap = useSnapRuntime()
+  const selectionState = useAtomValue(nodeSelectionAtom)
+  const tool = useAtomValue(toolAtom)
+  const activeTool = (tool as 'select' | 'edge') ?? 'select'
   const resolvedEnabled =
-    enabled ?? (tool === 'select' && selectionState.selectedNodeIds.has(node.id))
+    enabled ?? (activeTool === 'select' && selectionState.selectedNodeIds.has(node.id))
   const containerRef = instance.containerRef ?? undefined
   const screenToWorld = instance.viewport.screenToWorld ?? undefined
   const zoom = viewport.zoom

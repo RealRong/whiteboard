@@ -93,6 +93,7 @@ const buildNodeCopy = (node: Node, parentId: NodeId | undefined, delta: Point) =
     position: { x: node.position.x + delta.x, y: node.position.y + delta.y },
     size: node.size ? { width: node.size.width, height: node.size.height } : undefined,
     rotation: typeof node.rotation === 'number' ? node.rotation : undefined,
+    layer: node.layer,
     zIndex: typeof node.zIndex === 'number' ? node.zIndex : undefined,
     locked: typeof node.locked === 'boolean' ? node.locked : undefined,
     data: node.data ? { ...node.data } : undefined,

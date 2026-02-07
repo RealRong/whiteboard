@@ -2,6 +2,7 @@ import { atom } from 'jotai'
 import type { EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core'
 import { getPlatformInfo } from '../shortcuts/shortcutManager'
 import type { ShortcutContext } from '../shortcuts/types'
+import { docAtom } from './whiteboardContextAtoms'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
@@ -11,11 +12,6 @@ export type SelectionState = {
   selectionRect?: Rect
   selectionRectWorld?: Rect
   mode: SelectionMode
-}
-
-export type SelectionStore = SelectionState & {
-  selectedEdgeId?: EdgeId
-  tool: string
 }
 
 export type InteractionState = {
@@ -69,14 +65,12 @@ export type EdgeConnectState = {
   pointerId?: number | null
 }
 
-const createSelectionState = (): SelectionStore => ({
+const createNodeSelectionState = (): SelectionState => ({
   selectedNodeIds: new Set<NodeId>(),
   isSelecting: false,
   mode: 'replace',
   selectionRect: undefined,
-  selectionRectWorld: undefined,
-  selectedEdgeId: undefined,
-  tool: 'select'
+  selectionRectWorld: undefined
 })
 
 export const platformAtom = atom<ShortcutContext['platform']>(getPlatformInfo())
@@ -103,34 +97,66 @@ export const interactionAtom = atom<InteractionState>({
   }
 })
 
+type HoveredEdgeIdUpdate =
+  | EdgeId
+  | undefined
+  | ((prev: EdgeId | undefined) => EdgeId | undefined)
+
+export const hoveredEdgeIdAtom = atom(
+  (get) => get(interactionAtom).hover.edgeId,
+  (get, set, update: HoveredEdgeIdUpdate) => {
+    const prev = get(interactionAtom).hover.edgeId
+    const next = typeof update === 'function' ? update(prev) : update
+    if (prev === next) return
+    set(interactionAtom, (current) => ({
+      ...current,
+      hover: {
+        ...current.hover,
+        edgeId: next
+      }
+    }))
+  }
+)
+
 export const spacePressedAtom = atom<boolean>(false)
 
-export const selectionAtom = atom<SelectionStore>(createSelectionState())
+export const toolAtom = atom<string>('select')
 
-export const viewportAtom = atom<ViewportState>({
-  zoom: 1
+export const nodeSelectionAtom = atom<SelectionState>(createNodeSelectionState())
+
+export const edgeSelectionAtom = atom<EdgeId | undefined>(undefined)
+
+export const viewportAtom = atom<ViewportState>((get) => {
+  const doc = get(docAtom)
+  return {
+    zoom: doc?.viewport?.zoom ?? 1
+  }
 })
 
 export const edgeConnectAtom = atom<EdgeConnectState>({
   isConnecting: false
 })
 
+export const edgeConnectTransientAtom = edgeConnectAtom
+
 export const shortcutContextAtom = atom<ShortcutContext>((get) => {
   const platform = get(platformAtom)
   const interaction = get(interactionAtom)
-  const selection = get(selectionAtom)
+  const tool = get(toolAtom)
+  const selection = get(nodeSelectionAtom)
+  const selectedEdgeId = get(edgeSelectionAtom)
   const viewport = get(viewportAtom)
   const edgeConnect = get(edgeConnectAtom)
   const selectedNodeIds = Array.from(selection.selectedNodeIds)
   return {
     platform,
     focus: interaction.focus,
-    tool: { active: selection.tool },
+    tool: { active: tool },
     selection: {
       count: selectedNodeIds.length,
       hasSelection: selectedNodeIds.length > 0,
       selectedNodeIds,
-      selectedEdgeId: selection.selectedEdgeId
+      selectedEdgeId
     },
     hover: interaction.hover,
     pointer: {

@@ -1,5 +1,4 @@
 import { useMemo, useRef } from 'react'
-import { useHydrateAtoms } from 'jotai/utils'
 import { DragGuidesLayer, NodeLayerStack, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import {
@@ -8,11 +7,10 @@ import {
   useResolvedNodeRegistry,
   useViewport
 } from './common/hooks'
-import { useWhiteboardLifecycle } from './common/lifecycle'
+import { useWhiteboardContextHydration, useWhiteboardLifecycle } from './common/lifecycle'
 import { NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from './types'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
-import { docAtom, instanceAtom } from './common/state'
 import { createWhiteboardInstance } from './common/instance'
 import { MindmapLayerStack } from './mindmap/components'
 
@@ -50,10 +48,7 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
     containerRef,
     instance
   })
-  useHydrateAtoms([
-    [docAtom, doc],
-    [instanceAtom, instance]
-  ])
+  useWhiteboardContextHydration(doc, instance)
 
   const containerStyle = useCanvasStyle(resolvedConfig.style)
 

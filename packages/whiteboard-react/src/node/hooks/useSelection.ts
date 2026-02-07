@@ -1,17 +1,15 @@
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import type { SelectionMode, SelectionState } from '../../common/state'
-import { selectionAtom } from '../../common/state'
-import { useInstance, useSpacePressed, useViewGraph, useWhiteboardConfig } from '../../common/hooks'
+import { edgeSelectionAtom, nodeSelectionAtom, toolAtom } from '../../common/state'
+import { useCanvasNodes, useInstance, useSpacePressed, useWhiteboardConfig } from '../../common/hooks'
 import {
   getNodeRect,
-  rectContains,
   rectContainsRotatedRect,
   rectFromPoints,
-  rectIntersects,
   rectIntersectsRotatedRect
 } from '../../common/utils/geometry'
 import { applySelectionMode, getSelectionModeFromEvent } from '../utils/selection'
@@ -53,19 +51,22 @@ export type UseSelectionReturn = {
 }
 
 export const useSelection = (options: UseSelectionOptions = {}): UseSelectionReturn => {
-  const [state, setSelection] = useAtom(selectionAtom)
+  const [state, setSelection] = useAtom(nodeSelectionAtom)
+  const tool = useAtomValue(toolAtom)
+  const selectedEdgeId = useAtomValue(edgeSelectionAtom)
+  const setEdgeSelection = useSetAtom(edgeSelectionAtom)
   const instance = useInstance()
-  const viewGraph = useViewGraph()
+  const canvasNodes = useCanvasNodes()
   const { nodeSize: fallbackNodeSize } = useWhiteboardConfig()
   const spacePressed = useSpacePressed()
   const startRef = useRef<Point | null>(null)
   const modeRef = useRef<SelectionMode>('replace')
   const rafRef = useRef<number | null>(null)
   const minDragDistance = options.minDragDistance ?? 3
-  const enabled = options.enabled ?? state.tool !== 'edge'
+  const enabled = options.enabled ?? tool !== 'edge'
   const containerRef = options.containerRef ?? instance.containerRef ?? undefined
   const screenToWorld = options.screenToWorld ?? instance.viewport.screenToWorld ?? undefined
-  const nodes = options.nodes ?? viewGraph.canvasNodes
+  const nodes = options.nodes ?? canvasNodes
   const nodeSize = options.nodeSize ?? fallbackNodeSize
 
   const getModeFromEvent = useCallback(getSelectionModeFromEvent, [])
@@ -74,27 +75,30 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
 
   const select = useCallback(
     (ids: string[], mode: SelectionMode = 'replace') => {
+      setEdgeSelection(undefined)
       setSelection((prev) => ({
         ...prev,
         mode,
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, mode)
       }))
     },
-    [setSelection]
+    [setEdgeSelection, setSelection]
   )
 
   const toggle = useCallback(
     (ids: string[]) => {
+      setEdgeSelection(undefined)
       setSelection((prev) => ({
         ...prev,
         mode: 'toggle',
         selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, 'toggle')
       }))
     },
-    [setSelection]
+    [setEdgeSelection, setSelection]
   )
 
   const clear = useCallback(() => {
+    setEdgeSelection(undefined)
     setSelection((prev) => ({
       ...prev,
       selectedNodeIds: new Set<string>(),
@@ -102,12 +106,13 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       selectionRect: undefined,
       selectionRectWorld: undefined
     }))
-  }, [setSelection])
+  }, [setEdgeSelection, setSelection])
 
   const beginBox = useCallback(
     (pointScreen: Point, mode: SelectionMode = 'replace') => {
       startRef.current = pointScreen
       modeRef.current = mode
+      setEdgeSelection(undefined)
       setSelection((prev) => ({
         ...prev,
         mode,
@@ -116,7 +121,7 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
         selectionRectWorld: undefined
       }))
     },
-    [setSelection]
+    [setEdgeSelection, setSelection]
   )
 
   const hitTest = useCallback(
@@ -264,8 +269,8 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
 
   const api = useMemo(
     () => ({
-      tool: state.tool,
-      selectedEdgeId: state.selectedEdgeId,
+      tool,
+      selectedEdgeId,
       selectedNodeIds: state.selectedNodeIds,
       isSelecting: state.isSelecting,
       selectionRect: state.selectionRect,
@@ -294,12 +299,12 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
       hasSelection,
       isSelected,
       select,
-      state.selectedEdgeId,
+      selectedEdgeId,
       state.isSelecting,
       state.selectedNodeIds,
       state.selectionRect,
       state.selectionRectWorld,
-      state.tool,
+      tool,
       toggle,
       updateBox
     ]

@@ -64,11 +64,67 @@ export const createApplyOperations = ({
     return index
   }
 
+  const moveToFront = <T extends string>(order: T[], ids: T[]) => {
+    const set = new Set(ids)
+    const kept = order.filter((id) => !set.has(id))
+    const moved = order.filter((id) => set.has(id))
+    return [...kept, ...moved]
+  }
+
+  const moveToBack = <T extends string>(order: T[], ids: T[]) => {
+    const set = new Set(ids)
+    const kept = order.filter((id) => !set.has(id))
+    const moved = order.filter((id) => set.has(id))
+    return [...moved, ...kept]
+  }
+
+  const moveForward = <T extends string>(order: T[], ids: T[]) => {
+    const set = new Set(ids)
+    const next = [...order]
+    for (let i = next.length - 2; i >= 0; i -= 1) {
+      const current = next[i]
+      const after = next[i + 1]
+      if (set.has(current) && !set.has(after)) {
+        next[i] = after
+        next[i + 1] = current
+      }
+    }
+    return next
+  }
+
+  const moveBackward = <T extends string>(order: T[], ids: T[]) => {
+    const set = new Set(ids)
+    const next = [...order]
+    for (let i = 1; i < next.length; i += 1) {
+      const current = next[i]
+      const before = next[i - 1]
+      if (set.has(current) && !set.has(before)) {
+        next[i - 1] = current
+        next[i] = before
+      }
+    }
+    return next
+  }
+
+  const appendOrderId = <T extends string>(order: T[], id: T) => {
+    if (!order.includes(id)) {
+      order.push(id)
+    }
+  }
+
+  const removeOrderId = <T extends string>(order: T[], id: T) => {
+    const index = order.indexOf(id)
+    if (index >= 0) {
+      order.splice(index, 1)
+    }
+  }
+
   const applyOperation = (op: ChangeSet['operations'][number], document: CoreState['document']) => {
     switch (op.type) {
       case 'node.create': {
         maps.nodes.set(op.node.id, op.node)
         document.nodes.push(op.node)
+        appendOrderId(document.order.nodes, op.node.id)
         const tree = getMindmapTreeFromNode(op.node)
         if (tree) {
           maps.mindmaps.set(op.node.id, cloneMindmapTree(tree.id === op.node.id ? tree : { ...tree, id: op.node.id }))
@@ -99,11 +155,33 @@ export const createApplyOperations = ({
         if (index >= 0) {
           document.nodes.splice(index, 1)
         }
+        removeOrderId(document.order.nodes, op.id)
+        break
+      }
+      case 'node.order.set': {
+        document.order.nodes = [...op.ids]
+        break
+      }
+      case 'node.order.bringToFront': {
+        document.order.nodes = moveToFront(document.order.nodes, op.ids)
+        break
+      }
+      case 'node.order.sendToBack': {
+        document.order.nodes = moveToBack(document.order.nodes, op.ids)
+        break
+      }
+      case 'node.order.bringForward': {
+        document.order.nodes = moveForward(document.order.nodes, op.ids)
+        break
+      }
+      case 'node.order.sendBackward': {
+        document.order.nodes = moveBackward(document.order.nodes, op.ids)
         break
       }
       case 'edge.create': {
         maps.edges.set(op.edge.id, op.edge)
         document.edges.push(op.edge)
+        appendOrderId(document.order.edges, op.edge.id)
         break
       }
       case 'edge.update': {
@@ -123,6 +201,27 @@ export const createApplyOperations = ({
         if (index >= 0) {
           document.edges.splice(index, 1)
         }
+        removeOrderId(document.order.edges, op.id)
+        break
+      }
+      case 'edge.order.set': {
+        document.order.edges = [...op.ids]
+        break
+      }
+      case 'edge.order.bringToFront': {
+        document.order.edges = moveToFront(document.order.edges, op.ids)
+        break
+      }
+      case 'edge.order.sendToBack': {
+        document.order.edges = moveToBack(document.order.edges, op.ids)
+        break
+      }
+      case 'edge.order.bringForward': {
+        document.order.edges = moveForward(document.order.edges, op.ids)
+        break
+      }
+      case 'edge.order.sendBackward': {
+        document.order.edges = moveBackward(document.order.edges, op.ids)
         break
       }
       case 'mindmap.create': {
@@ -137,6 +236,7 @@ export const createApplyOperations = ({
           }
           document.nodes.push(nextNode)
           maps.nodes.set(nextNode.id, cloneNode(nextNode))
+          appendOrderId(document.order.nodes, nextNode.id)
         } else {
           const node = document.nodes[existingIndex]
           if (node.type === 'mindmap') {
@@ -162,6 +262,7 @@ export const createApplyOperations = ({
         if (index >= 0) {
           document.nodes.splice(index, 1)
         }
+        removeOrderId(document.order.nodes, op.id)
         break
       }
       case 'mindmap.node.create': {
