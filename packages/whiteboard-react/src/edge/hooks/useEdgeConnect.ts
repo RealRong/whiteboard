@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -56,6 +56,21 @@ const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point): AnchorR
   return { anchor, point: getAnchorPoint(rect, anchor, rotation) }
 }
 
+const isSameConnectTo = (
+  left?: EdgeConnectState['hover'],
+  right?: ConnectTo
+) => {
+  if (!left && !right) return true
+  if (!left || !right) return false
+  return (
+    left.nodeId === right.nodeId &&
+    left.anchor?.side === right.anchor?.side &&
+    left.anchor?.offset === right.anchor?.offset &&
+    left.pointWorld?.x === right.pointWorld?.x &&
+    left.pointWorld?.y === right.pointWorld?.y
+  )
+}
+
 export type UseEdgeConnectReturn = {
   state: EdgeConnectState
   selectedEdgeId?: string
@@ -93,6 +108,11 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
   const edgeType: Edge['type'] = 'linear'
   const snapThresholdWorld = Math.max(12, Math.min(nodeSize.width, nodeSize.height) * 0.18) / Math.max(zoom, 0.0001)
 
+  const hoverRafRef = useRef<number | null>(null)
+  const hoverPointRef = useRef<Point | null>(null)
+  const activeToolRef = useRef<'select' | 'edge'>(activeTool)
+  activeToolRef.current = activeTool
+
   const nodeRects = useMemo(() => {
     return canvasNodes.map((node) => ({
       node,
@@ -127,6 +147,40 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
     },
     [nodeRects, snapThresholdWorld]
   )
+
+  const getSnapAtPointRef = useRef(getSnapAtPoint)
+  getSnapAtPointRef.current = getSnapAtPoint
+
+  const flushHover = useCallback(() => {
+    hoverRafRef.current = null
+    const pointWorld = hoverPointRef.current
+    hoverPointRef.current = null
+    if (!pointWorld) return
+    if (activeToolRef.current !== 'edge') return
+
+    const snap = getSnapAtPointRef.current(pointWorld)
+    setState((prev) => {
+      if (prev.isConnecting) return prev
+      if (!snap) {
+        if (!prev.hover) return prev
+        return { ...prev, hover: undefined }
+      }
+      if (isSameConnectTo(prev.hover, snap)) {
+        return prev
+      }
+      return { ...prev, hover: snap }
+    })
+  }, [setState])
+
+  useEffect(() => {
+    return () => {
+      if (hoverRafRef.current !== null) {
+        cancelAnimationFrame(hoverRafRef.current)
+      }
+      hoverRafRef.current = null
+      hoverPointRef.current = null
+    }
+  }, [])
 
   const startFromHandle = useCallback((nodeId: string, side: EdgeAnchor['side'], pointerId?: number) => {
     const anchor: EdgeAnchor = { side, offset: 0.5 }
@@ -269,15 +323,16 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
 
   const updateHover = useCallback(
     (pointWorld: Point) => {
-      if (state.isConnecting || activeTool !== 'edge') return
-      const snap = getSnapAtPoint(pointWorld)
-      if (!snap) {
-        setState((prev) => ({ ...prev, hover: undefined }))
+      if (activeToolRef.current !== 'edge') return
+      hoverPointRef.current = pointWorld
+      if (hoverRafRef.current !== null) return
+      if (typeof requestAnimationFrame === 'undefined') {
+        flushHover()
         return
       }
-      setState((prev) => ({ ...prev, hover: snap }))
+      hoverRafRef.current = requestAnimationFrame(flushHover)
     },
-    [activeTool, getSnapAtPoint, setState, state.isConnecting]
+    [flushHover]
   )
 
   const handleNodePointerDown = useCallback(

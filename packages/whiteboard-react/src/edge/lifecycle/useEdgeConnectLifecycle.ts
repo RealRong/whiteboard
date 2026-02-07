@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useInstance } from '../../common/hooks'
-import type { UseEdgeConnectReturn } from '../hooks/useEdgeConnect'
+import { useEdgeConnect } from '../hooks'
 
-export const useEdgeConnectLifecycle = (edgeConnect: UseEdgeConnectReturn) => {
+export const useEdgeConnectLifecycle = () => {
   const instance = useInstance()
+  const edgeConnect = useEdgeConnect()
   const { state, screenToWorld, containerRef, updateTo, commitTo } = edgeConnect
 
   useEffect(() => {

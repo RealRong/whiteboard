@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useInstance } from '../../common/hooks'
-import type { UseEdgeConnectReturn } from '../hooks/useEdgeConnect'
+import { useEdgeConnect } from '../hooks'
 
-export const useEdgeConnectRuntimeSync = (edgeConnect: UseEdgeConnectReturn) => {
+export const useEdgeConnectRuntimeSync = () => {
   const instance = useInstance()
+  const edgeConnect = useEdgeConnect()
 
   useEffect(() => {
     instance.services.edgeConnectRuntime.set(edgeConnect)

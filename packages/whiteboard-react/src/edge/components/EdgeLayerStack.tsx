@@ -1,5 +1,4 @@
 import { useEdgeConnect, useEdgeLayerModel } from '../hooks'
-import { useEdgeConnectLifecycle, useEdgeConnectRuntimeSync } from '../lifecycle'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
@@ -24,8 +23,6 @@ export const EdgeLayerStack = () => {
   const tool = useAtomValue(toolAtom)
   const viewportState = useViewportStore()
   const edgeConnect = useEdgeConnect()
-  useEdgeConnectLifecycle(edgeConnect)
-  useEdgeConnectRuntimeSync(edgeConnect)
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
     core: instance.core,

@@ -138,7 +138,25 @@
 2. ✅ 已完成第二阶段（命名与清理规范）：
    - 增加瞬态语义别名：`edgeConnectTransientAtom`、`dragGuidesTransientAtom`、`groupHoveredTransientAtom`、`nodeViewOverridesTransientAtom`；
    - 增加统一清理生命周期 `useTransientLifecycle`，在 whiteboard 卸载时清空所有瞬态状态。
-3. 下一阶段：评估是否需要将 `nodeViewOverrides` 继续拆为更细粒度结构（仅在极大文档下）。
+3. ✅ 已完成第三阶段（Node 交互职责拆分）：
+   - 将 `useNodeDrag` 从 `useNodeInteraction` 内部实现中独立为 `node/hooks/useNodeDrag.ts`；
+   - 新增 `node/runtime/drag/` 策略目录（`plainNodeDragStrategy`、`groupNodeDragStrategy`、`selectNodeDragStrategy`）；
+   - `useNodeDrag` 收敛为薄编排壳：仅维护 pointer session、snap 计算、策略分发；
+   - `useNodeInteraction` 仅保留工具路由、选择策略与事件编排。
+4. ✅ 已完成第四阶段（副作用生命周期收口）：
+   - `NodeLayerStack` 退役，Node 渲染改为直接使用 `NodeLayer`；
+   - `useGroupAutoFit` 迁移到 `useNodeLifecycle`，由 `useWhiteboardLifecycle` 统一编排；
+   - `useEdgeConnectLifecycle` 与 `useEdgeConnectRuntimeSync` 迁移到 `useEdgeLifecycle`，从 `EdgeLayerStack` 副作用剥离；
+   - `useViewport` 的容器 `ResizeObserver` 下沉为 `containerSizeObserverService`（instance service），hook 仅做状态编排；
+   - `useWhiteboardLifecycle` 卸载时统一释放 observer/service 资源（node/container observer + edge runtime 清理）。
+5. ✅ 已完成第五阶段（P1 性能项补齐）：
+   - `useGroupAutoFit` 增加变更感知：仅对脏 group 及其祖先 group 执行 auto-fit，避免每次 nodes 变更全量扫描；
+   - Edge 模式 `updateHover` 增加 `requestAnimationFrame` 节流与重复值跳过，降低高频 pointermove 下的状态写入与重算。
+6. ✅ 已完成第六阶段（Node 链路可读性与订阅粒度优化）：
+   - `useNodeInteraction` 改为写路径订阅（`useSetAtom`）并统一输出 `containerHandlers`，减少无效订阅与事件拼装分散；
+   - `useNodePresentation` 收敛为纯展示查询（移除交互注入），并通过 `useNodeSelectionFlags` 对 selected/hovered 做窄订阅；
+   - `NodeItem` 改为显式合并 presentation + interaction，再统一构造 `renderProps` 与内容渲染，组件职责更清晰。
+7. 下一阶段：评估是否需要将 `nodeViewOverrides` 继续拆为更细粒度结构（仅在极大文档下）。
 
 ---
 
@@ -153,7 +171,8 @@
 
 1. 对 `nodeViewOverrides` 做压力基准（大文档拖拽）决定是否继续细拆。
 2. 评估是否需要将 `nodeOrder/edgeOrder` 再切分为按需 hook（当前保留 atom 即可）。
-3. 评估是否要为 `interactionAtom.pointer` 引入事件级节流（仅在高频场景需要）。
+3. 评估是否要把 group auto-fit 进一步下沉为纯计算 service（hook 仅负责触发与提交）。
+4. 评估是否要将 `nodeSelectionAtom` 的读模型进一步拆成 node 级 selector family（极大画布下）。
 
 这样可以在不打断现有交互的前提下，逐步达到 AGENTS 目标架构：
 

@@ -12,24 +12,20 @@ const DEFAULT_VIEWPORT: Viewport = {
 type Options = {
   viewport?: Viewport
   containerRef: RefObject<HTMLElement>
-  instance?: WhiteboardInstance
+  instance: WhiteboardInstance
 }
 
-export const useViewport = ({ viewport, containerRef, instance }: Options) => {
+export const useViewportRuntime = ({ viewport, containerRef, instance }: Options) => {
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
 
   useLayoutEffect(() => {
     const element = containerRef.current
-    if (!element || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const { width, height } = entry.contentRect
-      setSize({ width, height })
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [containerRef])
+    if (!element) return
+    instance.services.containerSizeObserver.observe(element, setSize)
+    return () => {
+      instance.services.containerSizeObserver.unobserve(element)
+    }
+  }, [containerRef, instance])
 
   const actual = viewport ?? DEFAULT_VIEWPORT
   const screenCenter = useMemo(
@@ -62,7 +58,6 @@ export const useViewport = ({ viewport, containerRef, instance }: Options) => {
   )
 
   useLayoutEffect(() => {
-    if (!instance) return
     instance.viewport.set({
       viewport: actual,
       screenToWorld,

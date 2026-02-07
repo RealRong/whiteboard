@@ -15,6 +15,8 @@ import type {
 import type { RefObject } from 'react'
 import { createNodeSizeObserverService } from './nodeSizeObserverService'
 import type { NodeSizeObserverService } from './nodeSizeObserverService'
+import { createContainerSizeObserverService } from './containerSizeObserverService'
+import type { ContainerSizeObserverService } from './containerSizeObserverService'
 import type { SelectionMode } from '../state/whiteboardAtoms'
 import { createShortcutManager } from '../shortcuts/shortcutManager'
 import type { ShortcutManager } from '../shortcuts/shortcutManager'
@@ -178,6 +180,7 @@ export type WhiteboardInstance = {
   config: WhiteboardInstanceConfig
   services: {
     nodeSizeObserver: NodeSizeObserverService
+    containerSizeObserver: ContainerSizeObserverService
     edgeConnectRuntime: {
       get: () => UseEdgeConnectReturn | null
       set: (runtime: UseEdgeConnectReturn | null) => void
@@ -240,6 +243,7 @@ export const createWhiteboardInstance = ({
   const getContainer = () => containerRef.current
   const services = {
     nodeSizeObserver: createNodeSizeObserverService(core),
+    containerSizeObserver: createContainerSizeObserverService(),
     edgeConnectRuntime: (() => {
       let runtime: UseEdgeConnectReturn | null = null
       return {

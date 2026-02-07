@@ -1,11 +1,11 @@
 import { useMemo, useRef } from 'react'
-import { DragGuidesLayer, NodeLayerStack, SelectionLayer } from './node/components'
+import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import {
   useCanvasStyle,
   useCore,
   useResolvedNodeRegistry,
-  useViewport
+  useViewportRuntime
 } from './common/hooks'
 import { useWhiteboardContextHydration, useWhiteboardLifecycle } from './common/lifecycle'
 import { NodeRegistryProvider } from './node/registry'
@@ -43,7 +43,7 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
       }),
     [core, docRef, resolvedConfig.mindmapNodeSize, resolvedConfig.nodeSize]
   )
-  const { viewport, transformStyle } = useViewport({
+  const { viewport, transformStyle } = useViewportRuntime({
     viewport: doc.viewport,
     containerRef,
     instance
@@ -73,7 +73,7 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
           <EdgeLayerStack />
           <MindmapLayerStack layout={resolvedConfig.mindmapLayout} />
           <DragGuidesLayer />
-          <NodeLayerStack />
+          <NodeLayer />
         </div>
         <SelectionLayer />
       </div>

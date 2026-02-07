@@ -1,4 +1,4 @@
 import { useAtomValue } from 'jotai'
-import { viewportAtom } from '../state/whiteboardAtoms'
+import { viewportZoomAtom } from '../state/whiteboardAtoms'
 
-export const useViewportStore = () => useAtomValue(viewportAtom)
+export const useViewportZoom = () => useAtomValue(viewportZoomAtom)

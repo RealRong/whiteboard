@@ -14,6 +14,8 @@ import { useToolLifecycle } from './useToolLifecycle'
 import { DEFAULT_GROUP_PADDING } from '../../node/constants'
 import { useCanvasHandlers } from '../hooks/internal/useCanvasHandlers'
 import type { ViewportConfig } from '../types'
+import { useNodeLifecycle } from '../../node/lifecycle'
+import { useEdgeLifecycle } from '../../edge/lifecycle'
 
 type Options = {
   shortcutsProp?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
@@ -42,6 +44,8 @@ export const useWhiteboardLifecycle = ({
   })
   useSpacePressedLifecycle()
   useTransientLifecycle()
+  useNodeLifecycle()
+  useEdgeLifecycle()
   useInstanceCommands()
   useShortcutRegistry({
     core,
@@ -58,6 +62,9 @@ export const useWhiteboardLifecycle = ({
   useEffect(() => {
     return () => {
       selection.cancelPendingRaf()
+      instance.services.nodeSizeObserver.dispose()
+      instance.services.containerSizeObserver.dispose()
+      instance.services.edgeConnectRuntime.set(null)
     }
-  }, [selection])
+  }, [instance, selection])
 }

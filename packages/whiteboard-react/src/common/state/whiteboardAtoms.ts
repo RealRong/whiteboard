@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import type { EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core'
+import type { EdgeAnchor, EdgeId, NodeId, Point, Rect, Viewport } from '@whiteboard/core'
 import { getPlatformInfo } from '../shortcuts/shortcutManager'
 import type { ShortcutContext } from '../shortcuts/types'
 import { docAtom } from './whiteboardContextAtoms'
@@ -34,10 +34,6 @@ export type InteractionState = {
     nodeId?: NodeId
     edgeId?: EdgeId
   }
-}
-
-export type ViewportState = {
-  zoom: number
 }
 
 export type EdgeConnectFrom = {
@@ -126,12 +122,26 @@ export const nodeSelectionAtom = atom<SelectionState>(createNodeSelectionState()
 
 export const edgeSelectionAtom = atom<EdgeId | undefined>(undefined)
 
-export const viewportAtom = atom<ViewportState>((get) => {
+const DEFAULT_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
+}
+
+export const viewportAtom = atom<Viewport>((get) => {
   const doc = get(docAtom)
+  const viewport = doc?.viewport
+  if (!viewport) return DEFAULT_VIEWPORT
+
   return {
-    zoom: doc?.viewport?.zoom ?? 1
+    center: {
+      x: viewport.center?.x ?? DEFAULT_VIEWPORT.center.x,
+      y: viewport.center?.y ?? DEFAULT_VIEWPORT.center.y
+    },
+    zoom: viewport.zoom ?? DEFAULT_VIEWPORT.zoom
   }
 })
+
+export const viewportZoomAtom = atom<number>((get) => get(viewportAtom).zoom)
 
 export const edgeConnectAtom = atom<EdgeConnectState>({
   isConnecting: false
@@ -145,7 +155,7 @@ export const shortcutContextAtom = atom<ShortcutContext>((get) => {
   const tool = get(toolAtom)
   const selection = get(nodeSelectionAtom)
   const selectedEdgeId = get(edgeSelectionAtom)
-  const viewport = get(viewportAtom)
+  const viewportZoom = get(viewportZoomAtom)
   const edgeConnect = get(edgeConnectAtom)
   const selectedNodeIds = Array.from(selection.selectedNodeIds)
   return {
@@ -164,7 +174,7 @@ export const shortcutContextAtom = atom<ShortcutContext>((get) => {
       isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
     },
     viewport: {
-      zoom: viewport.zoom
+      zoom: viewportZoom
     }
   }
 })

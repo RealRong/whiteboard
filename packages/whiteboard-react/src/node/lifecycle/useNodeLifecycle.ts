@@ -1,9 +1,8 @@
-import { NodeLayer } from './NodeLayer'
-import { useGroupAutoFit } from '../lifecycle'
-import { DEFAULT_GROUP_PADDING } from '../constants'
 import { useDoc, useInstance, useWhiteboardConfig } from '../../common/hooks'
+import { DEFAULT_GROUP_PADDING } from '../constants'
+import { useGroupAutoFit } from './useGroupAutoFit'
 
-export const NodeLayerStack = () => {
+export const useNodeLifecycle = () => {
   const doc = useDoc()
   const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
@@ -14,8 +13,4 @@ export const NodeLayerStack = () => {
     nodeSize,
     padding: DEFAULT_GROUP_PADDING
   })
-
-  return (
-    <NodeLayer />
-  )
 }

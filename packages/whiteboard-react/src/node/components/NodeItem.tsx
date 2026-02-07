@@ -1,5 +1,7 @@
 import type { Node } from '@whiteboard/core'
-import { useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
+import type { NodeContainerProps, NodeRenderProps } from '../registry/nodeRegistry'
+import { renderNodeDefinition } from '../registry/defaultNodes'
 import { useInstance } from '../../common/hooks'
 import { useNodeInteraction, useNodePresentation, useNodeTransform } from '../hooks'
 import { NodeBlock } from './NodeBlock'
@@ -11,7 +13,8 @@ export type NodeItemProps = {
 export const NodeItem = ({ node }: NodeItemProps) => {
   const instance = useInstance()
   const interaction = useNodeInteraction({ node })
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
   const setContainerRef = useCallback(
     (element: HTMLDivElement | null) => {
       if (containerRef.current === element) return
@@ -25,37 +28,57 @@ export const NodeItem = ({ node }: NodeItemProps) => {
     },
     [instance, node.id]
   )
+
   const presentation = useNodePresentation({
     node,
-    dragHandlers: interaction.dragHandlers,
-    handlePointerDown: interaction.handlePointerDown,
-    onPointerEnter: interaction.onPointerEnter,
-    onPointerLeave: interaction.onPointerLeave,
     containerRef: setContainerRef
   })
+
+  const containerProps = useMemo<NodeContainerProps>(
+    () => ({
+      ...presentation.containerProps,
+      ...interaction.containerHandlers
+    }),
+    [interaction.containerHandlers, presentation.containerProps]
+  )
+
+  const renderProps = useMemo<NodeRenderProps>(
+    () => ({
+      ...presentation.renderProps,
+      containerProps
+    }),
+    [containerProps, presentation.renderProps]
+  )
+
+  const content = useMemo(
+    () => renderNodeDefinition(presentation.definition, renderProps),
+    [presentation.definition, renderProps]
+  )
+
   const transform = useNodeTransform({
     node,
     canRotate: presentation.canRotate
   })
+
   return (
     <>
       {presentation.definition?.renderContainer ? (
-        presentation.definition.renderContainer(presentation.renderProps, presentation.content)
+        presentation.definition.renderContainer(renderProps, content)
       ) : (
         <NodeBlock
           rect={presentation.rect}
-          label={presentation.content}
+          label={content}
           nodeId={node.id}
           selected={presentation.selected}
           showHandles={false}
-          ref={presentation.containerProps.ref}
-          style={presentation.containerProps.style}
+          ref={containerProps.ref}
+          style={containerProps.style}
           onHandlePointerDown={interaction.handleEdgeHandlePointerDown}
-          onPointerDown={presentation.containerProps.onPointerDown}
-          onPointerMove={presentation.containerProps.onPointerMove}
-          onPointerUp={presentation.containerProps.onPointerUp}
-          onPointerEnter={presentation.containerProps.onPointerEnter}
-          onPointerLeave={presentation.containerProps.onPointerLeave}
+          onPointerDown={containerProps.onPointerDown}
+          onPointerMove={containerProps.onPointerMove}
+          onPointerUp={containerProps.onPointerUp}
+          onPointerEnter={containerProps.onPointerEnter}
+          onPointerLeave={containerProps.onPointerLeave}
         />
       )}
       {transform.renderHandles()}
