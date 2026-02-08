@@ -10,7 +10,7 @@ type UseCoreOptions = {
 export const useCore = ({ doc, onDocChange, core }: UseCoreOptions) => {
   const docRef = useRef(doc)
   const onDocChangeRef = useRef(onDocChange)
-  const coreRef = useRef<Core>()
+  const coreRef = useRef<Core | null>(null)
 
   docRef.current = doc
   onDocChangeRef.current = onDocChange

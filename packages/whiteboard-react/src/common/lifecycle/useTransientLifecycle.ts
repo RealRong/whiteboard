@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
 import { useSetAtom } from 'jotai'
-import { edgeConnectTransientAtom, hoveredEdgeIdAtom } from '../state/whiteboardAtoms'
+import { edgeConnectTransientAtom } from '../state/whiteboardAtoms'
 import { dragGuidesTransientAtom, groupHoveredTransientAtom, nodeViewOverridesTransientAtom } from '../../node/state'
 
 export const useTransientLifecycle = () => {
   const setEdgeConnectTransient = useSetAtom(edgeConnectTransientAtom)
-  const setHoveredEdgeId = useSetAtom(hoveredEdgeIdAtom)
   const setDragGuidesTransient = useSetAtom(dragGuidesTransientAtom)
   const setGroupHoveredTransient = useSetAtom(groupHoveredTransientAtom)
   const setNodeOverridesTransient = useSetAtom(nodeViewOverridesTransientAtom)
@@ -13,7 +12,6 @@ export const useTransientLifecycle = () => {
   useEffect(() => {
     return () => {
       setEdgeConnectTransient({ isConnecting: false })
-      setHoveredEdgeId(undefined)
       setDragGuidesTransient([])
       setGroupHoveredTransient(undefined)
       setNodeOverridesTransient(new Map())
@@ -22,7 +20,6 @@ export const useTransientLifecycle = () => {
     setDragGuidesTransient,
     setEdgeConnectTransient,
     setGroupHoveredTransient,
-    setHoveredEdgeId,
     setNodeOverridesTransient
   ])
 }

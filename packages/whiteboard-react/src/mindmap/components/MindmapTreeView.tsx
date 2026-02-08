@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { PointerEvent, RefObject } from 'react'
 import type { Core, MindmapNodeId, MindmapTree, Node, Point, Rect } from '@whiteboard/core'
 import { getSide } from '@whiteboard/core'
@@ -10,6 +10,24 @@ import { useMindmapSubtreeDrag } from '../hooks/useMindmapSubtreeDrag'
 import { computeStaticConnectionLine, getMindmapLabel } from '../utils/mindmapRender'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
+const MINDMAP_TREE_VIEW_STYLE = `
+.wb-mindmap-node-item .wb-mindmap-node-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.wb-mindmap-node-item:hover .wb-mindmap-node-actions,
+.wb-mindmap-node-item:focus-within .wb-mindmap-node-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wb-mindmap-node-item[data-drag-active='true'] .wb-mindmap-node-actions,
+.wb-mindmap-node-item[data-drag-preview-active='true'] .wb-mindmap-node-actions {
+  opacity: 0;
+  pointer-events: none;
+}
+`
+
 type MindmapTreeViewProps = {
   tree: MindmapTree
   mindmapNode: Node
@@ -17,7 +35,7 @@ type MindmapTreeViewProps = {
   layout: MindmapLayoutConfig
   core: Core
   screenToWorld: (point: Point) => Point
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
 }
 
 export const MindmapTreeView = ({
@@ -38,7 +56,6 @@ export const MindmapTreeView = ({
 
   const shiftX = -computed.bbox.x
   const shiftY = -computed.bbox.y
-  const [hoveredId, setHoveredId] = useState<MindmapNodeId | undefined>(undefined)
 
   const getWorldPoint = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -122,14 +139,6 @@ export const MindmapTreeView = ({
     [cancelRootDrag, cancelSubtreeDrag]
   )
 
-  const handleHoverEnter = useCallback((nodeId: MindmapNodeId) => {
-    setHoveredId(nodeId)
-  }, [])
-
-  const handleHoverLeave = useCallback((nodeId: MindmapNodeId) => {
-    setHoveredId((prev) => (prev === nodeId ? undefined : prev))
-  }, [])
-
   const lines = useMemo(() => {
     const result: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> = []
     Object.entries(tree.children).forEach(([parentId, childIds]) => {
@@ -148,7 +157,7 @@ export const MindmapTreeView = ({
 
   const handleAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
-      const payload = { kind: 'text', text: '' }
+      const payload = { kind: 'text', text: '' } as const
       const layoutHint = {
         nodeSize,
         mode: layout.mode,
@@ -241,6 +250,7 @@ export const MindmapTreeView = ({
         transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)`
       }}
     >
+      <style>{MINDMAP_TREE_VIEW_STYLE}</style>
       <svg
         width={computed.bbox.width}
         height={computed.bbox.height}
@@ -275,14 +285,12 @@ export const MindmapTreeView = ({
             label={label}
             dragActive={dragActive}
             attachTarget={attachTarget}
-            showActions={!dragPreview && hoveredId === id}
+            showActions={!dragPreview}
             dragPreviewActive={Boolean(dragPreview)}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
-            onHoverEnter={handleHoverEnter}
-            onHoverLeave={handleHoverLeave}
             onAddChild={handleAddChild}
           />
         )
@@ -326,7 +334,7 @@ export const MindmapTreeView = ({
               width: dragPreview.ghost.width,
               height: dragPreview.ghost.height,
               borderRadius: 12,
-              border: '1px dashed #2563eb',
+              border: 'calc(1px / var(--wb-zoom, 1)) dashed #2563eb',
               background: 'rgba(59, 130, 246, 0.08)',
               pointerEvents: 'none',
               transform: `translate(${dragPreview.ghost.x - baseOffset.x}px, ${dragPreview.ghost.y - baseOffset.y}px)`

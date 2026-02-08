@@ -8,6 +8,17 @@ export { useNodePresentation } from './useNodePresentation'
 export type { NodePresentation } from './useNodePresentation'
 export { useNodeSelectionFlags } from './useNodeSelectionFlags'
 export { useNodeTransform } from './useNodeTransform'
-export { useSelection } from './useSelection'
-export type { UseSelectionReturn } from './useSelection'
+export {
+  selection,
+  useSelection,
+  useSelectionActions,
+  useSelectionRuntime,
+  useSelectionState
+} from './useSelection'
+export type {
+  UseSelectionActionsReturn,
+  UseSelectionReturn,
+  UseSelectionRuntimeReturn,
+  UseSelectionStateReturn
+} from './useSelection'
 export { useSnapRuntime } from './useSnapRuntime'

@@ -28,7 +28,7 @@ type CommandDeps = {
   state: CoreState
   dispatch: (intent: Intent) => Promise<DispatchResult>
   transaction: <T>(fn: () => T | Promise<T>, options?: TransactionOptions) => Promise<TransactionResult<T>>
-  createFailure: (reason: DispatchFailure['reason'], message?: string) => DispatchResult
+  createFailure: (reason: DispatchFailure['reason'], message?: string) => DispatchFailure
   createChangeSetId: () => string
   now: () => number
 }

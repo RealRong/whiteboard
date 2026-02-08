@@ -1,10 +1,8 @@
 import type {
   CoreRegistries,
-  Edge,
   EdgeInput,
   EdgeSchema,
   EdgeTypeDefinition,
-  Node,
   NodeInput,
   NodeSchema,
   NodeTypeDefinition,
@@ -64,7 +62,7 @@ const applyFieldDefaults = (target: any, fields: SchemaField[]) => {
 export const applyNodeDefaults = (input: NodeInput, registries: CoreRegistries): NodeInput => {
   const type = input.type
   if (!type) return input
-  const next: Node = { ...input }
+  const next: NodeInput = { ...input }
   const definition = registries.nodeTypes.get(type) as NodeTypeDefinition | undefined
   if (definition?.defaultData) {
     next.data = next.data ?? {}
@@ -79,7 +77,7 @@ export const applyNodeDefaults = (input: NodeInput, registries: CoreRegistries):
 
 export const applyEdgeDefaults = (input: EdgeInput, registries: CoreRegistries): EdgeInput => {
   const type = input.type ?? 'linear'
-  const next: Edge = { ...input, type }
+  const next: EdgeInput = { ...input, type }
   const definition = registries.edgeTypes.get(type) as EdgeTypeDefinition | undefined
   if (definition?.defaultData) {
     next.data = next.data ?? {}

@@ -1,11 +1,11 @@
 import { useCallback } from 'react'
 import type { Point, Viewport } from '@whiteboard/core'
-import { useAtomValue } from 'jotai'
+import { useStore } from 'jotai'
 import type { ViewportConfig } from '../../types'
-import { useEdgeConnect } from '../../../edge/hooks'
-import { useSelection } from '../../../node/hooks'
+import { useEdgeConnectActions } from '../../../edge/hooks'
+import { useSelectionRuntime } from '../../../node/hooks'
 import { useInstance } from '../useInstance'
-import { useInteraction } from '../useInteraction'
+import { useInteractionActions } from '../useInteraction'
 import { useViewportInteraction } from './useViewportInteraction'
 import { useShortcutHandlers } from '../../shortcuts/useShortcutHandlers'
 import { shortcutContextAtom } from '../../state/whiteboardAtoms'
@@ -20,15 +20,15 @@ const identityScreenToWorld = (point: Point) => point
 
 export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }: Options) => {
   const instance = useInstance()
-  const selection = useSelection()
-  const { selectEdge, updateHover } = useEdgeConnect()
-  const selectionHandlers = selection.handlers
-  const shortcutContext = useAtomValue(shortcutContextAtom)
-  const { update: updateInteraction } = useInteraction()
+  const store = useStore()
+  const selectionRuntime = useSelectionRuntime()
+  const { selectEdge, updateHover } = useEdgeConnectActions()
+  const selectionHandlers = selectionRuntime.handlers
+  const { update: updateInteraction } = useInteractionActions()
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({
       shortcutManager: instance.shortcutManager,
-      shortcutContext,
+      getShortcutContext: () => store.get(shortcutContextAtom),
       updateInteraction
     })
   const screenToWorld = instance.viewport.screenToWorld ?? identityScreenToWorld

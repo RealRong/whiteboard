@@ -7,10 +7,8 @@ type EdgeItemProps = {
   path: { svgPath: string; points: Point[] }
   hitTestThresholdScreen: number
   selected?: boolean
-  hovered?: boolean
   onPointerDown?: (event: PointerEvent<SVGPathElement>) => void
   onClick?: (event: MouseEvent<SVGPathElement>) => void
-  onHoverChange?: (hovered: boolean) => void
 }
 
 export const EdgeItem = ({
@@ -18,20 +16,19 @@ export const EdgeItem = ({
   path,
   hitTestThresholdScreen,
   selected,
-  hovered,
   onPointerDown,
-  onClick,
-  onHoverChange
+  onClick
 }: EdgeItemProps) => {
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useEdgeStyle({
     edge,
     selected,
-    hovered,
     hitTestThresholdScreen
   })
 
+  const hoverStrokeWidth = selected ? strokeWidth : strokeWidth + 1
+
   return (
-    <g>
+    <g className="wb-edge-item" data-selected={selected ? 'true' : undefined}>
       <path
         d={path.svgPath}
         fill="none"
@@ -40,8 +37,8 @@ export const EdgeItem = ({
         pointerEvents="stroke"
         onPointerDown={onPointerDown}
         onClick={onClick}
-        onPointerEnter={() => onHoverChange?.(true)}
-        onPointerLeave={() => onHoverChange?.(false)}
+        tabIndex={0}
+        className="wb-edge-hit-path"
         style={{
           vectorEffect: 'non-scaling-stroke'
         }}
@@ -56,10 +53,21 @@ export const EdgeItem = ({
         markerEnd={markerEnd}
         vectorEffect="non-scaling-stroke"
         pointerEvents="none"
+        className="wb-edge-visible-path"
         style={{
           color: stroke,
           animation
         }}
+      />
+      <path
+        d={path.svgPath}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={hoverStrokeWidth}
+        strokeDasharray={dash}
+        vectorEffect="non-scaling-stroke"
+        pointerEvents="none"
+        className="wb-edge-hover-path"
       />
     </g>
   )

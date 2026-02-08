@@ -1,10 +1,15 @@
 import { useCallback } from 'react'
-import { useAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import type { InteractionState } from '../state/whiteboardAtoms'
 import { interactionAtom } from '../state/whiteboardAtoms'
 
-export const useInteraction = () => {
-  const [state, setState] = useAtom(interactionAtom)
+export const useInteractionState = () => {
+  return useAtomValue(interactionAtom)
+}
+
+export const useInteractionActions = () => {
+  const setState = useSetAtom(interactionAtom)
+
   const update = useCallback(
     (patch: Partial<InteractionState>) => {
       setState((prev) => ({
@@ -25,5 +30,21 @@ export const useInteraction = () => {
     },
     [setState]
   )
-  return { state, update }
+
+  return { update }
+}
+
+export const useInteraction = () => {
+  const state = useInteractionState()
+  const actions = useInteractionActions()
+
+  return {
+    state,
+    ...actions
+  }
+}
+
+export const interaction = {
+  useState: useInteractionState,
+  useActions: useInteractionActions
 }

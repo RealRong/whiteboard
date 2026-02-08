@@ -1,29 +1,60 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useSetAtom } from 'jotai'
 import type { EdgeInput, EdgePatch, NodeInput, NodePatch } from '@whiteboard/core'
 import { toolAtom } from '../state/whiteboardAtoms'
-import { useSelection } from '../../node/hooks'
-import { useEdgeConnect } from '../../edge/hooks'
+import { useSelectionActions, useSelectionState } from '../../node/hooks'
+import { useEdgeConnectActions } from '../../edge/hooks'
 import { useInstance } from '../hooks/useInstance'
-import { useInteraction } from '../hooks/useInteraction'
+import { useInteractionActions } from '../hooks/useInteraction'
 import type { WhiteboardCommands } from '../instance/whiteboardInstance'
 
 export const useInstanceCommands = () => {
   const instance = useInstance()
-  const selection = useSelection()
-  const edgeConnect = useEdgeConnect()
+  const selectionState = useSelectionState()
+  const selectionActions = useSelectionActions()
+  const edgeConnect = useEdgeConnectActions()
   const setTool = useSetAtom(toolAtom)
-  const { update: updateInteraction } = useInteraction()
+  const { update: updateInteraction } = useInteractionActions()
+
+  const selectionStateRef = useRef(selectionState)
+  const selectionActionsRef = useRef(selectionActions)
+  const edgeConnectRef = useRef(edgeConnect)
+  const updateInteractionRef = useRef(updateInteraction)
+
+  useEffect(() => {
+    selectionStateRef.current = selectionState
+  }, [selectionState])
+
+  useEffect(() => {
+    selectionActionsRef.current = selectionActions
+  }, [selectionActions])
+
+  useEffect(() => {
+    edgeConnectRef.current = edgeConnect
+  }, [edgeConnect])
+
+  useEffect(() => {
+    updateInteractionRef.current = updateInteraction
+  }, [updateInteraction])
 
   const commands = useMemo<WhiteboardCommands>(() => {
     const core = instance.core
-    return {
-      selection: {
-        select: selection.select,
-        toggle: selection.toggle,
-        clear: selection.clear,
-        getSelectedNodeIds: () => Array.from(selection.selectedNodeIds)
+
+    const selectionCommands: WhiteboardCommands['selection'] = {
+      select: (ids, mode) => {
+        selectionActionsRef.current.select(ids, mode)
       },
+      toggle: (ids) => {
+        selectionActionsRef.current.toggle(ids)
+      },
+      clear: () => {
+        selectionActionsRef.current.clear()
+      },
+      getSelectedNodeIds: () => Array.from(selectionStateRef.current.selectedNodeIds)
+    }
+
+    return {
+      selection: selectionCommands,
       order: core.commands.order,
       tool: {
         setTool: (tool) => {
@@ -32,7 +63,7 @@ export const useInstanceCommands = () => {
       },
       interaction: {
         clearHover: () => {
-          updateInteraction({ hover: { nodeId: undefined, edgeId: undefined } })
+          updateInteractionRef.current({ hover: { nodeId: undefined, edgeId: undefined } })
         }
       },
       viewport: core.commands.viewport,
@@ -40,30 +71,30 @@ export const useInstanceCommands = () => {
         create: (payload: NodeInput) => core.dispatch({ type: 'node.create', payload }),
         update: (id, patch: NodePatch) => core.dispatch({ type: 'node.update', id, patch }),
         delete: (ids) => core.dispatch({ type: 'node.delete', ids }),
-        move: core.commands.node.move,
-        resize: core.commands.node.resize,
-        rotate: core.commands.node.rotate
+        move: core.commands.node.move as WhiteboardCommands['node']['move'],
+        resize: core.commands.node.resize as WhiteboardCommands['node']['resize'],
+        rotate: core.commands.node.rotate as WhiteboardCommands['node']['rotate']
       },
       edge: {
         create: (payload: EdgeInput) => core.dispatch({ type: 'edge.create', payload }),
         update: (id, patch: EdgePatch) => core.dispatch({ type: 'edge.update', id, patch }),
         delete: (ids) => core.dispatch({ type: 'edge.delete', ids }),
-        connect: core.commands.edge.connect,
-        reconnect: core.commands.edge.reconnect,
-        select: edgeConnect.selectEdge
+        connect: core.commands.edge.connect as WhiteboardCommands['edge']['connect'],
+        reconnect: core.commands.edge.reconnect as WhiteboardCommands['edge']['reconnect'],
+        select: (id) => edgeConnectRef.current.selectEdge(id)
       },
       edgeConnect: {
-        startFromHandle: edgeConnect.startFromHandle,
-        startFromPoint: edgeConnect.startFromPoint,
-        startReconnect: edgeConnect.startReconnect,
-        updateTo: edgeConnect.updateTo,
-        commitTo: edgeConnect.commitTo,
-        cancel: edgeConnect.cancel
+        startFromHandle: (...args) => edgeConnectRef.current.startFromHandle(...args),
+        startFromPoint: (...args) => edgeConnectRef.current.startFromPoint(...args),
+        startReconnect: (...args) => edgeConnectRef.current.startReconnect(...args),
+        updateTo: (...args) => edgeConnectRef.current.updateTo(...args),
+        commitTo: (...args) => edgeConnectRef.current.commitTo(...args),
+        cancel: () => edgeConnectRef.current.cancel()
       },
-      group: core.commands.group,
-      mindmap: core.commands.mindmap
+      group: core.commands.group as WhiteboardCommands['group'],
+      mindmap: core.commands.mindmap as WhiteboardCommands['mindmap']
     }
-  }, [edgeConnect, instance, selection, setTool, updateInteraction])
+  }, [instance.core, setTool])
 
   useEffect(() => {
     instance.setCommands(commands)

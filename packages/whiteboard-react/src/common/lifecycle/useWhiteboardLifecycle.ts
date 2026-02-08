@@ -8,7 +8,7 @@ import { useSelectionNotifications } from './useSelectionNotifications'
 import { useSpacePressedLifecycle } from './useSpacePressedLifecycle'
 import { useTransientLifecycle } from './useTransientLifecycle'
 import { useShortcutRegistry } from '../shortcuts/lifecycle/useShortcutRegistry'
-import { useSelection } from '../../node/hooks'
+import { useSelectionRuntime, useSelectionState } from '../../node/hooks'
 import { useInstance } from '../hooks/useInstance'
 import { useToolLifecycle } from './useToolLifecycle'
 import { DEFAULT_GROUP_PADDING } from '../../node/constants'
@@ -35,13 +35,15 @@ export const useWhiteboardLifecycle = ({
   onEdgeSelectionChange
 }: Options) => {
   const instance = useInstance()
-  const selection = useSelection()
+  const selectionState = useSelectionState()
+  const selectionRuntime = useSelectionRuntime({ enabled: false })
   const { core, docRef, containerRef, shortcutManager } = instance
   const { handlers, onWheel } = useCanvasHandlers({
     tool: (tool as 'select' | 'edge') ?? 'select',
     viewport,
     viewportConfig
   })
+
   useSpacePressedLifecycle()
   useTransientLifecycle()
   useNodeLifecycle()
@@ -55,16 +57,16 @@ export const useWhiteboardLifecycle = ({
     shortcutManager
   })
   useToolLifecycle(tool)
-  useSelectionNotifications(selection.selectedNodeIds, onSelectionChange)
-  useEdgeSelectionNotifications(selection.selectedEdgeId, onEdgeSelectionChange)
+  useSelectionNotifications(selectionState.selectedNodeIds, onSelectionChange)
+  useEdgeSelectionNotifications(selectionState.selectedEdgeId, onEdgeSelectionChange)
   useCanvasEventBindings({ containerRef, handlers, onWheel })
 
   useEffect(() => {
     return () => {
-      selection.cancelPendingRaf()
+      selectionRuntime.cancelPendingRaf()
       instance.services.nodeSizeObserver.dispose()
       instance.services.containerSizeObserver.dispose()
       instance.services.edgeConnectRuntime.set(null)
     }
-  }, [instance, selection])
+  }, [instance, selectionRuntime])
 }

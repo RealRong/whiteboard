@@ -4,6 +4,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const HANDLE_SIZE = 10
 
+const EDGE_CONTROL_POINT_HANDLE_CLASS = 'wb-edge-control-point-handle'
+
+const EDGE_CONTROL_POINT_HANDLE_STYLE = `
+.${EDGE_CONTROL_POINT_HANDLE_CLASS} {
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  transition: box-shadow 120ms ease;
+}
+.${EDGE_CONTROL_POINT_HANDLE_CLASS}:hover,
+.${EDGE_CONTROL_POINT_HANDLE_CLASS}:focus-visible,
+.${EDGE_CONTROL_POINT_HANDLE_CLASS}[data-active='true'] {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+`
+
 type DragState = {
   pointerId: number
   index: number
@@ -33,11 +47,9 @@ export const EdgeControlPointHandles = ({
   const hasPoints = points.length > 0
   const editable = edge && edge.type !== 'bezier' && edge.type !== 'curve'
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   useEffect(() => {
     setActiveIndex(null)
-    setHoverIndex(null)
   }, [edge?.id])
 
   const getWorldPoint = useCallback(
@@ -142,10 +154,13 @@ export const EdgeControlPointHandles = ({
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 8 }}>
+      <style>{EDGE_CONTROL_POINT_HANDLE_STYLE}</style>
       {points.map((point, index) => (
         <div
           key={`${edge.id}-point-${index}`}
           data-selection-ignore
+          className={EDGE_CONTROL_POINT_HANDLE_CLASS}
+          data-active={index === activeIndex ? 'true' : undefined}
           onPointerDown={handlePointerDown(index)}
           onPointerMove={handlePointerMove(index)}
           onPointerUp={handlePointerUp(index)}
@@ -179,8 +194,6 @@ export const EdgeControlPointHandles = ({
             updatePoints(nextPoints)
             setActiveIndex(Math.min(index, nextPoints.length - 1))
           }}
-          onPointerEnter={() => setHoverIndex(index)}
-          onPointerLeave={() => setHoverIndex((prev) => (prev === index ? null : prev))}
           style={{
             position: 'absolute',
             left: 0,
@@ -193,10 +206,6 @@ export const EdgeControlPointHandles = ({
               index === activeIndex
                 ? 'calc(2px / var(--wb-zoom, 1)) solid #1d4ed8'
                 : 'calc(2px / var(--wb-zoom, 1)) solid #2563eb',
-            boxShadow:
-              index === activeIndex || index === hoverIndex
-                ? '0 4px 12px rgba(37, 99, 235, 0.35)'
-                : '0 4px 10px rgba(37, 99, 235, 0.25)',
             cursor: 'grab',
             transform: `translate(calc(${point.x}px - ${handleHalfExpr}), calc(${point.y}px - ${handleHalfExpr})) ${
               index === activeIndex ? 'scale(1.08)' : 'scale(1)'

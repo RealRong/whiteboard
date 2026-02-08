@@ -56,7 +56,7 @@ export const getSide = (tree: MindmapTree, nodeId: MindmapNodeId): 'left' | 'rig
   if (nodeId === tree.rootId) return
   let current: MindmapNodeId | undefined = nodeId
   while (current) {
-    const parent = tree.nodes[current]?.parentId
+    const parent: MindmapNodeId | undefined = tree.nodes[current]?.parentId
     if (!parent) return
     if (parent === tree.rootId) {
       return tree.nodes[current]?.side

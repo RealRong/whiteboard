@@ -1,7 +1,7 @@
 import type { Edge, Node, Point } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { EdgeConnectState } from '../../common/state'
-import { useEdgeGeometry, useEdgeHitTest, useEdgeHover } from '../hooks'
+import { useEdgeGeometry, useEdgeHitTest } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import type { Size } from '../../common/types'
@@ -20,6 +20,23 @@ type EdgeLayerProps = {
   connectState?: EdgeConnectState
 }
 
+const EDGE_LAYER_STYLE = `
+.wb-edge-item .wb-edge-visible-path {
+  transition: stroke 120ms ease, stroke-width 120ms ease, opacity 120ms ease;
+}
+.wb-edge-item .wb-edge-hover-path {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.wb-edge-item .wb-edge-hit-path:hover + .wb-edge-visible-path + .wb-edge-hover-path,
+.wb-edge-item .wb-edge-hit-path:focus-visible + .wb-edge-visible-path + .wb-edge-hover-path {
+  opacity: 1;
+}
+.wb-edge-item[data-selected='true'] .wb-edge-hover-path {
+  opacity: 0;
+}
+`
+
 export const EdgeLayer = ({
   nodes,
   edges,
@@ -33,7 +50,6 @@ export const EdgeLayer = ({
   onInsertPoint,
   connectState
 }: EdgeLayerProps) => {
-  const { hoveredEdgeId, handleHoverChange } = useEdgeHover()
   const paths = useEdgeGeometry({ nodes, edges, nodeSize, connectState })
   const { handlePathPointerDown, handlePathClick } = useEdgeHitTest({
     containerRef,
@@ -47,7 +63,9 @@ export const EdgeLayer = ({
       width="100%"
       height="100%"
       style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}
+      data-zoom={zoom}
     >
+      <style>{EDGE_LAYER_STYLE}</style>
       <EdgeMarkerDefs />
       {paths.map((line) => {
         return (
@@ -57,12 +75,8 @@ export const EdgeLayer = ({
             path={line.path}
             hitTestThresholdScreen={hitTestThresholdScreen}
             selected={line.id === selectedEdgeId}
-            hovered={line.id === hoveredEdgeId}
             onPointerDown={handlePathPointerDown(line.edge, line.path.points)}
             onClick={handlePathClick(line.edge, line.path.points)}
-            onHoverChange={(hovered) => {
-              handleHoverChange(line.id, hovered)
-            }}
           />
         )
       })}

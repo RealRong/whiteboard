@@ -1,4 +1,4 @@
-import { useEdgeConnect, useEdgeLayerModel } from '../hooks'
+import { useEdgeConnectActions, useEdgeConnectState, useEdgeLayerModel } from '../hooks'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
@@ -20,7 +20,8 @@ export const EdgeLayerStack = () => {
   const visibleEdges = useVisibleEdges()
   const nodeMap = useNodeMap()
   const tool = useAtomValue(toolAtom)
-  const edgeConnect = useEdgeConnect()
+  const edgeConnectState = useEdgeConnectState()
+  const edgeConnectActions = useEdgeConnectActions()
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
     core: instance.core,
@@ -30,7 +31,8 @@ export const EdgeLayerStack = () => {
     zoom: instance.viewport.getZoom(),
     containerRef: instance.containerRef ?? undefined,
     screenToWorld: instance.viewport.screenToWorld ?? undefined,
-    edgeConnect,
+    edgeConnectState,
+    edgeConnectActions,
     nodeMap,
     tool: (tool as 'select' | 'edge') ?? 'select'
   })

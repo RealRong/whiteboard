@@ -8,6 +8,16 @@ import type {
   MindmapLayoutOptions
 } from '../mindmap/types'
 
+export type {
+  MindmapAttachPayload,
+  MindmapNode,
+  MindmapNodeData,
+  MindmapNodeId,
+  MindmapTree,
+  MindmapId,
+  MindmapLayoutOptions
+} from '../mindmap/types'
+
 export type DocumentId = string
 export type NodeId = string
 export type EdgeId = string

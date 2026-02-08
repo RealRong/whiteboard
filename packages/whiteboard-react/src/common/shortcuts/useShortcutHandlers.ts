@@ -6,7 +6,7 @@ import type { InteractionState } from '../state/whiteboardAtoms'
 
 type Options = {
   shortcutManager: ShortcutManager
-  shortcutContext: ShortcutContext
+  getShortcutContext: () => ShortcutContext
   updateInteraction: (patch: Partial<InteractionState>) => void
 }
 
@@ -17,7 +17,7 @@ const isEditableElement = (target: EventTarget | null) => {
   return false
 }
 
-export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateInteraction }: Options) => {
+export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updateInteraction }: Options) => {
   const buildEventFocus = useCallback((event?: KeyboardEvent | PointerEvent) => {
     const activeElement = typeof document !== 'undefined' ? document.activeElement : null
     const isEditingTarget = isEditableElement(event?.target ?? null)
@@ -33,6 +33,7 @@ export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateIn
 
   const buildEventModifiers = useCallback(
     (event?: KeyboardEvent | PointerEvent) => {
+      const shortcutContext = getShortcutContext()
       if (!event) {
         return shortcutContext.pointer.modifiers
       }
@@ -43,11 +44,12 @@ export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateIn
         meta: event.metaKey ?? false
       }
     },
-    [shortcutContext.pointer.modifiers]
+    [getShortcutContext]
   )
 
   const buildShortcutContext = useCallback(
     (event?: KeyboardEvent | PointerEvent) => {
+      const shortcutContext = getShortcutContext()
       const focus = buildEventFocus(event)
       const modifiers = buildEventModifiers(event)
       const isPointerEvent = typeof PointerEvent !== 'undefined' && event instanceof PointerEvent
@@ -62,7 +64,7 @@ export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateIn
         pointer
       }
     },
-    [buildEventFocus, buildEventModifiers, shortcutContext]
+    [buildEventFocus, buildEventModifiers, getShortcutContext]
   )
 
   const handlePointerDownCapture = useCallback(
@@ -72,6 +74,7 @@ export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateIn
       updateInteraction({
         focus: ctx.focus,
         pointer: {
+          isDragging: ctx.pointer.isDragging,
           button: ctx.pointer.button,
           modifiers: ctx.pointer.modifiers
         }
@@ -94,6 +97,7 @@ export const useShortcutHandlers = ({ shortcutManager, shortcutContext, updateIn
       updateInteraction({
         focus: ctx.focus,
         pointer: {
+          isDragging: ctx.pointer.isDragging,
           button: ctx.pointer.button,
           modifiers: ctx.pointer.modifiers
         }

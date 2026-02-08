@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import { useInstance } from '../../common/hooks'
-import { useEdgeConnect } from '../hooks'
+import { useEdgeConnectActions, useEdgeConnectState } from '../hooks'
 
 export const useEdgeConnectLifecycle = () => {
   const instance = useInstance()
-  const edgeConnect = useEdgeConnect()
-  const { state, screenToWorld, containerRef, updateTo, commitTo } = edgeConnect
+  const edgeConnectState = useEdgeConnectState()
+  const edgeConnectActions = useEdgeConnectActions()
+  const { state, screenToWorld, containerRef } = edgeConnectState
+  const { updateTo, commitTo } = edgeConnectActions
 
   useEffect(() => {
     if (!state.isConnecting) return

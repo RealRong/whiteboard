@@ -93,27 +93,6 @@ export const interactionAtom = atom<InteractionState>({
   }
 })
 
-type HoveredEdgeIdUpdate =
-  | EdgeId
-  | undefined
-  | ((prev: EdgeId | undefined) => EdgeId | undefined)
-
-export const hoveredEdgeIdAtom = atom(
-  (get) => get(interactionAtom).hover.edgeId,
-  (get, set, update: HoveredEdgeIdUpdate) => {
-    const prev = get(interactionAtom).hover.edgeId
-    const next = typeof update === 'function' ? update(prev) : update
-    if (prev === next) return
-    set(interactionAtom, (current) => ({
-      ...current,
-      hover: {
-        ...current.hover,
-        edgeId: next
-      }
-    }))
-  }
-)
-
 export const spacePressedAtom = atom<boolean>(false)
 
 export const toolAtom = atom<string>('select')

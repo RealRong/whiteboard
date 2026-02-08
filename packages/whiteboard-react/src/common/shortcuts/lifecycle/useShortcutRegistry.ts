@@ -1,11 +1,13 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import type { Core, Document } from '@whiteboard/core'
+import { useStore } from 'jotai'
 import { createDefaultShortcuts } from '../defaultShortcuts'
 import type { Shortcut } from '../types'
 import type { ShortcutManager } from '../shortcutManager'
-import { useCanvasNodes, useWhiteboardConfig } from '../../hooks'
-import { useSelection } from '../../../node/hooks'
-import { useEdgeConnect } from '../../../edge/hooks'
+import { useWhiteboardConfig } from '../../hooks'
+import { useSelectionActions } from '../../../node/hooks'
+import { useEdgeConnectActions } from '../../../edge/hooks'
+import { canvasNodesAtom } from '../../state'
 
 type Options = {
   core: Core
@@ -36,25 +38,32 @@ export const useShortcutRegistry = ({
   shortcutsProp,
   shortcutManager
 }: Options) => {
-  const selection = useSelection()
-  const { selectEdge } = useEdgeConnect()
+  const store = useStore()
+  const selectionActions = useSelectionActions()
+  const { selectEdge } = useEdgeConnectActions()
   const { nodeSize } = useWhiteboardConfig()
-  const canvasNodes = useCanvasNodes()
+
+  const getSelectableNodeIds = useCallback(() => {
+    return store.get(canvasNodesAtom).map((node) => node.id)
+  }, [store])
 
   const defaults = useMemo(
     () =>
-      selection && nodeSize
+      nodeSize
         ? createDefaultShortcuts({
             core,
             getDocument: () => docRef.current,
-            getSelectableNodeIds: () => canvasNodes.map((node) => node.id),
+            getSelectableNodeIds,
             nodeSize,
             defaultGroupPadding,
-            selection,
+            selection: {
+              select: selectionActions.select,
+              clear: selectionActions.clear
+            },
             selectEdge
           })
         : [],
-    [canvasNodes, core, defaultGroupPadding, docRef, nodeSize, selectEdge, selection]
+    [core, defaultGroupPadding, docRef, getSelectableNodeIds, nodeSize, selectEdge, selectionActions.clear, selectionActions.select]
   )
 
   const resolved = useMemo(() => resolveShortcuts(defaults, shortcutsProp), [defaults, shortcutsProp])

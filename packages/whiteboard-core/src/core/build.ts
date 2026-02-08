@@ -71,7 +71,7 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
       if (node) {
         nodes[current] = { ...node }
       }
-      const childList = tree.children[current] ?? []
+      const childList: MindmapNodeId[] = tree.children[current] ?? []
       children[current] = [...childList]
       childList.forEach((childId) => stack.push(childId))
     }

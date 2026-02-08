@@ -19,7 +19,7 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   const changeHandlers = createChangeHandlers()
   const intentHandlers: IntentHandler[] = []
   const transactionStack: TransactionContext[] = []
-  const createFailure = (reason: DispatchFailure['reason'], message?: string): DispatchResult => ({
+  const createFailure = (reason: DispatchFailure['reason'], message?: string): DispatchFailure => ({
     ok: false,
     reason,
     message

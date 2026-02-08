@@ -21,8 +21,6 @@ type MindmapNodeItemProps = {
   onPointerMove: (event: PointerEvent<HTMLDivElement>) => void
   onPointerUp: (event: PointerEvent<HTMLDivElement>) => void
   onPointerCancel: (event: PointerEvent<HTMLDivElement>) => void
-  onHoverEnter: (nodeId: MindmapNodeId) => void
-  onHoverLeave: (nodeId: MindmapNodeId) => void
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
 }
 
@@ -40,8 +38,6 @@ export const MindmapNodeItem = ({
   onPointerMove,
   onPointerUp,
   onPointerCancel,
-  onHoverEnter,
-  onHoverLeave,
   onAddChild
 }: MindmapNodeItemProps) => {
   const border = attachTarget
@@ -52,12 +48,13 @@ export const MindmapNodeItem = ({
   return (
     <div
       data-mindmap-node-id={id}
+      data-drag-active={dragActive ? 'true' : undefined}
+      data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
+      className="wb-mindmap-node-item"
       onPointerDown={(event) => onPointerDown(event, id)}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      onPointerEnter={() => onHoverEnter(id)}
-      onPointerLeave={() => onHoverLeave(id)}
       style={{
         ...MINDMAP_NODE_BASE_STYLE,
         left: 0,
@@ -72,12 +69,12 @@ export const MindmapNodeItem = ({
     >
       <div style={MINDMAP_NODE_LABEL_STYLE}>{label}</div>
       {showActions && (
-        <>
+        <div className="wb-mindmap-node-actions" data-selection-ignore>
           <MindmapAddButton placement="up" onClick={() => onAddChild(id, 'up')} />
           <MindmapAddButton placement="down" onClick={() => onAddChild(id, 'down')} />
           <MindmapAddButton placement="left" onClick={() => onAddChild(id, 'left')} />
           <MindmapAddButton placement="right" onClick={() => onAddChild(id, 'right')} />
-        </>
+        </div>
       )}
     </div>
   )

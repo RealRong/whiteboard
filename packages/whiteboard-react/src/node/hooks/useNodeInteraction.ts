@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react'
 import type { PointerEvent } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import type { Node } from '@whiteboard/core'
-import { useInstance, useInteraction, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance, useInteractionActions, useWhiteboardConfig } from '../../common/hooks'
 import { useGroupRuntime } from './useGroupRuntime'
 import { useSnapRuntime } from './useSnapRuntime'
 import { useNodeTransient } from './useNodeTransient'
@@ -31,7 +31,7 @@ export const useNodeInteraction = ({ node }: Options) => {
   const updateSelection = useSetAtom(nodeSelectionAtom)
   const tool = useAtomValue(toolAtom)
   const setEdgeSelection = useSetAtom(edgeSelectionAtom)
-  const { update: updateInteraction } = useInteraction()
+  const { update: updateInteraction } = useInteractionActions()
   const edgeConnectRuntime = useEdgeConnectRuntime()
   const groupRuntime = useGroupRuntime()
   const snapRuntime = useSnapRuntime()

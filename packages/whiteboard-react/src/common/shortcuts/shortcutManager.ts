@@ -64,8 +64,7 @@ const normalizeShortcutChord = (raw: string, platform: PlatformInfo): string | u
   })
   if (!keyToken) return undefined
   const ordered = MODIFIER_ORDER.filter((mod) => modifiers.has(mod))
-  ordered.push(keyToken)
-  return ordered.join('+')
+  return [...ordered, keyToken].join('+')
 }
 
 const getEventChord = (event: KeyboardEvent): string | undefined => {

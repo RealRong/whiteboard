@@ -3,7 +3,7 @@ import { enlargeBox } from '@whiteboard/core'
 import type { Size } from '../../common/types'
 import { getGroupDescendants, getNodesBoundingRect } from '../../node/utils/group'
 import type { Shortcut, ShortcutContext } from './types'
-import type { UseSelectionReturn } from '../../node/hooks'
+import type { SelectionMode } from '../state'
 
 const extractNodeId = (result: { ok: boolean; changes?: { operations: Array<any> } }) => {
   if (!result.ok || !result.changes) return undefined
@@ -14,13 +14,18 @@ const extractNodeId = (result: { ok: boolean; changes?: { operations: Array<any>
   return op?.node?.id
 }
 
+type ShortcutSelectionApi = {
+  select: (ids: NodeId[], mode?: SelectionMode) => void
+  clear: () => void
+}
+
 type ShortcutDependencies = {
   core: Core
   getDocument: () => Document
   getSelectableNodeIds: () => NodeId[]
   nodeSize: Size
   defaultGroupPadding: number
-  selection: UseSelectionReturn
+  selection: ShortcutSelectionApi
   selectEdge?: (id?: string) => void
 }
 

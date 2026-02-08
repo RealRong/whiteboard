@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
+import { selectAtom } from 'jotai/utils'
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
 import type { Size } from '../../common/types'
@@ -121,11 +122,14 @@ export const useNodeTransform = ({
   const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
   const snap = useSnapRuntime()
-  const selectionState = useAtomValue(nodeSelectionAtom)
+  const selectedAtom = useMemo(
+    () => selectAtom(nodeSelectionAtom, (selection) => selection.selectedNodeIds.has(node.id)),
+    [node.id]
+  )
+  const selectedInSelectionSet = useAtomValue(selectedAtom)
   const tool = useAtomValue(toolAtom)
   const activeTool = (tool as 'select' | 'edge') ?? 'select'
-  const resolvedEnabled =
-    enabled ?? (activeTool === 'select' && selectionState.selectedNodeIds.has(node.id))
+  const resolvedEnabled = enabled ?? (activeTool === 'select' && selectedInSelectionSet)
   const containerRef = instance.containerRef ?? undefined
   const screenToWorld = instance.viewport.screenToWorld ?? undefined
   const getZoom = instance.viewport.getZoom

@@ -1,13 +1,13 @@
 import type { Rect } from '@whiteboard/core'
-import { useSelection } from '../hooks'
+import { useSelectionState } from '../hooks'
 
 type SelectionLayerProps = {
   rect?: Rect
 }
 
 export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
-  const selection = useSelection()
-  const resolvedRect = rect ?? (selection.tool === 'edge' ? undefined : selection.selectionRect)
+  const selectionState = useSelectionState()
+  const resolvedRect = rect ?? (selectionState.tool === 'edge' ? undefined : selectionState.selectionRect)
   if (!resolvedRect) return null
   return (
     <div

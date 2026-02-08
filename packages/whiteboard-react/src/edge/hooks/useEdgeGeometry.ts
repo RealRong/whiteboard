@@ -74,9 +74,9 @@ export const useEdgeGeometry = ({ nodes, edges, nodeSize, connectState }: Option
           const moved = getReconnectPoint(connectState.to)
           if (moved) {
             if (connectState.reconnect.end === 'source') {
-              sourceEndpoint = moved
+              sourceEndpoint = { point: moved.point, side: moved.side ?? sourceAnchor.side }
             } else {
-              targetEndpoint = moved
+              targetEndpoint = { point: moved.point, side: moved.side ?? targetAnchor.side }
             }
           }
         }

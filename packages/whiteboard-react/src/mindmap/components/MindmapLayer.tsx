@@ -12,7 +12,7 @@ type MindmapLayerProps = {
   layout: MindmapLayoutConfig
   core: Core
   screenToWorld: (point: Point) => Point
-  containerRef?: RefObject<HTMLElement>
+  containerRef?: RefObject<HTMLElement | null>
 }
 
 export const MindmapLayer = ({ nodes, nodeSize, layout, core, screenToWorld, containerRef }: MindmapLayerProps) => {

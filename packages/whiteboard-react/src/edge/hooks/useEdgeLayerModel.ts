@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { Core, Edge, Node, NodeId, Point } from '@whiteboard/core'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Size } from '../../common/types'
-import type { UseEdgeConnectReturn } from './useEdgeConnect'
+import type { UseEdgeConnectActionsReturn, UseEdgeConnectStateReturn } from './useEdgeConnect'
 import { useEdgePreview } from './useEdgePreview'
 import { useEdgePointInsertion } from './useEdgePointInsertion'
 
@@ -14,7 +14,8 @@ type Options = {
   zoom: number
   containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
-  edgeConnect: UseEdgeConnectReturn
+  edgeConnectState: UseEdgeConnectStateReturn
+  edgeConnectActions: UseEdgeConnectActionsReturn
   nodeMap: Map<NodeId, Node>
   tool: 'select' | 'edge'
 }
@@ -27,13 +28,14 @@ export const useEdgeLayerModel = ({
   zoom,
   containerRef,
   screenToWorld,
-  edgeConnect,
+  edgeConnectState,
+  edgeConnectActions,
   nodeMap,
   tool
 }: Options) => {
   const handleInsertPoint = useEdgePointInsertion(core)
   const { previewFrom, previewTo, hoverSnap } = useEdgePreview({
-    state: edgeConnect.state,
+    state: edgeConnectState.state,
     nodeMap,
     nodeSize
   })
@@ -46,12 +48,12 @@ export const useEdgeLayerModel = ({
       zoom,
       containerRef,
       screenToWorld,
-      selectedEdgeId: edgeConnect.selectedEdgeId,
-      onSelectEdge: (id?: string) => edgeConnect.selectEdge(id),
+      selectedEdgeId: edgeConnectState.selectedEdgeId,
+      onSelectEdge: (id?: string) => edgeConnectActions.selectEdge(id),
       onInsertPoint: handleInsertPoint,
-      connectState: edgeConnect.state
+      connectState: edgeConnectState.state
     }),
-    [containerRef, edgeConnect, edges, handleInsertPoint, nodeSize, nodes, screenToWorld, zoom]
+    [containerRef, edgeConnectActions, edgeConnectState.selectedEdgeId, edgeConnectState.state, edges, handleInsertPoint, nodeSize, nodes, screenToWorld, zoom]
   )
 
   const endpointHandlesProps = useMemo(
@@ -59,34 +61,34 @@ export const useEdgeLayerModel = ({
       edges,
       nodes,
       nodeSize,
-      selectedEdgeId: edgeConnect.selectedEdgeId,
+      selectedEdgeId: edgeConnectState.selectedEdgeId,
       onStartReconnect: (edgeId: string, end: 'source' | 'target', event: ReactPointerEvent<HTMLDivElement>) => {
         event.preventDefault()
         event.stopPropagation()
-        edgeConnect.startReconnect(edgeId, end, event.pointerId)
+        edgeConnectActions.startReconnect(edgeId, end, event.pointerId)
       }
     }),
-    [edgeConnect, edges, nodeSize, nodes]
+    [edgeConnectActions, edgeConnectState.selectedEdgeId, edges, nodeSize, nodes]
   )
 
   const controlPointHandlesProps = useMemo(
     () => ({
       core,
       edges,
-      selectedEdgeId: edgeConnect.selectedEdgeId,
+      selectedEdgeId: edgeConnectState.selectedEdgeId,
       containerRef,
       screenToWorld
     }),
-    [containerRef, core, edgeConnect.selectedEdgeId, edges, screenToWorld]
+    [containerRef, core, edgeConnectState.selectedEdgeId, edges, screenToWorld]
   )
 
   const previewProps = useMemo(
     () => ({
-      from: edgeConnect.state.isConnecting && !edgeConnect.state.reconnect ? previewFrom : undefined,
-      to: edgeConnect.state.isConnecting && !edgeConnect.state.reconnect ? previewTo : undefined,
+      from: edgeConnectState.state.isConnecting && !edgeConnectState.state.reconnect ? previewFrom : undefined,
+      to: edgeConnectState.state.isConnecting && !edgeConnectState.state.reconnect ? previewTo : undefined,
       snap: tool === 'edge' ? hoverSnap : undefined
     }),
-    [edgeConnect.state.isConnecting, edgeConnect.state.reconnect, hoverSnap, previewFrom, previewTo, tool]
+    [edgeConnectState.state.isConnecting, edgeConnectState.state.reconnect, hoverSnap, previewFrom, previewTo, tool]
   )
 
   return {
