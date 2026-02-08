@@ -9,9 +9,8 @@ import type {
   NodeDragHandlers,
   NodeDragSnapOptions,
   NodeDragTransientApi
-} from '../runtime/drag'
+} from 'types/node'
 
-export type { NodeDragGroupOptions, NodeDragHandlers, NodeDragSnapOptions } from '../runtime/drag'
 
 type UseNodeDragOptions = {
   core: Core

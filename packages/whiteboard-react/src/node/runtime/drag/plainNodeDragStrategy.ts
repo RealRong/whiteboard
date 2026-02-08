@@ -7,7 +7,7 @@ import {
   rectEquals
 } from '../../utils/group'
 import { getNodeAABB, rectContains } from '../../../common/utils/geometry'
-import type { NodeDragGroupOptions, NodeDragStrategy, NodeDragTransientApi } from './types'
+import type { NodeDragGroupOptions, NodeDragStrategy, NodeDragTransientApi } from 'types/node/drag'
 
 const commitNodeTransient = (
   nodeId: NodeId,

@@ -1,17 +1,17 @@
-import { useEdgeConnectActions, useEdgeConnectState, useEdgeLayerModel } from '../hooks'
+import { useMemo } from 'react'
+import { useEdgeConnectState, useEdgeLayerModel } from '../hooks'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
 import { EdgePreviewLayer } from './EdgePreviewLayer'
-import { useAtomValue } from 'jotai'
 import {
+  useActiveTool,
   useCanvasNodes,
   useInstance,
   useNodeMap,
   useVisibleEdges,
   useWhiteboardConfig
 } from '../../common/hooks'
-import { toolAtom } from '../../common/state'
 
 export const EdgeLayerStack = () => {
   const instance = useInstance()
@@ -19,9 +19,16 @@ export const EdgeLayerStack = () => {
   const canvasNodes = useCanvasNodes()
   const visibleEdges = useVisibleEdges()
   const nodeMap = useNodeMap()
-  const tool = useAtomValue(toolAtom)
+  const tool = useActiveTool()
   const edgeConnectState = useEdgeConnectState()
-  const edgeConnectActions = useEdgeConnectActions()
+
+  const edgeConnectActions = useMemo(
+    () => ({
+      selectEdge: instance.api.edge.select,
+      startReconnect: instance.api.edgeConnect.startReconnect
+    }),
+    [instance]
+  )
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
     core: instance.core,
@@ -34,7 +41,7 @@ export const EdgeLayerStack = () => {
     edgeConnectState,
     edgeConnectActions,
     nodeMap,
-    tool: (tool as 'select' | 'edge') ?? 'select'
+    tool
   })
 
   return (

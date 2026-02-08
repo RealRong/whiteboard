@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
 import { visibleEdgesAtom } from '../state/whiteboardDerivedAtoms'
+import { useInstanceAtomValue } from './useInstanceStore'
 
-export const useVisibleEdges = () => useAtomValue(visibleEdgesAtom)
+export const useVisibleEdges = () => useInstanceAtomValue(visibleEdgesAtom)

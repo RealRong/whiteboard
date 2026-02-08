@@ -5,7 +5,9 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@whiteboard/core": ["../whiteboard-core/src/index.ts"]
+      "@whiteboard/core": ["../whiteboard-core/src/index.ts"],
+      "types": ["src/types/index.ts"],
+      "types/*": ["src/types/*"]
     }
   },
   "include": ["src"]

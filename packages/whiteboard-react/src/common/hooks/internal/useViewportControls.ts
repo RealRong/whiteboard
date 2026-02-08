@@ -1,12 +1,11 @@
 import { useCallback, useRef } from 'react'
 import type { RefObject } from 'react'
-import type { Core, Point, Viewport } from '@whiteboard/core'
-import { useSpacePressed } from '../useSpacePressed'
+import type { Point } from '@whiteboard/core'
+import type { WhiteboardInstance } from 'types/instance'
+import { spacePressedAtom } from '../../state'
 
 type Options = {
-  core: Core
-  viewport: Viewport
-  screenToWorld: (point: Point) => Point
+  instance: WhiteboardInstance
   containerRef: RefObject<HTMLElement | null>
   minZoom?: number
   maxZoom?: number
@@ -18,14 +17,13 @@ type DragState = {
   pointerId: number
   start: Point
   startCenter: Point
+  startZoom: number
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 export const useViewportControls = ({
-  core,
-  viewport,
-  screenToWorld,
+  instance,
   containerRef,
   minZoom = 0.1,
   maxZoom = 4,
@@ -33,13 +31,13 @@ export const useViewportControls = ({
   enableWheel = true
 }: Options) => {
   const dragRef = useRef<DragState | null>(null)
-  const spacePressed = useSpacePressed()
 
   const onPointerDown = useCallback(
     (event: PointerEvent | (PointerEvent & { currentTarget: HTMLElement })) => {
       if (!enablePan) return
+      const viewport = instance.viewport.get()
       const isMiddle = event.button === 1
-      const isSpaceLeft = event.button === 0 && spacePressed
+      const isSpaceLeft = event.button === 0 && instance.state.get(spacePressedAtom)
       if (!isMiddle && !isSpaceLeft) return
       event.preventDefault()
       const target = event.currentTarget as HTMLElement | null
@@ -47,10 +45,11 @@ export const useViewportControls = ({
       dragRef.current = {
         pointerId: event.pointerId,
         start: { x: event.clientX, y: event.clientY },
-        startCenter: { ...viewport.center }
+        startCenter: { ...viewport.center },
+        startZoom: viewport.zoom
       }
     },
-    [enablePan, spacePressed, viewport.center.x, viewport.center.y]
+    [enablePan, instance]
   )
 
   const onPointerMove = useCallback(
@@ -59,18 +58,18 @@ export const useViewportControls = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       const dx = event.clientX - drag.start.x
       const dy = event.clientY - drag.start.y
-      core.dispatch({
+      instance.core.dispatch({
         type: 'viewport.set',
         viewport: {
           center: {
-            x: drag.startCenter.x - dx / viewport.zoom,
-            y: drag.startCenter.y - dy / viewport.zoom
+            x: drag.startCenter.x - dx / drag.startZoom,
+            y: drag.startCenter.y - dy / drag.startZoom
           },
-          zoom: viewport.zoom
+          zoom: drag.startZoom
         }
       })
     },
-    [core, viewport.zoom]
+    [instance]
   )
 
   const onPointerUp = useCallback((event: PointerEvent) => {
@@ -87,20 +86,21 @@ export const useViewportControls = ({
       const element = containerRef.current
       if (!element) return
       event.preventDefault()
+      const zoom = instance.viewport.getZoom()
       const rect = element.getBoundingClientRect()
       const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      const anchor = screenToWorld(screenPoint)
+      const anchor = instance.viewport.screenToWorld(screenPoint)
       const factor = Math.exp(-event.deltaY * 0.001)
-      const nextZoom = clamp(viewport.zoom * factor, minZoom, maxZoom)
-      const appliedFactor = nextZoom / viewport.zoom
+      const nextZoom = clamp(zoom * factor, minZoom, maxZoom)
+      const appliedFactor = nextZoom / zoom
       if (appliedFactor === 1) return
-      core.dispatch({
+      instance.core.dispatch({
         type: 'viewport.zoom',
         factor: appliedFactor,
         anchor
       })
     },
-    [containerRef, core, enableWheel, maxZoom, minZoom, screenToWorld, viewport.zoom]
+    [containerRef, enableWheel, instance, maxZoom, minZoom]
   )
 
   return {

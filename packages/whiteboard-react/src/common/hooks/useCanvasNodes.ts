@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
 import { canvasNodesAtom } from '../state/whiteboardDerivedAtoms'
+import { useInstanceAtomValue } from './useInstanceStore'
 
-export const useCanvasNodes = () => useAtomValue(canvasNodesAtom)
+export const useCanvasNodes = () => useInstanceAtomValue(canvasNodesAtom)

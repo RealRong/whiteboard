@@ -1,5 +1,5 @@
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../../common/types'
+import type { Size } from 'types/common'
 import { enlargeBox } from '@whiteboard/core'
 import { getNodeAABB } from '../../common/utils/geometry'
 

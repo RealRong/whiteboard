@@ -1,50 +1,22 @@
-import { useCallback } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
-import type { InteractionState } from '../state/whiteboardAtoms'
+import { useMemo } from 'react'
+import type { InteractionState } from 'types/state'
 import { interactionAtom } from '../state/whiteboardAtoms'
+import { useInstance } from './useInstance'
+import { useInstanceAtomValue } from './useInstanceStore'
 
 export const useInteractionState = () => {
-  return useAtomValue(interactionAtom)
-}
-
-export const useInteractionActions = () => {
-  const setState = useSetAtom(interactionAtom)
-
-  const update = useCallback(
-    (patch: Partial<InteractionState>) => {
-      setState((prev) => ({
-        ...prev,
-        ...patch,
-        focus: patch.focus ? { ...prev.focus, ...patch.focus } : prev.focus,
-        pointer: patch.pointer
-          ? {
-              ...prev.pointer,
-              ...patch.pointer,
-              modifiers: patch.pointer.modifiers
-                ? { ...prev.pointer.modifiers, ...patch.pointer.modifiers }
-                : prev.pointer.modifiers
-            }
-          : prev.pointer,
-        hover: patch.hover ? { ...prev.hover, ...patch.hover } : prev.hover
-      }))
-    },
-    [setState]
-  )
-
-  return { update }
+  return useInstanceAtomValue(interactionAtom)
 }
 
 export const useInteraction = () => {
+  const instance = useInstance()
   const state = useInteractionState()
-  const actions = useInteractionActions()
 
-  return {
-    state,
-    ...actions
-  }
-}
-
-export const interaction = {
-  useState: useInteractionState,
-  useActions: useInteractionActions
+  return useMemo(
+    () => ({
+      state,
+      update: (patch: Partial<InteractionState>) => instance.api.interaction.update(patch)
+    }),
+    [instance, state]
+  )
 }

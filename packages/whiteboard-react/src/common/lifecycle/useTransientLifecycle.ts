@@ -1,25 +1,12 @@
 import { useEffect } from 'react'
-import { useSetAtom } from 'jotai'
-import { edgeConnectTransientAtom } from '../state/whiteboardAtoms'
-import { dragGuidesTransientAtom, groupHoveredTransientAtom, nodeViewOverridesTransientAtom } from '../../node/state'
+import { useInstance } from '../hooks/useInstance'
 
 export const useTransientLifecycle = () => {
-  const setEdgeConnectTransient = useSetAtom(edgeConnectTransientAtom)
-  const setDragGuidesTransient = useSetAtom(dragGuidesTransientAtom)
-  const setGroupHoveredTransient = useSetAtom(groupHoveredTransientAtom)
-  const setNodeOverridesTransient = useSetAtom(nodeViewOverridesTransientAtom)
+  const instance = useInstance()
 
   useEffect(() => {
     return () => {
-      setEdgeConnectTransient({ isConnecting: false })
-      setDragGuidesTransient([])
-      setGroupHoveredTransient(undefined)
-      setNodeOverridesTransient(new Map())
+      instance.api.transient.reset()
     }
-  }, [
-    setDragGuidesTransient,
-    setEdgeConnectTransient,
-    setGroupHoveredTransient,
-    setNodeOverridesTransient
-  ])
+  }, [instance])
 }

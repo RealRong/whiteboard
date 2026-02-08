@@ -1,13 +1,12 @@
 import { useMemo } from 'react'
-import { useAtomValue } from 'jotai'
-import type { Guide } from '../utils/snap'
+import type { Guide } from 'types/node/snap'
 import { snapRuntimeDataAtom } from '../state/snapRuntimeAtom'
 import { useDragGuides } from './useDragGuides'
+import { useInstanceAtomValue } from '../../common/hooks'
+import type { SnapRuntime } from 'types/node'
 
-export type SnapRuntime = ReturnType<typeof useSnapRuntime>
-
-export const useSnapRuntime = () => {
-  const data = useAtomValue(snapRuntimeDataAtom)
+export const useSnapRuntime = (): SnapRuntime => {
+  const data = useInstanceAtomValue(snapRuntimeDataAtom)
   const { setGuides } = useDragGuides()
 
   return useMemo(

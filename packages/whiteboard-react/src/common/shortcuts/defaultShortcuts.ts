@@ -1,9 +1,9 @@
 import type { Core, Document, Edge, Node, NodeId, Point } from '@whiteboard/core'
 import { enlargeBox } from '@whiteboard/core'
-import type { Size } from '../../common/types'
+import type { Size } from 'types/common'
 import { getGroupDescendants, getNodesBoundingRect } from '../../node/utils/group'
-import type { Shortcut, ShortcutContext } from './types'
-import type { SelectionMode } from '../state'
+import type { Shortcut, ShortcutContext } from 'types/shortcuts'
+import type { SelectionMode } from 'types/state'
 
 const extractNodeId = (result: { ok: boolean; changes?: { operations: Array<any> } }) => {
   if (!result.ok || !result.changes) return undefined

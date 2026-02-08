@@ -9,7 +9,7 @@ import {
 } from './common/hooks'
 import { useWhiteboardContextHydration, useWhiteboardLifecycle } from './common/lifecycle'
 import { NodeRegistryProvider } from './node/registry'
-import type { WhiteboardProps } from './types'
+import type { WhiteboardProps } from 'types/common'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
 import { createWhiteboardInstance } from './common/instance'
 import { MindmapLayerStack } from './mindmap/components'
@@ -43,7 +43,7 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
       }),
     [core, docRef, resolvedConfig.mindmapNodeSize, resolvedConfig.nodeSize]
   )
-  const { viewport, transformStyle } = useViewportRuntime({
+  const { transformStyle } = useViewportRuntime({
     viewport: doc.viewport,
     containerRef,
     instance
@@ -55,7 +55,6 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
   useWhiteboardLifecycle({
     shortcutsProp: resolvedConfig.shortcuts,
     tool: resolvedConfig.tool,
-    viewport,
     viewportConfig: resolvedConfig.viewport,
     onSelectionChange: resolvedConfig.onSelectionChange,
     onEdgeSelectionChange: resolvedConfig.onEdgeSelectionChange

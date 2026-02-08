@@ -1,43 +1,21 @@
 import { useCallback, useMemo } from 'react'
 import type { PointerEvent } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
-import type { Node } from '@whiteboard/core'
-import { useInstance, useInteractionActions, useWhiteboardConfig } from '../../common/hooks'
+import type { NodeHandleSide, NodeContainerHandlers, UseNodeInteractionOptions } from 'types/node'
+import { useActiveTool, useInstance, useWhiteboardConfig } from '../../common/hooks'
 import { useGroupRuntime } from './useGroupRuntime'
 import { useSnapRuntime } from './useSnapRuntime'
 import { useNodeTransient } from './useNodeTransient'
 import { useNodeDrag } from './useNodeDrag'
-import { useEdgeConnectRuntime } from '../../edge/hooks'
-import { edgeSelectionAtom, nodeSelectionAtom, toolAtom } from '../../common/state'
-import { applySelectionMode, getSelectionModeFromEvent } from '../utils/selection'
-import type { SelectionMode } from '../../common/state'
-import type { UseEdgeConnectReturn } from '../../edge/hooks'
+import { getSelectionModeFromEvent } from '../utils/selection'
 
-export type NodeContainerHandlers = {
-  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerEnter: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerLeave: (event: PointerEvent<HTMLDivElement>) => void
-}
 
-type Options = {
-  node: Node
-}
-
-export const useNodeInteraction = ({ node }: Options) => {
+export const useNodeInteraction = ({ node }: UseNodeInteractionOptions) => {
   const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
-  const updateSelection = useSetAtom(nodeSelectionAtom)
-  const tool = useAtomValue(toolAtom)
-  const setEdgeSelection = useSetAtom(edgeSelectionAtom)
-  const { update: updateInteraction } = useInteractionActions()
-  const edgeConnectRuntime = useEdgeConnectRuntime()
+  const activeTool = useActiveTool()
   const groupRuntime = useGroupRuntime()
   const snapRuntime = useSnapRuntime()
   const transientRuntime = useNodeTransient()
-  const activeTool = (tool as 'select' | 'edge') ?? 'select'
-  const edgeConnect: UseEdgeConnectReturn | undefined = edgeConnectRuntime ?? undefined
 
   const size = useMemo(
     () => ({
@@ -45,30 +23,6 @@ export const useNodeInteraction = ({ node }: Options) => {
       height: node.size?.height ?? nodeSize.height
     }),
     [node.size?.height, node.size?.width, nodeSize.height, nodeSize.width]
-  )
-
-  const applySelection = useCallback(
-    (ids: string[], mode: SelectionMode = 'replace') => {
-      setEdgeSelection(undefined)
-      updateSelection((prev) => ({
-        ...prev,
-        mode,
-        selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, mode)
-      }))
-    },
-    [setEdgeSelection, updateSelection]
-  )
-
-  const toggleSelection = useCallback(
-    (ids: string[]) => {
-      setEdgeSelection(undefined)
-      updateSelection((prev) => ({
-        ...prev,
-        mode: 'toggle',
-        selectedNodeIds: applySelectionMode(prev.selectedNodeIds, ids, 'toggle')
-      }))
-    },
-    [setEdgeSelection, updateSelection]
   )
 
   const dragHandlers = useNodeDrag({
@@ -85,54 +39,50 @@ export const useNodeInteraction = ({ node }: Options) => {
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (activeTool === 'edge' && edgeConnect) {
-        const container = edgeConnect.containerRef?.current
-        if (container && edgeConnect.screenToWorld) {
-          const rect = container.getBoundingClientRect()
-          const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-          const worldPoint = edgeConnect.screenToWorld(screenPoint)
-          const handled = edgeConnect.handleNodePointerDown(node.id, worldPoint, event)
-          if (handled) return
-        }
+      if (activeTool === 'edge') {
+        const container = instance.containerRef.current
+        const screenToWorld = instance.viewport.screenToWorld
+        if (!container || !screenToWorld) return
+        const rect = container.getBoundingClientRect()
+        const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+        const worldPoint = screenToWorld(screenPoint)
+        const handled = instance.api.edgeConnect.handleNodePointerDown(node.id, worldPoint, event.pointerId)
+        if (!handled) return
+        event.preventDefault()
+        event.stopPropagation()
         return
       }
 
       if (event.button === 0) {
         const mode = getSelectionModeFromEvent(event.nativeEvent)
         if (mode === 'toggle') {
-          toggleSelection([node.id])
+          instance.api.selection.toggle([node.id])
         } else {
-          applySelection([node.id], mode)
+          instance.api.selection.select([node.id], mode)
         }
       }
 
       dragHandlers.onPointerDown(event)
     },
-    [activeTool, applySelection, dragHandlers, edgeConnect, node.id, toggleSelection]
+    [activeTool, dragHandlers, instance, node.id]
   )
 
   const handleEdgeHandlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>, side: 'top' | 'right' | 'bottom' | 'left') => {
+    (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => {
       event.preventDefault()
       event.stopPropagation()
-      edgeConnect?.startFromHandle(node.id, side, event.pointerId)
+      instance.api.edgeConnect.startFromHandle(node.id, side, event.pointerId)
     },
-    [edgeConnect, node.id]
+    [instance, node.id]
   )
 
-  const handlePointerEnter = useCallback(
-    (_event: PointerEvent<HTMLDivElement>) => {
-      updateInteraction({ hover: { nodeId: node.id } })
-    },
-    [node.id, updateInteraction]
-  )
+  const handlePointerEnter = useCallback(() => {
+    instance.api.interaction.update({ hover: { nodeId: node.id } })
+  }, [instance, node.id])
 
-  const handlePointerLeave = useCallback(
-    (_event: PointerEvent<HTMLDivElement>) => {
-      updateInteraction({ hover: { nodeId: undefined } })
-    },
-    [updateInteraction]
-  )
+  const handlePointerLeave = useCallback(() => {
+    instance.api.interaction.update({ hover: { nodeId: undefined } })
+  }, [instance])
 
   const containerHandlers = useMemo<NodeContainerHandlers>(
     () => ({

@@ -1,16 +1,8 @@
 import { trimNumber } from '@whiteboard/core'
 import type { Core, NodeId, Size } from '@whiteboard/core'
+import type { NodeSizeObserverService } from 'types/instance'
+import type { PendingNodeSizeUpdate } from 'types/instance/services'
 
-export type NodeSizeObserverService = {
-  observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
-  unobserve: (nodeId: NodeId) => void
-  dispose: () => void
-}
-
-type PendingUpdate = {
-  id: NodeId
-  size: Size
-}
 
 export const createNodeSizeObserverService = (core: Core): NodeSizeObserverService => {
   let observer: ResizeObserver | null = null
@@ -23,7 +15,7 @@ export const createNodeSizeObserverService = (core: Core): NodeSizeObserverServi
   const flush = () => {
     rafId = null
     if (!pending.size) return
-    const updates: PendingUpdate[] = []
+    const updates: PendingNodeSizeUpdate[] = []
     pending.forEach((size, id) => {
       const current = lastSize.get(id)
       if (current && Math.abs(current.width - size.width) < 0.5 && Math.abs(current.height - size.height) < 0.5) return

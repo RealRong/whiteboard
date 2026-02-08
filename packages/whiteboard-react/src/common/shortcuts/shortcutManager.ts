@@ -1,17 +1,14 @@
-import type { Shortcut, ShortcutContext } from './types'
+import type {
+  Shortcut,
+  ShortcutContext,
+  ShortcutManager,
+  ShortcutManagerOptions
+} from 'types/shortcuts'
+
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
 type PlatformInfo = ShortcutContext['platform']
-
-export type ShortcutManager = {
-  setShortcuts: (shortcuts: Shortcut[]) => void
-  register: (shortcut: Shortcut) => void
-  unregister: (id: string) => void
-  list: () => Shortcut[]
-  handleKeyDown: (event: KeyboardEvent, ctx: ShortcutContext) => boolean
-  handlePointerDown: (event: PointerEvent, ctx: ShortcutContext) => boolean
-}
 
 export const getPlatformInfo = (): PlatformInfo => {
   if (typeof navigator === 'undefined') {
@@ -80,11 +77,6 @@ const getEventChord = (event: KeyboardEvent): string | undefined => {
 }
 
 const countModifiers = (chord: string) => chord.split('+').length - 1
-
-export type ShortcutManagerOptions = {
-  debug?: boolean
-  logger?: (message: string, data?: unknown) => void
-}
 
 const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'
 

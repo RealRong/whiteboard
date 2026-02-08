@@ -1,8 +1,8 @@
 import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { PointerEvent } from 'react'
-import type { Guide, SnapCandidate } from '../../utils/snap'
-import type { Size } from '../../../common/types'
-import type { NodeViewUpdate } from '../../state/nodeViewOverridesAtom'
+import type { Guide, SnapCandidate } from './snap'
+import type { Size } from '../common'
+import type { NodeViewUpdate } from '../state'
 
 export type NodeDragSnapOptions = {
   enabled: boolean

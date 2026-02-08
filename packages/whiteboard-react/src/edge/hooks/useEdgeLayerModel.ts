@@ -1,10 +1,15 @@
 import { useMemo } from 'react'
 import type { Core, Edge, Node, NodeId, Point } from '@whiteboard/core'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { Size } from '../../common/types'
-import type { UseEdgeConnectActionsReturn, UseEdgeConnectStateReturn } from './useEdgeConnect'
+import type { Size } from 'types/common'
+import type { UseEdgeConnectStateReturn } from 'types/edge'
 import { useEdgePreview } from './useEdgePreview'
 import { useEdgePointInsertion } from './useEdgePointInsertion'
+
+type EdgeLayerActions = {
+  selectEdge: (id?: string) => void
+  startReconnect: (edgeId: string, end: 'source' | 'target', pointerId?: number) => void
+}
 
 type Options = {
   core: Core
@@ -15,7 +20,7 @@ type Options = {
   containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
   edgeConnectState: UseEdgeConnectStateReturn
-  edgeConnectActions: UseEdgeConnectActionsReturn
+  edgeConnectActions: EdgeLayerActions
   nodeMap: Map<NodeId, Node>
   tool: 'select' | 'edge'
 }
@@ -36,8 +41,7 @@ export const useEdgeLayerModel = ({
   const handleInsertPoint = useEdgePointInsertion(core)
   const { previewFrom, previewTo, hoverSnap } = useEdgePreview({
     state: edgeConnectState.state,
-    nodeMap,
-    nodeSize
+    nodeMap
   })
 
   const edgeLayerProps = useMemo(
@@ -53,7 +57,18 @@ export const useEdgeLayerModel = ({
       onInsertPoint: handleInsertPoint,
       connectState: edgeConnectState.state
     }),
-    [containerRef, edgeConnectActions, edgeConnectState.selectedEdgeId, edgeConnectState.state, edges, handleInsertPoint, nodeSize, nodes, screenToWorld, zoom]
+    [
+      containerRef,
+      edgeConnectActions,
+      edgeConnectState.selectedEdgeId,
+      edgeConnectState.state,
+      edges,
+      handleInsertPoint,
+      nodeSize,
+      nodes,
+      screenToWorld,
+      zoom
+    ]
   )
 
   const endpointHandlesProps = useMemo(

@@ -1,51 +1,45 @@
 import { useMemo } from 'react'
 import type { Node, NodeId } from '@whiteboard/core'
-import type { Size } from '../../common/types'
-import { getAnchorPoint, getNodeRect } from '../../common/utils/geometry'
-import type { EdgeConnectState } from '../../common/state'
+import { getAnchorPoint } from '../../common/utils/geometry'
+import type { EdgeConnectState } from 'types/state'
+import { useInstance } from '../../common/hooks'
 
 type Options = {
   state: EdgeConnectState
   nodeMap: Map<NodeId, Node>
-  nodeSize: Size
 }
 
-export const useEdgePreview = ({ state, nodeMap, nodeSize }: Options) => {
+export const useEdgePreview = ({ state, nodeMap }: Options) => {
+  const instance = useInstance()
   const previewFrom = useMemo(() => {
     const from = state.from
     if (!from) return undefined
-    const node = nodeMap.get(from.nodeId)
-    if (!node) return undefined
-    const rect = getNodeRect(node, nodeSize)
-    const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-    return getAnchorPoint(rect, from.anchor, rotation)
-  }, [nodeMap, nodeSize, state.from])
+    const entry = instance.query.getCanvasNodeRectById(from.nodeId)
+    if (!entry) return undefined
+    return getAnchorPoint(entry.rect, from.anchor, entry.rotation)
+  }, [instance, nodeMap, state.from])
 
   const previewTo = useMemo(() => {
     const to = state.to
     if (!to) return undefined
     if (to.nodeId && to.anchor) {
-      const node = nodeMap.get(to.nodeId)
-      if (!node) return to.pointWorld
-      const rect = getNodeRect(node, nodeSize)
-      const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-      return getAnchorPoint(rect, to.anchor, rotation)
+      const entry = instance.query.getCanvasNodeRectById(to.nodeId)
+      if (!entry) return to.pointWorld
+      return getAnchorPoint(entry.rect, to.anchor, entry.rotation)
     }
     return to.pointWorld
-  }, [nodeMap, nodeSize, state.to])
+  }, [instance, nodeMap, state.to])
 
   const hoverSnap = useMemo(() => {
     const hover = state.hover
     if (!hover) return undefined
     if (hover.nodeId && hover.anchor) {
-      const node = nodeMap.get(hover.nodeId)
-      if (!node) return hover.pointWorld
-      const rect = getNodeRect(node, nodeSize)
-      const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-      return getAnchorPoint(rect, hover.anchor, rotation)
+      const entry = instance.query.getCanvasNodeRectById(hover.nodeId)
+      if (!entry) return hover.pointWorld
+      return getAnchorPoint(entry.rect, hover.anchor, entry.rotation)
     }
     return hover.pointWorld
-  }, [nodeMap, nodeSize, state.hover])
+  }, [instance, nodeMap, state.hover])
 
   return { previewFrom, previewTo, hoverSnap }
 }

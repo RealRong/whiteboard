@@ -1,17 +1,10 @@
 import { atom } from 'jotai'
 import type { Rect } from '@whiteboard/core'
-import type { SnapCandidate } from '../utils/snap'
 import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../utils/snap'
 import { getNodeAABB } from '../../common/utils/geometry'
 import { groupRuntimeDataAtom } from './groupRuntimeAtom'
 import { toolAtom } from '../../common/state'
-
-export type SnapRuntimeData = {
-  enabled: boolean
-  candidates: SnapCandidate[]
-  getCandidates?: (rect: Rect) => SnapCandidate[]
-  thresholdScreen: number
-}
+import type { SnapRuntimeData } from 'types/state'
 
 const DEFAULT_THRESHOLD = 8
 
@@ -43,3 +36,4 @@ export const snapRuntimeDataAtom = atom<SnapRuntimeData>((get) => {
     thresholdScreen: DEFAULT_THRESHOLD
   }
 })
+

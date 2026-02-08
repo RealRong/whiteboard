@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
 import { nodeMapAtom } from '../state/whiteboardDerivedAtoms'
+import { useInstanceAtomValue } from './useInstanceStore'
 
-export const useNodeMap = () => useAtomValue(nodeMapAtom)
+export const useNodeMap = () => useInstanceAtomValue(nodeMapAtom)

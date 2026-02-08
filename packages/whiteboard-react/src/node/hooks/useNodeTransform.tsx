@@ -1,34 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useAtomValue } from 'jotai'
 import { selectAtom } from 'jotai/utils'
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import type { Core, Node, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../../common/types'
-import type { Guide, SnapCandidate } from '../utils/snap'
+import type { Size } from 'types/common'
+import type { Guide, SnapCandidate } from 'types/node/snap'
+import type { HandleKind, ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
 import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
-import { useInstance, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance, useInstanceAtomValue, useWhiteboardConfig } from '../../common/hooks'
 import { useSnapRuntime } from './useSnapRuntime'
 import { nodeSelectionAtom, toolAtom } from '../../common/state'
 
-type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-type HandleKind = 'resize' | 'rotate'
-
-export type TransformHandle = {
-  id: string
-  kind: HandleKind
-  direction?: ResizeDirection
-  position: Point
-  cursor: string
-}
-
-export type UseNodeTransformOptions = {
-  node: Node
-  enabled?: boolean
-  canRotate?: boolean
-  minSize?: Size
-  handleSize?: number
-  rotateHandleOffset?: number
-}
 
 type DragState =
   | {
@@ -66,13 +47,33 @@ const resizeMap: Record<ResizeDirection, { sx: -1 | 0 | 1; sy: -1 | 0 | 1; curso
   w: { sx: -1, sy: 0, cursor: 'ew-resize' }
 }
 
-const getResizeSourceEdges = (handle: ResizeDirection) => {
-  const sourceX = handle.includes('w') ? 'left' : handle.includes('e') ? 'right' : undefined
-  const sourceY = handle.includes('n') ? 'top' : handle.includes('s') ? 'bottom' : undefined
+type HorizontalResizeEdge = 'left' | 'right'
+type VerticalResizeEdge = 'top' | 'bottom'
+type HorizontalSnapEdge = 'left' | 'right' | 'centerX'
+type VerticalSnapEdge = 'top' | 'bottom' | 'centerY'
+
+const getResizeSourceEdges = (
+  handle: ResizeDirection
+): { sourceX?: HorizontalResizeEdge; sourceY?: VerticalResizeEdge } => {
+  const sourceX: HorizontalResizeEdge | undefined = handle.includes('w')
+    ? 'left'
+    : handle.includes('e')
+      ? 'right'
+      : undefined
+  const sourceY: VerticalResizeEdge | undefined = handle.includes('n')
+    ? 'top'
+    : handle.includes('s')
+      ? 'bottom'
+      : undefined
   return { sourceX, sourceY }
 }
 
-const getGuideForX = (movingRect: Rect, target: SnapCandidate, sourceEdge: string, targetEdge: string): Guide => {
+const getGuideForX = (
+  movingRect: Rect,
+  target: SnapCandidate,
+  sourceEdge: HorizontalResizeEdge,
+  targetEdge: HorizontalSnapEdge
+): Guide => {
   const from = Math.min(movingRect.y, target.rect.y)
   const to = Math.max(movingRect.y + movingRect.height, target.rect.y + target.rect.height)
   return {
@@ -85,7 +86,12 @@ const getGuideForX = (movingRect: Rect, target: SnapCandidate, sourceEdge: strin
   }
 }
 
-const getGuideForY = (movingRect: Rect, target: SnapCandidate, sourceEdge: string, targetEdge: string): Guide => {
+const getGuideForY = (
+  movingRect: Rect,
+  target: SnapCandidate,
+  sourceEdge: VerticalResizeEdge,
+  targetEdge: VerticalSnapEdge
+): Guide => {
   const from = Math.min(movingRect.x, target.rect.x)
   const to = Math.max(movingRect.x + movingRect.width, target.rect.x + target.rect.width)
   return {
@@ -126,8 +132,8 @@ export const useNodeTransform = ({
     () => selectAtom(nodeSelectionAtom, (selection) => selection.selectedNodeIds.has(node.id)),
     [node.id]
   )
-  const selectedInSelectionSet = useAtomValue(selectedAtom)
-  const tool = useAtomValue(toolAtom)
+  const selectedInSelectionSet = useInstanceAtomValue(selectedAtom)
+  const tool = useInstanceAtomValue(toolAtom)
   const activeTool = (tool as 'select' | 'edge') ?? 'select'
   const resolvedEnabled = enabled ?? (activeTool === 'select' && selectedInSelectionSet)
   const containerRef = instance.containerRef ?? undefined
@@ -304,20 +310,19 @@ export const useNodeTransform = ({
           }
           const { sourceX, sourceY } = getResizeSourceEdges(handle)
           let bestX:
-            | { delta: number; target: SnapCandidate; targetEdge: string; sourceEdge: string; distance: number }
+            | { delta: number; target: SnapCandidate; targetEdge: HorizontalSnapEdge; sourceEdge: HorizontalResizeEdge; distance: number }
             | undefined
           let bestY:
-            | { delta: number; target: SnapCandidate; targetEdge: string; sourceEdge: string; distance: number }
+            | { delta: number; target: SnapCandidate; targetEdge: VerticalSnapEdge; sourceEdge: VerticalResizeEdge; distance: number }
             | undefined
-          const xTargets = ['left', 'right', 'centerX']
-          const yTargets = ['top', 'bottom', 'centerY']
+          const xTargets: HorizontalSnapEdge[] = ['left', 'right', 'centerX']
+          const yTargets: VerticalSnapEdge[] = ['top', 'bottom', 'centerY']
           candidates.forEach((candidate) => {
             if (candidate.id === node.id) return
             if (sourceX) {
               xTargets.forEach((targetEdge) => {
                 const delta =
-                  candidate.lines[targetEdge as keyof SnapCandidate['lines']] -
-                  movingLines[sourceX as keyof typeof movingLines]
+                  candidate.lines[targetEdge] - movingLines[sourceX]
                 const dist = Math.abs(delta)
                 if (dist > thresholdWorld) return
                 if (!bestX || dist < bestX.distance) {
@@ -328,8 +333,7 @@ export const useNodeTransform = ({
             if (sourceY) {
               yTargets.forEach((targetEdge) => {
                 const delta =
-                  candidate.lines[targetEdge as keyof SnapCandidate['lines']] -
-                  movingLines[sourceY as keyof typeof movingLines]
+                  candidate.lines[targetEdge] - movingLines[sourceY]
                 const dist = Math.abs(delta)
                 if (dist > thresholdWorld) return
                 if (!bestY || dist < bestY.distance) {

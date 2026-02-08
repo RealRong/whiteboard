@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react'
 import type { SchemaField, SchemaFieldOption } from '@whiteboard/core'
-import { createFieldRendererRegistry, type FieldRendererRegistry } from './fieldRegistry'
+import { createFieldRendererRegistry } from './fieldRegistry'
+import type { FieldRendererRegistry } from 'types/common'
 
 const parseNumber = (value: string, fallback?: number) => {
   if (value.trim() === '') return fallback

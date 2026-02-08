@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import type { Document, Node, NodeId, Point, Size } from '@whiteboard/core'
 import { docAtom } from '../../common/state'
-import type { NodeOverride } from './nodeViewOverridesAtom'
+import type { NodeOverride } from 'types/state'
 import { nodeViewOverridesAtom } from './nodeViewOverridesAtom'
 
 type ViewNodesCache = {

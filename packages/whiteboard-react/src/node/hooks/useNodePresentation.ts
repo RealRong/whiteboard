@@ -1,32 +1,18 @@
 import { useMemo } from 'react'
-import type { CSSProperties, Ref } from 'react'
-import type { Core, Node, Rect } from '@whiteboard/core'
-import type { NodeContainerProps, NodeDefinition, NodeRenderProps } from '../registry/nodeRegistry'
+import type { CSSProperties } from 'react'
+import type { Core, Rect } from '@whiteboard/core'
+import type { NodeContainerProps, NodePresentation, UseNodePresentationOptions, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
 import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
 import { useNodeSelectionFlags } from './useNodeSelectionFlags'
 
-type Options = {
-  node: Node
-  containerRef?: Ref<HTMLDivElement>
-}
-
-export type NodePresentation = {
-  rect: Rect
-  definition?: NodeDefinition
-  selected: boolean
-  hovered: boolean
-  canRotate: boolean
-  containerProps: NodeContainerProps
-  renderProps: NodeRenderProps
-}
 
 export const useNodePresentation = ({
   node,
   containerRef
-}: Options): NodePresentation => {
+}: UseNodePresentationOptions): NodePresentation => {
   const instance = useInstance()
   const registry = useNodeRegistry()
   const zoom = instance.viewport.getZoom()

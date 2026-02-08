@@ -1,8 +1,8 @@
 import type { Node, NodeId, Point } from '@whiteboard/core'
 import { getGroupDescendants } from '../../utils/group'
-import type { NodeViewUpdate } from '../../state/nodeViewOverridesAtom'
+import type { NodeViewUpdate } from 'types/state'
 import { plainNodeDragStrategy } from './plainNodeDragStrategy'
-import type { NodeDragChildren, NodeDragStrategy } from './types'
+import type { NodeDragChildren, NodeDragStrategy } from 'types/node/drag'
 
 const buildGroupChildren = (context: {
   groupNodes: Node[]

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { layoutMindmap, layoutMindmapTidy, type MindmapLayout, type MindmapLayoutOptions, type MindmapTree } from '@whiteboard/core'
-import type { MindmapLayoutMode } from '../types'
-import type { Size } from '../../common/types'
+import type { MindmapLayoutMode } from 'types/mindmap'
+import type { Size } from 'types/common'
 
 type UseMindmapLayoutOptions = {
   tree: MindmapTree

@@ -1,22 +1,18 @@
 import { useMemo } from 'react'
 import type { RefObject } from 'react'
-import type { Core, Point, Viewport } from '@whiteboard/core'
-import type { ViewportConfig } from '../../types'
+import type { WhiteboardInstance } from 'types/instance'
+import type { ViewportConfig } from 'types/common'
 import { useViewportControls } from './useViewportControls'
 
 type Options = {
-  core: Core
-  viewport: Viewport
-  screenToWorld: (point: Point) => Point
+  instance: WhiteboardInstance
   containerRef: RefObject<HTMLElement | null>
   config?: ViewportConfig
 }
 
-export const useViewportInteraction = ({ core, viewport, screenToWorld, containerRef, config }: Options) => {
+export const useViewportInteraction = ({ instance, containerRef, config }: Options) => {
   const handlers = useViewportControls({
-    core,
-    viewport,
-    screenToWorld,
+    instance,
     containerRef,
     minZoom: config?.minZoom,
     maxZoom: config?.maxZoom,

@@ -1,65 +1,9 @@
 import { atom } from 'jotai'
-import type { EdgeAnchor, EdgeId, NodeId, Point, Rect, Viewport } from '@whiteboard/core'
+import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
 import { getPlatformInfo } from '../shortcuts/shortcutManager'
-import type { ShortcutContext } from '../shortcuts/types'
+import type { ShortcutContext } from 'types/shortcuts'
+import type { EdgeConnectState, InteractionState, SelectionMode, SelectionState } from 'types/state'
 import { docAtom } from './whiteboardContextAtoms'
-
-export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
-
-export type SelectionState = {
-  selectedNodeIds: Set<NodeId>
-  isSelecting: boolean
-  selectionRect?: Rect
-  selectionRectWorld?: Rect
-  mode: SelectionMode
-}
-
-export type InteractionState = {
-  focus: {
-    isEditingText: boolean
-    isInputFocused: boolean
-    isImeComposing: boolean
-  }
-  pointer: {
-    isDragging: boolean
-    button?: 0 | 1 | 2
-    modifiers: {
-      alt: boolean
-      shift: boolean
-      ctrl: boolean
-      meta: boolean
-    }
-  }
-  hover: {
-    nodeId?: NodeId
-    edgeId?: EdgeId
-  }
-}
-
-export type EdgeConnectFrom = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
-}
-
-export type EdgeConnectTo = {
-  nodeId?: NodeId
-  anchor?: EdgeAnchor
-  pointWorld?: Point
-}
-
-export type EdgeReconnectInfo = {
-  edgeId: EdgeId
-  end: 'source' | 'target'
-}
-
-export type EdgeConnectState = {
-  isConnecting: boolean
-  from?: EdgeConnectFrom
-  to?: EdgeConnectTo
-  hover?: EdgeConnectTo
-  reconnect?: EdgeReconnectInfo
-  pointerId?: number | null
-}
 
 const createNodeSelectionState = (): SelectionState => ({
   selectedNodeIds: new Set<NodeId>(),
@@ -155,3 +99,4 @@ export const shortcutContextAtom = atom<ShortcutContext>((get) => {
     }
   }
 })
+

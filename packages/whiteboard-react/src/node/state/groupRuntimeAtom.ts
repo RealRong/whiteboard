@@ -1,16 +1,10 @@
 import { atom } from 'jotai'
-import type { Node, NodeId } from '@whiteboard/core'
-import type { Size } from '../../common/types'
+import type { NodeId } from '@whiteboard/core'
+import type { GroupRuntime } from 'types/state'
+import type { Size } from 'types/common'
 import { DEFAULT_GROUP_PADDING } from '../constants'
 import { instanceAtom } from '../../common/state'
 import { canvasNodesAtom } from '../../common/state'
-
-export type GroupRuntime = {
-  nodes: Node[]
-  nodeSize: Size
-  padding?: number
-  hoveredGroupId?: NodeId
-}
 
 const emptySize: Size = { width: 1, height: 1 }
 
@@ -40,3 +34,4 @@ export const groupRuntimeAtom = atom<GroupRuntime>((get) => ({
   ...get(groupRuntimeDataAtom),
   hoveredGroupId: get(groupHoveredAtom)
 }))
+

@@ -1,27 +1,16 @@
 import { useMemo } from 'react'
-import type { Edge, EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
+import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
 import { getEdgePath } from '@whiteboard/core'
-import type { EdgeConnectState } from '../../common/state'
-import type { Size } from '../../common/types'
 import { getAnchorPoint, getNodeRect, getRectCenter } from '../../common/utils/geometry'
+import type { EdgePathEntry, UseEdgeGeometryOptions } from 'types/edge'
+import type { EdgeConnectState } from 'types/state'
 
-export type EdgePathEntry = {
-  id: string
-  edge: Edge
-  path: {
-    points: Point[]
-    svgPath: string
-  }
-}
-
-type Options = {
-  nodes: Node[]
-  edges: Edge[]
-  nodeSize: Size
-  connectState?: EdgeConnectState
-}
-
-export const useEdgeGeometry = ({ nodes, edges, nodeSize, connectState }: Options): EdgePathEntry[] => {
+export const useEdgeGeometry = ({
+  nodes,
+  edges,
+  nodeSize,
+  connectState
+}: UseEdgeGeometryOptions): EdgePathEntry[] => {
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
 
   return useMemo(() => {
@@ -89,5 +78,13 @@ export const useEdgeGeometry = ({ nodes, edges, nodeSize, connectState }: Option
         return { id: edge.id, edge, path }
       })
       .filter((line): line is EdgePathEntry => Boolean(line))
-  }, [connectState?.isConnecting, connectState?.reconnect?.edgeId, connectState?.reconnect?.end, connectState?.to, edges, nodeMap, nodeSize])
+  }, [
+    connectState?.isConnecting,
+    connectState?.reconnect?.edgeId,
+    connectState?.reconnect?.end,
+    connectState?.to,
+    edges,
+    nodeMap,
+    nodeSize
+  ])
 }

@@ -1,41 +1,40 @@
-import { useCallback } from 'react'
-import type { Point, Viewport } from '@whiteboard/core'
-import { useStore } from 'jotai'
-import type { ViewportConfig } from '../../types'
-import { useEdgeConnectActions } from '../../../edge/hooks'
+import { useCallback, useMemo, useRef } from 'react'
+import type { Point } from '@whiteboard/core'
+import type { ViewportConfig } from 'types/common'
 import { useSelectionRuntime } from '../../../node/hooks'
 import { useInstance } from '../useInstance'
-import { useInteractionActions } from '../useInteraction'
 import { useViewportInteraction } from './useViewportInteraction'
 import { useShortcutHandlers } from '../../shortcuts/useShortcutHandlers'
-import { shortcutContextAtom } from '../../state/whiteboardAtoms'
+import { createShortcutContextGetter } from './runtime/createShortcutContextGetter'
 
 type Options = {
   tool?: 'select' | 'edge'
-  viewport: Viewport
   viewportConfig?: ViewportConfig
 }
 
-const identityScreenToWorld = (point: Point) => point
-
-export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }: Options) => {
+export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) => {
   const instance = useInstance()
-  const store = useStore()
   const selectionRuntime = useSelectionRuntime()
-  const { selectEdge, updateHover } = useEdgeConnectActions()
   const selectionHandlers = selectionRuntime.handlers
-  const { update: updateInteraction } = useInteractionActions()
+  const getShortcutContext = useMemo(() => createShortcutContextGetter(instance), [instance])
+  const edgeHoverPointRef = useRef<Point | null>(null)
+  const edgeHoverRafRef = useRef<number | null>(null)
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({
       shortcutManager: instance.shortcutManager,
-      getShortcutContext: () => store.get(shortcutContextAtom),
-      updateInteraction
+      getShortcutContext,
+      updateInteraction: instance.api.interaction.update
     })
-  const screenToWorld = instance.viewport.screenToWorld ?? identityScreenToWorld
+  const flushEdgeHover = useCallback(() => {
+    edgeHoverRafRef.current = null
+    const point = edgeHoverPointRef.current
+    if (!point) return
+    edgeHoverPointRef.current = null
+    instance.api.edgeConnect.updateHover(instance.viewport.screenToWorld(point))
+  }, [instance])
+
   const { viewportHandlers, onWheel } = useViewportInteraction({
-    core: instance.core,
-    viewport,
-    screenToWorld,
+    instance,
     containerRef: instance.containerRef,
     config: viewportConfig
   })
@@ -45,10 +44,10 @@ export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }:
       viewportHandlers.onPointerDown(event)
       selectionHandlers?.onPointerDown(event)
       if (event.target === instance.containerRef.current) {
-        selectEdge(undefined)
+        instance.api.edge.select(undefined)
       }
     },
-    [instance.containerRef, selectEdge, selectionHandlers, viewportHandlers]
+    [instance, selectionHandlers, viewportHandlers]
   )
 
   const handlePointerDownCapture = useCallback(
@@ -62,13 +61,16 @@ export const useCanvasHandlers = ({ tool = 'select', viewport, viewportConfig }:
     (event: PointerEvent) => {
       viewportHandlers.onPointerMove(event)
       selectionHandlers?.onPointerMove(event)
-      if (tool === 'edge' && screenToWorld && instance.containerRef.current) {
+      if (tool === 'edge' && instance.containerRef.current) {
         const rect = instance.containerRef.current.getBoundingClientRect()
         const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-        updateHover(screenToWorld(point))
+        edgeHoverPointRef.current = point
+        if (edgeHoverRafRef.current === null) {
+          edgeHoverRafRef.current = requestAnimationFrame(flushEdgeHover)
+        }
       }
     },
-    [instance.containerRef, screenToWorld, selectionHandlers, tool, updateHover, viewportHandlers]
+    [flushEdgeHover, instance, selectionHandlers, tool, viewportHandlers]
   )
 
   const handlePointerUp = useCallback(

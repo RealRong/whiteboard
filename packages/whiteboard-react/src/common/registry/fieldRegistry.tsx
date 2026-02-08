@@ -1,23 +1,11 @@
 import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
-import type { SchemaField, SchemaFieldType } from '@whiteboard/core'
+import type { SchemaFieldType } from '@whiteboard/core'
+import type { FieldRenderer, FieldRendererRegistry } from 'types/common'
 
-export type FieldRendererProps = {
-  field: SchemaField
-  value: unknown
-  onChange: (value: unknown) => void
-  disabled?: boolean
-}
-
-export type FieldRenderer = (props: FieldRendererProps) => ReactNode
-
-export type FieldRendererRegistry = {
-  get: (type: SchemaFieldType) => FieldRenderer | undefined
-  register: (type: SchemaFieldType, renderer: FieldRenderer) => void
-  list: () => SchemaFieldType[]
-}
-
-export const createFieldRendererRegistry = (entries: Array<[SchemaFieldType, FieldRenderer]> = []): FieldRendererRegistry => {
+export const createFieldRendererRegistry = (
+  entries: Array<[SchemaFieldType, FieldRenderer]> = []
+): FieldRendererRegistry => {
   const map = new Map<SchemaFieldType, FieldRenderer>()
   entries.forEach(([type, renderer]) => map.set(type, renderer))
   return {
@@ -48,3 +36,4 @@ export const useFieldRendererRegistry = () => {
   }
   return registry
 }
+

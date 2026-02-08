@@ -1,23 +1,20 @@
 import { useEffect } from 'react'
-import { useSetAtom } from 'jotai'
-import { spacePressedAtom } from '../state/whiteboardAtoms'
 import { useInstance } from '../hooks/useInstance'
 
 export const useSpacePressedLifecycle = () => {
   const instance = useInstance()
-  const setSpacePressed = useSetAtom(spacePressedAtom)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault()
-        setSpacePressed(true)
+        instance.api.keyboard.setSpacePressed(true)
       }
     }
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault()
-        setSpacePressed(false)
+        instance.api.keyboard.setSpacePressed(false)
       }
     }
     const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
@@ -26,5 +23,5 @@ export const useSpacePressedLifecycle = () => {
       offKeyDown()
       offKeyUp()
     }
-  }, [instance, setSpacePressed])
+  }, [instance])
 }

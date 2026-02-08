@@ -1,8 +1,17 @@
-import { useAtom } from 'jotai'
-import type { Guide } from '../utils/snap'
+import { useMemo } from 'react'
+import type { Guide } from 'types/node/snap'
 import { dragGuidesAtom } from '../state/dragGuidesAtom'
+import { useInstance, useInstanceAtomValue } from '../../common/hooks'
 
 export const useDragGuides = () => {
-  const [guides, setGuides] = useAtom(dragGuidesAtom)
-  return { guides, setGuides }
+  const instance = useInstance()
+  const guides = useInstanceAtomValue(dragGuidesAtom)
+
+  return useMemo(
+    () => ({
+      guides,
+      setGuides: (nextGuides: Guide[]) => instance.api.transient.dragGuides.set(nextGuides)
+    }),
+    [guides, instance]
+  )
 }

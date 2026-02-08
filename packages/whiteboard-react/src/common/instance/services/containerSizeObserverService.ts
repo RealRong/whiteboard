@@ -1,10 +1,6 @@
-import type { Size } from '../types'
+import type { Size } from 'types/common'
+import type { ContainerSizeObserverService } from 'types/instance'
 
-export type ContainerSizeObserverService = {
-  observe: (element: Element, onSize: (size: Size) => void) => void
-  unobserve: (element?: Element) => void
-  dispose: () => void
-}
 
 export const createContainerSizeObserverService = (): ContainerSizeObserverService => {
   let observer: ResizeObserver | null = null

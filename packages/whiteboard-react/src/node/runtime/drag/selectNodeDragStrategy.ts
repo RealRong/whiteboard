@@ -1,7 +1,7 @@
 import type { Node } from '@whiteboard/core'
 import { groupNodeDragStrategy } from './groupNodeDragStrategy'
 import { plainNodeDragStrategy } from './plainNodeDragStrategy'
-import type { NodeDragGroupOptions, NodeDragStrategy } from './types'
+import type { NodeDragGroupOptions, NodeDragStrategy } from 'types/node/drag'
 
 export const selectNodeDragStrategy = (
   nodeType: Node['type'],

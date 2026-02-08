@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
-import { useSetAtom } from 'jotai'
-import { toolAtom } from '../state/whiteboardAtoms'
+import { useInstance } from '../hooks/useInstance'
 
 export const useToolLifecycle = (tool: string) => {
-  const setTool = useSetAtom(toolAtom)
+  const instance = useInstance()
 
   useEffect(() => {
-    setTool(tool)
-  }, [setTool, tool])
+    instance.api.tool.set(tool)
+  }, [instance, tool])
 }

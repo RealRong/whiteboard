@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
 import type { Core, MindmapLayoutOptions, MindmapNodeId, MindmapTree, Node, Point, Rect } from '@whiteboard/core'
 import { getSide, getSubtreeIds } from '@whiteboard/core'
-import type { MindmapLayoutConfig } from '../types'
-import type { Size } from '../../common/types'
+import type { MindmapLayoutConfig } from 'types/mindmap'
+import type { Size } from 'types/common'
 
 type DropTarget = {
   type: 'attach' | 'reorder'

@@ -1,4 +1,4 @@
-import type { SelectionMode } from '../../common/state'
+import type { SelectionMode } from 'types/state'
 
 export const getSelectionModeFromEvent = (event: PointerEvent | MouseEvent): SelectionMode => {
   if (event.altKey) return 'subtract'

@@ -1,5 +1,5 @@
 import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
-import type { Size } from '../types'
+import type { Size } from 'types/common'
 
 export const DEFAULT_NODE_SIZE: Size = { width: 120, height: 72 }
 export const DEFAULT_MINDMAP_NODE_SIZE: Size = { width: 140, height: 36 }

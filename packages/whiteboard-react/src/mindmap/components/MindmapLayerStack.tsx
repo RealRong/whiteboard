@@ -1,4 +1,4 @@
-import type { MindmapLayoutConfig } from '../types'
+import type { MindmapLayoutConfig } from 'types/mindmap'
 import { MindmapLayer } from './MindmapLayer'
 import { useDoc, useInstance, useWhiteboardConfig } from '../../common/hooks'
 

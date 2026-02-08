@@ -1,17 +1,6 @@
-import type { ReactNode } from 'react'
+import type { SchemaFormProps } from 'types/common'
 import type { Edge, Node, SchemaField, SchemaFieldVisibility } from '@whiteboard/core'
 import { getValueByPath } from '@whiteboard/core'
-import type { FieldRendererRegistry } from '../registry/fieldRegistry'
-
-export type SchemaFormProps = {
-  schemaLabel?: string
-  fields: SchemaField[]
-  target: Node | Edge
-  fieldRegistry: FieldRendererRegistry
-  onFieldChange: (field: SchemaField, value: unknown) => void
-  disabled?: boolean
-  emptyState?: ReactNode
-}
 
 const getScopeValue = (target: Node | Edge, field: SchemaField) => {
   const scope = field.scope ?? 'data'

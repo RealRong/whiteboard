@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import type { ShortcutContext } from './types'
-import type { ShortcutManager } from './shortcutManager'
-import type { InteractionState } from '../state/whiteboardAtoms'
+import type { ShortcutContext } from 'types/shortcuts'
+import type { ShortcutManager } from 'types/shortcuts'
+import type { InteractionState } from 'types/state'
 
 type Options = {
   shortcutManager: ShortcutManager

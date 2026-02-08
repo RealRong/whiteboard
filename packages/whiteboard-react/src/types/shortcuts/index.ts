@@ -53,3 +53,5 @@ export type Shortcut = {
   allowWhenEditing?: boolean
   handler: (ctx: ShortcutContext, event: KeyboardEvent | PointerEvent) => void
 }
+
+export type { ShortcutManager, ShortcutManagerOptions } from './manager'

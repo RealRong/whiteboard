@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Core, Node } from '@whiteboard/core'
-import type { Size } from '../../common/types'
+import type { Size } from 'types/common'
 import { getNodeAABB } from '../../common/utils/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../utils/group'
 

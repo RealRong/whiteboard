@@ -57,6 +57,15 @@ Always reply in Chinese.
   - Hooks that expose instance access live in `packages/whiteboard-react/src/common/hooks/`.
   - Services are pure side-effect handlers (DOM events, observers), no React rendering.
   - Instance is the integration point for services; avoid storing UI state inside instance.
+  - Cross-module read-only runtime getters must live under `packages/whiteboard-react/src/common/instance/query/` (e.g., node geometry queries).
+  - Keep `whiteboardInstance.ts` as composition-only: do not inline query implementation there; compose query module like api/commands/runtime.
+  - Query methods should be pure/read-only and may keep internal memoization based on source atom references.
+  - Any new capability added to instance must be split by responsibility into submodules first (e.g., `api/`, `commands/`, `query/`, `runtime/`, `services/`, `state/`, `store/`, `geometry/`, `edge/`).
+  - `whiteboardInstance.ts` is the final composition layer only: it should wire modules into `instance` (api/commands/query/runtime/services) and must not contain feature logic implementations.
+  - Avoid duplicate imperative geometry/state reads across modules; prefer reusing `instance.query` getters as the single source for cross-module runtime reads.
+  - For container-level canvas event handlers (pointer/wheel/key), prefer top-level single-point composition (`useCanvasHandlers` -> lifecycle binding) instead of prematurely mounting them onto `instance`.
+  - Only elevate handlers into `instance` when there are multiple real consumers (e.g., non-React host, plugin runtime, shared imperative entry).
+  - Handler hot-path should prefer event-time getters (`instance.state.get`, `instance.viewport.get/getZoom/screenToWorld`) and avoid atom subscriptions in handler composition hooks.
 - Naming conventions:
   - Hooks: `useXxx` (semantic responsibility).
   - Services: `xxxService` (e.g., `nodeSizeObserverService`).
@@ -84,6 +93,7 @@ Always reply in Chinese.
   - Do not recompute zoom-based inline styles in large render loops when CSS vars can express them.
   - Do not mix world-space and screen-space values without explicit naming (e.g. `thresholdScreen` vs `thresholdWorld`).
   - Do not keep multiple zoom sources (atom + local state + ref) alive simultaneously.
+  - Do not move single-consumer canvas handlers into `instance` just for abstraction; avoid adding global API surface without reuse demand.
 - Example (how to emulate the pattern):
 ```ts
 // runtime action hook (legacy-style behavior module)

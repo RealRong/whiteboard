@@ -1,22 +1,9 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { PropertyPanelProps } from 'types/common'
 import { useMemo } from 'react'
 import type { Core, Document, Edge, EdgeId, Node, NodeId, SchemaField } from '@whiteboard/core'
 import { setValueByPath } from '@whiteboard/core'
 import { SchemaForm } from './SchemaForm'
 import { createDefaultFieldRendererRegistry } from '../registry/defaultFieldRenderers'
-import type { FieldRendererRegistry } from '../registry/fieldRegistry'
-
-export type PropertyPanelProps = {
-  core: Core
-  doc: Document
-  onDocChange: (recipe: (draft: Document) => void) => void
-  selectedNodeId?: NodeId
-  selectedEdgeId?: EdgeId
-  fieldRegistry?: FieldRendererRegistry
-  className?: string
-  style?: CSSProperties
-  emptyState?: ReactNode
-}
 
 const resolveNode = (doc: Document, nodeId?: NodeId): Node | undefined => {
   if (!nodeId) return undefined

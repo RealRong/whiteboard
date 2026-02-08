@@ -1,14 +1,10 @@
-import type { Node } from '@whiteboard/core'
 import { useCallback, useMemo, useRef } from 'react'
-import type { NodeContainerProps, NodeRenderProps } from '../registry/nodeRegistry'
+import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { renderNodeDefinition } from '../registry/defaultNodes'
 import { useInstance } from '../../common/hooks'
 import { useNodeInteraction, useNodePresentation, useNodeTransform } from '../hooks'
 import { NodeBlock } from './NodeBlock'
 
-export type NodeItemProps = {
-  node: Node
-}
 
 export const NodeItem = ({ node }: NodeItemProps) => {
   const instance = useInstance()

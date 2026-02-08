@@ -1,7 +1,8 @@
 import type { CSSProperties, PointerEvent, PointerEventHandler, ReactNode } from 'react'
 import { forwardRef } from 'react'
 import type { Rect } from '@whiteboard/core'
-import { NodeHandles, type NodeHandleSide } from './NodeHandles'
+import { NodeHandles } from './NodeHandles'
+import type { NodeHandleSide } from 'types/node'
 
 type NodeBlockProps = {
   rect: Rect

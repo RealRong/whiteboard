@@ -1,10 +1,5 @@
 import type { PointerEvent } from 'react'
-
-export type NodeHandleSide = 'top' | 'right' | 'bottom' | 'left'
-
-type NodeHandlesProps = {
-  onPointerDown?: (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => void
-}
+import type { NodeHandleSide, NodeHandlesProps } from 'types/node'
 
 const HANDLE_SIZE = 12
 const HANDLE_SIZE_EXPR = `${HANDLE_SIZE}px`

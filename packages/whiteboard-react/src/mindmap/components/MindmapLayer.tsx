@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import type { RefObject } from 'react'
 import type { Core, Node, Point } from '@whiteboard/core'
-import type { MindmapLayoutConfig } from '../types'
-import type { Size } from '../../common/types'
+import type { MindmapLayoutConfig } from 'types/mindmap'
+import type { Size } from 'types/common'
 import { MindmapTreeView } from './MindmapTreeView'
 import { getMindmapTree } from '../utils/mindmapTree'
 

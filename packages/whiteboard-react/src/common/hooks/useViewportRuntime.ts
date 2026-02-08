@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import type { Point, Viewport } from '@whiteboard/core'
 import type { RefObject } from 'react'
-import type { Size } from '../types'
-import type { WhiteboardInstance } from '../instance/whiteboardInstance'
+import type { Size } from 'types/common'
+import type { WhiteboardInstance } from 'types/instance'
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },

@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useCallback } from 'react'
 import type { Core, Document } from '@whiteboard/core'
-import { useStore } from 'jotai'
 import { createDefaultShortcuts } from '../defaultShortcuts'
-import type { Shortcut } from '../types'
-import type { ShortcutManager } from '../shortcutManager'
-import { useWhiteboardConfig } from '../../hooks'
-import { useSelectionActions } from '../../../node/hooks'
-import { useEdgeConnectActions } from '../../../edge/hooks'
+import type { Shortcut } from 'types/shortcuts'
+import type { ShortcutManager } from 'types/shortcuts'
+import { useInstance, useWhiteboardConfig } from '../../hooks'
 import { canvasNodesAtom } from '../../state'
 
 type Options = {
@@ -38,14 +35,12 @@ export const useShortcutRegistry = ({
   shortcutsProp,
   shortcutManager
 }: Options) => {
-  const store = useStore()
-  const selectionActions = useSelectionActions()
-  const { selectEdge } = useEdgeConnectActions()
+  const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
 
   const getSelectableNodeIds = useCallback(() => {
-    return store.get(canvasNodesAtom).map((node) => node.id)
-  }, [store])
+    return instance.state.store.get(canvasNodesAtom).map((node) => node.id)
+  }, [instance])
 
   const defaults = useMemo(
     () =>
@@ -57,13 +52,13 @@ export const useShortcutRegistry = ({
             nodeSize,
             defaultGroupPadding,
             selection: {
-              select: selectionActions.select,
-              clear: selectionActions.clear
+              select: instance.api.selection.select,
+              clear: instance.api.selection.clear
             },
-            selectEdge
+            selectEdge: instance.api.edge.select
           })
         : [],
-    [core, defaultGroupPadding, docRef, getSelectableNodeIds, nodeSize, selectEdge, selectionActions.clear, selectionActions.select]
+    [core, defaultGroupPadding, docRef, getSelectableNodeIds, instance, nodeSize]
   )
 
   const resolved = useMemo(() => resolveShortcuts(defaults, shortcutsProp), [defaults, shortcutsProp])

@@ -1,4 +1,4 @@
-import type { Guide } from '../utils/snap'
+import type { Guide } from 'types/node/snap'
 import { useDragGuides } from '../hooks'
 
 type DragGuidesLayerProps = {
