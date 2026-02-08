@@ -8,17 +8,17 @@ export const useSpacePressedLifecycle = () => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault()
-        instance.api.keyboard.setSpacePressed(true)
+        instance.commands.keyboard.setSpacePressed(true)
       }
     }
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault()
-        instance.api.keyboard.setSpacePressed(false)
+        instance.commands.keyboard.setSpacePressed(false)
       }
     }
-    const offKeyDown = instance.addWindowEventListener('keydown', onKeyDown)
-    const offKeyUp = instance.addWindowEventListener('keyup', onKeyUp)
+    const offKeyDown = instance.runtime.events.onWindow('keydown', onKeyDown)
+    const offKeyUp = instance.runtime.events.onWindow('keyup', onKeyUp)
     return () => {
       offKeyDown()
       offKeyUp()

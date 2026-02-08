@@ -1,4 +1,3 @@
-export type { WhiteboardApi } from './api'
 export type { WhiteboardCommands } from './commands'
 export type {
   ContainerSizeObserverService,

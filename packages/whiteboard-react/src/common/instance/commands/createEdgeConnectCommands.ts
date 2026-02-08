@@ -1,17 +1,18 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
-import type { WhiteboardApi } from 'types/api'
+import type { WhiteboardCommands } from 'types/commands'
 import type { WhiteboardInstance } from 'types/instance'
 import { edgeConnectAtom, toolAtom, visibleEdgesAtom } from '../../state'
 import { ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../edge/edgeConnectUtils'
 import { setStoreAtom } from '../store/setStoreAtom'
 
-export const createEdgeConnectApi = (
+export const createEdgeConnectCommands = (
   instance: WhiteboardInstance
 ): {
-  edgeConnect: WhiteboardApi['edgeConnect']
+  edgeConnect: WhiteboardCommands['edgeConnect']
   cancelHoverFrame: () => void
 } => {
-  const { core, config, viewport, query } = instance
+  const { core, config, viewport } = instance.runtime
+  const { query } = instance
   const { store } = instance.state
 
   const getEdgeSnapAtPoint = (point: Point): ConnectTo | undefined => {
@@ -113,7 +114,7 @@ export const createEdgeConnectApi = (
     })
   }
 
-  const edgeConnect: WhiteboardApi['edgeConnect'] = {
+  const edgeConnect: WhiteboardCommands['edgeConnect'] = {
     startFromHandle: (nodeId, side, pointerId) => {
       const anchor: EdgeAnchor = { side, offset: 0.5 }
       setStoreAtom(store, edgeConnectAtom, {

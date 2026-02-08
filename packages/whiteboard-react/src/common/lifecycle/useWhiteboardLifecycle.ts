@@ -34,7 +34,7 @@ export const useWhiteboardLifecycle = ({
   const instance = useInstance()
   const selectionState = useSelectionState()
   const selectionRuntime = useSelectionRuntime({ enabled: false })
-  const { core, docRef, containerRef, shortcutManager } = instance
+  const { core, docRef, containerRef, shortcuts } = instance.runtime
   const { handlers, onWheel } = useCanvasHandlers({
     tool: (tool as 'select' | 'edge') ?? 'select',
     viewportConfig
@@ -49,7 +49,7 @@ export const useWhiteboardLifecycle = ({
     docRef,
     defaultGroupPadding: DEFAULT_GROUP_PADDING,
     shortcutsProp,
-    shortcutManager
+    shortcutManager: shortcuts
   })
   useToolLifecycle(tool)
   useSelectionNotifications(selectionState.selectedNodeIds, onSelectionChange)
@@ -59,8 +59,8 @@ export const useWhiteboardLifecycle = ({
   useEffect(() => {
     return () => {
       selectionRuntime.cancelPendingRaf()
-      instance.services.nodeSizeObserver.dispose()
-      instance.services.containerSizeObserver.dispose()
+      instance.runtime.services.nodeSizeObserver.dispose()
+      instance.runtime.services.containerSizeObserver.dispose()
     }
   }, [instance, selectionRuntime])
 }

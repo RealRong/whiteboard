@@ -15,7 +15,7 @@ export const useInteraction = () => {
   return useMemo(
     () => ({
       state,
-      update: (patch: Partial<InteractionState>) => instance.api.interaction.update(patch)
+      update: (patch: Partial<InteractionState>) => instance.commands.interaction.update(patch)
     }),
     [instance, state]
   )

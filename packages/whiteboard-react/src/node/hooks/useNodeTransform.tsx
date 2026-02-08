@@ -136,10 +136,10 @@ export const useNodeTransform = ({
   const tool = useInstanceAtomValue(toolAtom)
   const activeTool = (tool as 'select' | 'edge') ?? 'select'
   const resolvedEnabled = enabled ?? (activeTool === 'select' && selectedInSelectionSet)
-  const containerRef = instance.containerRef ?? undefined
-  const screenToWorld = instance.viewport.screenToWorld ?? undefined
-  const getZoom = instance.viewport.getZoom
-  const core: Core = instance.core
+  const containerRef = instance.runtime.containerRef ?? undefined
+  const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
+  const getZoom = instance.runtime.viewport.getZoom
+  const core: Core = instance.runtime.core
   const dragRef = useRef<DragState | null>(null)
   const [state, setState] = useState<TransformState>({ isResizing: false, isRotating: false })
 

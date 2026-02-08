@@ -12,9 +12,20 @@ import type {
   Rect,
   Viewport
 } from '@whiteboard/core'
-import type { SelectionMode } from '../state'
+import type { Guide } from '../node/snap'
+import type { InteractionState, NodeViewUpdate, SelectionMode } from '../state'
 
 export type WhiteboardCommands = {
+  tool: {
+    set: (tool: string) => void
+  }
+  keyboard: {
+    setSpacePressed: (pressed: boolean) => void
+  }
+  interaction: {
+    update: (patch: Partial<InteractionState>) => void
+    clearHover: () => void
+  }
   selection: {
     select: (ids: NodeId[], mode?: SelectionMode) => void
     toggle: (ids: NodeId[]) => void
@@ -23,43 +34,6 @@ export type WhiteboardCommands = {
     beginBox: (mode?: SelectionMode) => void
     updateBox: (selectionRect: Rect, selectionRectWorld?: Rect) => void
     endBox: () => void
-  }
-  order: {
-    node: {
-      set: (ids: NodeId[]) => Promise<DispatchResult>
-      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
-      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
-      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
-      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
-    }
-    edge: {
-      set: (ids: EdgeId[]) => Promise<DispatchResult>
-      bringToFront: (ids: EdgeId[]) => Promise<DispatchResult>
-      sendToBack: (ids: EdgeId[]) => Promise<DispatchResult>
-      bringForward: (ids: EdgeId[]) => Promise<DispatchResult>
-      sendBackward: (ids: EdgeId[]) => Promise<DispatchResult>
-    }
-  }
-  tool: {
-    setTool: (tool: string) => void
-  }
-  interaction: {
-    clearHover: () => void
-  }
-  viewport: {
-    set: (viewport: Viewport) => Promise<DispatchResult>
-    panBy: (delta: { x: number; y: number }) => Promise<DispatchResult>
-    zoomBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
-    zoomTo: (zoom: number, anchor?: Point) => Promise<DispatchResult>
-    reset: () => Promise<DispatchResult>
-  }
-  node: {
-    create: (payload: NodeInput) => Promise<DispatchResult>
-    update: (id: NodeId, patch: NodePatch) => Promise<DispatchResult>
-    delete: (ids: NodeId[]) => Promise<DispatchResult>
-    move: (ids: NodeId[], delta: { x: number; y: number }) => Promise<DispatchResult>
-    resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
-    rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
   }
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>
@@ -83,6 +57,54 @@ export type WhiteboardCommands = {
     updateTo: (pointWorld: Point) => void
     commitTo: (pointWorld: Point) => void
     cancel: () => void
+    updateHover: (pointWorld: Point) => void
+    handleNodePointerDown: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => boolean
+  }
+  groupRuntime: {
+    setHoveredGroupId: (groupId?: NodeId) => void
+  }
+  transient: {
+    dragGuides: {
+      set: (guides: Guide[]) => void
+      clear: () => void
+    }
+    nodeOverrides: {
+      set: (updates: NodeViewUpdate[]) => void
+      clear: (ids?: NodeId[]) => void
+      commit: (updates?: NodeViewUpdate[]) => void
+    }
+    reset: () => void
+  }
+  order: {
+    node: {
+      set: (ids: NodeId[]) => Promise<DispatchResult>
+      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
+      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
+      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
+      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
+    }
+    edge: {
+      set: (ids: EdgeId[]) => Promise<DispatchResult>
+      bringToFront: (ids: EdgeId[]) => Promise<DispatchResult>
+      sendToBack: (ids: EdgeId[]) => Promise<DispatchResult>
+      bringForward: (ids: EdgeId[]) => Promise<DispatchResult>
+      sendBackward: (ids: EdgeId[]) => Promise<DispatchResult>
+    }
+  }
+  viewport: {
+    set: (viewport: Viewport) => Promise<DispatchResult>
+    panBy: (delta: { x: number; y: number }) => Promise<DispatchResult>
+    zoomBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
+    zoomTo: (zoom: number, anchor?: Point) => Promise<DispatchResult>
+    reset: () => Promise<DispatchResult>
+  }
+  node: {
+    create: (payload: NodeInput) => Promise<DispatchResult>
+    update: (id: NodeId, patch: NodePatch) => Promise<DispatchResult>
+    delete: (ids: NodeId[]) => Promise<DispatchResult>
+    move: (ids: NodeId[], delta: { x: number; y: number }) => Promise<DispatchResult>
+    resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
+    rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
   }
   group: Core['commands']['group']
   mindmap: Core['commands']['mindmap']

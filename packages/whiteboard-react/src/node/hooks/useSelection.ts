@@ -67,8 +67,8 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
 
   const minDragDistance = options.minDragDistance ?? 3
   const enabled = options.enabled ?? true
-  const containerRef = options.containerRef ?? instance.containerRef ?? undefined
-  const screenToWorld = options.screenToWorld ?? instance.viewport.screenToWorld ?? undefined
+  const containerRef = options.containerRef ?? instance.runtime.containerRef ?? undefined
+  const screenToWorld = options.screenToWorld ?? instance.runtime.viewport.screenToWorld ?? undefined
   const getNodes = useCallback(() => options.nodes ?? instance.state.get(canvasNodesAtom), [instance, options.nodes])
   const nodeSize = options.nodeSize ?? fallbackNodeSize
   const isSelectionToolEnabled = useCallback(() => {
@@ -81,20 +81,20 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
 
   const select = useCallback(
     (ids: NodeId[], mode: SelectionMode = 'replace') => {
-      instance.api.selection.select(ids, mode)
+      instance.commands.selection.select(ids, mode)
     },
     [instance]
   )
 
   const clear = useCallback(() => {
-    instance.api.selection.clear()
+    instance.commands.selection.clear()
   }, [instance])
 
   const beginBox = useCallback(
     (pointScreen: Point, mode: SelectionMode = 'replace') => {
       startRef.current = pointScreen
       modeRef.current = mode
-      instance.api.selection.beginBox(mode)
+      instance.commands.selection.beginBox(mode)
     },
     [instance]
   )
@@ -133,7 +133,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
         rectWorld = rectFromPoints(startWorld, endWorld)
       }
       isSelectingRef.current = true
-      instance.api.selection.updateBox(rectScreen, rectWorld)
+      instance.commands.selection.updateBox(rectScreen, rectWorld)
       if (rectWorld) {
         if (rafRef.current !== null) return
         rafRef.current = window.requestAnimationFrame(() => {
@@ -156,7 +156,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
     startRef.current = null
     cancelPendingRaf()
     isSelectingRef.current = false
-    instance.api.selection.endBox()
+    instance.commands.selection.endBox()
   }, [cancelPendingRaf, instance])
 
   const handlers = useMemo(() => {
@@ -255,9 +255,9 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
   return useMemo(
     () => ({
       ...state,
-      select: instance.api.selection.select,
-      toggle: instance.api.selection.toggle,
-      clear: instance.api.selection.clear,
+      select: instance.commands.selection.select,
+      toggle: instance.commands.selection.toggle,
+      clear: instance.commands.selection.clear,
       ...runtime
     }),
     [instance, runtime, state]

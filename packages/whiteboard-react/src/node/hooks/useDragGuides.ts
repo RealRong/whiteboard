@@ -10,7 +10,7 @@ export const useDragGuides = () => {
   return useMemo(
     () => ({
       guides,
-      setGuides: (nextGuides: Guide[]) => instance.api.transient.dragGuides.set(nextGuides)
+      setGuides: (nextGuides: Guide[]) => instance.commands.transient.dragGuides.set(nextGuides)
     }),
     [guides, instance]
   )

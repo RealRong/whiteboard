@@ -11,7 +11,7 @@ export const useGroupRuntime = (): GroupRuntimeStore => {
   return useMemo<GroupRuntimeStore>(
     () => ({
       ...runtime,
-      setHoveredGroupId: instance.api.groupRuntime.setHoveredGroupId
+      setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
     }),
     [instance, runtime]
   )

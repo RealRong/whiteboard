@@ -15,7 +15,7 @@ export const useNodePresentation = ({
 }: UseNodePresentationOptions): NodePresentation => {
   const instance = useInstance()
   const registry = useNodeRegistry()
-  const zoom = instance.viewport.getZoom()
+  const zoom = instance.runtime.viewport.getZoom()
   const { nodeSize } = useWhiteboardConfig()
   const { selected, hovered } = useNodeSelectionFlags(node.id)
 
@@ -23,7 +23,7 @@ export const useNodePresentation = ({
   const rect = useMemo(() => getNodeRect(node, nodeSize), [node, nodeSize])
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
-  const core: Core = instance.core
+  const core: Core = instance.runtime.core
   const nodeStyle = useMemo(
     () =>
       getNodeDefinitionStyle(definition, {

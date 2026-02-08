@@ -52,10 +52,10 @@ export const useShortcutRegistry = ({
             nodeSize,
             defaultGroupPadding,
             selection: {
-              select: instance.api.selection.select,
-              clear: instance.api.selection.clear
+              select: instance.commands.selection.select,
+              clear: instance.commands.selection.clear
             },
-            selectEdge: instance.api.edge.select
+            selectEdge: instance.commands.edge.select
           })
         : [],
     [core, defaultGroupPadding, docRef, getSelectableNodeIds, instance, nodeSize]

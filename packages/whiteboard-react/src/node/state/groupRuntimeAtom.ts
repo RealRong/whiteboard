@@ -11,7 +11,7 @@ const emptySize: Size = { width: 1, height: 1 }
 export const groupRuntimeDataAtom = atom<Omit<GroupRuntime, 'hoveredGroupId'>>((get) => {
   const nodes = get(canvasNodesAtom)
   const instance = get(instanceAtom)
-  const nodeSize = instance?.config.nodeSize ?? emptySize
+  const nodeSize = instance?.runtime.config.nodeSize ?? emptySize
   if (!nodes.length) {
     return {
       nodes: [],
@@ -34,4 +34,3 @@ export const groupRuntimeAtom = atom<GroupRuntime>((get) => ({
   ...get(groupRuntimeDataAtom),
   hoveredGroupId: get(groupHoveredAtom)
 }))
-

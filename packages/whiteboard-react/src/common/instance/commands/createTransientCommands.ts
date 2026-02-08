@@ -1,5 +1,5 @@
 import type { NodeId, Point } from '@whiteboard/core'
-import type { WhiteboardApi } from 'types/api'
+import type { WhiteboardCommands } from 'types/commands'
 import type { Size } from 'types/common'
 import type { WhiteboardInstance } from 'types/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from 'types/state'
@@ -9,15 +9,15 @@ import { isPointEqual, isSizeEqual } from '../geometry/valueEquality'
 import { clearNodeOverrides, updateNodeOverrides } from '../state/nodeOverrideState'
 import { setStoreAtom } from '../store/setStoreAtom'
 
-type CreateTransientApiOptions = {
+type CreateTransientCommandsOptions = {
   cancelEdgeHoverFrame: () => void
 }
 
-export const createTransientApi = (
+export const createTransientCommands = (
   instance: WhiteboardInstance,
-  { cancelEdgeHoverFrame }: CreateTransientApiOptions
-): WhiteboardApi['transient'] => {
-  const { core, docRef } = instance
+  { cancelEdgeHoverFrame }: CreateTransientCommandsOptions
+): WhiteboardCommands['transient'] => {
+  const { core, docRef } = instance.runtime
   const { store } = instance.state
 
   const clearTransientNodeOverridesState = (ids?: NodeId[]) => {

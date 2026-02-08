@@ -8,7 +8,7 @@ export const useNodeLifecycle = () => {
   const { nodeSize } = useWhiteboardConfig()
 
   useGroupAutoFit({
-    core: instance.core,
+    core: instance.runtime.core,
     nodes: doc?.nodes ?? [],
     nodeSize,
     padding: DEFAULT_GROUP_PADDING

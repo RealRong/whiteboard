@@ -15,11 +15,11 @@ export const NodeItem = ({ node }: NodeItemProps) => {
     (element: HTMLDivElement | null) => {
       if (containerRef.current === element) return
       if (containerRef.current) {
-        instance.services.nodeSizeObserver.unobserve(node.id)
+        instance.runtime.services.nodeSizeObserver.unobserve(node.id)
       }
       containerRef.current = element
       if (element) {
-        instance.services.nodeSizeObserver.observe(node.id, element, true)
+        instance.runtime.services.nodeSizeObserver.observe(node.id, element, true)
       }
     },
     [instance, node.id]

@@ -32,27 +32,27 @@ export const useCanvasEventBindings = ({ containerRef, handlers, onWheel }: Opti
   useEffect(() => {
     if (!containerRef.current) return
 
-    const offPointerDownCapture = instance.addContainerEventListener(
+    const offPointerDownCapture = instance.runtime.events.onContainer(
       'pointerdown',
       (event) => handlersRef.current.handlePointerDownCapture(event),
       true
     )
-    const offPointerDown = instance.addContainerEventListener(
+    const offPointerDown = instance.runtime.events.onContainer(
       'pointerdown',
       (event) => handlersRef.current.handlePointerDown(event)
     )
-    const offPointerMove = instance.addContainerEventListener(
+    const offPointerMove = instance.runtime.events.onContainer(
       'pointermove',
       (event) => handlersRef.current.handlePointerMove(event)
     )
-    const offPointerUp = instance.addContainerEventListener(
+    const offPointerUp = instance.runtime.events.onContainer(
       'pointerup',
       (event) => handlersRef.current.handlePointerUp(event)
     )
-    const offWheel = instance.addContainerEventListener('wheel', (event) => onWheelRef.current(event), {
+    const offWheel = instance.runtime.events.onContainer('wheel', (event) => onWheelRef.current(event), {
       passive: false
     })
-    const offKeyDown = instance.addContainerEventListener(
+    const offKeyDown = instance.runtime.events.onContainer(
       'keydown',
       (event) => handlersRef.current.handleKeyDown(event)
     )

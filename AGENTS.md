@@ -58,14 +58,15 @@ Always reply in Chinese.
   - Services are pure side-effect handlers (DOM events, observers), no React rendering.
   - Instance is the integration point for services; avoid storing UI state inside instance.
   - Cross-module read-only runtime getters must live under `packages/whiteboard-react/src/common/instance/query/` (e.g., node geometry queries).
-  - Keep `whiteboardInstance.ts` as composition-only: do not inline query implementation there; compose query module like api/commands/runtime.
+  - Keep `whiteboardInstance.ts` as composition-only: do not inline feature implementation there; compose submodules and only wire them.
   - Query methods should be pure/read-only and may keep internal memoization based on source atom references.
-  - Any new capability added to instance must be split by responsibility into submodules first (e.g., `api/`, `commands/`, `query/`, `runtime/`, `services/`, `state/`, `store/`, `geometry/`, `edge/`).
-  - `whiteboardInstance.ts` is the final composition layer only: it should wire modules into `instance` (api/commands/query/runtime/services) and must not contain feature logic implementations.
+  - Any new capability added to instance must first choose one domain: `state` / `runtime` / `query` / `commands`; do not add extra top-level namespaces.
+  - `whiteboardInstance.ts` is the final composition layer only: it wires `state` / `runtime` / `query` / `commands` and must not contain feature logic implementations.
+  - `instance.api` is forbidden; all write actions must be exposed only via `instance.commands` (single write entry).
   - Avoid duplicate imperative geometry/state reads across modules; prefer reusing `instance.query` getters as the single source for cross-module runtime reads.
   - For container-level canvas event handlers (pointer/wheel/key), prefer top-level single-point composition (`useCanvasHandlers` -> lifecycle binding) instead of prematurely mounting them onto `instance`.
   - Only elevate handlers into `instance` when there are multiple real consumers (e.g., non-React host, plugin runtime, shared imperative entry).
-  - Handler hot-path should prefer event-time getters (`instance.state.get`, `instance.viewport.get/getZoom/screenToWorld`) and avoid atom subscriptions in handler composition hooks.
+  - Handler hot-path should prefer event-time getters (`instance.state.get`, `instance.runtime.viewport.get/getZoom/screenToWorld`) and avoid atom subscriptions in handler composition hooks.
 - Naming conventions:
   - Hooks: `useXxx` (semantic responsibility).
   - Services: `xxxService` (e.g., `nodeSizeObserverService`).
@@ -75,7 +76,7 @@ Always reply in Chinese.
   - UI composition (layers/components) follows the new style: semantic hooks + thin components + Jotai state.
   - Keep the boundary explicit: runtime owns behavior; UI owns composition.
 - Viewport/zoom performance pattern (getter + CSS variables):
-  - Prefer runtime getters (e.g. `instance.viewport.getZoom()`) for hot-path interaction math (drag, hit-test, snap threshold, reconnect calculations).
+  - Prefer runtime getters (e.g. `instance.runtime.viewport.getZoom()`) for hot-path interaction math (drag, hit-test, snap threshold, reconnect calculations).
   - Do not subscribe to atom/state for zoom in hot handlers unless rerender is strictly required.
   - Use atom/state only when value changes must trigger React render/effect for UI composition.
   - Inject `--wb-zoom` at a high-level container (from viewport runtime), then consume it in visual-only elements.
@@ -94,6 +95,7 @@ Always reply in Chinese.
   - Do not mix world-space and screen-space values without explicit naming (e.g. `thresholdScreen` vs `thresholdWorld`).
   - Do not keep multiple zoom sources (atom + local state + ref) alive simultaneously.
   - Do not move single-consumer canvas handlers into `instance` just for abstraction; avoid adding global API surface without reuse demand.
+  - Do not introduce a second write path (e.g. re-adding `instance.api`); all mutating behaviors must stay under `instance.commands`.
 - Example (how to emulate the pattern):
 ```ts
 // runtime action hook (legacy-style behavior module)

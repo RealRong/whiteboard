@@ -15,17 +15,17 @@ export const useEdgeConnectLifecycle = () => {
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      instance.api.edgeConnect.updateTo(screenToWorld(point))
+      instance.commands.edgeConnect.updateTo(screenToWorld(point))
     }
     const handlePointerUp = (event: PointerEvent) => {
       if (state.pointerId !== undefined && state.pointerId !== null && event.pointerId !== state.pointerId) return
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      instance.api.edgeConnect.commitTo(screenToWorld(point))
+      instance.commands.edgeConnect.commitTo(screenToWorld(point))
     }
-    const offMove = instance.addWindowEventListener('pointermove', handlePointerMove)
-    const offUp = instance.addWindowEventListener('pointerup', handlePointerUp)
+    const offMove = instance.runtime.events.onWindow('pointermove', handlePointerMove)
+    const offUp = instance.runtime.events.onWindow('pointerup', handlePointerUp)
     return () => {
       offMove()
       offUp()

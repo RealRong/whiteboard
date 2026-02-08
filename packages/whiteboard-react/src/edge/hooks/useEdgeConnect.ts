@@ -59,8 +59,8 @@ export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
   const selectedEdgeId = useInstanceAtomValue(edgeSelectionAtom)
   const state = useInstanceAtomValue(edgeConnectAtom)
 
-  const screenToWorld = instance.viewport.screenToWorld ?? undefined
-  const containerRef = instance.containerRef ?? undefined
+  const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
+  const containerRef = instance.runtime.containerRef ?? undefined
   const activeTool = (tool as 'select' | 'edge') ?? 'select'
 
   const nodeRects = useMemo(() => instance.query.getCanvasNodeRects(), [canvasNodes, instance])
@@ -85,7 +85,7 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
 
   const handleNodePointerDown = useCallback(
     (nodeId: string, pointWorld: Point, event: ReactPointerEvent<HTMLElement>) => {
-      const handled = instance.api.edgeConnect.handleNodePointerDown(nodeId, pointWorld, event.pointerId)
+      const handled = instance.commands.edgeConnect.handleNodePointerDown(nodeId, pointWorld, event.pointerId)
       if (!handled) return false
       event.preventDefault()
       event.stopPropagation()
@@ -97,14 +97,14 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
   return useMemo(
     () => ({
       ...state,
-      startFromHandle: instance.api.edgeConnect.startFromHandle,
-      startFromPoint: instance.api.edgeConnect.startFromPoint,
-      startReconnect: instance.api.edgeConnect.startReconnect,
-      updateTo: instance.api.edgeConnect.updateTo,
-      commitTo: instance.api.edgeConnect.commitTo,
-      cancel: instance.api.edgeConnect.cancel,
-      selectEdge: instance.api.edge.select,
-      updateHover: instance.api.edgeConnect.updateHover,
+      startFromHandle: instance.commands.edgeConnect.startFromHandle,
+      startFromPoint: instance.commands.edgeConnect.startFromPoint,
+      startReconnect: instance.commands.edgeConnect.startReconnect,
+      updateTo: instance.commands.edgeConnect.updateTo,
+      commitTo: instance.commands.edgeConnect.commitTo,
+      cancel: instance.commands.edgeConnect.cancel,
+      selectEdge: instance.commands.edge.select,
+      updateHover: instance.commands.edgeConnect.updateHover,
       handleNodePointerDown
     }),
     [handleNodePointerDown, instance, state]

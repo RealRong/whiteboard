@@ -1,10 +1,9 @@
 import { getDefaultStore } from 'jotai'
-import type { WhiteboardApi } from 'types/api'
 import type {
   CreateWhiteboardInstanceOptions,
   WhiteboardInstance,
-  WhiteboardInstanceCommands,
   WhiteboardInstanceConfig,
+  WhiteboardRuntimeNamespace,
   WhiteboardStateNamespace
 } from 'types/instance'
 import {
@@ -23,7 +22,6 @@ import { dragGuidesAtom, groupHoveredAtom, nodeViewOverridesAtom } from '../../n
 import { createContainerSizeObserverService } from './services/containerSizeObserverService'
 import { createNodeSizeObserverService } from './services/nodeSizeObserverService'
 import { createViewportRuntime } from './runtime/createViewportRuntime'
-import { createWhiteboardApi } from './api/createWhiteboardApi'
 import { createInstanceQuery } from './query/createInstanceQuery'
 import { createWhiteboardCommands } from './commands/createWhiteboardCommands'
 import { setStoreAtom } from './store/setStoreAtom'
@@ -32,7 +30,6 @@ export const createWhiteboardInstance = ({
   core,
   docRef,
   containerRef,
-  shortcutManager: externalShortcutManager,
   config: configOverrides
 }: CreateWhiteboardInstanceOptions): WhiteboardInstance => {
   const config: WhiteboardInstanceConfig = {
@@ -46,7 +43,8 @@ export const createWhiteboardInstance = ({
     containerSizeObserver: createContainerSizeObserverService()
   }
 
-  const shortcutManager = externalShortcutManager ?? createShortcutManager()
+  const shortcuts = createShortcutManager()
+  const viewport = createViewportRuntime()
   const store = getDefaultStore()
 
   const state: WhiteboardStateNamespace = {
@@ -69,47 +67,44 @@ export const createWhiteboardInstance = ({
     sub: (atom, callback) => store.sub(atom, callback)
   }
 
-  const viewport = createViewportRuntime()
-
-  const query = createInstanceQuery({ store, config })
-
-  const instance = {
+  const runtime: WhiteboardRuntimeNamespace = {
     core,
     docRef,
     containerRef,
     getContainer,
     config,
-    services,
-    shortcutManager,
     viewport,
-    state,
-    query,
-    api: {} as WhiteboardApi,
-    commands: {} as WhiteboardInstanceCommands,
-    addWindowEventListener: (type, listener, options) => {
-      window.addEventListener(type, listener as EventListener, options)
-      return () => {
-        window.removeEventListener(type, listener as EventListener, options)
-      }
-    },
-    addContainerEventListener: (type, listener, options) => {
-      const container = containerRef.current
-      if (!container) return () => {}
-      container.addEventListener(type, listener as EventListener, options)
-      return () => {
-        container.removeEventListener(type, listener as EventListener, options)
+    services,
+    shortcuts,
+    events: {
+      onWindow: (type, listener, options) => {
+        window.addEventListener(type, listener as EventListener, options)
+        return () => {
+          window.removeEventListener(type, listener as EventListener, options)
+        }
+      },
+      onContainer: (type, listener, options) => {
+        const container = containerRef.current
+        if (!container) return () => {}
+        container.addEventListener(type, listener as EventListener, options)
+        return () => {
+          container.removeEventListener(type, listener as EventListener, options)
+        }
       }
     }
+  }
+
+  const query = createInstanceQuery({ store, config })
+
+  const instance = {
+    state,
+    runtime,
+    query,
+    commands: {} as WhiteboardInstance['commands']
   } as WhiteboardInstance
 
-  instance.api = createWhiteboardApi(instance)
-
   setStoreAtom(store, toolAtom, 'select')
-  const commands = createWhiteboardCommands(instance) as WhiteboardInstanceCommands
-  commands.extend = (partial) => {
-    Object.assign(commands, partial)
-  }
-  instance.commands = commands
+  instance.commands = createWhiteboardCommands(instance)
 
   return instance
 }

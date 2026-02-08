@@ -5,6 +5,6 @@ export const useToolLifecycle = (tool: string) => {
   const instance = useInstance()
 
   useEffect(() => {
-    instance.api.tool.set(tool)
+    instance.commands.tool.set(tool)
   }, [instance, tool])
 }

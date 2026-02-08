@@ -24,20 +24,20 @@ export const EdgeLayerStack = () => {
 
   const edgeConnectActions = useMemo(
     () => ({
-      selectEdge: instance.api.edge.select,
-      startReconnect: instance.api.edgeConnect.startReconnect
+      selectEdge: instance.commands.edge.select,
+      startReconnect: instance.commands.edgeConnect.startReconnect
     }),
     [instance]
   )
 
   const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
-    core: instance.core,
+    core: instance.runtime.core,
     nodes: canvasNodes,
     edges: visibleEdges,
     nodeSize,
-    zoom: instance.viewport.getZoom(),
-    containerRef: instance.containerRef ?? undefined,
-    screenToWorld: instance.viewport.screenToWorld ?? undefined,
+    zoom: instance.runtime.viewport.getZoom(),
+    containerRef: instance.runtime.containerRef ?? undefined,
+    screenToWorld: instance.runtime.viewport.screenToWorld ?? undefined,
     edgeConnectState,
     edgeConnectActions,
     nodeMap,

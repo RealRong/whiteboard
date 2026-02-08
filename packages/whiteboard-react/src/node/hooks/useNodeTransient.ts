@@ -8,9 +8,9 @@ export const useNodeTransient = (): NodeTransientApi => {
 
   return useMemo(
     () => ({
-      setOverrides: instance.api.transient.nodeOverrides.set,
-      clearOverrides: instance.api.transient.nodeOverrides.clear,
-      commitOverrides: instance.api.transient.nodeOverrides.commit
+      setOverrides: instance.commands.transient.nodeOverrides.set,
+      clearOverrides: instance.commands.transient.nodeOverrides.clear,
+      commitOverrides: instance.commands.transient.nodeOverrides.commit
     }),
     [instance]
   )

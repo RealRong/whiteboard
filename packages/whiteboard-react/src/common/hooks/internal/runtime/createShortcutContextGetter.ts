@@ -35,7 +35,7 @@ export const createShortcutContextGetter = (instance: WhiteboardInstance) => {
         isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
       },
       viewport: {
-        zoom: instance.viewport.getZoom()
+        zoom: instance.runtime.viewport.getZoom()
       }
     }
   }

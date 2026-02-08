@@ -1,10 +1,10 @@
-import type { WhiteboardApi } from 'types/api'
+import type { WhiteboardCommands } from 'types/commands'
 import type { WhiteboardInstance } from 'types/instance'
 import { edgeSelectionAtom, nodeSelectionAtom } from '../../state'
 import { applySelection } from '../state/selectionState'
 import { setStoreAtom } from '../store/setStoreAtom'
 
-export const createSelectionApi = (instance: WhiteboardInstance): WhiteboardApi['selection'] => {
+export const createSelectionCommands = (instance: WhiteboardInstance): WhiteboardCommands['selection'] => {
   const { store } = instance.state
 
   return {

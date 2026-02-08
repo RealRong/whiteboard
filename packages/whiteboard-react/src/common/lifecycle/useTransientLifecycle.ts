@@ -6,7 +6,7 @@ export const useTransientLifecycle = () => {
 
   useEffect(() => {
     return () => {
-      instance.api.transient.reset()
+      instance.commands.transient.reset()
     }
   }, [instance])
 }

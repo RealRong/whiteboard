@@ -35,7 +35,7 @@ export const useViewportControls = ({
   const onPointerDown = useCallback(
     (event: PointerEvent | (PointerEvent & { currentTarget: HTMLElement })) => {
       if (!enablePan) return
-      const viewport = instance.viewport.get()
+      const viewport = instance.runtime.viewport.get()
       const isMiddle = event.button === 1
       const isSpaceLeft = event.button === 0 && instance.state.get(spacePressedAtom)
       if (!isMiddle && !isSpaceLeft) return
@@ -58,7 +58,7 @@ export const useViewportControls = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       const dx = event.clientX - drag.start.x
       const dy = event.clientY - drag.start.y
-      instance.core.dispatch({
+      instance.runtime.core.dispatch({
         type: 'viewport.set',
         viewport: {
           center: {
@@ -86,15 +86,15 @@ export const useViewportControls = ({
       const element = containerRef.current
       if (!element) return
       event.preventDefault()
-      const zoom = instance.viewport.getZoom()
+      const zoom = instance.runtime.viewport.getZoom()
       const rect = element.getBoundingClientRect()
       const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      const anchor = instance.viewport.screenToWorld(screenPoint)
+      const anchor = instance.runtime.viewport.screenToWorld(screenPoint)
       const factor = Math.exp(-event.deltaY * 0.001)
       const nextZoom = clamp(zoom * factor, minZoom, maxZoom)
       const appliedFactor = nextZoom / zoom
       if (appliedFactor === 1) return
-      instance.core.dispatch({
+      instance.runtime.core.dispatch({
         type: 'viewport.zoom',
         factor: appliedFactor,
         anchor

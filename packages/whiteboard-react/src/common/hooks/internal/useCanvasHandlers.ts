@@ -21,30 +21,30 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
   const edgeHoverRafRef = useRef<number | null>(null)
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({
-      shortcutManager: instance.shortcutManager,
+      shortcutManager: instance.runtime.shortcuts,
       getShortcutContext,
-      updateInteraction: instance.api.interaction.update
+      updateInteraction: instance.commands.interaction.update
     })
   const flushEdgeHover = useCallback(() => {
     edgeHoverRafRef.current = null
     const point = edgeHoverPointRef.current
     if (!point) return
     edgeHoverPointRef.current = null
-    instance.api.edgeConnect.updateHover(instance.viewport.screenToWorld(point))
+    instance.commands.edgeConnect.updateHover(instance.runtime.viewport.screenToWorld(point))
   }, [instance])
 
   const { viewportHandlers, onWheel } = useViewportInteraction({
     instance,
-    containerRef: instance.containerRef,
+    containerRef: instance.runtime.containerRef,
     config: viewportConfig
   })
   const handlePointerDown = useCallback(
     (event: PointerEvent) => {
-      instance.containerRef.current?.focus({ preventScroll: true })
+      instance.runtime.containerRef.current?.focus({ preventScroll: true })
       viewportHandlers.onPointerDown(event)
       selectionHandlers?.onPointerDown(event)
-      if (event.target === instance.containerRef.current) {
-        instance.api.edge.select(undefined)
+      if (event.target === instance.runtime.containerRef.current) {
+        instance.commands.edge.select(undefined)
       }
     },
     [instance, selectionHandlers, viewportHandlers]
@@ -61,8 +61,8 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
     (event: PointerEvent) => {
       viewportHandlers.onPointerMove(event)
       selectionHandlers?.onPointerMove(event)
-      if (tool === 'edge' && instance.containerRef.current) {
-        const rect = instance.containerRef.current.getBoundingClientRect()
+      if (tool === 'edge' && instance.runtime.containerRef.current) {
+        const rect = instance.runtime.containerRef.current.getBoundingClientRect()
         const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
         edgeHoverPointRef.current = point
         if (edgeHoverRafRef.current === null) {

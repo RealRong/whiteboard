@@ -21,9 +21,9 @@ export const useViewportRuntime = ({ viewport, containerRef, instance }: Options
   useLayoutEffect(() => {
     const element = containerRef.current
     if (!element) return
-    instance.services.containerSizeObserver.observe(element, setSize)
+    instance.runtime.services.containerSizeObserver.observe(element, setSize)
     return () => {
-      instance.services.containerSizeObserver.unobserve(element)
+      instance.runtime.services.containerSizeObserver.unobserve(element)
     }
   }, [containerRef, instance])
 
@@ -59,7 +59,7 @@ export const useViewportRuntime = ({ viewport, containerRef, instance }: Options
   )
 
   useLayoutEffect(() => {
-    instance.viewport.set({
+    instance.runtime.viewport.set({
       viewport: actual,
       screenToWorld,
       worldToScreen,
