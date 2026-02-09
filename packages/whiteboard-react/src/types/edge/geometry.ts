@@ -1,6 +1,5 @@
-import type { Edge, Node, Point } from '@whiteboard/core'
+import type { Edge, Point } from '@whiteboard/core'
 import type { EdgeConnectState } from '../state'
-import type { Size } from '../common'
 
 export type EdgePathEntry = {
   id: string
@@ -12,8 +11,6 @@ export type EdgePathEntry = {
 }
 
 export type UseEdgeGeometryOptions = {
-  nodes: Node[]
   edges: Edge[]
-  nodeSize: Size
   connectState?: EdgeConnectState
 }

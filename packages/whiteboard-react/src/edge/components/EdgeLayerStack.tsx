@@ -1,81 +1,66 @@
-import { useMemo } from 'react'
-import { useEdgeConnectLayerState, useEdgeLayerModel } from '../hooks'
+import { useCallback } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useEdgeConnectLayerState, useEdgePointInsertion, useEdgePreview } from '../hooks'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
 import { EdgePreviewLayer } from './EdgePreviewLayer'
 import {
   useActiveTool,
-  useCanvasNodes,
   useInstance,
-  useNodeMap,
-  useVisibleEdges,
-  useWhiteboardConfig
+  useVisibleEdges
 } from '../../common/hooks'
 
 export const EdgeLayerStack = () => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
-  const canvasNodes = useCanvasNodes()
   const visibleEdges = useVisibleEdges()
-  const nodeMap = useNodeMap()
   const tool = useActiveTool()
   const edgeConnectState = useEdgeConnectLayerState()
+  const handleInsertPoint = useEdgePointInsertion()
+  const { previewFrom, previewTo, hoverSnap } = useEdgePreview({
+    state: edgeConnectState.state
+  })
 
-  const edgeConnectActions = useMemo(
-    () => ({
-      selectEdge: instance.commands.edge.select,
-      startReconnect: instance.commands.edgeConnect.startReconnect
-    }),
+  const handleStartReconnect = useCallback(
+    (edgeId: string, end: 'source' | 'target', event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      instance.commands.edgeConnect.startReconnect(edgeId, end, event.pointerId)
+    },
     [instance]
   )
-
-  const { edgeLayerProps, endpointHandlesProps, controlPointHandlesProps, previewProps } = useEdgeLayerModel({
-    core: instance.runtime.core,
-    nodes: canvasNodes,
-    edges: visibleEdges,
-    nodeSize,
-    zoom: instance.runtime.viewport.getZoom(),
-    containerRef: instance.runtime.containerRef ?? undefined,
-    screenToWorld: instance.runtime.viewport.screenToWorld ?? undefined,
-    edgeConnectState,
-    edgeConnectActions,
-    nodeMap,
-    tool
-  })
+  const containerRef = instance.runtime.containerRef ?? undefined
+  const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
+  const selectedEdgeId = edgeConnectState.selectedEdgeId
+  const connectState = edgeConnectState.state
 
   return (
     <>
       <EdgeLayer
-        nodes={edgeLayerProps.nodes}
-        edges={edgeLayerProps.edges}
-        nodeSize={edgeLayerProps.nodeSize}
-        zoom={edgeLayerProps.zoom}
-        containerRef={edgeLayerProps.containerRef}
-        screenToWorld={edgeLayerProps.screenToWorld}
-        selectedEdgeId={edgeLayerProps.selectedEdgeId}
-        onSelectEdge={edgeLayerProps.onSelectEdge}
-        onInsertPoint={edgeLayerProps.onInsertPoint}
-        connectState={edgeLayerProps.connectState}
+        edges={visibleEdges}
+        zoom={instance.runtime.viewport.getZoom()}
+        containerRef={containerRef}
+        screenToWorld={screenToWorld}
+        selectedEdgeId={selectedEdgeId}
+        onSelectEdge={instance.commands.edge.select}
+        onInsertPoint={handleInsertPoint}
+        connectState={connectState}
       />
       <EdgeEndpointHandles
-        edges={endpointHandlesProps.edges}
-        nodes={endpointHandlesProps.nodes}
-        nodeSize={endpointHandlesProps.nodeSize}
-        selectedEdgeId={endpointHandlesProps.selectedEdgeId}
-        onStartReconnect={endpointHandlesProps.onStartReconnect}
+        edges={visibleEdges}
+        selectedEdgeId={selectedEdgeId}
+        onStartReconnect={handleStartReconnect}
       />
       <EdgeControlPointHandles
-        core={controlPointHandlesProps.core}
-        edges={controlPointHandlesProps.edges}
-        selectedEdgeId={controlPointHandlesProps.selectedEdgeId}
-        containerRef={controlPointHandlesProps.containerRef}
-        screenToWorld={controlPointHandlesProps.screenToWorld}
+        edges={visibleEdges}
+        selectedEdgeId={selectedEdgeId}
+        containerRef={containerRef}
+        screenToWorld={screenToWorld}
       />
       <EdgePreviewLayer
-        from={previewProps.from}
-        to={previewProps.to}
-        snap={previewProps.snap}
+        from={connectState.isConnecting && !connectState.reconnect ? previewFrom : undefined}
+        to={connectState.isConnecting && !connectState.reconnect ? previewTo : undefined}
+        snap={tool === 'edge' ? hoverSnap : undefined}
       />
     </>
   )

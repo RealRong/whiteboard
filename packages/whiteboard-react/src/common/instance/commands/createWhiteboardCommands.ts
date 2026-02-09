@@ -21,10 +21,8 @@ export const createWhiteboardCommands = (instance: WhiteboardInstance): Whiteboa
   const { store } = instance.state
 
   const selection = createSelectionCommands(instance)
-  const { edgeConnect, cancelHoverFrame } = createEdgeConnectCommands(instance)
-  const transient = createTransientCommands(instance, {
-    cancelEdgeHoverFrame: cancelHoverFrame
-  })
+  const { edgeConnect } = createEdgeConnectCommands(instance)
+  const transient = createTransientCommands(instance)
 
   return {
     tool: {
@@ -49,6 +47,85 @@ export const createWhiteboardCommands = (instance: WhiteboardInstance): Whiteboa
     },
     selection,
     edge: {
+      insertRoutingPoint: (edge, pathPoints, segmentIndex, pointWorld) => {
+        if (edge.type === 'bezier' || edge.type === 'curve') return
+        const basePoints = edge.routing?.points?.length ? edge.routing.points : pathPoints.slice(1, -1)
+        const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
+        const nextPoints = [...basePoints]
+        nextPoints.splice(insertIndex, 0, pointWorld)
+        void core.dispatch({
+          type: 'edge.update',
+          id: edge.id,
+          patch: {
+            routing: {
+              ...(edge.routing ?? {}),
+              mode: 'manual',
+              points: nextPoints
+            }
+          }
+        })
+      },
+      moveRoutingPoint: (edge, index, pointWorld) => {
+        if (edge.type === 'bezier' || edge.type === 'curve') return
+        const points = edge.routing?.points ?? []
+        if (index < 0 || index >= points.length) return
+        const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
+        void core.dispatch({
+          type: 'edge.update',
+          id: edge.id,
+          patch: {
+            routing: {
+              ...(edge.routing ?? {}),
+              mode: 'manual',
+              points: nextPoints
+            }
+          }
+        })
+      },
+      removeRoutingPoint: (edge, index) => {
+        if (edge.type === 'bezier' || edge.type === 'curve') return
+        const points = edge.routing?.points ?? []
+        if (index < 0 || index >= points.length) return
+        const nextPoints = points.filter((_, idx) => idx !== index)
+        if (nextPoints.length === 0) {
+          void core.dispatch({
+            type: 'edge.update',
+            id: edge.id,
+            patch: {
+              routing: {
+                ...(edge.routing ?? {}),
+                mode: 'auto',
+                points: undefined
+              }
+            }
+          })
+          return
+        }
+        void core.dispatch({
+          type: 'edge.update',
+          id: edge.id,
+          patch: {
+            routing: {
+              ...(edge.routing ?? {}),
+              mode: 'manual',
+              points: nextPoints
+            }
+          }
+        })
+      },
+      resetRouting: (edge) => {
+        void core.dispatch({
+          type: 'edge.update',
+          id: edge.id,
+          patch: {
+            routing: {
+              ...(edge.routing ?? {}),
+              mode: 'auto',
+              points: undefined
+            }
+          }
+        })
+      },
       create: (payload: EdgeInput) => core.dispatch({ type: 'edge.create', payload }),
       update: (id: EdgeId, patch: EdgePatch) => core.dispatch({ type: 'edge.update', id, patch }),
       delete: (ids: EdgeId[]) => core.dispatch({ type: 'edge.delete', ids }),

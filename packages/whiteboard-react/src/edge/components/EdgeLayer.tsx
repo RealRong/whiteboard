@@ -1,15 +1,12 @@
-import type { Edge, Node, Point } from '@whiteboard/core'
+import type { Edge, Point } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { EdgeConnectState } from 'types/state'
 import { useEdgeGeometry, useEdgeHitTest } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
-import type { Size } from 'types/common'
 
 type EdgeLayerProps = {
-  nodes: Node[]
   edges: Edge[]
-  nodeSize: Size
   zoom?: number
   containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
@@ -38,9 +35,7 @@ const EDGE_LAYER_STYLE = `
 `
 
 export const EdgeLayer = ({
-  nodes,
   edges,
-  nodeSize,
   zoom = 1,
   containerRef,
   screenToWorld,
@@ -50,7 +45,7 @@ export const EdgeLayer = ({
   onInsertPoint,
   connectState
 }: EdgeLayerProps) => {
-  const paths = useEdgeGeometry({ nodes, edges, nodeSize, connectState })
+  const paths = useEdgeGeometry({ edges, connectState })
   const { handlePathPointerDown, handlePathClick } = useEdgeHitTest({
     containerRef,
     screenToWorld,

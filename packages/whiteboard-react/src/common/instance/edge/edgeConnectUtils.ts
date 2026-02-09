@@ -1,6 +1,6 @@
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
 import type { EdgeConnectState } from 'types/state'
-import { clamp, getAnchorPoint, rotatePoint } from '../../utils/geometry'
+import { clamp, getAnchorPoint, getRectCenter, rotatePoint } from '../../utils/geometry'
 
 const getSideCenters = (rect: Rect) => ({
   top: { x: rect.x + rect.width / 2, y: rect.y },
@@ -41,6 +41,16 @@ export const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point) =
     }
   }
   const anchor: EdgeAnchor = { side: nearest.side, offset }
+  return { anchor, point: getAnchorPoint(rect, anchor, rotation) }
+}
+
+export const getAutoAnchorFromRect = (rect: Rect, rotation: number, otherCenter: Point) => {
+  const center = getRectCenter(rect)
+  const dx = otherCenter.x - center.x
+  const dy = otherCenter.y - center.y
+  const side: EdgeAnchor['side'] =
+    Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'bottom' : 'top'
+  const anchor: EdgeAnchor = { side, offset: 0.5 }
   return { anchor, point: getAnchorPoint(rect, anchor, rotation) }
 }
 

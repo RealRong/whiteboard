@@ -1,6 +1,6 @@
 import { getDefaultStore } from 'jotai'
 import type { Atom } from 'jotai/vanilla'
-import type { Core, Document, Edge, EdgeId, Node, NodeId, Point, Viewport } from '@whiteboard/core'
+import type { Core, Document, Edge, EdgeAnchor, EdgeId, Node, NodeId, Point, Rect, Viewport } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { WhiteboardCommands } from '../commands'
 import type {
@@ -48,9 +48,41 @@ export type WhiteboardCanvasNodeRect = {
   rotation: number
 }
 
+export type WhiteboardEdgeEndpoint = {
+  nodeId: NodeId
+  anchor: EdgeAnchor
+  point: Point
+}
+
+export type WhiteboardEdgeResolvedEndpoints = {
+  source: WhiteboardEdgeEndpoint
+  target: WhiteboardEdgeEndpoint
+}
+
+export type WhiteboardEdgePath = {
+  points: Point[]
+  svgPath: string
+}
+
+export type WhiteboardEdgePathEntry = {
+  id: EdgeId
+  edge: Edge
+  path: WhiteboardEdgePath
+}
+
+export type WhiteboardEdgeConnectAnchorResult = {
+  anchor: EdgeAnchor
+  point: Point
+}
+
 export type WhiteboardInstanceQuery = {
   getCanvasNodeRects: () => WhiteboardCanvasNodeRect[]
   getCanvasNodeRectById: (nodeId: NodeId) => WhiteboardCanvasNodeRect | undefined
+  getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => WhiteboardEdgeConnectAnchorResult
+  getEdgeConnectFromPoint: (from?: EdgeConnectState['from']) => Point | undefined
+  getEdgeConnectToPoint: (to?: EdgeConnectState['to']) => Point | undefined
+  getEdgeResolvedEndpoints: (edge: Edge) => WhiteboardEdgeResolvedEndpoints | undefined
+  getEdgePathEntry: (edge: Edge) => WhiteboardEdgePathEntry | undefined
 }
 
 export type WhiteboardViewportRuntimeState = {

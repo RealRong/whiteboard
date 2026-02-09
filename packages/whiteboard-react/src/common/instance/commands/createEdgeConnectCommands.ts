@@ -9,7 +9,6 @@ export const createEdgeConnectCommands = (
   instance: WhiteboardInstance
 ): {
   edgeConnect: WhiteboardCommands['edgeConnect']
-  cancelHoverFrame: () => void
 } => {
   const { core, config, viewport } = instance.runtime
   const { query } = instance
@@ -66,38 +65,6 @@ export const createEdgeConnectCommands = (
       reconnect: undefined,
       pointerId: null
     }))
-  }
-
-  let edgeHoverRafId: number | null = null
-  let edgeHoverPoint: Point | null = null
-
-  const cancelHoverFrame = () => {
-    if (edgeHoverRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
-      cancelAnimationFrame(edgeHoverRafId)
-    }
-    edgeHoverRafId = null
-    edgeHoverPoint = null
-  }
-
-  const flushEdgeHover = () => {
-    edgeHoverRafId = null
-    const pointWorld = edgeHoverPoint
-    edgeHoverPoint = null
-    if (!pointWorld) return
-
-    const activeTool = (store.get(toolAtom) as 'select' | 'edge') ?? 'select'
-    if (activeTool !== 'edge') return
-
-    const snap = getEdgeSnapAtPoint(pointWorld)
-    setStoreAtom(store, edgeConnectAtom, (prev) => {
-      if (prev.isConnecting) return prev
-      if (!snap) {
-        if (!prev.hover) return prev
-        return { ...prev, hover: undefined }
-      }
-      if (isSameConnectTo(prev.hover, snap)) return prev
-      return { ...prev, hover: snap }
-    })
   }
 
   const startFromPoint = (nodeId: NodeId, pointWorld: Point, pointerId?: number) => {
@@ -192,13 +159,16 @@ export const createEdgeConnectCommands = (
     updateHover: (pointWorld) => {
       const activeTool = (store.get(toolAtom) as 'select' | 'edge') ?? 'select'
       if (activeTool !== 'edge') return
-      edgeHoverPoint = pointWorld
-      if (edgeHoverRafId !== null) return
-      if (typeof requestAnimationFrame === 'undefined') {
-        flushEdgeHover()
-        return
-      }
-      edgeHoverRafId = requestAnimationFrame(flushEdgeHover)
+      const snap = getEdgeSnapAtPoint(pointWorld)
+      setStoreAtom(store, edgeConnectAtom, (prev) => {
+        if (prev.isConnecting) return prev
+        if (!snap) {
+          if (!prev.hover) return prev
+          return { ...prev, hover: undefined }
+        }
+        if (isSameConnectTo(prev.hover, snap)) return prev
+        return { ...prev, hover: snap }
+      })
     },
     handleNodePointerDown: (nodeId, pointWorld, pointerId) => {
       const activeTool = (store.get(toolAtom) as 'select' | 'edge') ?? 'select'
@@ -209,7 +179,6 @@ export const createEdgeConnectCommands = (
   }
 
   return {
-    edgeConnect,
-    cancelHoverFrame
+    edgeConnect
   }
 }

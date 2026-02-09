@@ -1,71 +1,52 @@
 import { useMemo } from 'react'
-import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
+import type { EdgeAnchor, Point } from '@whiteboard/core'
 import { getEdgePath } from '@whiteboard/core'
-import { getAnchorPoint, getNodeRect, getRectCenter } from '../../common/utils/geometry'
+import { useInstance } from '../../common/hooks'
+import { getAnchorPoint } from '../../common/utils/geometry'
 import type { EdgePathEntry, UseEdgeGeometryOptions } from 'types/edge'
 import type { EdgeConnectState } from 'types/state'
 
 export const useEdgeGeometry = ({
-  nodes,
   edges,
-  nodeSize,
   connectState
 }: UseEdgeGeometryOptions): EdgePathEntry[] => {
-  const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
+  const instance = useInstance()
 
   return useMemo(() => {
-    const getAutoAnchor = (rect: Rect, rotation: number, otherCenter: Point) => {
-      const center = getRectCenter(rect)
-      const dx = otherCenter.x - center.x
-      const dy = otherCenter.y - center.y
-      const side: EdgeAnchor['side'] =
-        Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'bottom' : 'top'
-      const anchor = { side, offset: 0.5 }
-      const point = getAnchorPoint(rect, anchor, rotation)
-      return { anchor, point }
-    }
-
     const getReconnectPoint = (
       to?: EdgeConnectState['to']
     ): { point: Point; side?: EdgeAnchor['side'] } | undefined => {
       if (!to) return undefined
       if (to.pointWorld) return { point: to.pointWorld, side: to.anchor?.side }
       if (to.nodeId && to.anchor) {
-        const node = nodeMap.get(to.nodeId)
-        if (!node) return undefined
-        const rect = getNodeRect(node, nodeSize)
-        const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-        return { point: getAnchorPoint(rect, to.anchor, rotation), side: to.anchor.side }
+        const entry = instance.query.getCanvasNodeRectById(to.nodeId)
+        if (!entry) return undefined
+        return { point: getAnchorPoint(entry.rect, to.anchor, entry.rotation), side: to.anchor.side }
       }
       return undefined
     }
 
     return edges
       .map((edge) => {
-        const source = nodeMap.get(edge.source.nodeId)
-        const target = nodeMap.get(edge.target.nodeId)
-        if (!source || !target) return null
-        const sourceRect = getNodeRect(source, nodeSize)
-        const targetRect = getNodeRect(target, nodeSize)
-        const sourceRotation = typeof source.rotation === 'number' ? source.rotation : 0
-        const targetRotation = typeof target.rotation === 'number' ? target.rotation : 0
-        const sourceCenter = getRectCenter(sourceRect)
-        const targetCenter = getRectCenter(targetRect)
-        const sourceAnchor = edge.source.anchor ?? getAutoAnchor(sourceRect, sourceRotation, targetCenter).anchor
-        const targetAnchor = edge.target.anchor ?? getAutoAnchor(targetRect, targetRotation, sourceCenter).anchor
-        const sourcePoint = getAnchorPoint(sourceRect, sourceAnchor, sourceRotation)
-        const targetPoint = getAnchorPoint(targetRect, targetAnchor, targetRotation)
+        const endpoints = instance.query.getEdgeResolvedEndpoints(edge)
+        if (!endpoints) return null
 
-        let sourceEndpoint = { point: sourcePoint, side: sourceAnchor.side }
-        let targetEndpoint = { point: targetPoint, side: targetAnchor.side }
+        let sourceEndpoint = {
+          point: endpoints.source.point,
+          side: endpoints.source.anchor.side
+        }
+        let targetEndpoint = {
+          point: endpoints.target.point,
+          side: endpoints.target.anchor.side
+        }
 
         if (connectState?.isConnecting && connectState.reconnect?.edgeId === edge.id) {
           const moved = getReconnectPoint(connectState.to)
           if (moved) {
             if (connectState.reconnect.end === 'source') {
-              sourceEndpoint = { point: moved.point, side: moved.side ?? sourceAnchor.side }
+              sourceEndpoint = { point: moved.point, side: moved.side ?? sourceEndpoint.side }
             } else {
-              targetEndpoint = { point: moved.point, side: moved.side ?? targetAnchor.side }
+              targetEndpoint = { point: moved.point, side: moved.side ?? targetEndpoint.side }
             }
           }
         }
@@ -75,6 +56,7 @@ export const useEdgeGeometry = ({
           source: sourceEndpoint,
           target: targetEndpoint
         })
+
         return { id: edge.id, edge, path }
       })
       .filter((line): line is EdgePathEntry => Boolean(line))
@@ -84,7 +66,6 @@ export const useEdgeGeometry = ({
     connectState?.reconnect?.end,
     connectState?.to,
     edges,
-    nodeMap,
-    nodeSize
+    instance
   ])
 }

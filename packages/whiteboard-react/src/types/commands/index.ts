@@ -1,6 +1,7 @@
 import type {
   Core,
   DispatchResult,
+  Edge,
   EdgeAnchor,
   EdgeId,
   EdgeInput,
@@ -39,6 +40,10 @@ export type WhiteboardCommands = {
     create: (payload: EdgeInput) => Promise<DispatchResult>
     update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
     delete: (ids: EdgeId[]) => Promise<DispatchResult>
+    insertRoutingPoint: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
+    moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
+    removeRoutingPoint: (edge: Edge, index: number) => void
+    resetRouting: (edge: Edge) => void
     connect: (
       source: { nodeId: NodeId; anchor?: EdgeAnchor },
       target: { nodeId: NodeId; anchor?: EdgeAnchor }

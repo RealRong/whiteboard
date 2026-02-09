@@ -1,6 +1,7 @@
-import type { Core, Edge, Point } from '@whiteboard/core'
+import type { Edge, Point } from '@whiteboard/core'
 import type { KeyboardEvent, MouseEvent, PointerEvent, RefObject } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useInstance } from '../../common/hooks'
 
 const HANDLE_SIZE = 10
 
@@ -27,7 +28,6 @@ type DragState = {
 }
 
 type EdgeControlPointHandlesProps = {
-  core: Core
   edges: Edge[]
   selectedEdgeId?: string
   containerRef?: RefObject<HTMLElement | null>
@@ -35,12 +35,12 @@ type EdgeControlPointHandlesProps = {
 }
 
 export const EdgeControlPointHandles = ({
-  core,
   edges,
   selectedEdgeId,
   containerRef,
   screenToWorld
 }: EdgeControlPointHandlesProps) => {
+  const instance = useInstance()
   const dragRef = useRef<DragState | null>(null)
   const edge = selectedEdgeId ? edges.find((item) => item.id === selectedEdgeId) : undefined
   const points = edge?.routing?.points ?? []
@@ -66,21 +66,11 @@ export const EdgeControlPointHandles = ({
   )
 
   const updatePoints = useCallback(
-    (nextPoints: Point[]) => {
+    (index: number, pointWorld: Point) => {
       if (!edge) return
-      core.dispatch({
-        type: 'edge.update',
-        id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
-          }
-        }
-      })
+      instance.commands.edge.moveRoutingPoint(edge, index, pointWorld)
     },
-    [core, edge]
+    [edge, instance]
   )
 
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
@@ -107,15 +97,11 @@ export const EdgeControlPointHandles = ({
     const current = getWorldPoint(event)
     const dx = current.x - drag.start.x
     const dy = current.y - drag.start.y
-    const nextPoints = drag.points.map((point, idx) =>
-      idx === drag.index
-        ? {
-            x: drag.origin.x + dx,
-            y: drag.origin.y + dy
-          }
-        : point
-    )
-    updatePoints(nextPoints)
+    const nextPoint = {
+      x: drag.origin.x + dx,
+      y: drag.origin.y + dy
+    }
+    updatePoints(index, nextPoint)
   }
 
   const handlePointerUp = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
@@ -130,22 +116,7 @@ export const EdgeControlPointHandles = ({
     if (!edge) return
     event.preventDefault()
     event.stopPropagation()
-    const nextPoints = points.filter((_, idx) => idx !== index)
-    if (nextPoints.length === 0) {
-      core.dispatch({
-        type: 'edge.update',
-        id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'auto',
-            points: undefined
-          }
-        }
-      })
-      return
-    }
-    updatePoints(nextPoints)
+    instance.commands.edge.removeRoutingPoint(edge, index)
   }
 
   if (!editable || !hasPoints) return null
@@ -176,22 +147,11 @@ export const EdgeControlPointHandles = ({
             event.preventDefault()
             event.stopPropagation()
             const nextPoints = points.filter((_, idx) => idx !== index)
+            instance.commands.edge.removeRoutingPoint(edge, index)
             if (nextPoints.length === 0) {
-              core.dispatch({
-                type: 'edge.update',
-                id: edge.id,
-                patch: {
-                  routing: {
-                    ...(edge.routing ?? {}),
-                    mode: 'auto',
-                    points: undefined
-                  }
-                }
-              })
               setActiveIndex(null)
               return
             }
-            updatePoints(nextPoints)
             setActiveIndex(Math.min(index, nextPoints.length - 1))
           }}
           style={{

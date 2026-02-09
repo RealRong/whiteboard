@@ -9,13 +9,8 @@ import { isPointEqual, isSizeEqual } from '../geometry/valueEquality'
 import { clearNodeOverrides, updateNodeOverrides } from '../state/nodeOverrideState'
 import { setStoreAtom } from '../store/setStoreAtom'
 
-type CreateTransientCommandsOptions = {
-  cancelEdgeHoverFrame: () => void
-}
-
 export const createTransientCommands = (
-  instance: WhiteboardInstance,
-  { cancelEdgeHoverFrame }: CreateTransientCommandsOptions
+  instance: WhiteboardInstance
 ): WhiteboardCommands['transient'] => {
   const { core, docRef } = instance.runtime
   const { store } = instance.state
@@ -75,7 +70,6 @@ export const createTransientCommands = (
       commit: commitTransientNodeOverrides
     },
     reset: () => {
-      cancelEdgeHoverFrame()
       setStoreAtom(store, edgeConnectAtom, { isConnecting: false } as EdgeConnectState)
       setStoreAtom(store, dragGuidesAtom, [])
       setStoreAtom(store, groupHoveredAtom, undefined)
