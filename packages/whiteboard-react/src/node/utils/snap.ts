@@ -1,5 +1,11 @@
 import type { Rect } from '@whiteboard/core'
 import type { GridIndex, Guide, SnapCandidate, SnapEdge, SnapResult } from 'types/node/snap'
+import type { Size } from 'types/common'
+
+type HorizontalResizeEdge = 'left' | 'right'
+type VerticalResizeEdge = 'top' | 'bottom'
+type HorizontalSnapEdge = 'left' | 'right' | 'centerX'
+type VerticalSnapEdge = 'top' | 'bottom' | 'centerY'
 
 const keyForCell = (cx: number, cy: number) => `${cx},${cy}`
 
@@ -199,5 +205,174 @@ export const computeSnap = (
       x: bestX ? { targetEdge: bestX.targetEdge, sourceEdge: bestX.sourceEdge } : undefined,
       y: bestY ? { targetEdge: bestY.targetEdge, sourceEdge: bestY.sourceEdge } : undefined
     }
+  }
+}
+
+const buildResizeGuideX = (
+  movingRect: Rect,
+  target: SnapCandidate,
+  sourceEdge: HorizontalResizeEdge,
+  targetEdge: HorizontalSnapEdge
+): Guide => {
+  const from = Math.min(movingRect.y, target.rect.y)
+  const to = Math.max(movingRect.y + movingRect.height, target.rect.y + target.rect.height)
+  return {
+    axis: 'x',
+    value: target.lines[targetEdge],
+    from,
+    to,
+    targetEdge,
+    sourceEdge
+  }
+}
+
+const buildResizeGuideY = (
+  movingRect: Rect,
+  target: SnapCandidate,
+  sourceEdge: VerticalResizeEdge,
+  targetEdge: VerticalSnapEdge
+): Guide => {
+  const from = Math.min(movingRect.x, target.rect.x)
+  const to = Math.max(movingRect.x + movingRect.width, target.rect.x + target.rect.width)
+  return {
+    axis: 'y',
+    value: target.lines[targetEdge],
+    from,
+    to,
+    targetEdge,
+    sourceEdge
+  }
+}
+
+export const computeResizeSnap = (options: {
+  movingRect: Rect
+  candidates: SnapCandidate[]
+  threshold: number
+  minSize: Size
+  excludeId?: string
+  sourceEdges: {
+    sourceX?: HorizontalResizeEdge
+    sourceY?: VerticalResizeEdge
+  }
+}): {
+  rect: Rect
+  width: number
+  height: number
+  guides: Guide[]
+} => {
+  const { movingRect, candidates, threshold, minSize, excludeId, sourceEdges } = options
+  const movingLines = {
+    left: movingRect.x,
+    right: movingRect.x + movingRect.width,
+    centerX: movingRect.x + movingRect.width / 2,
+    top: movingRect.y,
+    bottom: movingRect.y + movingRect.height,
+    centerY: movingRect.y + movingRect.height / 2
+  }
+
+  const xTargets: HorizontalSnapEdge[] = ['left', 'right', 'centerX']
+  const yTargets: VerticalSnapEdge[] = ['top', 'bottom', 'centerY']
+
+  let bestX:
+    | {
+        delta: number
+        target: SnapCandidate
+        targetEdge: HorizontalSnapEdge
+        sourceEdge: HorizontalResizeEdge
+        distance: number
+      }
+    | undefined
+  let bestY:
+    | {
+        delta: number
+        target: SnapCandidate
+        targetEdge: VerticalSnapEdge
+        sourceEdge: VerticalResizeEdge
+        distance: number
+      }
+    | undefined
+
+  candidates.forEach((candidate) => {
+    if (candidate.id === excludeId) return
+    if (sourceEdges.sourceX) {
+      xTargets.forEach((targetEdge) => {
+        const delta = candidate.lines[targetEdge] - movingLines[sourceEdges.sourceX as keyof typeof movingLines]
+        const dist = Math.abs(delta)
+        if (dist > threshold) return
+        if (!bestX || dist < bestX.distance) {
+          bestX = {
+            delta,
+            target: candidate,
+            targetEdge,
+            sourceEdge: sourceEdges.sourceX as HorizontalResizeEdge,
+            distance: dist
+          }
+        }
+      })
+    }
+    if (sourceEdges.sourceY) {
+      yTargets.forEach((targetEdge) => {
+        const delta = candidate.lines[targetEdge] - movingLines[sourceEdges.sourceY as keyof typeof movingLines]
+        const dist = Math.abs(delta)
+        if (dist > threshold) return
+        if (!bestY || dist < bestY.distance) {
+          bestY = {
+            delta,
+            target: candidate,
+            targetEdge,
+            sourceEdge: sourceEdges.sourceY as VerticalResizeEdge,
+            distance: dist
+          }
+        }
+      })
+    }
+  })
+
+  let nextLeft = movingRect.x
+  let nextTop = movingRect.y
+  let nextRight = movingRect.x + movingRect.width
+  let nextBottom = movingRect.y + movingRect.height
+  const guides: Guide[] = []
+
+  if (bestX) {
+    if (bestX.sourceEdge === 'left') {
+      nextLeft += bestX.delta
+    } else {
+      nextRight += bestX.delta
+    }
+    if (nextRight - nextLeft >= minSize.width) {
+      // keep
+    } else {
+      nextLeft = movingRect.x
+      nextRight = movingRect.x + movingRect.width
+    }
+    guides.push(buildResizeGuideX(movingRect, bestX.target, bestX.sourceEdge, bestX.targetEdge))
+  }
+
+  if (bestY) {
+    if (bestY.sourceEdge === 'top') {
+      nextTop += bestY.delta
+    } else {
+      nextBottom += bestY.delta
+    }
+    if (nextBottom - nextTop >= minSize.height) {
+      // keep
+    } else {
+      nextTop = movingRect.y
+      nextBottom = movingRect.y + movingRect.height
+    }
+    guides.push(buildResizeGuideY(movingRect, bestY.target, bestY.sourceEdge, bestY.targetEdge))
+  }
+
+  return {
+    rect: {
+      x: nextLeft,
+      y: nextTop,
+      width: nextRight - nextLeft,
+      height: nextBottom - nextTop
+    },
+    width: nextRight - nextLeft,
+    height: nextBottom - nextTop,
+    guides
   }
 }

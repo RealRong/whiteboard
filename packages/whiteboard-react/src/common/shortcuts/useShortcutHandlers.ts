@@ -18,6 +18,20 @@ const isEditableElement = (target: EventTarget | null) => {
 }
 
 export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updateInteraction }: Options) => {
+  const applyInteractionSnapshot = useCallback(
+    (ctx: ShortcutContext) => {
+      updateInteraction({
+        focus: ctx.focus,
+        pointer: {
+          isDragging: ctx.pointer.isDragging,
+          button: ctx.pointer.button,
+          modifiers: ctx.pointer.modifiers
+        }
+      })
+    },
+    [updateInteraction]
+  )
+
   const buildEventFocus = useCallback((event?: KeyboardEvent | PointerEvent) => {
     const activeElement = typeof document !== 'undefined' ? document.activeElement : null
     const isEditingTarget = isEditableElement(event?.target ?? null)
@@ -71,14 +85,7 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
     (event: ReactPointerEvent<HTMLDivElement> | PointerEvent, onUnhandled?: () => void) => {
       const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event
       const ctx = buildShortcutContext(nativeEvent)
-      updateInteraction({
-        focus: ctx.focus,
-        pointer: {
-          isDragging: ctx.pointer.isDragging,
-          button: ctx.pointer.button,
-          modifiers: ctx.pointer.modifiers
-        }
-      })
+      applyInteractionSnapshot(ctx)
       const handled = shortcutManager.handlePointerDown(nativeEvent, ctx)
       if (handled) {
         event.preventDefault()
@@ -87,28 +94,21 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
       }
       onUnhandled?.()
     },
-    [buildShortcutContext, shortcutManager, updateInteraction]
+    [applyInteractionSnapshot, buildShortcutContext, shortcutManager]
   )
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement> | KeyboardEvent) => {
       const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event
       const ctx = buildShortcutContext(nativeEvent)
-      updateInteraction({
-        focus: ctx.focus,
-        pointer: {
-          isDragging: ctx.pointer.isDragging,
-          button: ctx.pointer.button,
-          modifiers: ctx.pointer.modifiers
-        }
-      })
+      applyInteractionSnapshot(ctx)
       const handled = shortcutManager.handleKeyDown(nativeEvent, ctx)
       if (handled) {
         event.preventDefault()
         event.stopPropagation()
       }
     },
-    [buildShortcutContext, shortcutManager, updateInteraction]
+    [applyInteractionSnapshot, buildShortcutContext, shortcutManager]
   )
 
   return { handlePointerDownCapture, handleKeyDown }

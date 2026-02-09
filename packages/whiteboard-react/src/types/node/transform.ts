@@ -16,6 +16,8 @@ export type TransformHandle = {
 export type UseNodeTransformOptions = {
   node: Node
   enabled?: boolean
+  selected?: boolean
+  activeTool?: 'select' | 'edge'
   canRotate?: boolean
   minSize?: Size
   handleSize?: number

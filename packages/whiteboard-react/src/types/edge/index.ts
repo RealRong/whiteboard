@@ -1,6 +1,7 @@
 export type {
   EdgeConnectAnchorResult,
   UseEdgeConnectActionsReturn,
+  UseEdgeConnectLayerStateReturn,
   UseEdgeConnectReturn,
   UseEdgeConnectStateReturn
 } from './connect'

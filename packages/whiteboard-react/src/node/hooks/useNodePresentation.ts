@@ -17,7 +17,7 @@ export const useNodePresentation = ({
   const registry = useNodeRegistry()
   const zoom = instance.runtime.viewport.getZoom()
   const { nodeSize } = useWhiteboardConfig()
-  const { selected, hovered } = useNodeSelectionFlags(node.id)
+  const { selected, hovered, activeTool } = useNodeSelectionFlags(node.id)
 
   const definition = registry.get(node.type)
   const rect = useMemo(() => getNodeRect(node, nodeSize), [node, nodeSize])
@@ -72,6 +72,7 @@ export const useNodePresentation = ({
   return {
     rect,
     definition,
+    activeTool,
     selected,
     hovered,
     canRotate,

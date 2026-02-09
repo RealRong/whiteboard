@@ -10,6 +10,7 @@ export type UseNodePresentationOptions = {
 export type NodePresentation = {
   rect: Rect
   definition?: NodeDefinition
+  activeTool: 'select' | 'edge'
   selected: boolean
   hovered: boolean
   canRotate: boolean

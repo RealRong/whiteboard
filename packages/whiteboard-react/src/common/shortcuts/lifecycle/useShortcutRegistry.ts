@@ -3,7 +3,7 @@ import type { Core, Document } from '@whiteboard/core'
 import { createDefaultShortcuts } from '../defaultShortcuts'
 import type { Shortcut } from 'types/shortcuts'
 import type { ShortcutManager } from 'types/shortcuts'
-import { useInstance, useWhiteboardConfig } from '../../hooks'
+import { useInstance } from '../../hooks'
 import { canvasNodesAtom } from '../../state'
 
 type Options = {
@@ -36,7 +36,7 @@ export const useShortcutRegistry = ({
   shortcutManager
 }: Options) => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
+  const nodeSize = instance.runtime.config.nodeSize
 
   const getSelectableNodeIds = useCallback(() => {
     return instance.state.store.get(canvasNodesAtom).map((node) => node.id)

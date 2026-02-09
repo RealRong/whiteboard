@@ -1,14 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { selectAtom } from 'jotai/utils'
-import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
-import type { Core, Node, Point, Rect } from '@whiteboard/core'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { Core, Point, Rect } from '@whiteboard/core'
 import type { Size } from 'types/common'
-import type { Guide, SnapCandidate } from 'types/node/snap'
-import type { HandleKind, ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
-import { getNodeRect, getRectCenter, rotatePoint } from '../../common/utils/geometry'
-import { useInstance, useInstanceAtomValue, useWhiteboardConfig } from '../../common/hooks'
+import type { ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
+import { getNodeRect, getRectCenter } from '../../common/utils/geometry'
+import { useInstance, useWhiteboardConfig } from '../../common/hooks'
 import { useSnapRuntime } from './useSnapRuntime'
-import { nodeSelectionAtom, toolAtom } from '../../common/state'
+import { computeResizeSnap } from '../utils/snap'
+import {
+  buildTransformHandles,
+  computeNextRotation,
+  computeResizeRect,
+  getResizeSourceEdges,
+  getWorldPointFromClient
+} from '../utils/transform'
 
 
 type DragState =
@@ -36,90 +41,11 @@ type TransformState = {
   activeHandleId?: string
 }
 
-const resizeMap: Record<ResizeDirection, { sx: -1 | 0 | 1; sy: -1 | 0 | 1; cursor: string }> = {
-  nw: { sx: -1, sy: -1, cursor: 'nwse-resize' },
-  n: { sx: 0, sy: -1, cursor: 'ns-resize' },
-  ne: { sx: 1, sy: -1, cursor: 'nesw-resize' },
-  e: { sx: 1, sy: 0, cursor: 'ew-resize' },
-  se: { sx: 1, sy: 1, cursor: 'nwse-resize' },
-  s: { sx: 0, sy: 1, cursor: 'ns-resize' },
-  sw: { sx: -1, sy: 1, cursor: 'nesw-resize' },
-  w: { sx: -1, sy: 0, cursor: 'ew-resize' }
-}
-
-type HorizontalResizeEdge = 'left' | 'right'
-type VerticalResizeEdge = 'top' | 'bottom'
-type HorizontalSnapEdge = 'left' | 'right' | 'centerX'
-type VerticalSnapEdge = 'top' | 'bottom' | 'centerY'
-
-const getResizeSourceEdges = (
-  handle: ResizeDirection
-): { sourceX?: HorizontalResizeEdge; sourceY?: VerticalResizeEdge } => {
-  const sourceX: HorizontalResizeEdge | undefined = handle.includes('w')
-    ? 'left'
-    : handle.includes('e')
-      ? 'right'
-      : undefined
-  const sourceY: VerticalResizeEdge | undefined = handle.includes('n')
-    ? 'top'
-    : handle.includes('s')
-      ? 'bottom'
-      : undefined
-  return { sourceX, sourceY }
-}
-
-const getGuideForX = (
-  movingRect: Rect,
-  target: SnapCandidate,
-  sourceEdge: HorizontalResizeEdge,
-  targetEdge: HorizontalSnapEdge
-): Guide => {
-  const from = Math.min(movingRect.y, target.rect.y)
-  const to = Math.max(movingRect.y + movingRect.height, target.rect.y + target.rect.height)
-  return {
-    axis: 'x',
-    value: target.lines[targetEdge as keyof SnapCandidate['lines']],
-    from,
-    to,
-    targetEdge: targetEdge as Guide['targetEdge'],
-    sourceEdge: sourceEdge as Guide['sourceEdge']
-  }
-}
-
-const getGuideForY = (
-  movingRect: Rect,
-  target: SnapCandidate,
-  sourceEdge: VerticalResizeEdge,
-  targetEdge: VerticalSnapEdge
-): Guide => {
-  const from = Math.min(movingRect.x, target.rect.x)
-  const to = Math.max(movingRect.x + movingRect.width, target.rect.x + target.rect.width)
-  return {
-    axis: 'y',
-    value: target.lines[targetEdge as keyof SnapCandidate['lines']],
-    from,
-    to,
-    targetEdge: targetEdge as Guide['targetEdge'],
-    sourceEdge: sourceEdge as Guide['sourceEdge']
-  }
-}
-
-const getWorldPoint = (
-  event: ReactPointerEvent<HTMLElement>,
-  containerRef?: RefObject<HTMLElement | null>,
-  screenToWorld?: (point: Point) => Point
-) => {
-  if (!containerRef?.current || !screenToWorld) return null
-  const rect = containerRef.current.getBoundingClientRect()
-  const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-  return screenToWorld(screenPoint)
-}
-
-const rotateVector = (vec: Point, rotation: number) => rotatePoint(vec, { x: 0, y: 0 }, rotation)
-
 export const useNodeTransform = ({
   node,
   enabled,
+  selected,
+  activeTool,
   canRotate = true,
   minSize = { width: 20, height: 20 },
   handleSize = 10,
@@ -128,14 +54,8 @@ export const useNodeTransform = ({
   const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
   const snap = useSnapRuntime()
-  const selectedAtom = useMemo(
-    () => selectAtom(nodeSelectionAtom, (selection) => selection.selectedNodeIds.has(node.id)),
-    [node.id]
-  )
-  const selectedInSelectionSet = useInstanceAtomValue(selectedAtom)
-  const tool = useInstanceAtomValue(toolAtom)
-  const activeTool = (tool as 'select' | 'edge') ?? 'select'
-  const resolvedEnabled = enabled ?? (activeTool === 'select' && selectedInSelectionSet)
+  const resolvedActiveTool = activeTool ?? 'select'
+  const resolvedEnabled = enabled ?? (resolvedActiveTool === 'select' && Boolean(selected))
   const containerRef = instance.runtime.containerRef ?? undefined
   const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
   const getZoom = instance.runtime.viewport.getZoom
@@ -148,44 +68,13 @@ export const useNodeTransform = ({
 
   const handles = useMemo<TransformHandle[]>(() => {
     if (!resolvedEnabled || node.locked) return []
-    const center = getRectCenter(rect)
-    const cx = rect.x + rect.width / 2
-    const cy = rect.y + rect.height / 2
-    const localPositions: Record<ResizeDirection, Point> = {
-      nw: { x: rect.x, y: rect.y },
-      n: { x: cx, y: rect.y },
-      ne: { x: rect.x + rect.width, y: rect.y },
-      e: { x: rect.x + rect.width, y: cy },
-      se: { x: rect.x + rect.width, y: rect.y + rect.height },
-      s: { x: cx, y: rect.y + rect.height },
-      sw: { x: rect.x, y: rect.y + rect.height },
-      w: { x: rect.x, y: cy }
-    }
-    const positions = Object.fromEntries(
-      (Object.keys(localPositions) as ResizeDirection[]).map((key) => [
-        key,
-        rotatePoint(localPositions[key], center, rotation)
-      ])
-    ) as Record<ResizeDirection, Point>
-    const resizeHandles = (Object.keys(positions) as ResizeDirection[]).map((direction) => ({
-      id: `resize-${direction}`,
-      kind: 'resize' as const,
-      direction,
-      position: positions[direction],
-      cursor: resizeMap[direction].cursor
-    }))
-    if (!canRotate) return resizeHandles
-    const zoom = Math.max(getZoom(), 0.0001)
-    const offsetWorld = rotateHandleOffset / zoom
-    const topMid = positions.n
-    const normal = rotateVector({ x: 0, y: -1 }, rotation)
-    const rotateHandle: TransformHandle = {
-      id: 'rotate',
-      kind: 'rotate',
-      position: { x: topMid.x + normal.x * offsetWorld, y: topMid.y + normal.y * offsetWorld },
-      cursor: 'grab'
-    }
-    return [...resizeHandles, rotateHandle]
+    return buildTransformHandles({
+      rect,
+      rotation,
+      canRotate,
+      rotateHandleOffset,
+      zoom: getZoom()
+    })
   }, [canRotate, getZoom, node.locked, rect, resolvedEnabled, rotation, rotateHandleOffset])
 
   const endDrag = useCallback(() => {
@@ -218,7 +107,12 @@ export const useNodeTransform = ({
         return
       }
       if (handle.kind === 'rotate' && canRotate) {
-        const worldPoint = getWorldPoint(event, containerRef, screenToWorld)
+        const worldPoint = getWorldPointFromClient({
+          clientX: event.clientX,
+          clientY: event.clientY,
+          container: containerRef?.current,
+          screenToWorld
+        })
         if (!worldPoint) return
         const center = getRectCenter(rect)
         const startAngle = Math.atan2(worldPoint.y - center.y, worldPoint.x - center.x)
@@ -243,135 +137,54 @@ export const useNodeTransform = ({
       if (drag.mode === 'resize') {
         const zoom = Math.max(getZoom(), 0.0001)
         const { handle, startScreen, startCenter, startRotation, startSize, startAspect } = drag
-        const deltaWorld = {
-          x: (event.clientX - startScreen.x) / zoom,
-          y: (event.clientY - startScreen.y) / zoom
-        }
-        const localDelta = rotateVector(deltaWorld, -startRotation)
-        const { sx, sy } = resizeMap[handle]
-        const isAlt = event.altKey
-        let width = startSize.width
-        let height = startSize.height
-        if (sx !== 0) {
-          width += localDelta.x * sx * (isAlt ? 2 : 1)
-        }
-        if (sy !== 0) {
-          height += localDelta.y * sy * (isAlt ? 2 : 1)
-        }
-        if (event.shiftKey && sx !== 0 && sy !== 0) {
-          if (Math.abs(localDelta.x) > Math.abs(localDelta.y)) {
-            height = width / startAspect
+        const resizeResult = computeResizeRect({
+          handle,
+          startScreen,
+          currentScreen: { x: event.clientX, y: event.clientY },
+          startCenter,
+          startRotation,
+          startSize,
+          startAspect,
+          minSize,
+          zoom,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey
+        })
+        let width = resizeResult.width
+        let height = resizeResult.height
+        let nextRect = { x: resizeResult.rect.x, y: resizeResult.rect.y }
+        if (snap?.enabled) {
+          if (rotation === 0 && !event.altKey) {
+            const thresholdWorld = snap.thresholdScreen / zoom
+            const movingRect: Rect = {
+              x: nextRect.x,
+              y: nextRect.y,
+              width,
+              height
+            }
+            const queryRect: Rect = {
+              x: movingRect.x - thresholdWorld,
+              y: movingRect.y - thresholdWorld,
+              width: movingRect.width + thresholdWorld * 2,
+              height: movingRect.height + thresholdWorld * 2
+            }
+            const candidates = snap.getCandidates ? snap.getCandidates(queryRect) : snap.candidates
+            const { sourceX, sourceY } = getResizeSourceEdges(handle)
+            const snapped = computeResizeSnap({
+              movingRect,
+              candidates,
+              threshold: thresholdWorld,
+              minSize,
+              excludeId: node.id,
+              sourceEdges: { sourceX, sourceY }
+            })
+            width = snapped.width
+            height = snapped.height
+            nextRect = { x: snapped.rect.x, y: snapped.rect.y }
+            snap.onGuidesChange?.(snapped.guides)
           } else {
-            width = height * startAspect
+            snap.onGuidesChange?.([])
           }
-        }
-        width = Math.max(minSize.width, width)
-        height = Math.max(minSize.height, height)
-        let centerOffset = { x: 0, y: 0 }
-        if (!isAlt) {
-          if (sx !== 0) {
-            centerOffset.x = ((width - startSize.width) * sx) / 2
-          }
-          if (sy !== 0) {
-            centerOffset.y = ((height - startSize.height) * sy) / 2
-          }
-        }
-        const worldCenterOffset = rotateVector(centerOffset, startRotation)
-        const nextCenter = {
-          x: startCenter.x + worldCenterOffset.x,
-          y: startCenter.y + worldCenterOffset.y
-        }
-        const nextRect = {
-          x: nextCenter.x - width / 2,
-          y: nextCenter.y - height / 2
-        }
-        if (snap?.enabled && rotation === 0 && !event.altKey) {
-          const thresholdWorld = snap.thresholdScreen / Math.max(getZoom(), 0.0001)
-          const movingRect: Rect = {
-            x: nextRect.x,
-            y: nextRect.y,
-            width,
-            height
-          }
-          const queryRect: Rect = {
-            x: movingRect.x - thresholdWorld,
-            y: movingRect.y - thresholdWorld,
-            width: movingRect.width + thresholdWorld * 2,
-            height: movingRect.height + thresholdWorld * 2
-          }
-          const candidates = snap.getCandidates ? snap.getCandidates(queryRect) : snap.candidates
-          const movingLines = {
-            left: movingRect.x,
-            right: movingRect.x + movingRect.width,
-            centerX: movingRect.x + movingRect.width / 2,
-            top: movingRect.y,
-            bottom: movingRect.y + movingRect.height,
-            centerY: movingRect.y + movingRect.height / 2
-          }
-          const { sourceX, sourceY } = getResizeSourceEdges(handle)
-          let bestX:
-            | { delta: number; target: SnapCandidate; targetEdge: HorizontalSnapEdge; sourceEdge: HorizontalResizeEdge; distance: number }
-            | undefined
-          let bestY:
-            | { delta: number; target: SnapCandidate; targetEdge: VerticalSnapEdge; sourceEdge: VerticalResizeEdge; distance: number }
-            | undefined
-          const xTargets: HorizontalSnapEdge[] = ['left', 'right', 'centerX']
-          const yTargets: VerticalSnapEdge[] = ['top', 'bottom', 'centerY']
-          candidates.forEach((candidate) => {
-            if (candidate.id === node.id) return
-            if (sourceX) {
-              xTargets.forEach((targetEdge) => {
-                const delta =
-                  candidate.lines[targetEdge] - movingLines[sourceX]
-                const dist = Math.abs(delta)
-                if (dist > thresholdWorld) return
-                if (!bestX || dist < bestX.distance) {
-                  bestX = { delta, target: candidate, targetEdge, sourceEdge: sourceX, distance: dist }
-                }
-              })
-            }
-            if (sourceY) {
-              yTargets.forEach((targetEdge) => {
-                const delta =
-                  candidate.lines[targetEdge] - movingLines[sourceY]
-                const dist = Math.abs(delta)
-                if (dist > thresholdWorld) return
-                if (!bestY || dist < bestY.distance) {
-                  bestY = { delta, target: candidate, targetEdge, sourceEdge: sourceY, distance: dist }
-                }
-              })
-            }
-          })
-          const guides: Guide[] = []
-          let nextLeft = nextRect.x
-          let nextTop = nextRect.y
-          let nextRight = nextRect.x + width
-          let nextBottom = nextRect.y + height
-          if (bestX && sourceX) {
-            if (sourceX === 'left') {
-              nextLeft += bestX.delta
-            } else if (sourceX === 'right') {
-              nextRight += bestX.delta
-            }
-            if (nextRight - nextLeft >= minSize.width) {
-              width = nextRight - nextLeft
-              nextRect.x = nextLeft
-            }
-            guides.push(getGuideForX(movingRect, bestX.target, bestX.sourceEdge, bestX.targetEdge))
-          }
-          if (bestY && sourceY) {
-            if (sourceY === 'top') {
-              nextTop += bestY.delta
-            } else if (sourceY === 'bottom') {
-              nextBottom += bestY.delta
-            }
-            if (nextBottom - nextTop >= minSize.height) {
-              height = nextBottom - nextTop
-              nextRect.y = nextTop
-            }
-            guides.push(getGuideForY(movingRect, bestY.target, bestY.sourceEdge, bestY.targetEdge))
-          }
-          snap.onGuidesChange?.(guides)
         }
         core.dispatch({
           type: 'node.update',
@@ -384,14 +197,20 @@ export const useNodeTransform = ({
         return
       }
       if (drag.mode === 'rotate') {
-        const worldPoint = getWorldPoint(event, containerRef, screenToWorld)
+        const worldPoint = getWorldPointFromClient({
+          clientX: event.clientX,
+          clientY: event.clientY,
+          container: containerRef?.current,
+          screenToWorld
+        })
         if (!worldPoint) return
-        const angle = Math.atan2(worldPoint.y - drag.center.y, worldPoint.x - drag.center.x)
-        let nextRotation = drag.startRotation + ((angle - drag.startAngle) * 180) / Math.PI
-        if (event.shiftKey) {
-          const step = 15
-          nextRotation = Math.round(nextRotation / step) * step
-        }
+        const nextRotation = computeNextRotation({
+          center: drag.center,
+          currentPoint: worldPoint,
+          startAngle: drag.startAngle,
+          startRotation: drag.startRotation,
+          shiftKey: event.shiftKey
+        })
         core.dispatch({
           type: 'node.update',
           id: node.id,

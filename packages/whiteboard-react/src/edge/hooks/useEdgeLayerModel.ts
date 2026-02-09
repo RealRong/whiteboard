@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { Core, Edge, Node, NodeId, Point } from '@whiteboard/core'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Size } from 'types/common'
-import type { UseEdgeConnectStateReturn } from 'types/edge'
+import type { UseEdgeConnectLayerStateReturn } from 'types/edge'
 import { useEdgePreview } from './useEdgePreview'
 import { useEdgePointInsertion } from './useEdgePointInsertion'
 
@@ -19,7 +19,7 @@ type Options = {
   zoom: number
   containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
-  edgeConnectState: UseEdgeConnectStateReturn
+  edgeConnectState: UseEdgeConnectLayerStateReturn
   edgeConnectActions: EdgeLayerActions
   nodeMap: Map<NodeId, Node>
   tool: 'select' | 'edge'

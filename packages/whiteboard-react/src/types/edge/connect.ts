@@ -31,6 +31,8 @@ export type UseEdgeConnectStateReturn = Pick<
   'state' | 'selectedEdgeId' | 'tool' | 'containerRef' | 'screenToWorld' | 'nodeRects' | 'getAnchorFromPoint'
 >
 
+export type UseEdgeConnectLayerStateReturn = Pick<UseEdgeConnectReturn, 'state' | 'selectedEdgeId'>
+
 export type UseEdgeConnectActionsReturn = Pick<
   UseEdgeConnectReturn,
   | 'startFromHandle'

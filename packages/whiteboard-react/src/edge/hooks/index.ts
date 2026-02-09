@@ -1,4 +1,4 @@
-export { edgeConnect, useEdgeConnect, useEdgeConnectState } from './useEdgeConnect'
+export { edgeConnect, useEdgeConnect, useEdgeConnectLayerState, useEdgeConnectState } from './useEdgeConnect'
 export { useEdgeGeometry } from './useEdgeGeometry'
 export { useEdgeHitTest } from './useEdgeHitTest'
 export { useEdgePointInsertion } from './useEdgePointInsertion'

@@ -53,6 +53,8 @@ export const NodeItem = ({ node }: NodeItemProps) => {
 
   const transform = useNodeTransform({
     node,
+    selected: presentation.selected,
+    activeTool: presentation.activeTool,
     canRotate: presentation.canRotate
   })
 

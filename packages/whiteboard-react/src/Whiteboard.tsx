@@ -1,14 +1,11 @@
 import { useMemo, useRef } from 'react'
+import { createCore, type Core, type Document } from '@whiteboard/core'
+import type { CSSProperties } from 'react'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
-import {
-  useCanvasStyle,
-  useCore,
-  useResolvedNodeRegistry,
-  useViewportRuntime
-} from './common/hooks'
+import { useViewportRuntime } from './common/hooks'
 import { useWhiteboardContextHydration, useWhiteboardLifecycle } from './common/lifecycle'
-import { NodeRegistryProvider } from './node/registry'
+import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
 import { createWhiteboardInstance } from './common/instance'
@@ -27,8 +24,27 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
     onSelectionChange: config?.onSelectionChange,
     onEdgeSelectionChange: config?.onEdgeSelectionChange
   }
-  const { core, docRef } = useCore({ doc, onDocChange, core: externalCore })
-  const registry = useResolvedNodeRegistry(nodeRegistry)
+  const docRef = useRef(doc)
+  const onDocChangeRef = useRef(onDocChange)
+  const coreRef = useRef<Core | null>(null)
+
+  docRef.current = doc
+  onDocChangeRef.current = onDocChange
+
+  if (!coreRef.current) {
+    coreRef.current =
+      externalCore ??
+      createCore({
+        getState: () => docRef.current,
+        apply: (recipe) => onDocChangeRef.current(recipe)
+      })
+  }
+  if (externalCore && coreRef.current !== externalCore) {
+    coreRef.current = externalCore
+  }
+
+  const core = coreRef.current as Core
+  const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
   const containerRef = useRef<HTMLDivElement>(null)
   const instance = useMemo(
     () =>
@@ -50,7 +66,19 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
   })
   useWhiteboardContextHydration(doc, instance)
 
-  const containerStyle = useCanvasStyle(resolvedConfig.style)
+  const containerStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      overflow: 'hidden',
+      background: 'linear-gradient(180deg, #f7f7f8 0%, #ffffff 60%)',
+      touchAction: 'none',
+      userSelect: 'none',
+      ...resolvedConfig.style
+    }),
+    [resolvedConfig.style]
+  )
 
   useWhiteboardLifecycle({
     shortcutsProp: resolvedConfig.shortcuts,

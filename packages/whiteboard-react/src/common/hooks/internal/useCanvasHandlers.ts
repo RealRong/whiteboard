@@ -3,7 +3,7 @@ import type { Point } from '@whiteboard/core'
 import type { ViewportConfig } from 'types/common'
 import { useSelectionRuntime } from '../../../node/hooks'
 import { useInstance } from '../useInstance'
-import { useViewportInteraction } from './useViewportInteraction'
+import { useViewportControls } from './useViewportControls'
 import { useShortcutHandlers } from '../../shortcuts/useShortcutHandlers'
 import { createShortcutContextGetter } from './runtime/createShortcutContextGetter'
 
@@ -33,10 +33,13 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
     instance.commands.edgeConnect.updateHover(instance.runtime.viewport.screenToWorld(point))
   }, [instance])
 
-  const { viewportHandlers, onWheel } = useViewportInteraction({
+  const viewportHandlers = useViewportControls({
     instance,
     containerRef: instance.runtime.containerRef,
-    config: viewportConfig
+    minZoom: viewportConfig?.minZoom,
+    maxZoom: viewportConfig?.maxZoom,
+    enablePan: viewportConfig?.enablePan,
+    enableWheel: viewportConfig?.enableWheel
   })
   const handlePointerDown = useCallback(
     (event: PointerEvent) => {
@@ -96,6 +99,6 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
       handlePointerUp,
       handleKeyDown
     },
-    onWheel
+    onWheel: viewportHandlers.onWheel
   }
 }

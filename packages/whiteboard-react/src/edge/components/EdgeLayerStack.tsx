@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useEdgeConnectState, useEdgeLayerModel } from '../hooks'
+import { useEdgeConnectLayerState, useEdgeLayerModel } from '../hooks'
 import { EdgeControlPointHandles } from './EdgeControlPointHandles'
 import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
@@ -20,7 +20,7 @@ export const EdgeLayerStack = () => {
   const visibleEdges = useVisibleEdges()
   const nodeMap = useNodeMap()
   const tool = useActiveTool()
-  const edgeConnectState = useEdgeConnectState()
+  const edgeConnectState = useEdgeConnectLayerState()
 
   const edgeConnectActions = useMemo(
     () => ({

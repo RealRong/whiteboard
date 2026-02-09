@@ -2,10 +2,11 @@ import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
 import { clamp, getAnchorPoint, rotatePoint } from '../../common/utils/geometry'
-import { canvasNodesAtom, edgeConnectAtom, edgeSelectionAtom, toolAtom } from '../../common/state'
 import { useInstance, useInstanceAtomValue } from '../../common/hooks'
+import { edgeConnectLayerStateAtom, edgeConnectViewStateAtom } from '../state'
 import type {
   EdgeConnectAnchorResult,
+  UseEdgeConnectLayerStateReturn,
   UseEdgeConnectReturn,
   UseEdgeConnectStateReturn
 } from 'types/edge'
@@ -54,29 +55,32 @@ const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point): EdgeCon
 
 export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
   const instance = useInstance()
-  const canvasNodes = useInstanceAtomValue(canvasNodesAtom)
-  const tool = useInstanceAtomValue(toolAtom)
-  const selectedEdgeId = useInstanceAtomValue(edgeSelectionAtom)
-  const state = useInstanceAtomValue(edgeConnectAtom)
+  const { canvasNodes, state, selectedEdgeId, tool } = useInstanceAtomValue(edgeConnectViewStateAtom)
 
   const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
   const containerRef = instance.runtime.containerRef ?? undefined
-  const activeTool = (tool as 'select' | 'edge') ?? 'select'
-
   const nodeRects = useMemo(() => instance.query.getCanvasNodeRects(), [canvasNodes, instance])
 
   return useMemo(
     () => ({
       state,
       selectedEdgeId,
-      tool: activeTool,
+      tool,
       containerRef,
       screenToWorld,
       nodeRects,
       getAnchorFromPoint
     }),
-    [activeTool, containerRef, nodeRects, screenToWorld, selectedEdgeId, state]
+    [containerRef, nodeRects, screenToWorld, selectedEdgeId, state, tool]
   )
+}
+
+export const useEdgeConnectLayerState = (): UseEdgeConnectLayerStateReturn => {
+  const { state, selectedEdgeId } = useInstanceAtomValue(edgeConnectLayerStateAtom)
+  return {
+    state,
+    selectedEdgeId
+  }
 }
 
 export const useEdgeConnect = (): UseEdgeConnectReturn => {
