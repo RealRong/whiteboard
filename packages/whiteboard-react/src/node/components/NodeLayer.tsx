@@ -1,11 +1,10 @@
 import type { Node } from '@whiteboard/core'
 import { useMemo } from 'react'
-import { useInstanceAtomValue } from '../../common/hooks'
-import { canvasNodesAtom } from '../../common/state/whiteboardDerivedAtoms'
+import { useWhiteboardSelector } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
 export const NodeLayer = () => {
-  const nodes = useInstanceAtomValue(canvasNodesAtom)
+  const nodes = useWhiteboardSelector('canvasNodes')
   const orderedNodes = useMemo(() => {
     const background: Node[] = []
     const normal: Node[] = []

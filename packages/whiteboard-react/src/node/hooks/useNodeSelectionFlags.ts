@@ -1,12 +1,11 @@
 import type { NodeId } from '@whiteboard/core'
-import { useActiveTool, useInstanceAtomValue } from '../../common/hooks'
-import { nodeGroupHoveredAtomFamily, nodeSelectedAtomFamily } from '../state/selectionFlagsAtom'
+import { useActiveTool, useWhiteboardSelector } from '../../common/hooks'
 
 export const useNodeSelectionFlags = (nodeId: NodeId) => {
   const activeTool = useActiveTool()
 
-  const selectedInSelectionSet = useInstanceAtomValue(nodeSelectedAtomFamily(nodeId))
-  const hovered = useInstanceAtomValue(nodeGroupHoveredAtomFamily(nodeId))
+  const selectedInSelectionSet = useWhiteboardSelector((state) => state.selection.selectedNodeIds.has(nodeId))
+  const hovered = useWhiteboardSelector((state) => state.groupHovered === nodeId)
   const selected = activeTool === 'edge' ? false : selectedInSelectionSet
 
   return {

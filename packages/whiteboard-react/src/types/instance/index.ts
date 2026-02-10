@@ -16,24 +16,35 @@ import type { ContainerRect, ContainerSizeObserverService, NodeSizeObserverServi
 
 export type Store = ReturnType<typeof getDefaultStore>
 
+export type WhiteboardStateAtoms = {
+  interaction: Atom<InteractionState>
+  tool: Atom<string>
+  selection: Atom<SelectionState>
+  edgeSelection: Atom<EdgeId | undefined>
+  edgeConnect: Atom<EdgeConnectState>
+  spacePressed: Atom<boolean>
+  dragGuides: Atom<Guide[]>
+  groupHovered: Atom<NodeId | undefined>
+  nodeOverrides: Atom<Map<NodeId, NodeOverride>>
+  canvasNodes: Atom<Node[]>
+  visibleEdges: Atom<Edge[]>
+}
+
+export type WhiteboardStateKey = keyof WhiteboardStateAtoms
+
+export type WhiteboardStateSnapshot = {
+  [K in WhiteboardStateKey]: WhiteboardStateAtoms[K] extends Atom<infer Value> ? Value : never
+}
+
 export type WhiteboardStateNamespace = {
   store: Store
-  atoms: {
-    interaction: Atom<InteractionState>
-    tool: Atom<string>
-    selection: Atom<SelectionState>
-    edgeSelection: Atom<EdgeId | undefined>
-    edgeConnect: Atom<EdgeConnectState>
-    spacePressed: Atom<boolean>
-    dragGuides: Atom<Guide[]>
-    groupHovered: Atom<NodeId | undefined>
-    nodeOverrides: Atom<Map<NodeId, NodeOverride>>
-    canvasNodes: Atom<Node[]>
-    visibleEdges: Atom<Edge[]>
-  }
+  atoms: WhiteboardStateAtoms
   get: Store['get']
   set: Store['set']
   sub: Store['sub']
+  read: <K extends WhiteboardStateKey>(key: K) => WhiteboardStateSnapshot[K]
+  watch: (key: WhiteboardStateKey, listener: () => void) => () => void
+  snapshot: () => WhiteboardStateSnapshot
 }
 
 export type WhiteboardInstanceConfig = {

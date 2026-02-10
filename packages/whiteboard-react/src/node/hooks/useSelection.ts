@@ -9,18 +9,17 @@ import type {
   UseSelectionRuntimeReturn,
   UseSelectionStateReturn
 } from 'types/node'
-import { edgeSelectionAtom, nodeSelectionAtom, spacePressedAtom, toolAtom } from '../../common/state'
 import {
   useInstance,
-  useInstanceAtomValue
+  useWhiteboardSelector
 } from '../../common/hooks'
 import { rectFromPoints } from '../../common/utils/geometry'
 import { getSelectionModeFromEvent } from '../utils/selection'
 
 export const useSelectionState = (): UseSelectionStateReturn => {
-  const state = useInstanceAtomValue(nodeSelectionAtom)
-  const tool = useInstanceAtomValue(toolAtom)
-  const selectedEdgeId = useInstanceAtomValue(edgeSelectionAtom)
+  const state = useWhiteboardSelector('selection')
+  const tool = useWhiteboardSelector('tool')
+  const selectedEdgeId = useWhiteboardSelector('edgeSelection')
 
   const isSelected = useCallback((id: NodeId) => state.selectedNodeIds.has(id), [state.selectedNodeIds])
   const hasSelection = useCallback(() => state.selectedNodeIds.size > 0, [state.selectedNodeIds])
@@ -64,7 +63,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
   const screenToWorld = instance.runtime.viewport.screenToWorld
   const isSelectionToolEnabled = useCallback(() => {
     if (!enabled) return false
-    return instance.state.get(toolAtom) !== 'edge'
+    return instance.state.read('tool') !== 'edge'
   }, [enabled, instance])
 
   const getModeFromEvent = useCallback(getSelectionModeFromEvent, [])
@@ -148,7 +147,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
       onPointerDown: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (!isSelectionToolEnabled()) return
         if (event.button !== 0) return
-        if (instance.state.get(spacePressedAtom)) return
+        if (instance.state.read('spacePressed')) return
         if (!instance.query.isCanvasBackgroundTarget(event.target)) return
         const point = getScreenPoint(event)
         if (!point) return

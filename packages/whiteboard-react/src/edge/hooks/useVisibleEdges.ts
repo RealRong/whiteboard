@@ -1,4 +1,3 @@
-import { useInstanceAtomValue } from '../../common/hooks'
-import { visibleEdgesAtom } from '../../common/state/whiteboardDerivedAtoms'
+import { useWhiteboardSelector } from '../../common/hooks'
 
-export const useVisibleEdges = () => useInstanceAtomValue(visibleEdgesAtom)
+export const useVisibleEdges = () => useWhiteboardSelector('visibleEdges')

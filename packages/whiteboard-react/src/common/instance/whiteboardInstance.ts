@@ -4,6 +4,7 @@ import type {
   WhiteboardInstance,
   WhiteboardInstanceConfig,
   WhiteboardRuntimeNamespace,
+  WhiteboardStateKey,
   WhiteboardStateNamespace
 } from 'types/instance'
 import {
@@ -64,7 +65,28 @@ export const createWhiteboardInstance = ({
     },
     get: store.get,
     set: store.set,
-    sub: (atom, callback) => store.sub(atom, callback)
+    sub: (atom, callback) => store.sub(atom, callback),
+    read: ((key: WhiteboardStateKey) => {
+      const atom = state.atoms[key]
+      return store.get(atom as never)
+    }) as WhiteboardStateNamespace['read'],
+    watch: (key, listener) => {
+      const atom = state.atoms[key]
+      return store.sub(atom, listener)
+    },
+    snapshot: () => ({
+      interaction: store.get(interactionAtom),
+      tool: store.get(toolAtom),
+      selection: store.get(nodeSelectionAtom),
+      edgeSelection: store.get(edgeSelectionAtom),
+      edgeConnect: store.get(edgeConnectAtom),
+      spacePressed: store.get(spacePressedAtom),
+      dragGuides: store.get(dragGuidesAtom),
+      groupHovered: store.get(groupHoveredAtom),
+      nodeOverrides: store.get(nodeViewOverridesAtom),
+      canvasNodes: store.get(canvasNodesAtom),
+      visibleEdges: store.get(visibleEdgesAtom)
+    })
   }
 
   const runtime: WhiteboardRuntimeNamespace = {

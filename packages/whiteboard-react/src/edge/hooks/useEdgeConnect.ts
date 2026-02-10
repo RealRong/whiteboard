@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Point } from '@whiteboard/core'
-import { useInstance, useInstanceAtomValue } from '../../common/hooks'
-import { edgeConnectLayerStateAtom, edgeConnectViewStateAtom } from '../state'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import type {
   UseEdgeConnectLayerStateReturn,
   UseEdgeConnectReturn,
@@ -11,7 +10,10 @@ import type {
 
 export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
   const instance = useInstance()
-  const { canvasNodes, state, selectedEdgeId, tool } = useInstanceAtomValue(edgeConnectViewStateAtom)
+  const canvasNodes = useWhiteboardSelector('canvasNodes')
+  const state = useWhiteboardSelector('edgeConnect')
+  const selectedEdgeId = useWhiteboardSelector('edgeSelection')
+  const tool = (useWhiteboardSelector('tool') as 'select' | 'edge') ?? 'select'
 
   const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
   const containerRef = instance.runtime.containerRef ?? undefined
@@ -32,7 +34,8 @@ export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
 }
 
 export const useEdgeConnectLayerState = (): UseEdgeConnectLayerStateReturn => {
-  const { state, selectedEdgeId } = useInstanceAtomValue(edgeConnectLayerStateAtom)
+  const state = useWhiteboardSelector('edgeConnect')
+  const selectedEdgeId = useWhiteboardSelector('edgeSelection')
   return {
     state,
     selectedEdgeId

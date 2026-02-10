@@ -1,6 +1,5 @@
-import { toolAtom } from '../state'
-import { useInstanceAtomValue } from './useInstanceStore'
+import { useWhiteboardSelector } from './useWhiteboardSelector'
 
 export const useActiveTool = () => {
-  return (useInstanceAtomValue(toolAtom) as 'select' | 'edge') ?? 'select'
+  return (useWhiteboardSelector('tool') as 'select' | 'edge') ?? 'select'
 }

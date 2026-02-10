@@ -3,9 +3,10 @@ import type { PointerEvent } from 'react'
 import type { Node, Rect } from '@whiteboard/core'
 import { computeSnap } from '../utils/snap'
 import { selectNodeDragStrategy } from '../runtime/drag'
-import { useInstance, useInstanceAtomValue, useWhiteboardConfig } from '../../common/hooks'
-import { groupRuntimeAtom } from '../state/groupRuntimeAtom'
-import { snapRuntimeDataAtom } from '../state/snapRuntimeAtom'
+import { DEFAULT_GROUP_PADDING } from '../constants'
+import { useInstance, useWhiteboardConfig, useWhiteboardSelector } from '../../common/hooks'
+import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../utils/snap'
+import { getNodeAABB } from '../../common/utils/geometry'
 import type {
   DragState,
   NodeDragHandlers
@@ -17,12 +18,14 @@ type UseNodeDragOptions = {
 }
 
 const SNAP_MAX_THRESHOLD_WORLD = 24
+const SNAP_THRESHOLD_SCREEN = 8
 
 export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   const instance = useInstance()
   const { nodeSize } = useWhiteboardConfig()
-  const groupRuntime = useInstanceAtomValue(groupRuntimeAtom)
-  const snapRuntimeData = useInstanceAtomValue(snapRuntimeDataAtom)
+  const tool = useWhiteboardSelector('tool')
+  const canvasNodes = useWhiteboardSelector('canvasNodes')
+  const hoveredGroupId = useWhiteboardSelector('groupHovered')
   const core = instance.runtime.core
   const getZoom = instance.runtime.viewport.getZoom
   const nodeId = node.id
@@ -37,11 +40,42 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   )
   const group = useMemo(
     () => ({
-      ...groupRuntime,
+      nodes: canvasNodes,
+      nodeSize,
+      padding: DEFAULT_GROUP_PADDING,
+      hoveredGroupId,
       setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
     }),
-    [groupRuntime, instance]
+    [canvasNodes, hoveredGroupId, instance, nodeSize]
   )
+  const snapRuntimeData = useMemo(() => {
+    const enabled = tool === 'select'
+    if (!canvasNodes.length) {
+      return {
+        enabled,
+        candidates: [],
+        getCandidates: undefined,
+        thresholdScreen: SNAP_THRESHOLD_SCREEN
+      }
+    }
+
+    const snapCandidates = buildSnapCandidates(
+      canvasNodes.map((item) => ({
+        id: item.id,
+        rect: getNodeAABB(item, nodeSize)
+      }))
+    )
+    const snapIndex = createGridIndex(snapCandidates, Math.max(240, DEFAULT_GROUP_PADDING * 6))
+    const getCandidates = (rect: Rect) => queryGridIndex(snapIndex, rect)
+
+    return {
+      enabled,
+      candidates: snapCandidates,
+      getCandidates,
+      thresholdScreen: SNAP_THRESHOLD_SCREEN
+    }
+  }, [canvasNodes, nodeSize, tool])
+
   const snap = useMemo(
     () => ({
       ...snapRuntimeData,

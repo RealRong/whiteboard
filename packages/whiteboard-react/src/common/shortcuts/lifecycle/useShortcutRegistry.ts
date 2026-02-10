@@ -4,7 +4,6 @@ import { createDefaultShortcuts } from '../defaultShortcuts'
 import type { Shortcut } from 'types/shortcuts'
 import type { ShortcutManager } from 'types/shortcuts'
 import { useInstance } from '../../hooks'
-import { canvasNodesAtom } from '../../state'
 
 type Options = {
   core: Core
@@ -39,7 +38,7 @@ export const useShortcutRegistry = ({
   const nodeSize = instance.runtime.config.nodeSize
 
   const getSelectableNodeIds = useCallback(() => {
-    return instance.state.store.get(canvasNodesAtom).map((node) => node.id)
+    return instance.state.read('canvasNodes').map((node) => node.id)
   }, [instance])
 
   const defaults = useMemo(

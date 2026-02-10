@@ -1,13 +1,12 @@
 import type { Guide } from 'types/node/snap'
-import { useInstanceAtomValue } from '../../common/hooks'
-import { dragGuidesAtom } from '../state/dragGuidesAtom'
+import { useWhiteboardSelector } from '../../common/hooks'
 
 type DragGuidesLayerProps = {
   guides?: Guide[]
 }
 
 export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
-  const atomGuides = useInstanceAtomValue(dragGuidesAtom)
+  const atomGuides = useWhiteboardSelector('dragGuides')
   const resolvedGuides = guides ?? atomGuides
   if (!resolvedGuides.length) return null
   return (

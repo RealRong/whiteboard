@@ -1,7 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { Point } from '@whiteboard/core'
 import type { WhiteboardInstance } from 'types/instance'
-import { spacePressedAtom } from '../../state'
 
 type Options = {
   instance: WhiteboardInstance
@@ -34,7 +33,7 @@ export const useCanvasViewportHandlers = ({
       if (!enablePan) return
       const viewport = instance.runtime.viewport.get()
       const isMiddle = event.button === 1
-      const isSpaceLeft = event.button === 0 && instance.state.get(spacePressedAtom)
+      const isSpaceLeft = event.button === 0 && instance.state.read('spacePressed')
       if (!isMiddle && !isSpaceLeft) return
       event.preventDefault()
       const target = event.currentTarget as HTMLElement | null

@@ -1,5 +1,5 @@
 export { useActiveTool } from './useTool'
 export { useDoc } from './useDoc'
 export { useInstance } from './useInstance'
-export { useInstanceAtomValue } from './useInstanceStore'
+export { useWhiteboardSelector } from './useWhiteboardSelector'
 export { useWhiteboardConfig } from './useWhiteboardConfig'
