@@ -56,7 +56,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
   const rafRef = useRef<number | null>(null)
   const isSelectingRef = useRef(false)
 
-  const minDragDistance = options.minDragDistance ?? 3
+  const minDragDistance = options.minDragDistance ?? instance.runtime.config.node.selectionMinDragDistance
   const enabled = options.enabled ?? true
   const containerRef = instance.runtime.containerRef
   const clientToScreen = instance.runtime.viewport.clientToScreen

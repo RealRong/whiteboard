@@ -3,7 +3,7 @@ import type { Core, Document, EdgeId, NodeId } from '@whiteboard/core'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Shortcut } from '../shortcuts'
-import type { Size, ViewportConfig } from './base'
+import type { Size, ViewportConfig, WhiteboardEdgeConfig, WhiteboardNodeConfig } from './base'
 
 export type WhiteboardConfig = {
   className?: string
@@ -12,6 +12,8 @@ export type WhiteboardConfig = {
   mindmapNodeSize?: Size
   mindmapLayout?: MindmapLayoutConfig
   viewport?: ViewportConfig
+  node?: WhiteboardNodeConfig
+  edge?: WhiteboardEdgeConfig
   tool?: 'select' | 'edge'
   shortcuts?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
   onSelectionChange?: (ids: NodeId[]) => void

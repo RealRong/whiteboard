@@ -1,16 +1,15 @@
-import { useDoc, useInstance, useWhiteboardConfig } from '../../common/hooks'
-import { DEFAULT_GROUP_PADDING } from '../constants'
+import { useDoc, useInstance } from '../../common/hooks'
 import { useGroupAutoFit } from './useGroupAutoFit'
 
 export const useNodeLifecycle = () => {
   const doc = useDoc()
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
+  const { nodeSize, node } = instance.runtime.config
 
   useGroupAutoFit({
     core: instance.runtime.core,
     nodes: doc?.nodes ?? [],
     nodeSize,
-    padding: DEFAULT_GROUP_PADDING
+    padding: node.groupPadding
   })
 }

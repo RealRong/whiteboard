@@ -1,5 +1,4 @@
 import { getDefaultStore } from 'jotai'
-import type { Atom } from 'jotai/vanilla'
 import type { Core, Document, Edge, EdgeAnchor, EdgeId, Node, NodeId, Point, Rect, Viewport } from '@whiteboard/core'
 import type { RefObject } from 'react'
 import type { WhiteboardCommands } from '../commands'
@@ -16,32 +15,38 @@ import type { ContainerRect, ContainerSizeObserverService, NodeSizeObserverServi
 
 export type Store = ReturnType<typeof getDefaultStore>
 
-export type WhiteboardStateAtoms = {
-  interaction: Atom<InteractionState>
-  tool: Atom<string>
-  selection: Atom<SelectionState>
-  edgeSelection: Atom<EdgeId | undefined>
-  edgeConnect: Atom<EdgeConnectState>
-  spacePressed: Atom<boolean>
-  dragGuides: Atom<Guide[]>
-  groupHovered: Atom<NodeId | undefined>
-  nodeOverrides: Atom<Map<NodeId, NodeOverride>>
-  canvasNodes: Atom<Node[]>
-  visibleEdges: Atom<Edge[]>
-}
+export const WHITEBOARD_STATE_KEYS = [
+  'interaction',
+  'tool',
+  'selection',
+  'edgeSelection',
+  'edgeConnect',
+  'spacePressed',
+  'dragGuides',
+  'groupHovered',
+  'nodeOverrides',
+  'canvasNodes',
+  'visibleEdges'
+] as const
 
-export type WhiteboardStateKey = keyof WhiteboardStateAtoms
+export type WhiteboardStateKey = (typeof WHITEBOARD_STATE_KEYS)[number]
 
 export type WhiteboardStateSnapshot = {
-  [K in WhiteboardStateKey]: WhiteboardStateAtoms[K] extends Atom<infer Value> ? Value : never
+  interaction: InteractionState
+  tool: string
+  selection: SelectionState
+  edgeSelection: EdgeId | undefined
+  edgeConnect: EdgeConnectState
+  spacePressed: boolean
+  dragGuides: Guide[]
+  groupHovered: NodeId | undefined
+  nodeOverrides: Map<NodeId, NodeOverride>
+  canvasNodes: Node[]
+  visibleEdges: Edge[]
 }
 
 export type WhiteboardStateNamespace = {
   store: Store
-  atoms: WhiteboardStateAtoms
-  get: Store['get']
-  set: Store['set']
-  sub: Store['sub']
   read: <K extends WhiteboardStateKey>(key: K) => WhiteboardStateSnapshot[K]
   watch: (key: WhiteboardStateKey, listener: () => void) => () => void
   snapshot: () => WhiteboardStateSnapshot
@@ -50,6 +55,21 @@ export type WhiteboardStateNamespace = {
 export type WhiteboardInstanceConfig = {
   nodeSize: Size
   mindmapNodeSize: Size
+  node: {
+    groupPadding: number
+    snapThresholdScreen: number
+    snapMaxThresholdWorld: number
+    snapGridCellSize: number
+    selectionMinDragDistance: number
+  }
+  edge: {
+    hitTestThresholdScreen: number
+    anchorSnapMin: number
+    anchorSnapRatio: number
+  }
+  viewport: {
+    wheelSensitivity: number
+  }
 }
 
 export type WhiteboardCanvasNodeRect = {

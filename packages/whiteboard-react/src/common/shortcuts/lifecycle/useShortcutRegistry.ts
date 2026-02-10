@@ -8,7 +8,6 @@ import { useInstance } from '../../hooks'
 type Options = {
   core: Core
   docRef: { current: Document }
-  defaultGroupPadding: number
   shortcutsProp?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
   shortcutManager: ShortcutManager
 }
@@ -30,15 +29,14 @@ const resolveShortcuts = (
 export const useShortcutRegistry = ({
   core,
   docRef,
-  defaultGroupPadding,
   shortcutsProp,
   shortcutManager
 }: Options) => {
   const instance = useInstance()
-  const nodeSize = instance.runtime.config.nodeSize
+  const { nodeSize, node } = instance.runtime.config
 
   const getSelectableNodeIds = useCallback(() => {
-    return instance.state.read('canvasNodes').map((node) => node.id)
+    return instance.state.read('canvasNodes').map((canvasNode) => canvasNode.id)
   }, [instance])
 
   const defaults = useMemo(
@@ -49,7 +47,7 @@ export const useShortcutRegistry = ({
             getDocument: () => docRef.current,
             getSelectableNodeIds,
             nodeSize,
-            defaultGroupPadding,
+            defaultGroupPadding: node.groupPadding,
             selection: {
               select: instance.commands.selection.select,
               clear: instance.commands.selection.clear
@@ -57,7 +55,7 @@ export const useShortcutRegistry = ({
             selectEdge: instance.commands.edge.select
           })
         : [],
-    [core, defaultGroupPadding, docRef, getSelectableNodeIds, instance, nodeSize]
+    [core, docRef, getSelectableNodeIds, instance, node.groupPadding, nodeSize]
   )
 
   const resolved = useMemo(() => resolveShortcuts(defaults, shortcutsProp), [defaults, shortcutsProp])

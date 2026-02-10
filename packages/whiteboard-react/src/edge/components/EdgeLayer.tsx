@@ -1,14 +1,13 @@
+import { useInstance } from '../../common/hooks'
 import { useEdgeConnectLayerState, useEdgeGeometry, useEdgeHitTest, useVisibleEdges } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 
-type EdgeLayerProps = {
-  hitTestThresholdScreen?: number
-}
-
-export const EdgeLayer = ({ hitTestThresholdScreen = 10 }: EdgeLayerProps) => {
+export const EdgeLayer = () => {
+  const instance = useInstance()
   const visibleEdges = useVisibleEdges()
   const { state, selectedEdgeId: stateSelectedEdgeId } = useEdgeConnectLayerState()
+  const hitTestThresholdScreen = instance.runtime.config.edge.hitTestThresholdScreen
 
   const paths = useEdgeGeometry({ edges: visibleEdges, connectState: state })
   const { handlePathPointerDown, handlePathClick } = useEdgeHitTest()

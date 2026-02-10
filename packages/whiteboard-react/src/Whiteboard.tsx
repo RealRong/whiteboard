@@ -9,6 +9,7 @@ import type { WhiteboardProps } from 'types/common'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
 import { createWhiteboardInstance } from './common/instance'
 import { MindmapLayerStack } from './mindmap/components'
+import { DEFAULT_GROUP_PADDING } from './node/constants'
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },
@@ -23,6 +24,8 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
     mindmapNodeSize: config?.mindmapNodeSize ?? DEFAULT_MINDMAP_NODE_SIZE,
     mindmapLayout: config?.mindmapLayout ?? {},
     viewport: config?.viewport ?? {},
+    node: config?.node ?? {},
+    edge: config?.edge ?? {},
     tool: config?.tool ?? 'select',
     shortcuts: config?.shortcuts,
     onSelectionChange: config?.onSelectionChange,
@@ -58,10 +61,39 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
         containerRef,
         config: {
           nodeSize: resolvedConfig.nodeSize,
-          mindmapNodeSize: resolvedConfig.mindmapNodeSize
+          mindmapNodeSize: resolvedConfig.mindmapNodeSize,
+          node: {
+            groupPadding: resolvedConfig.node.groupPadding ?? DEFAULT_GROUP_PADDING,
+            snapThresholdScreen: resolvedConfig.node.snapThresholdScreen ?? 8,
+            snapMaxThresholdWorld: resolvedConfig.node.snapMaxThresholdWorld ?? 24,
+            snapGridCellSize: resolvedConfig.node.snapGridCellSize ?? 240,
+            selectionMinDragDistance: resolvedConfig.node.selectionMinDragDistance ?? 3
+          },
+          edge: {
+            hitTestThresholdScreen: resolvedConfig.edge.hitTestThresholdScreen ?? 10,
+            anchorSnapMin: resolvedConfig.edge.anchorSnapMin ?? 12,
+            anchorSnapRatio: resolvedConfig.edge.anchorSnapRatio ?? 0.18
+          },
+          viewport: {
+            wheelSensitivity: resolvedConfig.viewport.wheelSensitivity ?? 0.001
+          }
         }
       }),
-    [core, docRef, resolvedConfig.mindmapNodeSize, resolvedConfig.nodeSize]
+    [
+      core,
+      docRef,
+      resolvedConfig.edge.anchorSnapMin,
+      resolvedConfig.edge.anchorSnapRatio,
+      resolvedConfig.edge.hitTestThresholdScreen,
+      resolvedConfig.mindmapNodeSize,
+      resolvedConfig.node.groupPadding,
+      resolvedConfig.node.selectionMinDragDistance,
+      resolvedConfig.node.snapGridCellSize,
+      resolvedConfig.node.snapMaxThresholdWorld,
+      resolvedConfig.node.snapThresholdScreen,
+      resolvedConfig.nodeSize,
+      resolvedConfig.viewport.wheelSensitivity
+    ]
   )
 
   useWhiteboardContextHydration(doc, instance)

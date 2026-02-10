@@ -6,7 +6,6 @@ import type { WhiteboardInstance } from 'types/instance'
 import { useShortcutRegistry } from '../shortcuts/lifecycle/useShortcutRegistry'
 import { useSelectionRuntime, useSelectionState } from '../../node/hooks'
 import { useInstance } from '../hooks/useInstance'
-import { DEFAULT_GROUP_PADDING } from '../../node/constants'
 import { useCanvasHandlers } from '../hooks/internal/useCanvasHandlers'
 import type { ViewportConfig } from 'types/common'
 import { useNodeLifecycle } from '../../node/lifecycle'
@@ -102,7 +101,6 @@ export const useWhiteboardLifecycle = ({
   useShortcutRegistry({
     core,
     docRef,
-    defaultGroupPadding: DEFAULT_GROUP_PADDING,
     shortcutsProp,
     shortcutManager: shortcuts
   })

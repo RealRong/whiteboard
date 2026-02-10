@@ -4,10 +4,9 @@ import type { Core, Rect } from '@whiteboard/core'
 import type { NodeContainerProps, NodePresentation, UseNodePresentationOptions, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
-import { useInstance, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
 import { useNodeSelectionFlags } from './useNodeSelectionFlags'
-
 
 export const useNodePresentation = ({
   node,
@@ -16,7 +15,7 @@ export const useNodePresentation = ({
   const instance = useInstance()
   const registry = useNodeRegistry()
   const zoom = instance.runtime.viewport.getZoom()
-  const { nodeSize } = useWhiteboardConfig()
+  const { nodeSize } = instance.runtime.config
   const { selected, hovered, activeTool } = useNodeSelectionFlags(node.id)
 
   const definition = registry.get(node.type)

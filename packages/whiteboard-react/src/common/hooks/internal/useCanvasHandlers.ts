@@ -28,7 +28,8 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
     minZoom: viewportConfig?.minZoom,
     maxZoom: viewportConfig?.maxZoom,
     enablePan: viewportConfig?.enablePan,
-    enableWheel: viewportConfig?.enableWheel
+    enableWheel: viewportConfig?.enableWheel,
+    wheelSensitivity: viewportConfig?.wheelSensitivity
   })
 
   const runPointerDownShared = useCallback(

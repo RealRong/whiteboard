@@ -1,6 +1,6 @@
 import type { MindmapLayoutConfig } from 'types/mindmap'
 import { MindmapLayer } from './MindmapLayer'
-import { useDoc, useInstance, useWhiteboardConfig } from '../../common/hooks'
+import { useDoc, useInstance } from '../../common/hooks'
 
 type MindmapLayerStackProps = {
   layout: MindmapLayoutConfig
@@ -9,7 +9,7 @@ type MindmapLayerStackProps = {
 export const MindmapLayerStack = ({ layout }: MindmapLayerStackProps) => {
   const doc = useDoc()
   const instance = useInstance()
-  const { mindmapNodeSize: nodeSize } = useWhiteboardConfig()
+  const { mindmapNodeSize: nodeSize } = instance.runtime.config
 
   if (!doc) return null
 

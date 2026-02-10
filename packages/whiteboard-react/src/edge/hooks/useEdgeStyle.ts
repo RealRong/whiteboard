@@ -5,7 +5,7 @@ import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../
 type Options = {
   edge: Edge
   selected?: boolean
-  hitTestThresholdScreen?: number
+  hitTestThresholdScreen: number
 }
 
 const resolveMarker = (value: string | undefined, fallbackId: string) => {
@@ -15,7 +15,7 @@ const resolveMarker = (value: string | undefined, fallbackId: string) => {
   return `url(#${value})`
 }
 
-export const useEdgeStyle = ({ edge, selected, hitTestThresholdScreen = 10 }: Options) => {
+export const useEdgeStyle = ({ edge, selected, hitTestThresholdScreen }: Options) => {
   return useMemo(() => {
     const baseStroke = edge.style?.stroke ?? '#2f2f33'
     const stroke = selected ? '#2563eb' : baseStroke

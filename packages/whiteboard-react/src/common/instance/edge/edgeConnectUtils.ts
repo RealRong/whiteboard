@@ -26,11 +26,24 @@ const getNearestSide = (rect: Rect, point: Point) => {
   return { side: best[0], center: best[1], distance: bestDistance }
 }
 
-export const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point) => {
+type AnchorSnapOptions = {
+  snapMin?: number
+  snapRatio?: number
+}
+
+export const getAnchorFromPoint = (
+  rect: Rect,
+  rotation: number,
+  point: Point,
+  options?: AnchorSnapOptions
+) => {
   const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
   const localPoint = rotatePoint(point, center, -rotation)
   const nearest = getNearestSide(rect, localPoint)
-  const threshold = Math.max(12, Math.min(rect.width, rect.height) * 0.18)
+  const threshold = Math.max(
+    options?.snapMin ?? 12,
+    Math.min(rect.width, rect.height) * (options?.snapRatio ?? 0.18)
+  )
   const useCenter = nearest.distance <= threshold
   let offset = 0.5
   if (!useCenter) {

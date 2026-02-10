@@ -5,6 +5,7 @@ import type {
   WhiteboardInstanceConfig,
   WhiteboardRuntimeNamespace,
   WhiteboardStateKey,
+  WhiteboardStateSnapshot,
   WhiteboardStateNamespace
 } from 'types/instance'
 import {
@@ -26,6 +27,7 @@ import { createViewportRuntime } from './runtime/createViewportRuntime'
 import { createInstanceQuery } from './query/createInstanceQuery'
 import { createWhiteboardCommands } from './commands/createWhiteboardCommands'
 import { setStoreAtom } from './store/setStoreAtom'
+import { DEFAULT_GROUP_PADDING } from '../../node/constants'
 
 export const createWhiteboardInstance = ({
   core,
@@ -35,7 +37,22 @@ export const createWhiteboardInstance = ({
 }: CreateWhiteboardInstanceOptions): WhiteboardInstance => {
   const config: WhiteboardInstanceConfig = {
     nodeSize: configOverrides?.nodeSize ?? DEFAULT_NODE_SIZE,
-    mindmapNodeSize: configOverrides?.mindmapNodeSize ?? DEFAULT_MINDMAP_NODE_SIZE
+    mindmapNodeSize: configOverrides?.mindmapNodeSize ?? DEFAULT_MINDMAP_NODE_SIZE,
+    node: {
+      groupPadding: configOverrides?.node?.groupPadding ?? DEFAULT_GROUP_PADDING,
+      snapThresholdScreen: configOverrides?.node?.snapThresholdScreen ?? 8,
+      snapMaxThresholdWorld: configOverrides?.node?.snapMaxThresholdWorld ?? 24,
+      snapGridCellSize: configOverrides?.node?.snapGridCellSize ?? 240,
+      selectionMinDragDistance: configOverrides?.node?.selectionMinDragDistance ?? 3
+    },
+    edge: {
+      hitTestThresholdScreen: configOverrides?.edge?.hitTestThresholdScreen ?? 10,
+      anchorSnapMin: configOverrides?.edge?.anchorSnapMin ?? 12,
+      anchorSnapRatio: configOverrides?.edge?.anchorSnapRatio ?? 0.18
+    },
+    viewport: {
+      wheelSensitivity: configOverrides?.viewport?.wheelSensitivity ?? 0.001
+    }
   }
 
   const getContainer = () => containerRef.current
@@ -48,45 +65,45 @@ export const createWhiteboardInstance = ({
   const viewport = createViewportRuntime()
   const store = getDefaultStore()
 
+  const stateAtoms = {
+    interaction: interactionAtom,
+    tool: toolAtom,
+    selection: nodeSelectionAtom,
+    edgeSelection: edgeSelectionAtom,
+    edgeConnect: edgeConnectAtom,
+    spacePressed: spacePressedAtom,
+    dragGuides: dragGuidesAtom,
+    groupHovered: groupHoveredAtom,
+    nodeOverrides: nodeViewOverridesAtom,
+    canvasNodes: canvasNodesAtom,
+    visibleEdges: visibleEdgesAtom
+  } as const
+
+  const getStateAtom = (key: WhiteboardStateKey) => stateAtoms[key]
+  const readState = ((key: WhiteboardStateKey) =>
+    store.get(getStateAtom(key) as never)) as WhiteboardStateNamespace['read']
+  const watchState: WhiteboardStateNamespace['watch'] = (key, listener) => {
+    return store.sub(getStateAtom(key) as never, listener)
+  }
+  const getStateSnapshot = (): WhiteboardStateSnapshot => ({
+    interaction: readState('interaction'),
+    tool: readState('tool'),
+    selection: readState('selection'),
+    edgeSelection: readState('edgeSelection'),
+    edgeConnect: readState('edgeConnect'),
+    spacePressed: readState('spacePressed'),
+    dragGuides: readState('dragGuides'),
+    groupHovered: readState('groupHovered'),
+    nodeOverrides: readState('nodeOverrides'),
+    canvasNodes: readState('canvasNodes'),
+    visibleEdges: readState('visibleEdges')
+  })
+
   const state: WhiteboardStateNamespace = {
     store,
-    atoms: {
-      interaction: interactionAtom,
-      tool: toolAtom,
-      selection: nodeSelectionAtom,
-      edgeSelection: edgeSelectionAtom,
-      edgeConnect: edgeConnectAtom,
-      spacePressed: spacePressedAtom,
-      dragGuides: dragGuidesAtom,
-      groupHovered: groupHoveredAtom,
-      nodeOverrides: nodeViewOverridesAtom,
-      canvasNodes: canvasNodesAtom,
-      visibleEdges: visibleEdgesAtom
-    },
-    get: store.get,
-    set: store.set,
-    sub: (atom, callback) => store.sub(atom, callback),
-    read: ((key: WhiteboardStateKey) => {
-      const atom = state.atoms[key]
-      return store.get(atom as never)
-    }) as WhiteboardStateNamespace['read'],
-    watch: (key, listener) => {
-      const atom = state.atoms[key]
-      return store.sub(atom, listener)
-    },
-    snapshot: () => ({
-      interaction: store.get(interactionAtom),
-      tool: store.get(toolAtom),
-      selection: store.get(nodeSelectionAtom),
-      edgeSelection: store.get(edgeSelectionAtom),
-      edgeConnect: store.get(edgeConnectAtom),
-      spacePressed: store.get(spacePressedAtom),
-      dragGuides: store.get(dragGuidesAtom),
-      groupHovered: store.get(groupHoveredAtom),
-      nodeOverrides: store.get(nodeViewOverridesAtom),
-      canvasNodes: store.get(canvasNodesAtom),
-      visibleEdges: store.get(visibleEdgesAtom)
-    })
+    read: readState,
+    watch: watchState,
+    snapshot: getStateSnapshot
   }
 
   const runtime: WhiteboardRuntimeNamespace = {

@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
-import { DEFAULT_GROUP_PADDING } from '../constants'
-import { useInstance, useWhiteboardConfig, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import type { GroupRuntimeStore } from 'types/node'
 
 
 export const useGroupRuntime = (): GroupRuntimeStore => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
+  const { nodeSize, node } = instance.runtime.config
   const nodes = useWhiteboardSelector('canvasNodes')
   const hoveredGroupId = useWhiteboardSelector('groupHovered')
 
@@ -14,10 +13,10 @@ export const useGroupRuntime = (): GroupRuntimeStore => {
     () => ({
       nodes,
       nodeSize,
-      padding: DEFAULT_GROUP_PADDING,
+      padding: node.groupPadding,
       hoveredGroupId,
       setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
     }),
-    [hoveredGroupId, instance, nodeSize, nodes]
+    [hoveredGroupId, instance, node.groupPadding, nodeSize, nodes]
   )
 }

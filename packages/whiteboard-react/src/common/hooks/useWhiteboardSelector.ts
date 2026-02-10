@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { WhiteboardStateKey, WhiteboardStateSnapshot } from 'types/instance'
+import {
+  WHITEBOARD_STATE_KEYS,
+  type WhiteboardStateKey,
+  type WhiteboardStateSnapshot
+} from 'types/instance'
 import { useInstance } from './useInstance'
 
 type Selector<T> = (snapshot: WhiteboardStateSnapshot) => T
@@ -23,13 +27,12 @@ export function useWhiteboardSelector<T>(
   const selector: Selector<T> = isKeySelector
     ? ((snapshot) => snapshot[keyOrSelector] as T)
     : keyOrSelector
-  const allKeys = useMemo(() => Object.keys(instance.state.atoms) as WhiteboardStateKey[], [instance])
   const keys = useMemo(
     () =>
       isKeySelector
         ? [keyOrSelector as WhiteboardStateKey]
-        : options?.keys ?? allKeys,
-    [allKeys, isKeySelector, keyOrSelector, options?.keys]
+        : options?.keys ?? [...WHITEBOARD_STATE_KEYS],
+    [isKeySelector, keyOrSelector, options?.keys]
   )
   const equality = (options?.equality ?? defaultEquality) as Equality<T>
 

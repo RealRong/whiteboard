@@ -4,7 +4,7 @@ import type { Core, Point, Rect } from '@whiteboard/core'
 import type { Size } from 'types/common'
 import type { ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
 import { getNodeRect, getRectCenter } from '../../common/utils/geometry'
-import { useInstance, useWhiteboardConfig } from '../../common/hooks'
+import { useInstance } from '../../common/hooks'
 import { useSnapRuntime } from './useSnapRuntime'
 import { computeResizeSnap } from '../utils/snap'
 import {
@@ -45,7 +45,7 @@ export const useNodeTransform = ({
   rotateHandleOffset = 24
 }: UseNodeTransformOptions) => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
+  const { nodeSize } = instance.runtime.config
   const snap = useSnapRuntime()
   const resolvedActiveTool = activeTool ?? 'select'
   const resolvedEnabled = enabled ?? (resolvedActiveTool === 'select' && Boolean(selected))

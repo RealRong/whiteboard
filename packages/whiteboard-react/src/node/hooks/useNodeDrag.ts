@@ -3,26 +3,18 @@ import type { PointerEvent } from 'react'
 import type { Node, Rect } from '@whiteboard/core'
 import { computeSnap } from '../utils/snap'
 import { selectNodeDragStrategy } from '../runtime/drag'
-import { DEFAULT_GROUP_PADDING } from '../constants'
-import { useInstance, useWhiteboardConfig, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../utils/snap'
 import { getNodeAABB } from '../../common/utils/geometry'
-import type {
-  DragState,
-  NodeDragHandlers
-} from 'types/node'
-
+import type { DragState, NodeDragHandlers } from 'types/node'
 
 type UseNodeDragOptions = {
   node: Node
 }
 
-const SNAP_MAX_THRESHOLD_WORLD = 24
-const SNAP_THRESHOLD_SCREEN = 8
-
 export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
+  const { nodeSize, node: nodeConfig } = instance.runtime.config
   const tool = useWhiteboardSelector('tool')
   const canvasNodes = useWhiteboardSelector('canvasNodes')
   const hoveredGroupId = useWhiteboardSelector('groupHovered')
@@ -42,11 +34,11 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
     () => ({
       nodes: canvasNodes,
       nodeSize,
-      padding: DEFAULT_GROUP_PADDING,
+      padding: nodeConfig.groupPadding,
       hoveredGroupId,
       setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
     }),
-    [canvasNodes, hoveredGroupId, instance, nodeSize]
+    [canvasNodes, hoveredGroupId, instance, nodeConfig.groupPadding, nodeSize]
   )
   const snapRuntimeData = useMemo(() => {
     const enabled = tool === 'select'
@@ -55,7 +47,7 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
         enabled,
         candidates: [],
         getCandidates: undefined,
-        thresholdScreen: SNAP_THRESHOLD_SCREEN
+        thresholdScreen: nodeConfig.snapThresholdScreen
       }
     }
 
@@ -65,16 +57,19 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
         rect: getNodeAABB(item, nodeSize)
       }))
     )
-    const snapIndex = createGridIndex(snapCandidates, Math.max(240, DEFAULT_GROUP_PADDING * 6))
+    const snapIndex = createGridIndex(
+      snapCandidates,
+      Math.max(nodeConfig.snapGridCellSize, nodeConfig.groupPadding * 6)
+    )
     const getCandidates = (rect: Rect) => queryGridIndex(snapIndex, rect)
 
     return {
       enabled,
       candidates: snapCandidates,
       getCandidates,
-      thresholdScreen: SNAP_THRESHOLD_SCREEN
+      thresholdScreen: nodeConfig.snapThresholdScreen
     }
-  }, [canvasNodes, nodeSize, tool])
+  }, [canvasNodes, nodeConfig.groupPadding, nodeConfig.snapGridCellSize, nodeConfig.snapThresholdScreen, nodeSize, tool])
 
   const snap = useMemo(
     () => ({
@@ -148,7 +143,7 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
       if (snap.enabled) {
         const thresholdWorld = Math.min(
           snap.thresholdScreen / Math.max(getZoom(), 0.0001),
-          SNAP_MAX_THRESHOLD_WORLD
+          nodeConfig.snapMaxThresholdWorld
         )
         const movingRect: Rect = { x: nextX, y: nextY, width: size.width, height: size.height }
         const queryRect: Rect = {
@@ -185,7 +180,20 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
         nextPosition: { x: nextX, y: nextY }
       })
     },
-    [core, getZoom, group, nodeId, nodeType, position, size, snap, strategy, transient, updateHoverGroup]
+    [
+      core,
+      getZoom,
+      group,
+      nodeConfig.snapMaxThresholdWorld,
+      nodeId,
+      nodeType,
+      position,
+      size,
+      snap,
+      strategy,
+      transient,
+      updateHoverGroup
+    ]
   )
 
   const onPointerUp = useCallback(

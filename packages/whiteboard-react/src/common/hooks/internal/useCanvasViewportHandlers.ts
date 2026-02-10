@@ -8,6 +8,7 @@ type Options = {
   maxZoom?: number
   enablePan?: boolean
   enableWheel?: boolean
+  wheelSensitivity?: number
 }
 
 type DragState = {
@@ -24,7 +25,8 @@ export const useCanvasViewportHandlers = ({
   minZoom = 0.1,
   maxZoom = 4,
   enablePan = true,
-  enableWheel = true
+  enableWheel = true,
+  wheelSensitivity = instance.runtime.config.viewport.wheelSensitivity
 }: Options) => {
   const dragRef = useRef<DragState | null>(null)
 
@@ -84,7 +86,7 @@ export const useCanvasViewportHandlers = ({
       const anchor = instance.runtime.viewport.screenToWorld(
         instance.runtime.viewport.clientToScreen(event.clientX, event.clientY)
       )
-      const factor = Math.exp(-event.deltaY * 0.001)
+      const factor = Math.exp(-event.deltaY * wheelSensitivity)
       const nextZoom = clamp(zoom * factor, minZoom, maxZoom)
       const appliedFactor = nextZoom / zoom
       if (appliedFactor === 1) return
@@ -94,7 +96,7 @@ export const useCanvasViewportHandlers = ({
         anchor
       })
     },
-    [enableWheel, instance, maxZoom, minZoom]
+    [enableWheel, instance, maxZoom, minZoom, wheelSensitivity]
   )
 
   return {

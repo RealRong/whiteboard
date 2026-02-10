@@ -14,9 +14,17 @@ export const createEdgeConnectCommands = (
   const { query } = instance
   const { store } = instance.state
 
+  const anchorSnapOptions = {
+    snapMin: config.edge.anchorSnapMin,
+    snapRatio: config.edge.anchorSnapRatio
+  }
+
   const getEdgeSnapAtPoint = (point: Point): ConnectTo | undefined => {
     const snapThresholdWorld =
-      Math.max(12, Math.min(config.nodeSize.width, config.nodeSize.height) * 0.18) / Math.max(viewport.getZoom(), 0.0001)
+      Math.max(
+        config.edge.anchorSnapMin,
+        Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
+      ) / Math.max(viewport.getZoom(), 0.0001)
     const nodeRects = query.getCanvasNodeRects()
     let best:
       | {
@@ -35,7 +43,7 @@ export const createEdgeConnectCommands = (
       const outsideDistance = Math.hypot(dx, dy)
       if (outsideDistance > snapThresholdWorld) continue
 
-      const { anchor, point: anchorPoint } = getAnchorFromPoint(entry.rect, entry.rotation, point)
+      const { anchor, point: anchorPoint } = getAnchorFromPoint(entry.rect, entry.rotation, point, anchorSnapOptions)
       const distance = Math.hypot(anchorPoint.x - point.x, anchorPoint.y - point.y)
       if (!best || distance < best.distance) {
         best = {
@@ -70,7 +78,7 @@ export const createEdgeConnectCommands = (
   const startFromPoint = (nodeId: NodeId, pointWorld: Point, pointerId?: number) => {
     const entry = query.getCanvasNodeRectById(nodeId)
     if (!entry) return
-    const { anchor } = getAnchorFromPoint(entry.rect, entry.rotation, pointWorld)
+    const { anchor } = getAnchorFromPoint(entry.rect, entry.rotation, pointWorld, anchorSnapOptions)
     setStoreAtom(store, edgeConnectAtom, {
       isConnecting: true,
       from: { nodeId, anchor },

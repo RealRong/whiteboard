@@ -179,12 +179,18 @@ export const createInstanceQuery = ({
     }
   }
 
+  const getAnchorFromPointWithConfig: WhiteboardInstanceQuery['getAnchorFromPoint'] = (rect, rotation, point) =>
+    getAnchorFromPoint(rect, rotation, point, {
+      snapMin: config.edge.anchorSnapMin,
+      snapRatio: config.edge.anchorSnapRatio
+    })
+
   return {
     getCanvasNodeRects,
     getCanvasNodeRectById,
     getNodeIdsInRect,
     isCanvasBackgroundTarget,
-    getAnchorFromPoint,
+    getAnchorFromPoint: getAnchorFromPointWithConfig,
     getEdgeConnectFromPoint,
     getEdgeConnectToPoint,
     getEdgeResolvedEndpoints,
