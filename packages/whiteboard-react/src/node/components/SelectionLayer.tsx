@@ -11,17 +11,12 @@ export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
   if (!resolvedRect) return null
   return (
     <div
+      className="wb-selection-layer"
       style={{
-        position: 'absolute',
         left: resolvedRect.x,
         top: resolvedRect.y,
         width: resolvedRect.width,
-        height: resolvedRect.height,
-        border: '1px solid rgba(59, 130, 246, 0.9)',
-        background: 'rgba(59, 130, 246, 0.12)',
-        borderRadius: 4,
-        pointerEvents: 'none',
-        zIndex: 10
+        height: resolvedRect.height
       }}
     />
   )

@@ -1,23 +1,8 @@
 import type { Edge, Point } from '@whiteboard/core'
-import type { KeyboardEvent, MouseEvent, PointerEvent, RefObject } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useInstance } from '../../common/hooks'
-
-const HANDLE_SIZE = 10
-
-const EDGE_CONTROL_POINT_HANDLE_CLASS = 'wb-edge-control-point-handle'
-
-const EDGE_CONTROL_POINT_HANDLE_STYLE = `
-.${EDGE_CONTROL_POINT_HANDLE_CLASS} {
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
-  transition: box-shadow 120ms ease;
-}
-.${EDGE_CONTROL_POINT_HANDLE_CLASS}:hover,
-.${EDGE_CONTROL_POINT_HANDLE_CLASS}:focus-visible,
-.${EDGE_CONTROL_POINT_HANDLE_CLASS}[data-active='true'] {
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-}
-`
+import { useInstance, useVisibleEdges } from '../../common/hooks'
+import { useEdgeConnectLayerState } from '../hooks'
 
 type DragState = {
   pointerId: number
@@ -28,21 +13,23 @@ type DragState = {
 }
 
 type EdgeControlPointHandlesProps = {
-  edges: Edge[]
-  selectedEdgeId?: string
-  containerRef?: RefObject<HTMLElement | null>
-  screenToWorld?: (point: Point) => Point
+  onMovePoint?: (edge: Edge, index: number, pointWorld: Point) => void
+  onRemovePoint?: (edge: Edge, index: number) => void
 }
 
 export const EdgeControlPointHandles = ({
-  edges,
-  selectedEdgeId,
-  containerRef,
-  screenToWorld
+  onMovePoint,
+  onRemovePoint
 }: EdgeControlPointHandlesProps) => {
   const instance = useInstance()
+  const visibleEdges = useVisibleEdges()
+  const { selectedEdgeId: stateSelectedEdgeId } = useEdgeConnectLayerState()
   const dragRef = useRef<DragState | null>(null)
-  const edge = selectedEdgeId ? edges.find((item) => item.id === selectedEdgeId) : undefined
+  const containerRef = instance.runtime.containerRef
+  const screenToWorld = instance.runtime.viewport.screenToWorld
+  const movePoint = onMovePoint ?? instance.commands.edge.moveRoutingPoint
+  const removePoint = onRemovePoint ?? instance.commands.edge.removeRoutingPoint
+  const edge = stateSelectedEdgeId ? visibleEdges.find((item) => item.id === stateSelectedEdgeId) : undefined
   const points = edge?.routing?.points ?? []
   const hasPoints = points.length > 0
   const editable = edge && edge.type !== 'bezier' && edge.type !== 'curve'
@@ -54,13 +41,9 @@ export const EdgeControlPointHandles = ({
 
   const getWorldPoint = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (screenToWorld && containerRef?.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-        return screenToWorld(screenPoint)
-      }
-      const rect = event.currentTarget.getBoundingClientRect()
-      return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      const rect = containerRef.current!.getBoundingClientRect()
+      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      return screenToWorld(screenPoint)
     },
     [containerRef, screenToWorld]
   )
@@ -68,9 +51,9 @@ export const EdgeControlPointHandles = ({
   const updatePoints = useCallback(
     (index: number, pointWorld: Point) => {
       if (!edge) return
-      instance.commands.edge.moveRoutingPoint(edge, index, pointWorld)
+      movePoint(edge, index, pointWorld)
     },
-    [edge, instance]
+    [edge, movePoint]
   )
 
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
@@ -116,21 +99,18 @@ export const EdgeControlPointHandles = ({
     if (!edge) return
     event.preventDefault()
     event.stopPropagation()
-    instance.commands.edge.removeRoutingPoint(edge, index)
+    removePoint(edge, index)
   }
 
   if (!editable || !hasPoints) return null
 
-  const handleHalfExpr = `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1) / 2)`
-
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 8 }}>
-      <style>{EDGE_CONTROL_POINT_HANDLE_STYLE}</style>
+    <div className="wb-edge-control-point-layer">
       {points.map((point, index) => (
         <div
           key={`${edge.id}-point-${index}`}
           data-selection-ignore
-          className={EDGE_CONTROL_POINT_HANDLE_CLASS}
+          className="wb-edge-control-point-handle"
           data-active={index === activeIndex ? 'true' : undefined}
           onPointerDown={handlePointerDown(index)}
           onPointerMove={handlePointerMove(index)}
@@ -147,7 +127,7 @@ export const EdgeControlPointHandles = ({
             event.preventDefault()
             event.stopPropagation()
             const nextPoints = points.filter((_, idx) => idx !== index)
-            instance.commands.edge.removeRoutingPoint(edge, index)
+            removePoint(edge, index)
             if (nextPoints.length === 0) {
               setActiveIndex(null)
               return
@@ -155,23 +135,10 @@ export const EdgeControlPointHandles = ({
             setActiveIndex(Math.min(index, nextPoints.length - 1))
           }}
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
-            height: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
-            borderRadius: 999,
-            background: '#ffffff',
-            border:
-              index === activeIndex
-                ? 'calc(2px / var(--wb-zoom, 1)) solid #1d4ed8'
-                : 'calc(2px / var(--wb-zoom, 1)) solid #2563eb',
-            cursor: 'grab',
-            transform: `translate(calc(${point.x}px - ${handleHalfExpr}), calc(${point.y}px - ${handleHalfExpr})) ${
-              index === activeIndex ? 'scale(1.08)' : 'scale(1)'
-            }`,
-            pointerEvents: 'auto'
-          }}
+            '--wb-edge-control-point-x': point.x,
+            '--wb-edge-control-point-y': point.y,
+            '--wb-edge-control-point-scale': index === activeIndex ? 1.08 : 1
+          } as CSSProperties}
           tabIndex={0}
         />
       ))}

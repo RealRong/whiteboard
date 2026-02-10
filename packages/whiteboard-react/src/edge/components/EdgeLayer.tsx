@@ -1,66 +1,21 @@
-import type { Edge, Point } from '@whiteboard/core'
-import type { RefObject } from 'react'
-import type { EdgeConnectState } from 'types/state'
-import { useEdgeGeometry, useEdgeHitTest } from '../hooks'
+import { useEdgeConnectLayerState, useEdgeGeometry, useEdgeHitTest } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
+import { useVisibleEdges } from '../../common/hooks'
 
 type EdgeLayerProps = {
-  edges: Edge[]
-  zoom?: number
-  containerRef?: RefObject<HTMLElement | null>
-  screenToWorld?: (point: Point) => Point
   hitTestThresholdScreen?: number
-  selectedEdgeId?: string
-  onSelectEdge?: (id?: string) => void
-  onInsertPoint?: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
-  connectState?: EdgeConnectState
 }
 
-const EDGE_LAYER_STYLE = `
-.wb-edge-item .wb-edge-visible-path {
-  transition: stroke 120ms ease, stroke-width 120ms ease, opacity 120ms ease;
-}
-.wb-edge-item .wb-edge-hover-path {
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.wb-edge-item .wb-edge-hit-path:hover + .wb-edge-visible-path + .wb-edge-hover-path,
-.wb-edge-item .wb-edge-hit-path:focus-visible + .wb-edge-visible-path + .wb-edge-hover-path {
-  opacity: 1;
-}
-.wb-edge-item[data-selected='true'] .wb-edge-hover-path {
-  opacity: 0;
-}
-`
+export const EdgeLayer = ({ hitTestThresholdScreen = 10 }: EdgeLayerProps) => {
+  const visibleEdges = useVisibleEdges()
+  const { state, selectedEdgeId: stateSelectedEdgeId } = useEdgeConnectLayerState()
 
-export const EdgeLayer = ({
-  edges,
-  zoom = 1,
-  containerRef,
-  screenToWorld,
-  hitTestThresholdScreen = 10,
-  selectedEdgeId,
-  onSelectEdge,
-  onInsertPoint,
-  connectState
-}: EdgeLayerProps) => {
-  const paths = useEdgeGeometry({ edges, connectState })
-  const { handlePathPointerDown, handlePathClick } = useEdgeHitTest({
-    containerRef,
-    screenToWorld,
-    onInsertPoint,
-    onSelectEdge
-  })
+  const paths = useEdgeGeometry({ edges: visibleEdges, connectState: state })
+  const { handlePathPointerDown, handlePathClick } = useEdgeHitTest()
 
   return (
-    <svg
-      width="100%"
-      height="100%"
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}
-      data-zoom={zoom}
-    >
-      <style>{EDGE_LAYER_STYLE}</style>
+    <svg width="100%" height="100%" className="wb-edge-layer">
       <EdgeMarkerDefs />
       {paths.map((line) => {
         return (
@@ -69,7 +24,7 @@ export const EdgeLayer = ({
             edge={line.edge}
             path={line.path}
             hitTestThresholdScreen={hitTestThresholdScreen}
-            selected={line.id === selectedEdgeId}
+            selected={line.id === stateSelectedEdgeId}
             onPointerDown={handlePathPointerDown(line.edge, line.path.points)}
             onClick={handlePathClick(line.edge, line.path.points)}
           />

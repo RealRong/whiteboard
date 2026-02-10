@@ -68,13 +68,6 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
 
   const containerStyle = useMemo<CSSProperties>(
     () => ({
-      position: 'relative',
-      width: '100%',
-      height: '100%',
-      overflow: 'hidden',
-      background: 'linear-gradient(180deg, #f7f7f8 0%, #ffffff 60%)',
-      touchAction: 'none',
-      userSelect: 'none',
       ...resolvedConfig.style
     }),
     [resolvedConfig.style]
@@ -92,11 +85,11 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
     <NodeRegistryProvider registry={registry}>
       <div
         ref={containerRef}
-        className={resolvedConfig.className}
+        className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
         style={containerStyle}
         tabIndex={0}
       >
-        <div style={{ position: 'absolute', inset: 0, ...transformStyle }}>
+        <div className="wb-root-viewport" style={transformStyle}>
           <EdgeLayerStack />
           <MindmapLayerStack layout={resolvedConfig.mindmapLayout} />
           <DragGuidesLayer />

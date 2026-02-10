@@ -1,46 +1,44 @@
-import type { Point } from '@whiteboard/core'
+import { useActiveTool } from '../../common/hooks'
+import { useEdgeConnectLayerState, useEdgePreview } from '../hooks'
 
-type EdgePreviewLayerProps = {
-  from?: Point
-  to?: Point
-  snap?: Point
-}
+export const EdgePreviewLayer = () => {
+  const tool = useActiveTool()
+  const { state } = useEdgeConnectLayerState()
+  const preview = useEdgePreview({ state })
 
-export const EdgePreviewLayer = ({ from, to, snap }: EdgePreviewLayerProps) => {
-  if (!from && !to && !snap) return null
-  const pointScale = 'scale(calc(1 / var(--wb-zoom, 1)))'
+  const resolvedFrom = state.isConnecting && !state.reconnect ? preview.previewFrom : undefined
+  const resolvedTo = state.isConnecting && !state.reconnect ? preview.previewTo : undefined
+  const resolvedSnap = tool === 'edge' ? preview.hoverSnap : undefined
+
+  if (!resolvedFrom && !resolvedTo && !resolvedSnap) return null
   return (
-    <svg
-      width="100%"
-      height="100%"
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9 }}
-    >
-      {from && to && (
+    <svg width="100%" height="100%" className="wb-edge-preview-layer">
+      {resolvedFrom && resolvedTo && (
         <>
           <line
-            x1={from.x}
-            y1={from.y}
-            x2={to.x}
-            y2={to.y}
+            x1={resolvedFrom.x}
+            y1={resolvedFrom.y}
+            x2={resolvedTo.x}
+            y2={resolvedTo.y}
             stroke="rgba(17,24,39,0.7)"
             strokeWidth={2}
             strokeDasharray="6 4"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={from.x} cy={from.y} r={4} fill="#111827" style={{ transformOrigin: 'center', transform: pointScale }} />
-          <circle cx={to.x} cy={to.y} r={4} fill="#111827" style={{ transformOrigin: 'center', transform: pointScale }} />
+          <circle cx={resolvedFrom.x} cy={resolvedFrom.y} r={4} fill="#111827" className="wb-edge-preview-point" />
+          <circle cx={resolvedTo.x} cy={resolvedTo.y} r={4} fill="#111827" className="wb-edge-preview-point" />
         </>
       )}
-      {snap && (
+      {resolvedSnap && (
         <circle
-          cx={snap.x}
-          cy={snap.y}
+          cx={resolvedSnap.x}
+          cy={resolvedSnap.y}
           r={6}
           fill="rgba(59,130,246,0.2)"
           stroke="#2563eb"
           strokeWidth={2}
           vectorEffect="non-scaling-stroke"
-          style={{ transformOrigin: 'center', transform: pointScale }}
+          className="wb-edge-preview-point"
         />
       )}
     </svg>

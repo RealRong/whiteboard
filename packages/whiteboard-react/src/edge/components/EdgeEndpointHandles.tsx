@@ -1,52 +1,42 @@
-import type { Edge } from '@whiteboard/core'
-import type { PointerEvent } from 'react'
-import { useInstance } from '../../common/hooks'
+import type { CSSProperties, PointerEvent } from 'react'
+import { useInstance, useVisibleEdges } from '../../common/hooks'
+import { useEdgeConnectLayerState } from '../hooks'
 
 type EdgeEndpointHandlesProps = {
-  edges: Edge[]
-  selectedEdgeId?: string
-  onStartReconnect: (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => void
+  onStartReconnect?: (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => void
 }
 
-export const EdgeEndpointHandles = ({
-  edges,
-  selectedEdgeId,
-  onStartReconnect
-}: EdgeEndpointHandlesProps) => {
+export const EdgeEndpointHandles = ({ onStartReconnect }: EdgeEndpointHandlesProps) => {
   const instance = useInstance()
-  const HANDLE_SIZE = 12
-  const handleHalfExpr = `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1) / 2)`
-  if (!selectedEdgeId) return null
-  const edge = edges.find((item) => item.id === selectedEdgeId)
+  const visibleEdges = useVisibleEdges()
+  const { selectedEdgeId: stateSelectedEdgeId } = useEdgeConnectLayerState()
+  if (!stateSelectedEdgeId) return null
+  const edge = visibleEdges.find((item) => item.id === stateSelectedEdgeId)
   if (!edge) return null
   const endpoints = instance.query.getEdgeResolvedEndpoints(edge)
   if (!endpoints) return null
+
+  const handleStartReconnect = onStartReconnect ?? ((edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    instance.commands.edgeConnect.startReconnect(edgeId, end, event.pointerId)
+  })
 
   const renderHandle = (end: 'source' | 'target', point: { x: number; y: number }) => (
     <div
       key={end}
       data-selection-ignore
-      onPointerDown={(event) => onStartReconnect(edge.id, end, event)}
+      className="wb-edge-endpoint-handle"
+      onPointerDown={(event) => handleStartReconnect(edge.id, end, event)}
       style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
-        height: `calc(${HANDLE_SIZE}px / var(--wb-zoom, 1))`,
-        borderRadius: 999,
-        background: '#ffffff',
-        border: 'calc(2px / var(--wb-zoom, 1)) solid #2563eb',
-        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
-        cursor: 'grab',
-        pointerEvents: 'auto',
-        zIndex: 8,
-        transform: `translate(calc(${point.x}px - ${handleHalfExpr}), calc(${point.y}px - ${handleHalfExpr}))`
-      }}
+        '--wb-edge-endpoint-x': point.x,
+        '--wb-edge-endpoint-y': point.y
+      } as CSSProperties}
     />
   )
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+    <div className="wb-edge-endpoint-layer">
       {renderHandle('source', endpoints.source.point)}
       {renderHandle('target', endpoints.target.point)}
     </div>

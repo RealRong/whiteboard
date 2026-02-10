@@ -10,11 +10,7 @@ export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
   const resolvedGuides = guides ?? atomGuides
   if (!resolvedGuides.length) return null
   return (
-    <svg
-      width="100%"
-      height="100%"
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}
-    >
+    <svg width="100%" height="100%" className="wb-drag-guides-layer">
       {resolvedGuides.map((guide, index) => {
         if (guide.axis === 'x') {
           return (

@@ -62,6 +62,7 @@ const TextNodeRenderer = ({
   const content = editing ? (
     <textarea
       data-selection-ignore
+      className="wb-default-text-editor"
       value={draft}
       autoFocus
       onChange={(event) => setDraft(event.target.value)}
@@ -70,31 +71,17 @@ const TextNodeRenderer = ({
       onPointerDown={(event) => {
         event.stopPropagation()
       }}
-      style={{
-        width: '100%',
-        height: '100%',
-        resize: 'none',
-        border: 'none',
-        outline: 'none',
-        background: 'transparent',
-        fontSize: variant === 'sticky' ? 14 : 13,
-        fontFamily: 'inherit',
-        color: '#111827',
-        lineHeight: 1.4
-      }}
+      style={{ fontSize: variant === 'sticky' ? 14 : 13 }}
     />
   ) : (
     <div
+      className="wb-default-text-display"
       onDoubleClick={(event) => {
         event.stopPropagation()
         setEditing(true)
       }}
       style={{
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
         fontSize: variant === 'sticky' ? 14 : 13,
-        lineHeight: 1.4,
-        color: '#111827',
         opacity: selected ? 1 : 0.9
       }}
     >
@@ -137,41 +124,18 @@ const GroupNodeRenderer = ({ core, node }: NodeRenderProps) => {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div className="wb-default-group">
       <div
         data-selection-ignore
-        style={{
-          position: 'absolute',
-          left: 6,
-          top: 6,
-          right: 6,
-          height: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          fontSize: 12,
-          color: '#0f172a',
-          userSelect: 'none'
-        }}
+        className="wb-default-group-header"
       >
         <div
+          className="wb-default-group-toggle"
           data-selection-ignore
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation()
             toggleCollapse()
-          }}
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: 3,
-            border: '1px solid #94a3b8',
-            background: '#f8fafc',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            cursor: 'pointer'
           }}
         >
           {collapsed ? '+' : '-'}
@@ -194,38 +158,22 @@ const GroupNodeRenderer = ({ core, node }: NodeRenderProps) => {
                 setEditing(false)
               }
             }}
-            style={{
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              fontSize: 12,
-              flex: 1
-            }}
+            className="wb-default-group-input"
           />
         ) : (
           <div
+            className="wb-default-group-title"
             onDoubleClick={(event) => {
               event.stopPropagation()
               setEditing(true)
             }}
-            style={{ flex: 1, cursor: 'text' }}
           >
             {title || 'Group'}
           </div>
         )}
       </div>
       {collapsed && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            color: '#64748b'
-          }}
-        >
+        <div className="wb-default-group-collapsed">
           Collapsed
         </div>
       )}

@@ -1,3 +1,5 @@
+import './styles/whiteboard-react.css'
+
 export { Whiteboard } from './Whiteboard'
 export { NodeLayer } from './node/components/NodeLayer'
 export { SelectionLayer } from './node/components/SelectionLayer'

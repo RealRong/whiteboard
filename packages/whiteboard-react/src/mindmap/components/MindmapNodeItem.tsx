@@ -1,9 +1,9 @@
-import type { PointerEvent } from 'react'
+import type { CSSProperties, PointerEvent } from 'react'
 import type { MindmapNodeId, Rect } from '@whiteboard/core'
 import { MindmapAddButton } from './MindmapAddButton'
 import {
-  MINDMAP_NODE_BASE_STYLE,
-  MINDMAP_NODE_LABEL_STYLE,
+  MINDMAP_NODE_ACTIVE_BORDER,
+  MINDMAP_NODE_DEFAULT_BORDER,
   MINDMAP_NODE_TRANSITION
 } from '../constants'
 
@@ -40,10 +40,8 @@ export const MindmapNodeItem = ({
   onPointerCancel,
   onAddChild
 }: MindmapNodeItemProps) => {
-  const border = attachTarget
-    ? `calc(2px / var(--wb-zoom, 1)) solid #2563eb`
-    : `calc(1px / var(--wb-zoom, 1)) solid #111`
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
+  const borderWidth = attachTarget ? MINDMAP_NODE_ACTIVE_BORDER : MINDMAP_NODE_DEFAULT_BORDER
 
   return (
     <div
@@ -56,18 +54,18 @@ export const MindmapNodeItem = ({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
       style={{
-        ...MINDMAP_NODE_BASE_STYLE,
-        left: 0,
-        top: 0,
-        width: rect.width,
-        height: rect.height,
-        border,
-        opacity: dragActive ? 0.35 : 1,
-        transition,
-        transform: `translate(${rect.x + shiftX}px, ${rect.y + shiftY}px)`
-      }}
+        '--wb-mindmap-node-w': `${rect.width}px`,
+        '--wb-mindmap-node-h': `${rect.height}px`,
+        '--wb-mindmap-node-border-w': borderWidth,
+        '--wb-mindmap-node-opacity': dragActive ? 0.35 : 1,
+        '--wb-mindmap-node-transition': transition,
+        '--wb-mindmap-node-tx': `${rect.x + shiftX}px`,
+        '--wb-mindmap-node-ty': `${rect.y + shiftY}px`,
+        '--wb-mindmap-node-border-color': attachTarget ? '#2563eb' : '#111'
+      } as CSSProperties}
+      data-attach-target={attachTarget ? 'true' : undefined}
     >
-      <div style={MINDMAP_NODE_LABEL_STYLE}>{label}</div>
+      <div className="wb-mindmap-node-label">{label}</div>
       {showActions && (
         <div className="wb-mindmap-node-actions" data-selection-ignore>
           <MindmapAddButton placement="up" onClick={() => onAddChild(id, 'up')} />

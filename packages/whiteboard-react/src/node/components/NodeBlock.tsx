@@ -40,7 +40,7 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   return (
     <div
       ref={ref}
-      className={className}
+      className={className ? `wb-node-block ${className}` : 'wb-node-block'}
       data-node-id={nodeId}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -48,23 +48,10 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
         width: rect.width,
         height: rect.height,
-        borderRadius: 8,
         border: `1px solid ${borderColor}`,
-        background: '#ffffff',
         boxShadow,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 12,
-        color: '#1d1d1f',
-        userSelect: 'none',
-        touchAction: 'none',
-        overflow: 'visible',
         ...style
       }}
     >

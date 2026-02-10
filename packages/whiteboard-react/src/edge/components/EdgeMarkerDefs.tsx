@@ -1,16 +1,8 @@
-import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
+import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
 
 export const EdgeMarkerDefs = () => {
   return (
     <>
-      <style>
-        {`
-          @keyframes ${EDGE_DASH_ANIMATION} {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -100; }
-          }
-        `}
-      </style>
       <defs>
         <marker
           id={EDGE_ARROW_END_ID}

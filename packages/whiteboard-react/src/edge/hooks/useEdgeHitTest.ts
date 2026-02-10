@@ -1,25 +1,21 @@
 import { useCallback } from 'react'
 import type { Edge, Point } from '@whiteboard/core'
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react'
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { distancePointToSegment } from '../../common/utils/geometry'
+import { useInstance } from '../../common/hooks'
 
-type Options = {
-  containerRef?: RefObject<HTMLElement | null>
-  screenToWorld?: (point: Point) => Point
-  onSelectEdge?: (id?: string) => void
-  onInsertPoint?: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
-}
+export const useEdgeHitTest = () => {
+  const instance = useInstance()
+  const containerRef = instance.runtime.containerRef
+  const screenToWorld = instance.runtime.viewport.screenToWorld
+  const selectEdge = instance.commands.edge.select
+  const insertPoint = instance.commands.edge.insertRoutingPoint
 
-export const useEdgeHitTest = ({ containerRef, screenToWorld, onSelectEdge, onInsertPoint }: Options) => {
   const getWorldPoint = useCallback(
     (event: { clientX: number; clientY: number; currentTarget: Element }) => {
-      if (screenToWorld && containerRef?.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-        return screenToWorld(screenPoint)
-      }
-      const rect = event.currentTarget.getBoundingClientRect()
-      return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      const rect = containerRef.current!.getBoundingClientRect()
+      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      return screenToWorld(screenPoint)
     },
     [containerRef, screenToWorld]
   )
@@ -43,27 +39,24 @@ export const useEdgeHitTest = ({ containerRef, screenToWorld, onSelectEdge, onIn
       event.preventDefault()
       event.stopPropagation()
       const pointWorld = getWorldPoint(event)
-      if (!pointWorld) return
-      if (event.shiftKey && onInsertPoint) {
+      if (event.shiftKey) {
         const segmentIndex = getSegmentIndexOnPath(pointWorld, pathPoints)
-        onInsertPoint(edge, pathPoints, segmentIndex, pointWorld)
-        onSelectEdge?.(edge.id)
+        insertPoint(edge, pathPoints, segmentIndex, pointWorld)
+        selectEdge(edge.id)
         return
       }
-      onSelectEdge?.(edge.id)
+      selectEdge(edge.id)
     }
 
   const handlePathClick =
     (edge: Edge, pathPoints: Point[]) => (event: ReactMouseEvent<SVGPathElement>) => {
-      if (!onInsertPoint) return
       if (event.detail < 2) return
       event.preventDefault()
       event.stopPropagation()
       const pointWorld = getWorldPoint(event)
-      if (!pointWorld) return
       const segmentIndex = getSegmentIndexOnPath(pointWorld, pathPoints)
-      onInsertPoint(edge, pathPoints, segmentIndex, pointWorld)
-      onSelectEdge?.(edge.id)
+      insertPoint(edge, pathPoints, segmentIndex, pointWorld)
+      selectEdge(edge.id)
     }
 
   return {

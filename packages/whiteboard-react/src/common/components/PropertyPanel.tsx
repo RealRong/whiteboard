@@ -76,14 +76,20 @@ export const PropertyPanel = ({
 
   if (!target) {
     return (
-      <div className={className} style={{ fontSize: 12, color: '#6b7280', ...style }}>
+      <div
+        className={className ? `wb-property-panel-empty ${className}` : 'wb-property-panel-empty'}
+        style={style}
+      >
         {emptyState ?? 'No selection.'}
       </div>
     )
   }
   if (!schema) {
     return (
-      <div className={className} style={{ fontSize: 12, color: '#6b7280', ...style }}>
+      <div
+        className={className ? `wb-property-panel-empty ${className}` : 'wb-property-panel-empty'}
+        style={style}
+      >
         No schema for selected item.
       </div>
     )
@@ -91,7 +97,7 @@ export const PropertyPanel = ({
 
   return (
     <div className={className} style={style}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
+      <div className="wb-property-panel-title">
         {edge ? 'Edge' : 'Node'} · {schema.label ?? schema.type}
       </div>
       <SchemaForm

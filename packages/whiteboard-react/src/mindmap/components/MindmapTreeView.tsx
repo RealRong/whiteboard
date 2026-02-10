@@ -10,24 +10,6 @@ import { useMindmapSubtreeDrag } from '../hooks/useMindmapSubtreeDrag'
 import { computeStaticConnectionLine, getMindmapLabel } from '../utils/mindmapRender'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
-const MINDMAP_TREE_VIEW_STYLE = `
-.wb-mindmap-node-item .wb-mindmap-node-actions {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-.wb-mindmap-node-item:hover .wb-mindmap-node-actions,
-.wb-mindmap-node-item:focus-within .wb-mindmap-node-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-.wb-mindmap-node-item[data-drag-active='true'] .wb-mindmap-node-actions,
-.wb-mindmap-node-item[data-drag-preview-active='true'] .wb-mindmap-node-actions {
-  opacity: 0;
-  pointer-events: none;
-}
-`
-
 type MindmapTreeViewProps = {
   tree: MindmapTree
   mindmapNode: Node
@@ -241,21 +223,8 @@ export const MindmapTreeView = ({
   )
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        pointerEvents: 'auto',
-        transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)`
-      }}
-    >
-      <style>{MINDMAP_TREE_VIEW_STYLE}</style>
-      <svg
-        width={computed.bbox.width}
-        height={computed.bbox.height}
-        style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
-      >
+    <div className="wb-mindmap-tree" style={{ transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)` }}>
+      <svg width={computed.bbox.width} height={computed.bbox.height} className="wb-mindmap-tree-canvas">
         {lines.map((line) => (
           <line
             key={line.id}
@@ -297,11 +266,7 @@ export const MindmapTreeView = ({
       })}
       {dragPreview && (
         <>
-          <svg
-            width={computed.bbox.width}
-            height={computed.bbox.height}
-            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
-          >
+          <svg width={computed.bbox.width} height={computed.bbox.height} className="wb-mindmap-tree-canvas">
             {dragPreview.drop?.connectionLine && (
               <line
                 x1={dragPreview.drop.connectionLine.x1 - baseOffset.x}
@@ -327,16 +292,10 @@ export const MindmapTreeView = ({
             )}
           </svg>
           <div
+            className="wb-mindmap-tree-ghost"
             style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
               width: dragPreview.ghost.width,
               height: dragPreview.ghost.height,
-              borderRadius: 12,
-              border: 'calc(1px / var(--wb-zoom, 1)) dashed #2563eb',
-              background: 'rgba(59, 130, 246, 0.08)',
-              pointerEvents: 'none',
               transform: `translate(${dragPreview.ghost.x - baseOffset.x}px, ${dragPreview.ghost.y - baseOffset.y}px)`
             }}
           />

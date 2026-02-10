@@ -24,7 +24,7 @@ export const NodeLayer = () => {
     return [...background, ...normal, ...overlay]
   }, [nodes])
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+    <div className="wb-node-layer">
       {orderedNodes.map((node) => (
         <NodeItem key={node.id} node={node} />
       ))}

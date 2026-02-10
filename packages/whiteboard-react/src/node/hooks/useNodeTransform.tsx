@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { Core, Point, Rect } from '@whiteboard/core'
 import type { Size } from 'types/common'
 import type { ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
@@ -252,26 +252,18 @@ export const useNodeTransform = ({
           return options.renderHandle(handle, props)
         }
         const half = handleSize / Math.max(getZoom(), 0.0001) / 2
-        const isRotate = handle.kind === 'rotate'
         return (
           <div
             key={handle.id}
             data-selection-ignore
+            data-kind={handle.kind}
+            className="wb-node-transform-handle"
             style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: `calc(${handleSize}px / var(--wb-zoom, 1))`,
-              height: `calc(${handleSize}px / var(--wb-zoom, 1))`,
-              borderRadius: isRotate ? 999 : 3,
-              background: '#ffffff',
-              border: '1px solid #2563eb',
-              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+              '--wb-node-handle-size': `${handleSize}px`,
+              '--wb-node-handle-x': `${handle.position.x - half}px`,
+              '--wb-node-handle-y': `${handle.position.y - half}px`,
               cursor: handle.cursor,
-              pointerEvents: 'auto',
-              zIndex: 9,
-              transform: `translate(${handle.position.x - half}px, ${handle.position.y - half}px)`
-            }}
+            } as CSSProperties}
             {...props}
           />
         )

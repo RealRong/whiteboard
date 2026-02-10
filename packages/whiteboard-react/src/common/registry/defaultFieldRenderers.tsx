@@ -25,13 +25,7 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
           placeholder={field.placeholder}
           disabled={disabled || field.readonly}
           onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            fontSize: 12
-          }}
+          className="wb-field-input"
         />
       )
     ],
@@ -43,15 +37,7 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
           placeholder={field.placeholder}
           disabled={disabled || field.readonly}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
-          style={{
-            width: '100%',
-            minHeight: 72,
-            padding: '6px 8px',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            fontSize: 12,
-            resize: 'vertical'
-          }}
+          className="wb-field-textarea"
         />
       )
     ],
@@ -66,20 +52,14 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
           step={field.step ?? 1}
           disabled={disabled || field.readonly}
           onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(parseNumber(event.target.value))}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            fontSize: 12
-          }}
+          className="wb-field-input"
         />
       )
     ],
     [
       'boolean',
       ({ value, onChange, field, disabled }) => (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+        <label className="wb-field-checkbox-label">
           <input
             type="checkbox"
             checked={Boolean(value)}
@@ -93,7 +73,7 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
     [
       'color',
       ({ value, onChange, field, disabled }) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="wb-field-color-row">
           <input
             type="color"
             value={typeof value === 'string' ? value : '#000000'}
@@ -106,13 +86,7 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
             placeholder={field.placeholder}
             disabled={disabled || field.readonly}
             onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
-            style={{
-              flex: 1,
-              padding: '6px 8px',
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              fontSize: 12
-            }}
+            className="wb-field-input wb-field-color-text"
           />
         </div>
       )
@@ -132,13 +106,7 @@ export const createDefaultFieldRendererRegistry = (): FieldRendererRegistry => {
               const matched = options.find((option) => String(option.value) === raw)
               onChange(matched ? matched.value : raw)
             }}
-            style={{
-              width: '100%',
-              padding: '6px 8px',
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              fontSize: 12
-            }}
+            className="wb-field-select"
           >
             {allowEmpty ? (
               <option value="">{emptyLabel}</option>
