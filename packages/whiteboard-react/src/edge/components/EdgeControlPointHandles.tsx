@@ -1,8 +1,8 @@
 import type { Edge, Point } from '@whiteboard/core'
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useInstance, useVisibleEdges } from '../../common/hooks'
-import { useEdgeConnectLayerState } from '../hooks'
+import { useEffect, useRef, useState } from 'react'
+import { useInstance } from '../../common/hooks'
+import { useEdgeConnectLayerState, useVisibleEdges } from '../hooks'
 
 type DragState = {
   pointerId: number
@@ -25,45 +25,37 @@ export const EdgeControlPointHandles = ({
   const visibleEdges = useVisibleEdges()
   const { selectedEdgeId: stateSelectedEdgeId } = useEdgeConnectLayerState()
   const dragRef = useRef<DragState | null>(null)
-  const containerRef = instance.runtime.containerRef
+  const clientToScreen = instance.runtime.viewport.clientToScreen
   const screenToWorld = instance.runtime.viewport.screenToWorld
   const movePoint = onMovePoint ?? instance.commands.edge.moveRoutingPoint
   const removePoint = onRemovePoint ?? instance.commands.edge.removeRoutingPoint
   const edge = stateSelectedEdgeId ? visibleEdges.find((item) => item.id === stateSelectedEdgeId) : undefined
   const points = edge?.routing?.points ?? []
-  const hasPoints = points.length > 0
-  const editable = edge && edge.type !== 'bezier' && edge.type !== 'curve'
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   useEffect(() => {
     setActiveIndex(null)
   }, [edge?.id])
 
-  const getWorldPoint = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const rect = containerRef.current!.getBoundingClientRect()
-      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      return screenToWorld(screenPoint)
-    },
-    [containerRef, screenToWorld]
-  )
+  if (!edge || points.length === 0 || edge.type === 'bezier' || edge.type === 'curve') return null
 
-  const updatePoints = useCallback(
-    (index: number, pointWorld: Point) => {
-      if (!edge) return
-      movePoint(edge, index, pointWorld)
-    },
-    [edge, movePoint]
-  )
+  const getActiveDrag = (index: number, pointerId: number) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== pointerId || drag.index !== index) return null
+    return drag
+  }
+
+  const removePointAt = (index: number) => {
+    removePoint(edge, index)
+  }
 
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
-    if (!edge) return
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.focus({ preventScroll: true })
     event.currentTarget.setPointerCapture(event.pointerId)
     setActiveIndex(index)
-    const start = getWorldPoint(event)
+    const start = screenToWorld(clientToScreen(event.clientX, event.clientY))
     dragRef.current = {
       pointerId: event.pointerId,
       index,
@@ -74,35 +66,29 @@ export const EdgeControlPointHandles = ({
   }
 
   const handlePointerMove = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
-    if (!edge) return
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId || drag.index !== index) return
-    const current = getWorldPoint(event)
+    const drag = getActiveDrag(index, event.pointerId)
+    if (!drag) return
+    const current = screenToWorld(clientToScreen(event.clientX, event.clientY))
     const dx = current.x - drag.start.x
     const dy = current.y - drag.start.y
     const nextPoint = {
       x: drag.origin.x + dx,
       y: drag.origin.y + dy
     }
-    updatePoints(index, nextPoint)
+    movePoint(edge, index, nextPoint)
   }
 
   const handlePointerUp = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
-    if (!edge) return
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId || drag.index !== index) return
+    if (!getActiveDrag(index, event.pointerId)) return
     dragRef.current = null
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
   const handleDoubleClick = (index: number) => (event: MouseEvent<HTMLDivElement>) => {
-    if (!edge) return
     event.preventDefault()
     event.stopPropagation()
-    removePoint(edge, index)
+    removePointAt(index)
   }
-
-  if (!editable || !hasPoints) return null
 
   return (
     <div className="wb-edge-control-point-layer">
@@ -126,13 +112,13 @@ export const EdgeControlPointHandles = ({
             if (event.key !== 'Backspace' && event.key !== 'Delete') return
             event.preventDefault()
             event.stopPropagation()
-            const nextPoints = points.filter((_, idx) => idx !== index)
-            removePoint(edge, index)
-            if (nextPoints.length === 0) {
+            const nextPointCount = points.length - 1
+            removePointAt(index)
+            if (nextPointCount <= 0) {
               setActiveIndex(null)
               return
             }
-            setActiveIndex(Math.min(index, nextPoints.length - 1))
+            setActiveIndex(Math.min(index, nextPointCount - 1))
           }}
           style={{
             '--wb-edge-control-point-x': point.x,

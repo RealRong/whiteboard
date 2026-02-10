@@ -1,23 +1,25 @@
-import type { Size } from 'types/common'
-import type { ContainerSizeObserverService } from 'types/instance'
+import type { ContainerRect, ContainerSizeObserverService } from 'types/instance'
 
+const getElementRectSnapshot = (element: Element): ContainerRect => {
+  const rect = element.getBoundingClientRect()
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height
+  }
+}
 
 export const createContainerSizeObserverService = (): ContainerSizeObserverService => {
   let observer: ResizeObserver | null = null
   let observedElement: Element | null = null
-  let onSizeChange: ((size: Size) => void) | null = null
-
-  const emit = (width: number, height: number) => {
-    onSizeChange?.({ width, height })
-  }
+  let onRectChange: ((rect: ContainerRect) => void) | null = null
 
   const ensureObserver = () => {
     if (observer || typeof ResizeObserver === 'undefined') return
-    observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const { width, height } = entry.contentRect
-      emit(width, height)
+    observer = new ResizeObserver(() => {
+      if (!observedElement) return
+      onRectChange?.(getElementRectSnapshot(observedElement))
     })
   }
 
@@ -26,21 +28,19 @@ export const createContainerSizeObserverService = (): ContainerSizeObserverServi
     if (element && element !== observedElement) return
     observer?.unobserve(observedElement)
     observedElement = null
-    onSizeChange = null
+    onRectChange = null
   }
 
-  const observe = (element: Element, onSize: (size: Size) => void) => {
-    if (observedElement === element && onSizeChange === onSize) return
+  const observe = (element: Element, onRect: (rect: ContainerRect) => void) => {
+    if (observedElement === element && onRectChange === onRect) return
 
     if (observedElement && observedElement !== element) {
       observer?.unobserve(observedElement)
     }
 
     observedElement = element
-    onSizeChange = onSize
-
-    const rect = element.getBoundingClientRect()
-    emit(rect.width, rect.height)
+    onRectChange = onRect
+    onRectChange(getElementRectSnapshot(element))
 
     if (typeof ResizeObserver === 'undefined') return
     ensureObserver()
@@ -54,7 +54,7 @@ export const createContainerSizeObserverService = (): ContainerSizeObserverServi
     observer?.disconnect()
     observer = null
     observedElement = null
-    onSizeChange = null
+    onRectChange = null
   }
 
   return {

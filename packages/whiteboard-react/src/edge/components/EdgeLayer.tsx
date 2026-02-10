@@ -1,7 +1,6 @@
-import { useEdgeConnectLayerState, useEdgeGeometry, useEdgeHitTest } from '../hooks'
+import { useEdgeConnectLayerState, useEdgeGeometry, useEdgeHitTest, useVisibleEdges } from '../hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
-import { useVisibleEdges } from '../../common/hooks'
 
 type EdgeLayerProps = {
   hitTestThresholdScreen?: number

@@ -9,17 +9,7 @@ export type {
   WhiteboardStateNamespace
 } from './instance'
 
-export type {
-  FieldRenderer,
-  FieldRendererProps,
-  FieldRendererRegistry,
-  PropertyPanelProps,
-  SchemaFormProps,
-  Size,
-  ViewportConfig,
-  WhiteboardConfig,
-  WhiteboardProps
-} from './common'
+export type { Size, ViewportConfig, WhiteboardConfig, WhiteboardProps } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions } from './shortcuts'
 export type {

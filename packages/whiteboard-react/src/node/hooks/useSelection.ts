@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react'
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { Size } from 'types/common'
-import type { SelectionMode, SelectionState } from 'types/state'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { NodeId, Point, Rect } from '@whiteboard/core'
+import type { SelectionMode } from 'types/state'
 import type {
   SelectionHandlers,
   UseSelectionOptions,
@@ -10,18 +9,12 @@ import type {
   UseSelectionRuntimeReturn,
   UseSelectionStateReturn
 } from 'types/node'
-import { canvasNodesAtom, edgeSelectionAtom, nodeSelectionAtom, spacePressedAtom, toolAtom } from '../../common/state'
+import { edgeSelectionAtom, nodeSelectionAtom, spacePressedAtom, toolAtom } from '../../common/state'
 import {
   useInstance,
-  useInstanceAtomValue,
-  useWhiteboardConfig
+  useInstanceAtomValue
 } from '../../common/hooks'
-import {
-  getNodeRect,
-  rectContainsRotatedRect,
-  rectFromPoints,
-  rectIntersectsRotatedRect
-} from '../../common/utils/geometry'
+import { rectFromPoints } from '../../common/utils/geometry'
 import { getSelectionModeFromEvent } from '../utils/selection'
 
 export const useSelectionState = (): UseSelectionStateReturn => {
@@ -58,7 +51,6 @@ export const useSelectionState = (): UseSelectionStateReturn => {
 
 export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelectionRuntimeReturn => {
   const instance = useInstance()
-  const { nodeSize: fallbackNodeSize } = useWhiteboardConfig()
 
   const startRef = useRef<Point | null>(null)
   const modeRef = useRef<SelectionMode>('replace')
@@ -67,17 +59,15 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
 
   const minDragDistance = options.minDragDistance ?? 3
   const enabled = options.enabled ?? true
-  const containerRef = options.containerRef ?? instance.runtime.containerRef ?? undefined
-  const screenToWorld = options.screenToWorld ?? instance.runtime.viewport.screenToWorld ?? undefined
-  const getNodes = useCallback(() => options.nodes ?? instance.state.get(canvasNodesAtom), [instance, options.nodes])
-  const nodeSize = options.nodeSize ?? fallbackNodeSize
+  const containerRef = instance.runtime.containerRef
+  const clientToScreen = instance.runtime.viewport.clientToScreen
+  const screenToWorld = instance.runtime.viewport.screenToWorld
   const isSelectionToolEnabled = useCallback(() => {
-    if (options.enabled === false) return false
+    if (!enabled) return false
     return instance.state.get(toolAtom) !== 'edge'
-  }, [instance, options.enabled])
+  }, [enabled, instance])
 
   const getModeFromEvent = useCallback(getSelectionModeFromEvent, [])
-  const getClickModeFromEvent = getModeFromEvent
 
   const select = useCallback(
     (ids: NodeId[], mode: SelectionMode = 'replace') => {
@@ -101,21 +91,11 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
 
   const hitTest = useCallback(
     (rectWorld: Rect, mode: SelectionMode) => {
-      const nodes = getNodes()
-      if (!nodes.length) return
-      const matched: NodeId[] = []
-      nodes.forEach((node) => {
-        const nodeRect = getNodeRect(node, nodeSize as Size)
-        const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-        const hit =
-          node.type === 'group'
-            ? rectContainsRotatedRect(rectWorld, nodeRect, rotation)
-            : rectIntersectsRotatedRect(rectWorld, nodeRect, rotation)
-        if (hit) matched.push(node.id)
-      })
+      const matched = instance.query.getNodeIdsInRect(rectWorld)
+      if (!matched.length) return
       select(matched, mode)
     },
-    [getNodes, nodeSize, select]
+    [instance.query, select]
   )
 
   const updateBox = useCallback(
@@ -123,24 +103,19 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
       const start = startRef.current
       if (!start) return
       const rectScreen = rectFromPoints(start, pointScreen)
-      let rectWorld: Rect | undefined
-      if (screenToWorld) {
-        const startWorld = screenToWorld({ x: rectScreen.x, y: rectScreen.y })
-        const endWorld = screenToWorld({
-          x: rectScreen.x + rectScreen.width,
-          y: rectScreen.y + rectScreen.height
-        })
-        rectWorld = rectFromPoints(startWorld, endWorld)
-      }
+      const startWorld = screenToWorld({ x: rectScreen.x, y: rectScreen.y })
+      const endWorld = screenToWorld({
+        x: rectScreen.x + rectScreen.width,
+        y: rectScreen.y + rectScreen.height
+      })
+      const rectWorld = rectFromPoints(startWorld, endWorld)
       isSelectingRef.current = true
       instance.commands.selection.updateBox(rectScreen, rectWorld)
-      if (rectWorld) {
-        if (rafRef.current !== null) return
-        rafRef.current = window.requestAnimationFrame(() => {
-          rafRef.current = null
-          hitTest(rectWorld as Rect, modeRef.current)
-        })
-      }
+      if (rafRef.current !== null) return
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null
+        hitTest(rectWorld, modeRef.current)
+      })
     },
     [hitTest, instance, screenToWorld]
   )
@@ -161,28 +136,12 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
 
   const handlers = useMemo(() => {
     if (!enabled) return undefined
-    if (!containerRef || !screenToWorld) return undefined
     const container = containerRef
 
     const getScreenPoint = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
       const element = container.current
       if (!element) return null
-      const rect = element.getBoundingClientRect()
-      return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      }
-    }
-
-    const isEventOnEmptyCanvas = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
-      const element = container.current
-      if (!element) return false
-      const target = event.target as HTMLElement
-      if (!element.contains(target)) return false
-      if (target.closest('[data-node-id]')) return false
-      if (target.closest('[data-mindmap-node-id]')) return false
-      if (target.closest('[data-selection-ignore]')) return false
-      return true
+      return clientToScreen(event.clientX, event.clientY)
     }
 
     return {
@@ -190,7 +149,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
         if (!isSelectionToolEnabled()) return
         if (event.button !== 0) return
         if (instance.state.get(spacePressedAtom)) return
-        if (!isEventOnEmptyCanvas(event)) return
+        if (!instance.query.isCanvasBackgroundTarget(event.target)) return
         const point = getScreenPoint(event)
         if (!point) return
         beginBox(point, getModeFromEvent('nativeEvent' in event ? event.nativeEvent : event))
@@ -228,7 +187,7 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
     getModeFromEvent,
     isSelectionToolEnabled,
     minDragDistance,
-    screenToWorld,
+    clientToScreen,
     instance,
     updateBox
   ])
@@ -239,11 +198,10 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
       updateBox,
       endBox,
       getModeFromEvent,
-      getClickModeFromEvent,
       handlers,
       cancelPendingRaf
     }),
-    [beginBox, cancelPendingRaf, endBox, getClickModeFromEvent, getModeFromEvent, handlers, updateBox]
+    [beginBox, cancelPendingRaf, endBox, getModeFromEvent, handlers, updateBox]
   )
 }
 

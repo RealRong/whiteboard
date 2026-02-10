@@ -6,19 +6,10 @@ import { useInstance } from '../../common/hooks'
 
 export const useEdgeHitTest = () => {
   const instance = useInstance()
-  const containerRef = instance.runtime.containerRef
+  const clientToScreen = instance.runtime.viewport.clientToScreen
   const screenToWorld = instance.runtime.viewport.screenToWorld
   const selectEdge = instance.commands.edge.select
   const insertPoint = instance.commands.edge.insertRoutingPoint
-
-  const getWorldPoint = useCallback(
-    (event: { clientX: number; clientY: number; currentTarget: Element }) => {
-      const rect = containerRef.current!.getBoundingClientRect()
-      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      return screenToWorld(screenPoint)
-    },
-    [containerRef, screenToWorld]
-  )
 
   const getSegmentIndexOnPath = useCallback((pointWorld: Point, pathPoints: Point[]) => {
     let min = Number.POSITIVE_INFINITY
@@ -33,16 +24,23 @@ export const useEdgeHitTest = () => {
     return minIndex
   }, [])
 
+  const insertPointAtClient = useCallback(
+    (edge: Edge, pathPoints: Point[], clientX: number, clientY: number) => {
+      const pointWorld = screenToWorld(clientToScreen(clientX, clientY))
+      const segmentIndex = getSegmentIndexOnPath(pointWorld, pathPoints)
+      insertPoint(edge, pathPoints, segmentIndex, pointWorld)
+      selectEdge(edge.id)
+    },
+    [clientToScreen, getSegmentIndexOnPath, insertPoint, screenToWorld, selectEdge]
+  )
+
   const handlePathPointerDown =
     (edge: Edge, pathPoints: Point[]) => (event: ReactPointerEvent<SVGPathElement>) => {
       if (event.button !== 0) return
       event.preventDefault()
       event.stopPropagation()
-      const pointWorld = getWorldPoint(event)
       if (event.shiftKey) {
-        const segmentIndex = getSegmentIndexOnPath(pointWorld, pathPoints)
-        insertPoint(edge, pathPoints, segmentIndex, pointWorld)
-        selectEdge(edge.id)
+        insertPointAtClient(edge, pathPoints, event.clientX, event.clientY)
         return
       }
       selectEdge(edge.id)
@@ -53,10 +51,7 @@ export const useEdgeHitTest = () => {
       if (event.detail < 2) return
       event.preventDefault()
       event.stopPropagation()
-      const pointWorld = getWorldPoint(event)
-      const segmentIndex = getSegmentIndexOnPath(pointWorld, pathPoints)
-      insertPoint(edge, pathPoints, segmentIndex, pointWorld)
-      selectEdge(edge.id)
+      insertPointAtClient(edge, pathPoints, event.clientX, event.clientY)
     }
 
   return {

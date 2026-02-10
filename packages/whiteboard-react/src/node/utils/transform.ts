@@ -44,18 +44,6 @@ export const getResizeSourceEdges = (
 
 export const rotateVector = (vector: Point, rotation: number) => rotatePoint(vector, { x: 0, y: 0 }, rotation)
 
-export const getWorldPointFromClient = (options: {
-  clientX: number
-  clientY: number
-  container: HTMLElement | null | undefined
-  screenToWorld?: (point: Point) => Point
-}) => {
-  const { clientX, clientY, container, screenToWorld } = options
-  if (!container || !screenToWorld) return null
-  const rect = container.getBoundingClientRect()
-  return screenToWorld({ x: clientX - rect.left, y: clientY - rect.top })
-}
-
 export const buildTransformHandles = (options: {
   rect: Rect
   rotation: number

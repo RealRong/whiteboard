@@ -1,42 +1,63 @@
 import { useCallback, useMemo, useRef } from 'react'
 import type { PointerEvent } from 'react'
-import type { Core, Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core'
 import { computeSnap } from '../utils/snap'
 import { selectNodeDragStrategy } from '../runtime/drag'
+import { useInstance, useInstanceAtomValue, useWhiteboardConfig } from '../../common/hooks'
+import { groupRuntimeAtom } from '../state/groupRuntimeAtom'
+import { snapRuntimeDataAtom } from '../state/snapRuntimeAtom'
 import type {
   DragState,
-  NodeDragGroupOptions,
-  NodeDragHandlers,
-  NodeDragSnapOptions,
-  NodeDragTransientApi
+  NodeDragHandlers
 } from 'types/node'
 
 
 type UseNodeDragOptions = {
-  core: Core
-  nodeId: Node['id']
-  nodeType: Node['type']
-  position: Node['position']
-  size: { width: number; height: number }
-  getZoom?: () => number
-  snap?: NodeDragSnapOptions
-  group?: NodeDragGroupOptions
-  transient?: NodeDragTransientApi
+  node: Node
 }
 
 const SNAP_MAX_THRESHOLD_WORLD = 24
 
-export const useNodeDrag = ({
-  core,
-  nodeId,
-  nodeType,
-  position,
-  size,
-  getZoom,
-  snap,
-  group,
-  transient
-}: UseNodeDragOptions): NodeDragHandlers => {
+export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
+  const instance = useInstance()
+  const { nodeSize } = useWhiteboardConfig()
+  const groupRuntime = useInstanceAtomValue(groupRuntimeAtom)
+  const snapRuntimeData = useInstanceAtomValue(snapRuntimeDataAtom)
+  const core = instance.runtime.core
+  const getZoom = instance.runtime.viewport.getZoom
+  const nodeId = node.id
+  const nodeType = node.type
+  const position = node.position
+  const size = useMemo(
+    () => ({
+      width: node.size?.width ?? nodeSize.width,
+      height: node.size?.height ?? nodeSize.height
+    }),
+    [node.size?.height, node.size?.width, nodeSize.height, nodeSize.width]
+  )
+  const group = useMemo(
+    () => ({
+      ...groupRuntime,
+      setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
+    }),
+    [groupRuntime, instance]
+  )
+  const snap = useMemo(
+    () => ({
+      ...snapRuntimeData,
+      onGuidesChange: instance.commands.transient.dragGuides.set
+    }),
+    [instance, snapRuntimeData]
+  )
+  const transient = useMemo(
+    () => ({
+      setOverrides: instance.commands.transient.nodeOverrides.set,
+      clearOverrides: instance.commands.transient.nodeOverrides.clear,
+      commitOverrides: instance.commands.transient.nodeOverrides.commit
+    }),
+    [instance]
+  )
+
   const dragRef = useRef<DragState | null>(null)
   const hoverGroupRef = useRef<Node['id'] | undefined>(undefined)
 
@@ -86,13 +107,13 @@ export const useNodeDrag = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       const dx = event.clientX - drag.start.x
       const dy = event.clientY - drag.start.y
-      const zoom = Math.max(getZoom?.() ?? 1, 0.0001)
+      const zoom = Math.max(getZoom(), 0.0001)
       let nextX = drag.origin.x + dx / zoom
       let nextY = drag.origin.y + dy / zoom
 
-      if (snap?.enabled) {
+      if (snap.enabled) {
         const thresholdWorld = Math.min(
-          snap.thresholdScreen / Math.max(getZoom?.() ?? 1, 0.0001),
+          snap.thresholdScreen / Math.max(getZoom(), 0.0001),
           SNAP_MAX_THRESHOLD_WORLD
         )
         const movingRect: Rect = { x: nextX, y: nextY, width: size.width, height: size.height }
@@ -111,7 +132,7 @@ export const useNodeDrag = ({
         })
         if (result.dx !== undefined) nextX += result.dx
         if (result.dy !== undefined) nextY += result.dy
-        snap.onGuidesChange?.(result.guides)
+        snap.onGuidesChange(result.guides)
       }
 
       drag.last = { x: nextX, y: nextY }
@@ -139,7 +160,7 @@ export const useNodeDrag = ({
       if (!drag || drag.pointerId !== event.pointerId) return
       dragRef.current = null
       event.currentTarget.releasePointerCapture(event.pointerId)
-      snap?.onGuidesChange?.([])
+      snap.onGuidesChange([])
 
       strategy.handlePointerUp({
         core,

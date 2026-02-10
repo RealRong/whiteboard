@@ -1,13 +1,8 @@
-import type { Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { Size } from '../common'
+import type { NodeId, Point, Rect } from '@whiteboard/core'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { SelectionMode } from '../state'
 
 export type UseSelectionOptions = {
-  containerRef?: RefObject<HTMLElement>
-  screenToWorld?: (point: Point) => Point
-  nodes?: Node[]
-  nodeSize?: Size
   minDragDistance?: number
   enabled?: boolean
 }
@@ -34,7 +29,6 @@ export type UseSelectionRuntimeReturn = {
   updateBox: (pointScreen: Point) => void
   endBox: () => void
   getModeFromEvent: (event: PointerEvent | MouseEvent) => SelectionMode
-  getClickModeFromEvent: (event: PointerEvent | MouseEvent) => SelectionMode
   handlers?: SelectionHandlers
   cancelPendingRaf: () => void
 }

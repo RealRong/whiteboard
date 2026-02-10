@@ -12,9 +12,7 @@ export { EdgeEndpointHandles } from './edge/components/EdgeEndpointHandles'
 export { EdgePreviewLayer } from './edge/components/EdgePreviewLayer'
 export { EdgeControlPointHandles } from './edge/components/EdgeControlPointHandles'
 export { MindmapLayer } from './mindmap/components/MindmapLayer'
-export { PropertyPanel } from './common/components/PropertyPanel'
-export { SchemaForm } from './common/components/SchemaForm'
-export { useInstance, useViewportRuntime, useWhiteboardConfig } from './common/hooks'
+export { useInstance, useWhiteboardConfig } from './common/hooks'
 export { useNodeInteraction } from './node/hooks/useNodeInteraction'
 export { useNodePresentation } from './node/hooks/useNodePresentation'
 export { useSnapRuntime } from './node/hooks/useSnapRuntime'
@@ -25,12 +23,6 @@ export { useEdgeConnect } from './edge/hooks/useEdgeConnect'
 export { useMindmapLayout } from './mindmap/hooks/useMindmapLayout'
 export { createNodeRegistry, NodeRegistryProvider, useNodeRegistry } from './node/registry'
 export { createDefaultNodeRegistry } from './node/registry'
-export {
-  createFieldRendererRegistry,
-  FieldRendererRegistryProvider,
-  useFieldRendererRegistry
-} from './common/registry/fieldRegistry'
-export { createDefaultFieldRendererRegistry } from './common/registry/defaultFieldRenderers'
 export { createDefaultShortcuts, createShortcutManager, getPlatformInfo } from './common/shortcuts'
 export { createWhiteboardInstance } from './common/instance'
 export * from './node/utils/snap'

@@ -94,7 +94,12 @@ export const createWhiteboardInstance = ({
     }
   }
 
-  const query = createInstanceQuery({ store, config })
+  const query = createInstanceQuery({
+    store,
+    config,
+    getViewportZoom: viewport.getZoom,
+    getContainer
+  })
 
   const instance = {
     state,

@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react'
-import type { PointerEvent, RefObject } from 'react'
-import type { Core, MindmapNodeId, MindmapTree, Node, Point, Rect } from '@whiteboard/core'
+import type { PointerEvent } from 'react'
+import type { Core, MindmapNodeId, MindmapTree, Node, Rect } from '@whiteboard/core'
 import { getSide } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from 'types/mindmap'
 import type { Size } from 'types/common'
+import { useInstance } from '../../common/hooks'
 import { useMindmapLayout } from '../hooks/useMindmapLayout'
 import { useMindmapRootDrag } from '../hooks/useMindmapRootDrag'
 import { useMindmapSubtreeDrag } from '../hooks/useMindmapSubtreeDrag'
@@ -16,8 +17,6 @@ type MindmapTreeViewProps = {
   nodeSize: Size
   layout: MindmapLayoutConfig
   core: Core
-  screenToWorld: (point: Point) => Point
-  containerRef?: RefObject<HTMLElement | null>
 }
 
 export const MindmapTreeView = ({
@@ -25,10 +24,11 @@ export const MindmapTreeView = ({
   mindmapNode,
   nodeSize,
   layout,
-  core,
-  screenToWorld,
-  containerRef
+  core
 }: MindmapTreeViewProps) => {
+  const instance = useInstance()
+  const clientToScreen = instance.runtime.viewport.clientToScreen
+  const screenToWorld = instance.runtime.viewport.screenToWorld
   const computed = useMindmapLayout({
     tree,
     nodeSize,
@@ -41,14 +41,9 @@ export const MindmapTreeView = ({
 
   const getWorldPoint = useCallback(
     (event: PointerEvent<HTMLElement>) => {
-      const element = containerRef?.current
-      if (element) {
-        const rect = element.getBoundingClientRect()
-        return screenToWorld({ x: event.clientX - rect.left, y: event.clientY - rect.top })
-      }
-      return screenToWorld({ x: event.clientX, y: event.clientY })
+      return screenToWorld(clientToScreen(event.clientX, event.clientY))
     },
-    [containerRef, screenToWorld]
+    [clientToScreen, screenToWorld]
   )
 
   const { baseOffset, startRootDrag, updateRootDrag, endRootDrag, cancelRootDrag } = useMindmapRootDrag({

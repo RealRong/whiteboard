@@ -1,51 +1,22 @@
 import { useCallback, useMemo } from 'react'
 import type { PointerEvent } from 'react'
 import type { NodeHandleSide, NodeContainerHandlers, UseNodeInteractionOptions } from 'types/node'
-import { useActiveTool, useInstance, useWhiteboardConfig } from '../../common/hooks'
-import { useGroupRuntime } from './useGroupRuntime'
-import { useSnapRuntime } from './useSnapRuntime'
-import { useNodeTransient } from './useNodeTransient'
+import { useActiveTool, useInstance } from '../../common/hooks'
 import { useNodeDrag } from './useNodeDrag'
 import { getSelectionModeFromEvent } from '../utils/selection'
 
 
 export const useNodeInteraction = ({ node }: UseNodeInteractionOptions) => {
   const instance = useInstance()
-  const { nodeSize } = useWhiteboardConfig()
   const activeTool = useActiveTool()
-  const groupRuntime = useGroupRuntime()
-  const snapRuntime = useSnapRuntime()
-  const transientRuntime = useNodeTransient()
-
-  const size = useMemo(
-    () => ({
-      width: node.size?.width ?? nodeSize.width,
-      height: node.size?.height ?? nodeSize.height
-    }),
-    [node.size?.height, node.size?.width, nodeSize.height, nodeSize.width]
-  )
-
-  const dragHandlers = useNodeDrag({
-    core: instance.runtime.core,
-    nodeId: node.id,
-    nodeType: node.type,
-    position: node.position,
-    size,
-    getZoom: instance.runtime.viewport.getZoom,
-    snap: snapRuntime,
-    group: groupRuntime,
-    transient: transientRuntime
-  })
+  const clientToScreen = instance.runtime.viewport.clientToScreen
+  const screenToWorld = instance.runtime.viewport.screenToWorld
+  const dragHandlers = useNodeDrag({ node })
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (activeTool === 'edge') {
-        const container = instance.runtime.containerRef.current
-        const screenToWorld = instance.runtime.viewport.screenToWorld
-        if (!container || !screenToWorld) return
-        const rect = container.getBoundingClientRect()
-        const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-        const worldPoint = screenToWorld(screenPoint)
+        const worldPoint = screenToWorld(clientToScreen(event.clientX, event.clientY))
         const handled = instance.commands.edgeConnect.handleNodePointerDown(node.id, worldPoint, event.pointerId)
         if (!handled) return
         event.preventDefault()
@@ -64,7 +35,7 @@ export const useNodeInteraction = ({ node }: UseNodeInteractionOptions) => {
 
       dragHandlers.onPointerDown(event)
     },
-    [activeTool, dragHandlers, instance, node.id]
+    [activeTool, clientToScreen, dragHandlers, instance, node.id, screenToWorld]
   )
 
   const handleEdgeHandlePointerDown = useCallback(

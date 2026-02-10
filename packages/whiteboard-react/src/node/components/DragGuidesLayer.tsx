@@ -1,12 +1,13 @@
 import type { Guide } from 'types/node/snap'
-import { useDragGuides } from '../hooks'
+import { useInstanceAtomValue } from '../../common/hooks'
+import { dragGuidesAtom } from '../state/dragGuidesAtom'
 
 type DragGuidesLayerProps = {
   guides?: Guide[]
 }
 
 export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
-  const { guides: atomGuides } = useDragGuides()
+  const atomGuides = useInstanceAtomValue(dragGuidesAtom)
   const resolvedGuides = guides ?? atomGuides
   if (!resolvedGuides.length) return null
   return (

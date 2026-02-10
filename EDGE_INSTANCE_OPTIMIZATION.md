@@ -5,7 +5,7 @@
 - 用户提到的 `src/edge`，在当前仓库中对应路径为：`packages/whiteboard-react/src/edge`。
 - 本文基于 `AGENTS.md` 的架构约束（`instance` 四域：`state/runtime/query/commands`，写入仅走 `instance.commands`，Hooks 语义化且纯粹）进行分析。
 - 本文只给重构设计与迁移步骤，不包含代码实现。
-
+5
 ---
 
 ## 1. 当前目录快照（现状）

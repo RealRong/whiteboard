@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
-import type { RefObject } from 'react'
-import type { Core, Node, Point } from '@whiteboard/core'
+import type { Core, Node } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from 'types/mindmap'
 import type { Size } from 'types/common'
 import { MindmapTreeView } from './MindmapTreeView'
@@ -11,11 +10,9 @@ type MindmapLayerProps = {
   nodeSize: Size
   layout: MindmapLayoutConfig
   core: Core
-  screenToWorld: (point: Point) => Point
-  containerRef?: RefObject<HTMLElement | null>
 }
 
-export const MindmapLayer = ({ nodes, nodeSize, layout, core, screenToWorld, containerRef }: MindmapLayerProps) => {
+export const MindmapLayer = ({ nodes, nodeSize, layout, core }: MindmapLayerProps) => {
   const mindmapNodes = useMemo(() => nodes.filter((node) => node.type === 'mindmap'), [nodes])
   if (!mindmapNodes.length) return null
   return (
@@ -31,8 +28,6 @@ export const MindmapLayer = ({ nodes, nodeSize, layout, core, screenToWorld, con
             nodeSize={nodeSize}
             layout={layout}
             core={core}
-            screenToWorld={screenToWorld}
-            containerRef={containerRef}
           />
         )
       })}

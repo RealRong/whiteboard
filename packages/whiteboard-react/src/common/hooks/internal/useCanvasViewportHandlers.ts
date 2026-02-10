@@ -1,12 +1,10 @@
 import { useCallback, useRef } from 'react'
-import type { RefObject } from 'react'
 import type { Point } from '@whiteboard/core'
 import type { WhiteboardInstance } from 'types/instance'
 import { spacePressedAtom } from '../../state'
 
 type Options = {
   instance: WhiteboardInstance
-  containerRef: RefObject<HTMLElement | null>
   minZoom?: number
   maxZoom?: number
   enablePan?: boolean
@@ -22,9 +20,8 @@ type DragState = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-export const useViewportControls = ({
+export const useCanvasViewportHandlers = ({
   instance,
-  containerRef,
   minZoom = 0.1,
   maxZoom = 4,
   enablePan = true,
@@ -83,13 +80,11 @@ export const useViewportControls = ({
   const onWheel = useCallback(
     (event: WheelEvent) => {
       if (!enableWheel) return
-      const element = containerRef.current
-      if (!element) return
       event.preventDefault()
       const zoom = instance.runtime.viewport.getZoom()
-      const rect = element.getBoundingClientRect()
-      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      const anchor = instance.runtime.viewport.screenToWorld(screenPoint)
+      const anchor = instance.runtime.viewport.screenToWorld(
+        instance.runtime.viewport.clientToScreen(event.clientX, event.clientY)
+      )
       const factor = Math.exp(-event.deltaY * 0.001)
       const nextZoom = clamp(zoom * factor, minZoom, maxZoom)
       const appliedFactor = nextZoom / zoom
@@ -100,7 +95,7 @@ export const useViewportControls = ({
         anchor
       })
     },
-    [containerRef, enableWheel, instance, maxZoom, minZoom]
+    [enableWheel, instance, maxZoom, minZoom]
   )
 
   return {

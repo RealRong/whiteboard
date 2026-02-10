@@ -1,8 +1,7 @@
 import { atom } from 'jotai'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
 import { getPlatformInfo } from '../shortcuts/shortcutManager'
-import type { ShortcutContext } from 'types/shortcuts'
-import type { EdgeConnectState, InteractionState, SelectionMode, SelectionState } from 'types/state'
+import type { EdgeConnectState, InteractionState, SelectionState } from 'types/state'
 import { docAtom } from './whiteboardContextAtoms'
 
 const createNodeSelectionState = (): SelectionState => ({
@@ -13,7 +12,7 @@ const createNodeSelectionState = (): SelectionState => ({
   selectionRectWorld: undefined
 })
 
-export const platformAtom = atom<ShortcutContext['platform']>(getPlatformInfo())
+export const platformAtom = atom<ReturnType<typeof getPlatformInfo>>(getPlatformInfo())
 
 export const interactionAtom = atom<InteractionState>({
   focus: {
@@ -69,34 +68,3 @@ export const edgeConnectAtom = atom<EdgeConnectState>({
 })
 
 export const edgeConnectTransientAtom = edgeConnectAtom
-
-export const shortcutContextAtom = atom<ShortcutContext>((get) => {
-  const platform = get(platformAtom)
-  const interaction = get(interactionAtom)
-  const tool = get(toolAtom)
-  const selection = get(nodeSelectionAtom)
-  const selectedEdgeId = get(edgeSelectionAtom)
-  const viewport = get(viewportAtom)
-  const edgeConnect = get(edgeConnectAtom)
-  const selectedNodeIds = Array.from(selection.selectedNodeIds)
-  return {
-    platform,
-    focus: interaction.focus,
-    tool: { active: tool },
-    selection: {
-      count: selectedNodeIds.length,
-      hasSelection: selectedNodeIds.length > 0,
-      selectedNodeIds,
-      selectedEdgeId
-    },
-    hover: interaction.hover,
-    pointer: {
-      ...interaction.pointer,
-      isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
-    },
-    viewport: {
-      zoom: viewport.zoom
-    }
-  }
-})
-

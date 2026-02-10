@@ -1,6 +1,6 @@
 import type { CSSProperties, PointerEvent } from 'react'
-import { useInstance, useVisibleEdges } from '../../common/hooks'
-import { useEdgeConnectLayerState } from '../hooks'
+import { useInstance } from '../../common/hooks'
+import { useEdgeConnectLayerState, useVisibleEdges } from '../hooks'
 
 type EdgeEndpointHandlesProps = {
   onStartReconnect?: (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => void

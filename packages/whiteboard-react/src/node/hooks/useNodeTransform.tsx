@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { Core, Point, Rect } from '@whiteboard/core'
 import type { Size } from 'types/common'
@@ -11,8 +11,7 @@ import {
   buildTransformHandles,
   computeNextRotation,
   computeResizeRect,
-  getResizeSourceEdges,
-  getWorldPointFromClient
+  getResizeSourceEdges
 } from '../utils/transform'
 
 
@@ -35,12 +34,6 @@ type DragState =
       center: Point
     }
 
-type TransformState = {
-  isResizing: boolean
-  isRotating: boolean
-  activeHandleId?: string
-}
-
 export const useNodeTransform = ({
   node,
   enabled,
@@ -56,12 +49,11 @@ export const useNodeTransform = ({
   const snap = useSnapRuntime()
   const resolvedActiveTool = activeTool ?? 'select'
   const resolvedEnabled = enabled ?? (resolvedActiveTool === 'select' && Boolean(selected))
-  const containerRef = instance.runtime.containerRef ?? undefined
-  const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
+  const clientToScreen = instance.runtime.viewport.clientToScreen
+  const screenToWorld = instance.runtime.viewport.screenToWorld
   const getZoom = instance.runtime.viewport.getZoom
   const core: Core = instance.runtime.core
   const dragRef = useRef<DragState | null>(null)
-  const [state, setState] = useState<TransformState>({ isResizing: false, isRotating: false })
 
   const rect = useMemo(() => getNodeRect(node, nodeSize), [node, nodeSize])
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
@@ -79,7 +71,6 @@ export const useNodeTransform = ({
 
   const endDrag = useCallback(() => {
     dragRef.current = null
-    setState({ isResizing: false, isRotating: false, activeHandleId: undefined })
   }, [])
 
   const handlePointerDown = useCallback(
@@ -103,17 +94,10 @@ export const useNodeTransform = ({
           startSize: { width: startRect.width, height: startRect.height },
           startAspect: startRect.width / Math.max(startRect.height, 0.0001)
         }
-        setState({ isResizing: true, isRotating: false, activeHandleId: handle.id })
         return
       }
       if (handle.kind === 'rotate' && canRotate) {
-        const worldPoint = getWorldPointFromClient({
-          clientX: event.clientX,
-          clientY: event.clientY,
-          container: containerRef?.current,
-          screenToWorld
-        })
-        if (!worldPoint) return
+        const worldPoint = screenToWorld(clientToScreen(event.clientX, event.clientY))
         const center = getRectCenter(rect)
         const startAngle = Math.atan2(worldPoint.y - center.y, worldPoint.x - center.x)
         dragRef.current = {
@@ -123,10 +107,9 @@ export const useNodeTransform = ({
           startRotation: rotation,
           center
         }
-        setState({ isResizing: false, isRotating: true, activeHandleId: handle.id })
       }
     },
-    [canRotate, containerRef, node.locked, rect, resolvedEnabled, rotation, screenToWorld]
+    [canRotate, clientToScreen, node.locked, rect, resolvedEnabled, rotation, screenToWorld]
   )
 
   const handlePointerMove = useCallback(
@@ -197,13 +180,7 @@ export const useNodeTransform = ({
         return
       }
       if (drag.mode === 'rotate') {
-        const worldPoint = getWorldPointFromClient({
-          clientX: event.clientX,
-          clientY: event.clientY,
-          container: containerRef?.current,
-          screenToWorld
-        })
-        if (!worldPoint) return
+        const worldPoint = screenToWorld(clientToScreen(event.clientX, event.clientY))
         const nextRotation = computeNextRotation({
           center: drag.center,
           currentPoint: worldPoint,
@@ -220,7 +197,7 @@ export const useNodeTransform = ({
         })
       }
     },
-    [containerRef, core, getZoom, minSize.height, minSize.width, node.id, rotation, screenToWorld, snap]
+    [clientToScreen, core, getZoom, minSize.height, minSize.width, node.id, rotation, screenToWorld, snap]
   )
 
   const handlePointerUp = useCallback(
@@ -274,7 +251,6 @@ export const useNodeTransform = ({
 
   return {
     handles,
-    state,
     getHandleProps,
     renderHandles
   }

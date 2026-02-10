@@ -19,8 +19,6 @@ export const MindmapLayerStack = ({ layout }: MindmapLayerStackProps) => {
       nodeSize={nodeSize}
       layout={layout}
       core={instance.runtime.core}
-      screenToWorld={instance.runtime.viewport.screenToWorld}
-      containerRef={instance.runtime.containerRef}
     />
   )
 }

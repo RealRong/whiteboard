@@ -1,15 +1,37 @@
 import { getEdgePath } from '@whiteboard/core'
 import type { Store, WhiteboardInstanceConfig, WhiteboardInstanceQuery } from 'types/instance'
-import { canvasNodesAtom } from '../../state'
-import { getAnchorPoint, getNodeAABB, getNodeRect, getRectCenter } from '../../utils/geometry'
+import {
+  canvasNodesAtom,
+  edgeConnectAtom,
+  edgeSelectionAtom,
+  interactionAtom,
+  nodeSelectionAtom,
+  platformAtom,
+  toolAtom
+} from '../../state'
+import {
+  getAnchorPoint,
+  getNodeAABB,
+  getNodeRect,
+  getRectCenter,
+  rectContainsRotatedRect,
+  rectIntersectsRotatedRect
+} from '../../utils/geometry'
 import { getAnchorFromPoint, getAutoAnchorFromRect } from '../edge/edgeConnectUtils'
 
 type CreateInstanceQueryOptions = {
   store: Store
   config: WhiteboardInstanceConfig
+  getViewportZoom: () => number
+  getContainer: () => HTMLDivElement | null
 }
 
-export const createInstanceQuery = ({ store, config }: CreateInstanceQueryOptions): WhiteboardInstanceQuery => {
+export const createInstanceQuery = ({
+  store,
+  config,
+  getViewportZoom,
+  getContainer
+}: CreateInstanceQueryOptions): WhiteboardInstanceQuery => {
   let cachedNodes = store.get(canvasNodesAtom)
   let cachedRects = cachedNodes.map((node) => ({
     node,
@@ -36,6 +58,26 @@ export const createInstanceQuery = ({ store, config }: CreateInstanceQueryOption
   const getCanvasNodeRectById: WhiteboardInstanceQuery['getCanvasNodeRectById'] = (nodeId) => {
     getCanvasNodeRects()
     return cachedById.get(nodeId)
+  }
+
+  const getNodeIdsInRect: WhiteboardInstanceQuery['getNodeIdsInRect'] = (rect) =>
+    getCanvasNodeRects()
+      .filter((entry) => {
+        if (entry.node.type === 'group') {
+          return rectContainsRotatedRect(rect, entry.rect, entry.rotation)
+        }
+        return rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
+      })
+      .map((entry) => entry.node.id)
+
+  const isCanvasBackgroundTarget: WhiteboardInstanceQuery['isCanvasBackgroundTarget'] = (target) => {
+    const container = getContainer()
+    if (!(target instanceof HTMLElement)) return false
+    if (!container?.contains(target)) return false
+    if (target.closest('[data-node-id]')) return false
+    if (target.closest('[data-mindmap-node-id]')) return false
+    if (target.closest('[data-selection-ignore]')) return false
+    return true
   }
 
   const getEdgeResolvedEndpoints: WhiteboardInstanceQuery['getEdgeResolvedEndpoints'] = (edge) => {
@@ -107,13 +149,46 @@ export const createInstanceQuery = ({ store, config }: CreateInstanceQueryOption
     }
   }
 
+  const getShortcutContext: WhiteboardInstanceQuery['getShortcutContext'] = () => {
+    const platform = store.get(platformAtom)
+    const interaction = store.get(interactionAtom)
+    const tool = store.get(toolAtom)
+    const selection = store.get(nodeSelectionAtom)
+    const selectedEdgeId = store.get(edgeSelectionAtom)
+    const edgeConnect = store.get(edgeConnectAtom)
+    const selectedNodeIds = Array.from(selection.selectedNodeIds)
+
+    return {
+      platform,
+      focus: interaction.focus,
+      tool: { active: tool },
+      selection: {
+        count: selectedNodeIds.length,
+        hasSelection: selectedNodeIds.length > 0,
+        selectedNodeIds,
+        selectedEdgeId
+      },
+      hover: interaction.hover,
+      pointer: {
+        ...interaction.pointer,
+        isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
+      },
+      viewport: {
+        zoom: getViewportZoom()
+      }
+    }
+  }
+
   return {
     getCanvasNodeRects,
     getCanvasNodeRectById,
+    getNodeIdsInRect,
+    isCanvasBackgroundTarget,
     getAnchorFromPoint,
     getEdgeConnectFromPoint,
     getEdgeConnectToPoint,
     getEdgeResolvedEndpoints,
-    getEdgePathEntry
+    getEdgePathEntry,
+    getShortcutContext
   }
 }

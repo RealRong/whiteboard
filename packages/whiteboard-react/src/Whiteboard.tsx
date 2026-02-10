@@ -1,15 +1,19 @@
 import { useMemo, useRef } from 'react'
-import { createCore, type Core, type Document } from '@whiteboard/core'
+import { createCore, type Core, type Viewport } from '@whiteboard/core'
 import type { CSSProperties } from 'react'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
-import { useViewportRuntime } from './common/hooks'
 import { useWhiteboardContextHydration, useWhiteboardLifecycle } from './common/lifecycle'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from './common/utils/geometry'
 import { createWhiteboardInstance } from './common/instance'
 import { MindmapLayerStack } from './mindmap/components'
+
+const DEFAULT_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
+}
 
 const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, config }: WhiteboardProps) => {
   const resolvedConfig = {
@@ -59,11 +63,7 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
       }),
     [core, docRef, resolvedConfig.mindmapNodeSize, resolvedConfig.nodeSize]
   )
-  const { transformStyle } = useViewportRuntime({
-    viewport: doc.viewport,
-    containerRef,
-    instance
-  })
+
   useWhiteboardContextHydration(doc, instance)
 
   const containerStyle = useMemo<CSSProperties>(
@@ -73,7 +73,18 @@ const WhiteboardInner = ({ doc, onDocChange, core: externalCore, nodeRegistry, c
     [resolvedConfig.style]
   )
 
+  const viewport = doc.viewport ?? DEFAULT_VIEWPORT
+  const transformStyle = useMemo<CSSProperties>(
+    () => ({
+      transform: `translate(50%, 50%) scale(${viewport.zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
+      transformOrigin: '0 0',
+      ['--wb-zoom' as const]: `${viewport.zoom}`
+    }),
+    [viewport.center.x, viewport.center.y, viewport.zoom]
+  )
+
   useWhiteboardLifecycle({
+    viewport: doc.viewport,
     shortcutsProp: resolvedConfig.shortcuts,
     tool: resolvedConfig.tool,
     viewportConfig: resolvedConfig.viewport,

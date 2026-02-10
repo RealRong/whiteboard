@@ -1,8 +1,9 @@
 import { useCallback } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import type { ShortcutContext } from 'types/shortcuts'
-import type { ShortcutManager } from 'types/shortcuts'
+import type { ShortcutContext, ShortcutManager } from 'types/shortcuts'
 import type { InteractionState } from 'types/state'
+
+type ShortcutNativeEvent = KeyboardEvent | PointerEvent
 
 type Options = {
   shortcutManager: ShortcutManager
@@ -15,6 +16,63 @@ const isEditableElement = (target: EventTarget | null) => {
   if (target.isContentEditable) return true
   if (target.closest('input, textarea, select')) return true
   return false
+}
+
+const assembleShortcutContext = (
+  getShortcutContext: () => ShortcutContext,
+  event?: ShortcutNativeEvent
+): ShortcutContext => {
+  const shortcutContext = getShortcutContext()
+  const activeElement = typeof document !== 'undefined' ? document.activeElement : null
+  const isEditingTarget = isEditableElement(event?.target ?? null)
+  const isInputFocused = isEditableElement(activeElement)
+  const isImeComposing =
+    typeof KeyboardEvent !== 'undefined' && event instanceof KeyboardEvent ? event.isComposing : false
+
+  const modifiers = event
+    ? {
+        alt: event.altKey ?? false,
+        shift: event.shiftKey ?? false,
+        ctrl: event.ctrlKey ?? false,
+        meta: event.metaKey ?? false
+      }
+    : shortcutContext.pointer.modifiers
+
+  const pointer = {
+    ...shortcutContext.pointer,
+    button:
+      typeof PointerEvent !== 'undefined' && event instanceof PointerEvent
+        ? (event.button as 0 | 1 | 2)
+        : shortcutContext.pointer.button,
+    modifiers
+  }
+
+  return {
+    ...shortcutContext,
+    focus: {
+      isEditingText: isEditingTarget,
+      isInputFocused,
+      isImeComposing
+    },
+    pointer
+  }
+}
+
+const dispatchShortcut = ({
+  mode,
+  shortcutManager,
+  event,
+  context
+}: {
+  mode: 'pointer' | 'key'
+  shortcutManager: ShortcutManager
+  event: ShortcutNativeEvent
+  context: ShortcutContext
+}) => {
+  if (mode === 'pointer') {
+    return shortcutManager.handlePointerDown(event as PointerEvent, context)
+  }
+  return shortcutManager.handleKeyDown(event as KeyboardEvent, context)
 }
 
 export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updateInteraction }: Options) => {
@@ -32,53 +90,21 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
     [updateInteraction]
   )
 
-  const buildEventFocus = useCallback((event?: KeyboardEvent | PointerEvent) => {
-    const activeElement = typeof document !== 'undefined' ? document.activeElement : null
-    const isEditingTarget = isEditableElement(event?.target ?? null)
-    const isInputFocused = isEditableElement(activeElement)
-    const isComposing =
-      typeof KeyboardEvent !== 'undefined' && event instanceof KeyboardEvent ? event.isComposing : false
-    return {
-      isEditingText: isEditingTarget,
-      isInputFocused,
-      isImeComposing: isComposing
-    }
-  }, [])
-
-  const buildEventModifiers = useCallback(
-    (event?: KeyboardEvent | PointerEvent) => {
-      const shortcutContext = getShortcutContext()
-      if (!event) {
-        return shortcutContext.pointer.modifiers
-      }
-      return {
-        alt: event.altKey ?? false,
-        shift: event.shiftKey ?? false,
-        ctrl: event.ctrlKey ?? false,
-        meta: event.metaKey ?? false
-      }
-    },
+  const buildShortcutContext = useCallback(
+    (event?: ShortcutNativeEvent) => assembleShortcutContext(getShortcutContext, event),
     [getShortcutContext]
   )
 
-  const buildShortcutContext = useCallback(
-    (event?: KeyboardEvent | PointerEvent) => {
-      const shortcutContext = getShortcutContext()
-      const focus = buildEventFocus(event)
-      const modifiers = buildEventModifiers(event)
-      const isPointerEvent = typeof PointerEvent !== 'undefined' && event instanceof PointerEvent
-      const pointer = {
-        ...shortcutContext.pointer,
-        button: isPointerEvent ? (event.button as 0 | 1 | 2) : shortcutContext.pointer.button,
-        modifiers
-      }
-      return {
-        ...shortcutContext,
-        focus,
-        pointer
-      }
+  const runShortcutDispatch = useCallback(
+    (mode: 'pointer' | 'key', event: ShortcutNativeEvent, context: ShortcutContext) => {
+      return dispatchShortcut({
+        mode,
+        shortcutManager,
+        event,
+        context
+      })
     },
-    [buildEventFocus, buildEventModifiers, getShortcutContext]
+    [shortcutManager]
   )
 
   const handlePointerDownCapture = useCallback(
@@ -86,7 +112,7 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
       const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event
       const ctx = buildShortcutContext(nativeEvent)
       applyInteractionSnapshot(ctx)
-      const handled = shortcutManager.handlePointerDown(nativeEvent, ctx)
+      const handled = runShortcutDispatch('pointer', nativeEvent, ctx)
       if (handled) {
         event.preventDefault()
         event.stopPropagation()
@@ -94,7 +120,7 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
       }
       onUnhandled?.()
     },
-    [applyInteractionSnapshot, buildShortcutContext, shortcutManager]
+    [applyInteractionSnapshot, buildShortcutContext, runShortcutDispatch]
   )
 
   const handleKeyDown = useCallback(
@@ -102,13 +128,13 @@ export const useShortcutHandlers = ({ shortcutManager, getShortcutContext, updat
       const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event
       const ctx = buildShortcutContext(nativeEvent)
       applyInteractionSnapshot(ctx)
-      const handled = shortcutManager.handleKeyDown(nativeEvent, ctx)
+      const handled = runShortcutDispatch('key', nativeEvent, ctx)
       if (handled) {
         event.preventDefault()
         event.stopPropagation()
       }
     },
-    [applyInteractionSnapshot, buildShortcutContext, shortcutManager]
+    [applyInteractionSnapshot, buildShortcutContext, runShortcutDispatch]
   )
 
   return { handlePointerDownCapture, handleKeyDown }

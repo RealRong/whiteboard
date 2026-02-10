@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { PropertyPanel, Whiteboard } from '@whiteboard/react'
+import { Whiteboard } from '@whiteboard/react'
 import { createCore, type Document, type Plugin, type SchemaField } from '@whiteboard/core'
 import { produce } from 'immer'
 import './App.css'
@@ -253,8 +253,6 @@ function App() {
     }
   }))
   const [tool, setTool] = useState<'select' | 'edge'>('select')
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined)
   const docRef = useRef(doc)
   const applyRef = useRef<(recipe: (draft: Document) => void) => void>(() => {})
   const coreRef = useRef(createCore({ getState: () => docRef.current, apply: (recipe) => applyRef.current(recipe) }))
@@ -276,20 +274,6 @@ function App() {
   }, [])
 
   const core = coreRef.current
-
-  const handleSelectionChange = (ids: string[]) => {
-    setSelectedNodeIds(ids)
-    if (ids.length > 0) {
-      setSelectedEdgeId(undefined)
-    }
-  }
-
-  const handleEdgeSelectionChange = (id?: string) => {
-    setSelectedEdgeId(id)
-    if (id) {
-      setSelectedNodeIds([])
-    }
-  }
 
   return (
     <div className="app-root">
@@ -323,19 +307,7 @@ function App() {
         onDocChange={handleDocChange}
         tool={tool}
         core={core}
-        onSelectionChange={handleSelectionChange}
-        onEdgeSelectionChange={handleEdgeSelectionChange}
       />
-      <div className="property-panel">
-        <PropertyPanel
-          core={core}
-          doc={doc}
-          onDocChange={handleDocChange}
-          selectedNodeId={selectedNodeIds[0]}
-          selectedEdgeId={selectedEdgeId}
-          emptyState="选择节点或连线查看属性"
-        />
-      </div>
     </div>
   )
 }

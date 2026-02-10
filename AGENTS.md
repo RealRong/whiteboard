@@ -83,6 +83,11 @@ Always reply in Chinese.
   - Prefer CSS `calc(... / var(--wb-zoom, 1))` for handle sizes, offsets, border widths, icon/font sizes.
   - Prefer `vectorEffect="non-scaling-stroke"` for SVG lines/paths that should keep screen-space stroke width.
   - Keep zoom model single-source: document viewport in Jotai/core state, runtime geometry in instance, visual scaling in CSS vars.
+  - Coordinate conversion chain for pointer events:
+    - Prefer `instance.runtime.viewport.clientToScreen(clientX, clientY)` as the single entry for raw DOM event coordinates.
+    - Then compose `screenToWorld(screenPoint)` when world coordinates are needed; avoid ad-hoc `getBoundingClientRect()` math in feature hooks/components.
+    - Keep conversion responsibilities in `runtime.viewport`; keep semantic hit-test/target query in `instance.query`.
+    - `clientToWorld` may exist as a convenience shortcut, but in UI event handlers prefer explicit two-step conversion for readability and consistency.
   - Decision rule:
     - If it is interaction logic math: getter first.
     - If it is visual scale only: CSS variable first.

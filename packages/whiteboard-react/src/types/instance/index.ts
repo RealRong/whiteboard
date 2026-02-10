@@ -11,8 +11,8 @@ import type {
 } from '../state'
 import type { Guide } from '../node/snap'
 import type { Size } from '../common'
-import type { ShortcutManager } from '../shortcuts'
-import type { ContainerSizeObserverService, NodeSizeObserverService } from './services'
+import type { ShortcutContext, ShortcutManager } from '../shortcuts'
+import type { ContainerRect, ContainerSizeObserverService, NodeSizeObserverService } from './services'
 
 export type Store = ReturnType<typeof getDefaultStore>
 
@@ -75,22 +75,19 @@ export type WhiteboardEdgeConnectAnchorResult = {
   point: Point
 }
 
+export type WhiteboardContainerRect = ContainerRect
+
 export type WhiteboardInstanceQuery = {
   getCanvasNodeRects: () => WhiteboardCanvasNodeRect[]
   getCanvasNodeRectById: (nodeId: NodeId) => WhiteboardCanvasNodeRect | undefined
+  getNodeIdsInRect: (rect: Rect) => NodeId[]
+  isCanvasBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => WhiteboardEdgeConnectAnchorResult
   getEdgeConnectFromPoint: (from?: EdgeConnectState['from']) => Point | undefined
   getEdgeConnectToPoint: (to?: EdgeConnectState['to']) => Point | undefined
   getEdgeResolvedEndpoints: (edge: Edge) => WhiteboardEdgeResolvedEndpoints | undefined
   getEdgePathEntry: (edge: Edge) => WhiteboardEdgePathEntry | undefined
-}
-
-export type WhiteboardViewportRuntimeState = {
-  viewport: Viewport
-  screenToWorld: (point: Point) => Point
-  worldToScreen: (point: Point) => Point
-  screenCenter: Point
-  containerSize: Size
+  getShortcutContext: () => ShortcutContext
 }
 
 export type WhiteboardViewportRuntime = {
@@ -98,9 +95,12 @@ export type WhiteboardViewportRuntime = {
   getZoom: () => number
   screenToWorld: (point: Point) => Point
   worldToScreen: (point: Point) => Point
+  clientToScreen: (clientX: number, clientY: number) => Point
+  clientToWorld: (clientX: number, clientY: number) => Point
   getScreenCenter: () => Point
   getContainerSize: () => Size
-  set: (next: WhiteboardViewportRuntimeState) => void
+  setViewport: (viewport: Viewport) => void
+  setContainerRect: (rect: WhiteboardContainerRect) => void
 }
 
 export type WhiteboardRuntimeNamespace = {
@@ -143,4 +143,4 @@ export type CreateWhiteboardInstanceOptions = {
   config?: Partial<WhiteboardInstanceConfig>
 }
 
-export type { ContainerSizeObserverService, NodeSizeObserverService } from './services'
+export type { ContainerRect, ContainerSizeObserverService, NodeSizeObserverService } from './services'

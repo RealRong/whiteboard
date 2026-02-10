@@ -1,5 +1,4 @@
 import type { NodeId, Size as CoreSize } from '@whiteboard/core'
-import type { Size } from '../common'
 
 export type NodeSizeObserverService = {
   observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
@@ -7,8 +6,15 @@ export type NodeSizeObserverService = {
   dispose: () => void
 }
 
+export type ContainerRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
 export type ContainerSizeObserverService = {
-  observe: (element: Element, onSize: (size: Size) => void) => void
+  observe: (element: Element, onRect: (rect: ContainerRect) => void) => void
   unobserve: (element?: Element) => void
   dispose: () => void
 }
