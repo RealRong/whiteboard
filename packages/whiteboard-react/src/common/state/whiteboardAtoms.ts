@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
 import { getPlatformInfo } from '../shortcuts/shortcutManager'
-import type { EdgeConnectState, InteractionState, SelectionState } from 'types/state'
+import type { EdgeConnectState, HistoryState, InteractionState, SelectionState } from 'types/state'
 import { docAtom } from './whiteboardContextAtoms'
 
 const createNodeSelectionState = (): SelectionState => ({
@@ -10,6 +10,15 @@ const createNodeSelectionState = (): SelectionState => ({
   mode: 'replace',
   selectionRect: undefined,
   selectionRectWorld: undefined
+})
+
+const createHistoryState = (): HistoryState => ({
+  canUndo: false,
+  canRedo: false,
+  undoDepth: 0,
+  redoDepth: 0,
+  isApplying: false,
+  lastUpdatedAt: undefined
 })
 
 export const platformAtom = atom<ReturnType<typeof getPlatformInfo>>(getPlatformInfo())
@@ -43,6 +52,8 @@ export const toolAtom = atom<string>('select')
 export const nodeSelectionAtom = atom<SelectionState>(createNodeSelectionState())
 
 export const edgeSelectionAtom = atom<EdgeId | undefined>(undefined)
+
+export const historyAtom = atom<HistoryState>(createHistoryState())
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },

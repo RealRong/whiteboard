@@ -40,7 +40,7 @@ Always reply in Chinese.
 ## AI Development Guidelines (English)
 - Use Jotai for shared state; do not introduce React Providers.
 - Aggregate atoms by responsibility; avoid overly granular atoms.
-- Components must not read/write atoms directly; only hooks access atoms.
+- Components may read semantic UI state via useWhiteboardSelector; do not read/write atoms directly or depend on atom implementation details.
 - Hooks are semantic and single-responsibility; avoid `useXxxState/useXxxModel` naming.
 - Prefer small composable hooks; avoid “mega hooks”.
 - Components compose multiple hooks and small components; keep props minimal when data can be read via hooks.

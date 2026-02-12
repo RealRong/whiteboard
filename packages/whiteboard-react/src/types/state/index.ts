@@ -3,6 +3,7 @@ export type {
   EdgeConnectState,
   EdgeConnectTo,
   EdgeReconnectInfo,
+  HistoryState,
   InteractionState,
   SelectionMode,
   SelectionState

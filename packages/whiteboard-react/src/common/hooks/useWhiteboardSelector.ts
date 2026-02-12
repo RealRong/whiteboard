@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   WHITEBOARD_STATE_KEYS,
   type WhiteboardStateKey,
   type WhiteboardStateSnapshot
-} from 'types/instance'
+} from '../../types/instance'
 import { useInstance } from './useInstance'
 
 type Selector<T> = (snapshot: WhiteboardStateSnapshot) => T
@@ -15,6 +15,15 @@ type SelectorOptions<T> = {
 
 const defaultEquality: Equality<unknown> = Object.is
 
+const isSameKeys = (left: WhiteboardStateKey[], right: WhiteboardStateKey[]) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
 export function useWhiteboardSelector<K extends WhiteboardStateKey>(key: K): WhiteboardStateSnapshot[K]
 export function useWhiteboardSelector<T>(selector: Selector<T>, options?: SelectorOptions<T>): T
 
@@ -24,16 +33,20 @@ export function useWhiteboardSelector<T>(
 ): T {
   const instance = useInstance()
   const isKeySelector = typeof keyOrSelector === 'string'
+  const key = isKeySelector ? (keyOrSelector as WhiteboardStateKey) : undefined
   const selector: Selector<T> = isKeySelector
     ? ((snapshot) => snapshot[keyOrSelector] as T)
     : keyOrSelector
-  const keys = useMemo(
-    () =>
-      isKeySelector
-        ? [keyOrSelector as WhiteboardStateKey]
-        : options?.keys ?? [...WHITEBOARD_STATE_KEYS],
-    [isKeySelector, keyOrSelector, options?.keys]
-  )
+
+  const computedKeys = (isKeySelector
+    ? [key as WhiteboardStateKey]
+    : options?.keys ?? WHITEBOARD_STATE_KEYS) as WhiteboardStateKey[]
+  const keysRef = useRef<WhiteboardStateKey[]>(computedKeys)
+  if (!isSameKeys(keysRef.current, computedKeys)) {
+    keysRef.current = computedKeys
+  }
+  const keys = keysRef.current
+
   const equality = (options?.equality ?? defaultEquality) as Equality<T>
 
   const selectorRef = useRef(selector)
@@ -44,16 +57,14 @@ export function useWhiteboardSelector<T>(
   const [selected, setSelected] = useState<T>(() => selector(instance.state.snapshot()))
 
   useEffect(() => {
-    const nextSelected = selector(instance.state.snapshot())
-    setSelected((prev) => (equalityRef.current(prev, nextSelected) ? prev : nextSelected))
-  }, [instance, selector, equality])
-
-  useEffect(() => {
     const updateSelection = () => {
       const nextSelected = selectorRef.current(instance.state.snapshot())
       setSelected((prev) => (equalityRef.current(prev, nextSelected) ? prev : nextSelected))
     }
-    const unsubs = keys.map((key) => instance.state.watch(key, updateSelection))
+
+    updateSelection()
+
+    const unsubs = keys.map((stateKey) => instance.state.watch(stateKey, updateSelection))
     return () => {
       unsubs.forEach((off) => off())
     }

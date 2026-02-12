@@ -5,6 +5,28 @@ import { useInstance } from '../../common/hooks'
 import { useNodeInteraction, useNodePresentation, useNodeTransform } from '../hooks'
 import { NodeBlock } from './NodeBlock'
 
+type NodeTransformHandlesProps = {
+  node: NodeItemProps['node']
+  selected: boolean
+  activeTool: 'select' | 'edge'
+  canRotate: boolean
+}
+
+const NodeTransformHandles = ({
+  node,
+  selected,
+  activeTool,
+  canRotate
+}: NodeTransformHandlesProps) => {
+  const transform = useNodeTransform({
+    node,
+    selected,
+    activeTool,
+    canRotate
+  })
+
+  return <>{transform.renderHandles()}</>
+}
 
 export const NodeItem = ({ node }: NodeItemProps) => {
   const instance = useInstance()
@@ -51,12 +73,7 @@ export const NodeItem = ({ node }: NodeItemProps) => {
     [presentation.definition, renderProps]
   )
 
-  const transform = useNodeTransform({
-    node,
-    selected: presentation.selected,
-    activeTool: presentation.activeTool,
-    canRotate: presentation.canRotate
-  })
+  const shouldMountTransform = presentation.selected && presentation.activeTool === 'select' && !node.locked
 
   return (
     <>
@@ -79,7 +96,14 @@ export const NodeItem = ({ node }: NodeItemProps) => {
           onPointerLeave={containerProps.onPointerLeave}
         />
       )}
-      {transform.renderHandles()}
+      {shouldMountTransform ? (
+        <NodeTransformHandles
+          node={node}
+          selected={presentation.selected}
+          activeTool={presentation.activeTool}
+          canRotate={presentation.canRotate}
+        />
+      ) : null}
     </>
   )
 }

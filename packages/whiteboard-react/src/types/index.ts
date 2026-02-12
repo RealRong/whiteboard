@@ -14,6 +14,7 @@ export type {
   ViewportConfig,
   WhiteboardConfig,
   WhiteboardEdgeConfig,
+  WhiteboardHistoryConfig,
   WhiteboardNodeConfig,
   WhiteboardProps
 } from './common'
@@ -25,6 +26,7 @@ export type {
   EdgeConnectTo,
   EdgeReconnectInfo,
   GroupRuntime,
+  HistoryState,
   InteractionState,
   NodeOverride,
   NodeViewUpdate,
@@ -34,7 +36,6 @@ export type {
 } from './state'
 
 export type {
-  GroupRuntimeStore,
   HandleKind,
   NodeContainerHandlers,
   NodeContainerProps,

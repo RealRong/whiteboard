@@ -17,6 +17,7 @@ import {
   rectContainsRotatedRect,
   rectIntersectsRotatedRect
 } from '../../utils/geometry'
+import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../../../node/utils/snap'
 import { getAnchorFromPoint, getAutoAnchorFromRect } from '../edge/edgeConnectUtils'
 
 type CreateInstanceQueryOptions = {
@@ -40,6 +41,27 @@ export const createInstanceQuery = ({
     rotation: typeof node.rotation === 'number' ? node.rotation : 0
   }))
   let cachedById = new Map(cachedRects.map((entry) => [entry.node.id, entry]))
+
+  const buildSnapCandidatesFromNodes = (nodes: typeof cachedNodes) =>
+    buildSnapCandidates(
+      nodes.map((node) => ({
+        id: node.id,
+        rect: getNodeAABB(node, config.nodeSize)
+      }))
+    )
+  const toSnapGridCellSize = () => Math.max(config.node.snapGridCellSize, config.node.groupPadding * 6)
+
+  let cachedSnapNodes = cachedNodes
+  let cachedSnapCandidates = buildSnapCandidatesFromNodes(cachedSnapNodes)
+  let cachedSnapIndex = createGridIndex(cachedSnapCandidates, toSnapGridCellSize())
+
+  const ensureSnapCache = () => {
+    const nodes = store.get(canvasNodesAtom)
+    if (nodes === cachedSnapNodes) return
+    cachedSnapNodes = nodes
+    cachedSnapCandidates = buildSnapCandidatesFromNodes(nodes)
+    cachedSnapIndex = createGridIndex(cachedSnapCandidates, toSnapGridCellSize())
+  }
 
   const getCanvasNodeRects: WhiteboardInstanceQuery['getCanvasNodeRects'] = () => {
     const nodes = store.get(canvasNodesAtom)
@@ -69,6 +91,16 @@ export const createInstanceQuery = ({
         return rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
       })
       .map((entry) => entry.node.id)
+
+  const getSnapCandidates: WhiteboardInstanceQuery['getSnapCandidates'] = () => {
+    ensureSnapCache()
+    return cachedSnapCandidates
+  }
+
+  const getSnapCandidatesInRect: WhiteboardInstanceQuery['getSnapCandidatesInRect'] = (rect) => {
+    ensureSnapCache()
+    return queryGridIndex(cachedSnapIndex, rect)
+  }
 
   const isCanvasBackgroundTarget: WhiteboardInstanceQuery['isCanvasBackgroundTarget'] = (target) => {
     const container = getContainer()
@@ -189,6 +221,8 @@ export const createInstanceQuery = ({
     getCanvasNodeRects,
     getCanvasNodeRectById,
     getNodeIdsInRect,
+    getSnapCandidates,
+    getSnapCandidatesInRect,
     isCanvasBackgroundTarget,
     getAnchorFromPoint: getAnchorFromPointWithConfig,
     getEdgeConnectFromPoint,

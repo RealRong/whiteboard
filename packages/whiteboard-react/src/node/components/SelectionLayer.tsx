@@ -1,22 +1,30 @@
 import type { Rect } from '@whiteboard/core'
-import { useSelectionState } from '../hooks'
+import { useWhiteboardSelector } from '../../common/hooks'
 
-type SelectionLayerProps = {
-  rect?: Rect
+const isSameRect = (left?: Rect, right?: Rect) => {
+  if (left === right) return true
+  if (!left || !right) return false
+  return left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height
 }
 
-export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
-  const selectionState = useSelectionState()
-  const resolvedRect = rect ?? (selectionState.tool === 'edge' ? undefined : selectionState.selectionRect)
-  if (!resolvedRect) return null
+export const SelectionLayer = () => {
+  const rect = useWhiteboardSelector(
+    (snapshot) => (snapshot.tool === 'edge' ? undefined : snapshot.selection.selectionRect),
+    {
+      keys: ['tool', 'selection'],
+      equality: isSameRect
+    }
+  )
+
+  if (!rect) return null
+
   return (
     <div
       className="wb-selection-layer"
       style={{
-        left: resolvedRect.x,
-        top: resolvedRect.y,
-        width: resolvedRect.width,
-        height: resolvedRect.height
+        transform: `translate(${rect.x}px, ${rect.y}px)`,
+        width: rect.width,
+        height: rect.height
       }}
     />
   )

@@ -1,10 +1,5 @@
-import type { NodeId } from '@whiteboard/core'
 import type { Guide } from './snap'
-import type { GroupRuntime, SnapRuntimeData } from '../state'
-
-export type GroupRuntimeStore = GroupRuntime & {
-  setHoveredGroupId: (groupId?: NodeId) => void
-}
+import type { SnapRuntimeData } from '../state'
 
 export type SnapRuntime = SnapRuntimeData & {
   onGuidesChange: (guides: Guide[]) => void

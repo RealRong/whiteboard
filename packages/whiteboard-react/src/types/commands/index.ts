@@ -14,6 +14,7 @@ import type {
   Viewport
 } from '@whiteboard/core'
 import type { Guide } from '../node/snap'
+import type { NodeDragGroupOptions } from '../node/drag'
 import type { InteractionState, NodeViewUpdate, SelectionMode } from '../state'
 
 export type WhiteboardCommands = {
@@ -22,6 +23,11 @@ export type WhiteboardCommands = {
   }
   keyboard: {
     setSpacePressed: (pressed: boolean) => void
+  }
+  history: {
+    undo: () => boolean
+    redo: () => boolean
+    clear: () => void
   }
   interaction: {
     update: (patch: Partial<InteractionState>) => void
@@ -67,6 +73,19 @@ export type WhiteboardCommands = {
   }
   groupRuntime: {
     setHoveredGroupId: (groupId?: NodeId) => void
+  }
+  nodeDrag: {
+    getGroupContext: () => NodeDragGroupOptions
+    updateHoverGroup: (current: NodeId | undefined, next?: NodeId) => NodeId | undefined
+    clearHoverGroup: (current?: NodeId) => NodeId | undefined
+    resolveMove: (payload: {
+      nodeId: NodeId
+      position: Point
+      size: { width: number; height: number }
+      childrenIds?: NodeId[]
+      allowCross?: boolean
+    }) => Point
+    clearGuides: () => void
   }
   transient: {
     dragGuides: {

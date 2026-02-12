@@ -115,15 +115,39 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     changes: {
       onBefore: (handler) => {
         changeHandlers.before.push(handler)
+        return () => {
+          const index = changeHandlers.before.indexOf(handler)
+          if (index >= 0) {
+            changeHandlers.before.splice(index, 1)
+          }
+        }
       },
       onAfter: (handler) => {
         changeHandlers.after.push(handler)
+        return () => {
+          const index = changeHandlers.after.indexOf(handler)
+          if (index >= 0) {
+            changeHandlers.after.splice(index, 1)
+          }
+        }
       },
       transactionStart: (handler) => {
         changeHandlers.transactionStart.push(handler)
+        return () => {
+          const index = changeHandlers.transactionStart.indexOf(handler)
+          if (index >= 0) {
+            changeHandlers.transactionStart.splice(index, 1)
+          }
+        }
       },
       transactionEnd: (handler) => {
         changeHandlers.transactionEnd.push(handler)
+        return () => {
+          const index = changeHandlers.transactionEnd.indexOf(handler)
+          if (index >= 0) {
+            changeHandlers.transactionEnd.splice(index, 1)
+          }
+        }
       }
     },
     serialize: () => ({

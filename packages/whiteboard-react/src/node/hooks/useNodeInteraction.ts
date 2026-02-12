@@ -5,18 +5,16 @@ import { useActiveTool, useInstance } from '../../common/hooks'
 import { useNodeDrag } from './useNodeDrag'
 import { getSelectionModeFromEvent } from '../utils/selection'
 
-
 export const useNodeInteraction = ({ node }: UseNodeInteractionOptions) => {
   const instance = useInstance()
   const activeTool = useActiveTool()
-  const clientToScreen = instance.runtime.viewport.clientToScreen
-  const screenToWorld = instance.runtime.viewport.screenToWorld
+  const clientToWorld = instance.runtime.viewport.clientToWorld
   const dragHandlers = useNodeDrag({ node })
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (activeTool === 'edge') {
-        const worldPoint = screenToWorld(clientToScreen(event.clientX, event.clientY))
+        const worldPoint = clientToWorld(event.clientX, event.clientY)
         const handled = instance.commands.edgeConnect.handleNodePointerDown(node.id, worldPoint, event.pointerId)
         if (!handled) return
         event.preventDefault()
@@ -35,7 +33,7 @@ export const useNodeInteraction = ({ node }: UseNodeInteractionOptions) => {
 
       dragHandlers.onPointerDown(event)
     },
-    [activeTool, clientToScreen, dragHandlers, instance, node.id, screenToWorld]
+    [activeTool, clientToWorld, dragHandlers, instance, node.id]
   )
 
   const handleEdgeHandlePointerDown = useCallback(

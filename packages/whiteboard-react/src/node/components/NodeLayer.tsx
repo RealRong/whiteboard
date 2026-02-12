@@ -23,6 +23,7 @@ export const NodeLayer = () => {
     })
     return [...background, ...normal, ...overlay]
   }, [nodes])
+
   return (
     <div className="wb-node-layer">
       {orderedNodes.map((node) => (

@@ -1,17 +1,13 @@
-import type { Guide } from 'types/node/snap'
 import { useWhiteboardSelector } from '../../common/hooks'
 
-type DragGuidesLayerProps = {
-  guides?: Guide[]
-}
+export const DragGuidesLayer = () => {
+  const guides = useWhiteboardSelector('dragGuides')
 
-export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
-  const atomGuides = useWhiteboardSelector('dragGuides')
-  const resolvedGuides = guides ?? atomGuides
-  if (!resolvedGuides.length) return null
+  if (!guides.length) return null
+
   return (
     <svg width="100%" height="100%" className="wb-drag-guides-layer">
-      {resolvedGuides.map((guide, index) => {
+      {guides.map((guide, index) => {
         if (guide.axis === 'x') {
           return (
             <line
@@ -26,6 +22,7 @@ export const DragGuidesLayer = ({ guides }: DragGuidesLayerProps) => {
             />
           )
         }
+
         return (
           <line
             key={`y-${index}`}

@@ -21,7 +21,7 @@ export type {
   NodeDragTransientApi
 } from './drag'
 export type { HandleKind, ResizeDirection, TransformHandle, UseNodeTransformOptions } from './transform'
-export type { GroupRuntimeStore, SnapRuntime } from './runtime'
+export type { SnapRuntime } from './runtime'
 export type { NodeTransientApi } from './transient'
 export type { NodeHandleSide, NodeHandlesProps, NodeItemProps } from './components'
 export type { GridIndex, Guide, SnapAxis, SnapCandidate, SnapEdge, SnapResult } from './snap'

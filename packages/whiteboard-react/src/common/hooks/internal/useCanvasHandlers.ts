@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useMemo } from 'react'
 import type { ViewportConfig } from 'types/common'
 import { useSelectionRuntime } from '../../../node/hooks'
 import { useShortcutHandlers } from '../../shortcuts/useShortcutHandlers'
@@ -13,17 +13,22 @@ type Options = {
 
 export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) => {
   const instance = useInstance()
-  const selectionRuntime = useSelectionRuntime()
-  const selectionHandlers = selectionRuntime.handlers
-  const getShortcutContext = useCallback(() => instance.query.getShortcutContext(), [instance])
+  const selectionHandlers = useSelectionRuntime({ enabled: tool !== 'edge' }).handlers
   const { handlePointerDownCapture: handleShortcutPointerDownCapture, handleKeyDown: handleShortcutKeyDown } =
     useShortcutHandlers({
       shortcutManager: instance.runtime.shortcuts,
-      getShortcutContext,
+      getShortcutContext: instance.query.getShortcutContext,
       updateInteraction: instance.commands.interaction.update
     })
+
   const edgeHoverHandlers = useEdgeHoverHandlers({ enabled: tool === 'edge' })
-  const viewportHandlers = useCanvasViewportHandlers({
+  const {
+    onPointerDownCapture,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onWheel
+  } = useCanvasViewportHandlers({
     instance,
     minZoom: viewportConfig?.minZoom,
     maxZoom: viewportConfig?.maxZoom,
@@ -32,78 +37,51 @@ export const useCanvasHandlers = ({ tool = 'select', viewportConfig }: Options) 
     wheelSensitivity: viewportConfig?.wheelSensitivity
   })
 
-  const runPointerDownShared = useCallback(
-    (event: PointerEvent) => {
-      instance.runtime.containerRef.current?.focus({ preventScroll: true })
-      viewportHandlers.onPointerDown(event)
-      selectionHandlers?.onPointerDown(event)
-    },
-    [instance, selectionHandlers, viewportHandlers]
-  )
+  const handlers = useMemo(
+    () => ({
+      handlePointerDown: (event: PointerEvent) => {
+        instance.runtime.containerRef.current?.focus({ preventScroll: true })
+        onPointerDown(event)
+        selectionHandlers?.onPointerDown(event)
 
-  const runPointerMoveShared = useCallback(
-    (event: PointerEvent) => {
-      viewportHandlers.onPointerMove(event)
-      selectionHandlers?.onPointerMove(event)
-    },
-    [selectionHandlers, viewportHandlers]
-  )
-
-  const runPointerUpShared = useCallback(
-    (event: PointerEvent) => {
-      viewportHandlers.onPointerUp(event)
-      selectionHandlers?.onPointerUp(event)
-    },
-    [selectionHandlers, viewportHandlers]
-  )
-
-  const handlePointerDown = useCallback(
-    (event: PointerEvent) => {
-      runPointerDownShared(event)
-      if (event.target === instance.runtime.containerRef.current) {
-        instance.commands.edge.select(undefined)
+        if (event.target === instance.runtime.containerRef.current) {
+          instance.commands.edge.select(undefined)
+        }
+      },
+      handlePointerDownCapture: (event: PointerEvent) => {
+        handleShortcutPointerDownCapture(event, () => onPointerDownCapture(event))
+      },
+      handlePointerMove: (event: PointerEvent) => {
+        onPointerMove(event)
+        selectionHandlers?.onPointerMove(event)
+        edgeHoverHandlers.onPointerMove(event)
+      },
+      handlePointerUp: (event: PointerEvent) => {
+        onPointerUp(event)
+        selectionHandlers?.onPointerUp(event)
+      },
+      handleKeyDown: (event: KeyboardEvent) => {
+        handleShortcutKeyDown(event)
       }
-    },
-    [instance, runPointerDownShared]
+    }),
+    [
+      edgeHoverHandlers,
+      handleShortcutKeyDown,
+      handleShortcutPointerDownCapture,
+      instance,
+      onPointerDown,
+      onPointerDownCapture,
+      onPointerMove,
+      onPointerUp,
+      selectionHandlers
+    ]
   )
 
-  const handlePointerDownCapture = useCallback(
-    (event: PointerEvent) => {
-      handleShortcutPointerDownCapture(event, () => viewportHandlers.onPointerDownCapture(event))
-    },
-    [handleShortcutPointerDownCapture, viewportHandlers]
+  return useMemo(
+    () => ({
+      handlers,
+      onWheel
+    }),
+    [handlers, onWheel]
   )
-
-  const handlePointerMove = useCallback(
-    (event: PointerEvent) => {
-      runPointerMoveShared(event)
-      edgeHoverHandlers.onPointerMove(event)
-    },
-    [edgeHoverHandlers, runPointerMoveShared]
-  )
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent) => {
-      runPointerUpShared(event)
-    },
-    [runPointerUpShared]
-  )
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      handleShortcutKeyDown(event)
-    },
-    [handleShortcutKeyDown]
-  )
-
-  return {
-    handlers: {
-      handlePointerDown,
-      handlePointerDownCapture,
-      handlePointerMove,
-      handlePointerUp,
-      handleKeyDown
-    },
-    onWheel: viewportHandlers.onWheel
-  }
 }

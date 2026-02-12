@@ -32,6 +32,15 @@ export type InteractionState = {
   }
 }
 
+export type HistoryState = {
+  canUndo: boolean
+  canRedo: boolean
+  undoDepth: number
+  redoDepth: number
+  isApplying: boolean
+  lastUpdatedAt?: number
+}
+
 export type EdgeConnectFrom = {
   nodeId: NodeId
   anchor: EdgeAnchor

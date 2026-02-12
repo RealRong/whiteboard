@@ -4,7 +4,7 @@ import type { NodeId, Viewport } from '@whiteboard/core'
 import type { Shortcut } from 'types/shortcuts'
 import type { WhiteboardInstance } from 'types/instance'
 import { useShortcutRegistry } from '../shortcuts/lifecycle/useShortcutRegistry'
-import { useSelectionRuntime, useSelectionState } from '../../node/hooks'
+import { useSelectionState } from '../../node/hooks'
 import { useInstance } from '../hooks/useInstance'
 import { useCanvasHandlers } from '../hooks/internal/useCanvasHandlers'
 import type { ViewportConfig } from 'types/common'
@@ -75,7 +75,6 @@ export const useWhiteboardLifecycle = ({
 }: Options) => {
   const instance = useInstance()
   const selectionState = useSelectionState()
-  const selectionRuntime = useSelectionRuntime({ enabled: false })
   const { runtime, commands } = instance
   const { core, docRef, containerRef, shortcuts } = runtime
   const { handlers, onWheel } = useCanvasHandlers({
@@ -181,9 +180,8 @@ export const useWhiteboardLifecycle = ({
 
   useEffect(() => {
     return () => {
-      selectionRuntime.cancelPendingRaf()
       runtime.services.nodeSizeObserver.dispose()
       runtime.services.containerSizeObserver.dispose()
     }
-  }, [runtime.services.containerSizeObserver, runtime.services.nodeSizeObserver, selectionRuntime])
+  }, [runtime.services.containerSizeObserver, runtime.services.nodeSizeObserver])
 }

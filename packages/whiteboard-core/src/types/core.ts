@@ -612,10 +612,10 @@ export interface Core {
   }
 
   changes: {
-    onBefore(handler: (e: BeforeChangeSet) => void | false): void
-    onAfter(handler: (e: AfterChangeSet) => void): void
-    transactionStart(handler: () => void): void
-    transactionEnd(handler: (e: TransactionSummary) => void): void
+    onBefore(handler: (e: BeforeChangeSet) => void | false): () => void
+    onAfter(handler: (e: AfterChangeSet) => void): () => void
+    transactionStart(handler: () => void): () => void
+    transactionEnd(handler: (e: TransactionSummary) => void): () => void
   }
 
   serialize(): Snapshot

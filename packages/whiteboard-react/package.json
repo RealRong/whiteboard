@@ -17,6 +17,7 @@
   ],
   "dependencies": {
     "@whiteboard/core": "workspace:*",
+    "immer": "^10.1.3",
     "jotai": "^2.7.1"
   },
   "peerDependencies": {

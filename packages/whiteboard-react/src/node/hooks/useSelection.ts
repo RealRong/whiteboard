@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { NodeId, Point, Rect } from '@whiteboard/core'
 import type { SelectionMode } from 'types/state'
@@ -17,21 +17,28 @@ import { rectFromPoints } from '../../common/utils/geometry'
 import { getSelectionModeFromEvent } from '../utils/selection'
 
 export const useSelectionState = (): UseSelectionStateReturn => {
-  const state = useWhiteboardSelector('selection')
-  const tool = useWhiteboardSelector('tool')
-  const selectedEdgeId = useWhiteboardSelector('edgeSelection')
+  const { selection, tool, selectedEdgeId } = useWhiteboardSelector(
+    (snapshot) => ({
+      selection: snapshot.selection,
+      tool: snapshot.tool,
+      selectedEdgeId: snapshot.edgeSelection
+    }),
+    {
+      keys: ['selection', 'tool', 'edgeSelection']
+    }
+  )
 
-  const isSelected = useCallback((id: NodeId) => state.selectedNodeIds.has(id), [state.selectedNodeIds])
-  const hasSelection = useCallback(() => state.selectedNodeIds.size > 0, [state.selectedNodeIds])
+  const isSelected = useCallback((id: NodeId) => selection.selectedNodeIds.has(id), [selection.selectedNodeIds])
+  const hasSelection = useCallback(() => selection.selectedNodeIds.size > 0, [selection.selectedNodeIds])
 
   return useMemo(
     () => ({
       tool,
       selectedEdgeId,
-      selectedNodeIds: state.selectedNodeIds,
-      isSelecting: state.isSelecting,
-      selectionRect: state.selectionRect,
-      selectionRectWorld: state.selectionRectWorld,
+      selectedNodeIds: selection.selectedNodeIds,
+      isSelecting: selection.isSelecting,
+      selectionRect: selection.selectionRect,
+      selectionRectWorld: selection.selectionRectWorld,
       isSelected,
       hasSelection
     }),
@@ -39,10 +46,10 @@ export const useSelectionState = (): UseSelectionStateReturn => {
       hasSelection,
       isSelected,
       selectedEdgeId,
-      state.isSelecting,
-      state.selectedNodeIds,
-      state.selectionRect,
-      state.selectionRectWorld,
+      selection.isSelecting,
+      selection.selectedNodeIds,
+      selection.selectionRect,
+      selection.selectionRectWorld,
       tool
     ]
   )
@@ -55,18 +62,11 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
   const modeRef = useRef<SelectionMode>('replace')
   const rafRef = useRef<number | null>(null)
   const isSelectingRef = useRef(false)
+  const latestRectWorldRef = useRef<Rect | null>(null)
+  const activePointerIdRef = useRef<number | null>(null)
 
   const minDragDistance = options.minDragDistance ?? instance.runtime.config.node.selectionMinDragDistance
   const enabled = options.enabled ?? true
-  const containerRef = instance.runtime.containerRef
-  const clientToScreen = instance.runtime.viewport.clientToScreen
-  const screenToWorld = instance.runtime.viewport.screenToWorld
-  const isSelectionToolEnabled = useCallback(() => {
-    if (!enabled) return false
-    return instance.state.read('tool') !== 'edge'
-  }, [enabled, instance])
-
-  const getModeFromEvent = useCallback(getSelectionModeFromEvent, [])
 
   const select = useCallback(
     (ids: NodeId[], mode: SelectionMode = 'replace') => {
@@ -83,6 +83,9 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
     (pointScreen: Point, mode: SelectionMode = 'replace') => {
       startRef.current = pointScreen
       modeRef.current = mode
+      latestRectWorldRef.current = null
+      isSelectingRef.current = false
+      activePointerIdRef.current = null
       instance.commands.selection.beginBox(mode)
     },
     [instance]
@@ -94,53 +97,82 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
       if (!matched.length) return
       select(matched, mode)
     },
-    [instance.query, select]
+    [instance, select]
   )
 
   const updateBox = useCallback(
     (pointScreen: Point) => {
       const start = startRef.current
       if (!start) return
+
       const rectScreen = rectFromPoints(start, pointScreen)
-      const startWorld = screenToWorld({ x: rectScreen.x, y: rectScreen.y })
-      const endWorld = screenToWorld({
+      const startWorld = instance.runtime.viewport.screenToWorld({
+        x: rectScreen.x,
+        y: rectScreen.y
+      })
+      const endWorld = instance.runtime.viewport.screenToWorld({
         x: rectScreen.x + rectScreen.width,
         y: rectScreen.y + rectScreen.height
       })
       const rectWorld = rectFromPoints(startWorld, endWorld)
+
       isSelectingRef.current = true
+      latestRectWorldRef.current = rectWorld
       instance.commands.selection.updateBox(rectScreen, rectWorld)
+
       if (rafRef.current !== null) return
       rafRef.current = window.requestAnimationFrame(() => {
         rafRef.current = null
-        hitTest(rectWorld, modeRef.current)
+        const latestRectWorld = latestRectWorldRef.current
+        if (!latestRectWorld) return
+        hitTest(latestRectWorld, modeRef.current)
       })
     },
-    [hitTest, instance, screenToWorld]
+    [hitTest, instance]
   )
 
   const cancelPendingRaf = useCallback(() => {
     if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
+      window.cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    latestRectWorldRef.current = null
   }, [])
 
   const endBox = useCallback(() => {
     startRef.current = null
     cancelPendingRaf()
     isSelectingRef.current = false
+    activePointerIdRef.current = null
     instance.commands.selection.endBox()
   }, [cancelPendingRaf, instance])
 
-  const handlers = useMemo(() => {
+  useEffect(() => {
+    return () => {
+      cancelPendingRaf()
+      activePointerIdRef.current = null
+      startRef.current = null
+      isSelectingRef.current = false
+    }
+  }, [cancelPendingRaf])
+
+  const isSelectionToolEnabled = useCallback(() => {
+    return instance.state.read('tool') !== 'edge'
+  }, [instance])
+
+  const handlers = useMemo<SelectionHandlers | undefined>(() => {
     if (!enabled) return undefined
-    const container = containerRef
 
     const getScreenPoint = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
-      const element = container.current
+      const element = instance.runtime.containerRef.current
       if (!element) return null
-      return clientToScreen(event.clientX, event.clientY)
+      return instance.runtime.viewport.clientToScreen(event.clientX, event.clientY)
+    }
+
+    const isActivePointer = (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
+      const pointerId = activePointerIdRef.current
+      if (pointerId === null) return true
+      return pointerId === event.pointerId
     }
 
     return {
@@ -149,58 +181,53 @@ export const useSelectionRuntime = (options: UseSelectionOptions = {}): UseSelec
         if (event.button !== 0) return
         if (instance.state.read('spacePressed')) return
         if (!instance.query.isCanvasBackgroundTarget(event.target)) return
+
         const point = getScreenPoint(event)
         if (!point) return
-        beginBox(point, getModeFromEvent('nativeEvent' in event ? event.nativeEvent : event))
+
+        const mode = getSelectionModeFromEvent('nativeEvent' in event ? event.nativeEvent : event)
+        beginBox(point, mode)
+        activePointerIdRef.current = event.pointerId
       },
       onPointerMove: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (!startRef.current) return
+        if (!isActivePointer(event)) return
+
         const point = getScreenPoint(event)
         if (!point) return
+
         const start = startRef.current
         const dx = Math.abs(point.x - start.x)
         const dy = Math.abs(point.y - start.y)
         if (!isSelectingRef.current && dx < minDragDistance && dy < minDragDistance) {
           return
         }
+
         event.preventDefault()
         updateBox(point)
       },
       onPointerUp: (event: ReactPointerEvent<HTMLElement> | PointerEvent) => {
         if (!startRef.current) return
-        if (!isSelectingRef.current) {
-          const mode = modeRef.current
-          if (mode === 'replace') {
-            clear()
-          }
+        if (!isActivePointer(event)) return
+
+        if (!isSelectingRef.current && modeRef.current === 'replace') {
+          clear()
         }
         endBox()
       }
     }
-  }, [
-    beginBox,
-    clear,
-    containerRef,
-    enabled,
-    endBox,
-    getModeFromEvent,
-    isSelectionToolEnabled,
-    minDragDistance,
-    clientToScreen,
-    instance,
-    updateBox
-  ])
+  }, [beginBox, clear, enabled, endBox, instance, isSelectionToolEnabled, minDragDistance, updateBox])
 
   return useMemo(
     () => ({
       beginBox,
       updateBox,
       endBox,
-      getModeFromEvent,
+      getModeFromEvent: getSelectionModeFromEvent,
       handlers,
       cancelPendingRaf
     }),
-    [beginBox, cancelPendingRaf, endBox, getModeFromEvent, handlers, updateBox]
+    [beginBox, cancelPendingRaf, endBox, handlers, updateBox]
   )
 }
 

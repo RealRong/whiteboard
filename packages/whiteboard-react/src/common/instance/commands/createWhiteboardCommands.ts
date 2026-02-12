@@ -4,17 +4,35 @@ import type {
   EdgePatch,
   NodeId,
   NodeInput,
-  NodePatch
+  NodePatch,
+  Point,
+  Rect
 } from '@whiteboard/core'
 import type { WhiteboardCommands } from 'types/commands'
+import type { NodeDragGroupOptions } from 'types/node/drag'
 import type { WhiteboardInstance } from 'types/instance'
 import { edgeSelectionAtom, interactionAtom, spacePressedAtom, toolAtom } from '../../state'
 import { groupHoveredAtom } from '../../../node/state'
+import { computeSnap } from '../../../node/utils/snap'
 import { createEdgeConnectCommands } from './createEdgeConnectCommands'
 import { createSelectionCommands } from './createSelectionCommands'
 import { createTransientCommands } from './createTransientCommands'
 import { mergeInteractionPatch } from '../state/interactionState'
 import { setStoreAtom } from '../store/setStoreAtom'
+
+const runRegisteredCommand = (
+  instance: WhiteboardInstance,
+  names: string[]
+): boolean => {
+  const { core } = instance.runtime
+  for (const name of names) {
+    const command = core.registries.commands.get(name)
+    if (!command) continue
+    command()
+    return true
+  }
+  return false
+}
 
 export const createWhiteboardCommands = (instance: WhiteboardInstance): WhiteboardCommands => {
   const { core } = instance.runtime
@@ -33,6 +51,19 @@ export const createWhiteboardCommands = (instance: WhiteboardInstance): Whiteboa
     keyboard: {
       setSpacePressed: (pressed) => {
         setStoreAtom(store, spacePressedAtom, pressed)
+      }
+    },
+    history: {
+      undo: () => {
+        if (!instance.state.read('history').canUndo) return false
+        return runRegisteredCommand(instance, ['history.undo', 'undo'])
+      },
+      redo: () => {
+        if (!instance.state.read('history').canRedo) return false
+        return runRegisteredCommand(instance, ['history.redo', 'redo'])
+      },
+      clear: () => {
+        runRegisteredCommand(instance, ['history.clear'])
       }
     },
     interaction: {
@@ -139,6 +170,73 @@ export const createWhiteboardCommands = (instance: WhiteboardInstance): Whiteboa
     groupRuntime: {
       setHoveredGroupId: (groupId) => {
         setStoreAtom(store, groupHoveredAtom, groupId)
+      }
+    },
+    nodeDrag: {
+      getGroupContext: () => {
+        const context: NodeDragGroupOptions = {
+          nodes: instance.state.read('canvasNodes'),
+          nodeSize: instance.runtime.config.nodeSize,
+          padding: instance.runtime.config.node.groupPadding,
+          setHoveredGroupId: (groupId) => {
+            setStoreAtom(store, groupHoveredAtom, groupId)
+          }
+        }
+        return context
+      },
+      updateHoverGroup: (current, next) => {
+        if (current === next) return current
+        setStoreAtom(store, groupHoveredAtom, next)
+        return next
+      },
+      clearHoverGroup: (current) => {
+        if (current === undefined) return undefined
+        setStoreAtom(store, groupHoveredAtom, undefined)
+        return undefined
+      },
+      resolveMove: ({ nodeId, position, size, childrenIds, allowCross }) => {
+        if (instance.state.read('tool') !== 'select') {
+          transient.dragGuides.clear()
+          return position
+        }
+
+        const zoom = Math.max(instance.runtime.viewport.getZoom(), 0.0001)
+        const thresholdWorld = Math.min(
+          instance.runtime.config.node.snapThresholdScreen / zoom,
+          instance.runtime.config.node.snapMaxThresholdWorld
+        )
+
+        const movingRect: Rect = {
+          x: position.x,
+          y: position.y,
+          width: size.width,
+          height: size.height
+        }
+        const queryRect: Rect = {
+          x: movingRect.x - thresholdWorld,
+          y: movingRect.y - thresholdWorld,
+          width: movingRect.width + thresholdWorld * 2,
+          height: movingRect.height + thresholdWorld * 2
+        }
+
+        const baseCandidates = instance.query.getSnapCandidatesInRect(queryRect)
+        const excludeSet = childrenIds?.length ? new Set([nodeId, ...childrenIds]) : new Set([nodeId])
+        const candidates = baseCandidates.filter((candidate) => !excludeSet.has(candidate.id))
+
+        const result = computeSnap(movingRect, candidates, thresholdWorld, nodeId, {
+          allowCross,
+          crossThreshold: thresholdWorld * 0.6
+        })
+
+        transient.dragGuides.set(result.guides)
+
+        return {
+          x: result.dx !== undefined ? position.x + result.dx : position.x,
+          y: result.dy !== undefined ? position.y + result.dy : position.y
+        }
+      },
+      clearGuides: () => {
+        transient.dragGuides.clear()
       }
     },
     transient,

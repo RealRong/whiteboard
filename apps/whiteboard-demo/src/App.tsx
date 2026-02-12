@@ -253,6 +253,7 @@ function App() {
     }
   }))
   const [tool, setTool] = useState<'select' | 'edge'>('select')
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const docRef = useRef(doc)
   const applyRef = useRef<(recipe: (draft: Document) => void) => void>(() => {})
   const coreRef = useRef(createCore({ getState: () => docRef.current, apply: (recipe) => applyRef.current(recipe) }))
@@ -275,6 +276,12 @@ function App() {
 
   const core = coreRef.current
 
+  const runHistoryCommand = (name: 'history.undo' | 'history.redo') => {
+    const command = core.registries.commands.get(name)
+    if (!command) return
+    command()
+  }
+
   return (
     <div className="app-root">
       <div className="toolbar">
@@ -292,8 +299,20 @@ function App() {
           连线
         </button>
         <button
+          onClick={() => runHistoryCommand('history.undo')}
+          disabled={!historyState.canUndo}
+        >
+          撤销
+        </button>
+        <button
+          onClick={() => runHistoryCommand('history.redo')}
+          disabled={!historyState.canRedo}
+        >
+          重做
+        </button>
+        <button
           onClick={() => {
-            
+
           }}
         >
           打印
@@ -305,8 +324,16 @@ function App() {
       <Whiteboard
         doc={doc}
         onDocChange={handleDocChange}
-        tool={tool}
         core={core}
+        config={{
+          tool,
+          onHistoryChange: (state) => {
+            setHistoryState({
+              canUndo: state.canUndo,
+              canRedo: state.canRedo
+            })
+          }
+        }}
       />
     </div>
   )

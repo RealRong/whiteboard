@@ -1,12 +1,9 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import type { PointerEvent } from 'react'
-import type { Node, Rect } from '@whiteboard/core'
-import { computeSnap } from '../utils/snap'
+import type { Node, NodeId } from '@whiteboard/core'
 import { selectNodeDragStrategy } from '../runtime/drag'
-import { useInstance, useWhiteboardSelector } from '../../common/hooks'
-import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../utils/snap'
-import { getNodeAABB } from '../../common/utils/geometry'
-import type { DragState, NodeDragHandlers } from 'types/node'
+import { useInstance } from '../../common/hooks'
+import type { DragState, NodeDragHandlers, NodeDragTransientApi } from 'types/node'
 
 type UseNodeDragOptions = {
   node: Node
@@ -14,211 +11,126 @@ type UseNodeDragOptions = {
 
 export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   const instance = useInstance()
-  const { nodeSize, node: nodeConfig } = instance.runtime.config
-  const tool = useWhiteboardSelector('tool')
-  const canvasNodes = useWhiteboardSelector('canvasNodes')
-  const hoveredGroupId = useWhiteboardSelector('groupHovered')
+  const { nodeSize } = instance.runtime.config
   const core = instance.runtime.core
-  const getZoom = instance.runtime.viewport.getZoom
+
   const nodeId = node.id
   const nodeType = node.type
   const position = node.position
-  const size = useMemo(
-    () => ({
-      width: node.size?.width ?? nodeSize.width,
-      height: node.size?.height ?? nodeSize.height
-    }),
-    [node.size?.height, node.size?.width, nodeSize.height, nodeSize.width]
-  )
-  const group = useMemo(
-    () => ({
-      nodes: canvasNodes,
-      nodeSize,
-      padding: nodeConfig.groupPadding,
-      hoveredGroupId,
-      setHoveredGroupId: instance.commands.groupRuntime.setHoveredGroupId
-    }),
-    [canvasNodes, hoveredGroupId, instance, nodeConfig.groupPadding, nodeSize]
-  )
-  const snapRuntimeData = useMemo(() => {
-    const enabled = tool === 'select'
-    if (!canvasNodes.length) {
-      return {
-        enabled,
-        candidates: [],
-        getCandidates: undefined,
-        thresholdScreen: nodeConfig.snapThresholdScreen
-      }
-    }
+  const size = {
+    width: node.size?.width ?? nodeSize.width,
+    height: node.size?.height ?? nodeSize.height
+  }
 
-    const snapCandidates = buildSnapCandidates(
-      canvasNodes.map((item) => ({
-        id: item.id,
-        rect: getNodeAABB(item, nodeSize)
-      }))
-    )
-    const snapIndex = createGridIndex(
-      snapCandidates,
-      Math.max(nodeConfig.snapGridCellSize, nodeConfig.groupPadding * 6)
-    )
-    const getCandidates = (rect: Rect) => queryGridIndex(snapIndex, rect)
-
-    return {
-      enabled,
-      candidates: snapCandidates,
-      getCandidates,
-      thresholdScreen: nodeConfig.snapThresholdScreen
-    }
-  }, [canvasNodes, nodeConfig.groupPadding, nodeConfig.snapGridCellSize, nodeConfig.snapThresholdScreen, nodeSize, tool])
-
-  const snap = useMemo(
-    () => ({
-      ...snapRuntimeData,
-      onGuidesChange: instance.commands.transient.dragGuides.set
-    }),
-    [instance, snapRuntimeData]
-  )
-  const transient = useMemo(
-    () => ({
-      setOverrides: instance.commands.transient.nodeOverrides.set,
-      clearOverrides: instance.commands.transient.nodeOverrides.clear,
-      commitOverrides: instance.commands.transient.nodeOverrides.commit
-    }),
-    [instance]
-  )
+  const transient: NodeDragTransientApi = {
+    setOverrides: instance.commands.transient.nodeOverrides.set,
+    commitOverrides: instance.commands.transient.nodeOverrides.commit
+  }
 
   const dragRef = useRef<DragState | null>(null)
-  const hoverGroupRef = useRef<Node['id'] | undefined>(undefined)
+  const hoverGroupRef = useRef<NodeId | undefined>(undefined)
 
-  const strategy = useMemo(() => selectNodeDragStrategy(nodeType, group), [group, nodeType])
+  const strategy = selectNodeDragStrategy(nodeType)
 
-  const updateHoverGroup = useCallback(
-    (nextId?: Node['id']) => {
-      if (hoverGroupRef.current === nextId) return
-      hoverGroupRef.current = nextId
-      group?.setHoveredGroupId?.(nextId)
-    },
-    [group]
-  )
+  const updateHoverGroup = (next?: NodeId) => {
+    hoverGroupRef.current = instance.commands.nodeDrag.updateHoverGroup(hoverGroupRef.current, next)
+  }
 
-  const onPointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) return
-      event.preventDefault()
-      const target = event.currentTarget
-      target.setPointerCapture(event.pointerId)
-      const children = strategy.initialize({
-        core,
-        nodeId,
-        nodeType,
-        position,
-        size,
-        group,
-        transient,
-        updateHoverGroup,
-        getHoverGroupId: () => hoverGroupRef.current
-      })
-      dragRef.current = {
-        pointerId: event.pointerId,
-        start: { x: event.clientX, y: event.clientY },
-        origin: { x: position.x, y: position.y },
-        last: { x: position.x, y: position.y },
-        children
-      }
-      updateHoverGroup(undefined)
-    },
-    [core, group, nodeId, nodeType, position, size, strategy, transient, updateHoverGroup]
-  )
+  const clearHoverGroup = () => {
+    hoverGroupRef.current = instance.commands.nodeDrag.clearHoverGroup(hoverGroupRef.current)
+  }
 
-  const onPointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const drag = dragRef.current
-      if (!drag || drag.pointerId !== event.pointerId) return
-      const dx = event.clientX - drag.start.x
-      const dy = event.clientY - drag.start.y
-      const zoom = Math.max(getZoom(), 0.0001)
-      let nextX = drag.origin.x + dx / zoom
-      let nextY = drag.origin.y + dy / zoom
+  const onPointerDown: NodeDragHandlers['onPointerDown'] = (event) => {
+    if (event.button !== 0) return
 
-      if (snap.enabled) {
-        const thresholdWorld = Math.min(
-          snap.thresholdScreen / Math.max(getZoom(), 0.0001),
-          nodeConfig.snapMaxThresholdWorld
-        )
-        const movingRect: Rect = { x: nextX, y: nextY, width: size.width, height: size.height }
-        const queryRect: Rect = {
-          x: movingRect.x - thresholdWorld,
-          y: movingRect.y - thresholdWorld,
-          width: movingRect.width + thresholdWorld * 2,
-          height: movingRect.height + thresholdWorld * 2
-        }
-        const baseCandidates = snap.getCandidates ? snap.getCandidates(queryRect) : snap.candidates
-        const excludeSet = drag.children?.ids.length ? new Set([nodeId, ...drag.children.ids]) : undefined
-        const candidates = excludeSet ? baseCandidates.filter((candidate) => !excludeSet.has(candidate.id)) : baseCandidates
-        const result = computeSnap(movingRect, candidates, thresholdWorld, nodeId, {
-          allowCross: event.altKey,
-          crossThreshold: thresholdWorld * 0.6
-        })
-        if (result.dx !== undefined) nextX += result.dx
-        if (result.dy !== undefined) nextY += result.dy
-        snap.onGuidesChange(result.guides)
-      }
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
 
-      drag.last = { x: nextX, y: nextY }
-
-      strategy.handleMove({
-        core,
-        drag,
-        nodeId,
-        nodeType,
-        position,
-        size,
-        group,
-        transient,
-        updateHoverGroup,
-        getHoverGroupId: () => hoverGroupRef.current,
-        nextPosition: { x: nextX, y: nextY }
-      })
-    },
-    [
+    const group = instance.commands.nodeDrag.getGroupContext()
+    const children = strategy.initialize({
       core,
-      getZoom,
-      group,
-      nodeConfig.snapMaxThresholdWorld,
       nodeId,
       nodeType,
       position,
       size,
-      snap,
-      strategy,
+      group,
       transient,
-      updateHoverGroup
-    ]
-  )
+      updateHoverGroup,
+      getHoverGroupId: () => hoverGroupRef.current
+    })
 
-  const onPointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const drag = dragRef.current
-      if (!drag || drag.pointerId !== event.pointerId) return
-      dragRef.current = null
+    dragRef.current = {
+      pointerId: event.pointerId,
+      start: { x: event.clientX, y: event.clientY },
+      origin: { x: position.x, y: position.y },
+      last: { x: position.x, y: position.y },
+      children
+    }
+
+    clearHoverGroup()
+  }
+
+  const onPointerMove: NodeDragHandlers['onPointerMove'] = (event) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - drag.start.x
+    const dy = event.clientY - drag.start.y
+    let nextPosition = {
+      x: drag.origin.x + dx / Math.max(instance.runtime.viewport.getZoom(), 0.0001),
+      y: drag.origin.y + dy / Math.max(instance.runtime.viewport.getZoom(), 0.0001)
+    }
+
+    nextPosition = instance.commands.nodeDrag.resolveMove({
+      nodeId,
+      position: nextPosition,
+      size,
+      childrenIds: drag.children?.ids,
+      allowCross: event.altKey
+    })
+
+    drag.last = nextPosition
+
+    strategy.handleMove({
+      core,
+      drag,
+      nodeId,
+      nodeType,
+      position,
+      size,
+      group: instance.commands.nodeDrag.getGroupContext(),
+      transient,
+      updateHoverGroup,
+      getHoverGroupId: () => hoverGroupRef.current,
+      nextPosition
+    })
+  }
+
+  const onPointerUp: NodeDragHandlers['onPointerUp'] = (event) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    dragRef.current = null
+
+    strategy.handlePointerUp({
+      core,
+      drag,
+      nodeId,
+      nodeType,
+      position,
+      size,
+      group: instance.commands.nodeDrag.getGroupContext(),
+      transient,
+      updateHoverGroup,
+      getHoverGroupId: () => hoverGroupRef.current
+    })
+
+    instance.commands.nodeDrag.clearGuides()
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
-      snap.onGuidesChange([])
-
-      strategy.handlePointerUp({
-        core,
-        drag,
-        nodeId,
-        nodeType,
-        position,
-        size,
-        group,
-        transient,
-        updateHoverGroup,
-        getHoverGroupId: () => hoverGroupRef.current
-      })
-    },
-    [core, group, nodeId, nodeType, position, size, snap, strategy, transient, updateHoverGroup]
-  )
+    }
+  }
 
   return {
     onPointerDown,

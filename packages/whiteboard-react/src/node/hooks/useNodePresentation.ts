@@ -4,7 +4,7 @@ import type { Core, Rect } from '@whiteboard/core'
 import type { NodeContainerProps, NodePresentation, UseNodePresentationOptions, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
-import { useInstance } from '../../common/hooks'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { getNodeRect } from '../../common/utils/geometry'
 import { useNodeSelectionFlags } from './useNodeSelectionFlags'
 
@@ -14,11 +14,14 @@ export const useNodePresentation = ({
 }: UseNodePresentationOptions): NodePresentation => {
   const instance = useInstance()
   const registry = useNodeRegistry()
-  const zoom = instance.runtime.viewport.getZoom()
+  const zoom = useWhiteboardSelector((snapshot) => snapshot.viewport.zoom, {
+    keys: ['viewport'],
+    equality: Object.is
+  })
   const { nodeSize } = instance.runtime.config
   const { selected, hovered, activeTool } = useNodeSelectionFlags(node.id)
 
-  const definition = registry.get(node.type)
+  const definition = useMemo(() => registry.get(node.type), [node.type, registry])
   const rect = useMemo(() => getNodeRect(node, nodeSize), [node, nodeSize])
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'

@@ -4,11 +4,12 @@ import type { RefObject } from 'react'
 import type { WhiteboardCommands } from '../commands'
 import type {
   EdgeConnectState,
+  HistoryState,
   InteractionState,
   NodeOverride,
   SelectionState
 } from '../state'
-import type { Guide } from '../node/snap'
+import type { Guide, SnapCandidate } from '../node/snap'
 import type { Size } from '../common'
 import type { ShortcutContext, ShortcutManager } from '../shortcuts'
 import type { ContainerRect, ContainerSizeObserverService, NodeSizeObserverService } from './services'
@@ -20,7 +21,9 @@ export const WHITEBOARD_STATE_KEYS = [
   'tool',
   'selection',
   'edgeSelection',
+  'history',
   'edgeConnect',
+  'viewport',
   'spacePressed',
   'dragGuides',
   'groupHovered',
@@ -36,7 +39,9 @@ export type WhiteboardStateSnapshot = {
   tool: string
   selection: SelectionState
   edgeSelection: EdgeId | undefined
+  history: HistoryState
   edgeConnect: EdgeConnectState
+  viewport: Viewport
   spacePressed: boolean
   dragGuides: Guide[]
   groupHovered: NodeId | undefined
@@ -112,6 +117,8 @@ export type WhiteboardInstanceQuery = {
   getCanvasNodeRects: () => WhiteboardCanvasNodeRect[]
   getCanvasNodeRectById: (nodeId: NodeId) => WhiteboardCanvasNodeRect | undefined
   getNodeIdsInRect: (rect: Rect) => NodeId[]
+  getSnapCandidates: () => SnapCandidate[]
+  getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
   isCanvasBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => WhiteboardEdgeConnectAnchorResult
   getEdgeConnectFromPoint: (from?: EdgeConnectState['from']) => Point | undefined
