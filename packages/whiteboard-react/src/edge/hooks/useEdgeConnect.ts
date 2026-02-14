@@ -2,21 +2,14 @@ import { useCallback, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Point } from '@whiteboard/core'
 import { useInstance, useWhiteboardSelector } from '../../common/hooks'
-import type {
-  UseEdgeConnectLayerStateReturn,
-  UseEdgeConnectReturn,
-  UseEdgeConnectStateReturn
-} from 'types/edge'
+import type { UseEdgeConnectLayerStateReturn, UseEdgeConnectReturn } from 'types/edge'
 
-export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
+const useEdgeConnectSharedState = () => {
   const instance = useInstance()
   const canvasNodes = useWhiteboardSelector('canvasNodes')
   const state = useWhiteboardSelector('edgeConnect')
   const selectedEdgeId = useWhiteboardSelector('edgeSelection')
   const tool = (useWhiteboardSelector('tool') as 'select' | 'edge') ?? 'select'
-
-  const screenToWorld = instance.runtime.viewport.screenToWorld ?? undefined
-  const containerRef = instance.runtime.containerRef ?? undefined
   const nodeRects = useMemo(() => instance.query.getCanvasNodeRects(), [canvasNodes, instance])
 
   return useMemo(
@@ -24,27 +17,31 @@ export const useEdgeConnectState = (): UseEdgeConnectStateReturn => {
       state,
       selectedEdgeId,
       tool,
-      containerRef,
-      screenToWorld,
+      containerRef: instance.runtime.containerRef,
+      screenToWorld: instance.runtime.viewport.screenToWorld,
       nodeRects,
       getAnchorFromPoint: instance.query.getAnchorFromPoint
     }),
-    [containerRef, instance, nodeRects, screenToWorld, selectedEdgeId, state, tool]
+    [instance, nodeRects, selectedEdgeId, state, tool]
   )
 }
 
 export const useEdgeConnectLayerState = (): UseEdgeConnectLayerStateReturn => {
   const state = useWhiteboardSelector('edgeConnect')
   const selectedEdgeId = useWhiteboardSelector('edgeSelection')
-  return {
-    state,
-    selectedEdgeId
-  }
+
+  return useMemo(
+    () => ({
+      state,
+      selectedEdgeId
+    }),
+    [selectedEdgeId, state]
+  )
 }
 
 export const useEdgeConnect = (): UseEdgeConnectReturn => {
   const instance = useInstance()
-  const state = useEdgeConnectState()
+  const state = useEdgeConnectSharedState()
 
   const handleNodePointerDown = useCallback(
     (nodeId: string, pointWorld: Point, event: ReactPointerEvent<HTMLElement>) => {
@@ -72,9 +69,4 @@ export const useEdgeConnect = (): UseEdgeConnectReturn => {
     }),
     [handleNodePointerDown, instance, state]
   )
-}
-
-export const edgeConnect = {
-  useState: useEdgeConnectState,
-  useConnect: useEdgeConnect
 }

@@ -1,0 +1,23 @@
+import type { WhiteboardInstance } from '@engine-types/instance'
+
+type Options = {
+  instance: WhiteboardInstance
+  enabled: boolean
+}
+
+export const createEdgeHoverInputHandlers = ({ instance, enabled }: Options) => {
+  const edgeHover = instance.runtime.services.edgeHover
+
+  const cancel = () => {
+    edgeHover.cancel()
+  }
+
+  const onPointerMove = (event: PointerEvent) => {
+    edgeHover.onPointerMove({ clientX: event.clientX, clientY: event.clientY, enabled })
+  }
+
+  return {
+    onPointerMove,
+    cancel
+  }
+}

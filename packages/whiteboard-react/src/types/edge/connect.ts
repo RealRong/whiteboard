@@ -1,6 +1,6 @@
 import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { EdgeConnectState } from '../state'
+import type { EdgeConnectState } from '@whiteboard/engine'
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -25,11 +25,6 @@ export type UseEdgeConnectReturn = {
   nodeRects: Array<{ node: Node; rect: Rect; aabb: Rect; rotation: number }>
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
 }
-
-export type UseEdgeConnectStateReturn = Pick<
-  UseEdgeConnectReturn,
-  'state' | 'selectedEdgeId' | 'tool' | 'containerRef' | 'screenToWorld' | 'nodeRects' | 'getAnchorFromPoint'
->
 
 export type UseEdgeConnectLayerStateReturn = Pick<UseEdgeConnectReturn, 'state' | 'selectedEdgeId'>
 

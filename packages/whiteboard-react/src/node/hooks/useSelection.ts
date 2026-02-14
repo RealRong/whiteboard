@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { NodeId, Point, Rect } from '@whiteboard/core'
-import type { SelectionMode } from 'types/state'
+import type { SelectionMode } from '@whiteboard/engine'
 import type {
   SelectionHandlers,
   UseSelectionOptions,
@@ -246,10 +246,4 @@ export const useSelection = (options: UseSelectionOptions = {}): UseSelectionRet
     }),
     [instance, runtime, state]
   )
-}
-
-export const selection = {
-  useState: useSelectionState,
-  useRuntime: useSelectionRuntime,
-  useSelection
 }

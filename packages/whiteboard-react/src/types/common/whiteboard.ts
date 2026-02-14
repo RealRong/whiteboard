@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { Core, Document, EdgeId, NodeId } from '@whiteboard/core'
+import type { ShortcutOverrides } from '@whiteboard/engine'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'
-import type { Shortcut } from '../shortcuts'
-import type { HistoryState } from '../state'
 import type { Size, ViewportConfig, WhiteboardEdgeConfig, WhiteboardNodeConfig } from './base'
 
 export type WhiteboardHistoryConfig = {
@@ -12,6 +11,17 @@ export type WhiteboardHistoryConfig = {
   captureSystem?: boolean
   captureRemote?: boolean
 }
+
+export type WhiteboardResolvedHistoryConfig = {
+  enabled: boolean
+  capacity: number
+  captureSystem: boolean
+  captureRemote: boolean
+}
+
+export type WhiteboardResolvedViewportConfig = Required<ViewportConfig>
+export type WhiteboardResolvedNodeConfig = Required<WhiteboardNodeConfig>
+export type WhiteboardResolvedEdgeConfig = Required<WhiteboardEdgeConfig>
 
 export type WhiteboardConfig = {
   className?: string
@@ -24,10 +34,23 @@ export type WhiteboardConfig = {
   edge?: WhiteboardEdgeConfig
   history?: WhiteboardHistoryConfig
   tool?: 'select' | 'edge'
-  shortcuts?: Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
+  shortcuts?: ShortcutOverrides
   onSelectionChange?: (ids: NodeId[]) => void
   onEdgeSelectionChange?: (id?: EdgeId) => void
-  onHistoryChange?: (state: HistoryState) => void
+}
+
+export type ResolvedWhiteboardConfig = Omit<
+  WhiteboardConfig,
+  'nodeSize' | 'mindmapNodeSize' | 'mindmapLayout' | 'viewport' | 'node' | 'edge' | 'history' | 'tool'
+> & {
+  nodeSize: Size
+  mindmapNodeSize: Size
+  mindmapLayout: MindmapLayoutConfig
+  viewport: WhiteboardResolvedViewportConfig
+  node: WhiteboardResolvedNodeConfig
+  edge: WhiteboardResolvedEdgeConfig
+  history: WhiteboardResolvedHistoryConfig
+  tool: 'select' | 'edge'
 }
 
 export type WhiteboardProps = {

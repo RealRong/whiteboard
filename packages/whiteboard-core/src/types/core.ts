@@ -462,6 +462,22 @@ export interface TransactionResult<T = void> {
   changes: ChangeSet[]
 }
 
+export type CoreHistoryState = {
+  canUndo: boolean
+  canRedo: boolean
+  undoDepth: number
+  redoDepth: number
+  isApplying: boolean
+  lastUpdatedAt: number
+}
+
+export type CoreHistoryConfig = {
+  enabled: boolean
+  capacity: number
+  captureSystem: boolean
+  captureRemote: boolean
+}
+
 export interface Core {
   query: {
     document(): Document
@@ -593,6 +609,14 @@ export interface Core {
       zoomTo(zoom: number, anchor?: Point): Promise<DispatchResult>
       reset(): Promise<DispatchResult>
       fitToView(rect: Rect, options: { viewportSize: Size; padding?: number }): Promise<DispatchResult>
+    }
+    history: {
+      undo(): boolean
+      redo(): boolean
+      clear(): void
+      configure(config: Partial<CoreHistoryConfig>): void
+      getState(): CoreHistoryState
+      subscribe(listener: (state: CoreHistoryState) => void): () => void
     }
     transaction<T>(
       fn: () => T | Promise<T>,

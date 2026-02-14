@@ -13,12 +13,5 @@ export const MindmapLayerStack = ({ layout }: MindmapLayerStackProps) => {
 
   if (!doc) return null
 
-  return (
-    <MindmapLayer
-      nodes={doc.nodes}
-      nodeSize={nodeSize}
-      layout={layout}
-      core={instance.runtime.core}
-    />
-  )
+  return <MindmapLayer nodes={doc.nodes} nodeSize={nodeSize} layout={layout} />
 }

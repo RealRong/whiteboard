@@ -1,40 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { Core, Point, Rect } from '@whiteboard/core'
-import type { Size } from 'types/common'
-import type { ResizeDirection, TransformHandle, UseNodeTransformOptions } from 'types/node'
-import { getNodeRect, getRectCenter } from '../../common/utils/geometry'
+import type { NodeTransformDragState } from '@whiteboard/engine'
+import type { TransformHandle, UseNodeTransformOptions } from 'types/node'
+import { getNodeRect } from '../../common/utils/geometry'
 import { useInstance } from '../../common/hooks'
-import { computeResizeSnap } from '../utils/snap'
-import {
-  buildTransformHandles,
-  computeNextRotation,
-  computeResizeRect,
-  getResizeSourceEdges
-} from '../utils/transform'
-
-type DragState =
-  | {
-      mode: 'resize'
-      pointerId: number
-      handle: ResizeDirection
-      startScreen: Point
-      startCenter: Point
-      startRotation: number
-      startSize: Size
-      startAspect: number
-      lastUpdate?: {
-        position: Point
-        size: Size
-      }
-    }
-  | {
-      mode: 'rotate'
-      pointerId: number
-      startAngle: number
-      startRotation: number
-      center: Point
-    }
+import { buildTransformHandles } from '../utils/transform'
 
 export const useNodeTransform = ({
   node,
@@ -47,17 +17,10 @@ export const useNodeTransform = ({
   rotateHandleOffset = 24
 }: UseNodeTransformOptions) => {
   const instance = useInstance()
-  const { nodeSize, node: nodeConfig } = instance.runtime.config
-  const clientToWorld = instance.runtime.viewport.clientToWorld
+  const { nodeSize } = instance.runtime.config
   const getZoom = instance.runtime.viewport.getZoom
-  const getSnapCandidatesInRect = instance.query.getSnapCandidatesInRect
-  const readState = instance.state.read
-  const setDragGuides = instance.commands.transient.dragGuides.set
-  const clearDragGuides = instance.commands.transient.dragGuides.clear
-  const setNodeOverrides = instance.commands.transient.nodeOverrides.set
-  const commitNodeOverrides = instance.commands.transient.nodeOverrides.commit
-  const core: Core = instance.runtime.core
-  const dragRef = useRef<DragState | null>(null)
+  const nodeTransform = instance.runtime.services.nodeTransform
+  const dragRef = useRef<NodeTransformDragState | null>(null)
 
   const resolvedActiveTool = activeTool ?? 'select'
   const resolvedEnabled = enabled ?? (resolvedActiveTool === 'select' && Boolean(selected))
@@ -88,36 +51,28 @@ export const useNodeTransform = ({
       event.currentTarget.setPointerCapture(event.pointerId)
 
       if (handle.kind === 'resize' && handle.direction) {
-        const startRect = rect
-        const startCenter = getRectCenter(startRect)
-        const startRotation = rotation
-        dragRef.current = {
-          mode: 'resize',
+        dragRef.current = nodeTransform.createResizeDrag({
           pointerId: event.pointerId,
           handle: handle.direction,
-          startScreen: { x: event.clientX, y: event.clientY },
-          startCenter,
-          startRotation,
-          startSize: { width: startRect.width, height: startRect.height },
-          startAspect: startRect.width / Math.max(startRect.height, 0.0001)
-        }
+          clientX: event.clientX,
+          clientY: event.clientY,
+          rect,
+          rotation
+        })
         return
       }
 
       if (handle.kind === 'rotate' && canRotate) {
-        const worldPoint = clientToWorld(event.clientX, event.clientY)
-        const center = getRectCenter(rect)
-        const startAngle = Math.atan2(worldPoint.y - center.y, worldPoint.x - center.x)
-        dragRef.current = {
-          mode: 'rotate',
+        dragRef.current = nodeTransform.createRotateDrag({
           pointerId: event.pointerId,
-          startAngle,
-          startRotation: rotation,
-          center
-        }
+          clientX: event.clientX,
+          clientY: event.clientY,
+          rect,
+          rotation
+        })
       }
     },
-    [canRotate, clientToWorld, node.locked, rect, resolvedEnabled, rotation]
+    [canRotate, node.locked, nodeTransform, rect, resolvedEnabled, rotation]
   )
 
   const handlePointerMove = useCallback(
@@ -128,104 +83,29 @@ export const useNodeTransform = ({
       event.preventDefault()
 
       if (drag.mode === 'resize') {
-        const zoom = Math.max(getZoom(), 0.0001)
-        const { handle, startScreen, startCenter, startRotation, startSize, startAspect } = drag
-        const resizeResult = computeResizeRect({
-          handle,
-          startScreen,
-          currentScreen: { x: event.clientX, y: event.clientY },
-          startCenter,
-          startRotation,
-          startSize,
-          startAspect,
+        nodeTransform.applyResizeMove({
+          nodeId: node.id,
+          drag,
+          clientX: event.clientX,
+          clientY: event.clientY,
           minSize,
-          zoom,
           altKey: event.altKey,
           shiftKey: event.shiftKey
         })
-
-        let width = resizeResult.width
-        let height = resizeResult.height
-        let nextRect = { x: resizeResult.rect.x, y: resizeResult.rect.y }
-
-        if (readState('tool') === 'select') {
-          if (rotation === 0 && !event.altKey) {
-            const thresholdWorld = Math.min(nodeConfig.snapThresholdScreen / zoom, nodeConfig.snapMaxThresholdWorld)
-            const movingRect: Rect = {
-              x: nextRect.x,
-              y: nextRect.y,
-              width,
-              height
-            }
-            const queryRect: Rect = {
-              x: movingRect.x - thresholdWorld,
-              y: movingRect.y - thresholdWorld,
-              width: movingRect.width + thresholdWorld * 2,
-              height: movingRect.height + thresholdWorld * 2
-            }
-            const candidates = getSnapCandidatesInRect(queryRect)
-            const { sourceX, sourceY } = getResizeSourceEdges(handle)
-            const snapped = computeResizeSnap({
-              movingRect,
-              candidates,
-              threshold: thresholdWorld,
-              minSize,
-              excludeId: node.id,
-              sourceEdges: { sourceX, sourceY }
-            })
-            width = snapped.width
-            height = snapped.height
-            nextRect = { x: snapped.rect.x, y: snapped.rect.y }
-            setDragGuides(snapped.guides)
-          } else {
-            clearDragGuides()
-          }
-        }
-
-        const update = {
-          position: { x: nextRect.x, y: nextRect.y },
-          size: { width, height }
-        }
-
-        drag.lastUpdate = update
-        setNodeOverrides([{ id: node.id, ...update }])
         return
       }
 
       if (drag.mode === 'rotate') {
-        const worldPoint = clientToWorld(event.clientX, event.clientY)
-        const nextRotation = computeNextRotation({
-          center: drag.center,
-          currentPoint: worldPoint,
-          startAngle: drag.startAngle,
-          startRotation: drag.startRotation,
+        nodeTransform.applyRotateMove({
+          nodeId: node.id,
+          drag,
+          clientX: event.clientX,
+          clientY: event.clientY,
           shiftKey: event.shiftKey
-        })
-        core.dispatch({
-          type: 'node.update',
-          id: node.id,
-          patch: {
-            rotation: nextRotation
-          }
         })
       }
     },
-    [
-      clearDragGuides,
-      clientToWorld,
-      core,
-      getSnapCandidatesInRect,
-      getZoom,
-      minSize.height,
-      minSize.width,
-      node.id,
-      nodeConfig.snapMaxThresholdWorld,
-      nodeConfig.snapThresholdScreen,
-      readState,
-      rotation,
-      setDragGuides,
-      setNodeOverrides
-    ]
+    [minSize, node.id, nodeTransform]
   )
 
   const handlePointerUp = useCallback(
@@ -235,14 +115,15 @@ export const useNodeTransform = ({
 
       event.currentTarget.releasePointerCapture(event.pointerId)
 
-      if (drag.mode === 'resize' && drag.lastUpdate) {
-        commitNodeOverrides([{ id: node.id, ...drag.lastUpdate }])
+      if (drag.mode === 'resize') {
+        nodeTransform.finishResize({ nodeId: node.id, drag })
+      } else {
+        nodeTransform.clear()
       }
 
-      clearDragGuides()
       endDrag()
     },
-    [clearDragGuides, commitNodeOverrides, endDrag, node.id]
+    [endDrag, node.id, nodeTransform]
   )
 
   const getHandleProps = useCallback(

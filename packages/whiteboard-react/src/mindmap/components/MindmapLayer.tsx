@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Core, Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from 'types/mindmap'
 import type { Size } from 'types/common'
 import { MindmapTreeView } from './MindmapTreeView'
@@ -9,10 +9,9 @@ type MindmapLayerProps = {
   nodes: Node[]
   nodeSize: Size
   layout: MindmapLayoutConfig
-  core: Core
 }
 
-export const MindmapLayer = ({ nodes, nodeSize, layout, core }: MindmapLayerProps) => {
+export const MindmapLayer = ({ nodes, nodeSize, layout }: MindmapLayerProps) => {
   const mindmapNodes = useMemo(() => nodes.filter((node) => node.type === 'mindmap'), [nodes])
   if (!mindmapNodes.length) return null
   return (
@@ -27,7 +26,6 @@ export const MindmapLayer = ({ nodes, nodeSize, layout, core }: MindmapLayerProp
             mindmapNode={node}
             nodeSize={nodeSize}
             layout={layout}
-            core={core}
           />
         )
       })}

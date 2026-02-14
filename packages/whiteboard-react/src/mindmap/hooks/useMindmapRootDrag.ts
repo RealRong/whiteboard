@@ -1,14 +1,14 @@
 import { useCallback, useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
-import type { Core, Node, Point } from '@whiteboard/core'
+import type { Node, Point } from '@whiteboard/core'
 
 type UseMindmapRootDragOptions = {
   mindmapNode: Node
-  core: Core
   getWorldPoint: (event: PointerEvent<HTMLElement>) => Point
+  commitRootPosition: (position: Point) => void
 }
 
-export const useMindmapRootDrag = ({ mindmapNode, core, getWorldPoint }: UseMindmapRootDragOptions) => {
+export const useMindmapRootDrag = ({ mindmapNode, getWorldPoint, commitRootPosition }: UseMindmapRootDragOptions) => {
   const [nodeOffset, setNodeOffset] = useState<Point>(() => ({ x: mindmapNode.position.x, y: mindmapNode.position.y }))
   const rootDragRef = useRef<{ pointerId: number; start: Point; origin: Point } | null>(null)
 
@@ -48,10 +48,10 @@ export const useMindmapRootDrag = ({ mindmapNode, core, getWorldPoint }: UseMind
       event.stopPropagation()
       event.currentTarget.releasePointerCapture(event.pointerId)
       rootDragRef.current = null
-      commitNodeOffset(mindmapNode, core, nodeOffset)
+      commitRootPosition(nodeOffset)
       return true
     },
-    [core, mindmapNode, nodeOffset]
+    [commitRootPosition, nodeOffset]
   )
 
   const cancelRootDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -69,15 +69,4 @@ export const useMindmapRootDrag = ({ mindmapNode, core, getWorldPoint }: UseMind
     endRootDrag,
     cancelRootDrag
   }
-}
-
-const commitNodeOffset = (mindmapNode: Node, core: Core, position: Point) => {
-  if (Math.abs(mindmapNode.position.x - position.x) < 0.5 && Math.abs(mindmapNode.position.y - position.y) < 0.5) {
-    return
-  }
-  void core.dispatch({
-    type: 'node.update',
-    id: mindmapNode.id,
-    patch: { position: { x: position.x, y: position.y } }
-  })
 }

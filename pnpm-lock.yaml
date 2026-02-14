@@ -81,6 +81,15 @@ importers:
 
   packages/whiteboard-core: {}
 
+  packages/whiteboard-engine:
+    dependencies:
+      '@whiteboard/core':
+        specifier: workspace:*
+        version: link:../whiteboard-core
+      jotai:
+        specifier: ^2.7.1
+        version: 2.17.0(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.10)(react@19.2.4)
+
   packages/whiteboard-plugins: {}
 
   packages/whiteboard-react:
@@ -88,6 +97,9 @@ importers:
       '@whiteboard/core':
         specifier: workspace:*
         version: link:../whiteboard-core
+      '@whiteboard/engine':
+        specifier: workspace:*
+        version: link:../whiteboard-engine
       immer:
         specifier: ^10.1.3
         version: 10.2.0

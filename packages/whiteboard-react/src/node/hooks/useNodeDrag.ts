@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type { PointerEvent } from 'react'
 import type { Node, NodeId } from '@whiteboard/core'
-import { selectNodeDragStrategy } from '../runtime/drag'
+import { selectNodeDragStrategy, type NodeViewUpdate } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
 import type { DragState, NodeDragHandlers, NodeDragTransientApi } from 'types/node'
 
@@ -12,7 +12,6 @@ type UseNodeDragOptions = {
 export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   const instance = useInstance()
   const { nodeSize } = instance.runtime.config
-  const core = instance.runtime.core
 
   const nodeId = node.id
   const nodeType = node.type
@@ -25,6 +24,17 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
   const transient: NodeDragTransientApi = {
     setOverrides: instance.commands.transient.nodeOverrides.set,
     commitOverrides: instance.commands.transient.nodeOverrides.commit
+  }
+
+  const applyNodePatch = (nodeId: NodeId, patch: Parameters<typeof instance.commands.node.update>[1]) => {
+    void instance.commands.node.update(nodeId, patch)
+  }
+
+  const applyNodePositionUpdates = (updates: NodeViewUpdate[]) => {
+    const positionUpdates = updates
+      .filter((update): update is NodeViewUpdate & { position: { x: number; y: number } } => Boolean(update.position))
+      .map((update) => ({ id: update.id, position: update.position }))
+    instance.commands.node.updateManyPosition(positionUpdates)
   }
 
   const dragRef = useRef<DragState | null>(null)
@@ -48,13 +58,14 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
 
     const group = instance.commands.nodeDrag.getGroupContext()
     const children = strategy.initialize({
-      core,
       nodeId,
       nodeType,
       position,
       size,
       group,
       transient,
+      applyNodePatch,
+      applyNodePositionUpdates,
       updateHoverGroup,
       getHoverGroupId: () => hoverGroupRef.current
     })
@@ -92,7 +103,6 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
     drag.last = nextPosition
 
     strategy.handleMove({
-      core,
       drag,
       nodeId,
       nodeType,
@@ -100,6 +110,8 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
       size,
       group: instance.commands.nodeDrag.getGroupContext(),
       transient,
+      applyNodePatch,
+      applyNodePositionUpdates,
       updateHoverGroup,
       getHoverGroupId: () => hoverGroupRef.current,
       nextPosition
@@ -113,7 +125,6 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
     dragRef.current = null
 
     strategy.handlePointerUp({
-      core,
       drag,
       nodeId,
       nodeType,
@@ -121,6 +132,8 @@ export const useNodeDrag = ({ node }: UseNodeDragOptions): NodeDragHandlers => {
       size,
       group: instance.commands.nodeDrag.getGroupContext(),
       transient,
+      applyNodePatch,
+      applyNodePositionUpdates,
       updateHoverGroup,
       getHoverGroupId: () => hoverGroupRef.current
     })

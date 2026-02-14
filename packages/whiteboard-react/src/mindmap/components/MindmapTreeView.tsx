@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { PointerEvent } from 'react'
-import type { Core, MindmapNodeId, MindmapTree, Node, Rect } from '@whiteboard/core'
-import { getSide } from '@whiteboard/core'
+import type { MindmapNodeId, MindmapTree, Node, Rect } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from 'types/mindmap'
 import type { Size } from 'types/common'
 import { useInstance } from '../../common/hooks'
@@ -16,15 +15,13 @@ type MindmapTreeViewProps = {
   mindmapNode: Node
   nodeSize: Size
   layout: MindmapLayoutConfig
-  core: Core
 }
 
 export const MindmapTreeView = ({
   tree,
   mindmapNode,
   nodeSize,
-  layout,
-  core
+  layout
 }: MindmapTreeViewProps) => {
   const instance = useInstance()
   const clientToScreen = instance.runtime.viewport.clientToScreen
@@ -48,8 +45,13 @@ export const MindmapTreeView = ({
 
   const { baseOffset, startRootDrag, updateRootDrag, endRootDrag, cancelRootDrag } = useMindmapRootDrag({
     mindmapNode,
-    core,
-    getWorldPoint
+    getWorldPoint,
+    commitRootPosition: (position) => {
+      void instance.commands.mindmap.moveRoot({
+        nodeId: mindmapNode.id,
+        position
+      })
+    }
   })
 
   const nodeRects = useMemo(() => {
@@ -70,7 +72,8 @@ export const MindmapTreeView = ({
     mindmapNode,
     nodeSize,
     layout,
-    core,
+    moveSubtreeWithDrop: instance.commands.mindmap.moveSubtreeWithDrop,
+    computeSubtreeDropTarget: instance.runtime.services.mindmapDrag.computeSubtreeDropTarget,
     getWorldPoint,
     nodeRects
   })
@@ -134,87 +137,17 @@ export const MindmapTreeView = ({
 
   const handleAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
-      const payload = { kind: 'text', text: '' } as const
-      const layoutHint = {
-        nodeSize,
-        mode: layout.mode,
-        options: layout.options,
-        anchorId: nodeId
-      }
-      if (nodeId === tree.rootId) {
-        const children = tree.children[nodeId] ?? []
-        const index = placement === 'up' ? 0 : placement === 'down' ? children.length : undefined
-        const side =
-          placement === 'left'
-            ? 'left'
-            : placement === 'right'
-              ? 'right'
-              : (layout.options?.side === 'left' || layout.options?.side === 'right'
-                  ? layout.options.side
-                  : 'right')
-        await core.dispatch({
-          type: 'mindmap.addChild',
-          id: mindmapNode.id,
-          parentId: nodeId,
-          payload,
-          options: { index, side, layout: layoutHint }
-        })
-        return
-      }
-
-      if (placement === 'up' || placement === 'down') {
-        await core.dispatch({
-          type: 'mindmap.addSibling',
-          id: mindmapNode.id,
-          nodeId,
-          position: placement === 'up' ? 'before' : 'after',
-          payload,
-          options: { layout: layoutHint }
-        })
-        return
-      }
-
-      const side = getSide(tree, nodeId) ?? 'right'
-      const towardRoot = (placement === 'left' && side === 'right') || (placement === 'right' && side === 'left')
-
-      if (towardRoot) {
-        const result = await core.dispatch({
-          type: 'mindmap.addSibling',
-          id: mindmapNode.id,
-          nodeId,
-          position: 'before',
-          payload,
-          options: { layout: layoutHint }
-        })
-        if (result.ok && result.value) {
-          await core.dispatch({
-            type: 'mindmap.moveSubtree',
-            id: mindmapNode.id,
-            nodeId,
-            newParentId: result.value as MindmapNodeId,
-            options: {
-              index: 0,
-              layout: {
-                nodeSize,
-                mode: layout.mode,
-                options: layout.options,
-                anchorId: result.value as MindmapNodeId
-              }
-            }
-          })
-        }
-        return
-      }
-
-      await core.dispatch({
-        type: 'mindmap.addChild',
+      await instance.commands.mindmap.insertNode({
         id: mindmapNode.id,
-        parentId: nodeId,
-        payload,
-        options: { layout: layoutHint }
+        tree,
+        targetNodeId: nodeId,
+        placement,
+        nodeSize,
+        layout,
+        payload: { kind: 'text', text: '' }
       })
     },
-    [core, layout.mode, layout.options, layout.options?.side, mindmapNode.id, nodeSize, tree]
+    [instance.commands.mindmap, layout, mindmapNode.id, nodeSize, tree]
   )
 
   return (

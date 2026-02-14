@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { EdgeConnectState } from 'types/state'
+import type { EdgeConnectState } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
 
 type Options = {

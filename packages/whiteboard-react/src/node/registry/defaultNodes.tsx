@@ -14,12 +14,8 @@ const getDataBool = (node: Node, key: string) => {
   return typeof value === 'boolean' ? value : false
 }
 
-const setNodeData = (node: Node, patch: Record<string, unknown>) => {
-  return { ...(node.data ?? {}), ...patch }
-}
-
 const TextNodeRenderer = ({
-  core,
+  commands,
   node,
   selected,
   variant
@@ -33,13 +29,7 @@ const TextNodeRenderer = ({
   }, [text])
 
   const commit = () => {
-    core.dispatch({
-      type: 'node.update',
-      id: node.id,
-      patch: {
-        data: setNodeData(node, { text: draft })
-      }
-    })
+    void commands.node.updateData(node.id, { text: draft })
     setEditing(false)
   }
 
@@ -92,7 +82,7 @@ const TextNodeRenderer = ({
   return content
 }
 
-const GroupNodeRenderer = ({ core, node }: NodeRenderProps) => {
+const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
   const title = getDataString(node, 'title')
   const collapsed = getDataBool(node, 'collapsed')
   const [editing, setEditing] = useState(false)
@@ -103,24 +93,12 @@ const GroupNodeRenderer = ({ core, node }: NodeRenderProps) => {
   }, [title])
 
   const commit = () => {
-    core.dispatch({
-      type: 'node.update',
-      id: node.id,
-      patch: {
-        data: setNodeData(node, { title: draft })
-      }
-    })
+    void commands.node.updateData(node.id, { title: draft })
     setEditing(false)
   }
 
   const toggleCollapse = () => {
-    core.dispatch({
-      type: 'node.update',
-      id: node.id,
-      patch: {
-        data: setNodeData(node, { collapsed: !collapsed })
-      }
-    })
+    void commands.node.updateData(node.id, { collapsed: !collapsed })
   }
 
   return (

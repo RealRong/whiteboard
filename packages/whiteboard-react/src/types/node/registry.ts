@@ -1,5 +1,6 @@
 import type { Core, Node, Rect } from '@whiteboard/core'
 import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
+import type { WhiteboardCommands } from '@whiteboard/engine'
 
 export type NodeContainerProps = {
   rect: Rect
@@ -16,6 +17,7 @@ export type NodeContainerProps = {
 
 export type NodeRenderProps = {
   core: Core
+  commands: WhiteboardCommands
   node: Node
   rect: Rect
   selected: boolean

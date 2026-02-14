@@ -237,6 +237,21 @@ export const createCommands = (deps: CommandDeps): Core['commands'] => {
         })
       }
     },
+    history: {
+      undo: () => false,
+      redo: () => false,
+      clear: () => {},
+      configure: () => {},
+      getState: () => ({
+        canUndo: false,
+        canRedo: false,
+        undoDepth: 0,
+        redoDepth: 0,
+        isApplying: false,
+        lastUpdatedAt: now()
+      }),
+      subscribe: () => () => {}
+    },
     transaction
   }
 }

@@ -1,26 +1,11 @@
 import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
-export { NodeLayer } from './node/components/NodeLayer'
-export { SelectionLayer } from './node/components/SelectionLayer'
-export { DragGuidesLayer } from './node/components/DragGuidesLayer'
-export { NodeBlock } from './node/components/NodeBlock'
-export { NodeItem } from './node/components/NodeItem'
-export { NodeHandles } from './node/components/NodeHandles'
-export { EdgeLayer } from './edge/components/EdgeLayer'
-export { EdgeEndpointHandles } from './edge/components/EdgeEndpointHandles'
-export { EdgePreviewLayer } from './edge/components/EdgePreviewLayer'
-export { EdgeControlPointHandles } from './edge/components/EdgeControlPointHandles'
-export { MindmapLayer } from './mindmap/components/MindmapLayer'
 export { useInstance, useWhiteboardSelector } from './common/hooks'
-export { useNodeInteraction } from './node/hooks/useNodeInteraction'
-export { useNodePresentation } from './node/hooks/useNodePresentation'
-export { useNodeTransform } from './node/hooks/useNodeTransform'
-export { useSelection } from './node/hooks/useSelection'
-export { useEdgeConnect } from './edge/hooks/useEdgeConnect'
-export { useMindmapLayout } from './mindmap/hooks/useMindmapLayout'
-export { createNodeRegistry, NodeRegistryProvider, useNodeRegistry } from './node/registry'
-export { createDefaultNodeRegistry } from './node/registry'
-export { createDefaultShortcuts, createShortcutManager, getPlatformInfo } from './common/shortcuts'
-export { createWhiteboardInstance } from './common/instance'
-export * from './node/utils/snap'
+
+export type { WhiteboardConfig, WhiteboardHistoryConfig, WhiteboardProps } from './types/common'
+export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'
+export type {
+  CreateWhiteboardEngineOptions as CreateWhiteboardInstanceOptions,
+  WhiteboardEngine as WhiteboardInstance
+} from '@whiteboard/engine'

@@ -1,8 +1,8 @@
-import type { Core, Node, NodeId, Point, Rect } from '@whiteboard/core'
+import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
 import type { PointerEvent } from 'react'
+import type { NodeViewUpdate } from '@whiteboard/engine'
 import type { Guide, SnapCandidate } from './snap'
 import type { Size } from '../common'
-import type { NodeViewUpdate } from '../state'
 
 export type NodeDragSnapOptions = {
   enabled: boolean
@@ -44,13 +44,14 @@ export type DragState = {
 }
 
 export type DragStrategyBaseContext = {
-  core: Core
   nodeId: NodeId
   nodeType: Node['type']
   position: Point
   size: { width: number; height: number }
   group?: NodeDragGroupOptions
   transient?: NodeDragTransientApi
+  applyNodePatch: (nodeId: NodeId, patch: NodePatch) => void
+  applyNodePositionUpdates: (updates: NodeViewUpdate[]) => void
   updateHoverGroup: (nextId?: NodeId) => void
   getHoverGroupId: () => NodeId | undefined
 }

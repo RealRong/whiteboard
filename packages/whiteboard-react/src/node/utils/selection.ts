@@ -1,4 +1,4 @@
-import type { SelectionMode } from 'types/state'
+import type { SelectionMode } from '@whiteboard/engine'
 
 export const getSelectionModeFromEvent = (event: PointerEvent | MouseEvent): SelectionMode => {
   if (event.altKey) return 'subtract'

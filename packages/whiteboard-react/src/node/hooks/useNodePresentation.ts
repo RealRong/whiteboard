@@ -30,13 +30,14 @@ export const useNodePresentation = ({
     () =>
       getNodeDefinitionStyle(definition, {
         core,
+        commands: instance.commands,
         node,
         rect,
         selected,
         hovered,
         zoom
       }),
-    [core, definition, hovered, node, rect, selected, zoom]
+    [core, definition, hovered, instance.commands, node, rect, selected, zoom]
   )
 
   const rotationStyle = useMemo<CSSProperties | undefined>(() => {
@@ -61,6 +62,7 @@ export const useNodePresentation = ({
   const renderProps = useMemo<NodeRenderProps>(
     () => ({
       core,
+      commands: instance.commands,
       node,
       rect,
       selected,
@@ -68,7 +70,7 @@ export const useNodePresentation = ({
       zoom,
       containerProps
     }),
-    [containerProps, core, hovered, node, rect, selected, zoom]
+    [containerProps, core, hovered, instance.commands, node, rect, selected, zoom]
   )
 
   return {

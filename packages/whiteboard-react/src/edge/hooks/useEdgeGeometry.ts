@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import type { EdgeAnchor, Point } from '@whiteboard/core'
+import type { EdgeConnectState } from '@whiteboard/engine'
 import { getEdgePath } from '@whiteboard/core'
 import { useInstance } from '../../common/hooks'
 import { getAnchorPoint } from '../../common/utils/geometry'
 import type { EdgePathEntry, UseEdgeGeometryOptions } from 'types/edge'
-import type { EdgeConnectState } from 'types/state'
 
 export const useEdgeGeometry = ({
   edges,

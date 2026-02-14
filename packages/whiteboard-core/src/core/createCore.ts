@@ -3,6 +3,7 @@ import { createApplyOperations } from './apply'
 import { createBuildOperations } from './build'
 import { createChangeHandlers, createChangeSetFactory, createTransaction, runAfterHandlers, runBeforeHandlers, TransactionContext } from './changes'
 import { createCommands } from './commands'
+import { createCoreHistory } from './history'
 import { createEventBus } from './events'
 import { createModel } from './model'
 import { createPluginHost, createCommandRegistry } from './plugins'
@@ -90,6 +91,34 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     now: state.now
   })
 
+  const applyDocumentSnapshot = (document: Document) => {
+    state.applyDocument((draft) => {
+      draft.id = document.id
+      draft.name = document.name
+      draft.nodes = document.nodes ?? []
+      draft.edges = document.edges ?? []
+      draft.mindmaps = document.mindmaps ?? []
+      draft.order =
+        document.order ??
+        ({
+          nodes: (document.nodes ?? []).map((node) => node.id),
+          edges: (document.edges ?? []).map((edge) => edge.id)
+        } as Document['order'])
+      draft.background = document.background
+      draft.viewport = document.viewport
+      draft.meta = document.meta
+    })
+    state.rebuildMaps()
+  }
+
+  const history = createCoreHistory({
+    state,
+    changes: changeHandlers,
+    now: state.now,
+    applyDocumentSnapshot
+  })
+  commands.history = history.commands
+
   const core: Core = {
     query,
     dispatch,
@@ -155,23 +184,9 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
       document: query.document()
     }),
     load: (snapshot) => {
-      state.applyDocument((draft) => {
-        draft.id = snapshot.document.id
-        draft.name = snapshot.document.name
-        draft.nodes = snapshot.document.nodes ?? []
-        draft.edges = snapshot.document.edges ?? []
-        draft.mindmaps = snapshot.document.mindmaps ?? []
-        draft.order =
-          snapshot.document.order ??
-          ({
-            nodes: (snapshot.document.nodes ?? []).map((node) => node.id),
-            edges: (snapshot.document.edges ?? []).map((edge) => edge.id)
-          } as Document['order'])
-        draft.background = snapshot.document.background
-        draft.viewport = snapshot.document.viewport
-        draft.meta = snapshot.document.meta
-      })
-      state.rebuildMaps()
+      applyDocumentSnapshot(snapshot.document)
+      history.syncSnapshot()
+      commands.history.clear()
     },
     registries,
     plugins: undefined as unknown as Core['plugins']

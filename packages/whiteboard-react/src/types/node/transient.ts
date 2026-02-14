@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core'
-import type { NodeViewUpdate } from '../state'
+import type { NodeViewUpdate } from '@whiteboard/engine'
 
 export type NodeTransientApi = {
   setOverrides: (updates: NodeViewUpdate[]) => void

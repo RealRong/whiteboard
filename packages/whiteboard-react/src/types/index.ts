@@ -1,39 +1,18 @@
-export type { WhiteboardCommands } from './commands'
 export type {
-  ContainerSizeObserverService,
-  CreateWhiteboardInstanceOptions,
-  NodeSizeObserverService,
-  Store,
-  WhiteboardInstance,
-  WhiteboardInstanceConfig,
-  WhiteboardStateNamespace
-} from './instance'
-
-export type {
+  ResolvedWhiteboardConfig,
   Size,
   ViewportConfig,
   WhiteboardConfig,
   WhiteboardEdgeConfig,
   WhiteboardHistoryConfig,
   WhiteboardNodeConfig,
-  WhiteboardProps
+  WhiteboardProps,
+  WhiteboardResolvedEdgeConfig,
+  WhiteboardResolvedHistoryConfig,
+  WhiteboardResolvedNodeConfig,
+  WhiteboardResolvedViewportConfig
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
-export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions } from './shortcuts'
-export type {
-  EdgeConnectFrom,
-  EdgeConnectState,
-  EdgeConnectTo,
-  EdgeReconnectInfo,
-  GroupRuntime,
-  HistoryState,
-  InteractionState,
-  NodeOverride,
-  NodeViewUpdate,
-  SelectionMode,
-  SelectionState,
-  SnapRuntimeData
-} from './state'
 
 export type {
   HandleKind,
@@ -77,6 +56,5 @@ export type {
   EdgePathEntry,
   UseEdgeConnectActionsReturn,
   UseEdgeConnectReturn,
-  UseEdgeConnectStateReturn,
   UseEdgeGeometryOptions
 } from './edge'

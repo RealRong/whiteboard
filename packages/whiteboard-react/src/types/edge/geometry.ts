@@ -1,5 +1,5 @@
 import type { Edge, Point } from '@whiteboard/core'
-import type { EdgeConnectState } from '../state'
+import type { EdgeConnectState } from '@whiteboard/engine'
 
 export type EdgePathEntry = {
   id: string

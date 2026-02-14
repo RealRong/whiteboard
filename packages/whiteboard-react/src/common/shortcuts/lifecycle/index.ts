@@ -1,1 +1,0 @@
-export { useShortcutRegistry } from './useShortcutRegistry'

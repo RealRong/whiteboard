@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Whiteboard } from '@whiteboard/react'
+import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
 import { createCore, type Document, type Plugin, type SchemaField } from '@whiteboard/core'
 import { produce } from 'immer'
 import './App.css'
@@ -255,6 +255,7 @@ function App() {
   const [tool, setTool] = useState<'select' | 'edge'>('select')
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const docRef = useRef(doc)
+  const whiteboardRef = useRef<WhiteboardInstance | null>(null)
   const applyRef = useRef<(recipe: (draft: Document) => void) => void>(() => {})
   const coreRef = useRef(createCore({ getState: () => docRef.current, apply: (recipe) => applyRef.current(recipe) }))
 
@@ -274,12 +275,25 @@ function App() {
     coreRef.current.plugins.use(demoSchemaPlugin)
   }, [])
 
+  useEffect(() => {
+    const instance = whiteboardRef.current
+    if (!instance) return
+    const updateHistoryState = () => {
+      const history = instance.state.read('history')
+      setHistoryState({ canUndo: history.canUndo, canRedo: history.canRedo })
+    }
+    updateHistoryState()
+    return instance.state.watch('history', updateHistoryState)
+  }, [])
+
   const core = coreRef.current
 
   const runHistoryCommand = (name: 'history.undo' | 'history.redo') => {
-    const command = core.registries.commands.get(name)
-    if (!command) return
-    command()
+    if (name === 'history.undo') {
+      whiteboardRef.current?.commands.history.undo()
+      return
+    }
+    whiteboardRef.current?.commands.history.redo()
   }
 
   return (
@@ -322,17 +336,12 @@ function App() {
         </span>
       </div>
       <Whiteboard
+        ref={whiteboardRef}
         doc={doc}
         onDocChange={handleDocChange}
         core={core}
         config={{
-          tool,
-          onHistoryChange: (state) => {
-            setHistoryState({
-              canUndo: state.canUndo,
-              canRedo: state.canRedo
-            })
-          }
+          tool
         }}
       />
     </div>

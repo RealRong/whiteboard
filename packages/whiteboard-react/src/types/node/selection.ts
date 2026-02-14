@@ -1,6 +1,6 @@
 import type { NodeId, Point, Rect } from '@whiteboard/core'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { SelectionMode } from '../state'
+import type { SelectionMode } from '@whiteboard/engine'
 
 export type UseSelectionOptions = {
   minDragDistance?: number
