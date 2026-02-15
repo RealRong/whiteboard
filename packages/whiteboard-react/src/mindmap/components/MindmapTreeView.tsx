@@ -31,46 +31,8 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
       if (!handled) return
       event.preventDefault()
       event.stopPropagation()
-      event.currentTarget.setPointerCapture(event.pointerId)
     },
     [instance.commands.mindmap, mindmapNode.id]
-  )
-
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.mindmap.updateDrag({
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY
-      })) {
-        return
-      }
-      event.preventDefault()
-    },
-    [instance.commands.mindmap]
-  )
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.mindmap.endDrag({ pointerId: event.pointerId })) return
-      event.preventDefault()
-      event.stopPropagation()
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.mindmap]
-  )
-
-  const handlePointerCancel = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.mindmap.cancelDrag({ pointerId: event.pointerId })) return
-      event.preventDefault()
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.mindmap]
   )
 
   const handleAddChild = useCallback(
@@ -122,9 +84,6 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
             showActions={!dragPreview}
             dragPreviewActive={Boolean(dragPreview)}
             onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
             onAddChild={handleAddChild}
           />
         )

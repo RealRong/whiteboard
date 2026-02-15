@@ -92,16 +92,14 @@ class WhiteboardShortcutRuntimeService implements ShortcutRuntime {
     this.shortcutManager.setShortcuts(resolveShortcuts(defaults, overrides))
   }
 
-  handlePointerDownCapture = (event: PointerEvent) => {
+  handlePointerDownCapture = (event: PointerEvent, context: ShortcutContext) => {
     this.ensureCommandHandlers()
-    const context = this.instance.query.getShortcutContext(event)
     this.applyInteractionSnapshot(context)
     return this.shortcutManager.handlePointerDown(event, context)
   }
 
-  handleKeyDown = (event: KeyboardEvent) => {
+  handleKeyDown = (event: KeyboardEvent, context: ShortcutContext) => {
     this.ensureCommandHandlers()
-    const context = this.instance.query.getShortcutContext(event)
     this.applyInteractionSnapshot(context)
     return this.shortcutManager.handleKeyDown(event, context)
   }

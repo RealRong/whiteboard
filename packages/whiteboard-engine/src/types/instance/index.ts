@@ -31,7 +31,7 @@ import type {
 } from '../state'
 import type { Guide, SnapCandidate } from '../node/snap'
 import type { Size } from '../common'
-import type { ShortcutContext, ShortcutNativeEvent, ShortcutRuntime } from '../shortcuts'
+import type { ShortcutContext, ShortcutRuntime } from '../shortcuts'
 import type { WhiteboardLifecycleRuntime } from './lifecycle'
 import type { RefLike } from '../ui'
 import type { MindmapLayoutConfig } from '../mindmap'
@@ -139,14 +139,6 @@ export type WhiteboardEdgeConnectAnchorResult = {
   point: Point
 }
 
-export type WhiteboardEdgeConnectPreview = {
-  from?: Point
-  to?: Point
-  hover?: Point
-  reconnect?: EdgeReconnectInfo
-  showPreviewLine: boolean
-}
-
 export type WhiteboardViewportTransformView = {
   center: Point
   zoom: number
@@ -226,6 +218,7 @@ export type WhiteboardNodeTransformHandle = {
 
 export type WhiteboardViewSnapshot = {
   'viewport.transform': WhiteboardViewportTransformView
+  'shortcut.context': ShortcutContext
   'edge.entries': WhiteboardEdgePathEntry[]
   'edge.reconnect': WhiteboardEdgePathEntry | undefined
   'edge.paths': WhiteboardEdgePathEntry[]
@@ -282,12 +275,7 @@ export type WhiteboardInstanceQuery = {
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
   isCanvasBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => WhiteboardEdgeConnectAnchorResult
-  getEdgeConnectPreview: (state: EdgeConnectState) => WhiteboardEdgeConnectPreview
-  getEdgePathEntries: () => WhiteboardEdgePathEntry[]
-  getEdgeReconnectPathEntry: (state: EdgeConnectState) => WhiteboardEdgePathEntry | undefined
-  getEdgeResolvedEndpoints: (edge: Edge) => WhiteboardEdgeResolvedEndpoints | undefined
   getNearestEdgeSegmentIndexAtWorld: (pointWorld: Point, pathPoints: Point[]) => number
-  getShortcutContext: (event?: ShortcutNativeEvent) => ShortcutContext
 }
 
 export type WhiteboardViewportRuntime = {

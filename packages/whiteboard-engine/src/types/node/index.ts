@@ -1,12 +1,12 @@
 export type { NodeContainerProps, NodeDefinition, NodeRegistry, NodeRenderProps } from './registry'
-export type { NodeContainerHandlers, UseNodeInteractionOptions } from './interaction'
-export type { NodePresentation, UseNodePresentationOptions } from './presentation'
+export type { NodeContainerHandlers, NodeInteractionOptions } from './interaction'
+export type { NodePresentation, NodePresentationOptions } from './presentation'
 export type {
   SelectionHandlers,
-  UseSelectionOptions,
-  UseSelectionReturn,
-  UseSelectionRuntimeReturn,
-  UseSelectionStateReturn
+  SelectionOptions,
+  SelectionModel,
+  SelectionRuntime,
+  SelectionState
 } from './selection'
 export type {
   DragEndContext,
@@ -20,7 +20,7 @@ export type {
   NodeDragStrategy,
   NodeDragTransientApi
 } from './drag'
-export type { HandleKind, ResizeDirection, TransformHandle, UseNodeTransformOptions } from './transform'
+export type { HandleKind, ResizeDirection, TransformHandle, NodeTransformOptions } from './transform'
 export type { SnapRuntime } from './runtime'
 export type { NodeTransientApi } from './transient'
 export type { NodeHandleSide, NodeHandlesProps, NodeItemProps } from './components'

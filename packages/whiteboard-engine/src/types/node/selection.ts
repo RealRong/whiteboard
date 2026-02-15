@@ -1,7 +1,7 @@
 import type { NodeId, Point, Rect } from '@whiteboard/core'
 import type { SelectionMode } from '../state'
 
-export type UseSelectionOptions = {
+export type SelectionOptions = {
   minDragDistance?: number
   enabled?: boolean
 }
@@ -12,7 +12,7 @@ export type SelectionHandlers = {
   onPointerUp: (event: PointerEvent) => void
 }
 
-export type UseSelectionStateReturn = {
+export type SelectionState = {
   tool: string
   selectedEdgeId?: string
   selectedNodeIds: Set<NodeId>
@@ -23,7 +23,7 @@ export type UseSelectionStateReturn = {
   hasSelection: () => boolean
 }
 
-export type UseSelectionRuntimeReturn = {
+export type SelectionRuntime = {
   beginBox: (pointScreen: Point, mode?: SelectionMode) => void
   updateBox: (pointScreen: Point) => void
   endBox: () => void
@@ -32,8 +32,8 @@ export type UseSelectionRuntimeReturn = {
   cancelPendingRaf: () => void
 }
 
-export type UseSelectionReturn = UseSelectionStateReturn & {
+export type SelectionModel = SelectionState & {
   select: (ids: NodeId[], mode?: SelectionMode) => void
   toggle: (ids: NodeId[]) => void
   clear: () => void
-} & UseSelectionRuntimeReturn
+} & SelectionRuntime

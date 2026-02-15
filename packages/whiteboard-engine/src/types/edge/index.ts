@@ -1,7 +1,7 @@
 export type {
   EdgeConnectAnchorResult,
-  UseEdgeConnectActionsReturn,
-  UseEdgeConnectLayerStateReturn,
-  UseEdgeConnectReturn
+  EdgeConnectActions,
+  EdgeConnectLayerState,
+  EdgeConnectModel
 } from './connect'
-export type { EdgePathEntry, UseEdgeGeometryOptions } from './geometry'
+export type { EdgePathEntry, EdgeGeometryOptions } from './geometry'

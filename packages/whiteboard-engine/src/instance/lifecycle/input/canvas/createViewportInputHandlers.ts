@@ -1,5 +1,5 @@
 import type { WhiteboardInstance } from '@engine-types/instance'
-import { DEFAULT_WHITEBOARD_CONFIG } from '../../../config'
+import { DEFAULT_WHITEBOARD_CONFIG } from '../../../../config'
 
 type Options = {
   instance: WhiteboardInstance

@@ -1,86 +1,64 @@
-import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
-import type { WhiteboardInstance, WhiteboardStateSnapshot } from '@engine-types/instance'
+import type { WhiteboardInstance } from '@engine-types/instance'
 import type { WhiteboardLifecycleConfig, WhiteboardLifecycleRuntime as WhiteboardLifecycleRuntimeApi } from '@engine-types/instance'
 import type { CanvasEventHandlers, CanvasInputRuntime } from './input/types'
-import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_WHITEBOARD_CONFIG } from '../../config'
-import { bindCanvasContainerEvents } from './bindings/bindCanvasContainerEvents'
-import { createEdgeConnectWindowBinding, type EdgeConnectWindowBinding } from './bindings/bindEdgeConnectWindow'
-import {
-  createEdgeRoutingPointDragWindowBinding,
-  type EdgeRoutingPointDragWindowBinding
-} from './bindings/bindEdgeRoutingPointDragWindow'
-import { createSelectionCallbacksBinding, type SelectionCallbacksBinding } from './bindings/bindSelectionCallbacks'
-import { bindWindowSpaceKey } from './bindings/bindWindowSpaceKey'
-import { createCanvasInputHandlers } from './input/createCanvasInputHandlers'
-
-const createDefaultConfig = (instance: WhiteboardInstance): WhiteboardLifecycleConfig => ({
-  docId: undefined,
-  tool: 'select',
-  viewport: {
-    center: {
-      x: DEFAULT_DOCUMENT_VIEWPORT.center.x,
-      y: DEFAULT_DOCUMENT_VIEWPORT.center.y
-    },
-    zoom: DEFAULT_DOCUMENT_VIEWPORT.zoom
-  },
-  viewportConfig: {
-    minZoom: DEFAULT_WHITEBOARD_CONFIG.viewport.minZoom,
-    maxZoom: DEFAULT_WHITEBOARD_CONFIG.viewport.maxZoom,
-    enablePan: DEFAULT_WHITEBOARD_CONFIG.viewport.enablePan,
-    enableWheel: DEFAULT_WHITEBOARD_CONFIG.viewport.enableWheel,
-    wheelSensitivity: instance.runtime.config.viewport.wheelSensitivity
-  },
-  mindmapLayout: {},
-  history: undefined,
-  shortcuts: undefined,
-  onSelectionChange: undefined,
-  onEdgeSelectionChange: undefined
-})
-
-type HistoryIdentity = {
-  core: Core
-  docId: DocumentId
-}
-
-const toHistoryState = (snapshot: CoreHistoryState): WhiteboardStateSnapshot['history'] => ({
-  canUndo: snapshot.canUndo,
-  canRedo: snapshot.canRedo,
-  undoDepth: snapshot.undoDepth,
-  redoDepth: snapshot.redoDepth,
-  isApplying: snapshot.isApplying,
-  lastUpdatedAt: snapshot.lastUpdatedAt
-})
+import type { SelectionCallbacksBinding } from './bindings/bindSelectionCallbacks'
+import { createCanvasInputHandlers } from './input/canvas/createCanvasInputHandlers'
+import { createEdgeInputWindowBindings } from './input/edge/createEdgeInputWindowBindings'
+import { createMindmapInputWindowBinding } from './input/mindmap/createMindmapInputWindowBinding'
+import { createNodeInputWindowBindings } from './input/node/createNodeInputWindowBindings'
+import { createSelectionInputBindings } from './input/selection/createSelectionInputBindings'
+import { createDefaultLifecycleConfig } from './config/createDefaultLifecycleConfig'
+import { HistoryBindingController } from './history/HistoryBindingController'
+import { ContainerLifecycleController } from './container/ContainerLifecycleController'
+import { WindowSpaceKeyController } from './keyboard/WindowSpaceKeyController'
+import { GroupAutoFitLifecycleController } from './group/GroupAutoFitLifecycleController'
+import { RuntimeCleanupController } from './cleanup/RuntimeCleanupController'
+import { WindowBindingsOrchestrator } from './bindings/WindowBindingsOrchestrator'
 
 export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi {
   private instance: WhiteboardInstance
   private started = false
   private config: WhiteboardLifecycleConfig
   private inputRuntime: CanvasInputRuntime
-  private offContainerEvents: (() => void) | null = null
-  private offWindowSpaceKey: (() => void) | null = null
-  private edgeConnectWindowBinding: EdgeConnectWindowBinding
-  private edgeRoutingPointDragWindowBinding: EdgeRoutingPointDragWindowBinding
+  private windowBindingsOrchestrator: WindowBindingsOrchestrator
   private selectionCallbacksBinding: SelectionCallbacksBinding
-  private offHistoryBinding: (() => void) | null = null
-  private previousHistoryIdentity: HistoryIdentity | null = null
-  private observedContainer: HTMLElement | null = null
+  private historyBindingController: HistoryBindingController
+  private containerLifecycleController: ContainerLifecycleController
+  private windowSpaceKeyController: WindowSpaceKeyController
+  private groupAutoFitLifecycleController: GroupAutoFitLifecycleController
+  private runtimeCleanupController: RuntimeCleanupController
 
   constructor(instance: WhiteboardInstance) {
     this.instance = instance
-    this.config = createDefaultConfig(instance)
+    this.config = createDefaultLifecycleConfig(instance)
     this.inputRuntime = createCanvasInputHandlers({ instance: this.instance, config: this.config })
-    this.edgeConnectWindowBinding = createEdgeConnectWindowBinding({
-      state: this.instance.state,
-      events: this.instance.runtime.events,
-      edgeConnectCommands: this.instance.commands.edgeConnect
+    this.historyBindingController = new HistoryBindingController(this.instance)
+    this.containerLifecycleController = new ContainerLifecycleController({
+      instance: this.instance,
+      getHandlers: () => this.delegatedHandlers,
+      getOnWheel: () => this.onWheel
     })
-    this.edgeRoutingPointDragWindowBinding = createEdgeRoutingPointDragWindowBinding({
-      state: this.instance.state,
-      events: this.instance.runtime.events,
-      edgeCommands: this.instance.commands.edge
+    this.windowSpaceKeyController = new WindowSpaceKeyController(this.instance)
+    this.groupAutoFitLifecycleController = new GroupAutoFitLifecycleController(this.instance)
+    this.runtimeCleanupController = new RuntimeCleanupController(this.instance)
+    const edgeWindowBindings = createEdgeInputWindowBindings(this.instance)
+    const nodeWindowBindings = createNodeInputWindowBindings(this.instance)
+
+    const mindmapDragWindowBinding = createMindmapInputWindowBinding(this.instance)
+    const selectionBindings = createSelectionInputBindings({
+      instance: this.instance,
+      getSelectionBox: () => this.inputRuntime.selectionBox
     })
-    this.selectionCallbacksBinding = createSelectionCallbacksBinding({
-      state: this.instance.state
+    this.selectionCallbacksBinding = selectionBindings.selectionCallbacksBinding
+    this.windowBindingsOrchestrator = new WindowBindingsOrchestrator({
+      bindings: [
+        edgeWindowBindings.edgeConnectWindowBinding,
+        edgeWindowBindings.edgeRoutingPointDragWindowBinding,
+        nodeWindowBindings.nodeDragWindowBinding,
+        nodeWindowBindings.nodeTransformWindowBinding,
+        mindmapDragWindowBinding,
+        selectionBindings.selectionBoxWindowBinding
+      ]
     })
   }
 
@@ -106,96 +84,21 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
     this.inputRuntime.onWheel(event)
   }
 
-  private syncContainerEventsBinding = () => {
-    const container = this.instance.runtime.containerRef.current
-    if (!container) return
-    if (this.offContainerEvents) return
-    this.offContainerEvents = bindCanvasContainerEvents({
-      events: this.instance.runtime.events,
-      handlers: this.delegatedHandlers,
-      onWheel: this.onWheel
-    })
-  }
-
-  private syncContainerObserverBinding = () => {
-    const container = this.instance.runtime.containerRef.current
-    if (!container) return
-    if (this.observedContainer === container) return
-
-    if (this.observedContainer) {
-      this.instance.runtime.services.containerSizeObserver.unobserve(this.observedContainer)
-      this.observedContainer = null
-    }
-
-    this.instance.runtime.services.containerSizeObserver.observe(container, this.instance.runtime.viewport.setContainerRect)
-    this.observedContainer = container
-  }
-
   private replaceInputRuntime = () => {
     this.inputRuntime.cancel()
     this.inputRuntime = createCanvasInputHandlers({ instance: this.instance, config: this.config })
-  }
-
-  private syncWindowSpaceKeyBinding = () => {
-    if (this.offWindowSpaceKey) return
-    this.offWindowSpaceKey = bindWindowSpaceKey({
-      events: this.instance.runtime.events,
-      setSpacePressed: this.instance.commands.keyboard.setSpacePressed
-    })
-  }
-
-  private syncHistoryBinding = () => {
-    if (this.offHistoryBinding) return
-    const sync = (snapshot: CoreHistoryState) => {
-      this.instance.state.write('history', toHistoryState(snapshot))
-    }
-    sync(this.instance.runtime.core.commands.history.getState())
-    this.offHistoryBinding = this.instance.runtime.core.commands.history.subscribe(sync)
-  }
-
-  private updateHistoryLifecycle = (config: WhiteboardLifecycleConfig) => {
-    if (config.history) {
-      this.instance.commands.history.configure(config.history)
-    }
-
-    if (!config.docId) {
-      this.previousHistoryIdentity = null
-      return
-    }
-
-    const nextIdentity: HistoryIdentity = {
-      core: this.instance.runtime.core,
-      docId: config.docId
-    }
-    const previous = this.previousHistoryIdentity
-    this.previousHistoryIdentity = nextIdentity
-
-    if (!previous) return
-    if (previous.core === nextIdentity.core && previous.docId === nextIdentity.docId) return
-    this.instance.commands.history.clear()
-  }
-
-  private startGroupAutoFit = () => {
-    this.instance.runtime.services.groupAutoFit.start({
-      getDocId: () => this.instance.runtime.docRef.current?.id,
-      getNodes: () => this.instance.runtime.docRef.current?.nodes ?? [],
-      getNodeSize: () => this.instance.runtime.config.nodeSize,
-      getPadding: () => this.instance.runtime.config.node.groupPadding
-    })
   }
 
   start: WhiteboardLifecycleRuntimeApi['start'] = () => {
     if (this.started) return
     this.started = true
 
-    this.syncHistoryBinding()
-    this.startGroupAutoFit()
-    this.syncWindowSpaceKeyBinding()
+    this.historyBindingController.start()
+    this.groupAutoFitLifecycleController.start()
+    this.windowSpaceKeyController.start()
     this.selectionCallbacksBinding.start()
-    this.edgeConnectWindowBinding.start()
-    this.edgeRoutingPointDragWindowBinding.start()
-    this.syncContainerEventsBinding()
-    this.syncContainerObserverBinding()
+    this.windowBindingsOrchestrator.start()
+    this.containerLifecycleController.sync()
   }
 
   update: WhiteboardLifecycleRuntimeApi['update'] = (config) => {
@@ -205,7 +108,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
       onSelectionChange: config.onSelectionChange,
       onEdgeSelectionChange: config.onEdgeSelectionChange
     })
-    this.updateHistoryLifecycle(config)
+    this.historyBindingController.update(config)
 
     this.instance.commands.tool.set(config.tool)
     this.instance.runtime.viewport.setViewport(config.viewport)
@@ -218,46 +121,25 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
 
     if (!this.started) return
 
-    this.syncContainerEventsBinding()
-    this.syncContainerObserverBinding()
-    this.edgeConnectWindowBinding.sync()
-    this.edgeRoutingPointDragWindowBinding.sync()
+    this.containerLifecycleController.sync()
+    this.windowBindingsOrchestrator.sync()
   }
 
   stop: WhiteboardLifecycleRuntimeApi['stop'] = () => {
     if (!this.started) return
     this.started = false
 
-    this.offHistoryBinding?.()
-    this.offHistoryBinding = null
-    this.previousHistoryIdentity = null
+    this.historyBindingController.stop()
 
     this.inputRuntime.cancel()
-    this.instance.commands.keyboard.setSpacePressed(false)
-    this.instance.commands.transient.reset()
 
-    this.edgeConnectWindowBinding.stop()
-    this.edgeRoutingPointDragWindowBinding.stop()
+    this.windowBindingsOrchestrator.stop()
     this.selectionCallbacksBinding.stop()
 
-    this.offContainerEvents?.()
-    this.offContainerEvents = null
+    this.containerLifecycleController.stop()
+    this.windowSpaceKeyController.stop()
 
-    this.offWindowSpaceKey?.()
-    this.offWindowSpaceKey = null
-
-    if (this.observedContainer) {
-      this.instance.runtime.services.containerSizeObserver.unobserve(this.observedContainer)
-      this.observedContainer = null
-    }
-
-    this.instance.runtime.shortcuts.dispose()
-    this.instance.runtime.services.nodeSizeObserver.dispose()
-    this.instance.runtime.services.containerSizeObserver.dispose()
-    this.instance.runtime.services.groupAutoFit.stop()
-    this.instance.runtime.services.viewportNavigation.dispose()
-    this.instance.runtime.services.edgeHover.dispose()
-    this.instance.runtime.services.nodeTransform.dispose()
-    this.instance.runtime.services.mindmapDrag.dispose()
+    this.groupAutoFitLifecycleController.stop()
+    this.runtimeCleanupController.stop()
   }
 }

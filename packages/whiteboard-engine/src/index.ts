@@ -1,5 +1,6 @@
 export { createWhiteboardInstance as createWhiteboardEngine } from './instance'
 export { selectNodeDragStrategy } from './node/runtime/drag'
+export { applySelectionMode, getSelectionModeFromEvent } from './node/utils/selection'
 export {
   DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG,

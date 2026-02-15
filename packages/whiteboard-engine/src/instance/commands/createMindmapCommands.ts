@@ -5,8 +5,7 @@ import {
 } from '@whiteboard/core'
 import type {
   NodeId,
-  Point,
-  Rect
+  Point
 } from '@whiteboard/core'
 import type { WhiteboardCommands } from '@engine-types/commands'
 import type { WhiteboardInstance, WhiteboardMindmapViewTree } from '@engine-types/instance'
@@ -18,6 +17,7 @@ export const createMindmapCommands = (
   const { core } = instance.runtime
   const { read, write } = instance.state
   const mindmapCommands = core.commands.mindmap
+  const mindmapDragService = instance.runtime.services.mindmapDrag
 
   const toLayoutHint = (
     anchorId: MindmapNodeId,
@@ -147,18 +147,15 @@ export const createMindmapCommands = (
   const getMindmapTreeView = (treeId: NodeId): WhiteboardMindmapViewTree | undefined =>
     instance.view.read('mindmap.trees').find((item) => item.id === treeId)
 
-  const getMindmapNodeRects = (item: WhiteboardMindmapViewTree, baseOffset = item.node.position) => {
-    const rectMap = new Map<MindmapNodeId, Rect>()
-    Object.entries(item.computed.node).forEach(([id, rect]) => {
-      rectMap.set(id, {
-        x: rect.x + item.shiftX + baseOffset.x,
-        y: rect.y + item.shiftY + baseOffset.y,
-        width: rect.width,
-        height: rect.height
-      })
+  const getMindmapNodeRects = (item: WhiteboardMindmapViewTree, baseOffset = item.node.position) =>
+    mindmapDragService.buildNodeRectMap({
+      nodeRects: item.computed.node,
+      shift: {
+        x: item.shiftX,
+        y: item.shiftY
+      },
+      offset: baseOffset
     })
-    return rectMap
-  }
 
   const startMindmapDrag: WhiteboardCommands['mindmap']['startDrag'] = ({
     treeId,
@@ -241,18 +238,17 @@ export const createMindmapCommands = (
       return true
     }
 
-    const ghost: Rect = {
-      x: world.x - active.offset.x,
-      y: world.y - active.offset.y,
-      width: active.rect.width,
-      height: active.rect.height
-    }
+    const ghost = mindmapDragService.buildSubtreeGhostRect({
+      pointerWorld: world,
+      pointerOffset: active.offset,
+      nodeRect: active.rect
+    })
 
     let drop = active.drop
     const treeItem = getMindmapTreeView(active.treeId)
     if (treeItem) {
       const nodeRects = getMindmapNodeRects(treeItem, active.baseOffset)
-      drop = instance.runtime.services.mindmapDrag.computeSubtreeDropTarget({
+      drop = mindmapDragService.computeSubtreeDropTarget({
         tree: treeItem.tree,
         nodeRects,
         ghost,

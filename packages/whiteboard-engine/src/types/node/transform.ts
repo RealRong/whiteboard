@@ -13,7 +13,7 @@ export type TransformHandle = {
   cursor: string
 }
 
-export type UseNodeTransformOptions = {
+export type NodeTransformOptions = {
   node: Node
   enabled?: boolean
   selected?: boolean

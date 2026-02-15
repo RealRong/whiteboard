@@ -18,9 +18,6 @@ type MindmapNodeItemProps = {
   showActions: boolean
   dragPreviewActive: boolean
   onPointerDown: (event: PointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => void
-  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void
-  onPointerCancel: (event: PointerEvent<HTMLDivElement>) => void
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
 }
 
@@ -35,9 +32,6 @@ export const MindmapNodeItem = ({
   showActions,
   dragPreviewActive,
   onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
   onAddChild
 }: MindmapNodeItemProps) => {
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
@@ -50,9 +44,6 @@ export const MindmapNodeItem = ({
       data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
       className="wb-mindmap-node-item"
       onPointerDown={(event) => onPointerDown(event, id)}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
       style={{
         '--wb-mindmap-node-w': `${rect.width}px`,
         '--wb-mindmap-node-h': `${rect.height}px`,

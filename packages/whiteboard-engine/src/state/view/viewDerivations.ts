@@ -9,6 +9,7 @@ import type {
   WhiteboardViewKey,
   WhiteboardViewSnapshot
 } from '@engine-types/instance'
+import type { ShortcutContext } from '@engine-types/shortcuts'
 import { toMindmapLayoutSignature } from '../../infra/cache'
 import {
   buildMindmapLines,
@@ -21,6 +22,7 @@ import {
   toViewportTransformView
 } from '../../infra/query'
 import { buildTransformHandles } from '../../node/utils/transform'
+import { createEdgeViewQuery } from './edgeViewQuery'
 
 type ViewDerivation<K extends WhiteboardViewKey> = {
   deps: WhiteboardStateKey[]
@@ -35,6 +37,7 @@ type CreateWhiteboardViewDerivationsOptions = {
   readState: WhiteboardStateNamespace['read']
   query: WhiteboardInstanceQuery
   config: WhiteboardInstanceConfig
+  platform: ShortcutContext['platform']
 }
 
 const uniqueStateKeys = (keys: WhiteboardStateKey[]) => Array.from(new Set(keys))
@@ -49,6 +52,7 @@ const createViewDerivation = <K extends WhiteboardViewKey>(
 
 export const WHITEBOARD_VIEW_KEYS: WhiteboardViewKey[] = [
   'viewport.transform',
+  'shortcut.context',
   'edge.entries',
   'edge.reconnect',
   'edge.paths',
@@ -65,19 +69,52 @@ export const WHITEBOARD_VIEW_KEYS: WhiteboardViewKey[] = [
 export const createWhiteboardViewDerivations = ({
   readState,
   query,
-  config
+  config,
+  platform
 }: CreateWhiteboardViewDerivationsOptions): WhiteboardViewDerivationMap => {
   let mindmapTreeCache = new Map<string, { signature: string; tree: WhiteboardMindmapViewTree }>()
+  const edgeViewQuery = createEdgeViewQuery({ readState, query })
 
   return {
     'viewport.transform': createViewDerivation(['viewport'], () => toViewportTransformView(readState('viewport'))),
-    'edge.entries': createViewDerivation(['visibleEdges', 'canvasNodes'], () => query.getEdgePathEntries()),
+    'shortcut.context': createViewDerivation(
+      ['interaction', 'tool', 'selection', 'edgeSelection', 'edgeConnect', 'viewport'],
+      () => {
+        const interaction = readState('interaction')
+        const tool = readState('tool')
+        const selection = readState('selection')
+        const selectedEdgeId = readState('edgeSelection')
+        const edgeConnect = readState('edgeConnect')
+        const selectedNodeIds = Array.from(selection.selectedNodeIds)
+
+        return {
+          platform,
+          focus: interaction.focus,
+          tool: { active: tool },
+          selection: {
+            count: selectedNodeIds.length,
+            hasSelection: selectedNodeIds.length > 0,
+            selectedNodeIds,
+            selectedEdgeId
+          },
+          hover: interaction.hover,
+          pointer: {
+            ...interaction.pointer,
+            isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
+          },
+          viewport: {
+            zoom: readState('viewport').zoom
+          }
+        }
+      }
+    ),
+    'edge.entries': createViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getPathEntries()),
     'edge.reconnect': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () =>
-      query.getEdgeReconnectPathEntry(readState('edgeConnect'))
+      edgeViewQuery.getReconnectPathEntry(readState('edgeConnect'))
     ),
     'edge.paths': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () => {
-      const entries = query.getEdgePathEntries()
-      const reconnect = query.getEdgeReconnectPathEntry(readState('edgeConnect'))
+      const entries = edgeViewQuery.getPathEntries()
+      const reconnect = edgeViewQuery.getReconnectPathEntry(readState('edgeConnect'))
       if (!reconnect) return entries
       let matched = false
       const next = entries.map((entry) => {
@@ -90,7 +127,7 @@ export const createWhiteboardViewDerivations = ({
     'edge.preview': createViewDerivation(['edgeConnect', 'canvasNodes', 'tool'], () => {
       const edgeConnect = readState('edgeConnect')
       const tool = readState('tool')
-      const preview = query.getEdgeConnectPreview(edgeConnect)
+      const preview = edgeViewQuery.getConnectPreview(edgeConnect)
       return {
         from: preview.showPreviewLine ? preview.from : undefined,
         to: preview.showPreviewLine ? preview.to : undefined,
@@ -104,7 +141,7 @@ export const createWhiteboardViewDerivations = ({
       if (!selectedEdgeId) return undefined
       const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
       if (!edge) return undefined
-      return query.getEdgeResolvedEndpoints(edge)
+      return edgeViewQuery.getResolvedEndpoints(edge)
     }),
     'edge.selectedRouting': createViewDerivation(['edgeSelection', 'visibleEdges'], () => {
       const selectedEdgeId = readState('edgeSelection')

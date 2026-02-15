@@ -1,8 +1,84 @@
 # Whiteboard Engine 驱动渲染范式扫描与重构方案
 
-更新时间：2026-02-14  
+更新时间：2026-02-15  
 范围：`packages/whiteboard-react/src` + `packages/whiteboard-engine/src`  
 目标：以行业最佳实践为标准，建立“**Engine 计算 + React 纯渲染**”范式，并给出全量可改造点。
+
+---
+
+## 0. 当前落地状态（截至 2026-02-15）
+
+### 0.1 已完成（代码已落地）
+
+1. `infra/derive`、`infra/cache`、`infra/query`、`infra/geometry` 已建立并接入主链路。
+2. `state/view` 已建立统一派生注册与调试指标，`view key -> derive -> deps` 路径已稳定。
+3. `createWhiteboardCommands.ts` 已完成按领域拆分：`base/edge/node/mindmap`，聚合文件已降为装配层。
+4. `createInstanceQuery.ts` 已收敛为工具查询；edge 渲染型计算已迁移到 `state/view/edgeViewQuery.ts`。
+5. pointer session window binding 已通用化，已覆盖：
+   - `edgeConnect`
+   - `edgeRoutingPointDrag`
+   - `nodeDrag`
+   - `nodeTransform`
+   - `mindmapDrag`
+   - `selectionBox`
+6. React 侧已进一步收敛为“发起命令 + 渲染”为主：
+   - `NodeItem` 不再驱动 `nodeDrag` 的 move/up/cancel
+   - `NodeTransformHandles` 不再驱动 `nodeTransform` 的 move/up/cancel
+   - `MindmapTreeView` 不再驱动 `mindmapDrag` 的 move/up/cancel
+7. `instance/query` 已完成模块化拆分：
+   - `createCanvasQuery.ts`
+   - `createSnapQuery.ts`
+   - `createInstanceQuery.ts` 仅负责装配
+8. `shortcut context` 已完成热路径首轮优化：
+   - 基础上下文改为 `view` 快照键：`shortcut.context`
+   - `shortcut runtime` 不再依赖 `instance.query.getShortcutContext`
+   - 事件覆盖（`focus/modifiers/button`）统一收敛到 `runtime/input` 适配函数
+9. `MindmapDragService` 已扩展为三段职责 API：
+   - `buildNodeRectMap`
+   - `buildSubtreeGhostRect`
+   - `computeSubtreeDropTarget`
+   并在 `createMindmapCommands.ts` 去除对应算法细节，保留流程编排。
+10. `computeSubtreeDropTarget` 已下沉到 `packages/whiteboard-engine/src/mindmap/domain/computeSubtreeDropTarget.ts`，`MindmapDragService` 收敛为薄装配层。
+11. shortcut 输入处理已从 canvas 聚合入口抽离：
+   - `packages/whiteboard-engine/src/instance/lifecycle/input/shortcut/createShortcutInputHandlers.ts`
+   - `packages/whiteboard-engine/src/instance/lifecycle/input/shortcut/resolveShortcutContextFromEvent.ts`
+   形成“base context（view）+ event 覆盖（input）+ runtime 消费”的固定链路。
+12. `runtime/input` 已完成首轮目录语义拆分：
+   - `input/canvas/*`：canvas 相关输入编排
+   - `input/shortcut/*`：shortcut 上下文适配与分发
+13. `runtime/input` 已新增按域 window binding 装配工厂：
+   - `input/edge/createEdgeInputWindowBindings.ts`
+   - `input/node/createNodeInputWindowBindings.ts`
+   - `input/mindmap/createMindmapInputWindowBinding.ts`
+   `WhiteboardLifecycleRuntime` 已改为通过这些工厂装配域输入绑定。
+14. `runtime/input` 已新增 selection 装配工厂：
+   - `input/selection/createSelectionInputBindings.ts`
+   `selectionBox/selectionCallbacks` 装配已从 `WhiteboardLifecycleRuntime` 构造期抽离。
+15. lifecycle 默认配置与 history 纯逻辑已抽离：
+   - `instance/lifecycle/config/createDefaultLifecycleConfig.ts`
+   - `instance/lifecycle/history/historyLifecycle.ts`
+   `WhiteboardLifecycleRuntime` 进一步收敛为装配与生命周期编排。
+16. history 订阅与清理策略已 controller 化：
+   - `instance/lifecycle/history/HistoryBindingController.ts`
+   `WhiteboardLifecycleRuntime` 已改为 `start/update/stop` 调用 controller。
+17. container 事件与尺寸观察已 controller 化：
+   - `instance/lifecycle/container/ContainerLifecycleController.ts`
+   `WhiteboardLifecycleRuntime` 已改为统一 `sync/stop` 调用 container controller。
+18. window key 与 group auto-fit 生命周期已 controller 化：
+   - `instance/lifecycle/keyboard/WindowSpaceKeyController.ts`
+   - `instance/lifecycle/group/GroupAutoFitLifecycleController.ts`
+   `WhiteboardLifecycleRuntime` 已改为通过 controller 管理 start/stop。
+19. runtime stop 清理流程已 controller 化：
+   - `instance/lifecycle/cleanup/RuntimeCleanupController.ts`
+   `transient reset + services dispose + shortcuts dispose` 已从 lifecycle 主类停止流程抽离。
+20. window bindings 批处理已 orchestrator 化：
+   - `instance/lifecycle/bindings/WindowBindingsOrchestrator.ts`
+   edge/node/mindmap/selection 的 `start/sync/stop` 已统一批处理。
+
+### 0.2 未完成（下一步）
+
+1. `runtime/input` 与 lifecycle 基础装配已完成首轮拆分，下一步可继续把 lifecycle 的 start/update/stop 主流程拆分为更细粒度 orchestrator/controller，进一步降低主编排文件复杂度。
+2. `shortcut.context` 目前已在 canvas 输入链路接入，后续新增键盘/指针入口时需统一复用同一 context 适配函数，避免回退到 runtime 内联事件解析。
 
 ---
 
@@ -49,16 +125,13 @@
 ## 3.1 已接近目标的部分
 
 1. lifecycle 主链路已下沉 engine（`WhiteboardLifecycleRuntime`）。
-2. selection/edgeConnect window 绑定已在 engine lifecycle。
+2. pointer session window 绑定已统一（`selectionBox/edgeConnect/edgeRoutingPointDrag/nodeDrag/nodeTransform/mindmapDrag`）。
 3. group autofit 已 service 化并由 lifecycle 管理。
-4. edge 几何已开始下沉（已有 `getEdgePathEntries/getEdgeReconnectPathEntry/getEdgeConnectPreview`）。
+4. edge/node/mindmap 渲染主数据已走 `state/view` 派生并被 React 直接订阅。
 
 ## 3.2 偏离目标的核心问题
 
-1. React 仍在以 `useMemo` 驱动 query 计算（edge、mindmap 等）。
-2. 多个手势状态机仍在 React hook 内（node drag/transform、mindmap drag、edge routing point drag）。
-3. React 与 Engine 存在算法/类型重复（geometry、selection、transform、edge legacy types）。
-4. Engine 缺少“标准化 read model 层（view atoms + revision）”。
+1. 文档个别章节仍需持续按代码事实同步状态（避免“文档滞后于实现”）。
 
 ---
 
@@ -66,47 +139,47 @@
 
 说明：以下均可按“Engine 驱动渲染”范式优化。
 
-| 模块 | 文件 | 当前问题 | 建议下沉/改造 |
-|---|---|---|---|
-| 容器 | `packages/whiteboard-react/src/Whiteboard.tsx` | viewport transform 直接由 `doc.viewport` 组装样式 | 改为订阅 engine 的 `viewportViewModel`（含 transform/css vars） |
-| lifecycle bridge | `packages/whiteboard-react/src/common/lifecycle/useWhiteboardEngineBridge.ts` | React 侧拼装 lifecycleConfig 依赖项较重 | engine 提供 `runtime.lifecycle.updateFromProps(...)` 或统一 config adapter |
-| 节点层 | `packages/whiteboard-react/src/node/components/NodeLayer.tsx` | 节点 layer 排序在 React `useMemo` 内计算 | 下沉 `orderedCanvasNodesByLayerAtom` / `nodeRenderItemsAtom` |
-| 节点呈现 | `packages/whiteboard-react/src/node/hooks/useNodePresentation.ts` | rect/style/selected/hover 等组合计算在 React | 下沉 `nodeRenderPresentationAtom`，React 只读 render props |
-| 节点交互 | `packages/whiteboard-react/src/node/hooks/useNodeInteraction.ts` | pointer down 逻辑与 selection/edge-connect 分支在 React | 下沉 `NodeInputController`（engine runtime） |
-| 节点拖拽 | `packages/whiteboard-react/src/node/hooks/useNodeDrag.ts` | 完整拖拽状态机（dragRef/pointer capture/snap）在 React | 下沉 `NodeDragRuntimeService`，使用容器级事件委托 |
-| 节点变换 | `packages/whiteboard-react/src/node/hooks/useNodeTransform.tsx` | resize/rotate 手势状态机在 React | 下沉 `NodeTransformInputController` + `nodeTransformHandlesViewAtom` |
-| 框选 | `packages/whiteboard-react/src/node/hooks/useSelection.ts` | 与 engine selection input 逻辑重复（双实现） | React 仅保留 state 读取 facade；runtime 版本删除 |
-| 边图层 | `packages/whiteboard-react/src/edge/components/EdgeLayer.tsx` | 仍通过 `useMemo` 调 query 驱动 | 改为直接订阅 `edgeRenderEntriesAtom` + `edgeReconnectOverlayAtom` |
-| 边预览 | `packages/whiteboard-react/src/edge/components/EdgePreviewLayer.tsx` | 仍通过 `useMemo` 调 query 驱动 | 改为订阅 `edgePreviewOverlayAtom` |
-| 边端点手柄 | `packages/whiteboard-react/src/edge/components/EdgeEndpointHandles.tsx` | selectedEdge + endpoints 在组件内查询/查找 | 下沉 `selectedEdgeEndpointHandlesAtom` |
-| 边控制点 | `packages/whiteboard-react/src/edge/components/EdgeControlPointHandles.tsx` | 控制点拖拽状态机在 React | 下沉 `EdgeRoutingEditRuntimeService` + `edgeControlPointsViewAtom` |
-| 边命中 | `packages/whiteboard-react/src/edge/hooks/useEdgeHitTest.ts` | 命中行为与插点策略在 React hook | 下沉 `EdgeInputController`，React 只传 data-id |
-| 脑图层 | `packages/whiteboard-react/src/mindmap/components/MindmapLayer.tsx` | 过滤 mindmap 节点 + parse tree 在 React | 下沉 `mindmapViewTreesAtom` |
-| 脑图树视图 | `packages/whiteboard-react/src/mindmap/components/MindmapTreeView.tsx` | layout、连线、drag preview、drop target 组合都在 React | 下沉 `MindmapLayoutSystem + MindmapDragRuntime + mindmapRenderModelAtom` |
-| 脑图布局 hook | `packages/whiteboard-react/src/mindmap/hooks/useMindmapLayout.ts` | 布局计算在 React | 下沉 engine 派生模型 |
-| 脑图根拖拽 | `packages/whiteboard-react/src/mindmap/hooks/useMindmapRootDrag.ts` | 手势状态机在 React | 下沉 engine runtime |
-| 脑图子树拖拽 | `packages/whiteboard-react/src/mindmap/hooks/useMindmapSubtreeDrag.ts` | 手势状态机 + drop target 组合在 React | 下沉 engine runtime |
-| 几何工具 | `packages/whiteboard-react/src/common/utils/geometry.ts` | 与 engine geometry 大量重复 | React 删除运行时几何实现，统一引用 engine |
-| 节点选择工具 | `packages/whiteboard-react/src/node/utils/selection.ts` | 与 engine `node/utils/selection.ts` 重复 | 删除重复，统一 engine |
-| 变换工具 | `packages/whiteboard-react/src/node/utils/transform.ts` | 与 engine `node/utils/transform.ts` 重复 | 删除重复，统一 engine |
+| 状态 | 模块 | 文件 | 当前问题 | 建议下沉/改造 |
+|---|---|---|---|---|
+| 已完成 | 容器 | `packages/whiteboard-react/src/Whiteboard.tsx` | viewport transform 直接由 `doc.viewport` 组装样式 | 已改为订阅 engine `view`（`viewport.transform`） |
+| 已废弃（已删除） | lifecycle bridge | `packages/whiteboard-react/src/common/lifecycle/useWhiteboardEngineBridge.ts` | React 侧拼装 lifecycleConfig 依赖项较重 | 已内联到 `Whiteboard.tsx`，由 engine lifecycle 统一管理 |
+| 已完成 | 节点层 | `packages/whiteboard-react/src/node/components/NodeLayer.tsx` | 节点 layer 排序在 React `useMemo` 内计算 | 已改为订阅 `view`（`node.items`） |
+| 已废弃（已删除） | 节点呈现 | `packages/whiteboard-react/src/node/hooks/useNodePresentation.ts` | rect/style/selected/hover 等组合计算在 React | 已删除并收敛到 engine `view` + 组件内薄映射 |
+| 已废弃（已删除） | 节点交互 | `packages/whiteboard-react/src/node/hooks/useNodeInteraction.ts` | pointer down 逻辑与 selection/edge-connect 分支在 React | 已删除并收敛为组件内命令分发 + engine runtime |
+| 已废弃（已删除） | 节点拖拽 | `packages/whiteboard-react/src/node/hooks/useNodeDrag.ts` | 完整拖拽状态机（dragRef/pointer capture/snap）在 React | 已删除，`nodeDrag` move/up/cancel 由 engine window binding 接管 |
+| 已废弃（已删除） | 节点变换 | `packages/whiteboard-react/src/node/hooks/useNodeTransform.tsx` | resize/rotate 手势状态机在 React | 已删除，`nodeTransform` move/up/cancel 由 engine window binding 接管 |
+| 已废弃（已删除） | 框选 | `packages/whiteboard-react/src/node/hooks/useSelection.ts` | 与 engine selection input 逻辑重复（双实现） | 已删除，selection box 由 engine runtime 接管 |
+| 已完成 | 边图层 | `packages/whiteboard-react/src/edge/components/EdgeLayer.tsx` | 仍通过 `useMemo` 调 query 驱动 | 已改为订阅 `view`（`edge.paths`） |
+| 已完成 | 边预览 | `packages/whiteboard-react/src/edge/components/EdgePreviewLayer.tsx` | 仍通过 `useMemo` 调 query 驱动 | 已改为订阅 `view`（`edge.preview`） |
+| 已完成 | 边端点手柄 | `packages/whiteboard-react/src/edge/components/EdgeEndpointHandles.tsx` | selectedEdge + endpoints 在组件内查询/查找 | 已改为订阅 `view`（`edge.selectedEndpoints`）+ 状态只读 |
+| 已完成 | 边控制点 | `packages/whiteboard-react/src/edge/components/EdgeControlPointHandles.tsx` | 控制点拖拽状态机在 React | 已改为 engine 命令 + window binding 驱动，组件仅发起操作 |
+| 已废弃（已删除） | 边命中 | `packages/whiteboard-react/src/edge/hooks/useEdgeHitTest.ts` | 命中行为与插点策略在 React hook | 已删除并内联到 `EdgeLayer`（命中结果走 engine command） |
+| 已完成 | 脑图层 | `packages/whiteboard-react/src/mindmap/components/MindmapLayer.tsx` | 过滤 mindmap 节点 + parse tree 在 React | 已改为订阅 `view`（`mindmap.trees`） |
+| 已完成 | 脑图树视图 | `packages/whiteboard-react/src/mindmap/components/MindmapTreeView.tsx` | layout、连线、drag preview、drop target 组合都在 React | 主要计算已下沉到 engine `view`，组件仅渲染与 pointerdown 发起 |
+| 已废弃（已删除） | 脑图布局 hook | `packages/whiteboard-react/src/mindmap/hooks/useMindmapLayout.ts` | 布局计算在 React | 已删除，布局由 engine `view` 派生 |
+| 已废弃（已删除） | 脑图根拖拽 | `packages/whiteboard-react/src/mindmap/hooks/useMindmapRootDrag.ts` | 手势状态机在 React | 已删除，拖拽链路由 engine runtime + window binding 接管 |
+| 已废弃（已删除） | 脑图子树拖拽 | `packages/whiteboard-react/src/mindmap/hooks/useMindmapSubtreeDrag.ts` | 手势状态机 + drop target 组合在 React | 已删除，拖拽链路由 engine runtime + window binding 接管 |
+| 已完成（文件删除） | 几何工具 | `packages/whiteboard-react/src/common/utils/geometry.ts` | 与 engine geometry 大量重复 | 已删除，统一由 engine 侧几何基础设施提供 |
+| 已完成（文件删除） | 节点选择工具 | `packages/whiteboard-react/src/node/utils/selection.ts` | 与 engine `node/utils/selection.ts` 重复 | 已删除，组件直接复用 engine 导出实现 |
+| 已完成（文件删除） | 变换工具 | `packages/whiteboard-react/src/node/utils/transform.ts` | 与 engine `node/utils/transform.ts` 重复 | 已删除，统一使用 engine 侧实现 |
 
 ---
 
 ## 5. engine 设计可改造项（全量清单）
 
-| 模块 | 文件 | 当前问题 | 建议 |
-|---|---|---|---|
-| Query 聚合 | `packages/whiteboard-engine/src/instance/query/createInstanceQuery.ts` | 读模型仍是“调用时计算/缓存”，而非状态驱动派生 | 建立 `view` 层（atoms + revision），query 仅做轻量查询 |
-| State key 集合 | `packages/whiteboard-engine/src/state/whiteboardStateAtomMap.ts` | 只有基础状态与少量 derived，缺 render model keys | 增加 `viewStateAtoms`（node/edge/mindmap overlays） |
-| Derived atoms | `packages/whiteboard-engine/src/state/whiteboardDerivedAtoms.ts` | 仅到 `visibleEdges/canvasNodes` | 增加 `orderedCanvasNodesByLayer`, `edgeRenderEntries`, `mindmapRenderModel` 等 |
-| 命令聚合 | `packages/whiteboard-engine/src/instance/commands/createWhiteboardCommands.ts` | 过大，混合 domain + runtime | 拆分 domain command modules；runtime-only 操作移出 commands |
-| edge connect | `packages/whiteboard-engine/src/instance/commands/createEdgeConnectCommands.ts` | 逻辑集中于命令函数，缺 system 化边界 | 拆 `EdgeConnectSystem`（state transition + snap read model） |
-| lifecycle input | `packages/whiteboard-engine/src/instance/lifecycle/input/createCanvasInputHandlers.ts` | 当前只覆盖 canvas/selection/viewport/edgeHover | 纳入 node/edge/mindmap 的统一输入委托 |
-| node transform service | `packages/whiteboard-engine/src/instance/services/NodeTransformService.ts` | 计算在 engine，但手势编排仍在 React | 增加 input controller，React 不再持 dragRef |
-| mindmap drag service | `packages/whiteboard-engine/src/instance/services/MindmapDragService.ts` | 仅 drop target 计算，不含完整拖拽 runtime | 扩展为完整 runtime + preview overlay |
-| shortcut context | `packages/whiteboard-engine/src/shortcuts/runtime/createShortcutRuntime.ts` | 每次事件通过 query 拼 context | 用 `shortcutContextAtom` / interaction snapshot 派生，降低事件热路径开销 |
-| 类型命名债务 | `packages/whiteboard-engine/src/types/edge/connect.ts` `packages/whiteboard-engine/src/types/edge/geometry.ts` | 仍有 `UseXxx` React 风格命名 | 重命名为 engine-native：`EdgeConnectModel/EdgePathEntry` 等 |
-| 类型重复 | `packages/whiteboard-react/src/types/node/drag.ts` 等与 engine 同构 | 双份维护风险高 | Runtime/geometry/drag 类型统一只在 engine 定义 |
+| 状态 | 模块 | 文件 | 当前问题 | 建议 |
+|---|---|---|---|---|
+| 已完成 | Query 聚合 | `packages/whiteboard-engine/src/instance/query/createInstanceQuery.ts` | 读模型仍是“调用时计算/缓存”，而非状态驱动派生 | 已将渲染读模型迁到 `state/view/*`，query 收敛为工具查询，并拆为 `createCanvasQuery/createSnapQuery` |
+| 已完成（方案调整） | State key 集合 | `packages/whiteboard-engine/src/state/whiteboardStateAtomMap.ts` | 只有基础状态与少量 derived，缺 render model keys | 已采用 `state/view` 派生注册机制，不再要求把 render model 强行塞入 state atom map |
+| 已完成（方案调整） | Derived atoms | `packages/whiteboard-engine/src/state/whiteboardDerivedAtoms.ts` | 仅到 `visibleEdges/canvasNodes` | 已通过 `state/view/viewDerivations.ts` 提供 `edge/node/mindmap/viewport` 渲染派生 |
+| 已完成 | 命令聚合 | `packages/whiteboard-engine/src/instance/commands/createWhiteboardCommands.ts` | 过大，混合 domain + runtime | 已拆分为 `createBaseCommands/createEdgeCommands/createNodeCommands/createMindmapCommands` |
+| 已完成 | edge connect | `packages/whiteboard-engine/src/instance/commands/createEdgeConnectCommands.ts` `packages/whiteboard-engine/src/instance/edge/EdgeConnectSystem.ts` | 逻辑曾集中于命令函数，system 边界不清晰 | 已抽 `EdgeConnectSystem`，commands 收敛为薄封装 |
+| 已完成（主路径） | lifecycle input | `packages/whiteboard-engine/src/instance/lifecycle/input/canvas/createCanvasInputHandlers.ts` | 当前只覆盖 canvas/selection/viewport/edgeHover | 已通过通用 pointer session binding 覆盖 node/edge/mindmap/selection box 的 window 输入链路 |
+| 已完成 | node transform service | `packages/whiteboard-engine/src/instance/services/NodeTransformService.ts` | 计算在 engine，但手势编排仍在 React | 现已由 engine window binding 编排手势，React 不再维护 drag move/up/cancel |
+| 已完成（本轮） | mindmap drag service | `packages/whiteboard-engine/src/instance/services/MindmapDragService.ts` `packages/whiteboard-engine/src/mindmap/domain/computeSubtreeDropTarget.ts` | service 历史上混合算法细节 | `computeSubtreeDropTarget` 已下沉到 `mindmap/domain`，service 收敛为装配入口，commands 仅做流程编排 |
+| 已完成（本轮） | shortcut context | `packages/whiteboard-engine/src/state/view/viewDerivations.ts` `packages/whiteboard-engine/src/instance/lifecycle/input/shortcut/createShortcutInputHandlers.ts` `packages/whiteboard-engine/src/instance/lifecycle/input/shortcut/resolveShortcutContextFromEvent.ts` `packages/whiteboard-engine/src/shortcuts/runtime/createShortcutRuntime.ts` | shortcut context 曾依赖 query 事件时拼装 | 已迁到 `view` 键 `shortcut.context` + input 统一事件适配；runtime 只消费标准化上下文 |
+| 已完成 | 类型命名债务 | `packages/whiteboard-engine/src/types/edge/connect.ts` `packages/whiteboard-engine/src/types/edge/geometry.ts` `packages/whiteboard-engine/src/types/node/*` | 存在 `UseXxx` React 风格命名 | 已完成 engine 类型重命名（如 `EdgeConnectModel/EdgeConnectActions/NodeTransformOptions`）并收敛导出 |
+| 已完成（当前仓库） | 类型重复 | `packages/whiteboard-react/src/types/node/drag.ts` 等与 engine 同构 | 双份维护风险高 | 已删除重复 runtime 类型并完成 React/Engine 类型命名收敛，当前未发现 `UseXxx` legacy 类型残留 |
 
 ---
 
@@ -314,25 +387,26 @@ React 侧只需要订阅 `view`，不再通过 `useMemo + query` 触发主计算
 
 ### 11.1 先做（Engine P0）
 
-1. 在 `packages/whiteboard-engine/src/types/instance/index.ts` 增加 `view` 契约类型。
-2. 在 `packages/whiteboard-engine/src/instance/whiteboardInstance.ts` 注入 `view` namespace。
-3. 将 `packages/whiteboard-engine/src/instance/query/createInstanceQuery.ts` 中 edge 渲染缓存逻辑迁移到 `state/view`（query 仅保留工具查询）。
-4. 新增 `packages/whiteboard-engine/src/state/view/*` 的 view key 与派生注册。
-5. 在 `packages/whiteboard-engine/src/instance/lifecycle/input/*` 下补齐 node/edge/mindmap 输入控制器入口。
+1. 已完成：在 `packages/whiteboard-engine/src/types/instance/index.ts` 增加 `view` 契约类型。
+2. 已完成：在 `packages/whiteboard-engine/src/instance/whiteboardInstance.ts` 注入 `view` namespace。
+3. 已完成：将 `packages/whiteboard-engine/src/instance/query/createInstanceQuery.ts` 中 edge 渲染缓存逻辑迁移到 `state/view`（query 仅保留工具查询）。
+4. 已完成：新增并接入 `packages/whiteboard-engine/src/state/view/*` 的 view key 与派生注册。
+5. 已完成：在 lifecycle 层补齐 node/edge/mindmap/selection box 的 pointer 输入链路（window binding）。
+6. 已完成：`shortcut context` 从 query 迁移到 view（`shortcut.context`）并由 `runtime/input` 统一事件适配。
 
 ### 11.2 第二批（Engine P1）
 
-1. 将 `useSelection.ts` 的框选状态机迁移到 engine runtime。
-2. 将 `useNodeDrag.ts`、`useNodeTransform.tsx` 的手势状态机迁移到 engine runtime。
-3. 将 `useMindmapLayout.ts`、`useMindmapRootDrag.ts`、`useMindmapSubtreeDrag.ts` 的核心计算与拖拽状态机迁移到 engine。
-4. 抽取并复用 geometry/selection/transform 到 `infra`，去重算法实现。
+1. 已完成：`useSelection.ts` 框选状态机迁移到 engine runtime（React 侧已删除）。
+2. 已完成：`useNodeDrag.ts`、`useNodeTransform.tsx` 手势状态机迁移到 engine runtime（React 侧已删除）。
+3. 已完成：`useMindmapLayout.ts`、`useMindmapRootDrag.ts`、`useMindmapSubtreeDrag.ts` 迁移到 engine（React 侧已删除）。
+4. 已完成：geometry/selection/transform 重复工具已从 React 侧删除并统一收敛到 engine 实现。
 
 ### 11.3 最后做（React P2）
 
-1. `EdgeLayer.tsx`、`EdgePreviewLayer.tsx` 改为直接订阅 edge view keys。
-2. `NodeLayer.tsx`、`NodeItem.tsx` 改为直接订阅 node view keys。
-3. `MindmapLayer.tsx`、`MindmapTreeView.tsx` 改为直接订阅 mindmap view keys。
-4. 删除 React 侧重复工具与类型镜像，保留最小 UI 语义 hooks。
+1. 已完成：`EdgeLayer.tsx`、`EdgePreviewLayer.tsx` 已改为直接订阅 edge view keys。
+2. 已完成：`NodeLayer.tsx`、`NodeItem.tsx` 已改为直接订阅/消费 node view keys。
+3. 已完成：`MindmapLayer.tsx`、`MindmapTreeView.tsx` 已改为直接订阅 mindmap view keys。
+4. 已完成：React 侧重复工具与类型镜像已完成本轮收敛，当前以 UI 渲染与事件桥接职责为主。
 
 ---
 
@@ -350,3 +424,18 @@ React 侧只需要订阅 `view`，不再通过 `useMemo + query` 触发主计算
 
 先把 engine 做成完整的“状态 + 计算 + 输入 + 渲染读模型”平台，再让 React 做薄渲染壳。  
 这样未来切 Vue 或 Canvas 时，重做的是壳，不是重做引擎。
+
+---
+
+## 14. 下一步（不做测试版本）
+
+基于当前代码状态，建议按这个顺序继续：
+
+1. **继续收敛 lifecycle 装配层**  
+   把 lifecycle 的 `start/update/stop` 主流程按职责拆为更细粒度 orchestrator/controller，进一步减少 `WhiteboardLifecycleRuntime` 聚合复杂度。
+
+2. **固化 `shortcut.context` 适配约束**  
+   把 `resolveShortcutContextFromEvent` 明确为唯一入口，新输入链路禁止在 runtime 里直接拼装 `focus/modifiers/button`。
+
+3. **保持“文档即现状”机制**  
+   后续每次落地后同步回写第 0/4/5/11/14 章状态，避免文档再次滞后。

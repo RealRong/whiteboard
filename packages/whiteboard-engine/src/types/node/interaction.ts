@@ -8,6 +8,6 @@ export type NodeContainerHandlers = {
   onPointerLeave: (event: PointerEvent) => void
 }
 
-export type UseNodeInteractionOptions = {
+export type NodeInteractionOptions = {
   node: Node
 }

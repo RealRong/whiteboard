@@ -1,5 +1,5 @@
 export type {
   EdgeConnectAnchorResult,
-  UseEdgeConnectActionsReturn,
-  UseEdgeConnectReturn
+  EdgeConnectActions,
+  EdgeConnectModel
 } from './connect'

@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import type { PointerEvent } from 'react'
+import { getSelectionModeFromEvent } from '@whiteboard/engine'
 import type { NodeContainerProps, NodeHandleSide, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
 import { useInstance } from '../../common/hooks'
-import { getSelectionModeFromEvent } from '../utils/selection'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
@@ -17,7 +17,6 @@ type NodeTransformHandlesProps = {
 }
 
 type NodeTransformHandle = NodeTransformHandlesProps['handles'][number]
-const NODE_TRANSFORM_MIN_SIZE = { width: 20, height: 20 }
 const NODE_TRANSFORM_HANDLE_SIZE = 10
 
 const NodeTransformHandles = ({
@@ -68,56 +67,15 @@ const NodeTransformHandles = ({
       if (!handled) return
       event.preventDefault()
       event.stopPropagation()
-      event.currentTarget.setPointerCapture(event.pointerId)
     },
     [enabled, instance.commands.nodeTransform, node.id, node.locked, nodeRotation, rect]
   )
 
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeTransform.update({
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        minSize: NODE_TRANSFORM_MIN_SIZE,
-        altKey: event.altKey,
-        shiftKey: event.shiftKey
-      })) {
-        return
-      }
-      event.preventDefault()
-    },
-    [instance.commands.nodeTransform]
-  )
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeTransform.end({ pointerId: event.pointerId })) return
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.nodeTransform]
-  )
-
-  const handlePointerCancel = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeTransform.cancel({ pointerId: event.pointerId })) return
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.nodeTransform]
-  )
-
   const getHandleProps = useCallback(
     (handle: NodeTransformHandle) => ({
-      onPointerDown: (event: PointerEvent<HTMLDivElement>) => handlePointerDown(handle, event),
-      onPointerMove: handlePointerMove,
-      onPointerUp: handlePointerUp,
-      onPointerCancel: handlePointerCancel
+      onPointerDown: (event: PointerEvent<HTMLDivElement>) => handlePointerDown(handle, event)
     }),
-    [handlePointerCancel, handlePointerDown, handlePointerMove, handlePointerUp]
+    [handlePointerDown]
   )
 
   return (
@@ -218,44 +176,8 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
       })
       if (!handled) return
       event.preventDefault()
-      event.currentTarget.setPointerCapture(event.pointerId)
     },
     [activeTool, clientToWorld, instance, node.id]
-  )
-
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeDrag.update({
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        altKey: event.altKey
-      })) {
-        return
-      }
-      event.preventDefault()
-    },
-    [instance.commands.nodeDrag]
-  )
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeDrag.end({ pointerId: event.pointerId })) return
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.nodeDrag]
-  )
-
-  const handlePointerCancel = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!instance.commands.nodeDrag.cancel({ pointerId: event.pointerId })) return
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-    },
-    [instance.commands.nodeDrag]
   )
 
   const handlePointerEnter = useCallback(() => {
@@ -290,20 +212,14 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     () => ({
       ...baseContainerProps,
       onPointerDown: handlePointerDown,
-      onPointerMove: handlePointerMove,
-      onPointerUp: handlePointerUp,
-      onPointerCancel: handlePointerCancel,
       onPointerEnter: handlePointerEnter,
       onPointerLeave: handlePointerLeave
     }),
     [
       baseContainerProps,
-      handlePointerCancel,
       handlePointerDown,
       handlePointerEnter,
-      handlePointerLeave,
-      handlePointerMove,
-      handlePointerUp
+      handlePointerLeave
     ]
   )
 
@@ -344,9 +260,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
           style={containerProps.style}
           onHandlePointerDown={handleEdgeHandlePointerDown}
           onPointerDown={containerProps.onPointerDown}
-          onPointerMove={containerProps.onPointerMove}
-          onPointerUp={containerProps.onPointerUp}
-          onPointerCancel={containerProps.onPointerCancel}
           onPointerEnter={containerProps.onPointerEnter}
           onPointerLeave={containerProps.onPointerLeave}
         />

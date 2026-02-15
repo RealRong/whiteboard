@@ -1,4 +1,5 @@
 import type { WhiteboardInstance } from '@engine-types/instance'
+import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
   state: WhiteboardInstance['state']
@@ -20,74 +21,27 @@ export const createEdgeRoutingPointDragWindowBinding = ({
   events,
   edgeCommands
 }: Options): EdgeRoutingPointDragWindowBinding => {
-  let offDragWatch: (() => void) | null = null
-  let offDragWindow: (() => void) | null = null
-
-  const sync = () => {
-    const active = state.read('edgeRoutingPointDrag').active
-
-    if (!active) {
-      if (!offDragWindow) return
-      offDragWindow()
-      offDragWindow = null
-      return
-    }
-
-    if (offDragWindow) return
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const latest = state.read('edgeRoutingPointDrag').active
-      if (!latest || latest.pointerId !== event.pointerId) return
+  return createPointerSessionWindowBinding({
+    events,
+    watch: (listener) => state.watch('edgeRoutingPointDrag', listener),
+    getActive: () => state.read('edgeRoutingPointDrag').active,
+    getPointerId: (active) => active.pointerId,
+    onPointerMove: (event) => {
       edgeCommands.updateRoutingPointDrag({
         pointerId: event.pointerId,
         clientX: event.clientX,
         clientY: event.clientY
       })
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const latest = state.read('edgeRoutingPointDrag').active
-      if (!latest || latest.pointerId !== event.pointerId) return
+    },
+    onPointerUp: (event) => {
       edgeCommands.endRoutingPointDrag({
         pointerId: event.pointerId
       })
-    }
-
-    const handlePointerCancel = (event: PointerEvent) => {
-      const latest = state.read('edgeRoutingPointDrag').active
-      if (!latest || latest.pointerId !== event.pointerId) return
+    },
+    onPointerCancel: (event) => {
       edgeCommands.cancelRoutingPointDrag({
         pointerId: event.pointerId
       })
     }
-
-    const offMove = events.onWindow('pointermove', handlePointerMove)
-    const offUp = events.onWindow('pointerup', handlePointerUp)
-    const offCancel = events.onWindow('pointercancel', handlePointerCancel)
-
-    offDragWindow = () => {
-      offMove()
-      offUp()
-      offCancel()
-    }
-  }
-
-  const start = () => {
-    if (offDragWatch) return
-    offDragWatch = state.watch('edgeRoutingPointDrag', sync)
-    sync()
-  }
-
-  const stop = () => {
-    offDragWindow?.()
-    offDragWindow = null
-    offDragWatch?.()
-    offDragWatch = null
-  }
-
-  return {
-    start,
-    sync,
-    stop
-  }
+  })
 }

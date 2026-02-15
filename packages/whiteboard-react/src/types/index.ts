@@ -26,6 +26,6 @@ export type {
 
 export type {
   EdgeConnectAnchorResult,
-  UseEdgeConnectActionsReturn,
-  UseEdgeConnectReturn
+  EdgeConnectActions,
+  EdgeConnectModel
 } from './edge'

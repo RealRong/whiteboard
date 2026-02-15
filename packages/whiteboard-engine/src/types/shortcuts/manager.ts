@@ -13,8 +13,8 @@ export type ShortcutManager = {
 
 export type ShortcutRuntime = {
   setShortcuts: (overrides?: ShortcutOverrides) => void
-  handleKeyDown: (event: KeyboardEvent) => boolean
-  handlePointerDownCapture: (event: PointerEvent) => boolean
+  handleKeyDown: (event: KeyboardEvent, context: ShortcutContext) => boolean
+  handlePointerDownCapture: (event: PointerEvent, context: ShortcutContext) => boolean
   dispose: () => void
 }
 

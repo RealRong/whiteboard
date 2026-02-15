@@ -2,8 +2,9 @@ import type { WhiteboardLifecycleConfig } from '@engine-types/instance'
 import type { WhiteboardInstance } from '@engine-types/instance'
 import { createEdgeHoverInputHandlers } from './createEdgeHoverInputHandlers'
 import { createSelectionInputHandlers } from './createSelectionInputHandlers'
+import { createShortcutInputHandlers } from '../shortcut/createShortcutInputHandlers'
 import { createViewportInputHandlers } from './createViewportInputHandlers'
-import type { CanvasInputRuntime } from './types'
+import type { CanvasInputRuntime } from '../types'
 
 type Options = {
   instance: WhiteboardInstance
@@ -28,24 +29,7 @@ export const createCanvasInputHandlers = ({ instance, config }: Options): Canvas
     enableWheel: config.viewportConfig.enableWheel,
     wheelSensitivity: config.viewportConfig.wheelSensitivity
   })
-
-  const handleShortcutPointerDownCapture = (event: PointerEvent, onUnhandled?: () => void) => {
-    const handled = instance.runtime.shortcuts.handlePointerDownCapture(event)
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-      return
-    }
-    onUnhandled?.()
-  }
-
-  const handleShortcutKeyDown = (event: KeyboardEvent) => {
-    const handled = instance.runtime.shortcuts.handleKeyDown(event)
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
-  }
+  const shortcutHandlers = createShortcutInputHandlers({ instance })
 
   return {
     handlers: {
@@ -59,20 +43,26 @@ export const createCanvasInputHandlers = ({ instance, config }: Options): Canvas
         }
       },
       handlePointerDownCapture: (event) => {
-        handleShortcutPointerDownCapture(event, () => viewportHandlers.onPointerDownCapture(event))
+        shortcutHandlers.handlePointerDownCapture(event, () => viewportHandlers.onPointerDownCapture(event))
       },
       handlePointerMove: (event) => {
         viewportHandlers.onPointerMove(event)
-        selectionHandlers.onPointerMove(event)
         edgeHoverHandlers.onPointerMove(event)
       },
       handlePointerUp: (event) => {
         viewportHandlers.onPointerUp(event)
-        selectionHandlers.onPointerUp(event)
       },
       handleKeyDown: (event) => {
-        handleShortcutKeyDown(event)
+        shortcutHandlers.handleKeyDown(event)
       }
+    },
+    selectionBox: {
+      watchActive: selectionHandlers.watchActive,
+      isActive: selectionHandlers.isActive,
+      getPointerId: selectionHandlers.getPointerId,
+      handlePointerMove: selectionHandlers.onPointerMove,
+      handlePointerUp: selectionHandlers.onPointerUp,
+      handlePointerCancel: selectionHandlers.onPointerCancel
     },
     onWheel: viewportHandlers.onWheel,
     cancel: () => {

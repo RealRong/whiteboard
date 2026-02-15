@@ -1,8 +1,8 @@
 import type { Point, Rect } from '@whiteboard/core'
 import type { WhiteboardInstance } from '@engine-types/instance'
 import type { SelectionMode } from '@engine-types/state'
-import { rectFromPoints } from '../../../infra/geometry'
-import { getSelectionModeFromEvent } from '../../../node/utils/selection'
+import { rectFromPoints } from '../../../../infra/geometry'
+import { getSelectionModeFromEvent } from '../../../../node/utils/selection'
 
 type Options = {
   instance: WhiteboardInstance
@@ -21,6 +21,11 @@ export const createSelectionInputHandlers = ({
   let isSelecting = false
   let latestRectWorld: Rect | null = null
   let activePointerId: number | null = null
+  const activeWatchers = new Set<() => void>()
+
+  const emitActiveChange = () => {
+    activeWatchers.forEach((listener) => listener())
+  }
 
   const cancelPendingRaf = () => {
     if (rafId !== null) {
@@ -31,11 +36,15 @@ export const createSelectionInputHandlers = ({
   }
 
   const reset = () => {
+    const wasActive = startPoint !== null
     startPoint = null
     cancelPendingRaf()
     isSelecting = false
     activePointerId = null
     instance.commands.selection.endBox()
+    if (wasActive) {
+      emitActiveChange()
+    }
   }
 
   const getScreenPoint = (event: PointerEvent) => {
@@ -93,11 +102,15 @@ export const createSelectionInputHandlers = ({
     if (!point) return
 
     mode = getSelectionModeFromEvent(event)
+    const wasActive = startPoint !== null
     startPoint = point
     latestRectWorld = null
     isSelecting = false
     activePointerId = event.pointerId
     instance.commands.selection.beginBox(mode)
+    if (!wasActive) {
+      emitActiveChange()
+    }
   }
 
   const onPointerMove = (event: PointerEvent) => {
@@ -128,6 +141,12 @@ export const createSelectionInputHandlers = ({
     reset()
   }
 
+  const onPointerCancel = (event: PointerEvent) => {
+    if (!startPoint) return
+    if (!isActivePointer(event)) return
+    reset()
+  }
+
   const cancel = () => {
     if (!startPoint) {
       cancelPendingRaf()
@@ -140,6 +159,15 @@ export const createSelectionInputHandlers = ({
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerCancel,
+    watchActive: (listener: () => void) => {
+      activeWatchers.add(listener)
+      return () => {
+        activeWatchers.delete(listener)
+      }
+    },
+    isActive: () => startPoint !== null,
+    getPointerId: () => activePointerId,
     cancel
   }
 }

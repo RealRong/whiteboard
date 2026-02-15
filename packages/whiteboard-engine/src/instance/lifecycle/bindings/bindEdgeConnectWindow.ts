@@ -1,4 +1,5 @@
 import type { WhiteboardInstance } from '@engine-types/instance'
+import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
   state: WhiteboardInstance['state']
@@ -17,60 +18,19 @@ export const createEdgeConnectWindowBinding = ({
   events,
   edgeConnectCommands
 }: Options): EdgeConnectWindowBinding => {
-  let offEdgeConnectWatch: (() => void) | null = null
-  let offEdgeConnectWindow: (() => void) | null = null
-
-  const sync = () => {
-    const current = state.read('edgeConnect')
-
-    if (!current.isConnecting) {
-      if (!offEdgeConnectWindow) return
-      offEdgeConnectWindow()
-      offEdgeConnectWindow = null
-      return
-    }
-
-    if (offEdgeConnectWindow) return
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const latest = state.read('edgeConnect')
-      if (!latest.isConnecting) return
-      if (latest.pointerId !== undefined && latest.pointerId !== null && event.pointerId !== latest.pointerId) return
+  return createPointerSessionWindowBinding({
+    events,
+    watch: (listener) => state.watch('edgeConnect', listener),
+    getActive: () => {
+      const current = state.read('edgeConnect')
+      return current.isConnecting ? current : undefined
+    },
+    getPointerId: (active) => active.pointerId,
+    onPointerMove: (event) => {
       edgeConnectCommands.updateToClient(event.clientX, event.clientY)
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const latest = state.read('edgeConnect')
-      if (!latest.isConnecting) return
-      if (latest.pointerId !== undefined && latest.pointerId !== null && event.pointerId !== latest.pointerId) return
+    },
+    onPointerUp: (event) => {
       edgeConnectCommands.commitToClient(event.clientX, event.clientY)
     }
-
-    const offMove = events.onWindow('pointermove', handlePointerMove)
-    const offUp = events.onWindow('pointerup', handlePointerUp)
-
-    offEdgeConnectWindow = () => {
-      offMove()
-      offUp()
-    }
-  }
-
-  const start = () => {
-    if (offEdgeConnectWatch) return
-    offEdgeConnectWatch = state.watch('edgeConnect', sync)
-    sync()
-  }
-
-  const stop = () => {
-    offEdgeConnectWindow?.()
-    offEdgeConnectWindow = null
-    offEdgeConnectWatch?.()
-    offEdgeConnectWatch = null
-  }
-
-  return {
-    start,
-    sync,
-    stop
-  }
+  })
 }

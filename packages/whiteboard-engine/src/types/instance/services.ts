@@ -164,6 +164,16 @@ export type MindmapSubtreeDropTarget = {
 }
 
 export type MindmapDragService = {
+  buildNodeRectMap: (options: {
+    nodeRects: Partial<Record<MindmapNodeId, Rect>>
+    shift: Point
+    offset: Point
+  }) => Map<MindmapNodeId, Rect>
+  buildSubtreeGhostRect: (options: {
+    pointerWorld: Point
+    pointerOffset: Point
+    nodeRect: Rect
+  }) => Rect
   computeSubtreeDropTarget: (options: {
     tree: MindmapTree
     nodeRects: Map<MindmapNodeId, Rect>

@@ -10,7 +10,7 @@ export type EdgePathEntry = {
   }
 }
 
-export type UseEdgeGeometryOptions = {
+export type EdgeGeometryOptions = {
   edges: Edge[]
   connectState?: EdgeConnectState
 }

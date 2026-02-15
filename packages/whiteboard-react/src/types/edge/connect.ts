@@ -7,7 +7,7 @@ export type EdgeConnectAnchorResult = {
   point: Point
 }
 
-export type UseEdgeConnectReturn = {
+export type EdgeConnectModel = {
   state: EdgeConnectState
   selectedEdgeId?: string
   tool: 'select' | 'edge'
@@ -26,8 +26,8 @@ export type UseEdgeConnectReturn = {
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
 }
 
-export type UseEdgeConnectActionsReturn = Pick<
-  UseEdgeConnectReturn,
+export type EdgeConnectActions = Pick<
+  EdgeConnectModel,
   | 'startFromHandle'
   | 'startFromPoint'
   | 'startReconnect'

@@ -33,15 +33,14 @@ export const createWhiteboardInstance = ({
 
   const query = createInstanceQuery({
     readState,
-    platform: runtimeBase.platform,
     config,
-    getViewportZoom: runtimeBase.viewport.getZoom,
     getContainer: runtimeBase.getContainer
   })
   const view = createWhiteboardViewNamespace({
     state,
     query,
-    config
+    config,
+    platform: runtimeBase.platform
   })
 
   let commands!: WhiteboardInstance['commands']

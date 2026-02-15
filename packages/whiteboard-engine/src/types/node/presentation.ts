@@ -2,7 +2,7 @@ import type { Node, Rect } from '@whiteboard/core'
 import type { NodeContainerProps, NodeDefinition, NodeRenderProps } from './registry'
 import type { RefLike } from '../ui'
 
-export type UseNodePresentationOptions = {
+export type NodePresentationOptions = {
   node: Node
   containerRef?: RefLike<HTMLDivElement | null>
 }
