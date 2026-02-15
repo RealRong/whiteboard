@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
+import { Whiteboard, type Instance } from '@whiteboard/react'
 import { createCore, type Document, type Plugin, type SchemaField } from '@whiteboard/core'
 import { produce } from 'immer'
 import './App.css'
@@ -255,7 +255,7 @@ function App() {
   const [tool, setTool] = useState<'select' | 'edge'>('select')
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const docRef = useRef(doc)
-  const whiteboardRef = useRef<WhiteboardInstance | null>(null)
+  const whiteboardRef = useRef<Instance | null>(null)
   const applyRef = useRef<(recipe: (draft: Document) => void) => void>(() => {})
   const coreRef = useRef(createCore({ getState: () => docRef.current, apply: (recipe) => applyRef.current(recipe) }))
 

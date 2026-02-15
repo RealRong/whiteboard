@@ -1,10 +1,10 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
-  state: WhiteboardInstance['state']
-  events: WhiteboardInstance['runtime']['events']
-  edgeConnectCommands: Pick<WhiteboardInstance['commands']['edgeConnect'], 'updateToClient' | 'commitToClient'>
+  state: Instance['state']
+  events: Instance['runtime']['events']
+  edgeConnectCommands: Pick<Instance['commands']['edgeConnect'], 'updateToClient' | 'commitToClient'>
 }
 
 export type EdgeConnectWindowBinding = {

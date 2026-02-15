@@ -1,4 +1,4 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import type {
   Shortcut,
   ShortcutContext,
@@ -6,12 +6,12 @@ import type {
   ShortcutOverrides,
   ShortcutRuntime
 } from '@engine-types/shortcuts'
-import { createShortcutManager } from '../manager/createShortcutManager'
-import { createDefaultShortcuts } from '../defaultShortcuts'
+import { createShortcutManager } from './manager'
+import { createDefaultShortcuts } from './defaultShortcuts'
 import {
   createShortcutCommandHandlers,
   registerShortcutCommandHandlers
-} from '../../instance/commands/shortcutCommands'
+} from '../../api/commands/shortcut'
 
 const resolveShortcuts = (
   defaults: Shortcut[],
@@ -27,13 +27,13 @@ const resolveShortcuts = (
   return Array.from(merged.values())
 }
 
-class WhiteboardShortcutRuntimeService implements ShortcutRuntime {
-  private instance: WhiteboardInstance
+class ShortcutRuntimeImpl implements ShortcutRuntime {
+  private instance: Instance
   private shortcutManager: ShortcutManager
   private unregisterCommandHandlers: (() => void) | null
   private commandHandlers: ReturnType<typeof createShortcutCommandHandlers>
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
     this.shortcutManager = createShortcutManager()
 
@@ -111,6 +111,6 @@ class WhiteboardShortcutRuntimeService implements ShortcutRuntime {
   }
 }
 
-export const createShortcutRuntime = (instance: WhiteboardInstance): ShortcutRuntime => {
-  return new WhiteboardShortcutRuntimeService(instance)
+export const createShortcuts = (instance: Instance): ShortcutRuntime => {
+  return new ShortcutRuntimeImpl(instance)
 }

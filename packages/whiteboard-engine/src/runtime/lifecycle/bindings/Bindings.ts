@@ -4,14 +4,14 @@ type WindowBinding = {
   stop: () => void
 }
 
-type WindowBindingsOrchestratorOptions = {
+type WindowBindingsOptions = {
   bindings: WindowBinding[]
 }
 
-export class WindowBindingsOrchestrator {
+export class Bindings {
   private bindings: WindowBinding[]
 
-  constructor(options: WindowBindingsOrchestratorOptions) {
+  constructor(options: WindowBindingsOptions) {
     this.bindings = options.bindings
   }
 

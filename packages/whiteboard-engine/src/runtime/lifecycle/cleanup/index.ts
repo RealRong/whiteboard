@@ -1,9 +1,9 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 
-export class RuntimeCleanupController {
-  private instance: WhiteboardInstance
+export class Cleanup {
+  private instance: Instance
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 

@@ -1,6 +1,6 @@
 import { atom } from 'jotai'
 import type { Edge, EdgeId, Node, NodeId } from '@whiteboard/core'
-import { docAtom } from './whiteboardContextAtoms'
+import { docAtom } from './contextAtoms'
 import { viewNodesAtom } from '../node/state/viewNodesAtom'
 import { getCollapsedGroupIds, isNodeHiddenByCollapsedGroup } from '../node/utils/group'
 

@@ -1,13 +1,13 @@
 import { useCallback } from 'react'
 import type { PointerEvent } from 'react'
 import type { MindmapNodeId } from '@whiteboard/core'
-import type { WhiteboardMindmapDragView, WhiteboardMindmapViewTree } from '@whiteboard/engine'
+import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
 type MindmapTreeViewProps = {
-  item: WhiteboardMindmapViewTree
-  drag?: WhiteboardMindmapDragView
+  item: MindmapViewTree
+  drag?: MindmapDragView
 }
 
 export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {

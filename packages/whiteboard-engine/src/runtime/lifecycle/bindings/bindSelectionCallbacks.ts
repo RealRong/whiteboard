@@ -1,12 +1,12 @@
 import type { NodeId } from '@whiteboard/core'
-import type { WhiteboardLifecycleConfig, WhiteboardInstance } from '@engine-types/instance'
+import type { LifecycleConfig, Instance } from '@engine-types/instance'
 
 type Options = {
-  state: WhiteboardInstance['state']
+  state: Instance['state']
 }
 
-type SelectionCallbacks = Pick<WhiteboardLifecycleConfig, 'onSelectionChange' | 'onEdgeSelectionChange'>
-type EdgeSelectionValue = ReturnType<WhiteboardInstance['state']['snapshot']>['edgeSelection']
+type SelectionCallbacks = Pick<LifecycleConfig, 'onSelectionChange' | 'onEdgeSelectionChange'>
+type EdgeSelectionValue = ReturnType<Instance['state']['snapshot']>['edgeSelection']
 
 export type SelectionCallbacksBinding = {
   start: () => void

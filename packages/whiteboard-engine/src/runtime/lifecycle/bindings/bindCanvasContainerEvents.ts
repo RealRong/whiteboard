@@ -1,8 +1,8 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import type { CanvasEventHandlers } from '../input/types'
+import type { Instance } from '@engine-types/instance'
+import type { CanvasEventHandlers } from '../input'
 
 type Options = {
-  events: WhiteboardInstance['runtime']['events']
+  events: Instance['runtime']['events']
   handlers: CanvasEventHandlers
   onWheel: (event: WheelEvent) => void
 }

@@ -1,17 +1,17 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import type { EdgeHoverService as EdgeHoverServiceApi } from '@engine-types/instance/services'
+import type { Instance } from '@engine-types/instance'
+import type { EdgeHover as EdgeHoverApi } from '@engine-types/instance/services'
 
 type ClientPoint = {
   x: number
   y: number
 }
 
-export class EdgeHoverService implements EdgeHoverServiceApi {
-  private instance: WhiteboardInstance
+export class EdgeHover implements EdgeHoverApi {
+  private instance: Instance
   private hoverPoint: ClientPoint | null = null
   private rafId: number | null = null
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 
@@ -23,7 +23,7 @@ export class EdgeHoverService implements EdgeHoverServiceApi {
     this.instance.commands.edgeConnect.updateHoverAtClient(point.x, point.y)
   }
 
-  cancel: EdgeHoverServiceApi['cancel'] = () => {
+  cancel: EdgeHoverApi['cancel'] = () => {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId)
       this.rafId = null
@@ -31,7 +31,7 @@ export class EdgeHoverService implements EdgeHoverServiceApi {
     this.hoverPoint = null
   }
 
-  onPointerMove: EdgeHoverServiceApi['onPointerMove'] = ({ clientX, clientY, enabled }) => {
+  onPointerMove: EdgeHoverApi['onPointerMove'] = ({ clientX, clientY, enabled }) => {
     if (!enabled) {
       this.cancel()
       return
@@ -43,7 +43,7 @@ export class EdgeHoverService implements EdgeHoverServiceApi {
     }
   }
 
-  dispose: EdgeHoverServiceApi['dispose'] = () => {
+  dispose: EdgeHoverApi['dispose'] = () => {
     this.cancel()
   }
 }

@@ -1,9 +1,9 @@
 import type { MindmapNodeId, Rect } from '@whiteboard/core'
-import type { MindmapDragService as MindmapDragServiceApi } from '@engine-types/instance/services'
-import { computeMindmapSubtreeDropTarget } from '../../mindmap/domain/computeSubtreeDropTarget'
+import type { MindmapDrag as MindmapDragApi } from '@engine-types/instance/services'
+import { computeMindmapSubtreeDropTarget } from '../../mindmap'
 
-export class MindmapDragService implements MindmapDragServiceApi {
-  buildNodeRectMap: MindmapDragServiceApi['buildNodeRectMap'] = ({ nodeRects, shift, offset }) => {
+export class MindmapDrag implements MindmapDragApi {
+  buildNodeRectMap: MindmapDragApi['buildNodeRectMap'] = ({ nodeRects, shift, offset }) => {
     const rectMap = new Map<MindmapNodeId, Rect>()
     Object.entries(nodeRects).forEach(([id, rect]) => {
       if (!rect) return
@@ -17,17 +17,17 @@ export class MindmapDragService implements MindmapDragServiceApi {
     return rectMap
   }
 
-  buildSubtreeGhostRect: MindmapDragServiceApi['buildSubtreeGhostRect'] = ({ pointerWorld, pointerOffset, nodeRect }) => ({
+  buildSubtreeGhostRect: MindmapDragApi['buildSubtreeGhostRect'] = ({ pointerWorld, pointerOffset, nodeRect }) => ({
     x: pointerWorld.x - pointerOffset.x,
     y: pointerWorld.y - pointerOffset.y,
     width: nodeRect.width,
     height: nodeRect.height
   })
 
-  computeSubtreeDropTarget: MindmapDragServiceApi['computeSubtreeDropTarget'] = (options) =>
+  computeSubtreeDropTarget: MindmapDragApi['computeSubtreeDropTarget'] = (options) =>
     computeMindmapSubtreeDropTarget(options)
 
-  dispose: MindmapDragServiceApi['dispose'] = () => {
+  dispose: MindmapDragApi['dispose'] = () => {
     return
   }
 }

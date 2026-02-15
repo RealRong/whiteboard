@@ -18,12 +18,12 @@ import type {
   Rect,
   Viewport
 } from '@whiteboard/core'
-import type { MindmapLayoutConfig } from '../mindmap'
-import type { Size, WhiteboardResolvedHistoryConfig } from '../common'
-import type { Guide } from '../node/snap'
-import type { NodeDragGroupOptions } from '../node/drag'
-import type { InteractionState, NodeViewUpdate, SelectionMode } from '../state'
-import type { NodeTransformResizeDirection } from '../state'
+import type { MindmapLayoutConfig } from './mindmap'
+import type { Size, ResolvedHistoryConfig } from './common'
+import type { Guide } from './node/snap'
+import type { NodeDragGroupOptions } from './node/drag'
+import type { InteractionState, NodeViewUpdate, SelectionMode } from './state'
+import type { NodeTransformResizeDirection } from './state'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -171,7 +171,7 @@ export type NodeTransformCancelOptions = {
   pointerId?: number
 }
 
-export type WhiteboardMindmapCommands = Core['commands']['mindmap'] & {
+export type MindmapCommands = Core['commands']['mindmap'] & {
   insertNode: (options: MindmapInsertNodeOptions) => Promise<void>
   moveSubtreeWithLayout: (options: MindmapMoveSubtreeWithLayoutOptions) => Promise<DispatchResult>
   moveSubtreeWithDrop: (options: MindmapMoveSubtreeWithDropOptions) => Promise<void>
@@ -182,7 +182,7 @@ export type WhiteboardMindmapCommands = Core['commands']['mindmap'] & {
   cancelDrag: (options?: MindmapCancelDragOptions) => boolean
 }
 
-export type WhiteboardCommands = {
+export type Commands = {
   tool: {
     set: (tool: string) => void
   }
@@ -190,7 +190,7 @@ export type WhiteboardCommands = {
     setSpacePressed: (pressed: boolean) => void
   }
   history: {
-    configure: (config: WhiteboardResolvedHistoryConfig) => void
+    configure: (config: ResolvedHistoryConfig) => void
     undo: () => boolean
     redo: () => boolean
     clear: () => void
@@ -323,5 +323,5 @@ export type WhiteboardCommands = {
     cancel: (options?: NodeTransformCancelOptions) => boolean
   }
   group: Core['commands']['group']
-  mindmap: WhiteboardMindmapCommands
+  mindmap: MindmapCommands
 }

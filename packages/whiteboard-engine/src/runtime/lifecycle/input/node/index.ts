@@ -1,16 +1,16 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { createNodeDragWindowBinding, type NodeDragWindowBinding } from '../../bindings/bindNodeDragWindow'
+import type { Instance } from '@engine-types/instance'
+import { createNodeDragWindowBinding, type NodeDragWindowBinding } from '../../bindings'
 import {
   createNodeTransformWindowBinding,
   type NodeTransformWindowBinding
-} from '../../bindings/bindNodeTransformWindow'
+} from '../../bindings'
 
 export type NodeInputWindowBindings = {
   nodeDragWindowBinding: NodeDragWindowBinding
   nodeTransformWindowBinding: NodeTransformWindowBinding
 }
 
-export const createNodeInputWindowBindings = (instance: WhiteboardInstance): NodeInputWindowBindings => {
+export const createNodeInputWindowBindings = (instance: Instance): NodeInputWindowBindings => {
   return {
     nodeDragWindowBinding: createNodeDragWindowBinding({
       state: instance.state,

@@ -1,13 +1,13 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 const NODE_TRANSFORM_MIN_SIZE = { width: 20, height: 20 }
 
 type Options = {
-  state: WhiteboardInstance['state']
-  events: WhiteboardInstance['runtime']['events']
+  state: Instance['state']
+  events: Instance['runtime']['events']
   nodeTransformCommands: Pick<
-    WhiteboardInstance['commands']['nodeTransform'],
+    Instance['commands']['nodeTransform'],
     'update' | 'end' | 'cancel'
   >
 }

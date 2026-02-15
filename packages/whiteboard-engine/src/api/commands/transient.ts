@@ -1,14 +1,14 @@
 import type { NodeId, Point } from '@whiteboard/core'
-import type { WhiteboardCommands } from '@engine-types/commands'
+import type { Commands } from '@engine-types/commands'
 import type { Size } from '@engine-types/common'
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from '@engine-types/state'
-import { isPointEqual, isSizeEqual } from '../geometry/valueEquality'
-import { clearNodeOverrides, updateNodeOverrides } from '../state/nodeOverrideState'
+import { isPointEqual, isSizeEqual } from '../../infra/geometry/valueEquality'
+import { clearNodeOverrides, updateNodeOverrides } from '../../state/internal/nodeOverrideState'
 
 export const createTransientCommands = (
-  instance: WhiteboardInstance
-): WhiteboardCommands['transient'] => {
+  instance: Instance
+): Commands['transient'] => {
   const { core, docRef } = instance.runtime
   const { read, write } = instance.state
 

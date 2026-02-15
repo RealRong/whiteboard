@@ -1,4 +1,4 @@
 export { createDefaultShortcuts } from './defaultShortcuts'
-export { createShortcutManager } from './manager/createShortcutManager'
+export { createShortcutManager } from './manager'
 export { getPlatformInfo } from './manager/normalize'
-export { createShortcutRuntime } from './runtime/createShortcutRuntime'
+export { createShortcuts } from './runtime'

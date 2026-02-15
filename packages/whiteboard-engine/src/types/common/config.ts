@@ -1,52 +1,52 @@
 import type { EdgeId, NodeId } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { ShortcutOverrides } from '../shortcuts'
-import type { Size, ViewportConfig, WhiteboardEdgeConfig, WhiteboardNodeConfig } from './base'
+import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 
-export type WhiteboardHistoryConfig = {
+export type HistoryConfig = {
   enabled?: boolean
   capacity?: number
   captureSystem?: boolean
   captureRemote?: boolean
 }
 
-export type WhiteboardResolvedHistoryConfig = {
+export type ResolvedHistoryConfig = {
   enabled: boolean
   capacity: number
   captureSystem: boolean
   captureRemote: boolean
 }
 
-export type WhiteboardResolvedViewportConfig = Required<ViewportConfig>
-export type WhiteboardResolvedNodeConfig = Required<WhiteboardNodeConfig>
-export type WhiteboardResolvedEdgeConfig = Required<WhiteboardEdgeConfig>
+export type ResolvedViewportConfig = Required<ViewportConfig>
+export type ResolvedNodeConfig = Required<NodeConfig>
+export type ResolvedEdgeConfig = Required<EdgeConfig>
 
-export type WhiteboardConfig = {
+export type Config = {
   className?: string
   style?: unknown
   nodeSize?: Size
   mindmapNodeSize?: Size
   mindmapLayout?: MindmapLayoutConfig
   viewport?: ViewportConfig
-  node?: WhiteboardNodeConfig
-  edge?: WhiteboardEdgeConfig
-  history?: WhiteboardHistoryConfig
+  node?: NodeConfig
+  edge?: EdgeConfig
+  history?: HistoryConfig
   tool?: 'select' | 'edge'
   shortcuts?: ShortcutOverrides
   onSelectionChange?: (ids: NodeId[]) => void
   onEdgeSelectionChange?: (id?: EdgeId) => void
 }
 
-export type ResolvedWhiteboardConfig = Omit<
-  WhiteboardConfig,
+export type ResolvedConfig = Omit<
+  Config,
   'nodeSize' | 'mindmapNodeSize' | 'mindmapLayout' | 'viewport' | 'node' | 'edge' | 'history' | 'tool'
 > & {
   nodeSize: Size
   mindmapNodeSize: Size
   mindmapLayout: MindmapLayoutConfig
-  viewport: WhiteboardResolvedViewportConfig
-  node: WhiteboardResolvedNodeConfig
-  edge: WhiteboardResolvedEdgeConfig
-  history: WhiteboardResolvedHistoryConfig
+  viewport: ResolvedViewportConfig
+  node: ResolvedNodeConfig
+  edge: ResolvedEdgeConfig
+  history: ResolvedHistoryConfig
   tool: 'select' | 'edge'
 }

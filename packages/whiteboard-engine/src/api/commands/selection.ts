@@ -1,8 +1,8 @@
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { applySelection } from '../state/selectionState'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
+import { applySelection } from '../../state/internal/selectionState'
 
-export const createSelectionCommands = (instance: WhiteboardInstance): WhiteboardCommands['selection'] => {
+export const createSelectionCommands = (instance: Instance): Commands['selection'] => {
   const { read, write } = instance.state
 
   return {

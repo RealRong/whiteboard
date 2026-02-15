@@ -1,20 +1,20 @@
 import type { NodeId, NodeInput, NodePatch, Point, Rect } from '@whiteboard/core'
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
 import type { NodeDragGroupOptions } from '@engine-types/node/drag'
 import type { NodeViewUpdate } from '@engine-types/state'
 import { selectNodeDragStrategy } from '../../node/runtime/drag'
 import { computeSnap } from '../../node/utils/snap'
 
 export const createNodeCommands = (
-  instance: WhiteboardInstance,
-  transient: WhiteboardCommands['transient']
-): Pick<WhiteboardCommands, 'groupRuntime' | 'nodeDrag' | 'node' | 'nodeTransform'> => {
+  instance: Instance,
+  transient: Commands['transient']
+): Pick<Commands, 'groupRuntime' | 'nodeDrag' | 'node' | 'nodeTransform'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
 
-  const nodeTransform: WhiteboardCommands['nodeTransform'] = {
-    rotate: (nodeId, angle) => (core.commands.node.rotate as WhiteboardCommands['node']['rotate'])(nodeId, angle),
+  const nodeTransform: Commands['nodeTransform'] = {
+    rotate: (nodeId, angle) => (core.commands.node.rotate as Commands['node']['rotate'])(nodeId, angle),
     previewResize: (nodeId, update) => {
       transient.nodeOverrides.set([{ id: nodeId, ...update }])
     },
@@ -153,7 +153,7 @@ export const createNodeCommands = (
     size,
     childrenIds,
     allowCross
-  }: Parameters<WhiteboardCommands['nodeDrag']['resolveMove']>[0]) => {
+  }: Parameters<Commands['nodeDrag']['resolveMove']>[0]) => {
     if (read('tool') !== 'select') {
       transient.dragGuides.clear()
       return position
@@ -242,7 +242,7 @@ export const createNodeCommands = (
     }
   }
 
-  const startNodeDrag: WhiteboardCommands['nodeDrag']['start'] = ({ nodeId, pointerId, clientX, clientY }) => {
+  const startNodeDrag: Commands['nodeDrag']['start'] = ({ nodeId, pointerId, clientX, clientY }) => {
     if (read('nodeDrag').active) return false
     if (read('tool') !== 'select') return false
 
@@ -298,7 +298,7 @@ export const createNodeCommands = (
     return true
   }
 
-  const updateNodeDrag: WhiteboardCommands['nodeDrag']['update'] = ({
+  const updateNodeDrag: Commands['nodeDrag']['update'] = ({
     pointerId,
     clientX,
     clientY,
@@ -359,7 +359,7 @@ export const createNodeCommands = (
     return true
   }
 
-  const endNodeDrag: WhiteboardCommands['nodeDrag']['end'] = ({ pointerId }) => {
+  const endNodeDrag: Commands['nodeDrag']['end'] = ({ pointerId }) => {
     const active = read('nodeDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
@@ -396,7 +396,7 @@ export const createNodeCommands = (
     return true
   }
 
-  const cancelNodeDrag: WhiteboardCommands['nodeDrag']['cancel'] = (options) => {
+  const cancelNodeDrag: Commands['nodeDrag']['cancel'] = (options) => {
     const active = read('nodeDrag').active
     if (!active) return false
     if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
@@ -455,9 +455,9 @@ export const createNodeCommands = (
         )
       },
       delete: (ids: NodeId[]) => core.dispatch({ type: 'node.delete', ids }),
-      move: core.commands.node.move as WhiteboardCommands['node']['move'],
-      resize: core.commands.node.resize as WhiteboardCommands['node']['resize'],
-      rotate: core.commands.node.rotate as WhiteboardCommands['node']['rotate']
+      move: core.commands.node.move as Commands['node']['move'],
+      resize: core.commands.node.resize as Commands['node']['resize'],
+      rotate: core.commands.node.rotate as Commands['node']['rotate']
     },
     nodeTransform
   }

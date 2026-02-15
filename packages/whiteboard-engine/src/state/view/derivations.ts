@@ -1,13 +1,13 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardMindmapDragView,
-  WhiteboardMindmapViewTree,
-  WhiteboardNodeTransformHandle,
-  WhiteboardStateKey,
-  WhiteboardStateNamespace,
-  WhiteboardViewKey,
-  WhiteboardViewSnapshot
+  InstanceConfig,
+  Query,
+  MindmapDragView,
+  MindmapViewTree,
+  NodeTransformHandle,
+  StateKey,
+  State,
+  ViewKey,
+  ViewSnapshot
 } from '@engine-types/instance'
 import type { ShortcutContext } from '@engine-types/shortcuts'
 import { toMindmapLayoutSignature } from '../../infra/cache'
@@ -22,35 +22,35 @@ import {
   toViewportTransformView
 } from '../../infra/query'
 import { buildTransformHandles } from '../../node/utils/transform'
-import { createEdgeViewQuery } from './edgeViewQuery'
+import { createEdgeViewQuery } from './edgeQuery'
 
-type ViewDerivation<K extends WhiteboardViewKey> = {
-  deps: WhiteboardStateKey[]
-  derive: () => WhiteboardViewSnapshot[K]
+type ViewDerivation<K extends ViewKey> = {
+  deps: StateKey[]
+  derive: () => ViewSnapshot[K]
 }
 
-export type WhiteboardViewDerivationMap = {
-  [K in WhiteboardViewKey]: ViewDerivation<K>
+export type ViewDerivationMap = {
+  [K in ViewKey]: ViewDerivation<K>
 }
 
-type CreateWhiteboardViewDerivationsOptions = {
-  readState: WhiteboardStateNamespace['read']
-  query: WhiteboardInstanceQuery
-  config: WhiteboardInstanceConfig
+type Options = {
+  readState: State['read']
+  query: Query
+  config: InstanceConfig
   platform: ShortcutContext['platform']
 }
 
-const uniqueStateKeys = (keys: WhiteboardStateKey[]) => Array.from(new Set(keys))
+const uniqueStateKeys = (keys: StateKey[]) => Array.from(new Set(keys))
 
-const createViewDerivation = <K extends WhiteboardViewKey>(
-  deps: WhiteboardStateKey[],
-  derive: () => WhiteboardViewSnapshot[K]
+const createViewDerivation = <K extends ViewKey>(
+  deps: StateKey[],
+  derive: () => ViewSnapshot[K]
 ): ViewDerivation<K> => ({
   deps: uniqueStateKeys(deps),
   derive
 })
 
-export const WHITEBOARD_VIEW_KEYS: WhiteboardViewKey[] = [
+export const VIEW_KEYS: ViewKey[] = [
   'viewport.transform',
   'shortcut.context',
   'edge.entries',
@@ -66,13 +66,13 @@ export const WHITEBOARD_VIEW_KEYS: WhiteboardViewKey[] = [
   'mindmap.drag'
 ]
 
-export const createWhiteboardViewDerivations = ({
+export const createViewDerivations = ({
   readState,
   query,
   config,
   platform
-}: CreateWhiteboardViewDerivationsOptions): WhiteboardViewDerivationMap => {
-  let mindmapTreeCache = new Map<string, { signature: string; tree: WhiteboardMindmapViewTree }>()
+}: Options): ViewDerivationMap => {
+  let mindmapTreeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
   const edgeViewQuery = createEdgeViewQuery({ readState, query })
 
   return {
@@ -189,7 +189,7 @@ export const createWhiteboardViewDerivations = ({
       })
     }),
     'node.transformHandles': createViewDerivation(['canvasNodes', 'selection', 'tool', 'viewport'], () => {
-      const handleMap = new Map<string, WhiteboardNodeTransformHandle[]>()
+      const handleMap = new Map<string, NodeTransformHandle[]>()
       const rotateHandleOffset = 24
       const activeTool = (readState('tool') as 'select' | 'edge') ?? 'select'
       if (activeTool !== 'select') return handleMap
@@ -224,8 +224,8 @@ export const createWhiteboardViewDerivations = ({
     'mindmap.trees': createViewDerivation(['visibleNodes', 'mindmapLayout'], () => {
       const roots = getMindmapRoots(readState('visibleNodes'))
       const layout = readState('mindmapLayout') ?? {}
-      const nextCache = new Map<string, { signature: string; tree: WhiteboardMindmapViewTree }>()
-      const nextTrees: WhiteboardMindmapViewTree[] = []
+      const nextCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
+      const nextTrees: MindmapViewTree[] = []
 
       roots.forEach((root) => {
         const tree = getMindmapTree(root)
@@ -257,7 +257,7 @@ export const createWhiteboardViewDerivations = ({
         const labels = Object.fromEntries(
           Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, getMindmapLabel(node)])
         )
-        const model: WhiteboardMindmapViewTree = {
+        const model: MindmapViewTree = {
           id: root.id,
           node: root,
           tree,
@@ -276,7 +276,7 @@ export const createWhiteboardViewDerivations = ({
       mindmapTreeCache = nextCache
       return nextTrees
     }),
-    'mindmap.drag': createViewDerivation(['mindmapDrag'], (): WhiteboardMindmapDragView | undefined => {
+    'mindmap.drag': createViewDerivation(['mindmapDrag'], (): MindmapDragView | undefined => {
       const active = readState('mindmapDrag').active
       if (!active) return undefined
 

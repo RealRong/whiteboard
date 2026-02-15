@@ -10,7 +10,7 @@ import type {
 } from '@whiteboard/core'
 import type { Size } from '../common'
 
-export type NodeSizeObserverService = {
+export type NodeSizeObserver = {
   observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
   unobserve: (nodeId: NodeId) => void
   dispose: () => void
@@ -23,13 +23,13 @@ export type ContainerRect = {
   height: number
 }
 
-export type ContainerSizeObserverService = {
+export type ContainerSizeObserver = {
   observe: (element: Element, onRect: (rect: ContainerRect) => void) => void
   unobserve: (element?: Element) => void
   dispose: () => void
 }
 
-export type GroupAutoFitService = {
+export type GroupAutoFit = {
   start: (options: {
     getDocId?: () => string | undefined
     getNodes: () => Node[]
@@ -47,7 +47,7 @@ export type GroupAutoFitService = {
   dispose: () => void
 }
 
-export type ViewportNavigationService = {
+export type ViewportNavigation = {
   startPan: (options: {
     pointerId: number
     button: number
@@ -76,7 +76,7 @@ export type ViewportNavigationService = {
   dispose: () => void
 }
 
-export type EdgeHoverService = {
+export type EdgeHover = {
   onPointerMove: (options: {
     clientX: number
     clientY: number
@@ -113,7 +113,7 @@ export type NodeTransformRotateDragState = {
 
 export type NodeTransformDragState = NodeTransformResizeDragState | NodeTransformRotateDragState
 
-export type NodeTransformService = {
+export type NodeTransform = {
   createResizeDrag: (options: {
     pointerId: number
     handle: TransformResizeDirection
@@ -163,7 +163,7 @@ export type MindmapSubtreeDropTarget = {
   insertLine?: { x1: number; y1: number; x2: number; y2: number }
 }
 
-export type MindmapDragService = {
+export type MindmapDrag = {
   buildNodeRectMap: (options: {
     nodeRects: Partial<Record<MindmapNodeId, Rect>>
     shift: Point

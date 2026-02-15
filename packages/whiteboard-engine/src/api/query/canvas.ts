@@ -1,19 +1,19 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardStateNamespace
+  InstanceConfig,
+  Query,
+  State
 } from '@engine-types/instance'
 import { getNodeAABB, getNodeRect } from '../../infra/geometry'
 import {
-  getAnchorFromPoint,
-  getNearestEdgeSegmentIndexAtWorld as getNearestEdgeSegmentIndexAtWorldQuery,
-  getNodeIdsInRect as getNodeIdsInRectByEntries,
-  isCanvasBackgroundTarget as isCanvasBackgroundTargetQuery
+  getAnchorFromPoint as getAnchorFromPointRaw,
+  getNearestEdgeSegmentIndexAtWorld as getNearestEdgeSegmentIndexAtWorldRaw,
+  getNodeIdsInRect as getNodeIdsInRectRaw,
+  isCanvasBackgroundTarget as isCanvasBackgroundTargetRaw
 } from '../../infra/query'
 
-type CreateCanvasQueryOptions = {
-  readState: WhiteboardStateNamespace['read']
-  config: WhiteboardInstanceConfig
+type Options = {
+  readState: State['read']
+  config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
@@ -21,8 +21,8 @@ export const createCanvasQuery = ({
   readState,
   config,
   getContainer
-}: CreateCanvasQueryOptions): Pick<
-  WhiteboardInstanceQuery,
+}: Options): Pick<
+  Query,
   | 'getCanvasNodeRects'
   | 'getCanvasNodeRectById'
   | 'getNodeIdsInRect'
@@ -39,7 +39,7 @@ export const createCanvasQuery = ({
   }))
   let cachedById = new Map(cachedRects.map((entry) => [entry.node.id, entry]))
 
-  const getCanvasNodeRects: WhiteboardInstanceQuery['getCanvasNodeRects'] = () => {
+  const getCanvasNodeRects: Query['getCanvasNodeRects'] = () => {
     const nodes = readState('canvasNodes')
     if (nodes === cachedNodes) return cachedRects
     cachedNodes = nodes
@@ -53,37 +53,37 @@ export const createCanvasQuery = ({
     return cachedRects
   }
 
-  const getCanvasNodeRectById: WhiteboardInstanceQuery['getCanvasNodeRectById'] = (nodeId) => {
+  const getCanvasNodeRectById: Query['getCanvasNodeRectById'] = (nodeId) => {
     getCanvasNodeRects()
     return cachedById.get(nodeId)
   }
 
-  const getNodeIdsInRect: WhiteboardInstanceQuery['getNodeIdsInRect'] = (rect) =>
-    getNodeIdsInRectByEntries(rect, getCanvasNodeRects())
+  const getNodeIdsInRect: Query['getNodeIdsInRect'] = (rect) =>
+    getNodeIdsInRectRaw(rect, getCanvasNodeRects())
 
-  const isCanvasBackgroundTarget: WhiteboardInstanceQuery['isCanvasBackgroundTarget'] = (target) =>
-    isCanvasBackgroundTargetQuery({
+  const isCanvasBackgroundTarget: Query['isCanvasBackgroundTarget'] = (target) =>
+    isCanvasBackgroundTargetRaw({
       container: getContainer(),
       target
     })
 
-  const getAnchorFromPointWithConfig: WhiteboardInstanceQuery['getAnchorFromPoint'] = (rect, rotation, point) =>
-    getAnchorFromPoint(rect, rotation, point, {
+  const getAnchorFromPoint: Query['getAnchorFromPoint'] = (rect, rotation, point) =>
+    getAnchorFromPointRaw(rect, rotation, point, {
       snapMin: config.edge.anchorSnapMin,
       snapRatio: config.edge.anchorSnapRatio
     })
 
-  const getNearestEdgeSegmentIndexAtWorld: WhiteboardInstanceQuery['getNearestEdgeSegmentIndexAtWorld'] = (
+  const getNearestEdgeSegmentIndexAtWorld: Query['getNearestEdgeSegmentIndexAtWorld'] = (
     pointWorld,
     pathPoints
-  ) => getNearestEdgeSegmentIndexAtWorldQuery(pointWorld, pathPoints)
+  ) => getNearestEdgeSegmentIndexAtWorldRaw(pointWorld, pathPoints)
 
   return {
     getCanvasNodeRects,
     getCanvasNodeRectById,
     getNodeIdsInRect,
     isCanvasBackgroundTarget,
-    getAnchorFromPoint: getAnchorFromPointWithConfig,
+    getAnchorFromPoint,
     getNearestEdgeSegmentIndexAtWorld
   }
 }

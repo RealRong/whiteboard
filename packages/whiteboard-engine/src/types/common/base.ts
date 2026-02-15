@@ -8,7 +8,7 @@ export type ViewportConfig = {
   wheelSensitivity?: number
 }
 
-export type WhiteboardNodeConfig = {
+export type NodeConfig = {
   groupPadding?: number
   snapThresholdScreen?: number
   snapMaxThresholdWorld?: number
@@ -16,7 +16,7 @@ export type WhiteboardNodeConfig = {
   selectionMinDragDistance?: number
 }
 
-export type WhiteboardEdgeConfig = {
+export type EdgeConfig = {
   hitTestThresholdScreen?: number
   anchorSnapMin?: number
   anchorSnapRatio?: number

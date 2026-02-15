@@ -1,9 +1,9 @@
-import type { WhiteboardMindmapDragView, WhiteboardMindmapViewTree } from '@whiteboard/engine'
+import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { MindmapTreeView } from './MindmapTreeView'
 
 type MindmapLayerProps = {
-  trees: WhiteboardMindmapViewTree[]
-  drag?: WhiteboardMindmapDragView
+  trees: MindmapViewTree[]
+  drag?: MindmapDragView
 }
 
 export const MindmapLayer = ({ trees, drag }: MindmapLayerProps) => {

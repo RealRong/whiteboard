@@ -7,17 +7,17 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core'
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance, WhiteboardMindmapViewTree } from '@engine-types/instance'
+import type { Commands } from '@engine-types/commands'
+import type { Instance, MindmapViewTree } from '@engine-types/instance'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 
 export const createMindmapCommands = (
-  instance: WhiteboardInstance
-): Pick<WhiteboardCommands, 'mindmap'> => {
+  instance: Instance
+): Pick<Commands, 'mindmap'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
   const mindmapCommands = core.commands.mindmap
-  const mindmapDragService = instance.runtime.services.mindmapDrag
+  const mindmapDrag = instance.runtime.services.mindmapDrag
 
   const toLayoutHint = (
     anchorId: MindmapNodeId,
@@ -40,7 +40,7 @@ export const createMindmapCommands = (
     return layoutSide === 'left' || layoutSide === 'right' ? layoutSide : 'right'
   }
 
-  const insertMindmapNode: WhiteboardCommands['mindmap']['insertNode'] = async ({
+  const insertMindmapNode: Commands['mindmap']['insertNode'] = async ({
     id,
     tree,
     targetNodeId,
@@ -85,7 +85,7 @@ export const createMindmapCommands = (
     await mindmapCommands.addChild(id, targetNodeId, payload, { layout: layoutHint })
   }
 
-  const moveSubtreeWithLayout: WhiteboardCommands['mindmap']['moveSubtreeWithLayout'] = ({
+  const moveSubtreeWithLayout: Commands['mindmap']['moveSubtreeWithLayout'] = ({
     id,
     nodeId,
     newParentId,
@@ -100,7 +100,7 @@ export const createMindmapCommands = (
       layout: toLayoutHint(newParentId, nodeSize, layout)
     })
 
-  const moveSubtreeWithDrop: WhiteboardCommands['mindmap']['moveSubtreeWithDrop'] = async ({
+  const moveSubtreeWithDrop: Commands['mindmap']['moveSubtreeWithDrop'] = async ({
     id,
     nodeId,
     drop,
@@ -123,7 +123,7 @@ export const createMindmapCommands = (
     })
   }
 
-  const moveMindmapRoot: WhiteboardCommands['mindmap']['moveRoot'] = async ({ nodeId, position, threshold = 0.5 }) => {
+  const moveMindmapRoot: Commands['mindmap']['moveRoot'] = async ({ nodeId, position, threshold = 0.5 }) => {
     const node = read('canvasNodes').find((item) => item.id === nodeId)
     if (!node) return
     if (Math.abs(node.position.x - position.x) < threshold && Math.abs(node.position.y - position.y) < threshold) {
@@ -144,11 +144,11 @@ export const createMindmapCommands = (
     return instance.runtime.viewport.screenToWorld(screen)
   }
 
-  const getMindmapTreeView = (treeId: NodeId): WhiteboardMindmapViewTree | undefined =>
+  const getMindmapTreeView = (treeId: NodeId): MindmapViewTree | undefined =>
     instance.view.read('mindmap.trees').find((item) => item.id === treeId)
 
-  const getMindmapNodeRects = (item: WhiteboardMindmapViewTree, baseOffset = item.node.position) =>
-    mindmapDragService.buildNodeRectMap({
+  const getMindmapNodeRects = (item: MindmapViewTree, baseOffset = item.node.position) =>
+    mindmapDrag.buildNodeRectMap({
       nodeRects: item.computed.node,
       shift: {
         x: item.shiftX,
@@ -157,7 +157,7 @@ export const createMindmapCommands = (
       offset: baseOffset
     })
 
-  const startMindmapDrag: WhiteboardCommands['mindmap']['startDrag'] = ({
+  const startMindmapDrag: Commands['mindmap']['startDrag'] = ({
     treeId,
     nodeId,
     pointerId,
@@ -218,7 +218,7 @@ export const createMindmapCommands = (
     return true
   }
 
-  const updateMindmapDrag: WhiteboardCommands['mindmap']['updateDrag'] = ({ pointerId, clientX, clientY }) => {
+  const updateMindmapDrag: Commands['mindmap']['updateDrag'] = ({ pointerId, clientX, clientY }) => {
     const active = read('mindmapDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
@@ -238,7 +238,7 @@ export const createMindmapCommands = (
       return true
     }
 
-    const ghost = mindmapDragService.buildSubtreeGhostRect({
+    const ghost = mindmapDrag.buildSubtreeGhostRect({
       pointerWorld: world,
       pointerOffset: active.offset,
       nodeRect: active.rect
@@ -248,7 +248,7 @@ export const createMindmapCommands = (
     const treeItem = getMindmapTreeView(active.treeId)
     if (treeItem) {
       const nodeRects = getMindmapNodeRects(treeItem, active.baseOffset)
-      drop = mindmapDragService.computeSubtreeDropTarget({
+      drop = mindmapDrag.computeSubtreeDropTarget({
         tree: treeItem.tree,
         nodeRects,
         ghost,
@@ -268,7 +268,7 @@ export const createMindmapCommands = (
     return true
   }
 
-  const endMindmapDrag: WhiteboardCommands['mindmap']['endDrag'] = ({ pointerId }) => {
+  const endMindmapDrag: Commands['mindmap']['endDrag'] = ({ pointerId }) => {
     const active = read('mindmapDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
@@ -303,7 +303,7 @@ export const createMindmapCommands = (
     return true
   }
 
-  const cancelMindmapDrag: WhiteboardCommands['mindmap']['cancelDrag'] = (options) => {
+  const cancelMindmapDrag: Commands['mindmap']['cancelDrag'] = (options) => {
     const active = read('mindmapDrag').active
     if (!active) return false
     if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false

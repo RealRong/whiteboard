@@ -1,6 +1,6 @@
 import type {
   ContainerRect,
-  ContainerSizeObserverService as ContainerSizeObserverServiceApi
+  ContainerSizeObserver as ContainerSizeObserverApi
 } from '@engine-types/instance'
 
 const getElementRectSnapshot = (element: Element): ContainerRect => {
@@ -13,7 +13,7 @@ const getElementRectSnapshot = (element: Element): ContainerRect => {
   }
 }
 
-export class ContainerSizeObserverService implements ContainerSizeObserverServiceApi {
+export class ContainerSizeObserver implements ContainerSizeObserverApi {
   private observer: ResizeObserver | null = null
   private observedElement: Element | null = null
   private onRectChange: ((rect: ContainerRect) => void) | null = null

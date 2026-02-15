@@ -1,11 +1,11 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
-  state: WhiteboardInstance['state']
-  events: WhiteboardInstance['runtime']['events']
+  state: Instance['state']
+  events: Instance['runtime']['events']
   nodeDragCommands: Pick<
-    WhiteboardInstance['commands']['nodeDrag'],
+    Instance['commands']['nodeDrag'],
     'update' | 'end' | 'cancel'
   >
 }

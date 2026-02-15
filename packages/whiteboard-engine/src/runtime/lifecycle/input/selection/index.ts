@@ -1,10 +1,14 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { createSelectionCallbacksBinding, type SelectionCallbacksBinding } from '../../bindings/bindSelectionCallbacks'
-import { createSelectionBoxWindowBinding, type SelectionBoxWindowBinding } from '../../bindings/bindSelectionBoxWindow'
-import type { SelectionBoxSessionRuntime } from '../types'
+import type { Instance } from '@engine-types/instance'
+import {
+  createSelectionCallbacksBinding,
+  createSelectionBoxWindowBinding,
+  type SelectionBoxWindowBinding,
+  type SelectionCallbacksBinding
+} from '../../bindings'
+import type { SelectionBoxSessionRuntime } from '..'
 
-type CreateSelectionInputBindingsOptions = {
-  instance: WhiteboardInstance
+type Options = {
+  instance: Instance
   getSelectionBox: () => SelectionBoxSessionRuntime
 }
 
@@ -16,7 +20,7 @@ export type SelectionInputBindings = {
 export const createSelectionInputBindings = ({
   instance,
   getSelectionBox
-}: CreateSelectionInputBindingsOptions): SelectionInputBindings => {
+}: Options): SelectionInputBindings => {
   return {
     selectionBoxWindowBinding: createSelectionBoxWindowBinding({
       events: instance.runtime.events,

@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core'
 import type { NodeOverride, NodeViewUpdate } from '@engine-types/state'
-import { isPointEqual, isSizeEqual } from '../geometry/valueEquality'
+import { isPointEqual, isSizeEqual } from '../../infra/geometry/valueEquality'
 
 export const updateNodeOverrides = (
   prev: Map<NodeId, NodeOverride>,

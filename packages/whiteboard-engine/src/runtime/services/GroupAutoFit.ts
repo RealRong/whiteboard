@@ -1,6 +1,6 @@
 import type { Core, Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { GroupAutoFitService as GroupAutoFitServiceApi } from '@engine-types/instance/services'
+import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
 import { getNodeAABB } from '../../infra/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
 
@@ -173,7 +173,7 @@ const applyGroupAutoFit = ({
   )
 }
 
-export class GroupAutoFitService implements GroupAutoFitServiceApi {
+export class GroupAutoFit implements GroupAutoFitApi {
   private core: Core
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
@@ -181,7 +181,7 @@ export class GroupAutoFitService implements GroupAutoFitServiceApi {
   private stopBinding: (() => void) | null = null
   private pendingSync = false
   private scheduleVersion = 0
-  private activeOptions: Parameters<GroupAutoFitServiceApi['start']>[0] | null = null
+  private activeOptions: Parameters<GroupAutoFitApi['start']>[0] | null = null
 
   constructor(core: Core) {
     this.core = core
@@ -195,13 +195,13 @@ export class GroupAutoFitService implements GroupAutoFitServiceApi {
     void Promise.resolve().then(callback)
   }
 
-  reset: GroupAutoFitServiceApi['reset'] = () => {
+  reset: GroupAutoFitApi['reset'] = () => {
     this.snapshot = null
     this.layoutSnapshot = null
     this.lastDocId = undefined
   }
 
-  sync: GroupAutoFitServiceApi['sync'] = ({ docId, nodes, nodeSize, padding = 24 }) => {
+  sync: GroupAutoFitApi['sync'] = ({ docId, nodes, nodeSize, padding = 24 }) => {
     if (docId !== undefined && docId !== this.lastDocId) {
       this.snapshot = null
       this.layoutSnapshot = null
@@ -246,7 +246,7 @@ export class GroupAutoFitService implements GroupAutoFitServiceApi {
     })
   }
 
-  stop: GroupAutoFitServiceApi['stop'] = () => {
+  stop: GroupAutoFitApi['stop'] = () => {
     this.stopBinding?.()
     this.stopBinding = null
     this.activeOptions = null
@@ -254,7 +254,7 @@ export class GroupAutoFitService implements GroupAutoFitServiceApi {
     this.scheduleVersion += 1
   }
 
-  start: GroupAutoFitServiceApi['start'] = (options) => {
+  start: GroupAutoFitApi['start'] = (options) => {
     this.stop()
     this.activeOptions = options
 
@@ -272,7 +272,7 @@ export class GroupAutoFitService implements GroupAutoFitServiceApi {
     return this.stop
   }
 
-  dispose: GroupAutoFitServiceApi['dispose'] = () => {
+  dispose: GroupAutoFitApi['dispose'] = () => {
     this.stop()
     this.reset()
   }

@@ -1,7 +1,7 @@
 import type { Viewport } from '@whiteboard/core'
-import type { WhiteboardViewportTransformView } from '@engine-types/instance'
+import type { ViewportTransformView } from '@engine-types/instance'
 
-export const toViewportTransformView = (viewport: Viewport): WhiteboardViewportTransformView => {
+export const toViewportTransformView = (viewport: Viewport): ViewportTransformView => {
   const zoom = viewport.zoom
   return {
     center: viewport.center,

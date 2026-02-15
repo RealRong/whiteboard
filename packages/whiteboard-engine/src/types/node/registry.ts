@@ -1,5 +1,5 @@
 import type { Core, Node, Rect } from '@whiteboard/core'
-import type { WhiteboardCommands } from '../commands'
+import type { Commands } from '../commands'
 import type { NodeLike, RefLike, StyleObject } from '../ui'
 
 export type NodeContainerProps = {
@@ -17,7 +17,7 @@ export type NodeContainerProps = {
 
 export type NodeRenderProps = {
   core: Core
-  commands: WhiteboardCommands
+  commands: Commands
   node: Node
   rect: Rect
   selected: boolean

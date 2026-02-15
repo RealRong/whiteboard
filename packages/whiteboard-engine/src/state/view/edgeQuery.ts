@@ -1,10 +1,10 @@
 import { getEdgePath } from '@whiteboard/core'
 import type { Edge, Point } from '@whiteboard/core'
 import type {
-  WhiteboardEdgePathEntry,
-  WhiteboardEdgeResolvedEndpoints,
-  WhiteboardInstanceQuery,
-  WhiteboardStateNamespace
+  EdgePathEntry,
+  EdgeResolvedEndpoints,
+  Query,
+  State
 } from '@engine-types/instance'
 import type { EdgeConnectState, EdgeReconnectInfo } from '@engine-types/state'
 import { toEdgePathSignature, toNodeGeometrySignature } from '../../infra/cache'
@@ -14,9 +14,9 @@ import {
 } from '../../infra/geometry'
 import { getAutoAnchorFromRect } from '../../infra/query'
 
-type CreateEdgeViewQueryOptions = {
-  readState: WhiteboardStateNamespace['read']
-  query: WhiteboardInstanceQuery
+type Options = {
+  readState: State['read']
+  query: Query
 }
 
 type EdgeConnectPreview = {
@@ -29,9 +29,9 @@ type EdgeConnectPreview = {
 
 type EdgePathCacheEntry = {
   geometrySignature: string
-  edge: WhiteboardEdgePathEntry['edge']
-  path: WhiteboardEdgePathEntry['path']
-  entry: WhiteboardEdgePathEntry
+  edge: EdgePathEntry['edge']
+  path: EdgePathEntry['path']
+  entry: EdgePathEntry
 }
 
 type EdgeConnectFrom = NonNullable<EdgeConnectState['from']>
@@ -43,7 +43,7 @@ type EdgeConnectPointInput = {
   pointWorld?: EdgeConnectTo['pointWorld']
 }
 
-const isSameEdgePathEntryList = (left: WhiteboardEdgePathEntry[], right: WhiteboardEdgePathEntry[]) => {
+const isSameEdgePathEntryList = (left: EdgePathEntry[], right: EdgePathEntry[]) => {
   if (left === right) return true
   if (left.length !== right.length) return false
   for (let index = 0; index < left.length; index += 1) {
@@ -52,8 +52,8 @@ const isSameEdgePathEntryList = (left: WhiteboardEdgePathEntry[], right: Whitebo
   return true
 }
 
-export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOptions) => {
-  const getResolvedEndpoints = (edge: Edge): WhiteboardEdgeResolvedEndpoints | undefined => {
+export const createEdgeViewQuery = ({ readState, query }: Options) => {
+  const getResolvedEndpoints = (edge: Edge): EdgeResolvedEndpoints | undefined => {
     const sourceEntry = query.getCanvasNodeRectById(edge.source.nodeId)
     const targetEntry = query.getCanvasNodeRectById(edge.target.nodeId)
     if (!sourceEntry || !targetEntry) return undefined
@@ -92,7 +92,7 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     value: EdgeConnectPointInput | undefined,
     options: {
       allowPointWorld: boolean
-      getCachedEntry: (nodeId: EdgeConnectFrom['nodeId']) => ReturnType<WhiteboardInstanceQuery['getCanvasNodeRectById']>
+      getCachedEntry: (nodeId: EdgeConnectFrom['nodeId']) => ReturnType<Query['getCanvasNodeRectById']>
     }
   ) => {
     if (!value) return undefined
@@ -108,7 +108,7 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
   }
 
   const getConnectPreview = (edgeConnect: EdgeConnectState): EdgeConnectPreview => {
-    const nodeRectCache = new Map<EdgeConnectFrom['nodeId'], ReturnType<WhiteboardInstanceQuery['getCanvasNodeRectById']> | null>()
+    const nodeRectCache = new Map<EdgeConnectFrom['nodeId'], ReturnType<Query['getCanvasNodeRectById']> | null>()
     const getCachedEntry = (nodeId: EdgeConnectFrom['nodeId']) => {
       const cached = nodeRectCache.get(nodeId)
       if (cached !== undefined) return cached ?? undefined
@@ -135,14 +135,14 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     }
   }
 
-  const getNodeGeometrySignature = (nodeId: WhiteboardEdgePathEntry['edge']['source']['nodeId']) =>
+  const getNodeGeometrySignature = (nodeId: EdgePathEntry['edge']['source']['nodeId']) =>
     toNodeGeometrySignature(query.getCanvasNodeRectById(nodeId))
 
-  const getEdgeGeometrySignature = (edge: WhiteboardEdgePathEntry['edge']) =>
+  const getEdgeGeometrySignature = (edge: EdgePathEntry['edge']) =>
     toEdgePathSignature(edge, getNodeGeometrySignature)
 
   const toEdgePathCacheEntry = (
-    edge: WhiteboardEdgePathEntry['edge'],
+    edge: EdgePathEntry['edge'],
     previous?: EdgePathCacheEntry
   ): EdgePathCacheEntry | undefined => {
     const geometrySignature = getEdgeGeometrySignature(edge)
@@ -182,8 +182,8 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     }
   }
 
-  let cachedEdgePathEntries: WhiteboardEdgePathEntry[] = []
-  let cachedEdgePathEntryById = new Map<WhiteboardEdgePathEntry['id'], EdgePathCacheEntry>()
+  let cachedEdgePathEntries: EdgePathEntry[] = []
+  let cachedEdgePathEntryById = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
   let cachedRenderEdgesRef: unknown
   let cachedRenderNodesRef: unknown
 
@@ -196,8 +196,8 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     cachedRenderNodesRef = nodes
 
     const previousMap = cachedEdgePathEntryById
-    const nextMap = new Map<WhiteboardEdgePathEntry['id'], EdgePathCacheEntry>()
-    const nextEntries: WhiteboardEdgePathEntry[] = []
+    const nextMap = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
+    const nextEntries: EdgePathEntry[] = []
 
     edges.forEach((edge) => {
       const nextEntry = toEdgePathCacheEntry(edge, previousMap.get(edge.id))
@@ -216,7 +216,7 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     to: EdgeConnectState['to']
   ): {
     point: ReturnType<typeof getAnchorPoint>
-    side?: NonNullable<WhiteboardEdgePathEntry['edge']['source']['anchor']>['side']
+    side?: NonNullable<EdgePathEntry['edge']['source']['anchor']>['side']
   } | undefined => {
     if (!to) return undefined
     if (to.nodeId && to.anchor) {
@@ -235,7 +235,7 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     }
   }
 
-  const getReconnectPathEntry = (edgeConnect: EdgeConnectState): WhiteboardEdgePathEntry | undefined => {
+  const getReconnectPathEntry = (edgeConnect: EdgeConnectState): EdgePathEntry | undefined => {
     if (!edgeConnect.isConnecting || !edgeConnect.reconnect) return undefined
     ensureEdgePathEntries()
     const reconnectBase = cachedEdgePathEntryById.get(edgeConnect.reconnect.edgeId)?.entry
@@ -272,7 +272,7 @@ export const createEdgeViewQuery = ({ readState, query }: CreateEdgeViewQueryOpt
     }
   }
 
-  const getPathEntries = (): WhiteboardEdgePathEntry[] => {
+  const getPathEntries = (): EdgePathEntry[] => {
     ensureEdgePathEntries()
     return cachedEdgePathEntries
   }

@@ -39,7 +39,7 @@ type DerivedRegistryDebugMetric = {
   lastComputedAt?: number
 }
 
-type CreateDerivedRegistryOptions<
+type Options<
   TKey extends string,
   TDependencyKey extends string,
   TSnapshot extends Record<TKey, unknown>
@@ -87,7 +87,7 @@ export const createDerivedRegistry = <
   keys,
   resolvers,
   watchDependency
-}: CreateDerivedRegistryOptions<TKey, TDependencyKey, TSnapshot>) => {
+}: Options<TKey, TDependencyKey, TSnapshot>) => {
   const uniqueKeys = Array.from(new Set(keys))
   const listeners = new Map<TKey, Set<() => void>>()
   const entries = new Map<TKey, DeriveCacheEntry<unknown>>(

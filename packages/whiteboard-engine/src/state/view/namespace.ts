@@ -1,26 +1,26 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardStateNamespace,
-  WhiteboardViewNamespace
+  InstanceConfig,
+  Query,
+  State,
+  View
 } from '@engine-types/instance'
 import type { ShortcutContext } from '@engine-types/shortcuts'
-import { createWhiteboardViewRegistry } from '../../state/view'
+import { createViewRegistry } from './registry'
 
-type CreateWhiteboardViewNamespaceOptions = {
-  state: WhiteboardStateNamespace
-  query: WhiteboardInstanceQuery
-  config: WhiteboardInstanceConfig
+type Options = {
+  state: State
+  query: Query
+  config: InstanceConfig
   platform: ShortcutContext['platform']
 }
 
-export const createWhiteboardViewNamespace = ({
+export const createView = ({
   state,
   query,
   config,
   platform
-}: CreateWhiteboardViewNamespaceOptions): WhiteboardViewNamespace =>
-  createWhiteboardViewRegistry({
+}: Options): View =>
+  createViewRegistry({
     state,
     query,
     config,

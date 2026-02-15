@@ -1,10 +1,10 @@
 import type { NodeId, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import type {
   NodeTransformResizeDragState,
   NodeTransformRotateDragState,
-  NodeTransformService as NodeTransformServiceApi
+  NodeTransform as NodeTransformApi
 } from '@engine-types/instance/services'
 import { getRectCenter } from '../../infra/geometry'
 import { computeResizeSnap } from '../../node/utils/snap'
@@ -19,18 +19,18 @@ const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
   height: rect.height + thresholdWorld * 2
 })
 
-export class NodeTransformService implements NodeTransformServiceApi {
-  private instance: WhiteboardInstance
+export class NodeTransform implements NodeTransformApi {
+  private instance: Instance
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 
-  clear: NodeTransformServiceApi['clear'] = () => {
+  clear: NodeTransformApi['clear'] = () => {
     this.instance.commands.nodeTransform.clearGuides()
   }
 
-  createResizeDrag: NodeTransformServiceApi['createResizeDrag'] = ({
+  createResizeDrag: NodeTransformApi['createResizeDrag'] = ({
     pointerId,
     handle,
     clientX,
@@ -48,7 +48,7 @@ export class NodeTransformService implements NodeTransformServiceApi {
     startAspect: rect.width / Math.max(rect.height, MIN_ZOOM)
   })
 
-  createRotateDrag: NodeTransformServiceApi['createRotateDrag'] = ({
+  createRotateDrag: NodeTransformApi['createRotateDrag'] = ({
     pointerId,
     clientX,
     clientY,
@@ -67,7 +67,7 @@ export class NodeTransformService implements NodeTransformServiceApi {
     }
   }
 
-  applyResizeMove: NodeTransformServiceApi['applyResizeMove'] = ({
+  applyResizeMove: NodeTransformApi['applyResizeMove'] = ({
     nodeId,
     drag,
     clientX,
@@ -133,7 +133,7 @@ export class NodeTransformService implements NodeTransformServiceApi {
     this.instance.commands.nodeTransform.previewResize(nodeId, update)
   }
 
-  applyRotateMove: NodeTransformServiceApi['applyRotateMove'] = ({ nodeId, drag, clientX, clientY, shiftKey }) => {
+  applyRotateMove: NodeTransformApi['applyRotateMove'] = ({ nodeId, drag, clientX, clientY, shiftKey }) => {
     const worldPoint = this.instance.runtime.viewport.clientToWorld(clientX, clientY)
     const nextRotation = computeNextRotation({
       center: drag.center,
@@ -145,14 +145,14 @@ export class NodeTransformService implements NodeTransformServiceApi {
     void this.instance.commands.nodeTransform.rotate(nodeId, nextRotation)
   }
 
-  finishResize: NodeTransformServiceApi['finishResize'] = ({ nodeId, drag }) => {
+  finishResize: NodeTransformApi['finishResize'] = ({ nodeId, drag }) => {
     if (drag.lastUpdate) {
       this.instance.commands.nodeTransform.commitResize(nodeId, drag.lastUpdate)
     }
     this.clear()
   }
 
-  dispose: NodeTransformServiceApi['dispose'] = () => {
+  dispose: NodeTransformApi['dispose'] = () => {
     this.clear()
   }
 }

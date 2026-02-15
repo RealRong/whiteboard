@@ -1,12 +1,12 @@
 import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
-import type { WhiteboardStateSnapshot } from '@engine-types/instance'
+import type { StateSnapshot } from '@engine-types/instance'
 
 export type HistoryIdentity = {
   core: Core
   docId: DocumentId
 }
 
-export const toHistoryState = (snapshot: CoreHistoryState): WhiteboardStateSnapshot['history'] => ({
+export const toHistoryState = (snapshot: CoreHistoryState): StateSnapshot['history'] => ({
   canUndo: snapshot.canUndo,
   canRedo: snapshot.canRedo,
   undoDepth: snapshot.undoDepth,

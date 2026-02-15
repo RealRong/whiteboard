@@ -1,30 +1,25 @@
 import type {
-  CreateWhiteboardInstanceOptions,
-  WhiteboardInstance,
-  WhiteboardRuntimeNamespace
+  CreateInstanceOptions,
+  Instance,
+  Runtime
 } from '@engine-types/instance'
-import { createShortcutRuntime } from '../shortcuts'
-import { resolveWhiteboardInstanceConfig } from '../config'
-import { createWhiteboardCommands } from './commands/createWhiteboardCommands'
-import { WhiteboardLifecycleRuntime } from './lifecycle/WhiteboardLifecycleRuntime'
-import {
-  createWhiteboardRuntimeNamespace,
-  type WhiteboardRuntimeBase
-} from './factory/createWhiteboardRuntimeNamespace'
-import { createWhiteboardStateNamespace } from './factory/createWhiteboardStateNamespace'
-import { createWhiteboardRuntimeServices } from './factory/createWhiteboardRuntimeServices'
-import { createWhiteboardViewNamespace } from './factory/createWhiteboardViewNamespace'
-import { createInstanceQuery } from './query/createInstanceQuery'
+import { createShortcuts, Lifecycle } from '../runtime'
+import { resolveInstanceConfig } from '../config'
+import { createCommands } from '../api/commands/compose'
+import { createRuntime, createServices, type RuntimeBase } from '../runtime/factory'
+import { createState } from '../state/factory'
+import { createView } from '../state/view'
+import { createInstanceQuery } from '../api/query/instance'
 
-export const createWhiteboardInstance = ({
+export const createInstance = ({
   core,
   docRef,
   containerRef,
-  config: configOverrides
-}: CreateWhiteboardInstanceOptions): WhiteboardInstance => {
-  const config = resolveWhiteboardInstanceConfig(configOverrides)
-  const { state, readState, writeState } = createWhiteboardStateNamespace()
-  const runtimeBase = createWhiteboardRuntimeNamespace({
+  config: overrides
+}: CreateInstanceOptions): Instance => {
+  const config = resolveInstanceConfig(overrides)
+  const { state, readState, writeState } = createState()
+  const base = createRuntime({
     core,
     docRef,
     containerRef,
@@ -34,22 +29,22 @@ export const createWhiteboardInstance = ({
   const query = createInstanceQuery({
     readState,
     config,
-    getContainer: runtimeBase.getContainer
+    getContainer: base.getContainer
   })
-  const view = createWhiteboardViewNamespace({
+  const view = createView({
     state,
     query,
     config,
-    platform: runtimeBase.platform
+    platform: base.platform
   })
 
-  let commands!: WhiteboardInstance['commands']
-  let services!: WhiteboardRuntimeNamespace['services']
-  let shortcuts!: WhiteboardRuntimeNamespace['shortcuts']
-  let lifecycle!: WhiteboardRuntimeNamespace['lifecycle']
+  let commands!: Instance['commands']
+  let services!: Runtime['services']
+  let shortcuts!: Runtime['shortcuts']
+  let lifecycle!: Runtime['lifecycle']
 
-  const runtime: WhiteboardRuntimeNamespace = {
-    ...runtimeBase,
+  const runtime: Runtime = {
+    ...base,
     get services() {
       return services
     },
@@ -61,7 +56,7 @@ export const createWhiteboardInstance = ({
     }
   }
 
-  const instance: WhiteboardInstance = {
+  const instance: Instance = {
     state,
     runtime,
     query,
@@ -72,10 +67,10 @@ export const createWhiteboardInstance = ({
   }
 
   writeState('tool', 'select')
-  commands = createWhiteboardCommands(instance)
-  services = createWhiteboardRuntimeServices(core, instance)
-  shortcuts = createShortcutRuntime(instance)
-  lifecycle = new WhiteboardLifecycleRuntime(instance)
+  commands = createCommands(instance)
+  services = createServices(core, instance)
+  shortcuts = createShortcuts(instance)
+  lifecycle = new Lifecycle(instance)
 
   return instance
 }

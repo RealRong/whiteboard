@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { WHITEBOARD_STATE_KEYS } from '@whiteboard/engine'
-import type { WhiteboardStateKey, WhiteboardStateSnapshot } from '@whiteboard/engine'
+import { STATE_KEYS } from '@whiteboard/engine'
+import type { StateKey, StateSnapshot } from '@whiteboard/engine'
 import { useInstance } from './useInstance'
 
-type Selector<T> = (snapshot: WhiteboardStateSnapshot) => T
+type Selector<T> = (snapshot: StateSnapshot) => T
 type Equality<T> = (left: T, right: T) => boolean
 type SelectorOptions<T> = {
-  keys?: WhiteboardStateKey[]
+  keys?: StateKey[]
   equality?: Equality<T>
 }
 
 const defaultEquality: Equality<unknown> = Object.is
 
-const isSameKeys = (left: WhiteboardStateKey[], right: WhiteboardStateKey[]) => {
+const isSameKeys = (left: StateKey[], right: StateKey[]) => {
   if (left === right) return true
   if (left.length !== right.length) return false
   for (let index = 0; index < left.length; index += 1) {
@@ -21,41 +21,41 @@ const isSameKeys = (left: WhiteboardStateKey[], right: WhiteboardStateKey[]) => 
   return true
 }
 
-const normalizeKeys = (keys: WhiteboardStateKey[]) => Array.from(new Set(keys))
+const normalizeKeys = (keys: StateKey[]) => Array.from(new Set(keys))
 
 const readSnapshotByKeys = (
-  read: <K extends WhiteboardStateKey>(key: K) => WhiteboardStateSnapshot[K],
-  keys: WhiteboardStateKey[]
-): WhiteboardStateSnapshot => {
-  const snapshot = {} as WhiteboardStateSnapshot
-  const target = snapshot as Record<WhiteboardStateKey, WhiteboardStateSnapshot[WhiteboardStateKey]>
+  read: <K extends StateKey>(key: K) => StateSnapshot[K],
+  keys: StateKey[]
+): StateSnapshot => {
+  const snapshot = {} as StateSnapshot
+  const target = snapshot as Record<StateKey, StateSnapshot[StateKey]>
   keys.forEach((stateKey) => {
-    target[stateKey] = read(stateKey) as WhiteboardStateSnapshot[WhiteboardStateKey]
+    target[stateKey] = read(stateKey) as StateSnapshot[StateKey]
   })
   return snapshot
 }
 
-export function useWhiteboardSelector<K extends WhiteboardStateKey>(key: K): WhiteboardStateSnapshot[K]
+export function useWhiteboardSelector<K extends StateKey>(key: K): StateSnapshot[K]
 export function useWhiteboardSelector<T>(selector: Selector<T>, options?: SelectorOptions<T>): T
 
 export function useWhiteboardSelector<T>(
-  keyOrSelector: WhiteboardStateKey | Selector<T>,
+  keyOrSelector: StateKey | Selector<T>,
   options?: SelectorOptions<T>
 ): T {
   const instance = useInstance()
   const isKeySelector = typeof keyOrSelector === 'string'
-  const key = isKeySelector ? (keyOrSelector as WhiteboardStateKey) : undefined
+  const key = isKeySelector ? (keyOrSelector as StateKey) : undefined
 
   const selector: Selector<T> = isKeySelector
     ? ((snapshot) => snapshot[keyOrSelector] as T)
     : keyOrSelector
 
   const computedKeys = useMemo(
-    () => normalizeKeys(isKeySelector ? [key as WhiteboardStateKey] : options?.keys ?? WHITEBOARD_STATE_KEYS),
+    () => normalizeKeys(isKeySelector ? [key as StateKey] : options?.keys ?? STATE_KEYS),
     [isKeySelector, key, options?.keys]
   )
 
-  const keysRef = useRef<WhiteboardStateKey[]>(computedKeys)
+  const keysRef = useRef<StateKey[]>(computedKeys)
   if (!isSameKeys(keysRef.current, computedKeys)) {
     keysRef.current = computedKeys
   }

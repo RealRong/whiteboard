@@ -1,13 +1,13 @@
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { createBaseCommands } from './createBaseCommands'
-import { createEdgeCommands } from './createEdgeCommands'
-import { createMindmapCommands } from './createMindmapCommands'
-import { createNodeCommands } from './createNodeCommands'
-import { createSelectionCommands } from './createSelectionCommands'
-import { createTransientCommands } from './createTransientCommands'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
+import { createBaseCommands } from './base'
+import { createEdgeCommands } from './edge'
+import { createMindmapCommands } from './mindmap'
+import { createNodeCommands } from './node'
+import { createSelectionCommands } from './selection'
+import { createTransientCommands } from './transient'
 
-export const createWhiteboardCommands = (instance: WhiteboardInstance): WhiteboardCommands => {
+export const createCommands = (instance: Instance): Commands => {
   const { core } = instance.runtime
   const selection = createSelectionCommands(instance)
   const transient = createTransientCommands(instance)
@@ -20,7 +20,7 @@ export const createWhiteboardCommands = (instance: WhiteboardInstance): Whiteboa
     transient,
     order: core.commands.order,
     viewport: core.commands.viewport,
-    group: core.commands.group as WhiteboardCommands['group'],
+    group: core.commands.group as Commands['group'],
     ...createMindmapCommands(instance)
   }
 }

@@ -1,14 +1,14 @@
 import type { Atom } from 'jotai'
-import type { WhiteboardStateKey, WhiteboardStateSnapshot } from '@engine-types/instance'
-import { viewportAtom, writableStateAtoms } from './whiteboardAtoms'
-import { canvasNodesAtom, visibleEdgesAtom, visibleNodesAtom } from './whiteboardDerivedAtoms'
+import type { StateKey, StateSnapshot } from '@engine-types/instance'
+import { viewportAtom, writableStateAtoms } from './atoms'
+import { canvasNodesAtom, visibleEdgesAtom, visibleNodesAtom } from './derivedAtoms'
 import { dragGuidesAtom, groupHoveredAtom, nodeViewOverridesAtom } from '../node/state'
 
-type WhiteboardStateAtomMap = {
-  [K in WhiteboardStateKey]: Atom<WhiteboardStateSnapshot[K]>
+type StateAtomMap = {
+  [K in StateKey]: Atom<StateSnapshot[K]>
 }
 
-export const whiteboardStateAtoms: WhiteboardStateAtomMap = {
+export const stateAtoms: StateAtomMap = {
   ...writableStateAtoms,
   viewport: viewportAtom,
   dragGuides: dragGuidesAtom,
@@ -19,6 +19,6 @@ export const whiteboardStateAtoms: WhiteboardStateAtomMap = {
   visibleEdges: visibleEdgesAtom
 }
 
-export const WHITEBOARD_STATE_KEYS: WhiteboardStateKey[] = Object.keys(
-  whiteboardStateAtoms
-) as WhiteboardStateKey[]
+export const STATE_KEYS: StateKey[] = Object.keys(
+  stateAtoms
+) as StateKey[]

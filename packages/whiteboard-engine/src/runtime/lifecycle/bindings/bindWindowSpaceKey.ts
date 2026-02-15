@@ -1,7 +1,7 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 
 type Options = {
-  events: WhiteboardInstance['runtime']['events']
+  events: Instance['runtime']['events']
   setSpacePressed: (pressed: boolean) => void
 }
 

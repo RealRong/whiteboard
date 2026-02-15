@@ -1,9 +1,9 @@
-import type { WhiteboardNodeTransformHandle, WhiteboardNodeViewItem } from '@whiteboard/engine'
+import type { NodeTransformHandle, NodeViewItem } from '@whiteboard/engine'
 import type { PointerEvent } from 'react'
 
 export type NodeItemProps = {
-  item: WhiteboardNodeViewItem
-  transformHandles?: WhiteboardNodeTransformHandle[]
+  item: NodeViewItem
+  transformHandles?: NodeTransformHandle[]
 }
 
 export type NodeHandleSide = 'top' | 'right' | 'bottom' | 'left'

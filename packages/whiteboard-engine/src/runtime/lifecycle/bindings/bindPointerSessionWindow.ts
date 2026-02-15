@@ -1,4 +1,4 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 
 export type PointerSessionWindowBinding = {
   start: () => void
@@ -7,7 +7,7 @@ export type PointerSessionWindowBinding = {
 }
 
 type PointerSessionWindowOptions<TActive> = {
-  events: WhiteboardInstance['runtime']['events']
+  events: Instance['runtime']['events']
   watch: (listener: () => void) => () => void
   getActive: () => TActive | undefined
   getPointerId?: (active: TActive) => number | undefined | null

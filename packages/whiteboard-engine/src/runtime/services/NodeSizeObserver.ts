@@ -1,10 +1,10 @@
 import { trimNumber } from '@whiteboard/core'
 import type { Core, NodeId, Size } from '@whiteboard/core'
-import type { NodeSizeObserverService as NodeSizeObserverServiceApi } from '@engine-types/instance'
+import type { NodeSizeObserver as NodeSizeObserverApi } from '@engine-types/instance'
 import type { PendingNodeSizeUpdate } from '@engine-types/instance/services'
 
 
-export class NodeSizeObserverService implements NodeSizeObserverServiceApi {
+export class NodeSizeObserver implements NodeSizeObserverApi {
   private core: Core
   private observer: ResizeObserver | null = null
   private observed = new Map<NodeId, Element>()
@@ -69,7 +69,7 @@ export class NodeSizeObserverService implements NodeSizeObserverServiceApi {
     }
   }
 
-  observe: NodeSizeObserverServiceApi['observe'] = (nodeId, element, enabled = true) => {
+  observe: NodeSizeObserverApi['observe'] = (nodeId, element, enabled = true) => {
     if (!enabled) {
       this.unobserve(nodeId)
       return
@@ -86,7 +86,7 @@ export class NodeSizeObserverService implements NodeSizeObserverServiceApi {
     }
   }
 
-  unobserve: NodeSizeObserverServiceApi['unobserve'] = (nodeId) => {
+  unobserve: NodeSizeObserverApi['unobserve'] = (nodeId) => {
     const prev = this.observed.get(nodeId)
     if (prev) {
       this.observer?.unobserve(prev)
@@ -99,7 +99,7 @@ export class NodeSizeObserverService implements NodeSizeObserverServiceApi {
     }
   }
 
-  dispose: NodeSizeObserverServiceApi['dispose'] = () => {
+  dispose: NodeSizeObserverApi['dispose'] = () => {
     this.disconnect()
   }
 }

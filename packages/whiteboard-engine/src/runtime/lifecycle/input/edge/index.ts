@@ -1,16 +1,16 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import {
   createEdgeRoutingPointDragWindowBinding,
   type EdgeRoutingPointDragWindowBinding
-} from '../../bindings/bindEdgeRoutingPointDragWindow'
-import { createEdgeConnectWindowBinding, type EdgeConnectWindowBinding } from '../../bindings/bindEdgeConnectWindow'
+} from '../../bindings'
+import { createEdgeConnectWindowBinding, type EdgeConnectWindowBinding } from '../../bindings'
 
 export type EdgeInputWindowBindings = {
   edgeConnectWindowBinding: EdgeConnectWindowBinding
   edgeRoutingPointDragWindowBinding: EdgeRoutingPointDragWindowBinding
 }
 
-export const createEdgeInputWindowBindings = (instance: WhiteboardInstance): EdgeInputWindowBindings => {
+export const createEdgeInputWindowBindings = (instance: Instance): EdgeInputWindowBindings => {
   return {
     edgeConnectWindowBinding: createEdgeConnectWindowBinding({
       state: instance.state,

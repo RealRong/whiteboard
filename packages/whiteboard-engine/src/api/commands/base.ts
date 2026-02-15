@@ -1,10 +1,10 @@
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { mergeInteractionPatch } from '../state/interactionState'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
+import { mergeInteractionPatch } from '../../state/internal/interactionState'
 
 export const createBaseCommands = (
-  instance: WhiteboardInstance
-): Pick<WhiteboardCommands, 'tool' | 'keyboard' | 'history' | 'interaction'> => {
+  instance: Instance
+): Pick<Commands, 'tool' | 'keyboard' | 'history' | 'interaction'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
 

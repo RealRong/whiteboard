@@ -1,8 +1,8 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { DEFAULT_WHITEBOARD_CONFIG } from '../../../../config'
+import type { Instance } from '@engine-types/instance'
+import { DEFAULT_CONFIG } from '../../../../config'
 
 type Options = {
-  instance: WhiteboardInstance
+  instance: Instance
   minZoom?: number
   maxZoom?: number
   enablePan?: boolean
@@ -12,10 +12,10 @@ type Options = {
 
 export const createViewportInputHandlers = ({
   instance,
-  minZoom = DEFAULT_WHITEBOARD_CONFIG.viewport.minZoom,
-  maxZoom = DEFAULT_WHITEBOARD_CONFIG.viewport.maxZoom,
-  enablePan = DEFAULT_WHITEBOARD_CONFIG.viewport.enablePan,
-  enableWheel = DEFAULT_WHITEBOARD_CONFIG.viewport.enableWheel,
+  minZoom = DEFAULT_CONFIG.viewport.minZoom,
+  maxZoom = DEFAULT_CONFIG.viewport.maxZoom,
+  enablePan = DEFAULT_CONFIG.viewport.enablePan,
+  enableWheel = DEFAULT_CONFIG.viewport.enableWheel,
   wheelSensitivity = instance.runtime.config.viewport.wheelSensitivity
 }: Options) => {
   const viewportNavigation = instance.runtime.services.viewportNavigation

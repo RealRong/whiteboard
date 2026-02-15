@@ -1,11 +1,11 @@
 import type { EdgeId, EdgeInput, EdgePatch, Point } from '@whiteboard/core'
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { createEdgeConnectCommands } from './createEdgeConnectCommands'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
+import { createEdgeConnectCommands } from './edgeConnect'
 
 export const createEdgeCommands = (
-  instance: WhiteboardInstance
-): Pick<WhiteboardCommands, 'edge' | 'edgeConnect'> => {
+  instance: Instance
+): Pick<Commands, 'edge' | 'edgeConnect'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
   const { edgeConnect } = createEdgeConnectCommands(instance)
@@ -19,7 +19,7 @@ export const createEdgeCommands = (
     write('edgeRoutingPointDrag', {})
   }
 
-  const selectEdge: WhiteboardCommands['edge']['select'] = (id) => {
+  const selectEdge: Commands['edge']['select'] = (id) => {
     const activeDrag = read('edgeRoutingPointDrag').active
     if (activeDrag && activeDrag.edgeId !== id) {
       clearEdgeRoutingPointDrag()
@@ -27,7 +27,7 @@ export const createEdgeCommands = (
     write('edgeSelection', (prev) => (prev === id ? prev : id))
   }
 
-  const insertRoutingPoint: WhiteboardCommands['edge']['insertRoutingPoint'] = (
+  const insertRoutingPoint: Commands['edge']['insertRoutingPoint'] = (
     edge,
     pathPoints,
     segmentIndex,
@@ -51,7 +51,7 @@ export const createEdgeCommands = (
     })
   }
 
-  const insertRoutingPointAtClient: WhiteboardCommands['edge']['insertRoutingPointAtClient'] = (
+  const insertRoutingPointAtClient: Commands['edge']['insertRoutingPointAtClient'] = (
     edge,
     pathPoints,
     clientX,
@@ -63,7 +63,7 @@ export const createEdgeCommands = (
     selectEdge(edge.id)
   }
 
-  const moveRoutingPoint: WhiteboardCommands['edge']['moveRoutingPoint'] = (edge, index, pointWorld) => {
+  const moveRoutingPoint: Commands['edge']['moveRoutingPoint'] = (edge, index, pointWorld) => {
     if (edge.type === 'bezier' || edge.type === 'curve') return
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
@@ -81,7 +81,7 @@ export const createEdgeCommands = (
     })
   }
 
-  const removeRoutingPoint: WhiteboardCommands['edge']['removeRoutingPoint'] = (edge, index) => {
+  const removeRoutingPoint: Commands['edge']['removeRoutingPoint'] = (edge, index) => {
     if (edge.type === 'bezier' || edge.type === 'curve') return
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
@@ -119,7 +119,7 @@ export const createEdgeCommands = (
     })
   }
 
-  const resetRouting: WhiteboardCommands['edge']['resetRouting'] = (edge) => {
+  const resetRouting: Commands['edge']['resetRouting'] = (edge) => {
     const activeDrag = read('edgeRoutingPointDrag').active
     if (activeDrag?.edgeId === edge.id) {
       clearEdgeRoutingPointDrag()
@@ -138,7 +138,7 @@ export const createEdgeCommands = (
     })
   }
 
-  const startRoutingPointDrag: WhiteboardCommands['edge']['startRoutingPointDrag'] = ({
+  const startRoutingPointDrag: Commands['edge']['startRoutingPointDrag'] = ({
     edgeId,
     index,
     pointerId,
@@ -166,7 +166,7 @@ export const createEdgeCommands = (
     return true
   }
 
-  const updateRoutingPointDrag: WhiteboardCommands['edge']['updateRoutingPointDrag'] = ({
+  const updateRoutingPointDrag: Commands['edge']['updateRoutingPointDrag'] = ({
     pointerId,
     clientX,
     clientY
@@ -195,14 +195,14 @@ export const createEdgeCommands = (
     return true
   }
 
-  const endRoutingPointDrag: WhiteboardCommands['edge']['endRoutingPointDrag'] = ({ pointerId }) => {
+  const endRoutingPointDrag: Commands['edge']['endRoutingPointDrag'] = ({ pointerId }) => {
     const active = read('edgeRoutingPointDrag').active
     if (!active || active.pointerId !== pointerId) return false
     clearEdgeRoutingPointDrag()
     return true
   }
 
-  const cancelRoutingPointDrag: WhiteboardCommands['edge']['cancelRoutingPointDrag'] = (options) => {
+  const cancelRoutingPointDrag: Commands['edge']['cancelRoutingPointDrag'] = (options) => {
     const active = read('edgeRoutingPointDrag').active
     if (!active) return false
     if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
@@ -230,8 +230,8 @@ export const createEdgeCommands = (
         }
         return core.dispatch({ type: 'edge.delete', ids })
       },
-      connect: core.commands.edge.connect as WhiteboardCommands['edge']['connect'],
-      reconnect: core.commands.edge.reconnect as WhiteboardCommands['edge']['reconnect'],
+      connect: core.commands.edge.connect as Commands['edge']['connect'],
+      reconnect: core.commands.edge.reconnect as Commands['edge']['reconnect'],
       select: selectEdge
     },
     edgeConnect

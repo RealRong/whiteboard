@@ -12,7 +12,7 @@ import type {
   SelectionState
 } from '@engine-types/state'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import { docAtom } from './whiteboardContextAtoms'
+import { docAtom } from './contextAtoms'
 
 const createNodeSelectionState = (): SelectionState => ({
   selectedNodeIds: new Set<NodeId>(),

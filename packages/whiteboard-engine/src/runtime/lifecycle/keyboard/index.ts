@@ -1,11 +1,11 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { bindWindowSpaceKey } from '../bindings/bindWindowSpaceKey'
+import type { Instance } from '@engine-types/instance'
+import { bindWindowSpaceKey } from '../bindings'
 
-export class WindowSpaceKeyController {
-  private instance: WhiteboardInstance
+export class WindowKey {
+  private instance: Instance
   private offWindowSpaceKey: (() => void) | null = null
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 

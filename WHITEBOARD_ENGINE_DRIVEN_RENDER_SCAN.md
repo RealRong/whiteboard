@@ -74,11 +74,45 @@
 20. window bindings 批处理已 orchestrator 化：
    - `instance/lifecycle/bindings/WindowBindingsOrchestrator.ts`
    edge/node/mindmap/selection 的 `start/sync/stop` 已统一批处理。
+21. lifecycle 主流程已 phase controller 化：
+   - `instance/lifecycle/phase/LifecycleStartController.ts`
+   - `instance/lifecycle/phase/LifecycleUpdateController.ts`
+   - `instance/lifecycle/phase/LifecycleStopController.ts`
+   `WhiteboardLifecycleRuntime` 已进一步收敛为 phase 级别编排。
+22. update phase 已继续细分为“配置应用 + 运行时副作用”：
+   - `instance/lifecycle/phase/LifecycleConfigApplyController.ts`
+   - `instance/lifecycle/phase/LifecycleRuntimeEffectsController.ts`
+   `LifecycleUpdateController` 仅负责调用两个子 controller。
+23. lifecycle controller 构造与依赖装配已 factory 化：
+   - `instance/lifecycle/factory/createLifecyclePhaseControllers.ts`
+   `WhiteboardLifecycleRuntime` 构造期不再内联组装 controllers/bindings，仅消费 phase controllers。
+24. lifecycle 子目录已建立统一 `index.ts` 出口并收敛 import：
+   - `instance/lifecycle/{bindings,cleanup,config,container,factory,group,history,input,keyboard,phase}/index.ts`
+   - `instance/lifecycle/input/{canvas,edge,mindmap,node,selection,shortcut}/index.ts`
+   构造与 phase 依赖路径已明显缩短，主流程可读性提升。
+25. phase controller 参数已按域收敛为 context：
+   - `instance/lifecycle/phase/types.ts`
+   - `LifecycleStartController` / `LifecycleStopController` 已改为消费 `shared + bindings` 分组上下文，减少重复依赖传递。
+26. lifecycle factory 内部 context 构造已拆为独立 helper：
+   - `instance/lifecycle/factory/createLifecyclePhaseContext.ts`
+   - `createLifecyclePhaseControllers` 已仅保留 phase 组装流程，shared/bindings 组装职责外移。
+27. `shortcut.context` 适配入口已显式收敛：
+   - `instance/lifecycle/input/shortcut/createShortcutContextResolver.ts`
+   - `createShortcutInputHandlers` 改为统一依赖 resolver；
+   - `input/shortcut/index.ts` 不再导出 `resolveShortcutContextFromEvent`，避免外部绕开统一入口。
+28. engine 命名优化已继续落地（按“短名 + 目录语义 + 去 whiteboard 前缀”）：
+   - `instance/commands/*` -> `api/commands/*`（如 `createWhiteboardCommands.ts` -> `compose.ts`）
+   - `instance/query/*` -> `api/query/*`
+   - `instance/whiteboardInstance.ts` -> `instance/create.ts`
+   - `state/whiteboard*.ts` -> `state/{atoms,derivedAtoms,contextAtoms,stateAtomMap}.ts`
+   - `types/common/whiteboard.ts` -> `types/common/config.ts`
+   - `types/state/whiteboard.ts` -> `types/state/model.ts`
+   - 单文件目录已做一轮折叠：`geometry/index.ts`、`mindmap/index.ts`、`runtime/lifecycle/*/index.ts`（清理中间 re-export 壳层）。
 
 ### 0.2 未完成（下一步）
 
-1. `runtime/input` 与 lifecycle 基础装配已完成首轮拆分，下一步可继续把 lifecycle 的 start/update/stop 主流程拆分为更细粒度 orchestrator/controller，进一步降低主编排文件复杂度。
-2. `shortcut.context` 目前已在 canvas 输入链路接入，后续新增键盘/指针入口时需统一复用同一 context 适配函数，避免回退到 runtime 内联事件解析。
+1. 可在 `input/shortcut` 增加更高层 facade（例如 `createShortcutEventBridge`），统一未来 `keydown/keyup/pointer` 扩展入口，避免不同事件链路重复拼装拦截逻辑。
+2. 可在 `factory` 增加更细粒度装配 helper（如 `createLifecycleControllers` / `createLifecycleBindings`），把 `createLifecyclePhaseControllers` 压缩为纯组合层。
 
 ---
 
@@ -431,11 +465,11 @@ React 侧只需要订阅 `view`，不再通过 `useMemo + query` 触发主计算
 
 基于当前代码状态，建议按这个顺序继续：
 
-1. **继续收敛 lifecycle 装配层**  
-   把 lifecycle 的 `start/update/stop` 主流程按职责拆为更细粒度 orchestrator/controller，进一步减少 `WhiteboardLifecycleRuntime` 聚合复杂度。
+1. **固化 `shortcut.context` 适配约束**  
+   为 `shortcut` 输入链路引入统一事件桥接 facade（建议 `createShortcutEventBridge`），收敛 `handlePointerDownCapture/handleKeyDown` 的拦截与默认行为。
 
-2. **固化 `shortcut.context` 适配约束**  
-   把 `resolveShortcutContextFromEvent` 明确为唯一入口，新输入链路禁止在 runtime 里直接拼装 `focus/modifiers/button`。
+2. **继续拆 lifecycle factory 组装函数**  
+   将 `createLifecyclePhaseControllers` 再拆出 controller/binding 装配 helper，使其仅保留 phase 组合与返回值拼装。
 
 3. **保持“文档即现状”机制**  
    后续每次落地后同步回写第 0/4/5/11/14 章状态，避免文档再次滞后。

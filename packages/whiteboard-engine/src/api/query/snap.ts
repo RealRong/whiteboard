@@ -1,23 +1,23 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardStateNamespace
+  InstanceConfig,
+  Query,
+  State
 } from '@engine-types/instance'
 import { getNodeAABB } from '../../infra/geometry'
 import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../../node/utils/snap'
 
-type CreateSnapQueryOptions = {
-  readState: WhiteboardStateNamespace['read']
-  config: WhiteboardInstanceConfig
+type Options = {
+  readState: State['read']
+  config: InstanceConfig
 }
 
 export const createSnapQuery = ({
   readState,
   config
-}: CreateSnapQueryOptions): Pick<WhiteboardInstanceQuery, 'getSnapCandidates' | 'getSnapCandidatesInRect'> => {
+}: Options): Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> => {
   const initialNodes = readState('canvasNodes')
 
-  const buildSnapCandidatesFromNodes = (nodes: typeof initialNodes) =>
+  const buildCandidates = (nodes: typeof initialNodes) =>
     buildSnapCandidates(
       nodes.map((node) => ({
         id: node.id,
@@ -25,28 +25,28 @@ export const createSnapQuery = ({
       }))
     )
 
-  const toSnapGridCellSize = () => Math.max(config.node.snapGridCellSize, config.node.groupPadding * 6)
+  const getCellSize = () => Math.max(config.node.snapGridCellSize, config.node.groupPadding * 6)
 
-  let cachedSnapNodes = initialNodes
-  let cachedSnapCandidates = buildSnapCandidatesFromNodes(cachedSnapNodes)
-  let cachedSnapIndex = createGridIndex(cachedSnapCandidates, toSnapGridCellSize())
+  let cachedNodes = initialNodes
+  let cachedCandidates = buildCandidates(cachedNodes)
+  let cachedIndex = createGridIndex(cachedCandidates, getCellSize())
 
   const ensureSnapCache = () => {
     const nodes = readState('canvasNodes')
-    if (nodes === cachedSnapNodes) return
-    cachedSnapNodes = nodes
-    cachedSnapCandidates = buildSnapCandidatesFromNodes(nodes)
-    cachedSnapIndex = createGridIndex(cachedSnapCandidates, toSnapGridCellSize())
+    if (nodes === cachedNodes) return
+    cachedNodes = nodes
+    cachedCandidates = buildCandidates(nodes)
+    cachedIndex = createGridIndex(cachedCandidates, getCellSize())
   }
 
-  const getSnapCandidates: WhiteboardInstanceQuery['getSnapCandidates'] = () => {
+  const getSnapCandidates: Query['getSnapCandidates'] = () => {
     ensureSnapCache()
-    return cachedSnapCandidates
+    return cachedCandidates
   }
 
-  const getSnapCandidatesInRect: WhiteboardInstanceQuery['getSnapCandidatesInRect'] = (rect) => {
+  const getSnapCandidatesInRect: Query['getSnapCandidatesInRect'] = (rect) => {
     ensureSnapCache()
-    return queryGridIndex(cachedSnapIndex, rect)
+    return queryGridIndex(cachedIndex, rect)
   }
 
   return {

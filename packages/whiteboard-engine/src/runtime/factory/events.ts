@@ -1,9 +1,9 @@
-import type { WhiteboardRuntimeNamespace } from '@engine-types/instance'
+import type { Runtime } from '@engine-types/instance'
 import type { RefLike } from '@engine-types/ui'
 
-export const createWhiteboardRuntimeEvents = (
+export const createEvents = (
   containerRef: RefLike<HTMLDivElement | null>
-): WhiteboardRuntimeNamespace['events'] => {
+): Runtime['events'] => {
   return {
     onWindow: (type, listener, options) => {
       window.addEventListener(type, listener as EventListener, options)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { WhiteboardViewKey, WhiteboardViewSnapshot } from '@whiteboard/engine'
+import type { ViewKey, ViewSnapshot } from '@whiteboard/engine'
 import { useInstance } from './useInstance'
 
 type Equality<T> = (left: T, right: T) => boolean
@@ -10,16 +10,16 @@ type UseWhiteboardViewOptions<T> = {
 
 const defaultEquality: Equality<unknown> = Object.is
 
-export const useWhiteboardView = <K extends WhiteboardViewKey>(
+export const useWhiteboardView = <K extends ViewKey>(
   key: K,
-  options?: UseWhiteboardViewOptions<WhiteboardViewSnapshot[K]>
+  options?: UseWhiteboardViewOptions<ViewSnapshot[K]>
 ) => {
   const instance = useInstance()
-  const equalityRef = useRef((options?.equality ?? defaultEquality) as Equality<WhiteboardViewSnapshot[K]>)
-  equalityRef.current = (options?.equality ?? defaultEquality) as Equality<WhiteboardViewSnapshot[K]>
+  const equalityRef = useRef((options?.equality ?? defaultEquality) as Equality<ViewSnapshot[K]>)
+  equalityRef.current = (options?.equality ?? defaultEquality) as Equality<ViewSnapshot[K]>
 
   const readValue = () => instance.view.read(key)
-  const [value, setValue] = useState<WhiteboardViewSnapshot[K]>(() => readValue())
+  const [value, setValue] = useState<ViewSnapshot[K]>(() => readValue())
 
   useEffect(() => {
     const update = () => {

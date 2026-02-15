@@ -1,5 +1,5 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import type { ViewportNavigationService as ViewportNavigationServiceApi } from '@engine-types/instance/services'
+import type { Instance } from '@engine-types/instance'
+import type { ViewportNavigation as ViewportNavigationApi } from '@engine-types/instance/services'
 
 type DragState = {
   pointerId: number
@@ -12,15 +12,15 @@ type DragState = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-export class ViewportNavigationService implements ViewportNavigationServiceApi {
-  private instance: WhiteboardInstance
+export class ViewportNavigation implements ViewportNavigationApi {
+  private instance: Instance
   private dragState: DragState | null = null
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 
-  startPan: ViewportNavigationServiceApi['startPan'] = ({
+  startPan: ViewportNavigationApi['startPan'] = ({
     pointerId,
     button,
     clientX,
@@ -46,7 +46,7 @@ export class ViewportNavigationService implements ViewportNavigationServiceApi {
     return true
   }
 
-  updatePan: ViewportNavigationServiceApi['updatePan'] = ({ pointerId, clientX, clientY }) => {
+  updatePan: ViewportNavigationApi['updatePan'] = ({ pointerId, clientX, clientY }) => {
     const drag = this.dragState
     if (!drag || drag.pointerId !== pointerId) return
 
@@ -62,14 +62,14 @@ export class ViewportNavigationService implements ViewportNavigationServiceApi {
     })
   }
 
-  endPan: ViewportNavigationServiceApi['endPan'] = ({ pointerId }) => {
+  endPan: ViewportNavigationApi['endPan'] = ({ pointerId }) => {
     const drag = this.dragState
     if (!drag || drag.pointerId !== pointerId) return false
     this.dragState = null
     return true
   }
 
-  applyWheelZoom: ViewportNavigationServiceApi['applyWheelZoom'] = ({
+  applyWheelZoom: ViewportNavigationApi['applyWheelZoom'] = ({
     clientX,
     clientY,
     deltaY,
@@ -91,7 +91,7 @@ export class ViewportNavigationService implements ViewportNavigationServiceApi {
     return true
   }
 
-  dispose: ViewportNavigationServiceApi['dispose'] = () => {
+  dispose: ViewportNavigationApi['dispose'] = () => {
     this.dragState = null
   }
 }

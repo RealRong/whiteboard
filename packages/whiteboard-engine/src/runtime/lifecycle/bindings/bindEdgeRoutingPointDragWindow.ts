@@ -1,11 +1,11 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
-  state: WhiteboardInstance['state']
-  events: WhiteboardInstance['runtime']['events']
+  state: Instance['state']
+  events: Instance['runtime']['events']
   edgeCommands: Pick<
-    WhiteboardInstance['commands']['edge'],
+    Instance['commands']['edge'],
     'updateRoutingPointDrag' | 'endRoutingPointDrag' | 'cancelRoutingPointDrag'
   >
 }

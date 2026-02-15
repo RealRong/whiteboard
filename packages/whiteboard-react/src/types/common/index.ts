@@ -1,11 +1,11 @@
-export type { Size, ViewportConfig, WhiteboardEdgeConfig, WhiteboardNodeConfig } from './base'
+export type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 export type {
-  ResolvedWhiteboardConfig,
-  WhiteboardConfig,
-  WhiteboardHistoryConfig,
+  ResolvedConfig,
+  Config,
+  HistoryConfig,
   WhiteboardProps,
-  WhiteboardResolvedEdgeConfig,
-  WhiteboardResolvedHistoryConfig,
-  WhiteboardResolvedNodeConfig,
-  WhiteboardResolvedViewportConfig
+  ResolvedEdgeConfig,
+  ResolvedHistoryConfig,
+  ResolvedNodeConfig,
+  ResolvedViewportConfig
 } from './whiteboard'

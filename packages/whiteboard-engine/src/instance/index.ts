@@ -1,1 +1,1 @@
-export { createWhiteboardInstance } from './whiteboardInstance'
+export { createInstance } from './create'

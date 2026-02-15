@@ -1,38 +1,38 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardStateKey,
-  WhiteboardStateNamespace,
-  WhiteboardViewKey,
-  WhiteboardViewDebugSnapshot,
-  WhiteboardViewNamespace,
-  WhiteboardViewSnapshot
+  InstanceConfig,
+  Query,
+  StateKey,
+  State,
+  ViewKey,
+  ViewDebugSnapshot,
+  View,
+  ViewSnapshot
 } from '@engine-types/instance'
 import type { ShortcutContext } from '@engine-types/shortcuts'
 import { createDerivedRegistry } from '../../infra/derive'
-import { createWhiteboardViewDerivations, WHITEBOARD_VIEW_KEYS } from './viewDerivations'
+import { createViewDerivations, VIEW_KEYS } from './derivations'
 
-type CreateWhiteboardViewRegistryOptions = {
-  state: WhiteboardStateNamespace
-  query: WhiteboardInstanceQuery
-  config: WhiteboardInstanceConfig
+type Options = {
+  state: State
+  query: Query
+  config: InstanceConfig
   platform: ShortcutContext['platform']
 }
 
-export const createWhiteboardViewRegistry = ({
+export const createViewRegistry = ({
   state,
   query,
   config,
   platform
-}: CreateWhiteboardViewRegistryOptions): WhiteboardViewNamespace => {
-  const resolvers = createWhiteboardViewDerivations({
+}: Options): View => {
+  const resolvers = createViewDerivations({
     readState: state.read,
     query,
     config,
     platform
   })
-  const derived = createDerivedRegistry<WhiteboardViewKey, WhiteboardStateKey, WhiteboardViewSnapshot>({
-    keys: WHITEBOARD_VIEW_KEYS,
+  const derived = createDerivedRegistry<ViewKey, StateKey, ViewSnapshot>({
+    keys: VIEW_KEYS,
     resolvers,
     watchDependency: state.watch
   })
@@ -43,7 +43,7 @@ export const createWhiteboardViewRegistry = ({
     snapshot: derived.snapshot,
     debug: {
       getMetrics: derived.debug.getMetric,
-      getAllMetrics: () => derived.debug.getAllMetrics() as WhiteboardViewDebugSnapshot,
+      getAllMetrics: () => derived.debug.getAllMetrics() as ViewDebugSnapshot,
       resetMetrics: derived.debug.resetMetrics
     }
   }

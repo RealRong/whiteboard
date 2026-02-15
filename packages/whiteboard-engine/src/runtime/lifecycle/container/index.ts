@@ -1,21 +1,21 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import type { CanvasEventHandlers } from '../input/types'
-import { bindCanvasContainerEvents } from '../bindings/bindCanvasContainerEvents'
+import type { Instance } from '@engine-types/instance'
+import { bindCanvasContainerEvents } from '../bindings'
+import type { CanvasEventHandlers } from '../input'
 
-type ContainerLifecycleControllerOptions = {
-  instance: WhiteboardInstance
+type ContainerControllerOptions = {
+  instance: Instance
   getHandlers: () => CanvasEventHandlers
   getOnWheel: () => (event: WheelEvent) => void
 }
 
-export class ContainerLifecycleController {
-  private instance: WhiteboardInstance
+export class Container {
+  private instance: Instance
   private getHandlers: () => CanvasEventHandlers
   private getOnWheel: () => (event: WheelEvent) => void
   private offContainerEvents: (() => void) | null = null
   private observedContainer: HTMLElement | null = null
 
-  constructor(options: ContainerLifecycleControllerOptions) {
+  constructor(options: ContainerControllerOptions) {
     this.instance = options.instance
     this.getHandlers = options.getHandlers
     this.getOnWheel = options.getOnWheel

@@ -1,40 +1,40 @@
-export type { WhiteboardCommands } from './commands'
+export type { Commands } from './commands'
 export type {
-  ContainerSizeObserverService,
-  CreateWhiteboardInstanceOptions,
-  GroupAutoFitService,
-  NodeSizeObserverService,
+  ContainerSizeObserver,
+  CreateInstanceOptions,
+  GroupAutoFit,
+  NodeSizeObserver,
   Store,
-  WhiteboardLifecycleConfig,
-  WhiteboardLifecycleRuntime,
-  WhiteboardInstance,
-  WhiteboardInstanceConfig,
-  WhiteboardStateNamespace,
-  WhiteboardViewDebugMetric,
-  WhiteboardViewDebugNamespace,
-  WhiteboardViewDebugSnapshot,
-  WhiteboardMindmapDragView,
-  WhiteboardNodeTransformHandle,
-  WhiteboardMindmapViewTree,
-  WhiteboardMindmapViewTreeLine,
-  WhiteboardNodeViewItem,
-  WhiteboardViewKey,
-  WhiteboardViewNamespace,
-  WhiteboardViewSnapshot
+  Lifecycle,
+  LifecycleConfig,
+  Instance,
+  InstanceConfig,
+  State,
+  ViewDebugMetric,
+  ViewDebug,
+  ViewDebugSnapshot,
+  MindmapDragView,
+  NodeTransformHandle,
+  MindmapViewTree,
+  MindmapViewTreeLine,
+  NodeViewItem,
+  ViewKey,
+  View,
+  ViewSnapshot
 } from './instance'
 
 export type {
-  ResolvedWhiteboardConfig,
+  ResolvedConfig,
   Size,
   ViewportConfig,
-  WhiteboardConfig,
-  WhiteboardEdgeConfig,
-  WhiteboardHistoryConfig,
-  WhiteboardNodeConfig,
-  WhiteboardResolvedEdgeConfig,
-  WhiteboardResolvedHistoryConfig,
-  WhiteboardResolvedNodeConfig,
-  WhiteboardResolvedViewportConfig
+  Config,
+  EdgeConfig,
+  HistoryConfig,
+  NodeConfig,
+  ResolvedEdgeConfig,
+  ResolvedHistoryConfig,
+  ResolvedNodeConfig,
+  ResolvedViewportConfig
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, ShortcutRuntime } from './shortcuts'

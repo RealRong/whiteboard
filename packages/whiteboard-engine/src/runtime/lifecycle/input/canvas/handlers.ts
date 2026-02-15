@@ -1,14 +1,14 @@
-import type { WhiteboardLifecycleConfig } from '@engine-types/instance'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { createEdgeHoverInputHandlers } from './createEdgeHoverInputHandlers'
-import { createSelectionInputHandlers } from './createSelectionInputHandlers'
-import { createShortcutInputHandlers } from '../shortcut/createShortcutInputHandlers'
-import { createViewportInputHandlers } from './createViewportInputHandlers'
-import type { CanvasInputRuntime } from '../types'
+import type { LifecycleConfig } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
+import { createShortcutInputHandlers } from '../shortcut'
+import type { CanvasInputRuntime } from '..'
+import { createEdgeHoverInputHandlers } from './edgeHover'
+import { createSelectionInputHandlers } from './selection'
+import { createViewportInputHandlers } from './viewport'
 
 type Options = {
-  instance: WhiteboardInstance
-  config: WhiteboardLifecycleConfig
+  instance: Instance
+  config: LifecycleConfig
 }
 
 export const createCanvasInputHandlers = ({ instance, config }: Options): CanvasInputRuntime => {

@@ -17,4 +17,4 @@ export {
   rectIntersects,
   rectIntersectsRotatedRect,
   rotatePoint
-} from '../../geometry/geometry'
+} from '../../geometry'

@@ -1,9 +1,9 @@
-import type { CanvasInputRuntime } from '../input/types'
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { CanvasInputRuntime } from '../input'
+import type { Instance } from '@engine-types/instance'
 import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
 
 type Options = {
-  events: WhiteboardInstance['runtime']['events']
+  events: Instance['runtime']['events']
   getSelectionBox: () => CanvasInputRuntime['selectionBox']
 }
 

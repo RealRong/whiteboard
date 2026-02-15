@@ -1,25 +1,24 @@
 import type { Core, Document } from '@whiteboard/core'
-import type { WhiteboardInstanceConfig, WhiteboardRuntimeNamespace } from '@engine-types/instance'
+import type { InstanceConfig, Runtime } from '@engine-types/instance'
 import type { RefLike } from '@engine-types/ui'
-import { getPlatformInfo } from '../../shortcuts'
-import { createViewportRuntime } from '../runtime/createViewportRuntime'
-import { createWhiteboardRuntimeEvents } from './createWhiteboardRuntimeEvents'
+import { createViewport, getPlatformInfo } from '..'
+import { createEvents } from './events'
 
-type CreateWhiteboardRuntimeNamespaceOptions = {
+type Options = {
   core: Core
   docRef: RefLike<Document>
   containerRef: RefLike<HTMLDivElement | null>
-  config: WhiteboardInstanceConfig
+  config: InstanceConfig
 }
 
-export type WhiteboardRuntimeBase = Omit<WhiteboardRuntimeNamespace, 'services' | 'shortcuts' | 'lifecycle'>
+export type RuntimeBase = Omit<Runtime, 'services' | 'shortcuts' | 'lifecycle'>
 
-export const createWhiteboardRuntimeNamespace = ({
+export const createRuntime = ({
   core,
   docRef,
   containerRef,
   config
-}: CreateWhiteboardRuntimeNamespaceOptions): WhiteboardRuntimeBase => {
+}: Options): RuntimeBase => {
   const platform = getPlatformInfo()
   const getContainer = () => containerRef.current
 
@@ -30,7 +29,7 @@ export const createWhiteboardRuntimeNamespace = ({
     getContainer,
     config,
     platform,
-    viewport: createViewportRuntime(),
-    events: createWhiteboardRuntimeEvents(containerRef)
+    viewport: createViewport(),
+    events: createEvents(containerRef)
   }
 }

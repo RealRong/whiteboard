@@ -1,11 +1,11 @@
 import type { Point, Rect } from '@whiteboard/core'
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 import type { SelectionMode } from '@engine-types/state'
 import { rectFromPoints } from '../../../../infra/geometry'
 import { getSelectionModeFromEvent } from '../../../../node/utils/selection'
 
 type Options = {
-  instance: WhiteboardInstance
+  instance: Instance
   enabled: boolean
   minDragDistance: number
 }

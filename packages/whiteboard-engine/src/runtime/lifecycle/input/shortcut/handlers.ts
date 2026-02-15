@@ -1,8 +1,8 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { resolveShortcutContextFromEvent } from './resolveShortcutContextFromEvent'
+import type { Instance } from '@engine-types/instance'
+import { createShortcutContextResolver } from './contextResolver'
 
-type CreateShortcutInputHandlersOptions = {
-  instance: WhiteboardInstance
+type Options = {
+  instance: Instance
 }
 
 export type ShortcutInputHandlers = {
@@ -12,9 +12,8 @@ export type ShortcutInputHandlers = {
 
 export const createShortcutInputHandlers = ({
   instance
-}: CreateShortcutInputHandlersOptions): ShortcutInputHandlers => {
-  const resolveContext = (event: KeyboardEvent | PointerEvent) =>
-    resolveShortcutContextFromEvent(instance.view.read('shortcut.context'), event)
+}: Options): ShortcutInputHandlers => {
+  const resolveContext = createShortcutContextResolver(instance)
 
   const handlePointerDownCapture: ShortcutInputHandlers['handlePointerDownCapture'] = (event, onUnhandled) => {
     const handled = instance.runtime.shortcuts.handlePointerDownCapture(event, resolveContext(event))

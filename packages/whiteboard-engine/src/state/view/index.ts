@@ -1,2 +1,3 @@
-export { createWhiteboardViewRegistry } from './createWhiteboardViewRegistry'
-export { createWhiteboardViewDerivations, WHITEBOARD_VIEW_KEYS, type WhiteboardViewDerivationMap } from './viewDerivations'
+export { createView } from './namespace'
+export { createViewRegistry } from './registry'
+export { createViewDerivations, VIEW_KEYS, type ViewDerivationMap } from './derivations'

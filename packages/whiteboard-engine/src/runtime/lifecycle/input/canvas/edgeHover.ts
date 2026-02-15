@@ -1,7 +1,7 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 
 type Options = {
-  instance: WhiteboardInstance
+  instance: Instance
   enabled: boolean
 }
 

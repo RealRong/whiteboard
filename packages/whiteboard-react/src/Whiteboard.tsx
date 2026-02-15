@@ -8,13 +8,13 @@ import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import {
-  createWhiteboardEngine,
+  createEngine,
   docAtom,
   instanceAtom,
-  normalizeWhiteboardConfig,
-  toWhiteboardLifecycleConfig,
-  toWhiteboardInstanceConfig,
-  type WhiteboardInstance
+  normalizeConfig,
+  toLifecycleConfig,
+  toInstanceConfig,
+  type Instance
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
 
@@ -40,11 +40,11 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.meta = next.meta
 }
 
-const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
+const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function WhiteboardInner(
   { doc, onDocChange, core: externalCore, nodeRegistry, config },
   ref
 ) {
-  const resolvedConfig = useMemo(() => normalizeWhiteboardConfig(config), [config])
+  const resolvedConfig = useMemo(() => normalizeConfig(config), [config])
 
   const docRef = useRef(doc)
   const onDocChangeRef = useRef(onDocChange)
@@ -77,7 +77,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
   const containerRef = useRef<HTMLDivElement>(null)
   const instanceConfig = useMemo(
-    () => toWhiteboardInstanceConfig(resolvedConfig),
+    () => toInstanceConfig(resolvedConfig),
     [
       resolvedConfig.nodeSize.width,
       resolvedConfig.nodeSize.height,
@@ -96,7 +96,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   )
   const instance = useMemo(
     () =>
-      createWhiteboardEngine({
+      createEngine({
         core,
         docRef,
         containerRef,
@@ -125,7 +125,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
 
   const lifecycleConfig = useMemo(
     () =>
-      toWhiteboardLifecycleConfig({
+      toLifecycleConfig({
         instance,
         docId: doc.id,
         tool: resolvedConfig.tool,

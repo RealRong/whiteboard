@@ -1,16 +1,16 @@
 export type {
-  ResolvedWhiteboardConfig,
+  ResolvedConfig,
   Size,
   ViewportConfig,
-  WhiteboardConfig,
-  WhiteboardEdgeConfig,
-  WhiteboardHistoryConfig,
-  WhiteboardNodeConfig,
+  Config,
+  EdgeConfig,
+  HistoryConfig,
+  NodeConfig,
   WhiteboardProps,
-  WhiteboardResolvedEdgeConfig,
-  WhiteboardResolvedHistoryConfig,
-  WhiteboardResolvedNodeConfig,
-  WhiteboardResolvedViewportConfig
+  ResolvedEdgeConfig,
+  ResolvedHistoryConfig,
+  ResolvedNodeConfig,
+  ResolvedViewportConfig
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 

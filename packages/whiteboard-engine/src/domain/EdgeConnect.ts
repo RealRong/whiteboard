@@ -1,13 +1,13 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
-import type { WhiteboardCommands } from '@engine-types/commands'
-import type { WhiteboardInstance } from '@engine-types/instance'
-import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../../infra/query'
+import type { Commands } from '@engine-types/commands'
+import type { Instance } from '@engine-types/instance'
+import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../infra/query'
 
 export class EdgeConnectSystem {
-  private readonly instance: WhiteboardInstance
+  private readonly instance: Instance
   private readonly anchorSnapOptions: { snapMin: number; snapRatio: number }
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
     this.anchorSnapOptions = {
       snapMin: instance.runtime.config.edge.anchorSnapMin,
@@ -80,7 +80,7 @@ export class EdgeConnectSystem {
     }))
   }
 
-  startFromHandle: WhiteboardCommands['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
+  startFromHandle: Commands['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
     const anchor: EdgeAnchor = { side, offset: 0.5 }
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
@@ -92,7 +92,7 @@ export class EdgeConnectSystem {
     })
   }
 
-  startFromPoint: WhiteboardCommands['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
+  startFromPoint: Commands['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
     const entry = this.instance.query.getCanvasNodeRectById(nodeId)
     if (!entry) return
     const { anchor } = getAnchorFromPoint(entry.rect, entry.rotation, pointWorld, this.anchorSnapOptions)
@@ -106,7 +106,7 @@ export class EdgeConnectSystem {
     })
   }
 
-  startReconnect: WhiteboardCommands['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
+  startReconnect: Commands['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
     const visibleEdges = this.instance.state.read('visibleEdges')
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
@@ -122,7 +122,7 @@ export class EdgeConnectSystem {
     })
   }
 
-  updateTo: WhiteboardCommands['edgeConnect']['updateTo'] = (pointWorld) => {
+  updateTo: Commands['edgeConnect']['updateTo'] = (pointWorld) => {
     this.instance.state.write('edgeConnect', (prev) => {
       if (!prev.isConnecting || !prev.from) return prev
       const snap = this.getEdgeSnapAtPoint(pointWorld)
@@ -133,11 +133,11 @@ export class EdgeConnectSystem {
     })
   }
 
-  updateToClient: WhiteboardCommands['edgeConnect']['updateToClient'] = (clientX, clientY) => {
+  updateToClient: Commands['edgeConnect']['updateToClient'] = (clientX, clientY) => {
     this.updateTo(this.toWorldFromClient(clientX, clientY))
   }
 
-  commitTo: WhiteboardCommands['edgeConnect']['commitTo'] = (pointWorld) => {
+  commitTo: Commands['edgeConnect']['commitTo'] = (pointWorld) => {
     const currentState = this.instance.state.read('edgeConnect')
     if (!currentState.isConnecting || !currentState.from) return
 
@@ -174,15 +174,15 @@ export class EdgeConnectSystem {
     this.finish()
   }
 
-  commitToClient: WhiteboardCommands['edgeConnect']['commitToClient'] = (clientX, clientY) => {
+  commitToClient: Commands['edgeConnect']['commitToClient'] = (clientX, clientY) => {
     this.commitTo(this.toWorldFromClient(clientX, clientY))
   }
 
-  cancel: WhiteboardCommands['edgeConnect']['cancel'] = () => {
+  cancel: Commands['edgeConnect']['cancel'] = () => {
     this.finish()
   }
 
-  updateHover: WhiteboardCommands['edgeConnect']['updateHover'] = (pointWorld) => {
+  updateHover: Commands['edgeConnect']['updateHover'] = (pointWorld) => {
     const activeTool = (this.instance.state.read('tool') as 'select' | 'edge') ?? 'select'
     if (activeTool !== 'edge') return
     const snap = this.getEdgeSnapAtPoint(pointWorld)
@@ -197,11 +197,11 @@ export class EdgeConnectSystem {
     })
   }
 
-  updateHoverAtClient: WhiteboardCommands['edgeConnect']['updateHoverAtClient'] = (clientX, clientY) => {
+  updateHoverAtClient: Commands['edgeConnect']['updateHoverAtClient'] = (clientX, clientY) => {
     this.updateHover(this.toWorldFromClient(clientX, clientY))
   }
 
-  handleNodePointerDown: WhiteboardCommands['edgeConnect']['handleNodePointerDown'] = (
+  handleNodePointerDown: Commands['edgeConnect']['handleNodePointerDown'] = (
     nodeId,
     pointWorld,
     pointerId
@@ -212,7 +212,7 @@ export class EdgeConnectSystem {
     return true
   }
 
-  createCommands = (): WhiteboardCommands['edgeConnect'] => ({
+  createCommands = (): Commands['edgeConnect'] => ({
     startFromHandle: this.startFromHandle,
     startFromPoint: this.startFromPoint,
     startReconnect: this.startReconnect,

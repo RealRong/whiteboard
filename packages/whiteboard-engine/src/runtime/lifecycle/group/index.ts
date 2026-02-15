@@ -1,9 +1,9 @@
-import type { WhiteboardInstance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
 
-export class GroupAutoFitLifecycleController {
-  private instance: WhiteboardInstance
+export class AutoFit {
+  private instance: Instance
 
-  constructor(instance: WhiteboardInstance) {
+  constructor(instance: Instance) {
     this.instance = instance
   }
 

@@ -1,14 +1,14 @@
 import type {
-  WhiteboardInstanceConfig,
-  WhiteboardInstanceQuery,
-  WhiteboardStateNamespace
+  InstanceConfig,
+  Query,
+  State
 } from '@engine-types/instance'
-import { createCanvasQuery } from './createCanvasQuery'
-import { createSnapQuery } from './createSnapQuery'
+import { createCanvasQuery } from './canvas'
+import { createSnapQuery } from './snap'
 
-type CreateInstanceQueryOptions = {
-  readState: WhiteboardStateNamespace['read']
-  config: WhiteboardInstanceConfig
+type Options = {
+  readState: State['read']
+  config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
@@ -16,7 +16,7 @@ export const createInstanceQuery = ({
   readState,
   config,
   getContainer
-}: CreateInstanceQueryOptions): WhiteboardInstanceQuery => {
+}: Options): Query => {
   const canvasQuery = createCanvasQuery({
     readState,
     config,

@@ -7,6 +7,7 @@ const isEditableElement = (target: EventTarget | null) => {
   return false
 }
 
+// Internal helper: apply event-time focus/modifier/button fields onto view-based shortcut context.
 export const resolveShortcutContextFromEvent = (
   baseContext: ShortcutContext,
   event?: ShortcutNativeEvent
