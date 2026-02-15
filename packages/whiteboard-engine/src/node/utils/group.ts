@@ -66,7 +66,7 @@ export const getCollapsedGroupIds = (nodes: Node[]) => {
   return set
 }
 
-export const isNodeHiddenByCollapsedGroup = (node: Node, nodeMap: Map<NodeId, Node>, collapsedGroupIds: Set<NodeId>) => {
+export const isHiddenByCollapsedGroup = (node: Node, nodeMap: Map<NodeId, Node>, collapsedGroupIds: Set<NodeId>) => {
   let parentId = node.parentId
   while (parentId) {
     if (collapsedGroupIds.has(parentId)) return true
@@ -105,7 +105,7 @@ const pointInRect = (point: Point, rect: Rect) =>
   point.x <= rect.x + rect.width &&
   point.y <= rect.y + rect.height
 
-export const findSmallestGroupContainingPoint = (
+export const findSmallestGroupAtPoint = (
   nodes: Node[],
   fallbackSize: Size,
   point: Point,

@@ -14,8 +14,8 @@ export class Stop {
   stop = () => {
     this.context.shared.history.stop()
     this.context.cancelInput()
-    this.context.bindings.windowBindings.stop()
-    this.context.bindings.selectionCallbacksBinding.stop()
+    this.context.bindings.window.stop()
+    this.context.bindings.selectionCallbacks.stop()
     this.context.shared.container.stop()
     this.context.shared.windowKey.stop()
     this.context.shared.autoFit.stop()

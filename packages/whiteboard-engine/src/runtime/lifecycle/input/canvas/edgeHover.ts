@@ -5,7 +5,7 @@ type Options = {
   enabled: boolean
 }
 
-export const createEdgeHoverInputHandlers = ({ instance, enabled }: Options) => {
+export const createEdgeHover = ({ instance, enabled }: Options) => {
   const edgeHover = instance.runtime.services.edgeHover
 
   const cancel = () => {

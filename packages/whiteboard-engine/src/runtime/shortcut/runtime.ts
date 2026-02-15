@@ -4,13 +4,13 @@ import type {
   ShortcutContext,
   ShortcutManager,
   ShortcutOverrides,
-  ShortcutRuntime
+  Shortcuts
 } from '@engine-types/shortcuts'
 import { createShortcutManager } from './manager'
 import { createDefaultShortcuts } from './defaultShortcuts'
 import {
-  createShortcutCommandHandlers,
-  registerShortcutCommandHandlers
+  createHandlers,
+  registerHandlers
 } from '../../api/commands/shortcut'
 
 const resolveShortcuts = (
@@ -27,17 +27,17 @@ const resolveShortcuts = (
   return Array.from(merged.values())
 }
 
-class ShortcutRuntimeImpl implements ShortcutRuntime {
+class ShortcutsImpl implements Shortcuts {
   private instance: Instance
   private shortcutManager: ShortcutManager
   private unregisterCommandHandlers: (() => void) | null
-  private commandHandlers: ReturnType<typeof createShortcutCommandHandlers>
+  private commandHandlers: ReturnType<typeof createHandlers>
 
   constructor(instance: Instance) {
     this.instance = instance
     this.shortcutManager = createShortcutManager()
 
-    this.commandHandlers = createShortcutCommandHandlers({
+    this.commandHandlers = createHandlers({
       runTransaction: instance.runtime.core.commands.transaction,
       node: {
         create: instance.commands.node.create,
@@ -66,13 +66,13 @@ class ShortcutRuntimeImpl implements ShortcutRuntime {
       selectEdge: instance.commands.edge.select
     })
 
-    this.unregisterCommandHandlers = registerShortcutCommandHandlers(instance.runtime.core, this.commandHandlers)
+    this.unregisterCommandHandlers = registerHandlers(instance.runtime.core, this.commandHandlers)
     this.setShortcuts()
   }
 
   private ensureCommandHandlers = () => {
     if (this.unregisterCommandHandlers) return
-    this.unregisterCommandHandlers = registerShortcutCommandHandlers(this.instance.runtime.core, this.commandHandlers)
+    this.unregisterCommandHandlers = registerHandlers(this.instance.runtime.core, this.commandHandlers)
   }
 
   private applyInteractionSnapshot = (ctx: ShortcutContext) => {
@@ -111,6 +111,6 @@ class ShortcutRuntimeImpl implements ShortcutRuntime {
   }
 }
 
-export const createShortcuts = (instance: Instance): ShortcutRuntime => {
-  return new ShortcutRuntimeImpl(instance)
+export const createShortcuts = (instance: Instance): Shortcuts => {
+  return new ShortcutsImpl(instance)
 }

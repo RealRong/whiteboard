@@ -4,10 +4,10 @@ import { useInstance, useWhiteboardSelector, useWhiteboardView } from '../../com
 export const EdgeControlPointHandles = () => {
   const instance = useInstance()
   const selectedRouting = useWhiteboardView('edge.selectedRouting')
-  const edgeRoutingPointDrag = useWhiteboardSelector('edgeRoutingPointDrag')
+  const routingDrag = useWhiteboardSelector('routingDrag')
   const edge = selectedRouting?.edge
   const points = selectedRouting?.points ?? []
-  const activeDrag = edgeRoutingPointDrag.active
+  const activeDrag = routingDrag.active
   const activeIndex = edge && activeDrag && activeDrag.edgeId === edge.id ? activeDrag.index : null
 
   if (!edge || points.length === 0 || edge.type === 'bezier' || edge.type === 'curve') return null
@@ -17,7 +17,7 @@ export const EdgeControlPointHandles = () => {
   }
 
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
-    const handled = instance.commands.edge.startRoutingPointDrag({
+    const handled = instance.commands.edge.startRoutingDrag({
       edgeId: edge.id,
       index,
       pointerId: event.pointerId,
@@ -50,7 +50,7 @@ export const EdgeControlPointHandles = () => {
             if (event.key === 'Escape') {
               event.preventDefault()
               event.stopPropagation()
-              instance.commands.edge.cancelRoutingPointDrag()
+              instance.commands.edge.cancelRoutingDrag()
               return
             }
             if (event.key !== 'Backspace' && event.key !== 'Delete') return
@@ -59,7 +59,7 @@ export const EdgeControlPointHandles = () => {
             const nextPointCount = points.length - 1
             removePointAt(index)
             if (nextPointCount <= 0) {
-              instance.commands.edge.cancelRoutingPointDrag()
+              instance.commands.edge.cancelRoutingDrag()
             }
           }}
           style={{

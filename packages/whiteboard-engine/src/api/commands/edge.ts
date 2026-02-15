@@ -1,28 +1,23 @@
-import type { EdgeId, EdgeInput, EdgePatch, Point } from '@whiteboard/core'
+import type { EdgeId, EdgeInput, EdgePatch } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
-import { createEdgeConnectCommands } from './edgeConnect'
+import { createEdgeConnect } from './edgeConnect'
 
-export const createEdgeCommands = (
+export const createEdge = (
   instance: Instance
 ): Pick<Commands, 'edge' | 'edgeConnect'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
-  const { edgeConnect } = createEdgeConnectCommands(instance)
+  const edgeConnect = createEdgeConnect(instance)
 
-  const getWorldPointFromClient = (clientX: number, clientY: number): Point => {
-    const screen = instance.runtime.viewport.clientToScreen(clientX, clientY)
-    return instance.runtime.viewport.screenToWorld(screen)
-  }
-
-  const clearEdgeRoutingPointDrag = () => {
-    write('edgeRoutingPointDrag', {})
+  const clearRoutingDrag = () => {
+    write('routingDrag', {})
   }
 
   const selectEdge: Commands['edge']['select'] = (id) => {
-    const activeDrag = read('edgeRoutingPointDrag').active
+    const activeDrag = read('routingDrag').active
     if (activeDrag && activeDrag.edgeId !== id) {
-      clearEdgeRoutingPointDrag()
+      clearRoutingDrag()
     }
     write('edgeSelection', (prev) => (prev === id ? prev : id))
   }
@@ -56,12 +51,12 @@ export const createEdgeCommands = (
     pathPoints,
     clientX,
     clientY
-  ) => {
-    const pointWorld = getWorldPointFromClient(clientX, clientY)
-    const segmentIndex = instance.query.getNearestEdgeSegmentIndexAtWorld(pointWorld, pathPoints)
-    insertRoutingPoint(edge, pathPoints, segmentIndex, pointWorld)
-    selectEdge(edge.id)
-  }
+	  ) => {
+	    const pointWorld = instance.runtime.viewport.clientToWorld(clientX, clientY)
+	    const segmentIndex = instance.query.getNearestEdgeSegment(pointWorld, pathPoints)
+	    insertRoutingPoint(edge, pathPoints, segmentIndex, pointWorld)
+	    selectEdge(edge.id)
+	  }
 
   const moveRoutingPoint: Commands['edge']['moveRoutingPoint'] = (edge, index, pointWorld) => {
     if (edge.type === 'bezier' || edge.type === 'curve') return
@@ -86,9 +81,9 @@ export const createEdgeCommands = (
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
 
-    const activeDrag = read('edgeRoutingPointDrag').active
+    const activeDrag = read('routingDrag').active
     if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
-      clearEdgeRoutingPointDrag()
+      clearRoutingDrag()
     }
 
     const nextPoints = points.filter((_, idx) => idx !== index)
@@ -120,9 +115,9 @@ export const createEdgeCommands = (
   }
 
   const resetRouting: Commands['edge']['resetRouting'] = (edge) => {
-    const activeDrag = read('edgeRoutingPointDrag').active
+    const activeDrag = read('routingDrag').active
     if (activeDrag?.edgeId === edge.id) {
-      clearEdgeRoutingPointDrag()
+      clearRoutingDrag()
     }
 
     void core.dispatch({
@@ -138,22 +133,22 @@ export const createEdgeCommands = (
     })
   }
 
-  const startRoutingPointDrag: Commands['edge']['startRoutingPointDrag'] = ({
+  const startRoutingDrag: Commands['edge']['startRoutingDrag'] = ({
     edgeId,
     index,
     pointerId,
     clientX,
     clientY
   }) => {
-    if (read('edgeRoutingPointDrag').active) return false
+    if (read('routingDrag').active) return false
     const edge = read('visibleEdges').find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false
 
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return false
 
-    const start = getWorldPointFromClient(clientX, clientY)
-    write('edgeRoutingPointDrag', {
+    const start = instance.runtime.viewport.clientToWorld(clientX, clientY)
+    write('routingDrag', {
       active: {
         edgeId,
         index,
@@ -166,27 +161,27 @@ export const createEdgeCommands = (
     return true
   }
 
-  const updateRoutingPointDrag: Commands['edge']['updateRoutingPointDrag'] = ({
+  const updateRoutingDrag: Commands['edge']['updateRoutingDrag'] = ({
     pointerId,
     clientX,
     clientY
   }) => {
-    const active = read('edgeRoutingPointDrag').active
+    const active = read('routingDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
     const edge = read('visibleEdges').find((item) => item.id === active.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
-      clearEdgeRoutingPointDrag()
+      clearRoutingDrag()
       return false
     }
 
     const points = edge.routing?.points ?? []
     if (active.index < 0 || active.index >= points.length) {
-      clearEdgeRoutingPointDrag()
+      clearRoutingDrag()
       return false
     }
 
-    const current = getWorldPointFromClient(clientX, clientY)
+    const current = instance.runtime.viewport.clientToWorld(clientX, clientY)
     const nextPoint = {
       x: active.origin.x + (current.x - active.start.x),
       y: active.origin.y + (current.y - active.start.y)
@@ -195,18 +190,18 @@ export const createEdgeCommands = (
     return true
   }
 
-  const endRoutingPointDrag: Commands['edge']['endRoutingPointDrag'] = ({ pointerId }) => {
-    const active = read('edgeRoutingPointDrag').active
+  const endRoutingDrag: Commands['edge']['endRoutingDrag'] = ({ pointerId }) => {
+    const active = read('routingDrag').active
     if (!active || active.pointerId !== pointerId) return false
-    clearEdgeRoutingPointDrag()
+    clearRoutingDrag()
     return true
   }
 
-  const cancelRoutingPointDrag: Commands['edge']['cancelRoutingPointDrag'] = (options) => {
-    const active = read('edgeRoutingPointDrag').active
+  const cancelRoutingDrag: Commands['edge']['cancelRoutingDrag'] = (options) => {
+    const active = read('routingDrag').active
     if (!active) return false
     if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
-    clearEdgeRoutingPointDrag()
+    clearRoutingDrag()
     return true
   }
 
@@ -216,17 +211,17 @@ export const createEdgeCommands = (
       insertRoutingPointAtClient,
       moveRoutingPoint,
       removeRoutingPoint,
-      startRoutingPointDrag,
-      updateRoutingPointDrag,
-      endRoutingPointDrag,
-      cancelRoutingPointDrag,
+      startRoutingDrag,
+      updateRoutingDrag,
+      endRoutingDrag,
+      cancelRoutingDrag,
       resetRouting,
       create: (payload: EdgeInput) => core.dispatch({ type: 'edge.create', payload }),
       update: (id: EdgeId, patch: EdgePatch) => core.dispatch({ type: 'edge.update', id, patch }),
       delete: (ids: EdgeId[]) => {
-        const activeDrag = read('edgeRoutingPointDrag').active
+        const activeDrag = read('routingDrag').active
         if (activeDrag && ids.includes(activeDrag.edgeId)) {
-          clearEdgeRoutingPointDrag()
+          clearRoutingDrag()
         }
         return core.dispatch({ type: 'edge.delete', ids })
       },

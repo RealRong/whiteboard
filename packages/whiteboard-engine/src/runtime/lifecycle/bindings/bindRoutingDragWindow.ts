@@ -1,45 +1,45 @@
 import type { Instance } from '@engine-types/instance'
-import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
+import { createPointerSession } from './bindPointerSessionWindow'
 
 type Options = {
   state: Instance['state']
   events: Instance['runtime']['events']
   edgeCommands: Pick<
     Instance['commands']['edge'],
-    'updateRoutingPointDrag' | 'endRoutingPointDrag' | 'cancelRoutingPointDrag'
+    'updateRoutingDrag' | 'endRoutingDrag' | 'cancelRoutingDrag'
   >
 }
 
-export type EdgeRoutingPointDragWindowBinding = {
+export type RoutingDragBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-export const createEdgeRoutingPointDragWindowBinding = ({
+export const createRoutingDrag = ({
   state,
   events,
   edgeCommands
-}: Options): EdgeRoutingPointDragWindowBinding => {
-  return createPointerSessionWindowBinding({
+}: Options): RoutingDragBinding => {
+  return createPointerSession({
     events,
-    watch: (listener) => state.watch('edgeRoutingPointDrag', listener),
-    getActive: () => state.read('edgeRoutingPointDrag').active,
+    watch: (listener) => state.watch('routingDrag', listener),
+    getActive: () => state.read('routingDrag').active,
     getPointerId: (active) => active.pointerId,
     onPointerMove: (event) => {
-      edgeCommands.updateRoutingPointDrag({
+      edgeCommands.updateRoutingDrag({
         pointerId: event.pointerId,
         clientX: event.clientX,
         clientY: event.clientY
       })
     },
     onPointerUp: (event) => {
-      edgeCommands.endRoutingPointDrag({
+      edgeCommands.endRoutingDrag({
         pointerId: event.pointerId
       })
     },
     onPointerCancel: (event) => {
-      edgeCommands.cancelRoutingPointDrag({
+      edgeCommands.cancelRoutingDrag({
         pointerId: event.pointerId
       })
     }

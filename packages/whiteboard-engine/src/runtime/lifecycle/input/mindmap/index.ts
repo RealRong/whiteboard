@@ -1,8 +1,8 @@
 import type { Instance } from '@engine-types/instance'
-import { createMindmapDragWindowBinding, type MindmapDragWindowBinding } from '../../bindings'
+import { createMindmapDrag, type MindmapDragBinding } from '../../bindings'
 
-export const createMindmapInputWindowBinding = (instance: Instance): MindmapDragWindowBinding => {
-  return createMindmapDragWindowBinding({
+export const createMindmap = (instance: Instance): MindmapDragBinding => {
+  return createMindmapDrag({
     state: instance.state,
     events: instance.runtime.events,
     mindmapCommands: instance.commands.mindmap

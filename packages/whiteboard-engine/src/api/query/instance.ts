@@ -3,8 +3,8 @@ import type {
   Query,
   State
 } from '@engine-types/instance'
-import { createCanvasQuery } from './canvas'
-import { createSnapQuery } from './snap'
+import { createCanvas } from './canvas'
+import { createSnap } from './snap'
 
 type Options = {
   readState: State['read']
@@ -12,17 +12,17 @@ type Options = {
   getContainer: () => HTMLDivElement | null
 }
 
-export const createInstanceQuery = ({
+export const createQuery = ({
   readState,
   config,
   getContainer
 }: Options): Query => {
-  const canvasQuery = createCanvasQuery({
+  const canvasQuery = createCanvas({
     readState,
     config,
     getContainer
   })
-  const snapQuery = createSnapQuery({
+  const snapQuery = createSnap({
     readState,
     config
   })

@@ -1,23 +1,23 @@
 import type { Instance } from '@engine-types/instance'
-import { createNodeDragWindowBinding, type NodeDragWindowBinding } from '../../bindings'
+import { createNodeDrag, type NodeDragBinding } from '../../bindings'
 import {
-  createNodeTransformWindowBinding,
-  type NodeTransformWindowBinding
+  createNodeTransform,
+  type NodeTransformBinding
 } from '../../bindings'
 
-export type NodeInputWindowBindings = {
-  nodeDragWindowBinding: NodeDragWindowBinding
-  nodeTransformWindowBinding: NodeTransformWindowBinding
+export type NodeBindings = {
+  nodeDrag: NodeDragBinding
+  nodeTransform: NodeTransformBinding
 }
 
-export const createNodeInputWindowBindings = (instance: Instance): NodeInputWindowBindings => {
+export const createNodeBindings = (instance: Instance): NodeBindings => {
   return {
-    nodeDragWindowBinding: createNodeDragWindowBinding({
+    nodeDrag: createNodeDrag({
       state: instance.state,
       events: instance.runtime.events,
       nodeDragCommands: instance.commands.nodeDrag
     }),
-    nodeTransformWindowBinding: createNodeTransformWindowBinding({
+    nodeTransform: createNodeTransform({
       state: instance.state,
       events: instance.runtime.events,
       nodeTransformCommands: instance.commands.nodeTransform

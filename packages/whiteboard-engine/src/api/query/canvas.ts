@@ -6,9 +6,9 @@ import type {
 import { getNodeAABB, getNodeRect } from '../../infra/geometry'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
-  getNearestEdgeSegmentIndexAtWorld as getNearestEdgeSegmentIndexAtWorldRaw,
+  getNearestEdgeSegment as getNearestEdgeSegmentRaw,
   getNodeIdsInRect as getNodeIdsInRectRaw,
-  isCanvasBackgroundTarget as isCanvasBackgroundTargetRaw
+  isBackgroundTarget as isBackgroundTargetRaw
 } from '../../infra/query'
 
 type Options = {
@@ -17,18 +17,18 @@ type Options = {
   getContainer: () => HTMLDivElement | null
 }
 
-export const createCanvasQuery = ({
+export const createCanvas = ({
   readState,
   config,
   getContainer
 }: Options): Pick<
   Query,
-  | 'getCanvasNodeRects'
-  | 'getCanvasNodeRectById'
+  | 'getNodeRects'
+  | 'getNodeRectById'
   | 'getNodeIdsInRect'
-  | 'isCanvasBackgroundTarget'
+  | 'isBackgroundTarget'
   | 'getAnchorFromPoint'
-  | 'getNearestEdgeSegmentIndexAtWorld'
+  | 'getNearestEdgeSegment'
 > => {
   let cachedNodes = readState('canvasNodes')
   let cachedRects = cachedNodes.map((node) => ({
@@ -39,7 +39,7 @@ export const createCanvasQuery = ({
   }))
   let cachedById = new Map(cachedRects.map((entry) => [entry.node.id, entry]))
 
-  const getCanvasNodeRects: Query['getCanvasNodeRects'] = () => {
+  const getNodeRects: Query['getNodeRects'] = () => {
     const nodes = readState('canvasNodes')
     if (nodes === cachedNodes) return cachedRects
     cachedNodes = nodes
@@ -53,16 +53,16 @@ export const createCanvasQuery = ({
     return cachedRects
   }
 
-  const getCanvasNodeRectById: Query['getCanvasNodeRectById'] = (nodeId) => {
-    getCanvasNodeRects()
+  const getNodeRectById: Query['getNodeRectById'] = (nodeId) => {
+    getNodeRects()
     return cachedById.get(nodeId)
   }
 
   const getNodeIdsInRect: Query['getNodeIdsInRect'] = (rect) =>
-    getNodeIdsInRectRaw(rect, getCanvasNodeRects())
+    getNodeIdsInRectRaw(rect, getNodeRects())
 
-  const isCanvasBackgroundTarget: Query['isCanvasBackgroundTarget'] = (target) =>
-    isCanvasBackgroundTargetRaw({
+  const isBackgroundTarget: Query['isBackgroundTarget'] = (target) =>
+    isBackgroundTargetRaw({
       container: getContainer(),
       target
     })
@@ -73,17 +73,17 @@ export const createCanvasQuery = ({
       snapRatio: config.edge.anchorSnapRatio
     })
 
-  const getNearestEdgeSegmentIndexAtWorld: Query['getNearestEdgeSegmentIndexAtWorld'] = (
+  const getNearestEdgeSegment: Query['getNearestEdgeSegment'] = (
     pointWorld,
     pathPoints
-  ) => getNearestEdgeSegmentIndexAtWorldRaw(pointWorld, pathPoints)
+  ) => getNearestEdgeSegmentRaw(pointWorld, pathPoints)
 
   return {
-    getCanvasNodeRects,
-    getCanvasNodeRectById,
+    getNodeRects,
+    getNodeRectById,
     getNodeIdsInRect,
-    isCanvasBackgroundTarget,
+    isBackgroundTarget,
     getAnchorFromPoint,
-    getNearestEdgeSegmentIndexAtWorld
+    getNearestEdgeSegment
   }
 }

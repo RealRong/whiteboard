@@ -1,22 +1,22 @@
 import type {
-  CreateInstanceOptions,
+  CreateEngineOptions,
   Instance,
   Runtime
 } from '@engine-types/instance'
 import { createShortcuts, Lifecycle } from '../runtime'
 import { resolveInstanceConfig } from '../config'
-import { createCommands } from '../api/commands/compose'
+import { createCommands } from '../api/commands'
 import { createRuntime, createServices, type RuntimeBase } from '../runtime/factory'
 import { createState } from '../state/factory'
 import { createView } from '../state/view'
-import { createInstanceQuery } from '../api/query/instance'
+import { createQuery } from '../api/query/instance'
 
-export const createInstance = ({
+export const createEngine = ({
   core,
   docRef,
   containerRef,
   config: overrides
-}: CreateInstanceOptions): Instance => {
+}: CreateEngineOptions): Instance => {
   const config = resolveInstanceConfig(overrides)
   const { state, readState, writeState } = createState()
   const base = createRuntime({
@@ -26,7 +26,7 @@ export const createInstance = ({
     config
   })
 
-  const query = createInstanceQuery({
+  const query = createQuery({
     readState,
     config,
     getContainer: base.getContainer

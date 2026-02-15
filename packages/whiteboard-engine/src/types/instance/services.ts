@@ -9,6 +9,19 @@ import type {
   Size as CoreSize
 } from '@whiteboard/core'
 import type { Size } from '../common'
+import type {
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
+  TransformDragState
+} from '../node'
+
+export type {
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
+  TransformDragState
+} from '../node'
 
 export type NodeSizeObserver = {
   observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
@@ -86,52 +99,25 @@ export type EdgeHover = {
   dispose: () => void
 }
 
-export type TransformResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-
-export type NodeTransformResizeDragState = {
-  mode: 'resize'
-  pointerId: number
-  handle: TransformResizeDirection
-  startScreen: Point
-  startCenter: Point
-  startRotation: number
-  startSize: Size
-  startAspect: number
-  lastUpdate?: {
-    position: Point
-    size: Size
-  }
-}
-
-export type NodeTransformRotateDragState = {
-  mode: 'rotate'
-  pointerId: number
-  startAngle: number
-  startRotation: number
-  center: Point
-}
-
-export type NodeTransformDragState = NodeTransformResizeDragState | NodeTransformRotateDragState
-
 export type NodeTransform = {
   createResizeDrag: (options: {
     pointerId: number
-    handle: TransformResizeDirection
+    handle: ResizeDirection
     clientX: number
     clientY: number
     rect: Rect
     rotation: number
-  }) => NodeTransformResizeDragState
+  }) => ResizeDragState
   createRotateDrag: (options: {
     pointerId: number
     clientX: number
     clientY: number
     rect: Rect
     rotation: number
-  }) => NodeTransformRotateDragState
+  }) => RotateDragState
   applyResizeMove: (options: {
     nodeId: NodeId
-    drag: NodeTransformResizeDragState
+    drag: ResizeDragState
     clientX: number
     clientY: number
     minSize: Size
@@ -140,14 +126,14 @@ export type NodeTransform = {
   }) => void
   applyRotateMove: (options: {
     nodeId: NodeId
-    drag: NodeTransformRotateDragState
+    drag: RotateDragState
     clientX: number
     clientY: number
     shiftKey: boolean
   }) => void
   finishResize: (options: {
     nodeId: NodeId
-    drag: NodeTransformResizeDragState
+    drag: ResizeDragState
   }) => void
   clear: () => void
   dispose: () => void

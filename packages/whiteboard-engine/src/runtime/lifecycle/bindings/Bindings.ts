@@ -1,17 +1,17 @@
-type WindowBinding = {
+type Binding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-type WindowBindingsOptions = {
-  bindings: WindowBinding[]
+type Options = {
+  bindings: Binding[]
 }
 
 export class Bindings {
-  private bindings: WindowBinding[]
+  private bindings: Binding[]
 
-  constructor(options: WindowBindingsOptions) {
+  constructor(options: Options) {
     this.bindings = options.bindings
   }
 

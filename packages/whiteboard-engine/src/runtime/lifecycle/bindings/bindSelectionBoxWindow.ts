@@ -1,23 +1,23 @@
-import type { CanvasInputRuntime } from '../input'
 import type { Instance } from '@engine-types/instance'
-import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
+import type { CanvasInput } from '../input'
+import { createPointerSession } from './bindPointerSessionWindow'
 
 type Options = {
   events: Instance['runtime']['events']
-  getSelectionBox: () => CanvasInputRuntime['selectionBox']
+  getSelectionBox: () => CanvasInput['selectionBox']
 }
 
-export type SelectionBoxWindowBinding = {
+export type SelectionBoxBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-export const createSelectionBoxWindowBinding = ({
+export const createSelectionBox = ({
   events,
   getSelectionBox
-}: Options): SelectionBoxWindowBinding =>
-  createPointerSessionWindowBinding({
+}: Options): SelectionBoxBinding =>
+  createPointerSession({
     events,
     watch: (listener) => getSelectionBox().watchActive(listener),
     getActive: () => {

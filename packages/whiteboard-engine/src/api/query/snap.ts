@@ -11,7 +11,7 @@ type Options = {
   config: InstanceConfig
 }
 
-export const createSnapQuery = ({
+export const createSnap = ({
   readState,
   config
 }: Options): Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> => {

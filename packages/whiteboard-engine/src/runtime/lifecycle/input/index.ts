@@ -1,15 +1,14 @@
-export { createCanvasInputHandlers } from './canvas'
-export { createEdgeInputWindowBindings } from './edge'
-export type { EdgeInputWindowBindings } from './edge'
-export { createMindmapInputWindowBinding } from './mindmap'
-export { createNodeInputWindowBindings } from './node'
-export type { NodeInputWindowBindings } from './node'
-export { createSelectionInputBindings } from './selection'
-export type { SelectionInputBindings } from './selection'
-export { createShortcutInputHandlers } from './shortcut'
+export { createCanvasInput } from './canvas'
+export { createEdgeBindings } from './edge'
+export type { EdgeBindings } from './edge'
+export { createMindmap } from './mindmap'
+export { createNodeBindings } from './node'
+export type { NodeBindings } from './node'
+export { createSelection } from './selection'
+export type { SelectionBindings } from './selection'
+export { createShortcut } from './shortcut'
 export type {
   CanvasEventHandlers,
-  CanvasInputRuntime,
-  SelectionBoxSessionRuntime
+  CanvasInput,
+  SelectionBoxSession
 } from './types'
-

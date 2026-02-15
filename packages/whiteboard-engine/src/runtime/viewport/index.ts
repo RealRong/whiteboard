@@ -1,20 +1,20 @@
 import type { Point, Viewport } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { CanvasContainerRect, ViewportRuntime } from '@engine-types/instance'
+import type { ContainerRect, ViewportApi } from '@engine-types/instance'
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },
   zoom: 1
 }
 
-const DEFAULT_CONTAINER_RECT: CanvasContainerRect = {
+const DEFAULT_CONTAINER_RECT: ContainerRect = {
   left: 0,
   top: 0,
   width: 0,
   height: 0
 }
 
-const toContainerSize = (rect: CanvasContainerRect): Size => ({
+const toContainerSize = (rect: ContainerRect): Size => ({
   width: rect.width,
   height: rect.height
 })
@@ -27,16 +27,16 @@ const toScreenCenter = (size: Size): Point => ({
 const isSameViewport = (a: Viewport, b: Viewport) =>
   a.zoom === b.zoom && a.center.x === b.center.x && a.center.y === b.center.y
 
-const isSameRect = (a: CanvasContainerRect, b: CanvasContainerRect) =>
+const isSameRect = (a: ContainerRect, b: ContainerRect) =>
   a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
 
-export const createViewport = (): ViewportRuntime => {
+export const createViewport = (): ViewportApi => {
   let viewport = DEFAULT_VIEWPORT
   let containerRect = DEFAULT_CONTAINER_RECT
   let containerSize = toContainerSize(DEFAULT_CONTAINER_RECT)
   let screenCenter = toScreenCenter(containerSize)
 
-  const updateDerivedFromRect = (rect: CanvasContainerRect) => {
+  const updateDerivedFromRect = (rect: ContainerRect) => {
     containerRect = rect
     containerSize = toContainerSize(rect)
     screenCenter = toScreenCenter(containerSize)

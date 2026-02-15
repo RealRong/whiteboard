@@ -1,32 +1,32 @@
 import type { Instance } from '@engine-types/instance'
 import {
-  createSelectionCallbacksBinding,
-  createSelectionBoxWindowBinding,
-  type SelectionBoxWindowBinding,
+  createSelectionCallbacks,
+  createSelectionBox,
+  type SelectionBoxBinding,
   type SelectionCallbacksBinding
 } from '../../bindings'
-import type { SelectionBoxSessionRuntime } from '..'
+import type { SelectionBoxSession } from '..'
 
 type Options = {
   instance: Instance
-  getSelectionBox: () => SelectionBoxSessionRuntime
+  getSelectionBox: () => SelectionBoxSession
 }
 
-export type SelectionInputBindings = {
-  selectionBoxWindowBinding: SelectionBoxWindowBinding
-  selectionCallbacksBinding: SelectionCallbacksBinding
+export type SelectionBindings = {
+  selectionBox: SelectionBoxBinding
+  selectionCallbacks: SelectionCallbacksBinding
 }
 
-export const createSelectionInputBindings = ({
+export const createSelection = ({
   instance,
   getSelectionBox
-}: Options): SelectionInputBindings => {
+}: Options): SelectionBindings => {
   return {
-    selectionBoxWindowBinding: createSelectionBoxWindowBinding({
+    selectionBox: createSelectionBox({
       events: instance.runtime.events,
       getSelectionBox
     }),
-    selectionCallbacksBinding: createSelectionCallbacksBinding({
+    selectionCallbacks: createSelectionCallbacks({
       state: instance.state
     })
   }

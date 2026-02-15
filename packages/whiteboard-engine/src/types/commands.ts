@@ -23,7 +23,7 @@ import type { Size, ResolvedHistoryConfig } from './common'
 import type { Guide } from './node/snap'
 import type { NodeDragGroupOptions } from './node/drag'
 import type { InteractionState, NodeViewUpdate, SelectionMode } from './state'
-import type { NodeTransformResizeDirection } from './state'
+import type { ResizeDirection } from './state'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -37,7 +37,7 @@ export type MindmapInsertNodeOptions = {
   payload?: MindmapNodeData | MindmapAttachPayload
 }
 
-export type MindmapMoveSubtreeWithLayoutOptions = {
+export type MindmapMoveLayoutOptions = {
   id: MindmapId
   nodeId: MindmapNodeId
   newParentId: MindmapNodeId
@@ -53,7 +53,7 @@ export type MindmapMoveRootOptions = {
   threshold?: number
 }
 
-export type MindmapMoveSubtreeWithDropOptions = {
+export type MindmapMoveDropOptions = {
   id: MindmapId
   nodeId: MindmapNodeId
   drop: {
@@ -113,7 +113,7 @@ export type NodeDragCancelOptions = {
   pointerId?: number
 }
 
-export type EdgeRoutingPointDragStartOptions = {
+export type RoutingDragStartOptions = {
   edgeId: EdgeId
   index: number
   pointerId: number
@@ -121,31 +121,31 @@ export type EdgeRoutingPointDragStartOptions = {
   clientY: number
 }
 
-export type EdgeRoutingPointDragUpdateOptions = {
+export type RoutingDragUpdateOptions = {
   pointerId: number
   clientX: number
   clientY: number
 }
 
-export type EdgeRoutingPointDragEndOptions = {
+export type RoutingDragEndOptions = {
   pointerId: number
 }
 
-export type EdgeRoutingPointDragCancelOptions = {
+export type RoutingDragCancelOptions = {
   pointerId?: number
 }
 
-export type NodeTransformStartResizeOptions = {
+export type NodeResizeStartOptions = {
   nodeId: NodeId
   pointerId: number
-  handle: NodeTransformResizeDirection
+  handle: ResizeDirection
   clientX: number
   clientY: number
   rect: Rect
   rotation: number
 }
 
-export type NodeTransformStartRotateOptions = {
+export type NodeRotateStartOptions = {
   nodeId: NodeId
   pointerId: number
   clientX: number
@@ -173,8 +173,8 @@ export type NodeTransformCancelOptions = {
 
 export type MindmapCommands = Core['commands']['mindmap'] & {
   insertNode: (options: MindmapInsertNodeOptions) => Promise<void>
-  moveSubtreeWithLayout: (options: MindmapMoveSubtreeWithLayoutOptions) => Promise<DispatchResult>
-  moveSubtreeWithDrop: (options: MindmapMoveSubtreeWithDropOptions) => Promise<void>
+  moveSubtreeWithLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
+  moveSubtreeWithDrop: (options: MindmapMoveDropOptions) => Promise<void>
   moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
   startDrag: (options: MindmapStartDragOptions) => boolean
   updateDrag: (options: MindmapUpdateDragOptions) => boolean
@@ -216,10 +216,10 @@ export type Commands = {
     insertRoutingPointAtClient: (edge: Edge, pathPoints: Point[], clientX: number, clientY: number) => void
     moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
     removeRoutingPoint: (edge: Edge, index: number) => void
-    startRoutingPointDrag: (options: EdgeRoutingPointDragStartOptions) => boolean
-    updateRoutingPointDrag: (options: EdgeRoutingPointDragUpdateOptions) => boolean
-    endRoutingPointDrag: (options: EdgeRoutingPointDragEndOptions) => boolean
-    cancelRoutingPointDrag: (options?: EdgeRoutingPointDragCancelOptions) => boolean
+    startRoutingDrag: (options: RoutingDragStartOptions) => boolean
+    updateRoutingDrag: (options: RoutingDragUpdateOptions) => boolean
+    endRoutingDrag: (options: RoutingDragEndOptions) => boolean
+    cancelRoutingDrag: (options?: RoutingDragCancelOptions) => boolean
     resetRouting: (edge: Edge) => void
     connect: (
       source: { nodeId: NodeId; anchor?: EdgeAnchor },
@@ -316,8 +316,8 @@ export type Commands = {
     commitResize: (nodeId: NodeId, update?: { position: Point; size: Size }) => void
     setGuides: (guides: Guide[]) => void
     clearGuides: () => void
-    startResize: (options: NodeTransformStartResizeOptions) => boolean
-    startRotate: (options: NodeTransformStartRotateOptions) => boolean
+    startResize: (options: NodeResizeStartOptions) => boolean
+    startRotate: (options: NodeRotateStartOptions) => boolean
     update: (options: NodeTransformUpdateOptions) => boolean
     end: (options: NodeTransformEndOptions) => boolean
     cancel: (options?: NodeTransformCancelOptions) => boolean

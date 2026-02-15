@@ -10,7 +10,7 @@ type Options = {
   wheelSensitivity?: number
 }
 
-export const createViewportInputHandlers = ({
+export const createViewport = ({
   instance,
   minZoom = DEFAULT_CONFIG.viewport.minZoom,
   maxZoom = DEFAULT_CONFIG.viewport.maxZoom,

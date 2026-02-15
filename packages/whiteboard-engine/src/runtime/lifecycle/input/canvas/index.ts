@@ -1,5 +1,4 @@
-export { createCanvasInputHandlers } from './handlers'
-export { createEdgeHoverInputHandlers } from './edgeHover'
-export { createSelectionInputHandlers } from './selection'
-export { createViewportInputHandlers } from './viewport'
-
+export { createCanvasInput } from './handlers'
+export { createEdgeHover } from './edgeHover'
+export { createSelection } from './selection'
+export { createViewport } from './viewport'

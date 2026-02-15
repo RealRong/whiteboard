@@ -108,13 +108,13 @@ export const createViewDerivations = ({
         }
       }
     ),
-    'edge.entries': createViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getPathEntries()),
+    'edge.entries': createViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getEntries()),
     'edge.reconnect': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () =>
-      edgeViewQuery.getReconnectPathEntry(readState('edgeConnect'))
+      edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
     ),
     'edge.paths': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () => {
-      const entries = edgeViewQuery.getPathEntries()
-      const reconnect = edgeViewQuery.getReconnectPathEntry(readState('edgeConnect'))
+      const entries = edgeViewQuery.getEntries()
+      const reconnect = edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
       if (!reconnect) return entries
       let matched = false
       const next = entries.map((entry) => {
@@ -127,7 +127,7 @@ export const createViewDerivations = ({
     'edge.preview': createViewDerivation(['edgeConnect', 'canvasNodes', 'tool'], () => {
       const edgeConnect = readState('edgeConnect')
       const tool = readState('tool')
-      const preview = edgeViewQuery.getConnectPreview(edgeConnect)
+      const preview = edgeViewQuery.getPreview(edgeConnect)
       return {
         from: preview.showPreviewLine ? preview.from : undefined,
         to: preview.showPreviewLine ? preview.to : undefined,
@@ -141,7 +141,7 @@ export const createViewDerivations = ({
       if (!selectedEdgeId) return undefined
       const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
       if (!edge) return undefined
-      return edgeViewQuery.getResolvedEndpoints(edge)
+      return edgeViewQuery.getEndpoints(edge)
     }),
     'edge.selectedRouting': createViewDerivation(['edgeSelection', 'visibleEdges'], () => {
       const selectedEdgeId = readState('edgeSelection')
@@ -162,7 +162,7 @@ export const createViewDerivations = ({
       const selectedNodeIds = readState('selection').selectedNodeIds
       const hoveredGroupId = readState('groupHovered')
       const orderedNodes = toLayerOrderedCanvasNodes(readState('canvasNodes'))
-      const rectByNodeId = new Map(query.getCanvasNodeRects().map((entry) => [entry.node.id, entry.rect]))
+      const rectByNodeId = new Map(query.getNodeRects().map((entry) => [entry.node.id, entry.rect]))
 
       return orderedNodes.map((node) => {
         const rect =
@@ -196,7 +196,7 @@ export const createViewDerivations = ({
       const selectedNodeIds = readState('selection').selectedNodeIds
       const zoom = readState('viewport').zoom
       const orderedNodes = toLayerOrderedCanvasNodes(readState('canvasNodes'))
-      const rectByNodeId = new Map(query.getCanvasNodeRects().map((entry) => [entry.node.id, entry.rect]))
+      const rectByNodeId = new Map(query.getNodeRects().map((entry) => [entry.node.id, entry.rect]))
 
       orderedNodes.forEach((node) => {
         if (!selectedNodeIds.has(node.id) || node.locked) return

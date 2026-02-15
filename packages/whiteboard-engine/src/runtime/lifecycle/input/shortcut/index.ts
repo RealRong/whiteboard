@@ -1,3 +1,3 @@
-export { createShortcutInputHandlers } from './handlers'
-export { createShortcutContextResolver } from './contextResolver'
-export type { ShortcutContextResolver } from './contextResolver'
+export { createShortcut } from './handlers'
+export { createContextResolver } from './contextResolver'
+export type { ContextResolver } from './contextResolver'

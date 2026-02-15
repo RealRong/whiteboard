@@ -1,27 +1,27 @@
 import type { LifecycleConfig } from '@engine-types/instance'
 import type { Instance } from '@engine-types/instance'
-import { createShortcutInputHandlers } from '../shortcut'
-import type { CanvasInputRuntime } from '..'
-import { createEdgeHoverInputHandlers } from './edgeHover'
-import { createSelectionInputHandlers } from './selection'
-import { createViewportInputHandlers } from './viewport'
+import { createShortcut } from '../shortcut'
+import type { CanvasInput } from '..'
+import { createEdgeHover } from './edgeHover'
+import { createSelection } from './selection'
+import { createViewport } from './viewport'
 
 type Options = {
   instance: Instance
   config: LifecycleConfig
 }
 
-export const createCanvasInputHandlers = ({ instance, config }: Options): CanvasInputRuntime => {
-  const selectionHandlers = createSelectionInputHandlers({
+export const createCanvasInput = ({ instance, config }: Options): CanvasInput => {
+  const selectionHandlers = createSelection({
     instance,
     enabled: config.tool !== 'edge',
     minDragDistance: instance.runtime.config.node.selectionMinDragDistance
   })
-  const edgeHoverHandlers = createEdgeHoverInputHandlers({
+  const edgeHoverHandlers = createEdgeHover({
     instance,
     enabled: config.tool === 'edge'
   })
-  const viewportHandlers = createViewportInputHandlers({
+  const viewportHandlers = createViewport({
     instance,
     minZoom: config.viewportConfig.minZoom,
     maxZoom: config.viewportConfig.maxZoom,
@@ -29,7 +29,7 @@ export const createCanvasInputHandlers = ({ instance, config }: Options): Canvas
     enableWheel: config.viewportConfig.enableWheel,
     wheelSensitivity: config.viewportConfig.wheelSensitivity
   })
-  const shortcutHandlers = createShortcutInputHandlers({ instance })
+  const shortcutHandlers = createShortcut({ instance })
 
   return {
     handlers: {

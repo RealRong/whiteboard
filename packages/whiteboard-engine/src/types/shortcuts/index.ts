@@ -56,4 +56,4 @@ export type Shortcut = {
   handler: (ctx: ShortcutContext, event: ShortcutNativeEvent) => void
 }
 
-export type { ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, ShortcutRuntime } from './manager'
+export type { ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, Shortcuts } from './manager'

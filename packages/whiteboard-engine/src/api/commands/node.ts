@@ -6,7 +6,7 @@ import type { NodeViewUpdate } from '@engine-types/state'
 import { selectNodeDragStrategy } from '../../node/runtime/drag'
 import { computeSnap } from '../../node/utils/snap'
 
-export const createNodeCommands = (
+export const createNode = (
   instance: Instance,
   transient: Commands['transient']
 ): Pick<Commands, 'groupRuntime' | 'nodeDrag' | 'node' | 'nodeTransform'> => {
@@ -121,12 +121,12 @@ export const createNodeCommands = (
     }
   }
 
-  const nodeDragTransient = {
+  const dragTransient = {
     setOverrides: transient.nodeOverrides.set,
     commitOverrides: transient.nodeOverrides.commit
   }
 
-  const getNodeDragGroupContext = (): NodeDragGroupOptions => ({
+  const getGroupContext = (): NodeDragGroupOptions => ({
     nodes: read('canvasNodes'),
     nodeSize: instance.runtime.config.nodeSize,
     padding: instance.runtime.config.node.groupPadding,
@@ -135,19 +135,19 @@ export const createNodeCommands = (
     }
   })
 
-  const setNodeDragHoverGroup = (current: NodeId | undefined, next?: NodeId) => {
+  const setHoverGroup = (current: NodeId | undefined, next?: NodeId) => {
     if (current === next) return current
     write('groupHovered', next)
     return next
   }
 
-  const clearNodeDragHoverGroup = (current?: NodeId) => {
+  const clearHoverGroup = (current?: NodeId) => {
     if (current === undefined) return undefined
     write('groupHovered', undefined)
     return undefined
   }
 
-  const resolveNodeDragMove = ({
+  const resolveMove = ({
     nodeId,
     position,
     size,
@@ -195,11 +195,11 @@ export const createNodeCommands = (
     }
   }
 
-  const applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
+  const applyPatch = (nodeId: NodeId, patch: NodePatch) => {
     void core.dispatch({ type: 'node.update', id: nodeId, patch })
   }
 
-  const applyNodePositionUpdates = (updates: NodeViewUpdate[]) => {
+  const applyPositionUpdates = (updates: NodeViewUpdate[]) => {
     if (!updates.length) return
     const positionUpdates = updates
       .filter((update): update is NodeViewUpdate & { position: Point } => Boolean(update.position))
@@ -216,7 +216,7 @@ export const createNodeCommands = (
     )
   }
 
-  const toNodeDragChildrenState = (
+  const toChildrenState = (
     children: { ids: NodeId[]; offsets: Map<NodeId, Point> } | undefined
   ) => {
     if (!children) return undefined
@@ -232,7 +232,7 @@ export const createNodeCommands = (
     }
   }
 
-  const toNodeDragChildren = (
+  const toChildren = (
     children: { ids: NodeId[]; offsets: Array<{ id: NodeId; offset: Point }> } | undefined
   ) => {
     if (!children) return undefined
@@ -242,7 +242,7 @@ export const createNodeCommands = (
     }
   }
 
-  const startNodeDrag: Commands['nodeDrag']['start'] = ({ nodeId, pointerId, clientX, clientY }) => {
+  const startDrag: Commands['nodeDrag']['start'] = ({ nodeId, pointerId, clientX, clientY }) => {
     if (read('nodeDrag').active) return false
     if (read('tool') !== 'select') return false
 
@@ -257,7 +257,7 @@ export const createNodeCommands = (
 
     let hoverGroupId = read('groupHovered')
     const updateHoverGroup = (nextId?: NodeId) => {
-      hoverGroupId = setNodeDragHoverGroup(hoverGroupId, nextId)
+      hoverGroupId = setHoverGroup(hoverGroupId, nextId)
     }
     const getHoverGroupId = () => hoverGroupId
 
@@ -266,15 +266,15 @@ export const createNodeCommands = (
       nodeType: node.type,
       position: node.position,
       size,
-      group: getNodeDragGroupContext(),
-      transient: nodeDragTransient,
-      applyNodePatch,
-      applyNodePositionUpdates,
+      group: getGroupContext(),
+      transient: dragTransient,
+      applyNodePatch: applyPatch,
+      applyNodePositionUpdates: applyPositionUpdates,
       updateHoverGroup,
       getHoverGroupId
     })
 
-    hoverGroupId = clearNodeDragHoverGroup(hoverGroupId)
+    hoverGroupId = clearHoverGroup(hoverGroupId)
 
     write('nodeDrag', {
       active: {
@@ -291,14 +291,14 @@ export const createNodeCommands = (
           x: node.position.x,
           y: node.position.y
         },
-        children: toNodeDragChildrenState(children)
+        children: toChildrenState(children)
       }
     })
 
     return true
   }
 
-  const updateNodeDrag: Commands['nodeDrag']['update'] = ({
+  const updateDrag: Commands['nodeDrag']['update'] = ({
     pointerId,
     clientX,
     clientY,
@@ -314,7 +314,7 @@ export const createNodeCommands = (
       y: active.origin.y + (clientY - active.start.y) / zoom
     }
 
-    nextPosition = resolveNodeDragMove({
+    nextPosition = resolveMove({
       nodeId: active.nodeId,
       position: nextPosition,
       size: active.size,
@@ -324,7 +324,7 @@ export const createNodeCommands = (
 
     let hoverGroupId = read('groupHovered')
     const updateHoverGroup = (nextId?: NodeId) => {
-      hoverGroupId = setNodeDragHoverGroup(hoverGroupId, nextId)
+      hoverGroupId = setHoverGroup(hoverGroupId, nextId)
     }
     const getHoverGroupId = () => hoverGroupId
 
@@ -334,16 +334,16 @@ export const createNodeCommands = (
         start: active.start,
         origin: active.origin,
         last: active.last,
-        children: toNodeDragChildren(active.children)
+        children: toChildren(active.children)
       },
       nodeId: active.nodeId,
       nodeType: active.nodeType,
       position: active.origin,
       size: active.size,
-      group: getNodeDragGroupContext(),
-      transient: nodeDragTransient,
-      applyNodePatch,
-      applyNodePositionUpdates,
+      group: getGroupContext(),
+      transient: dragTransient,
+      applyNodePatch: applyPatch,
+      applyNodePositionUpdates: applyPositionUpdates,
       updateHoverGroup,
       getHoverGroupId,
       nextPosition
@@ -359,14 +359,14 @@ export const createNodeCommands = (
     return true
   }
 
-  const endNodeDrag: Commands['nodeDrag']['end'] = ({ pointerId }) => {
+  const endDrag: Commands['nodeDrag']['end'] = ({ pointerId }) => {
     const active = read('nodeDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
     const strategy = selectNodeDragStrategy(active.nodeType)
     let hoverGroupId = read('groupHovered')
     const updateHoverGroup = (nextId?: NodeId) => {
-      hoverGroupId = setNodeDragHoverGroup(hoverGroupId, nextId)
+      hoverGroupId = setHoverGroup(hoverGroupId, nextId)
     }
     const getHoverGroupId = () => hoverGroupId
 
@@ -376,16 +376,16 @@ export const createNodeCommands = (
         start: active.start,
         origin: active.origin,
         last: active.last,
-        children: toNodeDragChildren(active.children)
+        children: toChildren(active.children)
       },
       nodeId: active.nodeId,
       nodeType: active.nodeType,
       position: active.origin,
       size: active.size,
-      group: getNodeDragGroupContext(),
-      transient: nodeDragTransient,
-      applyNodePatch,
-      applyNodePositionUpdates,
+      group: getGroupContext(),
+      transient: dragTransient,
+      applyNodePatch: applyPatch,
+      applyNodePositionUpdates: applyPositionUpdates,
       updateHoverGroup,
       getHoverGroupId
     })
@@ -396,14 +396,14 @@ export const createNodeCommands = (
     return true
   }
 
-  const cancelNodeDrag: Commands['nodeDrag']['cancel'] = (options) => {
+  const cancelDrag: Commands['nodeDrag']['cancel'] = (options) => {
     const active = read('nodeDrag').active
     if (!active) return false
     if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
 
     transient.nodeOverrides.clear([active.nodeId, ...(active.children?.ids ?? [])])
     transient.dragGuides.clear()
-    clearNodeDragHoverGroup(read('groupHovered'))
+    clearHoverGroup(read('groupHovered'))
     write('nodeDrag', {})
 
     return true
@@ -416,14 +416,14 @@ export const createNodeCommands = (
       }
     },
     nodeDrag: {
-      start: startNodeDrag,
-      update: updateNodeDrag,
-      end: endNodeDrag,
-      cancel: cancelNodeDrag,
-      getGroupContext: getNodeDragGroupContext,
-      updateHoverGroup: setNodeDragHoverGroup,
-      clearHoverGroup: clearNodeDragHoverGroup,
-      resolveMove: resolveNodeDragMove,
+      start: startDrag,
+      update: updateDrag,
+      end: endDrag,
+      cancel: cancelDrag,
+      getGroupContext,
+      updateHoverGroup: setHoverGroup,
+      clearHoverGroup,
+      resolveMove,
       clearGuides: () => {
         transient.dragGuides.clear()
       }

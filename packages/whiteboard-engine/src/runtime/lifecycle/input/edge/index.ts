@@ -1,23 +1,23 @@
 import type { Instance } from '@engine-types/instance'
 import {
-  createEdgeRoutingPointDragWindowBinding,
-  type EdgeRoutingPointDragWindowBinding
+  createRoutingDrag,
+  type RoutingDragBinding
 } from '../../bindings'
-import { createEdgeConnectWindowBinding, type EdgeConnectWindowBinding } from '../../bindings'
+import { createEdgeConnect, type EdgeConnectBinding } from '../../bindings'
 
-export type EdgeInputWindowBindings = {
-  edgeConnectWindowBinding: EdgeConnectWindowBinding
-  edgeRoutingPointDragWindowBinding: EdgeRoutingPointDragWindowBinding
+export type EdgeBindings = {
+  edgeConnect: EdgeConnectBinding
+  routingDrag: RoutingDragBinding
 }
 
-export const createEdgeInputWindowBindings = (instance: Instance): EdgeInputWindowBindings => {
+export const createEdgeBindings = (instance: Instance): EdgeBindings => {
   return {
-    edgeConnectWindowBinding: createEdgeConnectWindowBinding({
+    edgeConnect: createEdgeConnect({
       state: instance.state,
       events: instance.runtime.events,
       edgeConnectCommands: instance.commands.edgeConnect
     }),
-    edgeRoutingPointDragWindowBinding: createEdgeRoutingPointDragWindowBinding({
+    routingDrag: createRoutingDrag({
       state: instance.state,
       events: instance.runtime.events,
       edgeCommands: instance.commands.edge

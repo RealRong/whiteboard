@@ -20,7 +20,15 @@ export type {
   NodeDragStrategy,
   NodeDragTransientApi
 } from './drag'
-export type { HandleKind, ResizeDirection, TransformHandle, NodeTransformOptions } from './transform'
+export type {
+  HandleKind,
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
+  TransformDragState,
+  TransformHandle,
+  NodeTransformOptions
+} from './transform'
 export type { SnapRuntime } from './runtime'
 export type { NodeTransientApi } from './transient'
 export type { NodeHandleSide, NodeHandlesProps, NodeItemProps } from './components'

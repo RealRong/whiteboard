@@ -1,21 +1,21 @@
 import type { Instance } from '@engine-types/instance'
-import { createShortcutContextResolver } from './contextResolver'
+import { createContextResolver } from './contextResolver'
 
 type Options = {
   instance: Instance
 }
 
-export type ShortcutInputHandlers = {
+export type ShortcutHandlers = {
   handlePointerDownCapture: (event: PointerEvent, onUnhandled?: () => void) => void
   handleKeyDown: (event: KeyboardEvent) => void
 }
 
-export const createShortcutInputHandlers = ({
+export const createShortcut = ({
   instance
-}: Options): ShortcutInputHandlers => {
-  const resolveContext = createShortcutContextResolver(instance)
+}: Options): ShortcutHandlers => {
+  const resolveContext = createContextResolver(instance)
 
-  const handlePointerDownCapture: ShortcutInputHandlers['handlePointerDownCapture'] = (event, onUnhandled) => {
+  const handlePointerDownCapture: ShortcutHandlers['handlePointerDownCapture'] = (event, onUnhandled) => {
     const handled = instance.runtime.shortcuts.handlePointerDownCapture(event, resolveContext(event))
     if (handled) {
       event.preventDefault()
@@ -25,7 +25,7 @@ export const createShortcutInputHandlers = ({
     onUnhandled?.()
   }
 
-  const handleKeyDown: ShortcutInputHandlers['handleKeyDown'] = (event) => {
+  const handleKeyDown: ShortcutHandlers['handleKeyDown'] = (event) => {
     const handled = instance.runtime.shortcuts.handleKeyDown(event, resolveContext(event))
     if (handled) {
       event.preventDefault()

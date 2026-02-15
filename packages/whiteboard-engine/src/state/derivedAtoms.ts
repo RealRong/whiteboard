@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 import type { Edge, EdgeId, Node, NodeId } from '@whiteboard/core'
 import { docAtom } from './contextAtoms'
 import { viewNodesAtom } from '../node/state/viewNodesAtom'
-import { getCollapsedGroupIds, isNodeHiddenByCollapsedGroup } from '../node/utils/group'
+import { getCollapsedGroupIds, isHiddenByCollapsedGroup } from '../node/utils/group'
 
 const orderByIds = <T extends { id: string }>(items: T[], ids: string[]) => {
   if (!ids.length) return items
@@ -55,7 +55,7 @@ export const visibleNodesAtom = atom<Node[]>((get) => {
   const collapsedGroupIds = getCollapsedGroupIds(viewNodes)
   const hiddenNodeIds = new Set<NodeId>()
   viewNodes.forEach((node) => {
-    if (isNodeHiddenByCollapsedGroup(node, nodeMap, collapsedGroupIds)) {
+    if (isHiddenByCollapsedGroup(node, nodeMap, collapsedGroupIds)) {
       hiddenNodeIds.add(node.id)
     }
   })

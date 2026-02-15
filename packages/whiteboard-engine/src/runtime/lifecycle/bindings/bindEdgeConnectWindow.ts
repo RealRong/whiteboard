@@ -1,5 +1,5 @@
 import type { Instance } from '@engine-types/instance'
-import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
+import { createPointerSession } from './bindPointerSessionWindow'
 
 type Options = {
   state: Instance['state']
@@ -7,18 +7,18 @@ type Options = {
   edgeConnectCommands: Pick<Instance['commands']['edgeConnect'], 'updateToClient' | 'commitToClient'>
 }
 
-export type EdgeConnectWindowBinding = {
+export type EdgeConnectBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-export const createEdgeConnectWindowBinding = ({
+export const createEdgeConnect = ({
   state,
   events,
   edgeConnectCommands
-}: Options): EdgeConnectWindowBinding => {
-  return createPointerSessionWindowBinding({
+}: Options): EdgeConnectBinding => {
+  return createPointerSession({
     events,
     watch: (listener) => state.watch('edgeConnect', listener),
     getActive: () => {

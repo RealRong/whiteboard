@@ -10,7 +10,7 @@ type Options = {
   minDragDistance: number
 }
 
-export const createSelectionInputHandlers = ({
+export const createSelection = ({
   instance,
   enabled,
   minDragDistance
@@ -96,7 +96,7 @@ export const createSelectionInputHandlers = ({
     if (!enabled) return
     if (event.button !== 0) return
     if (instance.state.read('spacePressed')) return
-    if (!instance.query.isCanvasBackgroundTarget(event.target)) return
+    if (!instance.query.isBackgroundTarget(event.target)) return
 
     const point = getScreenPoint(event)
     if (!point) return

@@ -1,6 +1,6 @@
 import type { MindmapNodeId, Rect } from '@whiteboard/core'
 import type { MindmapDrag as MindmapDragApi } from '@engine-types/instance/services'
-import { computeMindmapSubtreeDropTarget } from '../../mindmap'
+import { computeSubtreeDropTarget } from '../../mindmap'
 
 export class MindmapDrag implements MindmapDragApi {
   buildNodeRectMap: MindmapDragApi['buildNodeRectMap'] = ({ nodeRects, shift, offset }) => {
@@ -25,7 +25,7 @@ export class MindmapDrag implements MindmapDragApi {
   })
 
   computeSubtreeDropTarget: MindmapDragApi['computeSubtreeDropTarget'] = (options) =>
-    computeMindmapSubtreeDropTarget(options)
+    computeSubtreeDropTarget(options)
 
   dispose: MindmapDragApi['dispose'] = () => {
     return

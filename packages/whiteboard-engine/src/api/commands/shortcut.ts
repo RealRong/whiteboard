@@ -18,7 +18,7 @@ type ShortcutSelectionApi = {
   clear: () => void
 }
 
-type ShortcutCommandDeps = {
+type Deps = {
   runTransaction: (recipe: () => Promise<void>) => Promise<unknown>
   node: {
     create: (payload: NodeInput) => Promise<DispatchResult>
@@ -44,7 +44,7 @@ type ShortcutCommandDeps = {
   selectEdge?: (id?: EdgeId) => void
 }
 
-const extractCreatedNodeId = (result: DispatchResult, type?: string) => {
+const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   if (!result.ok) return undefined
   const op = result.changes.operations.find(
     (operation): operation is { type: 'node.create'; node: Node } =>
@@ -55,7 +55,7 @@ const extractCreatedNodeId = (result: DispatchResult, type?: string) => {
 
 const clonePoint = (point: Point) => ({ x: point.x, y: point.y })
 
-const buildNodeCopy = (node: Node, parentId: NodeId | undefined, delta: Point) => {
+const copyNode = (node: Node, parentId: NodeId | undefined, delta: Point) => {
   return {
     type: node.type,
     position: { x: node.position.x + delta.x, y: node.position.y + delta.y },
@@ -70,7 +70,7 @@ const buildNodeCopy = (node: Node, parentId: NodeId | undefined, delta: Point) =
   }
 }
 
-const buildEdgeCopy = (edge: Edge, sourceNodeId: NodeId, targetNodeId: NodeId) => {
+const copyEdge = (edge: Edge, sourceNodeId: NodeId, targetNodeId: NodeId) => {
   return {
     type: edge.type,
     source: { ...edge.source, nodeId: sourceNodeId },
@@ -104,17 +104,17 @@ const expandSelection = (nodes: Node[], selectedIds: string[]) => {
   return { expanded, nodeMap }
 }
 
-const createGroupFromSelection = async (deps: ShortcutCommandDeps) => {
+const groupSelection = async (deps: Deps) => {
   const selectedNodeIds = deps.getSelectedNodeIds()
   if (selectedNodeIds.length < 2) return
 
   const result = await deps.group.create(selectedNodeIds)
-  const groupId = extractCreatedNodeId(result, 'group')
+  const groupId = getCreatedNodeId(result, 'group')
   if (!groupId) return
   deps.selection.select([groupId], 'replace')
 }
 
-const ungroupSelection = async (deps: ShortcutCommandDeps) => {
+const ungroupSelection = async (deps: Deps) => {
   const selectedNodeIds = deps.getSelectedNodeIds()
   if (!selectedNodeIds.length) return
 
@@ -128,7 +128,7 @@ const ungroupSelection = async (deps: ShortcutCommandDeps) => {
   deps.selection.clear()
 }
 
-const deleteSelection = async (deps: ShortcutCommandDeps) => {
+const deleteSelection = async (deps: Deps) => {
   const selectedEdgeId = deps.getSelectedEdgeId()
   if (selectedEdgeId) {
     await deps.edge.delete([selectedEdgeId])
@@ -156,7 +156,7 @@ const deleteSelection = async (deps: ShortcutCommandDeps) => {
   deps.selection.clear()
 }
 
-const duplicateSelection = async (deps: ShortcutCommandDeps) => {
+const duplicateSelection = async (deps: Deps) => {
   const selectedIds = deps.getSelectedNodeIds()
   if (!selectedIds.length) return
 
@@ -186,9 +186,9 @@ const duplicateSelection = async (deps: ShortcutCommandDeps) => {
   await deps.runTransaction(async () => {
     for (const node of nodes) {
       const parentId = node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : node.parentId
-      const payload = buildNodeCopy(node, parentId, offset)
+      const payload = copyNode(node, parentId, offset)
       const result = await deps.node.create(payload)
-      const createdId = extractCreatedNodeId(result)
+      const createdId = getCreatedNodeId(result)
       if (createdId) {
         idMap.set(node.id, createdId)
         createdIds.push(createdId)
@@ -200,7 +200,7 @@ const duplicateSelection = async (deps: ShortcutCommandDeps) => {
       const sourceId = idMap.get(edge.source.nodeId)
       const targetId = idMap.get(edge.target.nodeId)
       if (!sourceId || !targetId) continue
-      const payload = buildEdgeCopy(edge, sourceId, targetId)
+      const payload = copyEdge(edge, sourceId, targetId)
       await deps.edge.create(payload)
     }
   })
@@ -210,7 +210,7 @@ const duplicateSelection = async (deps: ShortcutCommandDeps) => {
   }
 }
 
-export const createShortcutCommandHandlers = (deps: ShortcutCommandDeps) => {
+export const createHandlers = (deps: Deps) => {
   return {
     'selection.selectAll': () => {
       const ids = deps.getSelectableNodeIds()
@@ -226,7 +226,7 @@ export const createShortcutCommandHandlers = (deps: ShortcutCommandDeps) => {
       void duplicateSelection(deps)
     },
     'group.createFromSelection': () => {
-      void createGroupFromSelection(deps)
+      void groupSelection(deps)
     },
     'group.ungroupSelection': () => {
       void ungroupSelection(deps)
@@ -240,9 +240,9 @@ export const createShortcutCommandHandlers = (deps: ShortcutCommandDeps) => {
   }
 }
 
-export const registerShortcutCommandHandlers = (
+export const registerHandlers = (
   core: Core,
-  handlers: ReturnType<typeof createShortcutCommandHandlers>
+  handlers: ReturnType<typeof createHandlers>
 ) => {
   const unregisters = Object.entries(handlers).map(([name, handler]) => core.registries.commands.register(name, handler))
 

@@ -1,11 +1,11 @@
 import type { Instance } from '@engine-types/instance'
 import {
-  createEdgeInputWindowBindings,
-  createMindmapInputWindowBinding,
-  createNodeInputWindowBindings,
-  createSelectionInputBindings,
+  createEdgeBindings,
+  createMindmap,
+  createNodeBindings,
+  createSelection,
   type CanvasEventHandlers,
-  type SelectionBoxSessionRuntime
+  type SelectionBoxSession
 } from '../input'
 import { History } from '../history'
 import { Container } from '../container'
@@ -21,7 +21,7 @@ import {
   RuntimeEffects
 } from '../phase'
 import {
-  createBindingsContext,
+  createBindingContext,
   createSharedContext
 } from './context'
 
@@ -29,7 +29,7 @@ type Options = {
   instance: Instance
   getHandlers: () => CanvasEventHandlers
   getOnWheel: () => (event: WheelEvent) => void
-  getSelectionBox: () => SelectionBoxSessionRuntime
+  getSelectionBox: () => SelectionBoxSession
   resetInput: () => void
   cancelInput: () => void
 }
@@ -58,34 +58,34 @@ export const createPhases = ({
   const autoFit = new AutoFit(instance)
   const cleanup = new Cleanup(instance)
 
-  const edgeBindings = createEdgeInputWindowBindings(instance)
-  const nodeBindings = createNodeInputWindowBindings(instance)
-  const mindmapBinding = createMindmapInputWindowBinding(instance)
-  const selectionBindings = createSelectionInputBindings({
+  const edgeBindings = createEdgeBindings(instance)
+  const nodeBindings = createNodeBindings(instance)
+  const mindmapBinding = createMindmap(instance)
+  const selectionBindings = createSelection({
     instance,
     getSelectionBox
   })
 
-  const windowBindings = new Bindings({
+  const window = new Bindings({
     bindings: [
-      edgeBindings.edgeConnectWindowBinding,
-      edgeBindings.edgeRoutingPointDragWindowBinding,
-      nodeBindings.nodeDragWindowBinding,
-      nodeBindings.nodeTransformWindowBinding,
+      edgeBindings.edgeConnect,
+      edgeBindings.routingDrag,
+      nodeBindings.nodeDrag,
+      nodeBindings.nodeTransform,
       mindmapBinding,
-      selectionBindings.selectionBoxWindowBinding
+      selectionBindings.selectionBox
     ]
   })
 
   const configApply = new ConfigApply({
     instance,
     resetInput,
-    selectionCallbacksBinding: selectionBindings.selectionCallbacksBinding,
+    selectionCallbacks: selectionBindings.selectionCallbacks,
     history
   })
   const runtimeEffects = new RuntimeEffects({
     instance,
-    windowBindings,
+    window,
     container
   })
   const startContext = {
@@ -95,9 +95,9 @@ export const createPhases = ({
       windowKey,
       autoFit
     }),
-    bindings: createBindingsContext({
-      selectionCallbacksBinding: selectionBindings.selectionCallbacksBinding,
-      windowBindings
+    bindings: createBindingContext({
+      selectionCallbacks: selectionBindings.selectionCallbacks,
+      window
     })
   }
 

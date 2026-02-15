@@ -1,6 +1,6 @@
 export type {
-  EdgeRoutingPointDragActiveState,
-  EdgeRoutingPointDragState,
+  RoutingDragActiveState,
+  RoutingDragState,
   EdgeConnectFrom,
   EdgeConnectState,
   EdgeConnectTo,
@@ -14,13 +14,10 @@ export type {
   NodeDragActiveState,
   NodeDragChildrenState,
   NodeDragState,
-  NodeTransformDragState,
-  NodeTransformResizeDirection,
-  NodeTransformResizeDragState,
-  NodeTransformRotateDragState,
   NodeTransformState,
   SelectionMode,
   SelectionState
 } from './model'
 
 export type { GroupRuntime, NodeOverride, NodeViewUpdate, SnapRuntimeData } from './node'
+export type { ResizeDirection, ResizeDragState, RotateDragState, TransformDragState } from '../node'

@@ -1,4 +1,5 @@
 import type { EdgeAnchor, EdgeId, MindmapNodeId, Node, NodeId, Point, Rect } from '@whiteboard/core'
+import type { TransformDragState } from '../node'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
@@ -66,7 +67,7 @@ export type EdgeConnectState = {
   pointerId?: number | null
 }
 
-export type EdgeRoutingPointDragActiveState = {
+export type RoutingDragActiveState = {
   edgeId: EdgeId
   index: number
   pointerId: number
@@ -74,8 +75,8 @@ export type EdgeRoutingPointDragActiveState = {
   origin: Point
 }
 
-export type EdgeRoutingPointDragState = {
-  active?: EdgeRoutingPointDragActiveState
+export type RoutingDragState = {
+  active?: RoutingDragActiveState
 }
 
 export type MindmapDragDropTarget = {
@@ -142,42 +143,9 @@ export type NodeDragState = {
   active?: NodeDragActiveState
 }
 
-export type NodeTransformResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-
-export type NodeTransformResizeDragState = {
-  mode: 'resize'
-  pointerId: number
-  handle: NodeTransformResizeDirection
-  startScreen: Point
-  startCenter: Point
-  startRotation: number
-  startSize: {
-    width: number
-    height: number
-  }
-  startAspect: number
-  lastUpdate?: {
-    position: Point
-    size: {
-      width: number
-      height: number
-    }
-  }
-}
-
-export type NodeTransformRotateDragState = {
-  mode: 'rotate'
-  pointerId: number
-  startAngle: number
-  startRotation: number
-  center: Point
-}
-
-export type NodeTransformDragState = NodeTransformResizeDragState | NodeTransformRotateDragState
-
 export type NodeTransformState = {
   active?: {
     nodeId: NodeId
-    drag: NodeTransformDragState
+    drag: TransformDragState
   }
 }

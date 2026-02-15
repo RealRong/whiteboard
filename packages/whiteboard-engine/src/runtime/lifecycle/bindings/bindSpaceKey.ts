@@ -5,7 +5,7 @@ type Options = {
   setSpacePressed: (pressed: boolean) => void
 }
 
-export const bindWindowSpaceKey = ({ events, setSpacePressed }: Options) => {
+export const bindSpaceKey = ({ events, setSpacePressed }: Options) => {
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.code !== 'Space') return
     event.preventDefault()

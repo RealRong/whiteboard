@@ -1,11 +1,10 @@
 import type { Instance } from '@engine-types/instance'
 import type { ShortcutContext, ShortcutNativeEvent } from '@engine-types/shortcuts'
-import { resolveShortcutContextFromEvent } from './contextFromEvent'
+import { resolveContextFromEvent } from './contextFromEvent'
 
-export type ShortcutContextResolver = (event: ShortcutNativeEvent) => ShortcutContext
+export type ContextResolver = (event: ShortcutNativeEvent) => ShortcutContext
 
-export const createShortcutContextResolver = (instance: Instance): ShortcutContextResolver => {
+export const createContextResolver = (instance: Instance): ContextResolver => {
   const readBaseContext = () => instance.view.read('shortcut.context')
-  return (event) => resolveShortcutContextFromEvent(readBaseContext(), event)
+  return (event) => resolveContextFromEvent(readBaseContext(), event)
 }
-

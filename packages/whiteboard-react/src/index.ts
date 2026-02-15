@@ -5,4 +5,4 @@ export { useInstance, useWhiteboardSelector } from './common/hooks'
 
 export type { Config, HistoryConfig, WhiteboardProps } from './types/common'
 export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'
-export type { CreateInstanceOptions, Instance } from '@whiteboard/engine'
+export type { CreateEngineOptions, Instance } from '@whiteboard/engine'

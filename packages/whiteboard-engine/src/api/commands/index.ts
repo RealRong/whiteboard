@@ -1,26 +1,26 @@
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
-import { createBaseCommands } from './base'
-import { createEdgeCommands } from './edge'
-import { createMindmapCommands } from './mindmap'
-import { createNodeCommands } from './node'
-import { createSelectionCommands } from './selection'
-import { createTransientCommands } from './transient'
+import { createBase } from './base'
+import { createEdge } from './edge'
+import { createMindmap } from './mindmap'
+import { createNode } from './node'
+import { createSelection } from './selection'
+import { createTransient } from './transient'
 
 export const createCommands = (instance: Instance): Commands => {
   const { core } = instance.runtime
-  const selection = createSelectionCommands(instance)
-  const transient = createTransientCommands(instance)
+  const selection = createSelection(instance)
+  const transient = createTransient(instance)
 
   return {
-    ...createBaseCommands(instance),
+    ...createBase(instance),
     selection,
-    ...createEdgeCommands(instance),
-    ...createNodeCommands(instance, transient),
+    ...createEdge(instance),
+    ...createNode(instance, transient),
     transient,
     order: core.commands.order,
     viewport: core.commands.viewport,
     group: core.commands.group as Commands['group'],
-    ...createMindmapCommands(instance)
+    ...createMindmap(instance)
   }
 }

@@ -5,18 +5,18 @@ import type { Container } from '../container'
 
 type RuntimeEffectsOptions = {
   instance: Instance
-  windowBindings: Bindings
+  window: Bindings
   container: Container
 }
 
 export class RuntimeEffects {
   private instance: Instance
-  private windowBindings: Bindings
+  private window: Bindings
   private container: Container
 
   constructor(options: RuntimeEffectsOptions) {
     this.instance = options.instance
-    this.windowBindings = options.windowBindings
+    this.window = options.window
     this.container = options.container
   }
 
@@ -28,6 +28,6 @@ export class RuntimeEffects {
     if (!started) return
 
     this.container.sync()
-    this.windowBindings.sync()
+    this.window.sync()
   }
 }

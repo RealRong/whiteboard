@@ -2,13 +2,13 @@ import type { Instance } from '@engine-types/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance'
 import { createDefaultConfig } from './config'
 import { createPhases, type Phases } from './factory'
-import { createCanvasInputHandlers, type CanvasEventHandlers, type CanvasInputRuntime } from './input'
+import { createCanvasInput, type CanvasEventHandlers, type CanvasInput } from './input'
 
 export class Lifecycle implements LifecycleApi {
   private instance: Instance
   private started = false
   private config: LifecycleConfig
-  private input: CanvasInputRuntime
+  private input: CanvasInput
   private startFlow: Phases['start']
   private updateFlow: Phases['update']
   private stopFlow: Phases['stop']
@@ -16,7 +16,7 @@ export class Lifecycle implements LifecycleApi {
   constructor(instance: Instance) {
     this.instance = instance
     this.config = createDefaultConfig(instance)
-    this.input = createCanvasInputHandlers({ instance: this.instance, config: this.config })
+    this.input = createCanvasInput({ instance: this.instance, config: this.config })
     const phases = createPhases({
       instance: this.instance,
       getHandlers: () => this.handlers,
@@ -55,7 +55,7 @@ export class Lifecycle implements LifecycleApi {
 
   private resetInput = () => {
     this.input.cancel()
-    this.input = createCanvasInputHandlers({ instance: this.instance, config: this.config })
+    this.input = createCanvasInput({ instance: this.instance, config: this.config })
   }
 
   start: LifecycleApi['start'] = () => {

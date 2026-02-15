@@ -1,12 +1,12 @@
 import type { Instance } from '@engine-types/instance'
 
-export type PointerSessionWindowBinding = {
+export type PointerSessionBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-type PointerSessionWindowOptions<TActive> = {
+type Options<TActive> = {
   events: Instance['runtime']['events']
   watch: (listener: () => void) => () => void
   getActive: () => TActive | undefined
@@ -16,7 +16,7 @@ type PointerSessionWindowOptions<TActive> = {
   onPointerCancel?: (event: PointerEvent, active: TActive) => void
 }
 
-export const createPointerSessionWindowBinding = <TActive>({
+export const createPointerSession = <TActive>({
   events,
   watch,
   getActive,
@@ -24,7 +24,7 @@ export const createPointerSessionWindowBinding = <TActive>({
   onPointerMove,
   onPointerUp,
   onPointerCancel
-}: PointerSessionWindowOptions<TActive>): PointerSessionWindowBinding => {
+}: Options<TActive>): PointerSessionBinding => {
   let offWatch: (() => void) | null = null
   let offWindow: (() => void) | null = null
 

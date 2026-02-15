@@ -1,6 +1,6 @@
 export { getAnchorFromPoint, getAutoAnchorFromRect, isSameConnectTo, type ConnectTo, type AnchorSnapOptions } from './anchor'
-export { getNearestEdgeSegmentIndexAtWorld } from './edge'
-export { getNodeIdsInRect, isCanvasBackgroundTarget } from './hitTest'
+export { getNearestEdgeSegment } from './edge'
+export { getNodeIdsInRect, isBackgroundTarget } from './hitTest'
 export { toViewportTransformView } from './layout'
 export { buildMindmapLines, computeMindmapLayout, getMindmapLabel, getMindmapTree, toMindmapStructureSignature } from './mindmap'
 export { getMindmapRoots, toLayerOrderedCanvasNodes } from './node'

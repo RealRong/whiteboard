@@ -15,7 +15,7 @@ type ComputeEdgeAlignmentResult = {
   }
 }
 
-export type ComputeMindmapSubtreeDropTargetOptions = {
+export type SubtreeDropOptions = {
   tree: MindmapTree
   nodeRects: Map<MindmapNodeId, Rect>
   ghost: Rect
@@ -115,7 +115,7 @@ const computeEdgeAlignment = (ghost: Rect, target: Rect): ComputeEdgeAlignmentRe
   }
 }
 
-export const computeMindmapSubtreeDropTarget = ({
+export const computeSubtreeDropTarget = ({
   tree,
   nodeRects,
   ghost,
@@ -123,7 +123,7 @@ export const computeMindmapSubtreeDropTarget = ({
   dragExcludeIds,
   layoutOptions,
   snapThreshold = DEFAULT_EDGE_SNAP_THRESHOLD
-}: ComputeMindmapSubtreeDropTargetOptions): MindmapSubtreeDropTarget | undefined => {
+}: SubtreeDropOptions): MindmapSubtreeDropTarget | undefined => {
   let hoveredId: MindmapNodeId | undefined
   let hoveredRect: Rect | undefined
   let hoveredAlign: ComputeEdgeAlignmentResult | undefined

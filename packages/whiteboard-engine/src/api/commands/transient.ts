@@ -4,19 +4,19 @@ import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from '@engine-types/state'
 import { isPointEqual, isSizeEqual } from '../../infra/geometry/valueEquality'
-import { clearNodeOverrides, updateNodeOverrides } from '../../state/internal/nodeOverrideState'
+import { clearNodeOverrides as clearNodeOverridesState, updateNodeOverrides } from '../../state/internal/nodeOverrideState'
 
-export const createTransientCommands = (
+export const createTransient = (
   instance: Instance
 ): Commands['transient'] => {
   const { core, docRef } = instance.runtime
   const { read, write } = instance.state
 
-  const clearTransientNodeOverridesState = (ids?: NodeId[]) => {
-    write('nodeOverrides', (prev) => clearNodeOverrides(prev, ids))
+  const clearNodeOverrides = (ids?: NodeId[]) => {
+    write('nodeOverrides', (prev) => clearNodeOverridesState(prev, ids))
   }
 
-  const commitTransientNodeOverrides = (updates?: NodeViewUpdate[]) => {
+  const commitNodeOverrides = (updates?: NodeViewUpdate[]) => {
     const list: NodeViewUpdate[] =
       updates ??
       Array.from(read('nodeOverrides').entries()).map(([id, override]) => ({ id, ...override }))
@@ -44,9 +44,9 @@ export const createTransientCommands = (
 
     core.model.node.updateMany(ops)
     if (updates) {
-      clearTransientNodeOverridesState(updates.map((item) => item.id))
+      clearNodeOverrides(updates.map((item) => item.id))
     } else {
-      clearTransientNodeOverridesState()
+      clearNodeOverrides()
     }
   }
 
@@ -63,12 +63,12 @@ export const createTransientCommands = (
       set: (updates) => {
         write('nodeOverrides', (prev) => updateNodeOverrides(prev, updates))
       },
-      clear: clearTransientNodeOverridesState,
-      commit: commitTransientNodeOverrides
+      clear: clearNodeOverrides,
+      commit: commitNodeOverrides
     },
     reset: () => {
       write('edgeConnect', { isConnecting: false } as EdgeConnectState)
-      write('edgeRoutingPointDrag', {})
+      write('routingDrag', {})
       write('dragGuides', [])
       write('groupHovered', undefined)
       write('nodeOverrides', new Map<NodeId, NodeOverride>())

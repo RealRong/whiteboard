@@ -3,6 +3,31 @@ import type { Size } from '../common'
 
 export type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 
+export type ResizeDragState = {
+  mode: 'resize'
+  pointerId: number
+  handle: ResizeDirection
+  startScreen: Point
+  startCenter: Point
+  startRotation: number
+  startSize: Size
+  startAspect: number
+  lastUpdate?: {
+    position: Point
+    size: Size
+  }
+}
+
+export type RotateDragState = {
+  mode: 'rotate'
+  pointerId: number
+  startAngle: number
+  startRotation: number
+  center: Point
+}
+
+export type TransformDragState = ResizeDragState | RotateDragState
+
 export type HandleKind = 'resize' | 'rotate'
 
 export type TransformHandle = {

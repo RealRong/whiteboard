@@ -16,7 +16,7 @@ import type {
 } from '@whiteboard/core'
 import type { Commands } from '../commands'
 import type {
-  EdgeRoutingPointDragState,
+  RoutingDragState,
   EdgeReconnectInfo,
   EdgeConnectState,
   HistoryState,
@@ -24,14 +24,14 @@ import type {
   MindmapDragDropTarget,
   MindmapDragState,
   NodeDragState,
-  NodeTransformResizeDirection,
+  ResizeDirection,
   NodeTransformState,
   NodeOverride,
   SelectionState
 } from '../state'
 import type { Guide, SnapCandidate } from '../node/snap'
 import type { Size } from '../common'
-import type { ShortcutContext, ShortcutRuntime } from '../shortcuts'
+import type { ShortcutContext, Shortcuts } from '../shortcuts'
 import type { Lifecycle } from './lifecycle'
 import type { RefLike } from '../ui'
 import type { MindmapLayoutConfig } from '../mindmap'
@@ -55,7 +55,7 @@ export type StateSnapshot = {
   edgeSelection: EdgeId | undefined
   history: HistoryState
   edgeConnect: EdgeConnectState
-  edgeRoutingPointDrag: EdgeRoutingPointDragState
+  routingDrag: RoutingDragState
   viewport: Viewport
   mindmapLayout: MindmapLayoutConfig
   mindmapDrag: MindmapDragState
@@ -118,7 +118,7 @@ export type EdgeEndpoint = {
   point: Point
 }
 
-export type EdgeResolvedEndpoints = {
+export type EdgeEndpoints = {
   source: EdgeEndpoint
   target: EdgeEndpoint
 }
@@ -211,7 +211,7 @@ export type NodeViewItem = {
 export type NodeTransformHandle = {
   id: string
   kind: 'resize' | 'rotate'
-  direction?: NodeTransformResizeDirection
+  direction?: ResizeDirection
   position: Point
   cursor: string
 }
@@ -223,7 +223,7 @@ export type ViewSnapshot = {
   'edge.reconnect': EdgePathEntry | undefined
   'edge.paths': EdgePathEntry[]
   'edge.preview': EdgePreviewView
-  'edge.selectedEndpoints': EdgeResolvedEndpoints | undefined
+  'edge.selectedEndpoints': EdgeEndpoints | undefined
   'edge.selectedRouting': EdgeSelectedRoutingView
   'node.items': NodeViewItem[]
   'node.transformHandles': Map<NodeId, NodeTransformHandle[]>
@@ -265,20 +265,18 @@ export type View = {
   debug: ViewDebug
 }
 
-export type CanvasContainerRect = ContainerRect
-
 export type Query = {
-  getCanvasNodeRects: () => CanvasNodeRect[]
-  getCanvasNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
+  getNodeRects: () => CanvasNodeRect[]
+  getNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
   getNodeIdsInRect: (rect: Rect) => NodeId[]
   getSnapCandidates: () => SnapCandidate[]
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
-  isCanvasBackgroundTarget: (target: EventTarget | null) => boolean
+  isBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
-  getNearestEdgeSegmentIndexAtWorld: (pointWorld: Point, pathPoints: Point[]) => number
+  getNearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) => number
 }
 
-export type ViewportRuntime = {
+export type ViewportApi = {
   get: () => Viewport
   getZoom: () => number
   screenToWorld: (point: Point) => Point
@@ -288,7 +286,7 @@ export type ViewportRuntime = {
   getScreenCenter: () => Point
   getContainerSize: () => Size
   setViewport: (viewport: Viewport) => void
-  setContainerRect: (rect: CanvasContainerRect) => void
+  setContainerRect: (rect: ContainerRect) => void
 }
 
 export type Runtime = {
@@ -298,7 +296,7 @@ export type Runtime = {
   getContainer: () => HTMLDivElement | null
   config: InstanceConfig
   platform: ShortcutContext['platform']
-  viewport: ViewportRuntime
+  viewport: ViewportApi
   services: {
     nodeSizeObserver: NodeSizeObserver
     containerSizeObserver: ContainerSizeObserver
@@ -308,7 +306,7 @@ export type Runtime = {
     nodeTransform: NodeTransform
     mindmapDrag: MindmapDrag
   }
-  shortcuts: ShortcutRuntime
+  shortcuts: Shortcuts
   lifecycle: Lifecycle
   events: {
     onWindow: <K extends keyof WindowEventMap>(
@@ -332,7 +330,7 @@ export type Instance = {
   commands: Commands
 }
 
-export type CreateInstanceOptions = {
+export type CreateEngineOptions = {
   core: Core
   docRef: RefLike<Document>
   containerRef: RefLike<HTMLDivElement | null>

@@ -1,6 +1,6 @@
 import type { Node, NodeId, NodePatch, Point } from '@whiteboard/core'
 import {
-  findSmallestGroupContainingPoint,
+  findSmallestGroupAtPoint,
   getGroupDescendants,
   getNodesBoundingRect,
   expandGroupRect,
@@ -72,7 +72,7 @@ export const plainNodeDragStrategy: NodeDragStrategy = {
 
     if (group) {
       const center = { x: nextX + size.width / 2, y: nextY + size.height / 2 }
-      const hovered = findSmallestGroupContainingPoint(group.nodes, group.nodeSize, center, nodeId)
+      const hovered = findSmallestGroupAtPoint(group.nodes, group.nodeSize, center, nodeId)
       updateHoverGroup(hovered?.id)
     }
 

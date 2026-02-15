@@ -13,8 +13,8 @@ export type SharedContext = {
 }
 
 export type BindingsContext = {
-  selectionCallbacksBinding: SelectionCallbacksBinding
-  windowBindings: Bindings
+  selectionCallbacks: SelectionCallbacksBinding
+  window: Bindings
 }
 
 export type StartContext = {

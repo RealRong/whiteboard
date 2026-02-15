@@ -1,5 +1,5 @@
 import type { Instance } from '@engine-types/instance'
-import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
+import { createPointerSession } from './bindPointerSessionWindow'
 
 type Options = {
   state: Instance['state']
@@ -10,18 +10,18 @@ type Options = {
   >
 }
 
-export type NodeDragWindowBinding = {
+export type NodeDragBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-export const createNodeDragWindowBinding = ({
+export const createNodeDrag = ({
   state,
   events,
   nodeDragCommands
-}: Options): NodeDragWindowBinding =>
-  createPointerSessionWindowBinding({
+}: Options): NodeDragBinding =>
+  createPointerSession({
     events,
     watch: (listener) => state.watch('nodeDrag', listener),
     getActive: () => state.read('nodeDrag').active,

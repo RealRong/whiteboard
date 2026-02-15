@@ -2,8 +2,8 @@ import type { NodeId, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance'
 import type {
-  NodeTransformResizeDragState,
-  NodeTransformRotateDragState,
+  ResizeDragState,
+  RotateDragState,
   NodeTransform as NodeTransformApi
 } from '@engine-types/instance/services'
 import { getRectCenter } from '../../infra/geometry'

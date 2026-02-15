@@ -6,7 +6,7 @@ export type CanvasEventHandlers = {
   handleKeyDown: (event: KeyboardEvent) => void
 }
 
-export type SelectionBoxSessionRuntime = {
+export type SelectionBoxSession = {
   watchActive: (listener: () => void) => () => void
   isActive: () => boolean
   getPointerId: () => number | null
@@ -15,9 +15,9 @@ export type SelectionBoxSessionRuntime = {
   handlePointerCancel: (event: PointerEvent) => void
 }
 
-export type CanvasInputRuntime = {
+export type CanvasInput = {
   handlers: CanvasEventHandlers
-  selectionBox: SelectionBoxSessionRuntime
+  selectionBox: SelectionBoxSession
   onWheel: (event: WheelEvent) => void
   cancel: () => void
 }

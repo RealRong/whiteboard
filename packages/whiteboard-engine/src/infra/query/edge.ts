@@ -1,7 +1,7 @@
 import type { Point } from '@whiteboard/core'
 import { distancePointToSegment } from '../geometry'
 
-export const getNearestEdgeSegmentIndexAtWorld = (pointWorld: Point, pathPoints: Point[]) => {
+export const getNearestEdgeSegment = (pointWorld: Point, pathPoints: Point[]) => {
   if (pathPoints.length < 2) return 0
 
   let minDistance = Number.POSITIVE_INFINITY

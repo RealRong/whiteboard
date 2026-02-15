@@ -13,8 +13,8 @@ type SharedOptions = {
 }
 
 type BindingsOptions = {
-  selectionCallbacksBinding: SelectionCallbacksBinding
-  windowBindings: Bindings
+  selectionCallbacks: SelectionCallbacksBinding
+  window: Bindings
 }
 
 export const createSharedContext = ({
@@ -29,10 +29,10 @@ export const createSharedContext = ({
   autoFit
 })
 
-export const createBindingsContext = ({
-  selectionCallbacksBinding,
-  windowBindings
+export const createBindingContext = ({
+  selectionCallbacks,
+  window
 }: BindingsOptions): BindingsContext => ({
-  selectionCallbacksBinding,
-  windowBindings
+  selectionCallbacks,
+  window
 })

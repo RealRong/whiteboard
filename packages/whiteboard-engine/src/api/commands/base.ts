@@ -2,7 +2,7 @@ import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
 import { mergeInteractionPatch } from '../../state/internal/interactionState'
 
-export const createBaseCommands = (
+export const createBase = (
   instance: Instance
 ): Pick<Commands, 'tool' | 'keyboard' | 'history' | 'interaction'> => {
   const { core } = instance.runtime

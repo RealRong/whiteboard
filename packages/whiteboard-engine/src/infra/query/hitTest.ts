@@ -12,12 +12,12 @@ export const getNodeIdsInRect = (rect: Rect, entries: CanvasNodeRect[]): NodeId[
     })
     .map((entry) => entry.node.id)
 
-type IsCanvasBackgroundTargetInput = {
+type BackgroundTargetInput = {
   container: HTMLDivElement | null
   target: EventTarget | null
 }
 
-export const isCanvasBackgroundTarget = ({ container, target }: IsCanvasBackgroundTargetInput) => {
+export const isBackgroundTarget = ({ container, target }: BackgroundTargetInput) => {
   if (!(target instanceof HTMLElement)) return false
   if (!container?.contains(target)) return false
   if (target.closest('[data-node-id]')) return false

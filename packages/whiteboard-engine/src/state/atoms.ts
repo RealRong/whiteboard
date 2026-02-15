@@ -3,7 +3,7 @@ import type { PrimitiveAtom } from 'jotai'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
 import type {
   EdgeConnectState,
-  EdgeRoutingPointDragState,
+  RoutingDragState,
   HistoryState,
   InteractionState,
   MindmapDragState,
@@ -14,7 +14,7 @@ import type {
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import { docAtom } from './contextAtoms'
 
-const createNodeSelectionState = (): SelectionState => ({
+const createSelection = (): SelectionState => ({
   selectedNodeIds: new Set<NodeId>(),
   isSelecting: false,
   mode: 'replace',
@@ -22,7 +22,7 @@ const createNodeSelectionState = (): SelectionState => ({
   selectionRectWorld: undefined
 })
 
-const createHistoryState = (): HistoryState => ({
+const createHistory = (): HistoryState => ({
   canUndo: false,
   canRedo: false,
   undoDepth: 0,
@@ -31,7 +31,7 @@ const createHistoryState = (): HistoryState => ({
   lastUpdatedAt: undefined
 })
 
-const createInteractionState = (): InteractionState => ({
+const createInteraction = (): InteractionState => ({
   focus: {
     isEditingText: false,
     isInputFocused: false,
@@ -53,9 +53,9 @@ const createInteractionState = (): InteractionState => ({
   }
 })
 
-const createMindmapDragState = (): MindmapDragState => ({})
-const createNodeDragState = (): NodeDragState => ({})
-const createNodeTransformState = (): NodeTransformState => ({})
+const createMindmapDrag = (): MindmapDragState => ({})
+const createNodeDrag = (): NodeDragState => ({})
+const createNodeTransform = (): NodeTransformState => ({})
 
 type WritableStateInitializers = {
   interaction: () => InteractionState
@@ -64,7 +64,7 @@ type WritableStateInitializers = {
   edgeSelection: () => EdgeId | undefined
   history: () => HistoryState
   edgeConnect: () => EdgeConnectState
-  edgeRoutingPointDrag: () => EdgeRoutingPointDragState
+  routingDrag: () => RoutingDragState
   mindmapLayout: () => MindmapLayoutConfig
   mindmapDrag: () => MindmapDragState
   nodeDrag: () => NodeDragState
@@ -72,7 +72,7 @@ type WritableStateInitializers = {
   spacePressed: () => boolean
 }
 
-const createAtomsFromInitializers = <T extends Record<string, () => unknown>>(initializers: T) => {
+const createAtoms = <T extends Record<string, () => unknown>>(initializers: T) => {
   const keys = Object.keys(initializers) as Array<keyof T>
   return Object.fromEntries(keys.map((key) => [key, atom(initializers[key]())])) as unknown as {
     [K in keyof T]: PrimitiveAtom<ReturnType<T[K]>>
@@ -80,21 +80,21 @@ const createAtomsFromInitializers = <T extends Record<string, () => unknown>>(in
 }
 
 const writableStateInitializers: WritableStateInitializers = {
-  interaction: createInteractionState,
+  interaction: createInteraction,
   tool: () => 'select',
-  selection: createNodeSelectionState,
+  selection: createSelection,
   edgeSelection: () => undefined,
-  history: createHistoryState,
+  history: createHistory,
   edgeConnect: () => ({ isConnecting: false }),
-  edgeRoutingPointDrag: () => ({}),
+  routingDrag: () => ({}),
   mindmapLayout: () => ({}),
-  mindmapDrag: createMindmapDragState,
-  nodeDrag: createNodeDragState,
-  nodeTransform: createNodeTransformState,
+  mindmapDrag: createMindmapDrag,
+  nodeDrag: createNodeDrag,
+  nodeTransform: createNodeTransform,
   spacePressed: () => false
 }
 
-export const writableStateAtoms = createAtomsFromInitializers(writableStateInitializers)
+export const writableStateAtoms = createAtoms(writableStateInitializers)
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },

@@ -1,5 +1,5 @@
 import type { Instance } from '@engine-types/instance'
-import { createPointerSessionWindowBinding } from './bindPointerSessionWindow'
+import { createPointerSession } from './bindPointerSessionWindow'
 
 const NODE_TRANSFORM_MIN_SIZE = { width: 20, height: 20 }
 
@@ -12,18 +12,18 @@ type Options = {
   >
 }
 
-export type NodeTransformWindowBinding = {
+export type NodeTransformBinding = {
   start: () => void
   sync: () => void
   stop: () => void
 }
 
-export const createNodeTransformWindowBinding = ({
+export const createNodeTransform = ({
   state,
   events,
   nodeTransformCommands
-}: Options): NodeTransformWindowBinding =>
-  createPointerSessionWindowBinding({
+}: Options): NodeTransformBinding =>
+  createPointerSession({
     events,
     watch: (listener) => state.watch('nodeTransform', listener),
     getActive: () => state.read('nodeTransform').active,

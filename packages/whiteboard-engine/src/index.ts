@@ -1,4 +1,4 @@
-export { createInstance as createEngine } from './instance'
+export { createEngine } from './instance'
 export { selectNodeDragStrategy } from './node/runtime/drag'
 export { applySelectionMode, getSelectionModeFromEvent } from './node/utils/selection'
 export {
@@ -15,8 +15,8 @@ export { docAtom, instanceAtom, STATE_KEYS, VIEW_KEYS } from './state'
 
 export type { Commands } from './types/commands'
 export type {
-  CreateInstanceOptions,
-  CanvasContainerRect,
+  CreateEngineOptions,
+  ContainerRect,
   EdgePathEntry,
   Instance,
   InstanceConfig,
@@ -39,7 +39,7 @@ export type {
   View,
   ViewSnapshot
 } from './types/instance'
-export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutOverrides, ShortcutRuntime } from './types/shortcuts'
+export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutOverrides, Shortcuts } from './types/shortcuts'
 export type {
   EdgeConnectFrom,
   EdgeConnectTo,
@@ -54,10 +54,10 @@ export type {
   NodeDragActiveState,
   NodeDragChildrenState,
   NodeDragState,
-  NodeTransformDragState,
-  NodeTransformResizeDirection,
-  NodeTransformResizeDragState,
-  NodeTransformRotateDragState,
+  TransformDragState,
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
   NodeTransformState,
   NodeOverride,
   NodeViewUpdate,

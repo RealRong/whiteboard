@@ -5,12 +5,12 @@ type Options = {
   state: Instance['state']
 }
 
-type SelectionCallbacks = Pick<LifecycleConfig, 'onSelectionChange' | 'onEdgeSelectionChange'>
+type Callbacks = Pick<LifecycleConfig, 'onSelectionChange' | 'onEdgeSelectionChange'>
 type EdgeSelectionValue = ReturnType<Instance['state']['snapshot']>['edgeSelection']
 
 export type SelectionCallbacksBinding = {
   start: () => void
-  update: (callbacks: SelectionCallbacks) => void
+  update: (callbacks: Callbacks) => void
   stop: () => void
 }
 
@@ -22,9 +22,9 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
   return true
 }
 
-export const createSelectionCallbacksBinding = ({ state }: Options): SelectionCallbacksBinding => {
+export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacksBinding => {
   let started = false
-  let callbacks: SelectionCallbacks = {
+  let callbacks: Callbacks = {
     onSelectionChange: undefined,
     onEdgeSelectionChange: undefined
   }
@@ -83,7 +83,7 @@ export const createSelectionCallbacksBinding = ({ state }: Options): SelectionCa
     emitCurrent()
   }
 
-  const update = (nextCallbacks: SelectionCallbacks) => {
+  const update = (nextCallbacks: Callbacks) => {
     const selectionCallbackChanged = nextCallbacks.onSelectionChange !== callbacks.onSelectionChange
     const edgeSelectionCallbackChanged = nextCallbacks.onEdgeSelectionChange !== callbacks.onEdgeSelectionChange
     callbacks = nextCallbacks

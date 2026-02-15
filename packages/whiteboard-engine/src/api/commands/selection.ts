@@ -2,13 +2,13 @@ import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
 import { applySelection } from '../../state/internal/selectionState'
 
-export const createSelectionCommands = (instance: Instance): Commands['selection'] => {
+export const createSelection = (instance: Instance): Commands['selection'] => {
   const { read, write } = instance.state
 
   return {
     select: (ids, mode = 'replace') => {
       write('edgeSelection', undefined)
-      write('edgeRoutingPointDrag', {})
+      write('routingDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode,
@@ -17,7 +17,7 @@ export const createSelectionCommands = (instance: Instance): Commands['selection
     },
     toggle: (ids) => {
       write('edgeSelection', undefined)
-      write('edgeRoutingPointDrag', {})
+      write('routingDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode: 'toggle',
@@ -26,7 +26,7 @@ export const createSelectionCommands = (instance: Instance): Commands['selection
     },
     clear: () => {
       write('edgeSelection', undefined)
-      write('edgeRoutingPointDrag', {})
+      write('routingDrag', {})
       write('selection', (prev) => ({
         ...prev,
         selectedNodeIds: new Set(),
@@ -38,7 +38,7 @@ export const createSelectionCommands = (instance: Instance): Commands['selection
     getSelectedNodeIds: () => Array.from(read('selection').selectedNodeIds),
     beginBox: (mode = 'replace') => {
       write('edgeSelection', undefined)
-      write('edgeRoutingPointDrag', {})
+      write('routingDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode,

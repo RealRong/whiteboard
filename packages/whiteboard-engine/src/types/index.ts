@@ -1,7 +1,7 @@
 export type { Commands } from './commands'
 export type {
   ContainerSizeObserver,
-  CreateInstanceOptions,
+  CreateEngineOptions,
   GroupAutoFit,
   NodeSizeObserver,
   Store,
@@ -37,10 +37,10 @@ export type {
   ResolvedViewportConfig
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
-export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, ShortcutRuntime } from './shortcuts'
+export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, Shortcuts } from './shortcuts'
 export type {
-  EdgeRoutingPointDragActiveState,
-  EdgeRoutingPointDragState,
+  RoutingDragActiveState,
+  RoutingDragState,
   EdgeConnectFrom,
   EdgeConnectState,
   EdgeConnectTo,
@@ -55,10 +55,10 @@ export type {
   NodeDragActiveState,
   NodeDragChildrenState,
   NodeDragState,
-  NodeTransformDragState,
-  NodeTransformResizeDirection,
-  NodeTransformResizeDragState,
-  NodeTransformRotateDragState,
+  TransformDragState,
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
   NodeTransformState,
   NodeOverride,
   NodeViewUpdate,

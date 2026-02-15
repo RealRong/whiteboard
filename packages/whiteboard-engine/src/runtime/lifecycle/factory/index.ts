@@ -1,6 +1,6 @@
 export { createPhases } from './phases'
 export type { Phases } from './phases'
 export {
-  createBindingsContext,
+  createBindingContext,
   createSharedContext
 } from './context'
