@@ -1,7 +1,17 @@
 import { atom } from 'jotai'
 import type { PrimitiveAtom } from 'jotai'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
-import type { EdgeConnectState, HistoryState, InteractionState, SelectionState } from '@engine-types/state'
+import type {
+  EdgeConnectState,
+  EdgeRoutingPointDragState,
+  HistoryState,
+  InteractionState,
+  MindmapDragState,
+  NodeDragState,
+  NodeTransformState,
+  SelectionState
+} from '@engine-types/state'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import { docAtom } from './whiteboardContextAtoms'
 
 const createNodeSelectionState = (): SelectionState => ({
@@ -43,6 +53,10 @@ const createInteractionState = (): InteractionState => ({
   }
 })
 
+const createMindmapDragState = (): MindmapDragState => ({})
+const createNodeDragState = (): NodeDragState => ({})
+const createNodeTransformState = (): NodeTransformState => ({})
+
 type WritableStateInitializers = {
   interaction: () => InteractionState
   tool: () => string
@@ -50,6 +64,11 @@ type WritableStateInitializers = {
   edgeSelection: () => EdgeId | undefined
   history: () => HistoryState
   edgeConnect: () => EdgeConnectState
+  edgeRoutingPointDrag: () => EdgeRoutingPointDragState
+  mindmapLayout: () => MindmapLayoutConfig
+  mindmapDrag: () => MindmapDragState
+  nodeDrag: () => NodeDragState
+  nodeTransform: () => NodeTransformState
   spacePressed: () => boolean
 }
 
@@ -67,6 +86,11 @@ const writableStateInitializers: WritableStateInitializers = {
   edgeSelection: () => undefined,
   history: createHistoryState,
   edgeConnect: () => ({ isConnecting: false }),
+  edgeRoutingPointDrag: () => ({}),
+  mindmapLayout: () => ({}),
+  mindmapDrag: createMindmapDragState,
+  nodeDrag: createNodeDragState,
+  nodeTransform: createNodeTransformState,
   spacePressed: () => false
 }
 

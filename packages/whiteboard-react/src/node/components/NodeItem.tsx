@@ -1,37 +1,180 @@
 import { useCallback, useMemo, useRef } from 'react'
-import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
-import { renderNodeDefinition } from '../registry/defaultNodes'
+import type { CSSProperties } from 'react'
+import type { PointerEvent } from 'react'
+import type { NodeContainerProps, NodeHandleSide, NodeItemProps, NodeRenderProps } from 'types/node'
+import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
+import { useNodeRegistry } from '../registry'
 import { useInstance } from '../../common/hooks'
-import { useNodeInteraction, useNodePresentation, useNodeTransform } from '../hooks'
+import { getSelectionModeFromEvent } from '../utils/selection'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
-  node: NodeItemProps['node']
-  selected: boolean
-  activeTool: 'select' | 'edge'
+  node: NodeItemProps['item']['node']
+  rect: NodeItemProps['item']['rect']
+  rotation: number
+  handles: NonNullable<NodeItemProps['transformHandles']>
   canRotate: boolean
 }
 
+type NodeTransformHandle = NodeTransformHandlesProps['handles'][number]
+const NODE_TRANSFORM_MIN_SIZE = { width: 20, height: 20 }
+const NODE_TRANSFORM_HANDLE_SIZE = 10
+
 const NodeTransformHandles = ({
   node,
-  selected,
-  activeTool,
+  rect,
+  rotation,
+  handles,
   canRotate
 }: NodeTransformHandlesProps) => {
-  const transform = useNodeTransform({
-    node,
-    selected,
-    activeTool,
-    canRotate
-  })
+  const instance = useInstance()
+  const getZoom = instance.runtime.viewport.getZoom
+  const filteredHandles = useMemo(
+    () => (canRotate ? handles : handles.filter((handle) => handle.kind !== 'rotate')),
+    [canRotate, handles]
+  )
+  const nodeRotation = typeof rotation === 'number' ? rotation : typeof node.rotation === 'number' ? node.rotation : 0
+  const enabled = filteredHandles.length > 0
 
-  return <>{transform.renderHandles()}</>
+  const handlePointerDown = useCallback(
+    (handle: NodeTransformHandle, event: PointerEvent<HTMLDivElement>) => {
+      if (!enabled || node.locked) return
+      if (event.button !== 0) return
+      let handled = false
+
+      if (handle.kind === 'resize' && handle.direction) {
+        handled = instance.commands.nodeTransform.startResize({
+          nodeId: node.id,
+          pointerId: event.pointerId,
+          handle: handle.direction,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          rect,
+          rotation: nodeRotation
+        })
+      }
+
+      if (handle.kind === 'rotate') {
+        handled = instance.commands.nodeTransform.startRotate({
+          nodeId: node.id,
+          pointerId: event.pointerId,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          rect,
+          rotation: nodeRotation
+        })
+      }
+
+      if (!handled) return
+      event.preventDefault()
+      event.stopPropagation()
+      event.currentTarget.setPointerCapture(event.pointerId)
+    },
+    [enabled, instance.commands.nodeTransform, node.id, node.locked, nodeRotation, rect]
+  )
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeTransform.update({
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        minSize: NODE_TRANSFORM_MIN_SIZE,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey
+      })) {
+        return
+      }
+      event.preventDefault()
+    },
+    [instance.commands.nodeTransform]
+  )
+
+  const handlePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeTransform.end({ pointerId: event.pointerId })) return
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    },
+    [instance.commands.nodeTransform]
+  )
+
+  const handlePointerCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeTransform.cancel({ pointerId: event.pointerId })) return
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    },
+    [instance.commands.nodeTransform]
+  )
+
+  const getHandleProps = useCallback(
+    (handle: NodeTransformHandle) => ({
+      onPointerDown: (event: PointerEvent<HTMLDivElement>) => handlePointerDown(handle, event),
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerUp,
+      onPointerCancel: handlePointerCancel
+    }),
+    [handlePointerCancel, handlePointerDown, handlePointerMove, handlePointerUp]
+  )
+
+  return (
+    <>
+      {filteredHandles.map((handle) => {
+        const props = getHandleProps(handle)
+        const half = NODE_TRANSFORM_HANDLE_SIZE / Math.max(getZoom(), 0.0001) / 2
+        return (
+          <div
+            key={handle.id}
+            data-selection-ignore
+            data-kind={handle.kind}
+            className="wb-node-transform-handle"
+            style={{
+              '--wb-node-handle-size': `${NODE_TRANSFORM_HANDLE_SIZE}px`,
+              '--wb-node-handle-x': `${handle.position.x - half}px`,
+              '--wb-node-handle-y': `${handle.position.y - half}px`,
+              cursor: handle.cursor
+            } as CSSProperties}
+            {...props}
+          />
+        )
+      })}
+    </>
+  )
 }
 
-export const NodeItem = ({ node }: NodeItemProps) => {
+export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const instance = useInstance()
-  const interaction = useNodeInteraction({ node })
+  const registry = useNodeRegistry()
+  const node = item.node
+  const rect = item.rect
+  const selected = item.selected
+  const hovered = item.hovered
+  const zoom = item.zoom
+  const container = item.container
+  const activeTool = item.activeTool
   const containerRef = useRef<HTMLDivElement>(null)
+  const definition = useMemo(() => registry.get(node.type), [node.type, registry])
+  const canRotate =
+    typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
+  const core = instance.runtime.core
+  const clientToWorld = instance.runtime.viewport.clientToWorld
+
+  const nodeStyle = useMemo(
+    () =>
+      getNodeDefinitionStyle(definition, {
+        core,
+        commands: instance.commands,
+        node,
+        rect,
+        selected,
+        hovered,
+        zoom
+      }),
+    [core, definition, hovered, instance.commands, node, rect, selected, zoom]
+  )
 
   const setContainerRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -47,51 +190,163 @@ export const NodeItem = ({ node }: NodeItemProps) => {
     [instance, node.id]
   )
 
-  const presentation = useNodePresentation({
-    node,
-    containerRef: setContainerRef
-  })
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (activeTool === 'edge') {
+        const worldPoint = clientToWorld(event.clientX, event.clientY)
+        const handled = instance.commands.edgeConnect.handleNodePointerDown(node.id, worldPoint, event.pointerId)
+        if (!handled) return
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
+      if (event.button === 0) {
+        const mode = getSelectionModeFromEvent(event.nativeEvent)
+        if (mode === 'toggle') {
+          instance.commands.selection.toggle([node.id])
+        } else {
+          instance.commands.selection.select([node.id], mode)
+        }
+      }
+
+      const handled = instance.commands.nodeDrag.start({
+        nodeId: node.id,
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY
+      })
+      if (!handled) return
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+    },
+    [activeTool, clientToWorld, instance, node.id]
+  )
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeDrag.update({
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        altKey: event.altKey
+      })) {
+        return
+      }
+      event.preventDefault()
+    },
+    [instance.commands.nodeDrag]
+  )
+
+  const handlePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeDrag.end({ pointerId: event.pointerId })) return
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    },
+    [instance.commands.nodeDrag]
+  )
+
+  const handlePointerCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!instance.commands.nodeDrag.cancel({ pointerId: event.pointerId })) return
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    },
+    [instance.commands.nodeDrag]
+  )
+
+  const handlePointerEnter = useCallback(() => {
+    instance.commands.interaction.update({ hover: { nodeId: node.id } })
+  }, [instance, node.id])
+
+  const handlePointerLeave = useCallback(() => {
+    instance.commands.interaction.update({ hover: { nodeId: undefined } })
+  }, [instance])
+
+  const handleEdgeHandlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => {
+      event.preventDefault()
+      event.stopPropagation()
+      instance.commands.edgeConnect.startFromHandle(node.id, side, event.pointerId)
+    },
+    [instance, node.id]
+  )
+
+  const baseContainerProps = useMemo<NodeContainerProps>(
+    () => ({
+      rect,
+      nodeId: node.id,
+      selected,
+      ref: setContainerRef,
+      style: buildContainerStyle(container, nodeStyle)
+    }),
+    [container, node.id, nodeStyle, rect, selected, setContainerRef]
+  )
 
   const containerProps = useMemo<NodeContainerProps>(
     () => ({
-      ...presentation.containerProps,
-      ...interaction.containerHandlers
+      ...baseContainerProps,
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerUp,
+      onPointerCancel: handlePointerCancel,
+      onPointerEnter: handlePointerEnter,
+      onPointerLeave: handlePointerLeave
     }),
-    [interaction.containerHandlers, presentation.containerProps]
+    [
+      baseContainerProps,
+      handlePointerCancel,
+      handlePointerDown,
+      handlePointerEnter,
+      handlePointerLeave,
+      handlePointerMove,
+      handlePointerUp
+    ]
   )
 
   const renderProps = useMemo<NodeRenderProps>(
     () => ({
-      ...presentation.renderProps,
+      core,
+      commands: instance.commands,
+      node,
+      rect,
+      selected,
+      hovered,
+      zoom,
       containerProps
     }),
-    [containerProps, presentation.renderProps]
+    [containerProps, core, hovered, instance.commands, node, rect, selected, zoom]
   )
 
   const content = useMemo(
-    () => renderNodeDefinition(presentation.definition, renderProps),
-    [presentation.definition, renderProps]
+    () => renderNodeDefinition(definition, renderProps),
+    [definition, renderProps]
   )
 
-  const shouldMountTransform = presentation.selected && presentation.activeTool === 'select' && !node.locked
+  const resolvedTransformHandles = transformHandles ?? []
+  const shouldMountTransform = resolvedTransformHandles.length > 0
 
   return (
     <>
-      {presentation.definition?.renderContainer ? (
-        presentation.definition.renderContainer(renderProps, content)
+      {definition?.renderContainer ? (
+        definition.renderContainer(renderProps, content)
       ) : (
         <NodeBlock
-          rect={presentation.rect}
+          rect={rect}
           label={content}
           nodeId={node.id}
-          selected={presentation.selected}
+          selected={selected}
           showHandles={false}
           ref={containerProps.ref}
           style={containerProps.style}
-          onHandlePointerDown={interaction.handleEdgeHandlePointerDown}
+          onHandlePointerDown={handleEdgeHandlePointerDown}
           onPointerDown={containerProps.onPointerDown}
           onPointerMove={containerProps.onPointerMove}
           onPointerUp={containerProps.onPointerUp}
+          onPointerCancel={containerProps.onPointerCancel}
           onPointerEnter={containerProps.onPointerEnter}
           onPointerLeave={containerProps.onPointerLeave}
         />
@@ -99,11 +354,28 @@ export const NodeItem = ({ node }: NodeItemProps) => {
       {shouldMountTransform ? (
         <NodeTransformHandles
           node={node}
-          selected={presentation.selected}
-          activeTool={presentation.activeTool}
-          canRotate={presentation.canRotate}
+          rect={rect}
+          rotation={container.rotation}
+          handles={resolvedTransformHandles}
+          canRotate={canRotate}
         />
       ) : null}
     </>
   )
+}
+
+const buildContainerStyle = (
+  container: NodeItemProps['item']['container'],
+  nodeStyle: CSSProperties
+): CSSProperties => {
+  const extraTransform = nodeStyle.transform
+  const rotationTransform = container.rotation !== 0 ? `rotate(${container.rotation}deg)` : undefined
+  const combinedTransform = [container.transformBase, extraTransform, rotationTransform].filter(Boolean).join(' ')
+
+  return {
+    ...nodeStyle,
+    pointerEvents: 'auto',
+    transform: combinedTransform,
+    transformOrigin: rotationTransform ? container.transformOrigin : nodeStyle.transformOrigin
+  }
 }

@@ -1,38 +1,31 @@
-import { useActiveTool } from '../../common/hooks'
-import { useEdgeConnectLayerState, useEdgePreview } from '../hooks'
+import { useWhiteboardView } from '../../common/hooks'
 
 export const EdgePreviewLayer = () => {
-  const tool = useActiveTool()
-  const { state } = useEdgeConnectLayerState()
-  const preview = useEdgePreview({ state })
+  const { from, to, snap } = useWhiteboardView('edge.preview')
 
-  const resolvedFrom = state.isConnecting && !state.reconnect ? preview.previewFrom : undefined
-  const resolvedTo = state.isConnecting && !state.reconnect ? preview.previewTo : undefined
-  const resolvedSnap = tool === 'edge' ? preview.hoverSnap : undefined
-
-  if (!resolvedFrom && !resolvedTo && !resolvedSnap) return null
+  if (!from && !to && !snap) return null
   return (
     <svg width="100%" height="100%" className="wb-edge-preview-layer">
-      {resolvedFrom && resolvedTo && (
+      {from && to && (
         <>
           <line
-            x1={resolvedFrom.x}
-            y1={resolvedFrom.y}
-            x2={resolvedTo.x}
-            y2={resolvedTo.y}
+            x1={from.x}
+            y1={from.y}
+            x2={to.x}
+            y2={to.y}
             stroke="rgba(17,24,39,0.7)"
             strokeWidth={2}
             strokeDasharray="6 4"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={resolvedFrom.x} cy={resolvedFrom.y} r={4} fill="#111827" className="wb-edge-preview-point" />
-          <circle cx={resolvedTo.x} cy={resolvedTo.y} r={4} fill="#111827" className="wb-edge-preview-point" />
+          <circle cx={from.x} cy={from.y} r={4} fill="#111827" className="wb-edge-preview-point" />
+          <circle cx={to.x} cy={to.y} r={4} fill="#111827" className="wb-edge-preview-point" />
         </>
       )}
-      {resolvedSnap && (
+      {snap && (
         <circle
-          cx={resolvedSnap.x}
-          cy={resolvedSnap.y}
+          cx={snap.x}
+          cy={snap.y}
           r={6}
           fill="rgba(59,130,246,0.2)"
           stroke="#2563eb"

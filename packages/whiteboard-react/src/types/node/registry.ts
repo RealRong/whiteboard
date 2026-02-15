@@ -11,6 +11,7 @@ export type NodeContainerProps = {
   onPointerDown?: PointerEventHandler<HTMLDivElement>
   onPointerMove?: PointerEventHandler<HTMLDivElement>
   onPointerUp?: PointerEventHandler<HTMLDivElement>
+  onPointerCancel?: PointerEventHandler<HTMLDivElement>
   onPointerEnter?: PointerEventHandler<HTMLDivElement>
   onPointerLeave?: PointerEventHandler<HTMLDivElement>
 }

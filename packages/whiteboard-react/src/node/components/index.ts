@@ -1,6 +1,3 @@
 export { DragGuidesLayer } from './DragGuidesLayer'
-export { NodeBlock } from './NodeBlock'
-export { NodeHandles } from './NodeHandles'
-export { NodeItem } from './NodeItem'
 export { NodeLayer } from './NodeLayer'
 export { SelectionLayer } from './SelectionLayer'

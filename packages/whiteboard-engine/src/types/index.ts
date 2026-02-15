@@ -9,7 +9,18 @@ export type {
   WhiteboardLifecycleRuntime,
   WhiteboardInstance,
   WhiteboardInstanceConfig,
-  WhiteboardStateNamespace
+  WhiteboardStateNamespace,
+  WhiteboardViewDebugMetric,
+  WhiteboardViewDebugNamespace,
+  WhiteboardViewDebugSnapshot,
+  WhiteboardMindmapDragView,
+  WhiteboardNodeTransformHandle,
+  WhiteboardMindmapViewTree,
+  WhiteboardMindmapViewTreeLine,
+  WhiteboardNodeViewItem,
+  WhiteboardViewKey,
+  WhiteboardViewNamespace,
+  WhiteboardViewSnapshot
 } from './instance'
 
 export type {
@@ -28,6 +39,8 @@ export type {
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, ShortcutRuntime } from './shortcuts'
 export type {
+  EdgeRoutingPointDragActiveState,
+  EdgeRoutingPointDragState,
   EdgeConnectFrom,
   EdgeConnectState,
   EdgeConnectTo,
@@ -35,6 +48,18 @@ export type {
   GroupRuntime,
   HistoryState,
   InteractionState,
+  MindmapDragDropTarget,
+  MindmapDragState,
+  MindmapRootDragState,
+  MindmapSubtreeDragState,
+  NodeDragActiveState,
+  NodeDragChildrenState,
+  NodeDragState,
+  NodeTransformDragState,
+  NodeTransformResizeDirection,
+  NodeTransformResizeDragState,
+  NodeTransformRotateDragState,
+  NodeTransformState,
   NodeOverride,
   NodeViewUpdate,
   SelectionMode,

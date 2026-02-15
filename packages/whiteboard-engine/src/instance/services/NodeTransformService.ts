@@ -6,7 +6,7 @@ import type {
   NodeTransformRotateDragState,
   NodeTransformService as NodeTransformServiceApi
 } from '@engine-types/instance/services'
-import { getRectCenter } from '../../geometry/geometry'
+import { getRectCenter } from '../../infra/geometry'
 import { computeResizeSnap } from '../../node/utils/snap'
 import { computeNextRotation, computeResizeRect, getResizeSourceEdges } from '../../node/utils/transform'
 

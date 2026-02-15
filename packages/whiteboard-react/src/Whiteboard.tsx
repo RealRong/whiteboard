@@ -1,15 +1,18 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { createCore, type Core, type Document } from '@whiteboard/core'
 import type { CSSProperties } from 'react'
+import { useSetAtom } from 'jotai'
+import { useHydrateAtoms } from 'jotai/utils'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
-import { useWhiteboardEngineBridge } from './common/lifecycle'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import {
-  DEFAULT_DOCUMENT_VIEWPORT,
   createWhiteboardEngine,
+  docAtom,
+  instanceAtom,
   normalizeWhiteboardConfig,
+  toWhiteboardLifecycleConfig,
   toWhiteboardInstanceConfig,
   type WhiteboardInstance
 } from '@whiteboard/engine'
@@ -103,17 +106,75 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   )
 
   useImperativeHandle(ref, () => instance, [instance])
-  useWhiteboardEngineBridge({
-    doc,
-    instance,
-    historyConfig: resolvedConfig.history,
-    viewport: doc.viewport,
-    shortcutsProp: resolvedConfig.shortcuts,
-    tool: resolvedConfig.tool,
-    viewportConfig: resolvedConfig.viewport,
-    onSelectionChange: resolvedConfig.onSelectionChange,
-    onEdgeSelectionChange: resolvedConfig.onEdgeSelectionChange
-  })
+
+  useHydrateAtoms([
+    [docAtom, doc],
+    [instanceAtom, instance]
+  ])
+
+  const setDoc = useSetAtom(docAtom)
+  const setInstance = useSetAtom(instanceAtom)
+
+  useEffect(() => {
+    setDoc(doc)
+  }, [doc, setDoc])
+
+  useEffect(() => {
+    setInstance(instance)
+  }, [instance, setInstance])
+
+  const lifecycleConfig = useMemo(
+    () =>
+      toWhiteboardLifecycleConfig({
+        instance,
+        docId: doc.id,
+        tool: resolvedConfig.tool,
+        mindmapLayout: resolvedConfig.mindmapLayout,
+        viewport: doc.viewport,
+        viewportConfig: resolvedConfig.viewport,
+        history: resolvedConfig.history,
+        shortcuts: resolvedConfig.shortcuts,
+        onSelectionChange: resolvedConfig.onSelectionChange,
+        onEdgeSelectionChange: resolvedConfig.onEdgeSelectionChange
+      }),
+    [
+      doc.id,
+      resolvedConfig.history.enabled,
+      resolvedConfig.history.capacity,
+      resolvedConfig.history.captureSystem,
+      resolvedConfig.history.captureRemote,
+      instance,
+      resolvedConfig.onEdgeSelectionChange,
+      resolvedConfig.onSelectionChange,
+      doc.viewport?.center?.x,
+      doc.viewport?.center?.y,
+      doc.viewport?.zoom,
+      resolvedConfig.shortcuts,
+      resolvedConfig.tool,
+      resolvedConfig.mindmapLayout.mode,
+      resolvedConfig.mindmapLayout.options?.hGap,
+      resolvedConfig.mindmapLayout.options?.vGap,
+      resolvedConfig.mindmapLayout.options?.side,
+      resolvedConfig.viewport?.enablePan,
+      resolvedConfig.viewport?.enableWheel,
+      resolvedConfig.viewport?.maxZoom,
+      resolvedConfig.viewport?.minZoom,
+      resolvedConfig.viewport?.wheelSensitivity
+    ]
+  )
+
+  const lifecycle = instance.runtime.lifecycle
+
+  useEffect(() => {
+    lifecycle.start()
+    return () => {
+      lifecycle.stop()
+    }
+  }, [lifecycle])
+
+  useEffect(() => {
+    lifecycle.update(lifecycleConfig)
+  }, [lifecycle, lifecycleConfig])
 
   const containerStyle = useMemo<CSSProperties>(
     () => ({
@@ -122,14 +183,23 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     [resolvedConfig.style]
   )
 
-  const viewport = doc.viewport ?? DEFAULT_DOCUMENT_VIEWPORT
+  const [viewportTransform, setViewportTransform] = useState(() => instance.view.read('viewport.transform'))
+  useEffect(() => {
+    const update = () => {
+      const next = instance.view.read('viewport.transform')
+      setViewportTransform((prev) => (Object.is(prev, next) ? prev : next))
+    }
+    update()
+    return instance.view.watch('viewport.transform', update)
+  }, [instance])
+
   const transformStyle = useMemo<CSSProperties>(
     () => ({
-      transform: `translate(50%, 50%) scale(${viewport.zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
+      transform: viewportTransform.transform,
       transformOrigin: '0 0',
-      ['--wb-zoom' as const]: `${viewport.zoom}`
+      ...viewportTransform.cssVars
     }),
-    [viewport.center.x, viewport.center.y, viewport.zoom]
+    [viewportTransform]
   )
 
   return (
@@ -142,7 +212,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
       >
         <div className="wb-root-viewport" style={transformStyle}>
           <EdgeLayerStack />
-          <MindmapLayerStack layout={resolvedConfig.mindmapLayout} />
+          <MindmapLayerStack />
           <DragGuidesLayer />
           <NodeLayer />
         </div>

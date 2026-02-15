@@ -1,7 +1,7 @@
 import type { Core, Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { GroupAutoFitService as GroupAutoFitServiceApi } from '@engine-types/instance/services'
-import { getNodeAABB } from '../../geometry/geometry'
+import { getNodeAABB } from '../../infra/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
 
 type Snapshot = {

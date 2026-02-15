@@ -1,0 +1,1 @@
+export { createDerivedRegistry } from './createDerivedRegistry'

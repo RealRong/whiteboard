@@ -1,17 +1,8 @@
-import type { MindmapLayoutConfig } from 'types/mindmap'
 import { MindmapLayer } from './MindmapLayer'
-import { useDoc, useInstance } from '../../common/hooks'
+import { useWhiteboardView } from '../../common/hooks'
 
-type MindmapLayerStackProps = {
-  layout: MindmapLayoutConfig
-}
-
-export const MindmapLayerStack = ({ layout }: MindmapLayerStackProps) => {
-  const doc = useDoc()
-  const instance = useInstance()
-  const { mindmapNodeSize: nodeSize } = instance.runtime.config
-
-  if (!doc) return null
-
-  return <MindmapLayer nodes={doc.nodes} nodeSize={nodeSize} layout={layout} />
+export const MindmapLayerStack = () => {
+  const trees = useWhiteboardView('mindmap.trees')
+  const drag = useWhiteboardView('mindmap.drag')
+  return <MindmapLayer trees={trees} drag={drag} />
 }

@@ -1,139 +1,77 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import type { PointerEvent } from 'react'
-import type { MindmapNodeId, MindmapTree, Node, Rect } from '@whiteboard/core'
-import type { MindmapLayoutConfig } from 'types/mindmap'
-import type { Size } from 'types/common'
+import type { MindmapNodeId } from '@whiteboard/core'
+import type { WhiteboardMindmapDragView, WhiteboardMindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
-import { useMindmapLayout } from '../hooks/useMindmapLayout'
-import { useMindmapRootDrag } from '../hooks/useMindmapRootDrag'
-import { useMindmapSubtreeDrag } from '../hooks/useMindmapSubtreeDrag'
-import { computeStaticConnectionLine, getMindmapLabel } from '../utils/mindmapRender'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
 type MindmapTreeViewProps = {
-  tree: MindmapTree
-  mindmapNode: Node
-  nodeSize: Size
-  layout: MindmapLayoutConfig
+  item: WhiteboardMindmapViewTree
+  drag?: WhiteboardMindmapDragView
 }
 
-export const MindmapTreeView = ({
-  tree,
-  mindmapNode,
-  nodeSize,
-  layout
-}: MindmapTreeViewProps) => {
+export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
+  const { tree, node: mindmapNode, computed, shiftX, shiftY, lines, labels, layout } = item
   const instance = useInstance()
-  const clientToScreen = instance.runtime.viewport.clientToScreen
-  const screenToWorld = instance.runtime.viewport.screenToWorld
-  const computed = useMindmapLayout({
-    tree,
-    nodeSize,
-    mode: layout.mode,
-    options: layout.options
-  })
-
-  const shiftX = -computed.bbox.x
-  const shiftY = -computed.bbox.y
-
-  const getWorldPoint = useCallback(
-    (event: PointerEvent<HTMLElement>) => {
-      return screenToWorld(clientToScreen(event.clientX, event.clientY))
-    },
-    [clientToScreen, screenToWorld]
-  )
-
-  const { baseOffset, startRootDrag, updateRootDrag, endRootDrag, cancelRootDrag } = useMindmapRootDrag({
-    mindmapNode,
-    getWorldPoint,
-    commitRootPosition: (position) => {
-      void instance.commands.mindmap.moveRoot({
-        nodeId: mindmapNode.id,
-        position
-      })
-    }
-  })
-
-  const nodeRects = useMemo(() => {
-    const map = new Map<MindmapNodeId, Rect>()
-    Object.entries(computed.node).forEach(([id, rect]) => {
-      map.set(id, {
-        x: rect.x + shiftX + baseOffset.x,
-        y: rect.y + shiftY + baseOffset.y,
-        width: rect.width,
-        height: rect.height
-      })
-    })
-    return map
-  }, [baseOffset.x, baseOffset.y, computed.node, shiftX, shiftY])
-
-  const { dragPreview, startSubtreeDrag, updateSubtreeDrag, endSubtreeDrag, cancelSubtreeDrag } = useMindmapSubtreeDrag({
-    tree,
-    mindmapNode,
-    nodeSize,
-    layout,
-    moveSubtreeWithDrop: instance.commands.mindmap.moveSubtreeWithDrop,
-    computeSubtreeDropTarget: instance.runtime.services.mindmapDrag.computeSubtreeDropTarget,
-    getWorldPoint,
-    nodeRects
-  })
+  const nodeSize = instance.runtime.config.mindmapNodeSize
+  const treeDrag = drag?.treeId === mindmapNode.id ? drag : undefined
+  const dragPreview = treeDrag?.preview
+  const baseOffset = treeDrag?.baseOffset ?? mindmapNode.position
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => {
       if (event.button !== 0) return
-      const rect = nodeRects.get(nodeId)
-      if (!rect) return
+      const handled = instance.commands.mindmap.startDrag({
+        treeId: mindmapNode.id,
+        nodeId,
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY
+      })
+      if (!handled) return
       event.preventDefault()
       event.stopPropagation()
       event.currentTarget.setPointerCapture(event.pointerId)
-      if (nodeId === tree.rootId) {
-        startRootDrag(event)
-        return
-      }
-      startSubtreeDrag(event, nodeId, rect)
     },
-    [nodeRects, startRootDrag, startSubtreeDrag, tree.rootId]
+    [instance.commands.mindmap, mindmapNode.id]
   )
 
   const handlePointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (updateRootDrag(event)) return
-      updateSubtreeDrag(event)
+      if (!instance.commands.mindmap.updateDrag({
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY
+      })) {
+        return
+      }
+      event.preventDefault()
     },
-    [updateRootDrag, updateSubtreeDrag]
+    [instance.commands.mindmap]
   )
 
   const handlePointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (endRootDrag(event)) return
-      endSubtreeDrag(event)
+      if (!instance.commands.mindmap.endDrag({ pointerId: event.pointerId })) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
     },
-    [endRootDrag, endSubtreeDrag]
+    [instance.commands.mindmap]
   )
 
   const handlePointerCancel = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (cancelRootDrag(event)) return
-      cancelSubtreeDrag(event)
+      if (!instance.commands.mindmap.cancelDrag({ pointerId: event.pointerId })) return
+      event.preventDefault()
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
     },
-    [cancelRootDrag, cancelSubtreeDrag]
+    [instance.commands.mindmap]
   )
-
-  const lines = useMemo(() => {
-    const result: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> = []
-    Object.entries(tree.children).forEach(([parentId, childIds]) => {
-      const parent = computed.node[parentId]
-      if (!parent) return
-      childIds.forEach((childId) => {
-        const child = computed.node[childId]
-        if (!child) return
-        const side = parentId === tree.rootId ? tree.nodes[childId]?.side : undefined
-        const { x1, y1, x2, y2 } = computeStaticConnectionLine(parent, child, side)
-        result.push({ id: `${parentId}-${childId}`, x1, y1, x2, y2 })
-      })
-    })
-    return result
-  }, [computed.node, tree.children, tree.nodes, tree.rootId])
 
   const handleAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
@@ -168,8 +106,7 @@ export const MindmapTreeView = ({
         ))}
       </svg>
       {Object.entries(computed.node).map(([id, rect]) => {
-        const node = tree.nodes[id]
-        const label = getMindmapLabel(node)
+        const label = labels[id] ?? 'mindmap'
         const dragActive = dragPreview?.nodeId === id
         const attachTarget = dragPreview?.drop?.type === 'attach' && dragPreview.drop.targetId === id
         return (

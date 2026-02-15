@@ -13,6 +13,7 @@ import {
 } from './factory/createWhiteboardRuntimeNamespace'
 import { createWhiteboardStateNamespace } from './factory/createWhiteboardStateNamespace'
 import { createWhiteboardRuntimeServices } from './factory/createWhiteboardRuntimeServices'
+import { createWhiteboardViewNamespace } from './factory/createWhiteboardViewNamespace'
 import { createInstanceQuery } from './query/createInstanceQuery'
 
 export const createWhiteboardInstance = ({
@@ -37,6 +38,11 @@ export const createWhiteboardInstance = ({
     getViewportZoom: runtimeBase.viewport.getZoom,
     getContainer: runtimeBase.getContainer
   })
+  const view = createWhiteboardViewNamespace({
+    state,
+    query,
+    config
+  })
 
   let commands!: WhiteboardInstance['commands']
   let services!: WhiteboardRuntimeNamespace['services']
@@ -60,6 +66,7 @@ export const createWhiteboardInstance = ({
     state,
     runtime,
     query,
+    view,
     get commands() {
       return commands
     }

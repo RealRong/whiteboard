@@ -8,6 +8,7 @@ export const createSelectionCommands = (instance: WhiteboardInstance): Whiteboar
   return {
     select: (ids, mode = 'replace') => {
       write('edgeSelection', undefined)
+      write('edgeRoutingPointDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode,
@@ -16,6 +17,7 @@ export const createSelectionCommands = (instance: WhiteboardInstance): Whiteboar
     },
     toggle: (ids) => {
       write('edgeSelection', undefined)
+      write('edgeRoutingPointDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode: 'toggle',
@@ -24,6 +26,7 @@ export const createSelectionCommands = (instance: WhiteboardInstance): Whiteboar
     },
     clear: () => {
       write('edgeSelection', undefined)
+      write('edgeRoutingPointDrag', {})
       write('selection', (prev) => ({
         ...prev,
         selectedNodeIds: new Set(),
@@ -35,6 +38,7 @@ export const createSelectionCommands = (instance: WhiteboardInstance): Whiteboar
     getSelectedNodeIds: () => Array.from(read('selection').selectedNodeIds),
     beginBox: (mode = 'replace') => {
       write('edgeSelection', undefined)
+      write('edgeRoutingPointDrag', {})
       write('selection', (prev) => ({
         ...prev,
         mode,

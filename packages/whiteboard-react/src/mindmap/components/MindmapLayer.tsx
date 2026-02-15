@@ -1,34 +1,18 @@
-import { useMemo } from 'react'
-import type { Node } from '@whiteboard/core'
-import type { MindmapLayoutConfig } from 'types/mindmap'
-import type { Size } from 'types/common'
+import type { WhiteboardMindmapDragView, WhiteboardMindmapViewTree } from '@whiteboard/engine'
 import { MindmapTreeView } from './MindmapTreeView'
-import { getMindmapTree } from '../utils/mindmapTree'
 
 type MindmapLayerProps = {
-  nodes: Node[]
-  nodeSize: Size
-  layout: MindmapLayoutConfig
+  trees: WhiteboardMindmapViewTree[]
+  drag?: WhiteboardMindmapDragView
 }
 
-export const MindmapLayer = ({ nodes, nodeSize, layout }: MindmapLayerProps) => {
-  const mindmapNodes = useMemo(() => nodes.filter((node) => node.type === 'mindmap'), [nodes])
-  if (!mindmapNodes.length) return null
+export const MindmapLayer = ({ trees, drag }: MindmapLayerProps) => {
+  if (!trees.length) return null
   return (
     <>
-      {mindmapNodes.map((node) => {
-        const tree = getMindmapTree(node)
-        if (!tree) return null
-        return (
-          <MindmapTreeView
-            key={node.id}
-            tree={tree}
-            mindmapNode={node}
-            nodeSize={nodeSize}
-            layout={layout}
-          />
-        )
-      })}
+      {trees.map((item) => (
+        <MindmapTreeView key={item.id} item={item} drag={drag} />
+      ))}
     </>
   )
 }

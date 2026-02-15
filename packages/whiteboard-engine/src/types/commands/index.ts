@@ -23,6 +23,7 @@ import type { Size, WhiteboardResolvedHistoryConfig } from '../common'
 import type { Guide } from '../node/snap'
 import type { NodeDragGroupOptions } from '../node/drag'
 import type { InteractionState, NodeViewUpdate, SelectionMode } from '../state'
+import type { NodeTransformResizeDirection } from '../state'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -68,11 +69,117 @@ export type MindmapMoveSubtreeWithDropOptions = {
   layout: MindmapLayoutConfig
 }
 
+export type MindmapStartDragOptions = {
+  treeId: MindmapId
+  nodeId: MindmapNodeId
+  pointerId: number
+  clientX: number
+  clientY: number
+}
+
+export type MindmapUpdateDragOptions = {
+  pointerId: number
+  clientX: number
+  clientY: number
+}
+
+export type MindmapEndDragOptions = {
+  pointerId: number
+}
+
+export type MindmapCancelDragOptions = {
+  pointerId?: number
+}
+
+export type NodeDragStartOptions = {
+  nodeId: NodeId
+  pointerId: number
+  clientX: number
+  clientY: number
+}
+
+export type NodeDragUpdateOptions = {
+  pointerId: number
+  clientX: number
+  clientY: number
+  altKey?: boolean
+}
+
+export type NodeDragEndOptions = {
+  pointerId: number
+}
+
+export type NodeDragCancelOptions = {
+  pointerId?: number
+}
+
+export type EdgeRoutingPointDragStartOptions = {
+  edgeId: EdgeId
+  index: number
+  pointerId: number
+  clientX: number
+  clientY: number
+}
+
+export type EdgeRoutingPointDragUpdateOptions = {
+  pointerId: number
+  clientX: number
+  clientY: number
+}
+
+export type EdgeRoutingPointDragEndOptions = {
+  pointerId: number
+}
+
+export type EdgeRoutingPointDragCancelOptions = {
+  pointerId?: number
+}
+
+export type NodeTransformStartResizeOptions = {
+  nodeId: NodeId
+  pointerId: number
+  handle: NodeTransformResizeDirection
+  clientX: number
+  clientY: number
+  rect: Rect
+  rotation: number
+}
+
+export type NodeTransformStartRotateOptions = {
+  nodeId: NodeId
+  pointerId: number
+  clientX: number
+  clientY: number
+  rect: Rect
+  rotation: number
+}
+
+export type NodeTransformUpdateOptions = {
+  pointerId: number
+  clientX: number
+  clientY: number
+  minSize: Size
+  altKey?: boolean
+  shiftKey?: boolean
+}
+
+export type NodeTransformEndOptions = {
+  pointerId: number
+}
+
+export type NodeTransformCancelOptions = {
+  pointerId?: number
+}
+
 export type WhiteboardMindmapCommands = Core['commands']['mindmap'] & {
   insertNode: (options: MindmapInsertNodeOptions) => Promise<void>
   moveSubtreeWithLayout: (options: MindmapMoveSubtreeWithLayoutOptions) => Promise<DispatchResult>
   moveSubtreeWithDrop: (options: MindmapMoveSubtreeWithDropOptions) => Promise<void>
   moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
+  startDrag: (options: MindmapStartDragOptions) => boolean
+  updateDrag: (options: MindmapUpdateDragOptions) => boolean
+  endDrag: (options: MindmapEndDragOptions) => boolean
+  cancelDrag: (options?: MindmapCancelDragOptions) => boolean
 }
 
 export type WhiteboardCommands = {
@@ -109,6 +216,10 @@ export type WhiteboardCommands = {
     insertRoutingPointAtClient: (edge: Edge, pathPoints: Point[], clientX: number, clientY: number) => void
     moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
     removeRoutingPoint: (edge: Edge, index: number) => void
+    startRoutingPointDrag: (options: EdgeRoutingPointDragStartOptions) => boolean
+    updateRoutingPointDrag: (options: EdgeRoutingPointDragUpdateOptions) => boolean
+    endRoutingPointDrag: (options: EdgeRoutingPointDragEndOptions) => boolean
+    cancelRoutingPointDrag: (options?: EdgeRoutingPointDragCancelOptions) => boolean
     resetRouting: (edge: Edge) => void
     connect: (
       source: { nodeId: NodeId; anchor?: EdgeAnchor },
@@ -138,6 +249,10 @@ export type WhiteboardCommands = {
     setHoveredGroupId: (groupId?: NodeId) => void
   }
   nodeDrag: {
+    start: (options: NodeDragStartOptions) => boolean
+    update: (options: NodeDragUpdateOptions) => boolean
+    end: (options: NodeDragEndOptions) => boolean
+    cancel: (options?: NodeDragCancelOptions) => boolean
     getGroupContext: () => NodeDragGroupOptions
     updateHoverGroup: (current: NodeId | undefined, next?: NodeId) => NodeId | undefined
     clearHoverGroup: (current?: NodeId) => NodeId | undefined
@@ -201,6 +316,11 @@ export type WhiteboardCommands = {
     commitResize: (nodeId: NodeId, update?: { position: Point; size: Size }) => void
     setGuides: (guides: Guide[]) => void
     clearGuides: () => void
+    startResize: (options: NodeTransformStartResizeOptions) => boolean
+    startRotate: (options: NodeTransformStartRotateOptions) => boolean
+    update: (options: NodeTransformUpdateOptions) => boolean
+    end: (options: NodeTransformEndOptions) => boolean
+    cancel: (options?: NodeTransformCancelOptions) => boolean
   }
   group: Core['commands']['group']
   mindmap: WhiteboardMindmapCommands

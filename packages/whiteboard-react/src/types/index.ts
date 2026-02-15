@@ -15,46 +15,17 @@ export type {
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 
 export type {
-  HandleKind,
-  NodeContainerHandlers,
   NodeContainerProps,
   NodeDefinition,
-  NodeDragChildren,
-  NodeDragGroupOptions,
-  NodeDragHandlers,
-  NodeDragSnapOptions,
-  NodeDragStrategy,
-  NodeDragTransientApi,
   NodeHandleSide,
   NodeHandlesProps,
   NodeItemProps,
-  NodePresentation,
   NodeRegistry,
   NodeRenderProps,
-  NodeTransientApi,
-  ResizeDirection,
-  SelectionHandlers,
-  SnapRuntime,
-  TransformHandle,
-  UseNodeInteractionOptions,
-  UseNodePresentationOptions,
-  UseNodeTransformOptions,
-  UseSelectionOptions,
-  UseSelectionReturn,
-  UseSelectionRuntimeReturn,
-  UseSelectionStateReturn,
-  GridIndex,
-  Guide,
-  SnapAxis,
-  SnapCandidate,
-  SnapEdge,
-  SnapResult
 } from './node'
 
 export type {
   EdgeConnectAnchorResult,
-  EdgePathEntry,
   UseEdgeConnectActionsReturn,
-  UseEdgeConnectReturn,
-  UseEdgeGeometryOptions
+  UseEdgeConnectReturn
 } from './edge'

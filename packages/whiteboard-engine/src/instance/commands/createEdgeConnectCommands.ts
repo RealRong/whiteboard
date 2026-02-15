@@ -1,7 +1,7 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
 import type { WhiteboardCommands } from '@engine-types/commands'
 import type { WhiteboardInstance } from '@engine-types/instance'
-import { ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../edge/edgeConnectUtils'
+import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../../infra/query'
 
 export const createEdgeConnectCommands = (
   instance: WhiteboardInstance

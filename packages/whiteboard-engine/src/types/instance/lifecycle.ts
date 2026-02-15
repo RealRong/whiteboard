@@ -1,6 +1,7 @@
 import type { DocumentId, NodeId, Viewport } from '@whiteboard/core'
 import type { ShortcutOverrides } from '../shortcuts'
 import type { WhiteboardResolvedHistoryConfig } from '../common'
+import type { MindmapLayoutConfig } from '../mindmap'
 
 export type WhiteboardLifecycleViewportConfig = {
   minZoom: number
@@ -15,6 +16,7 @@ export type WhiteboardLifecycleConfig = {
   tool: 'select' | 'edge'
   viewport: Viewport
   viewportConfig: WhiteboardLifecycleViewportConfig
+  mindmapLayout: MindmapLayoutConfig
   history?: WhiteboardResolvedHistoryConfig
   shortcuts?: ShortcutOverrides
   onSelectionChange?: (ids: NodeId[]) => void

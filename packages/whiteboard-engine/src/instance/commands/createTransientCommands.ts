@@ -68,9 +68,13 @@ export const createTransientCommands = (
     },
     reset: () => {
       write('edgeConnect', { isConnecting: false } as EdgeConnectState)
+      write('edgeRoutingPointDrag', {})
       write('dragGuides', [])
       write('groupHovered', undefined)
       write('nodeOverrides', new Map<NodeId, NodeOverride>())
+      write('mindmapDrag', {})
+      write('nodeDrag', {})
+      write('nodeTransform', {})
     }
   }
 }

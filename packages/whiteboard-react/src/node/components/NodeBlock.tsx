@@ -16,6 +16,7 @@ type NodeBlockProps = {
   onPointerDown?: PointerEventHandler<HTMLDivElement>
   onPointerMove?: PointerEventHandler<HTMLDivElement>
   onPointerUp?: PointerEventHandler<HTMLDivElement>
+  onPointerCancel?: PointerEventHandler<HTMLDivElement>
   onPointerEnter?: PointerEventHandler<HTMLDivElement>
   onPointerLeave?: PointerEventHandler<HTMLDivElement>
 }
@@ -32,6 +33,7 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   onPointerEnter,
   onPointerLeave
 }: NodeBlockProps, ref) => {
@@ -45,6 +47,7 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       style={{

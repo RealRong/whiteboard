@@ -6,7 +6,7 @@ import {
   expandGroupRect,
   rectEquals
 } from '../../utils/group'
-import { getNodeAABB, rectContains } from '../../../geometry/geometry'
+import { getNodeAABB, rectContains } from '../../../infra/geometry'
 import type { NodeDragGroupOptions, NodeDragStrategy, NodeDragTransientApi } from '@engine-types/node/drag'
 
 const commitNodeTransient = (

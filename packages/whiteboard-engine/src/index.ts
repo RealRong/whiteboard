@@ -10,13 +10,14 @@ export {
   toWhiteboardInstanceConfig,
   toWhiteboardLifecycleConfig
 } from './config'
-export { docAtom, instanceAtom, WHITEBOARD_STATE_KEYS } from './state'
+export { docAtom, instanceAtom, WHITEBOARD_STATE_KEYS, WHITEBOARD_VIEW_KEYS } from './state'
 
 export type { WhiteboardCommands as WhiteboardEngineCommands } from './types/commands'
 export type { WhiteboardCommands } from './types/commands'
 export type {
   CreateWhiteboardInstanceOptions,
   WhiteboardContainerRect,
+  WhiteboardEdgePathEntry,
   WhiteboardInstance,
   WhiteboardInstanceConfig,
   WhiteboardInstanceQuery,
@@ -26,8 +27,20 @@ export type {
   WhiteboardStateKey,
   WhiteboardStateNamespace,
   WhiteboardStateSnapshot,
+  WhiteboardViewDebugMetric,
+  WhiteboardViewDebugNamespace,
+  WhiteboardViewDebugSnapshot,
+  WhiteboardMindmapDragView,
+  WhiteboardNodeTransformHandle,
+  WhiteboardMindmapViewTree,
+  WhiteboardMindmapViewTreeLine,
+  WhiteboardNodeViewItem,
+  WhiteboardViewKey,
+  WhiteboardViewNamespace,
+  WhiteboardViewSnapshot,
   CreateWhiteboardInstanceOptions as CreateWhiteboardEngineOptions,
   WhiteboardContainerRect as WhiteboardEngineContainerRect,
+  WhiteboardEdgePathEntry as WhiteboardEngineEdgePathEntry,
   WhiteboardInstance as WhiteboardEngine,
   WhiteboardInstanceConfig as WhiteboardEngineConfig,
   WhiteboardInstanceQuery as WhiteboardEngineQuery,
@@ -36,7 +49,18 @@ export type {
   WhiteboardRuntimeNamespace as WhiteboardEngineRuntimeNamespace,
   WhiteboardStateKey as WhiteboardEngineStateKey,
   WhiteboardStateNamespace as WhiteboardEngineStateNamespace,
-  WhiteboardStateSnapshot as WhiteboardEngineStateSnapshot
+  WhiteboardStateSnapshot as WhiteboardEngineStateSnapshot,
+  WhiteboardViewDebugMetric as WhiteboardEngineViewDebugMetric,
+  WhiteboardViewDebugNamespace as WhiteboardEngineViewDebugNamespace,
+  WhiteboardViewDebugSnapshot as WhiteboardEngineViewDebugSnapshot,
+  WhiteboardMindmapDragView as WhiteboardEngineMindmapDragView,
+  WhiteboardNodeTransformHandle as WhiteboardEngineNodeTransformHandle,
+  WhiteboardMindmapViewTree as WhiteboardEngineMindmapViewTree,
+  WhiteboardMindmapViewTreeLine as WhiteboardEngineMindmapViewTreeLine,
+  WhiteboardNodeViewItem as WhiteboardEngineNodeViewItem,
+  WhiteboardViewKey as WhiteboardEngineViewKey,
+  WhiteboardViewNamespace as WhiteboardEngineViewNamespace,
+  WhiteboardViewSnapshot as WhiteboardEngineViewSnapshot
 } from './types/instance'
 export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutOverrides, ShortcutRuntime } from './types/shortcuts'
 export type {
@@ -46,6 +70,18 @@ export type {
   EdgeReconnectInfo,
   HistoryState,
   InteractionState,
+  MindmapDragDropTarget,
+  MindmapDragState,
+  MindmapRootDragState,
+  MindmapSubtreeDragState,
+  NodeDragActiveState,
+  NodeDragChildrenState,
+  NodeDragState,
+  NodeTransformDragState,
+  NodeTransformResizeDirection,
+  NodeTransformResizeDragState,
+  NodeTransformRotateDragState,
+  NodeTransformState,
   NodeOverride,
   NodeViewUpdate,
   SelectionState,
@@ -54,6 +90,5 @@ export type {
 } from './types/state'
 export type {
   MindmapDragService,
-  MindmapSubtreeDropTarget,
-  NodeTransformDragState
+  MindmapSubtreeDropTarget
 } from './types/instance/services'

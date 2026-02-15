@@ -5,6 +5,10 @@ import type { CanvasEventHandlers, CanvasInputRuntime } from './input/types'
 import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_WHITEBOARD_CONFIG } from '../../config'
 import { bindCanvasContainerEvents } from './bindings/bindCanvasContainerEvents'
 import { createEdgeConnectWindowBinding, type EdgeConnectWindowBinding } from './bindings/bindEdgeConnectWindow'
+import {
+  createEdgeRoutingPointDragWindowBinding,
+  type EdgeRoutingPointDragWindowBinding
+} from './bindings/bindEdgeRoutingPointDragWindow'
 import { createSelectionCallbacksBinding, type SelectionCallbacksBinding } from './bindings/bindSelectionCallbacks'
 import { bindWindowSpaceKey } from './bindings/bindWindowSpaceKey'
 import { createCanvasInputHandlers } from './input/createCanvasInputHandlers'
@@ -26,6 +30,7 @@ const createDefaultConfig = (instance: WhiteboardInstance): WhiteboardLifecycleC
     enableWheel: DEFAULT_WHITEBOARD_CONFIG.viewport.enableWheel,
     wheelSensitivity: instance.runtime.config.viewport.wheelSensitivity
   },
+  mindmapLayout: {},
   history: undefined,
   shortcuts: undefined,
   onSelectionChange: undefined,
@@ -54,6 +59,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
   private offContainerEvents: (() => void) | null = null
   private offWindowSpaceKey: (() => void) | null = null
   private edgeConnectWindowBinding: EdgeConnectWindowBinding
+  private edgeRoutingPointDragWindowBinding: EdgeRoutingPointDragWindowBinding
   private selectionCallbacksBinding: SelectionCallbacksBinding
   private offHistoryBinding: (() => void) | null = null
   private previousHistoryIdentity: HistoryIdentity | null = null
@@ -67,6 +73,11 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
       state: this.instance.state,
       events: this.instance.runtime.events,
       edgeConnectCommands: this.instance.commands.edgeConnect
+    })
+    this.edgeRoutingPointDragWindowBinding = createEdgeRoutingPointDragWindowBinding({
+      state: this.instance.state,
+      events: this.instance.runtime.events,
+      edgeCommands: this.instance.commands.edge
     })
     this.selectionCallbacksBinding = createSelectionCallbacksBinding({
       state: this.instance.state
@@ -182,6 +193,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
     this.syncWindowSpaceKeyBinding()
     this.selectionCallbacksBinding.start()
     this.edgeConnectWindowBinding.start()
+    this.edgeRoutingPointDragWindowBinding.start()
     this.syncContainerEventsBinding()
     this.syncContainerObserverBinding()
   }
@@ -198,6 +210,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
     this.instance.commands.tool.set(config.tool)
     this.instance.runtime.viewport.setViewport(config.viewport)
     this.instance.runtime.shortcuts.setShortcuts(config.shortcuts)
+    this.instance.state.write('mindmapLayout', config.mindmapLayout ?? {})
 
     if (config.tool !== 'edge') {
       this.instance.runtime.services.edgeHover.cancel()
@@ -208,6 +221,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
     this.syncContainerEventsBinding()
     this.syncContainerObserverBinding()
     this.edgeConnectWindowBinding.sync()
+    this.edgeRoutingPointDragWindowBinding.sync()
   }
 
   stop: WhiteboardLifecycleRuntimeApi['stop'] = () => {
@@ -223,6 +237,7 @@ export class WhiteboardLifecycleRuntime implements WhiteboardLifecycleRuntimeApi
     this.instance.commands.transient.reset()
 
     this.edgeConnectWindowBinding.stop()
+    this.edgeRoutingPointDragWindowBinding.stop()
     this.selectionCallbacksBinding.stop()
 
     this.offContainerEvents?.()

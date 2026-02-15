@@ -1,10 +1,31 @@
 import { getDefaultStore } from 'jotai'
-import type { Core, Document, Edge, EdgeAnchor, EdgeId, Node, NodeId, Point, Rect, Viewport } from '@whiteboard/core'
+import type {
+  Core,
+  Document,
+  Edge,
+  EdgeAnchor,
+  EdgeId,
+  MindmapLayout,
+  MindmapNodeId,
+  MindmapTree,
+  Node,
+  NodeId,
+  Point,
+  Rect,
+  Viewport
+} from '@whiteboard/core'
 import type { WhiteboardCommands } from '../commands'
 import type {
+  EdgeRoutingPointDragState,
+  EdgeReconnectInfo,
   EdgeConnectState,
   HistoryState,
   InteractionState,
+  MindmapDragDropTarget,
+  MindmapDragState,
+  NodeDragState,
+  NodeTransformResizeDirection,
+  NodeTransformState,
   NodeOverride,
   SelectionState
 } from '../state'
@@ -13,6 +34,7 @@ import type { Size } from '../common'
 import type { ShortcutContext, ShortcutNativeEvent, ShortcutRuntime } from '../shortcuts'
 import type { WhiteboardLifecycleRuntime } from './lifecycle'
 import type { RefLike } from '../ui'
+import type { MindmapLayoutConfig } from '../mindmap'
 import type {
   ContainerRect,
   ContainerSizeObserverService,
@@ -33,11 +55,17 @@ export type WhiteboardStateSnapshot = {
   edgeSelection: EdgeId | undefined
   history: HistoryState
   edgeConnect: EdgeConnectState
+  edgeRoutingPointDrag: EdgeRoutingPointDragState
   viewport: Viewport
+  mindmapLayout: MindmapLayoutConfig
+  mindmapDrag: MindmapDragState
+  nodeDrag: NodeDragState
+  nodeTransform: NodeTransformState
   spacePressed: boolean
   dragGuides: Guide[]
   groupHovered: NodeId | undefined
   nodeOverrides: Map<NodeId, NodeOverride>
+  visibleNodes: Node[]
   canvasNodes: Node[]
   visibleEdges: Edge[]
 }
@@ -111,6 +139,139 @@ export type WhiteboardEdgeConnectAnchorResult = {
   point: Point
 }
 
+export type WhiteboardEdgeConnectPreview = {
+  from?: Point
+  to?: Point
+  hover?: Point
+  reconnect?: EdgeReconnectInfo
+  showPreviewLine: boolean
+}
+
+export type WhiteboardViewportTransformView = {
+  center: Point
+  zoom: number
+  transform: string
+  cssVars: {
+    '--wb-zoom': string
+  }
+}
+
+export type WhiteboardEdgePreviewView = {
+  from?: Point
+  to?: Point
+  snap?: Point
+  reconnect?: EdgeReconnectInfo
+  showPreviewLine: boolean
+}
+
+export type WhiteboardEdgeSelectedRoutingView = {
+  edge: Edge
+  points: Point[]
+} | undefined
+
+export type WhiteboardMindmapViewTreeLine = {
+  id: string
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
+export type WhiteboardMindmapDragPreview = {
+  nodeId: MindmapNodeId
+  ghost: Rect
+  drop?: MindmapDragDropTarget
+}
+
+export type WhiteboardMindmapDragView = {
+  treeId: NodeId
+  kind: 'root' | 'subtree'
+  baseOffset: Point
+  preview?: WhiteboardMindmapDragPreview
+}
+
+export type WhiteboardMindmapViewTree = {
+  id: NodeId
+  node: Node
+  tree: MindmapTree
+  layout: MindmapLayoutConfig
+  computed: MindmapLayout
+  shiftX: number
+  shiftY: number
+  lines: WhiteboardMindmapViewTreeLine[]
+  labels: Record<MindmapNodeId, string>
+}
+
+export type WhiteboardNodeViewItem = {
+  node: Node
+  rect: Rect
+  container: {
+    transformBase: string
+    rotation: number
+    transformOrigin: 'center center'
+  }
+  selected: boolean
+  hovered: boolean
+  activeTool: 'select' | 'edge'
+  zoom: number
+}
+
+export type WhiteboardNodeTransformHandle = {
+  id: string
+  kind: 'resize' | 'rotate'
+  direction?: NodeTransformResizeDirection
+  position: Point
+  cursor: string
+}
+
+export type WhiteboardViewSnapshot = {
+  'viewport.transform': WhiteboardViewportTransformView
+  'edge.entries': WhiteboardEdgePathEntry[]
+  'edge.reconnect': WhiteboardEdgePathEntry | undefined
+  'edge.paths': WhiteboardEdgePathEntry[]
+  'edge.preview': WhiteboardEdgePreviewView
+  'edge.selectedEndpoints': WhiteboardEdgeResolvedEndpoints | undefined
+  'edge.selectedRouting': WhiteboardEdgeSelectedRoutingView
+  'node.items': WhiteboardNodeViewItem[]
+  'node.transformHandles': Map<NodeId, WhiteboardNodeTransformHandle[]>
+  'mindmap.roots': Node[]
+  'mindmap.trees': WhiteboardMindmapViewTree[]
+  'mindmap.drag': WhiteboardMindmapDragView | undefined
+}
+
+export type WhiteboardViewKey = keyof WhiteboardViewSnapshot
+
+export type WhiteboardViewDebugMetric = {
+  revision: number
+  dirty: boolean
+  recomputeCount: number
+  cacheHitCount: number
+  cacheMissCount: number
+  cacheHitRate: number
+  lastComputeMs: number
+  avgComputeMs: number
+  maxComputeMs: number
+  totalComputeMs: number
+  lastComputedAt?: number
+}
+
+export type WhiteboardViewDebugSnapshot = {
+  [K in WhiteboardViewKey]: WhiteboardViewDebugMetric
+}
+
+export type WhiteboardViewDebugNamespace = {
+  getMetrics: <K extends WhiteboardViewKey>(key: K) => WhiteboardViewDebugMetric
+  getAllMetrics: () => WhiteboardViewDebugSnapshot
+  resetMetrics: (key?: WhiteboardViewKey) => void
+}
+
+export type WhiteboardViewNamespace = {
+  read: <K extends WhiteboardViewKey>(key: K) => WhiteboardViewSnapshot[K]
+  watch: (key: WhiteboardViewKey, listener: () => void) => () => void
+  snapshot: () => WhiteboardViewSnapshot
+  debug: WhiteboardViewDebugNamespace
+}
+
 export type WhiteboardContainerRect = ContainerRect
 
 export type WhiteboardInstanceQuery = {
@@ -121,10 +282,10 @@ export type WhiteboardInstanceQuery = {
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
   isCanvasBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => WhiteboardEdgeConnectAnchorResult
-  getEdgeConnectFromPoint: (from?: EdgeConnectState['from']) => Point | undefined
-  getEdgeConnectToPoint: (to?: EdgeConnectState['to']) => Point | undefined
+  getEdgeConnectPreview: (state: EdgeConnectState) => WhiteboardEdgeConnectPreview
+  getEdgePathEntries: () => WhiteboardEdgePathEntry[]
+  getEdgeReconnectPathEntry: (state: EdgeConnectState) => WhiteboardEdgePathEntry | undefined
   getEdgeResolvedEndpoints: (edge: Edge) => WhiteboardEdgeResolvedEndpoints | undefined
-  getEdgePathEntry: (edge: Edge) => WhiteboardEdgePathEntry | undefined
   getNearestEdgeSegmentIndexAtWorld: (pointWorld: Point, pathPoints: Point[]) => number
   getShortcutContext: (event?: ShortcutNativeEvent) => ShortcutContext
 }
@@ -179,6 +340,7 @@ export type WhiteboardInstance = {
   state: WhiteboardStateNamespace
   runtime: WhiteboardRuntimeNamespace
   query: WhiteboardInstanceQuery
+  view: WhiteboardViewNamespace
   commands: WhiteboardCommands
 }
 

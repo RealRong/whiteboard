@@ -6,8 +6,9 @@ import type {
   WhiteboardLifecycleConfig,
   WhiteboardLifecycleViewportConfig
 } from '@engine-types/instance'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
-import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from '../geometry/geometry'
+import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from '../infra/geometry'
 import { DEFAULT_GROUP_PADDING } from '../node/constants'
 
 type UnknownRecord = Record<string, unknown>
@@ -200,6 +201,7 @@ type LifecycleOptions = {
   tool: 'select' | 'edge'
   viewport?: Viewport
   viewportConfig?: Partial<WhiteboardLifecycleViewportConfig>
+  mindmapLayout?: MindmapLayoutConfig
   history?: WhiteboardLifecycleConfig['history']
   shortcuts?: ShortcutOverrides
   onSelectionChange?: (ids: NodeId[]) => void
@@ -212,6 +214,7 @@ export const toWhiteboardLifecycleConfig = ({
   tool,
   viewport,
   viewportConfig,
+  mindmapLayout,
   history,
   shortcuts,
   onSelectionChange,
@@ -233,6 +236,7 @@ export const toWhiteboardLifecycleConfig = ({
     enableWheel: viewportConfig?.enableWheel ?? DEFAULT_WHITEBOARD_CONFIG.viewport.enableWheel,
     wheelSensitivity: viewportConfig?.wheelSensitivity ?? instance.runtime.config.viewport.wheelSensitivity
   },
+  mindmapLayout: mindmapLayout ?? {},
   history: history ?? DEFAULT_WHITEBOARD_CONFIG.history,
   shortcuts,
   onSelectionChange,
