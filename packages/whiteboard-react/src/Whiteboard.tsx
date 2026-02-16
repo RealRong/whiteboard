@@ -133,9 +133,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
         viewport: doc.viewport,
         viewportConfig: resolvedConfig.viewport,
         history: resolvedConfig.history,
-        shortcuts: resolvedConfig.shortcuts,
-        onSelectionChange: resolvedConfig.onSelectionChange,
-        onEdgeSelectionChange: resolvedConfig.onEdgeSelectionChange
+        shortcuts: resolvedConfig.shortcuts
       }),
     [
       doc.id,
@@ -144,8 +142,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       resolvedConfig.history.captureSystem,
       resolvedConfig.history.captureRemote,
       instance,
-      resolvedConfig.onEdgeSelectionChange,
-      resolvedConfig.onSelectionChange,
       doc.viewport?.center?.x,
       doc.viewport?.center?.y,
       doc.viewport?.zoom,

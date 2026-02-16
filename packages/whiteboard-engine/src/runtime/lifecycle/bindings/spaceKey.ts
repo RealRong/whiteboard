@@ -1,11 +1,11 @@
-import type { Instance } from '@engine-types/instance'
+import type { DomBindings } from '../../../host/dom'
 
 type Options = {
-  events: Instance['runtime']['events']
+  dom: DomBindings
   setSpacePressed: (pressed: boolean) => void
 }
 
-export const bindSpaceKey = ({ events, setSpacePressed }: Options) => {
+export const bindSpaceKey = ({ dom, setSpacePressed }: Options) => {
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.code !== 'Space') return
     event.preventDefault()
@@ -18,8 +18,8 @@ export const bindSpaceKey = ({ events, setSpacePressed }: Options) => {
     setSpacePressed(false)
   }
 
-  const offKeyDown = events.onWindow('keydown', handleKeyDown)
-  const offKeyUp = events.onWindow('keyup', handleKeyUp)
+  const offKeyDown = dom.onWindow('keydown', handleKeyDown)
+  const offKeyUp = dom.onWindow('keyup', handleKeyUp)
 
   return () => {
     offKeyDown()

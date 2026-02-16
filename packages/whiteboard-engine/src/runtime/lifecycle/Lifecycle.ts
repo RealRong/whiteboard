@@ -1,34 +1,88 @@
 import type { Instance } from '@engine-types/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance'
+import type { InstanceEventEmitter } from '@engine-types/instance/events'
+import type { DomBindings } from '../../host/dom'
+import {
+  createSelectionEvents,
+  type SelectionEventsWatcher
+} from './watchers/selectionEvents'
+import {
+  createStateEvents,
+  type StateEventsWatcher
+} from './watchers/stateEvents'
+import {
+  createDocEvents,
+  type DocEventsWatcher
+} from './watchers/docEvents'
+import {
+  createWindowBindings,
+  startWindowBindings,
+  stopWindowBindings,
+  syncWindowBindings,
+  type WindowBinding
+} from './bindings/windowBindings'
+import { Cleanup } from './Cleanup'
 import { createDefaultConfig } from './config'
-import { createPhases, type Phases } from './factory'
-import { createCanvasInput, type CanvasEventHandlers, type CanvasInput } from './input'
+import { Container } from './Container'
+import { History } from './history/History'
+import { createCanvasInput } from './input/canvas/handlers'
+import type { CanvasEventHandlers, CanvasInput } from './input/types'
+import { WindowKey } from './WindowKey'
 
 export class Lifecycle implements LifecycleApi {
   private instance: Instance
   private started = false
   private config: LifecycleConfig
   private input: CanvasInput
-  private startFlow: Phases['start']
-  private updateFlow: Phases['update']
-  private stopFlow: Phases['stop']
+  private history: History
+  private container: Container
+  private windowKey: WindowKey
+  private cleanup: Cleanup
+  private windowBindings: WindowBinding[]
+  private selectionEvents: SelectionEventsWatcher
+  private stateEvents: StateEventsWatcher
+  private docEvents: DocEventsWatcher
 
-  constructor(instance: Instance) {
+  constructor(
+    instance: Instance,
+    dom: DomBindings,
+    emitEvent: InstanceEventEmitter['emit']
+  ) {
     this.instance = instance
     this.config = createDefaultConfig(instance)
     this.input = createCanvasInput({ instance: this.instance, config: this.config })
-    const phases = createPhases({
-      instance: this.instance,
-      getHandlers: () => this.handlers,
-      getOnWheel: () => this.onWheel,
-      getSelectionBox: () => this.input.selectionBox,
-      resetInput: this.resetInput,
-      cancelInput: () => this.input.cancel()
-    })
 
-    this.startFlow = phases.start
-    this.updateFlow = phases.update
-    this.stopFlow = phases.stop
+    this.history = new History(this.instance)
+    this.container = new Container({
+      instance: this.instance,
+      dom,
+      getHandlers: () => this.handlers,
+      getOnWheel: () => this.onWheel
+    })
+    this.windowKey = new WindowKey({
+      instance: this.instance,
+      dom
+    })
+    this.cleanup = new Cleanup(this.instance)
+
+    this.selectionEvents = createSelectionEvents({
+      state: this.instance.state,
+      emit: emitEvent
+    })
+    this.stateEvents = createStateEvents({
+      state: this.instance.state,
+      emit: emitEvent
+    })
+    this.docEvents = createDocEvents({
+      core: this.instance.runtime.core,
+      getDocId: () => this.instance.runtime.docRef.current?.id,
+      emit: emitEvent
+    })
+    this.windowBindings = createWindowBindings({
+      instance: this.instance,
+      dom,
+      getSelectionBox: () => this.input.selectionBox
+    })
   }
 
   private handlers: CanvasEventHandlers = {
@@ -53,27 +107,87 @@ export class Lifecycle implements LifecycleApi {
     this.input.onWheel(event)
   }
 
-  private resetInput = () => {
+  private recreateInput = (config: LifecycleConfig) => {
     this.input.cancel()
-    this.input = createCanvasInput({ instance: this.instance, config: this.config })
+    this.input = createCanvasInput({ instance: this.instance, config })
+
+    if (!this.started) return
+    stopWindowBindings(this.windowBindings)
+    startWindowBindings(this.windowBindings)
+  }
+
+  private shouldRecreateInput = (nextConfig: LifecycleConfig) => {
+    const previous = this.config
+    if (previous.tool !== nextConfig.tool) return true
+
+    const prevViewport = previous.viewportConfig
+    const nextViewport = nextConfig.viewportConfig
+    if (prevViewport.minZoom !== nextViewport.minZoom) return true
+    if (prevViewport.maxZoom !== nextViewport.maxZoom) return true
+    if (prevViewport.enablePan !== nextViewport.enablePan) return true
+    if (prevViewport.enableWheel !== nextViewport.enableWheel) return true
+    if (prevViewport.wheelSensitivity !== nextViewport.wheelSensitivity) return true
+
+    return false
+  }
+
+  private applyConfig = (config: LifecycleConfig) => {
+    if (this.shouldRecreateInput(config)) {
+      this.recreateInput(config)
+    }
+
+    this.history.update(config)
+
+    this.instance.commands.tool.set(config.tool)
+    this.instance.runtime.viewport.setViewport(config.viewport)
+    this.instance.runtime.shortcuts.setShortcuts(config.shortcuts)
+    this.instance.state.write('mindmapLayout', config.mindmapLayout ?? {})
+  }
+
+  private syncConfig = (config: LifecycleConfig) => {
+    if (config.tool !== 'edge') {
+      this.instance.runtime.services.edgeHover.cancel()
+    }
+
+    if (!this.started) return
+
+    this.container.sync()
+    syncWindowBindings(this.windowBindings)
   }
 
   start: LifecycleApi['start'] = () => {
     if (this.started) return
     this.started = true
 
-    this.startFlow.start()
+    this.history.start()
+    this.instance.runtime.services.groupAutoFit.start()
+    this.windowKey.start()
+    this.selectionEvents.start()
+    this.stateEvents.start()
+    this.docEvents.start()
+    startWindowBindings(this.windowBindings)
+    this.container.sync()
   }
 
   update: LifecycleApi['update'] = (config) => {
+    this.applyConfig(config)
     this.config = config
-    this.updateFlow.update(config, this.started)
+    this.syncConfig(config)
   }
 
   stop: LifecycleApi['stop'] = () => {
     if (!this.started) return
     this.started = false
 
-    this.stopFlow.stop()
+    this.history.stop()
+    this.input.cancel()
+    stopWindowBindings(this.windowBindings)
+    this.selectionEvents.stop()
+    this.stateEvents.stop()
+    this.docEvents.stop()
+    this.container.stop()
+    this.windowKey.stop()
+    this.instance.runtime.services.groupAutoFit.stop()
+    this.cleanup.stop()
   }
 }

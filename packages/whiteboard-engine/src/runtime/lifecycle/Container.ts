@@ -1,15 +1,18 @@
 import type { Instance } from '@engine-types/instance'
-import { bindCanvasContainerEvents } from '../bindings'
-import type { CanvasEventHandlers } from '../input'
+import type { DomBindings } from '../../host/dom'
+import { bindCanvasContainerEvents } from './bindings/canvasContainerEvents'
+import type { CanvasEventHandlers } from './input/types'
 
 type ContainerControllerOptions = {
   instance: Instance
+  dom: DomBindings
   getHandlers: () => CanvasEventHandlers
   getOnWheel: () => (event: WheelEvent) => void
 }
 
 export class Container {
   private instance: Instance
+  private dom: DomBindings
   private getHandlers: () => CanvasEventHandlers
   private getOnWheel: () => (event: WheelEvent) => void
   private offContainerEvents: (() => void) | null = null
@@ -17,6 +20,7 @@ export class Container {
 
   constructor(options: ContainerControllerOptions) {
     this.instance = options.instance
+    this.dom = options.dom
     this.getHandlers = options.getHandlers
     this.getOnWheel = options.getOnWheel
   }
@@ -27,7 +31,7 @@ export class Container {
 
     if (!this.offContainerEvents) {
       this.offContainerEvents = bindCanvasContainerEvents({
-        events: this.instance.runtime.events,
+        dom: this.dom,
         handlers: this.getHandlers(),
         onWheel: this.getOnWheel()
       })

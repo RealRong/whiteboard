@@ -1,4 +1,4 @@
-import type { DocumentId, NodeId, Viewport } from '@whiteboard/core'
+import type { DocumentId, Viewport } from '@whiteboard/core'
 import type { ShortcutOverrides } from '../shortcuts'
 import type { ResolvedHistoryConfig } from '../common'
 import type { MindmapLayoutConfig } from '../mindmap'
@@ -19,8 +19,6 @@ export type LifecycleConfig = {
   mindmapLayout: MindmapLayoutConfig
   history?: ResolvedHistoryConfig
   shortcuts?: ShortcutOverrides
-  onSelectionChange?: (ids: NodeId[]) => void
-  onEdgeSelectionChange?: (id?: string) => void
 }
 
 export type Lifecycle = {

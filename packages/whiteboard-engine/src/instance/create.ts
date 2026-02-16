@@ -3,10 +3,13 @@ import type {
   Instance,
   Runtime
 } from '@engine-types/instance'
+import { createDomBindings } from '../host/dom'
+import { createEventBus } from './events'
 import { createShortcuts, Lifecycle } from '../runtime'
 import { resolveInstanceConfig } from '../config'
 import { createCommands } from '../api/commands'
-import { createRuntime, createServices, type RuntimeBase } from '../runtime/factory'
+import { createRuntime, type RuntimeBase } from '../runtime/factory/namespace'
+import { createServices } from '../runtime/factory/services'
 import { createState } from '../state/factory'
 import { createView } from '../state/view'
 import { createQuery } from '../api/query/instance'
@@ -25,6 +28,8 @@ export const createEngine = ({
     containerRef,
     config
   })
+  const dom = createDomBindings(containerRef)
+  const eventBus = createEventBus()
 
   const query = createQuery({
     readState,
@@ -61,6 +66,10 @@ export const createEngine = ({
     runtime,
     query,
     view,
+    events: {
+      on: eventBus.on,
+      off: eventBus.off
+    },
     get commands() {
       return commands
     }
@@ -70,7 +79,7 @@ export const createEngine = ({
   commands = createCommands(instance)
   services = createServices(core, instance)
   shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(instance)
+  lifecycle = new Lifecycle(instance, dom, eventBus.emit)
 
   return instance
 }

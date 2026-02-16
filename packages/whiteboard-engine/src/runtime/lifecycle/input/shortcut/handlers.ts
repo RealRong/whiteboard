@@ -1,5 +1,5 @@
 import type { Instance } from '@engine-types/instance'
-import { createContextResolver } from './contextResolver'
+import { resolveContextFromEvent } from './contextFromEvent'
 
 type Options = {
   instance: Instance
@@ -13,7 +13,9 @@ export type ShortcutHandlers = {
 export const createShortcut = ({
   instance
 }: Options): ShortcutHandlers => {
-  const resolveContext = createContextResolver(instance)
+  const readBaseContext = () => instance.view.read('shortcut.context')
+  const resolveContext = (event: PointerEvent | KeyboardEvent) =>
+    resolveContextFromEvent(readBaseContext(), event)
 
   const handlePointerDownCapture: ShortcutHandlers['handlePointerDownCapture'] = (event, onUnhandled) => {
     const handled = instance.runtime.shortcuts.handlePointerDownCapture(event, resolveContext(event))

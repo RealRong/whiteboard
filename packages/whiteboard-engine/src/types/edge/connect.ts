@@ -1,5 +1,5 @@
 import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
-import type { EdgeConnectState } from '../state'
+import type { EdgeConnectState } from './state'
 import type { RefLike } from '../ui'
 
 export type EdgeConnectAnchorResult = {

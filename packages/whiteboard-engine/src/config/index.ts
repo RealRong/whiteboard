@@ -1,4 +1,4 @@
-import type { DocumentId, NodeId, Viewport } from '@whiteboard/core'
+import type { DocumentId, Viewport } from '@whiteboard/core'
 import type { ResolvedConfig, Config } from '@engine-types/common'
 import type {
   Instance,
@@ -122,9 +122,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
     captureRemote: false
   },
   tool: 'select',
-  shortcuts: undefined,
-  onSelectionChange: undefined,
-  onEdgeSelectionChange: undefined
+  shortcuts: undefined
 }
 
 export const mergeConfig = (
@@ -204,8 +202,6 @@ type LifecycleOptions = {
   mindmapLayout?: MindmapLayoutConfig
   history?: LifecycleConfig['history']
   shortcuts?: ShortcutOverrides
-  onSelectionChange?: (ids: NodeId[]) => void
-  onEdgeSelectionChange?: (id?: string) => void
 }
 
 export const toLifecycleConfig = ({
@@ -216,9 +212,7 @@ export const toLifecycleConfig = ({
   viewportConfig,
   mindmapLayout,
   history,
-  shortcuts,
-  onSelectionChange,
-  onEdgeSelectionChange
+  shortcuts
 }: LifecycleOptions): LifecycleConfig => ({
   docId,
   tool,
@@ -238,7 +232,5 @@ export const toLifecycleConfig = ({
   },
   mindmapLayout: mindmapLayout ?? {},
   history: history ?? DEFAULT_CONFIG.history,
-  shortcuts,
-  onSelectionChange,
-  onEdgeSelectionChange
+  shortcuts
 })

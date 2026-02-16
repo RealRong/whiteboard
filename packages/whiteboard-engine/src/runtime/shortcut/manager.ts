@@ -9,13 +9,13 @@ import {
   getEventChord,
   normalizeShortcutChord,
   type PlatformInfo
-} from './normalize'
+} from './chord'
 import {
   compareCandidates,
   getPointerComplexity,
   isShortcutEnabled,
   type Candidate
-} from './rules'
+} from './rule'
 
 type NormalizedKeyInfo = {
   keys: string[]

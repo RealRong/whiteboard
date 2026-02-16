@@ -1,5 +1,6 @@
 import type { Core, Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
+import type { Instance } from '@engine-types/instance'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
 import { getNodeAABB } from '../../infra/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
@@ -174,17 +175,16 @@ const applyGroupAutoFit = ({
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {
-  private core: Core
+  private instance: Instance
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private stopBinding: (() => void) | null = null
   private pendingSync = false
   private scheduleVersion = 0
-  private activeOptions: Parameters<GroupAutoFitApi['start']>[0] | null = null
 
-  constructor(core: Core) {
-    this.core = core
+  constructor(instance: Instance) {
+    this.instance = instance
   }
 
   private scheduleMicrotask = (callback: () => void) => {
@@ -201,7 +201,12 @@ export class GroupAutoFit implements GroupAutoFitApi {
     this.lastDocId = undefined
   }
 
-  sync: GroupAutoFitApi['sync'] = ({ docId, nodes, nodeSize, padding = 24 }) => {
+  sync: GroupAutoFitApi['sync'] = () => {
+    const docId = this.instance.runtime.docRef.current?.id
+    const nodes = this.instance.runtime.docRef.current?.nodes ?? []
+    const nodeSize = this.instance.runtime.config.nodeSize
+    const padding = this.instance.runtime.config.node.groupPadding
+
     if (docId !== undefined && docId !== this.lastDocId) {
       this.snapshot = null
       this.layoutSnapshot = null
@@ -218,7 +223,13 @@ export class GroupAutoFit implements GroupAutoFitApi {
     })
 
     groupsToProcess.forEach((group) => {
-      applyGroupAutoFit({ core: this.core, nodes, group, nodeSize, defaultPadding: padding })
+      applyGroupAutoFit({
+        core: this.instance.runtime.core,
+        nodes,
+        group,
+        nodeSize,
+        defaultPadding: padding
+      })
     })
 
     this.snapshot = currentSnapshot
@@ -226,13 +237,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
   }
 
   private triggerSync = () => {
-    if (!this.activeOptions) return
-    this.sync({
-      docId: this.activeOptions.getDocId?.(),
-      nodes: this.activeOptions.getNodes(),
-      nodeSize: this.activeOptions.getNodeSize(),
-      padding: this.activeOptions.getPadding?.()
-    })
+    this.sync()
   }
 
   private scheduleSync = () => {
@@ -249,16 +254,14 @@ export class GroupAutoFit implements GroupAutoFitApi {
   stop: GroupAutoFitApi['stop'] = () => {
     this.stopBinding?.()
     this.stopBinding = null
-    this.activeOptions = null
     this.pendingSync = false
     this.scheduleVersion += 1
   }
 
-  start: GroupAutoFitApi['start'] = (options) => {
+  start: GroupAutoFitApi['start'] = () => {
     this.stop()
-    this.activeOptions = options
 
-    const offAfter = this.core.changes.onAfter(({ changes }) => {
+    const offAfter = this.instance.runtime.core.changes.onAfter(({ changes }) => {
       const hasNodeChange = changes.operations.some((operation) => operation.type.startsWith('node.'))
       if (!hasNodeChange) return
       this.scheduleSync()

@@ -1,4 +1,4 @@
-import type { Instance } from '@engine-types/instance'
+import type { DomBindings } from '../../../host/dom'
 
 export type PointerSessionBinding = {
   start: () => void
@@ -7,7 +7,7 @@ export type PointerSessionBinding = {
 }
 
 type Options<TActive> = {
-  events: Instance['runtime']['events']
+  dom: DomBindings
   watch: (listener: () => void) => () => void
   getActive: () => TActive | undefined
   getPointerId?: (active: TActive) => number | undefined | null
@@ -17,7 +17,7 @@ type Options<TActive> = {
 }
 
 export const createPointerSession = <TActive>({
-  events,
+  dom,
   watch,
   getActive,
   getPointerId,
@@ -49,7 +49,7 @@ export const createPointerSession = <TActive>({
 
     if (onPointerMove) {
       offList.push(
-        events.onWindow('pointermove', (event) => {
+        dom.onWindow('pointermove', (event) => {
           const latest = getActive()
           if (!latest || !isPointerMatch(event, latest)) return
           onPointerMove(event, latest)
@@ -59,7 +59,7 @@ export const createPointerSession = <TActive>({
 
     if (onPointerUp) {
       offList.push(
-        events.onWindow('pointerup', (event) => {
+        dom.onWindow('pointerup', (event) => {
           const latest = getActive()
           if (!latest || !isPointerMatch(event, latest)) return
           onPointerUp(event, latest)
@@ -69,7 +69,7 @@ export const createPointerSession = <TActive>({
 
     if (onPointerCancel) {
       offList.push(
-        events.onWindow('pointercancel', (event) => {
+        dom.onWindow('pointercancel', (event) => {
           const latest = getActive()
           if (!latest || !isPointerMatch(event, latest)) return
           onPointerCancel(event, latest)

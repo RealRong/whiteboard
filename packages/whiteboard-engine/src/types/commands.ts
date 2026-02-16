@@ -24,6 +24,12 @@ import type { Guide } from './node/snap'
 import type { NodeDragGroupOptions } from './node/drag'
 import type { InteractionState, NodeViewUpdate, SelectionMode } from './state'
 import type { ResizeDirection } from './state'
+import type {
+  RoutingDragStartOptions,
+  RoutingDragUpdateOptions,
+  RoutingDragEndOptions,
+  RoutingDragCancelOptions
+} from './edge/routing'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -113,27 +119,12 @@ export type NodeDragCancelOptions = {
   pointerId?: number
 }
 
-export type RoutingDragStartOptions = {
-  edgeId: EdgeId
-  index: number
-  pointerId: number
-  clientX: number
-  clientY: number
-}
-
-export type RoutingDragUpdateOptions = {
-  pointerId: number
-  clientX: number
-  clientY: number
-}
-
-export type RoutingDragEndOptions = {
-  pointerId: number
-}
-
-export type RoutingDragCancelOptions = {
-  pointerId?: number
-}
+export type {
+  RoutingDragStartOptions,
+  RoutingDragUpdateOptions,
+  RoutingDragEndOptions,
+  RoutingDragCancelOptions
+} from './edge/routing'
 
 export type NodeResizeStartOptions = {
   nodeId: NodeId

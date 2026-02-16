@@ -1,4 +1,4 @@
-import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_CONFIG } from '../../../config'
+import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_CONFIG } from '../../config'
 import type { Instance } from '@engine-types/instance'
 import type { LifecycleConfig } from '@engine-types/instance'
 
@@ -21,7 +21,5 @@ export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
   },
   mindmapLayout: {},
   history: undefined,
-  shortcuts: undefined,
-  onSelectionChange: undefined,
-  onEdgeSelectionChange: undefined
+  shortcuts: undefined
 })

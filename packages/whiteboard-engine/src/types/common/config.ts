@@ -1,4 +1,3 @@
-import type { EdgeId, NodeId } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { ShortcutOverrides } from '../shortcuts'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
@@ -33,8 +32,6 @@ export type Config = {
   history?: HistoryConfig
   tool?: 'select' | 'edge'
   shortcuts?: ShortcutOverrides
-  onSelectionChange?: (ids: NodeId[]) => void
-  onEdgeSelectionChange?: (id?: EdgeId) => void
 }
 
 export type ResolvedConfig = Omit<

@@ -1,16 +1,16 @@
 import type { NodeId } from '@whiteboard/core'
-import type { LifecycleConfig, Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance'
+import type { InstanceEventEmitter } from '@engine-types/instance/events'
 
 type Options = {
   state: Instance['state']
+  emit: InstanceEventEmitter['emit']
 }
 
-type Callbacks = Pick<LifecycleConfig, 'onSelectionChange' | 'onEdgeSelectionChange'>
 type EdgeSelectionValue = ReturnType<Instance['state']['snapshot']>['edgeSelection']
 
-export type SelectionCallbacksBinding = {
+export type SelectionEventsWatcher = {
   start: () => void
-  update: (callbacks: Callbacks) => void
   stop: () => void
 }
 
@@ -22,13 +22,11 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
   return true
 }
 
-export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacksBinding => {
+export const createSelectionEvents = ({
+  state,
+  emit
+}: Options): SelectionEventsWatcher => {
   let started = false
-  let callbacks: Callbacks = {
-    onSelectionChange: undefined,
-    onEdgeSelectionChange: undefined
-  }
-
   let offSelectionWatch: (() => void) | null = null
   let offEdgeSelectionWatch: (() => void) | null = null
 
@@ -47,7 +45,7 @@ export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacks
     }
 
     if (!force && !changed) return
-    callbacks.onSelectionChange?.(ids)
+    emit('selection.changed', { nodeIds: ids })
   }
 
   const emitEdgeSelectionChange = (force = false) => {
@@ -60,7 +58,7 @@ export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacks
     }
 
     if (!force && !changed) return
-    callbacks.onEdgeSelectionChange?.(edgeId)
+    emit('edge.selection.changed', { edgeId })
   }
 
   const emitCurrent = () => {
@@ -83,16 +81,6 @@ export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacks
     emitCurrent()
   }
 
-  const update = (nextCallbacks: Callbacks) => {
-    const selectionCallbackChanged = nextCallbacks.onSelectionChange !== callbacks.onSelectionChange
-    const edgeSelectionCallbackChanged = nextCallbacks.onEdgeSelectionChange !== callbacks.onEdgeSelectionChange
-    callbacks = nextCallbacks
-
-    if (!started) return
-    emitSelectionChange(selectionCallbackChanged)
-    emitEdgeSelectionChange(edgeSelectionCallbackChanged)
-  }
-
   const stop = () => {
     started = false
     offSelectionWatch?.()
@@ -103,7 +91,6 @@ export const createSelectionCallbacks = ({ state }: Options): SelectionCallbacks
 
   return {
     start,
-    update,
     stop
   }
 }

@@ -15,6 +15,7 @@ import type {
   Viewport
 } from '@whiteboard/core'
 import type { Commands } from '../commands'
+import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type {
   RoutingDragState,
   EdgeReconnectInfo,
@@ -33,6 +34,7 @@ import type { Guide, SnapCandidate } from '../node/snap'
 import type { Size } from '../common'
 import type { ShortcutContext, Shortcuts } from '../shortcuts'
 import type { Lifecycle } from './lifecycle'
+import type { InstanceEvents } from './events'
 import type { RefLike } from '../ui'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type {
@@ -123,16 +125,7 @@ export type EdgeEndpoints = {
   target: EdgeEndpoint
 }
 
-export type EdgePath = {
-  points: Point[]
-  svgPath: string
-}
-
-export type EdgePathEntry = {
-  id: EdgeId
-  edge: Edge
-  path: EdgePath
-}
+export type EdgePathEntry = EdgePathEntryType
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -308,18 +301,6 @@ export type Runtime = {
   }
   shortcuts: Shortcuts
   lifecycle: Lifecycle
-  events: {
-    onWindow: <K extends keyof WindowEventMap>(
-      type: K,
-      listener: (event: WindowEventMap[K]) => void,
-      options?: boolean | AddEventListenerOptions
-    ) => () => void
-    onContainer: <K extends keyof HTMLElementEventMap>(
-      type: K,
-      listener: (event: HTMLElementEventMap[K]) => void,
-      options?: boolean | AddEventListenerOptions
-    ) => () => void
-  }
 }
 
 export type Instance = {
@@ -327,6 +308,7 @@ export type Instance = {
   runtime: Runtime
   query: Query
   view: View
+  events: InstanceEvents
   commands: Commands
 }
 
@@ -352,3 +334,9 @@ export type {
   LifecycleConfig,
   LifecycleViewportConfig
 } from './lifecycle'
+export type {
+  EventUnsubscribe,
+  InstanceEventMap,
+  InstanceEvents,
+  InstanceEventEmitter
+} from './events'

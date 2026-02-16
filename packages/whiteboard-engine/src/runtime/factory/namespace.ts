@@ -2,7 +2,6 @@ import type { Core, Document } from '@whiteboard/core'
 import type { InstanceConfig, Runtime } from '@engine-types/instance'
 import type { RefLike } from '@engine-types/ui'
 import { createViewport, getPlatformInfo } from '..'
-import { createEvents } from './events'
 
 type Options = {
   core: Core
@@ -29,7 +28,6 @@ export const createRuntime = ({
     getContainer,
     config,
     platform,
-    viewport: createViewport(),
-    events: createEvents(containerRef)
+    viewport: createViewport()
   }
 }

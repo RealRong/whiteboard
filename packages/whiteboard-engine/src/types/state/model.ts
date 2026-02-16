@@ -1,4 +1,4 @@
-import type { EdgeAnchor, EdgeId, MindmapNodeId, Node, NodeId, Point, Rect } from '@whiteboard/core'
+import type { EdgeId, MindmapNodeId, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { TransformDragState } from '../node'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
@@ -40,43 +40,6 @@ export type HistoryState = {
   redoDepth: number
   isApplying: boolean
   lastUpdatedAt?: number
-}
-
-export type EdgeConnectFrom = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
-}
-
-export type EdgeConnectTo = {
-  nodeId?: NodeId
-  anchor?: EdgeAnchor
-  pointWorld?: Point
-}
-
-export type EdgeReconnectInfo = {
-  edgeId: EdgeId
-  end: 'source' | 'target'
-}
-
-export type EdgeConnectState = {
-  isConnecting: boolean
-  from?: EdgeConnectFrom
-  to?: EdgeConnectTo
-  hover?: EdgeConnectTo
-  reconnect?: EdgeReconnectInfo
-  pointerId?: number | null
-}
-
-export type RoutingDragActiveState = {
-  edgeId: EdgeId
-  index: number
-  pointerId: number
-  start: Point
-  origin: Point
-}
-
-export type RoutingDragState = {
-  active?: RoutingDragActiveState
 }
 
 export type MindmapDragDropTarget = {

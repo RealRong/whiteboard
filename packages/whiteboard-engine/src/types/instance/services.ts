@@ -2,7 +2,6 @@ import type {
   MindmapLayoutOptions,
   MindmapNodeId,
   MindmapTree,
-  Node,
   NodeId,
   Point,
   Rect,
@@ -43,19 +42,9 @@ export type ContainerSizeObserver = {
 }
 
 export type GroupAutoFit = {
-  start: (options: {
-    getDocId?: () => string | undefined
-    getNodes: () => Node[]
-    getNodeSize: () => Size
-    getPadding?: () => number
-  }) => () => void
+  start: () => () => void
   stop: () => void
-  sync: (options: {
-    docId?: string
-    nodes: Node[]
-    nodeSize: Size
-    padding?: number
-  }) => void
+  sync: () => void
   reset: () => void
   dispose: () => void
 }

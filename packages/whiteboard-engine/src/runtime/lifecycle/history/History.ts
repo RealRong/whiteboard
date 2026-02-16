@@ -1,7 +1,29 @@
-import type { CoreHistoryState } from '@whiteboard/core'
+import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
 import type { Instance } from '@engine-types/instance'
-import type { LifecycleConfig } from '@engine-types/instance'
-import { shouldClearHistory, toHistoryState, type HistoryIdentity } from './state'
+import type { LifecycleConfig, StateSnapshot } from '@engine-types/instance'
+
+type HistoryIdentity = {
+  core: Core
+  docId: DocumentId
+}
+
+const toHistoryState = (snapshot: CoreHistoryState): StateSnapshot['history'] => ({
+  canUndo: snapshot.canUndo,
+  canRedo: snapshot.canRedo,
+  undoDepth: snapshot.undoDepth,
+  redoDepth: snapshot.redoDepth,
+  isApplying: snapshot.isApplying,
+  lastUpdatedAt: snapshot.lastUpdatedAt
+})
+
+const shouldClearHistory = (
+  previous: HistoryIdentity | null,
+  next: HistoryIdentity
+) => {
+  if (!previous) return false
+  if (previous.core !== next.core) return true
+  return previous.docId !== next.docId
+}
 
 export class History {
   private instance: Instance

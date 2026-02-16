@@ -1,18 +1,26 @@
 import type { Instance } from '@engine-types/instance'
-import { bindSpaceKey } from '../bindings'
+import type { DomBindings } from '../../host/dom'
+import { bindSpaceKey } from './bindings/spaceKey'
+
+type Options = {
+  instance: Instance
+  dom: DomBindings
+}
 
 export class WindowKey {
   private instance: Instance
+  private dom: DomBindings
   private offSpaceKey: (() => void) | null = null
 
-  constructor(instance: Instance) {
+  constructor({ instance, dom }: Options) {
     this.instance = instance
+    this.dom = dom
   }
 
   start = () => {
     if (this.offSpaceKey) return
     this.offSpaceKey = bindSpaceKey({
-      events: this.instance.runtime.events,
+      dom: this.dom,
       setSpacePressed: this.instance.commands.keyboard.setSpacePressed
     })
   }

@@ -1,13 +1,15 @@
-import type { Edge, Point } from '@whiteboard/core'
-import type { EdgeConnectState } from '../state'
+import type { Edge, EdgeId, Point } from '@whiteboard/core'
+import type { EdgeConnectState } from './state'
+
+export type EdgePath = {
+  points: Point[]
+  svgPath: string
+}
 
 export type EdgePathEntry = {
-  id: string
+  id: EdgeId
   edge: Edge
-  path: {
-    points: Point[]
-    svgPath: string
-  }
+  path: EdgePath
 }
 
 export type EdgeGeometryOptions = {

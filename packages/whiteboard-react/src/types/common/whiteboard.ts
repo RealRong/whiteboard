@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { Core, Document, EdgeId, NodeId } from '@whiteboard/core'
+import type { Core, Document } from '@whiteboard/core'
 import type { ShortcutOverrides } from '@whiteboard/engine'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'
@@ -35,8 +35,6 @@ export type Config = {
   history?: HistoryConfig
   tool?: 'select' | 'edge'
   shortcuts?: ShortcutOverrides
-  onSelectionChange?: (ids: NodeId[]) => void
-  onEdgeSelectionChange?: (id?: EdgeId) => void
 }
 
 export type ResolvedConfig = Omit<
