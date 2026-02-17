@@ -10,7 +10,6 @@ export {
   toInstanceConfig,
   toLifecycleConfig
 } from './config'
-export { docAtom, instanceAtom, STATE_KEYS, VIEW_KEYS } from './state'
 
 export type { Commands } from './types/commands'
 export type {
@@ -23,6 +22,9 @@ export type {
   Instance,
   InstanceConfig,
   Query,
+  QueryDebug,
+  QueryDebugMetric,
+  QueryDebugSnapshot,
   Lifecycle,
   LifecycleConfig,
   Runtime,

@@ -1,4 +1,3 @@
-import { getDefaultStore } from 'jotai'
 import type {
   Core,
   Document,
@@ -49,8 +48,6 @@ import type {
   ViewportNavigation
 } from './services'
 
-export type Store = ReturnType<typeof getDefaultStore>
-
 export type StateSnapshot = {
   interaction: InteractionState
   tool: 'select' | 'edge'
@@ -94,16 +91,47 @@ export type WritableStateSnapshot = Pick<
 >
 export type WritableStateKey = keyof WritableStateSnapshot
 
+export type Store = {
+  get: <K extends WritableStateKey>(key: K) => WritableStateSnapshot[K]
+  set: <K extends WritableStateKey>(
+    key: K,
+    next:
+      | WritableStateSnapshot[K]
+      | ((prev: WritableStateSnapshot[K]) => WritableStateSnapshot[K])
+  ) => void
+  batch: (action: () => void) => void
+  batchFrame: (action: () => void) => void
+  watch: (key: WritableStateKey, listener: () => void) => () => void
+  snapshot: () => WritableStateSnapshot
+}
+
 export type State = {
   store: Store
+  setDoc: (doc: Document | null) => void
   read: <K extends StateKey>(key: K) => StateSnapshot[K]
+  readCanvasNodeById: (nodeId: NodeId) => Node | undefined
   write: <K extends WritableStateKey>(
     key: K,
     next:
       | WritableStateSnapshot[K]
       | ((prev: WritableStateSnapshot[K]) => WritableStateSnapshot[K])
   ) => void
+  batch: (action: () => void) => void
+  batchFrame: (action: () => void) => void
   watch: (key: StateKey, listener: () => void) => () => void
+  watchCanvasNodeChanges: (
+    listener: (payload: {
+      dirtyNodeIds?: NodeId[]
+      orderChanged?: boolean
+      fullSync?: boolean
+    }) => void
+  ) => () => void
+  reportCanvasNodeDirty: (
+    nodeIds: NodeId[],
+    source?: 'runtime' | 'doc'
+  ) => void
+  reportCanvasNodeOrderChanged: (source?: 'runtime' | 'doc') => void
+  requestCanvasNodeFullSync: () => void
   snapshot: () => StateSnapshot
 }
 
@@ -271,22 +299,60 @@ export type ViewDebug = {
   resetMetrics: (key?: ViewKey) => void
 }
 
+export type QueryDebugMetric = {
+  rebuildCount: number
+  cacheHitCount: number
+  cacheMissCount: number
+  cacheHitRate: number
+  lastRebuildMs: number
+  avgRebuildMs: number
+  maxRebuildMs: number
+  totalRebuildMs: number
+  lastRebuiltAt?: number
+}
+
+export type QueryDebugSnapshot = {
+  canvas: QueryDebugMetric
+  snap: QueryDebugMetric
+}
+
+export type QueryDebug = {
+  getMetrics: () => QueryDebugSnapshot
+  resetMetrics: (target?: keyof QueryDebugSnapshot) => void
+}
+
 export type View = {
   read: <K extends ViewKey>(key: K) => ViewSnapshot[K]
   watch: (key: ViewKey, listener: () => void) => () => void
   snapshot: () => ViewSnapshot
+  getNodeIds: () => NodeId[]
+  watchNodeIds: (listener: () => void) => () => void
+  getNodeItem: (nodeId: NodeId) => NodeViewItem | undefined
+  watchNodeItem: (nodeId: NodeId, listener: () => void) => () => void
+  getNodeTransformHandles: (nodeId: NodeId) => NodeTransformHandle[] | undefined
+  watchNodeTransformHandles: (nodeId: NodeId, listener: () => void) => () => void
+  getEdgeIds: () => EdgeId[]
+  watchEdgeIds: (listener: () => void) => () => void
+  getEdgePath: (edgeId: EdgeId) => EdgePathEntry | undefined
+  watchEdgePath: (edgeId: EdgeId, listener: () => void) => () => void
+  getMindmapTreeIds: () => NodeId[]
+  watchMindmapTreeIds: (listener: () => void) => () => void
+  getMindmapTree: (treeId: NodeId) => MindmapViewTree | undefined
+  watchMindmapTree: (treeId: NodeId, listener: () => void) => () => void
   debug: ViewDebug
 }
 
 export type Query = {
   getNodeRects: () => CanvasNodeRect[]
   getNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
+  watchNodeChanges: (listener: (nodeIds: NodeId[]) => void) => () => void
   getNodeIdsInRect: (rect: Rect) => NodeId[]
   getSnapCandidates: () => SnapCandidate[]
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
   isBackgroundTarget: (target: EventTarget | null) => boolean
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
   getNearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) => number
+  debug: QueryDebug
 }
 
 export type ViewportApi = {

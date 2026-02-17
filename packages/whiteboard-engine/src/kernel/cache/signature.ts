@@ -1,4 +1,4 @@
-import type { Edge, EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core'
+import type { Edge, EdgeAnchor, Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 
 const toNumberToken = (value: number | undefined | null) => {
@@ -25,6 +25,21 @@ export const toNodeGeometrySignature = (entry?: { rect: Rect; rotation: number }
   if (!entry) return 'missing'
   return `${toRectSignature(entry.rect)}:${toNumberToken(entry.rotation)}`
 }
+
+export const toNodeStateSignature = (node: Node, fallbackSize: Size) => {
+  const size = node.size ?? fallbackSize
+  return [
+    node.id,
+    toNumberToken(node.position.x),
+    toNumberToken(node.position.y),
+    toNumberToken(size.width),
+    toNumberToken(size.height),
+    toNumberToken(node.rotation ?? 0)
+  ].join(':')
+}
+
+export const toNodeCollectionSignature = (nodes: Node[], fallbackSize: Size) =>
+  nodes.map((node) => toNodeStateSignature(node, fallbackSize)).join(';')
 
 export const toEdgeRoutingSignature = (edge: Edge) => {
   const routing = edge.routing

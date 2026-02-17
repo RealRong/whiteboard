@@ -7,7 +7,7 @@ export const createEdge = (
   instance: Instance
 ): Pick<Commands, 'edge' | 'edgeConnect'> => {
   const { core } = instance.runtime
-  const { read, write } = instance.state
+  const { read, write, batch } = instance.state
   const edgeConnect = createEdgeConnect(instance)
 
   const clearRoutingDrag = () => {
@@ -15,11 +15,13 @@ export const createEdge = (
   }
 
   const selectEdge: Commands['edge']['select'] = (id) => {
-    const activeDrag = read('routingDrag').active
-    if (activeDrag && activeDrag.edgeId !== id) {
-      clearRoutingDrag()
-    }
-    write('edgeSelection', (prev) => (prev === id ? prev : id))
+    batch(() => {
+      const activeDrag = read('routingDrag').active
+      if (activeDrag && activeDrag.edgeId !== id) {
+        clearRoutingDrag()
+      }
+      write('edgeSelection', (prev) => (prev === id ? prev : id))
+    })
   }
 
   const insertRoutingPoint: Commands['edge']['insertRoutingPoint'] = (
@@ -148,16 +150,18 @@ export const createEdge = (
     if (index < 0 || index >= points.length) return false
 
     const start = instance.runtime.viewport.clientToWorld(clientX, clientY)
-    write('routingDrag', {
-      active: {
-        edgeId,
-        index,
-        pointerId,
-        start,
-        origin: points[index]
-      }
+    batch(() => {
+      write('routingDrag', {
+        active: {
+          edgeId,
+          index,
+          pointerId,
+          start,
+          origin: points[index]
+        }
+      })
+      selectEdge(edgeId)
     })
-    selectEdge(edgeId)
     return true
   }
 

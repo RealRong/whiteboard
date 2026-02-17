@@ -7,7 +7,7 @@ export const createNode = (
   transient: Commands['transient']
 ): Pick<Commands, 'nodeDrag' | 'node' | 'nodeTransform'> => {
   const { core } = instance.runtime
-  const { read, write } = instance.state
+  const { read, write, batchFrame } = instance.state
 
   const nodeTransform: Commands['nodeTransform'] = {
     rotate: (nodeId, angle) => (core.commands.node.rotate as Commands['node']['rotate'])(nodeId, angle),
@@ -62,28 +62,30 @@ export const createNode = (
       const active = read('nodeTransform').active
       if (!active || active.drag.pointerId !== pointerId) return false
 
-      if (active.drag.mode === 'resize') {
-        instance.runtime.services.nodeTransform.applyResizeMove({
-          nodeId: active.nodeId,
-          drag: active.drag,
-          clientX,
-          clientY,
-          minSize,
-          altKey: Boolean(altKey),
-          shiftKey: Boolean(shiftKey)
-        })
-      } else {
-        instance.runtime.services.nodeTransform.applyRotateMove({
-          nodeId: active.nodeId,
-          drag: active.drag,
-          clientX,
-          clientY,
-          shiftKey: Boolean(shiftKey)
-        })
-      }
+      batchFrame(() => {
+        if (active.drag.mode === 'resize') {
+          instance.runtime.services.nodeTransform.applyResizeMove({
+            nodeId: active.nodeId,
+            drag: active.drag,
+            clientX,
+            clientY,
+            minSize,
+            altKey: Boolean(altKey),
+            shiftKey: Boolean(shiftKey)
+          })
+        } else {
+          instance.runtime.services.nodeTransform.applyRotateMove({
+            nodeId: active.nodeId,
+            drag: active.drag,
+            clientX,
+            clientY,
+            shiftKey: Boolean(shiftKey)
+          })
+        }
 
-      write('nodeTransform', {
-        active
+        write('nodeTransform', {
+          active
+        })
       })
       return true
     },

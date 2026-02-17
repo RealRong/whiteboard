@@ -34,49 +34,57 @@ const applySelection = (
 }
 
 export const createSelection = (instance: Instance): Commands['selection'] => {
-  const { read, write } = instance.state
+  const { read, write, batch } = instance.state
 
   return {
     select: (ids, mode = 'replace') => {
-      write('edgeSelection', undefined)
-      write('routingDrag', {})
-      write('selection', (prev) => ({
-        ...prev,
-        mode,
-        selectedNodeIds: applySelection(prev.selectedNodeIds, ids, mode)
-      }))
+      batch(() => {
+        write('edgeSelection', undefined)
+        write('routingDrag', {})
+        write('selection', (prev) => ({
+          ...prev,
+          mode,
+          selectedNodeIds: applySelection(prev.selectedNodeIds, ids, mode)
+        }))
+      })
     },
     toggle: (ids) => {
-      write('edgeSelection', undefined)
-      write('routingDrag', {})
-      write('selection', (prev) => ({
-        ...prev,
-        mode: 'toggle',
-        selectedNodeIds: applySelection(prev.selectedNodeIds, ids, 'toggle')
-      }))
+      batch(() => {
+        write('edgeSelection', undefined)
+        write('routingDrag', {})
+        write('selection', (prev) => ({
+          ...prev,
+          mode: 'toggle',
+          selectedNodeIds: applySelection(prev.selectedNodeIds, ids, 'toggle')
+        }))
+      })
     },
     clear: () => {
-      write('edgeSelection', undefined)
-      write('routingDrag', {})
-      write('selection', (prev) => ({
-        ...prev,
-        selectedNodeIds: new Set(),
-        isSelecting: false,
-        selectionRect: undefined,
-        selectionRectWorld: undefined
-      }))
+      batch(() => {
+        write('edgeSelection', undefined)
+        write('routingDrag', {})
+        write('selection', (prev) => ({
+          ...prev,
+          selectedNodeIds: new Set(),
+          isSelecting: false,
+          selectionRect: undefined,
+          selectionRectWorld: undefined
+        }))
+      })
     },
     getSelectedNodeIds: () => Array.from(read('selection').selectedNodeIds),
     beginBox: (mode = 'replace') => {
-      write('edgeSelection', undefined)
-      write('routingDrag', {})
-      write('selection', (prev) => ({
-        ...prev,
-        mode,
-        isSelecting: false,
-        selectionRect: undefined,
-        selectionRectWorld: undefined
-      }))
+      batch(() => {
+        write('edgeSelection', undefined)
+        write('routingDrag', {})
+        write('selection', (prev) => ({
+          ...prev,
+          mode,
+          isSelecting: false,
+          selectionRect: undefined,
+          selectionRectWorld: undefined
+        }))
+      })
     },
     updateBox: (selectionRect, selectionRectWorld) => {
       write('selection', (prev) => ({

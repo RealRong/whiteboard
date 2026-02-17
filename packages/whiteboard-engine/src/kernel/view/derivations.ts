@@ -3,35 +3,26 @@ import type {
   Query,
   MindmapDragView,
   MindmapViewTree,
-  NodeTransformHandle,
-  StateKey,
   State,
   ViewKey,
   ViewSnapshot
 } from '@engine-types/instance'
 import type { ShortcutContext } from '@engine-types/shortcuts'
-import { toMindmapLayoutSignature } from '../../infra/cache'
+import { toMindmapLayoutSignature } from '../cache'
 import {
   buildMindmapLines,
   computeMindmapLayout,
   getMindmapLabel,
   getMindmapRoots,
   getMindmapTree,
-  toLayerOrderedCanvasNodes,
   toMindmapStructureSignature,
   toViewportTransformView
-} from '../../infra/query'
-import { buildTransformHandles } from '../../node/utils/transform'
+} from '../query'
 import { createEdgeViewQuery } from './edgeQuery'
-
-type ViewDerivation<K extends ViewKey> = {
-  deps: StateKey[]
-  derive: () => ViewSnapshot[K]
-}
-
-export type ViewDerivationMap = {
-  [K in ViewKey]: ViewDerivation<K>
-}
+import {
+  defineViewDerivation,
+  type ViewDerivationMap
+} from './register'
 
 type Options = {
   readState: State['read']
@@ -40,15 +31,8 @@ type Options = {
   platform: ShortcutContext['platform']
 }
 
-const uniqueStateKeys = (keys: StateKey[]) => Array.from(new Set(keys))
-
-const createViewDerivation = <K extends ViewKey>(
-  deps: StateKey[],
-  derive: () => ViewSnapshot[K]
-): ViewDerivation<K> => ({
-  deps: uniqueStateKeys(deps),
-  derive
-})
+const EMPTY_NODE_ITEMS: ViewSnapshot['node.items'] = []
+const EMPTY_NODE_HANDLES: ViewSnapshot['node.transformHandles'] = new Map()
 
 export const VIEW_KEYS: ViewKey[] = [
   'viewport.transform',
@@ -76,8 +60,8 @@ export const createViewDerivations = ({
   const edgeViewQuery = createEdgeViewQuery({ readState, query })
 
   return {
-    'viewport.transform': createViewDerivation(['viewport'], () => toViewportTransformView(readState('viewport'))),
-    'shortcut.context': createViewDerivation(
+    'viewport.transform': defineViewDerivation(['viewport'], () => toViewportTransformView(readState('viewport'))),
+    'shortcut.context': defineViewDerivation(
       ['interaction', 'tool', 'selection', 'edgeSelection', 'edgeConnect', 'viewport'],
       () => {
         const interaction = readState('interaction')
@@ -108,11 +92,11 @@ export const createViewDerivations = ({
         }
       }
     ),
-    'edge.entries': createViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getEntries()),
-    'edge.reconnect': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () =>
+    'edge.entries': defineViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getEntries()),
+    'edge.reconnect': defineViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () =>
       edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
     ),
-    'edge.paths': createViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () => {
+    'edge.paths': defineViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () => {
       const entries = edgeViewQuery.getEntries()
       const reconnect = edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
       if (!reconnect) return entries
@@ -124,7 +108,7 @@ export const createViewDerivations = ({
       })
       return matched ? next : entries
     }),
-    'edge.preview': createViewDerivation(['edgeConnect', 'canvasNodes', 'tool'], () => {
+    'edge.preview': defineViewDerivation(['edgeConnect', 'canvasNodes', 'tool'], () => {
       const edgeConnect = readState('edgeConnect')
       const tool = readState('tool')
       const preview = edgeViewQuery.getPreview(edgeConnect)
@@ -136,14 +120,14 @@ export const createViewDerivations = ({
         showPreviewLine: preview.showPreviewLine
       }
     }),
-    'edge.selectedEndpoints': createViewDerivation(['edgeSelection', 'visibleEdges', 'canvasNodes'], () => {
+    'edge.selectedEndpoints': defineViewDerivation(['edgeSelection', 'visibleEdges', 'canvasNodes'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
       const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
       if (!edge) return undefined
       return edgeViewQuery.getEndpoints(edge)
     }),
-    'edge.selectedRouting': createViewDerivation(['edgeSelection', 'visibleEdges'], () => {
+    'edge.selectedRouting': defineViewDerivation(['edgeSelection', 'visibleEdges'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
       const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
@@ -155,73 +139,10 @@ export const createViewDerivations = ({
         points
       }
     }),
-    'node.items': createViewDerivation(['canvasNodes', 'selection', 'groupHovered', 'tool', 'viewport'], () => {
-      const activeTool = readState('tool')
-      const viewport = readState('viewport')
-      const zoom = viewport.zoom
-      const selectedNodeIds = readState('selection').selectedNodeIds
-      const hoveredGroupId = readState('groupHovered')
-      const orderedNodes = toLayerOrderedCanvasNodes(readState('canvasNodes'))
-      const rectByNodeId = new Map(query.getNodeRects().map((entry) => [entry.node.id, entry.rect]))
-
-      return orderedNodes.map((node) => {
-        const rect =
-          rectByNodeId.get(node.id) ?? {
-            x: node.position.x,
-            y: node.position.y,
-            width: node.size?.width ?? 0,
-            height: node.size?.height ?? 0
-          }
-
-        return {
-          node,
-          rect,
-          container: {
-            transformBase: `translate(${rect.x}px, ${rect.y}px)`,
-            rotation: typeof node.rotation === 'number' ? node.rotation : 0,
-            transformOrigin: 'center center'
-          },
-          selected: activeTool === 'edge' ? false : selectedNodeIds.has(node.id),
-          hovered: hoveredGroupId === node.id,
-          activeTool,
-          zoom
-        }
-      })
-    }),
-    'node.transformHandles': createViewDerivation(['canvasNodes', 'selection', 'tool', 'viewport'], () => {
-      const handleMap = new Map<string, NodeTransformHandle[]>()
-      const rotateHandleOffset = 24
-      const activeTool = readState('tool')
-      if (activeTool !== 'select') return handleMap
-      const selectedNodeIds = readState('selection').selectedNodeIds
-      const zoom = readState('viewport').zoom
-      const orderedNodes = toLayerOrderedCanvasNodes(readState('canvasNodes'))
-      const rectByNodeId = new Map(query.getNodeRects().map((entry) => [entry.node.id, entry.rect]))
-
-      orderedNodes.forEach((node) => {
-        if (!selectedNodeIds.has(node.id) || node.locked) return
-        const rect =
-          rectByNodeId.get(node.id) ?? {
-            x: node.position.x,
-            y: node.position.y,
-            width: node.size?.width ?? 0,
-            height: node.size?.height ?? 0
-          }
-        const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-        const handles = buildTransformHandles({
-          rect,
-          rotation,
-          canRotate: true,
-          rotateHandleOffset,
-          zoom
-        })
-        handleMap.set(node.id, handles)
-      })
-
-      return handleMap
-    }),
-    'mindmap.roots': createViewDerivation(['visibleNodes'], () => getMindmapRoots(readState('visibleNodes'))),
-    'mindmap.trees': createViewDerivation(['visibleNodes', 'mindmapLayout'], () => {
+    'node.items': defineViewDerivation([], () => EMPTY_NODE_ITEMS),
+    'node.transformHandles': defineViewDerivation([], () => EMPTY_NODE_HANDLES),
+    'mindmap.roots': defineViewDerivation(['visibleNodes'], () => getMindmapRoots(readState('visibleNodes'))),
+    'mindmap.trees': defineViewDerivation(['visibleNodes', 'mindmapLayout'], () => {
       const roots = getMindmapRoots(readState('visibleNodes'))
       const layout = readState('mindmapLayout') ?? {}
       const nextCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
@@ -276,7 +197,7 @@ export const createViewDerivations = ({
       mindmapTreeCache = nextCache
       return nextTrees
     }),
-    'mindmap.drag': createViewDerivation(['mindmapDrag'], (): MindmapDragView | undefined => {
+    'mindmap.drag': defineViewDerivation(['mindmapDrag'], (): MindmapDragView | undefined => {
       const active = readState('mindmapDrag').active
       if (!active) return undefined
 

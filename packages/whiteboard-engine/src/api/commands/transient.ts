@@ -3,15 +3,20 @@ import type { Commands } from '@engine-types/commands'
 import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from '@engine-types/state'
-import { isPointEqual, isSizeEqual } from '../../infra/geometry/equality'
+import { isPointEqual, isSizeEqual } from '../../kernel/geometry'
 
 const applyNodeOverrides = (
   prev: Map<NodeId, NodeOverride>,
   updates: NodeViewUpdate[]
-): Map<NodeId, NodeOverride> => {
-  if (!updates.length) return prev
+): { next: Map<NodeId, NodeOverride>; changedNodeIds: NodeId[] } => {
+  if (!updates.length) {
+    return {
+      next: prev,
+      changedNodeIds: []
+    }
+  }
   const next = new Map(prev)
-  let changed = false
+  const changedNodeIds: NodeId[] = []
   updates.forEach((update) => {
     if (!update.position && !update.size) return
 
@@ -23,35 +28,56 @@ const applyNodeOverrides = (
     if (isPointEqual(merged.position, current.position) && isSizeEqual(merged.size, current.size)) {
       return
     }
-    changed = true
+    changedNodeIds.push(update.id)
     next.set(update.id, merged)
   })
-  return changed ? next : prev
+  return {
+    next: changedNodeIds.length ? next : prev,
+    changedNodeIds
+  }
 }
 
 const clearNodeOverridesMap = (
   prev: Map<NodeId, NodeOverride>,
   ids?: NodeId[]
-): Map<NodeId, NodeOverride> => {
-  if (!ids || ids.length === 0) return new Map<NodeId, NodeOverride>()
+): { next: Map<NodeId, NodeOverride>; changedNodeIds: NodeId[] } => {
+  if (!ids || ids.length === 0) {
+    return {
+      next: new Map<NodeId, NodeOverride>(),
+      changedNodeIds: Array.from(prev.keys())
+    }
+  }
   const next = new Map(prev)
-  let changed = false
+  const changedNodeIds: NodeId[] = []
   ids.forEach((id) => {
     if (!next.has(id)) return
     next.delete(id)
-    changed = true
+    changedNodeIds.push(id)
   })
-  return changed ? next : prev
+  return {
+    next: changedNodeIds.length ? next : prev,
+    changedNodeIds
+  }
 }
 
 export const createTransient = (
   instance: Instance
 ): Commands['transient'] => {
   const { core, docRef } = instance.runtime
-  const { read, write } = instance.state
+  const { read, write, batch } = instance.state
 
   const clearNodeOverrides = (ids?: NodeId[]) => {
-    write('nodeOverrides', (prev) => clearNodeOverridesMap(prev, ids))
+    let changedNodeIds: NodeId[] = []
+    batch(() => {
+      write('nodeOverrides', (prev) => {
+        const result = clearNodeOverridesMap(prev, ids)
+        changedNodeIds = result.changedNodeIds
+        return result.next
+      })
+      if (changedNodeIds.length) {
+        instance.state.reportCanvasNodeDirty(changedNodeIds)
+      }
+    })
   }
 
   const commitNodeOverrides = (updates?: NodeViewUpdate[]) => {
@@ -99,20 +125,32 @@ export const createTransient = (
     },
     nodeOverrides: {
       set: (updates) => {
-        write('nodeOverrides', (prev) => applyNodeOverrides(prev, updates))
+        let changedNodeIds: NodeId[] = []
+        batch(() => {
+          write('nodeOverrides', (prev) => {
+            const result = applyNodeOverrides(prev, updates)
+            changedNodeIds = result.changedNodeIds
+            return result.next
+          })
+          if (changedNodeIds.length) {
+            instance.state.reportCanvasNodeDirty(changedNodeIds)
+          }
+        })
       },
       clear: clearNodeOverrides,
       commit: commitNodeOverrides
     },
     reset: () => {
-      write('edgeConnect', { isConnecting: false } as EdgeConnectState)
-      write('routingDrag', {})
-      write('dragGuides', [])
-      write('groupHovered', undefined)
-      write('nodeOverrides', new Map<NodeId, NodeOverride>())
-      write('mindmapDrag', {})
-      write('nodeDrag', {})
-      write('nodeTransform', {})
+      batch(() => {
+        write('edgeConnect', { isConnecting: false } as EdgeConnectState)
+        write('routingDrag', {})
+        write('dragGuides', [])
+        write('groupHovered', undefined)
+        clearNodeOverrides()
+        write('mindmapDrag', {})
+        write('nodeDrag', {})
+        write('nodeTransform', {})
+      })
     }
   }
 }

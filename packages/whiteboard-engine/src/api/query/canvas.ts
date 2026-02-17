@@ -1,27 +1,19 @@
-import type {
-  InstanceConfig,
-  Query,
-  State
-} from '@engine-types/instance'
-import { getNodeAABB, getNodeRect } from '../../infra/geometry'
+import type { InstanceConfig, Query, QueryDebugMetric } from '@engine-types/instance'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw,
   getNodeIdsInRect as getNodeIdsInRectRaw,
   isBackgroundTarget as isBackgroundTargetRaw
-} from '../../infra/query'
+} from '../../kernel/query'
+import type { QueryIndexes } from './indexes'
 
 type Options = {
-  readState: State['read']
+  indexes: QueryIndexes
   config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
-export const createCanvas = ({
-  readState,
-  config,
-  getContainer
-}: Options): Pick<
+type CanvasQuery = Pick<
   Query,
   | 'getNodeRects'
   | 'getNodeRectById'
@@ -29,33 +21,22 @@ export const createCanvas = ({
   | 'isBackgroundTarget'
   | 'getAnchorFromPoint'
   | 'getNearestEdgeSegment'
-> => {
-  let cachedNodes = readState('canvasNodes')
-  let cachedRects = cachedNodes.map((node) => ({
-    node,
-    rect: getNodeRect(node, config.nodeSize),
-    aabb: getNodeAABB(node, config.nodeSize),
-    rotation: typeof node.rotation === 'number' ? node.rotation : 0
-  }))
-  let cachedById = new Map(cachedRects.map((entry) => [entry.node.id, entry]))
-
-  const getNodeRects: Query['getNodeRects'] = () => {
-    const nodes = readState('canvasNodes')
-    if (nodes === cachedNodes) return cachedRects
-    cachedNodes = nodes
-    cachedRects = nodes.map((node) => ({
-      node,
-      rect: getNodeRect(node, config.nodeSize),
-      aabb: getNodeAABB(node, config.nodeSize),
-      rotation: typeof node.rotation === 'number' ? node.rotation : 0
-    }))
-    cachedById = new Map(cachedRects.map((entry) => [entry.node.id, entry]))
-    return cachedRects
+> & {
+  debug: {
+    getMetrics: () => QueryDebugMetric
+    resetMetrics: () => void
   }
+}
+
+export const createCanvas = ({
+  indexes,
+  config,
+  getContainer
+}: Options): CanvasQuery => {
+  const getNodeRects: Query['getNodeRects'] = () => indexes.getNodeRects()
 
   const getNodeRectById: Query['getNodeRectById'] = (nodeId) => {
-    getNodeRects()
-    return cachedById.get(nodeId)
+    return indexes.getNodeRectById(nodeId)
   }
 
   const getNodeIdsInRect: Query['getNodeIdsInRect'] = (rect) =>
@@ -84,6 +65,12 @@ export const createCanvas = ({
     getNodeIdsInRect,
     isBackgroundTarget,
     getAnchorFromPoint,
-    getNearestEdgeSegment
+    getNearestEdgeSegment,
+    debug: {
+      getMetrics: () => ({ ...indexes.getMetrics().canvas } as QueryDebugMetric),
+      resetMetrics: () => {
+        indexes.resetMetrics('canvas')
+      }
+    }
   }
 }

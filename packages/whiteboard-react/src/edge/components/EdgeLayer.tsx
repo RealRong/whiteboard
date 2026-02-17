@@ -1,13 +1,92 @@
-import type { Edge, Point } from '@whiteboard/core'
+import type { Edge, EdgeId, Point } from '@whiteboard/core'
+import type { EdgePathEntry } from '@whiteboard/engine'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { useCallback } from 'react'
-import { useInstance, useWhiteboardSelector, useWhiteboardView } from '../../common/hooks'
+import { memo, useCallback, useEffect, useState } from 'react'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 
+const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+const useEdgeIds = () => {
+  const instance = useInstance()
+  const [edgeIds, setEdgeIds] = useState<EdgeId[]>(() => instance.view.getEdgeIds())
+
+  useEffect(() => {
+    const update = () => {
+      const next = instance.view.getEdgeIds()
+      setEdgeIds((prev) => (isSameIdOrder(prev, next) ? prev : next))
+    }
+    update()
+    return instance.view.watchEdgeIds(update)
+  }, [instance])
+
+  return edgeIds
+}
+
+const useEdgePath = (edgeId: EdgeId) => {
+  const instance = useInstance()
+  const [path, setPath] = useState<EdgePathEntry | undefined>(() => instance.view.getEdgePath(edgeId))
+
+  useEffect(() => {
+    const update = () => {
+      const next = instance.view.getEdgePath(edgeId)
+      setPath((prev) => (Object.is(prev, next) ? prev : next))
+    }
+    update()
+    return instance.view.watchEdgePath(edgeId, update)
+  }, [edgeId, instance])
+
+  return path
+}
+
+type EdgeItemByIdProps = {
+  edgeId: EdgeId
+  hitTestThresholdScreen: number
+  selected: boolean
+  onPathPointerDown: (edge: Edge, pathPoints: Point[], event: ReactPointerEvent<SVGPathElement>) => void
+  onPathClick: (edge: Edge, pathPoints: Point[], event: ReactMouseEvent<SVGPathElement>) => void
+}
+
+const EdgeItemById = memo(
+  ({
+    edgeId,
+    hitTestThresholdScreen,
+    selected,
+    onPathPointerDown,
+    onPathClick
+  }: EdgeItemByIdProps) => {
+    const path = useEdgePath(edgeId)
+    if (!path) return null
+
+    return (
+      <EdgeItem
+        edge={path.edge}
+        path={path.path}
+        hitTestThresholdScreen={hitTestThresholdScreen}
+        selected={selected}
+        onPathPointerDown={onPathPointerDown}
+        onPathClick={onPathClick}
+      />
+    )
+  },
+  (prev, next) =>
+    prev.edgeId === next.edgeId &&
+    prev.hitTestThresholdScreen === next.hitTestThresholdScreen &&
+    prev.selected === next.selected &&
+    prev.onPathPointerDown === next.onPathPointerDown &&
+    prev.onPathClick === next.onPathClick
+)
+
 export const EdgeLayer = () => {
   const instance = useInstance()
-  const paths = useWhiteboardView('edge.paths')
+  const edgeIds = useEdgeIds()
   const stateSelectedEdgeId = useWhiteboardSelector('edgeSelection')
   const hitTestThresholdScreen = instance.runtime.config.edge.hitTestThresholdScreen
   const selectEdge = instance.commands.edge.select
@@ -40,19 +119,16 @@ export const EdgeLayer = () => {
   return (
     <svg width="100%" height="100%" className="wb-edge-layer">
       <EdgeMarkerDefs />
-      {paths.map((line) => {
-        return (
-          <EdgeItem
-            key={line.id}
-            edge={line.edge}
-            path={line.path}
-            hitTestThresholdScreen={hitTestThresholdScreen}
-            selected={line.id === stateSelectedEdgeId}
-            onPathPointerDown={handlePathPointerDown}
-            onPathClick={handlePathClick}
-          />
-        )
-      })}
+      {edgeIds.map((edgeId) => (
+        <EdgeItemById
+          key={edgeId}
+          edgeId={edgeId}
+          hitTestThresholdScreen={hitTestThresholdScreen}
+          selected={edgeId === stateSelectedEdgeId}
+          onPathPointerDown={handlePathPointerDown}
+          onPathClick={handlePathClick}
+        />
+      ))}
     </svg>
   )
 }

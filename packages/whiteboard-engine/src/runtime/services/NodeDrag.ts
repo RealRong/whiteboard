@@ -9,7 +9,7 @@ import {
   expandGroupRect,
   rectEquals
 } from '../../node/utils/group'
-import { getNodeAABB, rectContains } from '../../infra/geometry'
+import { getNodeAABB, rectContains } from '../../kernel/geometry'
 import { computeSnap } from '../../node/utils/snap'
 
 const MIN_ZOOM = 0.0001
@@ -58,10 +58,12 @@ export class NodeDrag implements NodeDragApi {
   }
 
   private finish = () => {
-    this.clearGuides()
-    this.setHoveredGroup(undefined)
-    this.session = null
-    this.setDragState(undefined)
+    this.instance.state.batch(() => {
+      this.clearGuides()
+      this.setHoveredGroup(undefined)
+      this.session = null
+      this.setDragState(undefined)
+    })
   }
 
   private applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
@@ -159,17 +161,20 @@ export class NodeDrag implements NodeDragApi {
       center,
       session.nodeId
     )
-    this.setHoveredGroup(hovered?.id)
-
-    this.instance.commands.transient.nodeOverrides.set([
-      { id: session.nodeId, position: nextPosition }
-    ])
+    this.instance.state.batch(() => {
+      this.setHoveredGroup(hovered?.id)
+      this.instance.commands.transient.nodeOverrides.set([
+        { id: session.nodeId, position: nextPosition }
+      ])
+    })
   }
 
   private moveGroup = (session: DragSession, nextPosition: Point) => {
     const updates = this.buildGroupUpdates(session, nextPosition)
-    this.instance.commands.transient.nodeOverrides.set(updates)
-    this.setHoveredGroup(undefined)
+    this.instance.state.batch(() => {
+      this.instance.commands.transient.nodeOverrides.set(updates)
+      this.setHoveredGroup(undefined)
+    })
   }
 
   private handleDropToGroup = (session: DragSession, finalPos: Point) => {
@@ -273,26 +278,28 @@ export class NodeDrag implements NodeDragApi {
     const session = this.session
     if (!session || session.pointerId !== pointerId) return false
 
-    const zoom = Math.max(this.instance.runtime.viewport.getZoom(), MIN_ZOOM)
-    let nextPosition = {
-      x: session.origin.x + (clientX - session.start.x) / zoom,
-      y: session.origin.y + (clientY - session.start.y) / zoom
-    }
-    nextPosition = this.resolveMove({
-      nodeId: session.nodeId,
-      position: nextPosition,
-      size: session.size,
-      childrenIds: session.children?.ids,
-      allowCross: altKey
+    this.instance.state.batchFrame(() => {
+      const zoom = Math.max(this.instance.runtime.viewport.getZoom(), MIN_ZOOM)
+      let nextPosition = {
+        x: session.origin.x + (clientX - session.start.x) / zoom,
+        y: session.origin.y + (clientY - session.start.y) / zoom
+      }
+      nextPosition = this.resolveMove({
+        nodeId: session.nodeId,
+        position: nextPosition,
+        size: session.size,
+        childrenIds: session.children?.ids,
+        allowCross: altKey
+      })
+
+      if (session.children) {
+        this.moveGroup(session, nextPosition)
+      } else {
+        this.movePlain(session, nextPosition)
+      }
+
+      session.last = nextPosition
     })
-
-    if (session.children) {
-      this.moveGroup(session, nextPosition)
-    } else {
-      this.movePlain(session, nextPosition)
-    }
-
-    session.last = nextPosition
     return true
   }
 

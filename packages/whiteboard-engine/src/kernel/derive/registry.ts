@@ -1,3 +1,5 @@
+import { RevisionStore } from '../store'
+
 type DeriveResolver<TKey extends string, TDependencyKey extends string, TSnapshot extends Record<TKey, unknown>> = {
   deps: TDependencyKey[]
   derive: () => TSnapshot[TKey]
@@ -22,6 +24,7 @@ type DeriveCacheEntry<TValue> = {
   hasValue: boolean
   dirty: boolean
   revision: number
+  dependencySignature?: string
   metrics: DeriveMetrics
 }
 
@@ -47,6 +50,10 @@ type Options<
   keys: TKey[]
   resolvers: DeriveResolverMap<TKey, TDependencyKey, TSnapshot>
   watchDependency: (key: TDependencyKey, listener: () => void) => () => void
+  project?: (
+    keys: TKey[],
+    read: <K extends TKey>(key: K) => TSnapshot[K]
+  ) => void
 }
 
 const now = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now())
@@ -86,9 +93,11 @@ export const createDerivedRegistry = <
 >({
   keys,
   resolvers,
-  watchDependency
+  watchDependency,
+  project
 }: Options<TKey, TDependencyKey, TSnapshot>) => {
   const uniqueKeys = Array.from(new Set(keys))
+  const dependencyRevisions = new RevisionStore<TDependencyKey>()
   const listeners = new Map<TKey, Set<() => void>>()
   const entries = new Map<TKey, DeriveCacheEntry<unknown>>(
     uniqueKeys.map((key) => [
@@ -97,6 +106,7 @@ export const createDerivedRegistry = <
         hasValue: false,
         dirty: true,
         revision: 0,
+        dependencySignature: undefined,
         metrics: createEmptyMetrics()
       }
     ])
@@ -122,15 +132,32 @@ export const createDerivedRegistry = <
 
   const markKeyDirty = (key: TKey) => {
     const entry = entries.get(key)
-    if (!entry) return
+    if (!entry) return false
+    if (entry.dirty) return false
     entry.dirty = true
-    notifyKey(key)
+    return true
   }
+
+  const getDependencySignature = (key: TKey) =>
+    dependencyRevisions.signature(resolvers[key].deps)
 
   const dependencyUnsubs = Array.from(dependencyToKeys.entries()).map(([dependencyKey, affectedKeys]) =>
     watchDependency(dependencyKey, () => {
+      dependencyRevisions.bump(dependencyKey)
+      const changedKeys: TKey[] = []
       affectedKeys.forEach((key) => {
-        markKeyDirty(key)
+        if (markKeyDirty(key)) {
+          changedKeys.push(key)
+        }
+      })
+      if (!changedKeys.length) return
+
+      if (project) {
+        project(changedKeys, read)
+      }
+
+      changedKeys.forEach((key) => {
+        notifyKey(key)
       })
     })
   )
@@ -142,6 +169,13 @@ export const createDerivedRegistry = <
     }
 
     if (!entry.dirty && entry.hasValue) {
+      entry.metrics.cacheHitCount += 1
+      return entry.value as TSnapshot[K]
+    }
+
+    const dependencySignature = getDependencySignature(key)
+    if (entry.hasValue && entry.dependencySignature === dependencySignature) {
+      entry.dirty = false
       entry.metrics.cacheHitCount += 1
       return entry.value as TSnapshot[K]
     }
@@ -165,6 +199,7 @@ export const createDerivedRegistry = <
     entry.value = value
     entry.hasValue = true
     entry.dirty = false
+    entry.dependencySignature = dependencySignature
     return value
   }) as <K extends TKey>(key: K) => TSnapshot[K]
 

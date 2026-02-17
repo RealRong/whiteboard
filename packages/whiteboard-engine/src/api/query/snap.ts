@@ -1,56 +1,36 @@
-import type {
-  InstanceConfig,
-  Query,
-  State
-} from '@engine-types/instance'
-import { getNodeAABB } from '../../infra/geometry'
-import { buildSnapCandidates, createGridIndex, queryGridIndex } from '../../node/utils/snap'
+import type { QueryDebugMetric, Query } from '@engine-types/instance'
+import type { QueryIndexes } from './indexes'
 
 type Options = {
-  readState: State['read']
-  config: InstanceConfig
+  indexes: QueryIndexes
+}
+
+type SnapQuery = Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> & {
+  debug: {
+    getMetrics: () => QueryDebugMetric
+    resetMetrics: () => void
+  }
 }
 
 export const createSnap = ({
-  readState,
-  config
-}: Options): Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> => {
-  const initialNodes = readState('canvasNodes')
-
-  const buildCandidates = (nodes: typeof initialNodes) =>
-    buildSnapCandidates(
-      nodes.map((node) => ({
-        id: node.id,
-        rect: getNodeAABB(node, config.nodeSize)
-      }))
-    )
-
-  const getCellSize = () => Math.max(config.node.snapGridCellSize, config.node.groupPadding * 6)
-
-  let cachedNodes = initialNodes
-  let cachedCandidates = buildCandidates(cachedNodes)
-  let cachedIndex = createGridIndex(cachedCandidates, getCellSize())
-
-  const ensureSnapCache = () => {
-    const nodes = readState('canvasNodes')
-    if (nodes === cachedNodes) return
-    cachedNodes = nodes
-    cachedCandidates = buildCandidates(nodes)
-    cachedIndex = createGridIndex(cachedCandidates, getCellSize())
-  }
-
+  indexes
+}: Options): SnapQuery => {
   const getSnapCandidates: Query['getSnapCandidates'] = () => {
-    ensureSnapCache()
-    return cachedCandidates
+    return indexes.getSnapCandidates()
   }
 
   const getSnapCandidatesInRect: Query['getSnapCandidatesInRect'] = (rect) => {
-    ensureSnapCache()
-    return queryGridIndex(cachedIndex, rect)
+    return indexes.getSnapCandidatesInRect(rect)
   }
 
   return {
     getSnapCandidates,
-    getSnapCandidatesInRect
+    getSnapCandidatesInRect,
+    debug: {
+      getMetrics: () => ({ ...indexes.getMetrics().snap } as QueryDebugMetric),
+      resetMetrics: () => {
+        indexes.resetMetrics('snap')
+      }
+    }
   }
 }

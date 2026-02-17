@@ -1,22 +1,19 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { createCore, type Core, type Document } from '@whiteboard/core'
 import type { CSSProperties } from 'react'
-import { useSetAtom } from 'jotai'
-import { useHydrateAtoms } from 'jotai/utils'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import {
   createEngine,
-  docAtom,
-  instanceAtom,
   normalizeConfig,
   toLifecycleConfig,
   toInstanceConfig,
   type Instance
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
+import { InstanceProvider } from './common/hooks/useInstance'
 
 const cloneValue = <T,>(value: T): T => {
   const structuredCloneFn = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
@@ -107,21 +104,9 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
 
   useImperativeHandle(ref, () => instance, [instance])
 
-  useHydrateAtoms([
-    [docAtom, doc],
-    [instanceAtom, instance]
-  ])
-
-  const setDoc = useSetAtom(docAtom)
-  const setInstance = useSetAtom(instanceAtom)
-
   useEffect(() => {
-    setDoc(doc)
-  }, [doc, setDoc])
-
-  useEffect(() => {
-    setInstance(instance)
-  }, [instance, setInstance])
+    instance.state.setDoc(doc)
+  }, [doc, instance])
 
   const lifecycleConfig = useMemo(
     () =>
@@ -199,22 +184,24 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   )
 
   return (
-    <NodeRegistryProvider registry={registry}>
-      <div
-        ref={containerRef}
-        className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
-        style={containerStyle}
-        tabIndex={0}
-      >
-        <div className="wb-root-viewport" style={transformStyle}>
-          <EdgeLayerStack />
-          <MindmapLayerStack />
-          <DragGuidesLayer />
-          <NodeLayer />
+    <InstanceProvider value={instance}>
+      <NodeRegistryProvider registry={registry}>
+        <div
+          ref={containerRef}
+          className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
+          style={containerStyle}
+          tabIndex={0}
+        >
+          <div className="wb-root-viewport" style={transformStyle}>
+            <EdgeLayerStack />
+            <MindmapLayerStack />
+            <DragGuidesLayer />
+            <NodeLayer />
+          </div>
+          <SelectionLayer />
         </div>
-        <SelectionLayer />
-      </div>
-    </NodeRegistryProvider>
+      </NodeRegistryProvider>
+    </InstanceProvider>
   )
 })
 

@@ -1,17 +1,18 @@
 import type {
   CreateEngineOptions,
+  InstanceEventMap,
   Instance,
   Runtime
 } from '@engine-types/instance'
 import { createDomBindings } from '../host/dom'
-import { createEventBus } from './events'
+import { Events } from '../kernel/events'
 import { createShortcuts, Lifecycle } from '../runtime'
 import { resolveInstanceConfig } from '../config'
 import { createCommands } from '../api/commands'
 import { createRuntime, type RuntimeBase } from '../runtime/factory/namespace'
 import { createServices } from '../runtime/factory/services'
 import { createState } from '../state/factory'
-import { createView } from '../state/view'
+import { createView } from '../kernel/view'
 import { createQuery } from '../api/query/instance'
 
 export const createEngine = ({
@@ -21,7 +22,7 @@ export const createEngine = ({
   config: overrides
 }: CreateEngineOptions): Instance => {
   const config = resolveInstanceConfig(overrides)
-  const { state, readState, writeState } = createState()
+  const { state, writeState } = createState({ doc: docRef.current })
   const base = createRuntime({
     core,
     docRef,
@@ -29,10 +30,10 @@ export const createEngine = ({
     config
   })
   const dom = createDomBindings(containerRef)
-  const eventBus = createEventBus()
+  const events = new Events<InstanceEventMap>()
 
   const query = createQuery({
-    readState,
+    state,
     config,
     getContainer: base.getContainer
   })
@@ -67,8 +68,8 @@ export const createEngine = ({
     query,
     view,
     events: {
-      on: eventBus.on,
-      off: eventBus.off
+      on: events.on,
+      off: events.off
     },
     get commands() {
       return commands
@@ -79,7 +80,7 @@ export const createEngine = ({
   commands = createCommands(instance)
   services = createServices(core, instance)
   shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(instance, dom, eventBus.emit)
+  lifecycle = new Lifecycle(instance, dom, events.emit)
 
   return instance
 }

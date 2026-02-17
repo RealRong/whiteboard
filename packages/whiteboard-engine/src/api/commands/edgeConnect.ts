@@ -1,7 +1,7 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
-import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../../infra/query'
+import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../../kernel/query'
 
 class Connect {
   private readonly instance: Instance

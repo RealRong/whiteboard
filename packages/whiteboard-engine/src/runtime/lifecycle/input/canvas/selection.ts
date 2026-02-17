@@ -1,7 +1,7 @@
 import type { Point, Rect } from '@whiteboard/core'
 import type { Instance } from '@engine-types/instance'
 import type { SelectionMode } from '@engine-types/state'
-import { rectFromPoints } from '../../../../infra/geometry'
+import { rectFromPoints } from '../../../../kernel/geometry'
 import { getSelectionModeFromEvent } from '../../../../node/utils/selection'
 
 type Options = {

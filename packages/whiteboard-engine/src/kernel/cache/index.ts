@@ -1,5 +1,7 @@
 export {
   toAnchorSignature,
+  toNodeCollectionSignature,
+  toNodeStateSignature,
   toEdgePathSignature,
   toEdgeRoutingSignature,
   toMindmapLayoutSignature,

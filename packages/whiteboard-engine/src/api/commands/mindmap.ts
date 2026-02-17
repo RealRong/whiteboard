@@ -15,7 +15,7 @@ export const createMindmap = (
   instance: Instance
 ): Pick<Commands, 'mindmap'> => {
   const { core } = instance.runtime
-  const { read, write } = instance.state
+  const { read, write, batchFrame } = instance.state
   const coreMindmap = core.commands.mindmap
   const mindmapDrag = instance.runtime.services.mindmapDrag
 
@@ -217,48 +217,50 @@ export const createMindmap = (
     const active = read('mindmapDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
-    const world = instance.runtime.viewport.clientToWorld(clientX, clientY)
+    batchFrame(() => {
+      const world = instance.runtime.viewport.clientToWorld(clientX, clientY)
 
-    if (active.kind === 'root') {
-      const nextPosition = {
-        x: active.origin.x + (world.x - active.start.x),
-        y: active.origin.y + (world.y - active.start.y)
+      if (active.kind === 'root') {
+        const nextPosition = {
+          x: active.origin.x + (world.x - active.start.x),
+          y: active.origin.y + (world.y - active.start.y)
+        }
+        write('mindmapDrag', {
+          active: {
+            ...active,
+            position: nextPosition
+          }
+        })
+        return
       }
+
+      const ghost = mindmapDrag.buildSubtreeGhostRect({
+        pointerWorld: world,
+        pointerOffset: active.offset,
+        nodeRect: active.rect
+      })
+
+      let drop = active.drop
+      const treeItem = getTreeView(active.treeId)
+      if (treeItem) {
+        const nodeRects = getNodeRects(treeItem, active.baseOffset)
+        drop = mindmapDrag.computeSubtreeDropTarget({
+          tree: treeItem.tree,
+          nodeRects,
+          ghost,
+          dragNodeId: active.nodeId,
+          dragExcludeIds: new Set(active.excludeIds),
+          layoutOptions: (read('mindmapLayout') ?? treeItem.layout).options
+        })
+      }
+
       write('mindmapDrag', {
         active: {
           ...active,
-          position: nextPosition
+          ghost,
+          drop
         }
       })
-      return true
-    }
-
-    const ghost = mindmapDrag.buildSubtreeGhostRect({
-      pointerWorld: world,
-      pointerOffset: active.offset,
-      nodeRect: active.rect
-    })
-
-    let drop = active.drop
-    const treeItem = getTreeView(active.treeId)
-    if (treeItem) {
-      const nodeRects = getNodeRects(treeItem, active.baseOffset)
-      drop = mindmapDrag.computeSubtreeDropTarget({
-        tree: treeItem.tree,
-        nodeRects,
-        ghost,
-        dragNodeId: active.nodeId,
-        dragExcludeIds: new Set(active.excludeIds),
-        layoutOptions: (read('mindmapLayout') ?? treeItem.layout).options
-      })
-    }
-
-    write('mindmapDrag', {
-      active: {
-        ...active,
-        ghost,
-        drop
-      }
     })
     return true
   }

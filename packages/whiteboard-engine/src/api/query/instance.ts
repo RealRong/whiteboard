@@ -1,34 +1,65 @@
 import type {
   InstanceConfig,
+  QueryDebugSnapshot,
   Query,
   State
 } from '@engine-types/instance'
 import { createCanvas } from './canvas'
+import { createQueryIndexes } from './indexes'
+import { startQueryProjector } from './projector'
 import { createSnap } from './snap'
 
 type Options = {
-  readState: State['read']
+  state: State
   config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
 export const createQuery = ({
-  readState,
+  state,
   config,
   getContainer
 }: Options): Query => {
+  const indexes = createQueryIndexes({
+    config
+  })
+  startQueryProjector({
+    state,
+    indexes
+  })
+
   const canvasQuery = createCanvas({
-    readState,
+    indexes,
     config,
     getContainer
   })
   const snapQuery = createSnap({
-    readState,
-    config
+    indexes
+  })
+
+  const getMetrics = (): QueryDebugSnapshot => ({
+    canvas: canvasQuery.debug.getMetrics(),
+    snap: snapQuery.debug.getMetrics()
   })
 
   return {
     ...canvasQuery,
-    ...snapQuery
+    ...snapQuery,
+    watchNodeChanges: indexes.watchNodeChanges,
+    debug: {
+      getMetrics,
+      resetMetrics: (target) => {
+        if (target === 'canvas') {
+          canvasQuery.debug.resetMetrics()
+          return
+        }
+        if (target === 'snap') {
+          snapQuery.debug.resetMetrics()
+          return
+        }
+        canvasQuery.debug.resetMetrics()
+        snapQuery.debug.resetMetrics()
+      }
+    }
   }
 }

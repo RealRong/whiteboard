@@ -1,1 +1,1 @@
-export { createDerivedRegistry } from './createDerivedRegistry'
+export { createDerivedRegistry } from './registry'

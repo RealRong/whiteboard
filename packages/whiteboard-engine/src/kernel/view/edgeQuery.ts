@@ -1,5 +1,5 @@
 import { getEdgePath } from '@whiteboard/core'
-import type { Edge, Point } from '@whiteboard/core'
+import type { Edge, EdgeId, Point } from '@whiteboard/core'
 import type {
   EdgePathEntry,
   EdgeEndpoints,
@@ -7,12 +7,12 @@ import type {
   State
 } from '@engine-types/instance'
 import type { EdgeConnectState, EdgeReconnectInfo } from '@engine-types/state'
-import { toEdgePathSignature, toNodeGeometrySignature } from '../../infra/cache'
+import { toEdgePathSignature, toNodeGeometrySignature } from '../cache'
 import {
   getAnchorPoint,
   getRectCenter
-} from '../../infra/geometry'
-import { getAutoAnchorFromRect } from '../../infra/query'
+} from '../geometry'
+import { getAutoAnchorFromRect } from '../query'
 
 type Options = {
   readState: State['read']
@@ -184,29 +184,120 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
 
   let cachedEdgePathEntries: EdgePathEntry[] = []
   let cachedEdgePathEntryById = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
+  let edgeById = new Map<EdgeId, EdgePathEntry['edge']>()
+  let nodeToEdgeIds = new Map<EdgeConnectFrom['nodeId'], Set<EdgeId>>()
+  let edgeOrderIds: EdgeId[] = []
+  const pendingChangedNodeIds = new Set<EdgeConnectFrom['nodeId']>()
   let cachedRenderEdgesRef: unknown
   let cachedRenderNodesRef: unknown
+
+  const rebuildEdgeRefs = (edges: EdgePathEntry['edge'][]) => {
+    const nextEdgeById = new Map<EdgeId, EdgePathEntry['edge']>()
+    const nextNodeToEdgeIds = new Map<EdgeConnectFrom['nodeId'], Set<EdgeId>>()
+    const nextEdgeOrderIds: EdgeId[] = []
+
+    edges.forEach((edge) => {
+      nextEdgeById.set(edge.id, edge)
+      nextEdgeOrderIds.push(edge.id)
+
+      const sourceEdges = nextNodeToEdgeIds.get(edge.source.nodeId) ?? new Set<EdgeId>()
+      sourceEdges.add(edge.id)
+      nextNodeToEdgeIds.set(edge.source.nodeId, sourceEdges)
+
+      const targetEdges = nextNodeToEdgeIds.get(edge.target.nodeId) ?? new Set<EdgeId>()
+      targetEdges.add(edge.id)
+      nextNodeToEdgeIds.set(edge.target.nodeId, targetEdges)
+    })
+
+    edgeById = nextEdgeById
+    nodeToEdgeIds = nextNodeToEdgeIds
+    edgeOrderIds = nextEdgeOrderIds
+  }
+
+  query.watchNodeChanges((nodeIds) => {
+    nodeIds.forEach((nodeId) => {
+      pendingChangedNodeIds.add(nodeId)
+    })
+  })
 
   const ensureEdgePathEntries = () => {
     const edges = readState('visibleEdges')
     const nodes = readState('canvasNodes')
-    if (edges === cachedRenderEdgesRef && nodes === cachedRenderNodesRef) return
+    const edgesChanged = edges !== cachedRenderEdgesRef
+    const nodesChanged = nodes !== cachedRenderNodesRef
+    if (!edgesChanged && !nodesChanged && !pendingChangedNodeIds.size) return
 
     cachedRenderEdgesRef = edges
     cachedRenderNodesRef = nodes
 
-    const previousMap = cachedEdgePathEntryById
-    const nextMap = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
-    const nextEntries: EdgePathEntry[] = []
+    if (edgesChanged) {
+      rebuildEdgeRefs(edges)
+      pendingChangedNodeIds.clear()
 
-    edges.forEach((edge) => {
-      const nextEntry = toEdgePathCacheEntry(edge, previousMap.get(edge.id))
-      if (!nextEntry) return
-      nextMap.set(edge.id, nextEntry)
-      nextEntries.push(nextEntry.entry)
+      const previousMap = cachedEdgePathEntryById
+      const nextMap = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
+      const nextEntries: EdgePathEntry[] = []
+
+      edges.forEach((edge) => {
+        const nextEntry = toEdgePathCacheEntry(edge, previousMap.get(edge.id))
+        if (!nextEntry) return
+        nextMap.set(edge.id, nextEntry)
+        nextEntries.push(nextEntry.entry)
+      })
+
+      cachedEdgePathEntryById = nextMap
+      if (!isSameEdgePathEntryList(cachedEdgePathEntries, nextEntries)) {
+        cachedEdgePathEntries = nextEntries
+      }
+      return
+    }
+
+    if (!pendingChangedNodeIds.size) return
+
+    const affectedEdgeIds = new Set<EdgeId>()
+    pendingChangedNodeIds.forEach((nodeId) => {
+      nodeToEdgeIds.get(nodeId)?.forEach((edgeId) => {
+        affectedEdgeIds.add(edgeId)
+      })
+    })
+    pendingChangedNodeIds.clear()
+
+    if (!affectedEdgeIds.size) return
+
+    let nextMap = cachedEdgePathEntryById
+    let changed = false
+
+    affectedEdgeIds.forEach((edgeId) => {
+      const edge = edgeById.get(edgeId)
+      if (!edge) return
+
+      const previous = cachedEdgePathEntryById.get(edgeId)
+      const next = toEdgePathCacheEntry(edge, previous)
+      if (!next) {
+        if (!previous) return
+        if (!changed) {
+          nextMap = new Map(cachedEdgePathEntryById)
+          changed = true
+        }
+        nextMap.delete(edgeId)
+        return
+      }
+
+      if (previous === next) return
+      if (!changed) {
+        nextMap = new Map(cachedEdgePathEntryById)
+        changed = true
+      }
+      nextMap.set(edgeId, next)
     })
 
+    if (!changed) return
+
     cachedEdgePathEntryById = nextMap
+    const nextEntries = edgeOrderIds
+      .map((edgeId) => nextMap.get(edgeId)?.entry)
+      .filter((entry): entry is EdgePathEntry => Boolean(entry))
+
     if (!isSameEdgePathEntryList(cachedEdgePathEntries, nextEntries)) {
       cachedEdgePathEntries = nextEntries
     }

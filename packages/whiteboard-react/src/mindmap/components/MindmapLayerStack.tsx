@@ -1,8 +1,34 @@
+import type { NodeId } from '@whiteboard/core'
+import { useEffect, useState } from 'react'
 import { MindmapLayer } from './MindmapLayer'
-import { useWhiteboardView } from '../../common/hooks'
+import { useInstance, useWhiteboardView } from '../../common/hooks'
+
+const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+const useMindmapTreeIds = () => {
+  const instance = useInstance()
+  const [treeIds, setTreeIds] = useState<NodeId[]>(() => instance.view.getMindmapTreeIds())
+
+  useEffect(() => {
+    const update = () => {
+      const next = instance.view.getMindmapTreeIds()
+      setTreeIds((prev) => (isSameIdOrder(prev, next) ? prev : next))
+    }
+    update()
+    return instance.view.watchMindmapTreeIds(update)
+  }, [instance])
+
+  return treeIds
+}
 
 export const MindmapLayerStack = () => {
-  const trees = useWhiteboardView('mindmap.trees')
+  const treeIds = useMindmapTreeIds()
   const drag = useWhiteboardView('mindmap.drag')
-  return <MindmapLayer trees={trees} drag={drag} />
+  return <MindmapLayer treeIds={treeIds} drag={drag} />
 }

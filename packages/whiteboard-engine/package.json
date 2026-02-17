@@ -16,11 +16,11 @@
     "dist"
   ],
   "dependencies": {
-    "@whiteboard/core": "workspace:*",
-    "jotai": "^2.7.1"
+    "@whiteboard/core": "workspace:*"
   },
   "scripts": {
     "build": "tsup",
+    "bench:node-hint": "tsup src/runtime/lifecycle/watchers/nodeHint.bench.ts --format esm --outDir .bench --clean --silent && node .bench/nodeHint.bench.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests\""
   }

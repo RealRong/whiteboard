@@ -1,7 +1,7 @@
 import type { Point, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { ResizeDirection, TransformHandle } from '@engine-types/node'
-import { getRectCenter, rotatePoint } from '../../infra/geometry'
+import { getRectCenter, rotatePoint } from '../../kernel/geometry'
 
 const MIN_ZOOM = 0.0001
 const ROTATE_SNAP_STEP = 15

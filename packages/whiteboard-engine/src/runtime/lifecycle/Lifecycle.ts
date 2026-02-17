@@ -75,6 +75,7 @@ export class Lifecycle implements LifecycleApi {
     })
     this.docEvents = createDocEvents({
       core: this.instance.runtime.core,
+      state: this.instance.state,
       getDocId: () => this.instance.runtime.docRef.current?.id,
       emit: emitEvent
     })
