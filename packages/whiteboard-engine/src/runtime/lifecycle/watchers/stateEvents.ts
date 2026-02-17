@@ -14,9 +14,6 @@ export type StateEventsWatcher = {
   stop: () => void
 }
 
-const toTool = (tool: string): 'select' | 'edge' =>
-  tool === 'edge' ? 'edge' : 'select'
-
 const isSameViewport = (left: Viewport, right: Viewport) =>
   left.zoom === right.zoom &&
   left.center.x === right.center.x &&
@@ -98,7 +95,7 @@ export const createStateEvents = ({
   let lastMindmapLayout: MindmapLayoutConfig | null = null
 
   const emitToolChanged = (force = false) => {
-    const tool = toTool(state.read('tool'))
+    const tool = state.read('tool')
     const changed = !hasToolSnapshot || lastTool !== tool
 
     if (changed) {

@@ -1,6 +1,37 @@
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
-import { applySelection } from '../../state/internal/selectionState'
+import type { NodeId } from '@whiteboard/core'
+import type { SelectionMode } from '@engine-types/state'
+
+const applySelection = (
+  prevSelectedIds: Set<NodeId>,
+  ids: NodeId[],
+  mode: SelectionMode
+): Set<NodeId> => {
+  if (mode === 'replace') {
+    return new Set(ids)
+  }
+
+  const next = new Set(prevSelectedIds)
+  if (mode === 'add') {
+    ids.forEach((id) => next.add(id))
+    return next
+  }
+
+  if (mode === 'subtract') {
+    ids.forEach((id) => next.delete(id))
+    return next
+  }
+
+  ids.forEach((id) => {
+    if (next.has(id)) {
+      next.delete(id)
+      return
+    }
+    next.add(id)
+  })
+  return next
+}
 
 export const createSelection = (instance: Instance): Commands['selection'] => {
   const { read, write } = instance.state

@@ -21,7 +21,6 @@ import type {
 import type { MindmapLayoutConfig } from './mindmap'
 import type { Size, ResolvedHistoryConfig } from './common'
 import type { Guide } from './node/snap'
-import type { NodeDragGroupOptions } from './node/drag'
 import type { InteractionState, NodeViewUpdate, SelectionMode } from './state'
 import type { ResizeDirection } from './state'
 import type {
@@ -175,7 +174,7 @@ export type MindmapCommands = Core['commands']['mindmap'] & {
 
 export type Commands = {
   tool: {
-    set: (tool: string) => void
+    set: (tool: 'select' | 'edge') => void
   }
   keyboard: {
     setSpacePressed: (pressed: boolean) => void
@@ -236,25 +235,11 @@ export type Commands = {
     updateHoverAtClient: (clientX: number, clientY: number) => void
     handleNodePointerDown: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => boolean
   }
-  groupRuntime: {
-    setHoveredGroupId: (groupId?: NodeId) => void
-  }
   nodeDrag: {
     start: (options: NodeDragStartOptions) => boolean
     update: (options: NodeDragUpdateOptions) => boolean
     end: (options: NodeDragEndOptions) => boolean
     cancel: (options?: NodeDragCancelOptions) => boolean
-    getGroupContext: () => NodeDragGroupOptions
-    updateHoverGroup: (current: NodeId | undefined, next?: NodeId) => NodeId | undefined
-    clearHoverGroup: (current?: NodeId) => NodeId | undefined
-    resolveMove: (payload: {
-      nodeId: NodeId
-      position: Point
-      size: { width: number; height: number }
-      childrenIds?: NodeId[]
-      allowCross?: boolean
-    }) => Point
-    clearGuides: () => void
   }
   transient: {
     dragGuides: {

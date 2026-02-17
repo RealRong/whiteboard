@@ -1,4 +1,4 @@
-import type { NodeId, Point, Rect } from '@whiteboard/core'
+import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core'
 import type { SelectionMode } from '../state'
 
 export type SelectionOptions = {
@@ -13,8 +13,8 @@ export type SelectionHandlers = {
 }
 
 export type SelectionState = {
-  tool: string
-  selectedEdgeId?: string
+  tool: 'select' | 'edge'
+  selectedEdgeId?: EdgeId
   selectedNodeIds: Set<NodeId>
   isSelecting: boolean
   selectionRect?: Rect

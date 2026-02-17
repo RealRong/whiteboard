@@ -4,6 +4,7 @@ import { ContainerSizeObserver } from '../services/ContainerSizeObserver'
 import { EdgeHover } from '../services/EdgeHover'
 import { GroupAutoFit } from '../services/GroupAutoFit'
 import { MindmapDrag } from '../services/MindmapDrag'
+import { NodeDrag } from '../services/NodeDrag'
 import { NodeSizeObserver } from '../services/NodeSizeObserver'
 import { NodeTransform } from '../services/NodeTransform'
 import { ViewportNavigation } from '../services/ViewportNavigation'
@@ -18,6 +19,7 @@ export const createServices = (
     groupAutoFit: new GroupAutoFit(instance),
     viewportNavigation: new ViewportNavigation(instance),
     edgeHover: new EdgeHover(instance),
+    nodeDrag: new NodeDrag(instance),
     nodeTransform: new NodeTransform(instance),
     mindmapDrag: new MindmapDrag()
   }

@@ -1,20 +1,35 @@
+export { clamp, degToRad } from './scalar'
+
 export {
-  DEFAULT_MINDMAP_NODE_SIZE,
-  DEFAULT_NODE_SIZE,
-  clamp,
-  degToRad,
-  distancePointToSegment,
-  getAABBFromPoints,
-  getAnchorPoint,
-  getNodeAABB,
-  getNodeRect,
   getRectCenter,
-  getRotatedCorners,
-  isPointInRotatedRect,
-  rectContains,
-  rectContainsRotatedRect,
   rectFromPoints,
+  rectContains,
   rectIntersects,
+  getRectCorners,
+  getAABBFromPoints
+} from './rect'
+
+export { rotatePoint } from './point'
+
+export {
+  getRotatedCorners,
+  isPointInRotatedRect
+} from './rotation'
+
+export {
   rectIntersectsRotatedRect,
-  rotatePoint
-} from '../../geometry'
+  rectContainsRotatedRect
+} from './collision'
+
+export { distancePointToSegment } from './segment'
+export { getAnchorPoint } from './anchor'
+
+export {
+  getNodeRect,
+  getNodeAABB
+} from './node'
+
+export {
+  isPointEqual,
+  isSizeEqual
+} from './equality'

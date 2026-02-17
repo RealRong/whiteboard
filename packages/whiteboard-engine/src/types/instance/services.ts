@@ -128,6 +128,28 @@ export type NodeTransform = {
   dispose: () => void
 }
 
+export type NodeDrag = {
+  start: (options: {
+    nodeId: NodeId
+    pointerId: number
+    clientX: number
+    clientY: number
+  }) => boolean
+  update: (options: {
+    pointerId: number
+    clientX: number
+    clientY: number
+    altKey?: boolean
+  }) => boolean
+  end: (options: {
+    pointerId: number
+  }) => boolean
+  cancel: (options?: {
+    pointerId?: number
+  }) => boolean
+  dispose: () => void
+}
+
 export type MindmapSubtreeDropTarget = {
   type: 'attach' | 'reorder'
   parentId: MindmapNodeId

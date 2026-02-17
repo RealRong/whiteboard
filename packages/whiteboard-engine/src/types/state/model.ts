@@ -80,26 +80,10 @@ export type MindmapDragState = {
   active?: MindmapRootDragState | MindmapSubtreeDragState
 }
 
-export type NodeDragChildrenState = {
-  ids: NodeId[]
-  offsets: Array<{
-    id: NodeId
-    offset: Point
-  }>
-}
-
 export type NodeDragActiveState = {
   pointerId: number
   nodeId: NodeId
   nodeType: Node['type']
-  start: Point
-  origin: Point
-  size: {
-    width: number
-    height: number
-  }
-  last?: Point
-  children?: NodeDragChildrenState
 }
 
 export type NodeDragState = {

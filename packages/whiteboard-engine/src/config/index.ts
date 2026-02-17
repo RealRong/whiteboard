@@ -8,8 +8,11 @@ import type {
 } from '@engine-types/instance'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
-import { DEFAULT_MINDMAP_NODE_SIZE, DEFAULT_NODE_SIZE } from '../infra/geometry'
 import { DEFAULT_GROUP_PADDING } from '../node/constants'
+import {
+  DEFAULT_MINDMAP_NODE_SIZE,
+  DEFAULT_NODE_SIZE
+} from './defaults'
 
 type UnknownRecord = Record<string, unknown>
 

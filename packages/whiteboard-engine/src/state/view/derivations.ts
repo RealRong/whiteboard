@@ -156,7 +156,7 @@ export const createViewDerivations = ({
       }
     }),
     'node.items': createViewDerivation(['canvasNodes', 'selection', 'groupHovered', 'tool', 'viewport'], () => {
-      const activeTool = (readState('tool') as 'select' | 'edge') ?? 'select'
+      const activeTool = readState('tool')
       const viewport = readState('viewport')
       const zoom = viewport.zoom
       const selectedNodeIds = readState('selection').selectedNodeIds
@@ -191,7 +191,7 @@ export const createViewDerivations = ({
     'node.transformHandles': createViewDerivation(['canvasNodes', 'selection', 'tool', 'viewport'], () => {
       const handleMap = new Map<string, NodeTransformHandle[]>()
       const rotateHandleOffset = 24
-      const activeTool = (readState('tool') as 'select' | 'edge') ?? 'select'
+      const activeTool = readState('tool')
       if (activeTool !== 'select') return handleMap
       const selectedNodeIds = readState('selection').selectedNodeIds
       const zoom = readState('viewport').zoom

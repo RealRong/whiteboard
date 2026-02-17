@@ -9,18 +9,6 @@ export type {
   SelectionState
 } from './selection'
 export type {
-  DragEndContext,
-  DragInitializeContext,
-  DragMoveContext,
-  DragState,
-  NodeDragChildren,
-  NodeDragGroupOptions,
-  NodeDragHandlers,
-  NodeDragSnapOptions,
-  NodeDragStrategy,
-  NodeDragTransientApi
-} from './drag'
-export type {
   HandleKind,
   ResizeDirection,
   ResizeDragState,

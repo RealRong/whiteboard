@@ -1,4 +1,4 @@
-import type { Node, NodeId, Point, Rect, Size } from '@whiteboard/core'
+import type { NodeId, Point, Rect, Size } from '@whiteboard/core'
 import type { SnapCandidate } from '../node/snap'
 
 export type NodeOverride = {
@@ -10,13 +10,6 @@ export type NodeViewUpdate = {
   id: NodeId
   position?: Point
   size?: Size
-}
-
-export type GroupRuntime = {
-  nodes: Node[]
-  nodeSize: Size
-  padding?: number
-  hoveredGroupId?: NodeId
 }
 
 export type SnapRuntimeData = {

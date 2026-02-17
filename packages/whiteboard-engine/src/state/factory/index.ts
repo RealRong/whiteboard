@@ -1,7 +1,12 @@
 import { getDefaultStore } from 'jotai'
-import type { StateKey, State, StateSnapshot } from '@engine-types/instance'
-import { STATE_KEYS, stateAtoms } from '..'
-import { setStoreAtom } from '../setAtom'
+import type {
+  State,
+  StateKey,
+  StateSnapshot,
+  WritableStateKey
+} from '@engine-types/instance'
+import { writableStateAtoms } from '../atoms'
+import { STATE_KEYS, stateAtoms } from '../stateAtomMap'
 
 type Result = {
   state: State
@@ -12,6 +17,7 @@ type Result = {
 export const createState = (): Result => {
   const store = getDefaultStore()
   const getStateAtom = (key: StateKey) => stateAtoms[key]
+  const getWritableStateAtom = (key: WritableStateKey) => writableStateAtoms[key]
 
   const readState = ((key: StateKey) =>
     store.get(getStateAtom(key) as never)) as State['read']
@@ -21,7 +27,7 @@ export const createState = (): Result => {
   }
 
   const writeState: State['write'] = (key, next) => {
-    setStoreAtom(store, getStateAtom(key) as never, next as never)
+    store.set(getWritableStateAtom(key) as any, next)
   }
 
   const getStateSnapshot = (): StateSnapshot =>

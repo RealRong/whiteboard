@@ -1,6 +1,25 @@
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance'
-import { mergeInteractionPatch } from '../../state/internal/interactionState'
+import type { InteractionState } from '@engine-types/state'
+
+const mergeInteraction = (
+  prev: InteractionState,
+  patch: Partial<InteractionState>
+): InteractionState => ({
+  ...prev,
+  ...patch,
+  focus: patch.focus ? { ...prev.focus, ...patch.focus } : prev.focus,
+  pointer: patch.pointer
+    ? {
+        ...prev.pointer,
+        ...patch.pointer,
+        modifiers: patch.pointer.modifiers
+          ? { ...prev.pointer.modifiers, ...patch.pointer.modifiers }
+          : prev.pointer.modifiers
+      }
+    : prev.pointer,
+  hover: patch.hover ? { ...prev.hover, ...patch.hover } : prev.hover
+})
 
 export const createBase = (
   instance: Instance
@@ -37,11 +56,11 @@ export const createBase = (
     },
     interaction: {
       update: (patch) => {
-        write('interaction', (prev) => mergeInteractionPatch(prev, patch))
+        write('interaction', (prev) => mergeInteraction(prev, patch))
       },
       clearHover: () => {
         write('interaction', (prev) =>
-          mergeInteractionPatch(prev, { hover: { nodeId: undefined, edgeId: undefined } })
+          mergeInteraction(prev, { hover: { nodeId: undefined, edgeId: undefined } })
         )
       }
     }

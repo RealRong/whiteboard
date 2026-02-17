@@ -43,6 +43,7 @@ import type {
   EdgeHover,
   GroupAutoFit,
   MindmapDrag,
+  NodeDrag,
   NodeTransform,
   NodeSizeObserver,
   ViewportNavigation
@@ -52,7 +53,7 @@ export type Store = ReturnType<typeof getDefaultStore>
 
 export type StateSnapshot = {
   interaction: InteractionState
-  tool: string
+  tool: 'select' | 'edge'
   selection: SelectionState
   edgeSelection: EdgeId | undefined
   history: HistoryState
@@ -73,15 +74,34 @@ export type StateSnapshot = {
 }
 
 export type StateKey = keyof StateSnapshot
+export type WritableStateSnapshot = Pick<
+  StateSnapshot,
+  | 'interaction'
+  | 'tool'
+  | 'selection'
+  | 'edgeSelection'
+  | 'history'
+  | 'edgeConnect'
+  | 'routingDrag'
+  | 'mindmapLayout'
+  | 'mindmapDrag'
+  | 'nodeDrag'
+  | 'nodeTransform'
+  | 'spacePressed'
+  | 'dragGuides'
+  | 'groupHovered'
+  | 'nodeOverrides'
+>
+export type WritableStateKey = keyof WritableStateSnapshot
 
 export type State = {
   store: Store
   read: <K extends StateKey>(key: K) => StateSnapshot[K]
-  write: <K extends StateKey>(
+  write: <K extends WritableStateKey>(
     key: K,
     next:
-      | StateSnapshot[K]
-      | ((prev: StateSnapshot[K]) => StateSnapshot[K])
+      | WritableStateSnapshot[K]
+      | ((prev: WritableStateSnapshot[K]) => WritableStateSnapshot[K])
   ) => void
   watch: (key: StateKey, listener: () => void) => () => void
   snapshot: () => StateSnapshot
@@ -296,6 +316,7 @@ export type Runtime = {
     groupAutoFit: GroupAutoFit
     viewportNavigation: ViewportNavigation
     edgeHover: EdgeHover
+    nodeDrag: NodeDrag
     nodeTransform: NodeTransform
     mindmapDrag: MindmapDrag
   }
@@ -325,6 +346,7 @@ export type {
   EdgeHover,
   GroupAutoFit,
   MindmapDrag,
+  NodeDrag,
   NodeTransform,
   NodeSizeObserver,
   ViewportNavigation

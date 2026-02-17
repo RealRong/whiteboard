@@ -1,8 +1,8 @@
 import { atom } from 'jotai'
 import type { Document, Node, NodeId, Point, Size } from '@whiteboard/core'
-import { docAtom } from '../../state'
+import { docAtom } from '../contextAtoms'
 import type { NodeOverride } from '@engine-types/state'
-import { nodeViewOverridesAtom } from './nodeViewOverridesAtom'
+import { writableStateAtoms } from '../atoms'
 
 type ViewNodesCache = {
   doc: Document
@@ -68,7 +68,7 @@ const buildViewNodesCache = (doc: Document, overrides: Map<NodeId, NodeOverride>
 export const viewNodesAtom = atom<Node[]>((get) => {
   const doc = get(docAtom)
   if (!doc) return []
-  const overrides = get(nodeViewOverridesAtom)
+  const overrides = get(writableStateAtoms.nodeOverrides)
   if (!overrides.size) return doc.nodes
 
   const cache = viewNodesCache

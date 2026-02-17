@@ -183,7 +183,7 @@ class Connect {
   }
 
   updateHover: Commands['edgeConnect']['updateHover'] = (pointWorld) => {
-    const activeTool = (this.instance.state.read('tool') as 'select' | 'edge') ?? 'select'
+    const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return
     const snap = this.snapAt(pointWorld)
     this.instance.state.write('edgeConnect', (prev) => {
@@ -206,7 +206,7 @@ class Connect {
     pointWorld,
     pointerId
   ) => {
-    const activeTool = (this.instance.state.read('tool') as 'select' | 'edge') ?? 'select'
+    const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return false
     this.startFromPoint(nodeId, pointWorld, pointerId)
     return true

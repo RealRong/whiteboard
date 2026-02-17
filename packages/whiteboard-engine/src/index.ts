@@ -1,5 +1,4 @@
 export { createEngine } from './instance'
-export { selectNodeDragStrategy } from './node/runtime/drag'
 export { applySelectionMode, getSelectionModeFromEvent } from './node/utils/selection'
 export {
   DEFAULT_DOCUMENT_VIEWPORT,
@@ -30,6 +29,8 @@ export type {
   StateKey,
   State,
   StateSnapshot,
+  WritableStateKey,
+  WritableStateSnapshot,
   ViewDebugMetric,
   ViewDebug,
   ViewDebugSnapshot,
@@ -55,7 +56,6 @@ export type {
   MindmapRootDragState,
   MindmapSubtreeDragState,
   NodeDragActiveState,
-  NodeDragChildrenState,
   NodeDragState,
   TransformDragState,
   ResizeDirection,
@@ -70,5 +70,6 @@ export type {
 } from './types/state'
 export type {
   MindmapDrag,
+  NodeDrag,
   MindmapSubtreeDropTarget
 } from './types/instance/services'

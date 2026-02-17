@@ -14,6 +14,7 @@ export class Cleanup {
     this.instance.runtime.services.containerSizeObserver.dispose()
     this.instance.runtime.services.viewportNavigation.dispose()
     this.instance.runtime.services.edgeHover.dispose()
+    this.instance.runtime.services.nodeDrag.dispose()
     this.instance.runtime.services.nodeTransform.dispose()
     this.instance.runtime.services.mindmapDrag.dispose()
   }

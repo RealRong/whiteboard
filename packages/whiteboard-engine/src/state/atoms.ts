@@ -8,10 +8,12 @@ import type {
   InteractionState,
   MindmapDragState,
   NodeDragState,
+  NodeOverride,
   NodeTransformState,
   SelectionState
 } from '@engine-types/state'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
+import type { Guide } from '@engine-types/node/snap'
 import { docAtom } from './contextAtoms'
 
 const createSelection = (): SelectionState => ({
@@ -59,7 +61,7 @@ const createNodeTransform = (): NodeTransformState => ({})
 
 type WritableStateInitializers = {
   interaction: () => InteractionState
-  tool: () => string
+  tool: () => 'select' | 'edge'
   selection: () => SelectionState
   edgeSelection: () => EdgeId | undefined
   history: () => HistoryState
@@ -70,6 +72,9 @@ type WritableStateInitializers = {
   nodeDrag: () => NodeDragState
   nodeTransform: () => NodeTransformState
   spacePressed: () => boolean
+  dragGuides: () => Guide[]
+  groupHovered: () => NodeId | undefined
+  nodeOverrides: () => Map<NodeId, NodeOverride>
 }
 
 const createAtoms = <T extends Record<string, () => unknown>>(initializers: T) => {
@@ -91,7 +96,10 @@ const writableStateInitializers: WritableStateInitializers = {
   mindmapDrag: createMindmapDrag,
   nodeDrag: createNodeDrag,
   nodeTransform: createNodeTransform,
-  spacePressed: () => false
+  spacePressed: () => false,
+  dragGuides: () => [],
+  groupHovered: () => undefined,
+  nodeOverrides: () => new Map<NodeId, NodeOverride>()
 }
 
 export const writableStateAtoms = createAtoms(writableStateInitializers)
