@@ -4,6 +4,7 @@ import type {
   Query,
   State
 } from '@engine-types/instance'
+import type { CanvasNodes } from '../../kernel/projector/canvas'
 import { createCanvas } from './canvas'
 import { createQueryIndexes } from './indexes'
 import { startQueryProjector } from './projector'
@@ -11,12 +12,14 @@ import { createSnap } from './snap'
 
 type Options = {
   state: State
+  canvas: CanvasNodes
   config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
 export const createQuery = ({
   state,
+  canvas,
   config,
   getContainer
 }: Options): Query => {
@@ -25,6 +28,7 @@ export const createQuery = ({
   })
   startQueryProjector({
     state,
+    canvas,
     indexes
   })
 

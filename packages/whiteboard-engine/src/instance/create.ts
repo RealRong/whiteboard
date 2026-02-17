@@ -22,7 +22,7 @@ export const createEngine = ({
   config: overrides
 }: CreateEngineOptions): Instance => {
   const config = resolveInstanceConfig(overrides)
-  const { state, writeState } = createState({ doc: docRef.current })
+  const { state, canvas } = createState({ doc: docRef.current })
   const base = createRuntime({
     core,
     docRef,
@@ -34,11 +34,13 @@ export const createEngine = ({
 
   const query = createQuery({
     state,
+    canvas,
     config,
     getContainer: base.getContainer
   })
   const view = createView({
     state,
+    canvas,
     query,
     config,
     platform: base.platform
@@ -76,11 +78,11 @@ export const createEngine = ({
     }
   }
 
-  writeState('tool', 'select')
-  commands = createCommands(instance)
+  state.write('tool', 'select')
   services = createServices(core, instance)
+  commands = createCommands(instance, canvas)
   shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(instance, dom, events.emit)
+  lifecycle = new Lifecycle(instance, dom, events.emit, canvas)
 
   return instance
 }

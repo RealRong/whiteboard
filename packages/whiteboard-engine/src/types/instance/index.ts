@@ -109,7 +109,6 @@ export type State = {
   store: Store
   setDoc: (doc: Document | null) => void
   read: <K extends StateKey>(key: K) => StateSnapshot[K]
-  readCanvasNodeById: (nodeId: NodeId) => Node | undefined
   write: <K extends WritableStateKey>(
     key: K,
     next:
@@ -119,19 +118,6 @@ export type State = {
   batch: (action: () => void) => void
   batchFrame: (action: () => void) => void
   watch: (key: StateKey, listener: () => void) => () => void
-  watchCanvasNodeChanges: (
-    listener: (payload: {
-      dirtyNodeIds?: NodeId[]
-      orderChanged?: boolean
-      fullSync?: boolean
-    }) => void
-  ) => () => void
-  reportCanvasNodeDirty: (
-    nodeIds: NodeId[],
-    source?: 'runtime' | 'doc'
-  ) => void
-  reportCanvasNodeOrderChanged: (source?: 'runtime' | 'doc') => void
-  requestCanvasNodeFullSync: () => void
   snapshot: () => StateSnapshot
 }
 

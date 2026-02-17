@@ -2,6 +2,7 @@ import type { Instance } from '@engine-types/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { DomBindings } from '../../host/dom'
+import type { CanvasNodes } from '../../kernel/projector/canvas'
 import {
   createSelectionEvents,
   type SelectionEventsWatcher
@@ -46,7 +47,8 @@ export class Lifecycle implements LifecycleApi {
   constructor(
     instance: Instance,
     dom: DomBindings,
-    emitEvent: InstanceEventEmitter['emit']
+    emitEvent: InstanceEventEmitter['emit'],
+    canvas: CanvasNodes
   ) {
     this.instance = instance
     this.config = createDefaultConfig(instance)
@@ -75,7 +77,7 @@ export class Lifecycle implements LifecycleApi {
     })
     this.docEvents = createDocEvents({
       core: this.instance.runtime.core,
-      state: this.instance.state,
+      canvas,
       getDocId: () => this.instance.runtime.docRef.current?.id,
       emit: emitEvent
     })

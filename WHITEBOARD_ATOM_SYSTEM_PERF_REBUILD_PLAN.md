@@ -102,6 +102,10 @@
 30. micro-benchmark 基线已接入：新增 `nodeHint.bench.ts` 与 `bench:node-hint` 脚本，可在本地快速回归 `node hint` 热路径性能。  
 `packages/whiteboard-engine/src/runtime/lifecycle/watchers/nodeHint.bench.ts`  
 `packages/whiteboard-engine/package.json`
+31. 端到端拖拽基线已接入：新增 `dragFrame.bench.ts` 与 `bench:drag-frame` 脚本，场景为 `5000 nodes / 10000 edges`，本地一轮结果 `overall p95=3.5057ms`（目标 `p95 < 4ms`，已 PASS）。  
+`packages/whiteboard-engine/src/perf/dragFrame.bench.ts`  
+`packages/whiteboard-engine/package.json`  
+`packages/whiteboard-engine/src/instance/create.ts`
 
 下一阶段（可选优化）：
 

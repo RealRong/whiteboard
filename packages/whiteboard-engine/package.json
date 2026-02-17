@@ -20,6 +20,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "bench:drag-frame": "tsup src/perf/dragFrame.bench.ts --format esm --outDir .bench --clean --silent && node .bench/dragFrame.bench.js",
     "bench:node-hint": "tsup src/runtime/lifecycle/watchers/nodeHint.bench.ts --format esm --outDir .bench --clean --silent && node .bench/nodeHint.bench.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests\""

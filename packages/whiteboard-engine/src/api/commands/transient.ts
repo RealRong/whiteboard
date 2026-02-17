@@ -4,6 +4,7 @@ import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from '@engine-types/state'
 import { isPointEqual, isSizeEqual } from '../../kernel/geometry'
+import type { CanvasNodes } from '../../kernel/projector/canvas'
 
 const applyNodeOverrides = (
   prev: Map<NodeId, NodeOverride>,
@@ -61,7 +62,8 @@ const clearNodeOverridesMap = (
 }
 
 export const createTransient = (
-  instance: Instance
+  instance: Instance,
+  canvas: CanvasNodes
 ): Commands['transient'] => {
   const { core, docRef } = instance.runtime
   const { read, write, batch } = instance.state
@@ -75,7 +77,7 @@ export const createTransient = (
         return result.next
       })
       if (changedNodeIds.length) {
-        instance.state.reportCanvasNodeDirty(changedNodeIds)
+        canvas.reportDirty(changedNodeIds)
       }
     })
   }
@@ -133,7 +135,7 @@ export const createTransient = (
             return result.next
           })
           if (changedNodeIds.length) {
-            instance.state.reportCanvasNodeDirty(changedNodeIds)
+            canvas.reportDirty(changedNodeIds)
           }
         })
       },

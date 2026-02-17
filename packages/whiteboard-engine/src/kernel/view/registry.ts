@@ -16,9 +16,11 @@ import { buildTransformHandles } from '../../node/utils/transform'
 import { createDerivedRegistry } from '../derive'
 import { createViewDerivations, VIEW_KEYS } from './derivations'
 import { toLayerOrderedCanvasNodes } from '../query'
+import type { CanvasNodes } from '../projector/canvas'
 
 type Options = {
   state: State
+  canvas: CanvasNodes
   query: Query
   config: InstanceConfig
   platform: ShortcutContext['platform']
@@ -170,6 +172,7 @@ const isSameHandleList = (
 
 export const createViewRegistry = ({
   state,
+  canvas,
   query,
   config,
   platform
@@ -463,7 +466,7 @@ export const createViewRegistry = ({
 
     dirtySet.forEach((nodeId) => {
       const previous = canvasNodeById.get(nodeId)
-      const next = state.readCanvasNodeById(nodeId)
+      const next = canvas.readById(nodeId)
       if (!previous && !next) {
         return
       }
@@ -703,7 +706,7 @@ export const createViewRegistry = ({
     })
   }
 
-  state.watchCanvasNodeChanges(({ dirtyNodeIds, orderChanged, fullSync }) =>
+  canvas.watch(({ dirtyNodeIds, orderChanged, fullSync }) =>
     syncCanvasNodes({ dirtyNodeIds, orderChanged, fullSync })
   )
   state.watch('selection', syncSelectionState)
