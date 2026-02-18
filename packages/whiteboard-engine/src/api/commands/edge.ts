@@ -131,7 +131,7 @@ export const createEdge = (
     clientY
   }) => {
     if (read('routingDrag').active) return false
-    const edge = read('visibleEdges').find((item) => item.id === edgeId)
+    const edge = instance.graph.read().visibleEdges.find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false
 
     const points = edge.routing?.points ?? []
@@ -161,7 +161,7 @@ export const createEdge = (
     const active = read('routingDrag').active
     if (!active || active.pointerId !== pointerId) return false
 
-    const edge = read('visibleEdges').find((item) => item.id === active.edgeId)
+    const edge = instance.graph.read().visibleEdges.find((item) => item.id === active.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       clearRoutingDrag()
       return false

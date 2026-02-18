@@ -1,12 +1,12 @@
 import type { DocumentId, Operation } from '@whiteboard/core'
+import type { GraphProjector } from '@engine-types/graph'
 import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { CanvasNodes } from '../../../kernel/projector/canvas'
 import { buildCanvasNodeDirtyHint, hasNodeOperation } from './nodeHint'
 
 type Options = {
   core: Instance['runtime']['core']
-  canvas: CanvasNodes
+  graph: GraphProjector
   getDocId: () => DocumentId | undefined
   emit: InstanceEventEmitter['emit']
 }
@@ -26,7 +26,7 @@ const toOperationTypes = (operations: Array<{ type: string }>): string[] => {
 
 export const createDocEvents = ({
   core,
-  canvas,
+  graph,
   getDocId,
   emit
 }: Options): DocEventsWatcher => {
@@ -40,16 +40,17 @@ export const createDocEvents = ({
           core.query.node.list()
         )
         if (hint.forceFull) {
-          canvas.requestFullSync()
+          graph.requestFullSync()
         } else {
           if (hint.dirtyNodeIds?.length) {
-            canvas.reportDirty(hint.dirtyNodeIds, 'doc')
+            graph.reportDirty(hint.dirtyNodeIds, 'doc')
           }
           if (hint.orderChanged) {
-            canvas.reportOrderChanged('doc')
+            graph.reportOrderChanged('doc')
           }
         }
       }
+      graph.flush('doc')
       emit('doc.changed', {
         docId: getDocId(),
         operationTypes: toOperationTypes(changes.operations),

@@ -1,10 +1,8 @@
 import type { Point, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { ResizeDirection, TransformHandle } from '@engine-types/node'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import { getRectCenter, rotatePoint } from '../../kernel/geometry'
-
-const MIN_ZOOM = 0.0001
-const ROTATE_SNAP_STEP = 15
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1
@@ -80,7 +78,7 @@ export const buildTransformHandles = (options: {
   }))
   if (!canRotate) return resizeHandles
 
-  const offsetWorld = rotateHandleOffset / Math.max(zoom, MIN_ZOOM)
+  const offsetWorld = rotateHandleOffset / Math.max(zoom, DEFAULT_INTERNALS.zoomEpsilon)
   const normal = rotateVector({ x: 0, y: -1 }, rotation)
   const topMid = positions.n
   return [
@@ -120,7 +118,7 @@ export const computeResizeRect = (options: {
     altKey,
     shiftKey
   } = options
-  const safeZoom = Math.max(zoom, MIN_ZOOM)
+  const safeZoom = Math.max(zoom, DEFAULT_INTERNALS.zoomEpsilon)
   const deltaWorld = {
     x: (currentScreen.x - startScreen.x) / safeZoom,
     y: (currentScreen.y - startScreen.y) / safeZoom
@@ -185,7 +183,9 @@ export const computeNextRotation = (options: {
   const angle = Math.atan2(currentPoint.y - center.y, currentPoint.x - center.x)
   let nextRotation = startRotation + ((angle - startAngle) * 180) / Math.PI
   if (shiftKey) {
-    nextRotation = Math.round(nextRotation / ROTATE_SNAP_STEP) * ROTATE_SNAP_STEP
+    nextRotation =
+      Math.round(nextRotation / DEFAULT_TUNING.nodeTransform.rotateSnapStep) *
+      DEFAULT_TUNING.nodeTransform.rotateSnapStep
   }
   return nextRotation
 }

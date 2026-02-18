@@ -4,10 +4,12 @@ import type {
   ViewKey,
   ViewSnapshot
 } from '@engine-types/instance/view'
+import type { GraphSnapshot } from '@engine-types/graph'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { State } from '@engine-types/instance/state'
 import type { ShortcutContext } from '@engine-types/shortcuts'
+import { DEFAULT_TUNING } from '../../config'
 import { toMindmapLayoutSignature } from '../cache'
 import {
   buildMindmapLines,
@@ -26,6 +28,7 @@ import {
 
 type Options = {
   readState: State['read']
+  readGraph: () => GraphSnapshot
   query: Query
   config: InstanceConfig
   platform: ShortcutContext['platform']
@@ -52,12 +55,13 @@ export const VIEW_KEYS: ViewKey[] = [
 
 export const createViewDerivations = ({
   readState,
+  readGraph,
   query,
   config,
   platform
 }: Options): ViewDerivationMap => {
   let mindmapTreeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
-  const edgeViewQuery = createEdgeViewQuery({ readState, query })
+  const edgeViewQuery = createEdgeViewQuery({ readGraph, query })
 
   return {
     'viewport.transform': defineViewDerivation(['viewport'], () => toViewportTransformView(readState('viewport'))),
@@ -92,11 +96,11 @@ export const createViewDerivations = ({
         }
       }
     ),
-    'edge.entries': defineViewDerivation(['visibleEdges', 'canvasNodes'], () => edgeViewQuery.getEntries()),
-    'edge.reconnect': defineViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () =>
+    'edge.entries': defineViewDerivation(['graph.visibleEdges', 'graph.canvasNodes'], () => edgeViewQuery.getEntries()),
+    'edge.reconnect': defineViewDerivation(['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'], () =>
       edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
     ),
-    'edge.paths': defineViewDerivation(['edgeConnect', 'visibleEdges', 'canvasNodes'], () => {
+    'edge.paths': defineViewDerivation(['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'], () => {
       const entries = edgeViewQuery.getEntries()
       const reconnect = edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
       if (!reconnect) return entries
@@ -108,7 +112,7 @@ export const createViewDerivations = ({
       })
       return matched ? next : entries
     }),
-    'edge.preview': defineViewDerivation(['edgeConnect', 'canvasNodes', 'tool'], () => {
+    'edge.preview': defineViewDerivation(['edgeConnect', 'graph.canvasNodes', 'tool'], () => {
       const edgeConnect = readState('edgeConnect')
       const tool = readState('tool')
       const preview = edgeViewQuery.getPreview(edgeConnect)
@@ -120,17 +124,17 @@ export const createViewDerivations = ({
         showPreviewLine: preview.showPreviewLine
       }
     }),
-    'edge.selectedEndpoints': defineViewDerivation(['edgeSelection', 'visibleEdges', 'canvasNodes'], () => {
+    'edge.selectedEndpoints': defineViewDerivation(['edgeSelection', 'graph.visibleEdges', 'graph.canvasNodes'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
-      const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
+      const edge = readGraph().visibleEdges.find((item) => item.id === selectedEdgeId)
       if (!edge) return undefined
       return edgeViewQuery.getEndpoints(edge)
     }),
-    'edge.selectedRouting': defineViewDerivation(['edgeSelection', 'visibleEdges'], () => {
+    'edge.selectedRouting': defineViewDerivation(['edgeSelection', 'graph.visibleEdges'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
-      const edge = readState('visibleEdges').find((item) => item.id === selectedEdgeId)
+      const edge = readGraph().visibleEdges.find((item) => item.id === selectedEdgeId)
       if (!edge) return undefined
       const points = edge.routing?.points
       if (!points?.length) return undefined
@@ -141,9 +145,9 @@ export const createViewDerivations = ({
     }),
     'node.items': defineViewDerivation([], () => EMPTY_NODE_ITEMS),
     'node.transformHandles': defineViewDerivation([], () => EMPTY_NODE_HANDLES),
-    'mindmap.roots': defineViewDerivation(['visibleNodes'], () => getMindmapRoots(readState('visibleNodes'))),
-    'mindmap.trees': defineViewDerivation(['visibleNodes', 'mindmapLayout'], () => {
-      const roots = getMindmapRoots(readState('visibleNodes'))
+    'mindmap.roots': defineViewDerivation(['graph.visibleNodes'], () => getMindmapRoots(readGraph().visibleNodes)),
+    'mindmap.trees': defineViewDerivation(['graph.visibleNodes', 'mindmapLayout'], () => {
+      const roots = getMindmapRoots(readGraph().visibleNodes)
       const layout = readState('mindmapLayout') ?? {}
       const nextCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
       const nextTrees: MindmapViewTree[] = []
@@ -159,7 +163,7 @@ export const createViewDerivations = ({
           treeId: root.id,
           structureSignature,
           nodeSize: config.mindmapNodeSize,
-          mode: layout.mode ?? 'simple',
+          mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
           hGap: layout.options?.hGap,
           vGap: layout.options?.vGap,
           side: layout.options?.side

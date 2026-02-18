@@ -1,5 +1,6 @@
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
 import type { EdgeConnectState } from '@engine-types/state'
+import { DEFAULT_TUNING } from '../../config'
 import { clamp, getAnchorPoint, getRectCenter, rotatePoint } from '../geometry'
 
 const getSideCenters = (rect: Rect) => ({
@@ -30,26 +31,32 @@ const getNearestSide = (rect: Rect, point: Point) => {
 }
 
 export type AnchorSnapOptions = {
-  snapMin?: number
-  snapRatio?: number
+  snapMin: number
+  snapRatio: number
 }
 
-export const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point, options?: AnchorSnapOptions) => {
+export const getAnchorFromPoint = (rect: Rect, rotation: number, point: Point, options: AnchorSnapOptions) => {
   const center = getRectCenter(rect)
   const localPoint = rotatePoint(point, center, -rotation)
   const nearest = getNearestSide(rect, localPoint)
   const threshold = Math.max(
-    options?.snapMin ?? 12,
-    Math.min(rect.width, rect.height) * (options?.snapRatio ?? 0.18)
+    options.snapMin,
+    Math.min(rect.width, rect.height) * options.snapRatio
   )
   const useCenter = nearest.distance <= threshold
-  let offset = 0.5
+  let offset: number = DEFAULT_TUNING.edge.anchorOffset
 
   if (!useCenter) {
     if (nearest.side === 'top' || nearest.side === 'bottom') {
-      offset = rect.width === 0 ? 0.5 : clamp((localPoint.x - rect.x) / rect.width, 0, 1)
+      offset =
+        rect.width === 0
+          ? DEFAULT_TUNING.edge.anchorOffset
+          : clamp((localPoint.x - rect.x) / rect.width, 0, 1)
     } else {
-      offset = rect.height === 0 ? 0.5 : clamp((localPoint.y - rect.y) / rect.height, 0, 1)
+      offset =
+        rect.height === 0
+          ? DEFAULT_TUNING.edge.anchorOffset
+          : clamp((localPoint.y - rect.y) / rect.height, 0, 1)
     }
   }
 
@@ -66,7 +73,7 @@ export const getAutoAnchorFromRect = (rect: Rect, rotation: number, otherCenter:
   const dy = otherCenter.y - center.y
   const side: EdgeAnchor['side'] =
     Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'bottom' : 'top'
-  const anchor: EdgeAnchor = { side, offset: 0.5 }
+  const anchor: EdgeAnchor = { side, offset: DEFAULT_TUNING.edge.anchorOffset }
   return {
     anchor,
     point: getAnchorPoint(rect, anchor, rotation)

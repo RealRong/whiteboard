@@ -1,8 +1,8 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
+import type { GraphProjector } from '@engine-types/graph'
 import type { DomBindings } from '../../host/dom'
-import type { CanvasNodes } from '../../kernel/projector/canvas'
 import {
   createSelectionEvents,
   type SelectionEventsWatcher
@@ -48,7 +48,7 @@ export class Lifecycle implements LifecycleApi {
     instance: InternalInstance,
     dom: DomBindings,
     emitEvent: InstanceEventEmitter['emit'],
-    canvas: CanvasNodes
+    graph: GraphProjector
   ) {
     this.instance = instance
     this.config = createDefaultConfig(instance)
@@ -77,7 +77,7 @@ export class Lifecycle implements LifecycleApi {
     })
     this.docEvents = createDocEvents({
       core: this.instance.runtime.core,
-      canvas,
+      graph,
       getDocId: () => this.instance.runtime.docRef.current?.id,
       emit: emitEvent
     })

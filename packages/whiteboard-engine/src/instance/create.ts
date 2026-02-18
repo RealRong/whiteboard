@@ -10,7 +10,7 @@ import { Events } from '../kernel/events'
 import { createShortcuts, Lifecycle } from '../runtime'
 import { resolveInstanceConfig } from '../config'
 import { createCommands } from '../api/commands'
-import { createRuntime, type RuntimeBase } from '../runtime/factory/namespace'
+import { createRuntime } from '../runtime/factory/namespace'
 import { createServices } from '../runtime/factory/services'
 import { createState } from '../state/factory'
 import { createView } from '../kernel/view'
@@ -23,7 +23,7 @@ export const createEngine = ({
   config: overrides
 }: CreateEngineOptions): Instance => {
   const config = resolveInstanceConfig(overrides)
-  const { state, canvas } = createState({ doc: docRef.current })
+  const { state, graph, replaceDoc } = createState({ doc: docRef.current })
   const base = createRuntime({
     core,
     docRef,
@@ -34,14 +34,13 @@ export const createEngine = ({
   const events = new Events<InstanceEventMap>()
 
   const query = createQuery({
-    state,
-    canvas,
+    graph,
     config,
     getContainer: base.getContainer
   })
   const view = createView({
     state,
-    canvas,
+    graph,
     query,
     config,
     platform: base.platform
@@ -64,6 +63,7 @@ export const createEngine = ({
 
   const instance: InternalInstance = {
     state,
+    graph,
     runtime,
     query,
     view,
@@ -81,9 +81,9 @@ export const createEngine = ({
 
   state.write('tool', 'select')
   services = createServices(core, instance)
-  commands = createCommands(instance, canvas)
+  commands = createCommands(instance, graph, replaceDoc)
   shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(instance, dom, events.emit, canvas)
+  lifecycle = new Lifecycle(instance, dom, events.emit, graph)
 
   return instance
 }

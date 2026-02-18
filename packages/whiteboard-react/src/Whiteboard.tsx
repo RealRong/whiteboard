@@ -105,7 +105,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
-    instance.state.setDoc(doc)
+    instance.commands.doc.replace(doc)
   }, [doc, instance])
 
   const lifecycleConfig = useMemo(

@@ -1,5 +1,6 @@
 import type {
   Core,
+  Document,
   DispatchResult,
   Edge,
   EdgeAnchor,
@@ -21,7 +22,8 @@ import type {
 import type { MindmapLayoutConfig } from './mindmap'
 import type { Size, ResolvedHistoryConfig } from './common'
 import type { Guide } from './node/snap'
-import type { InteractionState, NodeViewUpdate, SelectionMode } from './state'
+import type { NodeViewUpdate } from './graph'
+import type { InteractionState, SelectionMode } from './state'
 import type { ResizeDirection } from './state'
 import type {
   RoutingDragStartOptions,
@@ -173,6 +175,9 @@ export type MindmapCommands = Core['commands']['mindmap'] & {
 }
 
 export type Commands = {
+  doc: {
+    replace: (doc: Document) => void
+  }
   tool: {
     set: (tool: 'select' | 'edge') => void
   }

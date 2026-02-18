@@ -2,6 +2,7 @@ import type { Core, Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance/instance'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
+import { DEFAULT_TUNING } from '../../config'
 import { getNodeAABB } from '../../kernel/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
 
@@ -159,7 +160,7 @@ const applyGroupAutoFit = ({
 
   const groupRect = getNodeAABB(group, nodeSize)
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
-  if (rectEquals(expanded, groupRect)) return
+  if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
   void core.dispatch(
     {

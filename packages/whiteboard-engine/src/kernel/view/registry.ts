@@ -1,10 +1,13 @@
 import type {
   InstanceConfig,
 } from '@engine-types/instance/config'
+import type {
+  GraphChange,
+  GraphProjector
+} from '@engine-types/graph'
 import type { Query } from '@engine-types/instance/query'
 import type {
-  State,
-  StateKey
+  State
 } from '@engine-types/instance/state'
 import type {
   View,
@@ -14,16 +17,16 @@ import type {
 } from '@engine-types/instance/view'
 import type { ShortcutContext } from '@engine-types/shortcuts'
 import { createDerivedRegistry } from '../derive'
-import type { CanvasNodes } from '../projector/canvas'
 import { bindViewSources } from './bindings'
 import { createViewDerivations, VIEW_KEYS } from './derivations'
 import { createEdgeRegistry } from './edgeRegistry'
 import { createMindmapRegistry } from './mindmapRegistry'
 import { createNodeRegistry } from './nodeRegistry'
+import type { ViewDependencyKey } from './register'
 
 type Options = {
   state: State
-  canvas: CanvasNodes
+  graph: GraphProjector
   query: Query
   config: InstanceConfig
   platform: ShortcutContext['platform']
@@ -37,23 +40,49 @@ const PROJECTOR_KEYS = new Set<ViewKey>([
   'mindmap.trees'
 ])
 
+const isGraphDependency = (key: ViewDependencyKey): key is Extract<ViewDependencyKey, `graph.${string}`> =>
+  key.startsWith('graph.')
+
+const shouldNotifyGraphDependency = (
+  key: Extract<ViewDependencyKey, `graph.${string}`>,
+  change: GraphChange
+) => {
+  if (change.fullSync) return true
+  if (key === 'graph.visibleNodes') {
+    return Boolean(change.visibleNodesChanged)
+  }
+  if (key === 'graph.canvasNodes') {
+    return Boolean(change.canvasNodesChanged)
+  }
+  return Boolean(change.visibleEdgesChanged)
+}
+
 export const createViewRegistry = ({
   state,
-  canvas,
+  graph,
   query,
   config,
   platform
 }: Options): View => {
   const resolvers = createViewDerivations({
     readState: state.read,
+    readGraph: graph.read,
     query,
     config,
     platform
   })
-  const derived = createDerivedRegistry<ViewKey, StateKey, ViewSnapshot>({
+  const derived = createDerivedRegistry<ViewKey, ViewDependencyKey, ViewSnapshot>({
     keys: VIEW_KEYS,
     resolvers,
-    watchDependency: state.watch,
+    watchDependency: (key, listener) => {
+      if (isGraphDependency(key)) {
+        return graph.watch((change) => {
+          if (!shouldNotifyGraphDependency(key, change)) return
+          listener()
+        })
+      }
+      return state.watch(key, listener)
+    },
     project: (keys, read) => {
       keys.forEach((key) => {
         if (!PROJECTOR_KEYS.has(key)) return
@@ -65,7 +94,7 @@ export const createViewRegistry = ({
   const node = createNodeRegistry({
     state,
     query,
-    canvas
+    graph
   })
   const edge = createEdgeRegistry({
     readPaths: () => derived.read('edge.paths')
@@ -76,7 +105,7 @@ export const createViewRegistry = ({
 
   bindViewSources({
     state,
-    canvas,
+    graph,
     derived,
     node,
     edge,

@@ -1,8 +1,7 @@
 import { getSide, type MindmapNodeId, type MindmapTree } from '@whiteboard/core'
 import type { MindmapLayoutOptions, Rect } from '@whiteboard/core'
 import type { MindmapSubtreeDropTarget } from '@engine-types/instance/services'
-
-const DEFAULT_EDGE_SNAP_THRESHOLD = 24
+import { DEFAULT_TUNING } from '../config'
 
 type ComputeEdgeAlignmentResult = {
   key: 'left-to-right' | 'right-to-left' | 'top-to-bottom' | 'bottom-to-top'
@@ -25,7 +24,8 @@ export type SubtreeDropOptions = {
   snapThreshold?: number
 }
 
-const getNodeSide = (tree: MindmapTree, nodeId: MindmapNodeId) => getSide(tree, nodeId) ?? 'right'
+const getNodeSide = (tree: MindmapTree, nodeId: MindmapNodeId) =>
+  getSide(tree, nodeId) ?? DEFAULT_TUNING.mindmap.defaultSide
 
 const getRootSide = (
   options: MindmapLayoutOptions | undefined,
@@ -37,7 +37,7 @@ const getRootSide = (
   if (mode === 'left' || mode === 'right') return mode
   if (preferred) return preferred
   const centerX = rootRect.x + rootRect.width / 2
-  return pointer.x < centerX ? 'left' : 'right'
+  return pointer.x < centerX ? 'left' : DEFAULT_TUNING.mindmap.defaultSide
 }
 
 const mapSideIndexToGlobalIndex = (
@@ -122,7 +122,7 @@ export const computeSubtreeDropTarget = ({
   dragNodeId,
   dragExcludeIds,
   layoutOptions,
-  snapThreshold = DEFAULT_EDGE_SNAP_THRESHOLD
+  snapThreshold = DEFAULT_TUNING.mindmap.dropSnapThreshold
 }: SubtreeDropOptions): MindmapSubtreeDropTarget | undefined => {
   let hoveredId: MindmapNodeId | undefined
   let hoveredRect: Rect | undefined
@@ -188,7 +188,9 @@ export const computeSubtreeDropTarget = ({
         ? targetIndex
         : targetIndex + 1
 
-  const lineY = before ? hoveredRect.y - 6 : hoveredRect.y + hoveredRect.height + 6
+  const lineY = before
+    ? hoveredRect.y - DEFAULT_TUNING.mindmap.reorderLineGap
+    : hoveredRect.y + hoveredRect.height + DEFAULT_TUNING.mindmap.reorderLineGap
 
   return {
     type: 'reorder',
@@ -197,9 +199,9 @@ export const computeSubtreeDropTarget = ({
     side,
     targetId: hoveredId,
     insertLine: {
-      x1: hoveredRect.x - 12,
+      x1: hoveredRect.x - DEFAULT_TUNING.mindmap.reorderLineOverflow,
       y1: lineY,
-      x2: hoveredRect.x + hoveredRect.width + 12,
+      x2: hoveredRect.x + hoveredRect.width + DEFAULT_TUNING.mindmap.reorderLineOverflow,
       y2: lineY
     }
   }

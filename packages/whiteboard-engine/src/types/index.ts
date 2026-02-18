@@ -1,5 +1,14 @@
 export type { Commands } from './commands'
 export type {
+  GraphSnapshot,
+  GraphChange,
+  GraphChangeSource,
+  GraphProjector,
+  CreateGraphProjectorOptions,
+  NodeOverride,
+  NodeViewUpdate
+} from './graph'
+export type {
   CreateEngineOptions,
   EventUnsubscribe,
   InstanceEventMap,
@@ -60,8 +69,6 @@ export type {
   ResizeDragState,
   RotateDragState,
   NodeTransformState,
-  NodeOverride,
-  NodeViewUpdate,
   SelectionMode,
   SelectionState,
   SnapRuntimeData

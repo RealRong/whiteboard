@@ -11,6 +11,7 @@ import type {
   Point
 } from '@whiteboard/core'
 import type { SelectionMode } from '@engine-types/state'
+import { DEFAULT_TUNING } from '../../config'
 import { getGroupDescendants } from '../../node/utils/group'
 
 type ShortcutSelectionApi = {
@@ -181,7 +182,7 @@ const duplicateSelection = async (deps: Deps) => {
 
   const idMap = new Map<NodeId, NodeId>()
   const createdIds: NodeId[] = []
-  const offset = { x: 24, y: 24 }
+  const offset = DEFAULT_TUNING.shortcuts.duplicateOffset
 
   await deps.runTransaction(async () => {
     for (const node of nodes) {

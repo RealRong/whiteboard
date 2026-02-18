@@ -11,6 +11,7 @@ import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
+import { DEFAULT_TUNING } from '../../config'
 
 export const createMindmap = (
   instance: InternalInstance
@@ -38,7 +39,9 @@ export const createMindmap = (
     if (placement === 'left') return 'left'
     if (placement === 'right') return 'right'
     const layoutSide = layout.options?.side
-    return layoutSide === 'left' || layoutSide === 'right' ? layoutSide : 'right'
+    return layoutSide === 'left' || layoutSide === 'right'
+      ? layoutSide
+      : DEFAULT_TUNING.mindmap.defaultSide
   }
 
   const insertNode: Commands['mindmap']['insertNode'] = async ({
@@ -67,7 +70,7 @@ export const createMindmap = (
       return
     }
 
-    const targetSide = getSide(tree, targetNodeId) ?? 'right'
+    const targetSide = getSide(tree, targetNodeId) ?? DEFAULT_TUNING.mindmap.defaultSide
     const towardRoot =
       (placement === 'left' && targetSide === 'right') || (placement === 'right' && targetSide === 'left')
 
@@ -124,8 +127,12 @@ export const createMindmap = (
     })
   }
 
-  const moveRoot: Commands['mindmap']['moveRoot'] = async ({ nodeId, position, threshold = 0.5 }) => {
-    const node = read('canvasNodes').find((item) => item.id === nodeId)
+  const moveRoot: Commands['mindmap']['moveRoot'] = async ({
+    nodeId,
+    position,
+    threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
+  }) => {
+    const node = instance.graph.read().canvasNodes.find((item) => item.id === nodeId)
     if (!node) return
     if (Math.abs(node.position.x - position.x) < threshold && Math.abs(node.position.y - position.y) < threshold) {
       return

@@ -1,6 +1,7 @@
 import type { Rect } from '@whiteboard/core'
 import type { GridIndex, Guide, SnapCandidate, SnapEdge, SnapResult } from '@engine-types/node/snap'
 import type { Size } from '@engine-types/common'
+import { DEFAULT_TUNING } from '../../config'
 
 type HorizontalResizeEdge = 'left' | 'right'
 type VerticalResizeEdge = 'top' | 'bottom'
@@ -81,7 +82,8 @@ export const computeSnap = (
   options?: { allowCross?: boolean; crossThreshold?: number }
 ): SnapResult => {
   const allowCross = options?.allowCross ?? false
-  const crossThreshold = options?.crossThreshold ?? threshold * 0.6
+  const crossThreshold =
+    options?.crossThreshold ?? threshold * DEFAULT_TUNING.nodeDrag.snapCrossThresholdRatio
   const movingLines = {
     left: movingRect.x,
     right: movingRect.x + movingRect.width,

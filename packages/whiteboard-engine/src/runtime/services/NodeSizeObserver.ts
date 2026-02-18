@@ -4,7 +4,7 @@ import type {
   NodeSizeObserver as NodeSizeObserverApi,
   PendingNodeSizeUpdate
 } from '@engine-types/instance/services'
-
+import { DEFAULT_TUNING } from '../../config'
 
 export class NodeSizeObserver implements NodeSizeObserverApi {
   private core: Core
@@ -25,7 +25,13 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
     const updates: PendingNodeSizeUpdate[] = []
     this.pending.forEach((size, id) => {
       const current = this.lastSize.get(id)
-      if (current && Math.abs(current.width - size.width) < 0.5 && Math.abs(current.height - size.height) < 0.5) return
+      if (
+        current &&
+        Math.abs(current.width - size.width) < DEFAULT_TUNING.nodeSizeObserver.sizeEpsilon &&
+        Math.abs(current.height - size.height) < DEFAULT_TUNING.nodeSizeObserver.sizeEpsilon
+      ) {
+        return
+      }
       this.lastSize.set(id, size)
       updates.push({ id, size })
     })

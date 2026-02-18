@@ -132,10 +132,10 @@ const main = () => {
     docRef,
     containerRef
   })
-  syncDoc = instance.state.setDoc
+  syncDoc = instance.commands.doc.replace
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.state.read('canvasNodes').find((node) => node.id === movingNodeId)
+  const movingNode = instance.graph.read().canvasNodes.find((node) => node.id === movingNodeId)
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }
@@ -180,7 +180,7 @@ const main = () => {
 
     instance.commands.nodeDrag.end({ pointerId })
     core.model.node.update(movingNodeId, { position: basePosition })
-    instance.state.setDoc(docRef.current)
+    instance.commands.doc.replace(docRef.current)
     runSamples.push(samples)
   }
 

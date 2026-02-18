@@ -1,6 +1,6 @@
 import type { Commands } from '@engine-types/commands'
+import type { GraphProjector } from '@engine-types/graph'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { CanvasNodes } from '../../kernel/projector/canvas'
 import { createBase } from './base'
 import { createEdge } from './edge'
 import { createMindmap } from './mindmap'
@@ -10,14 +10,15 @@ import { createTransient } from './transient'
 
 export const createCommands = (
   instance: InternalInstance,
-  canvas: CanvasNodes
+  graph: GraphProjector,
+  replaceDoc: (doc: Parameters<Commands['doc']['replace']>[0]) => void
 ): Commands => {
   const { core } = instance.runtime
   const selection = createSelection(instance)
-  const transient = createTransient(instance, canvas)
+  const transient = createTransient(instance, graph)
 
   return {
-    ...createBase(instance),
+    ...createBase(instance, replaceDoc),
     selection,
     ...createEdge(instance),
     ...createNode(instance, transient),

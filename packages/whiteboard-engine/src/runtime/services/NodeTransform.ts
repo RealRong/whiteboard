@@ -6,11 +6,10 @@ import type {
   RotateDragState,
   NodeTransform as NodeTransformApi
 } from '@engine-types/instance/services'
+import { DEFAULT_INTERNALS } from '../../config'
 import { getRectCenter } from '../../kernel/geometry'
 import { computeResizeSnap } from '../../node/utils/snap'
 import { computeNextRotation, computeResizeRect, getResizeSourceEdges } from '../../node/utils/transform'
-
-const MIN_ZOOM = 0.0001
 
 const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
   x: rect.x - thresholdWorld,
@@ -45,7 +44,7 @@ export class NodeTransform implements NodeTransformApi {
     startCenter: getRectCenter(rect),
     startRotation: rotation,
     startSize: { width: rect.width, height: rect.height },
-    startAspect: rect.width / Math.max(rect.height, MIN_ZOOM)
+    startAspect: rect.width / Math.max(rect.height, DEFAULT_INTERNALS.zoomEpsilon)
   })
 
   createRotateDrag: NodeTransformApi['createRotateDrag'] = ({
@@ -76,7 +75,7 @@ export class NodeTransform implements NodeTransformApi {
     altKey,
     shiftKey
   }) => {
-    const zoom = Math.max(this.instance.runtime.viewport.getZoom(), MIN_ZOOM)
+    const zoom = Math.max(this.instance.runtime.viewport.getZoom(), DEFAULT_INTERNALS.zoomEpsilon)
     const resizeResult = computeResizeRect({
       handle: drag.handle,
       startScreen: drag.startScreen,

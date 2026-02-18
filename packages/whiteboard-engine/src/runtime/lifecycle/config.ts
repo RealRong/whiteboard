@@ -4,7 +4,7 @@ import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 
 export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
   docId: undefined,
-  tool: 'select',
+  tool: DEFAULT_CONFIG.tool,
   viewport: {
     center: {
       x: DEFAULT_DOCUMENT_VIEWPORT.center.x,
@@ -19,7 +19,7 @@ export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
     enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
     wheelSensitivity: instance.runtime.config.viewport.wheelSensitivity
   },
-  mindmapLayout: {},
+  mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout },
   history: undefined,
   shortcuts: undefined
 })

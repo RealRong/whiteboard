@@ -1,30 +1,31 @@
-import type { State } from '@engine-types/instance/state'
+import type { GraphProjector } from '@engine-types/graph'
 import type { QueryIndexes } from './indexes'
-import type { CanvasNodes } from '../../kernel/projector/canvas'
 
 type Options = {
-  state: State
-  canvas: CanvasNodes
+  graph: GraphProjector
   indexes: QueryIndexes
 }
 
-export const startQueryProjector = ({ state, canvas, indexes }: Options) => {
+export const startQueryProjector = ({ graph, indexes }: Options) => {
   const syncFull = () => {
-    indexes.syncFull(state.read('canvasNodes'))
+    indexes.syncFull(graph.read().canvasNodes)
   }
 
   const syncOrder = () => {
-    indexes.syncOrder(state.read('canvasNodes').map((node) => node.id))
+    indexes.syncOrder(graph.read().canvasNodes.map((node) => node.id))
   }
 
   syncFull()
-  return canvas.watch(({ dirtyNodeIds, orderChanged, fullSync }) => {
+  return graph.watch(({ dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }) => {
+    if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
+      return
+    }
     if (fullSync) {
       syncFull()
       return
     }
     if (dirtyNodeIds?.length) {
-      const done = indexes.syncDirty(dirtyNodeIds, canvas.readById)
+      const done = indexes.syncDirty(dirtyNodeIds, graph.readNode)
       if (!done) {
         syncFull()
         return

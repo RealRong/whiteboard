@@ -1,4 +1,5 @@
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
+import { DEFAULT_TUNING } from '../../config'
 import { rotatePoint } from './point'
 import { getRectCenter } from './rect'
 
@@ -11,7 +12,9 @@ export const getAnchorPoint = (
     return getRectCenter(rect)
   }
 
-  const offset = Number.isFinite(anchor.offset) ? anchor.offset : 0.5
+  const offset = Number.isFinite(anchor.offset)
+    ? anchor.offset
+    : DEFAULT_TUNING.edge.anchorOffset
   let point: Point
 
   switch (anchor.side) {

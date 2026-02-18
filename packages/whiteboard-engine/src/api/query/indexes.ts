@@ -6,6 +6,7 @@ import type {
 import type { CanvasNodeRect } from '@engine-types/instance/view'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
+import { DEFAULT_TUNING } from '../../config'
 import { toNodeStateSignature, toRectSignature } from '../../kernel/cache'
 import { getNodeAABB, getNodeRect } from '../../kernel/geometry'
 
@@ -506,7 +507,10 @@ export const createQueryIndexes = ({
 }: CreateQueryIndexesOptions): QueryIndexes => {
   const nodeRectIndex = new NodeRectIndex(config)
   const snapIndex = new SnapIndex(() =>
-    Math.max(config.node.snapGridCellSize, config.node.groupPadding * 6)
+    Math.max(
+      config.node.snapGridCellSize,
+      config.node.groupPadding * DEFAULT_TUNING.query.snapGridPaddingFactor
+    )
   )
   const nodeChangeListeners = new Set<(nodeIds: NodeId[]) => void>()
   let canvasMetrics = createMetrics()

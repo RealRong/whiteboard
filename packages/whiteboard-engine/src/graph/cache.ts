@@ -7,24 +7,18 @@ import type {
   Point,
   Size
 } from '@whiteboard/core'
-import type { NodeOverride } from '@engine-types/state'
+import type { NodeOverride } from '@engine-types/graph'
 import {
   getCollapsedGroupIds,
   isHiddenByCollapsedGroup
-} from '../../node/utils/group'
+} from '../node/utils/group'
+import type { GraphSnapshot } from './types'
 
 type ViewNodesCache = {
   doc: Document
   nodes: Node[]
   indexById: Map<NodeId, number>
   overrides: Map<NodeId, NodeOverride>
-}
-
-export type GraphSnapshot = {
-  visibleNodes: Node[]
-  canvasNodes: Node[]
-  canvasNodeById: Map<NodeId, Node>
-  visibleEdges: Edge[]
 }
 
 const EMPTY_NODES: Node[] = []
@@ -216,7 +210,7 @@ const deriveVisibleEdges = (doc: Document, canvasNodes: Node[]) => {
   return orderByIds(edges, edgeOrder)
 }
 
-export class GraphStateCache {
+export class GraphCache {
   private viewNodesCache: ViewNodesCache | null = null
   private snapshot: GraphSnapshot = {
     visibleNodes: EMPTY_NODES,
@@ -225,7 +219,7 @@ export class GraphStateCache {
     visibleEdges: EMPTY_EDGES
   }
 
-  get = (
+  read = (
     doc: Document | null,
     overrides: Map<NodeId, NodeOverride>
   ): GraphSnapshot => {
@@ -297,9 +291,9 @@ export class GraphStateCache {
     return this.snapshot
   }
 
-  getCanvasNodeById = (
+  readNode = (
     doc: Document | null,
     overrides: Map<NodeId, NodeOverride>,
     nodeId: NodeId
-  ): Node | undefined => this.get(doc, overrides).canvasNodeById.get(nodeId)
+  ): Node | undefined => this.read(doc, overrides).canvasNodeById.get(nodeId)
 }

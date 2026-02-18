@@ -2,14 +2,14 @@ import type {
   ViewKey
 } from '@engine-types/instance/view'
 import type { State } from '@engine-types/instance/state'
-import type { CanvasNodes } from '../projector/canvas'
+import type { GraphProjector } from '@engine-types/graph'
 import type { NodeRegistry } from './nodeRegistry'
 import type { EdgeRegistry } from './edgeRegistry'
 import type { MindmapRegistry } from './mindmapRegistry'
 
 type Options = {
   state: State
-  canvas: CanvasNodes
+  graph: GraphProjector
   derived: {
     watch: (key: ViewKey, listener: () => void) => () => void
   }
@@ -27,13 +27,16 @@ type Options = {
 
 export const bindViewSources = ({
   state,
-  canvas,
+  graph,
   derived,
   node,
   edge,
   mindmap
 }: Options) => {
-  const offCanvas = canvas.watch(({ dirtyNodeIds, orderChanged, fullSync }) => {
+  const offGraph = graph.watch(({ dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }) => {
+    if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
+      return
+    }
     node.syncCanvasNodes({
       dirtyNodeIds,
       orderChanged,
@@ -53,7 +56,7 @@ export const bindViewSources = ({
   mindmap.sync()
 
   return () => {
-    offCanvas()
+    offGraph()
     offSelection()
     offGroupHovered()
     offTool()

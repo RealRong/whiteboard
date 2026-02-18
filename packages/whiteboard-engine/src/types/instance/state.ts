@@ -1,8 +1,5 @@
 import type {
-  Document,
-  Edge,
   EdgeId,
-  Node,
   NodeId,
   Viewport
 } from '@whiteboard/core'
@@ -14,7 +11,6 @@ import type {
   InteractionState,
   MindmapDragState,
   NodeDragState,
-  NodeOverride,
   NodeTransformState,
   RoutingDragState,
   SelectionState
@@ -36,10 +32,6 @@ export type StateSnapshot = {
   spacePressed: boolean
   dragGuides: Guide[]
   groupHovered: NodeId | undefined
-  nodeOverrides: Map<NodeId, NodeOverride>
-  visibleNodes: Node[]
-  canvasNodes: Node[]
-  visibleEdges: Edge[]
 }
 
 export type StateKey = keyof StateSnapshot
@@ -59,12 +51,10 @@ export type WritableStateSnapshot = Pick<
   | 'spacePressed'
   | 'dragGuides'
   | 'groupHovered'
-  | 'nodeOverrides'
 >
 export type WritableStateKey = keyof WritableStateSnapshot
 
 export type State = {
-  setDoc: (doc: Document | null) => void
   read: <K extends StateKey>(key: K) => StateSnapshot[K]
   write: <K extends WritableStateKey>(
     key: K,

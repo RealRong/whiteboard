@@ -8,9 +8,11 @@ import type { Query } from './query'
 import type { Runtime, RuntimeInternal } from './runtime'
 import type { State } from './state'
 import type { View } from './view'
+import type { GraphProjector } from '../graph'
 
 export type Instance = {
   state: State
+  graph: GraphProjector
   runtime: Runtime
   query: Query
   view: View

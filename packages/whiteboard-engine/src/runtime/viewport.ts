@@ -2,18 +2,7 @@ import type { Point, Viewport } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { ViewportApi } from '@engine-types/instance/runtime'
 import type { ContainerRect } from '@engine-types/instance/services'
-
-const DEFAULT_VIEWPORT: Viewport = {
-  center: { x: 0, y: 0 },
-  zoom: 1
-}
-
-const DEFAULT_CONTAINER_RECT: ContainerRect = {
-  left: 0,
-  top: 0,
-  width: 0,
-  height: 0
-}
+import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_INTERNALS } from '../config'
 
 const toContainerSize = (rect: ContainerRect): Size => ({
   width: rect.width,
@@ -32,9 +21,9 @@ const isSameRect = (a: ContainerRect, b: ContainerRect) =>
   a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
 
 export const createViewport = (): ViewportApi => {
-  let viewport = DEFAULT_VIEWPORT
-  let containerRect = DEFAULT_CONTAINER_RECT
-  let containerSize = toContainerSize(DEFAULT_CONTAINER_RECT)
+  let viewport: Viewport = DEFAULT_DOCUMENT_VIEWPORT
+  let containerRect: ContainerRect = DEFAULT_INTERNALS.containerRect
+  let containerSize = toContainerSize(DEFAULT_INTERNALS.containerRect)
   let screenCenter = toScreenCenter(containerSize)
 
   const updateDerivedFromRect = (rect: ContainerRect) => {

@@ -2,17 +2,11 @@ import type { StateKey } from '@engine-types/instance/state'
 
 export type DerivedStateKey =
   | 'viewport'
-  | 'visibleNodes'
-  | 'canvasNodes'
-  | 'visibleEdges'
 
 export type NativeStateKey = Exclude<StateKey, DerivedStateKey>
 
 export const DERIVED_STATE_KEYS: DerivedStateKey[] = [
-  'viewport',
-  'visibleNodes',
-  'canvasNodes',
-  'visibleEdges'
+  'viewport'
 ]
 
 export const NATIVE_STATE_KEYS: NativeStateKey[] = [
@@ -29,8 +23,7 @@ export const NATIVE_STATE_KEYS: NativeStateKey[] = [
   'nodeTransform',
   'spacePressed',
   'dragGuides',
-  'groupHovered',
-  'nodeOverrides'
+  'groupHovered'
 ]
 
 export const STATE_KEYS: StateKey[] = [...NATIVE_STATE_KEYS, ...DERIVED_STATE_KEYS]

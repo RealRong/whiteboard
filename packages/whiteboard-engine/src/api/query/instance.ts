@@ -2,9 +2,8 @@ import type {
   QueryDebugSnapshot,
   Query
 } from '@engine-types/instance/query'
-import type { State } from '@engine-types/instance/state'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { CanvasNodes } from '../../kernel/projector/canvas'
+import type { GraphProjector } from '@engine-types/graph'
 import { createCanvas } from './canvas'
 import { createGeometry } from './geometry'
 import { createQueryIndexes } from './indexes'
@@ -12,15 +11,13 @@ import { startQueryProjector } from './projector'
 import { createSnap } from './snap'
 
 type Options = {
-  state: State
-  canvas: CanvasNodes
+  graph: GraphProjector
   config: InstanceConfig
   getContainer: () => HTMLDivElement | null
 }
 
 export const createQuery = ({
-  state,
-  canvas,
+  graph,
   config,
   getContainer
 }: Options): Query => {
@@ -28,8 +25,7 @@ export const createQuery = ({
     config
   })
   startQueryProjector({
-    state,
-    canvas,
+    graph,
     indexes
   })
 

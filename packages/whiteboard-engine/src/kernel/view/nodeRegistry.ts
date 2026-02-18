@@ -1,15 +1,16 @@
 import type {
   State,
 } from '@engine-types/instance/state'
+import type { GraphProjector } from '@engine-types/graph'
 import type { Query } from '@engine-types/instance/query'
 import type {
   ViewDebugMetric,
   ViewSnapshot
 } from '@engine-types/instance/view'
 import type { Node, NodeId } from '@whiteboard/core'
+import { DEFAULT_TUNING } from '../../config'
 import { buildTransformHandles } from '../../node/utils/transform'
 import { toLayerOrderedCanvasNodes } from '../query'
-import type { CanvasNodes } from '../projector/canvas'
 import {
   createViewMetric,
   markMetricDirty,
@@ -43,7 +44,7 @@ type SyncCanvasNodesOptions = {
 type Options = {
   state: State
   query: Query
-  canvas: CanvasNodes
+  graph: GraphProjector
 }
 
 export type NodeRegistry = {
@@ -67,8 +68,6 @@ export type NodeRegistry = {
   resetNodeItemsMetric: () => void
   resetNodeHandlesMetric: () => void
 }
-
-const ROTATE_HANDLE_OFFSET = 24
 
 const isSameHandleList = (
   left: NodeHandleEntry | undefined,
@@ -114,7 +113,7 @@ const diffSelection = (
 export const createNodeRegistry = ({
   state,
   query,
-  canvas
+  graph
 }: Options): NodeRegistry => {
   const nodeIdsListeners = new Set<() => void>()
   const nodeItemsListeners = new Set<() => void>()
@@ -196,7 +195,7 @@ export const createNodeRegistry = ({
       rect,
       rotation,
       canRotate: true,
-      rotateHandleOffset: ROTATE_HANDLE_OFFSET,
+      rotateHandleOffset: DEFAULT_TUNING.nodeTransform.rotateHandleOffset,
       zoom
     })
     if (isSameHandleList(previous, next)) {
@@ -298,7 +297,7 @@ export const createNodeRegistry = ({
   }
 
   const syncCanvasNodesFull = () => {
-    const orderedNodes = toLayerOrderedCanvasNodes(state.read('canvasNodes'))
+    const orderedNodes = toLayerOrderedCanvasNodes(graph.read().canvasNodes)
     const nextNodeIds = orderedNodes.map((node) => node.id)
     const nextById = new Map<NodeId, Node>()
     const changedNodeIds = new Set<NodeId>()
@@ -359,7 +358,7 @@ export const createNodeRegistry = ({
 
     dirtySet.forEach((nodeId) => {
       const previous = canvasNodeById.get(nodeId)
-      const next = canvas.readById(nodeId)
+      const next = graph.readNode(nodeId)
       if (!previous && !next) return
 
       if (!previous && next) {
@@ -408,7 +407,7 @@ export const createNodeRegistry = ({
   }
 
   const syncCanvasNodeOrder = () => {
-    const nextNodeIds = toLayerOrderedCanvasNodes(state.read('canvasNodes')).map(
+    const nextNodeIds = toLayerOrderedCanvasNodes(graph.read().canvasNodes).map(
       (node) => node.id
     )
     if (isSameIdOrder(nodeIds, nextNodeIds)) return

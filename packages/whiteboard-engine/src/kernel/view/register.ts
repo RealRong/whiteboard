@@ -4,8 +4,15 @@ import type {
 } from '@engine-types/instance/view'
 import type { StateKey } from '@engine-types/instance/state'
 
+export type GraphDependencyKey =
+  | 'graph.visibleNodes'
+  | 'graph.canvasNodes'
+  | 'graph.visibleEdges'
+
+export type ViewDependencyKey = StateKey | GraphDependencyKey
+
 export type ViewDerivation<K extends ViewKey> = {
-  deps: StateKey[]
+  deps: ViewDependencyKey[]
   derive: () => ViewSnapshot[K]
 }
 
@@ -13,12 +20,12 @@ export type ViewDerivationMap = {
   [K in ViewKey]: ViewDerivation<K>
 }
 
-const uniqueStateKeys = (keys: readonly StateKey[]) => Array.from(new Set(keys))
+const uniqueDependencies = (keys: readonly ViewDependencyKey[]) => Array.from(new Set(keys))
 
 export const defineViewDerivation = <K extends ViewKey>(
-  deps: readonly StateKey[],
+  deps: readonly ViewDependencyKey[],
   derive: () => ViewSnapshot[K]
 ): ViewDerivation<K> => ({
-  deps: uniqueStateKeys(deps),
+  deps: uniqueDependencies(deps),
   derive
 })

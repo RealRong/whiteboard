@@ -90,7 +90,7 @@ export const expandGroupRect = (groupRect: Rect, contentRect: Rect, padding: num
   }
 }
 
-export const rectEquals = (a: Rect, b: Rect, epsilon = 0.5) => {
+export const rectEquals = (a: Rect, b: Rect, epsilon: number) => {
   return (
     Math.abs(a.x - b.x) <= epsilon &&
     Math.abs(a.y - b.y) <= epsilon &&

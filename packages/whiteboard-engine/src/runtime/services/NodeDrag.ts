@@ -1,7 +1,8 @@
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
+import type { NodeViewUpdate } from '@engine-types/graph'
 import type { Instance } from '@engine-types/instance/instance'
 import type { NodeDrag as NodeDragApi } from '@engine-types/instance/services'
-import type { NodeViewUpdate } from '@engine-types/state'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import {
   findSmallestGroupAtPoint,
   getGroupDescendants,
@@ -11,8 +12,6 @@ import {
 } from '../../node/utils/group'
 import { getNodeAABB, rectContains } from '../../kernel/geometry'
 import { computeSnap } from '../../node/utils/snap'
-
-const MIN_ZOOM = 0.0001
 
 type DragChildren = {
   ids: NodeId[]
@@ -38,7 +37,7 @@ export class NodeDrag implements NodeDragApi {
     this.instance = instance
   }
 
-  private getCanvasNodes = () => this.instance.state.read('canvasNodes')
+  private getCanvasNodes = () => this.instance.graph.read().canvasNodes
 
   private setDragState = (active?: {
     pointerId: number
@@ -118,7 +117,7 @@ export class NodeDrag implements NodeDragApi {
       return position
     }
 
-    const zoom = Math.max(this.instance.runtime.viewport.getZoom(), MIN_ZOOM)
+    const zoom = Math.max(this.instance.runtime.viewport.getZoom(), DEFAULT_INTERNALS.zoomEpsilon)
     const nodeConfig = this.instance.runtime.config.node
     const thresholdWorld = Math.min(nodeConfig.snapThresholdScreen / zoom, nodeConfig.snapMaxThresholdWorld)
     const movingRect: Rect = {
@@ -139,7 +138,7 @@ export class NodeDrag implements NodeDragApi {
 
     const result = computeSnap(movingRect, candidates, thresholdWorld, nodeId, {
       allowCross,
-      crossThreshold: thresholdWorld * 0.6
+      crossThreshold: thresholdWorld * DEFAULT_TUNING.nodeDrag.snapCrossThresholdRatio
     })
     this.instance.commands.transient.dragGuides.set(result.guides)
 
@@ -208,7 +207,7 @@ export class NodeDrag implements NodeDragApi {
           ? hovered.data.padding
           : this.instance.runtime.config.node.groupPadding
       const expanded = expandGroupRect(groupRect, contentRect, padding)
-      if (rectEquals(expanded, groupRect)) return
+      if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
       this.applyNodePatch(hovered.id, {
         position: { x: expanded.x, y: expanded.y },
@@ -279,7 +278,7 @@ export class NodeDrag implements NodeDragApi {
     if (!session || session.pointerId !== pointerId) return false
 
     this.instance.state.batchFrame(() => {
-      const zoom = Math.max(this.instance.runtime.viewport.getZoom(), MIN_ZOOM)
+      const zoom = Math.max(this.instance.runtime.viewport.getZoom(), DEFAULT_INTERNALS.zoomEpsilon)
       let nextPosition = {
         x: session.origin.x + (clientX - session.start.x) / zoom,
         y: session.origin.y + (clientY - session.start.y) / zoom

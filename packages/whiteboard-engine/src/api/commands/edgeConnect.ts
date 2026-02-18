@@ -1,6 +1,7 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance/instance'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import { type ConnectTo, isSameConnectTo } from '../../kernel/query'
 
 class Connect {
@@ -16,7 +17,7 @@ class Connect {
       Math.max(
         config.edge.anchorSnapMin,
         Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
-      ) / Math.max(viewport.getZoom(), 0.0001)
+      ) / Math.max(viewport.getZoom(), DEFAULT_INTERNALS.zoomEpsilon)
     const nodeRects = this.instance.query.canvas.nodeRects()
     let best:
       | {
@@ -68,7 +69,7 @@ class Connect {
   }
 
   startFromHandle: Commands['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
-    const anchor: EdgeAnchor = { side, offset: 0.5 }
+    const anchor: EdgeAnchor = { side, offset: DEFAULT_TUNING.edge.anchorOffset }
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
       from: { nodeId, anchor },
@@ -94,11 +95,11 @@ class Connect {
   }
 
   startReconnect: Commands['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
-    const visibleEdges = this.instance.state.read('visibleEdges')
+    const visibleEdges = this.instance.graph.read().visibleEdges
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
     const endpoint = edge[end]
-    const anchor = endpoint.anchor ?? { side: 'right', offset: 0.5 }
+    const anchor = endpoint.anchor ?? { side: 'right', offset: DEFAULT_TUNING.edge.anchorOffset }
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
       from: { nodeId: endpoint.nodeId, anchor },
@@ -131,7 +132,7 @@ class Connect {
     }
 
     if (currentState.reconnect) {
-      const visibleEdges = this.instance.state.read('visibleEdges')
+      const visibleEdges = this.instance.graph.read().visibleEdges
       const edge = visibleEdges.find((item) => item.id === currentState.reconnect?.edgeId)
       if (edge) {
         void this.instance.runtime.core.dispatch({

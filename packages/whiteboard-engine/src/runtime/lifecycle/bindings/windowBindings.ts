@@ -1,4 +1,5 @@
 import type { Instance } from '@engine-types/instance/instance'
+import { DEFAULT_TUNING } from '../../../config'
 import type { DomBindings } from '../../../host/dom'
 import type { SelectionBoxSession } from '../input/types'
 import { createPointerSession } from './pointerSessionWindow'
@@ -120,8 +121,6 @@ const createNodeDragBinding = (
     }
   })
 
-const NODE_TRANSFORM_MIN_SIZE = { width: 20, height: 20 }
-
 const createNodeTransformBinding = (
   instance: Instance,
   dom: DomBindings
@@ -136,7 +135,7 @@ const createNodeTransformBinding = (
         pointerId: event.pointerId,
         clientX: event.clientX,
         clientY: event.clientY,
-        minSize: NODE_TRANSFORM_MIN_SIZE,
+        minSize: DEFAULT_TUNING.nodeTransform.minSize,
         altKey: event.altKey,
         shiftKey: event.shiftKey
       })

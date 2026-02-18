@@ -7,12 +7,12 @@ import type {
   InteractionState,
   MindmapDragState,
   NodeDragState,
-  NodeOverride,
   NodeTransformState,
   SelectionState
 } from '@engine-types/state'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { Guide } from '@engine-types/node/snap'
+import { DEFAULT_CONFIG } from '../config'
 
 const createSelection = (): SelectionState => ({
   selectedNodeIds: new Set<NodeId>(),
@@ -72,25 +72,23 @@ type WritableStateInitializers = {
   spacePressed: () => boolean
   dragGuides: () => Guide[]
   groupHovered: () => NodeId | undefined
-  nodeOverrides: () => Map<NodeId, NodeOverride>
 }
 
 const writableStateInitializers: WritableStateInitializers = {
   interaction: createInteraction,
-  tool: () => 'select',
+  tool: () => DEFAULT_CONFIG.tool,
   selection: createSelection,
   edgeSelection: () => undefined,
   history: createHistory,
   edgeConnect: () => ({ isConnecting: false }),
   routingDrag: () => ({}),
-  mindmapLayout: () => ({}),
+  mindmapLayout: () => ({ ...DEFAULT_CONFIG.mindmapLayout }),
   mindmapDrag: createMindmapDrag,
   nodeDrag: createNodeDrag,
   nodeTransform: createNodeTransform,
   spacePressed: () => false,
   dragGuides: () => [],
-  groupHovered: () => undefined,
-  nodeOverrides: () => new Map<NodeId, NodeOverride>()
+  groupHovered: () => undefined
 }
 
 export const createWritableStateSnapshot = (): WritableStateSnapshot => ({
@@ -107,6 +105,5 @@ export const createWritableStateSnapshot = (): WritableStateSnapshot => ({
   nodeTransform: writableStateInitializers.nodeTransform(),
   spacePressed: writableStateInitializers.spacePressed(),
   dragGuides: writableStateInitializers.dragGuides(),
-  groupHovered: writableStateInitializers.groupHovered(),
-  nodeOverrides: writableStateInitializers.nodeOverrides()
+  groupHovered: writableStateInitializers.groupHovered()
 })

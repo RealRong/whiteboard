@@ -5,7 +5,7 @@ import type {
   EdgeEndpoints
 } from '@engine-types/instance/view'
 import type { Query } from '@engine-types/instance/query'
-import type { State } from '@engine-types/instance/state'
+import type { GraphSnapshot } from '@engine-types/graph'
 import type { EdgeConnectState, EdgeReconnectInfo } from '@engine-types/state'
 import { toEdgePathSignature, toNodeGeometrySignature } from '../cache'
 import {
@@ -15,7 +15,7 @@ import {
 import { getAutoAnchorFromRect } from '../query'
 
 type Options = {
-  readState: State['read']
+  readGraph: () => GraphSnapshot
   query: Query
 }
 
@@ -52,7 +52,7 @@ const isSameEdgePathEntryList = (left: EdgePathEntry[], right: EdgePathEntry[]) 
   return true
 }
 
-export const createEdgeViewQuery = ({ readState, query }: Options) => {
+export const createEdgeViewQuery = ({ readGraph, query }: Options) => {
   const getEndpoints = (edge: Edge): EdgeEndpoints | undefined => {
     const sourceEntry = query.canvas.nodeRect(edge.source.nodeId)
     const targetEntry = query.canvas.nodeRect(edge.target.nodeId)
@@ -221,8 +221,9 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
   })
 
   const ensureEdgePathEntries = () => {
-    const edges = readState('visibleEdges')
-    const nodes = readState('canvasNodes')
+    const snapshot = readGraph()
+    const edges = snapshot.visibleEdges
+    const nodes = snapshot.canvasNodes
     const edgesChanged = edges !== cachedRenderEdgesRef
     const nodesChanged = nodes !== cachedRenderNodesRef
     if (!edgesChanged && !nodesChanged && !pendingChangedNodeIds.size) return

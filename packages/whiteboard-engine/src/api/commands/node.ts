@@ -132,7 +132,7 @@ export const createNode = (
       create: (payload: NodeInput) => core.dispatch({ type: 'node.create', payload }),
       update: (id: NodeId, patch: NodePatch) => core.dispatch({ type: 'node.update', id, patch }),
       updateData: (id: NodeId, patch: Record<string, unknown>) => {
-        const node = read('canvasNodes').find((item) => item.id === id)
+        const node = instance.graph.read().canvasNodes.find((item) => item.id === id)
         if (!node) return undefined
         return core.dispatch({
           type: 'node.update',

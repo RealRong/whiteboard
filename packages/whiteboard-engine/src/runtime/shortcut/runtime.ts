@@ -56,7 +56,7 @@ class ShortcutsImpl implements Shortcuts {
         redo: instance.commands.history.redo
       },
       getDocument: () => instance.runtime.docRef.current,
-      getSelectableNodeIds: () => instance.state.read('canvasNodes').map((canvasNode) => canvasNode.id),
+      getSelectableNodeIds: () => instance.graph.read().canvasNodes.map((canvasNode) => canvasNode.id),
       getSelectedNodeIds: () => Array.from(instance.state.read('selection').selectedNodeIds),
       getSelectedEdgeId: () => instance.state.read('edgeSelection'),
       selection: {
