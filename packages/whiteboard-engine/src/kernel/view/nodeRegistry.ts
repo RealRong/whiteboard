@@ -35,6 +35,12 @@ type NodeHandleEntry = ViewSnapshot['node.transformHandles'] extends Map<
   ? TValue
   : never
 type NodeItemsViewValue = ViewSnapshot['node.items']
+type NodeRenderContext = {
+  activeTool: 'select' | 'edge'
+  selectedNodeIds: Set<NodeId>
+  hoveredGroupId: NodeId | undefined
+  zoom: number
+}
 type SyncCanvasNodesOptions = {
   dirtyNodeIds?: NodeId[]
   orderChanged?: boolean
@@ -134,6 +140,13 @@ export const createNodeRegistry = ({
   let hoveredGroupId = state.read('groupHovered')
   let zoom = state.read('viewport').zoom
 
+  const readRenderContext = (): NodeRenderContext => ({
+    activeTool: state.read('tool'),
+    selectedNodeIds: state.read('selection').selectedNodeIds,
+    hoveredGroupId: state.read('groupHovered'),
+    zoom: state.read('viewport').zoom
+  })
+
   const markNodeItemsDirty = () => {
     nodeItemsDirty = true
     markMetricDirty(nodeItemsMetric)
@@ -147,12 +160,16 @@ export const createNodeRegistry = ({
       height: node.size?.height ?? 0
     }
 
-  const toNodeItem = (node: Node): NodeViewItemEntry => {
+  const toNodeItem = (node: Node, context?: NodeRenderContext): NodeViewItemEntry => {
+    const nextTool = context?.activeTool ?? activeTool
+    const nextSelectedNodeIds = context?.selectedNodeIds ?? selectedNodeIds
+    const nextHoveredGroupId = context?.hoveredGroupId ?? hoveredGroupId
+    const nextZoom = context?.zoom ?? zoom
     const rect = getNodeRect(node)
     const rotation = typeof node.rotation === 'number' ? node.rotation : 0
     const transformBase = `translate(${rect.x}px, ${rect.y}px)`
-    const selected = activeTool === 'edge' ? false : selectedNodeIds.has(node.id)
-    const hovered = hoveredGroupId === node.id
+    const selected = nextTool === 'edge' ? false : nextSelectedNodeIds.has(node.id)
+    const hovered = nextHoveredGroupId === node.id
     const previous = nodeItemsById.get(node.id)
 
     if (
@@ -163,8 +180,8 @@ export const createNodeRegistry = ({
       previous.container.transformBase === transformBase &&
       previous.selected === selected &&
       previous.hovered === hovered &&
-      previous.activeTool === activeTool &&
-      previous.zoom === zoom
+      previous.activeTool === nextTool &&
+      previous.zoom === nextZoom
     ) {
       return previous
     }
@@ -179,14 +196,18 @@ export const createNodeRegistry = ({
       },
       selected,
       hovered,
-      activeTool,
-      zoom
+      activeTool: nextTool,
+      zoom: nextZoom
     }
   }
 
-  const toNodeHandles = (node: Node): NodeHandleEntry | undefined => {
-    if (activeTool !== 'select') return undefined
-    if (!selectedNodeIds.has(node.id) || node.locked) return undefined
+  const toNodeHandles = (node: Node, context?: NodeRenderContext): NodeHandleEntry | undefined => {
+    const nextTool = context?.activeTool ?? activeTool
+    const nextSelectedNodeIds = context?.selectedNodeIds ?? selectedNodeIds
+    const nextZoom = context?.zoom ?? zoom
+
+    if (nextTool !== 'select') return undefined
+    if (!nextSelectedNodeIds.has(node.id) || node.locked) return undefined
 
     const previous = nodeHandlesById.get(node.id)
     const rect = getNodeRect(node)
@@ -196,7 +217,7 @@ export const createNodeRegistry = ({
       rotation,
       canRotate: true,
       rotateHandleOffset: DEFAULT_TUNING.nodeTransform.rotateHandleOffset,
-      zoom
+      zoom: nextZoom
     })
     if (isSameHandleList(previous, next)) {
       return previous
@@ -204,7 +225,7 @@ export const createNodeRegistry = ({
     return next
   }
 
-  const syncNodeItemsByIds = (targetNodeIds: Iterable<NodeId>) => {
+  const syncNodeItemsByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
     let nextById = nodeItemsById
     const changedNodeIds: NodeId[] = []
 
@@ -221,7 +242,7 @@ export const createNodeRegistry = ({
         continue
       }
 
-      const next = toNodeItem(node)
+      const next = toNodeItem(node, context)
       if (previous === next) continue
       if (nextById === nodeItemsById) {
         nextById = new Map(nodeItemsById)
@@ -240,7 +261,7 @@ export const createNodeRegistry = ({
     return true
   }
 
-  const syncNodeHandlesByIds = (targetNodeIds: Iterable<NodeId>) => {
+  const syncNodeHandlesByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
     const startedAt = measureNow()
     let nextById = nodeHandlesById
     const changedNodeIds: NodeId[] = []
@@ -248,7 +269,7 @@ export const createNodeRegistry = ({
     for (const nodeId of targetNodeIds) {
       const node = canvasNodeById.get(nodeId)
       const previous = nodeHandlesById.get(nodeId)
-      const next = node ? toNodeHandles(node) : undefined
+      const next = node ? toNodeHandles(node, context) : undefined
 
       if (!next) {
         if (!previous) continue
@@ -296,7 +317,7 @@ export const createNodeRegistry = ({
     return true
   }
 
-  const syncCanvasNodesFull = () => {
+  const syncCanvasNodesFull = (context?: NodeRenderContext) => {
     const orderedNodes = toLayerOrderedCanvasNodes(graph.read().canvasNodes)
     const nextNodeIds = orderedNodes.map((node) => node.id)
     const nextById = new Map<NodeId, Node>()
@@ -328,16 +349,16 @@ export const createNodeRegistry = ({
     }
 
     if (removedNodeIds.size) {
-      nodeItemsChanged = syncNodeItemsByIds(removedNodeIds) || nodeItemsChanged
+      nodeItemsChanged = syncNodeItemsByIds(removedNodeIds, context) || nodeItemsChanged
       nodeHandlesChanged =
-        syncNodeHandlesByIds(removedNodeIds) || nodeHandlesChanged
+        syncNodeHandlesByIds(removedNodeIds, context) || nodeHandlesChanged
     }
 
     if (changedNodeIds.size) {
-      nodeItemsChanged = syncNodeItemsByIds(changedNodeIds) || nodeItemsChanged
-      if (activeTool === 'select') {
+      nodeItemsChanged = syncNodeItemsByIds(changedNodeIds, context) || nodeItemsChanged
+      if ((context?.activeTool ?? activeTool) === 'select') {
         nodeHandlesChanged =
-          syncNodeHandlesByIds(changedNodeIds) || nodeHandlesChanged
+          syncNodeHandlesByIds(changedNodeIds, context) || nodeHandlesChanged
       }
     }
 
@@ -349,7 +370,7 @@ export const createNodeRegistry = ({
     }
   }
 
-  const syncCanvasNodesDirty = (dirtyNodeIds: NodeId[]) => {
+  const syncCanvasNodesDirty = (dirtyNodeIds: NodeId[], context?: NodeRenderContext) => {
     const dirtySet = new Set(dirtyNodeIds)
     if (!dirtySet.size) return
 
@@ -392,10 +413,10 @@ export const createNodeRegistry = ({
     }
     if (!changedNodeIds.size) return
 
-    const nodeItemsChanged = syncNodeItemsByIds(changedNodeIds)
+    const nodeItemsChanged = syncNodeItemsByIds(changedNodeIds, context)
     const nodeHandlesChanged =
-      activeTool === 'select'
-        ? syncNodeHandlesByIds(changedNodeIds)
+      (context?.activeTool ?? activeTool) === 'select'
+        ? syncNodeHandlesByIds(changedNodeIds, context)
         : false
 
     if (nodeItemsChanged) {
@@ -422,14 +443,15 @@ export const createNodeRegistry = ({
     const dirtyNodeIds = options?.dirtyNodeIds
     const orderChanged = options?.orderChanged
     const fullSync = options?.fullSync
+    const context = readRenderContext()
 
     if (fullSync) {
-      syncCanvasNodesFull()
+      syncCanvasNodesFull(context)
       return
     }
 
     if (dirtyNodeIds?.length) {
-      syncCanvasNodesDirty(dirtyNodeIds)
+      syncCanvasNodesDirty(dirtyNodeIds, context)
       if (orderChanged) {
         syncCanvasNodeOrder()
       }
@@ -439,7 +461,7 @@ export const createNodeRegistry = ({
       syncCanvasNodeOrder()
       return
     }
-    syncCanvasNodesFull()
+    syncCanvasNodesFull(context)
   }
 
   const syncSelectionState: NodeRegistry['syncSelectionState'] = () => {

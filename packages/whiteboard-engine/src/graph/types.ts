@@ -4,6 +4,5 @@ export type {
   GraphChangeSource,
   GraphProjector,
   CreateGraphProjectorOptions,
-  NodeOverride,
   NodeViewUpdate
 } from '@engine-types/graph'

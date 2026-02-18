@@ -5,7 +5,6 @@ export type {
   GraphChangeSource,
   GraphProjector,
   CreateGraphProjectorOptions,
-  NodeOverride,
   NodeViewUpdate
 } from './graph'
 export type {

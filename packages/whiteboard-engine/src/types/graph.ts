@@ -7,11 +7,6 @@ import type {
   Size
 } from '@whiteboard/core'
 
-export type NodeOverride = {
-  position?: Point
-  size?: Size
-}
-
 export type NodeViewUpdate = {
   id: NodeId
   position?: Point

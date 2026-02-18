@@ -7,7 +7,7 @@ import type {
   Point,
   Size
 } from '@whiteboard/core'
-import type { NodeOverride } from '@engine-types/graph'
+import type { NodeOverride } from './overrides'
 import {
   getCollapsedGroupIds,
   isHiddenByCollapsedGroup
@@ -15,7 +15,7 @@ import {
 import type { GraphSnapshot } from './types'
 
 type ViewNodesCache = {
-  doc: Document
+  sourceNodesRef: Document['nodes']
   nodes: Node[]
   indexById: Map<NodeId, number>
   overrides: Map<NodeId, NodeOverride>
@@ -88,7 +88,7 @@ const buildViewNodesCache = (
     applyOverride(node, overrides.get(node.id))
   )
   return {
-    doc,
+    sourceNodesRef: doc.nodes,
     nodes,
     indexById: buildIndexById(doc.nodes),
     overrides: new Map(overrides)
@@ -100,7 +100,7 @@ const updateViewNodesCache = (
   doc: Document,
   overrides: Map<NodeId, NodeOverride>
 ): ViewNodesCache => {
-  if (cache.doc !== doc) {
+  if (cache.sourceNodesRef !== doc.nodes) {
     return buildViewNodesCache(doc, overrides)
   }
 
@@ -132,6 +132,7 @@ const updateViewNodesCache = (
 
   return {
     ...cache,
+    sourceNodesRef: doc.nodes,
     nodes: nextNodes,
     overrides: new Map(overrides)
   }
@@ -212,6 +213,14 @@ const deriveVisibleEdges = (doc: Document, canvasNodes: Node[]) => {
 
 export class GraphCache {
   private viewNodesCache: ViewNodesCache | null = null
+  private visibleEdgesCache:
+    | {
+        edgesRef: Document['edges']
+        edgeOrderRef: Document['order'] extends { edges?: infer TOrder } ? TOrder : EdgeId[] | undefined
+        canvasNodesRef: Node[]
+        visibleEdges: Edge[]
+      }
+    | null = null
   private snapshot: GraphSnapshot = {
     visibleNodes: EMPTY_NODES,
     canvasNodes: EMPTY_NODES,
@@ -225,6 +234,7 @@ export class GraphCache {
   ): GraphSnapshot => {
     if (!doc) {
       this.viewNodesCache = null
+      this.visibleEdgesCache = null
       if (
         this.snapshot.visibleNodes !== EMPTY_NODES ||
         this.snapshot.canvasNodes !== EMPTY_NODES ||
@@ -252,7 +262,15 @@ export class GraphCache {
     const orderedViewNodes = orderByIds(nextViewNodesCache.nodes, nodeOrder)
     const nextVisibleNodes = deriveVisibleNodes(orderedViewNodes)
     const nextCanvasNodes = deriveCanvasNodes(nextVisibleNodes)
-    const nextVisibleEdges = deriveVisibleEdges(doc, nextCanvasNodes)
+    const edgeOrderRef = doc.order?.edges
+    const cachedVisibleEdges = this.visibleEdgesCache
+    const nextVisibleEdges =
+      cachedVisibleEdges &&
+      cachedVisibleEdges.edgesRef === doc.edges &&
+      cachedVisibleEdges.edgeOrderRef === edgeOrderRef &&
+      cachedVisibleEdges.canvasNodesRef === nextCanvasNodes
+        ? cachedVisibleEdges.visibleEdges
+        : deriveVisibleEdges(doc, nextCanvasNodes)
 
     const visibleNodes = isSameRefList(
       this.snapshot.visibleNodes,
@@ -273,6 +291,13 @@ export class GraphCache {
     )
       ? this.snapshot.visibleEdges
       : nextVisibleEdges
+
+    this.visibleEdgesCache = {
+      edgesRef: doc.edges,
+      edgeOrderRef,
+      canvasNodesRef: nextCanvasNodes,
+      visibleEdges
+    }
 
     if (
       visibleNodes !== this.snapshot.visibleNodes ||

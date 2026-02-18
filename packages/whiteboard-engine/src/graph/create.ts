@@ -1,9 +1,10 @@
 import type { NodeId } from '@whiteboard/core'
-import type { NodeOverride, NodeViewUpdate } from '@engine-types/graph'
+import type { NodeViewUpdate } from '@engine-types/graph'
 import { isPointEqual, isSizeEqual } from '../kernel/geometry'
 import {
   GraphCache
 } from './cache'
+import type { NodeOverride } from './overrides'
 import type {
   CreateGraphProjectorOptions,
   GraphChange,
@@ -22,6 +23,7 @@ export const createGraphProjector = ({
   let runtimeOrderChanged = false
   let docOrderChanged = false
   let docFullSyncRequested = false
+  let runtimeFlushScheduled = false
   let currentSnapshot = cache.read(getDoc(), nodeOverrides)
 
   const isOptionalPointEqual = (left?: { x: number; y: number }, right?: { x: number; y: number }) => {
@@ -88,6 +90,30 @@ export const createGraphProjector = ({
     docFullSyncRequested = false
   }
 
+  const hasPendingRuntime = () =>
+    pendingRuntimeDirtyIds.size > 0 || runtimeOrderChanged
+
+  const requestFrame = (callback: () => void) => {
+    const runtime = globalThis as {
+      requestAnimationFrame?: (task: () => void) => number
+    }
+    if (typeof runtime.requestAnimationFrame === 'function') {
+      runtime.requestAnimationFrame(callback)
+      return
+    }
+    setTimeout(callback, 16)
+  }
+
+  const scheduleRuntimeFlush = () => {
+    if (runtimeFlushScheduled) return
+    runtimeFlushScheduled = true
+    requestFrame(() => {
+      runtimeFlushScheduled = false
+      if (!hasPendingRuntime()) return
+      flush('runtime')
+    })
+  }
+
   const read = () => {
     currentSnapshot = cache.read(getDoc(), nodeOverrides)
     return currentSnapshot
@@ -106,6 +132,9 @@ export const createGraphProjector = ({
     nodeIds.forEach((nodeId) => {
       pendingRuntimeDirtyIds.add(nodeId)
     })
+    if (pendingRuntimeDirtyIds.size) {
+      scheduleRuntimeFlush()
+    }
   }
 
   const flush: GraphProjector['flush'] = (source) => {
@@ -151,7 +180,6 @@ export const createGraphProjector = ({
 
     if (!changedNodeIds.length) return changedNodeIds
     reportDirty(changedNodeIds)
-    flush('runtime')
     return changedNodeIds
   }
 
@@ -162,7 +190,6 @@ export const createGraphProjector = ({
       const changedNodeIds = Array.from(nodeOverrides.keys())
       nodeOverrides.clear()
       reportDirty(changedNodeIds)
-      flush('runtime')
       return changedNodeIds
     }
 
@@ -174,7 +201,6 @@ export const createGraphProjector = ({
     })
     if (!changedNodeIds.length) return changedNodeIds
     reportDirty(changedNodeIds)
-    flush('runtime')
     return changedNodeIds
   }
 
@@ -200,6 +226,7 @@ export const createGraphProjector = ({
         return
       }
       runtimeOrderChanged = true
+      scheduleRuntimeFlush()
     },
     requestFullSync: () => {
       docFullSyncRequested = true
