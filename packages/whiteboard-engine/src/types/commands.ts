@@ -203,7 +203,6 @@ export type Commands = {
     update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
     delete: (ids: EdgeId[]) => Promise<DispatchResult>
     insertRoutingPoint: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
-    insertRoutingPointAtClient: (edge: Edge, pathPoints: Point[], clientX: number, clientY: number) => void
     moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
     removeRoutingPoint: (edge: Edge, index: number) => void
     startRoutingDrag: (options: RoutingDragStartOptions) => boolean
@@ -227,12 +226,9 @@ export type Commands = {
     startFromPoint: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => void
     startReconnect: (edgeId: EdgeId, end: 'source' | 'target', pointerId?: number) => void
     updateTo: (pointWorld: Point) => void
-    updateToClient: (clientX: number, clientY: number) => void
     commitTo: (pointWorld: Point) => void
-    commitToClient: (clientX: number, clientY: number) => void
     cancel: () => void
     updateHover: (pointWorld: Point) => void
-    updateHoverAtClient: (clientX: number, clientY: number) => void
     handleNodePointerDown: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => boolean
   }
   nodeDrag: {
@@ -285,6 +281,8 @@ export type Commands = {
     move: (ids: NodeId[], delta: { x: number; y: number }) => Promise<DispatchResult>
     resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
     rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
+    observeSize: (nodeId: NodeId, element: Element, enabled?: boolean) => void
+    unobserveSize: (nodeId: NodeId) => void
   }
   nodeTransform: {
     rotate: (nodeId: NodeId, angle: number) => Promise<DispatchResult>

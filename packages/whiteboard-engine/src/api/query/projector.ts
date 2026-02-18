@@ -1,4 +1,4 @@
-import type { State } from '@engine-types/instance'
+import type { State } from '@engine-types/instance/state'
 import type { QueryIndexes } from './indexes'
 import type { CanvasNodes } from '../../kernel/projector/canvas'
 

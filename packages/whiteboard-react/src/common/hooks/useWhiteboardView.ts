@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ViewKey, ViewSnapshot } from '@whiteboard/engine'
+import type { Instance } from '@whiteboard/engine'
 import { useInstance } from './useInstance'
 
 type Equality<T> = (left: T, right: T) => boolean
@@ -9,17 +9,18 @@ type UseWhiteboardViewOptions<T> = {
 }
 
 const defaultEquality: Equality<unknown> = Object.is
+type ViewGlobal = Instance['view']['global']
 
-export const useWhiteboardView = <K extends ViewKey>(
-  key: K,
-  options?: UseWhiteboardViewOptions<ViewSnapshot[K]>
+const useViewValue = <T,>(
+  readValue: () => T,
+  watchValue: (listener: () => void) => () => void,
+  options?: UseWhiteboardViewOptions<T>
 ) => {
   const instance = useInstance()
-  const equalityRef = useRef((options?.equality ?? defaultEquality) as Equality<ViewSnapshot[K]>)
-  equalityRef.current = (options?.equality ?? defaultEquality) as Equality<ViewSnapshot[K]>
+  const equalityRef = useRef((options?.equality ?? defaultEquality) as Equality<T>)
+  equalityRef.current = (options?.equality ?? defaultEquality) as Equality<T>
 
-  const readValue = () => instance.view.read(key)
-  const [value, setValue] = useState<ViewSnapshot[K]>(() => readValue())
+  const [value, setValue] = useState<T>(() => readValue())
 
   useEffect(() => {
     const update = () => {
@@ -28,8 +29,74 @@ export const useWhiteboardView = <K extends ViewKey>(
     }
 
     update()
-    return instance.view.watch(key, update)
-  }, [instance, key])
+    return watchValue(update)
+  }, [instance, readValue, watchValue])
 
   return value
+}
+
+export const useViewportTransformView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['viewportTransform']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.viewportTransform,
+    instance.view.global.watchViewportTransform,
+    options
+  )
+}
+
+export const useShortcutContextView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['shortcutContext']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.shortcutContext,
+    instance.view.global.watchShortcutContext,
+    options
+  )
+}
+
+export const useEdgePreviewView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['edgePreview']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.edgePreview,
+    instance.view.global.watchEdgePreview,
+    options
+  )
+}
+
+export const useEdgeSelectedEndpointsView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['edgeSelectedEndpoints']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.edgeSelectedEndpoints,
+    instance.view.global.watchEdgeSelectedEndpoints,
+    options
+  )
+}
+
+export const useEdgeSelectedRoutingView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['edgeSelectedRouting']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.edgeSelectedRouting,
+    instance.view.global.watchEdgeSelectedRouting,
+    options
+  )
+}
+
+export const useMindmapDragView = (
+  options?: UseWhiteboardViewOptions<ReturnType<ViewGlobal['mindmapDrag']>>
+) => {
+  const instance = useInstance()
+  return useViewValue(
+    instance.view.global.mindmapDrag,
+    instance.view.global.watchMindmapDrag,
+    options
+  )
 }

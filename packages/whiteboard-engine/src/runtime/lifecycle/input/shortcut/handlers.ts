@@ -1,8 +1,8 @@
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import { resolveContextFromEvent } from './contextFromEvent'
 
 type Options = {
-  instance: Instance
+  instance: InternalInstance
 }
 
 export type ShortcutHandlers = {
@@ -13,7 +13,7 @@ export type ShortcutHandlers = {
 export const createShortcut = ({
   instance
 }: Options): ShortcutHandlers => {
-  const readBaseContext = () => instance.view.read('shortcut.context')
+  const readBaseContext = () => instance.view.global.shortcutContext()
   const resolveContext = (event: PointerEvent | KeyboardEvent) =>
     resolveContextFromEvent(readBaseContext(), event)
 

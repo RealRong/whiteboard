@@ -1,7 +1,7 @@
-import { useWhiteboardView } from '../../common/hooks'
+import { useEdgePreviewView } from '../../common/hooks'
 
 export const EdgePreviewLayer = () => {
-  const { from, to, snap } = useWhiteboardView('edge.preview')
+  const { from, to, snap } = useEdgePreviewView()
 
   if (!from && !to && !snap) return null
   return (

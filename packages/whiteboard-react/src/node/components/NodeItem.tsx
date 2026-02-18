@@ -138,14 +138,14 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     (element: HTMLDivElement | null) => {
       if (containerRef.current === element) return
       if (containerRef.current) {
-        instance.runtime.services.nodeSizeObserver.unobserve(node.id)
+        instance.commands.node.unobserveSize(node.id)
       }
       containerRef.current = element
       if (element) {
-        instance.runtime.services.nodeSizeObserver.observe(node.id, element, true)
+        instance.commands.node.observeSize(node.id, element, true)
       }
     },
-    [instance, node.id]
+    [instance.commands.node, node.id]
   )
 
   const handlePointerDown = useCallback(

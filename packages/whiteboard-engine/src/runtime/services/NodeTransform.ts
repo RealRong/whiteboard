@@ -1,6 +1,6 @@
 import type { NodeId, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type {
   ResizeDragState,
   RotateDragState,
@@ -105,7 +105,7 @@ export class NodeTransform implements NodeTransformApi {
           width,
           height
         }
-        const candidates = this.instance.query.getSnapCandidatesInRect(getMovingRectQueryRect(movingRect, thresholdWorld))
+        const candidates = this.instance.query.snap.candidatesInRect(getMovingRectQueryRect(movingRect, thresholdWorld))
         const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)
         const snapped = computeResizeSnap({
           movingRect,

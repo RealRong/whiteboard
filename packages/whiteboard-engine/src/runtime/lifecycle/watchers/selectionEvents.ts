@@ -1,5 +1,5 @@
-import type { NodeId } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
+import type { EdgeId, NodeId } from '@whiteboard/core'
+import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 
 type Options = {
@@ -7,7 +7,7 @@ type Options = {
   emit: InstanceEventEmitter['emit']
 }
 
-type EdgeSelectionValue = ReturnType<Instance['state']['snapshot']>['edgeSelection']
+type EdgeSelectionValue = EdgeId | undefined
 
 export type SelectionEventsWatcher = {
   start: () => void

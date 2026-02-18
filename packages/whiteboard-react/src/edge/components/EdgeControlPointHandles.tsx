@@ -1,9 +1,9 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from 'react'
-import { useInstance, useWhiteboardSelector, useWhiteboardView } from '../../common/hooks'
+import { useEdgeSelectedRoutingView, useInstance, useWhiteboardSelector } from '../../common/hooks'
 
 export const EdgeControlPointHandles = () => {
   const instance = useInstance()
-  const selectedRouting = useWhiteboardView('edge.selectedRouting')
+  const selectedRouting = useEdgeSelectedRoutingView()
   const routingDrag = useWhiteboardSelector('routingDrag')
   const edge = selectedRouting?.edge
   const points = selectedRouting?.points ?? []

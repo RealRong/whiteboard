@@ -1,11 +1,11 @@
 import type { DocumentId, Viewport } from '@whiteboard/core'
 import type { ResolvedConfig, Config } from '@engine-types/common'
 import type {
-  Instance,
-  InstanceConfig,
   LifecycleConfig,
   LifecycleViewportConfig
-} from '@engine-types/instance'
+} from '@engine-types/instance/lifecycle'
+import type { Instance } from '@engine-types/instance/instance'
+import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
 import { DEFAULT_GROUP_PADDING } from '../node/constants'

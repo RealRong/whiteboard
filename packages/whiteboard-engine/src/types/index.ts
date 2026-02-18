@@ -1,11 +1,6 @@
 export type { Commands } from './commands'
 export type {
-  ContainerSizeObserver,
   CreateEngineOptions,
-  GroupAutoFit,
-  NodeDrag,
-  NodeSizeObserver,
-  Store,
   EventUnsubscribe,
   InstanceEventMap,
   InstanceEvents,

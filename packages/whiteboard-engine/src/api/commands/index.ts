@@ -1,5 +1,5 @@
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type { CanvasNodes } from '../../kernel/projector/canvas'
 import { createBase } from './base'
 import { createEdge } from './edge'
@@ -9,7 +9,7 @@ import { createSelection } from './selection'
 import { createTransient } from './transient'
 
 export const createCommands = (
-  instance: Instance,
+  instance: InternalInstance,
   canvas: CanvasNodes
 ): Commands => {
   const { core } = instance.runtime

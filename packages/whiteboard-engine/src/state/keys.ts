@@ -1,4 +1,4 @@
-import type { StateKey } from '@engine-types/instance'
+import type { StateKey } from '@engine-types/instance/state'
 
 export type DerivedStateKey =
   | 'viewport'

@@ -1,6 +1,7 @@
 import type { Point, Viewport } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { ContainerRect, ViewportApi } from '@engine-types/instance'
+import type { ViewportApi } from '@engine-types/instance/runtime'
+import type { ContainerRect } from '@engine-types/instance/services'
 
 const DEFAULT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },

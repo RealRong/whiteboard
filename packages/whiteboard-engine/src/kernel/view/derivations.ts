@@ -1,12 +1,12 @@
 import type {
-  InstanceConfig,
-  Query,
   MindmapDragView,
   MindmapViewTree,
-  State,
   ViewKey,
   ViewSnapshot
-} from '@engine-types/instance'
+} from '@engine-types/instance/view'
+import type { InstanceConfig } from '@engine-types/instance/config'
+import type { Query } from '@engine-types/instance/query'
+import type { State } from '@engine-types/instance/state'
 import type { ShortcutContext } from '@engine-types/shortcuts'
 import { toMindmapLayoutSignature } from '../cache'
 import {

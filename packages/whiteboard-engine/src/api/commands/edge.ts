@@ -1,6 +1,6 @@
 import type { EdgeId, EdgeInput, EdgePatch } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import { createEdgeConnect } from './edgeConnect'
 
 export const createEdge = (
@@ -47,18 +47,6 @@ export const createEdge = (
       }
     })
   }
-
-  const insertRoutingPointAtClient: Commands['edge']['insertRoutingPointAtClient'] = (
-    edge,
-    pathPoints,
-    clientX,
-    clientY
-	  ) => {
-	    const pointWorld = instance.runtime.viewport.clientToWorld(clientX, clientY)
-	    const segmentIndex = instance.query.getNearestEdgeSegment(pointWorld, pathPoints)
-	    insertRoutingPoint(edge, pathPoints, segmentIndex, pointWorld)
-	    selectEdge(edge.id)
-	  }
 
   const moveRoutingPoint: Commands['edge']['moveRoutingPoint'] = (edge, index, pointWorld) => {
     if (edge.type === 'bezier' || edge.type === 'curve') return
@@ -212,7 +200,6 @@ export const createEdge = (
   return {
     edge: {
       insertRoutingPoint,
-      insertRoutingPointAtClient,
       moveRoutingPoint,
       removeRoutingPoint,
       startRoutingDrag,

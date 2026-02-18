@@ -12,16 +12,16 @@ type MindmapLayerProps = {
 const useMindmapTree = (treeId: NodeId) => {
   const instance = useInstance()
   const [tree, setTree] = useState<MindmapViewTree | undefined>(() =>
-    instance.view.getMindmapTree(treeId)
+    instance.view.mindmap.tree(treeId)
   )
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getMindmapTree(treeId)
+      const next = instance.view.mindmap.tree(treeId)
       setTree((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchMindmapTree(treeId, update)
+    return instance.view.mindmap.watchTree(treeId, update)
   }, [instance, treeId])
 
   return tree

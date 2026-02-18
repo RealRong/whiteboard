@@ -1,5 +1,6 @@
 import type { Core, Document } from '@whiteboard/core'
-import type { InstanceConfig, Runtime } from '@engine-types/instance'
+import type { InstanceConfig } from '@engine-types/instance/config'
+import type { Runtime } from '@engine-types/instance/runtime'
 import type { RefLike } from '@engine-types/ui'
 import { createViewport, getPlatformInfo } from '..'
 
@@ -10,7 +11,7 @@ type Options = {
   config: InstanceConfig
 }
 
-export type RuntimeBase = Omit<Runtime, 'services' | 'shortcuts' | 'lifecycle'>
+export type RuntimeBase = Runtime
 
 export const createRuntime = ({
   core,

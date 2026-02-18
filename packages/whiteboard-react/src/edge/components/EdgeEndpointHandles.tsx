@@ -1,10 +1,10 @@
 import type { CSSProperties, PointerEvent } from 'react'
-import { useInstance, useWhiteboardSelector, useWhiteboardView } from '../../common/hooks'
+import { useEdgeSelectedEndpointsView, useInstance, useWhiteboardSelector } from '../../common/hooks'
 
 export const EdgeEndpointHandles = () => {
   const instance = useInstance()
   const stateSelectedEdgeId = useWhiteboardSelector('edgeSelection')
-  const endpoints = useWhiteboardView('edge.selectedEndpoints')
+  const endpoints = useEdgeSelectedEndpointsView()
   if (!stateSelectedEdgeId || !endpoints) return null
 
   const handleStartReconnect = (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => {

@@ -1,8 +1,8 @@
 import type {
-  StateKey,
   ViewKey,
   ViewSnapshot
-} from '@engine-types/instance'
+} from '@engine-types/instance/view'
+import type { StateKey } from '@engine-types/instance/state'
 
 export type ViewDerivation<K extends ViewKey> = {
   deps: StateKey[]

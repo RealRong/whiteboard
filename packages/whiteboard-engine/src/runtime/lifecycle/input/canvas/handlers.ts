@@ -1,5 +1,5 @@
-import type { LifecycleConfig } from '@engine-types/instance'
-import type { Instance } from '@engine-types/instance'
+import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import { createShortcut } from '../shortcut/handlers'
 import type { CanvasInput } from '../types'
 import { createEdgeHover } from './edgeHover'
@@ -7,7 +7,7 @@ import { createSelection } from './selection'
 import { createViewport } from './viewport'
 
 type Options = {
-  instance: Instance
+  instance: InternalInstance
   config: LifecycleConfig
 }
 

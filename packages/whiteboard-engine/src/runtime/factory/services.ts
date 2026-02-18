@@ -1,5 +1,6 @@
 import type { Core } from '@whiteboard/core'
-import type { Instance, Runtime } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { RuntimeServices } from '@engine-types/instance/runtime'
 import { ContainerSizeObserver } from '../services/ContainerSizeObserver'
 import { EdgeHover } from '../services/EdgeHover'
 import { GroupAutoFit } from '../services/GroupAutoFit'
@@ -11,8 +12,8 @@ import { ViewportNavigation } from '../services/ViewportNavigation'
 
 export const createServices = (
   core: Core,
-  instance: Instance
-): Runtime['services'] => {
+  instance: InternalInstance
+): RuntimeServices => {
   return {
     nodeSizeObserver: new NodeSizeObserver(core),
     containerSizeObserver: new ContainerSizeObserver(),

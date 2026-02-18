@@ -1,4 +1,4 @@
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { EdgeHover as EdgeHoverApi } from '@engine-types/instance/services'
 
 type ClientPoint = {
@@ -20,7 +20,8 @@ export class EdgeHover implements EdgeHoverApi {
     const point = this.hoverPoint
     if (!point) return
     this.hoverPoint = null
-    this.instance.commands.edgeConnect.updateHoverAtClient(point.x, point.y)
+    const pointWorld = this.instance.runtime.viewport.clientToWorld(point.x, point.y)
+    this.instance.commands.edgeConnect.updateHover(pointWorld)
   }
 
   cancel: EdgeHoverApi['cancel'] = () => {

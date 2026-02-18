@@ -1,9 +1,9 @@
 import type { NodeId, NodeInput, NodePatch } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 
 export const createNode = (
-  instance: Instance,
+  instance: InternalInstance,
   transient: Commands['transient']
 ): Pick<Commands, 'nodeDrag' | 'node' | 'nodeTransform'> => {
   const { core } = instance.runtime
@@ -157,7 +157,13 @@ export const createNode = (
       delete: (ids: NodeId[]) => core.dispatch({ type: 'node.delete', ids }),
       move: core.commands.node.move as Commands['node']['move'],
       resize: core.commands.node.resize as Commands['node']['resize'],
-      rotate: core.commands.node.rotate as Commands['node']['rotate']
+      rotate: core.commands.node.rotate as Commands['node']['rotate'],
+      observeSize: (nodeId, element, enabled) => {
+        instance.runtime.services.nodeSizeObserver.observe(nodeId, element, enabled)
+      },
+      unobserveSize: (nodeId) => {
+        instance.runtime.services.nodeSizeObserver.unobserve(nodeId)
+      }
     },
     nodeTransform
   }

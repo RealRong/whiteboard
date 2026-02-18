@@ -1,5 +1,5 @@
 import type { DocumentId, Operation } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { CanvasNodes } from '../../../kernel/projector/canvas'
 import { buildCanvasNodeDirtyHint, hasNodeOperation } from './nodeHint'

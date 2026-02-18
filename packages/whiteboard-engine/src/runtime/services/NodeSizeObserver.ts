@@ -1,7 +1,9 @@
 import { trimNumber } from '@whiteboard/core'
 import type { Core, NodeId, Size } from '@whiteboard/core'
-import type { NodeSizeObserver as NodeSizeObserverApi } from '@engine-types/instance'
-import type { PendingNodeSizeUpdate } from '@engine-types/instance/services'
+import type {
+  NodeSizeObserver as NodeSizeObserverApi,
+  PendingNodeSizeUpdate
+} from '@engine-types/instance/services'
 
 
 export class NodeSizeObserver implements NodeSizeObserverApi {

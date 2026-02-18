@@ -1,11 +1,12 @@
 import type {
-  InstanceConfig,
   QueryDebugSnapshot,
-  Query,
-  State
-} from '@engine-types/instance'
+  Query
+} from '@engine-types/instance/query'
+import type { State } from '@engine-types/instance/state'
+import type { InstanceConfig } from '@engine-types/instance/config'
 import type { CanvasNodes } from '../../kernel/projector/canvas'
 import { createCanvas } from './canvas'
+import { createGeometry } from './geometry'
 import { createQueryIndexes } from './indexes'
 import { startQueryProjector } from './projector'
 import { createSnap } from './snap'
@@ -34,11 +35,13 @@ export const createQuery = ({
 
   const canvasQuery = createCanvas({
     indexes,
-    config,
     getContainer
   })
   const snapQuery = createSnap({
     indexes
+  })
+  const geometryQuery = createGeometry({
+    config
   })
 
   const getMetrics = (): QueryDebugSnapshot => ({
@@ -47,9 +50,9 @@ export const createQuery = ({
   })
 
   return {
-    ...canvasQuery,
-    ...snapQuery,
-    watchNodeChanges: indexes.watchNodeChanges,
+    canvas: canvasQuery.query,
+    snap: snapQuery.query,
+    geometry: geometryQuery,
     debug: {
       getMetrics,
       resetMetrics: (target) => {

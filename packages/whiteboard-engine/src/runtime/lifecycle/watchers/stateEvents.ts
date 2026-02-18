@@ -1,5 +1,5 @@
 import type { Viewport } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { HistoryState } from '@engine-types/state'

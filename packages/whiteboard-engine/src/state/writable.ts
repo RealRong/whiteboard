@@ -1,5 +1,5 @@
 import type { EdgeId, NodeId } from '@whiteboard/core'
-import type { WritableStateSnapshot } from '@engine-types/instance'
+import type { WritableStateSnapshot } from '@engine-types/instance/state'
 import type {
   EdgeConnectState,
   RoutingDragState,

@@ -1,9 +1,10 @@
 import type {
   CreateEngineOptions,
-  InstanceEventMap,
-  Instance,
-  Runtime
-} from '@engine-types/instance'
+  InternalInstance,
+  Instance
+} from '@engine-types/instance/instance'
+import type { RuntimeInternal } from '@engine-types/instance/runtime'
+import type { InstanceEventMap } from '@engine-types/instance/events'
 import { createDomBindings } from '../host/dom'
 import { Events } from '../kernel/events'
 import { createShortcuts, Lifecycle } from '../runtime'
@@ -46,25 +47,22 @@ export const createEngine = ({
     platform: base.platform
   })
 
-  let commands!: Instance['commands']
-  let services!: Runtime['services']
-  let shortcuts!: Runtime['shortcuts']
-  let lifecycle!: Runtime['lifecycle']
+  let commands!: InternalInstance['commands']
+  let services!: RuntimeInternal['services']
+  let shortcuts!: RuntimeInternal['shortcuts']
+  let lifecycle!: InternalInstance['lifecycle']
 
-  const runtime: Runtime = {
+  const runtime: RuntimeInternal = {
     ...base,
     get services() {
       return services
     },
     get shortcuts() {
       return shortcuts
-    },
-    get lifecycle() {
-      return lifecycle
     }
   }
 
-  const instance: Instance = {
+  const instance: InternalInstance = {
     state,
     runtime,
     query,
@@ -72,6 +70,9 @@ export const createEngine = ({
     events: {
       on: events.on,
       off: events.off
+    },
+    get lifecycle() {
+      return lifecycle
     },
     get commands() {
       return commands

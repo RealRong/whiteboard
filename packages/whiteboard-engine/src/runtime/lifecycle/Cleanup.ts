@@ -1,9 +1,9 @@
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 
 export class Cleanup {
-  private instance: Instance
+  private instance: InternalInstance
 
-  constructor(instance: Instance) {
+  constructor(instance: InternalInstance) {
     this.instance = instance
   }
 

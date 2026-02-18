@@ -1,4 +1,4 @@
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { ViewportNavigation as ViewportNavigationApi } from '@engine-types/instance/services'
 
 type DragState = {

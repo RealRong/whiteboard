@@ -1,10 +1,10 @@
 import type { Node, NodeId, Rect } from '@whiteboard/core'
 import type {
-  CanvasNodeRect,
-  InstanceConfig,
   QueryDebugMetric,
   QueryDebugSnapshot
-} from '@engine-types/instance'
+} from '@engine-types/instance/query'
+import type { CanvasNodeRect } from '@engine-types/instance/view'
+import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import { toNodeStateSignature, toRectSignature } from '../../kernel/cache'
 import { getNodeAABB, getNodeRect } from '../../kernel/geometry'

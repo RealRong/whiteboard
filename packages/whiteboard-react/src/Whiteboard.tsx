@@ -144,7 +144,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     ]
   )
 
-  const lifecycle = instance.runtime.lifecycle
+  const lifecycle = instance.lifecycle
 
   useEffect(() => {
     lifecycle.start()
@@ -164,14 +164,14 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     [resolvedConfig.style]
   )
 
-  const [viewportTransform, setViewportTransform] = useState(() => instance.view.read('viewport.transform'))
+  const [viewportTransform, setViewportTransform] = useState(() => instance.view.global.viewportTransform())
   useEffect(() => {
     const update = () => {
-      const next = instance.view.read('viewport.transform')
+      const next = instance.view.global.viewportTransform()
       setViewportTransform((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watch('viewport.transform', update)
+    return instance.view.global.watchViewportTransform(update)
   }, [instance])
 
   const transformStyle = useMemo<CSSProperties>(

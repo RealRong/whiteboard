@@ -1,5 +1,5 @@
 import type { Point, Rect } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { SelectionMode } from '@engine-types/state'
 import { rectFromPoints } from '../../../../kernel/geometry'
 import { getSelectionModeFromEvent } from '../../../../node/utils/selection'
@@ -59,7 +59,7 @@ export const createSelection = ({
   }
 
   const hitTest = (rectWorld: Rect, nextMode: SelectionMode) => {
-    const matched = instance.query.getNodeIdsInRect(rectWorld)
+    const matched = instance.query.canvas.nodeIdsInRect(rectWorld)
     if (!matched.length) return
     instance.commands.selection.select(matched, nextMode)
   }
@@ -96,7 +96,7 @@ export const createSelection = ({
     if (!enabled) return
     if (event.button !== 0) return
     if (instance.state.read('spacePressed')) return
-    if (!instance.query.isBackgroundTarget(event.target)) return
+    if (!instance.query.canvas.isBackgroundTarget(event.target)) return
 
     const point = getScreenPoint(event)
     if (!point) return

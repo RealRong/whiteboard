@@ -1,6 +1,6 @@
 import { layoutMindmap, layoutMindmapTidy, type MindmapLayout, type MindmapNode, type MindmapTree, type Node } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { MindmapViewTreeLine } from '@engine-types/instance'
+import type { MindmapViewTreeLine } from '@engine-types/instance/view'
 import type { Size } from '@engine-types/common'
 
 const safeStringify = (value: unknown) => {

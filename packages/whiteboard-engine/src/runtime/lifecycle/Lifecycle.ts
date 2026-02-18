@@ -1,5 +1,5 @@
-import type { Instance } from '@engine-types/instance'
-import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { DomBindings } from '../../host/dom'
 import type { CanvasNodes } from '../../kernel/projector/canvas'
@@ -31,7 +31,7 @@ import type { CanvasEventHandlers, CanvasInput } from './input/types'
 import { WindowKey } from './WindowKey'
 
 export class Lifecycle implements LifecycleApi {
-  private instance: Instance
+  private instance: InternalInstance
   private started = false
   private config: LifecycleConfig
   private input: CanvasInput
@@ -45,7 +45,7 @@ export class Lifecycle implements LifecycleApi {
   private docEvents: DocEventsWatcher
 
   constructor(
-    instance: Instance,
+    instance: InternalInstance,
     dom: DomBindings,
     emitEvent: InstanceEventEmitter['emit'],
     canvas: CanvasNodes

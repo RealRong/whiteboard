@@ -1,4 +1,4 @@
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { DomBindings } from '../../../host/dom'
 import type { SelectionBoxSession } from '../input/types'
 import { createPointerSession } from './pointerSessionWindow'
@@ -58,10 +58,12 @@ const createEdgeConnectBinding = (
     },
     getPointerId: (active) => active.pointerId,
     onPointerMove: (event) => {
-      instance.commands.edgeConnect.updateToClient(event.clientX, event.clientY)
+      const pointWorld = instance.runtime.viewport.clientToWorld(event.clientX, event.clientY)
+      instance.commands.edgeConnect.updateTo(pointWorld)
     },
     onPointerUp: (event) => {
-      instance.commands.edgeConnect.commitToClient(event.clientX, event.clientY)
+      const pointWorld = instance.runtime.viewport.clientToWorld(event.clientX, event.clientY)
+      instance.commands.edgeConnect.commitTo(pointWorld)
     }
   })
 

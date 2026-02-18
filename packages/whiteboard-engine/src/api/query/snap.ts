@@ -1,11 +1,12 @@
-import type { QueryDebugMetric, Query } from '@engine-types/instance'
+import type { QueryDebugMetric, QuerySnap } from '@engine-types/instance/query'
 import type { QueryIndexes } from './indexes'
 
 type Options = {
   indexes: QueryIndexes
 }
 
-type SnapQuery = Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> & {
+type SnapQuery = {
+  query: QuerySnap
   debug: {
     getMetrics: () => QueryDebugMetric
     resetMetrics: () => void
@@ -15,17 +16,19 @@ type SnapQuery = Pick<Query, 'getSnapCandidates' | 'getSnapCandidatesInRect'> & 
 export const createSnap = ({
   indexes
 }: Options): SnapQuery => {
-  const getSnapCandidates: Query['getSnapCandidates'] = () => {
+  const candidates: QuerySnap['candidates'] = () => {
     return indexes.getSnapCandidates()
   }
 
-  const getSnapCandidatesInRect: Query['getSnapCandidatesInRect'] = (rect) => {
+  const candidatesInRect: QuerySnap['candidatesInRect'] = (rect) => {
     return indexes.getSnapCandidatesInRect(rect)
   }
 
   return {
-    getSnapCandidates,
-    getSnapCandidatesInRect,
+    query: {
+      candidates,
+      candidatesInRect
+    },
     debug: {
       getMetrics: () => ({ ...indexes.getMetrics().snap } as QueryDebugMetric),
       resetMetrics: () => {

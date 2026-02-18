@@ -14,15 +14,15 @@ const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
 
 const useNodeIds = () => {
   const instance = useInstance()
-  const [nodeIds, setNodeIds] = useState<NodeId[]>(() => instance.view.getNodeIds())
+  const [nodeIds, setNodeIds] = useState<NodeId[]>(() => instance.view.node.ids())
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getNodeIds()
+      const next = instance.view.node.ids()
       setNodeIds((prev) => (isSameIdOrder(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchNodeIds(update)
+    return instance.view.node.watchIds(update)
   }, [instance])
 
   return nodeIds
@@ -30,15 +30,15 @@ const useNodeIds = () => {
 
 const useNodeItem = (nodeId: NodeId) => {
   const instance = useInstance()
-  const [item, setItem] = useState<NodeViewItem | undefined>(() => instance.view.getNodeItem(nodeId))
+  const [item, setItem] = useState<NodeViewItem | undefined>(() => instance.view.node.item(nodeId))
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getNodeItem(nodeId)
+      const next = instance.view.node.item(nodeId)
       setItem((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchNodeItem(nodeId, update)
+    return instance.view.node.watchItem(nodeId, update)
   }, [instance, nodeId])
 
   return item
@@ -47,16 +47,16 @@ const useNodeItem = (nodeId: NodeId) => {
 const useNodeTransformHandles = (nodeId: NodeId) => {
   const instance = useInstance()
   const [handles, setHandles] = useState<NodeTransformHandle[] | undefined>(() =>
-    instance.view.getNodeTransformHandles(nodeId)
+    instance.view.node.handles(nodeId)
   )
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getNodeTransformHandles(nodeId)
+      const next = instance.view.node.handles(nodeId)
       setHandles((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchNodeTransformHandles(nodeId, update)
+    return instance.view.node.watchHandles(nodeId, update)
   }, [instance, nodeId])
 
   return handles

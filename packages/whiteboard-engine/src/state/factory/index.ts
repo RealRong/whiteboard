@@ -5,9 +5,9 @@ import type {
   StateKey,
   StateSnapshot,
   WritableStateSnapshot
-} from '@engine-types/instance'
+} from '@engine-types/instance/state'
 import { WritableStore } from '../../kernel/state'
-import { DERIVED_STATE_KEYS, STATE_KEYS } from '../keys'
+import { DERIVED_STATE_KEYS } from '../keys'
 import type { DerivedStateKey, NativeStateKey } from '../keys'
 import { createWritableStateSnapshot } from '../writable'
 import {
@@ -131,9 +131,6 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   const batchState: State['batch'] = (action) => store.batch(action)
   const batchFrameState: State['batchFrame'] = (action) => store.batchFrame(action)
 
-  const getStateSnapshot = (): StateSnapshot =>
-    Object.fromEntries(STATE_KEYS.map((key) => [key, readState(key)])) as StateSnapshot
-
   const setDoc: State['setDoc'] = (doc) => {
     if (currentDoc === doc) return
     currentDoc = doc
@@ -141,14 +138,12 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   }
 
   const state: State = {
-    store,
     setDoc,
     read: readState,
     write: writeState,
     batch: batchState,
     batchFrame: batchFrameState,
-    watch: watchState,
-    snapshot: getStateSnapshot
+    watch: watchState
   }
 
   return {

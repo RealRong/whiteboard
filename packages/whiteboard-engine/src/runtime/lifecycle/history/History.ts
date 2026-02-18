@@ -1,6 +1,7 @@
 import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
-import type { LifecycleConfig, StateSnapshot } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
+import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
+import type { StateSnapshot } from '@engine-types/instance/state'
 
 type HistoryIdentity = {
   core: Core

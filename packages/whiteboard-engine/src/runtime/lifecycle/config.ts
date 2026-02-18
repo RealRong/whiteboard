@@ -1,6 +1,6 @@
 import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_CONFIG } from '../../config'
-import type { Instance } from '@engine-types/instance'
-import type { LifecycleConfig } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
+import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 
 export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
   docId: undefined,

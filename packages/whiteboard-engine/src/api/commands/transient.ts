@@ -1,7 +1,7 @@
 import type { NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Size } from '@engine-types/common'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { EdgeConnectState, NodeOverride, NodeViewUpdate } from '@engine-types/state'
 import { isPointEqual, isSizeEqual } from '../../kernel/geometry'
 import type { CanvasNodes } from '../../kernel/projector/canvas'

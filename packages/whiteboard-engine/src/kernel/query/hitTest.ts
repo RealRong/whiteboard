@@ -1,5 +1,5 @@
 import type { NodeId, Rect } from '@whiteboard/core'
-import type { CanvasNodeRect } from '@engine-types/instance'
+import type { CanvasNodeRect } from '@engine-types/instance/view'
 import { rectContainsRotatedRect, rectIntersectsRotatedRect } from '../geometry'
 
 export const getNodeIdsInRect = (rect: Rect, entries: CanvasNodeRect[]): NodeId[] =>

@@ -1,17 +1,17 @@
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type { DomBindings } from '../../host/dom'
 import { bindCanvasContainerEvents } from './bindings/canvasContainerEvents'
 import type { CanvasEventHandlers } from './input/types'
 
 type ContainerControllerOptions = {
-  instance: Instance
+  instance: InternalInstance
   dom: DomBindings
   getHandlers: () => CanvasEventHandlers
   getOnWheel: () => (event: WheelEvent) => void
 }
 
 export class Container {
-  private instance: Instance
+  private instance: InternalInstance
   private dom: DomBindings
   private getHandlers: () => CanvasEventHandlers
   private getOnWheel: () => (event: WheelEvent) => void

@@ -1,5 +1,5 @@
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { NodeDrag as NodeDragApi } from '@engine-types/instance/services'
 import type { NodeViewUpdate } from '@engine-types/state'
 import {
@@ -133,7 +133,7 @@ export class NodeDrag implements NodeDragApi {
       width: movingRect.width + thresholdWorld * 2,
       height: movingRect.height + thresholdWorld * 2
     }
-    const baseCandidates = this.instance.query.getSnapCandidatesInRect(queryRect)
+    const baseCandidates = this.instance.query.snap.candidatesInRect(queryRect)
     const excludeSet = childrenIds?.length ? new Set([nodeId, ...childrenIds]) : new Set([nodeId])
     const candidates = baseCandidates.filter((candidate) => !excludeSet.has(candidate.id))
 

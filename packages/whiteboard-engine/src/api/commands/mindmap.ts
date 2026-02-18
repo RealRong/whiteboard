@@ -8,11 +8,12 @@ import type {
   Point
 } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { Instance, MindmapViewTree } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 
 export const createMindmap = (
-  instance: Instance
+  instance: InternalInstance
 ): Pick<Commands, 'mindmap'> => {
   const { core } = instance.runtime
   const { read, write, batchFrame } = instance.state
@@ -140,7 +141,7 @@ export const createMindmap = (
   }
 
   const getTreeView = (treeId: NodeId): MindmapViewTree | undefined =>
-    instance.view.read('mindmap.trees').find((item) => item.id === treeId)
+    instance.view.mindmap.tree(treeId)
 
   const getNodeRects = (item: MindmapViewTree, baseOffset = item.node.position) =>
     mindmapDrag.buildNodeRectMap({

@@ -16,15 +16,15 @@ const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
 
 const useEdgeIds = () => {
   const instance = useInstance()
-  const [edgeIds, setEdgeIds] = useState<EdgeId[]>(() => instance.view.getEdgeIds())
+  const [edgeIds, setEdgeIds] = useState<EdgeId[]>(() => instance.view.edge.ids())
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getEdgeIds()
+      const next = instance.view.edge.ids()
       setEdgeIds((prev) => (isSameIdOrder(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchEdgeIds(update)
+    return instance.view.edge.watchIds(update)
   }, [instance])
 
   return edgeIds
@@ -32,15 +32,15 @@ const useEdgeIds = () => {
 
 const useEdgePath = (edgeId: EdgeId) => {
   const instance = useInstance()
-  const [path, setPath] = useState<EdgePathEntry | undefined>(() => instance.view.getEdgePath(edgeId))
+  const [path, setPath] = useState<EdgePathEntry | undefined>(() => instance.view.edge.path(edgeId))
 
   useEffect(() => {
     const update = () => {
-      const next = instance.view.getEdgePath(edgeId)
+      const next = instance.view.edge.path(edgeId)
       setPath((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.watchEdgePath(edgeId, update)
+    return instance.view.edge.watchPath(edgeId, update)
   }, [edgeId, instance])
 
   return path
@@ -90,7 +90,19 @@ export const EdgeLayer = () => {
   const stateSelectedEdgeId = useWhiteboardSelector('edgeSelection')
   const hitTestThresholdScreen = instance.runtime.config.edge.hitTestThresholdScreen
   const selectEdge = instance.commands.edge.select
-  const insertPointAtClient = instance.commands.edge.insertRoutingPointAtClient
+  const insertRoutingPoint = instance.commands.edge.insertRoutingPoint
+  const clientToWorld = instance.runtime.viewport.clientToWorld
+  const nearestEdgeSegment = instance.query.geometry.nearestEdgeSegment
+
+  const insertPointAtClient = useCallback(
+    (edge: Edge, pathPoints: Point[], clientX: number, clientY: number) => {
+      const pointWorld = clientToWorld(clientX, clientY)
+      const segmentIndex = nearestEdgeSegment(pointWorld, pathPoints)
+      insertRoutingPoint(edge, pathPoints, segmentIndex, pointWorld)
+      selectEdge(edge.id)
+    },
+    [clientToWorld, insertRoutingPoint, nearestEdgeSegment, selectEdge]
+  )
 
   const handlePathPointerDown = useCallback(
     (edge: Edge, pathPoints: Point[], event: ReactPointerEvent<SVGPathElement>) => {

@@ -1,5 +1,5 @@
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance'
+import type { Instance } from '@engine-types/instance/instance'
 import type { NodeId } from '@whiteboard/core'
 import type { SelectionMode } from '@engine-types/state'
 

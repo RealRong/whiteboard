@@ -1,7 +1,7 @@
-import type { Instance } from '@engine-types/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 
 type Options = {
-  instance: Instance
+  instance: InternalInstance
   enabled: boolean
 }
 

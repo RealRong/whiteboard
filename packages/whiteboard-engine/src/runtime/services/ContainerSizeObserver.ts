@@ -1,7 +1,7 @@
 import type {
   ContainerRect,
   ContainerSizeObserver as ContainerSizeObserverApi
-} from '@engine-types/instance'
+} from '@engine-types/instance/services'
 
 const getElementRectSnapshot = (element: Element): ContainerRect => {
   const rect = element.getBoundingClientRect()

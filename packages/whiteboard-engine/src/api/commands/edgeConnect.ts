@@ -1,22 +1,14 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance'
-import { type ConnectTo, getAnchorFromPoint, isSameConnectTo } from '../../kernel/query'
+import type { Instance } from '@engine-types/instance/instance'
+import { type ConnectTo, isSameConnectTo } from '../../kernel/query'
 
 class Connect {
   private readonly instance: Instance
-  private readonly anchorSnap: { snapMin: number; snapRatio: number }
 
   constructor(instance: Instance) {
     this.instance = instance
-    this.anchorSnap = {
-      snapMin: instance.runtime.config.edge.anchorSnapMin,
-      snapRatio: instance.runtime.config.edge.anchorSnapRatio
-    }
   }
-
-  private toWorld = (clientX: number, clientY: number) =>
-    this.instance.runtime.viewport.clientToWorld(clientX, clientY)
 
   private snapAt = (point: Point): ConnectTo | undefined => {
     const { config, viewport } = this.instance.runtime
@@ -25,7 +17,7 @@ class Connect {
         config.edge.anchorSnapMin,
         Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
       ) / Math.max(viewport.getZoom(), 0.0001)
-    const nodeRects = this.instance.query.getNodeRects()
+    const nodeRects = this.instance.query.canvas.nodeRects()
     let best:
       | {
           nodeId: NodeId
@@ -43,12 +35,7 @@ class Connect {
       const outsideDistance = Math.hypot(dx, dy)
       if (outsideDistance > snapThresholdWorld) continue
 
-      const { anchor, point: anchorPoint } = getAnchorFromPoint(
-        entry.rect,
-        entry.rotation,
-        point,
-        this.anchorSnap
-      )
+      const { anchor, point: anchorPoint } = this.instance.query.geometry.anchorFromPoint(entry.rect, entry.rotation, point)
       const distance = Math.hypot(anchorPoint.x - point.x, anchorPoint.y - point.y)
       if (!best || distance < best.distance) {
         best = {
@@ -93,9 +80,9 @@ class Connect {
   }
 
   startFromPoint: Commands['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
-    const entry = this.instance.query.getNodeRectById(nodeId)
+    const entry = this.instance.query.canvas.nodeRect(nodeId)
     if (!entry) return
-    const { anchor } = getAnchorFromPoint(entry.rect, entry.rotation, pointWorld, this.anchorSnap)
+    const { anchor } = this.instance.query.geometry.anchorFromPoint(entry.rect, entry.rotation, pointWorld)
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
       from: { nodeId, anchor },
@@ -131,10 +118,6 @@ class Connect {
       }
       return { ...prev, to: { pointWorld } }
     })
-  }
-
-  updateToClient: Commands['edgeConnect']['updateToClient'] = (clientX, clientY) => {
-    this.updateTo(this.toWorld(clientX, clientY))
   }
 
   commitTo: Commands['edgeConnect']['commitTo'] = (pointWorld) => {
@@ -174,10 +157,6 @@ class Connect {
     this.finish()
   }
 
-  commitToClient: Commands['edgeConnect']['commitToClient'] = (clientX, clientY) => {
-    this.commitTo(this.toWorld(clientX, clientY))
-  }
-
   cancel: Commands['edgeConnect']['cancel'] = () => {
     this.finish()
   }
@@ -197,10 +176,6 @@ class Connect {
     })
   }
 
-  updateHoverAtClient: Commands['edgeConnect']['updateHoverAtClient'] = (clientX, clientY) => {
-    this.updateHover(this.toWorld(clientX, clientY))
-  }
-
   handleNodePointerDown: Commands['edgeConnect']['handleNodePointerDown'] = (
     nodeId,
     pointWorld,
@@ -217,12 +192,9 @@ class Connect {
     startFromPoint: this.startFromPoint,
     startReconnect: this.startReconnect,
     updateTo: this.updateTo,
-    updateToClient: this.updateToClient,
     commitTo: this.commitTo,
-    commitToClient: this.commitToClient,
     cancel: this.cancel,
     updateHover: this.updateHover,
-    updateHoverAtClient: this.updateHoverAtClient,
     handleNodePointerDown: this.handleNodePointerDown
   })
 }

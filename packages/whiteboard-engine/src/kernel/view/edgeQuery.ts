@@ -2,10 +2,10 @@ import { getEdgePath } from '@whiteboard/core'
 import type { Edge, EdgeId, Point } from '@whiteboard/core'
 import type {
   EdgePathEntry,
-  EdgeEndpoints,
-  Query,
-  State
-} from '@engine-types/instance'
+  EdgeEndpoints
+} from '@engine-types/instance/view'
+import type { Query } from '@engine-types/instance/query'
+import type { State } from '@engine-types/instance/state'
 import type { EdgeConnectState, EdgeReconnectInfo } from '@engine-types/state'
 import { toEdgePathSignature, toNodeGeometrySignature } from '../cache'
 import {
@@ -54,8 +54,8 @@ const isSameEdgePathEntryList = (left: EdgePathEntry[], right: EdgePathEntry[]) 
 
 export const createEdgeViewQuery = ({ readState, query }: Options) => {
   const getEndpoints = (edge: Edge): EdgeEndpoints | undefined => {
-    const sourceEntry = query.getNodeRectById(edge.source.nodeId)
-    const targetEntry = query.getNodeRectById(edge.target.nodeId)
+    const sourceEntry = query.canvas.nodeRect(edge.source.nodeId)
+    const targetEntry = query.canvas.nodeRect(edge.target.nodeId)
     if (!sourceEntry || !targetEntry) return undefined
 
     const sourceCenter = getRectCenter(sourceEntry.rect)
@@ -92,7 +92,7 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
     value: EdgeConnectPointInput | undefined,
     options: {
       allowPointWorld: boolean
-      getCachedEntry: (nodeId: EdgeConnectFrom['nodeId']) => ReturnType<Query['getNodeRectById']>
+      getCachedEntry: (nodeId: EdgeConnectFrom['nodeId']) => ReturnType<Query['canvas']['nodeRect']>
     }
   ) => {
     if (!value) return undefined
@@ -108,11 +108,11 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
   }
 
   const getPreview = (edgeConnect: EdgeConnectState): EdgeConnectPreview => {
-    const nodeRectCache = new Map<EdgeConnectFrom['nodeId'], ReturnType<Query['getNodeRectById']> | null>()
+    const nodeRectCache = new Map<EdgeConnectFrom['nodeId'], ReturnType<Query['canvas']['nodeRect']> | null>()
     const getCachedEntry = (nodeId: EdgeConnectFrom['nodeId']) => {
       const cached = nodeRectCache.get(nodeId)
       if (cached !== undefined) return cached ?? undefined
-      const entry = query.getNodeRectById(nodeId)
+      const entry = query.canvas.nodeRect(nodeId)
       nodeRectCache.set(nodeId, entry ?? null)
       return entry
     }
@@ -136,7 +136,7 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
   }
 
   const getNodeGeometrySignature = (nodeId: EdgePathEntry['edge']['source']['nodeId']) =>
-    toNodeGeometrySignature(query.getNodeRectById(nodeId))
+    toNodeGeometrySignature(query.canvas.nodeRect(nodeId))
 
   const getEdgeGeometrySignature = (edge: EdgePathEntry['edge']) =>
     toEdgePathSignature(edge, getNodeGeometrySignature)
@@ -214,7 +214,7 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
     edgeOrderIds = nextEdgeOrderIds
   }
 
-  query.watchNodeChanges((nodeIds) => {
+  query.canvas.watchNodes((nodeIds) => {
     nodeIds.forEach((nodeId) => {
       pendingChangedNodeIds.add(nodeId)
     })
@@ -311,7 +311,7 @@ export const createEdgeViewQuery = ({ readState, query }: Options) => {
   } | undefined => {
     if (!to) return undefined
     if (to.nodeId && to.anchor) {
-      const entry = query.getNodeRectById(to.nodeId)
+      const entry = query.canvas.nodeRect(to.nodeId)
       if (entry) {
         return {
           point: getAnchorPoint(entry.rect, to.anchor, entry.rotation),
