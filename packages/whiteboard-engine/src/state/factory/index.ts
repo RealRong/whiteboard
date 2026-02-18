@@ -2,15 +2,12 @@ import type { Document, Viewport } from '@whiteboard/core'
 import type { GraphProjector } from '@engine-types/graph'
 import type {
   State,
-  StateKey,
-  StateSnapshot,
+  WritableStateKey,
   WritableStateSnapshot
 } from '@engine-types/instance/state'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
 import { createGraphProjector } from '../../graph'
 import { WritableStore } from '../../kernel/state'
-import { DERIVED_STATE_KEYS } from '../keys'
-import type { DerivedStateKey, NativeStateKey } from '../keys'
 import { createWritableStateSnapshot } from '../writable'
 
 type Result = {
@@ -22,8 +19,6 @@ type Result = {
 type Options = {
   doc?: Document | null
 }
-
-type DerivedSnapshot = Pick<StateSnapshot, DerivedStateKey>
 
 const toViewport = (
   doc: Document | null,
@@ -59,64 +54,47 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     getDoc: () => currentDoc
   })
 
-  const derivedListeners = new Map<DerivedStateKey, Set<() => void>>(
-    DERIVED_STATE_KEYS.map((key) => [key, new Set()])
-  )
-  const isDerivedStateKey = (key: StateKey): key is DerivedStateKey =>
-    key === 'viewport'
+  const viewportListeners = new Set<() => void>()
+  let viewportSnapshot = toViewport(currentDoc)
 
-  const readDerivedSnapshot = (previous?: DerivedSnapshot): DerivedSnapshot => {
-    return {
-      viewport: toViewport(currentDoc, previous?.viewport)
+  const readState = ((key) => {
+    if (key === 'viewport') {
+      return viewportSnapshot
     }
-  }
-
-  let derivedSnapshot = readDerivedSnapshot()
-
-  const readState = ((key: StateKey) => {
-    if (isDerivedStateKey(key)) {
-      derivedSnapshot = readDerivedSnapshot(derivedSnapshot)
-      return derivedSnapshot[key]
-    }
-    return store.get(key as NativeStateKey) as StateSnapshot[NativeStateKey]
+    return store.get(key as WritableStateKey)
   }) as State['read']
 
-  const emitDerivedChanges = () => {
-    const nextSnapshot = readDerivedSnapshot(derivedSnapshot)
-    DERIVED_STATE_KEYS.forEach((key) => {
-      const changed = !Object.is(nextSnapshot[key], derivedSnapshot[key])
-      if (!changed) return
-      const listeners = derivedListeners.get(key)
-      if (!listeners?.size) return
-      listeners.forEach((listener) => listener())
-    })
+  const syncViewport = () => {
+    const nextViewport = toViewport(currentDoc, viewportSnapshot)
+    if (Object.is(nextViewport, viewportSnapshot)) return
+    viewportSnapshot = nextViewport
+    if (!viewportListeners.size) return
+    viewportListeners.forEach((listener) => listener())
+  }
 
+  const syncDocDerived = () => {
+    syncViewport()
     graph.flush('doc')
-    derivedSnapshot = nextSnapshot
   }
 
   const watchState: State['watch'] = (key, listener) => {
-    if (isDerivedStateKey(key)) {
-      const listeners = derivedListeners.get(key) ?? new Set()
-      listeners.add(listener)
-      derivedListeners.set(key, listeners)
+    if (key === 'viewport') {
+      viewportListeners.add(listener)
       return () => {
-        const current = derivedListeners.get(key)
-        if (!current) return
-        current.delete(listener)
+        viewportListeners.delete(listener)
       }
     }
-    return store.watch(key as NativeStateKey, listener)
+    return store.watch(key as WritableStateKey, listener)
   }
 
-  const writeState: State['write'] = (key, next) => store.set(key as NativeStateKey, next as never)
+  const writeState: State['write'] = (key, next) => store.set(key, next as never)
   const batchState: State['batch'] = (action) => store.batch(action)
   const batchFrameState: State['batchFrame'] = (action) => store.batchFrame(action)
 
   const replaceDoc = (doc: Document | null) => {
     if (currentDoc === doc) return
     currentDoc = doc
-    emitDerivedChanges()
+    syncDocDerived()
   }
 
   const state: State = {

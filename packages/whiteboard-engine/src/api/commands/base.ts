@@ -31,9 +31,7 @@ export const createBase = (
   return {
     doc: {
       replace: (doc) => {
-        if (instance.runtime.docRef.current !== doc) {
-          instance.runtime.docRef.current = doc
-        }
+        instance.runtime.docRef.current = doc
         replaceDoc(doc)
       }
     },

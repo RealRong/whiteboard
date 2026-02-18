@@ -32,14 +32,6 @@ type Options = {
   platform: ShortcutContext['platform']
 }
 
-const PROJECTOR_KEYS = new Set<ViewKey>([
-  'edge.entries',
-  'edge.paths',
-  'edge.reconnect',
-  'mindmap.roots',
-  'mindmap.trees'
-])
-
 const isGraphDependency = (key: ViewDependencyKey): key is Extract<ViewDependencyKey, `graph.${string}`> =>
   key.startsWith('graph.')
 
@@ -82,12 +74,6 @@ export const createViewRegistry = ({
         })
       }
       return state.watch(key, listener)
-    },
-    project: (keys, read) => {
-      keys.forEach((key) => {
-        if (!PROJECTOR_KEYS.has(key)) return
-        read(key)
-      })
     }
   })
 

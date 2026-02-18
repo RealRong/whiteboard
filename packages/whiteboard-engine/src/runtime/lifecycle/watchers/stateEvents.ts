@@ -3,6 +3,7 @@ import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { HistoryState } from '@engine-types/state'
+import { createWatcherLifecycle } from './lifecycle'
 
 type Options = {
   state: Instance['state']
@@ -82,12 +83,6 @@ export const createStateEvents = ({
   state,
   emit
 }: Options): StateEventsWatcher => {
-  let started = false
-  let offToolWatch: (() => void) | null = null
-  let offViewportWatch: (() => void) | null = null
-  let offHistoryWatch: (() => void) | null = null
-  let offMindmapLayoutWatch: (() => void) | null = null
-
   let lastTool: 'select' | 'edge' = 'select'
   let hasToolSnapshot = false
   let lastViewport: Viewport | null = null
@@ -148,50 +143,19 @@ export const createStateEvents = ({
   }
 
   const emitCurrent = () => {
-    if (!started) return
     emitToolChanged(true)
     emitViewportChanged(true)
     emitHistoryChanged(true)
     emitMindmapLayoutChanged(true)
   }
 
-  const start = () => {
-    if (started) return
-    started = true
-
-    if (!offToolWatch) {
-      offToolWatch = state.watch('tool', () => emitToolChanged(false))
-    }
-    if (!offViewportWatch) {
-      offViewportWatch = state.watch('viewport', () => emitViewportChanged(false))
-    }
-    if (!offHistoryWatch) {
-      offHistoryWatch = state.watch('history', () => emitHistoryChanged(false))
-    }
-    if (!offMindmapLayoutWatch) {
-      offMindmapLayoutWatch = state.watch(
-        'mindmapLayout',
-        () => emitMindmapLayoutChanged(false)
-      )
-    }
-
-    emitCurrent()
-  }
-
-  const stop = () => {
-    started = false
-    offToolWatch?.()
-    offToolWatch = null
-    offViewportWatch?.()
-    offViewportWatch = null
-    offHistoryWatch?.()
-    offHistoryWatch = null
-    offMindmapLayoutWatch?.()
-    offMindmapLayoutWatch = null
-  }
-
-  return {
-    start,
-    stop
-  }
+  return createWatcherLifecycle({
+    bind: () => [
+      state.watch('tool', () => emitToolChanged(false)),
+      state.watch('viewport', () => emitViewportChanged(false)),
+      state.watch('history', () => emitHistoryChanged(false)),
+      state.watch('mindmapLayout', () => emitMindmapLayoutChanged(false))
+    ],
+    emitCurrent
+  })
 }

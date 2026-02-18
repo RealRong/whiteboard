@@ -163,7 +163,7 @@ export const createGraphProjector = ({
   }
 
   const patchNodeOverrides: GraphProjector['patchNodeOverrides'] = (updates) => {
-    if (!updates.length) return []
+    if (!updates.length) return
 
     const changedNodeIds: NodeId[] = []
     updates.forEach((update) => {
@@ -178,19 +178,18 @@ export const createGraphProjector = ({
       changedNodeIds.push(update.id)
     })
 
-    if (!changedNodeIds.length) return changedNodeIds
+    if (!changedNodeIds.length) return
     reportDirty(changedNodeIds)
-    return changedNodeIds
   }
 
   const clearNodeOverrides: GraphProjector['clearNodeOverrides'] = (ids) => {
-    if (!nodeOverrides.size) return []
+    if (!nodeOverrides.size) return
 
     if (!ids || !ids.length) {
       const changedNodeIds = Array.from(nodeOverrides.keys())
       nodeOverrides.clear()
       reportDirty(changedNodeIds)
-      return changedNodeIds
+      return
     }
 
     const changedNodeIds: NodeId[] = []
@@ -199,9 +198,8 @@ export const createGraphProjector = ({
       nodeOverrides.delete(id)
       changedNodeIds.push(id)
     })
-    if (!changedNodeIds.length) return changedNodeIds
+    if (!changedNodeIds.length) return
     reportDirty(changedNodeIds)
-    return changedNodeIds
   }
 
   const readNodeOverrides: GraphProjector['readNodeOverrides'] = () =>

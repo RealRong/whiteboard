@@ -35,8 +35,8 @@ export type GraphProjector = {
   read: () => GraphSnapshot
   readNode: (nodeId: NodeId) => Node | undefined
   readNodeOverrides: () => NodeViewUpdate[]
-  patchNodeOverrides: (updates: NodeViewUpdate[]) => NodeId[]
-  clearNodeOverrides: (ids?: NodeId[]) => NodeId[]
+  patchNodeOverrides: (updates: NodeViewUpdate[]) => void
+  clearNodeOverrides: (ids?: NodeId[]) => void
   watch: (listener: (payload: GraphChange) => void) => () => void
   reportDirty: (nodeIds: NodeId[], source?: GraphChangeSource) => void
   reportOrderChanged: (source?: GraphChangeSource) => void

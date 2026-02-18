@@ -39,7 +39,14 @@ export const createTransient = (
       })
       .filter((item): item is { id: NodeId; patch: { position?: Point; size?: Size } } => Boolean(item))
 
-    if (!ops.length) return
+    if (!ops.length) {
+      if (updates) {
+        clearNodeOverrides(updates.map((item) => item.id))
+      } else {
+        clearNodeOverrides()
+      }
+      return
+    }
 
     core.model.node.updateMany(ops)
     if (updates) {
