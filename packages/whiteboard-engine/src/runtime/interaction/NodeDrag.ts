@@ -1,7 +1,7 @@
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
 import type { NodeViewUpdate } from '@engine-types/graph'
-import type { Instance } from '@engine-types/instance/instance'
-import type { NodeDrag as NodeDragApi } from '@engine-types/instance/services'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { RuntimeInteraction } from '@engine-types/instance/runtime'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import {
   findSmallestGroupAtPoint,
@@ -12,6 +12,8 @@ import {
 } from '../../node/utils/group'
 import { getNodeAABB, rectContains } from '../../kernel/geometry'
 import { computeSnap } from '../../node/utils/snap'
+
+type NodeDragApi = RuntimeInteraction['nodeDrag']
 
 type DragChildren = {
   ids: NodeId[]
@@ -30,10 +32,10 @@ type DragSession = {
 }
 
 export class NodeDrag implements NodeDragApi {
-  private readonly instance: Instance
+  private readonly instance: InternalInstance
   private session: DragSession | null = null
 
-  constructor(instance: Instance) {
+  constructor(instance: InternalInstance) {
     this.instance = instance
   }
 
@@ -66,7 +68,10 @@ export class NodeDrag implements NodeDragApi {
   }
 
   private applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
-    void this.instance.runtime.core.dispatch({ type: 'node.update', id: nodeId, patch })
+    void this.instance.apply(
+      [{ type: 'node.update', id: nodeId, patch }],
+      { source: 'interaction' }
+    )
   }
 
   private buildGroupChildren = (groupNodes: Node[], nodeId: NodeId, origin: Point): DragChildren | undefined => {
@@ -333,15 +338,5 @@ export class NodeDrag implements NodeDragApi {
     this.instance.commands.transient.nodeOverrides.clear(ids)
     this.finish()
     return true
-  }
-
-  dispose: NodeDragApi['dispose'] = () => {
-    if (!this.session) {
-      this.clearGuides()
-      this.setHoveredGroup(undefined)
-      this.setDragState(undefined)
-      return
-    }
-    this.finish()
   }
 }

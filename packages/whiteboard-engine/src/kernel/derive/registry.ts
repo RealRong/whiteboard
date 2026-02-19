@@ -1,4 +1,9 @@
 import { RevisionStore } from '../store'
+import {
+  DEFAULT_SAMPLE_WINDOW_SIZE,
+  percentile,
+  pushSample
+} from '../perf/sampling'
 
 type DeriveResolver<TKey extends string, TDependencyKey extends string, TSnapshot extends Record<TKey, unknown>> = {
   deps: TDependencyKey[]
@@ -13,6 +18,8 @@ type DeriveMetrics = {
   recomputeCount: number
   cacheHitCount: number
   cacheMissCount: number
+  sampleWindowSize: number
+  samplesMs: number[]
   totalComputeMs: number
   maxComputeMs: number
   lastComputeMs: number
@@ -35,6 +42,10 @@ type DerivedRegistryDebugMetric = {
   cacheHitCount: number
   cacheMissCount: number
   cacheHitRate: number
+  sampleCount: number
+  sampleWindowSize: number
+  p50ComputeMs: number
+  p95ComputeMs: number
   lastComputeMs: number
   avgComputeMs: number
   maxComputeMs: number
@@ -62,6 +73,8 @@ const createEmptyMetrics = (): DeriveMetrics => ({
   recomputeCount: 0,
   cacheHitCount: 0,
   cacheMissCount: 0,
+  sampleWindowSize: DEFAULT_SAMPLE_WINDOW_SIZE,
+  samplesMs: [],
   totalComputeMs: 0,
   maxComputeMs: 0,
   lastComputeMs: 0,
@@ -78,6 +91,10 @@ const toDebugMetric = (entry: DeriveCacheEntry<unknown>): DerivedRegistryDebugMe
     cacheHitCount: metrics.cacheHitCount,
     cacheMissCount: metrics.cacheMissCount,
     cacheHitRate: totalReads > 0 ? metrics.cacheHitCount / totalReads : 1,
+    sampleCount: metrics.samplesMs.length,
+    sampleWindowSize: metrics.sampleWindowSize,
+    p50ComputeMs: percentile(metrics.samplesMs, 50),
+    p95ComputeMs: percentile(metrics.samplesMs, 95),
     lastComputeMs: metrics.lastComputeMs,
     avgComputeMs: metrics.recomputeCount > 0 ? metrics.totalComputeMs / metrics.recomputeCount : 0,
     maxComputeMs: metrics.maxComputeMs,
@@ -186,6 +203,7 @@ export const createDerivedRegistry = <
 
     entry.metrics.recomputeCount += 1
     entry.metrics.cacheMissCount += 1
+    pushSample(entry.metrics.samplesMs, elapsed, entry.metrics.sampleWindowSize)
     entry.metrics.totalComputeMs += elapsed
     entry.metrics.maxComputeMs = Math.max(entry.metrics.maxComputeMs, elapsed)
     entry.metrics.lastComputeMs = elapsed

@@ -30,7 +30,19 @@ export const createMindmapRegistry = ({
   let mindmapTreeIds: NodeId[] = []
   let mindmapTreesById = new Map<NodeId, MindmapTreeViewEntry>()
 
+  const hasSubscribers = () =>
+    mindmapTreeIdsListeners.size > 0 || mindmapTreeListeners.size > 0
+
+  const pull = () => {
+    const trees = readTrees()
+    mindmapTreeIds = trees.map((tree) => tree.id)
+    mindmapTreesById = new Map<NodeId, MindmapTreeViewEntry>(
+      trees.map((tree) => [tree.id, tree])
+    )
+  }
+
   const sync: MindmapRegistry['sync'] = () => {
+    if (!hasSubscribers()) return
     const trees = readTrees()
     const nextIds = trees.map((tree) => tree.id)
     const nextById = new Map<NodeId, MindmapTreeViewEntry>()
@@ -64,10 +76,25 @@ export const createMindmapRegistry = ({
 
   return {
     sync,
-    getMindmapTreeIds: () => mindmapTreeIds,
-    watchMindmapTreeIds: (listener) => watchSet(mindmapTreeIdsListeners, listener),
-    getMindmapTree: (treeId) => mindmapTreesById.get(treeId),
-    watchMindmapTree: (treeId, listener) =>
-      watchEntity(mindmapTreeListeners, treeId, listener)
+    getMindmapTreeIds: () => {
+      if (!hasSubscribers()) {
+        pull()
+      }
+      return mindmapTreeIds
+    },
+    watchMindmapTreeIds: (listener) => {
+      pull()
+      return watchSet(mindmapTreeIdsListeners, listener)
+    },
+    getMindmapTree: (treeId) => {
+      if (!hasSubscribers()) {
+        pull()
+      }
+      return mindmapTreesById.get(treeId)
+    },
+    watchMindmapTree: (treeId, listener) => {
+      pull()
+      return watchEntity(mindmapTreeListeners, treeId, listener)
+    }
   }
 }

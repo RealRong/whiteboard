@@ -1,4 +1,4 @@
-import type { Core, Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { Instance } from '@engine-types/instance/instance'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
@@ -136,13 +136,13 @@ const resolveGroupsToProcess = ({
 }
 
 const applyGroupAutoFit = ({
-  core,
+  apply,
   nodes,
   group,
   nodeSize,
   defaultPadding
 }: {
-  core: Core
+  apply: Instance['apply']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -162,16 +162,16 @@ const applyGroupAutoFit = ({
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
-  void core.dispatch(
-    {
+  void apply(
+    [{
       type: 'node.update',
       id: group.id,
       patch: {
         position: { x: expanded.x, y: expanded.y },
         size: { width: expanded.width, height: expanded.height }
       }
-    },
-    { origin: 'system' }
+    }],
+    { source: 'system' }
   )
 }
 
@@ -225,7 +225,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
 
     groupsToProcess.forEach((group) => {
       applyGroupAutoFit({
-        core: this.instance.runtime.core,
+        apply: this.instance.apply,
         nodes,
         group,
         nodeSize,
@@ -262,9 +262,10 @@ export class GroupAutoFit implements GroupAutoFitApi {
   start: GroupAutoFitApi['start'] = () => {
     this.stop()
 
-    const offAfter = this.instance.runtime.core.changes.onAfter(({ changes }) => {
-      const hasNodeChange = changes.operations.some((operation) => operation.type.startsWith('node.'))
-      if (!hasNodeChange) return
+    const offAfter = this.instance.events.on('change.applied', ({ types, operationTypes }) => {
+      const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
+      const hasRelevantChange = hasNodeOperation || types.includes('doc.reset')
+      if (!hasRelevantChange) return
       this.scheduleSync()
     })
 

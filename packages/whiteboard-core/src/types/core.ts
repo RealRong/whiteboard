@@ -441,15 +441,17 @@ export interface DispatchSuccess {
 
 export type DispatchResult = DispatchSuccess | DispatchFailure
 
-export interface DispatchOptions {
+export interface CoreApplyOptions {
   origin?: Origin
-  transactionId?: string
 }
 
-export type IntentHandler = (
-  intent: Intent,
-  next: (intent: Intent) => Promise<DispatchResult>
-) => Promise<DispatchResult>
+export interface CoreBuildSuccess {
+  ok: true
+  operations: Operation[]
+  value?: unknown
+}
+
+export type CoreBuildResult = CoreBuildSuccess | DispatchFailure
 
 export interface TransactionOptions {
   origin?: Origin
@@ -460,6 +462,19 @@ export interface TransactionOptions {
 export interface TransactionResult<T = void> {
   result: T
   changes: ChangeSet[]
+}
+
+export interface CoreHistoryApi {
+  undo(): boolean
+  redo(): boolean
+  clear(): void
+  configure(config: Partial<CoreHistoryConfig>): void
+  getState(): CoreHistoryState
+  subscribe(listener: (state: CoreHistoryState) => void): () => void
+}
+
+export interface CoreTxApi {
+  <T>(fn: () => T | Promise<T>, options?: TransactionOptions): Promise<TransactionResult<T>>
 }
 
 export type CoreHistoryState = {
@@ -497,7 +512,12 @@ export interface Core {
     viewport(): Viewport
   }
 
-  dispatch(intent: Intent, options?: DispatchOptions): Promise<DispatchResult>
+  apply: {
+    build(intent: Intent): CoreBuildResult
+    intent(intent: Intent, options?: CoreApplyOptions): DispatchResult
+    operations(operations: Operation[], options?: CoreApplyOptions): DispatchResult
+    changeSet(changes: ChangeSet): DispatchResult
+  }
 
   model: {
     node: {
@@ -610,29 +630,16 @@ export interface Core {
       reset(): Promise<DispatchResult>
       fitToView(rect: Rect, options: { viewportSize: Size; padding?: number }): Promise<DispatchResult>
     }
-    history: {
-      undo(): boolean
-      redo(): boolean
-      clear(): void
-      configure(config: Partial<CoreHistoryConfig>): void
-      getState(): CoreHistoryState
-      subscribe(listener: (state: CoreHistoryState) => void): () => void
-    }
-    transaction<T>(
-      fn: () => T | Promise<T>,
-      options?: TransactionOptions
-    ): Promise<TransactionResult<T>>
   }
+
+  history: CoreHistoryApi
+  tx: CoreTxApi
 
   registries: CoreRegistries
 
   events: {
     on<T extends CoreEvent>(type: T['type'], handler: (e: T) => void): void
     off<T extends CoreEvent>(type: T['type'], handler: (e: T) => void): void
-  }
-
-  intent: {
-    use(handler: IntentHandler): void
   }
 
   changes: {

@@ -1,6 +1,6 @@
 import { getSide, type MindmapNodeId, type MindmapTree } from '@whiteboard/core'
 import type { MindmapLayoutOptions, Rect } from '@whiteboard/core'
-import type { MindmapSubtreeDropTarget } from '@engine-types/instance/services'
+import type { MindmapDragDropTarget } from '@engine-types/state'
 import { DEFAULT_TUNING } from '../config'
 
 type ComputeEdgeAlignmentResult = {
@@ -123,7 +123,7 @@ export const computeSubtreeDropTarget = ({
   dragExcludeIds,
   layoutOptions,
   snapThreshold = DEFAULT_TUNING.mindmap.dropSnapThreshold
-}: SubtreeDropOptions): MindmapSubtreeDropTarget | undefined => {
+}: SubtreeDropOptions): MindmapDragDropTarget | undefined => {
   let hoveredId: MindmapNodeId | undefined
   let hoveredRect: Rect | undefined
   let hoveredAlign: ComputeEdgeAlignmentResult | undefined

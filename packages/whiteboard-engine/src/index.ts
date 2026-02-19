@@ -13,6 +13,16 @@ export {
 
 export type { Commands } from './types/commands'
 export type {
+  Change,
+  ChangeSet,
+  ChangeSetInput,
+  ChangeSource,
+  ApplyOptions,
+  ApplyMetrics,
+  AppliedChangeSummary,
+  ApplyResult
+} from './types/change'
+export type {
   CreateEngineOptions,
   Instance,
   InstanceConfig,

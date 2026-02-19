@@ -21,7 +21,7 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => {
       if (event.button !== 0) return
-      const handled = instance.commands.mindmap.startDrag({
+      const handled = instance.runtime.interaction.mindmapDrag.start({
         treeId: mindmapNode.id,
         nodeId,
         pointerId: event.pointerId,
@@ -32,7 +32,7 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
       event.preventDefault()
       event.stopPropagation()
     },
-    [instance.commands.mindmap, mindmapNode.id]
+    [instance.runtime.interaction.mindmapDrag, mindmapNode.id]
   )
 
   const handleAddChild = useCallback(

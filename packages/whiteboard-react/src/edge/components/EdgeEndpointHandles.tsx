@@ -10,7 +10,7 @@ export const EdgeEndpointHandles = () => {
   const handleStartReconnect = (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    instance.commands.edgeConnect.startReconnect(edgeId, end, event.pointerId)
+    instance.runtime.interaction.edgeConnect.startReconnect(edgeId, end, event.pointerId)
   }
 
   const renderHandle = (end: 'source' | 'target', point: { x: number; y: number }) => (

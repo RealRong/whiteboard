@@ -16,7 +16,7 @@ export const startQueryProjector = ({ graph, indexes }: Options) => {
   }
 
   syncFull()
-  return graph.watch(({ dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }) => {
+  return graph.watch(({ source, dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }) => {
     if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
       return
     }
@@ -25,7 +25,9 @@ export const startQueryProjector = ({ graph, indexes }: Options) => {
       return
     }
     if (dirtyNodeIds?.length) {
-      const done = indexes.syncDirty(dirtyNodeIds, graph.readNode)
+      const done = indexes.syncDirty(dirtyNodeIds, graph.readNode, {
+        skipSnap: source === 'runtime'
+      })
       if (!done) {
         syncFull()
         return

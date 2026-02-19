@@ -38,7 +38,7 @@ class ShortcutsImpl implements Shortcuts {
     this.shortcutManager = createShortcutManager()
 
     this.commandHandlers = createHandlers({
-      runTransaction: instance.runtime.core.commands.transaction,
+      runTransaction: instance.runtime.core.tx,
       node: {
         create: instance.commands.node.create,
         delete: instance.commands.node.delete

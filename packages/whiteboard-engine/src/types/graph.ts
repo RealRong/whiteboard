@@ -21,6 +21,7 @@ export type GraphSnapshot = {
 }
 
 export type GraphChange = {
+  source?: GraphChangeSource
   dirtyNodeIds?: NodeId[]
   orderChanged?: true
   fullSync?: true

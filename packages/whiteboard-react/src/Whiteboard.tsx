@@ -105,7 +105,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
-    instance.commands.doc.replace(doc)
+    void instance.apply([{ type: 'doc.reset', doc }], { source: 'import' })
   }, [doc, instance])
 
   const lifecycleConfig = useMemo(

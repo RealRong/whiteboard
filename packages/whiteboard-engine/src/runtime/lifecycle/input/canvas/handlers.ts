@@ -2,7 +2,6 @@ import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import { createShortcut } from '../shortcut/handlers'
 import type { CanvasInput } from '../types'
-import { createEdgeHover } from './edgeHover'
 import { createSelection } from './selection'
 import { createViewport } from './viewport'
 
@@ -17,10 +16,7 @@ export const createCanvasInput = ({ instance, config }: Options): CanvasInput =>
     enabled: config.tool !== 'edge',
     minDragDistance: instance.runtime.config.node.selectionMinDragDistance
   })
-  const edgeHoverHandlers = createEdgeHover({
-    instance,
-    enabled: config.tool === 'edge'
-  })
+  const edgeHoverEnabled = config.tool === 'edge'
   const viewportHandlers = createViewport({
     instance,
     minZoom: config.viewportConfig.minZoom,
@@ -47,7 +43,11 @@ export const createCanvasInput = ({ instance, config }: Options): CanvasInput =>
       },
       handlePointerMove: (event) => {
         viewportHandlers.onPointerMove(event)
-        edgeHoverHandlers.onPointerMove(event)
+        instance.runtime.interaction.edgeConnect.hoverMove(
+          event.clientX,
+          event.clientY,
+          edgeHoverEnabled
+        )
       },
       handlePointerUp: (event) => {
         viewportHandlers.onPointerUp(event)
@@ -67,7 +67,7 @@ export const createCanvasInput = ({ instance, config }: Options): CanvasInput =>
     onWheel: viewportHandlers.onWheel,
     cancel: () => {
       selectionHandlers.cancel()
-      edgeHoverHandlers.cancel()
+      instance.runtime.interaction.edgeConnect.hoverCancel()
     }
   }
 }

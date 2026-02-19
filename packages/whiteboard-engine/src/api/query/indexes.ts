@@ -9,43 +9,70 @@ import type { SnapCandidate } from '@engine-types/node/snap'
 import { DEFAULT_TUNING } from '../../config'
 import { toNodeStateSignature, toRectSignature } from '../../kernel/cache'
 import { getNodeAABB, getNodeRect } from '../../kernel/geometry'
+import {
+  DEFAULT_SAMPLE_WINDOW_SIZE,
+  percentile,
+  pushSample
+} from '../../kernel/perf/sampling'
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
     : Date.now()
 
-const createMetrics = (): QueryDebugMetric => ({
+type QueryDebugMetricState = QueryDebugMetric & {
+  samplesMs: number[]
+}
+
+const createMetrics = (): QueryDebugMetricState => ({
   rebuildCount: 0,
   cacheHitCount: 0,
   cacheMissCount: 0,
   cacheHitRate: 1,
+  sampleCount: 0,
+  sampleWindowSize: DEFAULT_SAMPLE_WINDOW_SIZE,
+  p50RebuildMs: 0,
+  p95RebuildMs: 0,
   lastRebuildMs: 0,
   avgRebuildMs: 0,
   maxRebuildMs: 0,
   totalRebuildMs: 0,
-  lastRebuiltAt: undefined
+  lastRebuiltAt: undefined,
+  samplesMs: []
 })
 
-const updateHitRate = (metrics: QueryDebugMetric) => {
+const updateHitRate = (metrics: QueryDebugMetricState) => {
   const total = metrics.cacheHitCount + metrics.cacheMissCount
   metrics.cacheHitRate = total > 0 ? metrics.cacheHitCount / total : 1
 }
 
-const markReadHit = (metrics: QueryDebugMetric) => {
+const updateSampleStats = (metrics: QueryDebugMetricState) => {
+  metrics.sampleCount = metrics.samplesMs.length
+  metrics.p50RebuildMs = percentile(metrics.samplesMs, 50)
+  metrics.p95RebuildMs = percentile(metrics.samplesMs, 95)
+}
+
+const markReadHit = (metrics: QueryDebugMetricState) => {
   metrics.cacheHitCount += 1
   updateHitRate(metrics)
 }
 
-const markRebuild = (metrics: QueryDebugMetric, elapsedMs: number) => {
+const markRebuild = (metrics: QueryDebugMetricState, elapsedMs: number) => {
   metrics.rebuildCount += 1
   metrics.cacheMissCount += 1
+  pushSample(metrics.samplesMs, elapsedMs, metrics.sampleWindowSize)
+  updateSampleStats(metrics)
   metrics.lastRebuildMs = elapsedMs
   metrics.totalRebuildMs += elapsedMs
   metrics.maxRebuildMs = Math.max(metrics.maxRebuildMs, elapsedMs)
   metrics.avgRebuildMs = metrics.rebuildCount > 0 ? metrics.totalRebuildMs / metrics.rebuildCount : 0
   metrics.lastRebuiltAt = Date.now()
   updateHitRate(metrics)
+}
+
+const toSnapshotMetric = (metric: QueryDebugMetricState): QueryDebugMetric => {
+  const { samplesMs: _samplesMs, ...snapshot } = metric
+  return snapshot
 }
 
 const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
@@ -486,7 +513,10 @@ export type QueryIndexes = {
   syncFull: (nodes: Node[]) => void
   syncDirty: (
     nodeIds: NodeId[],
-    getNodeById: (nodeId: NodeId) => Node | undefined
+    getNodeById: (nodeId: NodeId) => Node | undefined,
+    options?: {
+      skipSnap?: boolean
+    }
   ) => boolean
   syncOrder: (orderedNodeIds: NodeId[]) => void
   watchNodeChanges: (listener: (nodeIds: NodeId[]) => void) => () => void
@@ -543,8 +573,9 @@ export const createQueryIndexes = ({
     emitNodeChanges(nodeRectUpdate.changedNodeIds)
   }
 
-  const syncDirty: QueryIndexes['syncDirty'] = (nodeIds, getNodeById) => {
+  const syncDirty: QueryIndexes['syncDirty'] = (nodeIds, getNodeById, options) => {
     if (!nodeIds.length) return true
+    const skipSnap = Boolean(options?.skipSnap)
 
     const canvasStartedAt = now()
     const nodeRectUpdate = nodeRectIndex.updateDirty(nodeIds, getNodeById)
@@ -555,16 +586,18 @@ export const createQueryIndexes = ({
       markRebuild(canvasMetrics, now() - canvasStartedAt)
     }
 
-    const snapStartedAt = now()
-    const snapUpdate = snapIndex.updateDirty(
-      nodeIds,
-      nodeRectIndex.getById
-    )
-    if (snapUpdate.requiresFullSync) {
-      return false
-    }
-    if (snapUpdate.changed) {
-      markRebuild(snapMetrics, now() - snapStartedAt)
+    if (!skipSnap) {
+      const snapStartedAt = now()
+      const snapUpdate = snapIndex.updateDirty(
+        nodeIds,
+        nodeRectIndex.getById
+      )
+      if (snapUpdate.requiresFullSync) {
+        return false
+      }
+      if (snapUpdate.changed) {
+        markRebuild(snapMetrics, now() - snapStartedAt)
+      }
     }
 
     emitNodeChanges(nodeRectUpdate.changedNodeIds)
@@ -612,8 +645,8 @@ export const createQueryIndexes = ({
       return snapIndex.queryInRect(rect)
     },
     getMetrics: () => ({
-      canvas: { ...canvasMetrics },
-      snap: { ...snapMetrics }
+      canvas: toSnapshotMetric(canvasMetrics),
+      snap: toSnapshotMetric(snapMetrics)
     }),
     resetMetrics: (target) => {
       if (target === 'canvas') {

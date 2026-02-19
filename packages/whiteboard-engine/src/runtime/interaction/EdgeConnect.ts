@@ -1,14 +1,28 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
-import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance/instance'
+import type { RuntimeInteraction } from '@engine-types/instance/runtime'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import { type ConnectTo, isSameConnectTo } from '../../kernel/query'
 
-class Connect {
+type EdgeConnectInteraction = RuntimeInteraction['edgeConnect']
+type ClientPoint = { x: number; y: number }
+
+export class EdgeConnect implements EdgeConnectInteraction {
   private readonly instance: Instance
+  private hoverPoint: ClientPoint | null = null
+  private hoverRafId: number | null = null
 
   constructor(instance: Instance) {
     this.instance = instance
+  }
+
+  private flushHover = () => {
+    this.hoverRafId = null
+    const point = this.hoverPoint
+    if (!point) return
+    this.hoverPoint = null
+    const pointWorld = this.instance.runtime.viewport.clientToWorld(point.x, point.y)
+    this.updateHover(pointWorld)
   }
 
   private snapAt = (point: Point): ConnectTo | undefined => {
@@ -68,7 +82,7 @@ class Connect {
     }))
   }
 
-  startFromHandle: Commands['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
+  startFromHandle: RuntimeInteraction['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
     const anchor: EdgeAnchor = { side, offset: DEFAULT_TUNING.edge.anchorOffset }
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
@@ -80,7 +94,7 @@ class Connect {
     })
   }
 
-  startFromPoint: Commands['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
+  startFromPoint: RuntimeInteraction['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
     const entry = this.instance.query.canvas.nodeRect(nodeId)
     if (!entry) return
     const { anchor } = this.instance.query.geometry.anchorFromPoint(entry.rect, entry.rotation, pointWorld)
@@ -94,7 +108,7 @@ class Connect {
     })
   }
 
-  startReconnect: Commands['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
+  startReconnect: RuntimeInteraction['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
     const visibleEdges = this.instance.graph.read().visibleEdges
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
@@ -110,7 +124,7 @@ class Connect {
     })
   }
 
-  updateTo: Commands['edgeConnect']['updateTo'] = (pointWorld) => {
+  updateTo: RuntimeInteraction['edgeConnect']['updateTo'] = (pointWorld) => {
     this.instance.state.write('edgeConnect', (prev) => {
       if (!prev.isConnecting || !prev.from) return prev
       const snap = this.snapAt(pointWorld)
@@ -121,7 +135,7 @@ class Connect {
     })
   }
 
-  commitTo: Commands['edgeConnect']['commitTo'] = (pointWorld) => {
+  commitTo: RuntimeInteraction['edgeConnect']['commitTo'] = (pointWorld) => {
     const currentState = this.instance.state.read('edgeConnect')
     if (!currentState.isConnecting || !currentState.from) return
 
@@ -135,34 +149,41 @@ class Connect {
       const visibleEdges = this.instance.graph.read().visibleEdges
       const edge = visibleEdges.find((item) => item.id === currentState.reconnect?.edgeId)
       if (edge) {
-        void this.instance.runtime.core.dispatch({
-          type: 'edge.update',
-          id: edge.id,
-          patch:
-            currentState.reconnect.end === 'source'
-              ? { source: { nodeId: snap.nodeId, anchor: snap.anchor } }
-              : { target: { nodeId: snap.nodeId, anchor: snap.anchor } }
-        })
+        void this.instance.apply(
+          [{
+            type: 'edge.update',
+            id: edge.id,
+            patch:
+              currentState.reconnect.end === 'source'
+                ? { source: { nodeId: snap.nodeId, anchor: snap.anchor } }
+                : { target: { nodeId: snap.nodeId, anchor: snap.anchor } }
+          }],
+          { source: 'interaction' }
+        )
       }
     } else {
-      void this.instance.runtime.core.dispatch({
-        type: 'edge.create',
-        payload: {
-          source: { nodeId: currentState.from.nodeId, anchor: currentState.from.anchor },
-          target: { nodeId: snap.nodeId, anchor: snap.anchor },
-          type: 'linear'
-        }
-      })
+      void this.instance.apply(
+        [{
+          type: 'edge.create',
+          payload: {
+            source: { nodeId: currentState.from.nodeId, anchor: currentState.from.anchor },
+            target: { nodeId: snap.nodeId, anchor: snap.anchor },
+            type: 'linear'
+          }
+        }],
+        { source: 'interaction' }
+      )
     }
 
     this.finish()
   }
 
-  cancel: Commands['edgeConnect']['cancel'] = () => {
+  cancel: RuntimeInteraction['edgeConnect']['cancel'] = () => {
     this.finish()
+    this.hoverCancel()
   }
 
-  updateHover: Commands['edgeConnect']['updateHover'] = (pointWorld) => {
+  updateHover: RuntimeInteraction['edgeConnect']['updateHover'] = (pointWorld) => {
     const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return
     const snap = this.snapAt(pointWorld)
@@ -177,7 +198,27 @@ class Connect {
     })
   }
 
-  handleNodePointerDown: Commands['edgeConnect']['handleNodePointerDown'] = (
+  hoverCancel: RuntimeInteraction['edgeConnect']['hoverCancel'] = () => {
+    if (this.hoverRafId !== null) {
+      cancelAnimationFrame(this.hoverRafId)
+      this.hoverRafId = null
+    }
+    this.hoverPoint = null
+  }
+
+  hoverMove: RuntimeInteraction['edgeConnect']['hoverMove'] = (clientX, clientY, enabled) => {
+    if (!enabled) {
+      this.hoverCancel()
+      return
+    }
+
+    this.hoverPoint = { x: clientX, y: clientY }
+    if (this.hoverRafId === null) {
+      this.hoverRafId = requestAnimationFrame(this.flushHover)
+    }
+  }
+
+  handleNodePointerDown: RuntimeInteraction['edgeConnect']['handleNodePointerDown'] = (
     nodeId,
     pointWorld,
     pointerId
@@ -187,19 +228,4 @@ class Connect {
     this.startFromPoint(nodeId, pointWorld, pointerId)
     return true
   }
-
-  createCommands = (): Commands['edgeConnect'] => ({
-    startFromHandle: this.startFromHandle,
-    startFromPoint: this.startFromPoint,
-    startReconnect: this.startReconnect,
-    updateTo: this.updateTo,
-    commitTo: this.commitTo,
-    cancel: this.cancel,
-    updateHover: this.updateHover,
-    handleNodePointerDown: this.handleNodePointerDown
-  })
-}
-
-export const createEdgeConnect = (instance: Instance): Commands['edgeConnect'] => {
-  return new Connect(instance).createCommands()
 }

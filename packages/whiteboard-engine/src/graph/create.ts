@@ -57,6 +57,7 @@ export const createGraphProjector = ({
 
     if (source === 'runtime') {
       return {
+        source,
         ...changeFields,
         dirtyNodeIds: pendingRuntimeDirtyIds.size
           ? Array.from(pendingRuntimeDirtyIds)
@@ -66,11 +67,13 @@ export const createGraphProjector = ({
     }
     if (docFullSyncRequested) {
       return {
+        source,
         ...changeFields,
         fullSync: true
       }
     }
     return {
+      source,
       ...changeFields,
       dirtyNodeIds: pendingDocDirtyIds.size
         ? Array.from(pendingDocDirtyIds)

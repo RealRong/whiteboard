@@ -146,6 +146,10 @@ export type ViewDebugMetric = {
   cacheHitCount: number
   cacheMissCount: number
   cacheHitRate: number
+  sampleCount: number
+  sampleWindowSize: number
+  p50ComputeMs: number
+  p95ComputeMs: number
   lastComputeMs: number
   avgComputeMs: number
   maxComputeMs: number

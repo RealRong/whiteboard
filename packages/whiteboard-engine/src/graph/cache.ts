@@ -21,6 +21,12 @@ type ViewNodesCache = {
   overrides: Map<NodeId, NodeOverride>
 }
 
+type ViewNodesUpdate = {
+  cache: ViewNodesCache
+  sourceNodesChanged: boolean
+  changedNodeIds: Set<NodeId>
+}
+
 const EMPTY_NODES: Node[] = []
 const EMPTY_EDGES: Edge[] = []
 const EMPTY_NODE_MAP = new Map<NodeId, Node>()
@@ -99,9 +105,13 @@ const updateViewNodesCache = (
   cache: ViewNodesCache,
   doc: Document,
   overrides: Map<NodeId, NodeOverride>
-): ViewNodesCache => {
+): ViewNodesUpdate => {
   if (cache.sourceNodesRef !== doc.nodes) {
-    return buildViewNodesCache(doc, overrides)
+    return {
+      cache: buildViewNodesCache(doc, overrides),
+      sourceNodesChanged: true,
+      changedNodeIds: new Set(doc.nodes.map((node) => node.id))
+    }
   }
 
   const changedNodeIds = new Set<NodeId>()
@@ -118,7 +128,11 @@ const updateViewNodesCache = (
   })
 
   if (!changedNodeIds.size) {
-    return cache
+    return {
+      cache,
+      sourceNodesChanged: false,
+      changedNodeIds
+    }
   }
 
   const nextNodes = cache.nodes.slice()
@@ -131,10 +145,14 @@ const updateViewNodesCache = (
   })
 
   return {
-    ...cache,
-    sourceNodesRef: doc.nodes,
-    nodes: nextNodes,
-    overrides: new Map(overrides)
+    cache: {
+      ...cache,
+      sourceNodesRef: doc.nodes,
+      nodes: nextNodes,
+      overrides: new Map(overrides)
+    },
+    sourceNodesChanged: false,
+    changedNodeIds
   }
 }
 
@@ -143,6 +161,15 @@ const isSameRefList = <T,>(left: T[], right: T[]) => {
   if (left.length !== right.length) return false
   for (let index = 0; index < left.length; index += 1) {
     if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+const isSameNodeIdList = (left: Node[], right: Node[]) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index]?.id !== right[index]?.id) return false
   }
   return true
 }
@@ -181,6 +208,28 @@ const orderByIds = <T extends { id: string }>(items: T[], ids: string[]) => {
   return ordered
 }
 
+const patchNodeListByIds = (
+  list: Node[],
+  changedNodeIds: Set<NodeId>,
+  listIndexById: Map<NodeId, number>,
+  readNodeById: (nodeId: NodeId) => Node | undefined
+) => {
+  if (!list.length || !changedNodeIds.size) return list
+  let next = list
+  changedNodeIds.forEach((nodeId) => {
+    const index = listIndexById.get(nodeId)
+    if (index === undefined) return
+    const node = readNodeById(nodeId)
+    if (!node) return
+    if (next[index] === node) return
+    if (next === list) {
+      next = list.slice()
+    }
+    next[index] = node
+  })
+  return next
+}
+
 const deriveVisibleNodes = (viewNodes: Node[]) => {
   if (!viewNodes.length) return EMPTY_NODES
   const nodeMap = new Map(viewNodes.map((node) => [node.id, node]))
@@ -217,7 +266,7 @@ export class GraphCache {
     | {
         edgesRef: Document['edges']
         edgeOrderRef: Document['order'] extends { edges?: infer TOrder } ? TOrder : EdgeId[] | undefined
-        canvasNodesRef: Node[]
+        canvasNodes: Node[]
         visibleEdges: Edge[]
       }
     | null = null
@@ -227,6 +276,8 @@ export class GraphCache {
     canvasNodeById: EMPTY_NODE_MAP,
     visibleEdges: EMPTY_EDGES
   }
+  private visibleNodeIndexById = new Map<NodeId, number>()
+  private canvasNodeIndexById = new Map<NodeId, number>()
 
   read = (
     doc: Document | null,
@@ -235,6 +286,8 @@ export class GraphCache {
     if (!doc) {
       this.viewNodesCache = null
       this.visibleEdgesCache = null
+      this.visibleNodeIndexById = new Map<NodeId, number>()
+      this.canvasNodeIndexById = new Map<NodeId, number>()
       if (
         this.snapshot.visibleNodes !== EMPTY_NODES ||
         this.snapshot.canvasNodes !== EMPTY_NODES ||
@@ -252,23 +305,53 @@ export class GraphCache {
     }
 
     const previousViewNodesCache = this.viewNodesCache
-    const nextViewNodesCache = previousViewNodesCache
+    const viewNodesUpdate: ViewNodesUpdate = previousViewNodesCache
       ? updateViewNodesCache(previousViewNodesCache, doc, overrides)
-      : buildViewNodesCache(doc, overrides)
+      : {
+          cache: buildViewNodesCache(doc, overrides),
+          sourceNodesChanged: true,
+          changedNodeIds: new Set(doc.nodes.map((node) => node.id))
+        }
+    const nextViewNodesCache = viewNodesUpdate.cache
 
     this.viewNodesCache = nextViewNodesCache
 
-    const nodeOrder = doc.order?.nodes ?? doc.nodes.map((node) => node.id)
-    const orderedViewNodes = orderByIds(nextViewNodesCache.nodes, nodeOrder)
-    const nextVisibleNodes = deriveVisibleNodes(orderedViewNodes)
-    const nextCanvasNodes = deriveCanvasNodes(nextVisibleNodes)
+    const readViewNodeById = (nodeId: NodeId): Node | undefined => {
+      const index = nextViewNodesCache.indexById.get(nodeId)
+      if (index === undefined) return undefined
+      return nextViewNodesCache.nodes[index]
+    }
+
+    let nextVisibleNodes: Node[]
+    let nextCanvasNodes: Node[]
+
+    if (!viewNodesUpdate.sourceNodesChanged && viewNodesUpdate.changedNodeIds.size) {
+      nextVisibleNodes = patchNodeListByIds(
+        this.snapshot.visibleNodes,
+        viewNodesUpdate.changedNodeIds,
+        this.visibleNodeIndexById,
+        readViewNodeById
+      )
+      nextCanvasNodes = patchNodeListByIds(
+        this.snapshot.canvasNodes,
+        viewNodesUpdate.changedNodeIds,
+        this.canvasNodeIndexById,
+        readViewNodeById
+      )
+    } else {
+      const nodeOrder = doc.order?.nodes ?? doc.nodes.map((node) => node.id)
+      const orderedViewNodes = orderByIds(nextViewNodesCache.nodes, nodeOrder)
+      nextVisibleNodes = deriveVisibleNodes(orderedViewNodes)
+      nextCanvasNodes = deriveCanvasNodes(nextVisibleNodes)
+    }
+
     const edgeOrderRef = doc.order?.edges
     const cachedVisibleEdges = this.visibleEdgesCache
     const nextVisibleEdges =
       cachedVisibleEdges &&
       cachedVisibleEdges.edgesRef === doc.edges &&
       cachedVisibleEdges.edgeOrderRef === edgeOrderRef &&
-      cachedVisibleEdges.canvasNodesRef === nextCanvasNodes
+      isSameNodeIdList(cachedVisibleEdges.canvasNodes, nextCanvasNodes)
         ? cachedVisibleEdges.visibleEdges
         : deriveVisibleEdges(doc, nextCanvasNodes)
 
@@ -292,10 +375,17 @@ export class GraphCache {
       ? this.snapshot.visibleEdges
       : nextVisibleEdges
 
+    if (visibleNodes !== this.snapshot.visibleNodes) {
+      this.visibleNodeIndexById = buildIndexById(visibleNodes)
+    }
+    if (canvasNodes !== this.snapshot.canvasNodes) {
+      this.canvasNodeIndexById = buildIndexById(canvasNodes)
+    }
+
     this.visibleEdgesCache = {
       edgesRef: doc.edges,
       edgeOrderRef,
-      canvasNodesRef: nextCanvasNodes,
+      canvasNodes: nextCanvasNodes,
       visibleEdges
     }
 

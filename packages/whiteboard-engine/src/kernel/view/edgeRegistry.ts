@@ -33,7 +33,19 @@ export const createEdgeRegistry = ({
   let edgeIds: EdgeId[] = []
   let edgePathsById = new Map<EdgeId, EdgePathViewEntry>()
 
+  const hasSubscribers = () =>
+    edgeIdsListeners.size > 0 || edgePathListeners.size > 0
+
+  const pull = () => {
+    const paths = readPaths()
+    edgeIds = paths.map((entry) => entry.id)
+    edgePathsById = new Map<EdgeId, EdgePathViewEntry>(
+      paths.map((entry) => [entry.id, entry])
+    )
+  }
+
   const sync: EdgeRegistry['sync'] = () => {
+    if (!hasSubscribers()) return
     const paths = readPaths()
     const nextIds = paths.map((entry) => entry.id)
     const nextById = new Map<EdgeId, EdgePathViewEntry>()
@@ -67,10 +79,25 @@ export const createEdgeRegistry = ({
 
   return {
     sync,
-    getEdgeIds: () => edgeIds,
-    watchEdgeIds: (listener) => watchSet(edgeIdsListeners, listener),
-    getEdgePath: (edgeId) => edgePathsById.get(edgeId) as EdgePathEntry | undefined,
-    watchEdgePath: (edgeId, listener) =>
-      watchEntity(edgePathListeners, edgeId, listener)
+    getEdgeIds: () => {
+      if (!hasSubscribers()) {
+        pull()
+      }
+      return edgeIds
+    },
+    watchEdgeIds: (listener) => {
+      pull()
+      return watchSet(edgeIdsListeners, listener)
+    },
+    getEdgePath: (edgeId) => {
+      if (!hasSubscribers()) {
+        pull()
+      }
+      return edgePathsById.get(edgeId) as EdgePathEntry | undefined
+    },
+    watchEdgePath: (edgeId, listener) => {
+      pull()
+      return watchEntity(edgePathListeners, edgeId, listener)
+    }
   }
 }

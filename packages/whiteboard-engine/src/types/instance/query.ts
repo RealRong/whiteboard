@@ -10,6 +10,10 @@ export type QueryDebugMetric = {
   cacheHitCount: number
   cacheMissCount: number
   cacheHitRate: number
+  sampleCount: number
+  sampleWindowSize: number
+  p50RebuildMs: number
+  p95RebuildMs: number
   lastRebuildMs: number
   avgRebuildMs: number
   maxRebuildMs: number

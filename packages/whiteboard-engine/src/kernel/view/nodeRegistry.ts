@@ -140,6 +140,18 @@ export const createNodeRegistry = ({
   let hoveredGroupId = state.read('groupHovered')
   let zoom = state.read('viewport').zoom
 
+  const hasSubscribers = () =>
+    nodeIdsListeners.size > 0 ||
+    nodeItemsListeners.size > 0 ||
+    nodeHandlesListeners.size > 0 ||
+    nodeItemListeners.size > 0 ||
+    nodeHandleListeners.size > 0
+
+  const pullForRead = () => {
+    if (hasSubscribers()) return
+    syncCanvasNodesFull(readRenderContext())
+  }
+
   const readRenderContext = (): NodeRenderContext => ({
     activeTool: state.read('tool'),
     selectedNodeIds: state.read('selection').selectedNodeIds,
@@ -440,6 +452,7 @@ export const createNodeRegistry = ({
   }
 
   const syncCanvasNodes: NodeRegistry['syncCanvasNodes'] = (options) => {
+    if (!hasSubscribers()) return
     const dirtyNodeIds = options?.dirtyNodeIds
     const orderChanged = options?.orderChanged
     const fullSync = options?.fullSync
@@ -560,19 +573,42 @@ export const createNodeRegistry = ({
     syncViewportState,
     getNodeItems,
     getNodeHandlesMap: () => {
+      pullForRead()
       markMetricHit(nodeHandlesMetric)
       return nodeHandlesById
     },
-    getNodeIds: () => nodeIds,
-    watchNodeIds: (listener) => watchSet(nodeIdsListeners, listener),
-    watchNodeItems: (listener) => watchSet(nodeItemsListeners, listener),
-    getNodeItem: (nodeId) => nodeItemsById.get(nodeId),
-    watchNodeItem: (nodeId, listener) =>
-      watchEntity(nodeItemListeners, nodeId, listener),
-    watchNodeHandles: (listener) => watchSet(nodeHandlesListeners, listener),
-    getNodeTransformHandles: (nodeId) => nodeHandlesById.get(nodeId),
-    watchNodeTransformHandles: (nodeId, listener) =>
-      watchEntity(nodeHandleListeners, nodeId, listener),
+    getNodeIds: () => {
+      pullForRead()
+      return nodeIds
+    },
+    watchNodeIds: (listener) => {
+      pullForRead()
+      return watchSet(nodeIdsListeners, listener)
+    },
+    watchNodeItems: (listener) => {
+      pullForRead()
+      return watchSet(nodeItemsListeners, listener)
+    },
+    getNodeItem: (nodeId) => {
+      pullForRead()
+      return nodeItemsById.get(nodeId)
+    },
+    watchNodeItem: (nodeId, listener) => {
+      pullForRead()
+      return watchEntity(nodeItemListeners, nodeId, listener)
+    },
+    watchNodeHandles: (listener) => {
+      pullForRead()
+      return watchSet(nodeHandlesListeners, listener)
+    },
+    getNodeTransformHandles: (nodeId) => {
+      pullForRead()
+      return nodeHandlesById.get(nodeId)
+    },
+    watchNodeTransformHandles: (nodeId, listener) => {
+      pullForRead()
+      return watchEntity(nodeHandleListeners, nodeId, listener)
+    },
     getNodeItemsMetric: () => snapshotViewMetric(nodeItemsMetric),
     getNodeHandlesMetric: () => snapshotViewMetric(nodeHandlesMetric),
     resetNodeItemsMetric: () => {

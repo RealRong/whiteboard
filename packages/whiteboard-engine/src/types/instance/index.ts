@@ -48,6 +48,8 @@ export type {
 } from './query'
 
 export type {
+  RuntimeDom,
+  RuntimeInteraction,
   Runtime,
   RuntimeInternal,
   RuntimeServices,

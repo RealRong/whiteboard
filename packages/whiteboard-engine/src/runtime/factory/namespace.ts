@@ -11,7 +11,7 @@ type Options = {
   config: InstanceConfig
 }
 
-export type RuntimeBase = Runtime
+export type RuntimeBase = Omit<Runtime, 'dom' | 'interaction'>
 
 export const createRuntime = ({
   core,

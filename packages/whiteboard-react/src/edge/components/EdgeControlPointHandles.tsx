@@ -17,7 +17,7 @@ export const EdgeControlPointHandles = () => {
   }
 
   const handlePointerDown = (index: number) => (event: PointerEvent<HTMLDivElement>) => {
-    const handled = instance.commands.edge.startRoutingDrag({
+    const handled = instance.runtime.interaction.routingDrag.start({
       edgeId: edge.id,
       index,
       pointerId: event.pointerId,
@@ -50,7 +50,7 @@ export const EdgeControlPointHandles = () => {
             if (event.key === 'Escape') {
               event.preventDefault()
               event.stopPropagation()
-              instance.commands.edge.cancelRoutingDrag()
+              instance.runtime.interaction.routingDrag.cancel()
               return
             }
             if (event.key !== 'Backspace' && event.key !== 'Delete') return
@@ -59,7 +59,7 @@ export const EdgeControlPointHandles = () => {
             const nextPointCount = points.length - 1
             removePointAt(index)
             if (nextPointCount <= 0) {
-              instance.commands.edge.cancelRoutingDrag()
+              instance.runtime.interaction.routingDrag.cancel()
             }
           }}
           style={{

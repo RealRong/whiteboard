@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsup",
     "bench:drag-frame": "tsup src/perf/dragFrame.bench.ts --format esm --outDir .bench --clean --silent && node .bench/dragFrame.bench.js",
+    "bench:drag-frame:check": "WB_BENCH_ENFORCE=1 pnpm run bench:drag-frame",
     "bench:node-hint": "tsup src/runtime/lifecycle/watchers/nodeHint.bench.ts --format esm --outDir .bench --clean --silent && node .bench/nodeHint.bench.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests\""

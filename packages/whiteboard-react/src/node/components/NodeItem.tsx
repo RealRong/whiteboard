@@ -42,7 +42,7 @@ const NodeTransformHandles = ({
       let handled = false
 
       if (handle.kind === 'resize' && handle.direction) {
-        handled = instance.commands.nodeTransform.startResize({
+        handled = instance.runtime.interaction.nodeTransform.startResize({
           nodeId: node.id,
           pointerId: event.pointerId,
           handle: handle.direction,
@@ -54,7 +54,7 @@ const NodeTransformHandles = ({
       }
 
       if (handle.kind === 'rotate') {
-        handled = instance.commands.nodeTransform.startRotate({
+        handled = instance.runtime.interaction.nodeTransform.startRotate({
           nodeId: node.id,
           pointerId: event.pointerId,
           clientX: event.clientX,
@@ -68,7 +68,7 @@ const NodeTransformHandles = ({
       event.preventDefault()
       event.stopPropagation()
     },
-    [enabled, instance.commands.nodeTransform, node.id, node.locked, nodeRotation, rect]
+    [enabled, instance.runtime.interaction.nodeTransform, node.id, node.locked, nodeRotation, rect]
   )
 
   const getHandleProps = useCallback(
@@ -138,21 +138,25 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     (element: HTMLDivElement | null) => {
       if (containerRef.current === element) return
       if (containerRef.current) {
-        instance.commands.node.unobserveSize(node.id)
+        instance.runtime.dom.nodeSize.unobserve(node.id)
       }
       containerRef.current = element
       if (element) {
-        instance.commands.node.observeSize(node.id, element, true)
+        instance.runtime.dom.nodeSize.observe(node.id, element, true)
       }
     },
-    [instance.commands.node, node.id]
+    [instance.runtime.dom.nodeSize, node.id]
   )
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (activeTool === 'edge') {
         const worldPoint = clientToWorld(event.clientX, event.clientY)
-        const handled = instance.commands.edgeConnect.handleNodePointerDown(node.id, worldPoint, event.pointerId)
+        const handled = instance.runtime.interaction.edgeConnect.handleNodePointerDown(
+          node.id,
+          worldPoint,
+          event.pointerId
+        )
         if (!handled) return
         event.preventDefault()
         event.stopPropagation()
@@ -168,7 +172,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
         }
       }
 
-      const handled = instance.commands.nodeDrag.start({
+      const handled = instance.runtime.interaction.nodeDrag.start({
         nodeId: node.id,
         pointerId: event.pointerId,
         clientX: event.clientX,
@@ -192,7 +196,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => {
       event.preventDefault()
       event.stopPropagation()
-      instance.commands.edgeConnect.startFromHandle(node.id, side, event.pointerId)
+      instance.runtime.interaction.edgeConnect.startFromHandle(node.id, side, event.pointerId)
     },
     [instance, node.id]
   )

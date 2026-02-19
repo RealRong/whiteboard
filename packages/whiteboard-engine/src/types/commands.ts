@@ -1,6 +1,5 @@
 import type {
   Core,
-  Document,
   DispatchResult,
   Edge,
   EdgeAnchor,
@@ -168,16 +167,9 @@ export type MindmapCommands = Core['commands']['mindmap'] & {
   moveSubtreeWithLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
   moveSubtreeWithDrop: (options: MindmapMoveDropOptions) => Promise<void>
   moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
-  startDrag: (options: MindmapStartDragOptions) => boolean
-  updateDrag: (options: MindmapUpdateDragOptions) => boolean
-  endDrag: (options: MindmapEndDragOptions) => boolean
-  cancelDrag: (options?: MindmapCancelDragOptions) => boolean
 }
 
 export type Commands = {
-  doc: {
-    replace: (doc: Document) => void
-  }
   tool: {
     set: (tool: 'select' | 'edge') => void
   }
@@ -210,10 +202,6 @@ export type Commands = {
     insertRoutingPoint: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
     moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
     removeRoutingPoint: (edge: Edge, index: number) => void
-    startRoutingDrag: (options: RoutingDragStartOptions) => boolean
-    updateRoutingDrag: (options: RoutingDragUpdateOptions) => boolean
-    endRoutingDrag: (options: RoutingDragEndOptions) => boolean
-    cancelRoutingDrag: (options?: RoutingDragCancelOptions) => boolean
     resetRouting: (edge: Edge) => void
     connect: (
       source: { nodeId: NodeId; anchor?: EdgeAnchor },
@@ -225,22 +213,6 @@ export type Commands = {
       ref: { nodeId: NodeId; anchor?: EdgeAnchor }
     ) => Promise<DispatchResult>
     select: (id?: EdgeId) => void
-  }
-  edgeConnect: {
-    startFromHandle: (nodeId: NodeId, side: EdgeAnchor['side'], pointerId?: number) => void
-    startFromPoint: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => void
-    startReconnect: (edgeId: EdgeId, end: 'source' | 'target', pointerId?: number) => void
-    updateTo: (pointWorld: Point) => void
-    commitTo: (pointWorld: Point) => void
-    cancel: () => void
-    updateHover: (pointWorld: Point) => void
-    handleNodePointerDown: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => boolean
-  }
-  nodeDrag: {
-    start: (options: NodeDragStartOptions) => boolean
-    update: (options: NodeDragUpdateOptions) => boolean
-    end: (options: NodeDragEndOptions) => boolean
-    cancel: (options?: NodeDragCancelOptions) => boolean
   }
   transient: {
     dragGuides: {
@@ -286,20 +258,6 @@ export type Commands = {
     move: (ids: NodeId[], delta: { x: number; y: number }) => Promise<DispatchResult>
     resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
     rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
-    observeSize: (nodeId: NodeId, element: Element, enabled?: boolean) => void
-    unobserveSize: (nodeId: NodeId) => void
-  }
-  nodeTransform: {
-    rotate: (nodeId: NodeId, angle: number) => Promise<DispatchResult>
-    previewResize: (nodeId: NodeId, update: { position: Point; size: Size }) => void
-    commitResize: (nodeId: NodeId, update?: { position: Point; size: Size }) => void
-    setGuides: (guides: Guide[]) => void
-    clearGuides: () => void
-    startResize: (options: NodeResizeStartOptions) => boolean
-    startRotate: (options: NodeRotateStartOptions) => boolean
-    update: (options: NodeTransformUpdateOptions) => boolean
-    end: (options: NodeTransformEndOptions) => boolean
-    cancel: (options?: NodeTransformCancelOptions) => boolean
   }
   group: Core['commands']['group']
   mindmap: MindmapCommands

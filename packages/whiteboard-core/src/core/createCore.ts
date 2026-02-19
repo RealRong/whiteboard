@@ -1,4 +1,4 @@
-import type { Core, DispatchFailure, DispatchOptions, DispatchResult, Document, Intent, IntentHandler, Origin } from '../types/core'
+import type { Core, DispatchFailure, DispatchResult, Document, Intent, Origin } from '../types/core'
 import { createApplyOperations } from './apply'
 import { createBuildOperations } from './build'
 import { createChangeHandlers, createChangeSetFactory, createTransaction, runAfterHandlers, runBeforeHandlers, TransactionContext } from './changes'
@@ -18,7 +18,6 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   const state = createCoreState(options)
   const eventBus = createEventBus()
   const changeHandlers = createChangeHandlers()
-  const intentHandlers: IntentHandler[] = []
   const transactionStack: TransactionContext[] = []
   const createFailure = (reason: DispatchFailure['reason'], message?: string): DispatchFailure => ({
     ok: false,
@@ -27,7 +26,7 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   })
 
   const createChangeSet = createChangeSetFactory(state.createChangeSetId, state.now)
-  const { applyOperations } = createApplyOperations({
+  const { applyOperations, applyChangeSet } = createApplyOperations({
     state,
     changeHandlers,
     eventBus,
@@ -58,20 +57,8 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     }
     return { ...result, value: buildResult.value }
   }
-
-  const runIntentHandlers = (intent: Intent, options?: DispatchOptions): Promise<DispatchResult> => {
-    const origin = options?.origin ?? transactionStack[transactionStack.length - 1]?.options?.origin ?? 'user'
-    const run = (index: number, nextIntent: Intent): Promise<DispatchResult> => {
-      const handler = intentHandlers[index]
-      if (!handler) {
-        return Promise.resolve(applyIntent(nextIntent, origin))
-      }
-      return handler(nextIntent, (innerIntent) => run(index + 1, innerIntent))
-    }
-    return run(0, intent)
-  }
-
-  const dispatch = (intent: Intent, options?: DispatchOptions) => runIntentHandlers(intent, options)
+  const resolveOrigin = (origin?: Origin, fallback: Origin = 'user'): Origin =>
+    origin ?? transactionStack[transactionStack.length - 1]?.options?.origin ?? fallback
 
   const transaction = createTransaction(transactionStack, changeHandlers)
   const query = createQuery(state)
@@ -84,7 +71,8 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
 
   const commands = createCommands({
     state,
-    dispatch,
+    applyIntent,
+    getOrigin: () => resolveOrigin(undefined, 'user'),
     transaction,
     createFailure,
     createChangeSetId: state.createChangeSetId,
@@ -117,13 +105,18 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     now: state.now,
     applyDocumentSnapshot
   })
-  commands.history = history.commands
 
   const core: Core = {
     query,
-    dispatch,
+    apply: {
+      intent: (intent, options) => applyIntent(intent, resolveOrigin(options?.origin, 'user')),
+      operations: (operations, options) => applyOperations(operations, resolveOrigin(options?.origin, 'user')),
+      changeSet: (changes) => applyChangeSet(changes)
+    },
     model,
     commands,
+    history: history.commands,
+    tx: transaction,
     events: {
       on: (type, handler) => {
         const set = eventBus.eventHandlers.get(type) ?? new Set()
@@ -134,11 +127,6 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
         const set = eventBus.eventHandlers.get(type)
         if (!set) return
         set.delete(handler as (e: any) => void)
-      }
-    },
-    intent: {
-      use: (handler) => {
-        intentHandlers.push(handler)
       }
     },
     changes: {
@@ -186,7 +174,7 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     load: (snapshot) => {
       applyDocumentSnapshot(snapshot.document)
       history.syncSnapshot()
-      commands.history.clear()
+      history.commands.clear()
     },
     registries,
     plugins: undefined as unknown as Core['plugins']

@@ -1,26 +1,16 @@
 import {
-  getSubtreeIds,
   getSide,
   type MindmapNodeId
 } from '@whiteboard/core'
-import type {
-  NodeId,
-  Point
-} from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import { DEFAULT_TUNING } from '../../config'
+import { applyCommandChange } from './apply'
 
 export const createMindmap = (
   instance: InternalInstance
 ): Pick<Commands, 'mindmap'> => {
-  const { core } = instance.runtime
-  const { read, write, batchFrame } = instance.state
-  const coreMindmap = core.commands.mindmap
-  const mindmapDrag = instance.runtime.services.mindmapDrag
-
   const toLayoutHint = (
     anchorId: MindmapNodeId,
     nodeSize: { width: number; height: number },
@@ -44,6 +34,110 @@ export const createMindmap = (
       : DEFAULT_TUNING.mindmap.defaultSide
   }
 
+  const create: Commands['mindmap']['create'] = (payload) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.create',
+      payload
+    })
+
+  const replace: Commands['mindmap']['replace'] = (id, tree) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.replace',
+      id,
+      tree
+    })
+
+  const remove: Commands['mindmap']['delete'] = (ids) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.delete',
+      ids
+    })
+
+  const addChild: Commands['mindmap']['addChild'] = (id, parentId, payload, options) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.addChild',
+      id,
+      parentId,
+      payload,
+      options
+    })
+
+  const addSibling: Commands['mindmap']['addSibling'] = (id, nodeId, position, payload, options) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.addSibling',
+      id,
+      nodeId,
+      position,
+      payload,
+      options
+    })
+
+  const moveSubtree: Commands['mindmap']['moveSubtree'] = (id, nodeId, newParentId, options) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.moveSubtree',
+      id,
+      nodeId,
+      newParentId,
+      options
+    })
+
+  const removeSubtree: Commands['mindmap']['removeSubtree'] = (id, nodeId) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.removeSubtree',
+      id,
+      nodeId
+    })
+
+  const cloneSubtree: Commands['mindmap']['cloneSubtree'] = (id, nodeId, options) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.cloneSubtree',
+      id,
+      nodeId,
+      options
+    })
+
+  const toggleCollapse: Commands['mindmap']['toggleCollapse'] = (id, nodeId, collapsed) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.toggleCollapse',
+      id,
+      nodeId,
+      collapsed
+    })
+
+  const setNodeData: Commands['mindmap']['setNodeData'] = (id, nodeId, patch) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.setNodeData',
+      id,
+      nodeId,
+      patch
+    })
+
+  const reorderChild: Commands['mindmap']['reorderChild'] = (id, parentId, fromIndex, toIndex) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.reorderChild',
+      id,
+      parentId,
+      fromIndex,
+      toIndex
+    })
+
+  const setSide: Commands['mindmap']['setSide'] = (id, nodeId, side) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.setSide',
+      id,
+      nodeId,
+      side
+    })
+
+  const attachExternal: Commands['mindmap']['attachExternal'] = (id, targetId, payload, options) =>
+    applyCommandChange(instance, {
+      type: 'mindmap.attachExternal',
+      id,
+      targetId,
+      payload,
+      options
+    })
+
   const insertNode: Commands['mindmap']['insertNode'] = async ({
     id,
     tree,
@@ -59,12 +153,12 @@ export const createMindmap = (
       const children = tree.children[targetNodeId] ?? []
       const index = placement === 'up' ? 0 : placement === 'down' ? children.length : undefined
       const side = resolveRootInsertSide(placement, layout)
-      await coreMindmap.addChild(id, targetNodeId, payload, { index, side, layout: layoutHint })
+      await addChild(id, targetNodeId, payload, { index, side, layout: layoutHint })
       return
     }
 
     if (placement === 'up' || placement === 'down') {
-      await coreMindmap.addSibling(id, targetNodeId, placement === 'up' ? 'before' : 'after', payload, {
+      await addSibling(id, targetNodeId, placement === 'up' ? 'before' : 'after', payload, {
         layout: layoutHint
       })
       return
@@ -75,18 +169,18 @@ export const createMindmap = (
       (placement === 'left' && targetSide === 'right') || (placement === 'right' && targetSide === 'left')
 
     if (towardRoot) {
-      const result = await coreMindmap.addSibling(id, targetNodeId, 'before', payload, {
+      const result = await addSibling(id, targetNodeId, 'before', payload, {
         layout: layoutHint
       })
       if (!result.ok || !result.value) return
-      await coreMindmap.moveSubtree(id, targetNodeId, result.value as MindmapNodeId, {
+      await moveSubtree(id, targetNodeId, result.value as MindmapNodeId, {
         index: 0,
         layout: toLayoutHint(result.value as MindmapNodeId, nodeSize, layout)
       })
       return
     }
 
-    await coreMindmap.addChild(id, targetNodeId, payload, { layout: layoutHint })
+    await addChild(id, targetNodeId, payload, { layout: layoutHint })
   }
 
   const moveSubtreeWithLayout: Commands['mindmap']['moveSubtreeWithLayout'] = ({
@@ -98,7 +192,7 @@ export const createMindmap = (
     nodeSize,
     layout
   }) =>
-    coreMindmap.moveSubtree(id, nodeId, newParentId, {
+    moveSubtree(id, nodeId, newParentId, {
       index,
       side,
       layout: toLayoutHint(newParentId, nodeSize, layout)
@@ -138,195 +232,37 @@ export const createMindmap = (
       return
     }
 
-    await core.dispatch({
-      type: 'node.update',
-      id: nodeId,
-      patch: {
-        position: { x: position.x, y: position.y }
-      }
-    })
-  }
-
-  const getTreeView = (treeId: NodeId): MindmapViewTree | undefined =>
-    instance.view.mindmap.tree(treeId)
-
-  const getNodeRects = (item: MindmapViewTree, baseOffset = item.node.position) =>
-    mindmapDrag.buildNodeRectMap({
-      nodeRects: item.computed.node,
-      shift: {
-        x: item.shiftX,
-        y: item.shiftY
-      },
-      offset: baseOffset
-    })
-
-  const startDrag: Commands['mindmap']['startDrag'] = ({
-    treeId,
-    nodeId,
-    pointerId,
-    clientX,
-    clientY
-  }) => {
-    if (read('mindmapDrag').active) return false
-
-    const treeItem = getTreeView(treeId)
-    if (!treeItem) return false
-
-    const world = instance.runtime.viewport.clientToWorld(clientX, clientY)
-    const baseOffset = {
-      x: treeItem.node.position.x,
-      y: treeItem.node.position.y
-    }
-
-    if (nodeId === treeItem.tree.rootId) {
-      write('mindmapDrag', {
-        active: {
-          kind: 'root',
-          treeId,
-          pointerId,
-          start: world,
-          origin: baseOffset,
-          position: baseOffset
+    await instance.apply(
+      [{
+        type: 'node.update',
+        id: nodeId,
+        patch: {
+          position: { x: position.x, y: position.y }
         }
-      })
-      return true
-    }
-
-    const nodeRects = getNodeRects(treeItem)
-    const rect = nodeRects.get(nodeId)
-    if (!rect) return false
-
-    const originParentId = treeItem.tree.nodes[nodeId]?.parentId
-    const originIndex =
-      originParentId !== undefined ? (treeItem.tree.children[originParentId] ?? []).indexOf(nodeId) : undefined
-
-    write('mindmapDrag', {
-      active: {
-        kind: 'subtree',
-        treeId,
-        pointerId,
-        nodeId,
-        originParentId,
-        originIndex,
-        baseOffset,
-        offset: {
-          x: world.x - rect.x,
-          y: world.y - rect.y
-        },
-        rect,
-        ghost: rect,
-        excludeIds: getSubtreeIds(treeItem.tree, nodeId)
-      }
-    })
-    return true
-  }
-
-  const updateDrag: Commands['mindmap']['updateDrag'] = ({ pointerId, clientX, clientY }) => {
-    const active = read('mindmapDrag').active
-    if (!active || active.pointerId !== pointerId) return false
-
-    batchFrame(() => {
-      const world = instance.runtime.viewport.clientToWorld(clientX, clientY)
-
-      if (active.kind === 'root') {
-        const nextPosition = {
-          x: active.origin.x + (world.x - active.start.x),
-          y: active.origin.y + (world.y - active.start.y)
-        }
-        write('mindmapDrag', {
-          active: {
-            ...active,
-            position: nextPosition
-          }
-        })
-        return
-      }
-
-      const ghost = mindmapDrag.buildSubtreeGhostRect({
-        pointerWorld: world,
-        pointerOffset: active.offset,
-        nodeRect: active.rect
-      })
-
-      let drop = active.drop
-      const treeItem = getTreeView(active.treeId)
-      if (treeItem) {
-        const nodeRects = getNodeRects(treeItem, active.baseOffset)
-        drop = mindmapDrag.computeSubtreeDropTarget({
-          tree: treeItem.tree,
-          nodeRects,
-          ghost,
-          dragNodeId: active.nodeId,
-          dragExcludeIds: new Set(active.excludeIds),
-          layoutOptions: (read('mindmapLayout') ?? treeItem.layout).options
-        })
-      }
-
-      write('mindmapDrag', {
-        active: {
-          ...active,
-          ghost,
-          drop
-        }
-      })
-    })
-    return true
-  }
-
-  const endDrag: Commands['mindmap']['endDrag'] = ({ pointerId }) => {
-    const active = read('mindmapDrag').active
-    if (!active || active.pointerId !== pointerId) return false
-
-    write('mindmapDrag', {})
-
-    if (active.kind === 'root') {
-      void moveRoot({
-        nodeId: active.treeId,
-        position: active.position
-      })
-      return true
-    }
-
-    if (active.drop) {
-      void moveSubtreeWithDrop({
-        id: active.treeId,
-        nodeId: active.nodeId,
-        drop: {
-          parentId: active.drop.parentId,
-          index: active.drop.index,
-          side: active.drop.side
-        },
-        origin: {
-          parentId: active.originParentId,
-          index: active.originIndex
-        },
-        nodeSize: instance.runtime.config.mindmapNodeSize,
-        layout: read('mindmapLayout') ?? {}
-      })
-    }
-
-    return true
-  }
-
-  const cancelDrag: Commands['mindmap']['cancelDrag'] = (options) => {
-    const active = read('mindmapDrag').active
-    if (!active) return false
-    if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
-    write('mindmapDrag', {})
-    return true
+      }],
+      { source: 'command' }
+    )
   }
 
   return {
     mindmap: {
-      ...coreMindmap,
+      create,
+      replace,
+      delete: remove,
+      addChild,
+      addSibling,
+      moveSubtree,
+      removeSubtree,
+      cloneSubtree,
+      toggleCollapse,
+      setNodeData,
+      reorderChild,
+      setSide,
+      attachExternal,
       insertNode,
       moveSubtreeWithLayout,
       moveSubtreeWithDrop,
-      moveRoot,
-      startDrag,
-      updateDrag,
-      endDrag,
-      cancelDrag
+      moveRoot
     }
   }
 }

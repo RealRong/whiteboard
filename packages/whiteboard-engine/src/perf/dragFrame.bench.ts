@@ -12,7 +12,22 @@ const GRID_COLS = 100
 const RUNS = 5
 const WARMUP_FRAMES = 80
 const MEASURE_FRAMES = 240
-const FRAME_BUDGET_MS = 4
+const runtime = globalThis as {
+  process?: {
+    env?: Record<string, string | undefined>
+    exitCode?: number
+  }
+}
+
+const env = runtime.process?.env ?? {}
+
+const toNumber = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const FRAME_BUDGET_MS = toNumber(env.WB_BENCH_FRAME_BUDGET_MS, 4)
+const ENFORCE_THRESHOLD = env.WB_BENCH_ENFORCE === '1'
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -132,7 +147,9 @@ const main = () => {
     docRef,
     containerRef
   })
-  syncDoc = instance.commands.doc.replace
+  syncDoc = (next) => {
+    void instance.apply([{ type: 'doc.reset', doc: next }], { source: 'import' })
+  }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
   const movingNode = instance.graph.read().canvasNodes.find((node) => node.id === movingNodeId)
@@ -147,7 +164,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const started = instance.commands.nodeDrag.start({
+    const started = instance.runtime.interaction.nodeDrag.start({
       nodeId: movingNodeId,
       pointerId,
       clientX: 0,
@@ -158,7 +175,7 @@ const main = () => {
     }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
-      instance.commands.nodeDrag.update({
+      instance.runtime.interaction.nodeDrag.update({
         pointerId,
         clientX: frame * 1.2,
         clientY: frame * 0.8 + Math.sin(frame / 10) * 6
@@ -170,7 +187,7 @@ const main = () => {
       const clientX = (WARMUP_FRAMES + frame) * 1.2
       const clientY = (WARMUP_FRAMES + frame) * 0.8 + Math.sin(frame / 12) * 6
       const startedAt = now()
-      instance.commands.nodeDrag.update({
+      instance.runtime.interaction.nodeDrag.update({
         pointerId,
         clientX,
         clientY
@@ -178,9 +195,9 @@ const main = () => {
       samples.push(now() - startedAt)
     }
 
-    instance.commands.nodeDrag.end({ pointerId })
+    instance.runtime.interaction.nodeDrag.end({ pointerId })
     core.model.node.update(movingNodeId, { position: basePosition })
-    instance.commands.doc.replace(docRef.current)
+    syncDoc(docRef.current)
     runSamples.push(samples)
   }
 
@@ -233,6 +250,17 @@ const main = () => {
       pass ? 'PASS' : 'FAIL'
     ].join(' | ')
   )
+
+  if (ENFORCE_THRESHOLD && !pass && runtime.process) {
+    runtime.process.exitCode = 1
+    console.error(
+      [
+        'threshold check failed',
+        `expected p95<${FRAME_BUDGET_MS}ms`,
+        `actual p95=${format(p95)}`
+      ].join(' | ')
+    )
+  }
 }
 
 main()

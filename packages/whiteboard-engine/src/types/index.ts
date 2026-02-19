@@ -1,5 +1,19 @@
 export type { Commands } from './commands'
 export type {
+  Change,
+  ChangeSet,
+  ChangeSetInput,
+  ChangeSource,
+  ApplyOptions,
+  ApplyDispatchResult,
+  ApplyMetrics,
+  AppliedChangeSummary,
+  ApplyResult,
+  ApplyApi,
+  TxApi,
+  TxCollector
+} from './change'
+export type {
   GraphSnapshot,
   GraphChange,
   GraphChangeSource,

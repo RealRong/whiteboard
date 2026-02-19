@@ -361,16 +361,15 @@ export const createApplyOperations = ({
     }
   }
 
-  const applyOperations = (operations: ChangeSet['operations'], origin?: Origin): DispatchResult => {
-    if (operations.length === 0) {
+  const commitChangeSet = (changes: ChangeSet): DispatchResult => {
+    if (changes.operations.length === 0) {
       return createFailure('invalid', 'No operations to apply.')
     }
-    const changes = createChangeSet(operations, origin)
     if (runBeforeHandlers(changeHandlers, changes)) {
       return createFailure('cancelled')
     }
     applyDocument((draft) => {
-      operations.forEach((op) => applyOperation(op, draft))
+      changes.operations.forEach((op) => applyOperation(op, draft))
       touchDocument(draft, changes.timestamp)
     })
     runAfterHandlers(changeHandlers, changes)
@@ -382,7 +381,14 @@ export const createApplyOperations = ({
     return { ok: true, changes }
   }
 
+  const applyOperations = (operations: ChangeSet['operations'], origin?: Origin): DispatchResult =>
+    commitChangeSet(createChangeSet(operations, origin))
+
+  const applyChangeSet = (changes: ChangeSet): DispatchResult =>
+    commitChangeSet(changes)
+
   return {
-    applyOperations
+    applyOperations,
+    applyChangeSet
   }
 }

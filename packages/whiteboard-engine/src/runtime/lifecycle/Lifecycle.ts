@@ -1,7 +1,6 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { GraphProjector } from '@engine-types/graph'
 import type { DomBindings } from '../../host/dom'
 import {
   createSelectionEvents,
@@ -11,10 +10,6 @@ import {
   createStateEvents,
   type StateEventsWatcher
 } from './watchers/stateEvents'
-import {
-  createDocEvents,
-  type DocEventsWatcher
-} from './watchers/docEvents'
 import {
   createWindowBindings,
   startWindowBindings,
@@ -42,13 +37,11 @@ export class Lifecycle implements LifecycleApi {
   private windowBindings: WindowBinding[]
   private selectionEvents: SelectionEventsWatcher
   private stateEvents: StateEventsWatcher
-  private docEvents: DocEventsWatcher
 
   constructor(
     instance: InternalInstance,
     dom: DomBindings,
-    emitEvent: InstanceEventEmitter['emit'],
-    graph: GraphProjector
+    emitEvent: InstanceEventEmitter['emit']
   ) {
     this.instance = instance
     this.config = createDefaultConfig(instance)
@@ -73,12 +66,6 @@ export class Lifecycle implements LifecycleApi {
     })
     this.stateEvents = createStateEvents({
       state: this.instance.state,
-      emit: emitEvent
-    })
-    this.docEvents = createDocEvents({
-      core: this.instance.runtime.core,
-      graph,
-      getDocId: () => this.instance.runtime.docRef.current?.id,
       emit: emitEvent
     })
     this.windowBindings = createWindowBindings({
@@ -149,7 +136,7 @@ export class Lifecycle implements LifecycleApi {
 
   private syncConfig = (config: LifecycleConfig) => {
     if (config.tool !== 'edge') {
-      this.instance.runtime.services.edgeHover.cancel()
+      this.instance.runtime.interaction.edgeConnect.hoverCancel()
     }
 
     if (!this.started) return
@@ -167,7 +154,6 @@ export class Lifecycle implements LifecycleApi {
     this.windowKey.start()
     this.selectionEvents.start()
     this.stateEvents.start()
-    this.docEvents.start()
     startWindowBindings(this.windowBindings)
     this.container.sync()
   }
@@ -187,7 +173,6 @@ export class Lifecycle implements LifecycleApi {
     stopWindowBindings(this.windowBindings)
     this.selectionEvents.stop()
     this.stateEvents.stop()
-    this.docEvents.stop()
     this.container.stop()
     this.windowKey.stop()
     this.instance.runtime.services.groupAutoFit.stop()

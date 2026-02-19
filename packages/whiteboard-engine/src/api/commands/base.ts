@@ -22,19 +22,12 @@ const mergeInteraction = (
 })
 
 export const createBase = (
-  instance: Instance,
-  replaceDoc: (doc: Parameters<Commands['doc']['replace']>[0]) => void
-): Pick<Commands, 'doc' | 'tool' | 'keyboard' | 'history' | 'interaction'> => {
+  instance: Instance
+): Pick<Commands, 'tool' | 'keyboard' | 'history' | 'interaction'> => {
   const { core } = instance.runtime
   const { read, write } = instance.state
 
   return {
-    doc: {
-      replace: (doc) => {
-        instance.runtime.docRef.current = doc
-        replaceDoc(doc)
-      }
-    },
     tool: {
       set: (tool) => {
         write('tool', tool)
@@ -47,18 +40,18 @@ export const createBase = (
     },
     history: {
       configure: (config) => {
-        core.commands.history.configure(config)
+        core.history.configure(config)
       },
       undo: () => {
         if (!read('history').canUndo) return false
-        return core.commands.history.undo()
+        return core.history.undo()
       },
       redo: () => {
         if (!read('history').canRedo) return false
-        return core.commands.history.redo()
+        return core.history.redo()
       },
       clear: () => {
-        core.commands.history.clear()
+        core.history.clear()
       }
     },
     interaction: {

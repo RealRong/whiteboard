@@ -40,8 +40,8 @@ export class History {
     const sync = (snapshot: CoreHistoryState) => {
       this.instance.state.write('history', toHistoryState(snapshot))
     }
-    sync(this.instance.runtime.core.commands.history.getState())
-    this.offHistory = this.instance.runtime.core.commands.history.subscribe(sync)
+    sync(this.instance.runtime.core.history.getState())
+    this.offHistory = this.instance.runtime.core.history.subscribe(sync)
   }
 
   update = (config: LifecycleConfig) => {

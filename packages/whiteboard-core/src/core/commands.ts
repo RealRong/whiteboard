@@ -18,6 +18,7 @@ import type {
   Rect,
   Size,
   Viewport,
+  Origin,
   TransactionOptions,
   TransactionResult
 } from '../types/core'
@@ -26,7 +27,8 @@ import { mergeChangeSets } from './changes'
 
 type CommandDeps = {
   state: CoreState
-  dispatch: (intent: Intent) => Promise<DispatchResult>
+  applyIntent: (intent: Intent, origin?: Origin) => DispatchResult
+  getOrigin: () => Origin
   transaction: <T>(fn: () => T | Promise<T>, options?: TransactionOptions) => Promise<TransactionResult<T>>
   createFailure: (reason: DispatchFailure['reason'], message?: string) => DispatchFailure
   createChangeSetId: () => string
@@ -34,7 +36,8 @@ type CommandDeps = {
 }
 
 export const createCommands = (deps: CommandDeps): Core['commands'] => {
-  const { state, dispatch, transaction, createFailure, createChangeSetId, now } = deps
+  const { state, applyIntent, getOrigin, transaction, createFailure, createChangeSetId, now } = deps
+  const dispatch = (intent: Intent): Promise<DispatchResult> => Promise.resolve(applyIntent(intent, getOrigin()))
 
   return {
     node: {
@@ -236,22 +239,6 @@ export const createCommands = (deps: CommandDeps): Core['commands'] => {
           }
         })
       }
-    },
-    history: {
-      undo: () => false,
-      redo: () => false,
-      clear: () => {},
-      configure: () => {},
-      getState: () => ({
-        canUndo: false,
-        canRedo: false,
-        undoDepth: 0,
-        redoDepth: 0,
-        isApplying: false,
-        lastUpdatedAt: now()
-      }),
-      subscribe: () => () => {}
-    },
-    transaction
+    }
   }
 }
