@@ -1,14 +1,11 @@
 import type { LifecycleContext } from '../../../context'
-import { toPointerInput } from '../../../context'
-import { createPointerIntentDispatcher } from '../input/pointer/intents'
 import {
   createPointerWindowHub,
   createSelectionBoxHandler,
   type PointerSessionBinding,
-  type PointerSessionHandler,
   type PointerSessionOnWindow
 } from './pointerSession'
-import { createInteractionSpecs } from './interactions'
+import { createInteractionHandlers } from './interactions'
 
 type Options = {
   context: LifecycleContext
@@ -28,39 +25,7 @@ export class WindowBindings {
   private pointerHub: PointerSessionBinding
 
   constructor({ context, onWindow, getSelectionBox }: Options) {
-    const dispatchIntent = createPointerIntentDispatcher(context)
-
-    const interactionHandlers: PointerSessionHandler[] = createInteractionSpecs(
-      context
-    ).map((spec) => {
-      const toMoveIntent = spec.toMoveIntent
-      const toUpIntent = spec.toUpIntent
-      const toCancelIntent = spec.toCancelIntent
-
-      return {
-        watch: spec.watch,
-        getActive: spec.getActive,
-        getPointerId: spec.getPointerId,
-        onMove: toMoveIntent
-          ? (event) => {
-              const pointer = toPointerInput(context.runtime.viewport, event)
-              dispatchIntent(toMoveIntent(pointer))
-            }
-          : undefined,
-        onUp: toUpIntent
-          ? (event) => {
-              const pointer = toPointerInput(context.runtime.viewport, event)
-              dispatchIntent(toUpIntent(pointer))
-            }
-          : undefined,
-        onCancel: toCancelIntent
-          ? (event) => {
-              const pointer = toPointerInput(context.runtime.viewport, event)
-              dispatchIntent(toCancelIntent(pointer))
-            }
-          : undefined
-      }
-    })
+    const interactionHandlers = createInteractionHandlers(context)
 
     this.pointerHub = createPointerWindowHub({
       onWindow,

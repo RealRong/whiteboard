@@ -1,23 +1,24 @@
 import type { LifecycleContext } from '../../../../context'
-import type { InteractionBindingSpec } from './types'
+import { toPointerInput } from '../../../../context'
+import type { InteractionHandler } from './types'
 import { readPointerId } from './types'
 
-export const createRoutingDragSpec = (
+export const createRoutingDragHandler = (
   context: LifecycleContext
-): InteractionBindingSpec => ({
+): InteractionHandler => ({
   watch: (listener) => context.state.watch('routingDrag', listener),
   getActive: () => context.state.read('routingDrag').active,
   getPointerId: readPointerId,
-  toMoveIntent: (pointer) => ({
-    type: 'routing-drag.update',
-    pointer
-  }),
-  toUpIntent: (pointer) => ({
-    type: 'routing-drag.end',
-    pointer
-  }),
-  toCancelIntent: (pointer) => ({
-    type: 'routing-drag.cancel',
-    pointer
-  })
+  onMove: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.routingDrag.update({ pointer })
+  },
+  onUp: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.routingDrag.end({ pointer })
+  },
+  onCancel: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.routingDrag.cancel({ pointer })
+  }
 })

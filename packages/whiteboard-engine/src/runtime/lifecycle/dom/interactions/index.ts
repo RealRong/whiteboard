@@ -1,19 +1,19 @@
 import type { LifecycleContext } from '../../../../context'
-import { createEdgeConnectSpec } from './edgeConnect'
-import { createMindmapDragSpec } from './mindmapDrag'
-import { createNodeDragSpec } from './nodeDrag'
-import { createNodeTransformSpec } from './nodeTransform'
-import { createRoutingDragSpec } from './routingDrag'
-import type { InteractionBindingSpec } from './types'
+import { createEdgeConnectHandler } from './edgeConnect'
+import { createMindmapDragHandler } from './mindmapDrag'
+import { createNodeDragHandler } from './nodeDrag'
+import { createNodeTransformHandler } from './nodeTransform'
+import { createRoutingDragHandler } from './routingDrag'
+import type { InteractionHandler } from './types'
 
-export type { InteractionBindingSpec } from './types'
+export type { InteractionHandler } from './types'
 
-export const createInteractionSpecs = (
+export const createInteractionHandlers = (
   context: LifecycleContext
-): InteractionBindingSpec[] => [
-  createEdgeConnectSpec(context),
-  createRoutingDragSpec(context),
-  createNodeDragSpec(context),
-  createNodeTransformSpec(context),
-  createMindmapDragSpec(context)
+): InteractionHandler[] => [
+  createEdgeConnectHandler(context),
+  createRoutingDragHandler(context),
+  createNodeDragHandler(context),
+  createNodeTransformHandler(context),
+  createMindmapDragHandler(context)
 ]

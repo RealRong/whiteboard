@@ -1,23 +1,24 @@
 import type { LifecycleContext } from '../../../../context'
-import type { InteractionBindingSpec } from './types'
+import { toPointerInput } from '../../../../context'
+import type { InteractionHandler } from './types'
 import { readPointerId } from './types'
 
-export const createMindmapDragSpec = (
+export const createMindmapDragHandler = (
   context: LifecycleContext
-): InteractionBindingSpec => ({
+): InteractionHandler => ({
   watch: (listener) => context.state.watch('mindmapDrag', listener),
   getActive: () => context.state.read('mindmapDrag').active,
   getPointerId: readPointerId,
-  toMoveIntent: (pointer) => ({
-    type: 'mindmap-drag.update',
-    pointer
-  }),
-  toUpIntent: (pointer) => ({
-    type: 'mindmap-drag.end',
-    pointer
-  }),
-  toCancelIntent: (pointer) => ({
-    type: 'mindmap-drag.cancel',
-    pointer
-  })
+  onMove: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.mindmapDrag.update({ pointer })
+  },
+  onUp: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.mindmapDrag.end({ pointer })
+  },
+  onCancel: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.mindmapDrag.cancel({ pointer })
+  }
 })

@@ -1,22 +1,23 @@
 import type { LifecycleContext } from '../../../../context'
-import type { InteractionBindingSpec } from './types'
+import { toPointerInput } from '../../../../context'
+import type { InteractionHandler } from './types'
 import { readPointerId } from './types'
 
-export const createEdgeConnectSpec = (
+export const createEdgeConnectHandler = (
   context: LifecycleContext
-): InteractionBindingSpec => ({
+): InteractionHandler => ({
   watch: (listener) => context.state.watch('edgeConnect', listener),
   getActive: () => {
     const edgeConnect = context.state.read('edgeConnect')
     return edgeConnect.isConnecting ? edgeConnect : undefined
   },
   getPointerId: readPointerId,
-  toMoveIntent: (pointer) => ({
-    type: 'edge-connect.updateTo',
-    pointer
-  }),
-  toUpIntent: (pointer) => ({
-    type: 'edge-connect.commitTo',
-    pointer
-  })
+  onMove: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.edgeConnect.updateTo(pointer)
+  },
+  onUp: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.edgeConnect.commitTo(pointer)
+  }
 })

@@ -20,15 +20,28 @@ export type GraphSnapshot = {
   visibleEdges: Edge[]
 }
 
-export type GraphChange = {
-  source?: GraphChangeSource
+export type GraphProjectionChange = {
+  visibleNodesChanged: boolean
+  canvasNodesChanged: boolean
+  visibleEdgesChanged: boolean
+}
+
+type GraphChangeBase = {
+  source: GraphChangeSource
+  projection: GraphProjectionChange
+}
+
+export type GraphPartialChange = GraphChangeBase & {
+  kind: 'partial'
   dirtyNodeIds?: NodeId[]
   orderChanged?: true
-  fullSync?: true
-  visibleNodesChanged?: true
-  canvasNodesChanged?: true
-  visibleEdgesChanged?: true
 }
+
+export type GraphFullChange = GraphChangeBase & {
+  kind: 'full'
+}
+
+export type GraphChange = GraphPartialChange | GraphFullChange
 
 export type GraphHint = {
   forceFull: boolean
@@ -45,9 +58,6 @@ export type GraphProjector = {
   patchNodeOverrides: (updates: NodeViewUpdate[]) => GraphChange | undefined
   clearNodeOverrides: (ids?: NodeId[]) => GraphChange | undefined
   applyHint: (hint: GraphHint, source?: GraphChangeSource) => void
-  reportDirty: (nodeIds: NodeId[], source?: GraphChangeSource) => void
-  reportOrderChanged: (source?: GraphChangeSource) => void
-  requestFullSync: () => void
   flush: (source: GraphChangeSource) => GraphChange | undefined
 }
 

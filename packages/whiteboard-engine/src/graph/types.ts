@@ -1,6 +1,9 @@
 export type {
   GraphSnapshot,
   GraphChange,
+  GraphFullChange,
+  GraphPartialChange,
+  GraphProjectionChange,
   GraphHint,
   GraphChangeSource,
   GraphProjector,

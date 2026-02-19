@@ -1,5 +1,6 @@
 import type { GraphChange } from '@engine-types/graph'
 import type { State, StateKey } from '@engine-types/instance/state'
+import { toChangeView } from '../../graph/change'
 import type { EdgeRegistry } from '../view/edgeRegistry'
 import type { MindmapRegistry } from '../view/mindmapRegistry'
 import type { NodeRegistry, NodeStateSyncKey } from '../view/nodeRegistry'
@@ -61,7 +62,15 @@ export class KernelPipeline {
       this.state.watchChanges(this.handleStateChange)
     ]
 
-    this.syncGraph({ fullSync: true })
+    this.syncGraph({
+      source: 'runtime',
+      kind: 'full',
+      projection: {
+        visibleNodesChanged: true,
+        canvasNodesChanged: true,
+        visibleEdgesChanged: true
+      }
+    })
     this.node.syncCanvasNodes()
     this.syncDerived('edge.paths')
     this.syncDerived('mindmap.trees')
@@ -80,28 +89,36 @@ export class KernelPipeline {
     this.query?.syncGraph(change)
     this.edge.syncGraph(change)
 
+    const {
+      fullSync,
+      visibleNodesChanged,
+      canvasNodesChanged,
+      visibleEdgesChanged,
+      dirtyNodeIds,
+      orderChanged
+    } = toChangeView(change)
+
     const graphDeps: ViewDependencyKey[] = []
-    if (change.fullSync || change.visibleNodesChanged) {
+    if (fullSync || visibleNodesChanged) {
       graphDeps.push('graph.visibleNodes')
     }
-    if (change.fullSync || change.canvasNodesChanged) {
+    if (fullSync || canvasNodesChanged) {
       graphDeps.push('graph.canvasNodes')
     }
-    if (change.fullSync || change.visibleEdgesChanged) {
+    if (fullSync || visibleEdgesChanged) {
       graphDeps.push('graph.visibleEdges')
     }
     if (graphDeps.length) {
       this.derived.invalidateDependencies(graphDeps)
     }
 
-    if (change.fullSync || change.canvasNodesChanged || change.visibleEdgesChanged) {
+    if (fullSync || canvasNodesChanged || visibleEdgesChanged) {
       this.syncDerived('edge.paths')
     }
-    if (change.fullSync || change.visibleNodesChanged) {
+    if (fullSync || visibleNodesChanged) {
       this.syncDerived('mindmap.trees')
     }
 
-    const { dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged } = change
     if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
       return
     }

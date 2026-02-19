@@ -1,6 +1,7 @@
 import type { NodeId } from '@whiteboard/core'
 import type { NodeViewUpdate } from '@engine-types/graph'
 import { isPointEqual, isSizeEqual } from '../kernel/geometry'
+import { hasProjectionChange } from './change'
 import {
   GraphCache
 } from './cache'
@@ -8,6 +9,7 @@ import type { NodeOverride } from './overrides'
 import type {
   CreateGraphProjectorOptions,
   GraphChange,
+  GraphProjectionChange,
   GraphChangeSource,
   GraphProjector
 } from './types'
@@ -47,36 +49,40 @@ export const createGraphProjector = ({
       visibleEdgesChanged: boolean
     }
   ): GraphChange => {
-    const changeFields = {
-      ...(changed.visibleNodesChanged ? { visibleNodesChanged: true as const } : {}),
-      ...(changed.canvasNodesChanged ? { canvasNodesChanged: true as const } : {}),
-      ...(changed.visibleEdgesChanged ? { visibleEdgesChanged: true as const } : {})
+    const projection: GraphProjectionChange = {
+      visibleNodesChanged: changed.visibleNodesChanged,
+      canvasNodesChanged: changed.canvasNodesChanged,
+      visibleEdgesChanged: changed.visibleEdgesChanged
     }
 
-    if (source === 'runtime') {
+    if (docFullSyncRequested && source === 'doc') {
       return {
         source,
-        ...changeFields,
-        dirtyNodeIds: pendingRuntimeDirtyIds.size
-          ? Array.from(pendingRuntimeDirtyIds)
-          : undefined,
-        orderChanged: runtimeOrderChanged ? true : undefined
+        kind: 'full',
+        projection: {
+          visibleNodesChanged: true,
+          canvasNodesChanged: true,
+          visibleEdgesChanged: true
+        }
       }
     }
-    if (docFullSyncRequested) {
-      return {
-        source,
-        ...changeFields,
-        fullSync: true
-      }
-    }
+
+    const dirtyNodeIds =
+      source === 'doc'
+        ? (pendingDocDirtyIds.size ? Array.from(pendingDocDirtyIds) : undefined)
+        : (pendingRuntimeDirtyIds.size
+            ? Array.from(pendingRuntimeDirtyIds)
+            : undefined)
+    const orderChanged = source === 'doc'
+      ? (docOrderChanged ? true : undefined)
+      : (runtimeOrderChanged ? true : undefined)
+
     return {
       source,
-      ...changeFields,
-      dirtyNodeIds: pendingDocDirtyIds.size
-        ? Array.from(pendingDocDirtyIds)
-        : undefined,
-      orderChanged: docOrderChanged ? true : undefined
+      kind: 'partial',
+      projection,
+      dirtyNodeIds,
+      orderChanged
     }
   }
 
@@ -99,7 +105,7 @@ export const createGraphProjector = ({
   const readNode: GraphProjector['readNode'] = (nodeId) =>
     cache.readNode(getDoc(), nodeOverrides, nodeId)
 
-  const reportDirty: GraphProjector['reportDirty'] = (nodeIds, source = 'runtime') => {
+  const queueDirty = (nodeIds: NodeId[], source: GraphChangeSource = 'runtime') => {
     if (source === 'doc') {
       nodeIds.forEach((nodeId) => {
         pendingDocDirtyIds.add(nodeId)
@@ -127,14 +133,14 @@ export const createGraphProjector = ({
         (node) => node.id
       )
       if (allNodeIds.length) {
-        reportDirty(allNodeIds, source)
+        queueDirty(allNodeIds, source)
       }
       runtimeOrderChanged = true
       return
     }
 
     if (hint.dirtyNodeIds?.length) {
-      reportDirty(hint.dirtyNodeIds, source)
+      queueDirty(hint.dirtyNodeIds, source)
     }
     if (hint.orderChanged) {
       if (source === 'doc') {
@@ -158,10 +164,8 @@ export const createGraphProjector = ({
       visibleEdgesChanged
     })
     const changed =
-      payload.fullSync ||
-      visibleNodesChanged ||
-      canvasNodesChanged ||
-      visibleEdgesChanged
+      payload.kind === 'full' ||
+      hasProjectionChange(payload)
     clearPending(source)
     if (!changed) return undefined
     return payload
@@ -184,7 +188,10 @@ export const createGraphProjector = ({
     })
 
     if (!changedNodeIds.length) return undefined
-    reportDirty(changedNodeIds)
+    applyHint({
+      forceFull: false,
+      dirtyNodeIds: changedNodeIds
+    }, 'runtime')
     return flush('runtime')
   }
 
@@ -194,7 +201,10 @@ export const createGraphProjector = ({
     if (!ids || !ids.length) {
       const changedNodeIds = Array.from(nodeOverrides.keys())
       nodeOverrides.clear()
-      reportDirty(changedNodeIds)
+      applyHint({
+        forceFull: false,
+        dirtyNodeIds: changedNodeIds
+      }, 'runtime')
       return flush('runtime')
     }
 
@@ -205,7 +215,10 @@ export const createGraphProjector = ({
       changedNodeIds.push(id)
     })
     if (!changedNodeIds.length) return undefined
-    reportDirty(changedNodeIds)
+    applyHint({
+      forceFull: false,
+      dirtyNodeIds: changedNodeIds
+    }, 'runtime')
     return flush('runtime')
   }
 
@@ -219,17 +232,6 @@ export const createGraphProjector = ({
     patchNodeOverrides,
     clearNodeOverrides,
     applyHint,
-    reportDirty,
-    reportOrderChanged: (source = 'runtime') => {
-      if (source === 'doc') {
-        docOrderChanged = true
-        return
-      }
-      runtimeOrderChanged = true
-    },
-    requestFullSync: () => {
-      applyHint({ forceFull: true }, 'doc')
-    },
     flush
   }
 }

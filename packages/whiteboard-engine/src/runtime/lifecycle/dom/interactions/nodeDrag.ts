@@ -1,23 +1,24 @@
 import type { LifecycleContext } from '../../../../context'
-import type { InteractionBindingSpec } from './types'
+import { toPointerInput } from '../../../../context'
+import type { InteractionHandler } from './types'
 import { readPointerId } from './types'
 
-export const createNodeDragSpec = (
+export const createNodeDragHandler = (
   context: LifecycleContext
-): InteractionBindingSpec => ({
+): InteractionHandler => ({
   watch: (listener) => context.state.watch('nodeDrag', listener),
   getActive: () => context.state.read('nodeDrag').active,
   getPointerId: readPointerId,
-  toMoveIntent: (pointer) => ({
-    type: 'node-drag.update',
-    pointer
-  }),
-  toUpIntent: (pointer) => ({
-    type: 'node-drag.end',
-    pointer
-  }),
-  toCancelIntent: (pointer) => ({
-    type: 'node-drag.cancel',
-    pointer
-  })
+  onMove: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.nodeDrag.update({ pointer })
+  },
+  onUp: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.nodeDrag.end({ pointer })
+  },
+  onCancel: (event) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
+    context.runtime.interaction.nodeDrag.cancel({ pointer })
+  }
 })

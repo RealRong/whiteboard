@@ -66,7 +66,7 @@ const reduceChange = async (
 ) => {
   switch (change.type) {
     case 'doc.reset': {
-      context.graph.requestFullSync()
+      context.graph.applyHint({ forceFull: true }, 'doc')
       context.docRef.current = change.doc
       context.replaceDoc(change.doc)
       return undefined

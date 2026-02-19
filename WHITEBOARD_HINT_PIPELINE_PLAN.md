@@ -48,7 +48,7 @@ packages/whiteboard-engine/src/
 说明：
 
 1. `graph/hint` 只做“计算 hint”，不直接调用 graph 写接口。
-2. `change/GraphSync.ts` 只做“把 hint 应用到 graph”（`reportDirty/reportOrderChanged/requestFullSync`）。
+2. `change/GraphSync.ts` 只做“把 hint 应用到 graph”（统一走 `applyHint`）。
 3. 现有 `runtime/lifecycle/watchers/nodeHint.ts` 与 `nodeHint.bench.ts` 迁移到上述目录（语义对齐）。
 
 ---
@@ -133,7 +133,7 @@ change/pipeline.apply
           -> HintContext 累积 dirty/order/fullSync
       -> 得到 Hint
       -> GraphSync.applyHintToGraph(hint)
-          -> requestFullSync | reportDirty | reportOrderChanged
+          -> graph.applyHint(hint, source)
   -> graph.flush('doc')
   -> syncGraph(graphChange)
 ```
