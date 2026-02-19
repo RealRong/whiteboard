@@ -46,6 +46,16 @@ type SyncCanvasNodesOptions = {
   orderChanged?: boolean
   fullSync?: boolean
 }
+type NodeHandleSyncMode = 'auto' | 'always' | 'never'
+type NodeVisualSyncResult = {
+  nodeItemsChanged: boolean
+  nodeHandlesChanged: boolean
+}
+export type NodeStateSyncKey =
+  | 'selection'
+  | 'groupHovered'
+  | 'tool'
+  | 'viewport'
 
 type Options = {
   state: State
@@ -55,10 +65,7 @@ type Options = {
 
 export type NodeRegistry = {
   syncCanvasNodes: (options?: SyncCanvasNodesOptions) => void
-  syncSelectionState: () => void
-  syncGroupHoveredState: () => void
-  syncToolState: () => void
-  syncViewportState: () => void
+  syncState: (key: NodeStateSyncKey) => void
   getNodeItems: () => NodeItemsViewValue
   getNodeHandlesMap: () => ViewSnapshot['node.transformHandles']
   getNodeIds: () => NodeId[]
@@ -164,6 +171,9 @@ export const createNodeRegistry = ({
     markMetricDirty(nodeItemsMetric)
   }
 
+  const ensureMutableMap = <T>(current: Map<NodeId, T>, next: Map<NodeId, T>) =>
+    next === current ? new Map(current) : next
+
   const getNodeRect = (node: Node) =>
     query.canvas.nodeRect(node.id)?.rect ?? {
       x: node.position.x,
@@ -246,9 +256,7 @@ export const createNodeRegistry = ({
       const previous = nodeItemsById.get(nodeId)
       if (!node) {
         if (!previous) continue
-        if (nextById === nodeItemsById) {
-          nextById = new Map(nodeItemsById)
-        }
+        nextById = ensureMutableMap(nodeItemsById, nextById)
         nextById.delete(nodeId)
         changedNodeIds.push(nodeId)
         continue
@@ -256,9 +264,7 @@ export const createNodeRegistry = ({
 
       const next = toNodeItem(node, context)
       if (previous === next) continue
-      if (nextById === nodeItemsById) {
-        nextById = new Map(nodeItemsById)
-      }
+      nextById = ensureMutableMap(nodeItemsById, nextById)
       nextById.set(nodeId, next)
       changedNodeIds.push(nodeId)
     }
@@ -285,18 +291,14 @@ export const createNodeRegistry = ({
 
       if (!next) {
         if (!previous) continue
-        if (nextById === nodeHandlesById) {
-          nextById = new Map(nodeHandlesById)
-        }
+        nextById = ensureMutableMap(nodeHandlesById, nextById)
         nextById.delete(nodeId)
         changedNodeIds.push(nodeId)
         continue
       }
 
       if (previous === next) continue
-      if (nextById === nodeHandlesById) {
-        nextById = new Map(nodeHandlesById)
-      }
+      nextById = ensureMutableMap(nodeHandlesById, nextById)
       nextById.set(nodeId, next)
       changedNodeIds.push(nodeId)
     }
@@ -312,6 +314,57 @@ export const createNodeRegistry = ({
     changedNodeIds.forEach((nodeId) => {
       notifyListeners(nodeHandleListeners.get(nodeId))
     })
+    return true
+  }
+
+  const notifyNodeVisualChanges = ({
+    nodeItemsChanged,
+    nodeHandlesChanged
+  }: NodeVisualSyncResult) => {
+    if (nodeItemsChanged) {
+      notifyListeners(nodeItemsListeners)
+    }
+    if (nodeHandlesChanged) {
+      notifyListeners(nodeHandlesListeners)
+    }
+  }
+
+  const mergeNodeVisualChanges = (
+    base: NodeVisualSyncResult,
+    next: NodeVisualSyncResult
+  ): NodeVisualSyncResult => ({
+    nodeItemsChanged: base.nodeItemsChanged || next.nodeItemsChanged,
+    nodeHandlesChanged: base.nodeHandlesChanged || next.nodeHandlesChanged
+  })
+
+  const syncNodeVisualsByIds = (
+    targetNodeIds: Iterable<NodeId>,
+    options?: {
+      context?: NodeRenderContext
+      handleSync?: NodeHandleSyncMode
+    }
+  ): NodeVisualSyncResult => {
+    const context = options?.context
+    const handleSync = options?.handleSync ?? 'auto'
+    const nodeItemsChanged = syncNodeItemsByIds(targetNodeIds, context)
+    const shouldSyncHandles =
+      handleSync === 'always' ||
+      (handleSync === 'auto' && (context?.activeTool ?? activeTool) === 'select')
+    const nodeHandlesChanged = shouldSyncHandles
+      ? syncNodeHandlesByIds(targetNodeIds, context)
+      : false
+    return {
+      nodeItemsChanged,
+      nodeHandlesChanged
+    }
+  }
+
+  const applyNodeOrder = (nextNodeIds: NodeId[]) => {
+    if (isSameIdOrder(nodeIds, nextNodeIds)) return false
+    nodeIds = nextNodeIds
+    markMetricRevision(nodeItemsMetric)
+    markNodeItemsDirty()
+    notifyListeners(nodeIdsListeners)
     return true
   }
 
@@ -349,37 +402,38 @@ export const createNodeRegistry = ({
     })
     canvasNodeById = nextById
 
-    let nodeItemsChanged = false
-    let nodeHandlesChanged = false
-    const nodeOrderChanged = !isSameIdOrder(nodeIds, nextNodeIds)
-    if (nodeOrderChanged) {
-      nodeIds = nextNodeIds
-      markMetricRevision(nodeItemsMetric)
-      markNodeItemsDirty()
-      notifyListeners(nodeIdsListeners)
-      nodeItemsChanged = true
+    let visualChanges: NodeVisualSyncResult = {
+      nodeItemsChanged: false,
+      nodeHandlesChanged: false
     }
-
-    if (removedNodeIds.size) {
-      nodeItemsChanged = syncNodeItemsByIds(removedNodeIds, context) || nodeItemsChanged
-      nodeHandlesChanged =
-        syncNodeHandlesByIds(removedNodeIds, context) || nodeHandlesChanged
-    }
-
-    if (changedNodeIds.size) {
-      nodeItemsChanged = syncNodeItemsByIds(changedNodeIds, context) || nodeItemsChanged
-      if ((context?.activeTool ?? activeTool) === 'select') {
-        nodeHandlesChanged =
-          syncNodeHandlesByIds(changedNodeIds, context) || nodeHandlesChanged
+    if (applyNodeOrder(nextNodeIds)) {
+      visualChanges = {
+        ...visualChanges,
+        nodeItemsChanged: true
       }
     }
 
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
+    if (removedNodeIds.size) {
+      visualChanges = mergeNodeVisualChanges(
+        visualChanges,
+        syncNodeVisualsByIds(removedNodeIds, {
+          context,
+          handleSync: 'always'
+        })
+      )
     }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
+
+    if (changedNodeIds.size) {
+      visualChanges = mergeNodeVisualChanges(
+        visualChanges,
+        syncNodeVisualsByIds(changedNodeIds, {
+          context,
+          handleSync: 'auto'
+        })
+      )
     }
+
+    notifyNodeVisualChanges(visualChanges)
   }
 
   const syncCanvasNodesDirty = (dirtyNodeIds: NodeId[], context?: NodeRenderContext) => {
@@ -395,27 +449,21 @@ export const createNodeRegistry = ({
       if (!previous && !next) return
 
       if (!previous && next) {
-        if (nextById === canvasNodeById) {
-          nextById = new Map(canvasNodeById)
-        }
+        nextById = ensureMutableMap(canvasNodeById, nextById)
         nextById.set(nodeId, next)
         changedNodeIds.add(nodeId)
         return
       }
 
       if (previous && !next) {
-        if (nextById === canvasNodeById) {
-          nextById = new Map(canvasNodeById)
-        }
+        nextById = ensureMutableMap(canvasNodeById, nextById)
         nextById.delete(nodeId)
         changedNodeIds.add(nodeId)
         return
       }
 
       if (previous === next || !next) return
-      if (nextById === canvasNodeById) {
-        nextById = new Map(canvasNodeById)
-      }
+      nextById = ensureMutableMap(canvasNodeById, nextById)
       nextById.set(nodeId, next)
       changedNodeIds.add(nodeId)
     })
@@ -425,29 +473,19 @@ export const createNodeRegistry = ({
     }
     if (!changedNodeIds.size) return
 
-    const nodeItemsChanged = syncNodeItemsByIds(changedNodeIds, context)
-    const nodeHandlesChanged =
-      (context?.activeTool ?? activeTool) === 'select'
-        ? syncNodeHandlesByIds(changedNodeIds, context)
-        : false
-
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
-    }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
-    }
+    notifyNodeVisualChanges(
+      syncNodeVisualsByIds(changedNodeIds, {
+        context,
+        handleSync: 'auto'
+      })
+    )
   }
 
   const syncCanvasNodeOrder = () => {
     const nextNodeIds = toLayerOrderedCanvasNodes(graph.read().canvasNodes).map(
       (node) => node.id
     )
-    if (isSameIdOrder(nodeIds, nextNodeIds)) return
-    nodeIds = nextNodeIds
-    markMetricRevision(nodeItemsMetric)
-    markNodeItemsDirty()
-    notifyListeners(nodeIdsListeners)
+    if (!applyNodeOrder(nextNodeIds)) return
     notifyListeners(nodeItemsListeners)
   }
 
@@ -477,62 +515,64 @@ export const createNodeRegistry = ({
     syncCanvasNodesFull(context)
   }
 
-  const syncSelectionState: NodeRegistry['syncSelectionState'] = () => {
-    const nextSelectedNodeIds = state.read('selection').selectedNodeIds
-    if (nextSelectedNodeIds === selectedNodeIds) return
+  const syncState: NodeRegistry['syncState'] = (key) => {
+    if (!hasSubscribers()) return
 
-    const changedNodeIds = diffSelection(selectedNodeIds, nextSelectedNodeIds)
-    selectedNodeIds = nextSelectedNodeIds
-    if (!changedNodeIds.size || activeTool === 'edge') return
+    if (key === 'selection') {
+      const nextSelectedNodeIds = state.read('selection').selectedNodeIds
+      if (nextSelectedNodeIds === selectedNodeIds) return
 
-    const nodeItemsChanged = syncNodeItemsByIds(changedNodeIds)
-    const nodeHandlesChanged = syncNodeHandlesByIds(changedNodeIds)
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
+      const changedNodeIds = diffSelection(selectedNodeIds, nextSelectedNodeIds)
+      selectedNodeIds = nextSelectedNodeIds
+      if (!changedNodeIds.size || activeTool === 'edge') return
+
+      notifyNodeVisualChanges(
+        syncNodeVisualsByIds(changedNodeIds, {
+          handleSync: 'always'
+        })
+      )
+      return
     }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
-    }
-  }
 
-  const syncGroupHoveredState: NodeRegistry['syncGroupHoveredState'] = () => {
-    const nextHoveredGroupId = state.read('groupHovered')
-    if (nextHoveredGroupId === hoveredGroupId) return
+    if (key === 'groupHovered') {
+      const nextHoveredGroupId = state.read('groupHovered')
+      if (nextHoveredGroupId === hoveredGroupId) return
 
-    const changedNodeIds = new Set<NodeId>()
-    if (hoveredGroupId) {
-      changedNodeIds.add(hoveredGroupId)
+      const changedNodeIds = new Set<NodeId>()
+      if (hoveredGroupId) {
+        changedNodeIds.add(hoveredGroupId)
+      }
+      if (nextHoveredGroupId) {
+        changedNodeIds.add(nextHoveredGroupId)
+      }
+      hoveredGroupId = nextHoveredGroupId
+      if (!changedNodeIds.size) return
+      notifyNodeVisualChanges(
+        syncNodeVisualsByIds(changedNodeIds, {
+          handleSync: 'never'
+        })
+      )
+      return
     }
-    if (nextHoveredGroupId) {
-      changedNodeIds.add(nextHoveredGroupId)
-    }
-    hoveredGroupId = nextHoveredGroupId
-    if (!changedNodeIds.size) return
-    if (syncNodeItemsByIds(changedNodeIds)) {
-      notifyListeners(nodeItemsListeners)
-    }
-  }
 
-  const syncToolState: NodeRegistry['syncToolState'] = () => {
-    const nextTool = state.read('tool')
-    if (nextTool === activeTool) return
+    if (key === 'tool') {
+      const nextTool = state.read('tool')
+      if (nextTool === activeTool) return
 
-    activeTool = nextTool
-    const nodeItemsChanged = syncNodeItemsByIds(nodeIds)
-    const nodeHandlesChanged =
-      activeTool === 'select'
-        ? syncNodeHandlesByIds(selectedNodeIds)
-        : clearNodeHandles()
+      activeTool = nextTool
+      const nodeItemsChanged = syncNodeItemsByIds(nodeIds)
+      const nodeHandlesChanged =
+        activeTool === 'select'
+          ? syncNodeHandlesByIds(selectedNodeIds)
+          : clearNodeHandles()
 
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
+      notifyNodeVisualChanges({
+        nodeItemsChanged,
+        nodeHandlesChanged
+      })
+      return
     }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
-    }
-  }
 
-  const syncViewportState: NodeRegistry['syncViewportState'] = () => {
     const nextZoom = state.read('viewport').zoom
     if (nextZoom === zoom) return
 
@@ -543,12 +583,10 @@ export const createNodeRegistry = ({
         ? syncNodeHandlesByIds(selectedNodeIds)
         : false
 
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
-    }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
-    }
+    notifyNodeVisualChanges({
+      nodeItemsChanged,
+      nodeHandlesChanged
+    })
   }
 
   const getNodeItems: NodeRegistry['getNodeItems'] = () => {
@@ -567,10 +605,7 @@ export const createNodeRegistry = ({
 
   return {
     syncCanvasNodes,
-    syncSelectionState,
-    syncGroupHoveredState,
-    syncToolState,
-    syncViewportState,
+    syncState,
     getNodeItems,
     getNodeHandlesMap: () => {
       pullForRead()

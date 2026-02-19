@@ -124,8 +124,6 @@ export type NodeTransformHandle = {
 export type ViewSnapshot = {
   'viewport.transform': ViewportTransformView
   'shortcut.context': ShortcutContext
-  'edge.entries': EdgePathEntry[]
-  'edge.reconnect': EdgePathEntry | undefined
   'edge.paths': EdgePathEntry[]
   'edge.preview': EdgePreviewView
   'edge.selectedEndpoints': EdgeEndpoints | undefined

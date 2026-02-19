@@ -1,12 +1,12 @@
 import type { Viewport } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
+import type { State } from '@engine-types/instance/state'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { HistoryState } from '@engine-types/state'
 import { createWatcherLifecycle } from './lifecycle'
 
 type Options = {
-  state: Instance['state']
+  state: State
   emit: InstanceEventEmitter['emit']
 }
 

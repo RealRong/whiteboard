@@ -420,6 +420,7 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
               toParentId: intent.newParentId,
               fromIndex,
               toIndex: adjustedToIndex,
+              fromSide: node.side,
               side: intent.options?.side
             },
             ...(anchorPatch && mindmapNode

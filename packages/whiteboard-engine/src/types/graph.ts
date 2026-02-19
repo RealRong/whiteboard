@@ -36,13 +36,12 @@ export type GraphProjector = {
   read: () => GraphSnapshot
   readNode: (nodeId: NodeId) => Node | undefined
   readNodeOverrides: () => NodeViewUpdate[]
-  patchNodeOverrides: (updates: NodeViewUpdate[]) => void
-  clearNodeOverrides: (ids?: NodeId[]) => void
-  watch: (listener: (payload: GraphChange) => void) => () => void
+  patchNodeOverrides: (updates: NodeViewUpdate[]) => GraphChange | undefined
+  clearNodeOverrides: (ids?: NodeId[]) => GraphChange | undefined
   reportDirty: (nodeIds: NodeId[], source?: GraphChangeSource) => void
   reportOrderChanged: (source?: GraphChangeSource) => void
   requestFullSync: () => void
-  flush: (source: GraphChangeSource) => void
+  flush: (source: GraphChangeSource) => GraphChange | undefined
 }
 
 export type CreateGraphProjectorOptions = {

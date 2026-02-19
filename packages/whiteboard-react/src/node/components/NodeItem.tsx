@@ -6,6 +6,7 @@ import type { NodeContainerProps, NodeHandleSide, NodeItemProps, NodeRenderProps
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
 import { useInstance } from '../../common/hooks'
+import { toPointerInput } from '../../common/pointerInput'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
@@ -44,10 +45,8 @@ const NodeTransformHandles = ({
       if (handle.kind === 'resize' && handle.direction) {
         handled = instance.runtime.interaction.nodeTransform.startResize({
           nodeId: node.id,
-          pointerId: event.pointerId,
+          pointer: toPointerInput(instance, event),
           handle: handle.direction,
-          clientX: event.clientX,
-          clientY: event.clientY,
           rect,
           rotation: nodeRotation
         })
@@ -56,9 +55,7 @@ const NodeTransformHandles = ({
       if (handle.kind === 'rotate') {
         handled = instance.runtime.interaction.nodeTransform.startRotate({
           nodeId: node.id,
-          pointerId: event.pointerId,
-          clientX: event.clientX,
-          clientY: event.clientY,
+          pointer: toPointerInput(instance, event),
           rect,
           rotation: nodeRotation
         })
@@ -68,7 +65,14 @@ const NodeTransformHandles = ({
       event.preventDefault()
       event.stopPropagation()
     },
-    [enabled, instance.runtime.interaction.nodeTransform, node.id, node.locked, nodeRotation, rect]
+    [
+      enabled,
+      instance.runtime.interaction.nodeTransform,
+      node.id,
+      node.locked,
+      nodeRotation,
+      rect
+    ]
   )
 
   const getHandleProps = useCallback(
@@ -118,7 +122,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
   const core = instance.runtime.core
-  const clientToWorld = instance.runtime.viewport.clientToWorld
 
   const nodeStyle = useMemo(
     () =>
@@ -150,12 +153,11 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
+      const pointer = toPointerInput(instance, event)
       if (activeTool === 'edge') {
-        const worldPoint = clientToWorld(event.clientX, event.clientY)
         const handled = instance.runtime.interaction.edgeConnect.handleNodePointerDown(
           node.id,
-          worldPoint,
-          event.pointerId
+          pointer
         )
         if (!handled) return
         event.preventDefault()
@@ -174,14 +176,12 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
 
       const handled = instance.runtime.interaction.nodeDrag.start({
         nodeId: node.id,
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY
+        pointer
       })
       if (!handled) return
       event.preventDefault()
     },
-    [activeTool, clientToWorld, instance, node.id]
+    [activeTool, instance, node.id]
   )
 
   const handlePointerEnter = useCallback(() => {
@@ -196,7 +196,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => {
       event.preventDefault()
       event.stopPropagation()
-      instance.runtime.interaction.edgeConnect.startFromHandle(node.id, side, event.pointerId)
+      instance.runtime.interaction.edgeConnect.startFromHandle(node.id, side, toPointerInput(instance, event))
     },
     [instance, node.id]
   )

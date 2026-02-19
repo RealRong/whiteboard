@@ -1,17 +1,17 @@
 import type { Point, Rect } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance/instance'
 import type { SelectionMode } from '@engine-types/state'
+import type { LifecycleContext } from '../../../../context'
 import { rectFromPoints } from '../../../../kernel/geometry'
 import { getSelectionModeFromEvent } from '../../../../node/utils/selection'
 
 type Options = {
-  instance: Instance
+  context: LifecycleContext
   enabled: boolean
   minDragDistance: number
 }
 
 export const createSelection = ({
-  instance,
+  context,
   enabled,
   minDragDistance
 }: Options) => {
@@ -41,16 +41,16 @@ export const createSelection = ({
     cancelPendingRaf()
     isSelecting = false
     activePointerId = null
-    instance.commands.selection.endBox()
+    context.commands.selection.endBox()
     if (wasActive) {
       emitActiveChange()
     }
   }
 
   const getScreenPoint = (event: PointerEvent) => {
-    const element = instance.runtime.containerRef.current
+    const element = context.runtime.containerRef.current
     if (!element) return null
-    return instance.runtime.viewport.clientToScreen(event.clientX, event.clientY)
+    return context.runtime.viewport.clientToScreen(event.clientX, event.clientY)
   }
 
   const isActivePointer = (event: PointerEvent) => {
@@ -59,9 +59,9 @@ export const createSelection = ({
   }
 
   const hitTest = (rectWorld: Rect, nextMode: SelectionMode) => {
-    const matched = instance.query.canvas.nodeIdsInRect(rectWorld)
+    const matched = context.query.canvas.nodeIdsInRect(rectWorld)
     if (!matched.length) return
-    instance.commands.selection.select(matched, nextMode)
+    context.commands.selection.select(matched, nextMode)
   }
 
   const updateBox = (pointScreen: Point) => {
@@ -69,11 +69,11 @@ export const createSelection = ({
     if (!start) return
 
     const rectScreen = rectFromPoints(start, pointScreen)
-    const startWorld = instance.runtime.viewport.screenToWorld({
+    const startWorld = context.runtime.viewport.screenToWorld({
       x: rectScreen.x,
       y: rectScreen.y
     })
-    const endWorld = instance.runtime.viewport.screenToWorld({
+    const endWorld = context.runtime.viewport.screenToWorld({
       x: rectScreen.x + rectScreen.width,
       y: rectScreen.y + rectScreen.height
     })
@@ -81,7 +81,7 @@ export const createSelection = ({
 
     isSelecting = true
     latestRectWorld = rectWorld
-    instance.commands.selection.updateBox(rectScreen, rectWorld)
+    context.commands.selection.updateBox(rectScreen, rectWorld)
 
     if (rafId !== null) return
     rafId = window.requestAnimationFrame(() => {
@@ -95,8 +95,8 @@ export const createSelection = ({
   const onPointerDown = (event: PointerEvent) => {
     if (!enabled) return
     if (event.button !== 0) return
-    if (instance.state.read('spacePressed')) return
-    if (!instance.query.canvas.isBackgroundTarget(event.target)) return
+    if (context.state.read('spacePressed')) return
+    if (!context.query.canvas.isBackgroundTarget(event.target)) return
 
     const point = getScreenPoint(event)
     if (!point) return
@@ -107,7 +107,7 @@ export const createSelection = ({
     latestRectWorld = null
     isSelecting = false
     activePointerId = event.pointerId
-    instance.commands.selection.beginBox(mode)
+    context.commands.selection.beginBox(mode)
     if (!wasActive) {
       emitActiveChange()
     }
@@ -135,7 +135,7 @@ export const createSelection = ({
     if (!isActivePointer(event)) return
 
     if (!isSelecting && mode === 'replace') {
-      instance.commands.selection.clear()
+      context.commands.selection.clear()
     }
 
     reset()
@@ -166,7 +166,6 @@ export const createSelection = ({
         activeWatchers.delete(listener)
       }
     },
-    isActive: () => startPoint !== null,
     getPointerId: () => activePointerId,
     cancel
   }

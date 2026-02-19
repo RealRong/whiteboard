@@ -1,10 +1,37 @@
 import type { Node, Operation } from '@whiteboard/core'
 import { buildCanvasNodeDirtyHint } from './nodeHint'
 
+const runtime = globalThis as {
+  process?: {
+    env?: Record<string, string | undefined>
+    exitCode?: number
+  }
+}
+
+const env = runtime.process?.env ?? {}
+
+const toNumber = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const RUNS = Math.max(1, Math.floor(toNumber(env.WB_BENCH_RUNS, 5)))
+const WARMUP_RUNS = Math.max(0, Math.floor(toNumber(env.WB_BENCH_WARMUP_RUNS, 1)))
+const ENFORCE_THRESHOLD = env.WB_BENCH_ENFORCE === '1'
+
+const NODE_HINT_MOVE_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_MOVE_BUDGET_MS, 0.8)
+const NODE_HINT_COLLAPSED_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_COLLAPSED_BUDGET_MS, 0.8)
+const NODE_HINT_TYPE_SWITCH_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_TYPE_SWITCH_BUDGET_MS, 0.8)
+const NODE_HINT_CREATE_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_CREATE_BUDGET_MS, 0.8)
+const NODE_HINT_DELETE_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_DELETE_BUDGET_MS, 0.8)
+const NODE_HINT_ORDER_BUDGET_MS = toNumber(env.WB_BENCH_NODE_HINT_ORDER_BUDGET_MS, 0.8)
+
 type Scenario = {
+  key: string
   name: string
   operations: Operation[]
   loops: number
+  budgetMs: number
 }
 
 const now = () =>
@@ -64,7 +91,41 @@ const toDeleteOperation = (node: Node): Operation => ({
   before: node
 })
 
-const runScenario = (scenario: Scenario, getNodes: () => Node[]) => {
+type ScenarioSample = {
+  elapsedMs: number
+  perLoopMs: number
+  opsPerSecond: number
+  checksum: number
+}
+
+type ScenarioResult = {
+  scenario: Scenario
+  samples: ScenarioSample[]
+  p50Ms: number
+  p95Ms: number
+  avgMs: number
+  maxMs: number
+  avgOpsPerSecond: number
+  checksum: number
+  pass: boolean
+}
+
+const percentile = (values: number[], p: number) => {
+  if (!values.length) return 0
+  const sorted = [...values].sort((left, right) => left - right)
+  const index = Math.max(0, Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1))
+  return sorted[index] ?? 0
+}
+
+const average = (values: number[]) =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+
+const formatMs = (value: number) => `${value.toFixed(4)}ms`
+
+const runScenarioOnce = (
+  scenario: Scenario,
+  getNodes: () => Node[]
+): ScenarioSample => {
   let checksum = 0
   const startedAt = now()
   for (let index = 0; index < scenario.loops; index += 1) {
@@ -77,17 +138,63 @@ const runScenario = (scenario: Scenario, getNodes: () => Node[]) => {
   const perLoopMs = elapsedMs / scenario.loops
   const opsPerSecond = scenario.loops > 0 ? (scenario.loops * 1000) / elapsedMs : 0
 
+  return {
+    elapsedMs,
+    perLoopMs,
+    opsPerSecond,
+    checksum
+  }
+}
+
+const runScenario = (scenario: Scenario, getNodes: () => Node[]): ScenarioResult => {
+  for (let run = 0; run < WARMUP_RUNS; run += 1) {
+    runScenarioOnce(scenario, getNodes)
+  }
+
+  const samples: ScenarioSample[] = []
+  for (let run = 0; run < RUNS; run += 1) {
+    samples.push(runScenarioOnce(scenario, getNodes))
+  }
+
+  const perLoopSamples = samples.map((sample) => sample.perLoopMs)
+  const opsPerSecondSamples = samples.map((sample) => sample.opsPerSecond)
+  const checksum = samples.reduce((sum, sample) => sum + sample.checksum, 0)
+  const p50Ms = percentile(perLoopSamples, 50)
+  const p95Ms = percentile(perLoopSamples, 95)
+  const avgMs = average(perLoopSamples)
+  const maxMs = perLoopSamples.length ? Math.max(...perLoopSamples) : 0
+  const avgOpsPerSecond = average(opsPerSecondSamples)
+  const pass = p95Ms < scenario.budgetMs
+
   console.log(
     [
       scenario.name,
       `loops=${scenario.loops}`,
       `ops=${scenario.operations.length}`,
-      `total=${elapsedMs.toFixed(2)}ms`,
-      `perLoop=${perLoopMs.toFixed(4)}ms`,
-      `ops/s=${opsPerSecond.toFixed(2)}`,
+      `runs=${RUNS}`,
+      `warmup=${WARMUP_RUNS}`,
+      `p50=${formatMs(p50Ms)}`,
+      `p95=${formatMs(p95Ms)}`,
+      `avg=${formatMs(avgMs)}`,
+      `max=${formatMs(maxMs)}`,
+      `ops/s=${avgOpsPerSecond.toFixed(2)}`,
+      `budget<${scenario.budgetMs}ms`,
+      pass ? 'PASS' : 'FAIL',
       `checksum=${checksum}`
     ].join(' | ')
   )
+
+  return {
+    scenario,
+    samples,
+    p50Ms,
+    p95Ms,
+    avgMs,
+    maxMs,
+    avgOpsPerSecond,
+    checksum,
+    pass
+  }
 }
 
 const main = () => {
@@ -142,12 +249,43 @@ const main = () => {
   ]
 
   const scenarios: Scenario[] = [
-    { name: 'move-bulk', operations: moveOps, loops: 800 },
-    { name: 'collapsed-groups', operations: collapsedOps, loops: 600 },
-    { name: 'type-switch-group', operations: typeSwitchOps, loops: 500 },
-    { name: 'create-with-ancestors', operations: createOps, loops: 1000 },
-    { name: 'delete-mixed', operations: deleteOps, loops: 700 },
     {
+      key: 'move-bulk',
+      name: 'move-bulk',
+      operations: moveOps,
+      loops: 800,
+      budgetMs: NODE_HINT_MOVE_BUDGET_MS
+    },
+    {
+      key: 'collapsed-groups',
+      name: 'collapsed-groups',
+      operations: collapsedOps,
+      loops: 600,
+      budgetMs: NODE_HINT_COLLAPSED_BUDGET_MS
+    },
+    {
+      key: 'type-switch-group',
+      name: 'type-switch-group',
+      operations: typeSwitchOps,
+      loops: 500,
+      budgetMs: NODE_HINT_TYPE_SWITCH_BUDGET_MS
+    },
+    {
+      key: 'create-with-ancestors',
+      name: 'create-with-ancestors',
+      operations: createOps,
+      loops: 1000,
+      budgetMs: NODE_HINT_CREATE_BUDGET_MS
+    },
+    {
+      key: 'delete-mixed',
+      name: 'delete-mixed',
+      operations: deleteOps,
+      loops: 700,
+      budgetMs: NODE_HINT_DELETE_BUDGET_MS
+    },
+    {
+      key: 'order-with-ancestors',
       name: 'order-with-ancestors',
       operations: [
         {
@@ -155,14 +293,38 @@ const main = () => {
           ids: take(dataset.children, 200).map((node) => node.id)
         }
       ],
-      loops: 2000
+      loops: 2000,
+      budgetMs: NODE_HINT_ORDER_BUDGET_MS
     }
   ]
 
   console.log(
     `nodeHint bench | nodes=${dataset.all.length} | groups=${dataset.groups.length} | children=${dataset.children.length}`
   )
-  scenarios.forEach((scenario) => runScenario(scenario, () => dataset.all))
+  const results = scenarios.map((scenario) => runScenario(scenario, () => dataset.all))
+  const failed = results.filter((result) => !result.pass)
+  const pass = failed.length === 0
+
+  console.log(
+    [
+      'target',
+      'all-scenario p95<budget',
+      pass ? 'PASS' : 'FAIL'
+    ].join(' | ')
+  )
+
+  if (ENFORCE_THRESHOLD && !pass && runtime.process) {
+    runtime.process.exitCode = 1
+    console.error(
+      [
+        'threshold check failed',
+        ...failed.map(
+          (result) =>
+            `${result.scenario.key}: p95=${formatMs(result.p95Ms)} expected<${result.scenario.budgetMs}ms`
+        )
+      ].join(' | ')
+    )
+  }
 }
 
 main()

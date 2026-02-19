@@ -16,6 +16,14 @@ import { createInteractions } from '../runtime/interaction'
 import { createState } from '../state/factory'
 import { createView } from '../kernel/view'
 import { createQuery } from '../api/query/instance'
+import {
+  createEngineContext,
+  toChangePipelineContext,
+  toCommandContext,
+  toInteractionContext,
+  toLifecycleContext,
+  toServiceContext
+} from '../context'
 import { createChangePipeline } from '../change'
 
 export const createEngine = ({
@@ -35,17 +43,18 @@ export const createEngine = ({
   const dom = createDomBindings(containerRef)
   const events = new Events<InstanceEventMap>()
 
-  const query = createQuery({
+  const queryRuntime = createQuery({
     graph,
     config,
     getContainer: base.getContainer
   })
-  const view = createView({
+  const viewRuntime = createView({
     state,
     graph,
-    query,
+    query: queryRuntime.query,
     config,
-    platform: base.platform
+    platform: base.platform,
+    syncQueryGraph: queryRuntime.syncGraph
   })
 
   let commands!: InternalInstance['commands']
@@ -89,8 +98,8 @@ export const createEngine = ({
     state,
     graph,
     runtime,
-    query,
-    view,
+    query: queryRuntime.query,
+    view: viewRuntime.view,
     events: {
       on: events.on,
       off: events.off
@@ -102,25 +111,50 @@ export const createEngine = ({
       return commands
     }
   }
+  const context = createEngineContext({
+    state,
+    graph,
+    query: queryRuntime.query,
+    view: viewRuntime.view,
+    runtime,
+    events: {
+      on: events.on,
+      off: events.off,
+      emit: events.emit
+    },
+    config,
+    syncGraph: viewRuntime.syncGraph
+  })
 
   state.write('tool', 'select')
-  const changePipeline = createChangePipeline({
-    instance,
-    replaceDoc,
-    onDocChanged: (payload) => {
-      events.emit('doc.changed', payload)
-    },
-    onApplied: (summary) => {
-      events.emit('change.applied', summary)
-    }
-  })
+  const changePipeline = createChangePipeline(
+    toChangePipelineContext({
+      context,
+      instance,
+      replaceDoc
+    })
+  )
   apply = changePipeline.apply
   tx = changePipeline.tx
-  services = createServices(core, instance)
-  commands = createCommands(instance, graph)
-  interaction = createInteractions(instance)
+  commands = createCommands(toCommandContext(context, instance))
+  services = createServices(
+    core,
+    toServiceContext({
+      context,
+      apply,
+      setViewport: commands.viewport.set,
+      zoomViewportBy: commands.viewport.zoomBy
+    })
+  )
+  interaction = createInteractions(toInteractionContext(context, instance))
   shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(instance, dom, events.emit)
+  lifecycle = new Lifecycle(
+    toLifecycleContext({
+      context,
+      commands
+    }),
+    dom
+  )
 
   return instance
 }

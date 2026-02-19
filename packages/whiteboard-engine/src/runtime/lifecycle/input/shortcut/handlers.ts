@@ -1,8 +1,8 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { LifecycleContext } from '../../../../context'
 import { resolveContextFromEvent } from './contextFromEvent'
 
 type Options = {
-  instance: InternalInstance
+  context: LifecycleContext
 }
 
 export type ShortcutHandlers = {
@@ -11,14 +11,14 @@ export type ShortcutHandlers = {
 }
 
 export const createShortcut = ({
-  instance
+  context
 }: Options): ShortcutHandlers => {
-  const readBaseContext = () => instance.view.global.shortcutContext()
+  const readBaseContext = () => context.view.global.shortcutContext()
   const resolveContext = (event: PointerEvent | KeyboardEvent) =>
     resolveContextFromEvent(readBaseContext(), event)
 
   const handlePointerDownCapture: ShortcutHandlers['handlePointerDownCapture'] = (event, onUnhandled) => {
-    const handled = instance.runtime.shortcuts.handlePointerDownCapture(event, resolveContext(event))
+    const handled = context.runtime.shortcuts.handlePointerDownCapture(event, resolveContext(event))
     if (handled) {
       event.preventDefault()
       event.stopPropagation()
@@ -28,7 +28,7 @@ export const createShortcut = ({
   }
 
   const handleKeyDown: ShortcutHandlers['handleKeyDown'] = (event) => {
-    const handled = instance.runtime.shortcuts.handleKeyDown(event, resolveContext(event))
+    const handled = context.runtime.shortcuts.handleKeyDown(event, resolveContext(event))
     if (handled) {
       event.preventDefault()
       event.stopPropagation()

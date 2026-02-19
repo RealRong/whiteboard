@@ -1,20 +1,23 @@
 import type { NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Size } from '@engine-types/common'
-import type { GraphProjector, NodeViewUpdate } from '@engine-types/graph'
-import type { Instance } from '@engine-types/instance/instance'
+import type { NodeViewUpdate } from '@engine-types/graph'
 import type { EdgeConnectState } from '@engine-types/state'
+import type { CommandContext } from '../../context'
 import { isPointEqual, isSizeEqual } from '../../kernel/geometry'
 
-export const createTransient = (
-  instance: Instance,
-  graph: GraphProjector
-): Commands['transient'] => {
+export const createTransient = ({
+  instance,
+  graph,
+  syncGraph
+}: CommandContext): Commands['transient'] => {
   const { core, docRef } = instance.runtime
   const { write, batch } = instance.state
 
   const clearNodeOverrides = (ids?: NodeId[]) => {
-    graph.clearNodeOverrides(ids)
+    const change = graph.clearNodeOverrides(ids)
+    if (!change) return
+    syncGraph(change)
   }
 
   const commitNodeOverrides = (updates?: NodeViewUpdate[]) => {
@@ -67,7 +70,9 @@ export const createTransient = (
     },
     nodeOverrides: {
       set: (updates) => {
-        graph.patchNodeOverrides(updates)
+        const change = graph.patchNodeOverrides(updates)
+        if (!change) return
+        syncGraph(change)
       },
       clear: clearNodeOverrides,
       commit: commitNodeOverrides

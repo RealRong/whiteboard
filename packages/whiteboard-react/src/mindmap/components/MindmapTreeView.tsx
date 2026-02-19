@@ -3,6 +3,7 @@ import type { PointerEvent } from 'react'
 import type { MindmapNodeId } from '@whiteboard/core'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
+import { toPointerInput } from '../../common/pointerInput'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
 type MindmapTreeViewProps = {
@@ -24,15 +25,13 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
       const handled = instance.runtime.interaction.mindmapDrag.start({
         treeId: mindmapNode.id,
         nodeId,
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY
+        pointer: toPointerInput(instance, event)
       })
       if (!handled) return
       event.preventDefault()
       event.stopPropagation()
     },
-    [instance.runtime.interaction.mindmapDrag, mindmapNode.id]
+    [instance, instance.runtime.interaction.mindmapDrag, mindmapNode.id]
   )
 
   const handleAddChild = useCallback(

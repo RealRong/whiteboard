@@ -8,7 +8,6 @@ export type CanvasEventHandlers = {
 
 export type SelectionBoxSession = {
   watchActive: (listener: () => void) => () => void
-  isActive: () => boolean
   getPointerId: () => number | null
   handlePointerMove: (event: PointerEvent) => void
   handlePointerUp: (event: PointerEvent) => void

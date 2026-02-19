@@ -1,5 +1,6 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from 'react'
 import { useEdgeSelectedRoutingView, useInstance, useWhiteboardSelector } from '../../common/hooks'
+import { toPointerInput } from '../../common/pointerInput'
 
 export const EdgeControlPointHandles = () => {
   const instance = useInstance()
@@ -20,9 +21,7 @@ export const EdgeControlPointHandles = () => {
     const handled = instance.runtime.interaction.routingDrag.start({
       edgeId: edge.id,
       index,
-      pointerId: event.pointerId,
-      clientX: event.clientX,
-      clientY: event.clientY
+      pointer: toPointerInput(instance, event)
     })
     if (!handled) return
     event.preventDefault()

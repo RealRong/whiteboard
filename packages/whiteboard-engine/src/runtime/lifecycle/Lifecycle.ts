@@ -1,7 +1,6 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
-import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { DomBindings } from '../../host/dom'
+import type { LifecycleContext } from '../../context'
 import {
   createSelectionEvents,
   type SelectionEventsWatcher
@@ -10,13 +9,7 @@ import {
   createStateEvents,
   type StateEventsWatcher
 } from './watchers/stateEvents'
-import {
-  createWindowBindings,
-  startWindowBindings,
-  stopWindowBindings,
-  syncWindowBindings,
-  type WindowBinding
-} from './bindings/windowBindings'
+import { WindowBindings } from './dom/windowBindings'
 import { Cleanup } from './Cleanup'
 import { createDefaultConfig } from './config'
 import { Container } from './Container'
@@ -26,7 +19,7 @@ import type { CanvasEventHandlers, CanvasInput } from './input/types'
 import { WindowKey } from './WindowKey'
 
 export class Lifecycle implements LifecycleApi {
-  private instance: InternalInstance
+  private context: LifecycleContext
   private started = false
   private config: LifecycleConfig
   private input: CanvasInput
@@ -34,43 +27,39 @@ export class Lifecycle implements LifecycleApi {
   private container: Container
   private windowKey: WindowKey
   private cleanup: Cleanup
-  private windowBindings: WindowBinding[]
+  private windowBindings: WindowBindings
   private selectionEvents: SelectionEventsWatcher
   private stateEvents: StateEventsWatcher
 
-  constructor(
-    instance: InternalInstance,
-    dom: DomBindings,
-    emitEvent: InstanceEventEmitter['emit']
-  ) {
-    this.instance = instance
-    this.config = createDefaultConfig(instance)
-    this.input = createCanvasInput({ instance: this.instance, config: this.config })
+  constructor(context: LifecycleContext, dom: DomBindings) {
+    this.context = context
+    this.config = createDefaultConfig(context.runtime)
+    this.input = createCanvasInput({
+      context: this.context,
+      config: this.config
+    })
 
-    this.history = new History(this.instance)
+    this.history = new History(this.context)
     this.container = new Container({
-      instance: this.instance,
+      context: this.context,
       dom,
-      getHandlers: () => this.handlers,
-      getOnWheel: () => this.onWheel
+      handlers: this.handlers,
+      onWheel: this.onWheel
     })
-    this.windowKey = new WindowKey({
-      instance: this.instance,
-      dom
-    })
-    this.cleanup = new Cleanup(this.instance)
+    this.windowKey = new WindowKey(this.context, dom)
+    this.cleanup = new Cleanup(this.context)
 
     this.selectionEvents = createSelectionEvents({
-      state: this.instance.state,
-      emit: emitEvent
+      state: this.context.state,
+      emit: context.events.emit
     })
     this.stateEvents = createStateEvents({
-      state: this.instance.state,
-      emit: emitEvent
+      state: this.context.state,
+      emit: context.events.emit
     })
-    this.windowBindings = createWindowBindings({
-      instance: this.instance,
-      dom,
+    this.windowBindings = new WindowBindings({
+      context: this.context,
+      onWindow: dom.onWindow,
       getSelectionBox: () => this.input.selectionBox
     })
   }
@@ -99,11 +88,14 @@ export class Lifecycle implements LifecycleApi {
 
   private recreateInput = (config: LifecycleConfig) => {
     this.input.cancel()
-    this.input = createCanvasInput({ instance: this.instance, config })
+    this.input = createCanvasInput({
+      context: this.context,
+      config
+    })
 
     if (!this.started) return
-    stopWindowBindings(this.windowBindings)
-    startWindowBindings(this.windowBindings)
+    this.windowBindings.stop()
+    this.windowBindings.start()
   }
 
   private shouldRecreateInput = (nextConfig: LifecycleConfig) => {
@@ -128,21 +120,21 @@ export class Lifecycle implements LifecycleApi {
 
     this.history.update(config)
 
-    this.instance.commands.tool.set(config.tool)
-    this.instance.runtime.viewport.setViewport(config.viewport)
-    this.instance.runtime.shortcuts.setShortcuts(config.shortcuts)
-    this.instance.state.write('mindmapLayout', config.mindmapLayout ?? {})
+    this.context.commands.tool.set(config.tool)
+    this.context.runtime.viewport.setViewport(config.viewport)
+    this.context.runtime.shortcuts.setShortcuts(config.shortcuts)
+    this.context.state.write('mindmapLayout', config.mindmapLayout ?? {})
   }
 
   private syncConfig = (config: LifecycleConfig) => {
     if (config.tool !== 'edge') {
-      this.instance.runtime.interaction.edgeConnect.hoverCancel()
+      this.context.runtime.interaction.edgeConnect.hoverCancel()
     }
 
     if (!this.started) return
 
     this.container.sync()
-    syncWindowBindings(this.windowBindings)
+    this.windowBindings.sync()
   }
 
   start: LifecycleApi['start'] = () => {
@@ -150,11 +142,11 @@ export class Lifecycle implements LifecycleApi {
     this.started = true
 
     this.history.start()
-    this.instance.runtime.services.groupAutoFit.start()
+    this.context.runtime.services.groupAutoFit.start()
     this.windowKey.start()
     this.selectionEvents.start()
     this.stateEvents.start()
-    startWindowBindings(this.windowBindings)
+    this.windowBindings.start()
     this.container.sync()
   }
 
@@ -170,12 +162,12 @@ export class Lifecycle implements LifecycleApi {
 
     this.history.stop()
     this.input.cancel()
-    stopWindowBindings(this.windowBindings)
+    this.windowBindings.stop()
     this.selectionEvents.stop()
     this.stateEvents.stop()
     this.container.stop()
     this.windowKey.stop()
-    this.instance.runtime.services.groupAutoFit.stop()
+    this.context.runtime.services.groupAutoFit.stop()
     this.cleanup.stop()
   }
 }

@@ -1,4 +1,4 @@
-import type { GraphProjector } from '@engine-types/graph'
+import type { GraphChange, GraphProjector } from '@engine-types/graph'
 import type { QueryIndexes } from './indexes'
 
 type Options = {
@@ -6,7 +6,7 @@ type Options = {
   indexes: QueryIndexes
 }
 
-export const startQueryProjector = ({ graph, indexes }: Options) => {
+export const createQueryProjector = ({ graph, indexes }: Options) => {
   const syncFull = () => {
     indexes.syncFull(graph.read().canvasNodes)
   }
@@ -15,8 +15,7 @@ export const startQueryProjector = ({ graph, indexes }: Options) => {
     indexes.syncOrder(graph.read().canvasNodes.map((node) => node.id))
   }
 
-  syncFull()
-  return graph.watch(({ source, dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }) => {
+  const syncGraph = ({ source, dirtyNodeIds, orderChanged, fullSync, canvasNodesChanged }: GraphChange) => {
     if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
       return
     }
@@ -42,5 +41,10 @@ export const startQueryProjector = ({ graph, indexes }: Options) => {
       return
     }
     syncFull()
-  })
+  }
+
+  return {
+    syncFull,
+    syncGraph
+  }
 }

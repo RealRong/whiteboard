@@ -1,47 +1,54 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { LifecycleContext } from '../../context'
 import type { DomBindings } from '../../host/dom'
-import { bindCanvasContainerEvents } from './bindings/canvasContainerEvents'
+import { bindCanvasContainerEvents } from './dom/canvasContainerEvents'
 import type { CanvasEventHandlers } from './input/types'
 
+type ContainerContext = Pick<LifecycleContext, 'runtime'>
+
 type ContainerControllerOptions = {
-  instance: InternalInstance
+  context: ContainerContext
   dom: DomBindings
-  getHandlers: () => CanvasEventHandlers
-  getOnWheel: () => (event: WheelEvent) => void
+  handlers: CanvasEventHandlers
+  onWheel: (event: WheelEvent) => void
 }
 
 export class Container {
-  private instance: InternalInstance
+  private context: ContainerContext
   private dom: DomBindings
-  private getHandlers: () => CanvasEventHandlers
-  private getOnWheel: () => (event: WheelEvent) => void
+  private handlers: CanvasEventHandlers
+  private onWheel: (event: WheelEvent) => void
   private offContainerEvents: (() => void) | null = null
   private observedContainer: HTMLElement | null = null
 
   constructor(options: ContainerControllerOptions) {
-    this.instance = options.instance
+    this.context = options.context
     this.dom = options.dom
-    this.getHandlers = options.getHandlers
-    this.getOnWheel = options.getOnWheel
+    this.handlers = options.handlers
+    this.onWheel = options.onWheel
   }
 
   sync = () => {
-    const container = this.instance.runtime.containerRef.current
+    const container = this.context.runtime.containerRef.current
     if (!container) return
 
     if (!this.offContainerEvents) {
       this.offContainerEvents = bindCanvasContainerEvents({
         dom: this.dom,
-        handlers: this.getHandlers(),
-        onWheel: this.getOnWheel()
+        handlers: this.handlers,
+        onWheel: this.onWheel
       })
     }
 
     if (this.observedContainer === container) return
     if (this.observedContainer) {
-      this.instance.runtime.services.containerSizeObserver.unobserve(this.observedContainer)
+      this.context.runtime.services.containerSizeObserver.unobserve(
+        this.observedContainer
+      )
     }
-    this.instance.runtime.services.containerSizeObserver.observe(container, this.instance.runtime.viewport.setContainerRect)
+    this.context.runtime.services.containerSizeObserver.observe(
+      container,
+      this.context.runtime.viewport.setContainerRect
+    )
     this.observedContainer = container
   }
 
@@ -50,7 +57,9 @@ export class Container {
     this.offContainerEvents = null
 
     if (this.observedContainer) {
-      this.instance.runtime.services.containerSizeObserver.unobserve(this.observedContainer)
+      this.context.runtime.services.containerSizeObserver.unobserve(
+        this.observedContainer
+      )
       this.observedContainer = null
     }
   }

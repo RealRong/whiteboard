@@ -1,8 +1,9 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { LifecycleContext } from '../../../../context'
+import { toPointerInput } from '../../../../context'
 import { DEFAULT_CONFIG } from '../../../../config'
 
 type Options = {
-  instance: InternalInstance
+  context: LifecycleContext
   minZoom?: number
   maxZoom?: number
   enablePan?: boolean
@@ -11,22 +12,19 @@ type Options = {
 }
 
 export const createViewport = ({
-  instance,
+  context,
   minZoom = DEFAULT_CONFIG.viewport.minZoom,
   maxZoom = DEFAULT_CONFIG.viewport.maxZoom,
   enablePan = DEFAULT_CONFIG.viewport.enablePan,
   enableWheel = DEFAULT_CONFIG.viewport.enableWheel,
-  wheelSensitivity = instance.runtime.config.viewport.wheelSensitivity
+  wheelSensitivity = context.runtime.config.viewport.wheelSensitivity
 }: Options) => {
-  const viewportNavigation = instance.runtime.services.viewportNavigation
+  const viewportNavigation = context.runtime.services.viewportNavigation
 
   const onPointerDown = (event: PointerEvent | (PointerEvent & { currentTarget: HTMLElement })) => {
+    const pointer = toPointerInput(context.runtime.viewport, event)
     const handled = viewportNavigation.startPan({
-      pointerId: event.pointerId,
-      button: event.button,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      spacePressed: instance.state.read('spacePressed'),
+      pointer,
       enablePan
     })
     if (!handled) return
@@ -38,9 +36,7 @@ export const createViewport = ({
 
   const onPointerMove = (event: PointerEvent) => {
     viewportNavigation.updatePan({
-      pointerId: event.pointerId,
-      clientX: event.clientX,
-      clientY: event.clientY
+      pointer: toPointerInput(context.runtime.viewport, event)
     })
   }
 

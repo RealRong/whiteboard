@@ -1,8 +1,8 @@
 import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_CONFIG } from '../../config'
-import type { Instance } from '@engine-types/instance/instance'
 import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
+import type { RuntimeInternal } from '@engine-types/instance/runtime'
 
-export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
+export const createDefaultConfig = (runtime: RuntimeInternal): LifecycleConfig => ({
   docId: undefined,
   tool: DEFAULT_CONFIG.tool,
   viewport: {
@@ -17,7 +17,7 @@ export const createDefaultConfig = (instance: Instance): LifecycleConfig => ({
     maxZoom: DEFAULT_CONFIG.viewport.maxZoom,
     enablePan: DEFAULT_CONFIG.viewport.enablePan,
     enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
-    wheelSensitivity: instance.runtime.config.viewport.wheelSensitivity
+    wheelSensitivity: runtime.config.viewport.wheelSensitivity
   },
   mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout },
   history: undefined,

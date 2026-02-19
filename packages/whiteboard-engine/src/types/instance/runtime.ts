@@ -7,7 +7,7 @@ import type {
   Point,
   Viewport
 } from '@whiteboard/core'
-import type { Size } from '../common'
+import type { PointerInput, Size } from '../common'
 import type {
   MindmapCancelDragOptions,
   MindmapEndDragOptions,
@@ -67,16 +67,15 @@ export type RuntimeDom = {
 
 export type RuntimeInteraction = {
   edgeConnect: {
-    startFromHandle: (nodeId: NodeId, side: EdgeAnchor['side'], pointerId?: number) => void
-    startFromPoint: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => void
-    startReconnect: (edgeId: EdgeId, end: 'source' | 'target', pointerId?: number) => void
-    updateTo: (pointWorld: Point) => void
-    commitTo: (pointWorld: Point) => void
+    startFromHandle: (nodeId: NodeId, side: EdgeAnchor['side'], pointer: PointerInput) => void
+    startFromPoint: (nodeId: NodeId, pointer: PointerInput) => void
+    startReconnect: (edgeId: EdgeId, end: 'source' | 'target', pointer: PointerInput) => void
+    updateTo: (pointer: PointerInput) => void
+    commitTo: (pointer: PointerInput) => void
     cancel: () => void
-    updateHover: (pointWorld: Point) => void
-    hoverMove: (clientX: number, clientY: number, enabled: boolean) => void
+    hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
     hoverCancel: () => void
-    handleNodePointerDown: (nodeId: NodeId, pointWorld: Point, pointerId?: number) => boolean
+    handleNodePointerDown: (nodeId: NodeId, pointer: PointerInput) => boolean
   }
   routingDrag: {
     start: (options: RoutingDragStartOptions) => boolean

@@ -1,5 +1,4 @@
 import type {
-  Core,
   DispatchResult,
   Edge,
   EdgeAnchor,
@@ -8,6 +7,7 @@ import type {
   EdgePatch,
   MindmapAttachPayload,
   MindmapId,
+  MindmapIntentOptions,
   MindmapNodeData,
   MindmapNodeId,
   MindmapTree,
@@ -19,7 +19,11 @@ import type {
   Viewport
 } from '@whiteboard/core'
 import type { MindmapLayoutConfig } from './mindmap'
-import type { Size, ResolvedHistoryConfig } from './common'
+import type {
+  PointerInput,
+  Size,
+  ResolvedHistoryConfig
+} from './common'
 import type { Guide } from './node/snap'
 import type { NodeViewUpdate } from './graph'
 import type { InteractionState, SelectionMode } from './state'
@@ -78,45 +82,36 @@ export type MindmapMoveDropOptions = {
 export type MindmapStartDragOptions = {
   treeId: MindmapId
   nodeId: MindmapNodeId
-  pointerId: number
-  clientX: number
-  clientY: number
+  pointer: PointerInput
 }
 
 export type MindmapUpdateDragOptions = {
-  pointerId: number
-  clientX: number
-  clientY: number
+  pointer: PointerInput
 }
 
 export type MindmapEndDragOptions = {
-  pointerId: number
+  pointer: PointerInput
 }
 
 export type MindmapCancelDragOptions = {
-  pointerId?: number
+  pointer?: PointerInput
 }
 
 export type NodeDragStartOptions = {
   nodeId: NodeId
-  pointerId: number
-  clientX: number
-  clientY: number
+  pointer: PointerInput
 }
 
 export type NodeDragUpdateOptions = {
-  pointerId: number
-  clientX: number
-  clientY: number
-  altKey?: boolean
+  pointer: PointerInput
 }
 
 export type NodeDragEndOptions = {
-  pointerId: number
+  pointer: PointerInput
 }
 
 export type NodeDragCancelOptions = {
-  pointerId?: number
+  pointer?: PointerInput
 }
 
 export type {
@@ -128,41 +123,79 @@ export type {
 
 export type NodeResizeStartOptions = {
   nodeId: NodeId
-  pointerId: number
+  pointer: PointerInput
   handle: ResizeDirection
-  clientX: number
-  clientY: number
   rect: Rect
   rotation: number
 }
 
 export type NodeRotateStartOptions = {
   nodeId: NodeId
-  pointerId: number
-  clientX: number
-  clientY: number
+  pointer: PointerInput
   rect: Rect
   rotation: number
 }
 
 export type NodeTransformUpdateOptions = {
-  pointerId: number
-  clientX: number
-  clientY: number
-  minSize: Size
-  altKey?: boolean
-  shiftKey?: boolean
+  pointer: PointerInput
+  minSize?: Size
 }
 
 export type NodeTransformEndOptions = {
-  pointerId: number
+  pointer: PointerInput
 }
 
 export type NodeTransformCancelOptions = {
-  pointerId?: number
+  pointer?: PointerInput
 }
 
-export type MindmapCommands = Core['commands']['mindmap'] & {
+export type GroupCommands = {
+  create: (ids: NodeId[]) => Promise<DispatchResult>
+  ungroup: (id: NodeId) => Promise<DispatchResult>
+}
+
+export type BaseMindmapCommands = {
+  create: (payload?: { id?: MindmapId; rootId?: MindmapNodeId; rootData?: MindmapNodeData }) => Promise<DispatchResult>
+  replace: (id: MindmapId, tree: MindmapTree) => Promise<DispatchResult>
+  delete: (ids: MindmapId[]) => Promise<DispatchResult>
+  addChild: (
+    id: MindmapId,
+    parentId: MindmapNodeId,
+    payload?: MindmapNodeData | MindmapAttachPayload,
+    options?: MindmapIntentOptions
+  ) => Promise<DispatchResult>
+  addSibling: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    position: 'before' | 'after',
+    payload?: MindmapNodeData | MindmapAttachPayload,
+    options?: MindmapIntentOptions
+  ) => Promise<DispatchResult>
+  moveSubtree: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    newParentId: MindmapNodeId,
+    options?: MindmapIntentOptions
+  ) => Promise<DispatchResult>
+  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<DispatchResult>
+  cloneSubtree: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right' }
+  ) => Promise<DispatchResult>
+  toggleCollapse: (id: MindmapId, nodeId: MindmapNodeId, collapsed?: boolean) => Promise<DispatchResult>
+  setNodeData: (id: MindmapId, nodeId: MindmapNodeId, patch: Partial<MindmapNodeData>) => Promise<DispatchResult>
+  reorderChild: (id: MindmapId, parentId: MindmapNodeId, fromIndex: number, toIndex: number) => Promise<DispatchResult>
+  setSide: (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right') => Promise<DispatchResult>
+  attachExternal: (
+    id: MindmapId,
+    targetId: MindmapNodeId,
+    payload: MindmapAttachPayload,
+    options?: MindmapIntentOptions
+  ) => Promise<DispatchResult>
+}
+
+export type MindmapCommands = BaseMindmapCommands & {
   insertNode: (options: MindmapInsertNodeOptions) => Promise<void>
   moveSubtreeWithLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
   moveSubtreeWithDrop: (options: MindmapMoveDropOptions) => Promise<void>
@@ -259,6 +292,6 @@ export type Commands = {
     resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
     rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
   }
-  group: Core['commands']['group']
+  group: GroupCommands
   mindmap: MindmapCommands
 }

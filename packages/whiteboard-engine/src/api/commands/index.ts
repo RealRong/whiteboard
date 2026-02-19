@@ -1,6 +1,5 @@
 import type { Commands } from '@engine-types/commands'
-import type { GraphProjector } from '@engine-types/graph'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { CommandContext } from '../../context'
 import { createBase } from './base'
 import { createEdge } from './edge'
 import { createGroup } from './group'
@@ -11,12 +10,17 @@ import { createSelection } from './selection'
 import { createTransient } from './transient'
 import { createViewport } from './viewport'
 
-export const createCommands = (
-  instance: InternalInstance,
-  graph: GraphProjector
-): Commands => {
+export const createCommands = ({
+  instance,
+  graph,
+  syncGraph
+}: CommandContext): Commands => {
   const selection = createSelection(instance)
-  const transient = createTransient(instance, graph)
+  const transient = createTransient({
+    instance,
+    graph,
+    syncGraph
+  })
 
   return {
     ...createBase(instance),

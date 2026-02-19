@@ -1,8 +1,7 @@
-import type { Core, DispatchFailure, DispatchResult, Document, Intent, Origin } from '../types/core'
+import type { Core, CoreBuildResult, DispatchFailure, Document, Intent, Origin } from '../types/core'
 import { createApplyOperations } from './apply'
 import { createBuildOperations } from './build'
 import { createChangeHandlers, createChangeSetFactory, createTransaction, runAfterHandlers, runBeforeHandlers, TransactionContext } from './changes'
-import { createCommands } from './commands'
 import { createCoreHistory } from './history'
 import { createEventBus } from './events'
 import { createModel } from './model'
@@ -43,20 +42,21 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   const validateIntent = createValidateIntent(state, registries)
   const { buildOperations } = createBuildOperations({ state, registries, validateIntent, createFailure })
 
-  const applyIntent = (intent: Intent, origin?: Origin): DispatchResult => {
+  const buildIntent = (intent: Intent): CoreBuildResult => {
     const buildResult = buildOperations(intent)
     if (!('operations' in buildResult)) {
-      return buildResult
+      if (buildResult.ok === false) {
+        return buildResult
+      }
+      return createFailure('unknown', 'Invalid build result.')
     }
-    const result = applyOperations(buildResult.operations, origin)
-    if (!result.ok) {
-      return result
+    return {
+      ok: true,
+      operations: buildResult.operations,
+      value: buildResult.value
     }
-    if (buildResult.value === undefined) {
-      return result
-    }
-    return { ...result, value: buildResult.value }
   }
+
   const resolveOrigin = (origin?: Origin, fallback: Origin = 'user'): Origin =>
     origin ?? transactionStack[transactionStack.length - 1]?.options?.origin ?? fallback
 
@@ -67,16 +67,6 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     registries,
     applyOperations,
     getOrigin: () => transactionStack[transactionStack.length - 1]?.options?.origin ?? 'system'
-  })
-
-  const commands = createCommands({
-    state,
-    applyIntent,
-    getOrigin: () => resolveOrigin(undefined, 'user'),
-    transaction,
-    createFailure,
-    createChangeSetId: state.createChangeSetId,
-    now: state.now
   })
 
   const applyDocumentSnapshot = (document: Document) => {
@@ -100,22 +90,20 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   }
 
   const history = createCoreHistory({
-    state,
     changes: changeHandlers,
     now: state.now,
-    applyDocumentSnapshot
+    applyOperations
   })
 
   const core: Core = {
     query,
     apply: {
-      intent: (intent, options) => applyIntent(intent, resolveOrigin(options?.origin, 'user')),
+      build: (intent) => buildIntent(intent),
       operations: (operations, options) => applyOperations(operations, resolveOrigin(options?.origin, 'user')),
       changeSet: (changes) => applyChangeSet(changes)
     },
     model,
-    commands,
-    history: history.commands,
+    history: history.api,
     tx: transaction,
     events: {
       on: (type, handler) => {
@@ -173,8 +161,7 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
     }),
     load: (snapshot) => {
       applyDocumentSnapshot(snapshot.document)
-      history.syncSnapshot()
-      history.commands.clear()
+      history.api.clear()
     },
     registries,
     plugins: undefined as unknown as Core['plugins']

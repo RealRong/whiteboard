@@ -1,28 +1,31 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance/instance'
+import type { PointerInput } from '@engine-types/common'
 import type { RuntimeInteraction } from '@engine-types/instance/runtime'
+import type { InteractionContext } from '../../context'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import { type ConnectTo, isSameConnectTo } from '../../kernel/query'
 
 type EdgeConnectInteraction = RuntimeInteraction['edgeConnect']
-type ClientPoint = { x: number; y: number }
 
 export class EdgeConnect implements EdgeConnectInteraction {
-  private readonly instance: Instance
-  private hoverPoint: ClientPoint | null = null
+  private readonly instance: InteractionContext['instance']
+  private readonly raf: InteractionContext['schedulers']['raf']
+  private readonly cancelRaf: InteractionContext['schedulers']['cancelRaf']
+  private hoverPointer: PointerInput | null = null
   private hoverRafId: number | null = null
 
-  constructor(instance: Instance) {
-    this.instance = instance
+  constructor(context: InteractionContext) {
+    this.instance = context.instance
+    this.raf = context.schedulers.raf
+    this.cancelRaf = context.schedulers.cancelRaf
   }
 
   private flushHover = () => {
     this.hoverRafId = null
-    const point = this.hoverPoint
-    if (!point) return
-    this.hoverPoint = null
-    const pointWorld = this.instance.runtime.viewport.clientToWorld(point.x, point.y)
-    this.updateHover(pointWorld)
+    const pointer = this.hoverPointer
+    if (!pointer) return
+    this.hoverPointer = null
+    this.applyHover(pointer)
   }
 
   private snapAt = (point: Point): ConnectTo | undefined => {
@@ -82,7 +85,7 @@ export class EdgeConnect implements EdgeConnectInteraction {
     }))
   }
 
-  startFromHandle: RuntimeInteraction['edgeConnect']['startFromHandle'] = (nodeId, side, pointerId) => {
+  startFromHandle: RuntimeInteraction['edgeConnect']['startFromHandle'] = (nodeId, side, pointer) => {
     const anchor: EdgeAnchor = { side, offset: DEFAULT_TUNING.edge.anchorOffset }
     this.instance.state.write('edgeConnect', {
       isConnecting: true,
@@ -90,11 +93,12 @@ export class EdgeConnect implements EdgeConnectInteraction {
       to: undefined,
       hover: undefined,
       reconnect: undefined,
-      pointerId: pointerId ?? null
+      pointerId: pointer.pointerId
     })
   }
 
-  startFromPoint: RuntimeInteraction['edgeConnect']['startFromPoint'] = (nodeId, pointWorld, pointerId) => {
+  startFromPoint: RuntimeInteraction['edgeConnect']['startFromPoint'] = (nodeId, pointer) => {
+    const pointWorld = pointer.world
     const entry = this.instance.query.canvas.nodeRect(nodeId)
     if (!entry) return
     const { anchor } = this.instance.query.geometry.anchorFromPoint(entry.rect, entry.rotation, pointWorld)
@@ -104,11 +108,11 @@ export class EdgeConnect implements EdgeConnectInteraction {
       to: { pointWorld },
       hover: undefined,
       reconnect: undefined,
-      pointerId: pointerId ?? null
+      pointerId: pointer.pointerId
     })
   }
 
-  startReconnect: RuntimeInteraction['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointerId) => {
+  startReconnect: RuntimeInteraction['edgeConnect']['startReconnect'] = (edgeId: EdgeId, end, pointer) => {
     const visibleEdges = this.instance.graph.read().visibleEdges
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
@@ -120,11 +124,12 @@ export class EdgeConnect implements EdgeConnectInteraction {
       to: undefined,
       hover: undefined,
       reconnect: { edgeId, end },
-      pointerId: pointerId ?? null
+      pointerId: pointer.pointerId
     })
   }
 
-  updateTo: RuntimeInteraction['edgeConnect']['updateTo'] = (pointWorld) => {
+  updateTo: RuntimeInteraction['edgeConnect']['updateTo'] = (pointer) => {
+    const pointWorld = pointer.world
     this.instance.state.write('edgeConnect', (prev) => {
       if (!prev.isConnecting || !prev.from) return prev
       const snap = this.snapAt(pointWorld)
@@ -135,7 +140,8 @@ export class EdgeConnect implements EdgeConnectInteraction {
     })
   }
 
-  commitTo: RuntimeInteraction['edgeConnect']['commitTo'] = (pointWorld) => {
+  commitTo: RuntimeInteraction['edgeConnect']['commitTo'] = (pointer) => {
+    const pointWorld = pointer.world
     const currentState = this.instance.state.read('edgeConnect')
     if (!currentState.isConnecting || !currentState.from) return
 
@@ -183,9 +189,10 @@ export class EdgeConnect implements EdgeConnectInteraction {
     this.hoverCancel()
   }
 
-  updateHover: RuntimeInteraction['edgeConnect']['updateHover'] = (pointWorld) => {
+  private applyHover = (pointer: PointerInput) => {
     const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return
+    const pointWorld = pointer.world
     const snap = this.snapAt(pointWorld)
     this.instance.state.write('edgeConnect', (prev) => {
       if (prev.isConnecting) return prev
@@ -200,32 +207,32 @@ export class EdgeConnect implements EdgeConnectInteraction {
 
   hoverCancel: RuntimeInteraction['edgeConnect']['hoverCancel'] = () => {
     if (this.hoverRafId !== null) {
-      cancelAnimationFrame(this.hoverRafId)
+      this.cancelRaf(this.hoverRafId)
       this.hoverRafId = null
     }
-    this.hoverPoint = null
+    this.hoverPointer = null
   }
 
-  hoverMove: RuntimeInteraction['edgeConnect']['hoverMove'] = (clientX, clientY, enabled) => {
+  hoverMove: RuntimeInteraction['edgeConnect']['hoverMove'] = (pointer, enabled) => {
     if (!enabled) {
       this.hoverCancel()
       return
     }
+    if (!pointer) return
 
-    this.hoverPoint = { x: clientX, y: clientY }
+    this.hoverPointer = pointer
     if (this.hoverRafId === null) {
-      this.hoverRafId = requestAnimationFrame(this.flushHover)
+      this.hoverRafId = this.raf(this.flushHover)
     }
   }
 
   handleNodePointerDown: RuntimeInteraction['edgeConnect']['handleNodePointerDown'] = (
     nodeId,
-    pointWorld,
-    pointerId
+    pointer
   ) => {
     const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return false
-    this.startFromPoint(nodeId, pointWorld, pointerId)
+    this.startFromPoint(nodeId, pointer)
     return true
   }
 }

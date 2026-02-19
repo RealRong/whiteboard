@@ -1,7 +1,7 @@
 import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance/instance'
 import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { StateSnapshot } from '@engine-types/instance/state'
+import type { LifecycleContext } from '../../../context'
 
 type HistoryIdentity = {
   core: Core
@@ -26,27 +26,30 @@ const shouldClearHistory = (
   return previous.docId !== next.docId
 }
 
+type HistoryContext = Pick<LifecycleContext, 'runtime' | 'state' | 'commands'>
+
 export class History {
-  private instance: Instance
+  private context: HistoryContext
   private offHistory: (() => void) | null = null
   private prevIdentity: HistoryIdentity | null = null
 
-  constructor(instance: Instance) {
-    this.instance = instance
+  constructor(context: HistoryContext) {
+    this.context = context
   }
 
   start = () => {
     if (this.offHistory) return
+    const core = this.context.runtime.core
     const sync = (snapshot: CoreHistoryState) => {
-      this.instance.state.write('history', toHistoryState(snapshot))
+      this.context.state.write('history', toHistoryState(snapshot))
     }
-    sync(this.instance.runtime.core.history.getState())
-    this.offHistory = this.instance.runtime.core.history.subscribe(sync)
+    sync(core.history.getState())
+    this.offHistory = core.history.subscribe(sync)
   }
 
   update = (config: LifecycleConfig) => {
     if (config.history) {
-      this.instance.commands.history.configure(config.history)
+      this.context.commands.history.configure(config.history)
     }
 
     if (!config.docId) {
@@ -55,14 +58,14 @@ export class History {
     }
 
     const nextIdentity: HistoryIdentity = {
-      core: this.instance.runtime.core,
+      core: this.context.runtime.core,
       docId: config.docId
     }
     const previous = this.prevIdentity
     this.prevIdentity = nextIdentity
 
     if (!shouldClearHistory(previous, nextIdentity)) return
-    this.instance.commands.history.clear()
+    this.context.commands.history.clear()
   }
 
   stop = () => {

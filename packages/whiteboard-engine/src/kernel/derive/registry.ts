@@ -60,7 +60,7 @@ type Options<
 > = {
   keys: TKey[]
   resolvers: DeriveResolverMap<TKey, TDependencyKey, TSnapshot>
-  watchDependency: (key: TDependencyKey, listener: () => void) => () => void
+  watchDependency?: (key: TDependencyKey, listener: () => void) => () => void
   project?: (
     keys: TKey[],
     read: <K extends TKey>(key: K) => TSnapshot[K]
@@ -158,28 +158,7 @@ export const createDerivedRegistry = <
   const getDependencySignature = (key: TKey) =>
     dependencyRevisions.signature(resolvers[key].deps)
 
-  const dependencyUnsubs = Array.from(dependencyToKeys.entries()).map(([dependencyKey, affectedKeys]) =>
-    watchDependency(dependencyKey, () => {
-      dependencyRevisions.bump(dependencyKey)
-      const changedKeys: TKey[] = []
-      affectedKeys.forEach((key) => {
-        if (markKeyDirty(key)) {
-          changedKeys.push(key)
-        }
-      })
-      if (!changedKeys.length) return
-
-      if (project) {
-        project(changedKeys, read)
-      }
-
-      changedKeys.forEach((key) => {
-        notifyKey(key)
-      })
-    })
-  )
-
-  const read = (<K extends TKey>(key: K): TSnapshot[K] => {
+  const read = <K extends TKey>(key: K): TSnapshot[K] => {
     const entry = entries.get(key)
     if (!entry) {
       throw new Error(`Unknown derived key: ${key}`)
@@ -219,7 +198,40 @@ export const createDerivedRegistry = <
     entry.dirty = false
     entry.dependencySignature = dependencySignature
     return value
-  }) as <K extends TKey>(key: K) => TSnapshot[K]
+  }
+
+  const invalidateDependencies = (dependencyKeys: readonly TDependencyKey[]) => {
+    const changedKeySet = new Set<TKey>()
+    dependencyKeys.forEach((dependencyKey) => {
+      dependencyRevisions.bump(dependencyKey)
+      const affectedKeys = dependencyToKeys.get(dependencyKey)
+      if (!affectedKeys?.size) return
+      affectedKeys.forEach((key) => {
+        if (markKeyDirty(key)) {
+          changedKeySet.add(key)
+        }
+      })
+    })
+
+    if (!changedKeySet.size) return
+
+    const changedKeys = Array.from(changedKeySet)
+    if (project) {
+      project(changedKeys, read)
+    }
+
+    changedKeys.forEach((key) => {
+      notifyKey(key)
+    })
+  }
+
+  const dependencyUnsubs = watchDependency
+    ? Array.from(dependencyToKeys.keys()).map((dependencyKey) =>
+        watchDependency(dependencyKey, () => {
+          invalidateDependencies([dependencyKey])
+        })
+      )
+    : []
 
   const watch = (key: TKey, listener: () => void) => {
     let keyListeners = listeners.get(key)
@@ -273,6 +285,10 @@ export const createDerivedRegistry = <
   return {
     read,
     watch,
+    invalidateDependency: (key: TDependencyKey) => {
+      invalidateDependencies([key])
+    },
+    invalidateDependencies,
     snapshot,
     debug: {
       getMetric,

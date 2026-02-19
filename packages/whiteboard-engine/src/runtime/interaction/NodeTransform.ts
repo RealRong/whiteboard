@@ -1,9 +1,9 @@
 import type { NodeId, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeInteraction } from '@engine-types/instance/runtime'
 import type { ResizeDirection, ResizeDragState, RotateDragState } from '@engine-types/node'
-import { DEFAULT_INTERNALS } from '../../config'
+import type { InteractionContext } from '../../context'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import { getRectCenter } from '../../kernel/geometry'
 import { computeResizeSnap } from '../../node/utils/snap'
 import { computeNextRotation, computeResizeRect, getResizeSourceEdges } from '../../node/utils/transform'
@@ -18,10 +18,10 @@ const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
 })
 
 export class NodeTransform implements NodeTransformApi {
-  private readonly instance: InternalInstance
+  private readonly instance: InteractionContext['instance']
 
-  constructor(instance: InternalInstance) {
-    this.instance = instance
+  constructor(context: InteractionContext) {
+    this.instance = context.instance
   }
 
   private clear = () => {
@@ -29,19 +29,17 @@ export class NodeTransform implements NodeTransformApi {
   }
 
   private createResizeDrag = (options: {
-    pointerId: number
+    pointer: { pointerId: number; client: { x: number; y: number } }
     handle: ResizeDirection
-    clientX: number
-    clientY: number
     rect: Rect
     rotation: number
   }): ResizeDragState => {
-    const { pointerId, handle, clientX, clientY, rect, rotation } = options
+    const { pointer, handle, rect, rotation } = options
     return {
       mode: 'resize',
-      pointerId,
+      pointerId: pointer.pointerId,
       handle,
-      startScreen: { x: clientX, y: clientY },
+      startScreen: { x: pointer.client.x, y: pointer.client.y },
       startCenter: getRectCenter(rect),
       startRotation: rotation,
       startSize: { width: rect.width, height: rect.height },
@@ -50,19 +48,20 @@ export class NodeTransform implements NodeTransformApi {
   }
 
   private createRotateDrag = (options: {
-    pointerId: number
-    clientX: number
-    clientY: number
+    pointer: {
+      pointerId: number
+      world: { x: number; y: number }
+    }
     rect: Rect
     rotation: number
   }): RotateDragState => {
-    const { pointerId, clientX, clientY, rect, rotation } = options
+    const { pointer, rect, rotation } = options
     const center = getRectCenter(rect)
-    const worldPoint = this.instance.runtime.viewport.clientToWorld(clientX, clientY)
+    const worldPoint = pointer.world
     const startAngle = Math.atan2(worldPoint.y - center.y, worldPoint.x - center.x)
     return {
       mode: 'rotate',
-      pointerId,
+      pointerId: pointer.pointerId,
       startAngle,
       startRotation: rotation,
       center
@@ -171,20 +170,16 @@ export class NodeTransform implements NodeTransformApi {
 
   startResize: NodeTransformApi['startResize'] = ({
     nodeId,
-    pointerId,
+    pointer,
     handle,
-    clientX,
-    clientY,
     rect,
     rotation
   }) => {
     const { state } = this.instance
     if (state.read('nodeTransform').active) return false
     const drag = this.createResizeDrag({
-      pointerId,
+      pointer,
       handle,
-      clientX,
-      clientY,
       rect,
       rotation
     })
@@ -199,18 +194,14 @@ export class NodeTransform implements NodeTransformApi {
 
   startRotate: NodeTransformApi['startRotate'] = ({
     nodeId,
-    pointerId,
-    clientX,
-    clientY,
+    pointer,
     rect,
     rotation
   }) => {
     const { state } = this.instance
     if (state.read('nodeTransform').active) return false
     const drag = this.createRotateDrag({
-      pointerId,
-      clientX,
-      clientY,
+      pointer,
       rect,
       rotation
     })
@@ -224,35 +215,32 @@ export class NodeTransform implements NodeTransformApi {
   }
 
   update: NodeTransformApi['update'] = ({
-    pointerId,
-    clientX,
-    clientY,
-    minSize,
-    altKey,
-    shiftKey
+    pointer,
+    minSize
   }) => {
     const { state } = this.instance
     const active = state.read('nodeTransform').active
-    if (!active || active.drag.pointerId !== pointerId) return false
+    if (!active || active.drag.pointerId !== pointer.pointerId) return false
+    const resolvedMinSize = minSize ?? DEFAULT_TUNING.nodeTransform.minSize
 
     state.batchFrame(() => {
       if (active.drag.mode === 'resize') {
         this.applyResizeMove({
           nodeId: active.nodeId,
           drag: active.drag,
-          clientX,
-          clientY,
-          minSize,
-          altKey: Boolean(altKey),
-          shiftKey: Boolean(shiftKey)
+          clientX: pointer.client.x,
+          clientY: pointer.client.y,
+          minSize: resolvedMinSize,
+          altKey: pointer.modifiers.alt,
+          shiftKey: pointer.modifiers.shift
         })
       } else {
         this.applyRotateMove({
           nodeId: active.nodeId,
           drag: active.drag,
-          clientX,
-          clientY,
-          shiftKey: Boolean(shiftKey)
+          clientX: pointer.client.x,
+          clientY: pointer.client.y,
+          shiftKey: pointer.modifiers.shift
         })
       }
 
@@ -263,10 +251,10 @@ export class NodeTransform implements NodeTransformApi {
     return true
   }
 
-  end: NodeTransformApi['end'] = ({ pointerId }) => {
+  end: NodeTransformApi['end'] = ({ pointer }) => {
     const { state } = this.instance
     const active = state.read('nodeTransform').active
-    if (!active || active.drag.pointerId !== pointerId) return false
+    if (!active || active.drag.pointerId !== pointer.pointerId) return false
 
     if (active.drag.mode === 'resize') {
       this.finishResize({
@@ -285,7 +273,7 @@ export class NodeTransform implements NodeTransformApi {
     const { state, commands } = this.instance
     const active = state.read('nodeTransform').active
     if (!active) return false
-    if (typeof options?.pointerId === 'number' && active.drag.pointerId !== options.pointerId) return false
+    if (options?.pointer && active.drag.pointerId !== options.pointer.pointerId) return false
 
     if (active.drag.mode === 'resize') {
       commands.transient.nodeOverrides.clear([active.nodeId])

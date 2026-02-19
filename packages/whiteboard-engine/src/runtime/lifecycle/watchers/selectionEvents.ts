@@ -1,10 +1,10 @@
 import type { EdgeId, NodeId } from '@whiteboard/core'
-import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
+import type { State } from '@engine-types/instance/state'
 import { createWatcherLifecycle } from './lifecycle'
 
 type Options = {
-  state: Instance['state']
+  state: State
   emit: InstanceEventEmitter['emit']
 }
 

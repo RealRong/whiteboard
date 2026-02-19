@@ -6,11 +6,10 @@ import {
   layoutMindmap,
   layoutMindmapTidy,
   moveSubtree,
-  removeSubtree,
-  validateMindmap
+  removeSubtree
 } from '../dist/index.js'
 
-test('mindmap commands and validate', () => {
+test('mindmap commands', () => {
   let nodeSeq = 1
   const idGenerator = {
     treeId: () => 'mindmap_1',
@@ -40,9 +39,7 @@ test('mindmap commands and validate', () => {
   assert.ok(removed.ok)
   const tree4 = removed.tree
   assert.ok(tree4.nodes[children[0]] === undefined)
-
-  const validation = validateMindmap(tree4)
-  assert.equal(validation.ok, true)
+  assert.ok(tree4.rootId)
 })
 
 test('mindmap layout outputs coordinates', () => {

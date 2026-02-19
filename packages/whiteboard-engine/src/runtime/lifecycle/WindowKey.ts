@@ -1,19 +1,16 @@
-import type { Instance } from '@engine-types/instance/instance'
+import type { LifecycleContext } from '../../context'
 import type { DomBindings } from '../../host/dom'
-import { bindSpaceKey } from './bindings/spaceKey'
+import { bindSpaceKey } from './dom/spaceKey'
 
-type Options = {
-  instance: Instance
-  dom: DomBindings
-}
+type WindowKeyContext = Pick<LifecycleContext, 'commands'>
 
 export class WindowKey {
-  private instance: Instance
+  private context: WindowKeyContext
   private dom: DomBindings
   private offSpaceKey: (() => void) | null = null
 
-  constructor({ instance, dom }: Options) {
-    this.instance = instance
+  constructor(context: WindowKeyContext, dom: DomBindings) {
+    this.context = context
     this.dom = dom
   }
 
@@ -21,13 +18,13 @@ export class WindowKey {
     if (this.offSpaceKey) return
     this.offSpaceKey = bindSpaceKey({
       dom: this.dom,
-      setSpacePressed: this.instance.commands.keyboard.setSpacePressed
+      setSpacePressed: this.context.commands.keyboard.setSpacePressed
     })
   }
 
   stop = () => {
     this.offSpaceKey?.()
     this.offSpaceKey = null
-    this.instance.commands.keyboard.setSpacePressed(false)
+    this.context.commands.keyboard.setSpacePressed(false)
   }
 }

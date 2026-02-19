@@ -1,7 +1,7 @@
 import type { Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
-import type { Instance } from '@engine-types/instance/instance'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
+import type { ServiceContext } from '../../context'
 import { DEFAULT_TUNING } from '../../config'
 import { getNodeAABB } from '../../kernel/geometry'
 import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
@@ -142,7 +142,7 @@ const applyGroupAutoFit = ({
   nodeSize,
   defaultPadding
 }: {
-  apply: Instance['apply']
+  apply: ServiceContext['apply']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -176,7 +176,7 @@ const applyGroupAutoFit = ({
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {
-  private instance: Instance
+  private context: ServiceContext
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
@@ -184,16 +184,8 @@ export class GroupAutoFit implements GroupAutoFitApi {
   private pendingSync = false
   private scheduleVersion = 0
 
-  constructor(instance: Instance) {
-    this.instance = instance
-  }
-
-  private scheduleMicrotask = (callback: () => void) => {
-    if (typeof queueMicrotask === 'function') {
-      queueMicrotask(callback)
-      return
-    }
-    void Promise.resolve().then(callback)
+  constructor(context: ServiceContext) {
+    this.context = context
   }
 
   reset: GroupAutoFitApi['reset'] = () => {
@@ -203,10 +195,10 @@ export class GroupAutoFit implements GroupAutoFitApi {
   }
 
   sync: GroupAutoFitApi['sync'] = () => {
-    const docId = this.instance.runtime.docRef.current?.id
-    const nodes = this.instance.runtime.docRef.current?.nodes ?? []
-    const nodeSize = this.instance.runtime.config.nodeSize
-    const padding = this.instance.runtime.config.node.groupPadding
+    const docId = this.context.runtime.docRef.current?.id
+    const nodes = this.context.runtime.docRef.current?.nodes ?? []
+    const nodeSize = this.context.runtime.config.nodeSize
+    const padding = this.context.runtime.config.node.groupPadding
 
     if (docId !== undefined && docId !== this.lastDocId) {
       this.snapshot = null
@@ -225,7 +217,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
 
     groupsToProcess.forEach((group) => {
       applyGroupAutoFit({
-        apply: this.instance.apply,
+        apply: this.context.apply,
         nodes,
         group,
         nodeSize,
@@ -245,7 +237,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
     if (this.pendingSync) return
     this.pendingSync = true
     const version = ++this.scheduleVersion
-    this.scheduleMicrotask(() => {
+    this.context.schedulers.microtask(() => {
       if (version !== this.scheduleVersion) return
       this.pendingSync = false
       this.triggerSync()
@@ -262,7 +254,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
   start: GroupAutoFitApi['start'] = () => {
     this.stop()
 
-    const offAfter = this.instance.events.on('change.applied', ({ types, operationTypes }) => {
+    const offAfter = this.context.events.on('change.applied', ({ types, operationTypes }) => {
       const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
       const hasRelevantChange = hasNodeOperation || types.includes('doc.reset')
       if (!hasRelevantChange) return

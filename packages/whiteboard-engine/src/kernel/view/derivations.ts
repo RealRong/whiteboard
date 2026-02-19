@@ -6,7 +6,6 @@ import type {
 } from '@engine-types/instance/view'
 import type { GraphSnapshot } from '@engine-types/graph'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { Query } from '@engine-types/instance/query'
 import type { State } from '@engine-types/instance/state'
 import type { ShortcutContext } from '@engine-types/shortcuts'
 import { DEFAULT_TUNING } from '../../config'
@@ -20,7 +19,7 @@ import {
   toMindmapStructureSignature,
   toViewportTransformView
 } from '../query'
-import { createEdgeViewQuery } from './edgeQuery'
+import type { EdgeViewQuery } from './edge'
 import {
   defineViewDerivation,
   type ViewDerivationMap
@@ -29,9 +28,9 @@ import {
 type Options = {
   readState: State['read']
   readGraph: () => GraphSnapshot
-  query: Query
   config: InstanceConfig
   platform: ShortcutContext['platform']
+  edgeViewQuery: EdgeViewQuery
 }
 
 const EMPTY_NODE_ITEMS: ViewSnapshot['node.items'] = []
@@ -40,8 +39,6 @@ const EMPTY_NODE_HANDLES: ViewSnapshot['node.transformHandles'] = new Map()
 export const VIEW_KEYS: ViewKey[] = [
   'viewport.transform',
   'shortcut.context',
-  'edge.entries',
-  'edge.reconnect',
   'edge.paths',
   'edge.preview',
   'edge.selectedEndpoints',
@@ -56,12 +53,11 @@ export const VIEW_KEYS: ViewKey[] = [
 export const createViewDerivations = ({
   readState,
   readGraph,
-  query,
   config,
-  platform
+  platform,
+  edgeViewQuery
 }: Options): ViewDerivationMap => {
   let mindmapTreeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
-  const edgeViewQuery = createEdgeViewQuery({ readGraph, query })
 
   return {
     'viewport.transform': defineViewDerivation(['viewport'], () => toViewportTransformView(readState('viewport'))),
@@ -96,22 +92,10 @@ export const createViewDerivations = ({
         }
       }
     ),
-    'edge.entries': defineViewDerivation(['graph.visibleEdges', 'graph.canvasNodes'], () => edgeViewQuery.getEntries()),
-    'edge.reconnect': defineViewDerivation(['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'], () =>
-      edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
+    'edge.paths': defineViewDerivation(
+      ['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'],
+      () => edgeViewQuery.getPaths(readState('edgeConnect'))
     ),
-    'edge.paths': defineViewDerivation(['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'], () => {
-      const entries = edgeViewQuery.getEntries()
-      const reconnect = edgeViewQuery.getReconnectEntry(readState('edgeConnect'))
-      if (!reconnect) return entries
-      let matched = false
-      const next = entries.map((entry) => {
-        if (entry.id !== reconnect.id) return entry
-        matched = true
-        return reconnect
-      })
-      return matched ? next : entries
-    }),
     'edge.preview': defineViewDerivation(['edgeConnect', 'graph.canvasNodes', 'tool'], () => {
       const edgeConnect = readState('edgeConnect')
       const tool = readState('tool')
@@ -127,14 +111,14 @@ export const createViewDerivations = ({
     'edge.selectedEndpoints': defineViewDerivation(['edgeSelection', 'graph.visibleEdges', 'graph.canvasNodes'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
-      const edge = readGraph().visibleEdges.find((item) => item.id === selectedEdgeId)
+      const edge = edgeViewQuery.getEdge(selectedEdgeId)
       if (!edge) return undefined
       return edgeViewQuery.getEndpoints(edge)
     }),
     'edge.selectedRouting': defineViewDerivation(['edgeSelection', 'graph.visibleEdges'], () => {
       const selectedEdgeId = readState('edgeSelection')
       if (!selectedEdgeId) return undefined
-      const edge = readGraph().visibleEdges.find((item) => item.id === selectedEdgeId)
+      const edge = edgeViewQuery.getEdge(selectedEdgeId)
       if (!edge) return undefined
       const points = edge.routing?.points
       if (!points?.length) return undefined

@@ -17,13 +17,11 @@ export const createGraphProjector = ({
 }: CreateGraphProjectorOptions): GraphProjector => {
   const cache = new GraphCache()
   const nodeOverrides = new Map<NodeId, NodeOverride>()
-  const listeners = new Set<(payload: GraphChange) => void>()
   const pendingRuntimeDirtyIds = new Set<NodeId>()
   const pendingDocDirtyIds = new Set<NodeId>()
   let runtimeOrderChanged = false
   let docOrderChanged = false
   let docFullSyncRequested = false
-  let runtimeFlushScheduled = false
   let currentSnapshot = cache.read(getDoc(), nodeOverrides)
 
   const isOptionalPointEqual = (left?: { x: number; y: number }, right?: { x: number; y: number }) => {
@@ -93,30 +91,6 @@ export const createGraphProjector = ({
     docFullSyncRequested = false
   }
 
-  const hasPendingRuntime = () =>
-    pendingRuntimeDirtyIds.size > 0 || runtimeOrderChanged
-
-  const requestFrame = (callback: () => void) => {
-    const runtime = globalThis as {
-      requestAnimationFrame?: (task: () => void) => number
-    }
-    if (typeof runtime.requestAnimationFrame === 'function') {
-      runtime.requestAnimationFrame(callback)
-      return
-    }
-    setTimeout(callback, 16)
-  }
-
-  const scheduleRuntimeFlush = () => {
-    if (runtimeFlushScheduled) return
-    runtimeFlushScheduled = true
-    requestFrame(() => {
-      runtimeFlushScheduled = false
-      if (!hasPendingRuntime()) return
-      flush('runtime')
-    })
-  }
-
   const read = () => {
     currentSnapshot = cache.read(getDoc(), nodeOverrides)
     return currentSnapshot
@@ -135,9 +109,6 @@ export const createGraphProjector = ({
     nodeIds.forEach((nodeId) => {
       pendingRuntimeDirtyIds.add(nodeId)
     })
-    if (pendingRuntimeDirtyIds.size) {
-      scheduleRuntimeFlush()
-    }
   }
 
   const flush: GraphProjector['flush'] = (source) => {
@@ -157,16 +128,13 @@ export const createGraphProjector = ({
       visibleNodesChanged ||
       canvasNodesChanged ||
       visibleEdgesChanged
-    if (changed && listeners.size) {
-      listeners.forEach((listener) => {
-        listener(payload)
-      })
-    }
     clearPending(source)
+    if (!changed) return undefined
+    return payload
   }
 
   const patchNodeOverrides: GraphProjector['patchNodeOverrides'] = (updates) => {
-    if (!updates.length) return
+    if (!updates.length) return undefined
 
     const changedNodeIds: NodeId[] = []
     updates.forEach((update) => {
@@ -181,18 +149,19 @@ export const createGraphProjector = ({
       changedNodeIds.push(update.id)
     })
 
-    if (!changedNodeIds.length) return
+    if (!changedNodeIds.length) return undefined
     reportDirty(changedNodeIds)
+    return flush('runtime')
   }
 
   const clearNodeOverrides: GraphProjector['clearNodeOverrides'] = (ids) => {
-    if (!nodeOverrides.size) return
+    if (!nodeOverrides.size) return undefined
 
     if (!ids || !ids.length) {
       const changedNodeIds = Array.from(nodeOverrides.keys())
       nodeOverrides.clear()
       reportDirty(changedNodeIds)
-      return
+      return flush('runtime')
     }
 
     const changedNodeIds: NodeId[] = []
@@ -201,8 +170,9 @@ export const createGraphProjector = ({
       nodeOverrides.delete(id)
       changedNodeIds.push(id)
     })
-    if (!changedNodeIds.length) return
+    if (!changedNodeIds.length) return undefined
     reportDirty(changedNodeIds)
+    return flush('runtime')
   }
 
   const readNodeOverrides: GraphProjector['readNodeOverrides'] = () =>
@@ -214,12 +184,6 @@ export const createGraphProjector = ({
     readNodeOverrides,
     patchNodeOverrides,
     clearNodeOverrides,
-    watch: (listener) => {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
-    },
     reportDirty,
     reportOrderChanged: (source = 'runtime') => {
       if (source === 'doc') {
@@ -227,7 +191,6 @@ export const createGraphProjector = ({
         return
       }
       runtimeOrderChanged = true
-      scheduleRuntimeFlush()
     },
     requestFullSync: () => {
       docFullSyncRequested = true

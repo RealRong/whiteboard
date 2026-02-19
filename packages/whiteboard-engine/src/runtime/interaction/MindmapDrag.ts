@@ -1,17 +1,17 @@
 import { getSubtreeIds } from '@whiteboard/core'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core'
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeInteraction } from '@engine-types/instance/runtime'
 import type { MindmapViewTree } from '@engine-types/instance/view'
+import type { InteractionContext } from '../../context'
 import { computeSubtreeDropTarget } from '../../mindmap'
 
 type MindmapDragApi = RuntimeInteraction['mindmapDrag']
 
 export class MindmapDrag implements MindmapDragApi {
-  private readonly instance: InternalInstance
+  private readonly instance: InteractionContext['instance']
 
-  constructor(instance: InternalInstance) {
-    this.instance = instance
+  constructor(context: InteractionContext) {
+    this.instance = context.instance
   }
 
   private getTreeView = (treeId: NodeId): MindmapViewTree | undefined => {
@@ -62,14 +62,14 @@ export class MindmapDrag implements MindmapDragApi {
     })
   }
 
-  start: MindmapDragApi['start'] = ({ treeId, nodeId, pointerId, clientX, clientY }) => {
-    const { state, runtime } = this.instance
+  start: MindmapDragApi['start'] = ({ treeId, nodeId, pointer }) => {
+    const { state } = this.instance
     if (state.read('mindmapDrag').active) return false
 
     const treeItem = this.getTreeView(treeId)
     if (!treeItem) return false
 
-    const world = runtime.viewport.clientToWorld(clientX, clientY)
+    const world = pointer.world
     const baseOffset = {
       x: treeItem.node.position.x,
       y: treeItem.node.position.y
@@ -80,7 +80,7 @@ export class MindmapDrag implements MindmapDragApi {
         active: {
           kind: 'root',
           treeId,
-          pointerId,
+          pointerId: pointer.pointerId,
           start: world,
           origin: baseOffset,
           position: baseOffset
@@ -101,7 +101,7 @@ export class MindmapDrag implements MindmapDragApi {
       active: {
         kind: 'subtree',
         treeId,
-        pointerId,
+        pointerId: pointer.pointerId,
         nodeId,
         originParentId,
         originIndex,
@@ -118,13 +118,13 @@ export class MindmapDrag implements MindmapDragApi {
     return true
   }
 
-  update: MindmapDragApi['update'] = ({ pointerId, clientX, clientY }) => {
-    const { state, runtime } = this.instance
+  update: MindmapDragApi['update'] = ({ pointer }) => {
+    const { state } = this.instance
     const active = state.read('mindmapDrag').active
-    if (!active || active.pointerId !== pointerId) return false
+    if (!active || active.pointerId !== pointer.pointerId) return false
 
     state.batchFrame(() => {
-      const world = runtime.viewport.clientToWorld(clientX, clientY)
+      const world = pointer.world
 
       if (active.kind === 'root') {
         const nextPosition = {
@@ -171,10 +171,10 @@ export class MindmapDrag implements MindmapDragApi {
     return true
   }
 
-  end: MindmapDragApi['end'] = ({ pointerId }) => {
+  end: MindmapDragApi['end'] = ({ pointer }) => {
     const { state, commands, runtime } = this.instance
     const active = state.read('mindmapDrag').active
-    if (!active || active.pointerId !== pointerId) return false
+    if (!active || active.pointerId !== pointer.pointerId) return false
 
     state.write('mindmapDrag', {})
 
@@ -210,7 +210,7 @@ export class MindmapDrag implements MindmapDragApi {
   cancel: MindmapDragApi['cancel'] = (options) => {
     const active = this.instance.state.read('mindmapDrag').active
     if (!active) return false
-    if (typeof options?.pointerId === 'number' && active.pointerId !== options.pointerId) return false
+    if (options?.pointer && active.pointerId !== options.pointer.pointerId) return false
     this.instance.state.write('mindmapDrag', {})
     return true
   }

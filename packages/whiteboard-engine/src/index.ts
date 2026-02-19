@@ -38,3 +38,4 @@ export type { ShortcutOverrides } from './types/shortcuts'
 export type {
   EdgeConnectState
 } from './types/state'
+export type { PointerInput, PointerModifiers } from './types/common'

@@ -1,6 +1,7 @@
 import type { Document, Viewport } from '@whiteboard/core'
 import type { GraphProjector } from '@engine-types/graph'
 import type {
+  StateKey,
   State,
   WritableStateKey,
   WritableStateSnapshot
@@ -55,6 +56,11 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   })
 
   const viewportListeners = new Set<() => void>()
+  const changeListeners = new Set<(key: StateKey) => void>()
+  const pendingChangeKeys = new Set<StateKey>()
+  let writeBatchDepth = 0
+  let writeFrameBatchDepth = 0
+  let writeFrameFlushScheduled = false
   let viewportSnapshot = toViewport(currentDoc)
 
   const readState = ((key) => {
@@ -70,11 +76,57 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     viewportSnapshot = nextViewport
     if (!viewportListeners.size) return
     viewportListeners.forEach((listener) => listener())
+    notifyChange('viewport')
   }
 
   const syncDocDerived = () => {
     syncViewport()
-    graph.flush('doc')
+  }
+
+  const notifyChange = (key: StateKey) => {
+    if (!changeListeners.size) return
+    changeListeners.forEach((listener) => {
+      listener(key)
+    })
+  }
+
+  const flushChangeKeys = () => {
+    if (!pendingChangeKeys.size) return
+    const keys = Array.from(pendingChangeKeys)
+    pendingChangeKeys.clear()
+    keys.forEach((key) => {
+      notifyChange(key)
+    })
+  }
+
+  const scheduleWriteFrameFlush = () => {
+    if (writeFrameFlushScheduled || !pendingChangeKeys.size) return
+    writeFrameFlushScheduled = true
+    const runtime = globalThis as {
+      requestAnimationFrame?: (task: () => void) => number
+    }
+    if (typeof runtime.requestAnimationFrame === 'function') {
+      runtime.requestAnimationFrame(() => {
+        writeFrameFlushScheduled = false
+        flushChangeKeys()
+      })
+      return
+    }
+    setTimeout(() => {
+      writeFrameFlushScheduled = false
+      flushChangeKeys()
+    }, 16)
+  }
+
+  const trackChange = (key: StateKey) => {
+    if (writeBatchDepth > 0 || writeFrameBatchDepth > 0) {
+      pendingChangeKeys.add(key)
+      if (writeBatchDepth === 0) {
+        scheduleWriteFrameFlush()
+      }
+      return
+    }
+    notifyChange(key)
   }
 
   const watchState: State['watch'] = (key, listener) => {
@@ -87,9 +139,44 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     return store.watch(key as WritableStateKey, listener)
   }
 
-  const writeState: State['write'] = (key, next) => store.set(key, next as never)
-  const batchState: State['batch'] = (action) => store.batch(action)
-  const batchFrameState: State['batchFrame'] = (action) => store.batchFrame(action)
+  const writeState: State['write'] = (key, next) => {
+    const previous = store.get(key)
+    const resolved =
+      typeof next === 'function'
+        ? (next as (value: WritableStateSnapshot[typeof key]) => WritableStateSnapshot[typeof key])(previous)
+        : next
+    if (Object.is(previous, resolved)) return
+    store.set(key, resolved as never)
+    trackChange(key)
+  }
+
+  const batchState: State['batch'] = (action) => {
+    writeBatchDepth += 1
+    try {
+      store.batch(action)
+    } finally {
+      writeBatchDepth -= 1
+      if (writeBatchDepth === 0) {
+        if (writeFrameBatchDepth > 0) {
+          scheduleWriteFrameFlush()
+          return
+        }
+        flushChangeKeys()
+      }
+    }
+  }
+
+  const batchFrameState: State['batchFrame'] = (action) => {
+    writeFrameBatchDepth += 1
+    try {
+      batchState(action)
+    } finally {
+      writeFrameBatchDepth -= 1
+      if (writeBatchDepth === 0 && writeFrameBatchDepth === 0) {
+        scheduleWriteFrameFlush()
+      }
+    }
+  }
 
   const replaceDoc = (doc: Document | null) => {
     if (currentDoc === doc) return
@@ -102,6 +189,12 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     write: writeState,
     batch: batchState,
     batchFrame: batchFrameState,
+    watchChanges: (listener) => {
+      changeListeners.add(listener)
+      return () => {
+        changeListeners.delete(listener)
+      }
+    },
     watch: watchState
   }
 

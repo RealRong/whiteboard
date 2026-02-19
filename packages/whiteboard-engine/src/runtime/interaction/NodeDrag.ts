@@ -1,7 +1,7 @@
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
 import type { NodeViewUpdate } from '@engine-types/graph'
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeInteraction } from '@engine-types/instance/runtime'
+import type { InteractionContext } from '../../context'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
 import {
   findSmallestGroupAtPoint,
@@ -32,11 +32,11 @@ type DragSession = {
 }
 
 export class NodeDrag implements NodeDragApi {
-  private readonly instance: InternalInstance
+  private readonly instance: InteractionContext['instance']
   private session: DragSession | null = null
 
-  constructor(instance: InternalInstance) {
-    this.instance = instance
+  constructor(context: InteractionContext) {
+    this.instance = context.instance
   }
 
   private getCanvasNodes = () => this.instance.graph.read().canvasNodes
@@ -238,7 +238,7 @@ export class NodeDrag implements NodeDragApi {
     }
   }
 
-  start: NodeDragApi['start'] = ({ nodeId, pointerId, clientX, clientY }) => {
+  start: NodeDragApi['start'] = ({ nodeId, pointer }) => {
     if (this.session) return false
     if (this.instance.state.read('nodeDrag').active) return false
     if (this.instance.state.read('tool') !== 'select') return false
@@ -257,10 +257,13 @@ export class NodeDrag implements NodeDragApi {
 
     this.setHoveredGroup(undefined)
     this.session = {
-      pointerId,
+      pointerId: pointer.pointerId,
       nodeId: node.id,
       nodeType: node.type,
-      start: { x: clientX, y: clientY },
+      start: {
+        x: pointer.client.x,
+        y: pointer.client.y
+      },
       origin,
       last: origin,
       size,
@@ -270,7 +273,7 @@ export class NodeDrag implements NodeDragApi {
           : undefined
     }
     this.setDragState({
-      pointerId,
+      pointerId: pointer.pointerId,
       nodeId: node.id,
       nodeType: node.type
     })
@@ -278,22 +281,22 @@ export class NodeDrag implements NodeDragApi {
     return true
   }
 
-  update: NodeDragApi['update'] = ({ pointerId, clientX, clientY, altKey }) => {
+  update: NodeDragApi['update'] = ({ pointer }) => {
     const session = this.session
-    if (!session || session.pointerId !== pointerId) return false
+    if (!session || session.pointerId !== pointer.pointerId) return false
 
     this.instance.state.batchFrame(() => {
       const zoom = Math.max(this.instance.runtime.viewport.getZoom(), DEFAULT_INTERNALS.zoomEpsilon)
       let nextPosition = {
-        x: session.origin.x + (clientX - session.start.x) / zoom,
-        y: session.origin.y + (clientY - session.start.y) / zoom
+        x: session.origin.x + (pointer.client.x - session.start.x) / zoom,
+        y: session.origin.y + (pointer.client.y - session.start.y) / zoom
       }
       nextPosition = this.resolveMove({
         nodeId: session.nodeId,
         position: nextPosition,
         size: session.size,
         childrenIds: session.children?.ids,
-        allowCross: altKey
+        allowCross: pointer.modifiers.alt
       })
 
       if (session.children) {
@@ -307,9 +310,9 @@ export class NodeDrag implements NodeDragApi {
     return true
   }
 
-  end: NodeDragApi['end'] = ({ pointerId }) => {
+  end: NodeDragApi['end'] = ({ pointer }) => {
     const session = this.session
-    if (!session || session.pointerId !== pointerId) return false
+    if (!session || session.pointerId !== pointer.pointerId) return false
 
     const finalPos = session.last
     if (session.children) {
@@ -330,7 +333,7 @@ export class NodeDrag implements NodeDragApi {
   cancel: NodeDragApi['cancel'] = (options) => {
     const session = this.session
     if (!session) return false
-    if (typeof options?.pointerId === 'number' && session.pointerId !== options.pointerId) {
+    if (options?.pointer && session.pointerId !== options.pointer.pointerId) {
       return false
     }
 

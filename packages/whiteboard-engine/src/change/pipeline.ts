@@ -10,20 +10,13 @@ import type {
   ChangeSetInput,
   TxApi
 } from '@engine-types/change'
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import type { Document, Operation } from '@whiteboard/core'
+import type { Operation } from '@whiteboard/core'
+import type { ChangePipelineContext } from '../context'
 import { buildCanvasNodeDirtyHint, hasNodeOperation } from '../runtime/lifecycle/watchers/nodeHint'
 import { normalizeChangeSet } from './normalize'
 import { reduceChangeSet } from './reduce'
 import { validateChangeSetInput } from './validate'
-
-type CreateChangePipelineOptions = {
-  instance: InternalInstance
-  replaceDoc: (doc: Document | null) => void
-  onApplied?: (summary: AppliedChangeSummary) => void
-  onDocChanged?: (payload: InstanceEventMap['doc.changed']) => void
-}
 
 type ChangePipeline = {
   apply: ApplyApi
@@ -33,9 +26,10 @@ type ChangePipeline = {
 export const createChangePipeline = ({
   instance,
   replaceDoc,
-  onApplied,
-  onDocChanged
-}: CreateChangePipelineOptions): ChangePipeline => {
+  syncGraph,
+  emit,
+  now: getNow
+}: ChangePipelineContext): ChangePipeline => {
   const toDocOrigin = (source: ChangeSource): InstanceEventMap['doc.changed']['origin'] => {
     if (source === 'remote') return 'remote'
     if (source === 'system' || source === 'import') return 'system'
@@ -80,17 +74,16 @@ export const createChangePipeline = ({
     }
   }
 
-  const now = () => {
+  const now = getNow ?? (() => {
     const runtime = globalThis as { performance?: { now?: () => number } }
     if (typeof runtime.performance?.now === 'function') {
       return runtime.performance.now()
     }
     return Date.now()
-  }
+  })
 
   const apply: ApplyApi = async (input: ChangeSetInput, options?: ApplyOptions): Promise<ApplyResult> => {
     const startedAt = now()
-    const docBefore = instance.runtime.docRef.current ?? null
     const validated = validateChangeSetInput(input)
     const changeSet = normalizeChangeSet(validated, options, {
       docId: instance.runtime.docRef.current?.id,
@@ -110,8 +103,9 @@ export const createChangePipeline = ({
 
     const docAfter = instance.runtime.docRef.current ?? null
     replaceDoc(docAfter)
-    if (docBefore === docAfter) {
-      instance.graph.flush('doc')
+    const graphChange = instance.graph.flush('doc')
+    if (graphChange) {
+      syncGraph(graphChange)
     }
 
     const operationTypes = toOperationTypes(operations, changeSet)
@@ -132,13 +126,13 @@ export const createChangePipeline = ({
     }
 
     if (operationTypes.length) {
-      onDocChanged?.({
+      emit('doc.changed', {
         docId: summary.docId,
         operationTypes,
         origin: toDocOrigin(changeSet.source)
       })
     }
-    onApplied?.(summary)
+    emit('change.applied', summary)
 
     return {
       changeSet,

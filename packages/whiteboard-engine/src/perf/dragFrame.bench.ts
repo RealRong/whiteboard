@@ -164,21 +164,46 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
+    const startClient = { x: 0, y: 0 }
     const started = instance.runtime.interaction.nodeDrag.start({
       nodeId: movingNodeId,
-      pointerId,
-      clientX: 0,
-      clientY: 0
+      pointer: {
+        pointerId,
+        button: 0,
+        client: startClient,
+        screen: startClient,
+        world: startClient,
+        modifiers: {
+          alt: false,
+          shift: false,
+          ctrl: false,
+          meta: false
+        }
+      }
     })
     if (!started) {
       throw new Error(`nodeDrag.start failed at run ${run + 1}`)
     }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
+      const client = {
+        x: frame * 1.2,
+        y: frame * 0.8 + Math.sin(frame / 10) * 6
+      }
       instance.runtime.interaction.nodeDrag.update({
-        pointerId,
-        clientX: frame * 1.2,
-        clientY: frame * 0.8 + Math.sin(frame / 10) * 6
+        pointer: {
+          pointerId,
+          button: 0,
+          client,
+          screen: client,
+          world: client,
+          modifiers: {
+            alt: false,
+            shift: false,
+            ctrl: false,
+            meta: false
+          }
+        }
       })
     }
 
@@ -186,16 +211,44 @@ const main = () => {
     for (let frame = 0; frame < MEASURE_FRAMES; frame += 1) {
       const clientX = (WARMUP_FRAMES + frame) * 1.2
       const clientY = (WARMUP_FRAMES + frame) * 0.8 + Math.sin(frame / 12) * 6
+      const client = {
+        x: clientX,
+        y: clientY
+      }
       const startedAt = now()
       instance.runtime.interaction.nodeDrag.update({
-        pointerId,
-        clientX,
-        clientY
+        pointer: {
+          pointerId,
+          button: 0,
+          client,
+          screen: client,
+          world: client,
+          modifiers: {
+            alt: false,
+            shift: false,
+            ctrl: false,
+            meta: false
+          }
+        }
       })
       samples.push(now() - startedAt)
     }
 
-    instance.runtime.interaction.nodeDrag.end({ pointerId })
+    instance.runtime.interaction.nodeDrag.end({
+      pointer: {
+        pointerId,
+        button: 0,
+        client: { x: 0, y: 0 },
+        screen: { x: 0, y: 0 },
+        world: { x: 0, y: 0 },
+        modifiers: {
+          alt: false,
+          shift: false,
+          ctrl: false,
+          meta: false
+        }
+      }
+    })
     core.model.node.update(movingNodeId, { position: basePosition })
     syncDoc(docRef.current)
     runSamples.push(samples)

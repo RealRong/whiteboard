@@ -1,6 +1,6 @@
 import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
-import type { EdgeConnectState } from '@whiteboard/engine'
+import type { RefObject } from 'react'
+import type { EdgeConnectState, PointerInput } from '@whiteboard/engine'
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -13,15 +13,14 @@ export type EdgeConnectModel = {
   tool: 'select' | 'edge'
   containerRef?: RefObject<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
-  startFromHandle: (nodeId: string, side: EdgeAnchor['side'], pointerId?: number) => void
-  startFromPoint: (nodeId: string, pointWorld: Point, pointerId?: number) => void
-  startReconnect: (edgeId: string, end: 'source' | 'target', pointerId?: number) => void
-  updateTo: (pointWorld: Point) => void
-  commitTo: (pointWorld: Point) => void
+  startFromHandle: (nodeId: string, side: EdgeAnchor['side'], pointer: PointerInput) => void
+  startFromPoint: (nodeId: string, pointer: PointerInput) => void
+  startReconnect: (edgeId: string, end: 'source' | 'target', pointer: PointerInput) => void
+  updateTo: (pointer: PointerInput) => void
+  commitTo: (pointer: PointerInput) => void
   cancel: () => void
   selectEdge: (edgeId?: string) => void
-  updateHover: (pointWorld: Point) => void
-  handleNodePointerDown: (nodeId: string, pointWorld: Point, event: ReactPointerEvent<HTMLElement>) => boolean
+  handleNodePointerDown: (nodeId: string, pointer: PointerInput) => boolean
   nodeRects: Array<{ node: Node; rect: Rect; aabb: Rect; rotation: number }>
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
 }
@@ -35,6 +34,5 @@ export type EdgeConnectActions = Pick<
   | 'commitTo'
   | 'cancel'
   | 'selectEdge'
-  | 'updateHover'
   | 'handleNodePointerDown'
 >

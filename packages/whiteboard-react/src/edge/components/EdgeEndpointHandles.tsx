@@ -1,5 +1,6 @@
 import type { CSSProperties, PointerEvent } from 'react'
 import { useEdgeSelectedEndpointsView, useInstance, useWhiteboardSelector } from '../../common/hooks'
+import { toPointerInput } from '../../common/pointerInput'
 
 export const EdgeEndpointHandles = () => {
   const instance = useInstance()
@@ -10,7 +11,7 @@ export const EdgeEndpointHandles = () => {
   const handleStartReconnect = (edgeId: string, end: 'source' | 'target', event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    instance.runtime.interaction.edgeConnect.startReconnect(edgeId, end, event.pointerId)
+    instance.runtime.interaction.edgeConnect.startReconnect(edgeId, end, toPointerInput(instance, event))
   }
 
   const renderHandle = (end: 'source' | 'target', point: { x: number; y: number }) => (

@@ -1,4 +1,5 @@
 import type { NodeId, Size as CoreSize } from '@whiteboard/core'
+import type { PointerInput } from '../common'
 
 export type NodeSizeObserver = {
   observe: (nodeId: NodeId, element: Element, enabled?: boolean) => void
@@ -29,17 +30,11 @@ export type GroupAutoFit = {
 
 export type ViewportNavigation = {
   startPan: (options: {
-    pointerId: number
-    button: number
-    clientX: number
-    clientY: number
-    spacePressed: boolean
+    pointer: PointerInput
     enablePan: boolean
   }) => boolean
   updatePan: (options: {
-    pointerId: number
-    clientX: number
-    clientY: number
+    pointer: PointerInput
   }) => void
   endPan: (options: {
     pointerId: number

@@ -39,9 +39,25 @@ const applyOperations = (
 
 const applyIntent = (
   context: ReduceContext,
-  intent: Parameters<Core['apply']['intent']>[0],
+  intent: Parameters<Core['apply']['build']>[0],
   origin: Origin
-) => context.core.apply.intent(intent, { origin })
+) => {
+  const built = context.core.apply.build(intent)
+  if (!built.ok) {
+    return built
+  }
+  const result = context.core.apply.operations(built.operations, { origin })
+  if (!result.ok) {
+    return result
+  }
+  if (built.value === undefined) {
+    return result
+  }
+  return {
+    ...result,
+    value: built.value
+  }
+}
 
 const reduceChange = async (
   context: ReduceContext,

@@ -273,8 +273,8 @@ packages/whiteboard-engine/src
 2. Phase 2：已完成（命令写入统一走 `apply`，保留 `history` 读写直连 core）。
 3. Phase 3：已完成（核心交互写入统一走 `apply`）。
 4. Phase 4：已完成（外部 `commands.doc.replace` 入口已移除；`doc.reset` 已统一走 apply；doc 直写兜底 watcher 已移除）。
-5. Phase 5：进行中（已接入 `change.applied` 事件、view/query 的重算命中率与耗时采样、`bench:drag-frame:check` 门槛脚本；当前 `drag-frame` 基线 `P95≈1.78ms`，已通过 `<4ms` 门槛）。
-6. Phase 6：进行中（`core.dispatch` 已删除，统一收敛到 `core.apply.intent/apply.operations/apply.changeSet`；`engine` 的 `change/reduce.ts` 已移除 `core.commands.*` 依赖，并将节点/边更新删除、顺序、分组、viewport 等主路径迁移到 `core.apply.operations`，创建类与 mindmap 走 `core.apply.intent`；同时已打通 `change.source -> core origin` 传递。`core` 的 `history/transaction` 也已从 `commands` 命名空间上收敛为顶层 `core.history` 与 `core.tx`）。
+5. Phase 5：已完成（已接入 `change.applied` 事件、view/query 的重算命中率与耗时采样；已建立 `bench:drag-frame:check`（`P95<4ms`）与 `bench:node-hint:check`（按场景 `p95<budget`）双门槛，提供 `bench:check` 一键回归入口，并通过 CI workflow 固化阈值守护）。
+6. Phase 6：已完成（`core.dispatch` 与 `core.commands` 对外入口已删除，统一收敛到 `core.apply.build/apply.operations/apply.changeSet`；`engine` 的 `change/reduce.ts` 已移除 `core.commands.*` 依赖，并将节点/边更新删除、顺序、分组、viewport 等主路径迁移到 `core.apply.operations`，创建类与 mindmap 通过 `core.apply.build + core.apply.operations` 提交；同时已打通 `change.source -> core origin` 传递。`core` 的 `history/transaction` 已收敛为顶层 `core.history` 与 `core.tx`，history 内核已从 snapshot 方案切换为 operation 逆操作方案；最终触发策略定稿为“engine 触发、core 执行”——engine 通过 `instance.commands.history` 发起，core 负责逆操作与原子应用）。
 
 ### 11.2 core 最小化保留方案（与 engine 的最终边界）
 
@@ -309,26 +309,25 @@ packages/whiteboard-engine/src
 3. Phase 3（已完成）对齐：
    - 交互层继续只产出 `ChangeSet`。
    - 禁止交互直接依赖 `core.commands`，只依赖 `instance.apply`。
-4. Phase 4（进行中）联动：
+4. Phase 4（已完成）联动：
    - 删除 `commands.doc.replace` 暴露口，统一 `doc.reset`。
    - 去除“doc 直写兜底 watcher”，只保留 change 驱动的同步链路。
-5. Phase 5（进行中）联动：
+5. Phase 5（已完成）联动：
    - 可观测统一以 `apply` 为主：`change.applied`、重算计数、命中率、耗时。
    - `core` 仅提供可选 affected 信息，不做运行时指标聚合。
 6. Phase 6（新增，core 收敛完成阶段）：
-   - 删除 `core.commands` 对外入口（或降级为 `compat` 子包，不进入主路径）。
-   - engine 的 reduce 完全改为调用 `core` 纯 reducer。
-   - history 统一基于 `ChangeSet`（core 提供算法，engine 负责策略与触发）。
+   - 已完成：删除 `core.commands` 对外入口。
+   - 已完成：engine 的 reduce 不再依赖 `core.commands.*`，统一走 `core.apply.build + core.apply.operations`。
+   - 已完成：history 统一基于 operation 逆操作；触发边界收敛为“engine 发起，core 原子执行”，避免双写与重复编排。
    - 完成后形成稳定边界：
      - `core`: pure model kernel
      - `engine`: runtime + projection + host adapters
 
 ### 11.4 执行顺序（最小风险）
 
-1. 先完成 Phase 4 剩余项（移除 `doc.replace` 与直写兜底）。
-2. 再完成 Phase 5 指标闭环（命中率/重算计数/benchmark 门槛）。
-3. 最后进入 Phase 6，将 `reduce` 对 `core.commands` 依赖替换为 `core` 纯 reducer。
-4. 当 Phase 6 完成后，再做目录/命名最终清理，避免中途重复重构。
+1. Phase 4 与 Phase 6 已完成，写入口与 history 边界已收敛。
+2. Phase 5 已完成，后续按需扩展关键路径 benchmark 覆盖。
+3. 当前可进入目录/命名最终清理阶段，避免重复重构。
 
 ---
 

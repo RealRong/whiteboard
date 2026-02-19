@@ -290,6 +290,7 @@ export type Operation =
       toParentId: MindmapNodeId
       fromIndex: number
       toIndex: number
+      fromSide?: 'left' | 'right'
       side?: 'left' | 'right'
     }
   | { type: 'mindmap.node.reorder'; id: MindmapId; parentId: MindmapNodeId; fromIndex: number; toIndex: number }
@@ -514,7 +515,6 @@ export interface Core {
 
   apply: {
     build(intent: Intent): CoreBuildResult
-    intent(intent: Intent, options?: CoreApplyOptions): DispatchResult
     operations(operations: Operation[], options?: CoreApplyOptions): DispatchResult
     changeSet(changes: ChangeSet): DispatchResult
   }
@@ -535,100 +535,6 @@ export interface Core {
       create(input?: MindmapCreateInput | MindmapTree): MindmapId
       update(id: MindmapId, tree: MindmapTree): void
       delete(ids: MindmapId[]): void
-    }
-  }
-
-  commands: {
-    node: {
-      move(ids: NodeId[], delta: Point): Promise<DispatchResult>
-      resize(id: NodeId, size: Size): Promise<DispatchResult>
-      rotate?(id: NodeId, angle: number): Promise<DispatchResult>
-    }
-    order: {
-      node: {
-        set(ids: NodeId[]): Promise<DispatchResult>
-        bringToFront(ids: NodeId[]): Promise<DispatchResult>
-        sendToBack(ids: NodeId[]): Promise<DispatchResult>
-        bringForward(ids: NodeId[]): Promise<DispatchResult>
-        sendBackward(ids: NodeId[]): Promise<DispatchResult>
-      }
-      edge: {
-        set(ids: EdgeId[]): Promise<DispatchResult>
-        bringToFront(ids: EdgeId[]): Promise<DispatchResult>
-        sendToBack(ids: EdgeId[]): Promise<DispatchResult>
-        bringForward(ids: EdgeId[]): Promise<DispatchResult>
-        sendBackward(ids: EdgeId[]): Promise<DispatchResult>
-      }
-    }
-    edge: {
-      connect(
-        source: { nodeId: NodeId; anchor?: EdgeAnchor },
-        target: { nodeId: NodeId; anchor?: EdgeAnchor }
-      ): Promise<DispatchResult>
-      reconnect(
-        id: EdgeId,
-        end: 'source' | 'target',
-        ref: { nodeId: NodeId; anchor?: EdgeAnchor }
-      ): Promise<DispatchResult>
-    }
-    group: {
-      create(ids: NodeId[]): Promise<DispatchResult>
-      ungroup(id: NodeId): Promise<DispatchResult>
-    }
-    layout?: {
-      align(
-        ids: NodeId[],
-        mode: 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
-      ): Promise<DispatchResult>
-      distribute?(ids: NodeId[], axis: 'x' | 'y'): Promise<DispatchResult>
-    }
-    mindmap: {
-      create(payload?: MindmapCreateInput): Promise<DispatchResult>
-      replace(id: MindmapId, tree: MindmapTree): Promise<DispatchResult>
-      delete(ids: MindmapId[]): Promise<DispatchResult>
-      addChild(
-        id: MindmapId,
-        parentId: MindmapNodeId,
-        payload?: MindmapNodeData | MindmapAttachPayload,
-        options?: MindmapIntentOptions
-      ): Promise<DispatchResult>
-      addSibling(
-        id: MindmapId,
-        nodeId: MindmapNodeId,
-        position: 'before' | 'after',
-        payload?: MindmapNodeData | MindmapAttachPayload,
-        options?: MindmapIntentOptions
-      ): Promise<DispatchResult>
-      moveSubtree(
-        id: MindmapId,
-        nodeId: MindmapNodeId,
-        newParentId: MindmapNodeId,
-        options?: MindmapIntentOptions
-      ): Promise<DispatchResult>
-      removeSubtree(id: MindmapId, nodeId: MindmapNodeId): Promise<DispatchResult>
-      cloneSubtree(
-        id: MindmapId,
-        nodeId: MindmapNodeId,
-        options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right' }
-      ): Promise<DispatchResult>
-      toggleCollapse(id: MindmapId, nodeId: MindmapNodeId, collapsed?: boolean): Promise<DispatchResult>
-      setNodeData(id: MindmapId, nodeId: MindmapNodeId, patch: Partial<MindmapNodeData>): Promise<DispatchResult>
-      reorderChild(id: MindmapId, parentId: MindmapNodeId, fromIndex: number, toIndex: number): Promise<DispatchResult>
-      setSide(id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right'): Promise<DispatchResult>
-      attachExternal(
-        id: MindmapId,
-        targetId: MindmapNodeId,
-        payload: MindmapAttachPayload,
-        options?: MindmapIntentOptions
-      ): Promise<DispatchResult>
-    }
-    viewport: {
-      set(viewport: Viewport): Promise<DispatchResult>
-      panBy(delta: Point): Promise<DispatchResult>
-      zoomBy(factor: number, anchor?: Point): Promise<DispatchResult>
-      zoomTo(zoom: number, anchor?: Point): Promise<DispatchResult>
-      reset(): Promise<DispatchResult>
-      fitToView(rect: Rect, options: { viewportSize: Size; padding?: number }): Promise<DispatchResult>
     }
   }
 

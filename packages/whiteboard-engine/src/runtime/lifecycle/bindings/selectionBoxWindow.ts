@@ -1,40 +1,4 @@
-import type { DomBindings } from '../../../host/dom'
-import type { CanvasInput } from '../input/types'
-import { createPointerSession } from './pointerSessionWindow'
-
-type Options = {
-  dom: DomBindings
-  getSelectionBox: () => CanvasInput['selectionBox']
-}
-
-export type SelectionBoxBinding = {
-  start: () => void
-  sync: () => void
-  stop: () => void
-}
-
-export const createSelectionBox = ({
-  dom,
-  getSelectionBox
-}: Options): SelectionBoxBinding =>
-  createPointerSession({
-    dom,
-    watch: (listener) => getSelectionBox().watchActive(listener),
-    getActive: () => {
-      const selectionBox = getSelectionBox()
-      if (!selectionBox.isActive()) return undefined
-      return {
-        pointerId: selectionBox.getPointerId()
-      }
-    },
-    getPointerId: (active) => active.pointerId,
-    onPointerMove: (event) => {
-      getSelectionBox().handlePointerMove(event)
-    },
-    onPointerUp: (event) => {
-      getSelectionBox().handlePointerUp(event)
-    },
-    onPointerCancel: (event) => {
-      getSelectionBox().handlePointerCancel(event)
-    }
-  })
+export {
+  createSelectionBox,
+  type SelectionBoxBinding
+} from '../dom/selectionBox'
