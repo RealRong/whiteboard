@@ -1,6 +1,6 @@
 import type { LifecycleContext } from '../../context'
 import type { DomBindings } from '../../host/dom'
-import { bindSpaceKey } from './dom/spaceKey'
+import { bindSpaceKey } from './dom/sources'
 
 type WindowKeyContext = Pick<LifecycleContext, 'commands'>
 

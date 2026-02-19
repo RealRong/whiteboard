@@ -1,5 +1,5 @@
 import type { Node, Operation } from '@whiteboard/core'
-import { buildCanvasNodeDirtyHint } from './nodeHint'
+import { buildHint } from './index'
 
 const runtime = globalThis as {
   process?: {
@@ -129,7 +129,7 @@ const runScenarioOnce = (
   let checksum = 0
   const startedAt = now()
   for (let index = 0; index < scenario.loops; index += 1) {
-    const hint = buildCanvasNodeDirtyHint(scenario.operations, getNodes)
+    const hint = buildHint(scenario.operations, getNodes)
     checksum += hint.forceFull ? 1 : 0
     checksum += hint.orderChanged ? 1 : 0
     checksum += hint.dirtyNodeIds?.length ?? 0
@@ -299,7 +299,7 @@ const main = () => {
   ]
 
   console.log(
-    `nodeHint bench | nodes=${dataset.all.length} | groups=${dataset.groups.length} | children=${dataset.children.length}`
+    `hint bench | nodes=${dataset.all.length} | groups=${dataset.groups.length} | children=${dataset.children.length}`
   )
   const results = scenarios.map((scenario) => runScenario(scenario, () => dataset.all))
   const failed = results.filter((result) => !result.pass)

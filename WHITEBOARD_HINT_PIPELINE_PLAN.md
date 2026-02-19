@@ -15,10 +15,11 @@
 为避免命名冗余，按目录语义去重：
 
 1. 同目录不重复加 `Doc`/`Graph` 前缀。
-2. 文件名优先短语义词：`pipeline.ts`、`context.ts`、`types.ts`。
-3. 规则文件按操作族命名：`update.ts`、`order.ts`、`create.ts`、`delete.ts`。
+2. 非 class 文件优先短语义词：`types.ts`、`index.ts`、`bench.ts`。
+3. 规则与编排若为 class，实现文件使用 PascalCase：`HintPipeline.ts`、`UpdateRule.ts`。
 4. class 名保持“短 + 语义明确”：`HintPipeline`、`HintContext`、`GraphSync`。
 5. 类型名统一使用 `Hint` 语义，不再用 `CanvasNodeDirtyHint` 这种历史名。
+6. **凡是 class 文件一律使用 PascalCase 文件名**（如 `HintPipeline.ts`、`UpdateRule.ts`）。
 
 ---
 
@@ -28,45 +29,45 @@
 packages/whiteboard-engine/src/
   graph/
     hint/
-      index.ts
       types.ts
-      context.ts
-      pipeline.ts
+      index.ts
+      HintContext.ts
+      HintPipeline.ts
       rules/
-        update.ts
-        order.ts
-        create.ts
-        delete.ts
+        UpdateRule.ts
+        OrderRule.ts
+        CreateRule.ts
+        DeleteRule.ts
       trace.ts
       bench.ts
 
   change/
-    graphSync.ts
+    GraphSync.ts
 ```
 
 说明：
 
 1. `graph/hint` 只做“计算 hint”，不直接调用 graph 写接口。
-2. `change/graphSync.ts` 只做“把 hint 应用到 graph”（`reportDirty/reportOrderChanged/requestFullSync`）。
+2. `change/GraphSync.ts` 只做“把 hint 应用到 graph”（`reportDirty/reportOrderChanged/requestFullSync`）。
 3. 现有 `runtime/lifecycle/watchers/nodeHint.ts` 与 `nodeHint.bench.ts` 迁移到上述目录（语义对齐）。
 
 ---
 
 ## 4. 组件职责（一句话版）
 
-### `change/graphSync.ts`
+### `change/GraphSync.ts`
 
 - `GraphSync`：接收 operations，调用 hint pipeline，应用到 `instance.graph`。
 
-### `graph/hint/pipeline.ts`
+### `graph/hint/HintPipeline.ts`
 
 - `HintPipeline`：按顺序执行各条 rule，输出最终 `Hint`。
 
-### `graph/hint/context.ts`
+### `graph/hint/HintContext.ts`
 
 - `HintContext`：统一承载缓存和中间状态，提供语义化写入方法（mark dirty/order/fullSync）。
 
-### `graph/hint/rules/*.ts`
+### `graph/hint/rules/*.ts`（PascalCase）
 
 - `UpdateRule`：处理 `node.update`（type/parent/layer/collapsed 等）。
 - `OrderRule`：处理 `node.order.*`。
@@ -98,7 +99,7 @@ packages/whiteboard-engine/src/
    - `markSubtreeDirty(id)`
    - `markAncestorGroupsDirty(parentId)`
    - `markOrderChanged()`
-   - `requestFullSync(reason)`
+   - `requestFullSync()`
 3. 结束输出
    - `buildHint(): Hint`
 
@@ -208,4 +209,3 @@ change/pipeline.apply
 4. `nodeHint.bench.ts` -> `bench.ts`
 
 说明：目录已经提供语义，函数名不再重复 `Doc/Graph/Node` 前缀。
-

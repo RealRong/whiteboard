@@ -16,6 +16,7 @@ export type {
 export type {
   GraphSnapshot,
   GraphChange,
+  GraphHint,
   GraphChangeSource,
   GraphProjector,
   CreateGraphProjectorOptions,

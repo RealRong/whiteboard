@@ -1,6 +1,6 @@
 import type { LifecycleContext } from '../../context'
 import type { DomBindings } from '../../host/dom'
-import { bindCanvasContainerEvents } from './dom/canvasContainerEvents'
+import { bindCanvasContainerEvents } from './dom/sources'
 import type { CanvasEventHandlers } from './input/types'
 
 type ContainerContext = Pick<LifecycleContext, 'runtime'>

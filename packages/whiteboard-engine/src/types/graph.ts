@@ -30,6 +30,12 @@ export type GraphChange = {
   visibleEdgesChanged?: true
 }
 
+export type GraphHint = {
+  forceFull: boolean
+  dirtyNodeIds?: NodeId[]
+  orderChanged?: boolean
+}
+
 export type GraphChangeSource = 'runtime' | 'doc'
 
 export type GraphProjector = {
@@ -38,6 +44,7 @@ export type GraphProjector = {
   readNodeOverrides: () => NodeViewUpdate[]
   patchNodeOverrides: (updates: NodeViewUpdate[]) => GraphChange | undefined
   clearNodeOverrides: (ids?: NodeId[]) => GraphChange | undefined
+  applyHint: (hint: GraphHint, source?: GraphChangeSource) => void
   reportDirty: (nodeIds: NodeId[], source?: GraphChangeSource) => void
   reportOrderChanged: (source?: GraphChangeSource) => void
   requestFullSync: () => void

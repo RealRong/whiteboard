@@ -13,7 +13,7 @@ import type {
 import type { InstanceEventMap } from '@engine-types/instance/events'
 import type { Operation } from '@whiteboard/core'
 import type { ChangePipelineContext } from '../context'
-import { buildCanvasNodeDirtyHint, hasNodeOperation } from '../runtime/lifecycle/watchers/nodeHint'
+import { GraphSync } from './GraphSync'
 import { normalizeChangeSet } from './normalize'
 import { reduceChangeSet } from './reduce'
 import { validateChangeSetInput } from './validate'
@@ -58,21 +58,10 @@ export const createChangePipeline = ({
     return Array.from(types)
   }
 
-  const syncGraphByOperations = (operations: Operation[]) => {
-    if (hasNodeOperation(operations)) {
-      const hint = buildCanvasNodeDirtyHint(operations, () => instance.runtime.core.query.node.list())
-      if (hint.forceFull) {
-        instance.graph.requestFullSync()
-      } else {
-        if (hint.dirtyNodeIds?.length) {
-          instance.graph.reportDirty(hint.dirtyNodeIds, 'doc')
-        }
-        if (hint.orderChanged) {
-          instance.graph.reportOrderChanged('doc')
-        }
-      }
-    }
-  }
+  const graphSync = GraphSync.fromOptions({
+    graph: instance.graph,
+    getNodes: () => instance.runtime.core.query.node.list()
+  })
 
   const now = getNow ?? (() => {
     const runtime = globalThis as { performance?: { now?: () => number } }
@@ -99,7 +88,7 @@ export const createChangePipeline = ({
       changeSet
     )
     const operations = collectOperations(dispatchResults)
-    syncGraphByOperations(operations)
+    graphSync.syncByOperations(operations)
 
     const docAfter = instance.runtime.docRef.current ?? null
     replaceDoc(docAfter)

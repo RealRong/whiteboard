@@ -111,6 +111,40 @@ export const createGraphProjector = ({
     })
   }
 
+  const applyHint: GraphProjector['applyHint'] = (
+    hint,
+    source = 'doc'
+  ) => {
+    if (hint.forceFull) {
+      if (source === 'doc') {
+        docFullSyncRequested = true
+        pendingDocDirtyIds.clear()
+        return
+      }
+
+      // Runtime source has no dedicated fullSync flag yet, so degrade to broad dirty + order change.
+      const allNodeIds = cache.read(getDoc(), nodeOverrides).canvasNodes.map(
+        (node) => node.id
+      )
+      if (allNodeIds.length) {
+        reportDirty(allNodeIds, source)
+      }
+      runtimeOrderChanged = true
+      return
+    }
+
+    if (hint.dirtyNodeIds?.length) {
+      reportDirty(hint.dirtyNodeIds, source)
+    }
+    if (hint.orderChanged) {
+      if (source === 'doc') {
+        docOrderChanged = true
+      } else {
+        runtimeOrderChanged = true
+      }
+    }
+  }
+
   const flush: GraphProjector['flush'] = (source) => {
     const previous = currentSnapshot
     const next = cache.read(getDoc(), nodeOverrides)
@@ -184,6 +218,7 @@ export const createGraphProjector = ({
     readNodeOverrides,
     patchNodeOverrides,
     clearNodeOverrides,
+    applyHint,
     reportDirty,
     reportOrderChanged: (source = 'runtime') => {
       if (source === 'doc') {
@@ -193,8 +228,7 @@ export const createGraphProjector = ({
       runtimeOrderChanged = true
     },
     requestFullSync: () => {
-      docFullSyncRequested = true
-      pendingDocDirtyIds.clear()
+      applyHint({ forceFull: true }, 'doc')
     },
     flush
   }
