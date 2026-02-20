@@ -20,7 +20,7 @@ export class HintPipeline {
     const context = new HintContext(getNodes)
 
     operations.forEach((operation) => {
-      if (context.isForceFull()) return
+      if (context.isFullSyncRequested()) return
       const rule = this.rules.find((item) => item.canHandle(operation))
       if (!rule) return
       rule.apply(operation, context)

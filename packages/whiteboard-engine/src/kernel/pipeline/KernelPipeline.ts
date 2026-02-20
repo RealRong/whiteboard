@@ -1,6 +1,12 @@
 import type { GraphChange } from '@engine-types/graph'
 import type { State, StateKey } from '@engine-types/instance/state'
 import { toChangeView } from '../../graph/change'
+import {
+  shouldSyncCanvasNodes,
+  shouldSyncDerivedEdgePaths,
+  shouldSyncDerivedMindmapTrees,
+  toProjectionInvalidation
+} from '../../graph/GraphSyncPolicy'
 import type { EdgeRegistry } from '../view/edgeRegistry'
 import type { MindmapRegistry } from '../view/mindmapRegistry'
 import type { NodeRegistry, NodeStateSyncKey } from '../view/nodeRegistry'
@@ -89,37 +95,36 @@ export class KernelPipeline {
     this.query?.syncGraph(change)
     this.edge.syncGraph(change)
 
+    const changeView = toChangeView(change)
     const {
       fullSync,
-      visibleNodesChanged,
-      canvasNodesChanged,
-      visibleEdgesChanged,
       dirtyNodeIds,
       orderChanged
-    } = toChangeView(change)
+    } = changeView
 
+    const invalidation = toProjectionInvalidation(changeView)
     const graphDeps: ViewDependencyKey[] = []
-    if (fullSync || visibleNodesChanged) {
+    if (invalidation.visibleNodes) {
       graphDeps.push('graph.visibleNodes')
     }
-    if (fullSync || canvasNodesChanged) {
+    if (invalidation.canvasNodes) {
       graphDeps.push('graph.canvasNodes')
     }
-    if (fullSync || visibleEdgesChanged) {
+    if (invalidation.visibleEdges) {
       graphDeps.push('graph.visibleEdges')
     }
     if (graphDeps.length) {
       this.derived.invalidateDependencies(graphDeps)
     }
 
-    if (fullSync || canvasNodesChanged || visibleEdgesChanged) {
+    if (shouldSyncDerivedEdgePaths(changeView)) {
       this.syncDerived('edge.paths')
     }
-    if (fullSync || visibleNodesChanged) {
+    if (shouldSyncDerivedMindmapTrees(changeView)) {
       this.syncDerived('mindmap.trees')
     }
 
-    if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
+    if (!shouldSyncCanvasNodes(changeView)) {
       return
     }
 

@@ -1,320 +1,38 @@
 import type {
   Document,
-  Edge,
-  EdgeId,
   Node,
-  NodeId,
-  Point,
-  Size
+  NodeId
 } from '@whiteboard/core'
-import type { NodeOverride } from './overrides'
+import { NodeOverrideState } from './cache/NodeOverrideState'
+import type { GraphSnapshot, NodeViewUpdate } from './types'
 import {
-  getCollapsedGroupIds,
-  isHiddenByCollapsedGroup
-} from '../node/utils/group'
-import type { GraphSnapshot } from './types'
-
-type ViewNodesCache = {
-  sourceNodesRef: Document['nodes']
-  nodes: Node[]
-  indexById: Map<NodeId, number>
-  overrides: Map<NodeId, NodeOverride>
-}
-
-type ViewNodesUpdate = {
-  cache: ViewNodesCache
-  sourceNodesChanged: boolean
-  changedNodeIds: Set<NodeId>
-}
-
-const EMPTY_NODES: Node[] = []
-const EMPTY_EDGES: Edge[] = []
-const EMPTY_NODE_MAP = new Map<NodeId, Node>()
-
-const isPointEqual = (left: Point, right: Point) =>
-  left.x === right.x && left.y === right.y
-
-const isSizeEqual = (left: Size | undefined, right: Size | undefined) => {
-  if (!left && !right) return true
-  if (!left || !right) return false
-  return left.width === right.width && left.height === right.height
-}
-
-const isOptionalPointEqual = (
-  left: Point | undefined,
-  right: Point | undefined
-) => {
-  if (!left && !right) return true
-  if (!left || !right) return false
-  return isPointEqual(left, right)
-}
-
-const isOverrideEqual = (
-  left: NodeOverride | undefined,
-  right: NodeOverride | undefined
-) => {
-  if (!left && !right) return true
-  if (!left || !right) return false
-  return (
-    isOptionalPointEqual(left.position, right.position) &&
-    isSizeEqual(left.size, right.size)
-  )
-}
-
-const applyOverride = (
-  node: Node,
-  override: NodeOverride | undefined
-): Node => {
-  if (!override) return node
-  const position = override.position ?? node.position
-  const size = override.size ?? node.size
-  if (isPointEqual(position, node.position) && isSizeEqual(size, node.size)) {
-    return node
-  }
-  return {
-    ...node,
-    position,
-    size
-  }
-}
-
-const buildIndexById = (nodes: Node[]) => {
-  const indexById = new Map<NodeId, number>()
-  nodes.forEach((node, index) => {
-    indexById.set(node.id, index)
-  })
-  return indexById
-}
-
-const buildViewNodesCache = (
-  doc: Document,
-  overrides: Map<NodeId, NodeOverride>
-): ViewNodesCache => {
-  const nodes = doc.nodes.map((node) =>
-    applyOverride(node, overrides.get(node.id))
-  )
-  return {
-    sourceNodesRef: doc.nodes,
-    nodes,
-    indexById: buildIndexById(doc.nodes),
-    overrides: new Map(overrides)
-  }
-}
-
-const updateViewNodesCache = (
-  cache: ViewNodesCache,
-  doc: Document,
-  overrides: Map<NodeId, NodeOverride>
-): ViewNodesUpdate => {
-  if (cache.sourceNodesRef !== doc.nodes) {
-    return {
-      cache: buildViewNodesCache(doc, overrides),
-      sourceNodesChanged: true,
-      changedNodeIds: new Set(doc.nodes.map((node) => node.id))
-    }
-  }
-
-  const changedNodeIds = new Set<NodeId>()
-  overrides.forEach((override, nodeId) => {
-    if (!isOverrideEqual(override, cache.overrides.get(nodeId))) {
-      changedNodeIds.add(nodeId)
-    }
-  })
-
-  cache.overrides.forEach((_, nodeId) => {
-    if (!overrides.has(nodeId)) {
-      changedNodeIds.add(nodeId)
-    }
-  })
-
-  if (!changedNodeIds.size) {
-    return {
-      cache,
-      sourceNodesChanged: false,
-      changedNodeIds
-    }
-  }
-
-  const nextNodes = cache.nodes.slice()
-  changedNodeIds.forEach((nodeId) => {
-    const index = cache.indexById.get(nodeId)
-    if (index === undefined) return
-    const sourceNode = doc.nodes[index]
-    if (!sourceNode) return
-    nextNodes[index] = applyOverride(sourceNode, overrides.get(nodeId))
-  })
-
-  return {
-    cache: {
-      ...cache,
-      sourceNodesRef: doc.nodes,
-      nodes: nextNodes,
-      overrides: new Map(overrides)
-    },
-    sourceNodesChanged: false,
-    changedNodeIds
-  }
-}
-
-const isSameRefList = <T,>(left: T[], right: T[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
-const isSameNodeIdList = (left: Node[], right: Node[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index]?.id !== right[index]?.id) return false
-  }
-  return true
-}
-
-const orderByIds = <T extends { id: string }>(items: T[], ids: string[]) => {
-  if (!ids.length) return items
-
-  if (ids.length === items.length) {
-    let sameOrder = true
-    for (let index = 0; index < items.length; index += 1) {
-      if (items[index]?.id !== ids[index]) {
-        sameOrder = false
-        break
-      }
-    }
-    if (sameOrder) return items
-  }
-
-  const map = new Map(items.map((item) => [item.id, item]))
-  const ordered: T[] = []
-  const idSet = new Set(ids)
-
-  ids.forEach((id) => {
-    const item = map.get(id)
-    if (item) ordered.push(item)
-  })
-
-  if (ordered.length === items.length) return ordered
-
-  items.forEach((item) => {
-    if (!idSet.has(item.id)) {
-      ordered.push(item)
-    }
-  })
-
-  return ordered
-}
-
-const patchNodeListByIds = (
-  list: Node[],
-  changedNodeIds: Set<NodeId>,
-  listIndexById: Map<NodeId, number>,
-  readNodeById: (nodeId: NodeId) => Node | undefined
-) => {
-  if (!list.length || !changedNodeIds.size) return list
-  let next = list
-  changedNodeIds.forEach((nodeId) => {
-    const index = listIndexById.get(nodeId)
-    if (index === undefined) return
-    const node = readNodeById(nodeId)
-    if (!node) return
-    if (next[index] === node) return
-    if (next === list) {
-      next = list.slice()
-    }
-    next[index] = node
-  })
-  return next
-}
-
-const deriveVisibleNodes = (viewNodes: Node[]) => {
-  if (!viewNodes.length) return EMPTY_NODES
-  const nodeMap = new Map(viewNodes.map((node) => [node.id, node]))
-  const collapsedGroupIds = getCollapsedGroupIds(viewNodes)
-  const hiddenNodeIds = new Set<NodeId>()
-
-  viewNodes.forEach((node) => {
-    if (isHiddenByCollapsedGroup(node, nodeMap, collapsedGroupIds)) {
-      hiddenNodeIds.add(node.id)
-    }
-  })
-
-  return viewNodes.filter((node) => !hiddenNodeIds.has(node.id))
-}
-
-const deriveCanvasNodes = (visibleNodes: Node[]) =>
-  visibleNodes.filter((node) => node.type !== 'mindmap')
-
-const deriveVisibleEdges = (doc: Document, canvasNodes: Node[]) => {
-  if (!doc.edges.length || !canvasNodes.length) return EMPTY_EDGES
-  const edgeOrder: EdgeId[] = doc.order?.edges ?? doc.edges.map((edge) => edge.id)
-  const canvasNodeIds = new Set(canvasNodes.map((node) => node.id))
-  const edges = doc.edges.filter(
-    (edge) =>
-      canvasNodeIds.has(edge.source.nodeId) &&
-      canvasNodeIds.has(edge.target.nodeId)
-  )
-  return orderByIds(edges, edgeOrder)
-}
+  orderByIds,
+  patchNodeListByIds
+} from './cache/shared'
+import { SnapshotState } from './cache/SnapshotState'
+import { ViewNodesState } from './cache/ViewNodesState'
+import { VisibleEdgesState } from './cache/VisibleEdgesState'
+import { deriveCanvasNodes, deriveVisibleNodes } from './cache/visibility'
 
 export class GraphCache {
-  private viewNodesCache: ViewNodesCache | null = null
-  private visibleEdgesCache:
-    | {
-        edgesRef: Document['edges']
-        edgeOrderRef: Document['order'] extends { edges?: infer TOrder } ? TOrder : EdgeId[] | undefined
-        canvasNodes: Node[]
-        visibleEdges: Edge[]
-      }
-    | null = null
-  private snapshot: GraphSnapshot = {
-    visibleNodes: EMPTY_NODES,
-    canvasNodes: EMPTY_NODES,
-    canvasNodeById: EMPTY_NODE_MAP,
-    visibleEdges: EMPTY_EDGES
-  }
-  private visibleNodeIndexById = new Map<NodeId, number>()
-  private canvasNodeIndexById = new Map<NodeId, number>()
+  private readonly nodeOverrides = new NodeOverrideState()
+  private readonly viewNodesState = new ViewNodesState()
+  private readonly visibleEdgesState = new VisibleEdgesState()
+  private readonly snapshotState = new SnapshotState()
 
-  read = (
-    doc: Document | null,
-    overrides: Map<NodeId, NodeOverride>
-  ): GraphSnapshot => {
+  read = (doc: Document | null): GraphSnapshot => {
     if (!doc) {
-      this.viewNodesCache = null
-      this.visibleEdgesCache = null
-      this.visibleNodeIndexById = new Map<NodeId, number>()
-      this.canvasNodeIndexById = new Map<NodeId, number>()
-      if (
-        this.snapshot.visibleNodes !== EMPTY_NODES ||
-        this.snapshot.canvasNodes !== EMPTY_NODES ||
-        this.snapshot.canvasNodeById !== EMPTY_NODE_MAP ||
-        this.snapshot.visibleEdges !== EMPTY_EDGES
-      ) {
-        this.snapshot = {
-          visibleNodes: EMPTY_NODES,
-          canvasNodes: EMPTY_NODES,
-          canvasNodeById: EMPTY_NODE_MAP,
-          visibleEdges: EMPTY_EDGES
-        }
-      }
-      return this.snapshot
+      this.viewNodesState.reset()
+      this.visibleEdgesState.reset()
+      return this.snapshotState.reset()
     }
 
-    const previousViewNodesCache = this.viewNodesCache
-    const viewNodesUpdate: ViewNodesUpdate = previousViewNodesCache
-      ? updateViewNodesCache(previousViewNodesCache, doc, overrides)
-      : {
-          cache: buildViewNodesCache(doc, overrides),
-          sourceNodesChanged: true,
-          changedNodeIds: new Set(doc.nodes.map((node) => node.id))
-        }
+    const overrides = this.nodeOverrides.readMap()
+    const viewNodesUpdate = this.viewNodesState.update(
+      doc,
+      overrides
+    )
     const nextViewNodesCache = viewNodesUpdate.cache
-
-    this.viewNodesCache = nextViewNodesCache
 
     const readViewNodeById = (nodeId: NodeId): Node | undefined => {
       const index = nextViewNodesCache.indexById.get(nodeId)
@@ -322,20 +40,21 @@ export class GraphCache {
       return nextViewNodesCache.nodes[index]
     }
 
+    const snapshot = this.snapshotState.read()
     let nextVisibleNodes: Node[]
     let nextCanvasNodes: Node[]
 
     if (!viewNodesUpdate.sourceNodesChanged && viewNodesUpdate.changedNodeIds.size) {
       nextVisibleNodes = patchNodeListByIds(
-        this.snapshot.visibleNodes,
+        snapshot.visibleNodes,
         viewNodesUpdate.changedNodeIds,
-        this.visibleNodeIndexById,
+        this.snapshotState.readVisibleNodeIndex(),
         readViewNodeById
       )
       nextCanvasNodes = patchNodeListByIds(
-        this.snapshot.canvasNodes,
+        snapshot.canvasNodes,
         viewNodesUpdate.changedNodeIds,
-        this.canvasNodeIndexById,
+        this.snapshotState.readCanvasNodeIndex(),
         readViewNodeById
       )
     } else {
@@ -345,70 +64,28 @@ export class GraphCache {
       nextCanvasNodes = deriveCanvasNodes(nextVisibleNodes)
     }
 
-    const edgeOrderRef = doc.order?.edges
-    const cachedVisibleEdges = this.visibleEdgesCache
-    const nextVisibleEdges =
-      cachedVisibleEdges &&
-      cachedVisibleEdges.edgesRef === doc.edges &&
-      cachedVisibleEdges.edgeOrderRef === edgeOrderRef &&
-      isSameNodeIdList(cachedVisibleEdges.canvasNodes, nextCanvasNodes)
-        ? cachedVisibleEdges.visibleEdges
-        : deriveVisibleEdges(doc, nextCanvasNodes)
-
-    const visibleNodes = isSameRefList(
-      this.snapshot.visibleNodes,
-      nextVisibleNodes
+    const resolvedVisibleEdges = this.visibleEdgesState.resolve(
+      doc,
+      nextCanvasNodes
     )
-      ? this.snapshot.visibleNodes
-      : nextVisibleNodes
-    const canvasNodes = isSameRefList(this.snapshot.canvasNodes, nextCanvasNodes)
-      ? this.snapshot.canvasNodes
-      : nextCanvasNodes
-    const canvasNodeById =
-      canvasNodes === this.snapshot.canvasNodes
-        ? this.snapshot.canvasNodeById
-        : new Map(canvasNodes.map((node) => [node.id, node]))
-    const visibleEdges = isSameRefList(
-      this.snapshot.visibleEdges,
-      nextVisibleEdges
-    )
-      ? this.snapshot.visibleEdges
-      : nextVisibleEdges
-
-    if (visibleNodes !== this.snapshot.visibleNodes) {
-      this.visibleNodeIndexById = buildIndexById(visibleNodes)
-    }
-    if (canvasNodes !== this.snapshot.canvasNodes) {
-      this.canvasNodeIndexById = buildIndexById(canvasNodes)
-    }
-
-    this.visibleEdgesCache = {
-      edgesRef: doc.edges,
-      edgeOrderRef,
+    const nextSnapshot = this.snapshotState.apply({
+      visibleNodes: nextVisibleNodes,
       canvasNodes: nextCanvasNodes,
-      visibleEdges
-    }
+      visibleEdges: resolvedVisibleEdges
+    })
+    this.visibleEdgesState.syncVisibleEdgesRef(nextSnapshot.visibleEdges)
 
-    if (
-      visibleNodes !== this.snapshot.visibleNodes ||
-      canvasNodes !== this.snapshot.canvasNodes ||
-      canvasNodeById !== this.snapshot.canvasNodeById ||
-      visibleEdges !== this.snapshot.visibleEdges
-    ) {
-      this.snapshot = {
-        visibleNodes,
-        canvasNodes,
-        canvasNodeById,
-        visibleEdges
-      }
-    }
-
-    return this.snapshot
+    return nextSnapshot
   }
 
-  readNode = (
-    doc: Document | null,
-    overrides: Map<NodeId, NodeOverride>,
-    nodeId: NodeId
-  ): Node | undefined => this.read(doc, overrides).canvasNodeById.get(nodeId)
+  readNode = (doc: Document | null, nodeId: NodeId): Node | undefined =>
+    this.read(doc).canvasNodeById.get(nodeId)
+
+  readNodeOverrides = (): NodeViewUpdate[] => this.nodeOverrides.readUpdates()
+
+  patchNodeOverrides = (updates: NodeViewUpdate[]): NodeId[] =>
+    this.nodeOverrides.patch(updates)
+
+  clearNodeOverrides = (ids?: NodeId[]): NodeId[] =>
+    this.nodeOverrides.clear(ids)
 }

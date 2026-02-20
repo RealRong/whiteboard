@@ -5,15 +5,22 @@ import type {
 } from '@engine-types/instance/instance'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import { createDomBindings } from '../host/dom'
 import { Events } from '../kernel/events'
 import { createShortcuts, Lifecycle } from '../runtime'
-import { resolveInstanceConfig } from '../config'
+import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
 import { createCommands } from '../api/commands'
 import { createRuntime } from '../runtime/factory/namespace'
 import { createServices } from '../runtime/factory/services'
 import { createInteractions } from '../runtime/interaction'
 import { createState } from '../state/factory'
+import { createInputPort } from '../input'
+import { createEdgeConnect } from '../input/sessions/EdgeConnect'
+import { createMindmapDrag } from '../input/sessions/MindmapDrag'
+import { createNodeDrag } from '../input/sessions/NodeDrag'
+import { createNodeTransform } from '../input/sessions/NodeTransform'
+import { createRoutingDrag } from '../input/sessions/RoutingDrag'
+import { createSelectionBox } from '../input/sessions/SelectionBox'
+import { createViewportPan } from '../input/sessions/ViewportPan'
 import { createView } from '../kernel/view'
 import { createQuery } from '../api/query/instance'
 import {
@@ -40,7 +47,6 @@ export const createEngine = ({
     containerRef,
     config
   })
-  const dom = createDomBindings(containerRef)
   const events = new Events<InstanceEventMap>()
 
   const queryRuntime = createQuery({
@@ -60,6 +66,7 @@ export const createEngine = ({
   let commands!: InternalInstance['commands']
   let apply!: InternalInstance['apply']
   let tx!: InternalInstance['tx']
+  let input!: InternalInstance['input']
   let interaction!: RuntimeInternal['interaction']
   let services!: RuntimeInternal['services']
   let shortcuts!: RuntimeInternal['shortcuts']
@@ -97,6 +104,9 @@ export const createEngine = ({
     },
     state,
     graph,
+    get input() {
+      return input
+    },
     runtime,
     query: queryRuntime.query,
     view: viewRuntime.view,
@@ -137,6 +147,40 @@ export const createEngine = ({
   apply = changePipeline.apply
   tx = changePipeline.tx
   commands = createCommands(toCommandContext(context, instance))
+  input = createInputPort({
+    getContext: () => ({
+      state,
+      commands,
+      query: queryRuntime.query,
+      runtime,
+      services: {
+        viewportNavigation: runtime.services.viewportNavigation
+      },
+      shortcuts: runtime.shortcuts,
+      view: {
+        getShortcutContext: () => viewRuntime.view.global.shortcutContext()
+      },
+      config
+    }),
+    config: {
+      viewport: {
+        minZoom: DEFAULT_CONFIG.viewport.minZoom,
+        maxZoom: DEFAULT_CONFIG.viewport.maxZoom,
+        enablePan: DEFAULT_CONFIG.viewport.enablePan,
+        enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
+        wheelSensitivity: DEFAULT_CONFIG.viewport.wheelSensitivity
+      }
+    },
+    sessions: [
+      createNodeTransform(),
+      createNodeDrag(),
+      createEdgeConnect(),
+      createRoutingDrag(),
+      createMindmapDrag(),
+      createSelectionBox(),
+      createViewportPan()
+    ]
+  })
   services = createServices(
     core,
     toServiceContext({
@@ -153,7 +197,19 @@ export const createEngine = ({
       context,
       commands
     }),
-    dom
+    {
+      onViewportConfigChange: (viewportConfig) => {
+        input.configure({
+          viewport: {
+            minZoom: viewportConfig.minZoom,
+            maxZoom: viewportConfig.maxZoom,
+            enablePan: viewportConfig.enablePan,
+            enableWheel: viewportConfig.enableWheel,
+            wheelSensitivity: viewportConfig.wheelSensitivity
+          }
+        })
+      }
+    }
   )
 
   return instance

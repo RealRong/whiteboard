@@ -5,6 +5,8 @@ export type {
   GraphPartialChange,
   GraphProjectionChange,
   GraphHint,
+  GraphFullHint,
+  GraphPartialHint,
   GraphChangeSource,
   GraphProjector,
   CreateGraphProjectorOptions,

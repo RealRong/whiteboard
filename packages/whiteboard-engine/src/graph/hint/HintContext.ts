@@ -21,7 +21,7 @@ export class HintContext {
   private nodeById: Map<NodeId, Node> | undefined
   private childrenByParent: Map<NodeId, NodeId[]> | undefined
 
-  private forceFull = false
+  private fullSyncRequested = false
   private orderChanged = false
 
   constructor(private readonly getNodes: () => Node[]) {}
@@ -101,24 +101,20 @@ export class HintContext {
   }
 
   requestFullSync = () => {
-    this.forceFull = true
+    this.fullSyncRequested = true
   }
 
-  isForceFull = () => this.forceFull
+  isFullSyncRequested = () => this.fullSyncRequested
 
   buildHint = (): Hint => {
-    if (this.forceFull) {
-      return { forceFull: true }
-    }
-    if (this.dirtyNodeIds.size) {
-      return {
-        forceFull: false,
-        dirtyNodeIds: Array.from(this.dirtyNodeIds),
-        orderChanged: this.orderChanged ? true : undefined
-      }
+    if (this.fullSyncRequested) {
+      return { kind: 'full' }
     }
     return {
-      forceFull: false,
+      kind: 'partial',
+      dirtyNodeIds: this.dirtyNodeIds.size
+        ? Array.from(this.dirtyNodeIds)
+        : undefined,
       orderChanged: this.orderChanged ? true : undefined
     }
   }

@@ -4,6 +4,10 @@ import type { EdgePathEntry } from '@engine-types/instance/view'
 import type { GraphChange } from '@engine-types/graph'
 import type { EdgeConnectState } from '@engine-types/state'
 import { toChangeView } from '../../../graph/change'
+import {
+  hasDirtyNodeHints,
+  shouldResetEdgePathCache
+} from '../../../graph/GraphSyncPolicy'
 import { toEdgePathSignature, toNodeGeometrySignature } from '../../cache'
 import type {
   EdgePathCacheEntry,
@@ -215,29 +219,21 @@ export const createEdgePathStore = ({
   }
 
   const syncGraph: EdgePathStore['syncGraph'] = (change: GraphChange) => {
-    const {
-      fullSync,
-      visibleEdgesChanged,
-      dirtyNodeIds,
-      canvasNodesChanged
-    } = toChangeView(change)
+    const changeView = toChangeView(change)
+    const { fullSync, dirtyNodeIds } = changeView
 
     if (fullSync) {
       cachedRenderEdgesRef = undefined
       pendingChangedNodeIds.clear()
       return
     }
-    if (visibleEdgesChanged) {
+    if (shouldResetEdgePathCache(changeView)) {
       cachedRenderEdgesRef = undefined
     }
-    if (dirtyNodeIds?.length) {
+    if (hasDirtyNodeHints(changeView) && dirtyNodeIds) {
       dirtyNodeIds.forEach((nodeId) => {
         pendingChangedNodeIds.add(nodeId)
       })
-      return
-    }
-    if (canvasNodesChanged) {
-      cachedRenderEdgesRef = undefined
     }
   }
 

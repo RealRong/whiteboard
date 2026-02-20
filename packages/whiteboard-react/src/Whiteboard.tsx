@@ -14,6 +14,7 @@ import {
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
+import { DomInputAdapter } from './common/input/DomInputAdapter'
 
 const cloneValue = <T,>(value: T): T => {
   const structuredCloneFn = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
@@ -145,6 +146,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   )
 
   const lifecycle = instance.lifecycle
+  const inputAdapter = useMemo(() => new DomInputAdapter(instance), [instance])
 
   useEffect(() => {
     lifecycle.start()
@@ -152,6 +154,13 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       lifecycle.stop()
     }
   }, [lifecycle])
+
+  useEffect(() => {
+    inputAdapter.start()
+    return () => {
+      inputAdapter.stop()
+    }
+  }, [inputAdapter])
 
   useEffect(() => {
     lifecycle.update(lifecycleConfig)

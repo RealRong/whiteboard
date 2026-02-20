@@ -43,11 +43,17 @@ export type GraphFullChange = GraphChangeBase & {
 
 export type GraphChange = GraphPartialChange | GraphFullChange
 
-export type GraphHint = {
-  forceFull: boolean
+export type GraphPartialHint = {
+  kind: 'partial'
   dirtyNodeIds?: NodeId[]
-  orderChanged?: boolean
+  orderChanged?: true
 }
+
+export type GraphFullHint = {
+  kind: 'full'
+}
+
+export type GraphHint = GraphPartialHint | GraphFullHint
 
 export type GraphChangeSource = 'runtime' | 'doc'
 

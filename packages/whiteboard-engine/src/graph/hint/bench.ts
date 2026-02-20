@@ -130,9 +130,9 @@ const runScenarioOnce = (
   const startedAt = now()
   for (let index = 0; index < scenario.loops; index += 1) {
     const hint = buildHint(scenario.operations, getNodes)
-    checksum += hint.forceFull ? 1 : 0
-    checksum += hint.orderChanged ? 1 : 0
-    checksum += hint.dirtyNodeIds?.length ?? 0
+    checksum += hint.kind === 'full' ? 1 : 0
+    checksum += hint.kind === 'partial' && hint.orderChanged ? 1 : 0
+    checksum += hint.kind === 'partial' ? hint.dirtyNodeIds?.length ?? 0 : 0
   }
   const elapsedMs = now() - startedAt
   const perLoopMs = elapsedMs / scenario.loops

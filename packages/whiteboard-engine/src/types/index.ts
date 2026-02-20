@@ -20,11 +20,35 @@ export type {
   GraphPartialChange,
   GraphProjectionChange,
   GraphHint,
+  GraphFullHint,
+  GraphPartialHint,
   GraphChangeSource,
   GraphProjector,
   CreateGraphProjectorOptions,
   NodeViewUpdate
 } from './graph'
+export type {
+  PointerPhase,
+  PointerStage,
+  PointerInputEvent,
+  WheelInputEvent,
+  KeyInputEvent,
+  FocusInputEvent,
+  CompositionInputEvent,
+  InputEvent,
+  InputEffect,
+  InputCommand,
+  InputResult,
+  InputDispatchResult,
+  InputConfig,
+  InputController,
+  InputPort,
+  InputSessionContext,
+  CancelReason,
+  PointerSessionKind,
+  PointerSessionRuntime,
+  PointerSession
+} from './input'
 export type {
   CreateEngineOptions,
   EventUnsubscribe,

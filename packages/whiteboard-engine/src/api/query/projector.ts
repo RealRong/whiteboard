@@ -1,5 +1,6 @@
 import type { GraphChange, GraphProjector } from '@engine-types/graph'
 import { toChangeView } from '../../graph/change'
+import { hasDirtyNodeHints, shouldSyncCanvasNodes } from '../../graph/GraphSyncPolicy'
 import type { QueryIndexes } from './indexes'
 
 type Options = {
@@ -17,22 +18,17 @@ export const createQueryProjector = ({ graph, indexes }: Options) => {
   }
 
   const syncGraph = (change: GraphChange) => {
-    const {
-      source,
-      fullSync,
-      dirtyNodeIds,
-      orderChanged,
-      canvasNodesChanged
-    } = toChangeView(change)
+    const changeView = toChangeView(change)
+    const { source, fullSync, dirtyNodeIds, orderChanged } = changeView
 
-    if (!fullSync && !canvasNodesChanged && !dirtyNodeIds?.length && !orderChanged) {
+    if (!shouldSyncCanvasNodes(changeView)) {
       return
     }
     if (fullSync) {
       syncFull()
       return
     }
-    if (dirtyNodeIds?.length) {
+    if (hasDirtyNodeHints(changeView) && dirtyNodeIds) {
       const done = indexes.syncDirty(dirtyNodeIds, graph.readNode, {
         skipSnap: source === 'runtime'
       })

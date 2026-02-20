@@ -1,5 +1,4 @@
 import type { Document, Viewport } from '@whiteboard/core'
-import type { GraphProjector } from '@engine-types/graph'
 import type {
   StateKey,
   State,
@@ -7,7 +6,7 @@ import type {
   WritableStateSnapshot
 } from '@engine-types/instance/state'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
-import { createGraphProjector } from '../../graph'
+import { GraphProjector } from '../../graph'
 import { WritableStore } from '../../kernel/state'
 import { createWritableStateSnapshot } from '../writable'
 
@@ -51,9 +50,7 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   )
   let currentDoc = doc
 
-  const graph = createGraphProjector({
-    getDoc: () => currentDoc
-  })
+  const graph = new GraphProjector(() => currentDoc)
 
   const viewportListeners = new Set<() => void>()
   const changeListeners = new Set<(key: StateKey) => void>()
