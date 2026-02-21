@@ -18,6 +18,5 @@ export type {
   NodeTransformOptions
 } from './transform'
 export type { SnapRuntime } from './runtime'
-export type { NodeTransientApi } from './transient'
 export type { NodeHandleSide, NodeHandlesProps, NodeItemProps } from './components'
 export type { GridIndex, Guide, SnapAxis, SnapCandidate, SnapEdge, SnapResult } from './snap'

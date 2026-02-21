@@ -26,7 +26,7 @@ const shouldClearHistory = (
   return previous.docId !== next.docId
 }
 
-type HistoryContext = Pick<LifecycleRuntimeContext, 'runtime' | 'state' | 'commands'>
+type HistoryContext = Pick<LifecycleRuntimeContext, 'runtime' | 'state'>
 
 export class Sync {
   private context: HistoryContext
@@ -48,8 +48,10 @@ export class Sync {
   }
 
   update = (config: LifecycleConfig) => {
+    const history = this.context.runtime.core.history
+
     if (config.history) {
-      this.context.commands.history.configure(config.history)
+      history.configure(config.history)
     }
 
     if (!config.docId) {
@@ -65,7 +67,7 @@ export class Sync {
     this.prevIdentity = nextIdentity
 
     if (!shouldClearHistory(previous, nextIdentity)) return
-    this.context.commands.history.clear()
+    history.clear()
   }
 
   stop = () => {

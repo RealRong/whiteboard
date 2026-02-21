@@ -1,6 +1,6 @@
 import type { Core, Document } from '@whiteboard/core'
 import type { Commands } from '../commands'
-import type { ApplyApi, TxApi } from '../command'
+import type { ApplyApi, ApplyMutationsApi, TxApi } from '../command'
 import type { RefLike } from '../ui'
 import type { InstanceEvents } from './events'
 import type { Lifecycle } from './lifecycle'
@@ -14,6 +14,7 @@ import type { InputPort } from '../input'
 
 export type Instance = {
   apply: ApplyApi
+  mutate: ApplyMutationsApi
   tx: TxApi
   state: State
   graph: GraphProjector

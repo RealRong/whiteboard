@@ -6,13 +6,30 @@ import type {
   RoutingDragCancelOptions,
   RoutingDragStartOptions
 } from '@engine-types/commands'
-import type { EdgeAnchor, EdgeId, NodeId } from '@whiteboard/core'
+import type {
+  DispatchResult,
+  Edge,
+  EdgeAnchor,
+  EdgeId,
+  EdgeInput,
+  EdgePatch,
+  NodeId,
+  Point
+} from '@whiteboard/core'
 import type { SchedulerRuntime } from '../../common/contracts'
+import { MutationExecutor } from '../shared/MutationExecutor'
+import {
+  bringOrderForward,
+  bringOrderToFront,
+  sanitizeOrderIds,
+  sendOrderBackward,
+  sendOrderToBack
+} from '../shared/order'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'graph' | 'query' | 'runtime' | 'apply'>
+  instance: Pick<InternalInstance, 'state' | 'graph' | 'query' | 'runtime' | 'mutate'>
   schedulers: Pick<SchedulerRuntime, 'raf' | 'cancelRaf'>
 }
 
@@ -20,11 +37,15 @@ export class Actor {
   readonly name = 'Edge'
 
   private readonly state: Pick<State, 'write'>
+  private readonly instance: ActorOptions['instance']
+  private readonly mutation: MutationExecutor
   private readonly connect: Connect
   private readonly routing: Routing
 
   constructor({ instance, schedulers }: ActorOptions) {
+    this.instance = instance
     this.state = instance.state
+    this.mutation = new MutationExecutor(instance)
     this.connect = new Connect({
       instance,
       raf: schedulers.raf,
@@ -33,6 +54,162 @@ export class Actor {
     this.routing = new Routing({
       instance
     })
+  }
+
+  private clearRoutingDrag = () => {
+    this.instance.state.write('routingDrag', {})
+  }
+
+  create = (payload: EdgeInput) =>
+    this.mutation.runCommand({ type: 'edge.create', payload }, 'edge.create')
+
+  update = (id: EdgeId, patch: EdgePatch) =>
+    this.mutation.runCommand({ type: 'edge.update', id, patch }, 'edge.update')
+
+  delete = (ids: EdgeId[]) => {
+    const activeDrag = this.instance.state.read('routingDrag').active
+    if (activeDrag && ids.includes(activeDrag.edgeId)) {
+      this.clearRoutingDrag()
+    }
+    return this.mutation.runCommand({ type: 'edge.delete', ids }, 'edge.delete')
+  }
+
+  select = (id?: EdgeId) => {
+    this.instance.state.batch(() => {
+      const activeDrag = this.instance.state.read('routingDrag').active
+      if (activeDrag && activeDrag.edgeId !== id) {
+        this.clearRoutingDrag()
+      }
+      this.instance.state.write('edgeSelection', (prev) => (prev === id ? prev : id))
+    })
+  }
+
+  insertRoutingPoint = (
+    edge: Edge,
+    pathPoints: Point[],
+    segmentIndex: number,
+    pointWorld: Point
+  ) => {
+    if (edge.type === 'bezier' || edge.type === 'curve') return
+    const basePoints = edge.routing?.points?.length
+      ? edge.routing.points
+      : pathPoints.slice(1, -1)
+    const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
+    const nextPoints = [...basePoints]
+    nextPoints.splice(insertIndex, 0, pointWorld)
+    void this.mutation.runCommand({
+      type: 'edge.update',
+      id: edge.id,
+      patch: {
+        routing: {
+          ...(edge.routing ?? {}),
+          mode: 'manual',
+          points: nextPoints
+        }
+      }
+    }, 'edge.insertRoutingPoint')
+  }
+
+  moveRoutingPoint = (edge: Edge, index: number, pointWorld: Point) => {
+    if (edge.type === 'bezier' || edge.type === 'curve') return
+    const points = edge.routing?.points ?? []
+    if (index < 0 || index >= points.length) return
+    const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
+    void this.mutation.runCommand({
+      type: 'edge.update',
+      id: edge.id,
+      patch: {
+        routing: {
+          ...(edge.routing ?? {}),
+          mode: 'manual',
+          points: nextPoints
+        }
+      }
+    }, 'edge.moveRoutingPoint')
+  }
+
+  removeRoutingPoint = (edge: Edge, index: number) => {
+    if (edge.type === 'bezier' || edge.type === 'curve') return
+    const points = edge.routing?.points ?? []
+    if (index < 0 || index >= points.length) return
+
+    const activeDrag = this.instance.state.read('routingDrag').active
+    if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
+      this.clearRoutingDrag()
+    }
+
+    const nextPoints = points.filter((_, idx) => idx !== index)
+    if (nextPoints.length === 0) {
+      void this.mutation.runCommand({
+        type: 'edge.update',
+        id: edge.id,
+        patch: {
+          routing: {
+            ...(edge.routing ?? {}),
+            mode: 'auto',
+            points: undefined
+          }
+        }
+      }, 'edge.removeRoutingPoint')
+      return
+    }
+    void this.mutation.runCommand({
+      type: 'edge.update',
+      id: edge.id,
+      patch: {
+        routing: {
+          ...(edge.routing ?? {}),
+          mode: 'manual',
+          points: nextPoints
+        }
+      }
+    }, 'edge.removeRoutingPoint')
+  }
+
+  resetRouting = (edge: Edge) => {
+    const activeDrag = this.instance.state.read('routingDrag').active
+    if (activeDrag?.edgeId === edge.id) {
+      this.clearRoutingDrag()
+    }
+
+    void this.mutation.runCommand({
+      type: 'edge.update',
+      id: edge.id,
+      patch: {
+        routing: {
+          ...(edge.routing ?? {}),
+          mode: 'auto',
+          points: undefined
+        }
+      }
+    }, 'edge.resetRouting')
+  }
+
+  setOrder = (ids: EdgeId[]) =>
+    this.mutation.runCommand({ type: 'edge.order.set', ids }, 'order.edge.set')
+
+  bringToFront = (ids: EdgeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = this.instance.runtime.core.query.document().order.edges
+    return this.setOrder(bringOrderToFront(current, target))
+  }
+
+  sendToBack = (ids: EdgeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = this.instance.runtime.core.query.document().order.edges
+    return this.setOrder(sendOrderToBack(current, target))
+  }
+
+  bringForward = (ids: EdgeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = this.instance.runtime.core.query.document().order.edges
+    return this.setOrder(bringOrderForward(current, target))
+  }
+
+  sendBackward = (ids: EdgeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = this.instance.runtime.core.query.document().order.edges
+    return this.setOrder(sendOrderBackward(current, target))
   }
 
   resetTransientState = () => {

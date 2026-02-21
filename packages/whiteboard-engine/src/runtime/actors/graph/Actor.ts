@@ -41,9 +41,11 @@ export class Actor {
     })
   }
 
-  syncAfterApply = (applied: ApplyResult) => {
-    const operations = collectOperations(applied.dispatchResults)
+  syncAfterMutations = (operations: Operation[]) => {
     this.graphSync.syncByOperations(operations)
     return this.graph.flush('doc')
   }
+
+  syncAfterApply = (applied: ApplyResult) =>
+    this.syncAfterMutations(collectOperations(applied.dispatchResults))
 }

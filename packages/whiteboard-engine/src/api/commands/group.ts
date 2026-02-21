@@ -1,13 +1,11 @@
-import type { Command } from '@engine-types/command'
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance/instance'
-import type { ApplyCommandChange } from './shared'
+import type { Actor as NodeActor } from '../../runtime/actors/node/Actor'
 
-export const createGroup = (_instance: Instance, applyChange: ApplyCommandChange): Commands['group'] => {
-  const applyGroupChange = (change: Command) => applyChange(change)
-
+export const createGroup = (
+  node: NodeActor
+): Commands['group'] => {
   return {
-    create: (ids) => applyGroupChange({ type: 'group.create', ids }),
-    ungroup: (id) => applyGroupChange({ type: 'group.ungroup', id })
+    create: node.createGroup,
+    ungroup: node.ungroup
   }
 }

@@ -1,3 +1,4 @@
 export * from './types'
 export * from './path'
-export * from './router'
+export * from './anchor'
+export * from './segment'

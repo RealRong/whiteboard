@@ -199,7 +199,12 @@ const main = () => {
     containerRef
   })
   syncDoc = (next) => {
-    void instance.apply([{ type: 'doc.reset', doc: next }], { source: 'import' })
+    void instance.tx(
+      (tx) => {
+        tx.add({ type: 'doc.reset', doc: next })
+      },
+      { source: 'import' }
+    )
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
@@ -271,8 +276,13 @@ const main = () => {
         client: { x: 0, y: 0 }
       })
     )
-    core.model.node.update(movingNodeId, { position: basePosition })
-    syncDoc(docRef.current)
+    const resetDoc = cloneDoc(docRef.current)
+    const resetNode = resetDoc.nodes.find((node) => node.id === movingNodeId)
+    if (resetNode) {
+      resetNode.position = basePosition
+    }
+    docRef.current = resetDoc
+    syncDoc(resetDoc)
     runSamples.push(samples)
   }
 

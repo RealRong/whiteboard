@@ -1,5 +1,6 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { QueryGeometry } from '@engine-types/instance/query'
+import { DEFAULT_TUNING } from '../../config'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
@@ -15,7 +16,8 @@ export const createGeometry = ({
   anchorFromPoint: (rect, rotation, point) =>
     getAnchorFromPointRaw(rect, rotation, point, {
       snapMin: config.edge.anchorSnapMin,
-      snapRatio: config.edge.anchorSnapRatio
+      snapRatio: config.edge.anchorSnapRatio,
+      anchorOffset: DEFAULT_TUNING.edge.anchorOffset
     }),
   nearestEdgeSegment: (pointWorld, pathPoints) =>
     getNearestEdgeSegmentRaw(pointWorld, pathPoints)

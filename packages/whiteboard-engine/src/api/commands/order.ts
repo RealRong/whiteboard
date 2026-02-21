@@ -1,25 +1,25 @@
-import type { Command } from '@engine-types/command'
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance/instance'
-import type { ApplyCommandChange } from './shared'
+import type { Actor as EdgeActor } from '../../runtime/actors/edge/Actor'
+import type { Actor as NodeActor } from '../../runtime/actors/node/Actor'
 
-export const createOrder = (_instance: Instance, applyChange: ApplyCommandChange): Commands['order'] => {
-  const applyOrderChange = (change: Command) => applyChange(change)
-
+export const createOrder = (
+  node: NodeActor,
+  edge: EdgeActor
+): Commands['order'] => {
   return {
     node: {
-      set: (ids) => applyOrderChange({ type: 'node.order.set', ids }),
-      bringToFront: (ids) => applyOrderChange({ type: 'node.order.bringToFront', ids }),
-      sendToBack: (ids) => applyOrderChange({ type: 'node.order.sendToBack', ids }),
-      bringForward: (ids) => applyOrderChange({ type: 'node.order.bringForward', ids }),
-      sendBackward: (ids) => applyOrderChange({ type: 'node.order.sendBackward', ids })
+      set: node.setOrder,
+      bringToFront: node.bringToFront,
+      sendToBack: node.sendToBack,
+      bringForward: node.bringForward,
+      sendBackward: node.sendBackward
     },
     edge: {
-      set: (ids) => applyOrderChange({ type: 'edge.order.set', ids }),
-      bringToFront: (ids) => applyOrderChange({ type: 'edge.order.bringToFront', ids }),
-      sendToBack: (ids) => applyOrderChange({ type: 'edge.order.sendToBack', ids }),
-      bringForward: (ids) => applyOrderChange({ type: 'edge.order.bringForward', ids }),
-      sendBackward: (ids) => applyOrderChange({ type: 'edge.order.sendBackward', ids })
+      set: edge.setOrder,
+      bringToFront: edge.bringToFront,
+      sendToBack: edge.sendToBack,
+      bringForward: edge.bringForward,
+      sendBackward: edge.sendBackward
     }
   }
 }

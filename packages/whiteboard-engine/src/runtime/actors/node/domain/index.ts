@@ -9,7 +9,6 @@ export {
   rectEquals
 } from './group'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
-export { applySelectionMode, getSelectionModeFromEvent } from './selection'
 export {
   buildSnapCandidates,
   computeResizeSnap,

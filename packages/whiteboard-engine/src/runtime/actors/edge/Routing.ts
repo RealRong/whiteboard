@@ -7,7 +7,7 @@ import type {
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core'
 
-type RoutingInstance = Pick<InternalInstance, 'state' | 'graph' | 'apply'>
+type RoutingInstance = Pick<InternalInstance, 'state' | 'graph' | 'mutate'>
 
 type RoutingOptions = {
   instance: RoutingInstance
@@ -41,7 +41,7 @@ export class Routing {
     const nextPoints = points.map((point, idx) =>
       idx === index ? pointWorld : point
     )
-    void this.instance.apply(
+    void this.instance.mutate(
       [
         {
           type: 'edge.update',
@@ -55,7 +55,10 @@ export class Routing {
           }
         }
       ],
-      { source: 'interaction' }
+      {
+        source: 'interaction',
+        actor: 'edge.routing'
+      }
     )
   }
 

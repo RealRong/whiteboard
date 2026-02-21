@@ -1,19 +1,7 @@
 import type { Rect } from '@whiteboard/core'
-import type { SelectionMode } from '@engine-types/state'
 import type { PointerSession } from '@engine-types/input'
 import { rectFromPoints } from '../../runtime/common/geometry'
-
-const resolveSelectionMode = (modifiers: {
-  alt: boolean
-  shift: boolean
-  ctrl: boolean
-  meta: boolean
-}): SelectionMode => {
-  if (modifiers.alt) return 'subtract'
-  if (modifiers.meta || modifiers.ctrl) return 'toggle'
-  if (modifiers.shift) return 'add'
-  return 'replace'
-}
+import { resolveSelectionMode } from '../shared/selection'
 
 export const createSelectionBox = (): PointerSession => ({
   kind: 'selectionBox',

@@ -1,17 +1,20 @@
 import type { LifecycleRuntimeContext } from '../common/contracts'
 
-type CleanupContext = Pick<LifecycleRuntimeContext, 'runtime' | 'commands'>
+type CleanupContext = Pick<LifecycleRuntimeContext, 'runtime'>
 
 export type CleanupActors = {
   edge: {
     cancelInteractions: () => void
     hoverCancel: () => void
+    resetTransientState: () => void
   }
   node: {
     cancelInteractions: () => void
+    resetTransientState: () => void
   }
   mindmap: {
     cancelDrag: () => boolean
+    resetTransientState: () => void
   }
 }
 
@@ -28,7 +31,9 @@ export class Cleanup {
     this.actors.edge.cancelInteractions()
     this.actors.node.cancelInteractions()
     this.actors.mindmap.cancelDrag()
-    this.context.commands.transient.reset()
+    this.actors.edge.resetTransientState()
+    this.actors.node.resetTransientState()
+    this.actors.mindmap.resetTransientState()
     this.context.runtime.shortcuts.dispose()
     this.context.runtime.services.nodeSizeObserver.dispose()
     this.context.runtime.services.containerSizeObserver.dispose()

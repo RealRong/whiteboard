@@ -1,20 +1,29 @@
-import { getSubtreeIds } from '@whiteboard/core'
+import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core'
+import type { MindmapMoveDropOptions, MindmapMoveRootOptions } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { MindmapViewTree } from '@engine-types/instance/view'
-import { computeSubtreeDropTarget } from './domain'
+import { DEFAULT_TUNING } from '../../../config'
 
-type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'commands' | 'runtime'>
+type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'runtime'>
+
+type MindmapCommands = {
+  moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
+  moveSubtreeWithDrop: (options: MindmapMoveDropOptions) => Promise<void>
+}
 
 type DragOptions = {
   instance: DragInstance
+  mindmap: MindmapCommands
 }
 
 export class Drag {
   private readonly instance: DragInstance
+  private readonly mindmap: MindmapCommands
 
-  constructor({ instance }: DragOptions) {
+  constructor({ instance, mindmap }: DragOptions) {
     this.instance = instance
+    this.mindmap = mindmap
   }
 
   private getTreeView = (treeId: NodeId): MindmapViewTree | undefined => {
@@ -161,7 +170,11 @@ export class Drag {
           ghost,
           dragNodeId: active.nodeId,
           dragExcludeIds: new Set(active.excludeIds),
-          layoutOptions: (state.read('mindmapLayout') ?? treeItem.layout).options
+          layoutOptions: (state.read('mindmapLayout') ?? treeItem.layout).options,
+          snapThreshold: DEFAULT_TUNING.mindmap.dropSnapThreshold,
+          defaultSide: DEFAULT_TUNING.mindmap.defaultSide,
+          reorderLineGap: DEFAULT_TUNING.mindmap.reorderLineGap,
+          reorderLineOverflow: DEFAULT_TUNING.mindmap.reorderLineOverflow
         })
       }
 
@@ -177,14 +190,14 @@ export class Drag {
   }
 
   end = ({ pointer }: { pointer: { pointerId: number } }) => {
-    const { state, commands, runtime } = this.instance
+    const { state, runtime } = this.instance
     const active = state.read('mindmapDrag').active
     if (!active || active.pointerId !== pointer.pointerId) return false
 
     state.write('mindmapDrag', {})
 
     if (active.kind === 'root') {
-      void commands.mindmap.moveRoot({
+      void this.mindmap.moveRoot({
         nodeId: active.treeId,
         position: active.position
       })
@@ -192,7 +205,7 @@ export class Drag {
     }
 
     if (active.drop) {
-      void commands.mindmap.moveSubtreeWithDrop({
+      void this.mindmap.moveSubtreeWithDrop({
         id: active.treeId,
         nodeId: active.nodeId,
         drop: {

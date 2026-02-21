@@ -7,7 +7,9 @@ import type {
   NodeTransformEndOptions,
   NodeTransformUpdateOptions
 } from '@engine-types/commands'
+import type { NodeViewUpdate } from '@engine-types/graph'
 import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Guide } from '@engine-types/node/snap'
 import type {
   ResizeDirection,
   ResizeDragState,
@@ -24,11 +26,20 @@ import {
 
 type TransformInstance = Pick<
   InternalInstance,
-  'state' | 'runtime' | 'query' | 'commands' | 'apply'
+  'state' | 'runtime' | 'query' | 'mutate'
 >
+
+type TransformTransient = {
+  setGuides: (guides: Guide[]) => void
+  clearGuides: () => void
+  setOverrides: (updates: NodeViewUpdate[]) => void
+  commitOverrides: (updates?: NodeViewUpdate[]) => void
+  clearOverrides: (ids?: NodeId[]) => void
+}
 
 type TransformOptions = {
   instance: TransformInstance
+  transient: TransformTransient
 }
 
 const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
@@ -40,13 +51,15 @@ const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
 
 export class Transform {
   private readonly instance: TransformInstance
+  private readonly transient: TransformTransient
 
-  constructor({ instance }: TransformOptions) {
+  constructor({ instance, transient }: TransformOptions) {
     this.instance = instance
+    this.transient = transient
   }
 
   private clear = () => {
-    this.instance.commands.transient.dragGuides.clear()
+    this.transient.clearGuides()
   }
 
   private createResizeDrag = (options: {
@@ -149,7 +162,7 @@ export class Transform {
         width = snapped.width
         height = snapped.height
         nextRect = { x: snapped.rect.x, y: snapped.rect.y }
-        this.instance.commands.transient.dragGuides.set(snapped.guides)
+        this.transient.setGuides(snapped.guides)
       } else {
         this.clear()
       }
@@ -161,7 +174,7 @@ export class Transform {
     }
 
     drag.lastUpdate = update
-    this.instance.commands.transient.nodeOverrides.set([{ id: nodeId, ...update }])
+    this.transient.setOverrides([{ id: nodeId, ...update }])
   }
 
   private applyRotateMove = (options: {
@@ -180,9 +193,18 @@ export class Transform {
       startRotation: drag.startRotation,
       shiftKey
     })
-    void this.instance.apply(
-      [{ type: 'node.rotate', id: nodeId, angle: nextRotation }],
-      { source: 'interaction' }
+    void this.instance.mutate(
+      [
+        {
+          type: 'node.update',
+          id: nodeId,
+          patch: { rotation: nextRotation }
+        }
+      ],
+      {
+        source: 'interaction',
+        actor: 'node.transform'
+      }
     )
   }
 
@@ -192,7 +214,7 @@ export class Transform {
   }) => {
     const { nodeId, drag } = options
     if (drag.lastUpdate) {
-      this.instance.commands.transient.nodeOverrides.commit([
+      this.transient.commitOverrides([
         { id: nodeId, ...drag.lastUpdate }
       ])
     }
@@ -301,7 +323,7 @@ export class Transform {
   }
 
   cancel = (options?: NodeTransformCancelOptions) => {
-    const { state, commands } = this.instance
+    const { state } = this.instance
     const active = state.read('nodeTransform').active
     if (!active) return false
     if (options?.pointer && active.drag.pointerId !== options.pointer.pointerId) {
@@ -309,7 +331,7 @@ export class Transform {
     }
 
     if (active.drag.mode === 'resize') {
-      commands.transient.nodeOverrides.clear([active.nodeId])
+      this.transient.clearOverrides([active.nodeId])
     }
     this.clear()
     state.write('nodeTransform', {})

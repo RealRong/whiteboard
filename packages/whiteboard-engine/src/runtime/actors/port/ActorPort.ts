@@ -1,9 +1,9 @@
 import type { InputSessionContext } from '@engine-types/input'
 import type { Query } from '@engine-types/instance/query'
-import type { CleanupActors } from '../lifecycle/Cleanup'
-import type { Actor as EdgeActor } from '../actors/edge/Actor'
-import type { Actor as MindmapActor } from '../actors/mindmap/Actor'
-import type { Actor as NodeActor } from '../actors/node/Actor'
+import type { CleanupActors } from '../../lifecycle/Cleanup'
+import type { Actor as EdgeActor } from '../edge/Actor'
+import type { Actor as MindmapActor } from '../mindmap/Actor'
+import type { Actor as NodeActor } from '../node/Actor'
 
 type ActorPortOptions = {
   edge: EdgeActor

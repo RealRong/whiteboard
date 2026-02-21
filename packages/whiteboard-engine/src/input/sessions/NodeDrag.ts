@@ -1,16 +1,5 @@
 import type { PointerSession } from '@engine-types/input'
-
-const resolveSelectionMode = (modifiers: {
-  alt: boolean
-  shift: boolean
-  ctrl: boolean
-  meta: boolean
-}) => {
-  if (modifiers.alt) return 'subtract'
-  if (modifiers.meta || modifiers.ctrl) return 'toggle'
-  if (modifiers.shift) return 'add'
-  return 'replace'
-}
+import { resolveSelectionMode } from '../shared/selection'
 
 export const createNodeDrag = (): PointerSession => ({
   kind: 'nodeDrag',

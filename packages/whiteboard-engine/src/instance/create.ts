@@ -3,18 +3,20 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/instance'
-import type { Command } from '@engine-types/command'
+import type { InputConfig } from '@engine-types/input'
+import type { LifecycleViewportConfig } from '@engine-types/instance/lifecycle'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
 import { Events } from '../runtime/common/events'
 import { createShortcuts } from '../runtime'
-import { createDefaultInputConfig } from '../runtime/coordinator/InputRuntimeBuilder'
+import { createInputPort } from '../input'
+import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
+import { ChangeGateway } from '../runtime/gateway/ChangeGateway'
 import { createCommands } from '../api/commands'
-import { resolveInstanceConfig } from '../config'
+import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
 import { createRuntime } from './runtime'
 import { createServices } from './services'
 import { createActorRuntime } from './actors'
-import { createCoordinatorRuntime } from './coordinator'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
 import { createView } from '../runtime/common/view'
@@ -62,6 +64,26 @@ const cancelRaf = (id: number) => {
   fallbackRafTimers.delete(id)
 }
 
+const toInputViewportConfig = (
+  viewportConfig: LifecycleViewportConfig
+): InputConfig['viewport'] => ({
+  minZoom: viewportConfig.minZoom,
+  maxZoom: viewportConfig.maxZoom,
+  enablePan: viewportConfig.enablePan,
+  enableWheel: viewportConfig.enableWheel,
+  wheelSensitivity: viewportConfig.wheelSensitivity
+})
+
+const createDefaultInputConfig = (): InputConfig => ({
+  viewport: {
+    minZoom: DEFAULT_CONFIG.viewport.minZoom,
+    maxZoom: DEFAULT_CONFIG.viewport.maxZoom,
+    enablePan: DEFAULT_CONFIG.viewport.enablePan,
+    enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
+    wheelSensitivity: DEFAULT_CONFIG.viewport.wheelSensitivity
+  }
+})
+
 export const createEngine = ({
   core,
   docRef,
@@ -94,6 +116,7 @@ export const createEngine = ({
 
   let commands!: InternalInstance['commands']
   let apply!: InternalInstance['apply']
+  let mutate!: InternalInstance['mutate']
   let tx!: InternalInstance['tx']
   let input!: InternalInstance['input']
   let services!: RuntimeInternal['services']
@@ -123,6 +146,9 @@ export const createEngine = ({
   const instance: InternalInstance = {
     get apply() {
       return apply
+    },
+    get mutate() {
+      return mutate
     },
     get tx() {
       return tx
@@ -174,76 +200,97 @@ export const createEngine = ({
     graph,
     query: queryRuntime.query,
     emit: events.emit,
-    core: runtime.core,
     readDoc: () => runtime.docRef.current ?? null,
     readNodes: () => runtime.core.query.node.list(),
     syncGraph: viewRuntime.syncGraph,
     schedulers: context.schedulers
   })
-  const applyChange = async (change: Command) => {
-    const applied = await apply([change], { source: 'command' })
-    const result = applied.dispatchResults[0]?.result
-    if (!result) {
-      throw new Error(`Command did not produce dispatch result: ${change.type}`)
-    }
-    return result
-  }
+  const changeGateway = new ChangeGateway({
+    instance,
+    replaceDoc,
+    now: context.schedulers.now,
+    graph: actors.graph,
+    view: actors.view,
+    emit: events.emit
+  })
+
   commands = createCommands({
     instance,
     node: actors.node,
     edge: actors.edge,
-    applyChange
+    mindmap: actors.mindmap,
+    viewport: actors.viewport
   })
-  const coordinator = createCoordinatorRuntime({
-    instance,
-    replaceDoc,
-    now: context.schedulers.now,
-    commands,
-    graph: actors.graph,
-    view: actors.view,
-    input: {
+  const inputPort = createInputPort({
+    getContext: () => ({
       state,
       commands,
       query: queryRuntime.query,
       actors: actors.port.inputActors,
-      runtime,
-      view: viewRuntime.view,
-      config,
-      inputConfig: createDefaultInputConfig(),
-      sessions: createDefaultPointerSessions()
-    },
-    lifecycle: {
-      context: {
-        commands,
-        state: context.state,
-        query: context.query,
-        view: context.view,
-        runtime: context.runtime,
-        events: context.events,
-        config: context.config
+      services: {
+        viewportNavigation: runtime.services.viewportNavigation
       },
-      cleanupActors: actors.port.cleanupActors,
-      mindmap: actors.port.lifecycleActors.mindmap
-    },
-    emit: events.emit
+      shortcuts: runtime.shortcuts,
+      view: {
+        getShortcutContext: () => viewRuntime.view.global.shortcutContext(),
+        edgePath: (edgeId) => viewRuntime.view.edge.path(edgeId)
+      },
+      config
+    }),
+    config: createDefaultInputConfig(),
+    sessions: createDefaultPointerSessions()
   })
-  apply = coordinator.apply
-  tx = coordinator.tx
-  commands = coordinator.commands
-  input = coordinator.input
-  lifecycle = coordinator.lifecycle
-  services = createServices(
-    core,
+  const lifecycleRuntime = new Lifecycle(
     {
       state: context.state,
+      query: context.query,
+      view: context.view,
       runtime: context.runtime,
       events: context.events,
-      schedulers: context.schedulers,
-      apply,
-      setViewport: commands.viewport.set,
-      zoomViewportBy: commands.viewport.zoomBy
+      config: context.config
+    },
+    {
+      onViewportConfigChange: (viewportConfig) => {
+        inputPort.configure({
+          viewport: toInputViewportConfig(viewportConfig)
+        })
+      }
+    },
+    actors.port.cleanupActors,
+    {
+      mindmap: actors.port.lifecycleActors.mindmap
     }
   )
+  let lifecycleStarted = false
+  const lifecyclePort = {
+    start: () => {
+      if (lifecycleStarted) return
+      lifecycleStarted = true
+      lifecycleRuntime.start()
+    },
+    update: (nextConfig: Parameters<typeof lifecycleRuntime.update>[0]) => {
+      lifecycleRuntime.update(nextConfig)
+    },
+    stop: () => {
+      if (!lifecycleStarted) return
+      lifecycleStarted = false
+      lifecycleRuntime.stop()
+    }
+  }
+  apply = changeGateway.apply
+  mutate = changeGateway.applyMutations
+  tx = changeGateway.tx
+  input = inputPort
+  lifecycle = lifecyclePort
+  services = createServices({
+    state: context.state,
+    runtime: context.runtime,
+    events: context.events,
+    schedulers: context.schedulers,
+    mutate,
+    setViewport: commands.viewport.set,
+    zoomViewportBy: commands.viewport.zoomBy
+  })
   shortcuts = createShortcuts(instance)
 
   return instance

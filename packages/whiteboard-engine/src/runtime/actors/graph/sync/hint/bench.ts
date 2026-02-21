@@ -289,7 +289,7 @@ const main = () => {
       name: 'order-with-ancestors',
       operations: [
         {
-          type: 'node.order.bringForward',
+          type: 'node.order.set',
           ids: take(dataset.children, 200).map((node) => node.id)
         }
       ],

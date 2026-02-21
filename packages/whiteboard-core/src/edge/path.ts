@@ -1,6 +1,5 @@
 import type { EdgeAnchor, Point } from '../types/core'
 import { getBezierPath, getSmoothPolyPath } from '../utils/path'
-import { getEdgeRouter, registerEdgeRouter } from './router'
 import type { EdgePathInput, EdgePathResult, EdgeRouter } from './types'
 
 const DEFAULT_ORTHO_OFFSET = 50
@@ -123,24 +122,19 @@ const customRouter: EdgeRouter = ({ edge, source, target }) => {
   return linearRouter({ edge, source, target })
 }
 
-let routersInitialized = false
-
-const ensureRouters = () => {
-  if (routersInitialized) return
-  registerEdgeRouter('linear', linearRouter)
-  registerEdgeRouter('step', stepRouter)
-  registerEdgeRouter('polyline', polylineRouter)
-  registerEdgeRouter('bezier', bezierRouter)
-  registerEdgeRouter('curve', curveRouter)
-  registerEdgeRouter('custom', customRouter)
-  routersInitialized = true
+const EDGE_ROUTERS: Record<string, EdgeRouter> = {
+  linear: linearRouter,
+  step: stepRouter,
+  polyline: polylineRouter,
+  bezier: bezierRouter,
+  curve: curveRouter,
+  custom: customRouter
 }
 
 export const getEdgePath = (input: EdgePathInput): EdgePathResult => {
-  ensureRouters()
   if (input.edge.routing?.mode === 'manual' && input.edge.routing.points?.length) {
     return polylineRouter(input)
   }
-  const router = getEdgeRouter(input.edge.type) ?? linearRouter
+  const router = EDGE_ROUTERS[input.edge.type] ?? linearRouter
   return router(input)
 }

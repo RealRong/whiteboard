@@ -9,5 +9,5 @@ export type MutationBatch = {
   source: CommandSource
   actor?: string
   timestamp: number
-  mutations: Mutation[]
+  operations: Mutation[]
 }

@@ -1,16 +1,17 @@
-import type { Core, Document, Node } from '@whiteboard/core'
+import type { Document, Node } from '@whiteboard/core'
 import type { GraphChange, GraphProjector } from '@engine-types/graph'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Query } from '@engine-types/instance/query'
 import type { State } from '@engine-types/instance/state'
 import type { SchedulerRuntime } from '../runtime/common/contracts'
-import { ActorPort } from '../runtime/coordinator/ActorPort'
+import { ActorPort } from '../runtime/actors/port/ActorPort'
 import { Actor as EdgeActor } from '../runtime/actors/edge/Actor'
 import { Actor as GraphActor } from '../runtime/actors/graph/Actor'
 import { Actor as MindmapActor } from '../runtime/actors/mindmap/Actor'
 import { Actor as NodeActor } from '../runtime/actors/node/Actor'
 import { Actor as ViewActor } from '../runtime/actors/view/Actor'
+import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 
 type Options = {
   instance: InternalInstance
@@ -18,7 +19,6 @@ type Options = {
   graph: GraphProjector
   query: Query
   emit: InstanceEventEmitter['emit']
-  core: Core
   readDoc: () => Document | null
   readNodes: () => Node[]
   syncGraph: (change: GraphChange) => void
@@ -31,7 +31,6 @@ export const createActorRuntime = ({
   graph,
   query,
   emit,
-  core,
   readDoc,
   readNodes,
   syncGraph,
@@ -45,7 +44,6 @@ export const createActorRuntime = ({
     state,
     graph,
     syncGraph,
-    core,
     readDoc,
     instance
   })
@@ -61,6 +59,9 @@ export const createActorRuntime = ({
   const view = new ViewActor({
     syncGraph
   })
+  const viewport = new ViewportDomainActor({
+    instance
+  })
   const port = new ActorPort({
     edge,
     node,
@@ -73,6 +74,7 @@ export const createActorRuntime = ({
     node,
     mindmap,
     graph: graphActor,
+    viewport,
     view,
     port
   }

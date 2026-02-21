@@ -54,6 +54,23 @@ export interface MindmapIdGenerator {
   nodeId?: () => MindmapNodeId
 }
 
+export type MindmapDragDropLine = {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
+export type MindmapDragDropTarget = {
+  type: 'attach' | 'reorder'
+  parentId: MindmapNodeId
+  index: number
+  side?: 'left' | 'right'
+  targetId?: MindmapNodeId
+  connectionLine?: MindmapDragDropLine
+  insertLine?: MindmapDragDropLine
+}
+
 export type MindmapCommandResult<T = void> =
   | { ok: true; tree: MindmapTree; value?: T }
   | { ok: false; error: string }

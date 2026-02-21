@@ -5,11 +5,15 @@ export type {
   CommandBatchInput,
   CommandSource,
   ApplyOptions,
+  MutationBatchInput,
+  ApplyMutationsOptions,
   ApplyDispatchResult,
   ApplyMetrics,
-  AppliedCommandSummary,
+  AppliedChangeSummary,
   ApplyResult,
+  ApplyMutationsResult,
   ApplyApi,
+  ApplyMutationsApi,
   TxApi,
   TxCollector
 } from './command'

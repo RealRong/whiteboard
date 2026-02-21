@@ -6,6 +6,7 @@ import type {
   NodeDragUpdateOptions
 } from '@engine-types/commands'
 import type { NodeViewUpdate } from '@engine-types/graph'
+import type { Guide } from '@engine-types/node/snap'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import {
@@ -20,12 +21,20 @@ import { getNodeAABB, rectContains } from '../../../runtime/common/geometry'
 
 type DragInstance = Pick<
   InternalInstance,
-  'state' | 'graph' | 'runtime' | 'query' | 'commands' | 'apply'
+  'state' | 'graph' | 'runtime' | 'query' | 'mutate'
 >
 
 type DragChildren = {
   ids: NodeId[]
   offsets: Map<NodeId, Point>
+}
+
+type DragTransient = {
+  setGuides: (guides: Guide[]) => void
+  clearGuides: () => void
+  setOverrides: (updates: NodeViewUpdate[]) => void
+  commitOverrides: (updates?: NodeViewUpdate[]) => void
+  clearOverrides: (ids?: NodeId[]) => void
 }
 
 type DragSession = {
@@ -41,14 +50,17 @@ type DragSession = {
 
 type DragOptions = {
   instance: DragInstance
+  transient: DragTransient
 }
 
 export class Drag {
   private readonly instance: DragInstance
+  private readonly transient: DragTransient
   private session: DragSession | null = null
 
-  constructor({ instance }: DragOptions) {
+  constructor({ instance, transient }: DragOptions) {
     this.instance = instance
+    this.transient = transient
   }
 
   private getCanvasNodes = () => this.instance.graph.read().canvasNodes
@@ -67,7 +79,7 @@ export class Drag {
   }
 
   private clearGuides = () => {
-    this.instance.commands.transient.dragGuides.clear()
+    this.transient.clearGuides()
   }
 
   private finish = () => {
@@ -80,9 +92,12 @@ export class Drag {
   }
 
   private applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
-    void this.instance.apply(
+    void this.instance.mutate(
       [{ type: 'node.update', id: nodeId, patch }],
-      { source: 'interaction' }
+      {
+        source: 'interaction',
+        actor: 'node.drag'
+      }
     )
   }
 
@@ -169,7 +184,7 @@ export class Drag {
       allowCross,
       crossThreshold: thresholdWorld * DEFAULT_TUNING.nodeDrag.snapCrossThresholdRatio
     })
-    this.instance.commands.transient.dragGuides.set(result.guides)
+    this.transient.setGuides(result.guides)
 
     return {
       x: result.dx !== undefined ? position.x + result.dx : position.x,
@@ -191,7 +206,7 @@ export class Drag {
     )
     this.instance.state.batch(() => {
       this.setHoveredGroup(hovered?.id)
-      this.instance.commands.transient.nodeOverrides.set([
+      this.transient.setOverrides([
         { id: session.nodeId, position: nextPosition }
       ])
     })
@@ -200,7 +215,7 @@ export class Drag {
   private moveGroup = (session: DragSession, nextPosition: Point) => {
     const updates = this.buildGroupUpdates(session, nextPosition)
     this.instance.state.batch(() => {
-      this.instance.commands.transient.nodeOverrides.set(updates)
+      this.transient.setOverrides(updates)
       this.setHoveredGroup(undefined)
     })
   }
@@ -343,11 +358,11 @@ export class Drag {
 
     const finalPos = session.last
     if (session.children) {
-      this.instance.commands.transient.nodeOverrides.commit(
+      this.transient.commitOverrides(
         this.buildGroupUpdates(session, finalPos)
       )
     } else {
-      this.instance.commands.transient.nodeOverrides.commit([
+      this.transient.commitOverrides([
         { id: session.nodeId, position: finalPos }
       ])
       this.handleDropToGroup(session, finalPos)
@@ -365,7 +380,7 @@ export class Drag {
     }
 
     const ids = [session.nodeId, ...(session.children?.ids ?? [])]
-    this.instance.commands.transient.nodeOverrides.clear(ids)
+    this.transient.clearOverrides(ids)
     this.finish()
     return true
   }

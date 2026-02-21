@@ -1,5 +1,15 @@
-import type { EdgeId, MindmapNodeId, Node, NodeId, Point, Rect } from '@whiteboard/core'
+import type {
+  EdgeId,
+  MindmapDragDropTarget,
+  MindmapNodeId,
+  Node,
+  NodeId,
+  Point,
+  Rect
+} from '@whiteboard/core'
 import type { TransformDragState } from '../node'
+
+export type { MindmapDragDropTarget } from '@whiteboard/core'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
@@ -40,16 +50,6 @@ export type HistoryState = {
   redoDepth: number
   isApplying: boolean
   lastUpdatedAt?: number
-}
-
-export type MindmapDragDropTarget = {
-  type: 'attach' | 'reorder'
-  parentId: MindmapNodeId
-  index: number
-  side?: 'left' | 'right'
-  targetId?: MindmapNodeId
-  connectionLine?: { x1: number; y1: number; x2: number; y2: number }
-  insertLine?: { x1: number; y1: number; x2: number; y2: number }
 }
 
 export type MindmapRootDragState = {

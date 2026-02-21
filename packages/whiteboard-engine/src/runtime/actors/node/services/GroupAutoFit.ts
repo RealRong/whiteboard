@@ -141,13 +141,13 @@ const resolveGroupsToProcess = ({
 }
 
 const applyGroupAutoFit = ({
-  apply,
+  mutate,
   nodes,
   group,
   nodeSize,
   defaultPadding
 }: {
-  apply: ServiceRuntimeContext['apply']
+  mutate: ServiceRuntimeContext['mutate']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -167,7 +167,7 @@ const applyGroupAutoFit = ({
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
-  void apply(
+  void mutate(
     [{
       type: 'node.update',
       id: group.id,
@@ -176,7 +176,10 @@ const applyGroupAutoFit = ({
         size: { width: expanded.width, height: expanded.height }
       }
     }],
-    { source: 'system' }
+    {
+      source: 'system',
+      actor: 'group.autoFit'
+    }
   )
 }
 
@@ -222,7 +225,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
 
     groupsToProcess.forEach((group) => {
       applyGroupAutoFit({
-        apply: this.context.apply,
+        mutate: this.context.mutate,
         nodes,
         group,
         nodeSize,
@@ -259,9 +262,9 @@ export class GroupAutoFit implements GroupAutoFitApi {
   start: GroupAutoFitApi['start'] = () => {
     this.stop()
 
-    const offAfter = this.context.events.on('command.applied', ({ commandTypes, operationTypes }) => {
+    const offAfter = this.context.events.on('change.applied', ({ operationTypes }) => {
       const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
-      const hasRelevantChange = hasNodeOperation || commandTypes.includes('doc.reset')
+      const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
       if (!hasRelevantChange) return
       this.scheduleSync()
     })

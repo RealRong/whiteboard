@@ -1,7 +1,6 @@
 import type {
   DispatchResult,
   Edge,
-  EdgeAnchor,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -24,8 +23,6 @@ import type {
   Size,
   ResolvedHistoryConfig
 } from './common'
-import type { Guide } from './node/snap'
-import type { NodeViewUpdate } from './graph'
 import type { InteractionState, SelectionMode } from './state'
 import type { ResizeDirection } from './state'
 import type {
@@ -236,28 +233,7 @@ export type Commands = {
     moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
     removeRoutingPoint: (edge: Edge, index: number) => void
     resetRouting: (edge: Edge) => void
-    connect: (
-      source: { nodeId: NodeId; anchor?: EdgeAnchor },
-      target: { nodeId: NodeId; anchor?: EdgeAnchor }
-    ) => Promise<DispatchResult>
-    reconnect: (
-      id: EdgeId,
-      end: 'source' | 'target',
-      ref: { nodeId: NodeId; anchor?: EdgeAnchor }
-    ) => Promise<DispatchResult>
     select: (id?: EdgeId) => void
-  }
-  transient: {
-    dragGuides: {
-      set: (guides: Guide[]) => void
-      clear: () => void
-    }
-    nodeOverrides: {
-      set: (updates: NodeViewUpdate[]) => void
-      clear: (ids?: NodeId[]) => void
-      commit: (updates?: NodeViewUpdate[]) => void
-    }
-    reset: () => void
   }
   order: {
     node: {
@@ -288,9 +264,6 @@ export type Commands = {
     updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<DispatchResult> | undefined
     updateManyPosition: (updates: Array<{ id: NodeId; position: Point }>) => void
     delete: (ids: NodeId[]) => Promise<DispatchResult>
-    move: (ids: NodeId[], delta: { x: number; y: number }) => Promise<DispatchResult>
-    resize: (id: NodeId, size: { width: number; height: number }) => Promise<DispatchResult>
-    rotate: (id: NodeId, angle: number) => Promise<DispatchResult>
   }
   group: GroupCommands
   mindmap: MindmapCommands

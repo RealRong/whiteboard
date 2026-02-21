@@ -77,7 +77,7 @@ export class Lifecycle implements LifecycleApi {
   private applyConfig = (config: LifecycleConfig) => {
     this.history.update(config)
 
-    this.context.commands.tool.set(config.tool)
+    this.context.state.write('tool', config.tool)
     this.context.runtime.viewport.setViewport(config.viewport)
     this.context.runtime.shortcuts.setShortcuts(config.shortcuts)
     this.context.state.write('mindmapLayout', config.mindmapLayout ?? {})

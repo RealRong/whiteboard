@@ -1,5 +1,6 @@
 import { trimNumber } from '@whiteboard/core'
-import type { Core, NodeId, Size } from '@whiteboard/core'
+import type { NodeId, Size } from '@whiteboard/core'
+import type { ApplyMutationsApi } from '@engine-types/command'
 import type {
   NodeSizeObserver as NodeSizeObserverApi,
   PendingNodeSizeUpdate
@@ -7,7 +8,7 @@ import type {
 import { DEFAULT_TUNING } from '../../../../config'
 
 export class NodeSizeObserver implements NodeSizeObserverApi {
-  private core: Core
+  private readonly mutate: ApplyMutationsApi
   private observer: ResizeObserver | null = null
   private observed = new Map<NodeId, Element>()
   private elementToId = new WeakMap<Element, NodeId>()
@@ -15,8 +16,8 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
   private pending = new Map<NodeId, Size>()
   private rafId: number | null = null
 
-  constructor(core: Core) {
-    this.core = core
+  constructor(mutate: ApplyMutationsApi) {
+    this.mutate = mutate
   }
 
   private flush = () => {
@@ -37,11 +38,16 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
     })
     this.pending.clear()
     if (!updates.length) return
-    this.core.model.node.updateMany(
+    void this.mutate(
       updates.map((item) => ({
+        type: 'node.update',
         id: item.id,
         patch: { size: item.size }
-      }))
+      })),
+      {
+        source: 'system',
+        actor: 'node.sizeObserver'
+      }
     )
   }
 

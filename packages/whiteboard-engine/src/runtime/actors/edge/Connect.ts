@@ -1,13 +1,14 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { SchedulerRuntime } from '../../common/contracts'
-import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
+import type { EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core'
+import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { type ConnectTo, isSameConnectTo } from './query'
 
 type ConnectInstance = Pick<
   InternalInstance,
-  'state' | 'graph' | 'query' | 'runtime' | 'apply'
+  'state' | 'graph' | 'query' | 'runtime' | 'mutate'
 >
 
 type ConnectOptions = {
@@ -39,6 +40,42 @@ export class Connect {
     if (!pointer) return
     this.hoverPointer = null
     this.applyHover(pointer)
+  }
+
+  private createEdgeId = () => {
+    const exists = (id: string) => Boolean(this.instance.runtime.core.query.edge.get(id))
+    const seed = Date.now().toString(36)
+    for (let index = 0; index < 1024; index += 1) {
+      const id = `edge_${seed}_${index.toString(36)}`
+      if (!exists(id)) return id
+    }
+    return `edge_${seed}_${Math.random().toString(36).slice(2, 8)}`
+  }
+
+  private buildEdgeCreateOperation = (payload: EdgeInput) => {
+    if (!payload.source?.nodeId || !payload.target?.nodeId) return null
+
+    const { core } = this.instance.runtime
+    if (!core.query.node.get(payload.source.nodeId)) return null
+    if (!core.query.node.get(payload.target.nodeId)) return null
+
+    const typeDef = core.registries.edgeTypes.get(payload.type)
+    if (typeDef?.validate && !typeDef.validate(payload.data)) return null
+
+    const missing = getMissingEdgeFields(payload, core.registries)
+    if (missing.length > 0) return null
+
+    const normalized = applyEdgeDefaults(payload, core.registries)
+    const id = normalized.id ?? this.createEdgeId()
+
+    return {
+      type: 'edge.create' as const,
+      edge: {
+        ...normalized,
+        id,
+        type: normalized.type ?? 'linear'
+      }
+    }
   }
 
   private snapAt = (point: Point): ConnectTo | undefined => {
@@ -176,50 +213,62 @@ export class Connect {
     const pointWorld = pointer.world
     const currentState = this.instance.state.read('edgeConnect')
     if (!currentState.isConnecting || !currentState.from) return
+    const from = currentState.from
+    const reconnect = currentState.reconnect
 
     const snap = this.snapAt(pointWorld)
     if (!snap || !snap.nodeId || !snap.anchor) {
       this.finish()
       return
     }
+    const targetNodeId = snap.nodeId
+    const targetAnchor = snap.anchor
 
-    if (currentState.reconnect) {
+    if (reconnect) {
       const visibleEdges = this.instance.graph.read().visibleEdges
       const edge = visibleEdges.find(
-        (item) => item.id === currentState.reconnect?.edgeId
+        (item) => item.id === reconnect.edgeId
       )
       if (edge) {
-        void this.instance.apply(
+        void this.instance.mutate(
           [
             {
               type: 'edge.update',
               id: edge.id,
               patch:
-                currentState.reconnect.end === 'source'
-                  ? { source: { nodeId: snap.nodeId, anchor: snap.anchor } }
-                  : { target: { nodeId: snap.nodeId, anchor: snap.anchor } }
+                reconnect.end === 'source'
+                  ? { source: { nodeId: targetNodeId, anchor: targetAnchor } }
+                  : { target: { nodeId: targetNodeId, anchor: targetAnchor } }
             }
           ],
-          { source: 'interaction' }
+          {
+            source: 'interaction',
+            actor: 'edge.reconnect'
+          }
         )
       }
     } else {
-      void this.instance.apply(
-        [
+      const createOperation = this.buildEdgeCreateOperation({
+        source: {
+          nodeId: from.nodeId,
+          anchor: from.anchor
+        },
+        target: { nodeId: targetNodeId, anchor: targetAnchor },
+        type: 'linear'
+      })
+
+      if (createOperation) {
+        void this.instance.mutate(
+          [createOperation],
           {
-            type: 'edge.create',
-            payload: {
-              source: {
-                nodeId: currentState.from.nodeId,
-                anchor: currentState.from.anchor
-              },
-              target: { nodeId: snap.nodeId, anchor: snap.anchor },
-              type: 'linear'
-            }
+            source: 'interaction',
+            actor: 'edge.connect'
           }
-        ],
-        { source: 'interaction' }
-      )
+        )
+      } else {
+        this.finish()
+        return
+      }
     }
 
     this.finish()

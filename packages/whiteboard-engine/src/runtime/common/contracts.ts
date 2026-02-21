@@ -35,15 +35,9 @@ export type ServiceRuntimeContext = Pick<
   | 'events'
   | 'schedulers'
 > & {
-  apply: InternalInstance['apply']
+  mutate: InternalInstance['mutate']
   setViewport: Commands['viewport']['set']
   zoomViewportBy: Commands['viewport']['zoomBy']
-}
-
-export type CommandPipelineRuntimeContext = {
-  instance: InternalInstance
-  replaceDoc: (doc: Document | null) => void
-  now?: () => number
 }
 
 export type LifecycleRuntimeContext = Pick<
@@ -54,6 +48,4 @@ export type LifecycleRuntimeContext = Pick<
   | 'runtime'
   | 'events'
   | 'config'
-> & {
-  commands: InternalInstance['commands']
-}
+>

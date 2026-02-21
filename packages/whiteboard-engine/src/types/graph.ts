@@ -1,6 +1,9 @@
 import type {
   Document,
   Edge,
+  NodeFullHint,
+  NodeHint,
+  NodePartialHint,
   Node,
   NodeId,
   Point,
@@ -43,17 +46,11 @@ export type GraphFullChange = GraphChangeBase & {
 
 export type GraphChange = GraphPartialChange | GraphFullChange
 
-export type GraphPartialHint = {
-  kind: 'partial'
-  dirtyNodeIds?: NodeId[]
-  orderChanged?: true
-}
+export type GraphPartialHint = NodePartialHint
 
-export type GraphFullHint = {
-  kind: 'full'
-}
+export type GraphFullHint = NodeFullHint
 
-export type GraphHint = GraphPartialHint | GraphFullHint
+export type GraphHint = NodeHint
 
 export type GraphChangeSource = 'runtime' | 'doc'
 
