@@ -4,7 +4,7 @@ import type {
   NodeSizeObserver as NodeSizeObserverApi,
   PendingNodeSizeUpdate
 } from '@engine-types/instance/services'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../../config'
 
 export class NodeSizeObserver implements NodeSizeObserverApi {
   private core: Core

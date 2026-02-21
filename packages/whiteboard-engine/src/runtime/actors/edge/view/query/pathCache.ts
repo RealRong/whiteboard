@@ -3,12 +3,12 @@ import type { Edge, EdgeId } from '@whiteboard/core'
 import type { EdgePathEntry } from '@engine-types/instance/view'
 import type { GraphChange } from '@engine-types/graph'
 import type { EdgeConnectState } from '@engine-types/state'
-import { toChangeView } from '../../../graph/change'
+import { toChangeView } from '../../../graph/sync/ChangeView'
 import {
   hasDirtyNodeHints,
   shouldResetEdgePathCache
-} from '../../../graph/GraphSyncPolicy'
-import { toEdgePathSignature, toNodeGeometrySignature } from '../../cache'
+} from '../../../graph/sync/Policy'
+import { toEdgePathSignature, toNodeGeometrySignature } from '../../../../../runtime/common/cache'
 import type {
   EdgePathCacheEntry,
   EdgePathStore,

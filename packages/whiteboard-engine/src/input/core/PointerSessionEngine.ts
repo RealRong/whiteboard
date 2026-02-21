@@ -37,6 +37,9 @@ export class PointerSessionEngine {
 
   dispatch = (event: PointerInputEvent): InputResult => {
     if (event.stage === 'capture') {
+      if (event.phase === 'down') {
+        return this.startSession(event)
+      }
       return { effects: [] }
     }
     if (event.phase === 'down') {

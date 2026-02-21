@@ -1,6 +1,8 @@
-export { GraphProjector } from './GraphProjector'
-export { hasProjectionChange, toChangeView } from './change'
-export type { GraphChangeView } from './change'
+export { GraphProjector } from './projector/GraphProjector'
+export { GraphSync } from './sync/GraphSync'
+export { hasProjectionChange } from './projector/ProjectionChange'
+export { toChangeView } from './sync/ChangeView'
+export type { GraphChangeView } from './sync/ChangeView'
 export {
   hasDirtyNodeHints,
   shouldSyncCanvasNodes,
@@ -8,9 +10,9 @@ export {
   shouldSyncDerivedMindmapTrees,
   shouldResetEdgePathCache,
   toProjectionInvalidation
-} from './GraphSyncPolicy'
-export { buildHint, hasNodeOperation, HintContext, HintPipeline } from './hint'
-export type { Hint, HintTraceEntry, HintTraceEffect } from './hint'
+} from './sync/Policy'
+export { buildHint, hasNodeOperation, HintContext, HintPipeline } from './sync/hint'
+export type { Hint, HintTraceEntry, HintTraceEffect } from './sync/hint'
 export type {
   GraphSnapshot,
   GraphChange,

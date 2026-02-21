@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEvent } from 'react'
+import type { CSSProperties } from 'react'
 import type { MindmapNodeId, Rect } from '@whiteboard/core'
 import { MindmapAddButton } from './MindmapAddButton'
 import {
@@ -17,7 +17,6 @@ type MindmapNodeItemProps = {
   attachTarget: boolean
   showActions: boolean
   dragPreviewActive: boolean
-  onPointerDown: (event: PointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => void
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
 }
 
@@ -31,7 +30,6 @@ export const MindmapNodeItem = ({
   attachTarget,
   showActions,
   dragPreviewActive,
-  onPointerDown,
   onAddChild
 }: MindmapNodeItemProps) => {
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
@@ -39,11 +37,11 @@ export const MindmapNodeItem = ({
 
   return (
     <div
+      data-input-role="mindmap-node"
       data-mindmap-node-id={id}
       data-drag-active={dragActive ? 'true' : undefined}
       data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
       className="wb-mindmap-node-item"
-      onPointerDown={(event) => onPointerDown(event, id)}
       style={{
         '--wb-mindmap-node-w': `${rect.width}px`,
         '--wb-mindmap-node-h': `${rect.height}px`,

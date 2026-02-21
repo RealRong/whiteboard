@@ -1,16 +1,12 @@
 import type { CSSProperties, PointerEvent, PointerEventHandler, ReactNode } from 'react'
 import { forwardRef } from 'react'
 import type { Rect } from '@whiteboard/core'
-import { NodeHandles } from './NodeHandles'
-import type { NodeHandleSide } from 'types/node'
 
 type NodeBlockProps = {
   rect: Rect
   label?: ReactNode
   nodeId?: string
   selected?: boolean
-  showHandles?: boolean
-  onHandlePointerDown?: (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => void
   className?: string
   style?: CSSProperties
   onPointerDown?: PointerEventHandler<HTMLDivElement>
@@ -26,8 +22,6 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   label,
   nodeId,
   selected = false,
-  showHandles = false,
-  onHandlePointerDown,
   className,
   style,
   onPointerDown,
@@ -58,7 +52,6 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
         ...style
       }}
     >
-      {showHandles && onHandlePointerDown && <NodeHandles onPointerDown={onHandlePointerDown} />}
       {label}
     </div>
   )

@@ -1,19 +1,44 @@
 import type { EdgeId, NodeId } from '@whiteboard/core'
-import type { PointerInput } from './common'
+import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
-import type { Runtime, RuntimeServices } from './instance/runtime'
+import type { RuntimeServices } from './instance/runtime'
 import type { State } from './instance/state'
+import type { EdgePathEntry } from './instance/view'
 import type { ShortcutContext, Shortcuts } from './shortcuts'
 
 export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 export type PointerStage = 'capture' | 'bubble'
+export type PointerTargetRole = 'node' | 'edge' | 'handle' | 'background'
+export type PointerHandleType =
+  | 'node-connect'
+  | 'node-transform'
+  | 'edge-routing'
+  | 'edge-endpoint'
+  | 'mindmap-node'
+
+export type InputTarget = {
+  surface: 'canvas' | 'overlay' | 'ui' | 'unknown'
+  ignoreInput?: boolean
+  isTextInput?: boolean
+  role?: PointerTargetRole
+  nodeId?: NodeId
+  edgeId?: EdgeId
+  handleType?: PointerHandleType
+  handleSide?: 'top' | 'right' | 'bottom' | 'left'
+  transformKind?: 'resize' | 'rotate'
+  resizeDirection?: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+  routingIndex?: number
+  edgeEnd?: 'source' | 'target'
+  treeId?: NodeId
+}
 
 export type PointerInputEvent = {
   kind: 'pointer'
   stage: PointerStage
   phase: PointerPhase
+  clickCount: number
   pointer: PointerInput
   pointerId: number
   pointerType: 'mouse' | 'pen' | 'touch' | 'unknown'
@@ -28,12 +53,7 @@ export type PointerInputEvent = {
     meta: boolean
     space: boolean
   }
-  target: {
-    surface: 'canvas' | 'overlay' | 'ui' | 'unknown'
-    role?: 'node' | 'edge' | 'handle' | 'background'
-    nodeId?: NodeId
-    edgeId?: EdgeId
-  }
+  target: InputTarget
   timestamp: number
   source: 'container' | 'window' | 'program'
 }
@@ -66,6 +86,7 @@ export type KeyInputEvent = {
     ctrl: boolean
     meta: boolean
   }
+  target: InputTarget
   isComposing?: boolean
   timestamp: number
   source: 'container' | 'window' | 'program'
@@ -124,11 +145,62 @@ export type InputSessionContext = {
   state: Pick<State, 'read' | 'write' | 'batch'>
   commands: Commands
   query: Query
-  runtime: Pick<Runtime, 'viewport' | 'interaction'>
+  actors: {
+    edge: {
+      startFromHandle: (
+        nodeId: NodeId,
+        side: 'top' | 'right' | 'bottom' | 'left',
+        pointer: PointerInput
+      ) => void
+      startReconnect: (
+        edgeId: EdgeId,
+        end: 'source' | 'target',
+        pointer: PointerInput
+      ) => void
+      handleNodePointerDown: (
+        nodeId: NodeId,
+        pointer: PointerInput
+      ) => boolean
+      startRouting: (
+        edgeId: EdgeId,
+        index: number,
+        pointer: PointerInput
+      ) => boolean
+      hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
+      updateConnect: (pointer: PointerInput) => void
+      commitConnect: (pointer: PointerInput) => void
+      cancelConnect: () => void
+      updateRouting: (pointer: PointerInput) => boolean
+      endRouting: (pointer: PointerInput) => boolean
+      cancelRouting: () => boolean
+    }
+    node: {
+      startDrag: (nodeId: NodeId, pointer: PointerInput) => boolean
+      startResize: (
+        nodeId: NodeId,
+        pointer: PointerInput,
+        handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+      ) => boolean
+      startRotate: (nodeId: NodeId, pointer: PointerInput) => boolean
+      updateDrag: (pointer: PointerInput) => boolean
+      endDrag: (pointer: PointerInput) => boolean
+      cancelDrag: () => boolean
+      updateTransform: (pointer: PointerInput, minSize?: Size) => boolean
+      endTransform: (pointer: PointerInput) => boolean
+      cancelTransform: () => boolean
+    }
+    mindmap: {
+      startDrag: (treeId: NodeId, nodeId: NodeId, pointer: PointerInput) => boolean
+      updateDrag: (pointer: PointerInput) => boolean
+      endDrag: (pointer: PointerInput) => boolean
+      cancelDrag: () => boolean
+    }
+  }
   services: Pick<RuntimeServices, 'viewportNavigation'>
   shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
   view: {
     getShortcutContext: () => ShortcutContext
+    edgePath: (edgeId: EdgeId) => EdgePathEntry | undefined
   }
   input: {
     config: InputConfig
@@ -156,6 +228,7 @@ export type PointerSessionKind =
   | 'viewportPan'
   | 'selectionBox'
   | 'edgeConnect'
+  | 'edgePath'
   | 'routingDrag'
   | 'mindmapDrag'
 

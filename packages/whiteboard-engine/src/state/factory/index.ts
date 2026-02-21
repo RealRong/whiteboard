@@ -6,8 +6,8 @@ import type {
   WritableStateSnapshot
 } from '@engine-types/instance/state'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
-import { GraphProjector } from '../../graph'
-import { WritableStore } from '../../kernel/state'
+import { GraphProjector } from '../../runtime/actors/graph/projector/GraphProjector'
+import { WritableStore } from '../store'
 import { createWritableStateSnapshot } from '../writable'
 
 type Result = {

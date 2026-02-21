@@ -3,35 +3,64 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/instance'
+import type { Command } from '@engine-types/command'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import { Events } from '../kernel/events'
-import { createShortcuts, Lifecycle } from '../runtime'
-import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
+import { Events } from '../runtime/common/events'
+import { createShortcuts } from '../runtime'
+import { createDefaultInputConfig } from '../runtime/coordinator/InputRuntimeBuilder'
 import { createCommands } from '../api/commands'
-import { createRuntime } from '../runtime/factory/namespace'
-import { createServices } from '../runtime/factory/services'
-import { createInteractions } from '../runtime/interaction'
+import { resolveInstanceConfig } from '../config'
+import { createRuntime } from './runtime'
+import { createServices } from './services'
+import { createActorRuntime } from './actors'
+import { createCoordinatorRuntime } from './coordinator'
 import { createState } from '../state/factory'
-import { createInputPort } from '../input'
-import { createEdgeConnect } from '../input/sessions/EdgeConnect'
-import { createMindmapDrag } from '../input/sessions/MindmapDrag'
-import { createNodeDrag } from '../input/sessions/NodeDrag'
-import { createNodeTransform } from '../input/sessions/NodeTransform'
-import { createRoutingDrag } from '../input/sessions/RoutingDrag'
-import { createSelectionBox } from '../input/sessions/SelectionBox'
-import { createViewportPan } from '../input/sessions/ViewportPan'
-import { createView } from '../kernel/view'
+import { createDefaultPointerSessions } from '../input/sessions/defaults'
+import { createView } from '../runtime/common/view'
 import { createQuery } from '../api/query/instance'
-import {
-  createEngineContext,
-  toChangePipelineContext,
-  toCommandContext,
-  toInteractionContext,
-  toLifecycleContext,
-  toServiceContext
-} from '../context'
-import { createChangePipeline } from '../change'
+
+const now = () => {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now()
+  }
+  return Date.now()
+}
+
+const microtask = (callback: () => void) => {
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(callback)
+    return
+  }
+  void Promise.resolve().then(callback)
+}
+
+let fallbackRafId = 0
+const fallbackRafTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+const raf = (callback: FrameRequestCallback) => {
+  if (typeof requestAnimationFrame === 'function') {
+    return requestAnimationFrame(callback)
+  }
+  const id = ++fallbackRafId
+  const timer = setTimeout(() => {
+    fallbackRafTimers.delete(id)
+    callback(now())
+  }, 16)
+  fallbackRafTimers.set(id, timer)
+  return id
+}
+
+const cancelRaf = (id: number) => {
+  if (typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(id)
+    return
+  }
+  const timer = fallbackRafTimers.get(id)
+  if (!timer) return
+  clearTimeout(timer)
+  fallbackRafTimers.delete(id)
+}
 
 export const createEngine = ({
   core,
@@ -67,7 +96,6 @@ export const createEngine = ({
   let apply!: InternalInstance['apply']
   let tx!: InternalInstance['tx']
   let input!: InternalInstance['input']
-  let interaction!: RuntimeInternal['interaction']
   let services!: RuntimeInternal['services']
   let shortcuts!: RuntimeInternal['shortcuts']
   let lifecycle!: InternalInstance['lifecycle']
@@ -83,9 +111,6 @@ export const createEngine = ({
           services.nodeSizeObserver.unobserve(nodeId)
         }
       }
-    },
-    get interaction() {
-      return interaction
     },
     get services() {
       return services
@@ -121,7 +146,7 @@ export const createEngine = ({
       return commands
     }
   }
-  const context = createEngineContext({
+  const context = {
     state,
     graph,
     query: queryRuntime.query,
@@ -133,84 +158,93 @@ export const createEngine = ({
       emit: events.emit
     },
     config,
-    syncGraph: viewRuntime.syncGraph
-  })
+    syncGraph: viewRuntime.syncGraph,
+    schedulers: {
+      raf,
+      cancelRaf,
+      microtask,
+      now
+    }
+  }
 
   state.write('tool', 'select')
-  const changePipeline = createChangePipeline(
-    toChangePipelineContext({
-      context,
-      instance,
-      replaceDoc
-    })
-  )
-  apply = changePipeline.apply
-  tx = changePipeline.tx
-  commands = createCommands(toCommandContext(context, instance))
-  input = createInputPort({
-    getContext: () => ({
+  const actors = createActorRuntime({
+    instance,
+    state,
+    graph,
+    query: queryRuntime.query,
+    emit: events.emit,
+    core: runtime.core,
+    readDoc: () => runtime.docRef.current ?? null,
+    readNodes: () => runtime.core.query.node.list(),
+    syncGraph: viewRuntime.syncGraph,
+    schedulers: context.schedulers
+  })
+  const applyChange = async (change: Command) => {
+    const applied = await apply([change], { source: 'command' })
+    const result = applied.dispatchResults[0]?.result
+    if (!result) {
+      throw new Error(`Command did not produce dispatch result: ${change.type}`)
+    }
+    return result
+  }
+  commands = createCommands({
+    instance,
+    node: actors.node,
+    edge: actors.edge,
+    applyChange
+  })
+  const coordinator = createCoordinatorRuntime({
+    instance,
+    replaceDoc,
+    now: context.schedulers.now,
+    commands,
+    graph: actors.graph,
+    view: actors.view,
+    input: {
       state,
       commands,
       query: queryRuntime.query,
+      actors: actors.port.inputActors,
       runtime,
-      services: {
-        viewportNavigation: runtime.services.viewportNavigation
-      },
-      shortcuts: runtime.shortcuts,
-      view: {
-        getShortcutContext: () => viewRuntime.view.global.shortcutContext()
-      },
-      config
-    }),
-    config: {
-      viewport: {
-        minZoom: DEFAULT_CONFIG.viewport.minZoom,
-        maxZoom: DEFAULT_CONFIG.viewport.maxZoom,
-        enablePan: DEFAULT_CONFIG.viewport.enablePan,
-        enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
-        wheelSensitivity: DEFAULT_CONFIG.viewport.wheelSensitivity
-      }
+      view: viewRuntime.view,
+      config,
+      inputConfig: createDefaultInputConfig(),
+      sessions: createDefaultPointerSessions()
     },
-    sessions: [
-      createNodeTransform(),
-      createNodeDrag(),
-      createEdgeConnect(),
-      createRoutingDrag(),
-      createMindmapDrag(),
-      createSelectionBox(),
-      createViewportPan()
-    ]
+    lifecycle: {
+      context: {
+        commands,
+        state: context.state,
+        query: context.query,
+        view: context.view,
+        runtime: context.runtime,
+        events: context.events,
+        config: context.config
+      },
+      cleanupActors: actors.port.cleanupActors,
+      mindmap: actors.port.lifecycleActors.mindmap
+    },
+    emit: events.emit
   })
+  apply = coordinator.apply
+  tx = coordinator.tx
+  commands = coordinator.commands
+  input = coordinator.input
+  lifecycle = coordinator.lifecycle
   services = createServices(
     core,
-    toServiceContext({
-      context,
+    {
+      state: context.state,
+      runtime: context.runtime,
+      events: context.events,
+      schedulers: context.schedulers,
       apply,
       setViewport: commands.viewport.set,
       zoomViewportBy: commands.viewport.zoomBy
-    })
-  )
-  interaction = createInteractions(toInteractionContext(context, instance))
-  shortcuts = createShortcuts(instance)
-  lifecycle = new Lifecycle(
-    toLifecycleContext({
-      context,
-      commands
-    }),
-    {
-      onViewportConfigChange: (viewportConfig) => {
-        input.configure({
-          viewport: {
-            minZoom: viewportConfig.minZoom,
-            maxZoom: viewportConfig.maxZoom,
-            enablePan: viewportConfig.enablePan,
-            enableWheel: viewportConfig.enableWheel,
-            wheelSensitivity: viewportConfig.wheelSensitivity
-          }
-        })
-      }
     }
   )
+  shortcuts = createShortcuts(instance)
 
   return instance
 }

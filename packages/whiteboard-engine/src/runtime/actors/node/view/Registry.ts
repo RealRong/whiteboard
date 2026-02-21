@@ -8,8 +8,11 @@ import type {
   ViewSnapshot
 } from '@engine-types/instance/view'
 import type { Node, NodeId } from '@whiteboard/core'
-import { DEFAULT_TUNING } from '../../config'
-import { buildTransformHandles } from '../../node/utils/transform'
+import {
+  projectNodeHandles,
+  projectNodeItem,
+  type NodeViewContext
+} from './project'
 import { toLayerOrderedCanvasNodes } from '../query'
 import {
   createViewMetric,
@@ -19,13 +22,13 @@ import {
   markMetricRevision,
   measureNow,
   snapshotViewMetric
-} from './metrics'
+} from '../../../common/view/metrics'
 import {
   notifyListeners,
   watchEntity,
   watchSet,
   isSameIdOrder
-} from './shared'
+} from '../../../common/view/shared'
 
 type NodeViewItemEntry = ViewSnapshot['node.items'][number]
 type NodeHandleEntry = ViewSnapshot['node.transformHandles'] extends Map<
@@ -35,12 +38,7 @@ type NodeHandleEntry = ViewSnapshot['node.transformHandles'] extends Map<
   ? TValue
   : never
 type NodeItemsViewValue = ViewSnapshot['node.items']
-type NodeRenderContext = {
-  activeTool: 'select' | 'edge'
-  selectedNodeIds: Set<NodeId>
-  hoveredGroupId: NodeId | undefined
-  zoom: number
-}
+type NodeRenderContext = NodeViewContext
 type SyncCanvasNodesOptions = {
   dirtyNodeIds?: NodeId[]
   orderChanged?: boolean
@@ -80,29 +78,6 @@ export type NodeRegistry = {
   getNodeHandlesMetric: () => ViewDebugMetric
   resetNodeItemsMetric: () => void
   resetNodeHandlesMetric: () => void
-}
-
-const isSameHandleList = (
-  left: NodeHandleEntry | undefined,
-  right: NodeHandleEntry
-) => {
-  if (!left) return false
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    const leftHandle = left[index]
-    const rightHandle = right[index]
-    if (
-      leftHandle.id !== rightHandle.id ||
-      leftHandle.kind !== rightHandle.kind ||
-      leftHandle.direction !== rightHandle.direction ||
-      leftHandle.cursor !== rightHandle.cursor ||
-      leftHandle.position.x !== rightHandle.position.x ||
-      leftHandle.position.y !== rightHandle.position.y
-    ) {
-      return false
-    }
-  }
-  return true
 }
 
 const diffSelection = (
@@ -174,80 +149,16 @@ export const createNodeRegistry = ({
   const ensureMutableMap = <T>(current: Map<NodeId, T>, next: Map<NodeId, T>) =>
     next === current ? new Map(current) : next
 
-  const getNodeRect = (node: Node) =>
-    query.canvas.nodeRect(node.id)?.rect ?? {
-      x: node.position.x,
-      y: node.position.y,
-      width: node.size?.width ?? 0,
-      height: node.size?.height ?? 0
+  const resolveRenderContext = (context?: NodeRenderContext): NodeRenderContext =>
+    context ?? {
+      activeTool,
+      selectedNodeIds,
+      hoveredGroupId,
+      zoom
     }
-
-  const toNodeItem = (node: Node, context?: NodeRenderContext): NodeViewItemEntry => {
-    const nextTool = context?.activeTool ?? activeTool
-    const nextSelectedNodeIds = context?.selectedNodeIds ?? selectedNodeIds
-    const nextHoveredGroupId = context?.hoveredGroupId ?? hoveredGroupId
-    const nextZoom = context?.zoom ?? zoom
-    const rect = getNodeRect(node)
-    const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-    const transformBase = `translate(${rect.x}px, ${rect.y}px)`
-    const selected = nextTool === 'edge' ? false : nextSelectedNodeIds.has(node.id)
-    const hovered = nextHoveredGroupId === node.id
-    const previous = nodeItemsById.get(node.id)
-
-    if (
-      previous &&
-      previous.node === node &&
-      previous.rect === rect &&
-      previous.container.rotation === rotation &&
-      previous.container.transformBase === transformBase &&
-      previous.selected === selected &&
-      previous.hovered === hovered &&
-      previous.activeTool === nextTool &&
-      previous.zoom === nextZoom
-    ) {
-      return previous
-    }
-
-    return {
-      node,
-      rect,
-      container: {
-        transformBase,
-        rotation,
-        transformOrigin: 'center center'
-      },
-      selected,
-      hovered,
-      activeTool: nextTool,
-      zoom: nextZoom
-    }
-  }
-
-  const toNodeHandles = (node: Node, context?: NodeRenderContext): NodeHandleEntry | undefined => {
-    const nextTool = context?.activeTool ?? activeTool
-    const nextSelectedNodeIds = context?.selectedNodeIds ?? selectedNodeIds
-    const nextZoom = context?.zoom ?? zoom
-
-    if (nextTool !== 'select') return undefined
-    if (!nextSelectedNodeIds.has(node.id) || node.locked) return undefined
-
-    const previous = nodeHandlesById.get(node.id)
-    const rect = getNodeRect(node)
-    const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-    const next = buildTransformHandles({
-      rect,
-      rotation,
-      canRotate: true,
-      rotateHandleOffset: DEFAULT_TUNING.nodeTransform.rotateHandleOffset,
-      zoom: nextZoom
-    })
-    if (isSameHandleList(previous, next)) {
-      return previous
-    }
-    return next
-  }
 
   const syncNodeItemsByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
+    const resolvedContext = resolveRenderContext(context)
     let nextById = nodeItemsById
     const changedNodeIds: NodeId[] = []
 
@@ -262,7 +173,12 @@ export const createNodeRegistry = ({
         continue
       }
 
-      const next = toNodeItem(node, context)
+      const next = projectNodeItem({
+        node,
+        query,
+        context: resolvedContext,
+        previous
+      })
       if (previous === next) continue
       nextById = ensureMutableMap(nodeItemsById, nextById)
       nextById.set(nodeId, next)
@@ -280,6 +196,7 @@ export const createNodeRegistry = ({
   }
 
   const syncNodeHandlesByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
+    const resolvedContext = resolveRenderContext(context)
     const startedAt = measureNow()
     let nextById = nodeHandlesById
     const changedNodeIds: NodeId[] = []
@@ -287,7 +204,14 @@ export const createNodeRegistry = ({
     for (const nodeId of targetNodeIds) {
       const node = canvasNodeById.get(nodeId)
       const previous = nodeHandlesById.get(nodeId)
-      const next = node ? toNodeHandles(node, context) : undefined
+      const next = node
+        ? projectNodeHandles({
+          node,
+          query,
+          context: resolvedContext,
+          previous
+        })
+        : undefined
 
       if (!next) {
         if (!previous) continue

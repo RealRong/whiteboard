@@ -1,7 +1,7 @@
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
 import type { EdgeConnectState } from '@engine-types/state'
-import { DEFAULT_TUNING } from '../../config'
-import { clamp, getAnchorPoint, getRectCenter, rotatePoint } from '../geometry'
+import { DEFAULT_TUNING } from '../../../../config'
+import { clamp, getAnchorPoint, getRectCenter, rotatePoint } from '../../../../runtime/common/geometry'
 
 const getSideCenters = (rect: Rect) => ({
   top: { x: rect.x + rect.width / 2, y: rect.y },

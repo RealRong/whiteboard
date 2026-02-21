@@ -123,12 +123,28 @@ export class DomInputAdapter {
     }
   }
 
+  private resolveFocusTarget = (target: EventTarget | null): HTMLElement | null => {
+    if (!(target instanceof Element)) return null
+    const candidate = target.closest(
+      '[tabindex],a[href],button,input,select,textarea,[contenteditable=""],[contenteditable="true"]'
+    )
+    return candidate instanceof HTMLElement ? candidate : null
+  }
+
   private handleContainerPointerDown = (event: PointerEvent) => {
+    const container = this.instance.runtime.containerRef.current
     this.dispatchPointer(event, 'bubble', 'down', 'container')
-    this.instance.runtime.containerRef.current?.focus({ preventScroll: true })
-    if (event.target === this.instance.runtime.containerRef.current) {
+    if (event.target === container) {
+      container?.focus({ preventScroll: true })
       this.instance.commands.edge.select(undefined)
+      return
     }
+    const focusTarget = this.resolveFocusTarget(event.target)
+    if (focusTarget) {
+      focusTarget.focus({ preventScroll: true })
+      return
+    }
+    container?.focus({ preventScroll: true })
   }
 
   private handleContainerPointerDownCapture = (event: PointerEvent) => {

@@ -1,14 +1,15 @@
 import type { Core } from '@whiteboard/core'
-import type { ServiceContext } from '../../context'
+import type { ServiceRuntimeContext } from '../runtime/common/contracts'
 import type { RuntimeServices } from '@engine-types/instance/runtime'
-import { ContainerSizeObserver } from '../services/ContainerSizeObserver'
-import { GroupAutoFit } from '../services/GroupAutoFit'
-import { NodeSizeObserver } from '../services/NodeSizeObserver'
-import { ViewportNavigation } from '../services/ViewportNavigation'
+import { GroupAutoFit, NodeSizeObserver } from '../runtime/actors/node/services'
+import {
+  ContainerSizeObserver,
+  ViewportNavigation
+} from '../runtime/actors/viewport/services'
 
 export const createServices = (
   core: Core,
-  context: ServiceContext
+  context: ServiceRuntimeContext
 ): RuntimeServices => {
   return {
     nodeSizeObserver: new NodeSizeObserver(core),

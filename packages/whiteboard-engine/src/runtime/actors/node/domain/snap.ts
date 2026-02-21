@@ -1,7 +1,7 @@
 import type { Rect } from '@whiteboard/core'
 import type { GridIndex, Guide, SnapCandidate, SnapEdge, SnapResult } from '@engine-types/node/snap'
 import type { Size } from '@engine-types/common'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../../config'
 
 type HorizontalResizeEdge = 'left' | 'right'
 type VerticalResizeEdge = 'top' | 'bottom'

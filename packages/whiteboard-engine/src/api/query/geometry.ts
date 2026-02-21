@@ -3,7 +3,7 @@ import type { QueryGeometry } from '@engine-types/instance/query'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
-} from '../../kernel/query'
+} from '../../runtime/actors/edge/query'
 
 type Options = {
   config: InstanceConfig

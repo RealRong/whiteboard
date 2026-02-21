@@ -1,4 +1,4 @@
-import { RevisionStore } from '../store'
+import { RevisionStore } from './RevisionStore'
 import {
   DEFAULT_SAMPLE_WINDOW_SIZE,
   percentile,

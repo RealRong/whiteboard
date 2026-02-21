@@ -1,5 +1,5 @@
 export { createEngine } from './instance'
-export { applySelectionMode, getSelectionModeFromEvent } from './node/utils/selection'
+export { applySelectionMode, getSelectionModeFromEvent } from './runtime/actors/node/domain'
 export {
   DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG,
@@ -13,15 +13,19 @@ export {
 
 export type { Commands } from './types/commands'
 export type {
-  Change,
-  ChangeSet,
-  ChangeSetInput,
-  ChangeSource,
+  Command,
+  CommandBatch,
+  CommandBatchInput,
+  CommandSource,
   ApplyOptions,
   ApplyMetrics,
-  AppliedChangeSummary,
+  AppliedCommandSummary,
   ApplyResult
-} from './types/change'
+} from './types/command'
+export type {
+  Mutation,
+  MutationBatch
+} from './types/mutation'
 export type {
   CreateEngineOptions,
   Instance,

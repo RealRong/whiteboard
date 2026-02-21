@@ -5,7 +5,7 @@ import type {
   Point,
   Size
 } from '@whiteboard/core'
-import type { NodeOverride } from '../overrides'
+import type { NodeOverride } from './NodeOverride'
 import { buildIndexById } from './shared'
 
 type ViewNodesCache = {

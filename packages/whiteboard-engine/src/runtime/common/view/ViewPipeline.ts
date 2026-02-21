@@ -1,16 +1,19 @@
 import type { GraphChange } from '@engine-types/graph'
 import type { State, StateKey } from '@engine-types/instance/state'
-import { toChangeView } from '../../graph/change'
+import { toChangeView } from '../../actors/graph/sync/ChangeView'
+import type { EdgeRegistry } from '../../actors/edge/view'
+import type { MindmapRegistry } from '../../actors/mindmap/view'
 import {
   shouldSyncCanvasNodes,
   shouldSyncDerivedEdgePaths,
   shouldSyncDerivedMindmapTrees,
   toProjectionInvalidation
-} from '../../graph/GraphSyncPolicy'
-import type { EdgeRegistry } from '../view/edgeRegistry'
-import type { MindmapRegistry } from '../view/mindmapRegistry'
-import type { NodeRegistry, NodeStateSyncKey } from '../view/nodeRegistry'
-import type { ViewDependencyKey } from '../view/register'
+} from '../../actors/graph/sync/Policy'
+import type {
+  NodeRegistry,
+  NodeStateSyncKey
+} from '../../actors/node/view'
+import type { ViewDependencyKey } from './register'
 
 type Options = {
   state: State
@@ -35,7 +38,7 @@ type DerivedSyncKey =
   | 'edge.paths'
   | 'mindmap.trees'
 
-export class KernelPipeline {
+export class ViewPipeline {
   private readonly state: Options['state']
   private readonly derived: Options['derived']
   private readonly node: Options['node']

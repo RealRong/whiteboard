@@ -3,16 +3,19 @@ import type {
   Node,
   NodeId
 } from '@whiteboard/core'
-import { NodeOverrideState } from './cache/NodeOverrideState'
-import type { GraphSnapshot, NodeViewUpdate } from './types'
+import { NodeOverrideState } from './NodeOverrideState'
+import type { GraphSnapshot, NodeViewUpdate } from '../types'
 import {
   orderByIds,
   patchNodeListByIds
-} from './cache/shared'
-import { SnapshotState } from './cache/SnapshotState'
-import { ViewNodesState } from './cache/ViewNodesState'
-import { VisibleEdgesState } from './cache/VisibleEdgesState'
-import { deriveCanvasNodes, deriveVisibleNodes } from './cache/visibility'
+} from './shared'
+import {
+  deriveCanvasNodes,
+  deriveVisibleNodes
+} from '../../node/domain'
+import { SnapshotState } from './SnapshotState'
+import { ViewNodesState } from './ViewNodesState'
+import { VisibleEdgesState } from './VisibleEdgesState'
 
 export class GraphCache {
   private readonly nodeOverrides = new NodeOverrideState()

@@ -2,9 +2,11 @@ import {
   createCore,
   type Document,
   type Edge,
-  type Node
+  type Node,
+  type Point
 } from '@whiteboard/core'
 import { createEngine } from '../instance/create'
+import type { PointerInputEvent } from '@engine-types/input'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -126,6 +128,55 @@ const average = (values: number[]) =>
 
 const format = (value: number) => `${value.toFixed(4)}ms`
 
+const createPointerEvent = (options: {
+  phase: 'down' | 'move' | 'up'
+  pointerId: number
+  nodeId: string
+  client: Point
+  clickCount?: number
+}): PointerInputEvent => {
+  const { phase, pointerId, nodeId, client, clickCount = 1 } = options
+  return {
+    kind: 'pointer',
+    stage: 'bubble',
+    phase,
+    clickCount,
+    pointer: {
+      pointerId,
+      button: 0,
+      client,
+      screen: client,
+      world: client,
+      modifiers: {
+        alt: false,
+        shift: false,
+        ctrl: false,
+        meta: false
+      }
+    },
+    pointerId,
+    pointerType: 'mouse',
+    button: 0,
+    buttons: phase === 'up' ? 0 : 1,
+    client,
+    screen: client,
+    modifiers: {
+      shift: false,
+      alt: false,
+      ctrl: false,
+      meta: false,
+      space: false
+    },
+    target: {
+      surface: 'canvas',
+      role: 'node',
+      nodeId
+    },
+    timestamp: now(),
+    source: 'container'
+  }
+}
+
 const main = () => {
   ensureRaf()
 
@@ -165,23 +216,15 @@ const main = () => {
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
     const startClient = { x: 0, y: 0 }
-    const started = instance.runtime.interaction.nodeDrag.start({
-      nodeId: movingNodeId,
-      pointer: {
+    instance.input.handle(
+      createPointerEvent({
+        phase: 'down',
         pointerId,
-        button: 0,
-        client: startClient,
-        screen: startClient,
-        world: startClient,
-        modifiers: {
-          alt: false,
-          shift: false,
-          ctrl: false,
-          meta: false
-        }
-      }
-    })
-    if (!started) {
+        nodeId: movingNodeId,
+        client: startClient
+      })
+    )
+    if (!instance.state.read('nodeDrag').active) {
       throw new Error(`nodeDrag.start failed at run ${run + 1}`)
     }
 
@@ -190,21 +233,14 @@ const main = () => {
         x: frame * 1.2,
         y: frame * 0.8 + Math.sin(frame / 10) * 6
       }
-      instance.runtime.interaction.nodeDrag.update({
-        pointer: {
+      instance.input.handle(
+        createPointerEvent({
+          phase: 'move',
           pointerId,
-          button: 0,
-          client,
-          screen: client,
-          world: client,
-          modifiers: {
-            alt: false,
-            shift: false,
-            ctrl: false,
-            meta: false
-          }
-        }
-      })
+          nodeId: movingNodeId,
+          client
+        })
+      )
     }
 
     const samples: number[] = []
@@ -216,39 +252,25 @@ const main = () => {
         y: clientY
       }
       const startedAt = now()
-      instance.runtime.interaction.nodeDrag.update({
-        pointer: {
+      instance.input.handle(
+        createPointerEvent({
+          phase: 'move',
           pointerId,
-          button: 0,
-          client,
-          screen: client,
-          world: client,
-          modifiers: {
-            alt: false,
-            shift: false,
-            ctrl: false,
-            meta: false
-          }
-        }
-      })
+          nodeId: movingNodeId,
+          client
+        })
+      )
       samples.push(now() - startedAt)
     }
 
-    instance.runtime.interaction.nodeDrag.end({
-      pointer: {
+    instance.input.handle(
+      createPointerEvent({
+        phase: 'up',
         pointerId,
-        button: 0,
-        client: { x: 0, y: 0 },
-        screen: { x: 0, y: 0 },
-        world: { x: 0, y: 0 },
-        modifiers: {
-          alt: false,
-          shift: false,
-          ctrl: false,
-          meta: false
-        }
-      }
-    })
+        nodeId: movingNodeId,
+        client: { x: 0, y: 0 }
+      })
+    )
     core.model.node.update(movingNodeId, { position: basePosition })
     syncDoc(docRef.current)
     runSamples.push(samples)

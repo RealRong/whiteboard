@@ -1,9 +1,7 @@
 import { useCallback } from 'react'
-import type { PointerEvent } from 'react'
 import type { MindmapNodeId } from '@whiteboard/core'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
-import { toPointerInput } from '../../common/pointerInput'
 import { MindmapNodeItem } from './MindmapNodeItem'
 
 type MindmapTreeViewProps = {
@@ -18,21 +16,6 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
   const treeDrag = drag?.treeId === mindmapNode.id ? drag : undefined
   const dragPreview = treeDrag?.preview
   const baseOffset = treeDrag?.baseOffset ?? mindmapNode.position
-
-  const handlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => {
-      if (event.button !== 0) return
-      const handled = instance.runtime.interaction.mindmapDrag.start({
-        treeId: mindmapNode.id,
-        nodeId,
-        pointer: toPointerInput(instance, event)
-      })
-      if (!handled) return
-      event.preventDefault()
-      event.stopPropagation()
-    },
-    [instance, instance.runtime.interaction.mindmapDrag, mindmapNode.id]
-  )
 
   const handleAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
@@ -50,7 +33,11 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
   )
 
   return (
-    <div className="wb-mindmap-tree" style={{ transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)` }}>
+    <div
+      className="wb-mindmap-tree"
+      data-mindmap-tree-id={mindmapNode.id}
+      style={{ transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)` }}
+    >
       <svg width={computed.bbox.width} height={computed.bbox.height} className="wb-mindmap-tree-canvas">
         {lines.map((line) => (
           <line
@@ -82,7 +69,6 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
             attachTarget={attachTarget}
             showActions={!dragPreview}
             dragPreviewActive={Boolean(dragPreview)}
-            onPointerDown={handlePointerDown}
             onAddChild={handleAddChild}
           />
         )

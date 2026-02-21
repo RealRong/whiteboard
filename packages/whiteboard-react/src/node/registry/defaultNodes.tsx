@@ -52,24 +52,19 @@ const TextNodeRenderer = ({
   const content = editing ? (
     <textarea
       data-selection-ignore
+      data-input-ignore
       className="wb-default-text-editor"
       value={draft}
       autoFocus
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={onKeyDown}
       onBlur={commit}
-      onPointerDown={(event) => {
-        event.stopPropagation()
-      }}
       style={{ fontSize: variant === 'sticky' ? 14 : 13 }}
     />
   ) : (
     <div
       className="wb-default-text-display"
-      onDoubleClick={(event) => {
-        event.stopPropagation()
-        setEditing(true)
-      }}
+      onDoubleClick={() => setEditing(true)}
       style={{
         fontSize: variant === 'sticky' ? 14 : 13,
         opacity: selected ? 1 : 0.9
@@ -109,18 +104,16 @@ const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
       >
         <div
           className="wb-default-group-toggle"
+          data-input-ignore
           data-selection-ignore
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation()
-            toggleCollapse()
-          }}
+          onClick={toggleCollapse}
         >
           {collapsed ? '+' : '-'}
         </div>
         {editing ? (
           <input
             data-selection-ignore
+            data-input-ignore
             value={draft}
             autoFocus
             onChange={(event) => setDraft(event.target.value)}
@@ -141,10 +134,7 @@ const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
         ) : (
           <div
             className="wb-default-group-title"
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-              setEditing(true)
-            }}
+            onDoubleClick={() => setEditing(true)}
           >
             {title || 'Group'}
           </div>

@@ -1,6 +1,6 @@
-import type { LifecycleContext } from '../../context'
+import type { LifecycleRuntimeContext } from '../common/contracts'
 
-type ContainerContext = Pick<LifecycleContext, 'runtime'>
+type ContainerContext = Pick<LifecycleRuntimeContext, 'runtime'>
 
 type ContainerControllerOptions = {
   context: ContainerContext

@@ -1,5 +1,5 @@
 import type { EdgeAnchor, Point, Rect } from '@whiteboard/core'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 import { rotatePoint } from './point'
 import { getRectCenter } from './rect'
 

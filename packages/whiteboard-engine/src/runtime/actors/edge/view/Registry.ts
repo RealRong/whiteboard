@@ -8,7 +8,7 @@ import {
   notifyListeners,
   watchEntity,
   watchSet
-} from './shared'
+} from '../../../common/view/shared'
 
 type EdgePathViewEntry = ViewSnapshot['edge.paths'][number]
 

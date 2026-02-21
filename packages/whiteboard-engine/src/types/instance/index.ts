@@ -49,7 +49,6 @@ export type {
 
 export type {
   RuntimeDom,
-  RuntimeInteraction,
   Runtime,
   RuntimeInternal,
   RuntimeServices,

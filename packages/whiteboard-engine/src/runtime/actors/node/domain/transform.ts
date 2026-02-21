@@ -1,8 +1,8 @@
 import type { Point, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { ResizeDirection, TransformHandle } from '@engine-types/node'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
-import { getRectCenter, rotatePoint } from '../../kernel/geometry'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
+import { getRectCenter, rotatePoint } from '../../../../runtime/common/geometry'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1

@@ -1,31 +1,62 @@
 import type { PointerSession } from '@engine-types/input'
 
+const resolveSelectionMode = (modifiers: {
+  alt: boolean
+  shift: boolean
+  ctrl: boolean
+  meta: boolean
+}) => {
+  if (modifiers.alt) return 'subtract'
+  if (modifiers.meta || modifiers.ctrl) return 'toggle'
+  if (modifiers.shift) return 'add'
+  return 'replace'
+}
+
 export const createNodeDrag = (): PointerSession => ({
   kind: 'nodeDrag',
   priority: 90,
   canStart: (event, context) => {
     const active = context.state.read('nodeDrag').active
-    if (!active) return false
-    return active.pointerId === event.pointerId
+    if (active) {
+      return active.pointerId === event.pointerId
+    }
+    if (event.phase !== 'down') return false
+    if (event.source !== 'container') return false
+    if (event.button !== 0) return false
+    if (event.modifiers.space) return false
+    if (context.state.read('tool') === 'edge') return false
+    return event.target.role === 'node' && Boolean(event.target.nodeId)
   },
   start: (event, context) => {
     const active = context.state.read('nodeDrag').active
-    if (!active) return null
-    if (active.pointerId !== event.pointerId) return null
+    if (active) {
+      if (active.pointerId !== event.pointerId) return null
+    } else {
+      const nodeId = event.target.nodeId
+      if (!nodeId) return null
+      const nodeRect = context.query.canvas.nodeRect(nodeId)
+      if (!nodeRect || nodeRect.node.locked) return null
+
+      const mode = resolveSelectionMode(event.modifiers)
+      if (mode === 'toggle') {
+        context.commands.selection.toggle([nodeId])
+      } else {
+        context.commands.selection.select([nodeId], mode)
+      }
+
+      const started = context.actors.node.startDrag(nodeId, event.pointer)
+      if (!started) return null
+    }
     return {
       pointerId: event.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.runtime.interaction.nodeDrag.update({
-          pointer: nextEvent.pointer
-        })
+        nextContext.actors.node.updateDrag(nextEvent.pointer)
       },
       end: (nextEvent, nextContext) => {
-        nextContext.runtime.interaction.nodeDrag.end({
-          pointer: nextEvent.pointer
-        })
+        nextContext.actors.node.endDrag(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.runtime.interaction.nodeDrag.cancel()
+        nextContext.actors.node.cancelDrag()
       }
     }
   }

@@ -1,41 +1,30 @@
 import type {
   ApplyDispatchResult,
-  AppliedChangeSummary,
+  AppliedCommandSummary,
   ApplyApi,
   ApplyOptions,
   ApplyResult,
-  Change,
-  ChangeSet,
-  ChangeSource,
-  ChangeSetInput,
+  Command,
+  CommandBatch,
+  CommandBatchInput,
   TxApi
-} from '@engine-types/change'
-import type { InstanceEventMap } from '@engine-types/instance/events'
+} from '@engine-types/command'
 import type { Operation } from '@whiteboard/core'
-import type { ChangePipelineContext } from '../context'
-import { GraphSync } from './GraphSync'
-import { normalizeChangeSet } from './normalize'
-import { reduceChangeSet } from './reduce'
-import { validateChangeSetInput } from './validate'
+import type { CommandPipelineRuntimeContext } from '../../../common/contracts'
+import { dispatchCommandBatch } from './execute'
+import { normalizeCommandBatch } from './normalize'
+import { validateCommandBatchInput } from './validate'
 
-type ChangePipeline = {
+type CommandPipeline = {
   apply: ApplyApi
   tx: TxApi
 }
 
-export const createChangePipeline = ({
+export const createCommandPipeline = ({
   instance,
   replaceDoc,
-  syncGraph,
-  emit,
   now: getNow
-}: ChangePipelineContext): ChangePipeline => {
-  const toDocOrigin = (source: ChangeSource): InstanceEventMap['doc.changed']['origin'] => {
-    if (source === 'remote') return 'remote'
-    if (source === 'system' || source === 'import') return 'system'
-    return 'user'
-  }
-
+}: CommandPipelineRuntimeContext): CommandPipeline => {
   const collectOperations = (
     dispatchResults: ApplyDispatchResult[]
   ): Operation[] => {
@@ -47,21 +36,16 @@ export const createChangePipeline = ({
     return operations
   }
 
-  const toOperationTypes = (operations: Operation[], changeSet: ChangeSet): string[] => {
+  const toOperationTypes = (operations: Operation[], commandBatch: CommandBatch): string[] => {
     const types = new Set<string>()
     operations.forEach((operation) => {
       types.add(operation.type)
     })
-    if (changeSet.changes.some((change) => change.type === 'doc.reset')) {
+    if (commandBatch.commands.some((command) => command.type === 'doc.reset')) {
       types.add('doc.reset')
     }
     return Array.from(types)
   }
-
-  const graphSync = GraphSync.fromOptions({
-    graph: instance.graph,
-    getNodes: () => instance.runtime.core.query.node.list()
-  })
 
   const now = getNow ?? (() => {
     const runtime = globalThis as { performance?: { now?: () => number } }
@@ -71,70 +55,54 @@ export const createChangePipeline = ({
     return Date.now()
   })
 
-  const apply: ApplyApi = async (input: ChangeSetInput, options?: ApplyOptions): Promise<ApplyResult> => {
+  const apply: ApplyApi = async (input: CommandBatchInput, options?: ApplyOptions): Promise<ApplyResult> => {
     const startedAt = now()
-    const validated = validateChangeSetInput(input)
-    const changeSet = normalizeChangeSet(validated, options, {
+    const validated = validateCommandBatchInput(input)
+    const commandBatch = normalizeCommandBatch(validated, options, {
       docId: instance.runtime.docRef.current?.id,
       source: 'system'
     })
-    const dispatchResults = await reduceChangeSet(
+    const dispatchResults = await dispatchCommandBatch(
       {
         core: instance.runtime.core,
         graph: instance.graph,
-        docRef: instance.runtime.docRef,
-        replaceDoc
+        docRef: instance.runtime.docRef
       },
-      changeSet
+      commandBatch
     )
     const operations = collectOperations(dispatchResults)
-    graphSync.syncByOperations(operations)
-
     const docAfter = instance.runtime.docRef.current ?? null
     replaceDoc(docAfter)
-    const graphChange = instance.graph.flush('doc')
-    if (graphChange) {
-      syncGraph(graphChange)
-    }
 
-    const operationTypes = toOperationTypes(operations, changeSet)
+    const operationTypes = toOperationTypes(operations, commandBatch)
 
-    const summary: AppliedChangeSummary = {
-      id: changeSet.id,
-      docId: changeSet.docId ?? docAfter?.id,
-      source: changeSet.source,
-      actor: changeSet.actor,
-      timestamp: changeSet.timestamp,
-      types: changeSet.changes.map((change) => change.type),
+    const summary: AppliedCommandSummary = {
+      id: commandBatch.id,
+      docId: commandBatch.docId ?? docAfter?.id,
+      source: commandBatch.source,
+      actor: commandBatch.actor,
+      timestamp: commandBatch.timestamp,
+      commandTypes: commandBatch.commands.map((command) => command.type),
       operationTypes,
       metrics: {
         durationMs: now() - startedAt,
-        changeCount: changeSet.changes.length,
+        commandCount: commandBatch.commands.length,
         dispatchCount: dispatchResults.length
       }
     }
 
-    if (operationTypes.length) {
-      emit('doc.changed', {
-        docId: summary.docId,
-        operationTypes,
-        origin: toDocOrigin(changeSet.source)
-      })
-    }
-    emit('change.applied', summary)
-
     return {
-      changeSet,
+      commandBatch,
       dispatchResults,
       summary
     }
   }
 
   const tx: TxApi = async (run, options) => {
-    const pending: Change[] = []
+    const pending: Command[] = []
     const value = await run({
-      add: (...changes) => {
-        pending.push(...changes)
+      add: (...commands) => {
+        pending.push(...commands)
       }
     })
     if (!pending.length) return value

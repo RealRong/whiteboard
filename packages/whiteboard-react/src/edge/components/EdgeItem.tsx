@@ -1,5 +1,5 @@
 import type { Edge, Point } from '@whiteboard/core'
-import type { CSSProperties, MouseEvent, PointerEvent } from 'react'
+import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
 
@@ -8,8 +8,6 @@ type EdgeItemProps = {
   path: { svgPath: string; points: Point[] }
   hitTestThresholdScreen: number
   selected?: boolean
-  onPathPointerDown?: (edge: Edge, pathPoints: Point[], event: PointerEvent<SVGPathElement>) => void
-  onPathClick?: (edge: Edge, pathPoints: Point[], event: MouseEvent<SVGPathElement>) => void
 }
 
 const resolveMarker = (value: string | undefined, fallbackId: string) => {
@@ -51,8 +49,6 @@ const areEdgeItemPropsEqual = (prevProps: EdgeItemProps, nextProps: EdgeItemProp
     && prevProps.selected === nextProps.selected
     && prevProps.hitTestThresholdScreen === nextProps.hitTestThresholdScreen
     && prevProps.path === nextProps.path
-    && prevProps.onPathPointerDown === nextProps.onPathPointerDown
-    && prevProps.onPathClick === nextProps.onPathClick
     && isEdgeStyleEqual(prevProps.edge, nextProps.edge)
   )
 }
@@ -61,9 +57,7 @@ const EdgeItemBase = ({
   edge,
   path,
   hitTestThresholdScreen,
-  selected,
-  onPathPointerDown,
-  onPathClick
+  selected
 }: EdgeItemProps) => {
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useMemo(() => {
     const baseStroke = edge.style?.stroke ?? '#2f2f33'
@@ -95,6 +89,7 @@ const EdgeItemBase = ({
   return (
     <g
       className="wb-edge-item"
+      data-edge-id={edge.id}
       data-selected={selected ? 'true' : 'false'}
       style={{ '--wb-edge-hover-stroke-width': `${hoverStrokeWidth}` } as CSSProperties}
     >
@@ -105,8 +100,6 @@ const EdgeItemBase = ({
         strokeWidth={hitWidth}
         vectorEffect="non-scaling-stroke"
         pointerEvents="stroke"
-        onPointerDown={onPathPointerDown ? (event) => onPathPointerDown(edge, path.points, event) : undefined}
-        onClick={onPathClick ? (event) => onPathClick(edge, path.points, event) : undefined}
         tabIndex={0}
         className="wb-edge-hit-path"
       />

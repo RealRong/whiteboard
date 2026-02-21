@@ -1,10 +1,15 @@
 import type { Node } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
-import type { ServiceContext } from '../../context'
-import { DEFAULT_TUNING } from '../../config'
-import { getNodeAABB } from '../../kernel/geometry'
-import { expandGroupRect, getGroupDescendants, getNodesBoundingRect, rectEquals } from '../../node/utils/group'
+import type { ServiceRuntimeContext } from '../../../common/contracts'
+import { DEFAULT_TUNING } from '../../../../config'
+import { getNodeAABB } from '../../../../runtime/common/geometry'
+import {
+  expandGroupRect,
+  getGroupDescendants,
+  getNodesBoundingRect,
+  rectEquals
+} from '../domain'
 
 type Snapshot = {
   nodeMap: Map<string, Node>
@@ -142,7 +147,7 @@ const applyGroupAutoFit = ({
   nodeSize,
   defaultPadding
 }: {
-  apply: ServiceContext['apply']
+  apply: ServiceRuntimeContext['apply']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -176,7 +181,7 @@ const applyGroupAutoFit = ({
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {
-  private context: ServiceContext
+  private context: ServiceRuntimeContext
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
@@ -184,7 +189,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
   private pendingSync = false
   private scheduleVersion = 0
 
-  constructor(context: ServiceContext) {
+  constructor(context: ServiceRuntimeContext) {
     this.context = context
   }
 
@@ -254,9 +259,9 @@ export class GroupAutoFit implements GroupAutoFitApi {
   start: GroupAutoFitApi['start'] = () => {
     this.stop()
 
-    const offAfter = this.context.events.on('change.applied', ({ types, operationTypes }) => {
+    const offAfter = this.context.events.on('command.applied', ({ commandTypes, operationTypes }) => {
       const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
-      const hasRelevantChange = hasNodeOperation || types.includes('doc.reset')
+      const hasRelevantChange = hasNodeOperation || commandTypes.includes('doc.reset')
       if (!hasRelevantChange) return
       this.scheduleSync()
     })

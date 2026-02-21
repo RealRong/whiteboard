@@ -1,5 +1,5 @@
 import type { Point } from '@whiteboard/core'
-import { distancePointToSegment } from '../geometry'
+import { distancePointToSegment } from '../../../../runtime/common/geometry'
 
 export const getNearestEdgeSegment = (pointWorld: Point, pathPoints: Point[]) => {
   if (pathPoints.length < 2) return 0

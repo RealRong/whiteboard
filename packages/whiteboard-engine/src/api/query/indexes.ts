@@ -7,13 +7,13 @@ import type { CanvasNodeRect } from '@engine-types/instance/view'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import { DEFAULT_TUNING } from '../../config'
-import { toNodeStateSignature, toRectSignature } from '../../kernel/cache'
-import { getNodeAABB, getNodeRect } from '../../kernel/geometry'
+import { toNodeStateSignature, toRectSignature } from '../../runtime/common/cache'
+import { getNodeAABB, getNodeRect } from '../../runtime/common/geometry'
 import {
   DEFAULT_SAMPLE_WINDOW_SIZE,
   percentile,
   pushSample
-} from '../../kernel/perf/sampling'
+} from '../../runtime/common/perf/sampling'
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'

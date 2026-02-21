@@ -12,7 +12,7 @@ import type {
 } from '@whiteboard/core'
 import type { SelectionMode } from '@engine-types/state'
 import { DEFAULT_TUNING } from '../../config'
-import { getGroupDescendants } from '../../node/utils/group'
+import { getGroupDescendants } from '../../runtime/actors/node/domain'
 
 type ShortcutSelectionApi = {
   select: (ids: NodeId[], mode?: SelectionMode) => void

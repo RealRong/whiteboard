@@ -1,7 +1,7 @@
 import { getSide, type MindmapNodeId, type MindmapTree } from '@whiteboard/core'
 import type { MindmapLayoutOptions, Rect } from '@whiteboard/core'
 import type { MindmapDragDropTarget } from '@engine-types/state'
-import { DEFAULT_TUNING } from '../config'
+import { DEFAULT_TUNING } from '../../../../config'
 
 type ComputeEdgeAlignmentResult = {
   key: 'left-to-right' | 'right-to-left' | 'top-to-bottom' | 'bottom-to-top'

@@ -1,1 +1,0 @@
-export { createDerivedRegistry } from './registry'

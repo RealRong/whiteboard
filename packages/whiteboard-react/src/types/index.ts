@@ -17,8 +17,6 @@ export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 export type {
   NodeContainerProps,
   NodeDefinition,
-  NodeHandleSide,
-  NodeHandlesProps,
   NodeItemProps,
   NodeRegistry,
   NodeRenderProps,

@@ -1,6 +1,6 @@
 import type { Edge } from '@whiteboard/core'
 import type { EdgeEndpoints } from '@engine-types/instance/view'
-import { getAnchorPoint, getRectCenter } from '../../geometry'
+import { getAnchorPoint, getRectCenter } from '../../../../../runtime/common/geometry'
 import { getAutoAnchorFromRect } from '../../query'
 import type { NodeRectReader, ResolveEndpoints } from './types'
 

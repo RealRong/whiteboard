@@ -1,6 +1,9 @@
 import type { GraphChange, GraphProjector } from '@engine-types/graph'
-import { toChangeView } from '../../graph/change'
-import { hasDirtyNodeHints, shouldSyncCanvasNodes } from '../../graph/GraphSyncPolicy'
+import { toChangeView } from '../../runtime/actors/graph/sync/ChangeView'
+import {
+  hasDirtyNodeHints,
+  shouldSyncCanvasNodes
+} from '../../runtime/actors/graph/sync/Policy'
 import type { QueryIndexes } from './indexes'
 
 type Options = {

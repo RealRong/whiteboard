@@ -5,7 +5,7 @@ import {
   notifyListeners,
   watchEntity,
   watchSet
-} from './shared'
+} from '../../../common/view/shared'
 
 type MindmapTreeViewEntry = ViewSnapshot['mindmap.trees'][number]
 

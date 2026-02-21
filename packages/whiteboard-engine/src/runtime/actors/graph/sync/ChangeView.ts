@@ -20,8 +20,3 @@ export const toChangeView = (change: GraphChange): GraphChangeView => ({
   dirtyNodeIds: change.kind === 'partial' ? change.dirtyNodeIds : undefined,
   orderChanged: change.kind === 'partial' ? change.orderChanged : undefined
 })
-
-export const hasProjectionChange = (change: GraphChange) =>
-  change.projection.visibleNodesChanged ||
-  change.projection.canvasNodesChanged ||
-  change.projection.visibleEdgesChanged

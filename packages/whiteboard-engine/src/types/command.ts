@@ -21,7 +21,7 @@ import type {
   Viewport
 } from '@whiteboard/core'
 
-export type ChangeSource =
+export type CommandSource =
   | 'ui'
   | 'shortcut'
   | 'remote'
@@ -30,155 +30,155 @@ export type ChangeSource =
   | 'command'
   | 'interaction'
 
-type ChangeBase<TType extends string> = {
+type CommandBase<TType extends string> = {
   type: TType
 }
 
-export type DocResetChange = ChangeBase<'doc.reset'> & {
+export type DocResetCommand = CommandBase<'doc.reset'> & {
   doc: Document
 }
 
-export type NodeCreateChange = ChangeBase<'node.create'> & {
+export type NodeCreateCommand = CommandBase<'node.create'> & {
   payload: NodeInput
 }
 
-export type NodeUpdateChange = ChangeBase<'node.update'> & {
+export type NodeUpdateCommand = CommandBase<'node.update'> & {
   id: NodeId
   patch: NodePatch
 }
 
-export type NodeDeleteChange = ChangeBase<'node.delete'> & {
+export type NodeDeleteCommand = CommandBase<'node.delete'> & {
   ids: NodeId[]
 }
 
-export type NodeMoveChange = ChangeBase<'node.move'> & {
+export type NodeMoveCommand = CommandBase<'node.move'> & {
   ids: NodeId[]
   delta: Point
 }
 
-export type NodeResizeChange = ChangeBase<'node.resize'> & {
+export type NodeResizeCommand = CommandBase<'node.resize'> & {
   id: NodeId
   size: Size
 }
 
-export type NodeRotateChange = ChangeBase<'node.rotate'> & {
+export type NodeRotateCommand = CommandBase<'node.rotate'> & {
   id: NodeId
   angle: number
 }
 
-export type EdgeCreateChange = ChangeBase<'edge.create'> & {
+export type EdgeCreateCommand = CommandBase<'edge.create'> & {
   payload: EdgeInput
 }
 
-export type EdgeUpdateChange = ChangeBase<'edge.update'> & {
+export type EdgeUpdateCommand = CommandBase<'edge.update'> & {
   id: EdgeId
   patch: EdgePatch
 }
 
-export type EdgeDeleteChange = ChangeBase<'edge.delete'> & {
+export type EdgeDeleteCommand = CommandBase<'edge.delete'> & {
   ids: EdgeId[]
 }
 
-export type EdgeConnectChange = ChangeBase<'edge.connect'> & {
+export type EdgeConnectCommand = CommandBase<'edge.connect'> & {
   source: { nodeId: NodeId; anchor?: EdgeAnchor }
   target: { nodeId: NodeId; anchor?: EdgeAnchor }
 }
 
-export type EdgeReconnectChange = ChangeBase<'edge.reconnect'> & {
+export type EdgeReconnectCommand = CommandBase<'edge.reconnect'> & {
   id: EdgeId
   end: 'source' | 'target'
   ref: { nodeId: NodeId; anchor?: EdgeAnchor }
 }
 
-export type NodeOrderSetChange = ChangeBase<'node.order.set'> & {
+export type NodeOrderSetCommand = CommandBase<'node.order.set'> & {
   ids: NodeId[]
 }
 
-export type NodeOrderBringToFrontChange = ChangeBase<'node.order.bringToFront'> & {
+export type NodeOrderBringToFrontCommand = CommandBase<'node.order.bringToFront'> & {
   ids: NodeId[]
 }
 
-export type NodeOrderSendToBackChange = ChangeBase<'node.order.sendToBack'> & {
+export type NodeOrderSendToBackCommand = CommandBase<'node.order.sendToBack'> & {
   ids: NodeId[]
 }
 
-export type NodeOrderBringForwardChange = ChangeBase<'node.order.bringForward'> & {
+export type NodeOrderBringForwardCommand = CommandBase<'node.order.bringForward'> & {
   ids: NodeId[]
 }
 
-export type NodeOrderSendBackwardChange = ChangeBase<'node.order.sendBackward'> & {
+export type NodeOrderSendBackwardCommand = CommandBase<'node.order.sendBackward'> & {
   ids: NodeId[]
 }
 
-export type EdgeOrderSetChange = ChangeBase<'edge.order.set'> & {
+export type EdgeOrderSetCommand = CommandBase<'edge.order.set'> & {
   ids: EdgeId[]
 }
 
-export type EdgeOrderBringToFrontChange = ChangeBase<'edge.order.bringToFront'> & {
+export type EdgeOrderBringToFrontCommand = CommandBase<'edge.order.bringToFront'> & {
   ids: EdgeId[]
 }
 
-export type EdgeOrderSendToBackChange = ChangeBase<'edge.order.sendToBack'> & {
+export type EdgeOrderSendToBackCommand = CommandBase<'edge.order.sendToBack'> & {
   ids: EdgeId[]
 }
 
-export type EdgeOrderBringForwardChange = ChangeBase<'edge.order.bringForward'> & {
+export type EdgeOrderBringForwardCommand = CommandBase<'edge.order.bringForward'> & {
   ids: EdgeId[]
 }
 
-export type EdgeOrderSendBackwardChange = ChangeBase<'edge.order.sendBackward'> & {
+export type EdgeOrderSendBackwardCommand = CommandBase<'edge.order.sendBackward'> & {
   ids: EdgeId[]
 }
 
-export type GroupCreateChange = ChangeBase<'group.create'> & {
+export type GroupCreateCommand = CommandBase<'group.create'> & {
   ids: NodeId[]
 }
 
-export type GroupUngroupChange = ChangeBase<'group.ungroup'> & {
+export type GroupUngroupCommand = CommandBase<'group.ungroup'> & {
   id: NodeId
 }
 
-export type ViewportSetChange = ChangeBase<'viewport.set'> & {
+export type ViewportSetCommand = CommandBase<'viewport.set'> & {
   viewport: Viewport
 }
 
-export type ViewportPanByChange = ChangeBase<'viewport.panBy'> & {
+export type ViewportPanByCommand = CommandBase<'viewport.panBy'> & {
   delta: Point
 }
 
-export type ViewportZoomByChange = ChangeBase<'viewport.zoomBy'> & {
+export type ViewportZoomByCommand = CommandBase<'viewport.zoomBy'> & {
   factor: number
   anchor?: Point
 }
 
-export type ViewportZoomToChange = ChangeBase<'viewport.zoomTo'> & {
+export type ViewportZoomToCommand = CommandBase<'viewport.zoomTo'> & {
   zoom: number
   anchor?: Point
 }
 
-export type ViewportResetChange = ChangeBase<'viewport.reset'>
+export type ViewportResetCommand = CommandBase<'viewport.reset'>
 
-export type MindmapCreateChange = ChangeBase<'mindmap.create'> & {
+export type MindmapCreateCommand = CommandBase<'mindmap.create'> & {
   payload?: MindmapCreateInput
 }
 
-export type MindmapReplaceChange = ChangeBase<'mindmap.replace'> & {
+export type MindmapReplaceCommand = CommandBase<'mindmap.replace'> & {
   id: MindmapId
   tree: MindmapTree
 }
 
-export type MindmapDeleteChange = ChangeBase<'mindmap.delete'> & {
+export type MindmapDeleteCommand = CommandBase<'mindmap.delete'> & {
   ids: MindmapId[]
 }
 
-export type MindmapAddChildChange = ChangeBase<'mindmap.addChild'> & {
+export type MindmapAddChildCommand = CommandBase<'mindmap.addChild'> & {
   id: MindmapId
   parentId: MindmapNodeId
   payload?: MindmapNodeData | MindmapAttachPayload
   options?: MindmapIntentOptions
 }
 
-export type MindmapAddSiblingChange = ChangeBase<'mindmap.addSibling'> & {
+export type MindmapAddSiblingCommand = CommandBase<'mindmap.addSibling'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   position: 'before' | 'after'
@@ -186,148 +186,148 @@ export type MindmapAddSiblingChange = ChangeBase<'mindmap.addSibling'> & {
   options?: MindmapIntentOptions
 }
 
-export type MindmapMoveSubtreeChange = ChangeBase<'mindmap.moveSubtree'> & {
+export type MindmapMoveSubtreeCommand = CommandBase<'mindmap.moveSubtree'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   newParentId: MindmapNodeId
   options?: MindmapIntentOptions
 }
 
-export type MindmapRemoveSubtreeChange = ChangeBase<'mindmap.removeSubtree'> & {
+export type MindmapRemoveSubtreeCommand = CommandBase<'mindmap.removeSubtree'> & {
   id: MindmapId
   nodeId: MindmapNodeId
 }
 
-export type MindmapCloneSubtreeChange = ChangeBase<'mindmap.cloneSubtree'> & {
+export type MindmapCloneSubtreeCommand = CommandBase<'mindmap.cloneSubtree'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right' }
 }
 
-export type MindmapToggleCollapseChange = ChangeBase<'mindmap.toggleCollapse'> & {
+export type MindmapToggleCollapseCommand = CommandBase<'mindmap.toggleCollapse'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   collapsed?: boolean
 }
 
-export type MindmapSetNodeDataChange = ChangeBase<'mindmap.setNodeData'> & {
+export type MindmapSetNodeDataCommand = CommandBase<'mindmap.setNodeData'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   patch: Partial<MindmapNodeData>
 }
 
-export type MindmapReorderChildChange = ChangeBase<'mindmap.reorderChild'> & {
+export type MindmapReorderChildCommand = CommandBase<'mindmap.reorderChild'> & {
   id: MindmapId
   parentId: MindmapNodeId
   fromIndex: number
   toIndex: number
 }
 
-export type MindmapSetSideChange = ChangeBase<'mindmap.setSide'> & {
+export type MindmapSetSideCommand = CommandBase<'mindmap.setSide'> & {
   id: MindmapId
   nodeId: MindmapNodeId
   side: 'left' | 'right'
 }
 
-export type MindmapAttachExternalChange = ChangeBase<'mindmap.attachExternal'> & {
+export type MindmapAttachExternalCommand = CommandBase<'mindmap.attachExternal'> & {
   id: MindmapId
   targetId: MindmapNodeId
   payload: MindmapAttachPayload
   options?: MindmapIntentOptions
 }
 
-export type Change =
-  | DocResetChange
-  | NodeCreateChange
-  | NodeUpdateChange
-  | NodeDeleteChange
-  | NodeMoveChange
-  | NodeResizeChange
-  | NodeRotateChange
-  | EdgeCreateChange
-  | EdgeUpdateChange
-  | EdgeDeleteChange
-  | EdgeConnectChange
-  | EdgeReconnectChange
-  | NodeOrderSetChange
-  | NodeOrderBringToFrontChange
-  | NodeOrderSendToBackChange
-  | NodeOrderBringForwardChange
-  | NodeOrderSendBackwardChange
-  | EdgeOrderSetChange
-  | EdgeOrderBringToFrontChange
-  | EdgeOrderSendToBackChange
-  | EdgeOrderBringForwardChange
-  | EdgeOrderSendBackwardChange
-  | GroupCreateChange
-  | GroupUngroupChange
-  | ViewportSetChange
-  | ViewportPanByChange
-  | ViewportZoomByChange
-  | ViewportZoomToChange
-  | ViewportResetChange
-  | MindmapCreateChange
-  | MindmapReplaceChange
-  | MindmapDeleteChange
-  | MindmapAddChildChange
-  | MindmapAddSiblingChange
-  | MindmapMoveSubtreeChange
-  | MindmapRemoveSubtreeChange
-  | MindmapCloneSubtreeChange
-  | MindmapToggleCollapseChange
-  | MindmapSetNodeDataChange
-  | MindmapReorderChildChange
-  | MindmapSetSideChange
-  | MindmapAttachExternalChange
+export type Command =
+  | DocResetCommand
+  | NodeCreateCommand
+  | NodeUpdateCommand
+  | NodeDeleteCommand
+  | NodeMoveCommand
+  | NodeResizeCommand
+  | NodeRotateCommand
+  | EdgeCreateCommand
+  | EdgeUpdateCommand
+  | EdgeDeleteCommand
+  | EdgeConnectCommand
+  | EdgeReconnectCommand
+  | NodeOrderSetCommand
+  | NodeOrderBringToFrontCommand
+  | NodeOrderSendToBackCommand
+  | NodeOrderBringForwardCommand
+  | NodeOrderSendBackwardCommand
+  | EdgeOrderSetCommand
+  | EdgeOrderBringToFrontCommand
+  | EdgeOrderSendToBackCommand
+  | EdgeOrderBringForwardCommand
+  | EdgeOrderSendBackwardCommand
+  | GroupCreateCommand
+  | GroupUngroupCommand
+  | ViewportSetCommand
+  | ViewportPanByCommand
+  | ViewportZoomByCommand
+  | ViewportZoomToCommand
+  | ViewportResetCommand
+  | MindmapCreateCommand
+  | MindmapReplaceCommand
+  | MindmapDeleteCommand
+  | MindmapAddChildCommand
+  | MindmapAddSiblingCommand
+  | MindmapMoveSubtreeCommand
+  | MindmapRemoveSubtreeCommand
+  | MindmapCloneSubtreeCommand
+  | MindmapToggleCollapseCommand
+  | MindmapSetNodeDataCommand
+  | MindmapReorderChildCommand
+  | MindmapSetSideCommand
+  | MindmapAttachExternalCommand
 
-export type ChangeSet = {
+export type CommandBatch = {
   id: string
   docId?: DocumentId
-  source: ChangeSource
+  source: CommandSource
   actor?: string
   timestamp: number
-  changes: Change[]
+  commands: Command[]
 }
 
-export type ChangeSetInput =
-  | Change[]
+export type CommandBatchInput =
+  | Command[]
   | ({
-      changes: Change[]
-    } & Partial<Pick<ChangeSet, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>)
+      commands: Command[]
+    } & Partial<Pick<CommandBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>)
 
-export type ApplyOptions = Partial<Pick<ChangeSet, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
+export type ApplyOptions = Partial<Pick<CommandBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
 
 export type ApplyDispatchResult = {
   index: number
-  type: Change['type']
+  type: Command['type']
   result: DispatchResult
 }
 
 export type ApplyMetrics = {
   durationMs: number
-  changeCount: number
+  commandCount: number
   dispatchCount: number
 }
 
-export type AppliedChangeSummary = {
+export type AppliedCommandSummary = {
   id: string
   docId?: DocumentId
-  source: ChangeSource
+  source: CommandSource
   actor?: string
   timestamp: number
-  types: Change['type'][]
+  commandTypes: Command['type'][]
   operationTypes: string[]
   metrics: ApplyMetrics
 }
 
 export type ApplyResult = {
-  changeSet: ChangeSet
+  commandBatch: CommandBatch
   dispatchResults: ApplyDispatchResult[]
-  summary: AppliedChangeSummary
+  summary: AppliedCommandSummary
 }
 
 export type TxCollector = {
-  add: (...changes: Change[]) => void
+  add: (...commands: Command[]) => void
 }
 
 export type TxApi = <T>(
@@ -336,6 +336,6 @@ export type TxApi = <T>(
 ) => Promise<T>
 
 export type ApplyApi = (
-  input: ChangeSetInput,
+  input: CommandBatchInput,
   options?: ApplyOptions
 ) => Promise<ApplyResult>

@@ -28,6 +28,9 @@ export const getMindmapTree = (node: Node): MindmapTree | undefined => {
   return undefined
 }
 
+export const getMindmapRoots = (nodes: Node[]) =>
+  nodes.filter((node) => node.type === 'mindmap')
+
 export const getMindmapLabel = (node: MindmapNode | undefined) => {
   if (!node?.data || typeof node.data !== 'object' || !('kind' in node.data)) return 'mindmap'
   const data = node.data as { kind: string; text?: string; name?: string; title?: string; url?: string }

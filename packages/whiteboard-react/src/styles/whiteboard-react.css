@@ -283,10 +283,12 @@
   position: absolute;
   width: calc(18px / var(--wb-zoom, 1));
   height: calc(18px / var(--wb-zoom, 1));
+  padding: 0;
   border-radius: 999px;
   background: #ffffff;
   border: calc(1px / var(--wb-zoom, 1)) solid #cbd5f5;
   color: #1f2937;
+  font: inherit;
   display: flex;
   align-items: center;
   justify-content: center;

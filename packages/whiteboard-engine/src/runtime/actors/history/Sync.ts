@@ -1,7 +1,7 @@
 import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
 import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { StateSnapshot } from '@engine-types/instance/state'
-import type { LifecycleContext } from '../../../context'
+import type { LifecycleRuntimeContext } from '../../common/contracts'
 
 type HistoryIdentity = {
   core: Core
@@ -26,9 +26,9 @@ const shouldClearHistory = (
   return previous.docId !== next.docId
 }
 
-type HistoryContext = Pick<LifecycleContext, 'runtime' | 'state' | 'commands'>
+type HistoryContext = Pick<LifecycleRuntimeContext, 'runtime' | 'state' | 'commands'>
 
-export class History {
+export class Sync {
   private context: HistoryContext
   private offHistory: (() => void) | null = null
   private prevIdentity: HistoryIdentity | null = null

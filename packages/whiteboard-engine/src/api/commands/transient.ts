@@ -1,92 +1,37 @@
-import type { NodeId, Point } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { Size } from '@engine-types/common'
-import type { NodeViewUpdate } from '@engine-types/graph'
-import type { EdgeConnectState } from '@engine-types/state'
-import type { CommandContext } from '../../context'
-import { isPointEqual, isSizeEqual } from '../../kernel/geometry'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Actor as EdgeActor } from '../../runtime/actors/edge/Actor'
+import type { Actor as NodeActor } from '../../runtime/actors/node/Actor'
+
+type CommandContext = {
+  instance: InternalInstance
+}
 
 export const createTransient = ({
   instance,
-  graph,
-  syncGraph
-}: CommandContext): Commands['transient'] => {
-  const { core, docRef } = instance.runtime
+  edge,
+  node
+}: CommandContext & {
+  edge: EdgeActor
+  node: NodeActor
+}): Commands['transient'] => {
   const { write, batch } = instance.state
-
-  const clearNodeOverrides = (ids?: NodeId[]) => {
-    const change = graph.clearNodeOverrides(ids)
-    if (!change) return
-    syncGraph(change)
-  }
-
-  const commitNodeOverrides = (updates?: NodeViewUpdate[]) => {
-    const list: NodeViewUpdate[] = updates ?? graph.readNodeOverrides()
-    if (!list.length) return
-
-    const ops = list
-      .map((item) => {
-        const patch: { position?: Point; size?: Size } = {}
-        if (item.position) patch.position = item.position
-        if (item.size) patch.size = item.size
-        if (!patch.position && !patch.size) return null
-
-        const currentNode = docRef.current?.nodes.find((node) => node.id === item.id)
-        if (currentNode) {
-          const samePosition = patch.position === undefined || isPointEqual(patch.position, currentNode.position)
-          const sameSize = patch.size === undefined || isSizeEqual(patch.size, currentNode.size)
-          if (samePosition && sameSize) return null
-        }
-
-        return { id: item.id, patch }
-      })
-      .filter((item): item is { id: NodeId; patch: { position?: Point; size?: Size } } => Boolean(item))
-
-    if (!ops.length) {
-      if (updates) {
-        clearNodeOverrides(updates.map((item) => item.id))
-      } else {
-        clearNodeOverrides()
-      }
-      return
-    }
-
-    core.model.node.updateMany(ops)
-    if (updates) {
-      clearNodeOverrides(updates.map((item) => item.id))
-    } else {
-      clearNodeOverrides()
-    }
-  }
 
   return {
     dragGuides: {
-      set: (guides) => {
-        write('dragGuides', guides)
-      },
-      clear: () => {
-        write('dragGuides', [])
-      }
+      set: node.setDragGuides,
+      clear: node.clearDragGuides
     },
     nodeOverrides: {
-      set: (updates) => {
-        const change = graph.patchNodeOverrides(updates)
-        if (!change) return
-        syncGraph(change)
-      },
-      clear: clearNodeOverrides,
-      commit: commitNodeOverrides
+      set: node.setOverrides,
+      clear: node.clearOverrides,
+      commit: node.commitOverrides
     },
     reset: () => {
       batch(() => {
-        write('edgeConnect', { isConnecting: false } as EdgeConnectState)
-        write('routingDrag', {})
-        write('dragGuides', [])
-        write('groupHovered', undefined)
-        clearNodeOverrides()
+        edge.resetTransientState()
+        node.resetTransientState()
         write('mindmapDrag', {})
-        write('nodeDrag', {})
-        write('nodeTransform', {})
       })
     }
   }

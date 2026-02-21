@@ -16,13 +16,12 @@ import type {
   ViewSnapshot
 } from '@engine-types/instance/view'
 import type { ShortcutContext } from '@engine-types/shortcuts'
-import { createDerivedRegistry } from '../derive'
-import { KernelPipeline } from '../pipeline'
-import { createViewDerivations, VIEW_KEYS } from './derivations'
-import { createEdgeViewQuery } from './edge'
-import { createEdgeRegistry } from './edgeRegistry'
-import { createMindmapRegistry } from './mindmapRegistry'
-import { createNodeRegistry } from './nodeRegistry'
+import { createDerivedRegistry } from './DerivedRegistry'
+import { ViewPipeline } from './ViewPipeline'
+import { createEdgeRegistry, createEdgeViewQuery } from '../../actors/edge/view'
+import { createMindmapRegistry } from '../../actors/mindmap/view'
+import { createViewDerivations, VIEW_KEYS } from './Derivations'
+import { createNodeRegistry } from '../../actors/node/view'
 import type { ViewDependencyKey } from './register'
 
 type Options = {
@@ -75,7 +74,7 @@ export const createViewRegistry = ({
     readTrees: () => derived.read('mindmap.trees')
   })
 
-  const pipeline = new KernelPipeline({
+  const pipeline = new ViewPipeline({
     state,
     derived,
     query: syncQueryGraph

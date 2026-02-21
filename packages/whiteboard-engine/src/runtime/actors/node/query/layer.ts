@@ -20,5 +20,3 @@ export const toLayerOrderedCanvasNodes = (nodes: Node[]) => {
 
   return [...background, ...normal, ...overlay]
 }
-
-export const getMindmapRoots = (nodes: Node[]) => nodes.filter((node) => node.type === 'mindmap')

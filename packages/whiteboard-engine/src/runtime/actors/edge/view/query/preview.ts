@@ -1,5 +1,5 @@
 import type { EdgeConnectState } from '@engine-types/state'
-import { getAnchorPoint } from '../../geometry'
+import { getAnchorPoint } from '../../../../../runtime/common/geometry'
 import type {
   EdgeConnectFrom,
   EdgeConnectPointInput,

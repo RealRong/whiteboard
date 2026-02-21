@@ -1,6 +1,6 @@
 import type { Core, Document } from '@whiteboard/core'
 import type { Commands } from '../commands'
-import type { ApplyApi, TxApi } from '../change'
+import type { ApplyApi, TxApi } from '../command'
 import type { RefLike } from '../ui'
 import type { InstanceEvents } from './events'
 import type { Lifecycle } from './lifecycle'

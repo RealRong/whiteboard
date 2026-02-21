@@ -1,18 +1,22 @@
 export type { Commands } from './commands'
 export type {
-  Change,
-  ChangeSet,
-  ChangeSetInput,
-  ChangeSource,
+  Command,
+  CommandBatch,
+  CommandBatchInput,
+  CommandSource,
   ApplyOptions,
   ApplyDispatchResult,
   ApplyMetrics,
-  AppliedChangeSummary,
+  AppliedCommandSummary,
   ApplyResult,
   ApplyApi,
   TxApi,
   TxCollector
-} from './change'
+} from './command'
+export type {
+  Mutation,
+  MutationBatch
+} from './mutation'
 export type {
   GraphSnapshot,
   GraphChange,

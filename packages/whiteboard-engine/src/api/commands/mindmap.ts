@@ -2,14 +2,16 @@ import {
   getSide,
   type MindmapNodeId
 } from '@whiteboard/core'
+import type { Command } from '@engine-types/command'
 import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import { DEFAULT_TUNING } from '../../config'
-import { applyCommandChange } from './apply'
+import type { ApplyCommandChange } from './shared'
 
 export const createMindmap = (
-  instance: InternalInstance
+  instance: InternalInstance,
+  applyChange: ApplyCommandChange
 ): Pick<Commands, 'mindmap'> => {
   const toLayoutHint = (
     anchorId: MindmapNodeId,
@@ -34,27 +36,29 @@ export const createMindmap = (
       : DEFAULT_TUNING.mindmap.defaultSide
   }
 
+  const applyMindmapChange = (change: Command) => applyChange(change)
+
   const create: Commands['mindmap']['create'] = (payload) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.create',
       payload
     })
 
   const replace: Commands['mindmap']['replace'] = (id, tree) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.replace',
       id,
       tree
     })
 
   const remove: Commands['mindmap']['delete'] = (ids) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.delete',
       ids
     })
 
   const addChild: Commands['mindmap']['addChild'] = (id, parentId, payload, options) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.addChild',
       id,
       parentId,
@@ -63,7 +67,7 @@ export const createMindmap = (
     })
 
   const addSibling: Commands['mindmap']['addSibling'] = (id, nodeId, position, payload, options) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.addSibling',
       id,
       nodeId,
@@ -73,7 +77,7 @@ export const createMindmap = (
     })
 
   const moveSubtree: Commands['mindmap']['moveSubtree'] = (id, nodeId, newParentId, options) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.moveSubtree',
       id,
       nodeId,
@@ -82,14 +86,14 @@ export const createMindmap = (
     })
 
   const removeSubtree: Commands['mindmap']['removeSubtree'] = (id, nodeId) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.removeSubtree',
       id,
       nodeId
     })
 
   const cloneSubtree: Commands['mindmap']['cloneSubtree'] = (id, nodeId, options) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.cloneSubtree',
       id,
       nodeId,
@@ -97,7 +101,7 @@ export const createMindmap = (
     })
 
   const toggleCollapse: Commands['mindmap']['toggleCollapse'] = (id, nodeId, collapsed) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.toggleCollapse',
       id,
       nodeId,
@@ -105,7 +109,7 @@ export const createMindmap = (
     })
 
   const setNodeData: Commands['mindmap']['setNodeData'] = (id, nodeId, patch) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.setNodeData',
       id,
       nodeId,
@@ -113,7 +117,7 @@ export const createMindmap = (
     })
 
   const reorderChild: Commands['mindmap']['reorderChild'] = (id, parentId, fromIndex, toIndex) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.reorderChild',
       id,
       parentId,
@@ -122,7 +126,7 @@ export const createMindmap = (
     })
 
   const setSide: Commands['mindmap']['setSide'] = (id, nodeId, side) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.setSide',
       id,
       nodeId,
@@ -130,7 +134,7 @@ export const createMindmap = (
     })
 
   const attachExternal: Commands['mindmap']['attachExternal'] = (id, targetId, payload, options) =>
-    applyCommandChange(instance, {
+    applyMindmapChange({
       type: 'mindmap.attachExternal',
       id,
       targetId,
@@ -232,16 +236,13 @@ export const createMindmap = (
       return
     }
 
-    await instance.apply(
-      [{
-        type: 'node.update',
-        id: nodeId,
-        patch: {
-          position: { x: position.x, y: position.y }
-        }
-      }],
-      { source: 'command' }
-    )
+    await applyMindmapChange({
+      type: 'node.update',
+      id: nodeId,
+      patch: {
+        position: { x: position.x, y: position.y }
+      }
+    })
   }
 
   return {

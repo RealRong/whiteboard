@@ -65,6 +65,8 @@ const withKeyShortcutContext = (
   ...base,
   focus: {
     ...base.focus,
+    isEditingText: event.target.isTextInput ?? base.focus.isEditingText,
+    isInputFocused: event.target.ignoreInput ?? base.focus.isInputFocused,
     isImeComposing: event.isComposing ?? base.focus.isImeComposing
   },
   pointer: {
@@ -77,6 +79,8 @@ const withKeyShortcutContext = (
     }
   }
 })
+
+const isDeleteKey = (key: string) => key === 'Backspace' || key === 'Delete'
 
 export class InputControllerImpl implements InputControllerType {
   private readonly pointerEngine: PointerSessionEngine
@@ -118,7 +122,15 @@ export class InputControllerImpl implements InputControllerType {
 
   reset: InputControllerType['reset'] = (reason = 'forced') => {
     if (reason === 'forced' || reason === 'blur') {
-      this.getSessionContext().commands.keyboard.setSpacePressed(false)
+      const context = this.getSessionContext()
+      context.commands.keyboard.setSpacePressed(false)
+      context.commands.interaction.update({
+        focus: {
+          isEditingText: false,
+          isInputFocused: false,
+          isImeComposing: false
+        }
+      })
     }
     return this.pointerEngine.cancelActive(reason)
   }
@@ -134,25 +146,32 @@ export class InputControllerImpl implements InputControllerType {
     event: Extract<InputEvent, { kind: 'pointer' }>
   ): ReturnType<InputControllerType['handle']> => {
     const context = this.getSessionContext()
+    if (
+      event.phase === 'down'
+      && event.stage === 'capture'
+      && event.target.ignoreInput
+    ) {
+      return { effects: [] as InputEffect[] }
+    }
     if (event.phase === 'move' && event.source === 'container' && event.stage === 'bubble') {
       const enabled = context.state.read('tool') === 'edge'
-      context.runtime.interaction.edgeConnect.hoverMove(event.pointer, enabled)
+      context.actors.edge.hoverMove(event.pointer, enabled)
     }
     if (event.phase === 'down' && event.stage === 'capture') {
       const handled = context.shortcuts.handlePointerDownCapture(
         toPointerShortcutEvent(event),
         withPointerShortcutContext(context.view.getShortcutContext(), event)
       )
-      if (!handled) {
-        return { effects: [] as InputEffect[] }
+      if (handled) {
+        const effects: InputEffect[] = [
+          { type: 'preventDefault', reason: 'shortcut.pointerDownCapture' },
+          { type: 'stopPropagation', reason: 'shortcut.pointerDownCapture' }
+        ]
+        return {
+          effects
+        }
       }
-      const effects: InputEffect[] = [
-        { type: 'preventDefault', reason: 'shortcut.pointerDownCapture' },
-        { type: 'stopPropagation', reason: 'shortcut.pointerDownCapture' }
-      ]
-      return {
-        effects
-      }
+      return this.pointerEngine.dispatch(event)
     }
     if (event.stage === 'capture') {
       return { effects: [] as InputEffect[] }
@@ -165,10 +184,28 @@ export class InputControllerImpl implements InputControllerType {
   ): ReturnType<InputControllerType['handle']> => {
     const effects: InputEffect[] = []
     const context = this.getSessionContext()
+    const ignoreInput = Boolean(event.target.ignoreInput)
+    context.commands.interaction.update({
+      focus: {
+        isEditingText: Boolean(event.target.isTextInput),
+        isInputFocused: ignoreInput,
+        isImeComposing: event.isComposing ?? false
+      }
+    })
 
     if (event.code === 'Space') {
-      context.commands.keyboard.setSpacePressed(event.phase === 'down')
-      effects.push({ type: 'preventDefault', reason: 'keyboard.space' })
+      if (ignoreInput) {
+        if (event.phase === 'up') {
+          context.commands.keyboard.setSpacePressed(false)
+        }
+      } else {
+        context.commands.keyboard.setSpacePressed(event.phase === 'down')
+        effects.push({ type: 'preventDefault', reason: 'keyboard.space' })
+      }
+    }
+
+    if (ignoreInput) {
+      return { effects }
     }
 
     if (event.phase === 'down' && event.code === 'Escape') {
@@ -176,6 +213,24 @@ export class InputControllerImpl implements InputControllerType {
     }
 
     if (event.phase !== 'down' || event.source !== 'container') {
+      return { effects }
+    }
+
+    if (
+      event.target.role === 'handle'
+      && event.target.handleType === 'edge-routing'
+      && isDeleteKey(event.key)
+    ) {
+      effects.push({ type: 'preventDefault', reason: 'edge.routing.removePoint' })
+      effects.push({ type: 'stopPropagation', reason: 'edge.routing.removePoint' })
+      const edgeId = event.target.edgeId
+      const routingIndex = event.target.routingIndex
+      if (edgeId && Number.isInteger(routingIndex)) {
+        const entry = context.view.edgePath(edgeId)
+        if (entry) {
+          context.commands.edge.removeRoutingPoint(entry.edge, routingIndex as number)
+        }
+      }
       return { effects }
     }
 

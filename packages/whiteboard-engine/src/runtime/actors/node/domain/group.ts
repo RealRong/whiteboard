@@ -1,7 +1,7 @@
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import { enlargeBox } from '@whiteboard/core'
-import { getNodeAABB } from '../../kernel/geometry'
+import { getNodeAABB } from '../../../../runtime/common/geometry'
 
 export const getNodesBoundingRect = (nodes: Node[], fallbackSize: Size): Rect | undefined => {
   if (!nodes.length) return undefined

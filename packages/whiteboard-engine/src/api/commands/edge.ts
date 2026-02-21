@@ -1,10 +1,11 @@
 import type { DispatchResult, EdgeAnchor, EdgeId, EdgeInput, EdgePatch, NodeId } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance/instance'
-import { applyCommandChange } from './apply'
+import type { ApplyCommandChange } from './shared'
 
 export const createEdge = (
-  instance: Instance
+  instance: Instance,
+  applyChange: ApplyCommandChange
 ): Pick<Commands, 'edge'> => {
   const { read, write, batch } = instance.state
 
@@ -18,15 +19,13 @@ export const createEdge = (
           source: { nodeId: NodeId; anchor?: EdgeAnchor }
           target: { nodeId: NodeId; anchor?: EdgeAnchor }
         }
-      | {
+        | {
           type: 'edge.reconnect'
           id: EdgeId
           end: 'source' | 'target'
           ref: { nodeId: NodeId; anchor?: EdgeAnchor }
         }
-  ): Promise<DispatchResult> => {
-    return applyCommandChange(instance, change)
-  }
+  ): Promise<DispatchResult> => applyChange(change)
 
   const clearRoutingDrag = () => {
     write('routingDrag', {})

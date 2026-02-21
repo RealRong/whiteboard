@@ -1,52 +1,72 @@
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
-import type { LifecycleContext } from '../../context'
-import {
-  createSelectionEvents,
-  type SelectionEventsWatcher
-} from './watchers/selectionEvents'
-import {
-  createStateEvents,
-  type StateEventsWatcher
-} from './watchers/stateEvents'
-import { Cleanup } from './Cleanup'
+import type { LifecycleRuntimeContext } from '../common/contracts'
+import { Actor as HistoryActor } from '../actors/history/Actor'
+import { Sync as HistorySync } from '../actors/history/Sync'
+import { Actor as MindmapActor } from '../actors/mindmap/Actor'
+import { Actor as SelectionActor } from '../actors/selection/Actor'
+import { Actor as ToolActor } from '../actors/tool/Actor'
+import { Actor as ViewportActor } from '../actors/viewport/Actor'
+import { Cleanup, type CleanupActors } from './Cleanup'
 import { createDefaultConfig } from './config'
 import { Container } from './Container'
-import { History } from './history/History'
 
 type LifecycleInputSyncOptions = {
   onViewportConfigChange?: (viewportConfig: LifecycleConfig['viewportConfig']) => void
 }
 
+type LifecycleActors = {
+  mindmap?: MindmapActor
+}
+
 export class Lifecycle implements LifecycleApi {
-  private context: LifecycleContext
+  private context: LifecycleRuntimeContext
   private started = false
   private config: LifecycleConfig
-  private history: History
+  private history: HistorySync
   private container: Container
   private cleanup: Cleanup
+  private cleanupActors: CleanupActors
   private inputSync: LifecycleInputSyncOptions
-  private selectionEvents: SelectionEventsWatcher
-  private stateEvents: StateEventsWatcher
+  private selectionActor: SelectionActor
+  private toolActor: ToolActor
+  private viewportActor: ViewportActor
+  private historyActor: HistoryActor
+  private mindmapActor: MindmapActor
 
   constructor(
-    context: LifecycleContext,
-    inputSync: LifecycleInputSyncOptions = {}
+    context: LifecycleRuntimeContext,
+    inputSync: LifecycleInputSyncOptions = {},
+    cleanupActors: CleanupActors,
+    actors: LifecycleActors = {}
   ) {
     this.context = context
     this.config = createDefaultConfig(context.runtime)
     this.inputSync = inputSync
+    this.cleanupActors = cleanupActors
 
-    this.history = new History(this.context)
+    this.history = new HistorySync(this.context)
     this.container = new Container({
       context: this.context
     })
-    this.cleanup = new Cleanup(this.context)
+    this.cleanup = new Cleanup(this.context, cleanupActors)
 
-    this.selectionEvents = createSelectionEvents({
+    this.selectionActor = new SelectionActor({
       state: this.context.state,
       emit: context.events.emit
     })
-    this.stateEvents = createStateEvents({
+    this.toolActor = new ToolActor({
+      state: this.context.state,
+      emit: context.events.emit
+    })
+    this.viewportActor = new ViewportActor({
+      state: this.context.state,
+      emit: context.events.emit
+    })
+    this.historyActor = new HistoryActor({
+      state: this.context.state,
+      emit: context.events.emit
+    })
+    this.mindmapActor = actors.mindmap ?? new MindmapActor({
       state: this.context.state,
       emit: context.events.emit
     })
@@ -66,7 +86,7 @@ export class Lifecycle implements LifecycleApi {
 
   private syncConfig = (config: LifecycleConfig) => {
     if (config.tool !== 'edge') {
-      this.context.runtime.interaction.edgeConnect.hoverCancel()
+      this.cleanupActors.edge.hoverCancel()
     }
 
     if (!this.started) return
@@ -80,8 +100,11 @@ export class Lifecycle implements LifecycleApi {
 
     this.history.start()
     this.context.runtime.services.groupAutoFit.start()
-    this.selectionEvents.start()
-    this.stateEvents.start()
+    this.selectionActor.start()
+    this.toolActor.start()
+    this.viewportActor.start()
+    this.historyActor.start()
+    this.mindmapActor.start()
     this.container.sync()
   }
 
@@ -96,8 +119,11 @@ export class Lifecycle implements LifecycleApi {
     this.started = false
 
     this.history.stop()
-    this.selectionEvents.stop()
-    this.stateEvents.stop()
+    this.selectionActor.stop()
+    this.toolActor.stop()
+    this.viewportActor.stop()
+    this.historyActor.stop()
+    this.mindmapActor.stop()
     this.container.stop()
     this.context.runtime.services.groupAutoFit.stop()
     this.cleanup.stop()

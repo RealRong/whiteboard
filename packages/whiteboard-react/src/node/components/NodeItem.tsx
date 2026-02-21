@@ -1,29 +1,20 @@
 import { useCallback, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
-import type { PointerEvent } from 'react'
-import { getSelectionModeFromEvent } from '@whiteboard/engine'
-import type { NodeContainerProps, NodeHandleSide, NodeItemProps, NodeRenderProps } from 'types/node'
+import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
 import { useInstance } from '../../common/hooks'
-import { toPointerInput } from '../../common/pointerInput'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
   node: NodeItemProps['item']['node']
-  rect: NodeItemProps['item']['rect']
-  rotation: number
   handles: NonNullable<NodeItemProps['transformHandles']>
   canRotate: boolean
 }
-
-type NodeTransformHandle = NodeTransformHandlesProps['handles'][number]
 const NODE_TRANSFORM_HANDLE_SIZE = 10
 
 const NodeTransformHandles = ({
   node,
-  rect,
-  rotation,
   handles,
   canRotate
 }: NodeTransformHandlesProps) => {
@@ -33,65 +24,19 @@ const NodeTransformHandles = ({
     () => (canRotate ? handles : handles.filter((handle) => handle.kind !== 'rotate')),
     [canRotate, handles]
   )
-  const nodeRotation = typeof rotation === 'number' ? rotation : typeof node.rotation === 'number' ? node.rotation : 0
-  const enabled = filteredHandles.length > 0
-
-  const handlePointerDown = useCallback(
-    (handle: NodeTransformHandle, event: PointerEvent<HTMLDivElement>) => {
-      if (!enabled || node.locked) return
-      if (event.button !== 0) return
-      let handled = false
-
-      if (handle.kind === 'resize' && handle.direction) {
-        handled = instance.runtime.interaction.nodeTransform.startResize({
-          nodeId: node.id,
-          pointer: toPointerInput(instance, event),
-          handle: handle.direction,
-          rect,
-          rotation: nodeRotation
-        })
-      }
-
-      if (handle.kind === 'rotate') {
-        handled = instance.runtime.interaction.nodeTransform.startRotate({
-          nodeId: node.id,
-          pointer: toPointerInput(instance, event),
-          rect,
-          rotation: nodeRotation
-        })
-      }
-
-      if (!handled) return
-      event.preventDefault()
-      event.stopPropagation()
-    },
-    [
-      enabled,
-      instance.runtime.interaction.nodeTransform,
-      node.id,
-      node.locked,
-      nodeRotation,
-      rect
-    ]
-  )
-
-  const getHandleProps = useCallback(
-    (handle: NodeTransformHandle) => ({
-      onPointerDown: (event: PointerEvent<HTMLDivElement>) => handlePointerDown(handle, event)
-    }),
-    [handlePointerDown]
-  )
 
   return (
     <>
       {filteredHandles.map((handle) => {
-        const props = getHandleProps(handle)
         const half = NODE_TRANSFORM_HANDLE_SIZE / Math.max(getZoom(), 0.0001) / 2
         return (
           <div
             key={handle.id}
             data-selection-ignore
-            data-kind={handle.kind}
+            data-input-role="node-transform-handle"
+            data-node-id={node.id}
+            data-transform-kind={handle.kind}
+            data-resize-direction={handle.direction}
             className="wb-node-transform-handle"
             style={{
               '--wb-node-handle-size': `${NODE_TRANSFORM_HANDLE_SIZE}px`,
@@ -99,7 +44,6 @@ const NodeTransformHandles = ({
               '--wb-node-handle-y': `${handle.position.y - half}px`,
               cursor: handle.cursor
             } as CSSProperties}
-            {...props}
           />
         )
       })}
@@ -116,7 +60,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const hovered = item.hovered
   const zoom = item.zoom
   const container = item.container
-  const activeTool = item.activeTool
   const containerRef = useRef<HTMLDivElement>(null)
   const definition = useMemo(() => registry.get(node.type), [node.type, registry])
   const canRotate =
@@ -151,39 +94,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     [instance.runtime.dom.nodeSize, node.id]
   )
 
-  const handlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const pointer = toPointerInput(instance, event)
-      if (activeTool === 'edge') {
-        const handled = instance.runtime.interaction.edgeConnect.handleNodePointerDown(
-          node.id,
-          pointer
-        )
-        if (!handled) return
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-
-      if (event.button === 0) {
-        const mode = getSelectionModeFromEvent(event.nativeEvent)
-        if (mode === 'toggle') {
-          instance.commands.selection.toggle([node.id])
-        } else {
-          instance.commands.selection.select([node.id], mode)
-        }
-      }
-
-      const handled = instance.runtime.interaction.nodeDrag.start({
-        nodeId: node.id,
-        pointer
-      })
-      if (!handled) return
-      event.preventDefault()
-    },
-    [activeTool, instance, node.id]
-  )
-
   const handlePointerEnter = useCallback(() => {
     instance.commands.interaction.update({ hover: { nodeId: node.id } })
   }, [instance, node.id])
@@ -191,15 +101,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const handlePointerLeave = useCallback(() => {
     instance.commands.interaction.update({ hover: { nodeId: undefined } })
   }, [instance])
-
-  const handleEdgeHandlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>, side: NodeHandleSide) => {
-      event.preventDefault()
-      event.stopPropagation()
-      instance.runtime.interaction.edgeConnect.startFromHandle(node.id, side, toPointerInput(instance, event))
-    },
-    [instance, node.id]
-  )
 
   const baseContainerProps = useMemo<NodeContainerProps>(
     () => ({
@@ -215,13 +116,11 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const containerProps = useMemo<NodeContainerProps>(
     () => ({
       ...baseContainerProps,
-      onPointerDown: handlePointerDown,
       onPointerEnter: handlePointerEnter,
       onPointerLeave: handlePointerLeave
     }),
     [
       baseContainerProps,
-      handlePointerDown,
       handlePointerEnter,
       handlePointerLeave
     ]
@@ -259,10 +158,8 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
           label={content}
           nodeId={node.id}
           selected={selected}
-          showHandles={false}
           ref={containerProps.ref}
           style={containerProps.style}
-          onHandlePointerDown={handleEdgeHandlePointerDown}
           onPointerDown={containerProps.onPointerDown}
           onPointerEnter={containerProps.onPointerEnter}
           onPointerLeave={containerProps.onPointerLeave}
@@ -271,8 +168,6 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
       {shouldMountTransform ? (
         <NodeTransformHandles
           node={node}
-          rect={rect}
-          rotation={container.rotation}
           handles={resolvedTransformHandles}
           canRotate={canRotate}
         />

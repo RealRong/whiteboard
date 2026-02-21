@@ -22,7 +22,7 @@
     "build": "tsup",
     "bench:drag-frame": "tsup src/perf/dragFrame.bench.ts --format esm --outDir .bench --clean --silent && node .bench/dragFrame.bench.js",
     "bench:drag-frame:check": "WB_BENCH_ENFORCE=1 pnpm run bench:drag-frame",
-    "bench:node-hint": "tsup src/graph/hint/bench.ts --format esm --outDir .bench --clean --silent && node .bench/bench.js",
+    "bench:node-hint": "tsup src/runtime/actors/graph/sync/hint/bench.ts --format esm --outDir .bench --clean --silent && node .bench/bench.js",
     "bench:node-hint:check": "WB_BENCH_ENFORCE=1 pnpm run bench:node-hint",
     "bench:check": "pnpm run bench:drag-frame:check && pnpm run bench:node-hint:check",
     "lint": "tsc -p tsconfig.json --noEmit",

@@ -1,4 +1,4 @@
-import type { GraphChangeView } from './change'
+import type { GraphChangeView } from './ChangeView'
 
 export const hasDirtyNodeHints = (change: GraphChangeView) =>
   Boolean(change.dirtyNodeIds?.length)

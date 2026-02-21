@@ -1,10 +1,10 @@
 import type { DocumentId, EdgeId, NodeId, Viewport } from '@whiteboard/core'
-import type { AppliedChangeSummary } from '../change'
+import type { AppliedCommandSummary } from '../command'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { HistoryState } from '../state'
 
 export type InstanceEventMap = {
-  'change.applied': AppliedChangeSummary
+  'command.applied': AppliedCommandSummary
   'selection.changed': { nodeIds: NodeId[] }
   'edge.selection.changed': { edgeId?: EdgeId }
   'tool.changed': { tool: 'select' | 'edge' }

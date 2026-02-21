@@ -1,6 +1,6 @@
 import type { PointerInput } from '@engine-types/common'
 import type { ViewportNavigation as ViewportNavigationApi } from '@engine-types/instance/services'
-import type { ServiceContext } from '../../context'
+import type { ServiceRuntimeContext } from '../../../common/contracts'
 
 type DragState = {
   pointerId: number
@@ -14,10 +14,10 @@ type DragState = {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 export class ViewportNavigation implements ViewportNavigationApi {
-  private context: ServiceContext
+  private context: ServiceRuntimeContext
   private dragState: DragState | null = null
 
-  constructor(context: ServiceContext) {
+  constructor(context: ServiceRuntimeContext) {
     this.context = context
   }
 

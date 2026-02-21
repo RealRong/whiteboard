@@ -1,13 +1,13 @@
 import type { Document } from '@whiteboard/core'
-import { hasProjectionChange } from './change'
-import { GraphCache } from './cache'
+import { hasProjectionChange } from './ProjectionChange'
+import { GraphCache } from '../cache/GraphCache'
 import { PendingState } from './PendingState'
 import type {
   GraphChange,
   GraphChangeSource,
   GraphProjectionChange,
-} from './types'
-import type { GraphProjector as GraphProjectorType } from './types'
+} from '../types'
+import type { GraphProjector as GraphProjectorType } from '../types'
 
 export class GraphProjector implements GraphProjectorType {
   private readonly cache = new GraphCache()

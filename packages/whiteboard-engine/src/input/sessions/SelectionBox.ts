@@ -1,7 +1,7 @@
 import type { Rect } from '@whiteboard/core'
 import type { SelectionMode } from '@engine-types/state'
 import type { PointerSession } from '@engine-types/input'
-import { rectFromPoints } from '../../kernel/geometry'
+import { rectFromPoints } from '../../runtime/common/geometry'
 
 const resolveSelectionMode = (modifiers: {
   alt: boolean

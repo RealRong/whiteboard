@@ -4,7 +4,7 @@ import type {
   GraphChangeSource,
   GraphHint,
   GraphProjectionChange
-} from './types'
+} from '../types'
 
 type SourceState = {
   dirtyNodeIds: Set<NodeId>

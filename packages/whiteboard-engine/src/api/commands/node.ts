@@ -1,10 +1,11 @@
 import type { DispatchResult, NodeId, NodeInput, NodePatch } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import { applyCommandChange } from './apply'
+import type { ApplyCommandChange } from './shared'
 
 export const createNode = (
-  instance: InternalInstance
+  instance: InternalInstance,
+  applyChange: ApplyCommandChange
 ): Pick<Commands, 'node'> => {
   const { core } = instance.runtime
 
@@ -16,7 +17,7 @@ export const createNode = (
       | { type: 'node.move'; ids: NodeId[]; delta: { x: number; y: number } }
       | { type: 'node.resize'; id: NodeId; size: { width: number; height: number } }
       | { type: 'node.rotate'; id: NodeId; angle: number }
-  ): Promise<DispatchResult> => applyCommandChange(instance, change)
+  ): Promise<DispatchResult> => applyChange(change)
 
   return {
     node: {
