@@ -54,10 +54,6 @@ export const createState = ({ doc = null }: Options = {}): Result => {
 
   const viewportListeners = new Set<() => void>()
   const changeListeners = new Set<(key: StateKey) => void>()
-  const pendingChangeKeys = new Set<StateKey>()
-  let writeBatchDepth = 0
-  let writeFrameBatchDepth = 0
-  let writeFrameFlushScheduled = false
   let viewportSnapshot = toViewport(currentDoc)
 
   const readState = ((key) => {
@@ -87,44 +83,9 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     })
   }
 
-  const flushChangeKeys = () => {
-    if (!pendingChangeKeys.size) return
-    const keys = Array.from(pendingChangeKeys)
-    pendingChangeKeys.clear()
-    keys.forEach((key) => {
-      notifyChange(key)
-    })
-  }
-
-  const scheduleWriteFrameFlush = () => {
-    if (writeFrameFlushScheduled || !pendingChangeKeys.size) return
-    writeFrameFlushScheduled = true
-    const runtime = globalThis as {
-      requestAnimationFrame?: (task: () => void) => number
-    }
-    if (typeof runtime.requestAnimationFrame === 'function') {
-      runtime.requestAnimationFrame(() => {
-        writeFrameFlushScheduled = false
-        flushChangeKeys()
-      })
-      return
-    }
-    setTimeout(() => {
-      writeFrameFlushScheduled = false
-      flushChangeKeys()
-    }, 16)
-  }
-
-  const trackChange = (key: StateKey) => {
-    if (writeBatchDepth > 0 || writeFrameBatchDepth > 0) {
-      pendingChangeKeys.add(key)
-      if (writeBatchDepth === 0) {
-        scheduleWriteFrameFlush()
-      }
-      return
-    }
-    notifyChange(key)
-  }
+  store.watchChanges((key) => {
+    notifyChange(key as StateKey)
+  })
 
   const watchState: State['watch'] = (key, listener) => {
     if (key === 'viewport') {
@@ -137,42 +98,15 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   }
 
   const writeState: State['write'] = (key, next) => {
-    const previous = store.get(key)
-    const resolved =
-      typeof next === 'function'
-        ? (next as (value: WritableStateSnapshot[typeof key]) => WritableStateSnapshot[typeof key])(previous)
-        : next
-    if (Object.is(previous, resolved)) return
-    store.set(key, resolved as never)
-    trackChange(key)
+    store.set(key, next as never)
   }
 
   const batchState: State['batch'] = (action) => {
-    writeBatchDepth += 1
-    try {
-      store.batch(action)
-    } finally {
-      writeBatchDepth -= 1
-      if (writeBatchDepth === 0) {
-        if (writeFrameBatchDepth > 0) {
-          scheduleWriteFrameFlush()
-          return
-        }
-        flushChangeKeys()
-      }
-    }
+    store.batch(action)
   }
 
   const batchFrameState: State['batchFrame'] = (action) => {
-    writeFrameBatchDepth += 1
-    try {
-      batchState(action)
-    } finally {
-      writeFrameBatchDepth -= 1
-      if (writeBatchDepth === 0 && writeFrameBatchDepth === 0) {
-        scheduleWriteFrameFlush()
-      }
-    }
+    store.batchFrame(action)
   }
 
   const replaceDoc = (doc: Document | null) => {

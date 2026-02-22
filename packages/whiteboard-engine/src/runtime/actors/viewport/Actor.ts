@@ -2,6 +2,7 @@ import { isSameViewport } from '@whiteboard/core/geometry'
 import type { Viewport } from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
+import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
   state: State
@@ -19,43 +20,26 @@ const cloneViewport = (viewport: Viewport): Viewport => ({
 export class Actor {
   readonly name = 'Viewport'
 
-  private readonly state: State
-  private readonly emit: InstanceEventEmitter['emit']
-  private started = false
-  private unsubs: Array<() => void> = []
-
-  private lastViewport: Viewport | null = null
+  private readonly emitter: StateWatchEmitter<Viewport>
 
   constructor({ state, emit }: ActorOptions) {
-    this.state = state
-    this.emit = emit
-  }
-
-  private emitChanged = (force = false) => {
-    const viewport = this.state.read('viewport')
-    const changed = !this.lastViewport || !isSameViewport(this.lastViewport, viewport)
-
-    if (changed) {
-      this.lastViewport = cloneViewport(viewport)
-    }
-
-    if (!force && !changed) return
-    this.emit('viewport.changed', { viewport: cloneViewport(viewport) })
+    this.emitter = new StateWatchEmitter({
+      state,
+      keys: ['viewport'],
+      read: () => state.read('viewport'),
+      equals: isSameViewport,
+      clone: cloneViewport,
+      emit: (viewport) => {
+        emit('viewport.changed', { viewport: cloneViewport(viewport) })
+      }
+    })
   }
 
   start = () => {
-    if (this.started) return
-    this.started = true
-    this.unsubs = [
-      this.state.watch('viewport', () => this.emitChanged(false))
-    ]
-    this.emitChanged(true)
+    this.emitter.start()
   }
 
   stop = () => {
-    if (!this.started && !this.unsubs.length) return
-    this.started = false
-    this.unsubs.forEach((off) => off())
-    this.unsubs = []
+    this.emitter.stop()
   }
 }

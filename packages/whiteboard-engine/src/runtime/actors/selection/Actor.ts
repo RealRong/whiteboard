@@ -1,6 +1,7 @@
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
+import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
   state: State
@@ -20,66 +21,34 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
 export class Actor {
   readonly name = 'Selection'
 
-  private readonly state: State
-  private readonly emit: InstanceEventEmitter['emit']
-  private started = false
-  private unsubs: Array<() => void> = []
-
-  private lastSelectionIds: NodeId[] = []
-  private hasSelectionSnapshot = false
-  private lastEdgeSelection: EdgeSelectionValue | undefined
-  private hasEdgeSelectionSnapshot = false
+  private readonly selectionEmitter: StateWatchEmitter<NodeId[]>
+  private readonly edgeSelectionEmitter: StateWatchEmitter<EdgeSelectionValue>
 
   constructor({ state, emit }: ActorOptions) {
-    this.state = state
-    this.emit = emit
-  }
-
-  private emitSelectionChanged = (force = false) => {
-    const ids = Array.from(this.state.read('selection').selectedNodeIds)
-    const changed = !this.hasSelectionSnapshot || !isSameNodeIds(this.lastSelectionIds, ids)
-
-    if (changed) {
-      this.lastSelectionIds = ids
-      this.hasSelectionSnapshot = true
-    }
-
-    if (!force && !changed) return
-    this.emit('selection.changed', { nodeIds: ids })
-  }
-
-  private emitEdgeSelectionChanged = (force = false) => {
-    const edgeId = this.state.read('edgeSelection')
-    const changed = !this.hasEdgeSelectionSnapshot || this.lastEdgeSelection !== edgeId
-
-    if (changed) {
-      this.lastEdgeSelection = edgeId
-      this.hasEdgeSelectionSnapshot = true
-    }
-
-    if (!force && !changed) return
-    this.emit('edge.selection.changed', { edgeId })
-  }
-
-  private emitCurrent = () => {
-    this.emitSelectionChanged(true)
-    this.emitEdgeSelectionChanged(true)
+    this.selectionEmitter = new StateWatchEmitter({
+      state,
+      keys: ['selection'],
+      read: () => Array.from(state.read('selection').selectedNodeIds),
+      equals: isSameNodeIds,
+      clone: (value) => [...value],
+      emit: (nodeIds) => emit('selection.changed', { nodeIds })
+    })
+    this.edgeSelectionEmitter = new StateWatchEmitter({
+      state,
+      keys: ['edgeSelection'],
+      read: () => state.read('edgeSelection'),
+      equals: (left, right) => left === right,
+      emit: (edgeId) => emit('edge.selection.changed', { edgeId })
+    })
   }
 
   start = () => {
-    if (this.started) return
-    this.started = true
-    this.unsubs = [
-      this.state.watch('selection', () => this.emitSelectionChanged(false)),
-      this.state.watch('edgeSelection', () => this.emitEdgeSelectionChanged(false))
-    ]
-    this.emitCurrent()
+    this.selectionEmitter.start()
+    this.edgeSelectionEmitter.start()
   }
 
   stop = () => {
-    if (!this.started && !this.unsubs.length) return
-    this.started = false
-    this.unsubs.forEach((off) => off())
-    this.unsubs = []
+    this.selectionEmitter.stop()
+    this.edgeSelectionEmitter.stop()
   }
 }

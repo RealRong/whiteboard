@@ -1,6 +1,7 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../contracts'
+import { FrameTask } from '../../TaskQueue'
 import type { CoreRegistries, EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core/types'
 import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core/schema'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
@@ -20,9 +21,8 @@ type ConnectOptions = {
 export class Connect {
   private readonly instance: ConnectInstance
   private readonly registries: CoreRegistries
-  private readonly scheduler: Scheduler
+  private readonly hoverTask: FrameTask
   private hoverPointer: PointerInput | null = null
-  private hoverRafId: number | null = null
 
   constructor({
     instance,
@@ -31,11 +31,10 @@ export class Connect {
   }: ConnectOptions) {
     this.instance = instance
     this.registries = registries
-    this.scheduler = scheduler
+    this.hoverTask = new FrameTask(scheduler, this.flushHover)
   }
 
   private flushHover = () => {
-    this.hoverRafId = null
     const pointer = this.hoverPointer
     if (!pointer) return
     this.hoverPointer = null
@@ -294,10 +293,7 @@ export class Connect {
   }
 
   hoverCancel = () => {
-    if (this.hoverRafId !== null) {
-      this.scheduler.cancelRaf(this.hoverRafId)
-      this.hoverRafId = null
-    }
+    this.hoverTask.cancel()
     this.hoverPointer = null
   }
 
@@ -309,9 +305,7 @@ export class Connect {
     if (!pointer) return
 
     this.hoverPointer = pointer
-    if (this.hoverRafId === null) {
-      this.hoverRafId = this.scheduler.raf(this.flushHover)
-    }
+    this.hoverTask.schedule()
   }
 
   handleNodePointerDown = (nodeId: NodeId, pointer: PointerInput) => {

@@ -8,14 +8,17 @@ import type {
 import type { NodeViewUpdate } from '@engine-types/graph'
 import type { Guide } from '@engine-types/node/snap'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_TUNING } from '../../../config'
 import {
+  expandRectByThreshold,
   expandGroupRect,
   computeSnap,
   findSmallestGroupAtPoint,
   getGroupDescendants,
   getNodesBoundingRect,
-  rectEquals
+  rectEquals,
+  resolveInteractionZoom,
+  resolveSnapThresholdWorld
 } from './domain'
 import { getNodeAABB, rectContains } from '@whiteboard/core/geometry'
 
@@ -151,27 +154,16 @@ export class Drag {
       return position
     }
 
-    const zoom = Math.max(
-      this.instance.runtime.viewport.getZoom(),
-      DEFAULT_INTERNALS.zoomEpsilon
-    )
+    const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
     const nodeConfig = this.instance.runtime.config.node
-    const thresholdWorld = Math.min(
-      nodeConfig.snapThresholdScreen / zoom,
-      nodeConfig.snapMaxThresholdWorld
-    )
+    const thresholdWorld = resolveSnapThresholdWorld(nodeConfig, zoom)
     const movingRect: Rect = {
       x: position.x,
       y: position.y,
       width: size.width,
       height: size.height
     }
-    const queryRect: Rect = {
-      x: movingRect.x - thresholdWorld,
-      y: movingRect.y - thresholdWorld,
-      width: movingRect.width + thresholdWorld * 2,
-      height: movingRect.height + thresholdWorld * 2
-    }
+    const queryRect = expandRectByThreshold(movingRect, thresholdWorld)
     const baseCandidates = this.instance.query.snap.candidatesInRect(queryRect)
     const excludeSet = childrenIds?.length
       ? new Set([nodeId, ...childrenIds])
@@ -323,10 +315,7 @@ export class Drag {
     if (!session || session.pointerId !== pointer.pointerId) return false
 
     this.instance.state.batchFrame(() => {
-      const zoom = Math.max(
-        this.instance.runtime.viewport.getZoom(),
-        DEFAULT_INTERNALS.zoomEpsilon
-      )
+      const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
       let nextPosition = {
         x: session.origin.x + (pointer.client.x - session.start.x) / zoom,
         y: session.origin.y + (pointer.client.y - session.start.y) / zoom

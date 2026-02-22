@@ -21,7 +21,10 @@ import {
   computeResizeSnap,
   computeNextRotation,
   computeResizeRect,
-  getResizeSourceEdges
+  expandRectByThreshold,
+  getResizeSourceEdges,
+  resolveInteractionZoom,
+  resolveSnapThresholdWorld
 } from './domain'
 
 type TransformInstance = Pick<
@@ -41,13 +44,6 @@ type TransformOptions = {
   instance: TransformInstance
   transient: TransformTransient
 }
-
-const getMovingRectQueryRect = (rect: Rect, thresholdWorld: number): Rect => ({
-  x: rect.x - thresholdWorld,
-  y: rect.y - thresholdWorld,
-  width: rect.width + thresholdWorld * 2,
-  height: rect.height + thresholdWorld * 2
-})
 
 export class Transform {
   private readonly instance: TransformInstance
@@ -112,10 +108,7 @@ export class Transform {
     shiftKey: boolean
   }) => {
     const { nodeId, drag, clientX, clientY, minSize, altKey, shiftKey } = options
-    const zoom = Math.max(
-      this.instance.runtime.viewport.getZoom(),
-      DEFAULT_INTERNALS.zoomEpsilon
-    )
+    const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
     const resizeResult = computeResizeRect({
       handle: drag.handle,
       startScreen: drag.startScreen,
@@ -137,10 +130,7 @@ export class Transform {
     if (this.instance.state.read('tool') === 'select') {
       if (drag.startRotation === 0 && !altKey) {
         const nodeConfig = this.instance.runtime.config.node
-        const thresholdWorld = Math.min(
-          nodeConfig.snapThresholdScreen / zoom,
-          nodeConfig.snapMaxThresholdWorld
-        )
+        const thresholdWorld = resolveSnapThresholdWorld(nodeConfig, zoom)
         const movingRect: Rect = {
           x: nextRect.x,
           y: nextRect.y,
@@ -148,7 +138,7 @@ export class Transform {
           height
         }
         const candidates = this.instance.query.snap.candidatesInRect(
-          getMovingRectQueryRect(movingRect, thresholdWorld)
+          expandRectByThreshold(movingRect, thresholdWorld)
         )
         const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)
         const snapped = computeResizeSnap({

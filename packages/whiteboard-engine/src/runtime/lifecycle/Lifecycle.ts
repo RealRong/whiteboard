@@ -10,6 +10,7 @@ import { Actor as ToolActor } from '../actors/tool/Actor'
 import { Actor as ViewportActor } from '../actors/viewport/Actor'
 import { createDefaultConfig } from './config'
 import { Container } from './Container'
+import { Registry } from './Registry'
 
 type LifecycleInputSyncOptions = {
   onViewportConfigChange?: (viewportConfig: LifecycleConfig['viewportConfig']) => void
@@ -27,6 +28,7 @@ export class Lifecycle implements LifecycleApi {
   private config: LifecycleConfig
   private history: HistorySync
   private container: Container
+  private readonly registry = new Registry()
   private inputSync: LifecycleInputSyncOptions
   private selectionActor: SelectionActor
   private toolActor: ToolActor
@@ -70,6 +72,69 @@ export class Lifecycle implements LifecycleApi {
     })
     this.mindmapActor = actors.mindmap
 
+    this.registry.register({
+      start: this.history.start,
+      stop: this.history.stop
+    })
+    this.registry.register({
+      start: this.context.runtime.services.groupAutoFit.start,
+      stop: this.context.runtime.services.groupAutoFit.stop
+    })
+    this.registry.register({
+      start: this.selectionActor.start,
+      stop: this.selectionActor.stop
+    })
+    this.registry.register({
+      start: this.toolActor.start,
+      stop: this.toolActor.stop
+    })
+    this.registry.register({
+      start: this.viewportActor.start,
+      stop: this.viewportActor.stop
+    })
+    this.registry.register({
+      start: this.historyActor.start,
+      stop: this.historyActor.stop
+    })
+    this.registry.register({
+      start: this.mindmapActor.start,
+      stop: this.mindmapActor.stop
+    })
+    this.registry.register({
+      start: this.container.sync,
+      stop: this.container.stop
+    })
+    this.registry.register({
+      stop: this.edgeActor.cancelInteractions
+    })
+    this.registry.register({
+      stop: this.nodeActor.cancelInteractions
+    })
+    this.registry.register({
+      stop: this.mindmapActor.cancelDrag
+    })
+    this.registry.register({
+      stop: this.edgeActor.resetTransientState
+    })
+    this.registry.register({
+      stop: this.nodeActor.resetTransientState
+    })
+    this.registry.register({
+      stop: this.mindmapActor.resetTransientState
+    })
+    this.registry.register({
+      stop: this.context.runtime.shortcuts.dispose
+    })
+    this.registry.register({
+      stop: this.context.runtime.services.nodeSizeObserver.dispose
+    })
+    this.registry.register({
+      stop: this.context.runtime.services.containerSizeObserver.dispose
+    })
+    this.registry.register({
+      stop: this.context.runtime.services.viewportNavigation.dispose
+    })
+
     this.inputSync.onViewportConfigChange?.(this.config.viewportConfig)
   }
 
@@ -97,14 +162,7 @@ export class Lifecycle implements LifecycleApi {
     if (this.started) return
     this.started = true
 
-    this.history.start()
-    this.context.runtime.services.groupAutoFit.start()
-    this.selectionActor.start()
-    this.toolActor.start()
-    this.viewportActor.start()
-    this.historyActor.start()
-    this.mindmapActor.start()
-    this.container.sync()
+    this.registry.startAll()
   }
 
   update: LifecycleApi['update'] = (config) => {
@@ -117,23 +175,6 @@ export class Lifecycle implements LifecycleApi {
     if (!this.started) return
     this.started = false
 
-    this.history.stop()
-    this.selectionActor.stop()
-    this.toolActor.stop()
-    this.viewportActor.stop()
-    this.historyActor.stop()
-    this.mindmapActor.stop()
-    this.container.stop()
-    this.context.runtime.services.groupAutoFit.stop()
-    this.edgeActor.cancelInteractions()
-    this.nodeActor.cancelInteractions()
-    this.mindmapActor.cancelDrag()
-    this.edgeActor.resetTransientState()
-    this.nodeActor.resetTransientState()
-    this.mindmapActor.resetTransientState()
-    this.context.runtime.shortcuts.dispose()
-    this.context.runtime.services.nodeSizeObserver.dispose()
-    this.context.runtime.services.containerSizeObserver.dispose()
-    this.context.runtime.services.viewportNavigation.dispose()
+    this.registry.stopAll()
   }
 }

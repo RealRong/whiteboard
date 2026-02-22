@@ -14,12 +14,15 @@ export type Scheduler = {
   now: () => number
 }
 
-export type ServiceRuntimeContext = {
-  state: State
+export type GroupAutoFitContext = {
   runtime: RuntimeInternal
-  events: InstanceEventEmitter
   scheduler: Scheduler
   mutate: InternalInstance['mutate']
+}
+
+export type ViewportNavigationContext = {
+  state: State
+  runtime: RuntimeInternal
   setViewport: Commands['viewport']['set']
   zoomViewportBy: Commands['viewport']['zoomBy']
 }

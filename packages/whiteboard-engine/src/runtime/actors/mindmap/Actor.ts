@@ -16,6 +16,7 @@ import type {
 import { getSide as getMindmapSide } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../../config'
 import { MutationExecutor } from '../shared/MutationExecutor'
+import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 import { Drag } from './Drag'
 
 type ActorOptions = {
@@ -67,10 +68,7 @@ export class Actor {
   private readonly instance: ActorOptions['instance']
   private readonly mutation: MutationExecutor
   private readonly drag: Drag
-  private started = false
-  private unsubs: Array<() => void> = []
-
-  private lastLayout: MindmapLayoutConfig | null = null
+  private readonly layoutEmitter: StateWatchEmitter<MindmapLayoutConfig>
 
   constructor({ state, emit, instance, mutation }: ActorOptions) {
     this.state = state
@@ -82,6 +80,16 @@ export class Actor {
       mindmap: {
         moveRoot: this.moveRoot,
         moveSubtreeWithDrop: this.moveSubtreeWithDrop
+      }
+    })
+    this.layoutEmitter = new StateWatchEmitter({
+      state,
+      keys: ['mindmapLayout'],
+      read: () => state.read('mindmapLayout'),
+      equals: isSameLayout,
+      clone: cloneLayout,
+      emit: (layout) => {
+        emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
       }
     })
   }
@@ -287,32 +295,12 @@ export class Actor {
     )
   }
 
-  private emitChanged = (force = false) => {
-    const layout = this.state.read('mindmapLayout')
-    const changed = !this.lastLayout || !isSameLayout(this.lastLayout, layout)
-
-    if (changed) {
-      this.lastLayout = cloneLayout(layout)
-    }
-
-    if (!force && !changed) return
-    this.emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
-  }
-
   start = () => {
-    if (this.started) return
-    this.started = true
-    this.unsubs = [
-      this.state.watch('mindmapLayout', () => this.emitChanged(false))
-    ]
-    this.emitChanged(true)
+    this.layoutEmitter.start()
   }
 
   stop = () => {
-    if (!this.started && !this.unsubs.length) return
-    this.started = false
-    this.unsubs.forEach((off) => off())
-    this.unsubs = []
+    this.layoutEmitter.stop()
   }
 
   startDrag = (options: MindmapStartDragOptions) =>

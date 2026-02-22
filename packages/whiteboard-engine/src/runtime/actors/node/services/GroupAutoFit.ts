@@ -1,7 +1,8 @@
 import type { Node } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
-import type { ServiceRuntimeContext } from '../../../contracts'
+import type { GroupAutoFitContext } from '../../../contracts'
+import { MicrotaskTask } from '../../../TaskQueue'
 import { DEFAULT_TUNING } from '../../../../config'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
@@ -147,7 +148,7 @@ const applyGroupAutoFit = ({
   nodeSize,
   defaultPadding
 }: {
-  mutate: ServiceRuntimeContext['mutate']
+  mutate: GroupAutoFitContext['mutate']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -182,16 +183,16 @@ const applyGroupAutoFit = ({
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {
-  private context: ServiceRuntimeContext
+  private readonly context: GroupAutoFitContext
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
-  private stopBinding: (() => void) | null = null
-  private pendingSync = false
-  private scheduleVersion = 0
+  private started = false
+  private readonly syncTask: MicrotaskTask
 
-  constructor(context: ServiceRuntimeContext) {
+  constructor(context: GroupAutoFitContext) {
     this.context = context
+    this.syncTask = new MicrotaskTask(context.scheduler, this.triggerSync)
   }
 
   reset: GroupAutoFitApi['reset'] = () => {
@@ -237,43 +238,33 @@ export class GroupAutoFit implements GroupAutoFitApi {
   }
 
   private triggerSync = () => {
+    if (!this.started) return
     this.sync()
   }
 
   private scheduleSync = () => {
-    if (this.pendingSync) return
-    this.pendingSync = true
-    const version = ++this.scheduleVersion
-    this.context.scheduler.microtask(() => {
-      if (version !== this.scheduleVersion) return
-      this.pendingSync = false
-      this.triggerSync()
-    })
+    if (!this.started) return
+    this.syncTask.schedule()
   }
 
   stop: GroupAutoFitApi['stop'] = () => {
-    this.stopBinding?.()
-    this.stopBinding = null
-    this.pendingSync = false
-    this.scheduleVersion += 1
+    if (!this.started) return
+    this.started = false
+    this.syncTask.cancel()
   }
 
   start: GroupAutoFitApi['start'] = () => {
-    this.stop()
-
-    const offAfter = this.context.events.on('doc.changed', ({ operationTypes }) => {
-      const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
-      const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
-      if (!hasRelevantChange) return
-      this.scheduleSync()
-    })
-
-    this.stopBinding = () => {
-      offAfter()
-    }
-
+    if (this.started) return this.stop
+    this.started = true
     this.scheduleSync()
     return this.stop
+  }
+
+  onDocumentChanged = (operationTypes: string[]) => {
+    const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
+    const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
+    if (!hasRelevantChange) return
+    this.scheduleSync()
   }
 
   dispose: GroupAutoFitApi['dispose'] = () => {

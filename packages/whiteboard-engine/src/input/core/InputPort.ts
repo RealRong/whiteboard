@@ -17,6 +17,8 @@ type InputControllerOptions = {
   sessions?: PointerSession[]
 }
 
+const emptyResult = () => ({ effects: [] as InputEffect[] })
+
 const toShortcutButton = (button: number): 0 | 1 | 2 | undefined => {
   if (button === 0 || button === 1 || button === 2) return button
   return undefined
@@ -121,7 +123,7 @@ export class InputControllerImpl implements InputControllerType {
     if (event.kind === 'focus' && event.phase === 'blur') {
       return this.reset('blur')
     }
-    return { effects: [] as InputEffect[] }
+    return emptyResult()
   }
 
   configure: InputControllerType['configure'] = (config) => {
@@ -150,60 +152,78 @@ export class InputControllerImpl implements InputControllerType {
     }
   })
 
+  private handlePointerHover = (
+    context: InputSessionContext,
+    event: Extract<InputEvent, { kind: 'pointer' }>
+  ) => {
+    if (event.phase !== 'move' || event.stage !== 'bubble' || event.source !== 'container') {
+      return
+    }
+    const enabled = context.state.read('tool') === 'edge'
+    context.actors.edge.hoverMove(event.pointer, enabled)
+  }
+
+  private handlePointerDownCapture = (
+    context: InputSessionContext,
+    event: Extract<InputEvent, { kind: 'pointer' }>
+  ): ReturnType<InputControllerType['handle']> => {
+    context.commands.interaction.update({
+      pointer: {
+        button: toShortcutButton(event.button),
+        modifiers: {
+          alt: event.modifiers.alt,
+          shift: event.modifiers.shift,
+          ctrl: event.modifiers.ctrl,
+          meta: event.modifiers.meta
+        }
+      }
+    })
+    const handled = context.shortcuts.handlePointerDownCapture(
+      toPointerShortcutEvent(event),
+      withPointerShortcutContext(context.shortcuts.getContext(), event)
+    )
+    if (handled) {
+      return {
+        effects: [
+          { type: 'preventDefault', reason: 'shortcut.pointerDownCapture' },
+          { type: 'stopPropagation', reason: 'shortcut.pointerDownCapture' }
+        ]
+      }
+    }
+    return this.pointerEngine.dispatch(event)
+  }
+
   private handlePointer = (
     event: Extract<InputEvent, { kind: 'pointer' }>
   ): ReturnType<InputControllerType['handle']> => {
     const context = this.getSessionContext()
+
     if (
       event.phase === 'down'
       && event.stage === 'capture'
       && event.target.ignoreInput
     ) {
-      return { effects: [] as InputEffect[] }
+      return emptyResult()
     }
-    if (event.phase === 'move' && event.source === 'container' && event.stage === 'bubble') {
-      const enabled = context.state.read('tool') === 'edge'
-      context.actors.edge.hoverMove(event.pointer, enabled)
-    }
+
+    this.handlePointerHover(context, event)
+
     if (event.phase === 'down' && event.stage === 'capture') {
-      context.commands.interaction.update({
-        pointer: {
-          button: toShortcutButton(event.button),
-          modifiers: {
-            alt: event.modifiers.alt,
-            shift: event.modifiers.shift,
-            ctrl: event.modifiers.ctrl,
-            meta: event.modifiers.meta
-          }
-        }
-      })
-      const handled = context.shortcuts.handlePointerDownCapture(
-        toPointerShortcutEvent(event),
-        withPointerShortcutContext(context.shortcuts.getContext(), event)
-      )
-      if (handled) {
-        const effects: InputEffect[] = [
-          { type: 'preventDefault', reason: 'shortcut.pointerDownCapture' },
-          { type: 'stopPropagation', reason: 'shortcut.pointerDownCapture' }
-        ]
-        return {
-          effects
-        }
-      }
-      return this.pointerEngine.dispatch(event)
+      return this.handlePointerDownCapture(context, event)
     }
+
     if (event.stage === 'capture') {
-      return { effects: [] as InputEffect[] }
+      return emptyResult()
     }
+
     return this.pointerEngine.dispatch(event)
   }
 
-  private handleKey = (
-    event: Extract<InputEvent, { kind: 'key' }>
-  ): ReturnType<InputControllerType['handle']> => {
-    const effects: InputEffect[] = []
-    const context = this.getSessionContext()
-    const ignoreInput = Boolean(event.target.ignoreInput)
+  private updateInteractionFromKey = (
+    context: InputSessionContext,
+    event: Extract<InputEvent, { kind: 'key' }>,
+    ignoreInput: boolean
+  ) => {
     context.commands.interaction.update({
       focus: {
         isEditingText: Boolean(event.target.isTextInput),
@@ -219,17 +239,59 @@ export class InputControllerImpl implements InputControllerType {
         }
       }
     })
+  }
 
-    if (event.code === 'Space') {
-      if (ignoreInput) {
-        if (event.phase === 'up') {
-          context.commands.keyboard.setSpacePressed(false)
-        }
-      } else {
-        context.commands.keyboard.setSpacePressed(event.phase === 'down')
-        effects.push({ type: 'preventDefault', reason: 'keyboard.space' })
+  private handleSpaceKey = (
+    context: InputSessionContext,
+    event: Extract<InputEvent, { kind: 'key' }>,
+    ignoreInput: boolean,
+    effects: InputEffect[]
+  ) => {
+    if (event.code !== 'Space') return
+
+    if (ignoreInput) {
+      if (event.phase === 'up') {
+        context.commands.keyboard.setSpacePressed(false)
       }
+      return
     }
+
+    context.commands.keyboard.setSpacePressed(event.phase === 'down')
+    effects.push({ type: 'preventDefault', reason: 'keyboard.space' })
+  }
+
+  private handleEdgeRoutingDelete = (
+    context: InputSessionContext,
+    event: Extract<InputEvent, { kind: 'key' }>,
+    effects: InputEffect[]
+  ) => {
+    if (
+      event.target.role !== 'handle'
+      || event.target.handleType !== 'edge-routing'
+      || !isDeleteKey(event.key)
+    ) {
+      return false
+    }
+
+    effects.push({ type: 'preventDefault', reason: 'edge.routing.removePoint' })
+    effects.push({ type: 'stopPropagation', reason: 'edge.routing.removePoint' })
+    const edgeId = event.target.edgeId
+    const routingIndex = event.target.routingIndex
+    if (edgeId && Number.isInteger(routingIndex)) {
+      context.actors.edge.removeRoutingPointAt(edgeId, routingIndex as number)
+    }
+    return true
+  }
+
+  private handleKey = (
+    event: Extract<InputEvent, { kind: 'key' }>
+  ): ReturnType<InputControllerType['handle']> => {
+    const effects: InputEffect[] = []
+    const context = this.getSessionContext()
+    const ignoreInput = Boolean(event.target.ignoreInput)
+
+    this.updateInteractionFromKey(context, event, ignoreInput)
+    this.handleSpaceKey(context, event, ignoreInput, effects)
 
     if (ignoreInput) {
       return { effects }
@@ -243,18 +305,7 @@ export class InputControllerImpl implements InputControllerType {
       return { effects }
     }
 
-    if (
-      event.target.role === 'handle'
-      && event.target.handleType === 'edge-routing'
-      && isDeleteKey(event.key)
-    ) {
-      effects.push({ type: 'preventDefault', reason: 'edge.routing.removePoint' })
-      effects.push({ type: 'stopPropagation', reason: 'edge.routing.removePoint' })
-      const edgeId = event.target.edgeId
-      const routingIndex = event.target.routingIndex
-      if (edgeId && Number.isInteger(routingIndex)) {
-        context.actors.edge.removeRoutingPointAt(edgeId, routingIndex as number)
-      }
+    if (this.handleEdgeRoutingDelete(context, event, effects)) {
       return { effects }
     }
 
@@ -285,7 +336,7 @@ export class InputControllerImpl implements InputControllerType {
       wheelSensitivity: viewportConfig.wheelSensitivity
     })
     if (!handled) {
-      return { effects: [] as InputEffect[] }
+      return emptyResult()
     }
     return {
       effects: [{ type: 'preventDefault', reason: 'viewport.wheelZoom' }]

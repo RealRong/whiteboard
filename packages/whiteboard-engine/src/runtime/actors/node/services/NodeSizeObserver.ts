@@ -1,6 +1,8 @@
 import { trimNumber } from '@whiteboard/core/utils'
 import type { NodeId, Size } from '@whiteboard/core/types'
 import type { ApplyMutationsApi } from '@engine-types/command'
+import type { Scheduler } from '../../../contracts'
+import { FrameTask } from '../../../TaskQueue'
 import type {
   NodeSizeObserver as NodeSizeObserverApi,
   PendingNodeSizeUpdate
@@ -9,19 +11,22 @@ import { DEFAULT_TUNING } from '../../../../config'
 
 export class NodeSizeObserver implements NodeSizeObserverApi {
   private readonly mutate: ApplyMutationsApi
+  private readonly flushTask: FrameTask
   private observer: ResizeObserver | null = null
   private observed = new Map<NodeId, Element>()
   private elementToId = new WeakMap<Element, NodeId>()
   private lastSize = new Map<NodeId, Size>()
   private pending = new Map<NodeId, Size>()
-  private rafId: number | null = null
 
-  constructor(mutate: ApplyMutationsApi) {
+  constructor(
+    mutate: ApplyMutationsApi,
+    scheduler: Scheduler
+  ) {
     this.mutate = mutate
+    this.flushTask = new FrameTask(scheduler, this.flush)
   }
 
   private flush = () => {
-    this.rafId = null
     if (!this.pending.size) return
     const updates: PendingNodeSizeUpdate[] = []
     this.pending.forEach((size, id) => {
@@ -63,9 +68,7 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
         if (width <= 0 || height <= 0) continue
         this.pending.set(nodeId, { width, height })
       }
-      if (this.pending.size && this.rafId === null) {
-        this.rafId = requestAnimationFrame(this.flush)
-      }
+      if (this.pending.size) this.flushTask.schedule()
     })
   }
 
@@ -75,10 +78,7 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
     this.observed.clear()
     this.lastSize.clear()
     this.pending.clear()
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId)
-      this.rafId = null
-    }
+    this.flushTask.cancel()
   }
 
   observe: NodeSizeObserverApi['observe'] = (nodeId, element, enabled = true) => {

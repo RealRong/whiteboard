@@ -1,6 +1,7 @@
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
 import type { HistoryState } from '@engine-types/state'
+import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
   state: State
@@ -27,43 +28,26 @@ const cloneHistory = (history: HistoryState): HistoryState => ({
 export class Actor {
   readonly name = 'History'
 
-  private readonly state: State
-  private readonly emit: InstanceEventEmitter['emit']
-  private started = false
-  private unsubs: Array<() => void> = []
-
-  private lastHistory: HistoryState | null = null
+  private readonly emitter: StateWatchEmitter<HistoryState>
 
   constructor({ state, emit }: ActorOptions) {
-    this.state = state
-    this.emit = emit
-  }
-
-  private emitChanged = (force = false) => {
-    const history = this.state.read('history')
-    const changed = !this.lastHistory || !isSameHistory(this.lastHistory, history)
-
-    if (changed) {
-      this.lastHistory = cloneHistory(history)
-    }
-
-    if (!force && !changed) return
-    this.emit('history.changed', { history: cloneHistory(history) })
+    this.emitter = new StateWatchEmitter({
+      state,
+      keys: ['history'],
+      read: () => state.read('history'),
+      equals: isSameHistory,
+      clone: cloneHistory,
+      emit: (history) => {
+        emit('history.changed', { history: cloneHistory(history) })
+      }
+    })
   }
 
   start = () => {
-    if (this.started) return
-    this.started = true
-    this.unsubs = [
-      this.state.watch('history', () => this.emitChanged(false))
-    ]
-    this.emitChanged(true)
+    this.emitter.start()
   }
 
   stop = () => {
-    if (!this.started && !this.unsubs.length) return
-    this.started = false
-    this.unsubs.forEach((off) => off())
-    this.unsubs = []
+    this.emitter.stop()
   }
 }

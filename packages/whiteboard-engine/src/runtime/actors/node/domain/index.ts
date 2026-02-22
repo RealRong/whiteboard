@@ -24,3 +24,8 @@ export {
   resizeHandleMap,
   rotateVector
 } from './transform'
+export {
+  expandRectByThreshold,
+  resolveInteractionZoom,
+  resolveSnapThresholdWorld
+} from './snapRuntime'

@@ -1,4 +1,5 @@
 type Listener = () => void
+type ChangeListener<TKey extends PropertyKey> = (key: TKey) => void
 
 type Updater<T> = T | ((prev: T) => T)
 
@@ -8,6 +9,7 @@ const resolveNext = <T,>(next: Updater<T>, prev: T): T =>
 export class WritableStore<TState extends Record<string, unknown>> {
   private state: TState
   private listeners = new Map<keyof TState, Set<Listener>>()
+  private changeListeners = new Set<ChangeListener<keyof TState>>()
   private batchDepth = 0
   private frameBatchDepth = 0
   private pendingKeys = new Set<keyof TState>()
@@ -21,8 +23,12 @@ export class WritableStore<TState extends Record<string, unknown>> {
 
   private notify = (key: keyof TState) => {
     const keyListeners = this.listeners.get(key)
-    if (!keyListeners?.size) return
-    keyListeners.forEach((listener) => listener())
+    if (keyListeners?.size) {
+      keyListeners.forEach((listener) => listener())
+    }
+    if (this.changeListeners.size) {
+      this.changeListeners.forEach((listener) => listener(key))
+    }
   }
 
   private flush = () => {
@@ -111,6 +117,13 @@ export class WritableStore<TState extends Record<string, unknown>> {
       if (!current.size) {
         this.listeners.delete(key)
       }
+    }
+  }
+
+  watchChanges = (listener: ChangeListener<keyof TState>) => {
+    this.changeListeners.add(listener)
+    return () => {
+      this.changeListeners.delete(listener)
     }
   }
 

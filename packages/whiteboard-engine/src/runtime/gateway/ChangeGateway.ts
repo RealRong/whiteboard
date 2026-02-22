@@ -71,6 +71,7 @@ export class ChangeGateway {
   private readonly graphRuntime: ChangeGatewayDependencies['graph']
   private readonly viewRuntime: ChangeGatewayDependencies['view']
   private readonly emit: InstanceEventEmitter['emit']
+  private readonly docChangeHooks = new Set<(operationTypes: string[]) => void>()
 
   constructor({
     instance,
@@ -194,11 +195,21 @@ export class ChangeGateway {
     operationTypes: string[]
   ) => {
     if (!operationTypes.length) return
+    this.docChangeHooks.forEach((hook) => {
+      hook(operationTypes)
+    })
     this.emit('doc.changed', {
       docId,
       operationTypes,
       origin: this.toOrigin(source)
     })
+  }
+
+  onDocChanged = (hook: (operationTypes: string[]) => void) => {
+    this.docChangeHooks.add(hook)
+    return () => {
+      this.docChangeHooks.delete(hook)
+    }
   }
 
   private createSummary = (options: {

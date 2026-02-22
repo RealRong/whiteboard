@@ -254,20 +254,25 @@ export const createEngine = ({
   }
   input = inputPort
   lifecycle = lifecyclePort
-  const serviceContext = {
+  const groupAutoFit = new GroupAutoFit({
+    runtime: context.runtime,
+    scheduler,
+    mutate
+  })
+  const viewportNavigation = new ViewportNavigation({
     state: context.state,
     runtime: context.runtime,
-    events: context.events,
-    scheduler,
-    mutate,
     setViewport: commands.viewport.set,
     zoomViewportBy: commands.viewport.zoomBy
-  }
+  })
+
+  changeGateway.onDocChanged(groupAutoFit.onDocumentChanged)
+
   services = {
-    nodeSizeObserver: new NodeSizeObserver(serviceContext.mutate),
+    nodeSizeObserver: new NodeSizeObserver(mutate, scheduler),
     containerSizeObserver: new ContainerSizeObserver(),
-    groupAutoFit: new GroupAutoFit(serviceContext),
-    viewportNavigation: new ViewportNavigation(serviceContext)
+    groupAutoFit,
+    viewportNavigation
   }
   shortcuts = createShortcuts(instance)
 

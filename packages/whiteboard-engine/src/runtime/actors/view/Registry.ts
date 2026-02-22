@@ -20,7 +20,6 @@ import type {
   MindmapDragView,
   NodeTransformHandle,
   NodeViewItem,
-  ViewState,
   ViewportTransformView
 } from '@engine-types/instance/view'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
@@ -37,7 +36,9 @@ import {
 } from '../graph/sync/Policy'
 import { createNodeRegistry, type NodeStateSyncKey } from '../node/view'
 import {
+  createIndexedState,
   notifyListeners,
+  updateIndexedState,
   watchSet
 } from './shared'
 
@@ -54,7 +55,7 @@ export type ViewRuntime = {
   syncGraph: (change: GraphChange) => void
 }
 
-type SyncAction = () => void
+type SyncAction = () => boolean
 
 export const createViewRegistry = ({
   state,
@@ -98,16 +99,35 @@ export const createViewRegistry = ({
   const listeners = new Set<() => void>()
 
   let viewportTransform: ViewportTransformView = toViewportTransformView(state.read('viewport'))
-  let edgePaths: EdgePathEntry[] = []
-  let edgeIds: EdgeId[] = []
-  let edgePathById = new Map<EdgeId, EdgePathEntry>()
+  let edgeIndex = createIndexedState<EdgeId, EdgePathEntry>(
+    [],
+    (entry) => entry.id
+  )
   let edgePreview: EdgePreviewView = edgeDerived.preview()
   let edgeSelectedEndpoints: EdgeEndpoints | undefined = edgeDerived.selectedEndpoints()
   let edgeSelectedRouting: EdgeSelectedRoutingView = edgeDerived.selectedRouting()
-  let mindmapTrees: MindmapViewTree[] = []
-  let mindmapIds: NodeId[] = []
-  let mindmapTreeById = new Map<NodeId, MindmapViewTree>()
+  let mindmapIndex = createIndexedState<NodeId, MindmapViewTree>(
+    [],
+    (entry) => entry.id
+  )
   let mindmapDrag: MindmapDragView | undefined = mindmapDerived.drag()
+
+  type NodeViewRefs = {
+    ids: NodeId[]
+    itemsById: ReadonlyMap<NodeId, NodeViewItem>
+    handlesById: ReadonlyMap<NodeId, readonly NodeTransformHandle[]>
+  }
+
+  const captureNodeRefs = (): NodeViewRefs => ({
+    ids: node.getNodeIds(),
+    itemsById: node.getNodeItemsMap(),
+    handlesById: node.getNodeHandlesMap()
+  })
+
+  const hasNodeRefsChanged = (before: NodeViewRefs) =>
+    before.ids !== node.getNodeIds()
+    || before.itemsById !== node.getNodeItemsMap()
+    || before.handlesById !== node.getNodeHandlesMap()
 
   const recomputeViewportTransform = () => {
     const next = toViewportTransformView(state.read('viewport'))
@@ -122,15 +142,11 @@ export const createViewRegistry = ({
 
   const recomputeEdgePaths = () => {
     const next = edgeDerived.paths()
-    const changed = !Object.is(edgePaths, next)
-    edgePaths = next
-    if (changed) {
-      edgeIds = next.map((entry) => entry.id)
-      edgePathById = new Map<EdgeId, EdgePathEntry>()
-      next.forEach((entry) => {
-        edgePathById.set(entry.id, entry)
-      })
+    const result = updateIndexedState(edgeIndex, next, (entry) => entry.id)
+    if (result.changed) {
+      edgeIndex = result.state
     }
+    const changed = result.changed
     return changed
   }
 
@@ -157,15 +173,11 @@ export const createViewRegistry = ({
 
   const recomputeMindmapTrees = () => {
     const next = mindmapDerived.trees()
-    const changed = !Object.is(mindmapTrees, next)
-    mindmapTrees = next
-    if (changed) {
-      mindmapIds = next.map((entry) => entry.id)
-      mindmapTreeById = new Map<NodeId, MindmapViewTree>()
-      next.forEach((entry) => {
-        mindmapTreeById.set(entry.id, entry)
-      })
+    const result = updateIndexedState(mindmapIndex, next, (entry) => entry.id)
+    if (result.changed) {
+      mindmapIndex = result.state
     }
+    const changed = result.changed
     return changed
   }
 
@@ -182,39 +194,53 @@ export const createViewRegistry = ({
 
   const stateSyncActions: Partial<Record<StateKey, SyncAction>> = {
     viewport: () => {
-      recomputeViewportTransform()
+      const nodeBefore = captureNodeRefs()
+      const changed = recomputeViewportTransform()
       syncState('viewport')
+      return changed || hasNodeRefsChanged(nodeBefore)
     },
     selection: () => {
+      const nodeBefore = captureNodeRefs()
       syncState('selection')
+      return hasNodeRefsChanged(nodeBefore)
     },
     groupHovered: () => {
+      const nodeBefore = captureNodeRefs()
       syncState('groupHovered')
+      return hasNodeRefsChanged(nodeBefore)
     },
     tool: () => {
+      const nodeBefore = captureNodeRefs()
+      let changed = false
       syncState('tool')
-      recomputeEdgePreview()
+      changed = recomputeEdgePreview() || changed
+      return changed || hasNodeRefsChanged(nodeBefore)
     },
     edgeConnect: () => {
-      recomputeEdgePaths()
-      recomputeEdgePreview()
+      let changed = false
+      changed = recomputeEdgePaths() || changed
+      changed = recomputeEdgePreview() || changed
+      return changed
     },
     edgeSelection: () => {
-      recomputeEdgeSelectedEndpoints()
-      recomputeEdgeSelectedRouting()
+      let changed = false
+      changed = recomputeEdgeSelectedEndpoints() || changed
+      changed = recomputeEdgeSelectedRouting() || changed
+      return changed
     },
     mindmapLayout: () => {
-      recomputeMindmapTrees()
+      return recomputeMindmapTrees()
     },
     mindmapDrag: () => {
-      recomputeMindmapDrag()
+      return recomputeMindmapDrag()
     }
   }
 
   const handleStateChange = (key: StateKey) => {
     const action = stateSyncActions[key]
     if (!action) return
-    action()
+    const changed = action()
+    if (!changed) return
     notifyListeners(listeners)
   }
 
@@ -224,31 +250,35 @@ export const createViewRegistry = ({
       dirtyNodeIds,
       orderChanged
     } = changeView
+    let changed = false
     const affectsEdgeNodes = fullSync || changeView.canvasNodesChanged
     const affectsEdgeVisibility = fullSync || changeView.visibleEdgesChanged
 
     if (shouldSyncDerivedEdgePaths(changeView)) {
-      recomputeEdgePaths()
+      changed = recomputeEdgePaths() || changed
     }
     if (affectsEdgeNodes) {
-      recomputeEdgePreview()
+      changed = recomputeEdgePreview() || changed
     }
     if (affectsEdgeNodes || affectsEdgeVisibility) {
-      recomputeEdgeSelectedEndpoints()
+      changed = recomputeEdgeSelectedEndpoints() || changed
     }
     if (affectsEdgeVisibility) {
-      recomputeEdgeSelectedRouting()
+      changed = recomputeEdgeSelectedRouting() || changed
     }
     if (shouldSyncDerivedMindmapTrees(changeView)) {
-      recomputeMindmapTrees()
+      changed = recomputeMindmapTrees() || changed
     }
     if (shouldSyncCanvasNodes(changeView)) {
+      const nodeBefore = captureNodeRefs()
       node.syncCanvasNodes({
         dirtyNodeIds,
         orderChanged,
         fullSync
       })
+      changed = hasNodeRefsChanged(nodeBefore) || changed
     }
+    return changed
   }
 
   const syncGraph = (change: GraphChange) => {
@@ -256,8 +286,8 @@ export const createViewRegistry = ({
     edgeViewQuery.syncGraph(change)
 
     const changeView = toChangeView(change)
-    runGraphSync(changeView)
-
+    const changed = runGraphSync(changeView)
+    if (!changed) return
     notifyListeners(listeners)
   }
 
@@ -291,8 +321,8 @@ export const createViewRegistry = ({
         handlesById: readNodeHandles()
       },
       edges: {
-        ids: edgeIds,
-        byId: edgePathById,
+        ids: edgeIndex.ids,
+        byId: edgeIndex.byId,
         preview: edgePreview,
         selection: {
           endpoints: edgeSelectedEndpoints,
@@ -300,8 +330,8 @@ export const createViewRegistry = ({
         }
       },
       mindmap: {
-        ids: mindmapIds,
-        byId: mindmapTreeById,
+        ids: mindmapIndex.ids,
+        byId: mindmapIndex.byId,
         drag: mindmapDrag
       }
     }
