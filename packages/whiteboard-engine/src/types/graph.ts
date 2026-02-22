@@ -1,14 +1,12 @@
 import type {
   Document,
   Edge,
-  NodeFullHint,
-  NodeHint,
-  NodePartialHint,
   Node,
   NodeId,
   Point,
   Size
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
+import type { NodeFullHint, NodeHint, NodePartialHint } from '@whiteboard/core/node'
 
 export type NodeViewUpdate = {
   id: NodeId

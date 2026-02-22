@@ -1,4 +1,4 @@
-import type { MindmapLayoutOptions } from '@whiteboard/core'
+import type { MindmapLayoutOptions } from '@whiteboard/core/types'
 
 export type MindmapLayoutMode = 'simple' | 'tidy'
 

@@ -1,4 +1,4 @@
-import type { LifecycleRuntimeContext } from '../common/contracts'
+import type { LifecycleRuntimeContext } from '../contracts'
 
 type ContainerContext = Pick<LifecycleRuntimeContext, 'runtime'>
 

@@ -1,8 +1,8 @@
-import type { DocumentId } from '@whiteboard/core'
+import type { DocumentId } from '@whiteboard/core/types'
 import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { RuntimeHistory } from '@engine-types/instance/runtime'
 import type { StateSnapshot } from '@engine-types/instance/state'
-import type { LifecycleRuntimeContext } from '../../common/contracts'
+import type { LifecycleRuntimeContext } from '../../contracts'
 
 type HistoryIdentity = {
   docId: DocumentId

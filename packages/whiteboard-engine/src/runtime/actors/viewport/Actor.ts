@@ -1,4 +1,5 @@
-import { isSameViewport, type Viewport } from '@whiteboard/core'
+import { isSameViewport } from '@whiteboard/core/geometry'
+import type { Viewport } from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
 

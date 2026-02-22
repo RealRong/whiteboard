@@ -2,9 +2,9 @@ import type { GraphSnapshot } from '@engine-types/graph'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
 import type { MindmapDragView, MindmapViewTree } from '@engine-types/instance/view'
-import type { Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../../config'
-import { toMindmapLayoutSignature } from '../../../../runtime/common/cache'
+import { toMindmapLayoutSignature } from '@whiteboard/core/cache'
 import {
   buildMindmapLines,
   computeMindmapLayout,

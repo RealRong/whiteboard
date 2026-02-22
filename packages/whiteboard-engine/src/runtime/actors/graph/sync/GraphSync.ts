@@ -1,5 +1,5 @@
 import type { GraphProjector } from '@engine-types/graph'
-import type { Node, Operation } from '@whiteboard/core'
+import type { Node, Operation } from '@whiteboard/core/types'
 import { buildHint, hasNodeOperation, type Hint } from './hint'
 
 type Options = {

@@ -2,7 +2,7 @@ import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeHistory } from '@engine-types/instance/runtime'
 import type { InteractionState } from '@engine-types/state'
-import type { DispatchResult, Document } from '@whiteboard/core'
+import type { DispatchResult, Document } from '@whiteboard/core/types'
 
 const mergeInteraction = (
   prev: InteractionState,

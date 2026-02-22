@@ -1,4 +1,4 @@
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import type { WritableStateSnapshot } from '@engine-types/instance/state'
 import { DEFAULT_CONFIG } from '../config'
 

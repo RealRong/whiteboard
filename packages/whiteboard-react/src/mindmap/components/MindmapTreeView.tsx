@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { MindmapNodeId } from '@whiteboard/core'
+import type { MindmapNodeId } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
 import { MindmapNodeItem } from './MindmapNodeItem'

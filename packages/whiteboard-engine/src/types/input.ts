@@ -1,4 +1,4 @@
-import type { EdgeId, NodeId, Point } from '@whiteboard/core'
+import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'

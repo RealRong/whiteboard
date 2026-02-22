@@ -1,4 +1,4 @@
-import type { Document } from '@whiteboard/core'
+import type { Document } from '@whiteboard/core/types'
 
 export type DocumentStore = {
   get: () => Document

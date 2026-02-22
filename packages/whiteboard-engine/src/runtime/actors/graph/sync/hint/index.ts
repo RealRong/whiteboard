@@ -3,7 +3,7 @@ export {
   hasNodeOperation,
   NodeHintContext as HintContext,
   NodeHintPipeline as HintPipeline
-} from '@whiteboard/core'
+} from '@whiteboard/core/node'
 
 export type { HintTraceEntry, HintTraceEffect } from './trace'
-export type { NodeHint as Hint } from '@whiteboard/core'
+export type { NodeHint as Hint } from '@whiteboard/core/node'

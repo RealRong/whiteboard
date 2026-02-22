@@ -5,7 +5,7 @@ import type {
   RoutingDragUpdateOptions
 } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core'
+import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
 
 type RoutingInstance = Pick<InternalInstance, 'state' | 'graph' | 'mutate'>
 

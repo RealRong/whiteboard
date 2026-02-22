@@ -1,5 +1,5 @@
-import { getEdgePath } from '@whiteboard/core'
-import type { Edge, EdgeId } from '@whiteboard/core'
+import { getEdgePath } from '@whiteboard/core/edge'
+import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@engine-types/instance/view'
 import type { GraphChange } from '@engine-types/graph'
 import type { EdgeConnectState } from '@engine-types/state'
@@ -8,7 +8,7 @@ import {
   hasDirtyNodeHints,
   shouldResetEdgePathCache
 } from '../../../graph/sync/Policy'
-import { toEdgePathSignature, toNodeGeometrySignature } from '../../../../../runtime/common/cache'
+import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/cache'
 import type {
   EdgePathCacheEntry,
   EdgePathStore,

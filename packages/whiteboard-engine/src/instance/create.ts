@@ -3,12 +3,12 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/instance'
-import { createRegistries } from '@whiteboard/core'
+import { createRegistries } from '@whiteboard/core/kernel'
 import type { InputConfig } from '@engine-types/input'
 import type { LifecycleViewportConfig } from '@engine-types/instance/lifecycle'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import { Events } from '../runtime/common/events'
+import { EventCenter } from '../runtime/EventCenter'
 import { createInputPort, createShortcuts } from '../input'
 import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
 import { ChangeGateway } from '../runtime/gateway/ChangeGateway'
@@ -17,7 +17,7 @@ import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
 import { createActorRuntime } from './actors'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
-import { Scheduler } from '../runtime/common/Scheduler'
+import { Scheduler } from '../runtime/Scheduler'
 import { GroupAutoFit, NodeSizeObserver } from '../runtime/actors/node/services'
 import {
   ContainerSizeObserver,
@@ -69,7 +69,7 @@ export const createEngine = ({
     config,
     viewport: new ViewportRuntime()
   }
-  const events = new Events<InstanceEventMap>()
+  const eventCenter = new EventCenter<InstanceEventMap>()
 
   const queryRuntime = createQuery({
     graph,
@@ -132,8 +132,8 @@ export const createEngine = ({
       return view
     },
     events: {
-      on: events.on,
-      off: events.off
+      on: eventCenter.on,
+      off: eventCenter.off
     },
     get lifecycle() {
       return lifecycle
@@ -148,7 +148,7 @@ export const createEngine = ({
     state,
     graph,
     query: queryRuntime.query,
-    emit: events.emit,
+    emit: eventCenter.emit,
     registries: runtimeRegistries,
     readDoc: documentStore.get,
     readNodes: () => runtime.document.get().nodes,
@@ -166,9 +166,9 @@ export const createEngine = ({
     query: queryRuntime.query,
     runtime,
     events: {
-      on: events.on,
-      off: events.off,
-      emit: events.emit
+      on: eventCenter.on,
+      off: eventCenter.off,
+      emit: eventCenter.emit
     },
     config,
     scheduler
@@ -182,7 +182,7 @@ export const createEngine = ({
     now: scheduler.now,
     graph: actors.graph,
     view: actors.view,
-    emit: events.emit
+    emit: eventCenter.emit
   })
   history = changeGateway.history
   mutate = changeGateway.applyMutations

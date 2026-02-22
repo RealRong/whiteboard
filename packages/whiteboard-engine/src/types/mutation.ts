@@ -1,4 +1,4 @@
-import type { DocumentId, Operation } from '@whiteboard/core'
+import type { DocumentId, Operation } from '@whiteboard/core/types'
 import type { CommandSource } from './command'
 
 export type Mutation = Operation

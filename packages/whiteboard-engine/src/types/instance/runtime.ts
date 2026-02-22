@@ -3,7 +3,7 @@ import type {
   NodeId,
   Point,
   Viewport
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import type { Size } from '../common'
 import type { ResolvedHistoryConfig } from '../common'
 import type { Shortcuts } from '../shortcuts'

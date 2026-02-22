@@ -1,6 +1,4 @@
-import type { Document } from '@whiteboard/core'
 import type { Commands } from '@engine-types/commands'
-import type { GraphChange, GraphProjector } from '@engine-types/graph'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { InternalInstance } from '@engine-types/instance/instance'
@@ -16,36 +14,21 @@ export type Scheduler = {
   now: () => number
 }
 
-export type EngineRuntimeContext = {
+export type ServiceRuntimeContext = {
   state: State
-  graph: GraphProjector
-  query: Query
-  view: View
   runtime: RuntimeInternal
   events: InstanceEventEmitter
-  config: InstanceConfig
-  syncGraph: (change: GraphChange) => void
   scheduler: Scheduler
-}
-
-export type ServiceRuntimeContext = Pick<
-  EngineRuntimeContext,
-  | 'state'
-  | 'runtime'
-  | 'events'
-  | 'scheduler'
-> & {
   mutate: InternalInstance['mutate']
   setViewport: Commands['viewport']['set']
   zoomViewportBy: Commands['viewport']['zoomBy']
 }
 
-export type LifecycleRuntimeContext = Pick<
-  EngineRuntimeContext,
-  | 'state'
-  | 'query'
-  | 'view'
-  | 'runtime'
-  | 'events'
-  | 'config'
->
+export type LifecycleRuntimeContext = {
+  state: State
+  query: Query
+  view: View
+  runtime: RuntimeInternal
+  events: InstanceEventEmitter
+  config: InstanceConfig
+}

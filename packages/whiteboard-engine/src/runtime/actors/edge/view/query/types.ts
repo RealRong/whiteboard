@@ -1,4 +1,4 @@
-import type { Edge, EdgeId, Point } from '@whiteboard/core'
+import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
 import type { GraphChange, GraphSnapshot } from '@engine-types/graph'

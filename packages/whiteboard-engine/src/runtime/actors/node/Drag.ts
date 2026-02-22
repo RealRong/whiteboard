@@ -1,4 +1,4 @@
-import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core'
+import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import type {
   NodeDragCancelOptions,
   NodeDragEndOptions,
@@ -17,7 +17,7 @@ import {
   getNodesBoundingRect,
   rectEquals
 } from './domain'
-import { getNodeAABB, rectContains } from '../../../runtime/common/geometry'
+import { getNodeAABB, rectContains } from '@whiteboard/core/geometry'
 
 type DragInstance = Pick<
   InternalInstance,

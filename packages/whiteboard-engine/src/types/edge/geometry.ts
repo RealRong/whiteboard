@@ -1,4 +1,4 @@
-import type { Edge, EdgeId, Point } from '@whiteboard/core'
+import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import type { EdgeConnectState } from './state'
 
 export type EdgePath = {

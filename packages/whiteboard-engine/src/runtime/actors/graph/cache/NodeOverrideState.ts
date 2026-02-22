@@ -1,6 +1,6 @@
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import type { NodeViewUpdate } from '@engine-types/graph'
-import { isPointEqual, isSizeEqual } from '../../../../runtime/common/geometry'
+import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeOverride } from './NodeOverride'
 
 const isOptionalPointEqual = (

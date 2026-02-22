@@ -1,4 +1,4 @@
-import type { EdgeId, NodeId } from '@whiteboard/core'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
 

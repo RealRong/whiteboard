@@ -1,6 +1,6 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { CommandSource } from '@engine-types/command'
-import type { DispatchResult, Intent, Point, Viewport } from '@whiteboard/core'
+import type { DispatchResult, Intent, Point, Viewport } from '@whiteboard/core/types'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 
 type DomainInstance = Pick<InternalInstance, 'runtime'>

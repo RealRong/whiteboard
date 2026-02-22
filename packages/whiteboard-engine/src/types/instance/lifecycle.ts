@@ -1,4 +1,4 @@
-import type { DocumentId, Viewport } from '@whiteboard/core'
+import type { DocumentId, Viewport } from '@whiteboard/core/types'
 import type { ShortcutOverrides } from '../shortcuts'
 import type { ResolvedHistoryConfig } from '../common'
 import type { MindmapLayoutConfig } from '../mindmap'

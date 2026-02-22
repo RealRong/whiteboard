@@ -1,6 +1,6 @@
-import type { Rect } from '@whiteboard/core'
+import type { Rect } from '@whiteboard/core/types'
 import type { PointerSession } from '@engine-types/input'
-import { rectFromPoints } from '../../runtime/common/geometry'
+import { rectFromPoints } from '@whiteboard/core/geometry'
 import { resolveSelectionMode } from '../shared/selection'
 
 export const createSelectionBox = (): PointerSession => ({

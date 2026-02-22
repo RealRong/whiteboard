@@ -1,6 +1,6 @@
 import type { Commands } from '@engine-types/commands'
 import type { Instance } from '@engine-types/instance/instance'
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import type { SelectionMode } from '@engine-types/state'
 
 const applySelection = (

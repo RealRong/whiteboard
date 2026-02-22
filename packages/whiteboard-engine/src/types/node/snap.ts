@@ -5,4 +5,4 @@ export type {
   SnapCandidate,
   SnapEdge,
   SnapResult
-} from '@whiteboard/core'
+} from '@whiteboard/core/node'

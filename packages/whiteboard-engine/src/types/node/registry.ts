@@ -1,4 +1,4 @@
-import type { Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core/types'
 import type { Commands } from '../commands'
 import type { Query } from '../instance/query'
 import type { NodeLike, RefLike, StyleObject } from '../ui'

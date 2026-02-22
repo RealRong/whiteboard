@@ -23,7 +23,7 @@ import type {
   ViewState,
   ViewportTransformView
 } from '@engine-types/instance/view'
-import type { EdgeId, NodeId, Viewport } from '@whiteboard/core'
+import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
 import {
   createEdgeViewDerivations,
   createEdgeViewQuery

@@ -2,7 +2,7 @@ import type {
   Document,
   Node,
   NodeId
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import { NodeOverrideState } from './NodeOverrideState'
 import type { GraphSnapshot, NodeViewUpdate } from '../types'
 import {

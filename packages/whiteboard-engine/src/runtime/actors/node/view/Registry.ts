@@ -7,7 +7,7 @@ import type {
   NodeTransformHandle,
   NodeViewItem,
 } from '@engine-types/instance/view'
-import type { Node, NodeId } from '@whiteboard/core'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import {
   projectNodeHandles,
   projectNodeItem,

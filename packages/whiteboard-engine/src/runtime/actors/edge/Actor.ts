@@ -16,15 +16,15 @@ import type {
   EdgePatch,
   NodeId,
   Point
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import {
   bringOrderForward,
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderBackward,
   sendOrderToBack
-} from '@whiteboard/core'
-import type { Scheduler } from '../../common/contracts'
+} from '@whiteboard/core/utils'
+import type { Scheduler } from '../../contracts'
 import { MutationExecutor } from '../shared/MutationExecutor'
 import { Connect } from './Connect'
 import { Routing } from './Routing'

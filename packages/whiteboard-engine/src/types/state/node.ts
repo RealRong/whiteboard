@@ -1,4 +1,4 @@
-import type { Rect } from '@whiteboard/core'
+import type { Rect } from '@whiteboard/core/types'
 import type { SnapCandidate } from '../node/snap'
 
 export type SnapRuntimeData = {

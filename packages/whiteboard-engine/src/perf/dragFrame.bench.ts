@@ -3,7 +3,7 @@ import {
   type Edge,
   type Node,
   type Point
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import { createEngine } from '../instance/create'
 import type { PointerInputEvent } from '@engine-types/input'
 

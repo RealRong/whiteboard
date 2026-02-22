@@ -1,4 +1,4 @@
-import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core'
+import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 
 export type EdgeConnectFrom = {
   nodeId: NodeId

@@ -1,4 +1,4 @@
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import type { GraphChange } from '@engine-types/graph'
 
 export type GraphChangeView = {

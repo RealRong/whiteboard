@@ -8,7 +8,7 @@ import type {
   NodeId,
   NodeInput,
   Point
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import type { SelectionMode } from '@engine-types/state'
 import { DEFAULT_TUNING } from '../../config'
 import { getGroupDescendants } from '../../runtime/actors/node/domain'

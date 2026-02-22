@@ -1,4 +1,4 @@
-import type { EdgeId } from '@whiteboard/core'
+import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@whiteboard/engine'
 import { memo } from 'react'
 import { useInstance, useViewSelector, useWhiteboardSelector } from '../../common/hooks'

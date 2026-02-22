@@ -1,5 +1,5 @@
-import { trimNumber } from '@whiteboard/core'
-import type { NodeId, Size } from '@whiteboard/core'
+import { trimNumber } from '@whiteboard/core/utils'
+import type { NodeId, Size } from '@whiteboard/core/types'
 import type { ApplyMutationsApi } from '@engine-types/command'
 import type {
   NodeSizeObserver as NodeSizeObserverApi,

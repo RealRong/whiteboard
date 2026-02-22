@@ -1,5 +1,5 @@
 import type { CommandSource } from '@engine-types/command'
-import type { DispatchResult, Intent, Operation } from '@whiteboard/core'
+import type { DispatchResult, Intent, Operation } from '@whiteboard/core/types'
 
 type MutationDispatch = (input: {
   operations: Operation[]

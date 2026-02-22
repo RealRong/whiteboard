@@ -1,4 +1,4 @@
-import type { Point, Rect } from '@whiteboard/core'
+import type { Point, Rect } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { ResizeDirection, TransformHandle } from '@engine-types/node'
 import {
@@ -8,7 +8,7 @@ import {
   getResizeSourceEdges as getResizeSourceEdgesCore,
   resizeHandleMap as resizeHandleMapCore,
   rotateVector as rotateVectorCore
-} from '@whiteboard/core'
+} from '@whiteboard/core/node'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
 
 type ResizeHandleMeta = {

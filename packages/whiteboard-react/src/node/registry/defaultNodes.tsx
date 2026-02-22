@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
-import type { Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps, NodeRegistry } from 'types/node'
 import { createNodeRegistry } from './nodeRegistry'
 

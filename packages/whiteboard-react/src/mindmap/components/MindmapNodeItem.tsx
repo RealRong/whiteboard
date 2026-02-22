@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { MindmapNodeId, Rect } from '@whiteboard/core'
+import type { MindmapNodeId, Rect } from '@whiteboard/core/types'
 import { MindmapAddButton } from './MindmapAddButton'
 import {
   MINDMAP_NODE_ACTIVE_BORDER,

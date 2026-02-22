@@ -12,8 +12,8 @@ import type {
   DispatchResult,
   MindmapNodeId,
   MindmapTree
-} from '@whiteboard/core'
-import { getSide as getMindmapSide } from '@whiteboard/core'
+} from '@whiteboard/core/types'
+import { getSide as getMindmapSide } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../../config'
 import { MutationExecutor } from '../shared/MutationExecutor'
 import { Drag } from './Drag'

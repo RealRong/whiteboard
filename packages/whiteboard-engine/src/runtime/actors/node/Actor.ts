@@ -19,16 +19,16 @@ import type {
   NodePatch,
   Operation,
   Point
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import {
   bringOrderForward,
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderBackward,
   sendOrderToBack
-} from '@whiteboard/core'
+} from '@whiteboard/core/utils'
 import type { Size } from '@engine-types/common'
-import { isPointEqual, isSizeEqual } from '../../../runtime/common/geometry'
+import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import { MutationExecutor } from '../shared/MutationExecutor'
 import { Drag } from './Drag'
 import { Transform } from './Transform'

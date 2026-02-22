@@ -1,10 +1,9 @@
 import {
   isSameViewport,
   viewportScreenToWorld,
-  viewportWorldToScreen,
-  type Point,
-  type Viewport
-} from '@whiteboard/core'
+  viewportWorldToScreen
+} from '@whiteboard/core/geometry'
+import type { Point, Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { ViewportApi } from '@engine-types/instance/runtime'
 import type { ContainerRect } from '@engine-types/instance/services'

@@ -1,4 +1,4 @@
-import type { Edge, Node, NodeId } from '@whiteboard/core'
+import type { Edge, Node, NodeId } from '@whiteboard/core/types'
 
 export const EMPTY_NODES: Node[] = []
 export const EMPTY_EDGES: Edge[] = []

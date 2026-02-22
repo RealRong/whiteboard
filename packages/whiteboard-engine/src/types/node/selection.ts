@@ -1,4 +1,4 @@
-import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core'
+import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { SelectionMode } from '../state'
 
 export type SelectionOptions = {

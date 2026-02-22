@@ -1,4 +1,4 @@
-import type { EdgeId, Point } from '@whiteboard/core'
+import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { PointerInput } from '../common'
 
 export type RoutingDragActiveState = {

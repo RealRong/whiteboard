@@ -1,5 +1,5 @@
-import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core'
-import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core'
+import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core/mindmap'
+import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
 import type { MindmapMoveDropOptions, MindmapMoveRootOptions } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { MindmapViewTree } from '@engine-types/instance/view'

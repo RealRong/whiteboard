@@ -1,4 +1,4 @@
-import type { NodeId, Rect } from '@whiteboard/core'
+import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type {
   NodeResizeStartOptions,
@@ -16,7 +16,7 @@ import type {
   RotateDragState
 } from '@engine-types/node'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
-import { getRectCenter } from '../../../runtime/common/geometry'
+import { getRectCenter } from '@whiteboard/core/geometry'
 import {
   computeResizeSnap,
   computeNextRotation,

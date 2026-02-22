@@ -1,4 +1,4 @@
-import type { Node, Operation } from '@whiteboard/core'
+import type { Node, Operation } from '@whiteboard/core/types'
 import { buildHint } from './index'
 
 const runtime = globalThis as {

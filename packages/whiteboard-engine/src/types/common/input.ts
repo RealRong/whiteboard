@@ -1,4 +1,4 @@
-import type { Point } from '@whiteboard/core'
+import type { Point } from '@whiteboard/core/types'
 
 export type PointerModifiers = {
   alt: boolean

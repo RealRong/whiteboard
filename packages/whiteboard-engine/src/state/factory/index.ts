@@ -1,4 +1,4 @@
-import type { Document, Viewport } from '@whiteboard/core'
+import type { Document, Viewport } from '@whiteboard/core/types'
 import type {
   StateKey,
   State,

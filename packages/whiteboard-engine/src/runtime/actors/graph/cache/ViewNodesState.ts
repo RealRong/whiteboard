@@ -4,7 +4,7 @@ import type {
   NodeId,
   Point,
   Size
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import type { NodeOverride } from './NodeOverride'
 import { buildIndexById } from './shared'
 

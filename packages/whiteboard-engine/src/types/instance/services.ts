@@ -1,4 +1,4 @@
-import type { NodeId, Size as CoreSize } from '@whiteboard/core'
+import type { NodeId, Size as CoreSize } from '@whiteboard/core/types'
 import type { PointerInput } from '../common'
 
 export type NodeSizeObserver = {

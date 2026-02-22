@@ -1,4 +1,4 @@
-import type { Document } from '@whiteboard/core'
+import type { Document } from '@whiteboard/core/types'
 import { hasProjectionChange } from './ProjectionChange'
 import { GraphCache } from '../cache/GraphCache'
 import { PendingState } from './PendingState'

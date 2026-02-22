@@ -1,4 +1,4 @@
-import type { Rect } from '@whiteboard/core'
+import type { Rect } from '@whiteboard/core/types'
 import { useWhiteboardSelector } from '../../common/hooks'
 
 const isSameRect = (left?: Rect, right?: Rect) => {

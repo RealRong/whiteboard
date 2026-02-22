@@ -1,9 +1,9 @@
-import type { Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
-import type { ServiceRuntimeContext } from '../../../common/contracts'
+import type { ServiceRuntimeContext } from '../../../contracts'
 import { DEFAULT_TUNING } from '../../../../config'
-import { getNodeAABB } from '../../../../runtime/common/geometry'
+import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
   getGroupDescendants,

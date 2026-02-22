@@ -1,4 +1,4 @@
-import type { DocumentId, Viewport } from '@whiteboard/core'
+import type { DocumentId, Viewport } from '@whiteboard/core/types'
 import type { ResolvedConfig, Config } from '@engine-types/common'
 import type {
   LifecycleConfig,
@@ -8,7 +8,7 @@ import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
-import { mergeValue } from '@whiteboard/core'
+import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_CONFIG,
   DEFAULT_DOCUMENT_VIEWPORT,

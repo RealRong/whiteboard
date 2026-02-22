@@ -1,5 +1,5 @@
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
-import type { LifecycleRuntimeContext } from '../common/contracts'
+import type { LifecycleRuntimeContext } from '../contracts'
 import { Actor as EdgeActor } from '../actors/edge/Actor'
 import { Actor as HistoryActor } from '../actors/history/Actor'
 import { Sync as HistorySync } from '../actors/history/Sync'

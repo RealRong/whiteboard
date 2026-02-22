@@ -1,1 +1,1 @@
-export { deriveCanvasNodes, deriveVisibleNodes } from '@whiteboard/core'
+export { deriveCanvasNodes, deriveVisibleNodes } from '@whiteboard/core/node'

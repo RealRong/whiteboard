@@ -1,4 +1,4 @@
-import type { Node } from '@whiteboard/core'
+import type { Node } from '@whiteboard/core/types'
 
 export type NodeItemProps = {
   node: Node

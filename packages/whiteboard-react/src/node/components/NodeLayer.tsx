@@ -1,4 +1,4 @@
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import type { NodeTransformHandle, NodeViewItem } from '@whiteboard/engine'
 import { useViewSelector } from '../../common/hooks'
 import { NodeItem } from './NodeItem'

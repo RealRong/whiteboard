@@ -1,1 +1,1 @@
-export { getNearestEdgeSegment } from '@whiteboard/core'
+export { getNearestEdgeSegment } from '@whiteboard/core/edge'

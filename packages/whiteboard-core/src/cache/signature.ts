@@ -1,5 +1,4 @@
-import type { Edge, EdgeAnchor, Node, NodeId, Point, Rect } from '@whiteboard/core'
-import type { Size } from '@engine-types/common'
+import type { Edge, EdgeAnchor, Node, NodeId, Point, Rect, Size } from '../types'
 
 const toNumberToken = (value: number | undefined | null) => {
   if (value === undefined || value === null) return ''

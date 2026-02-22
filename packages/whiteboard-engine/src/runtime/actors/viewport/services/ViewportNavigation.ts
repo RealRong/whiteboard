@@ -1,6 +1,6 @@
 import type { PointerInput } from '@engine-types/common'
 import type { ViewportNavigation as ViewportNavigationApi } from '@engine-types/instance/services'
-import type { ServiceRuntimeContext } from '../../../common/contracts'
+import type { ServiceRuntimeContext } from '../../../contracts'
 
 type DragState = {
   pointerId: number

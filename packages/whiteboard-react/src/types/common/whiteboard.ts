@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { CoreRegistries, Document } from '@whiteboard/core'
+import type { CoreRegistries, Document } from '@whiteboard/core/types'
 import type { ShortcutOverrides } from '@whiteboard/engine'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'

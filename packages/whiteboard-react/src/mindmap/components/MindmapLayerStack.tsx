@@ -1,4 +1,4 @@
-import type { NodeId } from '@whiteboard/core'
+import type { NodeId } from '@whiteboard/core/types'
 import { MindmapLayer } from './MindmapLayer'
 import { useMindmapDragView, useViewSelector } from '../../common/hooks'
 

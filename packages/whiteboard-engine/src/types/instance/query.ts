@@ -1,4 +1,4 @@
-import type { NodeId, Point, Rect } from '@whiteboard/core'
+import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { SnapCandidate } from '../node/snap'
 import type {
   CanvasNodeRect,

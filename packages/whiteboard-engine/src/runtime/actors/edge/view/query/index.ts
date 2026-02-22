@@ -1,4 +1,4 @@
-import type { Edge, EdgeId } from '@whiteboard/core'
+import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { Query } from '@engine-types/instance/query'
 import type { GraphChange, GraphSnapshot } from '@engine-types/graph'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'

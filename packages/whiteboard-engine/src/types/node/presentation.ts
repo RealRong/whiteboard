@@ -1,4 +1,4 @@
-import type { Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core/types'
 import type { NodeContainerProps, NodeDefinition, NodeRenderProps } from './registry'
 import type { RefLike } from '../ui'
 

@@ -1,4 +1,4 @@
-import type { Document, Edge, EdgeId, Node } from '@whiteboard/core'
+import type { Document, Edge, EdgeId, Node } from '@whiteboard/core/types'
 import { EMPTY_EDGES, isSameNodeIdList, orderByIds } from './shared'
 
 type VisibleEdgesCache = {

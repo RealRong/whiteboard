@@ -1,4 +1,4 @@
-import type { CoreRegistries, Document } from '@whiteboard/core'
+import type { CoreRegistries, Document } from '@whiteboard/core/types'
 import type { Commands } from '../commands'
 import type { ApplyMutationsApi } from '../command'
 import type { RefLike } from '../ui'

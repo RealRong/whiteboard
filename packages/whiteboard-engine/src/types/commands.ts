@@ -17,7 +17,7 @@ import type {
   Point,
   Rect,
   Viewport
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from './mindmap'
 import type {
   PointerInput,

@@ -1,4 +1,4 @@
-import type { Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core/types'
 import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
 import type { Commands, Instance } from '@whiteboard/engine'
 

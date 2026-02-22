@@ -2,14 +2,14 @@ import type {
   Edge,
   EdgeAnchor,
   EdgeId,
-  MindmapLayout,
   MindmapNodeId,
   MindmapTree,
   Node,
   NodeId,
   Point,
   Rect
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
+import type { MindmapLayout } from '@whiteboard/core/mindmap'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type {

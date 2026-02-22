@@ -1,15 +1,15 @@
 import type {
   EdgeId,
-  MindmapDragDropTarget,
   MindmapNodeId,
   Node,
   NodeId,
   Point,
   Rect
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
+import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { TransformDragState } from '../node'
 
-export type { MindmapDragDropTarget } from '@whiteboard/core'
+export type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 

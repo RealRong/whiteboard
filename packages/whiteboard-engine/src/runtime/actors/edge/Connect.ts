@@ -1,8 +1,8 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../../common/contracts'
-import type { CoreRegistries, EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core'
-import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core'
+import type { Scheduler } from '../../contracts'
+import type { CoreRegistries, EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core/types'
+import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core/schema'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { type ConnectTo, isSameConnectTo } from './query'
 

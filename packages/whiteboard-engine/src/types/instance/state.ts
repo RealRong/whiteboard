@@ -2,7 +2,7 @@ import type {
   EdgeId,
   NodeId,
   Viewport
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Guide } from '../node/snap'
 import type {

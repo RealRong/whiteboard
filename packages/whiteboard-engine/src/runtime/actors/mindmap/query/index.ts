@@ -1,4 +1,11 @@
-import { layoutMindmap, layoutMindmapTidy, type MindmapLayout, type MindmapNode, type MindmapTree, type Node } from '@whiteboard/core'
+import {
+  layoutMindmap,
+  layoutMindmapTidy,
+  type MindmapLayout,
+  type MindmapNode,
+  type MindmapTree
+} from '@whiteboard/core/mindmap'
+import type { Node } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { MindmapViewTreeLine } from '@engine-types/instance/view'
 import type { Size } from '@engine-types/common'

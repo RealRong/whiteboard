@@ -1,4 +1,4 @@
-import type { Edge, Node, NodeId } from '@whiteboard/core'
+import type { Edge, Node, NodeId } from '@whiteboard/core/types'
 import type { GraphSnapshot } from '../types'
 import {
   EMPTY_EDGES,

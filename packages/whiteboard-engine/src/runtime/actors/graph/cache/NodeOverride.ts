@@ -1,4 +1,4 @@
-import type { Point, Size } from '@whiteboard/core'
+import type { Point, Size } from '@whiteboard/core/types'
 
 export type NodeOverride = {
   position?: Point

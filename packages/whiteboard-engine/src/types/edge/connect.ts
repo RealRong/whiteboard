@@ -1,4 +1,4 @@
-import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core'
+import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput } from '../common'
 import type { EdgeConnectState } from './state'
 import type { RefLike } from '../ui'

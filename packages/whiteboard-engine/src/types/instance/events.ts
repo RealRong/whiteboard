@@ -1,4 +1,4 @@
-import type { DocumentId, EdgeId, NodeId, Viewport } from '@whiteboard/core'
+import type { DocumentId, EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { HistoryState } from '../state'
 

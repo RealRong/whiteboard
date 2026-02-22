@@ -16,15 +16,17 @@ import type { DocumentStore } from '../../document/Store'
 import type { HistoryStore } from '../../document/History'
 import {
   buildIntent,
-  reduceOperations,
-  type CoreRegistries,
-  type DispatchResult,
-  type Document,
-  type Intent,
-  type KernelRegistriesSnapshot,
-  type Operation,
-  type Origin
-} from '@whiteboard/core'
+  reduceOperations
+} from '@whiteboard/core/kernel'
+import type {
+  CoreRegistries,
+  DispatchResult,
+  Document,
+  Intent,
+  KernelRegistriesSnapshot,
+  Operation,
+  Origin
+} from '@whiteboard/core/types'
 
 type GraphRuntime = {
   syncAfterMutations: (operations: Operation[]) => GraphChange | undefined

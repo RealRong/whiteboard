@@ -11,7 +11,7 @@ import type {
   NodePatch,
   Operation,
   Viewport
-} from '@whiteboard/core'
+} from '@whiteboard/core/types'
 
 export type CommandSource =
   | 'ui'

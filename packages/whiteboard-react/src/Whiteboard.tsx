@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { Document } from '@whiteboard/core'
+import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'

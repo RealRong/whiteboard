@@ -1,4 +1,4 @@
-import type { Node, NodeId, Rect } from '@whiteboard/core'
+import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import type {
   QueryDebugMetric,
   QueryDebugSnapshot
@@ -7,13 +7,13 @@ import type { CanvasNodeRect } from '@engine-types/instance/view'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import { DEFAULT_TUNING } from '../../config'
-import { toNodeStateSignature, toRectSignature } from '../../runtime/common/cache'
-import { getNodeAABB, getNodeRect } from '../../runtime/common/geometry'
+import { toNodeStateSignature, toRectSignature } from '@whiteboard/core/cache'
+import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 import {
   DEFAULT_SAMPLE_WINDOW_SIZE,
   percentile,
   pushSample
-} from '../../runtime/common/perf/sampling'
+} from '@whiteboard/core/perf'
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'

@@ -1,4 +1,4 @@
-import type { Edge, Point } from '@whiteboard/core'
+import type { Edge, Point } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
