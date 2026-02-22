@@ -8,76 +8,13 @@ import type { Instance } from '@engine-types/instance/instance'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
+import { mergeValue } from '@whiteboard/core'
 import {
   DEFAULT_CONFIG,
   DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG,
   DEFAULT_INTERNALS
 } from './defaults'
-
-type UnknownRecord = Record<string, unknown>
-
-const isPlainObject = (value: unknown): value is UnknownRecord => {
-  if (typeof value !== 'object' || value === null) return false
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
-
-const hasOwn = (value: UnknownRecord, key: string) => Object.prototype.hasOwnProperty.call(value, key)
-
-const cloneConfigValue = <T,>(value: T): T => {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneConfigValue(item)) as T
-  }
-  if (isPlainObject(value)) {
-    const next: UnknownRecord = {}
-    Object.keys(value).forEach((key) => {
-      next[key] = cloneConfigValue(value[key])
-    })
-    return next as T
-  }
-  return value
-}
-
-const mergeConfigValue = <T,>(base: T, override?: unknown): T => {
-  if (override === undefined || override === null) {
-    return cloneConfigValue(base)
-  }
-
-  if (Array.isArray(base)) {
-    if (!Array.isArray(override)) return cloneConfigValue(base)
-    return cloneConfigValue(override as T)
-  }
-
-  if (isPlainObject(base)) {
-    if (!isPlainObject(override)) return cloneConfigValue(base)
-
-    const baseRecord = base as UnknownRecord
-    const overrideRecord = override as UnknownRecord
-    const merged: UnknownRecord = {}
-    const keys = new Set([...Object.keys(baseRecord), ...Object.keys(overrideRecord)])
-
-    keys.forEach((key) => {
-      const baseValue = baseRecord[key]
-      if (!hasOwn(overrideRecord, key)) {
-        merged[key] = cloneConfigValue(baseValue)
-        return
-      }
-
-      const overrideValue = overrideRecord[key]
-      if (baseValue === undefined) {
-        merged[key] = cloneConfigValue(overrideValue)
-        return
-      }
-
-      merged[key] = mergeConfigValue(baseValue, overrideValue)
-    })
-
-    return merged as T
-  }
-
-  return cloneConfigValue(override as T)
-}
 
 export {
   DEFAULT_CONFIG,
@@ -90,7 +27,7 @@ export {
 export const mergeConfig = (
   defaults: ResolvedConfig,
   overrides?: Config
-): ResolvedConfig => mergeConfigValue(defaults, overrides)
+): ResolvedConfig => mergeValue(defaults, overrides)
 
 export const normalizeConfig = (config?: Config): ResolvedConfig => {
   const merged = mergeConfig(DEFAULT_CONFIG, config)
@@ -116,7 +53,7 @@ export const normalizeConfig = (config?: Config): ResolvedConfig => {
 export const resolveInstanceConfig = (
   configOverrides?: Partial<InstanceConfig>
 ): InstanceConfig => {
-  const merged = mergeConfigValue(DEFAULT_INSTANCE_CONFIG, configOverrides)
+  const merged = mergeValue(DEFAULT_INSTANCE_CONFIG, configOverrides)
 
   return {
     ...merged,

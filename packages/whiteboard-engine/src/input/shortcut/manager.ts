@@ -2,6 +2,8 @@ import type {
   Shortcut,
   ShortcutContext,
   ShortcutManager,
+  ShortcutKeyEvent,
+  ShortcutPointerEvent,
   ShortcutManagerOptions
 } from '@engine-types/shortcuts'
 import {
@@ -156,7 +158,7 @@ export const createShortcutManager = (
 
   const list = () => shortcuts
 
-  const handleKeyDown = (event: KeyboardEvent, ctx: ShortcutContext) => {
+  const handleKeyDown = (event: ShortcutKeyEvent, ctx: ShortcutContext) => {
     if (ctx.focus.isImeComposing) return false
     const chord = getEventChord(event)
     if (!chord) return false
@@ -171,17 +173,17 @@ export const createShortcutManager = (
     return true
   }
 
-  const handlePointerDown = (event: PointerEvent, ctx: ShortcutContext) => {
+  const handlePointerDown = (event: ShortcutPointerEvent, ctx: ShortcutContext) => {
     const candidates: Candidate[] = []
 
     compiled.pointer.forEach((candidate) => {
       const rule = candidate.rule
       if (!isShortcutEnabled(candidate.shortcut, ctx)) return
       if (rule.button !== undefined && rule.button !== event.button) return
-      if (rule.alt !== undefined && rule.alt !== event.altKey) return
-      if (rule.shift !== undefined && rule.shift !== event.shiftKey) return
-      if (rule.ctrl !== undefined && rule.ctrl !== event.ctrlKey) return
-      if (rule.meta !== undefined && rule.meta !== event.metaKey) return
+      if (rule.alt !== undefined && rule.alt !== event.modifiers.alt) return
+      if (rule.shift !== undefined && rule.shift !== event.modifiers.shift) return
+      if (rule.ctrl !== undefined && rule.ctrl !== event.modifiers.ctrl) return
+      if (rule.meta !== undefined && rule.meta !== event.modifiers.meta) return
 
       candidates.push({
         shortcut: candidate.shortcut,

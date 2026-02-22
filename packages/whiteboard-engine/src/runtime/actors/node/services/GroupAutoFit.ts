@@ -167,8 +167,8 @@ const applyGroupAutoFit = ({
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
-  void mutate(
-    [{
+  void mutate({
+    operations: [{
       type: 'node.update',
       id: group.id,
       patch: {
@@ -176,11 +176,9 @@ const applyGroupAutoFit = ({
         size: { width: expanded.width, height: expanded.height }
       }
     }],
-    {
-      source: 'system',
-      actor: 'group.autoFit'
-    }
-  )
+    source: 'system',
+    actor: 'group.autoFit'
+  })
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {
@@ -203,12 +201,13 @@ export class GroupAutoFit implements GroupAutoFitApi {
   }
 
   sync: GroupAutoFitApi['sync'] = () => {
-    const docId = this.context.runtime.docRef.current?.id
-    const nodes = this.context.runtime.docRef.current?.nodes ?? []
+    const doc = this.context.runtime.document.get()
+    const docId = doc.id
+    const nodes = doc.nodes
     const nodeSize = this.context.runtime.config.nodeSize
     const padding = this.context.runtime.config.node.groupPadding
 
-    if (docId !== undefined && docId !== this.lastDocId) {
+    if (docId !== this.lastDocId) {
       this.snapshot = null
       this.layoutSnapshot = null
       this.lastDocId = docId
@@ -245,7 +244,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
     if (this.pendingSync) return
     this.pendingSync = true
     const version = ++this.scheduleVersion
-    this.context.schedulers.microtask(() => {
+    this.context.scheduler.microtask(() => {
       if (version !== this.scheduleVersion) return
       this.pendingSync = false
       this.triggerSync()
@@ -262,7 +261,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
   start: GroupAutoFitApi['start'] = () => {
     this.stop()
 
-    const offAfter = this.context.events.on('change.applied', ({ operationTypes }) => {
+    const offAfter = this.context.events.on('doc.changed', ({ operationTypes }) => {
       const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
       const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
       if (!hasRelevantChange) return

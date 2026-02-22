@@ -92,13 +92,11 @@ export class Drag {
   }
 
   private applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
-    void this.instance.mutate(
-      [{ type: 'node.update', id: nodeId, patch }],
-      {
-        source: 'interaction',
-        actor: 'node.drag'
-      }
-    )
+    void this.instance.mutate({
+      operations: [{ type: 'node.update', id: nodeId, patch }],
+      source: 'interaction',
+      actor: 'node.drag'
+    })
   }
 
   private buildGroupChildren = (

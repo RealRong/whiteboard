@@ -1,19 +1,7 @@
-import type { Core } from '@whiteboard/core'
 import type { Shortcut } from '@engine-types/shortcuts'
 
 type ShortcutDependencies = {
-  core: Core
-}
-
-const runRegisteredCommand = (core: Core, names: string[]) => {
-  for (const name of names) {
-    const command = core.registries.commands.get(name)
-    if (command) {
-      command()
-      return true
-    }
-  }
-  return false
+  runCommand: (names: string[]) => boolean
 }
 
 export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] => [
@@ -24,7 +12,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+G'],
     when: (ctx) => ctx.selection.count >= 2 && !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['group.createFromSelection'])
+      deps.runCommand(['group.createFromSelection'])
     }
   },
   {
@@ -34,7 +22,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Shift+Mod+G'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['group.ungroupSelection'])
+      deps.runCommand(['group.ungroupSelection'])
     }
   },
   {
@@ -44,7 +32,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+A'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['selection.selectAll'])
+      deps.runCommand(['selection.selectAll'])
     }
   },
   {
@@ -54,7 +42,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Escape'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['selection.clear'])
+      deps.runCommand(['selection.clear'])
     }
   },
   {
@@ -64,7 +52,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Backspace', 'Delete'],
     when: (ctx) => (ctx.selection.hasSelection || Boolean(ctx.selection.selectedEdgeId)) && !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['selection.delete'])
+      deps.runCommand(['selection.delete'])
     }
   },
   {
@@ -74,7 +62,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+D'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['selection.duplicate'])
+      deps.runCommand(['selection.duplicate'])
     }
   },
   {
@@ -84,7 +72,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+Z'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['history.undo'])
+      deps.runCommand(['history.undo'])
     }
   },
   {
@@ -94,7 +82,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Shift+Mod+Z', 'Mod+Y'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      runRegisteredCommand(deps.core, ['history.redo'])
+      deps.runCommand(['history.redo'])
     }
   }
 ]

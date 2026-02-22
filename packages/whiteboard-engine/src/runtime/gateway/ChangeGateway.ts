@@ -1,28 +1,32 @@
 import type {
   AppliedChangeSummary,
-  ApplyDispatchResult,
   ApplyMutationsApi,
-  ApplyMutationsOptions,
   ApplyMutationsResult,
-  ApplyApi,
-  ApplyOptions,
-  ApplyResult,
   Command,
-  CommandBatch,
-  CommandBatchInput,
   CommandSource,
   MutationBatch,
-  MutationBatchInput,
-  TxApi,
-  TxCollector
+  MutationBatchInput
 } from '@engine-types/command'
+import type { ResolvedHistoryConfig } from '@engine-types/common'
 import type { GraphChange } from '@engine-types/graph'
-import type { InstanceEventEmitter, InstanceEventMap } from '@engine-types/instance/events'
+import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { DispatchResult, Document, Intent, Operation, Origin } from '@whiteboard/core'
+import type { HistoryState } from '@engine-types/state'
+import type { DocumentStore } from '../../document/Store'
+import type { HistoryStore } from '../../document/History'
+import {
+  buildIntent,
+  reduceOperations,
+  type CoreRegistries,
+  type DispatchResult,
+  type Document,
+  type Intent,
+  type KernelRegistriesSnapshot,
+  type Operation,
+  type Origin
+} from '@whiteboard/core'
 
 type GraphRuntime = {
-  syncAfterApply: (applied: ApplyResult) => GraphChange | undefined
   syncAfterMutations: (operations: Operation[]) => GraphChange | undefined
 }
 
@@ -30,8 +34,24 @@ type ViewRuntime = {
   sync: (change: GraphChange | undefined) => void
 }
 
+type IntentDispatchOptions = {
+  source?: CommandSource
+  actor?: string
+  timestamp?: number
+  docId?: string
+}
+
+type ResetDocumentOptions = {
+  source?: CommandSource
+  actor?: string
+  timestamp?: number
+}
+
 export type ChangeGatewayDependencies = {
   instance: InternalInstance
+  documentStore: DocumentStore
+  history: HistoryStore
+  registries: CoreRegistries
   replaceDoc: (doc: Document | null) => void
   now?: () => number
   graph: GraphRuntime
@@ -41,6 +61,9 @@ export type ChangeGatewayDependencies = {
 
 export class ChangeGateway {
   private readonly instance: InternalInstance
+  private readonly documentStore: DocumentStore
+  private readonly historyStore: HistoryStore
+  private readonly registries: CoreRegistries
   private readonly replaceDoc: (doc: Document | null) => void
   private readonly now: () => number
   private readonly graphRuntime: ChangeGatewayDependencies['graph']
@@ -49,6 +72,9 @@ export class ChangeGateway {
 
   constructor({
     instance,
+    documentStore,
+    history,
+    registries,
     replaceDoc,
     now,
     graph,
@@ -56,6 +82,9 @@ export class ChangeGateway {
     emit
   }: ChangeGatewayDependencies) {
     this.instance = instance
+    this.documentStore = documentStore
+    this.historyStore = history
+    this.registries = registries
     this.replaceDoc = replaceDoc
     this.now = now ?? (() => {
       const runtime = globalThis as { performance?: { now?: () => number } }
@@ -69,236 +98,236 @@ export class ChangeGateway {
     this.emit = emit
   }
 
-  private createCommandBatchId = () => {
+  private createBatchId = (prefix: 'ms') => {
     const random = Math.random().toString(36).slice(2, 10)
-    return `cs_${Date.now().toString(36)}_${random}`
+    return `${prefix}_${Date.now().toString(36)}_${random}`
   }
 
-  private createMutationBatchId = () => {
-    const random = Math.random().toString(36).slice(2, 10)
-    return `ms_${Date.now().toString(36)}_${random}`
-  }
-
-  private toDocOrigin = (
-    source: CommandSource
-  ): InstanceEventMap['doc.changed']['origin'] => {
+  private toOrigin = (source: CommandSource): Origin => {
     if (source === 'remote') return 'remote'
     if (source === 'system' || source === 'import') return 'system'
     return 'user'
   }
 
-  private toCoreOrigin = (source: CommandSource): Origin => {
-    if (source === 'remote') return 'remote'
-    if (source === 'system' || source === 'import') return 'system'
-    return 'user'
-  }
-
-  private parseCommandBatchInput = (
-    input: CommandBatchInput
-  ): {
-    commands: Command[]
-    meta: Omit<Exclude<CommandBatchInput, Command[]>, 'commands'> | undefined
-  } => {
-    const isObjectBatch = !Array.isArray(input)
-    const commands = isObjectBatch ? input.commands : input
-    const meta = isObjectBatch
-      ? (({ id, docId, source, actor, timestamp }) => ({
-          id,
-          docId,
-          source,
-          actor,
-          timestamp
-        }))(input)
-      : undefined
-
-    if (!Array.isArray(commands)) {
-      throw new Error('Invalid command batch input: commands must be an array')
-    }
-
-    commands.forEach((command, index) => {
-      if (!command || typeof command !== 'object' || typeof command.type !== 'string') {
-        throw new Error(`Invalid command at index ${index}: missing type`)
-      }
-    })
-
-    return {
-      commands: commands as Command[],
-      meta
-    }
-  }
-
-  private normalizeCommandBatch = (
-    input: ReturnType<ChangeGateway['parseCommandBatchInput']>,
-    options: ApplyOptions | undefined
-  ): CommandBatch => ({
-    id: options?.id ?? input.meta?.id ?? this.createCommandBatchId(),
-    docId: options?.docId ?? input.meta?.docId ?? this.instance.runtime.docRef.current?.id,
-    source: options?.source ?? input.meta?.source ?? 'system',
-    actor: options?.actor ?? input.meta?.actor,
-    timestamp: options?.timestamp ?? input.meta?.timestamp ?? Date.now(),
-    commands: input.commands
+  private createMutationBatch = (input: MutationBatchInput): MutationBatch => ({
+    id: input.id ?? this.createBatchId('ms'),
+    docId: input.docId ?? this.documentStore.get().id,
+    source: input.source ?? 'system',
+    actor: input.actor,
+    timestamp: input.timestamp ?? Date.now(),
+    operations: input.operations
   })
 
-  private normalizeMutationBatch = (
-    input: MutationBatchInput,
-    options: ApplyMutationsOptions | undefined
-  ): MutationBatch => {
-    const operations = Array.isArray(input) ? input : input.operations
-    const meta = Array.isArray(input) ? undefined : input
+  private createKernelRegistriesSnapshot = (): KernelRegistriesSnapshot => ({
+    nodeTypes: this.registries.nodeTypes.list(),
+    edgeTypes: this.registries.edgeTypes.list(),
+    nodeSchemas: this.registries.schemas.listNodes(),
+    edgeSchemas: this.registries.schemas.listEdges(),
+    serializers: this.registries.serializers.list()
+  })
 
-    if (!Array.isArray(operations)) {
-      throw new Error('Invalid mutation batch input: operations must be an array')
-    }
-
-    return {
-      id: options?.id ?? meta?.id ?? this.createMutationBatchId(),
-      docId: options?.docId ?? meta?.docId ?? this.instance.runtime.docRef.current?.id,
-      source: options?.source ?? meta?.source ?? 'system',
-      actor: options?.actor ?? meta?.actor,
-      timestamp: options?.timestamp ?? meta?.timestamp ?? Date.now(),
-      operations
-    }
+  private commitDocument = (
+    doc: Document,
+    options?: { silent?: boolean }
+  ) => {
+    this.documentStore.replace(doc, options)
   }
 
-  private applyCommand = (
-    command: CommandBatch['commands'][number],
-    origin: Origin
-  ): DispatchResult | undefined => {
-    if (command.type === 'doc.reset') {
-      this.instance.graph.applyHint({ kind: 'full' }, 'doc')
-      this.instance.runtime.docRef.current = command.doc
-      return undefined
+  private reduceWithCommit = (
+    operations: Operation[],
+    origin: Origin,
+    options: { captureHistory?: boolean } = {}
+  ): DispatchResult => {
+    const doc = this.documentStore.get()
+    const reduced = reduceOperations(doc, operations, {
+      now: this.now,
+      origin,
+      registries: this.createKernelRegistriesSnapshot()
+    })
+    if (!reduced.ok) {
+      return reduced
     }
 
-    const built = this.instance.runtime.core.apply.build(command as Intent)
-    if (!built.ok) {
-      return built
-    }
-
-    const result = this.instance.runtime.core.apply.operations(built.operations, { origin })
-    if (!result.ok) {
-      return result
-    }
-    if (typeof built.value === 'undefined') {
-      return result
-    }
-
-    return {
-      ...result,
-      value: built.value
-    }
-  }
-
-  private dispatchCommandBatch = (
-    commandBatch: CommandBatch
-  ): ApplyDispatchResult[] => {
-    const dispatchResults: ApplyDispatchResult[] = []
-    const origin = this.toCoreOrigin(commandBatch.source)
-
-    for (let index = 0; index < commandBatch.commands.length; index += 1) {
-      const command = commandBatch.commands[index]
-      const result = this.applyCommand(command, origin)
-      if (!result) continue
-      dispatchResults.push({
-        index,
-        type: command.type,
-        result
+    this.commitDocument(reduced.doc)
+    if (options.captureHistory !== false) {
+      this.historyStore.capture({
+        forward: reduced.changes.operations,
+        inverse: reduced.inverse,
+        origin,
+        timestamp: reduced.changes.timestamp
       })
     }
 
-    return dispatchResults
-  }
-
-  private collectOperations = (
-    dispatchResults: ApplyDispatchResult[]
-  ): Operation[] => {
-    const operations: Operation[] = []
-    dispatchResults.forEach(({ result }) => {
-      if (!result.ok) return
-      operations.push(...result.changes.operations)
-    })
-    return operations
+    return {
+      ok: true,
+      changes: reduced.changes
+    }
   }
 
   private toOperationTypes = (
     operations: Operation[],
-    commandBatch: CommandBatch
+    extraTypes: string[] = []
   ): string[] => {
-    const types = new Set<string>()
+    const types = new Set<string>(extraTypes)
     operations.forEach((operation) => {
       types.add(operation.type)
     })
-    if (commandBatch.commands.some((command) => command.type === 'doc.reset')) {
-      types.add('doc.reset')
-    }
     return Array.from(types)
   }
 
-  private emitChangeEvents = (summary: AppliedChangeSummary) => {
-    if (summary.operationTypes.length) {
-      this.emit('doc.changed', {
-        docId: summary.docId,
-        operationTypes: summary.operationTypes,
-        origin: this.toDocOrigin(summary.source)
-      })
-    }
-    this.emit('change.applied', summary)
+  private syncDoc = () => {
+    const docAfter = this.documentStore.get()
+    this.replaceDoc(docAfter)
+    return docAfter
   }
 
-  apply: ApplyApi = async (
-    input: CommandBatchInput,
-    options?: ApplyOptions
-  ): Promise<ApplyResult> => {
-    const startedAt = this.now()
-    const parsed = this.parseCommandBatchInput(input)
-    const commandBatch = this.normalizeCommandBatch(parsed, options)
-    const dispatchResults = this.dispatchCommandBatch(commandBatch)
-    const operations = this.collectOperations(dispatchResults)
-    const docAfter = this.instance.runtime.docRef.current ?? null
-    this.replaceDoc(docAfter)
-    const operationTypes = this.toOperationTypes(operations, commandBatch)
+  private syncGraphAndView = (operations: Operation[]) => {
+    const graphChange = this.graphRuntime.syncAfterMutations(operations)
+    this.viewRuntime.sync(graphChange)
+  }
 
-    const summary: AppliedChangeSummary = {
-      id: commandBatch.id,
-      docId: commandBatch.docId ?? docAfter?.id,
-      source: commandBatch.source,
-      actor: commandBatch.actor,
-      timestamp: commandBatch.timestamp,
-      commandTypes: commandBatch.commands.map((command) => command.type),
+  private emitDocChanged = (
+    docId: string | undefined,
+    source: CommandSource,
+    operationTypes: string[]
+  ) => {
+    if (!operationTypes.length) return
+    this.emit('doc.changed', {
+      docId,
       operationTypes,
-      metrics: {
-        durationMs: this.now() - startedAt,
-        commandCount: commandBatch.commands.length,
-        dispatchCount: dispatchResults.length
+      origin: this.toOrigin(source)
+    })
+  }
+
+  private createSummary = (options: {
+    id: string
+    docId?: string
+    source: CommandSource
+    actor?: string
+    timestamp: number
+    commandTypes: Command['type'][]
+    operationTypes: string[]
+    startedAt: number
+    commandCount: number
+    dispatchCount: number
+  }): AppliedChangeSummary => ({
+    id: options.id,
+    docId: options.docId,
+    source: options.source,
+    actor: options.actor,
+    timestamp: options.timestamp,
+    commandTypes: options.commandTypes,
+    operationTypes: options.operationTypes,
+    metrics: {
+      durationMs: this.now() - options.startedAt,
+      commandCount: options.commandCount,
+      dispatchCount: options.dispatchCount
+    }
+  })
+
+  private applyHistoryOperations = (
+    operations: Operation[]
+  ): boolean => {
+    const dispatchResult = this.reduceWithCommit(operations, 'system', {
+      captureHistory: false
+    })
+    if (!dispatchResult.ok) {
+      return false
+    }
+
+    const docAfter = this.syncDoc()
+    this.syncGraphAndView(dispatchResult.changes.operations)
+    this.emitDocChanged(
+      docAfter?.id,
+      'system',
+      this.toOperationTypes(dispatchResult.changes.operations)
+    )
+    return true
+  }
+
+  readonly history = {
+    configure: (config: Partial<ResolvedHistoryConfig>) => {
+      this.historyStore.configure(config)
+    },
+    undo: () => this.historyStore.undo(this.applyHistoryOperations),
+    redo: () => this.historyStore.redo(this.applyHistoryOperations),
+    clear: () => this.historyStore.clear(),
+    getState: (): HistoryState => this.historyStore.getState(),
+    subscribe: (listener: (state: HistoryState) => void) =>
+      this.historyStore.subscribe(listener)
+  }
+
+  dispatchIntent = async (
+    intent: Intent,
+    options: IntentDispatchOptions = {}
+  ): Promise<DispatchResult> => {
+    const source = options.source ?? 'command'
+    const origin = this.toOrigin(source)
+    const built = buildIntent(this.documentStore.get(), intent, {
+      now: this.now,
+      registries: this.createKernelRegistriesSnapshot()
+    })
+    if (!built.ok) {
+      return built
+    }
+
+    const dispatchResult = this.reduceWithCommit(built.operations, origin)
+    const operations = dispatchResult.ok ? dispatchResult.changes.operations : []
+    const docAfter = this.syncDoc()
+    this.syncGraphAndView(operations)
+    this.emitDocChanged(
+      options.docId ?? docAfter?.id,
+      source,
+      this.toOperationTypes(operations)
+    )
+
+    if (!dispatchResult.ok || typeof built.value === 'undefined') {
+      return dispatchResult
+    }
+    return {
+      ...dispatchResult,
+      value: built.value
+    }
+  }
+
+  resetDocument = async (
+    doc: Document,
+    options: ResetDocumentOptions = {}
+  ): Promise<DispatchResult> => {
+    const source = options.source ?? 'import'
+    const origin = this.toOrigin(source)
+
+    this.instance.graph.applyHint({ kind: 'full' }, 'doc')
+    this.commitDocument(doc, { silent: true })
+    this.historyStore.clear()
+
+    const docAfter = this.syncDoc()
+    this.syncGraphAndView([])
+    this.emitDocChanged(docAfter?.id, source, ['doc.reset'])
+
+    return {
+      ok: true,
+      changes: {
+        id: this.createBatchId('ms'),
+        timestamp: options.timestamp ?? this.now(),
+        operations: [],
+        origin
       }
     }
-
-    const applied: ApplyResult = {
-      commandBatch,
-      dispatchResults,
-      summary
-    }
-
-    const graphChange = this.graphRuntime.syncAfterApply(applied)
-    this.viewRuntime.sync(graphChange)
-    this.emitChangeEvents(summary)
-    return applied
   }
 
   applyMutations: ApplyMutationsApi = async (
-    input: MutationBatchInput,
-    options?: ApplyMutationsOptions
+    input: MutationBatchInput
   ): Promise<ApplyMutationsResult> => {
     const startedAt = this.now()
-    const mutationBatch = this.normalizeMutationBatch(input, options)
-    const origin = this.toCoreOrigin(mutationBatch.source)
-    const dispatchResult = this.instance.runtime.core.apply.operations(mutationBatch.operations, { origin })
+    const mutationBatch = this.createMutationBatch(input)
+    const origin = this.toOrigin(mutationBatch.source)
+    const dispatchResult = this.reduceWithCommit(mutationBatch.operations, origin)
     const operations = dispatchResult.ok ? dispatchResult.changes.operations : []
-    const operationTypes = Array.from(new Set(operations.map((operation) => operation.type)))
-    const docAfter = this.instance.runtime.docRef.current ?? null
-    this.replaceDoc(docAfter)
+    const operationTypes = this.toOperationTypes(operations)
+    const docAfter = this.syncDoc()
 
-    const summary: AppliedChangeSummary = {
+    const summary = this.createSummary({
       id: mutationBatch.id,
       docId: mutationBatch.docId ?? docAfter?.id,
       source: mutationBatch.source,
@@ -306,12 +335,10 @@ export class ChangeGateway {
       timestamp: mutationBatch.timestamp,
       commandTypes: [],
       operationTypes,
-      metrics: {
-        durationMs: this.now() - startedAt,
-        commandCount: 0,
-        dispatchCount: 1
-      }
-    }
+      startedAt,
+      commandCount: 0,
+      dispatchCount: 1
+    })
 
     const applied: ApplyMutationsResult = {
       mutationBatch,
@@ -320,24 +347,8 @@ export class ChangeGateway {
       summary
     }
 
-    const graphChange = this.graphRuntime.syncAfterMutations(applied.operations)
-    this.viewRuntime.sync(graphChange)
-    this.emitChangeEvents(summary)
+    this.syncGraphAndView(applied.operations)
+    this.emitDocChanged(summary.docId, summary.source, summary.operationTypes)
     return applied
-  }
-
-  tx: TxApi = async <T>(
-    run: (tx: TxCollector) => T | Promise<T>,
-    options?: ApplyOptions
-  ): Promise<T> => {
-    const pending: Command[] = []
-    const value = await run({
-      add: (...commands) => {
-        pending.push(...commands)
-      }
-    })
-    if (!pending.length) return value
-    await this.apply(pending, options)
-    return value
   }
 }

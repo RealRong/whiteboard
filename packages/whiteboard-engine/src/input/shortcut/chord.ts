@@ -1,4 +1,4 @@
-import type { ShortcutContext } from '@engine-types/shortcuts'
+import type { ShortcutContext, ShortcutKeyEvent } from '@engine-types/shortcuts'
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
@@ -61,14 +61,14 @@ export const normalizeShortcutChord = (raw: string, platform: PlatformInfo): str
   return [...ordered, keyToken].join('+')
 }
 
-export const getEventChord = (event: KeyboardEvent): string | undefined => {
+export const getEventChord = (event: ShortcutKeyEvent): string | undefined => {
   const key = normalizeKeyName(event.key)
   if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return undefined
   const modifiers: string[] = []
-  if (event.ctrlKey) modifiers.push('Ctrl')
-  if (event.altKey) modifiers.push('Alt')
-  if (event.shiftKey) modifiers.push('Shift')
-  if (event.metaKey) modifiers.push('Meta')
+  if (event.modifiers.ctrl) modifiers.push('Ctrl')
+  if (event.modifiers.alt) modifiers.push('Alt')
+  if (event.modifiers.shift) modifiers.push('Shift')
+  if (event.modifiers.meta) modifiers.push('Meta')
   modifiers.push(key)
   return modifiers.join('+')
 }

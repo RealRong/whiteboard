@@ -1,5 +1,3 @@
-export type { EdgeRegistry } from './Registry'
-export { createEdgeRegistry } from './Registry'
 export type { EdgeViewQuery } from './query'
 export { createEdgeViewQuery } from './query'
-export { EDGE_VIEW_DERIVATION_DEPS, createEdgeViewDerivations } from './Derivation'
+export { createEdgeViewDerivations } from './Derivation'

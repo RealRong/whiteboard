@@ -2,6 +2,7 @@ import type {
   DispatchResult,
   Document,
   DocumentId,
+  Intent,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -69,15 +70,7 @@ export type ViewportSetCommand = CommandBase<'viewport.set'> & {
 
 export type Command =
   | DocResetCommand
-  | NodeCreateCommand
-  | NodeUpdateCommand
-  | NodeDeleteCommand
-  | EdgeCreateCommand
-  | EdgeUpdateCommand
-  | EdgeDeleteCommand
-  | NodeOrderSetCommand
-  | EdgeOrderSetCommand
-  | ViewportSetCommand
+  | Intent
 
 export type CommandBatch = {
   id: string
@@ -88,13 +81,11 @@ export type CommandBatch = {
   commands: Command[]
 }
 
-export type CommandBatchInput =
-  | Command[]
-  | ({
-      commands: Command[]
-    } & Partial<Pick<CommandBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>)
+export type CommandBatchMeta = Partial<Pick<CommandBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
 
-export type ApplyOptions = Partial<Pick<CommandBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
+export type CommandBatchInput = {
+  commands: Command[]
+} & CommandBatchMeta
 
 export type MutationBatch = {
   id: string
@@ -105,13 +96,11 @@ export type MutationBatch = {
   operations: Operation[]
 }
 
-export type MutationBatchInput =
-  | Operation[]
-  | ({
-      operations: Operation[]
-    } & Partial<Pick<MutationBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>)
+export type MutationBatchMeta = Partial<Pick<MutationBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
 
-export type ApplyMutationsOptions = Partial<Pick<MutationBatch, 'id' | 'docId' | 'source' | 'actor' | 'timestamp'>>
+export type MutationBatchInput = {
+  operations: Operation[]
+} & MutationBatchMeta
 
 export type ApplyDispatchResult = {
   index: number
@@ -155,15 +144,13 @@ export type TxCollector = {
 
 export type TxApi = <T>(
   run: (tx: TxCollector) => T | Promise<T>,
-  options?: ApplyOptions
+  options?: CommandBatchMeta
 ) => Promise<T>
 
 export type ApplyApi = (
-  input: CommandBatchInput,
-  options?: ApplyOptions
+  input: CommandBatchInput
 ) => Promise<ApplyResult>
 
 export type ApplyMutationsApi = (
-  input: MutationBatchInput,
-  options?: ApplyMutationsOptions
+  input: MutationBatchInput
 ) => Promise<ApplyMutationsResult>

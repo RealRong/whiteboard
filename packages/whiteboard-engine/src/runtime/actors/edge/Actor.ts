@@ -7,6 +7,7 @@ import type {
   RoutingDragStartOptions
 } from '@engine-types/commands'
 import type {
+  CoreRegistries,
   DispatchResult,
   Edge,
   EdgeAnchor,
@@ -16,21 +17,23 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core'
-import type { SchedulerRuntime } from '../../common/contracts'
-import { MutationExecutor } from '../shared/MutationExecutor'
 import {
   bringOrderForward,
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderBackward,
   sendOrderToBack
-} from '../shared/order'
+} from '@whiteboard/core'
+import type { Scheduler } from '../../common/contracts'
+import { MutationExecutor } from '../shared/MutationExecutor'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'graph' | 'query' | 'runtime' | 'mutate'>
-  schedulers: Pick<SchedulerRuntime, 'raf' | 'cancelRaf'>
+  instance: Pick<InternalInstance, 'state' | 'graph' | 'query' | 'runtime' | 'view' | 'mutate'>
+  registries: CoreRegistries
+  scheduler: Scheduler
+  mutation: MutationExecutor
 }
 
 export class Actor {
@@ -42,14 +45,14 @@ export class Actor {
   private readonly connect: Connect
   private readonly routing: Routing
 
-  constructor({ instance, schedulers }: ActorOptions) {
+  constructor({ instance, registries, scheduler, mutation }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
-    this.mutation = new MutationExecutor(instance)
+    this.mutation = mutation
     this.connect = new Connect({
       instance,
-      raf: schedulers.raf,
-      cancelRaf: schedulers.cancelRaf
+      registries,
+      scheduler
     })
     this.routing = new Routing({
       instance
@@ -185,30 +188,53 @@ export class Actor {
     }, 'edge.resetRouting')
   }
 
+  insertRoutingPointAt = (edgeId: EdgeId, pointWorld: Point) => {
+    const entry = this.instance.view.getState().edges.byId.get(edgeId)
+    if (!entry) return false
+    const segmentIndex = this.instance.query.geometry.nearestEdgeSegment(
+      pointWorld,
+      entry.path.points
+    )
+    this.insertRoutingPoint(
+      entry.edge,
+      entry.path.points,
+      segmentIndex,
+      pointWorld
+    )
+    return true
+  }
+
+  removeRoutingPointAt = (edgeId: EdgeId, index: number) => {
+    const entry = this.instance.view.getState().edges.byId.get(edgeId)
+    if (!entry) return false
+    this.removeRoutingPoint(entry.edge, index)
+    return true
+  }
+
   setOrder = (ids: EdgeId[]) =>
     this.mutation.runCommand({ type: 'edge.order.set', ids }, 'order.edge.set')
 
   bringToFront = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.edges
+    const current = this.instance.runtime.document.get().order.edges
     return this.setOrder(bringOrderToFront(current, target))
   }
 
   sendToBack = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.edges
+    const current = this.instance.runtime.document.get().order.edges
     return this.setOrder(sendOrderToBack(current, target))
   }
 
   bringForward = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.edges
+    const current = this.instance.runtime.document.get().order.edges
     return this.setOrder(bringOrderForward(current, target))
   }
 
   sendBackward = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.edges
+    const current = this.instance.runtime.document.get().order.edges
     return this.setOrder(sendOrderBackward(current, target))
   }
 

@@ -1,21 +1,13 @@
 export type { Commands } from './commands'
 export type {
   Command,
-  CommandBatch,
-  CommandBatchInput,
   CommandSource,
-  ApplyOptions,
+  MutationBatchMeta,
   MutationBatchInput,
-  ApplyMutationsOptions,
-  ApplyDispatchResult,
   ApplyMetrics,
   AppliedChangeSummary,
-  ApplyResult,
   ApplyMutationsResult,
-  ApplyApi,
   ApplyMutationsApi,
-  TxApi,
-  TxCollector
 } from './command'
 export type {
   Mutation,
@@ -68,19 +60,21 @@ export type {
   Instance,
   InstanceConfig,
   State,
-  ViewDebugMetric,
-  ViewDebug,
-  ViewDebugSnapshot,
   WritableStateKey,
   WritableStateSnapshot,
+  ReadonlyStore,
+  EdgesView,
+  MindmapView,
   MindmapDragView,
+  NodesView,
   NodeTransformHandle,
   MindmapViewTree,
   MindmapViewTreeLine,
   NodeViewItem,
-  ViewKey,
   View,
-  ViewSnapshot
+  ViewState,
+  ViewportView,
+  ViewportTransformView
 } from './instance'
 
 export type {

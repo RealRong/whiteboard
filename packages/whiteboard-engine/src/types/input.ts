@@ -1,12 +1,11 @@
-import type { EdgeId, NodeId } from '@whiteboard/core'
+import type { EdgeId, NodeId, Point } from '@whiteboard/core'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { RuntimeServices } from './instance/runtime'
 import type { State } from './instance/state'
-import type { EdgePathEntry } from './instance/view'
-import type { ShortcutContext, Shortcuts } from './shortcuts'
+import type { Shortcuts } from './shortcuts'
 
 export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 export type PointerStage = 'capture' | 'bubble'
@@ -166,6 +165,8 @@ export type InputSessionContext = {
         index: number,
         pointer: PointerInput
       ) => boolean
+      insertRoutingPointAt: (edgeId: EdgeId, pointWorld: Point) => boolean
+      removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
       hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
       updateConnect: (pointer: PointerInput) => void
       commitConnect: (pointer: PointerInput) => void
@@ -197,11 +198,7 @@ export type InputSessionContext = {
     }
   }
   services: Pick<RuntimeServices, 'viewportNavigation'>
-  shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
-  view: {
-    getShortcutContext: () => ShortcutContext
-    edgePath: (edgeId: EdgeId) => EdgePathEntry | undefined
-  }
+  shortcuts: Pick<Shortcuts, 'getContext' | 'handlePointerDownCapture' | 'handleKeyDown'>
   input: {
     config: InputConfig
   }

@@ -1,7 +1,7 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { SchedulerRuntime } from '../../common/contracts'
-import type { EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core'
+import type { Scheduler } from '../../common/contracts'
+import type { CoreRegistries, EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core'
 import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { type ConnectTo, isSameConnectTo } from './query'
@@ -13,25 +13,25 @@ type ConnectInstance = Pick<
 
 type ConnectOptions = {
   instance: ConnectInstance
-  raf: SchedulerRuntime['raf']
-  cancelRaf: SchedulerRuntime['cancelRaf']
+  registries: CoreRegistries
+  scheduler: Scheduler
 }
 
 export class Connect {
   private readonly instance: ConnectInstance
-  private readonly raf: SchedulerRuntime['raf']
-  private readonly cancelRaf: SchedulerRuntime['cancelRaf']
+  private readonly registries: CoreRegistries
+  private readonly scheduler: Scheduler
   private hoverPointer: PointerInput | null = null
   private hoverRafId: number | null = null
 
   constructor({
     instance,
-    raf,
-    cancelRaf
+    registries,
+    scheduler
   }: ConnectOptions) {
     this.instance = instance
-    this.raf = raf
-    this.cancelRaf = cancelRaf
+    this.registries = registries
+    this.scheduler = scheduler
   }
 
   private flushHover = () => {
@@ -43,7 +43,8 @@ export class Connect {
   }
 
   private createEdgeId = () => {
-    const exists = (id: string) => Boolean(this.instance.runtime.core.query.edge.get(id))
+    const exists = (id: string) =>
+      Boolean(this.instance.runtime.document.get().edges.some((edge) => edge.id === id))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `edge_${seed}_${index.toString(36)}`
@@ -55,17 +56,19 @@ export class Connect {
   private buildEdgeCreateOperation = (payload: EdgeInput) => {
     if (!payload.source?.nodeId || !payload.target?.nodeId) return null
 
-    const { core } = this.instance.runtime
-    if (!core.query.node.get(payload.source.nodeId)) return null
-    if (!core.query.node.get(payload.target.nodeId)) return null
+    const registries = this.registries
+    const doc = this.instance.runtime.document.get()
+    const hasSource = Boolean(doc.nodes.some((node) => node.id === payload.source.nodeId))
+    const hasTarget = Boolean(doc.nodes.some((node) => node.id === payload.target.nodeId))
+    if (!hasSource || !hasTarget) return null
 
-    const typeDef = core.registries.edgeTypes.get(payload.type)
+    const typeDef = registries.edgeTypes.get(payload.type)
     if (typeDef?.validate && !typeDef.validate(payload.data)) return null
 
-    const missing = getMissingEdgeFields(payload, core.registries)
+    const missing = getMissingEdgeFields(payload, registries)
     if (missing.length > 0) return null
 
-    const normalized = applyEdgeDefaults(payload, core.registries)
+    const normalized = applyEdgeDefaults(payload, registries)
     const id = normalized.id ?? this.createEdgeId()
 
     return {
@@ -230,8 +233,8 @@ export class Connect {
         (item) => item.id === reconnect.edgeId
       )
       if (edge) {
-        void this.instance.mutate(
-          [
+        void this.instance.mutate({
+          operations: [
             {
               type: 'edge.update',
               id: edge.id,
@@ -241,11 +244,9 @@ export class Connect {
                   : { target: { nodeId: targetNodeId, anchor: targetAnchor } }
             }
           ],
-          {
-            source: 'interaction',
-            actor: 'edge.reconnect'
-          }
-        )
+          source: 'interaction',
+          actor: 'edge.reconnect'
+        })
       }
     } else {
       const createOperation = this.buildEdgeCreateOperation({
@@ -258,13 +259,11 @@ export class Connect {
       })
 
       if (createOperation) {
-        void this.instance.mutate(
-          [createOperation],
-          {
-            source: 'interaction',
-            actor: 'edge.connect'
-          }
-        )
+        void this.instance.mutate({
+          operations: [createOperation],
+          source: 'interaction',
+          actor: 'edge.connect'
+        })
       } else {
         this.finish()
         return
@@ -296,7 +295,7 @@ export class Connect {
 
   hoverCancel = () => {
     if (this.hoverRafId !== null) {
-      this.cancelRaf(this.hoverRafId)
+      this.scheduler.cancelRaf(this.hoverRafId)
       this.hoverRafId = null
     }
     this.hoverPointer = null
@@ -311,7 +310,7 @@ export class Connect {
 
     this.hoverPointer = pointer
     if (this.hoverRafId === null) {
-      this.hoverRafId = this.raf(this.flushHover)
+      this.hoverRafId = this.scheduler.raf(this.flushHover)
     }
   }
 

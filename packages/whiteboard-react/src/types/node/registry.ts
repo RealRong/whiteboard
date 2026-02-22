@@ -1,6 +1,6 @@
-import type { Core, Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core'
 import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
-import type { Commands } from '@whiteboard/engine'
+import type { Commands, Instance } from '@whiteboard/engine'
 
 export type NodeContainerProps = {
   rect: Rect
@@ -17,7 +17,7 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  core: Core
+  query: Instance['query']
   commands: Commands
   node: Node
   rect: Rect

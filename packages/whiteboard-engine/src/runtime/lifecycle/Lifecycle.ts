@@ -1,12 +1,13 @@
 import type { Lifecycle as LifecycleApi, LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { LifecycleRuntimeContext } from '../common/contracts'
+import { Actor as EdgeActor } from '../actors/edge/Actor'
 import { Actor as HistoryActor } from '../actors/history/Actor'
 import { Sync as HistorySync } from '../actors/history/Sync'
 import { Actor as MindmapActor } from '../actors/mindmap/Actor'
+import { Actor as NodeActor } from '../actors/node/Actor'
 import { Actor as SelectionActor } from '../actors/selection/Actor'
 import { Actor as ToolActor } from '../actors/tool/Actor'
 import { Actor as ViewportActor } from '../actors/viewport/Actor'
-import { Cleanup, type CleanupActors } from './Cleanup'
 import { createDefaultConfig } from './config'
 import { Container } from './Container'
 
@@ -15,7 +16,9 @@ type LifecycleInputSyncOptions = {
 }
 
 type LifecycleActors = {
-  mindmap?: MindmapActor
+  edge: EdgeActor
+  node: NodeActor
+  mindmap: MindmapActor
 }
 
 export class Lifecycle implements LifecycleApi {
@@ -24,31 +27,30 @@ export class Lifecycle implements LifecycleApi {
   private config: LifecycleConfig
   private history: HistorySync
   private container: Container
-  private cleanup: Cleanup
-  private cleanupActors: CleanupActors
   private inputSync: LifecycleInputSyncOptions
   private selectionActor: SelectionActor
   private toolActor: ToolActor
   private viewportActor: ViewportActor
   private historyActor: HistoryActor
+  private edgeActor: EdgeActor
+  private nodeActor: NodeActor
   private mindmapActor: MindmapActor
 
   constructor(
     context: LifecycleRuntimeContext,
     inputSync: LifecycleInputSyncOptions = {},
-    cleanupActors: CleanupActors,
-    actors: LifecycleActors = {}
+    actors: LifecycleActors
   ) {
     this.context = context
     this.config = createDefaultConfig(context.runtime)
     this.inputSync = inputSync
-    this.cleanupActors = cleanupActors
 
     this.history = new HistorySync(this.context)
     this.container = new Container({
       context: this.context
     })
-    this.cleanup = new Cleanup(this.context, cleanupActors)
+    this.edgeActor = actors.edge
+    this.nodeActor = actors.node
 
     this.selectionActor = new SelectionActor({
       state: this.context.state,
@@ -66,10 +68,7 @@ export class Lifecycle implements LifecycleApi {
       state: this.context.state,
       emit: context.events.emit
     })
-    this.mindmapActor = actors.mindmap ?? new MindmapActor({
-      state: this.context.state,
-      emit: context.events.emit
-    })
+    this.mindmapActor = actors.mindmap
 
     this.inputSync.onViewportConfigChange?.(this.config.viewportConfig)
   }
@@ -86,7 +85,7 @@ export class Lifecycle implements LifecycleApi {
 
   private syncConfig = (config: LifecycleConfig) => {
     if (config.tool !== 'edge') {
-      this.cleanupActors.edge.hoverCancel()
+      this.edgeActor.hoverCancel()
     }
 
     if (!this.started) return
@@ -126,6 +125,15 @@ export class Lifecycle implements LifecycleApi {
     this.mindmapActor.stop()
     this.container.stop()
     this.context.runtime.services.groupAutoFit.stop()
-    this.cleanup.stop()
+    this.edgeActor.cancelInteractions()
+    this.nodeActor.cancelInteractions()
+    this.mindmapActor.cancelDrag()
+    this.edgeActor.resetTransientState()
+    this.nodeActor.resetTransientState()
+    this.mindmapActor.resetTransientState()
+    this.context.runtime.shortcuts.dispose()
+    this.context.runtime.services.nodeSizeObserver.dispose()
+    this.context.runtime.services.containerSizeObserver.dispose()
+    this.context.runtime.services.viewportNavigation.dispose()
   }
 }

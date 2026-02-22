@@ -21,7 +21,8 @@ import { Drag } from './Drag'
 type ActorOptions = {
   state: State
   emit: InstanceEventEmitter['emit']
-  instance?: Pick<InternalInstance, 'state' | 'view' | 'runtime' | 'graph' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'view' | 'runtime' | 'graph' | 'mutate'>
+  mutation: MutationExecutor
 }
 
 const isSameOptions = (
@@ -63,47 +64,33 @@ export class Actor {
 
   private readonly state: State
   private readonly emit: InstanceEventEmitter['emit']
-  private readonly instance: ActorOptions['instance'] | null
-  private readonly mutation: MutationExecutor | null
-  private readonly drag: Drag | null
+  private readonly instance: ActorOptions['instance']
+  private readonly mutation: MutationExecutor
+  private readonly drag: Drag
   private started = false
   private unsubs: Array<() => void> = []
 
   private lastLayout: MindmapLayoutConfig | null = null
 
-  constructor({ state, emit, instance }: ActorOptions) {
+  constructor({ state, emit, instance, mutation }: ActorOptions) {
     this.state = state
     this.emit = emit
-    this.instance = instance ?? null
-    this.mutation = instance ? new MutationExecutor(instance) : null
-    this.drag = instance
-      ? new Drag({
-          instance,
-          mindmap: {
-            moveRoot: this.moveRoot,
-            moveSubtreeWithDrop: this.moveSubtreeWithDrop
-          }
-        })
-      : null
+    this.instance = instance
+    this.mutation = mutation
+    this.drag = new Drag({
+      instance,
+      mindmap: {
+        moveRoot: this.moveRoot,
+        moveSubtreeWithDrop: this.moveSubtreeWithDrop
+      }
+    })
   }
-
-  private createUnavailableResult = (message: string): DispatchResult => ({
-    ok: false,
-    reason: 'invalid',
-    message
-  })
 
   private runCommand = (
     command: Parameters<MutationExecutor['runCommand']>[0],
     actor: string
-  ): Promise<DispatchResult> => {
-    if (!this.mutation) {
-      return Promise.resolve(
-        this.createUnavailableResult('Mindmap actor instance is unavailable.')
-      )
-    }
-    return this.mutation.runCommand(command, actor)
-  }
+  ): Promise<DispatchResult> =>
+    this.mutation.runCommand(command, actor)
 
   private toLayoutHint = (
     anchorId: MindmapNodeId,
@@ -279,7 +266,6 @@ export class Actor {
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    if (!this.instance) return
     const node = this.instance.graph.read().canvasNodes.find((item) => item.id === nodeId)
     if (!node) return
     if (
@@ -330,16 +316,16 @@ export class Actor {
   }
 
   startDrag = (options: MindmapStartDragOptions) =>
-    this.drag ? this.drag.start(options) : false
+    this.drag.start(options)
 
   updateDrag = (pointer: PointerInput) =>
-    this.drag ? this.drag.update({ pointer }) : false
+    this.drag.update({ pointer })
 
   endDrag = (pointer: PointerInput) =>
-    this.drag ? this.drag.end({ pointer }) : false
+    this.drag.end({ pointer })
 
   cancelDrag = (options?: MindmapCancelDragOptions) =>
-    this.drag ? this.drag.cancel(options) : false
+    this.drag.cancel(options)
 
   resetTransientState = () => {
     this.state.write('mindmapDrag', {})

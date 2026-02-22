@@ -1,4 +1,24 @@
-export type ShortcutNativeEvent = KeyboardEvent | PointerEvent
+export type ShortcutModifierState = {
+  alt: boolean
+  shift: boolean
+  ctrl: boolean
+  meta: boolean
+}
+
+export type ShortcutKeyEvent = {
+  key: string
+  code: string
+  repeat: boolean
+  modifiers: ShortcutModifierState
+  isComposing?: boolean
+}
+
+export type ShortcutPointerEvent = {
+  button: number
+  modifiers: ShortcutModifierState
+}
+
+export type ShortcutNativeEvent = ShortcutKeyEvent | ShortcutPointerEvent
 
 export type ShortcutContext = {
   platform: {

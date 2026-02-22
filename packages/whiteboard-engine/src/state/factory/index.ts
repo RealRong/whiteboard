@@ -8,7 +8,7 @@ import type {
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
 import { GraphProjector } from '../../runtime/actors/graph/projector/GraphProjector'
 import { WritableStore } from '../store'
-import { createWritableStateSnapshot } from '../writable'
+import { createInitialState } from '../initialState'
 
 type Result = {
   state: State
@@ -46,7 +46,7 @@ const toViewport = (
 
 export const createState = ({ doc = null }: Options = {}): Result => {
   const store = new WritableStore<WritableStateSnapshot>(
-    createWritableStateSnapshot()
+    createInitialState()
   )
   let currentDoc = doc
 

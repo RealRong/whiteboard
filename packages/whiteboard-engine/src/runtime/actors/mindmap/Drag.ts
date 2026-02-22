@@ -27,7 +27,7 @@ export class Drag {
   }
 
   private getTreeView = (treeId: NodeId): MindmapViewTree | undefined => {
-    return this.instance.view.mindmap.tree(treeId)
+    return this.instance.view.getState().mindmap.byId.get(treeId)
   }
 
   private buildNodeRectMap = (options: {

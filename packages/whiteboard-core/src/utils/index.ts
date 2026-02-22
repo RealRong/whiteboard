@@ -1,4 +1,6 @@
 export * from './group'
+export * from './merge'
 export * from './number'
 export * from './objectPath'
+export * from './order'
 export * from './path'

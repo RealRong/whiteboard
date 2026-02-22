@@ -1,14 +1,16 @@
-import type { Core, CoreHistoryState, DocumentId } from '@whiteboard/core'
+import type { DocumentId } from '@whiteboard/core'
 import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
+import type { RuntimeHistory } from '@engine-types/instance/runtime'
 import type { StateSnapshot } from '@engine-types/instance/state'
 import type { LifecycleRuntimeContext } from '../../common/contracts'
 
 type HistoryIdentity = {
-  core: Core
   docId: DocumentId
 }
 
-const toHistoryState = (snapshot: CoreHistoryState): StateSnapshot['history'] => ({
+const toHistoryState = (
+  snapshot: ReturnType<RuntimeHistory['getState']>
+): StateSnapshot['history'] => ({
   canUndo: snapshot.canUndo,
   canRedo: snapshot.canRedo,
   undoDepth: snapshot.undoDepth,
@@ -22,7 +24,6 @@ const shouldClearHistory = (
   next: HistoryIdentity
 ) => {
   if (!previous) return false
-  if (previous.core !== next.core) return true
   return previous.docId !== next.docId
 }
 
@@ -39,16 +40,16 @@ export class Sync {
 
   start = () => {
     if (this.offHistory) return
-    const core = this.context.runtime.core
-    const sync = (snapshot: CoreHistoryState) => {
+    const history = this.context.runtime.history
+    const sync = (snapshot: ReturnType<RuntimeHistory['getState']>) => {
       this.context.state.write('history', toHistoryState(snapshot))
     }
-    sync(core.history.getState())
-    this.offHistory = core.history.subscribe(sync)
+    sync(history.getState())
+    this.offHistory = history.subscribe(sync)
   }
 
   update = (config: LifecycleConfig) => {
-    const history = this.context.runtime.core.history
+    const history = this.context.runtime.history
 
     if (config.history) {
       history.configure(config.history)
@@ -60,7 +61,6 @@ export class Sync {
     }
 
     const nextIdentity: HistoryIdentity = {
-      core: this.context.runtime.core,
       docId: config.docId
     }
     const previous = this.prevIdentity

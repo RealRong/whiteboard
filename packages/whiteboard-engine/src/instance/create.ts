@@ -3,66 +3,30 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/instance'
+import { createRegistries } from '@whiteboard/core'
 import type { InputConfig } from '@engine-types/input'
 import type { LifecycleViewportConfig } from '@engine-types/instance/lifecycle'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
 import { Events } from '../runtime/common/events'
-import { createShortcuts } from '../runtime'
-import { createInputPort } from '../input'
+import { createInputPort, createShortcuts } from '../input'
 import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
 import { ChangeGateway } from '../runtime/gateway/ChangeGateway'
 import { createCommands } from '../api/commands'
 import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
-import { createRuntime } from './runtime'
-import { createServices } from './services'
 import { createActorRuntime } from './actors'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
-import { createView } from '../runtime/common/view'
+import { Scheduler } from '../runtime/common/Scheduler'
+import { GroupAutoFit, NodeSizeObserver } from '../runtime/actors/node/services'
+import {
+  ContainerSizeObserver,
+  ViewportNavigation
+} from '../runtime/actors/viewport/services'
+import { ViewportRuntime } from '../runtime/viewport'
 import { createQuery } from '../api/query/instance'
-
-const now = () => {
-  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-    return performance.now()
-  }
-  return Date.now()
-}
-
-const microtask = (callback: () => void) => {
-  if (typeof queueMicrotask === 'function') {
-    queueMicrotask(callback)
-    return
-  }
-  void Promise.resolve().then(callback)
-}
-
-let fallbackRafId = 0
-const fallbackRafTimers = new Map<number, ReturnType<typeof setTimeout>>()
-
-const raf = (callback: FrameRequestCallback) => {
-  if (typeof requestAnimationFrame === 'function') {
-    return requestAnimationFrame(callback)
-  }
-  const id = ++fallbackRafId
-  const timer = setTimeout(() => {
-    fallbackRafTimers.delete(id)
-    callback(now())
-  }, 16)
-  fallbackRafTimers.set(id, timer)
-  return id
-}
-
-const cancelRaf = (id: number) => {
-  if (typeof cancelAnimationFrame === 'function') {
-    cancelAnimationFrame(id)
-    return
-  }
-  const timer = fallbackRafTimers.get(id)
-  if (!timer) return
-  clearTimeout(timer)
-  fallbackRafTimers.delete(id)
-}
+import { createDocumentStore } from '../document/Store'
+import { createHistoryStore } from '../document/History'
 
 const toInputViewportConfig = (
   viewportConfig: LifecycleViewportConfig
@@ -85,19 +49,26 @@ const createDefaultInputConfig = (): InputConfig => ({
 })
 
 export const createEngine = ({
-  core,
-  docRef,
+  registries,
+  document,
+  onDocumentChange,
   containerRef,
   config: overrides
 }: CreateEngineOptions): Instance => {
+  const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
-  const { state, graph, replaceDoc } = createState({ doc: docRef.current })
-  const base = createRuntime({
-    core,
-    docRef,
+  const runtimeRegistries = registries ?? createRegistries()
+  const documentStore = createDocumentStore(document, onDocumentChange)
+  const historyStore = createHistoryStore({ now: scheduler.now })
+  const { state, graph, replaceDoc } = createState({ doc: documentStore.get() })
+  const getContainer = () => containerRef.current
+  const base = {
+    document: documentStore,
     containerRef,
-    config
-  })
+    getContainer,
+    config,
+    viewport: new ViewportRuntime()
+  }
   const events = new Events<InstanceEventMap>()
 
   const queryRuntime = createQuery({
@@ -105,23 +76,23 @@ export const createEngine = ({
     config,
     getContainer: base.getContainer
   })
-  const viewRuntime = createView({
-    state,
-    graph,
-    query: queryRuntime.query,
-    config,
-    platform: base.platform,
-    syncQueryGraph: queryRuntime.syncGraph
-  })
 
   let commands!: InternalInstance['commands']
-  let apply!: InternalInstance['apply']
-  let mutate!: InternalInstance['mutate']
-  let tx!: InternalInstance['tx']
+  let mutate: InternalInstance['mutate'] = async () => {
+    throw new Error('Mutation gateway is not ready.')
+  }
+  let dispatchIntent: ChangeGateway['dispatchIntent'] = async () => {
+    throw new Error('Intent gateway is not ready.')
+  }
+  let resetDoc: ChangeGateway['resetDocument'] = async () => {
+    throw new Error('Document gateway is not ready.')
+  }
   let input!: InternalInstance['input']
   let services!: RuntimeInternal['services']
   let shortcuts!: RuntimeInternal['shortcuts']
+  let history!: RuntimeInternal['history']
   let lifecycle!: InternalInstance['lifecycle']
+  let view!: InternalInstance['view']
 
   const runtime: RuntimeInternal = {
     ...base,
@@ -140,18 +111,15 @@ export const createEngine = ({
     },
     get shortcuts() {
       return shortcuts
+    },
+    get history() {
+      return history
     }
   }
 
   const instance: InternalInstance = {
-    get apply() {
-      return apply
-    },
     get mutate() {
       return mutate
-    },
-    get tx() {
-      return tx
     },
     state,
     graph,
@@ -160,7 +128,9 @@ export const createEngine = ({
     },
     runtime,
     query: queryRuntime.query,
-    view: viewRuntime.view,
+    get view() {
+      return view
+    },
     events: {
       on: events.on,
       off: events.off
@@ -172,27 +142,6 @@ export const createEngine = ({
       return commands
     }
   }
-  const context = {
-    state,
-    graph,
-    query: queryRuntime.query,
-    view: viewRuntime.view,
-    runtime,
-    events: {
-      on: events.on,
-      off: events.off,
-      emit: events.emit
-    },
-    config,
-    syncGraph: viewRuntime.syncGraph,
-    schedulers: {
-      raf,
-      cancelRaf,
-      microtask,
-      now
-    }
-  }
-
   state.write('tool', 'select')
   const actors = createActorRuntime({
     instance,
@@ -200,22 +149,50 @@ export const createEngine = ({
     graph,
     query: queryRuntime.query,
     emit: events.emit,
-    readDoc: () => runtime.docRef.current ?? null,
-    readNodes: () => runtime.core.query.node.list(),
-    syncGraph: viewRuntime.syncGraph,
-    schedulers: context.schedulers
+    registries: runtimeRegistries,
+    readDoc: documentStore.get,
+    readNodes: () => runtime.document.get().nodes,
+    config,
+    syncQueryGraph: queryRuntime.syncGraph,
+    scheduler,
+    write: {
+      mutate: (input) => mutate(input),
+      dispatchIntent: (intent, options) => dispatchIntent(intent, options)
+    }
   })
+  view = actors.view.view
+  const context = {
+    state,
+    query: queryRuntime.query,
+    runtime,
+    events: {
+      on: events.on,
+      off: events.off,
+      emit: events.emit
+    },
+    config,
+    scheduler
+  }
   const changeGateway = new ChangeGateway({
     instance,
+    documentStore,
+    history: historyStore,
+    registries: runtimeRegistries,
     replaceDoc,
-    now: context.schedulers.now,
+    now: scheduler.now,
     graph: actors.graph,
     view: actors.view,
     emit: events.emit
   })
+  history = changeGateway.history
+  mutate = changeGateway.applyMutations
+  dispatchIntent = changeGateway.dispatchIntent
+  resetDoc = changeGateway.resetDocument
 
   commands = createCommands({
     instance,
+    history,
+    resetDoc,
     node: actors.node,
     edge: actors.edge,
     mindmap: actors.mindmap,
@@ -226,15 +203,11 @@ export const createEngine = ({
       state,
       commands,
       query: queryRuntime.query,
-      actors: actors.port.inputActors,
+      actors: actors.inputActors,
       services: {
         viewportNavigation: runtime.services.viewportNavigation
       },
       shortcuts: runtime.shortcuts,
-      view: {
-        getShortcutContext: () => viewRuntime.view.global.shortcutContext(),
-        edgePath: (edgeId) => viewRuntime.view.edge.path(edgeId)
-      },
       config
     }),
     config: createDefaultInputConfig(),
@@ -244,7 +217,7 @@ export const createEngine = ({
     {
       state: context.state,
       query: context.query,
-      view: context.view,
+      view,
       runtime: context.runtime,
       events: context.events,
       config: context.config
@@ -256,9 +229,10 @@ export const createEngine = ({
         })
       }
     },
-    actors.port.cleanupActors,
     {
-      mindmap: actors.port.lifecycleActors.mindmap
+      edge: actors.edge,
+      node: actors.node,
+      mindmap: actors.mindmap
     }
   )
   let lifecycleStarted = false
@@ -275,23 +249,45 @@ export const createEngine = ({
       if (!lifecycleStarted) return
       lifecycleStarted = false
       lifecycleRuntime.stop()
+      scheduler.cancelAll()
     }
   }
-  apply = changeGateway.apply
-  mutate = changeGateway.applyMutations
-  tx = changeGateway.tx
   input = inputPort
   lifecycle = lifecyclePort
-  services = createServices({
+  const serviceContext = {
     state: context.state,
     runtime: context.runtime,
     events: context.events,
-    schedulers: context.schedulers,
+    scheduler,
     mutate,
     setViewport: commands.viewport.set,
     zoomViewportBy: commands.viewport.zoomBy
-  })
+  }
+  services = {
+    nodeSizeObserver: new NodeSizeObserver(serviceContext.mutate),
+    containerSizeObserver: new ContainerSizeObserver(),
+    groupAutoFit: new GroupAutoFit(serviceContext),
+    viewportNavigation: new ViewportNavigation(serviceContext)
+  }
   shortcuts = createShortcuts(instance)
 
-  return instance
+  const publicInstance: Instance = {
+    state: instance.state,
+    graph: instance.graph,
+    get input() {
+      return instance.input
+    },
+    runtime: instance.runtime,
+    query: instance.query,
+    view: instance.view,
+    events: instance.events,
+    get lifecycle() {
+      return instance.lifecycle
+    },
+    get commands() {
+      return instance.commands
+    }
+  }
+
+  return publicInstance
 }

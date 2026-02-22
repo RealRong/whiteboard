@@ -25,13 +25,10 @@ export const createRoutingDrag = (): PointerSession => ({
     } else {
       if (!event.target.edgeId || !Number.isInteger(event.target.routingIndex)) return null
       if (event.clickCount >= 2) {
-        const entry = context.view.edgePath(event.target.edgeId)
-        if (entry) {
-          context.commands.edge.removeRoutingPoint(
-            entry.edge,
-            event.target.routingIndex as number
-          )
-        }
+        context.actors.edge.removeRoutingPointAt(
+          event.target.edgeId,
+          event.target.routingIndex as number
+        )
         return null
       }
       const started = context.actors.edge.startRouting(

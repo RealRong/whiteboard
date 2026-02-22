@@ -193,19 +193,17 @@ export class Transform {
       startRotation: drag.startRotation,
       shiftKey
     })
-    void this.instance.mutate(
-      [
+    void this.instance.mutate({
+      operations: [
         {
           type: 'node.update',
           id: nodeId,
           patch: { rotation: nextRotation }
         }
       ],
-      {
-        source: 'interaction',
-        actor: 'node.transform'
-      }
-    )
+      source: 'interaction',
+      actor: 'node.transform'
+    })
   }
 
   private finishResize = (options: {

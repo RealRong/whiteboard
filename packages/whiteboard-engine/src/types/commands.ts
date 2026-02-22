@@ -1,4 +1,5 @@
 import type {
+  Document,
   DispatchResult,
   Edge,
   EdgeId,
@@ -200,6 +201,9 @@ export type MindmapCommands = BaseMindmapCommands & {
 }
 
 export type Commands = {
+  doc: {
+    reset: (doc: Document) => Promise<DispatchResult>
+  }
   tool: {
     set: (tool: 'select' | 'edge') => void
   }

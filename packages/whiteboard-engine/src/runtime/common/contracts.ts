@@ -9,7 +9,7 @@ import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { State } from '@engine-types/instance/state'
 import type { View } from '@engine-types/instance/view'
 
-export type SchedulerRuntime = {
+export type Scheduler = {
   raf: (callback: FrameRequestCallback) => number
   cancelRaf: (id: number) => void
   microtask: (callback: () => void) => void
@@ -25,7 +25,7 @@ export type EngineRuntimeContext = {
   events: InstanceEventEmitter
   config: InstanceConfig
   syncGraph: (change: GraphChange) => void
-  schedulers: SchedulerRuntime
+  scheduler: Scheduler
 }
 
 export type ServiceRuntimeContext = Pick<
@@ -33,7 +33,7 @@ export type ServiceRuntimeContext = Pick<
   | 'state'
   | 'runtime'
   | 'events'
-  | 'schedulers'
+  | 'scheduler'
 > & {
   mutate: InternalInstance['mutate']
   setViewport: Commands['viewport']['set']

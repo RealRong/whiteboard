@@ -1,5 +1,10 @@
 import type { State } from '@engine-types/instance/state'
-import type { ViewSnapshot } from '@engine-types/instance/view'
+import type {
+  EdgeEndpoints,
+  EdgePathEntry,
+  EdgePreviewView,
+  EdgeSelectedRoutingView
+} from '@engine-types/instance/view'
 import type { EdgeViewQuery } from './query'
 
 type EdgeDerivationOptions = {
@@ -7,21 +12,14 @@ type EdgeDerivationOptions = {
   edgeViewQuery: EdgeViewQuery
 }
 
-export const EDGE_VIEW_DERIVATION_DEPS = {
-  paths: ['edgeConnect', 'graph.visibleEdges', 'graph.canvasNodes'] as const,
-  preview: ['edgeConnect', 'graph.canvasNodes', 'tool'] as const,
-  selectedEndpoints: ['edgeSelection', 'graph.visibleEdges', 'graph.canvasNodes'] as const,
-  selectedRouting: ['edgeSelection', 'graph.visibleEdges'] as const
-}
-
 export const createEdgeViewDerivations = ({
   readState,
   edgeViewQuery
 }: EdgeDerivationOptions) => {
-  const paths = (): ViewSnapshot['edge.paths'] =>
+  const paths = (): EdgePathEntry[] =>
     edgeViewQuery.getPaths(readState('edgeConnect'))
 
-  const preview = (): ViewSnapshot['edge.preview'] => {
+  const preview = (): EdgePreviewView => {
     const edgeConnect = readState('edgeConnect')
     const tool = readState('tool')
     const resolved = edgeViewQuery.getPreview(edgeConnect)
@@ -34,7 +32,7 @@ export const createEdgeViewDerivations = ({
     }
   }
 
-  const selectedEndpoints = (): ViewSnapshot['edge.selectedEndpoints'] => {
+  const selectedEndpoints = (): EdgeEndpoints | undefined => {
     const selectedEdgeId = readState('edgeSelection')
     if (!selectedEdgeId) return undefined
     const edge = edgeViewQuery.getEdge(selectedEdgeId)
@@ -42,7 +40,7 @@ export const createEdgeViewDerivations = ({
     return edgeViewQuery.getEndpoints(edge)
   }
 
-  const selectedRouting = (): ViewSnapshot['edge.selectedRouting'] => {
+  const selectedRouting = (): EdgeSelectedRoutingView => {
     const selectedEdgeId = readState('edgeSelection')
     if (!selectedEdgeId) return undefined
     const edge = edgeViewQuery.getEdge(selectedEdgeId)
@@ -62,4 +60,3 @@ export const createEdgeViewDerivations = ({
     selectedRouting
   }
 }
-

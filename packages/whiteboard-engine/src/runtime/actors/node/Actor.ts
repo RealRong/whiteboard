@@ -20,16 +20,16 @@ import type {
   Operation,
   Point
 } from '@whiteboard/core'
-import type { Size } from '@engine-types/common'
-import { isPointEqual, isSizeEqual } from '../../../runtime/common/geometry'
-import { MutationExecutor } from '../shared/MutationExecutor'
 import {
   bringOrderForward,
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderBackward,
   sendOrderToBack
-} from '../shared/order'
+} from '@whiteboard/core'
+import type { Size } from '@engine-types/common'
+import { isPointEqual, isSizeEqual } from '../../../runtime/common/geometry'
+import { MutationExecutor } from '../shared/MutationExecutor'
 import { Drag } from './Drag'
 import { Transform } from './Transform'
 
@@ -37,8 +37,9 @@ type ActorOptions = {
   state: Pick<State, 'write'>
   graph: GraphProjector
   syncGraph: (change: GraphChange) => void
-  readDoc: () => Document | null
+  readDoc: () => Document
   instance: Pick<InternalInstance, 'state' | 'graph' | 'runtime' | 'query' | 'mutate'>
+  mutation: MutationExecutor
 }
 
 export class Actor {
@@ -47,7 +48,7 @@ export class Actor {
   private readonly state: Pick<State, 'write'>
   private readonly graph: GraphProjector
   private readonly syncGraph: (change: GraphChange) => void
-  private readonly readDoc: () => Document | null
+  private readonly readDoc: () => Document
   private readonly instance: ActorOptions['instance']
   private readonly mutation: MutationExecutor
   private readonly drag: Drag
@@ -58,14 +59,15 @@ export class Actor {
     graph,
     syncGraph,
     readDoc,
-    instance
+    instance,
+    mutation
   }: ActorOptions) {
     this.state = state
     this.graph = graph
     this.syncGraph = syncGraph
     this.readDoc = readDoc
     this.instance = instance
-    this.mutation = new MutationExecutor(instance)
+    this.mutation = mutation
     const transient = {
       setGuides: this.setDragGuides,
       clearGuides: this.clearDragGuides,
@@ -89,7 +91,7 @@ export class Actor {
   }
 
   private createGroupId = () => {
-    const exists = (id: string) => Boolean(this.instance.runtime.core.query.node.get(id))
+    const exists = (id: string) => Boolean(this.readDoc().nodes.some((node) => node.id === id))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `group_${seed}_${index.toString(36)}`
@@ -145,9 +147,10 @@ export class Actor {
       } as const
     }
 
+    const doc = this.readDoc()
     const nodes: Node[] = []
     for (const id of uniqueIds) {
-      const node = this.instance.runtime.core.query.node.get(id)
+      const node = doc.nodes.find((item) => item.id === id)
       if (!node) {
         return {
           ok: false,
@@ -191,7 +194,8 @@ export class Actor {
   }
 
   ungroup = async (id: NodeId) => {
-    const groupNode = this.instance.runtime.core.query.node.get(id)
+    const doc = this.readDoc()
+    const groupNode = doc.nodes.find((node) => node.id === id)
     if (!groupNode) {
       return {
         ok: false,
@@ -200,7 +204,7 @@ export class Actor {
       } as const
     }
 
-    const childOperations = this.instance.runtime.core.query.node.list()
+    const childOperations = doc.nodes
       .filter((node) => node.parentId === id)
       .map((node) => ({
         type: 'node.update' as const,
@@ -226,25 +230,25 @@ export class Actor {
 
   bringToFront = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.nodes
+    const current = this.readDoc().order.nodes
     return this.setOrder(bringOrderToFront(current, target))
   }
 
   sendToBack = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.nodes
+    const current = this.readDoc().order.nodes
     return this.setOrder(sendOrderToBack(current, target))
   }
 
   bringForward = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.nodes
+    const current = this.readDoc().order.nodes
     return this.setOrder(bringOrderForward(current, target))
   }
 
   sendBackward = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.core.query.document().order.nodes
+    const current = this.readDoc().order.nodes
     return this.setOrder(sendOrderBackward(current, target))
   }
 
@@ -299,17 +303,15 @@ export class Actor {
       return
     }
 
-    void this.instance.mutate(
-      ops.map((item) => ({
+    void this.instance.mutate({
+      operations: ops.map((item) => ({
         type: 'node.update',
         id: item.id,
         patch: item.patch
       })),
-      {
-        source: 'interaction',
-        actor: 'node.overrides'
-      }
-    )
+      source: 'interaction',
+      actor: 'node.overrides'
+    })
     if (updates) {
       this.clearOverrides(updates.map((item) => item.id))
     } else {

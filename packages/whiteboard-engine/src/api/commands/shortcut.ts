@@ -1,5 +1,4 @@
 import type {
-  Core,
   DispatchResult,
   Document,
   Edge,
@@ -238,16 +237,5 @@ export const createHandlers = (deps: Deps) => {
     'history.redo': () => {
       deps.history.redo()
     }
-  }
-}
-
-export const registerHandlers = (
-  core: Core,
-  handlers: ReturnType<typeof createHandlers>
-) => {
-  const unregisters = Object.entries(handlers).map(([name, handler]) => core.registries.commands.register(name, handler))
-
-  return () => {
-    unregisters.forEach((unregister) => unregister())
   }
 }

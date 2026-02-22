@@ -25,6 +25,7 @@ import {
 } from '../mindmap/commands'
 import { layoutMindmap, layoutMindmapTidy } from '../mindmap/layout'
 import { applyEdgeDefaults, applyNodeDefaults } from '../schema'
+import { panViewport, zoomViewport } from '../geometry'
 
 type CreateFailure = (reason: DispatchFailure['reason'], message?: string) => DispatchResult
 
@@ -623,13 +624,7 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
       }
       case 'viewport.pan': {
         const before = getViewport()
-        const after = {
-          center: {
-            x: before.center.x + intent.delta.x,
-            y: before.center.y + intent.delta.y
-          },
-          zoom: before.zoom
-        }
+        const after = panViewport(before, intent.delta)
         return {
           operations: [
             {
@@ -642,18 +637,7 @@ export const createBuildOperations = ({ state, registries, validateIntent, creat
       }
       case 'viewport.zoom': {
         const before = getViewport()
-        const nextZoom = before.zoom * intent.factor
-        const anchor = intent.anchor
-        const center = anchor
-          ? {
-              x: anchor.x - (anchor.x - before.center.x) / intent.factor,
-              y: anchor.y - (anchor.y - before.center.y) / intent.factor
-            }
-          : before.center
-        const after = {
-          center,
-          zoom: nextZoom
-        }
+        const after = zoomViewport(before, intent.factor, intent.anchor)
         return {
           operations: [
             {

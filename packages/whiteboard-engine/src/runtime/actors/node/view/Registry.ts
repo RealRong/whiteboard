@@ -4,8 +4,8 @@ import type {
 import type { GraphProjector } from '@engine-types/graph'
 import type { Query } from '@engine-types/instance/query'
 import type {
-  ViewDebugMetric,
-  ViewSnapshot
+  NodeTransformHandle,
+  NodeViewItem,
 } from '@engine-types/instance/view'
 import type { Node, NodeId } from '@whiteboard/core'
 import {
@@ -14,30 +14,10 @@ import {
   type NodeViewContext
 } from './project'
 import { toLayerOrderedCanvasNodes } from '../query'
-import {
-  createViewMetric,
-  markMetricDirty,
-  markMetricHit,
-  markMetricRecompute,
-  markMetricRevision,
-  measureNow,
-  snapshotViewMetric
-} from '../../../common/view/metrics'
-import {
-  notifyListeners,
-  watchEntity,
-  watchSet,
-  isSameIdOrder
-} from '../../../common/view/shared'
+import { isSameIdOrder } from '../../view/shared'
 
-type NodeViewItemEntry = ViewSnapshot['node.items'][number]
-type NodeHandleEntry = ViewSnapshot['node.transformHandles'] extends Map<
-  NodeId,
-  infer TValue
->
-  ? TValue
-  : never
-type NodeItemsViewValue = ViewSnapshot['node.items']
+type NodeViewItemEntry = NodeViewItem
+type NodeHandleEntry = NodeTransformHandle[]
 type NodeRenderContext = NodeViewContext
 type SyncCanvasNodesOptions = {
   dirtyNodeIds?: NodeId[]
@@ -45,10 +25,7 @@ type SyncCanvasNodesOptions = {
   fullSync?: boolean
 }
 type NodeHandleSyncMode = 'auto' | 'always' | 'never'
-type NodeVisualSyncResult = {
-  nodeItemsChanged: boolean
-  nodeHandlesChanged: boolean
-}
+
 export type NodeStateSyncKey =
   | 'selection'
   | 'groupHovered'
@@ -64,20 +41,9 @@ type Options = {
 export type NodeRegistry = {
   syncCanvasNodes: (options?: SyncCanvasNodesOptions) => void
   syncState: (key: NodeStateSyncKey) => void
-  getNodeItems: () => NodeItemsViewValue
-  getNodeHandlesMap: () => ViewSnapshot['node.transformHandles']
+  getNodeItemsMap: () => ReadonlyMap<NodeId, NodeViewItemEntry>
+  getNodeHandlesMap: () => ReadonlyMap<NodeId, NodeHandleEntry>
   getNodeIds: () => NodeId[]
-  watchNodeIds: (listener: () => void) => () => void
-  watchNodeItems: (listener: () => void) => () => void
-  getNodeItem: (nodeId: NodeId) => NodeViewItemEntry | undefined
-  watchNodeItem: (nodeId: NodeId, listener: () => void) => () => void
-  watchNodeHandles: (listener: () => void) => () => void
-  getNodeTransformHandles: (nodeId: NodeId) => NodeHandleEntry | undefined
-  watchNodeTransformHandles: (nodeId: NodeId, listener: () => void) => () => void
-  getNodeItemsMetric: () => ViewDebugMetric
-  getNodeHandlesMetric: () => ViewDebugMetric
-  resetNodeItemsMetric: () => void
-  resetNodeHandlesMetric: () => void
 }
 
 const diffSelection = (
@@ -103,36 +69,14 @@ export const createNodeRegistry = ({
   query,
   graph
 }: Options): NodeRegistry => {
-  const nodeIdsListeners = new Set<() => void>()
-  const nodeItemsListeners = new Set<() => void>()
-  const nodeHandlesListeners = new Set<() => void>()
-  const nodeItemListeners = new Map<NodeId, Set<() => void>>()
-  const nodeHandleListeners = new Map<NodeId, Set<() => void>>()
-
   let nodeIds: NodeId[] = []
   let canvasNodeById = new Map<NodeId, Node>()
   let nodeItemsById = new Map<NodeId, NodeViewItemEntry>()
-  let nodeItems: NodeItemsViewValue = []
-  let nodeItemsDirty = true
-  let nodeItemsMetric = createViewMetric()
   let nodeHandlesById = new Map<NodeId, NodeHandleEntry>()
-  let nodeHandlesMetric = createViewMetric()
   let activeTool = state.read('tool')
   let selectedNodeIds = state.read('selection').selectedNodeIds
   let hoveredGroupId = state.read('groupHovered')
   let zoom = state.read('viewport').zoom
-
-  const hasSubscribers = () =>
-    nodeIdsListeners.size > 0 ||
-    nodeItemsListeners.size > 0 ||
-    nodeHandlesListeners.size > 0 ||
-    nodeItemListeners.size > 0 ||
-    nodeHandleListeners.size > 0
-
-  const pullForRead = () => {
-    if (hasSubscribers()) return
-    syncCanvasNodesFull(readRenderContext())
-  }
 
   const readRenderContext = (): NodeRenderContext => ({
     activeTool: state.read('tool'),
@@ -140,11 +84,6 @@ export const createNodeRegistry = ({
     hoveredGroupId: state.read('groupHovered'),
     zoom: state.read('viewport').zoom
   })
-
-  const markNodeItemsDirty = () => {
-    nodeItemsDirty = true
-    markMetricDirty(nodeItemsMetric)
-  }
 
   const ensureMutableMap = <T>(current: Map<NodeId, T>, next: Map<NodeId, T>) =>
     next === current ? new Map(current) : next
@@ -160,7 +99,7 @@ export const createNodeRegistry = ({
   const syncNodeItemsByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
     const resolvedContext = resolveRenderContext(context)
     let nextById = nodeItemsById
-    const changedNodeIds: NodeId[] = []
+    let changed = false
 
     for (const nodeId of targetNodeIds) {
       const node = canvasNodeById.get(nodeId)
@@ -169,7 +108,7 @@ export const createNodeRegistry = ({
         if (!previous) continue
         nextById = ensureMutableMap(nodeItemsById, nextById)
         nextById.delete(nodeId)
-        changedNodeIds.push(nodeId)
+        changed = true
         continue
       }
 
@@ -182,24 +121,17 @@ export const createNodeRegistry = ({
       if (previous === next) continue
       nextById = ensureMutableMap(nodeItemsById, nextById)
       nextById.set(nodeId, next)
-      changedNodeIds.push(nodeId)
+      changed = true
     }
 
-    if (!changedNodeIds.length) return false
+    if (!changed) return
     nodeItemsById = nextById
-    markMetricRevision(nodeItemsMetric)
-    markNodeItemsDirty()
-    changedNodeIds.forEach((nodeId) => {
-      notifyListeners(nodeItemListeners.get(nodeId))
-    })
-    return true
   }
 
   const syncNodeHandlesByIds = (targetNodeIds: Iterable<NodeId>, context?: NodeRenderContext) => {
     const resolvedContext = resolveRenderContext(context)
-    const startedAt = measureNow()
     let nextById = nodeHandlesById
-    const changedNodeIds: NodeId[] = []
+    let changed = false
 
     for (const nodeId of targetNodeIds) {
       const node = canvasNodeById.get(nodeId)
@@ -217,49 +149,19 @@ export const createNodeRegistry = ({
         if (!previous) continue
         nextById = ensureMutableMap(nodeHandlesById, nextById)
         nextById.delete(nodeId)
-        changedNodeIds.push(nodeId)
+        changed = true
         continue
       }
 
       if (previous === next) continue
       nextById = ensureMutableMap(nodeHandlesById, nextById)
       nextById.set(nodeId, next)
-      changedNodeIds.push(nodeId)
+      changed = true
     }
 
-    if (!changedNodeIds.length) {
-      markMetricHit(nodeHandlesMetric)
-      return false
-    }
+    if (!changed) return
     nodeHandlesById = nextById
-    markMetricRecompute(nodeHandlesMetric, measureNow() - startedAt, {
-      bumpRevision: true
-    })
-    changedNodeIds.forEach((nodeId) => {
-      notifyListeners(nodeHandleListeners.get(nodeId))
-    })
-    return true
   }
-
-  const notifyNodeVisualChanges = ({
-    nodeItemsChanged,
-    nodeHandlesChanged
-  }: NodeVisualSyncResult) => {
-    if (nodeItemsChanged) {
-      notifyListeners(nodeItemsListeners)
-    }
-    if (nodeHandlesChanged) {
-      notifyListeners(nodeHandlesListeners)
-    }
-  }
-
-  const mergeNodeVisualChanges = (
-    base: NodeVisualSyncResult,
-    next: NodeVisualSyncResult
-  ): NodeVisualSyncResult => ({
-    nodeItemsChanged: base.nodeItemsChanged || next.nodeItemsChanged,
-    nodeHandlesChanged: base.nodeHandlesChanged || next.nodeHandlesChanged
-  })
 
   const syncNodeVisualsByIds = (
     targetNodeIds: Iterable<NodeId>,
@@ -267,43 +169,26 @@ export const createNodeRegistry = ({
       context?: NodeRenderContext
       handleSync?: NodeHandleSyncMode
     }
-  ): NodeVisualSyncResult => {
+  ) => {
     const context = options?.context
     const handleSync = options?.handleSync ?? 'auto'
-    const nodeItemsChanged = syncNodeItemsByIds(targetNodeIds, context)
+    syncNodeItemsByIds(targetNodeIds, context)
     const shouldSyncHandles =
       handleSync === 'always' ||
       (handleSync === 'auto' && (context?.activeTool ?? activeTool) === 'select')
-    const nodeHandlesChanged = shouldSyncHandles
-      ? syncNodeHandlesByIds(targetNodeIds, context)
-      : false
-    return {
-      nodeItemsChanged,
-      nodeHandlesChanged
+    if (shouldSyncHandles) {
+      syncNodeHandlesByIds(targetNodeIds, context)
     }
   }
 
   const applyNodeOrder = (nextNodeIds: NodeId[]) => {
-    if (isSameIdOrder(nodeIds, nextNodeIds)) return false
+    if (isSameIdOrder(nodeIds, nextNodeIds)) return
     nodeIds = nextNodeIds
-    markMetricRevision(nodeItemsMetric)
-    markNodeItemsDirty()
-    notifyListeners(nodeIdsListeners)
-    return true
   }
 
   const clearNodeHandles = () => {
-    if (!nodeHandlesById.size) return false
-    const startedAt = measureNow()
-    const changedNodeIds = Array.from(nodeHandlesById.keys())
+    if (!nodeHandlesById.size) return
     nodeHandlesById = new Map()
-    markMetricRecompute(nodeHandlesMetric, measureNow() - startedAt, {
-      bumpRevision: true
-    })
-    changedNodeIds.forEach((nodeId) => {
-      notifyListeners(nodeHandleListeners.get(nodeId))
-    })
-    return true
   }
 
   const syncCanvasNodesFull = (context?: NodeRenderContext) => {
@@ -326,38 +211,21 @@ export const createNodeRegistry = ({
     })
     canvasNodeById = nextById
 
-    let visualChanges: NodeVisualSyncResult = {
-      nodeItemsChanged: false,
-      nodeHandlesChanged: false
-    }
-    if (applyNodeOrder(nextNodeIds)) {
-      visualChanges = {
-        ...visualChanges,
-        nodeItemsChanged: true
-      }
-    }
+    applyNodeOrder(nextNodeIds)
 
     if (removedNodeIds.size) {
-      visualChanges = mergeNodeVisualChanges(
-        visualChanges,
-        syncNodeVisualsByIds(removedNodeIds, {
-          context,
-          handleSync: 'always'
-        })
-      )
+      syncNodeVisualsByIds(removedNodeIds, {
+        context,
+        handleSync: 'always'
+      })
     }
 
     if (changedNodeIds.size) {
-      visualChanges = mergeNodeVisualChanges(
-        visualChanges,
-        syncNodeVisualsByIds(changedNodeIds, {
-          context,
-          handleSync: 'auto'
-        })
-      )
+      syncNodeVisualsByIds(changedNodeIds, {
+        context,
+        handleSync: 'auto'
+      })
     }
-
-    notifyNodeVisualChanges(visualChanges)
   }
 
   const syncCanvasNodesDirty = (dirtyNodeIds: NodeId[], context?: NodeRenderContext) => {
@@ -397,24 +265,20 @@ export const createNodeRegistry = ({
     }
     if (!changedNodeIds.size) return
 
-    notifyNodeVisualChanges(
-      syncNodeVisualsByIds(changedNodeIds, {
-        context,
-        handleSync: 'auto'
-      })
-    )
+    syncNodeVisualsByIds(changedNodeIds, {
+      context,
+      handleSync: 'auto'
+    })
   }
 
   const syncCanvasNodeOrder = () => {
     const nextNodeIds = toLayerOrderedCanvasNodes(graph.read().canvasNodes).map(
       (node) => node.id
     )
-    if (!applyNodeOrder(nextNodeIds)) return
-    notifyListeners(nodeItemsListeners)
+    applyNodeOrder(nextNodeIds)
   }
 
   const syncCanvasNodes: NodeRegistry['syncCanvasNodes'] = (options) => {
-    if (!hasSubscribers()) return
     const dirtyNodeIds = options?.dirtyNodeIds
     const orderChanged = options?.orderChanged
     const fullSync = options?.fullSync
@@ -440,8 +304,6 @@ export const createNodeRegistry = ({
   }
 
   const syncState: NodeRegistry['syncState'] = (key) => {
-    if (!hasSubscribers()) return
-
     if (key === 'selection') {
       const nextSelectedNodeIds = state.read('selection').selectedNodeIds
       if (nextSelectedNodeIds === selectedNodeIds) return
@@ -450,11 +312,9 @@ export const createNodeRegistry = ({
       selectedNodeIds = nextSelectedNodeIds
       if (!changedNodeIds.size || activeTool === 'edge') return
 
-      notifyNodeVisualChanges(
-        syncNodeVisualsByIds(changedNodeIds, {
-          handleSync: 'always'
-        })
-      )
+      syncNodeVisualsByIds(changedNodeIds, {
+        handleSync: 'always'
+      })
       return
     }
 
@@ -471,11 +331,10 @@ export const createNodeRegistry = ({
       }
       hoveredGroupId = nextHoveredGroupId
       if (!changedNodeIds.size) return
-      notifyNodeVisualChanges(
-        syncNodeVisualsByIds(changedNodeIds, {
-          handleSync: 'never'
-        })
-      )
+
+      syncNodeVisualsByIds(changedNodeIds, {
+        handleSync: 'never'
+      })
       return
     }
 
@@ -484,16 +343,12 @@ export const createNodeRegistry = ({
       if (nextTool === activeTool) return
 
       activeTool = nextTool
-      const nodeItemsChanged = syncNodeItemsByIds(nodeIds)
-      const nodeHandlesChanged =
-        activeTool === 'select'
-          ? syncNodeHandlesByIds(selectedNodeIds)
-          : clearNodeHandles()
-
-      notifyNodeVisualChanges({
-        nodeItemsChanged,
-        nodeHandlesChanged
-      })
+      syncNodeItemsByIds(nodeIds)
+      if (activeTool === 'select') {
+        syncNodeHandlesByIds(selectedNodeIds)
+      } else {
+        clearNodeHandles()
+      }
       return
     }
 
@@ -501,80 +356,17 @@ export const createNodeRegistry = ({
     if (nextZoom === zoom) return
 
     zoom = nextZoom
-    const nodeItemsChanged = syncNodeItemsByIds(nodeIds)
-    const nodeHandlesChanged =
-      activeTool === 'select'
-        ? syncNodeHandlesByIds(selectedNodeIds)
-        : false
-
-    notifyNodeVisualChanges({
-      nodeItemsChanged,
-      nodeHandlesChanged
-    })
-  }
-
-  const getNodeItems: NodeRegistry['getNodeItems'] = () => {
-    if (!nodeItemsDirty) {
-      markMetricHit(nodeItemsMetric)
-      return nodeItems
+    syncNodeItemsByIds(nodeIds)
+    if (activeTool === 'select') {
+      syncNodeHandlesByIds(selectedNodeIds)
     }
-    const startedAt = measureNow()
-    nodeItems = nodeIds
-      .map((nodeId) => nodeItemsById.get(nodeId))
-      .filter((item): item is NodeViewItemEntry => Boolean(item))
-    nodeItemsDirty = false
-    markMetricRecompute(nodeItemsMetric, measureNow() - startedAt)
-    return nodeItems
   }
 
   return {
     syncCanvasNodes,
     syncState,
-    getNodeItems,
-    getNodeHandlesMap: () => {
-      pullForRead()
-      markMetricHit(nodeHandlesMetric)
-      return nodeHandlesById
-    },
-    getNodeIds: () => {
-      pullForRead()
-      return nodeIds
-    },
-    watchNodeIds: (listener) => {
-      pullForRead()
-      return watchSet(nodeIdsListeners, listener)
-    },
-    watchNodeItems: (listener) => {
-      pullForRead()
-      return watchSet(nodeItemsListeners, listener)
-    },
-    getNodeItem: (nodeId) => {
-      pullForRead()
-      return nodeItemsById.get(nodeId)
-    },
-    watchNodeItem: (nodeId, listener) => {
-      pullForRead()
-      return watchEntity(nodeItemListeners, nodeId, listener)
-    },
-    watchNodeHandles: (listener) => {
-      pullForRead()
-      return watchSet(nodeHandlesListeners, listener)
-    },
-    getNodeTransformHandles: (nodeId) => {
-      pullForRead()
-      return nodeHandlesById.get(nodeId)
-    },
-    watchNodeTransformHandles: (nodeId, listener) => {
-      pullForRead()
-      return watchEntity(nodeHandleListeners, nodeId, listener)
-    },
-    getNodeItemsMetric: () => snapshotViewMetric(nodeItemsMetric),
-    getNodeHandlesMetric: () => snapshotViewMetric(nodeHandlesMetric),
-    resetNodeItemsMetric: () => {
-      nodeItemsMetric = createViewMetric()
-    },
-    resetNodeHandlesMetric: () => {
-      nodeHandlesMetric = createViewMetric()
-    }
+    getNodeItemsMap: () => nodeItemsById,
+    getNodeHandlesMap: () => nodeHandlesById,
+    getNodeIds: () => nodeIds
   }
 }

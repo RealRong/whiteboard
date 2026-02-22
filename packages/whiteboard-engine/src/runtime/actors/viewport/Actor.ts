@@ -1,4 +1,4 @@
-import type { Viewport } from '@whiteboard/core'
+import { isSameViewport, type Viewport } from '@whiteboard/core'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { State } from '@engine-types/instance/state'
 
@@ -6,11 +6,6 @@ type ActorOptions = {
   state: State
   emit: InstanceEventEmitter['emit']
 }
-
-const isSameViewport = (left: Viewport, right: Viewport) =>
-  left.zoom === right.zoom &&
-  left.center.x === right.center.x &&
-  left.center.y === right.center.y
 
 const cloneViewport = (viewport: Viewport): Viewport => ({
   center: {

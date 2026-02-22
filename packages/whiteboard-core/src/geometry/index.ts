@@ -33,3 +33,11 @@ export {
   isPointEqual,
   isSizeEqual
 } from './equality'
+
+export {
+  viewportScreenToWorld,
+  viewportWorldToScreen,
+  panViewport,
+  zoomViewport,
+  isSameViewport
+} from './viewport'

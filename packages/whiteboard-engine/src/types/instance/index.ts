@@ -16,25 +16,22 @@ export type {
   EdgeEndpoint,
   EdgeEndpoints,
   EdgePathEntry,
+  EdgesView,
   EdgePreviewView,
   EdgeSelectedRoutingView,
   MindmapDragPreview,
   MindmapDragView,
+  MindmapView,
   MindmapViewTree,
   MindmapViewTreeLine,
+  NodesView,
   NodeTransformHandle,
   NodeViewItem,
+  ReadonlyStore,
   View,
-  ViewDebug,
-  ViewDebugMetric,
-  ViewDebugSnapshot,
-  ViewEdge,
-  ViewGlobal,
-  ViewKey,
-  ViewMindmap,
-  ViewNode,
-  ViewportTransformView,
-  ViewSnapshot
+  ViewState,
+  ViewportView,
+  ViewportTransformView
 } from './view'
 
 export type {
@@ -49,6 +46,7 @@ export type {
 
 export type {
   RuntimeDom,
+  RuntimeHistory,
   Runtime,
   RuntimeInternal,
   RuntimeServices,

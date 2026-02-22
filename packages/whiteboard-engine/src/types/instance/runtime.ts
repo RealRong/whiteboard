@@ -1,12 +1,12 @@
 import type {
-  Core,
   Document,
   NodeId,
   Point,
   Viewport
 } from '@whiteboard/core'
 import type { Size } from '../common'
-import type { ShortcutContext, Shortcuts } from '../shortcuts'
+import type { ResolvedHistoryConfig } from '../common'
+import type { Shortcuts } from '../shortcuts'
 import type { RefLike } from '../ui'
 import type { InstanceConfig } from './config'
 import type {
@@ -16,6 +16,7 @@ import type {
   NodeSizeObserver,
   ViewportNavigation
 } from './services'
+import type { HistoryState } from '../state'
 
 export type ViewportApi = {
   get: () => Viewport
@@ -44,13 +45,26 @@ export type RuntimeDom = {
   }
 }
 
+export type RuntimeDocument = {
+  get: () => Document
+  replace: (doc: Document, options?: { silent?: boolean }) => void
+}
+
+export type RuntimeHistory = {
+  configure: (config: Partial<ResolvedHistoryConfig>) => void
+  undo: () => boolean
+  redo: () => boolean
+  clear: () => void
+  getState: () => HistoryState
+  subscribe: (listener: (state: HistoryState) => void) => () => void
+}
+
 export type Runtime = {
-  core: Core
-  docRef: RefLike<Document>
+  document: RuntimeDocument
+  history: RuntimeHistory
   containerRef: RefLike<HTMLDivElement | null>
   getContainer: () => HTMLDivElement | null
   config: InstanceConfig
-  platform: ShortcutContext['platform']
   viewport: ViewportApi
   dom: RuntimeDom
 }

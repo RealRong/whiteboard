@@ -1,5 +1,7 @@
 import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
+import type { RuntimeHistory } from '@engine-types/instance/runtime'
+import type { DispatchResult, Document } from '@whiteboard/core'
 import type { Actor as EdgeActor } from '../../runtime/actors/edge/Actor'
 import type { Actor as MindmapActor } from '../../runtime/actors/mindmap/Actor'
 import type { Actor as NodeActor } from '../../runtime/actors/node/Actor'
@@ -18,6 +20,8 @@ type CommandContext = {
 }
 
 type CreateCommandsOptions = CommandContext & {
+  history: RuntimeHistory
+  resetDoc: (doc: Document) => Promise<DispatchResult>
   edge: EdgeActor
   mindmap: MindmapActor
   node: NodeActor
@@ -26,6 +30,8 @@ type CreateCommandsOptions = CommandContext & {
 
 export const createCommands = ({
   instance,
+  history,
+  resetDoc,
   edge,
   mindmap,
   node,
@@ -34,7 +40,7 @@ export const createCommands = ({
   const selection = createSelection(instance)
 
   return {
-    ...createBase(instance),
+    ...createBase(instance, history, resetDoc),
     selection,
     ...createEdge(edge),
     ...createNode(node),

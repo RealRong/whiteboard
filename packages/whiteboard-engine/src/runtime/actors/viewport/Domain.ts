@@ -1,97 +1,81 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { DispatchResult, Point, Viewport } from '@whiteboard/core'
+import type { CommandSource } from '@engine-types/command'
+import type { DispatchResult, Intent, Point, Viewport } from '@whiteboard/core'
+import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 
-type DomainInstance = Pick<InternalInstance, 'runtime' | 'mutate'>
+type DomainInstance = Pick<InternalInstance, 'runtime'>
+
+type ViewportIntent = Extract<
+  Intent,
+  | { type: 'viewport.set' }
+  | { type: 'viewport.pan' }
+  | { type: 'viewport.zoom' }
+>
+
+type IntentDispatcher = (
+  command: ViewportIntent,
+  options: { source?: CommandSource; actor?: string }
+) => Promise<DispatchResult>
 
 type DomainOptions = {
   instance: DomainInstance
+  dispatchIntent: IntentDispatcher
 }
 
 export class Domain {
   readonly name = 'ViewportDomain'
 
   private readonly instance: DomainInstance
+  private readonly dispatchIntent: IntentDispatcher
 
-  constructor({ instance }: DomainOptions) {
+  constructor({ instance, dispatchIntent }: DomainOptions) {
     this.instance = instance
+    this.dispatchIntent = dispatchIntent
   }
 
-  private applyViewportSet = async (
-    viewport: Viewport
-  ): Promise<DispatchResult> => {
-    const built = this.instance.runtime.core.apply.build({ type: 'viewport.set', viewport })
-    if (!built.ok) return built
+  private dispatchViewportIntent = (
+    command: ViewportIntent,
+    actor: string
+  ): Promise<DispatchResult> =>
+    this.dispatchIntent(
+      command,
+      {
+        source: 'command',
+        actor
+      }
+    )
 
-    const applied = await this.instance.mutate(built.operations, {
-      source: 'command',
-      actor: 'viewport.set'
-    })
-    if (!applied.dispatchResult.ok) {
-      return applied.dispatchResult
-    }
-    if (typeof built.value === 'undefined') {
-      return applied.dispatchResult
-    }
-    return {
-      ...applied.dispatchResult,
-      value: built.value
-    }
-  }
+  private readViewport = () =>
+    this.instance.runtime.document.get().viewport ?? DEFAULT_DOCUMENT_VIEWPORT
 
-  private readViewport = () => this.instance.runtime.core.query.viewport()
+  set = (viewport: Viewport) =>
+    this.dispatchViewportIntent(
+      { type: 'viewport.set', viewport },
+      'viewport.set'
+    )
 
-  set = (viewport: Viewport) => this.applyViewportSet(viewport)
+  panBy = (delta: { x: number; y: number }) =>
+    this.dispatchViewportIntent(
+      { type: 'viewport.pan', delta },
+      'viewport.pan'
+    )
 
-  panBy = (delta: { x: number; y: number }) => {
-    const before = this.readViewport()
-    return this.applyViewportSet({
-      center: {
-        x: before.center.x + delta.x,
-        y: before.center.y + delta.y
-      },
-      zoom: before.zoom
-    })
-  }
-
-  zoomBy = (factor: number, anchor?: Point) => {
-    const before = this.readViewport()
-    const afterCenter = anchor
-      ? {
-          x: anchor.x - (anchor.x - before.center.x) / factor,
-          y: anchor.y - (anchor.y - before.center.y) / factor
-        }
-      : before.center
-    return this.applyViewportSet({
-      center: afterCenter,
-      zoom: before.zoom * factor
-    })
-  }
+  zoomBy = (factor: number, anchor?: Point) =>
+    this.dispatchViewportIntent(
+      { type: 'viewport.zoom', factor, anchor },
+      'viewport.zoom'
+    )
 
   zoomTo = (zoom: number, anchor?: Point) => {
     const before = this.readViewport()
     if (before.zoom === 0) {
-      return this.applyViewportSet({
-        center: { x: 0, y: 0 },
+      return this.set({
+        center: before.center,
         zoom
       })
     }
-    const factor = zoom / before.zoom
-    const afterCenter = anchor
-      ? {
-          x: anchor.x - (anchor.x - before.center.x) / factor,
-          y: anchor.y - (anchor.y - before.center.y) / factor
-        }
-      : before.center
-    return this.applyViewportSet({
-      center: afterCenter,
-      zoom
-    })
+    return this.zoomBy(zoom / before.zoom, anchor)
   }
 
-  reset = () =>
-    this.applyViewportSet({
-      center: { x: 0, y: 0 },
-      zoom: 1
-    })
+  reset = () => this.set(DEFAULT_DOCUMENT_VIEWPORT)
 }
-

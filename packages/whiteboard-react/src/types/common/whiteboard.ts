@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { Core, Document } from '@whiteboard/core'
+import type { CoreRegistries, Document } from '@whiteboard/core'
 import type { ShortcutOverrides } from '@whiteboard/engine'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'
@@ -54,7 +54,7 @@ export type ResolvedConfig = Omit<
 export type WhiteboardProps = {
   doc: Document
   onDocChange: (recipe: (draft: Document) => void) => void
-  core?: Core
+  registries?: CoreRegistries
   nodeRegistry?: NodeRegistry
   config?: Config
 }

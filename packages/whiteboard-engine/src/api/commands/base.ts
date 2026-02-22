@@ -1,6 +1,8 @@
 import type { Commands } from '@engine-types/commands'
-import type { Instance } from '@engine-types/instance/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { RuntimeHistory } from '@engine-types/instance/runtime'
 import type { InteractionState } from '@engine-types/state'
+import type { DispatchResult, Document } from '@whiteboard/core'
 
 const mergeInteraction = (
   prev: InteractionState,
@@ -22,12 +24,16 @@ const mergeInteraction = (
 })
 
 export const createBase = (
-  instance: Instance
-): Pick<Commands, 'tool' | 'keyboard' | 'history' | 'interaction'> => {
-  const { core } = instance.runtime
+  instance: InternalInstance,
+  history: RuntimeHistory,
+  resetDoc: (doc: Document) => Promise<DispatchResult>
+): Pick<Commands, 'doc' | 'tool' | 'keyboard' | 'history' | 'interaction'> => {
   const { read, write } = instance.state
 
   return {
+    doc: {
+      reset: (doc) => resetDoc(doc)
+    },
     tool: {
       set: (tool) => {
         write('tool', tool)
@@ -40,18 +46,18 @@ export const createBase = (
     },
     history: {
       configure: (config) => {
-        core.history.configure(config)
+        history.configure(config)
       },
       undo: () => {
         if (!read('history').canUndo) return false
-        return core.history.undo()
+        return history.undo()
       },
       redo: () => {
         if (!read('history').canRedo) return false
-        return core.history.redo()
+        return history.redo()
       },
       clear: () => {
-        core.history.clear()
+        history.clear()
       }
     },
     interaction: {

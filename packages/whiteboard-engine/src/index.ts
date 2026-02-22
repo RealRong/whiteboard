@@ -13,19 +13,13 @@ export {
 export type { Commands } from './types/commands'
 export type {
   Command,
-  CommandBatch,
-  CommandBatchInput,
   CommandSource,
-  ApplyOptions,
+  MutationBatchMeta,
   MutationBatchInput,
-  ApplyMutationsOptions,
   ApplyMetrics,
   AppliedChangeSummary,
-  ApplyResult,
   ApplyMutationsResult,
-  ApplyApi,
-  ApplyMutationsApi,
-  TxApi
+  ApplyMutationsApi
 } from './types/command'
 export type {
   Mutation,
@@ -38,6 +32,12 @@ export type {
   EdgePathEntry,
   StateKey,
   StateSnapshot,
+  ViewState,
+  ViewportView,
+  NodesView,
+  EdgesView,
+  MindmapView,
+  ReadonlyStore,
   MindmapDragView,
   NodeTransformHandle,
   MindmapViewTree,

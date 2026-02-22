@@ -1,17 +1,20 @@
-import type { Instance } from '@engine-types/instance/instance'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   Shortcut,
   ShortcutContext,
+  ShortcutKeyEvent,
   ShortcutManager,
+  ShortcutPointerEvent,
   ShortcutOverrides,
   Shortcuts
 } from '@engine-types/shortcuts'
 import { createShortcutManager } from './manager'
 import { createDefaultShortcuts } from './defaultShortcuts'
 import {
-  createHandlers,
-  registerHandlers
+  createHandlers
 } from '../../api/commands/shortcut'
+import { createShortcutContextReader } from './context'
+import { getPlatformInfo } from './chord'
 
 const resolveShortcuts = (
   defaults: Shortcut[],
@@ -28,17 +31,23 @@ const resolveShortcuts = (
 }
 
 class ShortcutsImpl implements Shortcuts {
-  private instance: Instance
+  private instance: InternalInstance
   private shortcutManager: ShortcutManager
-  private unregisterCommandHandlers: (() => void) | null
   private commandHandlers: ReturnType<typeof createHandlers>
+  private getShortcutContextInternal: () => ShortcutContext
 
-  constructor(instance: Instance) {
+  constructor(instance: InternalInstance) {
     this.instance = instance
     this.shortcutManager = createShortcutManager()
+    const platform = getPlatformInfo()
+    this.getShortcutContextInternal = createShortcutContextReader({
+      readState: instance.state.read,
+      platform
+    })
 
     this.commandHandlers = createHandlers({
-      runTransaction: instance.runtime.core.tx,
+      runTransaction: async (recipe) =>
+        recipe(),
       node: {
         create: instance.commands.node.create,
         delete: instance.commands.node.delete
@@ -55,7 +64,7 @@ class ShortcutsImpl implements Shortcuts {
         undo: instance.commands.history.undo,
         redo: instance.commands.history.redo
       },
-      getDocument: () => instance.runtime.docRef.current,
+      getDocument: () => instance.runtime.document.get(),
       getSelectableNodeIds: () => instance.graph.read().canvasNodes.map((canvasNode) => canvasNode.id),
       getSelectedNodeIds: () => Array.from(instance.state.read('selection').selectedNodeIds),
       getSelectedEdgeId: () => instance.state.read('edgeSelection'),
@@ -65,52 +74,41 @@ class ShortcutsImpl implements Shortcuts {
       },
       selectEdge: instance.commands.edge.select
     })
-
-    this.unregisterCommandHandlers = registerHandlers(instance.runtime.core, this.commandHandlers)
     this.setShortcuts()
   }
 
-  private ensureCommandHandlers = () => {
-    if (this.unregisterCommandHandlers) return
-    this.unregisterCommandHandlers = registerHandlers(this.instance.runtime.core, this.commandHandlers)
-  }
-
-  private applyInteractionSnapshot = (ctx: ShortcutContext) => {
-    this.instance.commands.interaction.update({
-      focus: ctx.focus,
-      pointer: {
-        isDragging: ctx.pointer.isDragging,
-        button: ctx.pointer.button,
-        modifiers: ctx.pointer.modifiers
-      }
-    })
+  private runCommand = (names: string[]) => {
+    for (const name of names) {
+      const handler = this.commandHandlers[name as keyof typeof this.commandHandlers]
+      if (!handler) continue
+      handler()
+      return true
+    }
+    return false
   }
 
   setShortcuts = (overrides?: ShortcutOverrides) => {
-    this.ensureCommandHandlers()
-    const defaults = createDefaultShortcuts({ core: this.instance.runtime.core })
+    const defaults = createDefaultShortcuts({
+      runCommand: this.runCommand
+    })
     this.shortcutManager.setShortcuts(resolveShortcuts(defaults, overrides))
   }
 
-  handlePointerDownCapture = (event: PointerEvent, context: ShortcutContext) => {
-    this.ensureCommandHandlers()
-    this.applyInteractionSnapshot(context)
+  getContext = () => {
+    return this.getShortcutContextInternal()
+  }
+
+  handlePointerDownCapture = (event: ShortcutPointerEvent, context: ShortcutContext) => {
     return this.shortcutManager.handlePointerDown(event, context)
   }
 
-  handleKeyDown = (event: KeyboardEvent, context: ShortcutContext) => {
-    this.ensureCommandHandlers()
-    this.applyInteractionSnapshot(context)
+  handleKeyDown = (event: ShortcutKeyEvent, context: ShortcutContext) => {
     return this.shortcutManager.handleKeyDown(event, context)
   }
 
-  dispose = () => {
-    if (!this.unregisterCommandHandlers) return
-    this.unregisterCommandHandlers()
-    this.unregisterCommandHandlers = null
-  }
+  dispose = () => {}
 }
 
-export const createShortcuts = (instance: Instance): Shortcuts => {
+export const createShortcuts = (instance: InternalInstance): Shortcuts => {
   return new ShortcutsImpl(instance)
 }

@@ -1,5 +1,6 @@
-import type { Core, Node, Rect } from '@whiteboard/core'
+import type { Node, Rect } from '@whiteboard/core'
 import type { Commands } from '../commands'
+import type { Query } from '../instance/query'
 import type { NodeLike, RefLike, StyleObject } from '../ui'
 
 export type NodeContainerProps = {
@@ -16,7 +17,7 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  core: Core
+  query: Query
   commands: Commands
   node: Node
   rect: Rect

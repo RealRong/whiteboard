@@ -22,21 +22,3 @@ export const watchSet = (listeners: Set<Listener>, listener: Listener) => {
     listeners.delete(listener)
   }
 }
-
-export const watchEntity = <TId extends string>(
-  map: Map<TId, Set<Listener>>,
-  id: TId,
-  listener: Listener
-) => {
-  const listeners = map.get(id) ?? new Set<Listener>()
-  listeners.add(listener)
-  map.set(id, listeners)
-  return () => {
-    const current = map.get(id)
-    if (!current) return
-    current.delete(listener)
-    if (!current.size) {
-      map.delete(id)
-    }
-  }
-}

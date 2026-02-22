@@ -27,3 +27,8 @@ export const createInputPort = ({
 
 export { InputControllerImpl } from './core/InputPort'
 export { PointerSessionEngine } from './core/PointerSessionEngine'
+export {
+  createDefaultShortcuts,
+  createShortcutManager,
+  createShortcuts
+} from './shortcut'

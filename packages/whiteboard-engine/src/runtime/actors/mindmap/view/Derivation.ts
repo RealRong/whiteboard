@@ -1,7 +1,8 @@
 import type { GraphSnapshot } from '@engine-types/graph'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
-import type { MindmapViewTree, ViewSnapshot } from '@engine-types/instance/view'
+import type { MindmapDragView, MindmapViewTree } from '@engine-types/instance/view'
+import type { Node } from '@whiteboard/core'
 import { DEFAULT_TUNING } from '../../../../config'
 import { toMindmapLayoutSignature } from '../../../../runtime/common/cache'
 import {
@@ -19,12 +20,6 @@ type MindmapDerivationOptions = {
   config: InstanceConfig
 }
 
-export const MINDMAP_VIEW_DERIVATION_DEPS = {
-  roots: ['graph.visibleNodes'] as const,
-  trees: ['graph.visibleNodes', 'mindmapLayout'] as const,
-  drag: ['mindmapDrag'] as const
-}
-
 export const createMindmapViewDerivations = ({
   readState,
   readGraph,
@@ -32,10 +27,10 @@ export const createMindmapViewDerivations = ({
 }: MindmapDerivationOptions) => {
   let treeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
 
-  const roots = (): ViewSnapshot['mindmap.roots'] =>
+  const roots = (): Node[] =>
     getMindmapRoots(readGraph().visibleNodes)
 
-  const trees = (): ViewSnapshot['mindmap.trees'] => {
+  const trees = (): MindmapViewTree[] => {
     const allRoots = roots()
     const layout = readState('mindmapLayout') ?? {}
     const nextCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
@@ -91,7 +86,7 @@ export const createMindmapViewDerivations = ({
     return nextTrees
   }
 
-  const drag = (): ViewSnapshot['mindmap.drag'] => {
+  const drag = (): MindmapDragView | undefined => {
     const active = readState('mindmapDrag').active
     if (!active) return undefined
 

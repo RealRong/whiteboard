@@ -1,6 +1,6 @@
-import type { Core, Document } from '@whiteboard/core'
+import type { CoreRegistries, Document } from '@whiteboard/core'
 import type { Commands } from '../commands'
-import type { ApplyApi, ApplyMutationsApi, TxApi } from '../command'
+import type { ApplyMutationsApi } from '../command'
 import type { RefLike } from '../ui'
 import type { InstanceEvents } from './events'
 import type { Lifecycle } from './lifecycle'
@@ -13,9 +13,6 @@ import type { GraphProjector } from '../graph'
 import type { InputPort } from '../input'
 
 export type Instance = {
-  apply: ApplyApi
-  mutate: ApplyMutationsApi
-  tx: TxApi
   state: State
   graph: GraphProjector
   input: InputPort
@@ -27,13 +24,15 @@ export type Instance = {
   commands: Commands
 }
 
-export type InternalInstance = Omit<Instance, 'runtime'> & {
+export type InternalInstance = Instance & {
+  mutate: ApplyMutationsApi
   runtime: RuntimeInternal
 }
 
 export type CreateEngineOptions = {
-  core: Core
-  docRef: RefLike<Document>
+  registries?: CoreRegistries
+  document: Document
+  onDocumentChange?: (doc: Document) => void
   containerRef: RefLike<HTMLDivElement | null>
   config?: Partial<InstanceConfig>
 }

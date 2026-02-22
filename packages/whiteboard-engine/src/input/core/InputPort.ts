@@ -17,29 +17,37 @@ type InputControllerOptions = {
   sessions?: PointerSession[]
 }
 
+const toShortcutButton = (button: number): 0 | 1 | 2 | undefined => {
+  if (button === 0 || button === 1 || button === 2) return button
+  return undefined
+}
+
 const toPointerShortcutEvent = (
   event: Extract<InputEvent, { kind: 'pointer' }>
-): PointerEvent =>
-  ({
-    button: event.button,
-    altKey: event.modifiers.alt,
-    shiftKey: event.modifiers.shift,
-    ctrlKey: event.modifiers.ctrl,
-    metaKey: event.modifiers.meta
-  }) as PointerEvent
+) => ({
+  button: event.button,
+  modifiers: {
+    alt: event.modifiers.alt,
+    shift: event.modifiers.shift,
+    ctrl: event.modifiers.ctrl,
+    meta: event.modifiers.meta
+  }
+})
 
 const toKeyShortcutEvent = (
   event: Extract<InputEvent, { kind: 'key' }>
-): KeyboardEvent =>
-  ({
-    key: event.key,
-    code: event.code,
-    repeat: event.repeat,
-    altKey: event.modifiers.alt,
-    shiftKey: event.modifiers.shift,
-    ctrlKey: event.modifiers.ctrl,
-    metaKey: event.modifiers.meta
-  }) as KeyboardEvent
+) => ({
+  key: event.key,
+  code: event.code,
+  repeat: event.repeat,
+  isComposing: event.isComposing,
+  modifiers: {
+    alt: event.modifiers.alt,
+    shift: event.modifiers.shift,
+    ctrl: event.modifiers.ctrl,
+    meta: event.modifiers.meta
+  }
+})
 
 const withPointerShortcutContext = (
   base: ShortcutContext,
@@ -158,9 +166,20 @@ export class InputControllerImpl implements InputControllerType {
       context.actors.edge.hoverMove(event.pointer, enabled)
     }
     if (event.phase === 'down' && event.stage === 'capture') {
+      context.commands.interaction.update({
+        pointer: {
+          button: toShortcutButton(event.button),
+          modifiers: {
+            alt: event.modifiers.alt,
+            shift: event.modifiers.shift,
+            ctrl: event.modifiers.ctrl,
+            meta: event.modifiers.meta
+          }
+        }
+      })
       const handled = context.shortcuts.handlePointerDownCapture(
         toPointerShortcutEvent(event),
-        withPointerShortcutContext(context.view.getShortcutContext(), event)
+        withPointerShortcutContext(context.shortcuts.getContext(), event)
       )
       if (handled) {
         const effects: InputEffect[] = [
@@ -190,6 +209,14 @@ export class InputControllerImpl implements InputControllerType {
         isEditingText: Boolean(event.target.isTextInput),
         isInputFocused: ignoreInput,
         isImeComposing: event.isComposing ?? false
+      },
+      pointer: {
+        modifiers: {
+          alt: event.modifiers.alt,
+          shift: event.modifiers.shift,
+          ctrl: event.modifiers.ctrl,
+          meta: event.modifiers.meta
+        }
       }
     })
 
@@ -226,17 +253,14 @@ export class InputControllerImpl implements InputControllerType {
       const edgeId = event.target.edgeId
       const routingIndex = event.target.routingIndex
       if (edgeId && Number.isInteger(routingIndex)) {
-        const entry = context.view.edgePath(edgeId)
-        if (entry) {
-          context.commands.edge.removeRoutingPoint(entry.edge, routingIndex as number)
-        }
+        context.actors.edge.removeRoutingPointAt(edgeId, routingIndex as number)
       }
       return { effects }
     }
 
     const handled = context.shortcuts.handleKeyDown(
       toKeyShortcutEvent(event),
-      withKeyShortcutContext(context.view.getShortcutContext(), event)
+      withKeyShortcutContext(context.shortcuts.getContext(), event)
     )
     if (handled) {
       effects.push({ type: 'preventDefault', reason: 'shortcut.keyDown' })

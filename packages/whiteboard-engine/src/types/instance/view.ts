@@ -12,7 +12,6 @@ import type {
 } from '@whiteboard/core'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
-import type { ShortcutContext } from '../shortcuts'
 import type {
   EdgeReconnectInfo,
   MindmapDragDropTarget,
@@ -121,92 +120,42 @@ export type NodeTransformHandle = {
   cursor: string
 }
 
-export type ViewSnapshot = {
-  'viewport.transform': ViewportTransformView
-  'shortcut.context': ShortcutContext
-  'edge.paths': EdgePathEntry[]
-  'edge.preview': EdgePreviewView
-  'edge.selectedEndpoints': EdgeEndpoints | undefined
-  'edge.selectedRouting': EdgeSelectedRoutingView
-  'node.items': NodeViewItem[]
-  'node.transformHandles': Map<NodeId, NodeTransformHandle[]>
-  'mindmap.roots': Node[]
-  'mindmap.trees': MindmapViewTree[]
-  'mindmap.drag': MindmapDragView | undefined
+export type ReadonlyStore<TState> = {
+  getState: () => TState
+  subscribe: (listener: () => void) => () => void
 }
 
-export type ViewKey = keyof ViewSnapshot
-
-export type ViewDebugMetric = {
-  revision: number
-  dirty: boolean
-  recomputeCount: number
-  cacheHitCount: number
-  cacheMissCount: number
-  cacheHitRate: number
-  sampleCount: number
-  sampleWindowSize: number
-  p50ComputeMs: number
-  p95ComputeMs: number
-  lastComputeMs: number
-  avgComputeMs: number
-  maxComputeMs: number
-  totalComputeMs: number
-  lastComputedAt?: number
+export type ViewportView = {
+  transform: ViewportTransformView
 }
 
-export type ViewDebugSnapshot = {
-  [K in ViewKey]: ViewDebugMetric
+export type NodesView = {
+  ids: NodeId[]
+  byId: ReadonlyMap<NodeId, NodeViewItem>
+  handlesById: ReadonlyMap<NodeId, readonly NodeTransformHandle[]>
 }
 
-export type ViewDebug = {
-  getMetrics: <K extends ViewKey>(key: K) => ViewDebugMetric
-  getAllMetrics: () => ViewDebugSnapshot
-  resetMetrics: (key?: ViewKey) => void
+export type EdgesView = {
+  ids: EdgeId[]
+  byId: ReadonlyMap<EdgeId, EdgePathEntry>
+  preview: EdgePreviewView
+  selection: {
+    endpoints: EdgeEndpoints | undefined
+    routing: EdgeSelectedRoutingView
+  }
 }
 
-export type ViewGlobal = {
-  viewportTransform: () => ViewportTransformView
-  watchViewportTransform: (listener: () => void) => () => void
-  shortcutContext: () => ShortcutContext
-  watchShortcutContext: (listener: () => void) => () => void
-  edgePreview: () => EdgePreviewView
-  watchEdgePreview: (listener: () => void) => () => void
-  edgeSelectedEndpoints: () => EdgeEndpoints | undefined
-  watchEdgeSelectedEndpoints: (listener: () => void) => () => void
-  edgeSelectedRouting: () => EdgeSelectedRoutingView
-  watchEdgeSelectedRouting: (listener: () => void) => () => void
-  mindmapDrag: () => MindmapDragView | undefined
-  watchMindmapDrag: (listener: () => void) => () => void
+export type MindmapView = {
+  ids: NodeId[]
+  byId: ReadonlyMap<NodeId, MindmapViewTree>
+  drag: MindmapDragView | undefined
 }
 
-export type ViewNode = {
-  ids: () => NodeId[]
-  watchIds: (listener: () => void) => () => void
-  item: (nodeId: NodeId) => NodeViewItem | undefined
-  watchItem: (nodeId: NodeId, listener: () => void) => () => void
-  handles: (nodeId: NodeId) => NodeTransformHandle[] | undefined
-  watchHandles: (nodeId: NodeId, listener: () => void) => () => void
+export type ViewState = {
+  viewport: ViewportView
+  nodes: NodesView
+  edges: EdgesView
+  mindmap: MindmapView
 }
 
-export type ViewEdge = {
-  ids: () => EdgeId[]
-  watchIds: (listener: () => void) => () => void
-  path: (edgeId: EdgeId) => EdgePathEntry | undefined
-  watchPath: (edgeId: EdgeId, listener: () => void) => () => void
-}
-
-export type ViewMindmap = {
-  ids: () => NodeId[]
-  watchIds: (listener: () => void) => () => void
-  tree: (treeId: NodeId) => MindmapViewTree | undefined
-  watchTree: (treeId: NodeId, listener: () => void) => () => void
-}
-
-export type View = {
-  global: ViewGlobal
-  node: ViewNode
-  edge: ViewEdge
-  mindmap: ViewMindmap
-  debug: ViewDebug
-}
+export type View = ReadonlyStore<ViewState>

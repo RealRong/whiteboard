@@ -41,8 +41,8 @@ export class Routing {
     const nextPoints = points.map((point, idx) =>
       idx === index ? pointWorld : point
     )
-    void this.instance.mutate(
-      [
+    void this.instance.mutate({
+      operations: [
         {
           type: 'edge.update',
           id: edgeId,
@@ -55,11 +55,9 @@ export class Routing {
           }
         }
       ],
-      {
-        source: 'interaction',
-        actor: 'edge.routing'
-      }
-    )
+      source: 'interaction',
+      actor: 'edge.routing'
+    })
   }
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {

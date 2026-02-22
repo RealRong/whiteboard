@@ -64,12 +64,11 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
   const definition = useMemo(() => registry.get(node.type), [node.type, registry])
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
-  const core = instance.runtime.core
 
   const nodeStyle = useMemo(
     () =>
       getNodeDefinitionStyle(definition, {
-        core,
+        query: instance.query,
         commands: instance.commands,
         node,
         rect,
@@ -77,7 +76,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
         hovered,
         zoom
       }),
-    [core, definition, hovered, instance.commands, node, rect, selected, zoom]
+    [definition, hovered, instance.commands, instance.query, node, rect, selected, zoom]
   )
 
   const setContainerRef = useCallback(
@@ -128,7 +127,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
 
   const renderProps = useMemo<NodeRenderProps>(
     () => ({
-      core,
+      query: instance.query,
       commands: instance.commands,
       node,
       rect,
@@ -137,7 +136,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
       zoom,
       containerProps
     }),
-    [containerProps, core, hovered, instance.commands, node, rect, selected, zoom]
+    [containerProps, hovered, instance.commands, instance.query, node, rect, selected, zoom]
   )
 
   const content = useMemo(

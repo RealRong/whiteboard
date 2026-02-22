@@ -14,19 +14,10 @@ export const createEdgePath = (): PointerSession => ({
     const edgeId = event.target.edgeId
     if (!edgeId) return null
 
-    const entry = context.view.edgePath(edgeId)
-    if (!entry) return null
-
     const isInsertIntent = event.modifiers.shift || event.clickCount >= 2
     if (isInsertIntent) {
-      const segmentIndex = context.query.geometry.nearestEdgeSegment(
-        event.pointer.world,
-        entry.path.points
-      )
-      context.commands.edge.insertRoutingPoint(
-        entry.edge,
-        entry.path.points,
-        segmentIndex,
+      context.actors.edge.insertRoutingPointAt(
+        edgeId,
         event.pointer.world
       )
     }

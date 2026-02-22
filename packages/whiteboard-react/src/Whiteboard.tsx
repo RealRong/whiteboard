@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { createCore, type Core, type Document } from '@whiteboard/core'
+import type { Document } from '@whiteboard/core'
 import type { CSSProperties } from 'react'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
@@ -16,16 +16,6 @@ import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
 import { DomInputAdapter } from './common/input/DomInputAdapter'
 
-const cloneValue = <T,>(value: T): T => {
-  const structuredCloneFn = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
-  if (structuredCloneFn) {
-    return structuredCloneFn(value)
-  }
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
-const cloneDocument = (document: Document): Document => cloneValue(document)
-
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
   draft.name = next.name
@@ -39,39 +29,15 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
 }
 
 const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function WhiteboardInner(
-  { doc, onDocChange, core: externalCore, nodeRegistry, config },
+  { doc, onDocChange, registries, nodeRegistry, config },
   ref
 ) {
   const resolvedConfig = useMemo(() => normalizeConfig(config), [config])
 
-  const docRef = useRef(doc)
+  const initialDocRef = useRef(doc)
   const onDocChangeRef = useRef(onDocChange)
-  const coreRef = useRef<Core | null>(null)
 
-  docRef.current = doc
   onDocChangeRef.current = onDocChange
-
-  if (!coreRef.current) {
-    coreRef.current =
-      externalCore ??
-      createCore({
-        getState: () => docRef.current,
-        apply: (recipe) => {
-          const nextDoc = cloneDocument(docRef.current)
-          recipe(nextDoc)
-          docRef.current = nextDoc
-
-          onDocChangeRef.current((draft) => {
-            replaceDocumentDraft(draft, nextDoc)
-          })
-        }
-      })
-  }
-  if (externalCore && coreRef.current !== externalCore) {
-    coreRef.current = externalCore
-  }
-
-  const core = coreRef.current as Core
   const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
   const containerRef = useRef<HTMLDivElement>(null)
   const instanceConfig = useMemo(
@@ -95,18 +61,23 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   const instance = useMemo(
     () =>
       createEngine({
-        core,
-        docRef,
+        registries,
+        document: initialDocRef.current,
+        onDocumentChange: (nextDoc) => {
+          onDocChangeRef.current((draft) => {
+            replaceDocumentDraft(draft, nextDoc)
+          })
+        },
         containerRef,
         config: instanceConfig
       }),
-    [core, docRef, instanceConfig]
+    [instanceConfig, registries]
   )
 
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
-    void instance.apply([{ type: 'doc.reset', doc }], { source: 'import' })
+    void instance.commands.doc.reset(doc)
   }, [doc, instance])
 
   const lifecycleConfig = useMemo(
@@ -173,14 +144,16 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     [resolvedConfig.style]
   )
 
-  const [viewportTransform, setViewportTransform] = useState(() => instance.view.global.viewportTransform())
+  const [viewportTransform, setViewportTransform] = useState(
+    () => instance.view.getState().viewport.transform
+  )
   useEffect(() => {
     const update = () => {
-      const next = instance.view.global.viewportTransform()
+      const next = instance.view.getState().viewport.transform
       setViewportTransform((prev) => (Object.is(prev, next) ? prev : next))
     }
     update()
-    return instance.view.global.watchViewportTransform(update)
+    return instance.view.subscribe(update)
   }, [instance])
 
   const transformStyle = useMemo<CSSProperties>(

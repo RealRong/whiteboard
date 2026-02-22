@@ -1,5 +1,4 @@
 import {
-  createCore,
   type Document,
   type Edge,
   type Node,
@@ -181,30 +180,16 @@ const main = () => {
   ensureRaf()
 
   let doc = createDocument()
-  const docRef = { current: doc }
-  let syncDoc: ((next: Document) => void) | undefined
-  const core = createCore({
-    getState: () => docRef.current,
-    apply: (recipe) => {
-      const next = cloneDoc(docRef.current)
-      recipe(next)
-      docRef.current = next
-      syncDoc?.(next)
-    }
-  })
   const containerRef = { current: null as HTMLDivElement | null }
   const instance = createEngine({
-    core,
-    docRef,
+    document: doc,
+    onDocumentChange: (nextDoc) => {
+      doc = nextDoc
+    },
     containerRef
   })
-  syncDoc = (next) => {
-    void instance.tx(
-      (tx) => {
-        tx.add({ type: 'doc.reset', doc: next })
-      },
-      { source: 'import' }
-    )
+  const syncDoc = (next: Document) => {
+    void instance.commands.doc.reset(next)
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
@@ -276,12 +261,11 @@ const main = () => {
         client: { x: 0, y: 0 }
       })
     )
-    const resetDoc = cloneDoc(docRef.current)
+    const resetDoc = cloneDoc(doc)
     const resetNode = resetDoc.nodes.find((node) => node.id === movingNodeId)
     if (resetNode) {
       resetNode.position = basePosition
     }
-    docRef.current = resetDoc
     syncDoc(resetDoc)
     runSamples.push(samples)
   }

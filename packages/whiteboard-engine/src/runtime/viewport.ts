@@ -1,4 +1,10 @@
-import type { Point, Viewport } from '@whiteboard/core'
+import {
+  isSameViewport,
+  viewportScreenToWorld,
+  viewportWorldToScreen,
+  type Point,
+  type Viewport
+} from '@whiteboard/core'
 import type { Size } from '@engine-types/common'
 import type { ViewportApi } from '@engine-types/instance/runtime'
 import type { ContainerRect } from '@engine-types/instance/services'
@@ -14,55 +20,65 @@ const toScreenCenter = (size: Size): Point => ({
   y: size.height / 2
 })
 
-const isSameViewport = (a: Viewport, b: Viewport) =>
-  a.zoom === b.zoom && a.center.x === b.center.x && a.center.y === b.center.y
-
 const isSameRect = (a: ContainerRect, b: ContainerRect) =>
   a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
 
-export const createViewport = (): ViewportApi => {
-  let viewport: Viewport = DEFAULT_DOCUMENT_VIEWPORT
-  let containerRect: ContainerRect = DEFAULT_INTERNALS.containerRect
-  let containerSize = toContainerSize(DEFAULT_INTERNALS.containerRect)
-  let screenCenter = toScreenCenter(containerSize)
+const copyViewport = (viewport: Viewport): Viewport => ({
+  center: {
+    x: viewport.center.x,
+    y: viewport.center.y
+  },
+  zoom: viewport.zoom
+})
 
-  const updateDerivedFromRect = (rect: ContainerRect) => {
-    containerRect = rect
-    containerSize = toContainerSize(rect)
-    screenCenter = toScreenCenter(containerSize)
+const copyRect = (rect: ContainerRect): ContainerRect => ({
+  left: rect.left,
+  top: rect.top,
+  width: rect.width,
+  height: rect.height
+})
+
+export class ViewportRuntime implements ViewportApi {
+  private viewport: Viewport = copyViewport(DEFAULT_DOCUMENT_VIEWPORT)
+  private containerRect: ContainerRect = copyRect(DEFAULT_INTERNALS.containerRect)
+  private containerSize: Size = toContainerSize(DEFAULT_INTERNALS.containerRect)
+  private screenCenter: Point = toScreenCenter(this.containerSize)
+
+  private updateDerivedFromRect = (rect: ContainerRect) => {
+    this.containerRect = copyRect(rect)
+    this.containerSize = toContainerSize(rect)
+    this.screenCenter = toScreenCenter(this.containerSize)
   }
 
-  const screenToWorld = (point: Point): Point => ({
-    x: (point.x - screenCenter.x) / viewport.zoom + viewport.center.x,
-    y: (point.y - screenCenter.y) / viewport.zoom + viewport.center.y
+  get: ViewportApi['get'] = () => this.viewport
+
+  getZoom: ViewportApi['getZoom'] = () => this.viewport.zoom
+
+  screenToWorld: ViewportApi['screenToWorld'] = (point) =>
+    viewportScreenToWorld(point, this.viewport, this.screenCenter)
+
+  worldToScreen: ViewportApi['worldToScreen'] = (point) =>
+    viewportWorldToScreen(point, this.viewport, this.screenCenter)
+
+  clientToScreen: ViewportApi['clientToScreen'] = (clientX, clientY) => ({
+    x: clientX - this.containerRect.left,
+    y: clientY - this.containerRect.top
   })
 
-  const worldToScreen = (point: Point): Point => ({
-    x: (point.x - viewport.center.x) * viewport.zoom + screenCenter.x,
-    y: (point.y - viewport.center.y) * viewport.zoom + screenCenter.y
-  })
+  clientToWorld: ViewportApi['clientToWorld'] = (clientX, clientY) =>
+    this.screenToWorld(this.clientToScreen(clientX, clientY))
 
-  const clientToScreen = (clientX: number, clientY: number): Point => ({
-    x: clientX - containerRect.left,
-    y: clientY - containerRect.top
-  })
+  getScreenCenter: ViewportApi['getScreenCenter'] = () => this.screenCenter
 
-  return {
-    get: () => viewport,
-    getZoom: () => viewport.zoom,
-    screenToWorld,
-    worldToScreen,
-    clientToScreen,
-    clientToWorld: (clientX, clientY) => screenToWorld(clientToScreen(clientX, clientY)),
-    getScreenCenter: () => screenCenter,
-    getContainerSize: () => containerSize,
-    setViewport: (nextViewport) => {
-      if (isSameViewport(nextViewport, viewport)) return
-      viewport = nextViewport
-    },
-    setContainerRect: (nextRect) => {
-      if (isSameRect(nextRect, containerRect)) return
-      updateDerivedFromRect(nextRect)
-    }
+  getContainerSize: ViewportApi['getContainerSize'] = () => this.containerSize
+
+  setViewport: ViewportApi['setViewport'] = (nextViewport) => {
+    if (isSameViewport(nextViewport, this.viewport)) return
+    this.viewport = copyViewport(nextViewport)
+  }
+
+  setContainerRect: ViewportApi['setContainerRect'] = (nextRect) => {
+    if (isSameRect(nextRect, this.containerRect)) return
+    this.updateDerivedFromRect(nextRect)
   }
 }
