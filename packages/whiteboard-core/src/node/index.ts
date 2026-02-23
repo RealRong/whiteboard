@@ -1,4 +1,8 @@
 export {
+  createNodeDuplicateInput,
+  expandNodeSelection
+} from './duplicate'
+export {
   expandGroupRect,
   findSmallestGroupAtPoint,
   getCollapsedGroupIds,

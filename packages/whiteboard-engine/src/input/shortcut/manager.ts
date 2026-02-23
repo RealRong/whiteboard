@@ -4,7 +4,8 @@ import type {
   ShortcutManager,
   ShortcutKeyEvent,
   ShortcutPointerEvent,
-  ShortcutManagerOptions
+  ShortcutManagerOptions,
+  ShortcutOverrides
 } from '@engine-types/shortcuts'
 import {
   countModifiers,
@@ -12,15 +13,14 @@ import {
   normalizeShortcutChord,
   type PlatformInfo
 } from './chord'
-import {
-  compareCandidates,
-  getPointerComplexity,
-  isShortcutEnabled,
-  type Candidate
-} from './rule'
 
 type NormalizedKeyInfo = {
   keys: string[]
+  complexity: number
+}
+
+type Candidate = {
+  shortcut: Shortcut
   complexity: number
 }
 
@@ -45,7 +45,46 @@ const createEmptyKeyIndex = (): CompiledShortcutIndexes['keyByOs'] => ({
   linux: new Map()
 })
 
+const isShortcutEnabled = (shortcut: Shortcut, ctx: ShortcutContext) => {
+  if (shortcut.when && !shortcut.when(ctx)) return false
+  if (ctx.focus.isEditingText || ctx.focus.isInputFocused) {
+    return Boolean(shortcut.allowWhenEditing)
+  }
+  return true
+}
+
+const compareCandidates = (a: Candidate, b: Candidate) => {
+  const priorityDelta = (b.shortcut.priority ?? 0) - (a.shortcut.priority ?? 0)
+  if (priorityDelta !== 0) return priorityDelta
+  return b.complexity - a.complexity
+}
+
+const getPointerComplexity = (shortcut: Shortcut) => {
+  const rule = shortcut.pointer
+  if (!rule) return 0
+  return (
+    Number(Boolean(rule.alt)) +
+    Number(Boolean(rule.shift)) +
+    Number(Boolean(rule.ctrl)) +
+    Number(Boolean(rule.meta))
+  )
+}
+
 const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'
+
+export const resolveShortcuts = (
+  defaults: Shortcut[],
+  overrides?: ShortcutOverrides
+) => {
+  if (!overrides) return defaults
+  if (typeof overrides === 'function') {
+    return overrides(defaults)
+  }
+  const merged = new Map<string, Shortcut>()
+  defaults.forEach((shortcut) => merged.set(shortcut.id, shortcut))
+  overrides.forEach((shortcut) => merged.set(shortcut.id, shortcut))
+  return Array.from(merged.values())
+}
 
 export const createShortcutManager = (
   initial: Shortcut[] = [],

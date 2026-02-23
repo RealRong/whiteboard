@@ -20,6 +20,16 @@ export type ShortcutPointerEvent = {
 
 export type ShortcutNativeEvent = ShortcutKeyEvent | ShortcutPointerEvent
 
+export type ShortcutAction =
+  | 'group.create'
+  | 'group.ungroup'
+  | 'selection.selectAll'
+  | 'selection.clear'
+  | 'selection.delete'
+  | 'selection.duplicate'
+  | 'history.undo'
+  | 'history.redo'
+
 export type ShortcutContext = {
   platform: {
     os: 'mac' | 'win' | 'linux'

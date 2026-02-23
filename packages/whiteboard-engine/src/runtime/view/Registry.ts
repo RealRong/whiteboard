@@ -2,82 +2,48 @@ import type {
   InstanceConfig,
 } from '@engine-types/instance/config'
 import type {
-  GraphChange,
-  GraphProjector
-} from '@engine-types/graph'
+  ProjectionChange,
+  ProjectionStore
+} from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
 import type {
   State,
   StateKey
 } from '@engine-types/instance/state'
-import type {
-  EdgeEndpoints,
-  View,
-  EdgePathEntry,
-  EdgeSelectedRoutingView,
-  EdgePreviewView,
-  MindmapViewTree,
-  MindmapDragView,
-  NodeTransformHandle,
-  NodeViewItem,
-  ViewportTransformView
-} from '@engine-types/instance/view'
-import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
+import type { View } from '@engine-types/instance/view'
 import {
   createEdgeViewDerivations,
   createEdgeViewQuery
-} from '../edge/view'
-import { createMindmapViewDerivations } from '../mindmap/view'
-import { toChangeView } from '../graph/sync/ChangeView'
-import {
-  shouldSyncCanvasNodes,
-  shouldSyncDerivedEdgePaths,
-  shouldSyncDerivedMindmapTrees
-} from '../graph/sync/Policy'
-import { createNodeRegistry, type NodeStateSyncKey } from '../node/view'
-import {
-  createIndexedState,
-  notifyListeners,
-  updateIndexedState,
-  watchSet
-} from './shared'
+} from '../actors/edge/view'
+import { createMindmapViewDerivations } from '../actors/mindmap/view'
+import { notifyListeners, watchSet } from './shared'
+import { createViewportDomain } from './ViewportDomain'
+import { createNodeDomain } from './NodeDomain'
+import { createEdgeDomain } from './EdgeDomain'
+import { createMindmapDomain } from './MindmapDomain'
 
 type Options = {
   state: State
-  graph: GraphProjector
+  projection: ProjectionStore
   query: Query
   config: InstanceConfig
-  syncQueryGraph?: (change: GraphChange) => void
 }
 
 export type ViewRuntime = {
   view: View
-  syncGraph: (change: GraphChange) => void
+  applyProjection: (change: ProjectionChange) => void
 }
 
 type SyncAction = () => boolean
 
 export const createViewRegistry = ({
   state,
-  graph,
+  projection,
   query,
-  config,
-  syncQueryGraph
+  config
 }: Options): ViewRuntime => {
-  const toViewportTransformView = (viewport: Viewport): ViewportTransformView => {
-    const zoom = viewport.zoom
-    return {
-      center: viewport.center,
-      zoom,
-      transform: `translate(50%, 50%) scale(${zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
-      cssVars: {
-        '--wb-zoom': `${zoom}`
-      }
-    }
-  }
-
   const edgeViewQuery = createEdgeViewQuery({
-    readGraph: graph.read,
+    readProjection: projection.read,
     query
   })
   const edgeDerived = createEdgeViewDerivations({
@@ -86,154 +52,44 @@ export const createViewRegistry = ({
   })
   const mindmapDerived = createMindmapViewDerivations({
     readState: state.read,
-    readGraph: graph.read,
+    readProjection: projection.read,
     config
   })
 
-  const node = createNodeRegistry({
+  const viewport = createViewportDomain({ state })
+  const node = createNodeDomain({
     state,
     query,
-    graph
+    projection
+  })
+  const edge = createEdgeDomain({
+    derive: edgeDerived
+  })
+  const mindmap = createMindmapDomain({
+    derive: mindmapDerived
   })
 
   const listeners = new Set<() => void>()
 
-  let viewportTransform: ViewportTransformView = toViewportTransformView(state.read('viewport'))
-  let edgeIndex = createIndexedState<EdgeId, EdgePathEntry>(
-    [],
-    (entry) => entry.id
-  )
-  let edgePreview: EdgePreviewView = edgeDerived.preview()
-  let edgeSelectedEndpoints: EdgeEndpoints | undefined = edgeDerived.selectedEndpoints()
-  let edgeSelectedRouting: EdgeSelectedRoutingView = edgeDerived.selectedRouting()
-  let mindmapIndex = createIndexedState<NodeId, MindmapViewTree>(
-    [],
-    (entry) => entry.id
-  )
-  let mindmapDrag: MindmapDragView | undefined = mindmapDerived.drag()
-
-  type NodeViewRefs = {
-    ids: NodeId[]
-    itemsById: ReadonlyMap<NodeId, NodeViewItem>
-    handlesById: ReadonlyMap<NodeId, readonly NodeTransformHandle[]>
-  }
-
-  const captureNodeRefs = (): NodeViewRefs => ({
-    ids: node.getNodeIds(),
-    itemsById: node.getNodeItemsMap(),
-    handlesById: node.getNodeHandlesMap()
-  })
-
-  const hasNodeRefsChanged = (before: NodeViewRefs) =>
-    before.ids !== node.getNodeIds()
-    || before.itemsById !== node.getNodeItemsMap()
-    || before.handlesById !== node.getNodeHandlesMap()
-
-  const recomputeViewportTransform = () => {
-    const next = toViewportTransformView(state.read('viewport'))
-    const prev = viewportTransform
-    const changed =
-      prev.zoom !== next.zoom ||
-      prev.center.x !== next.center.x ||
-      prev.center.y !== next.center.y
-    viewportTransform = next
-    return changed
-  }
-
-  const recomputeEdgePaths = () => {
-    const next = edgeDerived.paths()
-    const result = updateIndexedState(edgeIndex, next, (entry) => entry.id)
-    if (result.changed) {
-      edgeIndex = result.state
-    }
-    const changed = result.changed
-    return changed
-  }
-
-  const recomputeEdgePreview = () => {
-    const next = edgeDerived.preview()
-    const changed = !Object.is(edgePreview, next)
-    edgePreview = next
-    return changed
-  }
-
-  const recomputeEdgeSelectedEndpoints = () => {
-    const next = edgeDerived.selectedEndpoints()
-    const changed = !Object.is(edgeSelectedEndpoints, next)
-    edgeSelectedEndpoints = next
-    return changed
-  }
-
-  const recomputeEdgeSelectedRouting = () => {
-    const next = edgeDerived.selectedRouting()
-    const changed = !Object.is(edgeSelectedRouting, next)
-    edgeSelectedRouting = next
-    return changed
-  }
-
-  const recomputeMindmapTrees = () => {
-    const next = mindmapDerived.trees()
-    const result = updateIndexedState(mindmapIndex, next, (entry) => entry.id)
-    if (result.changed) {
-      mindmapIndex = result.state
-    }
-    const changed = result.changed
-    return changed
-  }
-
-  const recomputeMindmapDrag = () => {
-    const next = mindmapDerived.drag()
-    const changed = !Object.is(mindmapDrag, next)
-    mindmapDrag = next
-    return changed
-  }
-
-  const syncState = (key: NodeStateSyncKey) => {
-    node.syncState(key)
-  }
-
   const stateSyncActions: Partial<Record<StateKey, SyncAction>> = {
     viewport: () => {
-      const nodeBefore = captureNodeRefs()
-      const changed = recomputeViewportTransform()
-      syncState('viewport')
-      return changed || hasNodeRefsChanged(nodeBefore)
+      let changed = false
+      changed = viewport.sync() || changed
+      changed = node.syncState('viewport') || changed
+      return changed
     },
-    selection: () => {
-      const nodeBefore = captureNodeRefs()
-      syncState('selection')
-      return hasNodeRefsChanged(nodeBefore)
-    },
-    groupHovered: () => {
-      const nodeBefore = captureNodeRefs()
-      syncState('groupHovered')
-      return hasNodeRefsChanged(nodeBefore)
-    },
+    selection: () => node.syncState('selection'),
+    groupHovered: () => node.syncState('groupHovered'),
     tool: () => {
-      const nodeBefore = captureNodeRefs()
       let changed = false
-      syncState('tool')
-      changed = recomputeEdgePreview() || changed
-      return changed || hasNodeRefsChanged(nodeBefore)
-    },
-    edgeConnect: () => {
-      let changed = false
-      changed = recomputeEdgePaths() || changed
-      changed = recomputeEdgePreview() || changed
+      changed = node.syncState('tool') || changed
+      changed = edge.syncState('tool') || changed
       return changed
     },
-    edgeSelection: () => {
-      let changed = false
-      changed = recomputeEdgeSelectedEndpoints() || changed
-      changed = recomputeEdgeSelectedRouting() || changed
-      return changed
-    },
-    mindmapLayout: () => {
-      return recomputeMindmapTrees()
-    },
-    mindmapDrag: () => {
-      return recomputeMindmapDrag()
-    }
+    edgeConnect: () => edge.syncState('edgeConnect'),
+    edgeSelection: () => edge.syncState('edgeSelection'),
+    mindmapLayout: () => mindmap.syncState('mindmapLayout'),
+    mindmapDrag: () => mindmap.syncState('mindmapDrag')
   }
 
   const handleStateChange = (key: StateKey) => {
@@ -244,57 +100,46 @@ export const createViewRegistry = ({
     notifyListeners(listeners)
   }
 
-  const runGraphSync = (changeView: ReturnType<typeof toChangeView>) => {
-    const {
-      fullSync,
-      dirtyNodeIds,
-      orderChanged
-    } = changeView
-    let changed = false
-    const affectsEdgeNodes = fullSync || changeView.canvasNodesChanged
-    const affectsEdgeVisibility = fullSync || changeView.visibleEdgesChanged
+  const runProjectionSync = (change: ProjectionChange) => {
+    const fullSync = change.kind === 'full'
+    const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
+    const orderChanged = change.kind === 'partial' ? change.orderChanged : undefined
+    const shouldSyncNodeCanvas =
+      fullSync ||
+      change.projection.canvasNodesChanged ||
+      Boolean(dirtyNodeIds?.length) ||
+      Boolean(orderChanged)
 
-    if (shouldSyncDerivedEdgePaths(changeView)) {
-      changed = recomputeEdgePaths() || changed
-    }
-    if (affectsEdgeNodes) {
-      changed = recomputeEdgePreview() || changed
-    }
-    if (affectsEdgeNodes || affectsEdgeVisibility) {
-      changed = recomputeEdgeSelectedEndpoints() || changed
-    }
-    if (affectsEdgeVisibility) {
-      changed = recomputeEdgeSelectedRouting() || changed
-    }
-    if (shouldSyncDerivedMindmapTrees(changeView)) {
-      changed = recomputeMindmapTrees() || changed
-    }
-    if (shouldSyncCanvasNodes(changeView)) {
-      const nodeBefore = captureNodeRefs()
-      node.syncCanvasNodes({
+    let changed = false
+    changed = edge.syncProjection({
+      fullSync,
+      canvasNodesChanged: change.projection.canvasNodesChanged,
+      visibleEdgesChanged: change.projection.visibleEdgesChanged
+    }) || changed
+    changed = mindmap.syncProjection({
+      fullSync,
+      visibleNodesChanged: change.projection.visibleNodesChanged
+    }) || changed
+    if (shouldSyncNodeCanvas) {
+      changed = node.syncGraph({
         dirtyNodeIds,
         orderChanged,
         fullSync
-      })
-      changed = hasNodeRefsChanged(nodeBefore) || changed
+      }) || changed
     }
     return changed
   }
 
-  const syncGraph = (change: GraphChange) => {
-    syncQueryGraph?.(change)
-    edgeViewQuery.syncGraph(change)
+  const applyProjection = (change: ProjectionChange) => {
+    edgeViewQuery.applyProjection(change)
 
-    const changeView = toChangeView(change)
-    const changed = runGraphSync(changeView)
+    const changed = runProjectionSync(change)
     if (!changed) return
     notifyListeners(listeners)
   }
 
   state.watchChanges(handleStateChange)
-  recomputeEdgePaths()
-  recomputeMindmapTrees()
-  syncGraph({
+  applyProjection({
     source: 'runtime',
     kind: 'full',
     projection: {
@@ -304,36 +149,14 @@ export const createViewRegistry = ({
     }
   })
 
-  const readNodeItems = () =>
-    node.getNodeItemsMap() as ReadonlyMap<NodeId, NodeViewItem>
-
-  const readNodeHandles = () =>
-    node.getNodeHandlesMap() as ReadonlyMap<NodeId, readonly NodeTransformHandle[]>
-
   const getState: View['getState'] = () => {
     return {
       viewport: {
-        transform: viewportTransform
+        transform: viewport.getTransform()
       },
-      nodes: {
-        ids: node.getNodeIds(),
-        byId: readNodeItems(),
-        handlesById: readNodeHandles()
-      },
-      edges: {
-        ids: edgeIndex.ids,
-        byId: edgeIndex.byId,
-        preview: edgePreview,
-        selection: {
-          endpoints: edgeSelectedEndpoints,
-          routing: edgeSelectedRouting
-        }
-      },
-      mindmap: {
-        ids: mindmapIndex.ids,
-        byId: mindmapIndex.byId,
-        drag: mindmapDrag
-      }
+      nodes: node.getState(),
+      edges: edge.getState(),
+      mindmap: mindmap.getState()
     }
   }
 
@@ -344,6 +167,6 @@ export const createViewRegistry = ({
       getState,
       subscribe
     },
-    syncGraph
+    applyProjection
   }
 }

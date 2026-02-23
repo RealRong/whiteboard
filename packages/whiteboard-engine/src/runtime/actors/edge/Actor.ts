@@ -30,7 +30,7 @@ import { Connect } from './Connect'
 import { Routing } from './Routing'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'graph' | 'query' | 'runtime' | 'view' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'runtime' | 'view' | 'mutate'>
   registries: CoreRegistries
   scheduler: Scheduler
   mutation: MutationExecutor

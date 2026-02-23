@@ -6,13 +6,13 @@ import type {
   WritableStateSnapshot
 } from '@engine-types/instance/state'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
-import { GraphProjector } from '../../runtime/actors/graph/projector/GraphProjector'
+import { ProjectionStore } from '../../runtime/projection/Store'
 import { WritableStore } from '../store'
 import { createInitialState } from '../initialState'
 
 type Result = {
   state: State
-  graph: GraphProjector
+  projection: ProjectionStore
   replaceDoc: (doc: Document | null) => void
 }
 
@@ -50,7 +50,7 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   )
   let currentDoc = doc
 
-  const graph = new GraphProjector(() => currentDoc)
+  const projection = new ProjectionStore(() => currentDoc)
 
   const viewportListeners = new Set<() => void>()
   const changeListeners = new Set<(key: StateKey) => void>()
@@ -131,7 +131,7 @@ export const createState = ({ doc = null }: Options = {}): Result => {
 
   return {
     state,
-    graph,
+    projection,
     replaceDoc
   }
 }

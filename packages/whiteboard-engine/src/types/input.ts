@@ -198,7 +198,7 @@ export type InputSessionContext = {
     }
   }
   services: Pick<RuntimeServices, 'viewportNavigation'>
-  shortcuts: Pick<Shortcuts, 'getContext' | 'handlePointerDownCapture' | 'handleKeyDown'>
+  shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
   input: {
     config: InputConfig
   }

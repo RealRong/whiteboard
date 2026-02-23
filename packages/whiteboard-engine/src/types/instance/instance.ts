@@ -9,12 +9,12 @@ import type { Query } from './query'
 import type { Runtime, RuntimeInternal } from './runtime'
 import type { State } from './state'
 import type { View } from './view'
-import type { GraphProjector } from '../graph'
+import type { ProjectionStore } from '../projection'
 import type { InputPort } from '../input'
 
 export type Instance = {
   state: State
-  graph: GraphProjector
+  projection: ProjectionStore
   input: InputPort
   runtime: Runtime
   query: Query

@@ -1,7 +1,7 @@
-import type { CoreRegistries, DispatchResult, Document, Node } from '@whiteboard/core/types'
+import type { CoreRegistries, DispatchResult, Document } from '@whiteboard/core/types'
 import type { CommandSource } from '@engine-types/command'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { GraphChange, GraphProjector } from '@engine-types/graph'
+import type { ProjectionStore } from '@engine-types/projection'
 import type { InputSessionContext } from '@engine-types/input'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { InternalInstance } from '@engine-types/instance/instance'
@@ -9,24 +9,23 @@ import type { Query } from '@engine-types/instance/query'
 import type { State } from '@engine-types/instance/state'
 import type { Scheduler } from '../runtime/contracts'
 import { Actor as EdgeActor } from '../runtime/actors/edge/Actor'
-import { Actor as GraphActor } from '../runtime/actors/graph/Actor'
+import { Actor as HistoryActor } from '../runtime/actors/history/Actor'
 import { Actor as MindmapActor } from '../runtime/actors/mindmap/Actor'
 import { Actor as NodeActor } from '../runtime/actors/node/Actor'
+import { Actor as SelectionActor } from '../runtime/actors/selection/Actor'
 import { MutationExecutor } from '../runtime/actors/shared/MutationExecutor'
-import { ViewActor } from '../runtime/actors/view/Actor'
+import { ViewStore } from '../runtime/view/Store'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 
 type Options = {
   instance: InternalInstance
   state: State
-  graph: GraphProjector
+  projection: ProjectionStore
   query: Query
   emit: InstanceEventEmitter['emit']
   registries: CoreRegistries
   readDoc: () => Document
-  readNodes: () => Node[]
   config: InstanceConfig
-  syncQueryGraph?: (change: GraphChange) => void
   scheduler: Scheduler
   write: {
     mutate: (
@@ -42,23 +41,20 @@ type Options = {
 export const createActorRuntime = ({
   instance,
   state,
-  graph,
+  projection,
   query,
   emit,
   registries,
   readDoc,
-  readNodes,
   config,
-  syncQueryGraph,
   scheduler,
   write
 }: Options) => {
-  const view = new ViewActor({
+  const view = new ViewStore({
     state,
-    graph,
+    projection,
     query,
-    config,
-    syncQueryGraph
+    config
   })
   const mutation = new MutationExecutor({
     mutate: write.mutate,
@@ -72,8 +68,8 @@ export const createActorRuntime = ({
   })
   const node = new NodeActor({
     state,
-    graph,
-    syncGraph: view.sync,
+    projection,
+    applyProjection: view.apply,
     readDoc,
     instance,
     mutation
@@ -84,9 +80,13 @@ export const createActorRuntime = ({
     instance,
     mutation
   })
-  const graphActor = new GraphActor({
-    graph,
-    readNodes
+  const history = new HistoryActor({
+    instance,
+    emit
+  })
+  const selection = new SelectionActor({
+    instance,
+    emit
   })
   const viewport = new ViewportDomainActor({
     instance,
@@ -159,7 +159,8 @@ export const createActorRuntime = ({
     edge,
     node,
     mindmap,
-    graph: graphActor,
+    history,
+    selection,
     viewport,
     view,
     inputActors

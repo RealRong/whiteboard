@@ -1,5 +1,5 @@
 import type { Guide } from '@engine-types/node/snap'
-import type { GraphChange, GraphProjector, NodeViewUpdate } from '@engine-types/graph'
+import type { ProjectionChange, ProjectionStore, NodeViewUpdate } from '@engine-types/projection'
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { State } from '@engine-types/instance/state'
@@ -35,10 +35,10 @@ import { Transform } from './Transform'
 
 type ActorOptions = {
   state: Pick<State, 'write'>
-  graph: GraphProjector
-  syncGraph: (change: GraphChange) => void
+  projection: ProjectionStore
+  applyProjection: (change: ProjectionChange) => void
   readDoc: () => Document
-  instance: Pick<InternalInstance, 'state' | 'graph' | 'runtime' | 'query' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'runtime' | 'query' | 'mutate'>
   mutation: MutationExecutor
 }
 
@@ -46,8 +46,8 @@ export class Actor {
   readonly name = 'Node'
 
   private readonly state: Pick<State, 'write'>
-  private readonly graph: GraphProjector
-  private readonly syncGraph: (change: GraphChange) => void
+  private readonly projection: ProjectionStore
+  private readonly applyProjection: (change: ProjectionChange) => void
   private readonly readDoc: () => Document
   private readonly instance: ActorOptions['instance']
   private readonly mutation: MutationExecutor
@@ -56,15 +56,15 @@ export class Actor {
 
   constructor({
     state,
-    graph,
-    syncGraph,
+    projection,
+    applyProjection,
     readDoc,
     instance,
     mutation
   }: ActorOptions) {
     this.state = state
-    this.graph = graph
-    this.syncGraph = syncGraph
+    this.projection = projection
+    this.applyProjection = applyProjection
     this.readDoc = readDoc
     this.instance = instance
     this.mutation = mutation
@@ -85,9 +85,9 @@ export class Actor {
     })
   }
 
-  private flushGraphChange = (change: GraphChange | undefined) => {
+  private flushProjectionChange = (change: ProjectionChange | undefined) => {
     if (!change) return
-    this.syncGraph(change)
+    this.applyProjection(change)
   }
 
   private createGroupId = () => {
@@ -107,7 +107,7 @@ export class Actor {
     this.mutation.runCommand({ type: 'node.update', id, patch }, 'node.update')
 
   updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const node = this.instance.graph.read().canvasNodes.find((item) => item.id === id)
+    const node = this.instance.projection.read().canvasNodes.find((item) => item.id === id)
     if (!node) return undefined
     return this.mutation.runCommand({
       type: 'node.update',
@@ -261,15 +261,15 @@ export class Actor {
   }
 
   setOverrides = (updates: NodeViewUpdate[]) => {
-    this.flushGraphChange(this.graph.patchNodeOverrides(updates))
+    this.flushProjectionChange(this.projection.patchNodeOverrides(updates))
   }
 
   clearOverrides = (ids?: NodeId[]) => {
-    this.flushGraphChange(this.graph.clearNodeOverrides(ids))
+    this.flushProjectionChange(this.projection.clearNodeOverrides(ids))
   }
 
   commitOverrides = (updates?: NodeViewUpdate[]) => {
-    const list: NodeViewUpdate[] = updates ?? this.graph.readNodeOverrides()
+    const list: NodeViewUpdate[] = updates ?? this.projection.readNodeOverrides()
     if (!list.length) return
 
     const currentDoc = this.readDoc()

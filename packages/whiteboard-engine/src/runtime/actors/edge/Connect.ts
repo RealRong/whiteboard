@@ -9,7 +9,7 @@ import { type ConnectTo, isSameConnectTo } from './query'
 
 type ConnectInstance = Pick<
   InternalInstance,
-  'state' | 'graph' | 'query' | 'runtime' | 'mutate'
+  'state' | 'projection' | 'query' | 'runtime' | 'mutate'
 >
 
 type ConnectOptions = {
@@ -181,7 +181,7 @@ export class Connect {
     end: 'source' | 'target',
     pointer: PointerInput
   ) => {
-    const visibleEdges = this.instance.graph.read().visibleEdges
+    const visibleEdges = this.instance.projection.read().visibleEdges
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
     const endpoint = edge[end]
@@ -227,7 +227,7 @@ export class Connect {
     const targetAnchor = snap.anchor
 
     if (reconnect) {
-      const visibleEdges = this.instance.graph.read().visibleEdges
+      const visibleEdges = this.instance.projection.read().visibleEdges
       const edge = visibleEdges.find(
         (item) => item.id === reconnect.edgeId
       )

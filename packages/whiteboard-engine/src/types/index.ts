@@ -14,19 +14,17 @@ export type {
   MutationBatch
 } from './mutation'
 export type {
-  GraphSnapshot,
-  GraphChange,
-  GraphFullChange,
-  GraphPartialChange,
-  GraphProjectionChange,
-  GraphHint,
-  GraphFullHint,
-  GraphPartialHint,
-  GraphChangeSource,
-  GraphProjector,
-  CreateGraphProjectorOptions,
+  ProjectionSnapshot,
+  ProjectionChange,
+  ProjectionFullChange,
+  ProjectionPartialChange,
+  ProjectionInvalidation,
+  ProjectionChangeSource,
+  ProjectionSyncInput,
+  ProjectionStore,
+  CreateProjectionStoreOptions,
   NodeViewUpdate
-} from './graph'
+} from './projection'
 export type {
   PointerPhase,
   PointerStage,
@@ -91,7 +89,15 @@ export type {
   ResolvedViewportConfig
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
-export type { Shortcut, ShortcutContext, ShortcutManager, ShortcutManagerOptions, ShortcutOverrides, Shortcuts } from './shortcuts'
+export type {
+  Shortcut,
+  ShortcutAction,
+  ShortcutContext,
+  ShortcutManager,
+  ShortcutManagerOptions,
+  ShortcutOverrides,
+  Shortcuts
+} from './shortcuts'
 export type {
   RoutingDragActiveState,
   RoutingDragState,

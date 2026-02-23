@@ -20,6 +20,8 @@ type LifecycleActors = {
   edge: EdgeActor
   node: NodeActor
   mindmap: MindmapActor
+  history: HistoryActor
+  selection: SelectionActor
 }
 
 export class Lifecycle implements LifecycleApi {
@@ -54,10 +56,7 @@ export class Lifecycle implements LifecycleApi {
     this.edgeActor = actors.edge
     this.nodeActor = actors.node
 
-    this.selectionActor = new SelectionActor({
-      state: this.context.state,
-      emit: context.events.emit
-    })
+    this.selectionActor = actors.selection
     this.toolActor = new ToolActor({
       state: this.context.state,
       emit: context.events.emit
@@ -66,10 +65,7 @@ export class Lifecycle implements LifecycleApi {
       state: this.context.state,
       emit: context.events.emit
     })
-    this.historyActor = new HistoryActor({
-      state: this.context.state,
-      emit: context.events.emit
-    })
+    this.historyActor = actors.history
     this.mindmapActor = actors.mindmap
 
     this.registry.register({

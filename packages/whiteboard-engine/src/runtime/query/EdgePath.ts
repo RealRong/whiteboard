@@ -1,19 +1,38 @@
 import { getEdgePath } from '@whiteboard/core/edge'
-import type { Edge, EdgeId } from '@whiteboard/core/types'
-import type { EdgePathEntry } from '@engine-types/instance/view'
-import type { GraphChange } from '@engine-types/graph'
+import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
+import type { QueryCanvas } from '@engine-types/instance/query'
+import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
+import type { ProjectionChange, ProjectionSnapshot } from '@engine-types/projection'
 import type { EdgeConnectState } from '@engine-types/state'
-import { toChangeView } from '../../../graph/sync/ChangeView'
-import {
-  hasDirtyNodeHints,
-  shouldResetEdgePathCache
-} from '../../../graph/sync/Policy'
 import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/cache'
-import type {
-  EdgePathCacheEntry,
-  EdgePathStore,
-  EdgePathStoreOptions
-} from './types'
+
+type ReconnectPoint = {
+  point: Point
+  side?: NonNullable<EdgePathEntry['edge']['source']['anchor']>['side']
+}
+
+type ResolveEndpoints = (edge: Edge) => EdgeEndpoints | undefined
+
+type EdgePathCacheEntry = {
+  geometrySignature: string
+  edge: EdgePathEntry['edge']
+  path: EdgePathEntry['path']
+  entry: EdgePathEntry
+}
+
+type EdgePathStoreOptions = {
+  readProjection: () => ProjectionSnapshot
+  getNodeRect: QueryCanvas['nodeRect']
+  resolveEndpoints: ResolveEndpoints
+  resolveReconnectPoint: (to: EdgeConnectState['to']) => ReconnectPoint | undefined
+}
+
+type EdgePathStore = {
+  syncProjection: (change: ProjectionChange) => void
+  getEntries: () => EdgePathEntry[]
+  getReconnectEntry: (edgeConnect: EdgeConnectState) => EdgePathEntry | undefined
+  getEdge: (edgeId: EdgeId) => Edge | undefined
+}
 
 const isSameEdgePathEntryList = (
   left: EdgePathEntry[],
@@ -28,7 +47,7 @@ const isSameEdgePathEntryList = (
 }
 
 export const createEdgePathStore = ({
-  readGraph,
+  readProjection,
   getNodeRect,
   resolveEndpoints,
   resolveReconnectPoint
@@ -88,27 +107,16 @@ export const createEdgePathStore = ({
   }
 
   let cachedEdgePathEntries: EdgePathEntry[] = []
-  let cachedEdgePathEntryById = new Map<
-    EdgePathEntry['id'],
-    EdgePathCacheEntry
-  >()
+  let cachedEdgePathEntryById = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
   let edgeById = new Map<EdgeId, EdgePathEntry['edge']>()
-  let nodeToEdgeIds = new Map<
-    EdgePathEntry['edge']['source']['nodeId'],
-    Set<EdgeId>
-  >()
+  let nodeToEdgeIds = new Map<EdgePathEntry['edge']['source']['nodeId'], Set<EdgeId>>()
   let edgeOrderIds: EdgeId[] = []
   let cachedRenderEdgesRef: unknown
-  const pendingChangedNodeIds = new Set<
-    EdgePathEntry['edge']['source']['nodeId']
-  >()
+  let pendingChangedNodeIds = new Set<EdgePathEntry['edge']['source']['nodeId']>()
 
   const rebuildEdgeRefs = (edges: EdgePathEntry['edge'][]) => {
     const nextEdgeById = new Map<EdgeId, EdgePathEntry['edge']>()
-    const nextNodeToEdgeIds = new Map<
-      EdgePathEntry['edge']['source']['nodeId'],
-      Set<EdgeId>
-    >()
+    const nextNodeToEdgeIds = new Map<EdgePathEntry['edge']['source']['nodeId'], Set<EdgeId>>()
     const nextEdgeOrderIds: EdgeId[] = []
 
     edges.forEach((edge) => {
@@ -131,9 +139,7 @@ export const createEdgePathStore = ({
     edgeOrderIds = nextEdgeOrderIds
   }
 
-  const rebuildEntryList = (
-    map: Map<EdgePathEntry['id'], EdgePathCacheEntry>
-  ) => {
+  const rebuildEntryList = (map: Map<EdgePathEntry['id'], EdgePathCacheEntry>) => {
     const nextEntries = edgeOrderIds
       .map((edgeId) => map.get(edgeId)?.entry)
       .filter((entry): entry is EdgePathEntry => Boolean(entry))
@@ -166,7 +172,7 @@ export const createEdgePathStore = ({
         affectedEdgeIds.add(edgeId)
       })
     })
-    pendingChangedNodeIds.clear()
+    pendingChangedNodeIds = new Set()
 
     if (!affectedEdgeIds.size) return
 
@@ -205,11 +211,11 @@ export const createEdgePathStore = ({
   }
 
   const ensureEntries = () => {
-    const edges = readGraph().visibleEdges
+    const edges = readProjection().visibleEdges
     const edgesChanged = edges !== cachedRenderEdgesRef
     if (edgesChanged) {
       cachedRenderEdgesRef = edges
-      pendingChangedNodeIds.clear()
+      pendingChangedNodeIds = new Set()
       rebuildEdgeRefs(edges)
       rebuildEntries(edges)
       return
@@ -218,34 +224,34 @@ export const createEdgePathStore = ({
     updateEntriesByDirtyNodes()
   }
 
-  const syncGraph: EdgePathStore['syncGraph'] = (change: GraphChange) => {
-    const changeView = toChangeView(change)
-    const { fullSync, dirtyNodeIds } = changeView
+  const syncProjection: EdgePathStore['syncProjection'] = (change) => {
+    const fullSync = change.kind === 'full'
+    const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
+    const shouldReset =
+      fullSync ||
+      change.projection.canvasNodesChanged ||
+      change.projection.visibleEdgesChanged
 
     if (fullSync) {
       cachedRenderEdgesRef = undefined
-      pendingChangedNodeIds.clear()
+      pendingChangedNodeIds = new Set()
       return
     }
-    if (shouldResetEdgePathCache(changeView)) {
+    if (shouldReset) {
       cachedRenderEdgesRef = undefined
     }
-    if (hasDirtyNodeHints(changeView) && dirtyNodeIds) {
+    if (dirtyNodeIds?.length) {
       dirtyNodeIds.forEach((nodeId) => {
         pendingChangedNodeIds.add(nodeId)
       })
     }
   }
 
-  const getReconnectEntry = (
-    edgeConnect: EdgeConnectState
-  ): EdgePathEntry | undefined => {
+  const getReconnectEntry = (edgeConnect: EdgeConnectState): EdgePathEntry | undefined => {
     if (!edgeConnect.isConnecting || !edgeConnect.reconnect) return undefined
     ensureEntries()
 
-    const reconnectBase = cachedEdgePathEntryById.get(
-      edgeConnect.reconnect.edgeId
-    )?.entry
+    const reconnectBase = cachedEdgePathEntryById.get(edgeConnect.reconnect.edgeId)?.entry
     if (!reconnectBase) return undefined
 
     const moved = resolveReconnectPoint(edgeConnect.to)
@@ -296,7 +302,7 @@ export const createEdgePathStore = ({
   }
 
   return {
-    syncGraph,
+    syncProjection,
     getEntries,
     getReconnectEntry,
     getEdge

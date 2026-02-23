@@ -18,13 +18,15 @@ import { createActorRuntime } from './actors'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
 import { Scheduler } from '../runtime/Scheduler'
+import { SyncCoordinator } from '../runtime/sync/Coordinator'
 import { GroupAutoFit, NodeSizeObserver } from '../runtime/actors/node/services'
+import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import {
   ContainerSizeObserver,
   ViewportNavigation
 } from '../runtime/actors/viewport/services'
 import { ViewportRuntime } from '../runtime/viewport'
-import { createQuery } from '../api/query/instance'
+import { QueryStore } from '../runtime/query/Store'
 import { createDocumentStore } from '../document/Store'
 import { createHistoryStore } from '../document/History'
 
@@ -60,7 +62,7 @@ export const createEngine = ({
   const runtimeRegistries = registries ?? createRegistries()
   const documentStore = createDocumentStore(document, onDocumentChange)
   const historyStore = createHistoryStore({ now: scheduler.now })
-  const { state, graph, replaceDoc } = createState({ doc: documentStore.get() })
+  const { state, projection, replaceDoc } = createState({ doc: documentStore.get() })
   const getContainer = () => containerRef.current
   const base = {
     document: documentStore,
@@ -71,8 +73,8 @@ export const createEngine = ({
   }
   const eventCenter = new EventCenter<InstanceEventMap>()
 
-  const queryRuntime = createQuery({
-    graph,
+  const queryStore = new QueryStore({
+    projection,
     config,
     getContainer: base.getContainer
   })
@@ -122,12 +124,12 @@ export const createEngine = ({
       return mutate
     },
     state,
-    graph,
+    projection,
     get input() {
       return input
     },
     runtime,
-    query: queryRuntime.query,
+    query: queryStore.query,
     get view() {
       return view
     },
@@ -146,14 +148,12 @@ export const createEngine = ({
   const actors = createActorRuntime({
     instance,
     state,
-    graph,
-    query: queryRuntime.query,
+    projection,
+    query: queryStore.query,
     emit: eventCenter.emit,
     registries: runtimeRegistries,
     readDoc: documentStore.get,
-    readNodes: () => runtime.document.get().nodes,
     config,
-    syncQueryGraph: queryRuntime.syncGraph,
     scheduler,
     write: {
       mutate: (input) => mutate(input),
@@ -163,7 +163,7 @@ export const createEngine = ({
   view = actors.view.view
   const context = {
     state,
-    query: queryRuntime.query,
+    query: queryStore.query,
     runtime,
     events: {
       on: eventCenter.on,
@@ -173,15 +173,18 @@ export const createEngine = ({
     config,
     scheduler
   }
+  const syncCoordinator = new SyncCoordinator({
+    projection,
+    query: queryStore,
+    view: actors.view
+  })
   const changeGateway = new ChangeGateway({
-    instance,
     documentStore,
     history: historyStore,
     registries: runtimeRegistries,
     replaceDoc,
     now: scheduler.now,
-    graph: actors.graph,
-    view: actors.view,
+    sync: syncCoordinator,
     emit: eventCenter.emit
   })
   history = changeGateway.history
@@ -202,7 +205,7 @@ export const createEngine = ({
     getContext: () => ({
       state,
       commands,
-      query: queryRuntime.query,
+      query: queryStore.query,
       actors: actors.inputActors,
       services: {
         viewportNavigation: runtime.services.viewportNavigation
@@ -232,7 +235,9 @@ export const createEngine = ({
     {
       edge: actors.edge,
       node: actors.node,
-      mindmap: actors.mindmap
+      mindmap: actors.mindmap,
+      history: actors.history,
+      selection: actors.selection
     }
   )
   let lifecycleStarted = false
@@ -274,11 +279,18 @@ export const createEngine = ({
     groupAutoFit,
     viewportNavigation
   }
-  shortcuts = createShortcuts(instance)
+  const shortcutActor = new ShortcutActor({
+    selection: actors.selection,
+    history: actors.history
+  })
+  shortcuts = createShortcuts({
+    instance,
+    runAction: shortcutActor.execute
+  })
 
   const publicInstance: Instance = {
     state: instance.state,
-    graph: instance.graph,
+    projection: instance.projection,
     get input() {
       return instance.input
     },

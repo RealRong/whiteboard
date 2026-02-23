@@ -1,7 +1,7 @@
-import type { Shortcut } from '@engine-types/shortcuts'
+import type { Shortcut, ShortcutAction } from '@engine-types/shortcuts'
 
 type ShortcutDependencies = {
-  runCommand: (names: string[]) => boolean
+  runAction: (action: ShortcutAction) => boolean
 }
 
 export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] => [
@@ -12,7 +12,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+G'],
     when: (ctx) => ctx.selection.count >= 2 && !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['group.createFromSelection'])
+      deps.runAction('group.create')
     }
   },
   {
@@ -22,7 +22,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Shift+Mod+G'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['group.ungroupSelection'])
+      deps.runAction('group.ungroup')
     }
   },
   {
@@ -32,7 +32,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+A'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['selection.selectAll'])
+      deps.runAction('selection.selectAll')
     }
   },
   {
@@ -42,7 +42,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Escape'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['selection.clear'])
+      deps.runAction('selection.clear')
     }
   },
   {
@@ -52,7 +52,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Backspace', 'Delete'],
     when: (ctx) => (ctx.selection.hasSelection || Boolean(ctx.selection.selectedEdgeId)) && !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['selection.delete'])
+      deps.runAction('selection.delete')
     }
   },
   {
@@ -62,7 +62,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+D'],
     when: (ctx) => ctx.selection.hasSelection && !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['selection.duplicate'])
+      deps.runAction('selection.duplicate')
     }
   },
   {
@@ -72,7 +72,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Mod+Z'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['history.undo'])
+      deps.runAction('history.undo')
     }
   },
   {
@@ -82,7 +82,7 @@ export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] =
     keys: ['Shift+Mod+Z', 'Mod+Y'],
     when: (ctx) => !ctx.focus.isEditingText,
     handler: () => {
-      deps.runCommand(['history.redo'])
+      deps.runAction('history.redo')
     }
   }
 ]

@@ -1,8 +1,8 @@
 import type { Query } from '@engine-types/instance/query'
 import type { NodeTransformHandle, NodeViewItem } from '@engine-types/instance/view'
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
-import { DEFAULT_TUNING } from '../../../../config'
-import { buildTransformHandles } from '../domain'
+import { DEFAULT_TUNING } from '../../config'
+import { buildTransformHandles } from '../actors/node/domain'
 
 export type NodeViewContext = {
   activeTool: 'select' | 'edge'
@@ -111,4 +111,3 @@ export const projectNodeHandles = (options: {
   }
   return next
 }
-

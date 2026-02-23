@@ -1,44 +1,40 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { GraphChange, GraphProjector } from '@engine-types/graph'
+import type { ProjectionChange, ProjectionStore } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
 import type { State } from '@engine-types/instance/state'
 import type { View } from '@engine-types/instance/view'
 import { createViewRegistry } from './Registry'
 
-type ActorOptions = {
+type StoreOptions = {
   state: State
-  graph: GraphProjector
+  projection: ProjectionStore
   query: Query
   config: InstanceConfig
-  syncQueryGraph?: (change: GraphChange) => void
 }
 
-export class ViewActor {
-  readonly name = 'View'
+export class ViewStore {
   readonly view: View
 
-  private readonly syncGraphRuntime: (change: GraphChange) => void
+  private readonly applyProjectionRuntime: (change: ProjectionChange) => void
 
   constructor({
     state,
-    graph,
+    projection,
     query,
-    config,
-    syncQueryGraph
-  }: ActorOptions) {
+    config
+  }: StoreOptions) {
     const runtime = createViewRegistry({
       state,
-      graph,
+      projection,
       query,
-      config,
-      syncQueryGraph
+      config
     })
     this.view = runtime.view
-    this.syncGraphRuntime = runtime.syncGraph
+    this.applyProjectionRuntime = runtime.applyProjection
   }
 
-  sync = (change: GraphChange | undefined) => {
+  apply = (change: ProjectionChange | undefined) => {
     if (!change) return
-    this.syncGraphRuntime(change)
+    this.applyProjectionRuntime(change)
   }
 }

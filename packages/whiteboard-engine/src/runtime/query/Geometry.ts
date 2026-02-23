@@ -4,7 +4,7 @@ import { DEFAULT_TUNING } from '../../config'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
-} from '../../runtime/actors/edge/query'
+} from '../actors/edge/query'
 
 type Options = {
   config: InstanceConfig

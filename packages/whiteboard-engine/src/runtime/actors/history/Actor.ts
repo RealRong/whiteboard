@@ -1,10 +1,10 @@
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { State } from '@engine-types/instance/state'
 import type { HistoryState } from '@engine-types/state'
 import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
-  state: State
+  instance: Pick<InternalInstance, 'state' | 'commands'>
   emit: InstanceEventEmitter['emit']
 }
 
@@ -28,9 +28,12 @@ const cloneHistory = (history: HistoryState): HistoryState => ({
 export class Actor {
   readonly name = 'History'
 
+  private readonly instance: ActorOptions['instance']
   private readonly emitter: StateWatchEmitter<HistoryState>
 
-  constructor({ state, emit }: ActorOptions) {
+  constructor({ instance, emit }: ActorOptions) {
+    this.instance = instance
+    const state = instance.state
     this.emitter = new StateWatchEmitter({
       state,
       keys: ['history'],
@@ -50,4 +53,8 @@ export class Actor {
   stop = () => {
     this.emitter.stop()
   }
+
+  undo = () => this.instance.commands.history.undo()
+
+  redo = () => this.instance.commands.history.redo()
 }

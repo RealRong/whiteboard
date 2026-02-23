@@ -1,114 +1,149 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
+import type { KeyInputEvent, PointerInputEvent } from '@engine-types/input'
 import type {
-  Shortcut,
+  ShortcutAction,
   ShortcutContext,
-  ShortcutKeyEvent,
   ShortcutManager,
+  ShortcutKeyEvent,
   ShortcutPointerEvent,
   ShortcutOverrides,
   Shortcuts
 } from '@engine-types/shortcuts'
-import { createShortcutManager } from './manager'
+import { createShortcutManager, resolveShortcuts } from './manager'
 import { createDefaultShortcuts } from './defaultShortcuts'
-import {
-  createHandlers
-} from '../../api/commands/shortcut'
-import { createShortcutContextReader } from './context'
 import { getPlatformInfo } from './chord'
 
-const resolveShortcuts = (
-  defaults: Shortcut[],
-  overrides?: ShortcutOverrides
-) => {
-  if (!overrides) return defaults
-  if (typeof overrides === 'function') {
-    return overrides(defaults)
+const toPointerShortcutEvent = (event: PointerInputEvent): ShortcutPointerEvent => ({
+  button: event.button,
+  modifiers: {
+    alt: event.modifiers.alt,
+    shift: event.modifiers.shift,
+    ctrl: event.modifiers.ctrl,
+    meta: event.modifiers.meta
   }
-  const merged = new Map<string, Shortcut>()
-  defaults.forEach((shortcut) => merged.set(shortcut.id, shortcut))
-  overrides.forEach((shortcut) => merged.set(shortcut.id, shortcut))
-  return Array.from(merged.values())
-}
+})
+
+const toKeyShortcutEvent = (event: KeyInputEvent): ShortcutKeyEvent => ({
+  key: event.key,
+  code: event.code,
+  repeat: event.repeat,
+  isComposing: event.isComposing,
+  modifiers: {
+    alt: event.modifiers.alt,
+    shift: event.modifiers.shift,
+    ctrl: event.modifiers.ctrl,
+    meta: event.modifiers.meta
+  }
+})
+
+const withPointerContext = (
+  base: ShortcutContext,
+  event: PointerInputEvent
+): ShortcutContext => ({
+  ...base,
+  pointer: {
+    ...base.pointer,
+    button: event.button === 0 || event.button === 1 || event.button === 2 ? event.button : undefined,
+    modifiers: {
+      alt: event.modifiers.alt,
+      shift: event.modifiers.shift,
+      ctrl: event.modifiers.ctrl,
+      meta: event.modifiers.meta
+    }
+  }
+})
+
+const withKeyContext = (
+  base: ShortcutContext,
+  event: KeyInputEvent
+): ShortcutContext => ({
+  ...base,
+  focus: {
+    ...base.focus,
+    isEditingText: event.target.isTextInput ?? base.focus.isEditingText,
+    isInputFocused: event.target.ignoreInput ?? base.focus.isInputFocused,
+    isImeComposing: event.isComposing ?? base.focus.isImeComposing
+  },
+  pointer: {
+    ...base.pointer,
+    modifiers: {
+      alt: event.modifiers.alt,
+      shift: event.modifiers.shift,
+      ctrl: event.modifiers.ctrl,
+      meta: event.modifiers.meta
+    }
+  }
+})
 
 class ShortcutsImpl implements Shortcuts {
-  private instance: InternalInstance
-  private shortcutManager: ShortcutManager
-  private commandHandlers: ReturnType<typeof createHandlers>
-  private getShortcutContextInternal: () => ShortcutContext
+  private readonly shortcutManager: ShortcutManager
+  private readonly runAction: (action: ShortcutAction) => boolean
+  private readonly readState: InternalInstance['state']['read']
+  private readonly platform: ShortcutContext['platform']
 
-  constructor(instance: InternalInstance) {
-    this.instance = instance
+  constructor(instance: InternalInstance, runAction: (action: ShortcutAction) => boolean) {
     this.shortcutManager = createShortcutManager()
-    const platform = getPlatformInfo()
-    this.getShortcutContextInternal = createShortcutContextReader({
-      readState: instance.state.read,
-      platform
-    })
+    this.runAction = runAction
+    this.readState = instance.state.read
+    this.platform = getPlatformInfo()
 
-    this.commandHandlers = createHandlers({
-      runTransaction: async (recipe) =>
-        recipe(),
-      node: {
-        create: instance.commands.node.create,
-        delete: instance.commands.node.delete
-      },
-      edge: {
-        create: instance.commands.edge.create,
-        delete: instance.commands.edge.delete
-      },
-      group: {
-        create: instance.commands.group.create,
-        ungroup: instance.commands.group.ungroup
-      },
-      history: {
-        undo: instance.commands.history.undo,
-        redo: instance.commands.history.redo
-      },
-      getDocument: () => instance.runtime.document.get(),
-      getSelectableNodeIds: () => instance.graph.read().canvasNodes.map((canvasNode) => canvasNode.id),
-      getSelectedNodeIds: () => Array.from(instance.state.read('selection').selectedNodeIds),
-      getSelectedEdgeId: () => instance.state.read('edgeSelection'),
-      selection: {
-        select: instance.commands.selection.select,
-        clear: instance.commands.selection.clear
-      },
-      selectEdge: instance.commands.edge.select
-    })
     this.setShortcuts()
-  }
-
-  private runCommand = (names: string[]) => {
-    for (const name of names) {
-      const handler = this.commandHandlers[name as keyof typeof this.commandHandlers]
-      if (!handler) continue
-      handler()
-      return true
-    }
-    return false
   }
 
   setShortcuts = (overrides?: ShortcutOverrides) => {
     const defaults = createDefaultShortcuts({
-      runCommand: this.runCommand
+      runAction: this.runAction
     })
     this.shortcutManager.setShortcuts(resolveShortcuts(defaults, overrides))
   }
 
-  getContext = () => {
-    return this.getShortcutContextInternal()
+  private readShortcutContext = (): ShortcutContext => {
+    const interaction = this.readState('interaction')
+    const tool = this.readState('tool')
+    const selection = this.readState('selection')
+    const selectedEdgeId = this.readState('edgeSelection')
+    const edgeConnect = this.readState('edgeConnect')
+    const selectedNodeIds = Array.from(selection.selectedNodeIds)
+
+    return {
+      platform: this.platform,
+      focus: interaction.focus,
+      tool: { active: tool },
+      selection: {
+        count: selectedNodeIds.length,
+        hasSelection: selectedNodeIds.length > 0,
+        selectedNodeIds,
+        selectedEdgeId
+      },
+      hover: interaction.hover,
+      pointer: {
+        ...interaction.pointer,
+        isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
+      },
+      viewport: {
+        zoom: this.readState('viewport').zoom
+      }
+    }
   }
 
-  handlePointerDownCapture = (event: ShortcutPointerEvent, context: ShortcutContext) => {
-    return this.shortcutManager.handlePointerDown(event, context)
+  handlePointerDownCapture = (event: PointerInputEvent) => {
+    const context = withPointerContext(this.readShortcutContext(), event)
+    return this.shortcutManager.handlePointerDown(toPointerShortcutEvent(event), context)
   }
 
-  handleKeyDown = (event: ShortcutKeyEvent, context: ShortcutContext) => {
-    return this.shortcutManager.handleKeyDown(event, context)
+  handleKeyDown = (event: KeyInputEvent) => {
+    const context = withKeyContext(this.readShortcutContext(), event)
+    return this.shortcutManager.handleKeyDown(toKeyShortcutEvent(event), context)
   }
 
   dispose = () => {}
 }
 
-export const createShortcuts = (instance: InternalInstance): Shortcuts => {
-  return new ShortcutsImpl(instance)
+type CreateShortcutsOptions = {
+  instance: InternalInstance
+  runAction: (action: ShortcutAction) => boolean
+}
+
+export const createShortcuts = ({ instance, runAction }: CreateShortcutsOptions): Shortcuts => {
+  return new ShortcutsImpl(instance, runAction)
 }

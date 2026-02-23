@@ -7,7 +7,7 @@ import type {
   NodeTransformEndOptions,
   NodeTransformUpdateOptions
 } from '@engine-types/commands'
-import type { NodeViewUpdate } from '@engine-types/graph'
+import type { NodeViewUpdate } from '@engine-types/projection'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Guide } from '@engine-types/node/snap'
 import type {

@@ -4,6 +4,7 @@ import type {
   ShortcutKeyEvent,
   ShortcutPointerEvent
 } from './index'
+import type { KeyInputEvent, PointerInputEvent } from '../input'
 
 export type ShortcutOverrides = Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
 
@@ -18,9 +19,8 @@ export type ShortcutManager = {
 
 export type Shortcuts = {
   setShortcuts: (overrides?: ShortcutOverrides) => void
-  getContext: () => ShortcutContext
-  handleKeyDown: (event: ShortcutKeyEvent, context: ShortcutContext) => boolean
-  handlePointerDownCapture: (event: ShortcutPointerEvent, context: ShortcutContext) => boolean
+  handleKeyDown: (event: KeyInputEvent) => boolean
+  handlePointerDownCapture: (event: PointerInputEvent) => boolean
   dispose: () => void
 }
 

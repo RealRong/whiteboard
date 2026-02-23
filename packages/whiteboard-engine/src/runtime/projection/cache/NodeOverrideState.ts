@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeViewUpdate } from '@engine-types/graph'
+import type { NodeViewUpdate } from '@engine-types/projection'
 import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeOverride } from './NodeOverride'
 

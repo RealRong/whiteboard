@@ -22,7 +22,7 @@ import { Drag } from './Drag'
 type ActorOptions = {
   state: State
   emit: InstanceEventEmitter['emit']
-  instance: Pick<InternalInstance, 'state' | 'view' | 'runtime' | 'graph' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'view' | 'runtime' | 'projection' | 'mutate'>
   mutation: MutationExecutor
 }
 
@@ -274,7 +274,7 @@ export class Actor {
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    const node = this.instance.graph.read().canvasNodes.find((item) => item.id === nodeId)
+    const node = this.instance.projection.read().canvasNodes.find((item) => item.id === nodeId)
     if (!node) return
     if (
       Math.abs(node.position.x - position.x) < threshold &&

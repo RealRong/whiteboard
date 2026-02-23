@@ -1,5 +1,5 @@
 import type { Edge, Node, NodeId } from '@whiteboard/core/types'
-import type { GraphSnapshot } from '../types'
+import type { ProjectionSnapshot } from '@engine-types/projection'
 import {
   EMPTY_EDGES,
   EMPTY_NODE_MAP,
@@ -15,7 +15,7 @@ type SnapshotInput = {
 }
 
 export class SnapshotState {
-  private snapshot: GraphSnapshot = {
+  private snapshot: ProjectionSnapshot = {
     visibleNodes: EMPTY_NODES,
     canvasNodes: EMPTY_NODES,
     canvasNodeById: EMPTY_NODE_MAP,
@@ -55,7 +55,7 @@ export class SnapshotState {
     visibleNodes: nextVisibleNodes,
     canvasNodes: nextCanvasNodes,
     visibleEdges: nextVisibleEdges
-  }: SnapshotInput): GraphSnapshot => {
+  }: SnapshotInput): ProjectionSnapshot => {
     const previous = this.snapshot
     const visibleNodes = isSameRefList(previous.visibleNodes, nextVisibleNodes)
       ? previous.visibleNodes

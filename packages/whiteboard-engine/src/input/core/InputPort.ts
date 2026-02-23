@@ -6,7 +6,6 @@ import type {
   InputSessionContext,
   PointerSession
 } from '@engine-types/input'
-import type { ShortcutContext } from '@engine-types/shortcuts'
 import { PointerSessionEngine } from './PointerSessionEngine'
 
 type InputContextBase = Omit<InputSessionContext, 'input'>
@@ -23,72 +22,6 @@ const toShortcutButton = (button: number): 0 | 1 | 2 | undefined => {
   if (button === 0 || button === 1 || button === 2) return button
   return undefined
 }
-
-const toPointerShortcutEvent = (
-  event: Extract<InputEvent, { kind: 'pointer' }>
-) => ({
-  button: event.button,
-  modifiers: {
-    alt: event.modifiers.alt,
-    shift: event.modifiers.shift,
-    ctrl: event.modifiers.ctrl,
-    meta: event.modifiers.meta
-  }
-})
-
-const toKeyShortcutEvent = (
-  event: Extract<InputEvent, { kind: 'key' }>
-) => ({
-  key: event.key,
-  code: event.code,
-  repeat: event.repeat,
-  isComposing: event.isComposing,
-  modifiers: {
-    alt: event.modifiers.alt,
-    shift: event.modifiers.shift,
-    ctrl: event.modifiers.ctrl,
-    meta: event.modifiers.meta
-  }
-})
-
-const withPointerShortcutContext = (
-  base: ShortcutContext,
-  event: Extract<InputEvent, { kind: 'pointer' }>
-): ShortcutContext => ({
-  ...base,
-  pointer: {
-    ...base.pointer,
-    button: event.button as 0 | 1 | 2,
-    modifiers: {
-      alt: event.modifiers.alt,
-      shift: event.modifiers.shift,
-      ctrl: event.modifiers.ctrl,
-      meta: event.modifiers.meta
-    }
-  }
-})
-
-const withKeyShortcutContext = (
-  base: ShortcutContext,
-  event: Extract<InputEvent, { kind: 'key' }>
-): ShortcutContext => ({
-  ...base,
-  focus: {
-    ...base.focus,
-    isEditingText: event.target.isTextInput ?? base.focus.isEditingText,
-    isInputFocused: event.target.ignoreInput ?? base.focus.isInputFocused,
-    isImeComposing: event.isComposing ?? base.focus.isImeComposing
-  },
-  pointer: {
-    ...base.pointer,
-    modifiers: {
-      alt: event.modifiers.alt,
-      shift: event.modifiers.shift,
-      ctrl: event.modifiers.ctrl,
-      meta: event.modifiers.meta
-    }
-  }
-})
 
 const isDeleteKey = (key: string) => key === 'Backspace' || key === 'Delete'
 
@@ -178,10 +111,7 @@ export class InputControllerImpl implements InputControllerType {
         }
       }
     })
-    const handled = context.shortcuts.handlePointerDownCapture(
-      toPointerShortcutEvent(event),
-      withPointerShortcutContext(context.shortcuts.getContext(), event)
-    )
+    const handled = context.shortcuts.handlePointerDownCapture(event)
     if (handled) {
       return {
         effects: [
@@ -309,10 +239,7 @@ export class InputControllerImpl implements InputControllerType {
       return { effects }
     }
 
-    const handled = context.shortcuts.handleKeyDown(
-      toKeyShortcutEvent(event),
-      withKeyShortcutContext(context.shortcuts.getContext(), event)
-    )
+    const handled = context.shortcuts.handleKeyDown(event)
     if (handled) {
       effects.push({ type: 'preventDefault', reason: 'shortcut.keyDown' })
       effects.push({ type: 'stopPropagation', reason: 'shortcut.keyDown' })

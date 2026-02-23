@@ -2,8 +2,8 @@ import type { QueryCanvas, QueryDebugMetric } from '@engine-types/instance/query
 import {
   getNodeIdsInRect as getNodeIdsInRectRaw,
   isBackgroundTarget as isBackgroundTargetRaw
-} from '../../runtime/actors/node/query'
-import type { QueryIndexes } from './indexes'
+} from '../actors/node/query'
+import type { QueryIndexes } from './Indexes'
 
 type Options = {
   indexes: QueryIndexes

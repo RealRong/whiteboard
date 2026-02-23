@@ -7,7 +7,7 @@ import type {
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
 
-type RoutingInstance = Pick<InternalInstance, 'state' | 'graph' | 'mutate'>
+type RoutingInstance = Pick<InternalInstance, 'state' | 'projection' | 'mutate'>
 
 type RoutingOptions = {
   instance: RoutingInstance
@@ -61,10 +61,10 @@ export class Routing {
   }
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {
-    const { state, graph } = this.instance
+    const { state, projection } = this.instance
     if (state.read('routingDrag').active) return false
 
-    const edge = graph.read().visibleEdges.find((item) => item.id === edgeId)
+    const edge = projection.read().visibleEdges.find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false
 
     const points = edge.routing?.points ?? []
@@ -88,11 +88,11 @@ export class Routing {
   }
 
   update = ({ pointer }: RoutingDragUpdateOptions) => {
-    const { state, graph } = this.instance
+    const { state, projection } = this.instance
     const active = state.read('routingDrag').active
     if (!active || active.pointerId !== pointer.pointerId) return false
 
-    const edge = graph.read().visibleEdges.find((item) => item.id === active.edgeId)
+    const edge = projection.read().visibleEdges.find((item) => item.id === active.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       this.clear()
       return false

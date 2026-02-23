@@ -1,14 +1,33 @@
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { SelectionMode } from '@engine-types/state'
+import type {
+  DispatchResult,
+  Document,
+  EdgeId,
+  Node,
+  NodeId
+} from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { State } from '@engine-types/instance/state'
+import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
+import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
+import { DEFAULT_TUNING } from '../../../config'
 import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
-  state: State
+  instance: Pick<InternalInstance, 'commands' | 'state' | 'projection' | 'runtime'>
   emit: InstanceEventEmitter['emit']
 }
 
 type EdgeSelectionValue = EdgeId | undefined
+
+const getCreatedNodeId = (result: DispatchResult, type?: string) => {
+  if (!result.ok) return undefined
+  const op = result.changes.operations.find(
+    (operation): operation is { type: 'node.create'; node: Node } =>
+      operation.type === 'node.create' && operation.node && (!type || operation.node.type === type)
+  )
+  return op?.node?.id
+}
 
 const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
   if (left.length !== right.length) return false
@@ -20,11 +39,14 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
 
 export class Actor {
   readonly name = 'Selection'
+  private readonly instance: ActorOptions['instance']
 
   private readonly selectionEmitter: StateWatchEmitter<NodeId[]>
   private readonly edgeSelectionEmitter: StateWatchEmitter<EdgeSelectionValue>
 
-  constructor({ state, emit }: ActorOptions) {
+  constructor({ instance, emit }: ActorOptions) {
+    this.instance = instance
+    const state = instance.state
     this.selectionEmitter = new StateWatchEmitter({
       state,
       keys: ['selection'],
@@ -50,5 +72,130 @@ export class Actor {
   stop = () => {
     this.selectionEmitter.stop()
     this.edgeSelectionEmitter.stop()
+  }
+
+  private getDocument = (): Document => this.instance.runtime.document.get()
+
+  private getSelectableNodeIds = (): NodeId[] =>
+    this.instance.projection.read().canvasNodes.map((canvasNode) => canvasNode.id)
+
+  private getSelectedNodeIds = (): NodeId[] =>
+    Array.from(this.instance.state.read('selection').selectedNodeIds)
+
+  private getSelectedEdgeId = (): EdgeId | undefined =>
+    this.instance.state.read('edgeSelection')
+
+  private select = (ids: NodeId[], mode?: SelectionMode) => {
+    this.instance.commands.selection.select(ids, mode)
+  }
+
+  selectAll = () => {
+    const ids = this.getSelectableNodeIds()
+    this.select(ids, 'replace')
+  }
+
+  clear = () => {
+    this.instance.commands.selection.clear()
+  }
+
+  groupSelected = async () => {
+    const selectedNodeIds = this.getSelectedNodeIds()
+    if (selectedNodeIds.length < 2) return
+
+    const result = await this.instance.commands.group.create(selectedNodeIds)
+    const groupId = getCreatedNodeId(result, 'group')
+    if (!groupId) return
+    this.select([groupId], 'replace')
+  }
+
+  ungroupSelected = async () => {
+    const selectedNodeIds = this.getSelectedNodeIds()
+    if (!selectedNodeIds.length) return
+
+    const doc = this.getDocument()
+    const groups = doc.nodes.filter((node) => node.type === 'group' && selectedNodeIds.includes(node.id))
+    if (!groups.length) return
+
+    for (const group of groups) {
+      await this.instance.commands.group.ungroup(group.id)
+    }
+    this.clear()
+  }
+
+  deleteSelected = async () => {
+    const selectedEdgeId = this.getSelectedEdgeId()
+    if (selectedEdgeId) {
+      await this.instance.commands.edge.delete([selectedEdgeId])
+      this.instance.commands.edge.select(undefined)
+      return
+    }
+
+    const selectedNodeIds = this.getSelectedNodeIds()
+    if (!selectedNodeIds.length) return
+
+    const doc = this.getDocument()
+    const { expandedIds } = expandNodeSelection(doc.nodes, selectedNodeIds)
+    const ids = Array.from(expandedIds)
+    const edgeIds = doc.edges
+      .filter((edge) => expandedIds.has(edge.source.nodeId) || expandedIds.has(edge.target.nodeId))
+      .map((edge) => edge.id)
+
+    if (edgeIds.length) {
+      await this.instance.commands.edge.delete(edgeIds)
+    }
+    await this.instance.commands.node.delete(ids)
+    this.clear()
+  }
+
+  duplicateSelected = async () => {
+    const selectedIds = this.getSelectedNodeIds()
+    if (!selectedIds.length) return
+
+    const doc = this.getDocument()
+    const { expandedIds, nodeById } = expandNodeSelection(doc.nodes, selectedIds)
+    const nodes = Array.from(expandedIds)
+      .map((id) => nodeById.get(id))
+      .filter((node): node is Node => Boolean(node))
+
+    const depthCache = new Map<NodeId, number>()
+    const getDepth = (node: Node): number => {
+      if (!node.parentId || !expandedIds.has(node.parentId)) return 0
+      const cached = depthCache.get(node.id)
+      if (cached !== undefined) return cached
+      const parent = nodeById.get(node.parentId)
+      const depth = parent ? getDepth(parent) + 1 : 0
+      depthCache.set(node.id, depth)
+      return depth
+    }
+
+    nodes.sort((a, b) => getDepth(a) - getDepth(b))
+
+    const idMap = new Map<NodeId, NodeId>()
+    const createdIds: NodeId[] = []
+    const offset = DEFAULT_TUNING.shortcuts.duplicateOffset
+
+    for (const node of nodes) {
+      const parentId = node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : node.parentId
+      const payload = createNodeDuplicateInput(node, parentId, offset)
+      const result = await this.instance.commands.node.create(payload)
+      const createdId = getCreatedNodeId(result)
+      if (createdId) {
+        idMap.set(node.id, createdId)
+        createdIds.push(createdId)
+      }
+    }
+
+    const edges = doc.edges.filter((edge) => expandedIds.has(edge.source.nodeId) && expandedIds.has(edge.target.nodeId))
+    for (const edge of edges) {
+      const sourceId = idMap.get(edge.source.nodeId)
+      const targetId = idMap.get(edge.target.nodeId)
+      if (!sourceId || !targetId) continue
+      const payload = createEdgeDuplicateInput(edge, sourceId, targetId)
+      await this.instance.commands.edge.create(payload)
+    }
+
+    if (createdIds.length) {
+      this.select(createdIds, 'replace')
+    }
   }
 }

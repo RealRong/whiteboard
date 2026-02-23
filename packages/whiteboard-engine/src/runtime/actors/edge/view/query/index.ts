@@ -1,14 +1,14 @@
 import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { Query } from '@engine-types/instance/query'
-import type { GraphChange, GraphSnapshot } from '@engine-types/graph'
+import type { ProjectionChange, ProjectionSnapshot } from '@engine-types/projection'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
 import type { EdgeConnectState } from '@engine-types/state'
 import { createEdgeEndpointsResolver } from './endpoints'
-import { createEdgePathStore } from './pathCache'
+import { createEdgePathStore } from '../../../../query/EdgePath'
 import { createEdgePreviewResolver } from './preview'
 
 type Options = {
-  readGraph: () => GraphSnapshot
+  readProjection: () => ProjectionSnapshot
   query: Query
 }
 
@@ -26,20 +26,20 @@ const mergeReconnectPath = (
   return matched ? nextEntries : entries
 }
 
-export const createEdgeViewQuery = ({ readGraph, query }: Options) => {
+export const createEdgeViewQuery = ({ readProjection, query }: Options) => {
   const resolveEndpoints = createEdgeEndpointsResolver(query.canvas.nodeRect)
   const preview = createEdgePreviewResolver({
     getNodeRect: query.canvas.nodeRect
   })
   const pathStore = createEdgePathStore({
-    readGraph,
+    readProjection,
     getNodeRect: query.canvas.nodeRect,
     resolveEndpoints,
     resolveReconnectPoint: preview.resolveReconnectPoint
   })
 
-  const syncGraph = (change: GraphChange) => {
-    pathStore.syncGraph(change)
+  const applyProjection = (change: ProjectionChange) => {
+    pathStore.syncProjection(change)
   }
 
   const getEndpoints = (edge: Edge): EdgeEndpoints | undefined =>
@@ -55,7 +55,7 @@ export const createEdgeViewQuery = ({ readGraph, query }: Options) => {
   }
 
   return {
-    syncGraph,
+    applyProjection,
     getEndpoints,
     getEdge,
     getPaths,

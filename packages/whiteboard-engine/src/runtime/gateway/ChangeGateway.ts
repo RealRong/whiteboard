@@ -8,12 +8,14 @@ import type {
   MutationBatchInput
 } from '@engine-types/command'
 import type { ResolvedHistoryConfig } from '@engine-types/common'
-import type { GraphChange } from '@engine-types/graph'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { InternalInstance } from '@engine-types/instance/instance'
 import type { HistoryState } from '@engine-types/state'
 import type { DocumentStore } from '../../document/Store'
 import type { HistoryStore } from '../../document/History'
+import type { MutationImpact } from '../mutation/Impact'
+import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
+import { MutationImpactAnalyzer } from '../mutation/Analyzer'
+import type { SyncCoordinator } from '../sync/Coordinator'
 import {
   buildIntent,
   reduceOperations
@@ -28,12 +30,8 @@ import type {
   Origin
 } from '@whiteboard/core/types'
 
-type GraphRuntime = {
-  syncAfterMutations: (operations: Operation[]) => GraphChange | undefined
-}
-
-type ViewRuntime = {
-  sync: (change: GraphChange | undefined) => void
+type SyncRuntime = {
+  sync: (impact: MutationImpact) => void
 }
 
 type IntentDispatchOptions = {
@@ -50,41 +48,35 @@ type ResetDocumentOptions = {
 }
 
 export type ChangeGatewayDependencies = {
-  instance: InternalInstance
   documentStore: DocumentStore
   history: HistoryStore
   registries: CoreRegistries
   replaceDoc: (doc: Document | null) => void
   now?: () => number
-  graph: GraphRuntime
-  view: ViewRuntime
+  sync: SyncCoordinator
   emit: InstanceEventEmitter['emit']
 }
 
 export class ChangeGateway {
-  private readonly instance: InternalInstance
   private readonly documentStore: DocumentStore
   private readonly historyStore: HistoryStore
   private readonly registries: CoreRegistries
   private readonly replaceDoc: (doc: Document | null) => void
   private readonly now: () => number
-  private readonly graphRuntime: ChangeGatewayDependencies['graph']
-  private readonly viewRuntime: ChangeGatewayDependencies['view']
+  private readonly syncRuntime: SyncRuntime
   private readonly emit: InstanceEventEmitter['emit']
   private readonly docChangeHooks = new Set<(operationTypes: string[]) => void>()
+  private readonly impactAnalyzer = new MutationImpactAnalyzer()
 
   constructor({
-    instance,
     documentStore,
     history,
     registries,
     replaceDoc,
     now,
-    graph,
-    view,
+    sync,
     emit
   }: ChangeGatewayDependencies) {
-    this.instance = instance
     this.documentStore = documentStore
     this.historyStore = history
     this.registries = registries
@@ -96,8 +88,7 @@ export class ChangeGateway {
       }
       return Date.now()
     })
-    this.graphRuntime = graph
-    this.viewRuntime = view
+    this.syncRuntime = sync
     this.emit = emit
   }
 
@@ -184,9 +175,11 @@ export class ChangeGateway {
     return docAfter
   }
 
-  private syncGraphAndView = (operations: Operation[]) => {
-    const graphChange = this.graphRuntime.syncAfterMutations(operations)
-    this.viewRuntime.sync(graphChange)
+  private syncGraphAndView = (
+    operations: Operation[],
+    impact = this.impactAnalyzer.analyze(operations)
+  ) => {
+    this.syncRuntime.sync(impact)
   }
 
   private emitDocChanged = (
@@ -310,12 +303,11 @@ export class ChangeGateway {
     const source = options.source ?? 'import'
     const origin = this.toOrigin(source)
 
-    this.instance.graph.applyHint({ kind: 'full' }, 'doc')
     this.commitDocument(doc, { silent: true })
     this.historyStore.clear()
 
     const docAfter = this.syncDoc()
-    this.syncGraphAndView([])
+    this.syncGraphAndView([], FULL_MUTATION_IMPACT)
     this.emitDocChanged(docAfter?.id, source, ['doc.reset'])
 
     return {

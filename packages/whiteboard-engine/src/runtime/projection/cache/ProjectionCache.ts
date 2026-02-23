@@ -4,7 +4,7 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import { NodeOverrideState } from './NodeOverrideState'
-import type { GraphSnapshot, NodeViewUpdate } from '../types'
+import type { ProjectionSnapshot, NodeViewUpdate } from '@engine-types/projection'
 import {
   orderByIds,
   patchNodeListByIds
@@ -12,18 +12,18 @@ import {
 import {
   deriveCanvasNodes,
   deriveVisibleNodes
-} from '../../node/domain'
+} from '../../actors/node/domain'
 import { SnapshotState } from './SnapshotState'
 import { ViewNodesState } from './ViewNodesState'
 import { VisibleEdgesState } from './VisibleEdgesState'
 
-export class GraphCache {
+export class ProjectionCache {
   private readonly nodeOverrides = new NodeOverrideState()
   private readonly viewNodesState = new ViewNodesState()
   private readonly visibleEdgesState = new VisibleEdgesState()
   private readonly snapshotState = new SnapshotState()
 
-  read = (doc: Document | null): GraphSnapshot => {
+  read = (doc: Document | null): ProjectionSnapshot => {
     if (!doc) {
       this.viewNodesState.reset()
       this.visibleEdgesState.reset()

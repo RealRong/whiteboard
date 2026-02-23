@@ -1,7 +1,7 @@
 import type {
   State,
 } from '@engine-types/instance/state'
-import type { GraphProjector } from '@engine-types/graph'
+import type { ProjectionStore } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
 import type {
   NodeTransformHandle,
@@ -12,9 +12,9 @@ import {
   projectNodeHandles,
   projectNodeItem,
   type NodeViewContext
-} from './project'
-import { toLayerOrderedCanvasNodes } from '../query'
-import { isSameIdOrder } from '../../view/shared'
+} from './NodeProject'
+import { toLayerOrderedCanvasNodes } from '../actors/node/query'
+import { isSameIdOrder } from './shared'
 
 type NodeViewItemEntry = NodeViewItem
 type NodeHandleEntry = NodeTransformHandle[]
@@ -35,7 +35,7 @@ export type NodeStateSyncKey =
 type Options = {
   state: State
   query: Query
-  graph: GraphProjector
+  projection: ProjectionStore
 }
 
 export type NodeRegistry = {
@@ -67,7 +67,7 @@ const diffSelection = (
 export const createNodeRegistry = ({
   state,
   query,
-  graph
+  projection
 }: Options): NodeRegistry => {
   let nodeIds: NodeId[] = []
   let canvasNodeById = new Map<NodeId, Node>()
@@ -192,7 +192,7 @@ export const createNodeRegistry = ({
   }
 
   const syncCanvasNodesFull = (context?: NodeRenderContext) => {
-    const orderedNodes = toLayerOrderedCanvasNodes(graph.read().canvasNodes)
+    const orderedNodes = toLayerOrderedCanvasNodes(projection.read().canvasNodes)
     const nextNodeIds = orderedNodes.map((node) => node.id)
     const nextById = new Map<NodeId, Node>()
     const changedNodeIds = new Set<NodeId>()
@@ -237,7 +237,7 @@ export const createNodeRegistry = ({
 
     dirtySet.forEach((nodeId) => {
       const previous = canvasNodeById.get(nodeId)
-      const next = graph.readNode(nodeId)
+      const next = projection.readNode(nodeId)
       if (!previous && !next) return
 
       if (!previous && next) {
@@ -272,7 +272,7 @@ export const createNodeRegistry = ({
   }
 
   const syncCanvasNodeOrder = () => {
-    const nextNodeIds = toLayerOrderedCanvasNodes(graph.read().canvasNodes).map(
+    const nextNodeIds = toLayerOrderedCanvasNodes(projection.read().canvasNodes).map(
       (node) => node.id
     )
     applyNodeOrder(nextNodeIds)

@@ -1,5 +1,5 @@
 import type { QueryDebugMetric, QuerySnap } from '@engine-types/instance/query'
-import type { QueryIndexes } from './indexes'
+import type { QueryIndexes } from './Indexes'
 
 type Options = {
   indexes: QueryIndexes

@@ -5,7 +5,7 @@ import type {
   NodeDragStartOptions,
   NodeDragUpdateOptions
 } from '@engine-types/commands'
-import type { NodeViewUpdate } from '@engine-types/graph'
+import type { NodeViewUpdate } from '@engine-types/projection'
 import type { Guide } from '@engine-types/node/snap'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import { DEFAULT_TUNING } from '../../../config'
@@ -24,7 +24,7 @@ import { getNodeAABB, rectContains } from '@whiteboard/core/geometry'
 
 type DragInstance = Pick<
   InternalInstance,
-  'state' | 'graph' | 'runtime' | 'query' | 'mutate'
+  'state' | 'projection' | 'runtime' | 'query' | 'mutate'
 >
 
 type DragChildren = {
@@ -66,7 +66,7 @@ export class Drag {
     this.transient = transient
   }
 
-  private getCanvasNodes = () => this.instance.graph.read().canvasNodes
+  private getCanvasNodes = () => this.instance.projection.read().canvasNodes
 
   private setDragState = (active?: {
     pointerId: number

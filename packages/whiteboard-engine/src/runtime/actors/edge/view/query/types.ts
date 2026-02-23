@@ -1,7 +1,6 @@
-import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
+import type { Edge, Point } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
-import type { GraphChange, GraphSnapshot } from '@engine-types/graph'
 import type { EdgeConnectState, EdgeReconnectInfo } from '@engine-types/state'
 
 export type EdgeNodeRect = ReturnType<QueryCanvas['nodeRect']>
@@ -30,24 +29,3 @@ export type ReconnectPoint = {
 }
 
 export type ResolveEndpoints = (edge: Edge) => EdgeEndpoints | undefined
-
-export type EdgePathCacheEntry = {
-  geometrySignature: string
-  edge: EdgePathEntry['edge']
-  path: EdgePathEntry['path']
-  entry: EdgePathEntry
-}
-
-export type EdgePathStoreOptions = {
-  readGraph: () => GraphSnapshot
-  getNodeRect: NodeRectReader
-  resolveEndpoints: ResolveEndpoints
-  resolveReconnectPoint: (to: EdgeConnectState['to']) => ReconnectPoint | undefined
-}
-
-export type EdgePathStore = {
-  syncGraph: (change: GraphChange) => void
-  getEntries: () => EdgePathEntry[]
-  getReconnectEntry: (edgeConnect: EdgeConnectState) => EdgePathEntry | undefined
-  getEdge: (edgeId: EdgeId) => Edge | undefined
-}
