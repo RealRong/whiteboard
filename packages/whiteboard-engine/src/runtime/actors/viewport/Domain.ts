@@ -1,70 +1,76 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { CommandSource } from '@engine-types/command'
-import type { DispatchResult, Intent, Point, Viewport } from '@whiteboard/core/types'
+import type { ApplyMutationsApi } from '@engine-types/command'
+import { panViewport, zoomViewport } from '@whiteboard/core/geometry'
+import type { DispatchResult, Point, Viewport } from '@whiteboard/core/types'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 
 type DomainInstance = Pick<InternalInstance, 'runtime'>
 
-type ViewportIntent = Extract<
-  Intent,
-  | { type: 'viewport.set' }
-  | { type: 'viewport.pan' }
-  | { type: 'viewport.zoom' }
->
-
-type IntentDispatcher = (
-  command: ViewportIntent,
-  options: { source?: CommandSource; actor?: string }
-) => Promise<DispatchResult>
-
 type DomainOptions = {
   instance: DomainInstance
-  dispatchIntent: IntentDispatcher
+  mutate: ApplyMutationsApi
 }
 
 export class Domain {
   readonly name = 'ViewportDomain'
 
   private readonly instance: DomainInstance
-  private readonly dispatchIntent: IntentDispatcher
+  private readonly mutate: ApplyMutationsApi
 
-  constructor({ instance, dispatchIntent }: DomainOptions) {
+  constructor({ instance, mutate }: DomainOptions) {
     this.instance = instance
-    this.dispatchIntent = dispatchIntent
+    this.mutate = mutate
   }
 
-  private dispatchViewportIntent = (
-    command: ViewportIntent,
-    actor: string
-  ): Promise<DispatchResult> =>
-    this.dispatchIntent(
-      command,
-      {
-        source: 'command',
-        actor
-      }
-    )
+  private createInvalidResult = (message: string): DispatchResult => ({
+    ok: false,
+    reason: 'invalid',
+    message
+  })
 
   private readViewport = () =>
     this.instance.runtime.document.get().viewport ?? DEFAULT_DOCUMENT_VIEWPORT
 
-  set = (viewport: Viewport) =>
-    this.dispatchViewportIntent(
-      { type: 'viewport.set', viewport },
-      'viewport.set'
+  private applyViewport = (
+    before: Viewport,
+    after: Viewport
+  ): Promise<DispatchResult> =>
+    this.mutate(
+      [
+        {
+          type: 'viewport.update',
+          before,
+          after
+        }
+      ],
+      'ui'
     )
 
-  panBy = (delta: { x: number; y: number }) =>
-    this.dispatchViewportIntent(
-      { type: 'viewport.pan', delta },
-      'viewport.pan'
-    )
+  set = (viewport: Viewport) => {
+    if (!viewport.center) {
+      return Promise.resolve(this.createInvalidResult('Missing viewport center.'))
+    }
+    if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
+      return Promise.resolve(this.createInvalidResult('Invalid viewport zoom.'))
+    }
+    return this.applyViewport(this.readViewport(), viewport)
+  }
 
-  zoomBy = (factor: number, anchor?: Point) =>
-    this.dispatchViewportIntent(
-      { type: 'viewport.zoom', factor, anchor },
-      'viewport.zoom'
-    )
+  panBy = (delta: { x: number; y: number }) => {
+    if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
+      return Promise.resolve(this.createInvalidResult('Invalid pan delta.'))
+    }
+    const before = this.readViewport()
+    return this.applyViewport(before, panViewport(before, delta))
+  }
+
+  zoomBy = (factor: number, anchor?: Point) => {
+    if (!Number.isFinite(factor) || factor <= 0) {
+      return Promise.resolve(this.createInvalidResult('Invalid zoom factor.'))
+    }
+    const before = this.readViewport()
+    return this.applyViewport(before, zoomViewport(before, factor, anchor))
+  }
 
   zoomTo = (zoom: number, anchor?: Point) => {
     const before = this.readViewport()

@@ -2,9 +2,9 @@ import type { EdgeConnectState } from '@engine-types/state'
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { State } from '@engine-types/instance/state'
+import type { ApplyMutationsApi } from '@engine-types/command'
 import type {
-  RoutingDragCancelOptions,
-  RoutingDragStartOptions
+  RoutingDragCancelOptions
 } from '@engine-types/commands'
 import type {
   CoreRegistries,
@@ -15,6 +15,7 @@ import type {
   EdgeInput,
   EdgePatch,
   NodeId,
+  Operation,
   Point
 } from '@whiteboard/core/types'
 import {
@@ -25,15 +26,17 @@ import {
   sendOrderToBack
 } from '@whiteboard/core/utils'
 import type { Scheduler } from '../../contracts'
-import { MutationExecutor } from '../shared/MutationExecutor'
+import { createMutationCommit } from '../shared/MutationCommit'
+import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
+import { buildEdgeCreateOperation } from './createOperation'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'runtime' | 'view' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'runtime' | 'view'>
   registries: CoreRegistries
   scheduler: Scheduler
-  mutation: MutationExecutor
+  mutate: ApplyMutationsApi
 }
 
 export class Actor {
@@ -41,21 +44,28 @@ export class Actor {
 
   private readonly state: Pick<State, 'write'>
   private readonly instance: ActorOptions['instance']
-  private readonly mutation: MutationExecutor
+  private readonly registries: CoreRegistries
+  private readonly runMutations: RunMutations
+  private readonly submitMutations: SubmitMutations
   private readonly connect: Connect
   private readonly routing: Routing
 
-  constructor({ instance, registries, scheduler, mutation }: ActorOptions) {
+  constructor({ instance, registries, scheduler, mutate }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
-    this.mutation = mutation
+    this.registries = registries
+    const commit = createMutationCommit(mutate)
+    this.runMutations = commit.run
+    this.submitMutations = commit.submit
     this.connect = new Connect({
       instance,
       registries,
-      scheduler
+      scheduler,
+      submitMutations: this.submitMutations
     })
     this.routing = new Routing({
-      instance
+      instance,
+      submitMutations: this.submitMutations
     })
   }
 
@@ -63,18 +73,45 @@ export class Actor {
     this.instance.state.write('routingDrag', {})
   }
 
-  create = (payload: EdgeInput) =>
-    this.mutation.runCommand({ type: 'edge.create', payload }, 'edge.create')
+  private createEdgeId = () => {
+    const exists = (id: string) =>
+      Boolean(this.instance.runtime.document.get().edges.some((edge) => edge.id === id))
+    const seed = Date.now().toString(36)
+    for (let index = 0; index < 1024; index += 1) {
+      const id = `edge_${seed}_${index.toString(36)}`
+      if (!exists(id)) return id
+    }
+    return `edge_${seed}_${Math.random().toString(36).slice(2, 8)}`
+  }
+
+  private createInvalidResult = (message: string): DispatchResult => ({
+    ok: false,
+    reason: 'invalid',
+    message
+  })
+
+  create = (payload: EdgeInput) => {
+    const built = buildEdgeCreateOperation({
+      payload,
+      doc: this.instance.runtime.document.get(),
+      registries: this.registries,
+      createEdgeId: this.createEdgeId
+    })
+    if (!built.ok) {
+      return Promise.resolve(this.createInvalidResult(built.message))
+    }
+    return this.runMutations([built.operation])
+  }
 
   update = (id: EdgeId, patch: EdgePatch) =>
-    this.mutation.runCommand({ type: 'edge.update', id, patch }, 'edge.update')
+    this.runMutations([{ type: 'edge.update', id, patch }])
 
   delete = (ids: EdgeId[]) => {
     const activeDrag = this.instance.state.read('routingDrag').active
     if (activeDrag && ids.includes(activeDrag.edgeId)) {
       this.clearRoutingDrag()
     }
-    return this.mutation.runCommand({ type: 'edge.delete', ids }, 'edge.delete')
+    return this.runMutations(ids.map((id) => ({ type: 'edge.delete' as const, id })))
   }
 
   select = (id?: EdgeId) => {
@@ -100,17 +137,19 @@ export class Actor {
     const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
     const nextPoints = [...basePoints]
     nextPoints.splice(insertIndex, 0, pointWorld)
-    void this.mutation.runCommand({
-      type: 'edge.update',
-      id: edge.id,
-      patch: {
-        routing: {
-          ...(edge.routing ?? {}),
-          mode: 'manual',
-          points: nextPoints
+    this.submitMutations(
+      [{
+        type: 'edge.update',
+        id: edge.id,
+        patch: {
+          routing: {
+            ...(edge.routing ?? {}),
+            mode: 'manual',
+            points: nextPoints
+          }
         }
-      }
-    }, 'edge.insertRoutingPoint')
+      }]
+    )
   }
 
   moveRoutingPoint = (edge: Edge, index: number, pointWorld: Point) => {
@@ -118,17 +157,19 @@ export class Actor {
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
     const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
-    void this.mutation.runCommand({
-      type: 'edge.update',
-      id: edge.id,
-      patch: {
-        routing: {
-          ...(edge.routing ?? {}),
-          mode: 'manual',
-          points: nextPoints
+    this.submitMutations(
+      [{
+        type: 'edge.update',
+        id: edge.id,
+        patch: {
+          routing: {
+            ...(edge.routing ?? {}),
+            mode: 'manual',
+            points: nextPoints
+          }
         }
-      }
-    }, 'edge.moveRoutingPoint')
+      }]
+    )
   }
 
   removeRoutingPoint = (edge: Edge, index: number) => {
@@ -143,7 +184,44 @@ export class Actor {
 
     const nextPoints = points.filter((_, idx) => idx !== index)
     if (nextPoints.length === 0) {
-      void this.mutation.runCommand({
+      this.submitMutations(
+        [{
+          type: 'edge.update',
+          id: edge.id,
+          patch: {
+            routing: {
+              ...(edge.routing ?? {}),
+              mode: 'auto',
+              points: undefined
+            }
+          }
+        }]
+      )
+      return
+    }
+    this.submitMutations(
+      [{
+        type: 'edge.update',
+        id: edge.id,
+        patch: {
+          routing: {
+            ...(edge.routing ?? {}),
+            mode: 'manual',
+            points: nextPoints
+          }
+        }
+      }]
+    )
+  }
+
+  resetRouting = (edge: Edge) => {
+    const activeDrag = this.instance.state.read('routingDrag').active
+    if (activeDrag?.edgeId === edge.id) {
+      this.clearRoutingDrag()
+    }
+
+    this.submitMutations(
+      [{
         type: 'edge.update',
         id: edge.id,
         patch: {
@@ -153,39 +231,8 @@ export class Actor {
             points: undefined
           }
         }
-      }, 'edge.removeRoutingPoint')
-      return
-    }
-    void this.mutation.runCommand({
-      type: 'edge.update',
-      id: edge.id,
-      patch: {
-        routing: {
-          ...(edge.routing ?? {}),
-          mode: 'manual',
-          points: nextPoints
-        }
-      }
-    }, 'edge.removeRoutingPoint')
-  }
-
-  resetRouting = (edge: Edge) => {
-    const activeDrag = this.instance.state.read('routingDrag').active
-    if (activeDrag?.edgeId === edge.id) {
-      this.clearRoutingDrag()
-    }
-
-    void this.mutation.runCommand({
-      type: 'edge.update',
-      id: edge.id,
-      patch: {
-        routing: {
-          ...(edge.routing ?? {}),
-          mode: 'auto',
-          points: undefined
-        }
-      }
-    }, 'edge.resetRouting')
+      }]
+    )
   }
 
   insertRoutingPointAt = (edgeId: EdgeId, pointWorld: Point) => {
@@ -212,7 +259,7 @@ export class Actor {
   }
 
   setOrder = (ids: EdgeId[]) =>
-    this.mutation.runCommand({ type: 'edge.order.set', ids }, 'order.edge.set')
+    this.runMutations([{ type: 'edge.order.set', ids }])
 
   bringToFront = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
@@ -266,8 +313,12 @@ export class Actor {
   handleNodePointerDown = (nodeId: NodeId, pointer: PointerInput) =>
     this.connect.handleNodePointerDown(nodeId, pointer)
 
-  startRouting = (options: RoutingDragStartOptions) =>
-    this.routing.start(options)
+  startRouting = (
+    edgeId: EdgeId,
+    index: number,
+    pointer: PointerInput
+  ) =>
+    this.routing.start({ edgeId, index, pointer })
 
   hoverMove = (pointer: PointerInput | undefined, enabled: boolean) => {
     this.connect.hoverMove(pointer, enabled)

@@ -13,11 +13,11 @@ import { createInitialState } from '../initialState'
 type Result = {
   state: State
   projection: ProjectionStore
-  replaceDoc: (doc: Document | null) => void
+  syncDocument: () => void
 }
 
 type Options = {
-  doc?: Document | null
+  getDoc: () => Document | null
 }
 
 const toViewport = (
@@ -44,17 +44,16 @@ const toViewport = (
   }
 }
 
-export const createState = ({ doc = null }: Options = {}): Result => {
+export const createState = ({ getDoc }: Options): Result => {
   const store = new WritableStore<WritableStateSnapshot>(
     createInitialState()
   )
-  let currentDoc = doc
 
-  const projection = new ProjectionStore(() => currentDoc)
+  const projection = new ProjectionStore(getDoc)
 
   const viewportListeners = new Set<() => void>()
   const changeListeners = new Set<(key: StateKey) => void>()
-  let viewportSnapshot = toViewport(currentDoc)
+  let viewportSnapshot = toViewport(getDoc())
 
   const readState = ((key) => {
     if (key === 'viewport') {
@@ -64,7 +63,7 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   }) as State['read']
 
   const syncViewport = () => {
-    const nextViewport = toViewport(currentDoc, viewportSnapshot)
+    const nextViewport = toViewport(getDoc(), viewportSnapshot)
     if (Object.is(nextViewport, viewportSnapshot)) return
     viewportSnapshot = nextViewport
     if (!viewportListeners.size) return
@@ -109,12 +108,6 @@ export const createState = ({ doc = null }: Options = {}): Result => {
     store.batchFrame(action)
   }
 
-  const replaceDoc = (doc: Document | null) => {
-    if (currentDoc === doc) return
-    currentDoc = doc
-    syncDocDerived()
-  }
-
   const state: State = {
     read: readState,
     write: writeState,
@@ -132,6 +125,6 @@ export const createState = ({ doc = null }: Options = {}): Result => {
   return {
     state,
     projection,
-    replaceDoc
+    syncDocument: syncDocDerived
   }
 }

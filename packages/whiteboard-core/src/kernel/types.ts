@@ -1,6 +1,5 @@
 import type {
   ChangeSet,
-  CoreBuildResult,
   DispatchFailure,
   Document,
   EdgeSchema,
@@ -26,8 +25,6 @@ export type KernelContext = {
   registries?: KernelRegistriesSnapshot
 }
 
-export type KernelBuildResult = CoreBuildResult
-
 export type KernelInvertResult =
   | { ok: true; operations: Operation[] }
   | DispatchFailure
@@ -40,4 +37,3 @@ export type KernelReduceResult =
       inverse: Operation[]
     }
   | DispatchFailure
-

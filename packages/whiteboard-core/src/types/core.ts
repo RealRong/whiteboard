@@ -177,7 +177,7 @@ export type MindmapLayoutHint = {
   anchorId?: MindmapNodeId
 }
 
-export type MindmapIntentOptions = {
+export type MindmapCommandOptions = {
   index?: number
   side?: 'left' | 'right'
   layout?: MindmapLayoutHint
@@ -187,70 +187,6 @@ export type MindmapSubtree = {
   nodes: Record<MindmapNodeId, MindmapNode>
   children: Record<MindmapNodeId, MindmapNodeId[]>
 }
-
-export type Intent =
-  | { type: 'node.create'; payload: NodeInput }
-  | { type: 'node.update'; id: NodeId; patch: NodePatch }
-  | { type: 'node.delete'; ids: NodeId[] }
-  | { type: 'node.order.set'; ids: NodeId[] }
-  | { type: 'node.order.bringToFront'; ids: NodeId[] }
-  | { type: 'node.order.sendToBack'; ids: NodeId[] }
-  | { type: 'node.order.bringForward'; ids: NodeId[] }
-  | { type: 'node.order.sendBackward'; ids: NodeId[] }
-  | { type: 'edge.create'; payload: EdgeInput }
-  | { type: 'edge.update'; id: EdgeId; patch: EdgePatch }
-  | { type: 'edge.delete'; ids: EdgeId[] }
-  | { type: 'edge.order.set'; ids: EdgeId[] }
-  | { type: 'edge.order.bringToFront'; ids: EdgeId[] }
-  | { type: 'edge.order.sendToBack'; ids: EdgeId[] }
-  | { type: 'edge.order.bringForward'; ids: EdgeId[] }
-  | { type: 'edge.order.sendBackward'; ids: EdgeId[] }
-  | { type: 'mindmap.create'; payload?: MindmapCreateInput }
-  | { type: 'mindmap.delete'; ids: MindmapId[] }
-  | { type: 'mindmap.replace'; id: MindmapId; tree: MindmapTree }
-  | {
-      type: 'mindmap.addChild'
-      id: MindmapId
-      parentId: MindmapNodeId
-      payload?: MindmapNodeData | MindmapAttachPayload
-      options?: MindmapIntentOptions
-    }
-  | {
-      type: 'mindmap.addSibling'
-      id: MindmapId
-      nodeId: MindmapNodeId
-      position: 'before' | 'after'
-      payload?: MindmapNodeData | MindmapAttachPayload
-      options?: MindmapIntentOptions
-    }
-  | {
-      type: 'mindmap.moveSubtree'
-      id: MindmapId
-      nodeId: MindmapNodeId
-      newParentId: MindmapNodeId
-      options?: MindmapIntentOptions
-    }
-  | { type: 'mindmap.removeSubtree'; id: MindmapId; nodeId: MindmapNodeId }
-  | {
-      type: 'mindmap.cloneSubtree'
-      id: MindmapId
-      nodeId: MindmapNodeId
-      options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right' }
-    }
-  | { type: 'mindmap.toggleCollapse'; id: MindmapId; nodeId: MindmapNodeId; collapsed?: boolean }
-  | { type: 'mindmap.setNodeData'; id: MindmapId; nodeId: MindmapNodeId; patch: Partial<MindmapNodeData> }
-  | { type: 'mindmap.reorderChild'; id: MindmapId; parentId: MindmapNodeId; fromIndex: number; toIndex: number }
-  | { type: 'mindmap.setSide'; id: MindmapId; nodeId: MindmapNodeId; side: 'left' | 'right' }
-  | {
-      type: 'mindmap.attachExternal'
-      id: MindmapId
-      targetId: MindmapNodeId
-      payload: MindmapAttachPayload
-      options?: MindmapIntentOptions
-    }
-  | { type: 'viewport.set'; viewport: Viewport }
-  | { type: 'viewport.pan'; delta: Point }
-  | { type: 'viewport.zoom'; factor: number; anchor?: Point }
 
 export type Operation =
   | { type: 'node.create'; node: Node }
@@ -446,14 +382,6 @@ export interface CoreApplyOptions {
   origin?: Origin
 }
 
-export interface CoreBuildSuccess {
-  ok: true
-  operations: Operation[]
-  value?: unknown
-}
-
-export type CoreBuildResult = CoreBuildSuccess | DispatchFailure
-
 export interface TransactionOptions {
   origin?: Origin
   transactionId?: string
@@ -514,7 +442,6 @@ export interface Core {
   }
 
   apply: {
-    build(intent: Intent): CoreBuildResult
     operations(operations: Operation[], options?: CoreApplyOptions): DispatchResult
     changeSet(changes: ChangeSet): DispatchResult
   }

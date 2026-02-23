@@ -7,7 +7,7 @@ import type {
   EdgePatch,
   MindmapAttachPayload,
   MindmapId,
-  MindmapIntentOptions,
+  MindmapCommandOptions,
   MindmapNodeData,
   MindmapNodeId,
   MindmapTree,
@@ -160,20 +160,20 @@ export type BaseMindmapCommands = {
     id: MindmapId,
     parentId: MindmapNodeId,
     payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapIntentOptions
+    options?: MindmapCommandOptions
   ) => Promise<DispatchResult>
   addSibling: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     position: 'before' | 'after',
     payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapIntentOptions
+    options?: MindmapCommandOptions
   ) => Promise<DispatchResult>
   moveSubtree: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     newParentId: MindmapNodeId,
-    options?: MindmapIntentOptions
+    options?: MindmapCommandOptions
   ) => Promise<DispatchResult>
   removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<DispatchResult>
   cloneSubtree: (
@@ -189,7 +189,7 @@ export type BaseMindmapCommands = {
     id: MindmapId,
     targetId: MindmapNodeId,
     payload: MindmapAttachPayload,
-    options?: MindmapIntentOptions
+    options?: MindmapCommandOptions
   ) => Promise<DispatchResult>
 }
 

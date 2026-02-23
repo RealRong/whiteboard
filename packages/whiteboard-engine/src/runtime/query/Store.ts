@@ -1,14 +1,10 @@
-import type {
-  QueryDebugSnapshot,
-  Query
-} from '@engine-types/instance/query'
+import type { Query } from '@engine-types/instance/query'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { ProjectionChange, ProjectionStore } from '@engine-types/projection'
+import type { ProjectionStore } from '@engine-types/projection'
 import { createCanvas } from './Canvas'
 import { createGeometry } from './Geometry'
 import { createQueryIndexes } from './Indexes'
 import { createSnap } from './Snap'
-import { createQueryProjector } from './Projector'
 
 type Options = {
   projection: ProjectionStore
@@ -16,67 +12,46 @@ type Options = {
   getContainer: () => HTMLDivElement | null
 }
 
-export class QueryStore {
-  readonly query: Query
+export type QueryRuntime = {
+  query: Query
+}
 
-  private readonly applyProjectionRuntime: (change: ProjectionChange) => void
+export const createQueryRuntime = ({
+  projection,
+  config,
+  getContainer
+}: Options): QueryRuntime => {
+  const indexes = createQueryIndexes({
+    config
+  })
+  let syncedCanvasNodes = projection.read().canvasNodes
+  indexes.syncFull(syncedCanvasNodes)
 
-  constructor({
-    projection,
-    config,
-    getContainer
-  }: Options) {
-    const indexes = createQueryIndexes({
-      config
-    })
-    const projector = createQueryProjector({
-      projection,
-      indexes
-    })
-    projector.syncFull()
-
-    const canvasQuery = createCanvas({
-      indexes,
-      getContainer
-    })
-    const snapQuery = createSnap({
-      indexes
-    })
-    const geometryQuery = createGeometry({
-      config
-    })
-
-    const getMetrics = (): QueryDebugSnapshot => ({
-      canvas: canvasQuery.debug.getMetrics(),
-      snap: snapQuery.debug.getMetrics()
-    })
-
-    this.query = {
-      canvas: canvasQuery.query,
-      snap: snapQuery.query,
-      geometry: geometryQuery,
-      debug: {
-        getMetrics,
-        resetMetrics: (target) => {
-          if (target === 'canvas') {
-            canvasQuery.debug.resetMetrics()
-            return
-          }
-          if (target === 'snap') {
-            snapQuery.debug.resetMetrics()
-            return
-          }
-          canvasQuery.debug.resetMetrics()
-          snapQuery.debug.resetMetrics()
-        }
-      }
-    }
-
-    this.applyProjectionRuntime = projector.applyProjection
+  const ensureIndexesSynced = () => {
+    const canvasNodes = projection.read().canvasNodes
+    if (canvasNodes === syncedCanvasNodes) return
+    syncedCanvasNodes = canvasNodes
+    indexes.syncFull(canvasNodes)
   }
 
-  apply = (change: ProjectionChange | undefined) => {
-    if (!change) return
-    this.applyProjectionRuntime(change)
+  const canvas = createCanvas({
+    indexes,
+    getContainer,
+    ensureIndexesSynced
+  })
+  const snap = createSnap({
+    indexes,
+    ensureIndexesSynced
+  })
+  const geometry = createGeometry({
+    config
+  })
+
+  return {
+    query: {
+      canvas,
+      snap,
+      geometry
+    }
   }
 }

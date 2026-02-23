@@ -168,8 +168,8 @@ const applyGroupAutoFit = ({
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
-  void mutate({
-    operations: [{
+  void mutate(
+    [{
       type: 'node.update',
       id: group.id,
       patch: {
@@ -177,9 +177,8 @@ const applyGroupAutoFit = ({
         size: { width: expanded.width, height: expanded.height }
       }
     }],
-    source: 'system',
-    actor: 'group.autoFit'
-  })
+    'system'
+  )
 }
 
 export class GroupAutoFit implements GroupAutoFitApi {

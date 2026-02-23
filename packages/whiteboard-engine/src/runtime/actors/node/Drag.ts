@@ -21,10 +21,11 @@ import {
   resolveSnapThresholdWorld
 } from './domain'
 import { getNodeAABB, rectContains } from '@whiteboard/core/geometry'
+import type { SubmitMutations } from '../shared/MutationCommit'
 
 type DragInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'runtime' | 'query' | 'mutate'
+  'state' | 'projection' | 'runtime' | 'query'
 >
 
 type DragChildren = {
@@ -54,16 +55,19 @@ type DragSession = {
 type DragOptions = {
   instance: DragInstance
   transient: DragTransient
+  submitMutations: SubmitMutations
 }
 
 export class Drag {
   private readonly instance: DragInstance
   private readonly transient: DragTransient
+  private readonly submitMutations: SubmitMutations
   private session: DragSession | null = null
 
-  constructor({ instance, transient }: DragOptions) {
+  constructor({ instance, transient, submitMutations }: DragOptions) {
     this.instance = instance
     this.transient = transient
+    this.submitMutations = submitMutations
   }
 
   private getCanvasNodes = () => this.instance.projection.read().canvasNodes
@@ -95,11 +99,10 @@ export class Drag {
   }
 
   private applyNodePatch = (nodeId: NodeId, patch: NodePatch) => {
-    void this.instance.mutate({
-      operations: [{ type: 'node.update', id: nodeId, patch }],
-      source: 'interaction',
-      actor: 'node.drag'
-    })
+    this.submitMutations(
+      [{ type: 'node.update', id: nodeId, patch }],
+      'interaction'
+    )
   }
 
   private buildGroupChildren = (

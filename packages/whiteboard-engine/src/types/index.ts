@@ -1,18 +1,9 @@
 export type { Commands } from './commands'
 export type {
-  Command,
   CommandSource,
-  MutationBatchMeta,
-  MutationBatchInput,
-  ApplyMetrics,
-  AppliedChangeSummary,
-  ApplyMutationsResult,
+  Mutation,
   ApplyMutationsApi,
 } from './command'
-export type {
-  Mutation,
-  MutationBatch
-} from './mutation'
 export type {
   ProjectionSnapshot,
   ProjectionChange,

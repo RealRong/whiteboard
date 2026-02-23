@@ -6,18 +6,22 @@ import type {
 } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
+import type { SubmitMutations } from '../shared/MutationCommit'
 
-type RoutingInstance = Pick<InternalInstance, 'state' | 'projection' | 'mutate'>
+type RoutingInstance = Pick<InternalInstance, 'state' | 'projection'>
 
 type RoutingOptions = {
   instance: RoutingInstance
+  submitMutations: SubmitMutations
 }
 
 export class Routing {
   private readonly instance: RoutingInstance
+  private readonly submitMutations: SubmitMutations
 
-  constructor({ instance }: RoutingOptions) {
+  constructor({ instance, submitMutations }: RoutingOptions) {
     this.instance = instance
+    this.submitMutations = submitMutations
   }
 
   private clear = () => {
@@ -41,8 +45,8 @@ export class Routing {
     const nextPoints = points.map((point, idx) =>
       idx === index ? pointWorld : point
     )
-    void this.instance.mutate({
-      operations: [
+    this.submitMutations(
+      [
         {
           type: 'edge.update',
           id: edgeId,
@@ -55,9 +59,8 @@ export class Routing {
           }
         }
       ],
-      source: 'interaction',
-      actor: 'edge.routing'
-    })
+      'interaction'
+    )
   }
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {

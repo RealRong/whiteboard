@@ -1,4 +1,3 @@
-import type { Commands } from '@engine-types/commands'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { InternalInstance } from '@engine-types/instance/instance'
@@ -6,6 +5,11 @@ import type { Query } from '@engine-types/instance/query'
 import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { State } from '@engine-types/instance/state'
 import type { View } from '@engine-types/instance/view'
+import type {
+  DispatchResult,
+  Point,
+  Viewport
+} from '@whiteboard/core/types'
 
 export type Scheduler = {
   raf: (callback: FrameRequestCallback) => number
@@ -23,8 +27,8 @@ export type GroupAutoFitContext = {
 export type ViewportNavigationContext = {
   state: State
   runtime: RuntimeInternal
-  setViewport: Commands['viewport']['set']
-  zoomViewportBy: Commands['viewport']['zoomBy']
+  setViewport: (viewport: Viewport) => Promise<DispatchResult>
+  zoomViewportBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
 }
 
 export type LifecycleRuntimeContext = {

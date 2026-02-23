@@ -1,4 +1,4 @@
-import type { QueryCanvas, QueryDebugMetric } from '@engine-types/instance/query'
+import type { QueryCanvas } from '@engine-types/instance/query'
 import {
   getNodeIdsInRect as getNodeIdsInRectRaw,
   isBackgroundTarget as isBackgroundTargetRaw
@@ -8,23 +8,21 @@ import type { QueryIndexes } from './Indexes'
 type Options = {
   indexes: QueryIndexes
   getContainer: () => HTMLDivElement | null
-}
-
-type CanvasQuery = {
-  query: QueryCanvas
-  debug: {
-    getMetrics: () => QueryDebugMetric
-    resetMetrics: () => void
-  }
+  ensureIndexesSynced: () => void
 }
 
 export const createCanvas = ({
   indexes,
-  getContainer
-}: Options): CanvasQuery => {
-  const nodeRects: QueryCanvas['nodeRects'] = () => indexes.getNodeRects()
+  getContainer,
+  ensureIndexesSynced
+}: Options): QueryCanvas => {
+  const nodeRects: QueryCanvas['nodeRects'] = () => {
+    ensureIndexesSynced()
+    return indexes.getNodeRects()
+  }
 
   const nodeRect: QueryCanvas['nodeRect'] = (nodeId) => {
+    ensureIndexesSynced()
     return indexes.getNodeRectById(nodeId)
   }
 
@@ -38,18 +36,9 @@ export const createCanvas = ({
     })
 
   return {
-    query: {
-      nodeRects,
-      nodeRect,
-      watchNodes: indexes.watchNodeChanges,
-      nodeIdsInRect,
-      isBackgroundTarget
-    },
-    debug: {
-      getMetrics: () => ({ ...indexes.getMetrics().canvas } as QueryDebugMetric),
-      resetMetrics: () => {
-        indexes.resetMetrics('canvas')
-      }
-    }
+    nodeRects,
+    nodeRect,
+    nodeIdsInRect,
+    isBackgroundTarget
   }
 }

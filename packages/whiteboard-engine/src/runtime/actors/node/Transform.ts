@@ -15,6 +15,7 @@ import type {
   ResizeDragState,
   RotateDragState
 } from '@engine-types/node'
+import type { SubmitMutations } from '../shared/MutationCommit'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { getRectCenter } from '@whiteboard/core/geometry'
 import {
@@ -29,7 +30,7 @@ import {
 
 type TransformInstance = Pick<
   InternalInstance,
-  'state' | 'runtime' | 'query' | 'mutate'
+  'state' | 'runtime' | 'query'
 >
 
 type TransformTransient = {
@@ -43,15 +44,18 @@ type TransformTransient = {
 type TransformOptions = {
   instance: TransformInstance
   transient: TransformTransient
+  submitMutations: SubmitMutations
 }
 
 export class Transform {
   private readonly instance: TransformInstance
   private readonly transient: TransformTransient
+  private readonly submitMutations: SubmitMutations
 
-  constructor({ instance, transient }: TransformOptions) {
+  constructor({ instance, transient, submitMutations }: TransformOptions) {
     this.instance = instance
     this.transient = transient
+    this.submitMutations = submitMutations
   }
 
   private clear = () => {
@@ -183,17 +187,16 @@ export class Transform {
       startRotation: drag.startRotation,
       shiftKey
     })
-    void this.instance.mutate({
-      operations: [
+    this.submitMutations(
+      [
         {
           type: 'node.update',
           id: nodeId,
           patch: { rotation: nextRotation }
         }
       ],
-      source: 'interaction',
-      actor: 'node.transform'
-    })
+      'interaction'
+    )
   }
 
   private finishResize = (options: {

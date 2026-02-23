@@ -1,6 +1,5 @@
-import type { Core, CoreBuildResult, DispatchFailure, Document, Intent, Origin } from '../types/core'
+import type { Core, DispatchFailure, Document, Origin } from '../types/core'
 import { createApplyOperations } from './apply'
-import { createBuildOperations } from './build'
 import { createChangeHandlers, createChangeSetFactory, createTransaction, runAfterHandlers, runBeforeHandlers, TransactionContext } from './changes'
 import { createCoreHistory } from './history'
 import { createEventBus } from './events'
@@ -9,7 +8,6 @@ import { createPluginHost, createCommandRegistry } from './plugins'
 import { createCoreRegistries } from './registry'
 import { createQuery } from './query'
 import { createCoreState, type CreateCoreOptions } from './state'
-import { createValidateIntent } from './validate'
 
 export type { CreateCoreOptions }
 
@@ -38,24 +36,6 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
 
   const { registry: commandRegistry } = createCommandRegistry()
   const registries = createCoreRegistries(commandRegistry)
-
-  const validateIntent = createValidateIntent(state, registries)
-  const { buildOperations } = createBuildOperations({ state, registries, validateIntent, createFailure })
-
-  const buildIntent = (intent: Intent): CoreBuildResult => {
-    const buildResult = buildOperations(intent)
-    if (!('operations' in buildResult)) {
-      if (buildResult.ok === false) {
-        return buildResult
-      }
-      return createFailure('unknown', 'Invalid build result.')
-    }
-    return {
-      ok: true,
-      operations: buildResult.operations,
-      value: buildResult.value
-    }
-  }
 
   const resolveOrigin = (origin?: Origin, fallback: Origin = 'user'): Origin =>
     origin ?? transactionStack[transactionStack.length - 1]?.options?.origin ?? fallback
@@ -98,7 +78,6 @@ export const createCore = (options: CreateCoreOptions = {}): Core => {
   const core: Core = {
     query,
     apply: {
-      build: (intent) => buildIntent(intent),
       operations: (operations, options) => applyOperations(operations, resolveOrigin(options?.origin, 'user')),
       changeSet: (changes) => applyChangeSet(changes)
     },

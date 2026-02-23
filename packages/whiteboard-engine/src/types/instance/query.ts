@@ -5,36 +5,9 @@ import type {
   EdgeConnectAnchorResult
 } from './view'
 
-export type QueryDebugMetric = {
-  rebuildCount: number
-  cacheHitCount: number
-  cacheMissCount: number
-  cacheHitRate: number
-  sampleCount: number
-  sampleWindowSize: number
-  p50RebuildMs: number
-  p95RebuildMs: number
-  lastRebuildMs: number
-  avgRebuildMs: number
-  maxRebuildMs: number
-  totalRebuildMs: number
-  lastRebuiltAt?: number
-}
-
-export type QueryDebugSnapshot = {
-  canvas: QueryDebugMetric
-  snap: QueryDebugMetric
-}
-
-export type QueryDebug = {
-  getMetrics: () => QueryDebugSnapshot
-  resetMetrics: (target?: keyof QueryDebugSnapshot) => void
-}
-
 export type QueryCanvas = {
   nodeRects: () => CanvasNodeRect[]
   nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
-  watchNodes: (listener: (nodeIds: NodeId[]) => void) => () => void
   nodeIdsInRect: (rect: Rect) => NodeId[]
   isBackgroundTarget: (target: EventTarget | null) => boolean
 }
@@ -53,5 +26,4 @@ export type Query = {
   canvas: QueryCanvas
   snap: QuerySnap
   geometry: QueryGeometry
-  debug: QueryDebug
 }

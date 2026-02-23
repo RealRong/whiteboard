@@ -1,79 +1,10 @@
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
-import type {
-  QueryDebugMetric,
-  QueryDebugSnapshot
-} from '@engine-types/instance/query'
 import type { CanvasNodeRect } from '@engine-types/instance/view'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import { DEFAULT_TUNING } from '../../config'
 import { toNodeStateSignature, toRectSignature } from '@whiteboard/core/cache'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
-import {
-  DEFAULT_SAMPLE_WINDOW_SIZE,
-  percentile,
-  pushSample
-} from '@whiteboard/core/perf'
-
-const now = () =>
-  typeof performance !== 'undefined' && typeof performance.now === 'function'
-    ? performance.now()
-    : Date.now()
-
-type QueryDebugMetricState = QueryDebugMetric & {
-  samplesMs: number[]
-}
-
-const createMetrics = (): QueryDebugMetricState => ({
-  rebuildCount: 0,
-  cacheHitCount: 0,
-  cacheMissCount: 0,
-  cacheHitRate: 1,
-  sampleCount: 0,
-  sampleWindowSize: DEFAULT_SAMPLE_WINDOW_SIZE,
-  p50RebuildMs: 0,
-  p95RebuildMs: 0,
-  lastRebuildMs: 0,
-  avgRebuildMs: 0,
-  maxRebuildMs: 0,
-  totalRebuildMs: 0,
-  lastRebuiltAt: undefined,
-  samplesMs: []
-})
-
-const updateHitRate = (metrics: QueryDebugMetricState) => {
-  const total = metrics.cacheHitCount + metrics.cacheMissCount
-  metrics.cacheHitRate = total > 0 ? metrics.cacheHitCount / total : 1
-}
-
-const updateSampleStats = (metrics: QueryDebugMetricState) => {
-  metrics.sampleCount = metrics.samplesMs.length
-  metrics.p50RebuildMs = percentile(metrics.samplesMs, 50)
-  metrics.p95RebuildMs = percentile(metrics.samplesMs, 95)
-}
-
-const markReadHit = (metrics: QueryDebugMetricState) => {
-  metrics.cacheHitCount += 1
-  updateHitRate(metrics)
-}
-
-const markRebuild = (metrics: QueryDebugMetricState, elapsedMs: number) => {
-  metrics.rebuildCount += 1
-  metrics.cacheMissCount += 1
-  pushSample(metrics.samplesMs, elapsedMs, metrics.sampleWindowSize)
-  updateSampleStats(metrics)
-  metrics.lastRebuildMs = elapsedMs
-  metrics.totalRebuildMs += elapsedMs
-  metrics.maxRebuildMs = Math.max(metrics.maxRebuildMs, elapsedMs)
-  metrics.avgRebuildMs = metrics.rebuildCount > 0 ? metrics.totalRebuildMs / metrics.rebuildCount : 0
-  metrics.lastRebuiltAt = Date.now()
-  updateHitRate(metrics)
-}
-
-const toSnapshotMetric = (metric: QueryDebugMetricState): QueryDebugMetric => {
-  const { samplesMs: _samplesMs, ...snapshot } = metric
-  return snapshot
-}
 
 const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
   if (left.length !== right.length) return false
@@ -102,16 +33,6 @@ class NodeRectIndex {
     aabb: getNodeAABB(node, this.config.nodeSize),
     rotation: typeof node.rotation === 'number' ? node.rotation : 0
   })
-
-  private removeOrderedId = (nodeId: NodeId) => {
-    const index = this.orderedIds.indexOf(nodeId)
-    if (index < 0) return false
-    this.orderedIds = [
-      ...this.orderedIds.slice(0, index),
-      ...this.orderedIds.slice(index + 1)
-    ]
-    return true
-  }
 
   updateFull = (nodes: Node[]): { changed: boolean; changedNodeIds: Set<NodeId> } => {
     const seen = new Set<NodeId>()
@@ -156,80 +77,6 @@ class NodeRectIndex {
       changed,
       changedNodeIds
     }
-  }
-
-  updateDirty = (
-    nodeIds: NodeId[],
-    getNodeById: (nodeId: NodeId) => Node | undefined
-  ): {
-    changed: boolean
-    changedNodeIds: Set<NodeId>
-    requiresFullSync: boolean
-  } => {
-    if (!nodeIds.length) {
-      return {
-        changed: false,
-        changedNodeIds: new Set<NodeId>(),
-        requiresFullSync: false
-      }
-    }
-
-    const changedNodeIds = new Set<NodeId>()
-    let changed = false
-    let requiresFullSync = false
-
-    nodeIds.forEach((nodeId) => {
-      const nextNode = getNodeById(nodeId)
-      const current = this.byId.get(nodeId)
-      if (!nextNode) {
-        if (!current) return
-        this.byId.delete(nodeId)
-        changedNodeIds.add(nodeId)
-        changed = true
-        this.orderDirty = true
-        this.removeOrderedId(nodeId)
-        return
-      }
-      const signature = toNodeStateSignature(nextNode, this.config.nodeSize)
-
-      if (!current) {
-        this.byId.set(nodeId, {
-          signature,
-          entry: this.toEntry(nextNode)
-        })
-        changedNodeIds.add(nodeId)
-        changed = true
-        this.orderDirty = true
-        return
-      }
-
-      if (current.signature === signature) {
-        return
-      }
-
-      this.byId.set(nodeId, {
-        signature,
-        entry: this.toEntry(nextNode)
-      })
-      changedNodeIds.add(nodeId)
-      changed = true
-      this.orderDirty = true
-    })
-
-    return {
-      changed,
-      changedNodeIds,
-      requiresFullSync
-    }
-  }
-
-  syncOrder = (orderedNodeIds: NodeId[]): boolean => {
-    if (isSameIdOrder(this.orderedIds, orderedNodeIds)) {
-      return false
-    }
-    this.orderedIds = orderedNodeIds
-    this.orderDirty = true
-    return true
   }
 
   getAll = (): CanvasNodeRect[] => {
@@ -390,99 +237,6 @@ class SnapIndex {
     return changed
   }
 
-  updateDirty = (
-    nodeIds: NodeId[],
-    getEntryById: (nodeId: NodeId) => CanvasNodeRect | undefined
-  ): {
-    changed: boolean
-    requiresFullSync: boolean
-  } => {
-    if (!nodeIds.length) {
-      return {
-        changed: false,
-        requiresFullSync: false
-      }
-    }
-
-    const nextCellSize = this.getCellSize()
-    if (nextCellSize !== this.cellSize) {
-      return {
-        changed: false,
-        requiresFullSync: true
-      }
-    }
-
-    let changed = false
-    let requiresFullSync = false
-
-    nodeIds.forEach((nodeId) => {
-      const entry = getEntryById(nodeId)
-      const current = this.byId.get(nodeId)
-
-      if (!entry) {
-        if (!current) return
-        this.removeFromBuckets(nodeId, current.cellKeys)
-        this.byId.delete(nodeId)
-        this.orderDirty = true
-        changed = true
-        const index = this.orderedIds.indexOf(nodeId)
-        if (index >= 0) {
-          this.orderedIds = [
-            ...this.orderedIds.slice(0, index),
-            ...this.orderedIds.slice(index + 1)
-          ]
-        }
-        return
-      }
-
-      if (!current) {
-        const signature = toRectSignature(entry.aabb)
-        const candidate = this.toCandidate(nodeId, entry.aabb)
-        const cellKeys = toCellKeys(candidate.rect, this.cellSize)
-        this.addToBuckets(nodeId, cellKeys)
-        this.byId.set(nodeId, {
-          signature,
-          candidate,
-          cellKeys
-        })
-        this.orderDirty = true
-        changed = true
-        return
-      }
-
-      const signature = toRectSignature(entry.aabb)
-      if (current.signature === signature) {
-        return
-      }
-
-      const candidate = this.toCandidate(nodeId, entry.aabb)
-      const cellKeys = toCellKeys(candidate.rect, this.cellSize)
-      this.removeFromBuckets(nodeId, current.cellKeys)
-      this.addToBuckets(nodeId, cellKeys)
-      this.byId.set(nodeId, {
-        signature,
-        candidate,
-        cellKeys
-      })
-      this.orderDirty = true
-      changed = true
-    })
-
-    return {
-      changed,
-      requiresFullSync
-    }
-  }
-
-  syncOrder = (orderedNodeIds: NodeId[]): boolean => {
-    if (isSameIdOrder(this.orderedIds, orderedNodeIds)) {
-      return false
-    }
-    this.orderedIds = orderedNodeIds
-    this.orderDirty = true
-    return true
-  }
-
   getAll = (): SnapCandidate[] => {
     if (!this.orderDirty) return this.orderedCandidates
     this.orderedCandidates = this.orderedIds
@@ -511,21 +265,10 @@ class SnapIndex {
 
 export type QueryIndexes = {
   syncFull: (nodes: Node[]) => void
-  syncDirty: (
-    nodeIds: NodeId[],
-    getNodeById: (nodeId: NodeId) => Node | undefined,
-    options?: {
-      skipSnap?: boolean
-    }
-  ) => boolean
-  syncOrder: (orderedNodeIds: NodeId[]) => void
-  watchNodeChanges: (listener: (nodeIds: NodeId[]) => void) => () => void
   getNodeRects: () => CanvasNodeRect[]
   getNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
   getSnapCandidates: () => SnapCandidate[]
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
-  getMetrics: () => QueryDebugSnapshot
-  resetMetrics: (target?: keyof QueryDebugSnapshot) => void
 }
 
 type CreateQueryIndexesOptions = {
@@ -542,123 +285,17 @@ export const createQueryIndexes = ({
       config.node.groupPadding * DEFAULT_TUNING.query.snapGridPaddingFactor
     )
   )
-  const nodeChangeListeners = new Set<(nodeIds: NodeId[]) => void>()
-  let canvasMetrics = createMetrics()
-  let snapMetrics = createMetrics()
-
-  const emitNodeChanges = (changedNodeIds: Set<NodeId>) => {
-    if (!changedNodeIds.size || !nodeChangeListeners.size) return
-    const nodeIds = Array.from(changedNodeIds)
-    nodeChangeListeners.forEach((listener) => {
-      listener(nodeIds)
-    })
-  }
 
   const syncFull: QueryIndexes['syncFull'] = (nodes) => {
-    const canvasStartedAt = now()
-    const nodeRectUpdate = nodeRectIndex.updateFull(nodes)
-    const canvasChanged = nodeRectUpdate.changed
-    const canvasElapsed = now() - canvasStartedAt
-    if (canvasChanged) {
-      markRebuild(canvasMetrics, canvasElapsed)
-    }
-
-    const snapStartedAt = now()
-    const snapChanged = snapIndex.update(nodeRectIndex.getAll())
-    const snapElapsed = now() - snapStartedAt
-    if (snapChanged) {
-      markRebuild(snapMetrics, snapElapsed)
-    }
-
-    emitNodeChanges(nodeRectUpdate.changedNodeIds)
-  }
-
-  const syncDirty: QueryIndexes['syncDirty'] = (nodeIds, getNodeById, options) => {
-    if (!nodeIds.length) return true
-    const skipSnap = Boolean(options?.skipSnap)
-
-    const canvasStartedAt = now()
-    const nodeRectUpdate = nodeRectIndex.updateDirty(nodeIds, getNodeById)
-    if (nodeRectUpdate.requiresFullSync) {
-      return false
-    }
-    if (nodeRectUpdate.changed) {
-      markRebuild(canvasMetrics, now() - canvasStartedAt)
-    }
-
-    if (!skipSnap) {
-      const snapStartedAt = now()
-      const snapUpdate = snapIndex.updateDirty(
-        nodeIds,
-        nodeRectIndex.getById
-      )
-      if (snapUpdate.requiresFullSync) {
-        return false
-      }
-      if (snapUpdate.changed) {
-        markRebuild(snapMetrics, now() - snapStartedAt)
-      }
-    }
-
-    emitNodeChanges(nodeRectUpdate.changedNodeIds)
-    return true
-  }
-
-  const syncOrder: QueryIndexes['syncOrder'] = (orderedNodeIds) => {
-    const canvasStartedAt = now()
-    const canvasChanged = nodeRectIndex.syncOrder(orderedNodeIds)
-    if (canvasChanged) {
-      markRebuild(canvasMetrics, now() - canvasStartedAt)
-    }
-
-    const snapStartedAt = now()
-    const snapChanged = snapIndex.syncOrder(orderedNodeIds)
-    if (snapChanged) {
-      markRebuild(snapMetrics, now() - snapStartedAt)
-    }
+    nodeRectIndex.updateFull(nodes)
+    snapIndex.update(nodeRectIndex.getAll())
   }
 
   return {
     syncFull,
-    syncDirty,
-    syncOrder,
-    watchNodeChanges: (listener) => {
-      nodeChangeListeners.add(listener)
-      return () => {
-        nodeChangeListeners.delete(listener)
-      }
-    },
-    getNodeRects: () => {
-      markReadHit(canvasMetrics)
-      return nodeRectIndex.getAll()
-    },
-    getNodeRectById: (nodeId) => {
-      markReadHit(canvasMetrics)
-      return nodeRectIndex.getById(nodeId)
-    },
-    getSnapCandidates: () => {
-      markReadHit(snapMetrics)
-      return snapIndex.getAll()
-    },
-    getSnapCandidatesInRect: (rect) => {
-      markReadHit(snapMetrics)
-      return snapIndex.queryInRect(rect)
-    },
-    getMetrics: () => ({
-      canvas: toSnapshotMetric(canvasMetrics),
-      snap: toSnapshotMetric(snapMetrics)
-    }),
-    resetMetrics: (target) => {
-      if (target === 'canvas') {
-        canvasMetrics = createMetrics()
-        return
-      }
-      if (target === 'snap') {
-        snapMetrics = createMetrics()
-        return
-      }
-      canvasMetrics = createMetrics()
-      snapMetrics = createMetrics()
-    }
+    getNodeRects: () => nodeRectIndex.getAll(),
+    getNodeRectById: (nodeId) => nodeRectIndex.getById(nodeId),
+    getSnapCandidates: () => snapIndex.getAll(),
+    getSnapCandidatesInRect: (rect) => snapIndex.queryInRect(rect)
   }
 }

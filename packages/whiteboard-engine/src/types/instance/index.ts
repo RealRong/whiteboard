@@ -37,9 +37,6 @@ export type {
 export type {
   Query,
   QueryCanvas,
-  QueryDebug,
-  QueryDebugMetric,
-  QueryDebugSnapshot,
   QueryGeometry,
   QuerySnap
 } from './query'

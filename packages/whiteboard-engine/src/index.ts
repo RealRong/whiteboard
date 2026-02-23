@@ -12,19 +12,10 @@ export {
 
 export type { Commands } from './types/commands'
 export type {
-  Command,
   CommandSource,
-  MutationBatchMeta,
-  MutationBatchInput,
-  ApplyMetrics,
-  AppliedChangeSummary,
-  ApplyMutationsResult,
+  Mutation,
   ApplyMutationsApi
 } from './types/command'
-export type {
-  Mutation,
-  MutationBatch
-} from './types/mutation'
 export type {
   CreateEngineOptions,
   Instance,

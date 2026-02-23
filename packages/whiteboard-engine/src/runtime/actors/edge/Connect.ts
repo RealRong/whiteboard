@@ -2,35 +2,47 @@ import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../contracts'
 import { FrameTask } from '../../TaskQueue'
-import type { CoreRegistries, EdgeAnchor, EdgeId, EdgeInput, NodeId, Point } from '@whiteboard/core/types'
-import { applyEdgeDefaults, getMissingEdgeFields } from '@whiteboard/core/schema'
+import type {
+  CoreRegistries,
+  EdgeAnchor,
+  EdgeId,
+  EdgeInput,
+  NodeId,
+  Point
+} from '@whiteboard/core/types'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { type ConnectTo, isSameConnectTo } from './query'
+import { buildEdgeCreateOperation } from './createOperation'
+import type { SubmitMutations } from '../shared/MutationCommit'
 
 type ConnectInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'query' | 'runtime' | 'mutate'
+  'state' | 'projection' | 'query' | 'runtime'
 >
 
 type ConnectOptions = {
   instance: ConnectInstance
   registries: CoreRegistries
   scheduler: Scheduler
+  submitMutations: SubmitMutations
 }
 
 export class Connect {
   private readonly instance: ConnectInstance
   private readonly registries: CoreRegistries
+  private readonly submitMutations: SubmitMutations
   private readonly hoverTask: FrameTask
   private hoverPointer: PointerInput | null = null
 
   constructor({
     instance,
     registries,
-    scheduler
+    scheduler,
+    submitMutations
   }: ConnectOptions) {
     this.instance = instance
     this.registries = registries
+    this.submitMutations = submitMutations
     this.hoverTask = new FrameTask(scheduler, this.flushHover)
   }
 
@@ -53,31 +65,14 @@ export class Connect {
   }
 
   private buildEdgeCreateOperation = (payload: EdgeInput) => {
-    if (!payload.source?.nodeId || !payload.target?.nodeId) return null
-
-    const registries = this.registries
-    const doc = this.instance.runtime.document.get()
-    const hasSource = Boolean(doc.nodes.some((node) => node.id === payload.source.nodeId))
-    const hasTarget = Boolean(doc.nodes.some((node) => node.id === payload.target.nodeId))
-    if (!hasSource || !hasTarget) return null
-
-    const typeDef = registries.edgeTypes.get(payload.type)
-    if (typeDef?.validate && !typeDef.validate(payload.data)) return null
-
-    const missing = getMissingEdgeFields(payload, registries)
-    if (missing.length > 0) return null
-
-    const normalized = applyEdgeDefaults(payload, registries)
-    const id = normalized.id ?? this.createEdgeId()
-
-    return {
-      type: 'edge.create' as const,
-      edge: {
-        ...normalized,
-        id,
-        type: normalized.type ?? 'linear'
-      }
-    }
+    const result = buildEdgeCreateOperation({
+      payload,
+      doc: this.instance.runtime.document.get(),
+      registries: this.registries,
+      createEdgeId: this.createEdgeId
+    })
+    if (!result.ok) return null
+    return result.operation
   }
 
   private snapAt = (point: Point): ConnectTo | undefined => {
@@ -232,8 +227,8 @@ export class Connect {
         (item) => item.id === reconnect.edgeId
       )
       if (edge) {
-        void this.instance.mutate({
-          operations: [
+        this.submitMutations(
+          [
             {
               type: 'edge.update',
               id: edge.id,
@@ -243,9 +238,8 @@ export class Connect {
                   : { target: { nodeId: targetNodeId, anchor: targetAnchor } }
             }
           ],
-          source: 'interaction',
-          actor: 'edge.reconnect'
-        })
+          'interaction'
+        )
       }
     } else {
       const createOperation = this.buildEdgeCreateOperation({
@@ -258,11 +252,10 @@ export class Connect {
       })
 
       if (createOperation) {
-        void this.instance.mutate({
-          operations: [createOperation],
-          source: 'interaction',
-          actor: 'edge.connect'
-        })
+        this.submitMutations(
+          [createOperation],
+          'interaction'
+        )
       } else {
         this.finish()
         return

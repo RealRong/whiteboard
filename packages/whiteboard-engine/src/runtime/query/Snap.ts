@@ -1,39 +1,24 @@
-import type { QueryDebugMetric, QuerySnap } from '@engine-types/instance/query'
+import type { QuerySnap } from '@engine-types/instance/query'
 import type { QueryIndexes } from './Indexes'
 
 type Options = {
   indexes: QueryIndexes
-}
-
-type SnapQuery = {
-  query: QuerySnap
-  debug: {
-    getMetrics: () => QueryDebugMetric
-    resetMetrics: () => void
-  }
+  ensureIndexesSynced: () => void
 }
 
 export const createSnap = ({
-  indexes
-}: Options): SnapQuery => {
+  indexes,
+  ensureIndexesSynced
+}: Options): QuerySnap => {
   const candidates: QuerySnap['candidates'] = () => {
+    ensureIndexesSynced()
     return indexes.getSnapCandidates()
   }
 
   const candidatesInRect: QuerySnap['candidatesInRect'] = (rect) => {
+    ensureIndexesSynced()
     return indexes.getSnapCandidatesInRect(rect)
   }
 
-  return {
-    query: {
-      candidates,
-      candidatesInRect
-    },
-    debug: {
-      getMetrics: () => ({ ...indexes.getMetrics().snap } as QueryDebugMetric),
-      resetMetrics: () => {
-        indexes.resetMetrics('snap')
-      }
-    }
-  }
+  return { candidates, candidatesInRect }
 }

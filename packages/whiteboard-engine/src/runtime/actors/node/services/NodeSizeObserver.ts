@@ -43,15 +43,14 @@ export class NodeSizeObserver implements NodeSizeObserverApi {
     })
     this.pending.clear()
     if (!updates.length) return
-    void this.mutate({
-      operations: updates.map((item) => ({
+    void this.mutate(
+      updates.map((item) => ({
         type: 'node.update',
         id: item.id,
         patch: { size: item.size }
       })),
-      source: 'system',
-      actor: 'node.sizeObserver'
-    })
+      'system'
+    )
   }
 
   private ensureObserver = () => {

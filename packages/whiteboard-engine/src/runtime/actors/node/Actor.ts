@@ -1,16 +1,16 @@
 import type { Guide } from '@engine-types/node/snap'
 import type { ProjectionChange, ProjectionStore, NodeViewUpdate } from '@engine-types/projection'
 import type { PointerInput } from '@engine-types/common'
+import type { ApplyMutationsApi } from '@engine-types/command'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { State } from '@engine-types/instance/state'
 import type {
   NodeDragCancelOptions,
-  NodeDragStartOptions,
-  NodeResizeStartOptions,
-  NodeRotateStartOptions,
   NodeTransformCancelOptions
 } from '@engine-types/commands'
+import type { ResizeDirection } from '@engine-types/state'
 import type {
+  CoreRegistries,
   DispatchResult,
   Document,
   Node,
@@ -20,6 +20,7 @@ import type {
   Operation,
   Point
 } from '@whiteboard/core/types'
+import { applyNodeDefaults, getMissingNodeFields } from '@whiteboard/core/schema'
 import {
   bringOrderForward,
   bringOrderToFront,
@@ -29,7 +30,8 @@ import {
 } from '@whiteboard/core/utils'
 import type { Size } from '@engine-types/common'
 import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
-import { MutationExecutor } from '../shared/MutationExecutor'
+import { createMutationCommit } from '../shared/MutationCommit'
+import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 import { Drag } from './Drag'
 import { Transform } from './Transform'
 
@@ -38,8 +40,9 @@ type ActorOptions = {
   projection: ProjectionStore
   applyProjection: (change: ProjectionChange) => void
   readDoc: () => Document
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'runtime' | 'query' | 'mutate'>
-  mutation: MutationExecutor
+  registries: CoreRegistries
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'runtime' | 'query'>
+  mutate: ApplyMutationsApi
 }
 
 export class Actor {
@@ -49,8 +52,10 @@ export class Actor {
   private readonly projection: ProjectionStore
   private readonly applyProjection: (change: ProjectionChange) => void
   private readonly readDoc: () => Document
+  private readonly registries: CoreRegistries
   private readonly instance: ActorOptions['instance']
-  private readonly mutation: MutationExecutor
+  private readonly runMutations: RunMutations
+  private readonly submitMutations: SubmitMutations
   private readonly drag: Drag
   private readonly transform: Transform
 
@@ -59,15 +64,19 @@ export class Actor {
     projection,
     applyProjection,
     readDoc,
+    registries,
     instance,
-    mutation
+    mutate
   }: ActorOptions) {
     this.state = state
     this.projection = projection
     this.applyProjection = applyProjection
     this.readDoc = readDoc
+    this.registries = registries
     this.instance = instance
-    this.mutation = mutation
+    const commit = createMutationCommit(mutate)
+    this.runMutations = commit.run
+    this.submitMutations = commit.submit
     const transient = {
       setGuides: this.setDragGuides,
       clearGuides: this.clearDragGuides,
@@ -77,11 +86,13 @@ export class Actor {
     }
     this.drag = new Drag({
       instance,
-      transient
+      transient,
+      submitMutations: this.submitMutations
     })
     this.transform = new Transform({
       instance,
-      transient
+      transient,
+      submitMutations: this.submitMutations
     })
   }
 
@@ -100,42 +111,113 @@ export class Actor {
     return `group_${seed}_${Math.random().toString(36).slice(2, 8)}`
   }
 
-  create = (payload: NodeInput) =>
-    this.mutation.runCommand({ type: 'node.create', payload }, 'node.create')
+  private createNodeId = () => {
+    const exists = (id: string) => Boolean(this.readDoc().nodes.some((node) => node.id === id))
+    const seed = Date.now().toString(36)
+    for (let index = 0; index < 1024; index += 1) {
+      const id = `node_${seed}_${index.toString(36)}`
+      if (!exists(id)) return id
+    }
+    return `node_${seed}_${Math.random().toString(36).slice(2, 8)}`
+  }
+
+  private createInvalidResult = (message: string): DispatchResult => ({
+    ok: false,
+    reason: 'invalid',
+    message
+  })
+
+  private buildNodeCreateOperation = (payload: NodeInput) => {
+    if (!payload.type) {
+      return {
+        ok: false as const,
+        error: this.createInvalidResult('Missing node type.')
+      }
+    }
+    if (!payload.position) {
+      return {
+        ok: false as const,
+        error: this.createInvalidResult('Missing node position.')
+      }
+    }
+    if (payload.id && this.readDoc().nodes.some((node) => node.id === payload.id)) {
+      return {
+        ok: false as const,
+        error: this.createInvalidResult(`Node ${payload.id} already exists.`)
+      }
+    }
+    const typeDef = this.registries.nodeTypes.get(payload.type)
+    if (typeDef?.validate && !typeDef.validate(payload.data)) {
+      return {
+        ok: false as const,
+        error: this.createInvalidResult(`Node ${payload.type} validation failed.`)
+      }
+    }
+    const missing = getMissingNodeFields(payload, this.registries)
+    if (missing.length > 0) {
+      return {
+        ok: false as const,
+        error: this.createInvalidResult(`Missing required fields: ${missing.join(', ')}.`)
+      }
+    }
+    const normalized = applyNodeDefaults(payload, this.registries)
+    const id = normalized.id ?? this.createNodeId()
+    const node: Node = {
+      ...normalized,
+      id,
+      layer: normalized.type === 'group' ? (normalized.layer ?? 'background') : normalized.layer
+    }
+    return {
+      ok: true as const,
+      operation: {
+        type: 'node.create' as const,
+        node
+      }
+    }
+  }
+
+  create = (payload: NodeInput) => {
+    const built = this.buildNodeCreateOperation(payload)
+    if (!built.ok) {
+      return Promise.resolve(built.error)
+    }
+    return this.runMutations([built.operation])
+  }
 
   update = (id: NodeId, patch: NodePatch) =>
-    this.mutation.runCommand({ type: 'node.update', id, patch }, 'node.update')
+    this.runMutations([{ type: 'node.update', id, patch }])
 
   updateData = (id: NodeId, patch: Record<string, unknown>) => {
     const node = this.instance.projection.read().canvasNodes.find((item) => item.id === id)
     if (!node) return undefined
-    return this.mutation.runCommand({
-      type: 'node.update',
-      id,
-      patch: {
-        data: {
-          ...(node.data ?? {}),
-          ...patch
+    return this.runMutations([
+      {
+        type: 'node.update',
+        id,
+        patch: {
+          data: {
+            ...(node.data ?? {}),
+            ...patch
+          }
         }
       }
-    }, 'node.updateData')
+    ])
   }
 
   updateManyPosition = (updates: Array<{ id: NodeId; position: Point }>) => {
     if (!updates.length) return
-    void this.mutation.runMutations(
+    this.submitMutations(
       updates.map((item) => ({
         type: 'node.update',
         id: item.id,
         patch: { position: item.position }
       })),
-      'node.updateManyPosition',
       'interaction'
     )
   }
 
   delete = (ids: NodeId[]) =>
-    this.mutation.runCommand({ type: 'node.delete', ids }, 'node.delete')
+    this.runMutations(ids.map((id) => ({ type: 'node.delete' as const, id })))
 
   createGroup = async (ids: NodeId[]) => {
     const uniqueIds = Array.from(new Set(ids))
@@ -190,7 +272,7 @@ export class Actor {
       }))
     ]
 
-    return this.mutation.runMutations(operations, 'group.create')
+    return this.runMutations(operations)
   }
 
   ungroup = async (id: NodeId) => {
@@ -222,11 +304,11 @@ export class Actor {
       }
     ]
 
-    return this.mutation.runMutations(operations, 'group.ungroup')
+    return this.runMutations(operations)
   }
 
   setOrder = (ids: NodeId[]) =>
-    this.mutation.runCommand({ type: 'node.order.set', ids }, 'order.node.set')
+    this.runMutations([{ type: 'node.order.set', ids }])
 
   bringToFront = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
@@ -303,15 +385,14 @@ export class Actor {
       return
     }
 
-    void this.instance.mutate({
-      operations: ops.map((item) => ({
+    this.submitMutations(
+      ops.map((item) => ({
         type: 'node.update',
         id: item.id,
         patch: item.patch
       })),
-      source: 'interaction',
-      actor: 'node.overrides'
-    })
+      'interaction'
+    )
     if (updates) {
       this.clearOverrides(updates.map((item) => item.id))
     } else {
@@ -333,14 +414,35 @@ export class Actor {
   cancelTransform = (options?: NodeTransformCancelOptions) =>
     this.transform.cancel(options)
 
-  startDrag = (options: NodeDragStartOptions) =>
-    this.drag.start(options)
+  startDrag = (nodeId: NodeId, pointer: PointerInput) =>
+    this.drag.start({ nodeId, pointer })
 
-  startResize = (options: NodeResizeStartOptions) =>
-    this.transform.startResize(options)
+  startResize = (
+    nodeId: NodeId,
+    pointer: PointerInput,
+    handle: ResizeDirection
+  ) => {
+    const entry = this.instance.query.canvas.nodeRect(nodeId)
+    if (!entry) return false
+    return this.transform.startResize({
+      nodeId,
+      pointer,
+      handle,
+      rect: entry.rect,
+      rotation: entry.rotation
+    })
+  }
 
-  startRotate = (options: NodeRotateStartOptions) =>
-    this.transform.startRotate(options)
+  startRotate = (nodeId: NodeId, pointer: PointerInput) => {
+    const entry = this.instance.query.canvas.nodeRect(nodeId)
+    if (!entry) return false
+    return this.transform.startRotate({
+      nodeId,
+      pointer,
+      rect: entry.rect,
+      rotation: entry.rotation
+    })
+  }
 
   updateDrag = (pointer: PointerInput) =>
     this.drag.update({ pointer })

@@ -5,7 +5,8 @@ import type {
   Document,
   EdgeId,
   Node,
-  NodeId
+  NodeId,
+  Rect
 } from '@whiteboard/core/types'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
@@ -35,6 +36,36 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
     if (left[index] !== right[index]) return false
   }
   return true
+}
+
+const applySelection = (
+  prevSelectedIds: Set<NodeId>,
+  ids: NodeId[],
+  mode: SelectionMode
+): Set<NodeId> => {
+  if (mode === 'replace') {
+    return new Set(ids)
+  }
+
+  const next = new Set(prevSelectedIds)
+  if (mode === 'add') {
+    ids.forEach((id) => next.add(id))
+    return next
+  }
+
+  if (mode === 'subtract') {
+    ids.forEach((id) => next.delete(id))
+    return next
+  }
+
+  ids.forEach((id) => {
+    if (next.has(id)) {
+      next.delete(id)
+      return
+    }
+    next.add(id)
+  })
+  return next
 }
 
 export class Actor {
@@ -79,14 +110,36 @@ export class Actor {
   private getSelectableNodeIds = (): NodeId[] =>
     this.instance.projection.read().canvasNodes.map((canvasNode) => canvasNode.id)
 
-  private getSelectedNodeIds = (): NodeId[] =>
+  getSelectedNodeIds = (): NodeId[] =>
     Array.from(this.instance.state.read('selection').selectedNodeIds)
 
   private getSelectedEdgeId = (): EdgeId | undefined =>
     this.instance.state.read('edgeSelection')
 
-  private select = (ids: NodeId[], mode?: SelectionMode) => {
-    this.instance.commands.selection.select(ids, mode)
+  select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
+    const { state } = this.instance
+    state.batch(() => {
+      state.write('edgeSelection', undefined)
+      state.write('routingDrag', {})
+      state.write('selection', (prev) => ({
+        ...prev,
+        mode,
+        selectedNodeIds: applySelection(prev.selectedNodeIds, ids, mode)
+      }))
+    })
+  }
+
+  toggle = (ids: NodeId[]) => {
+    const { state } = this.instance
+    state.batch(() => {
+      state.write('edgeSelection', undefined)
+      state.write('routingDrag', {})
+      state.write('selection', (prev) => ({
+        ...prev,
+        mode: 'toggle',
+        selectedNodeIds: applySelection(prev.selectedNodeIds, ids, 'toggle')
+      }))
+    })
   }
 
   selectAll = () => {
@@ -95,7 +148,51 @@ export class Actor {
   }
 
   clear = () => {
-    this.instance.commands.selection.clear()
+    const { state } = this.instance
+    state.batch(() => {
+      state.write('edgeSelection', undefined)
+      state.write('routingDrag', {})
+      state.write('selection', (prev) => ({
+        ...prev,
+        selectedNodeIds: new Set(),
+        isSelecting: false,
+        selectionRect: undefined,
+        selectionRectWorld: undefined
+      }))
+    })
+  }
+
+  beginBox = (mode: SelectionMode = 'replace') => {
+    const { state } = this.instance
+    state.batch(() => {
+      state.write('edgeSelection', undefined)
+      state.write('routingDrag', {})
+      state.write('selection', (prev) => ({
+        ...prev,
+        mode,
+        isSelecting: false,
+        selectionRect: undefined,
+        selectionRectWorld: undefined
+      }))
+    })
+  }
+
+  updateBox = (selectionRect: Rect, selectionRectWorld?: Rect) => {
+    this.instance.state.write('selection', (prev) => ({
+      ...prev,
+      isSelecting: true,
+      selectionRect,
+      selectionRectWorld
+    }))
+  }
+
+  endBox = () => {
+    this.instance.state.write('selection', (prev) => ({
+      ...prev,
+      isSelecting: false,
+      selectionRect: undefined,
+      selectionRectWorld: undefined
+    }))
   }
 
   groupSelected = async () => {
