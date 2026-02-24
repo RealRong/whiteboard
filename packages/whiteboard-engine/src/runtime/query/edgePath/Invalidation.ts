@@ -16,7 +16,6 @@ export class Invalidation {
     const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
     const shouldReset =
       fullSync ||
-      change.projection.canvasNodesChanged ||
       change.projection.visibleEdgesChanged
 
     if (fullSync) {

@@ -36,6 +36,14 @@ export const createQueryRuntime = ({
   projection.subscribe((commit) => {
     snapshot = commit.snapshot
     const change = commit.change
+    if (
+      change.kind === 'partial' &&
+      change.source === 'runtime' &&
+      change.dirtyNodeIds?.length
+    ) {
+      indexes.syncByNodeIds(change.dirtyNodeIds, snapshot.indexes.canvasNodeById)
+      return
+    }
     if (change.kind === 'full' || change.projection.canvasNodesChanged) {
       indexes.sync(snapshot.nodes.canvas)
     }

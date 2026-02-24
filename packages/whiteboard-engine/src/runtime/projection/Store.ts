@@ -47,6 +47,7 @@ export class ProjectionStore implements ProjectionStoreType {
     }
 
     const dirtyNodeIds = this.collectChangedNodeIds({
+      source,
       previous,
       next,
       hintNodeIds: input.dirtyNodeIds
@@ -92,14 +93,21 @@ export class ProjectionStore implements ProjectionStoreType {
   }
 
   private collectChangedNodeIds = ({
+    source,
     previous,
     next,
     hintNodeIds
   }: {
+    source: ProjectionChangeSource
     previous: ReturnType<ProjectionStoreType['get']>
     next: ReturnType<ProjectionStoreType['get']>
     hintNodeIds?: ProjectionSyncInput['dirtyNodeIds']
   }): NodeId[] | undefined => {
+    const hinted = hintNodeIds?.length
+      ? Array.from(new Set<NodeId>(hintNodeIds))
+      : undefined
+    if (source === 'runtime') return hinted
+
     const merged = new Set<NodeId>(hintNodeIds ?? [])
 
     if (previous.indexes.canvasNodeById !== next.indexes.canvasNodeById) {

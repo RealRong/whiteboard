@@ -39,6 +39,15 @@ export const createViewRegistry = ({
   query,
   config
 }: Options): ViewRuntime => {
+  const fullProjectionChange: ProjectionChange = {
+    source: 'runtime',
+    kind: 'full',
+    projection: {
+      visibleNodesChanged: true,
+      canvasNodesChanged: true,
+      visibleEdgesChanged: true
+    }
+  }
   let snapshot = projection.get()
   const readProjection = () => snapshot
 
@@ -70,8 +79,29 @@ export const createViewRegistry = ({
   })
 
   const listeners = new Set<() => void>()
+  let dirtyWithoutListeners = true
+
+  const syncStateAll = () => {
+    viewport.sync()
+    edge.syncState('tool')
+    edge.syncState('edgeConnect')
+    edge.syncState('selection')
+    mindmap.syncState('mindmapLayout')
+    mindmap.syncState('mindmapDrag')
+  }
+
+  const ensureViewSynced = () => {
+    if (!dirtyWithoutListeners) return
+    runProjectionSync(fullProjectionChange)
+    syncStateAll()
+    dirtyWithoutListeners = false
+  }
 
   const handleStateChange = (key: StateKey) => {
+    if (!listeners.size) {
+      dirtyWithoutListeners = true
+      return
+    }
     let changed = false
     switch (key) {
       case 'viewport':
@@ -116,19 +146,15 @@ export const createViewRegistry = ({
   state.watchChanges(handleStateChange)
   projection.subscribe((commit) => {
     snapshot = commit.snapshot
-    applyProjection(commit.change)
-  })
-  applyProjection({
-    source: 'runtime',
-    kind: 'full',
-    projection: {
-      visibleNodesChanged: true,
-      canvasNodesChanged: true,
-      visibleEdgesChanged: true
+    if (!listeners.size) {
+      dirtyWithoutListeners = true
+      return
     }
+    applyProjection(commit.change)
   })
 
   const getState: View['getState'] = () => {
+    ensureViewSynced()
     return {
       viewport: {
         transform: viewport.getTransform()
@@ -139,7 +165,10 @@ export const createViewRegistry = ({
     }
   }
 
-  const subscribe: View['subscribe'] = (listener) => watchSet(listeners, listener)
+  const subscribe: View['subscribe'] = (listener) => {
+    ensureViewSynced()
+    return watchSet(listeners, listener)
+  }
 
   return {
     view: {

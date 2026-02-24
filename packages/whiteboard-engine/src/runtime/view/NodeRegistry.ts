@@ -68,7 +68,10 @@ export const createNodeRegistry = ({
       changed = cache.syncByIds(dirtyNodeIds, snapshot.indexes.canvasNodeById) || changed
     }
 
-    if (change.projection.canvasNodesChanged) {
+    const shouldSyncOrder =
+      change.projection.canvasNodesChanged &&
+      !(change.source === 'runtime' && dirtyNodeIds?.length)
+    if (shouldSyncOrder) {
       changed = syncNodeOrder() || changed
     }
     return changed

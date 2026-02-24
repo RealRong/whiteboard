@@ -79,6 +79,46 @@ class NodeRectIndex {
     }
   }
 
+  updateByIds = (
+    nodeIds: Iterable<NodeId>,
+    nodeById: ReadonlyMap<NodeId, Node>
+  ): boolean => {
+    const removed = new Set<NodeId>()
+    let changed = false
+
+    for (const nodeId of nodeIds) {
+      const node = nodeById.get(nodeId)
+      const current = this.byId.get(nodeId)
+      if (!node) {
+        if (!current) continue
+        this.byId.delete(nodeId)
+        removed.add(nodeId)
+        this.orderDirty = true
+        changed = true
+        continue
+      }
+
+      const signature = toNodeStateSignature(node, this.config.nodeSize)
+      if (current && current.signature === signature) continue
+
+      this.byId.set(nodeId, {
+        signature,
+        entry: this.toEntry(node)
+      })
+      if (!current && !this.orderedIds.includes(nodeId)) {
+        this.orderedIds.push(nodeId)
+      }
+      this.orderDirty = true
+      changed = true
+    }
+
+    if (removed.size) {
+      this.orderedIds = this.orderedIds.filter((nodeId) => !removed.has(nodeId))
+    }
+
+    return changed
+  }
+
   getAll = (): CanvasNodeRect[] => {
     if (!this.orderDirty) return this.orderedEntries
     this.orderedEntries = this.orderedIds
@@ -237,6 +277,54 @@ class SnapIndex {
     return changed
   }
 
+  updateByNodeIds = (
+    nodeIds: Iterable<NodeId>,
+    getEntry: (nodeId: NodeId) => CanvasNodeRect | undefined
+  ): boolean => {
+    const removed = new Set<NodeId>()
+    let changed = false
+
+    for (const nodeId of nodeIds) {
+      const entry = getEntry(nodeId)
+      const current = this.byId.get(nodeId)
+
+      if (!entry) {
+        if (!current) continue
+        this.removeFromBuckets(nodeId, current.cellKeys)
+        this.byId.delete(nodeId)
+        removed.add(nodeId)
+        changed = true
+        continue
+      }
+
+      const signature = toRectSignature(entry.aabb)
+      if (current && current.signature === signature) continue
+
+      const candidate = this.toCandidate(nodeId, entry.aabb)
+      const cellKeys = toCellKeys(candidate.rect, this.cellSize)
+      if (current) {
+        this.removeFromBuckets(nodeId, current.cellKeys)
+      } else if (!this.orderedIds.includes(nodeId)) {
+        this.orderedIds.push(nodeId)
+      }
+      this.addToBuckets(nodeId, cellKeys)
+      this.byId.set(nodeId, {
+        signature,
+        candidate,
+        cellKeys
+      })
+      changed = true
+    }
+
+    if (!changed) return false
+
+    if (removed.size) {
+      this.orderedIds = this.orderedIds.filter((nodeId) => !removed.has(nodeId))
+    }
+    this.orderDirty = true
+    return true
+  }
+
   getAll = (): SnapCandidate[] => {
     if (!this.orderDirty) return this.orderedCandidates
     this.orderedCandidates = this.orderedIds
@@ -265,6 +353,10 @@ class SnapIndex {
 
 export type QueryIndexes = {
   sync: (nodes: Node[]) => void
+  syncByNodeIds: (
+    nodeIds: Iterable<NodeId>,
+    nodeById: ReadonlyMap<NodeId, Node>
+  ) => void
   getNodeRects: () => CanvasNodeRect[]
   getNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
   getSnapCandidates: () => SnapCandidate[]
@@ -291,8 +383,15 @@ export const createQueryIndexes = ({
     snapIndex.update(nodeRectIndex.getAll())
   }
 
+  const syncByNodeIds: QueryIndexes['syncByNodeIds'] = (nodeIds, nodeById) => {
+    const changed = nodeRectIndex.updateByIds(nodeIds, nodeById)
+    if (!changed) return
+    snapIndex.updateByNodeIds(nodeIds, nodeRectIndex.getById)
+  }
+
   return {
     sync,
+    syncByNodeIds,
     getNodeRects: () => nodeRectIndex.getAll(),
     getNodeRectById: (nodeId) => nodeRectIndex.getById(nodeId),
     getSnapCandidates: () => snapIndex.getAll(),
