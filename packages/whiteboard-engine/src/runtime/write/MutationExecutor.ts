@@ -3,11 +3,11 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import { FULL_MUTATION_IMPACT, affectsProjection, hasImpactTag } from '../mutation/Impact'
 import { MutationImpactAnalyzer } from '../mutation/Analyzer'
 import { reduceOperations } from '@whiteboard/core/kernel'
+import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
 import type {
   ChangeSet,
   DispatchFailure,
   Document,
-  KernelRegistriesSnapshot,
   Operation,
   Origin
 } from '@whiteboard/core/types'

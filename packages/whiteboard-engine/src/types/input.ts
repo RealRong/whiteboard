@@ -1,4 +1,4 @@
-import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
@@ -130,11 +130,44 @@ export type InputResult = {
 export type InputDispatchResult = InputResult
 
 export type InputSessionContext = {
-  state: Pick<State, 'read' | 'write' | 'batch'>
+  state: Pick<State, 'read' | 'write' | 'batch' | 'batchFrame'>
   commands: Commands
   query: Query
-  actors: {
-    edge: {
+  nodeInput: {
+    drag: {
+      start: (options: {
+        nodeId: NodeId
+        pointer: PointerInput
+        modifiers: Pick<
+          PointerInputEvent['modifiers'],
+          'alt' | 'shift' | 'ctrl' | 'meta'
+        >
+      }) => boolean
+      update: (pointer: PointerInput) => boolean
+      end: (pointer: PointerInput) => boolean
+      cancel: (options?: { pointer?: PointerInput }) => boolean
+    }
+    transform: {
+      startResize: (options: {
+        nodeId: NodeId
+        pointer: PointerInput
+        handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+        rect: Rect
+        rotation: number
+      }) => boolean
+      startRotate: (options: {
+        nodeId: NodeId
+        pointer: PointerInput
+        rect: Rect
+        rotation: number
+      }) => boolean
+      update: (pointer: PointerInput, minSize?: Size) => boolean
+      end: (pointer: PointerInput) => boolean
+      cancel: (options?: { pointer?: PointerInput }) => boolean
+    }
+  }
+  edgeInput: {
+    connect: {
       startFromHandle: (
         nodeId: NodeId,
         side: 'top' | 'right' | 'bottom' | 'left',
@@ -149,6 +182,16 @@ export type InputSessionContext = {
         nodeId: NodeId,
         pointer: PointerInput
       ) => boolean
+      updateConnect: (pointer: PointerInput) => void
+      commitConnect: (pointer: PointerInput) => void
+      cancelConnect: () => void
+      hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
+      hoverCancel: () => void
+    }
+    routing: {
+      updateRouting: (pointer: PointerInput) => boolean
+      endRouting: (pointer: PointerInput) => boolean
+      cancelRouting: () => boolean
       startRouting: (
         edgeId: EdgeId,
         index: number,
@@ -156,34 +199,14 @@ export type InputSessionContext = {
       ) => boolean
       insertRoutingPointAt: (edgeId: EdgeId, pointWorld: Point) => boolean
       removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
-      hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
-      updateConnect: (pointer: PointerInput) => void
-      commitConnect: (pointer: PointerInput) => void
-      cancelConnect: () => void
-      updateRouting: (pointer: PointerInput) => boolean
-      endRouting: (pointer: PointerInput) => boolean
-      cancelRouting: () => boolean
     }
-    node: {
-      startDrag: (nodeId: NodeId, pointer: PointerInput) => boolean
-      startResize: (
-        nodeId: NodeId,
-        pointer: PointerInput,
-        handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-      ) => boolean
-      startRotate: (nodeId: NodeId, pointer: PointerInput) => boolean
-      updateDrag: (pointer: PointerInput) => boolean
-      endDrag: (pointer: PointerInput) => boolean
-      cancelDrag: () => boolean
-      updateTransform: (pointer: PointerInput, minSize?: Size) => boolean
-      endTransform: (pointer: PointerInput) => boolean
-      cancelTransform: () => boolean
-    }
-    mindmap: {
-      startDrag: (treeId: NodeId, nodeId: NodeId, pointer: PointerInput) => boolean
-      updateDrag: (pointer: PointerInput) => boolean
-      endDrag: (pointer: PointerInput) => boolean
-      cancelDrag: () => boolean
+  }
+  mindmapInput: {
+    drag: {
+      start: (treeId: NodeId, nodeId: NodeId, pointer: PointerInput) => boolean
+      update: (pointer: PointerInput) => boolean
+      end: (pointer: PointerInput) => boolean
+      cancel: () => boolean
     }
   }
   viewport: {

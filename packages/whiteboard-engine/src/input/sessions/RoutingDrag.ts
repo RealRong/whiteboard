@@ -25,13 +25,13 @@ export const createRoutingDrag = (): PointerSession => ({
     } else {
       if (!event.target.edgeId || !Number.isInteger(event.target.routingIndex)) return null
       if (event.clickCount >= 2) {
-        context.actors.edge.removeRoutingPointAt(
+        context.edgeInput.routing.removeRoutingPointAt(
           event.target.edgeId,
           event.target.routingIndex as number
         )
         return null
       }
-      const started = context.actors.edge.startRouting(
+      const started = context.edgeInput.routing.startRouting(
         event.target.edgeId,
         event.target.routingIndex as number,
         event.pointer
@@ -41,13 +41,13 @@ export const createRoutingDrag = (): PointerSession => ({
     return {
       pointerId: event.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.actors.edge.updateRouting(nextEvent.pointer)
+        nextContext.edgeInput.routing.updateRouting(nextEvent.pointer)
       },
       end: (nextEvent, nextContext) => {
-        nextContext.actors.edge.endRouting(nextEvent.pointer)
+        nextContext.edgeInput.routing.endRouting(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.actors.edge.cancelRouting()
+        nextContext.edgeInput.routing.cancelRouting()
       }
     }
   }

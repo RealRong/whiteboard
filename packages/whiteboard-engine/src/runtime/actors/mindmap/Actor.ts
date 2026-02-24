@@ -1,10 +1,6 @@
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { PointerInput } from '@engine-types/common'
 import type { Commands } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type {
-  MindmapCancelDragOptions
-} from '@engine-types/commands'
 import type {
   DispatchResult,
   MindmapId,
@@ -34,10 +30,9 @@ import { DEFAULT_TUNING } from '../../../config'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations } from '../shared/MutationCommit'
 import { StateWatchEmitter } from '../shared/StateWatchEmitter'
-import { Drag } from './Drag'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit'>
+  instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>
 }
 
 const cloneValue = <T,>(value: T): T => {
@@ -88,20 +83,12 @@ export class Actor {
   private readonly state: ActorOptions['instance']['state']
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
-  private readonly drag: Drag
   private readonly layoutEmitter: StateWatchEmitter<MindmapLayoutConfig>
 
   constructor({ instance }: ActorOptions) {
     this.state = instance.state
     this.instance = instance
     this.runMutations = createMutationCommit(instance.mutate).run
-    this.drag = new Drag({
-      instance,
-      mindmap: {
-        moveRoot: this.moveRoot,
-        moveSubtreeWithDrop: this.moveSubtreeWithDrop
-      }
-    })
     this.layoutEmitter = new StateWatchEmitter({
       state: this.state,
       keys: ['mindmapLayout'],
@@ -121,7 +108,7 @@ export class Actor {
   })
 
   private readMindmap = (id: string): MindmapTree | undefined =>
-    this.instance.document.get().mindmaps.find((tree) => tree.id === id)
+    (this.instance.document.get().mindmaps ?? []).find((tree) => tree.id === id)
 
   private readMindmapNode = (id: string): Node | undefined =>
     this.instance.document.get().nodes.find((node) => node.id === id)
@@ -138,7 +125,7 @@ export class Actor {
 
   private createMindmapNodeId = () => {
     const exists = (id: string) =>
-      this.instance.document.get().mindmaps.some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
+      (this.instance.document.get().mindmaps ?? []).some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `mnode_${seed}_${index.toString(36)}`
@@ -640,29 +627,5 @@ export class Actor {
 
   stop = () => {
     this.layoutEmitter.stop()
-  }
-
-  startDrag = (
-    treeId: MindmapId,
-    nodeId: MindmapNodeId,
-    pointer: PointerInput
-  ) =>
-    this.drag.start({ treeId, nodeId, pointer })
-
-  updateDrag = (pointer: PointerInput) =>
-    this.drag.update({ pointer })
-
-  endDrag = (pointer: PointerInput) =>
-    this.drag.end({ pointer })
-
-  cancelDrag = (options?: MindmapCancelDragOptions) =>
-    this.drag.cancel(options)
-
-  resetTransientState = () => {
-    this.state.write('mindmapDrag', {})
-    this.state.write('interactionSession', (prev) => {
-      if (prev.active?.kind !== 'mindmapDrag') return prev
-      return {}
-    })
   }
 }

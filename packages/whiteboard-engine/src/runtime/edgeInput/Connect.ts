@@ -1,7 +1,7 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../../Scheduler'
-import { FrameTask } from '../../TaskQueue'
+import type { Scheduler } from '../Scheduler'
+import { FrameTask } from '../TaskQueue'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -9,10 +9,10 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
-import { type ConnectTo, isSameConnectTo } from './query'
-import { buildEdgeCreateOperation } from './createOperation'
-import type { SubmitMutations } from '../shared/MutationCommit'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
+import { type ConnectTo, isSameConnectTo } from '../actors/edge/query'
+import { buildEdgeCreateOperation } from '../actors/edge/createOperation'
+import type { SubmitMutations } from '../actors/shared/MutationCommit'
 
 type ConnectInstance = Pick<
   InternalInstance,

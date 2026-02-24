@@ -1,19 +1,10 @@
-import type { EdgeConnectState } from '@engine-types/state'
-import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { State } from '@engine-types/instance/state'
-import type {
-  RoutingDragCancelOptions
-} from '@engine-types/commands'
 import type {
   DispatchResult,
   Edge,
-  EdgeAnchor,
   EdgeId,
   EdgeInput,
   EdgePatch,
-  NodeId,
-  Operation,
   Point
 } from '@whiteboard/core/types'
 import {
@@ -25,45 +16,36 @@ import {
 } from '@whiteboard/core/utils'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
-import type { Scheduler } from '../../Scheduler'
-import { Connect } from './Connect'
-import { Routing } from './Routing'
 import { buildEdgeCreateOperation } from './createOperation'
 
 type ActorOptions = {
   instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries'>
-  scheduler: Scheduler
 }
 
 export class Actor {
   readonly name = 'Edge'
 
-  private readonly state: Pick<State, 'write'>
+  private readonly state: ActorOptions['instance']['state']
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
   private readonly submitMutations: SubmitMutations
-  private readonly connect: Connect
-  private readonly routing: Routing
 
-  constructor({ instance, scheduler }: ActorOptions) {
+  constructor({ instance }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
     this.submitMutations = commit.submit
-    this.connect = new Connect({
-      instance,
-      scheduler,
-      submitMutations: this.submitMutations
-    })
-    this.routing = new Routing({
-      instance,
-      submitMutations: this.submitMutations
-    })
   }
 
   private clearRoutingDrag = () => {
-    this.routing.reset()
+    this.state.batch(() => {
+      this.state.write('routingDrag', {})
+      this.state.write('interactionSession', (prev) => {
+        if (prev.active?.kind !== 'routingDrag') return prev
+        return {}
+      })
+    })
   }
 
   private createEdgeId = () => {
@@ -100,7 +82,7 @@ export class Actor {
     this.runMutations([{ type: 'edge.update', id, patch }])
 
   delete = (ids: EdgeId[]) => {
-    const activeDrag = this.routing.getPayload()
+    const activeDrag = this.state.read('routingDrag').payload
     if (activeDrag && ids.includes(activeDrag.edgeId)) {
       this.clearRoutingDrag()
     }
@@ -109,7 +91,7 @@ export class Actor {
 
   select = (id?: EdgeId) => {
     this.instance.state.batch(() => {
-      const activeDrag = this.routing.getPayload()
+      const activeDrag = this.state.read('routingDrag').payload
       if (activeDrag && activeDrag.edgeId !== id) {
         this.clearRoutingDrag()
       }
@@ -176,7 +158,7 @@ export class Actor {
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
 
-    const activeDrag = this.routing.getPayload()
+    const activeDrag = this.state.read('routingDrag').payload
     if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
       this.clearRoutingDrag()
     }
@@ -214,7 +196,7 @@ export class Actor {
   }
 
   resetRouting = (edge: Edge) => {
-    const activeDrag = this.routing.getPayload()
+    const activeDrag = this.state.read('routingDrag').payload
     if (activeDrag?.edgeId === edge.id) {
       this.clearRoutingDrag()
     }
@@ -282,82 +264,5 @@ export class Actor {
     const target = sanitizeOrderIds(ids)
     const current = this.instance.document.get().order.edges
     return this.setOrder(sendOrderBackward(current, target))
-  }
-
-  resetTransientState = () => {
-    this.state.write('edgeConnect', {} as EdgeConnectState)
-    this.routing.reset()
-    this.state.write('interactionSession', (prev) => {
-      if (
-        prev.active?.kind !== 'edgeConnect'
-        && prev.active?.kind !== 'routingDrag'
-      ) {
-        return prev
-      }
-      return {}
-    })
-  }
-
-  startFromHandle = (
-    nodeId: NodeId,
-    side: EdgeAnchor['side'],
-    pointer: PointerInput
-  ) => {
-    this.connect.startFromHandle(nodeId, side, pointer)
-  }
-
-  startFromPoint = (nodeId: NodeId, pointer: PointerInput) => {
-    this.connect.startFromPoint(nodeId, pointer)
-  }
-
-  startReconnect = (
-    edgeId: EdgeId,
-    end: 'source' | 'target',
-    pointer: PointerInput
-  ) => {
-    this.connect.startReconnect(edgeId, end, pointer)
-  }
-
-  handleNodePointerDown = (nodeId: NodeId, pointer: PointerInput) =>
-    this.connect.handleNodePointerDown(nodeId, pointer)
-
-  startRouting = (
-    edgeId: EdgeId,
-    index: number,
-    pointer: PointerInput
-  ) =>
-    this.routing.start({ edgeId, index, pointer })
-
-  hoverMove = (pointer: PointerInput | undefined, enabled: boolean) => {
-    this.connect.hoverMove(pointer, enabled)
-  }
-
-  hoverCancel = () => {
-    this.connect.hoverCancel()
-  }
-
-  cancelConnect = () => this.connect.cancel()
-
-  cancelRouting = (options?: RoutingDragCancelOptions) =>
-    this.routing.cancel(options)
-
-  updateConnect = (pointer: PointerInput) => {
-    this.connect.updateTo(pointer)
-  }
-
-  commitConnect = (pointer: PointerInput) => {
-    this.connect.commitTo(pointer)
-  }
-
-  updateRouting = (pointer: PointerInput) =>
-    this.routing.update({ pointer })
-
-  endRouting = (pointer: PointerInput) =>
-    this.routing.end({ pointer })
-
-  cancelInteractions = () => {
-    this.cancelConnect()
-    this.hoverCancel()
-    this.cancelRouting()
   }
 }

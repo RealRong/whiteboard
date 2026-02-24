@@ -28,20 +28,20 @@ export const createEdgeConnect = (): PointerSession => ({
     if (!active) {
       if (event.target.role === 'handle' && event.target.handleType === 'node-connect') {
         if (!event.target.nodeId || !event.target.handleSide) return null
-        context.actors.edge.startFromHandle(
+        context.edgeInput.connect.startFromHandle(
           event.target.nodeId,
           event.target.handleSide,
           event.pointer
         )
       } else if (event.target.role === 'handle' && event.target.handleType === 'edge-endpoint') {
         if (!event.target.edgeId || !event.target.edgeEnd) return null
-        context.actors.edge.startReconnect(
+        context.edgeInput.connect.startReconnect(
           event.target.edgeId,
           event.target.edgeEnd,
           event.pointer
         )
       } else if (event.target.role === 'node' && event.target.nodeId) {
-        const started = context.actors.edge.handleNodePointerDown(
+        const started = context.edgeInput.connect.handleNodePointerDown(
           event.target.nodeId,
           event.pointer
         )
@@ -62,13 +62,13 @@ export const createEdgeConnect = (): PointerSession => ({
     return {
       pointerId: session.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.actors.edge.updateConnect(nextEvent.pointer)
+        nextContext.edgeInput.connect.updateConnect(nextEvent.pointer)
       },
       end: (nextEvent, nextContext) => {
-        nextContext.actors.edge.commitConnect(nextEvent.pointer)
+        nextContext.edgeInput.connect.commitConnect(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.actors.edge.cancelConnect()
+        nextContext.edgeInput.connect.cancelConnect()
       }
     }
   }

@@ -31,30 +31,37 @@ export const createNodeTransform = (): PointerSession => ({
 
       let started = false
       if (event.target.transformKind === 'resize' && event.target.resizeDirection) {
-        started = context.actors.node.startResize(
+        started = context.nodeInput.transform.startResize({
           nodeId,
-          event.pointer,
-          event.target.resizeDirection
-        )
+          pointer: event.pointer,
+          handle: event.target.resizeDirection,
+          rect: nodeRect.rect,
+          rotation: nodeRect.rotation
+        })
       }
       if (event.target.transformKind === 'rotate') {
-        started = context.actors.node.startRotate(nodeId, event.pointer)
+        started = context.nodeInput.transform.startRotate({
+          nodeId,
+          pointer: event.pointer,
+          rect: nodeRect.rect,
+          rotation: nodeRect.rotation
+        })
       }
       if (!started) return null
     }
     return {
       pointerId: event.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.actors.node.updateTransform(
+        nextContext.nodeInput.transform.update(
           nextEvent.pointer,
           DEFAULT_TUNING.nodeTransform.minSize
         )
       },
       end: (nextEvent, nextContext) => {
-        nextContext.actors.node.endTransform(nextEvent.pointer)
+        nextContext.nodeInput.transform.end(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.actors.node.cancelTransform()
+        nextContext.nodeInput.transform.cancel()
       }
     }
   }

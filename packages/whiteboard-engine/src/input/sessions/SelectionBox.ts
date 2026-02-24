@@ -21,13 +21,23 @@ export const createSelectionBox = (): PointerSession => ({
     const startWorld = event.pointer.world
     let isSelecting = false
     let latestRectWorld: Rect | null = null
-    let rafId: number | null = null
-    const cancelPendingRaf = () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId)
-        rafId = null
-      }
+    let latestContext: typeof context | null = null
+    let scheduled = false
+    const clearPending = () => {
       latestRectWorld = null
+      latestContext = null
+      scheduled = false
+    }
+    const flushSelection = () => {
+      scheduled = false
+      const rectWorld = latestRectWorld
+      const nextContext = latestContext
+      latestRectWorld = null
+      latestContext = null
+      if (!rectWorld || !nextContext) return
+      const matched = nextContext.query.canvas.nodeIdsInRect(rectWorld)
+      if (!matched.length) return
+      nextContext.commands.selection.select(matched, mode)
     }
 
     context.commands.selection.beginBox(mode)
@@ -46,31 +56,24 @@ export const createSelectionBox = (): PointerSession => ({
 
         isSelecting = true
         latestRectWorld = rectWorld
+        latestContext = nextContext
         nextContext.commands.selection.updateBox(rectScreen, rectWorld)
 
-        if (rafId !== null) {
+        if (scheduled) {
           return
         }
-
-        rafId = window.requestAnimationFrame(() => {
-          rafId = null
-          const latest = latestRectWorld
-          if (!latest) return
-
-          const matched = nextContext.query.canvas.nodeIdsInRect(latest)
-          if (!matched.length) return
-          nextContext.commands.selection.select(matched, mode)
-        })
+        scheduled = true
+        nextContext.state.batchFrame(flushSelection)
       },
       end: (_nextEvent, nextContext) => {
         if (!isSelecting && mode === 'replace') {
           nextContext.commands.selection.clear()
         }
-        cancelPendingRaf()
+        clearPending()
         nextContext.commands.selection.endBox()
       },
       cancel: (_reason, nextContext) => {
-        cancelPendingRaf()
+        clearPending()
         nextContext.commands.selection.endBox()
       }
     }

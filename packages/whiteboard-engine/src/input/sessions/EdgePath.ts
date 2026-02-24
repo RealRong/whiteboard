@@ -16,7 +16,7 @@ export const createEdgePath = (): PointerSession => ({
 
     const isInsertIntent = event.modifiers.shift || event.clickCount >= 2
     if (isInsertIntent) {
-      context.actors.edge.insertRoutingPointAt(
+      context.edgeInput.routing.insertRoutingPointAt(
         edgeId,
         event.pointer.world
       )

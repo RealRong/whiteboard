@@ -1,12 +1,6 @@
 import type { Guide } from '@engine-types/node/snap'
 import type { NodeViewUpdate } from '@engine-types/projection'
-import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type {
-  NodeDragCancelOptions,
-  NodeTransformCancelOptions
-} from '@engine-types/commands'
-import type { ResizeDirection } from '@engine-types/state'
 import type {
   DispatchResult,
   Document,
@@ -29,8 +23,6 @@ import type { Size } from '@engine-types/common'
 import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
-import { Drag } from './Drag'
-import { Transform } from './Transform'
 
 type ActorOptions = {
   instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
@@ -45,8 +37,6 @@ export class Actor {
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
   private readonly submitMutations: SubmitMutations
-  private readonly drag: Drag
-  private readonly transform: Transform
 
   constructor({ instance }: ActorOptions) {
     this.instance = instance
@@ -56,23 +46,6 @@ export class Actor {
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
     this.submitMutations = commit.submit
-    const transient = {
-      setGuides: this.setDragGuides,
-      clearGuides: this.clearDragGuides,
-      setOverrides: this.setOverrides,
-      commitOverrides: this.commitOverrides,
-      clearOverrides: this.clearOverrides
-    }
-    this.drag = new Drag({
-      instance,
-      transient,
-      submitMutations: this.submitMutations
-    })
-    this.transform = new Transform({
-      instance,
-      transient,
-      submitMutations: this.submitMutations
-    })
   }
 
   private createGroupId = () => {
@@ -398,56 +371,7 @@ export class Actor {
     })
   }
 
-  cancelDrag = (options?: NodeDragCancelOptions) =>
-    this.drag.cancel(options)
-
-  cancelTransform = (options?: NodeTransformCancelOptions) =>
-    this.transform.cancel(options)
-
-  startDrag = (nodeId: NodeId, pointer: PointerInput) =>
-    this.drag.start({ nodeId, pointer })
-
-  startResize = (
-    nodeId: NodeId,
-    pointer: PointerInput,
-    handle: ResizeDirection
-  ) => {
-    const entry = this.instance.query.canvas.nodeRect(nodeId)
-    if (!entry) return false
-    return this.transform.startResize({
-      nodeId,
-      pointer,
-      handle,
-      rect: entry.rect,
-      rotation: entry.rotation
-    })
-  }
-
-  startRotate = (nodeId: NodeId, pointer: PointerInput) => {
-    const entry = this.instance.query.canvas.nodeRect(nodeId)
-    if (!entry) return false
-    return this.transform.startRotate({
-      nodeId,
-      pointer,
-      rect: entry.rect,
-      rotation: entry.rotation
-    })
-  }
-
-  updateDrag = (pointer: PointerInput) =>
-    this.drag.update({ pointer })
-
-  endDrag = (pointer: PointerInput) =>
-    this.drag.end({ pointer })
-
-  updateTransform = (pointer: PointerInput, minSize?: Size) =>
-    this.transform.update({ pointer, minSize })
-
-  endTransform = (pointer: PointerInput) =>
-    this.transform.end({ pointer })
-
   cancelInteractions = () => {
-    this.cancelDrag()
-    this.cancelTransform()
+    // Node input interactions are handled by dedicated pipelines.
   }
 }

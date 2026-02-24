@@ -80,15 +80,17 @@ export class InputControllerImpl implements InputControllerType {
       return
     }
     const enabled = context.state.read('tool') === 'edge'
-    context.actors.edge.hoverMove(event.pointer, enabled)
+    context.edgeInput.connect.hoverMove(event.pointer, enabled)
   }
 
   private handlePointerDownCapture = (
     context: InputSessionContext,
     event: Extract<InputEvent, { kind: 'pointer' }>
   ): ReturnType<InputControllerType['handle']> => {
+    const isDragging = context.state.read('interaction').pointer.isDragging
     context.commands.interaction.update({
       pointer: {
+        isDragging,
         button: toShortcutButton(event.button),
         modifiers: {
           alt: event.modifiers.alt,
@@ -141,6 +143,7 @@ export class InputControllerImpl implements InputControllerType {
     event: Extract<InputEvent, { kind: 'key' }>,
     ignoreInput: boolean
   ) => {
+    const isDragging = context.state.read('interaction').pointer.isDragging
     context.commands.interaction.update({
       focus: {
         isEditingText: Boolean(event.target.isTextInput),
@@ -148,6 +151,7 @@ export class InputControllerImpl implements InputControllerType {
         isImeComposing: event.isComposing ?? false
       },
       pointer: {
+        isDragging,
         modifiers: {
           alt: event.modifiers.alt,
           shift: event.modifiers.shift,
@@ -195,7 +199,10 @@ export class InputControllerImpl implements InputControllerType {
     const edgeId = event.target.edgeId
     const routingIndex = event.target.routingIndex
     if (edgeId && Number.isInteger(routingIndex)) {
-      context.actors.edge.removeRoutingPointAt(edgeId, routingIndex as number)
+      context.edgeInput.routing.removeRoutingPointAt(
+        edgeId,
+        routingIndex as number
+      )
     }
     return true
   }

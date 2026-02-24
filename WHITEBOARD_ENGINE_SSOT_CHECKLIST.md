@@ -16,12 +16,14 @@
 - [x] pointer sessions 统一按 `interactionSession.active` 路由。  
   路径：`packages/whiteboard-engine/src/input/sessions/`
 - [x] actors 在 start/end/cancel/reset 同步写入 `interactionSession`。  
-  路径：`packages/whiteboard-engine/src/runtime/actors/`
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/`  
+  路径：`packages/whiteboard-engine/src/runtime/edgeInput/`  
+  路径：`packages/whiteboard-engine/src/runtime/mindmapInput/`
 - [x] start 阶段的互斥判定收敛到 `interactionSession`（node/transform/routing/mindmap）。  
-  路径：`packages/whiteboard-engine/src/runtime/actors/node/Drag.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/node/Transform.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/edge/Routing.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/mindmap/Drag.ts`
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/node/Planner.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/nodeTransform/Planner.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/edgeInput/Routing.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/mindmapInput/Drag.ts`
 - [x] `edgeConnect.pointerId` 已删除，pointer 会话统一使用 `interactionSession.pointerId`。  
   路径：`packages/whiteboard-engine/src/types/edge/state.ts`  
   路径：`packages/whiteboard-engine/src/input/sessions/EdgeConnect.ts`
@@ -29,10 +31,10 @@
   路径：`packages/whiteboard-engine/src/runtime/actors/edge/view/Derivation.ts`  
   路径：`packages/whiteboard-engine/src/input/shortcut/runtime.ts`
 - [x] 删除旧 `nodeDrag/nodeTransform/routingDrag/mindmapDrag` 的 `active` 真相职责（仅保留 payload 或迁入 session payload）。  
-  路径：`packages/whiteboard-engine/src/runtime/actors/node/Drag.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/node/Transform.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/edge/Routing.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/mindmap/Drag.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/node/Planner.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/nodeTransform/Planner.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/edgeInput/Routing.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/mindmapInput/Drag.ts`  
   路径：`packages/whiteboard-engine/src/types/state/model.ts`
 - [x] 收敛 `edgeConnect.isConnecting/pointerId` 到统一 session 模型。
 
@@ -62,9 +64,9 @@
   路径：`packages/whiteboard-engine/src/state/initialState.ts`
 - [x] 统一 actor 写入口，减少跨 key 批量清理逻辑。  
   路径：`packages/whiteboard-engine/src/runtime/actors/selection/Actor.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/node/Drag.ts`  
+  路径：`packages/whiteboard-engine/src/runtime/nodeInput/node/Planner.ts`  
   路径：`packages/whiteboard-engine/src/runtime/actors/edge/Actor.ts`  
-  路径：`packages/whiteboard-engine/src/runtime/actors/edge/Routing.ts`
+  路径：`packages/whiteboard-engine/src/runtime/edgeInput/Routing.ts`
 
 ## 5. QueryIndexSnapshot
 

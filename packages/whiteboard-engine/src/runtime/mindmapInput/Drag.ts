@@ -1,10 +1,10 @@
-import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core/mindmap'
-import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
 import type { MindmapMoveDropOptions, MindmapMoveRootOptions } from '@engine-types/commands'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { MindmapRootDragState, MindmapSubtreeDragState } from '@engine-types/state'
-import { DEFAULT_TUNING } from '../../../config'
+import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core/mindmap'
+import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
+import { DEFAULT_TUNING } from '../../config'
 
 type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
 
@@ -106,6 +106,16 @@ export class Drag {
     if (!active) return undefined
     if (active.pointerId !== session.pointerId) return undefined
     return active
+  }
+
+  private clear = () => {
+    this.session = null
+    this.instance.state.write('mindmapDrag', {})
+    this.setInteractionSession(undefined)
+  }
+
+  reset = () => {
+    this.clear()
   }
 
   start = ({ treeId, nodeId, pointer }: { treeId: NodeId; nodeId: NodeId; pointer: { pointerId: number; world: { x: number; y: number } } }) => {
@@ -234,9 +244,7 @@ export class Drag {
     const active = this.readActive(pointer.pointerId)
     if (!active) return false
 
-    this.session = null
-    state.write('mindmapDrag', {})
-    this.setInteractionSession(undefined)
+    this.clear()
 
     if (active.kind === 'root') {
       void this.mindmap.moveRoot({
@@ -271,9 +279,7 @@ export class Drag {
     const active = this.readActive(options?.pointer?.pointerId)
     if (!active) return false
     if (options?.pointer && active.pointerId !== options.pointer.pointerId) return false
-    this.session = null
-    this.instance.state.write('mindmapDrag', {})
-    this.setInteractionSession(undefined)
+    this.clear()
     return true
   }
 }

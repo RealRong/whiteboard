@@ -7,7 +7,7 @@ import type {
 } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
-import type { SubmitMutations } from '../shared/MutationCommit'
+import type { SubmitMutations } from '../actors/shared/MutationCommit'
 
 type RoutingInstance = Pick<InternalInstance, 'state' | 'projection'>
 

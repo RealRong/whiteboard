@@ -3,7 +3,6 @@ import type { State } from '@engine-types/instance/state'
 import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { Shortcuts } from '@engine-types/shortcuts'
 import type { ViewportApi } from '@engine-types/viewport'
-import { Actor as EdgeActor } from '../actors/edge/Actor'
 import { Actor as GroupAutoFitActor } from '../actors/groupAutoFit/Actor'
 import { Actor as MindmapActor } from '../actors/mindmap/Actor'
 import { Actor as NodeActor } from '../actors/node/Actor'
@@ -21,7 +20,15 @@ type LifecycleContext = {
 }
 
 type LifecycleActors = {
-  edge: EdgeActor
+  edgeInput: {
+    hoverCancel: () => void
+    cancelInteractions: () => void
+    resetTransientState: () => void
+  }
+  mindmapInput: {
+    cancelDrag: () => void
+    resetTransientState: () => void
+  }
   groupAutoFit: GroupAutoFitActor
   node: NodeActor
   mindmap: MindmapActor
@@ -35,7 +42,8 @@ export class Lifecycle implements LifecycleApi {
   private selectionActor: SelectionActor
   private toolActor: ToolActor
   private viewportActor: ViewportActor
-  private edgeActor: EdgeActor
+  private edgeInput: LifecycleActors['edgeInput']
+  private mindmapInput: LifecycleActors['mindmapInput']
   private groupAutoFitActor: GroupAutoFitActor
   private nodeActor: NodeActor
   private mindmapActor: MindmapActor
@@ -46,7 +54,8 @@ export class Lifecycle implements LifecycleApi {
   ) {
     this.context = context
 
-    this.edgeActor = actors.edge
+    this.edgeInput = actors.edgeInput
+    this.mindmapInput = actors.mindmapInput
     this.groupAutoFitActor = actors.groupAutoFit
     this.nodeActor = actors.node
 
@@ -82,22 +91,22 @@ export class Lifecycle implements LifecycleApi {
       stop: this.mindmapActor.stop
     })
     this.registry.register({
-      stop: this.edgeActor.cancelInteractions
+      stop: this.edgeInput.cancelInteractions
     })
     this.registry.register({
       stop: this.nodeActor.cancelInteractions
     })
     this.registry.register({
-      stop: this.mindmapActor.cancelDrag
+      stop: this.mindmapInput.cancelDrag
     })
     this.registry.register({
-      stop: this.edgeActor.resetTransientState
+      stop: this.edgeInput.resetTransientState
     })
     this.registry.register({
       stop: this.nodeActor.resetTransientState
     })
     this.registry.register({
-      stop: this.mindmapActor.resetTransientState
+      stop: this.mindmapInput.resetTransientState
     })
     this.registry.register({
       stop: this.context.shortcuts.dispose
@@ -122,7 +131,7 @@ export class Lifecycle implements LifecycleApi {
   update: LifecycleApi['update'] = (config) => {
     this.applyConfig(config)
     if (config.tool !== 'edge') {
-      this.edgeActor.hoverCancel()
+      this.edgeInput.hoverCancel()
     }
   }
 

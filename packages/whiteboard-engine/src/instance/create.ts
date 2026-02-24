@@ -26,6 +26,9 @@ import { Actor as NodeActor } from '../runtime/actors/node/Actor'
 import { Actor as SelectionActor } from '../runtime/actors/selection/Actor'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
+import { NodeInputGateway } from '../runtime/nodeInput/Gateway'
+import { EdgeInputGateway } from '../runtime/edgeInput/Gateway'
+import { MindmapInputGateway } from '../runtime/mindmapInput/Gateway'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
@@ -110,14 +113,27 @@ export const createEngine = ({
   instance.mutate = mutate
 
   const edgeActor = new EdgeActor({
+    instance
+  })
+  const edgeInputGateway = new EdgeInputGateway({
     instance,
     scheduler
   })
   const nodeActor = new NodeActor({
     instance
   })
+  const nodeInputGateway = new NodeInputGateway({
+    instance
+  })
   const mindmapActor = new MindmapActor({
     instance
+  })
+  const mindmapInputGateway = new MindmapInputGateway({
+    instance,
+    mindmap: {
+      moveRoot: mindmapActor.moveRoot,
+      moveSubtreeWithDrop: mindmapActor.moveSubtreeWithDrop
+    }
   })
   const interactionActor = new InteractionActor({
     state
@@ -268,10 +284,16 @@ export const createEngine = ({
       state,
       commands,
       query: queryRuntime.query,
-      actors: {
-        edge: edgeActor,
-        node: nodeActor,
-        mindmap: mindmapActor
+      nodeInput: {
+        drag: nodeInputGateway.node,
+        transform: nodeInputGateway.nodeTransform
+      },
+      edgeInput: {
+        connect: edgeInputGateway.connectInput,
+        routing: edgeInputGateway.routingInput
+      },
+      mindmapInput: {
+        drag: mindmapInputGateway.dragInput
       },
       viewport: {
         getZoom: queryRuntime.query.viewport.getZoom,
@@ -292,7 +314,8 @@ export const createEngine = ({
       emit: events.emit
     },
     {
-      edge: edgeActor,
+      edgeInput: edgeInputGateway,
+      mindmapInput: mindmapInputGateway,
       groupAutoFit: groupAutoFitActor,
       node: nodeActor,
       mindmap: mindmapActor,
@@ -319,6 +342,8 @@ export const createEngine = ({
       lifecycleRuntime.update(nextConfig)
     },
     stop: () => {
+      nodeInputGateway.node.cancel()
+      nodeInputGateway.nodeTransform.cancel()
       lifecycleRuntime.stop()
       prevHistoryDocId = undefined
       scheduler.cancelAll()

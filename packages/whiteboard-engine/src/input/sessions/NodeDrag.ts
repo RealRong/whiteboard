@@ -1,5 +1,4 @@
 import type { PointerSession } from '@engine-types/input'
-import { resolveSelectionMode } from '../shared/selection'
 
 export const createNodeDrag = (): PointerSession => ({
   kind: 'nodeDrag',
@@ -26,26 +25,23 @@ export const createNodeDrag = (): PointerSession => ({
       const nodeRect = context.query.canvas.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return null
 
-      const mode = resolveSelectionMode(event.modifiers)
-      if (mode === 'toggle') {
-        context.commands.selection.toggle([nodeId])
-      } else {
-        context.commands.selection.select([nodeId], mode)
-      }
-
-      const started = context.actors.node.startDrag(nodeId, event.pointer)
+      const started = context.nodeInput.drag.start({
+        nodeId,
+        pointer: event.pointer,
+        modifiers: event.modifiers
+      })
       if (!started) return null
     }
     return {
       pointerId: event.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.actors.node.updateDrag(nextEvent.pointer)
+        nextContext.nodeInput.drag.update(nextEvent.pointer)
       },
       end: (nextEvent, nextContext) => {
-        nextContext.actors.node.endDrag(nextEvent.pointer)
+        nextContext.nodeInput.drag.end(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.actors.node.cancelDrag()
+        nextContext.nodeInput.drag.cancel()
       }
     }
   }

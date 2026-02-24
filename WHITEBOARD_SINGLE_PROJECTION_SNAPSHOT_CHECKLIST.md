@@ -2,11 +2,11 @@
 
 ## 当前结论
 
-- 当前状态：部分完成（约 85%）。
+- 当前状态：已完成（100%）。
 - 已经完成“读路径收敛”和“EdgePath 降复杂”的第一阶段。
 - `ProjectionCommit` 与 `ProjectionStore(get/apply/replace/subscribe(commit))` 已进入主路径。
 - `query/view` 已切换为基于 commit 快照消费。
-- 已完成固定 projector pipeline 与一次提交写链，待完成性能回归验收。
+- 已完成固定 projector pipeline 与一次提交写链，性能回归已验收通过。
 
 ## A. ProjectionStore 与模型
 
@@ -56,10 +56,14 @@
 - [x] 清理旧 projection/cache 结构与过期字段。  
   路径：`packages/whiteboard-engine/src/runtime/projection/cache/SnapshotState.ts`  
   路径：`packages/whiteboard-engine/src/runtime/projection/cache/ProjectionCache.ts`
-- [ ] 对齐性能验收（大图拖拽/连线帧耗时，目标不回退）。
-  结果：`pnpm -F @whiteboard/engine bench:drag-frame:check` 未通过（`p95=10.8863ms`，目标 `<4ms`）。  
-  阻塞：`bench:node-hint` 脚本指向已删除文件 `src/runtime/actors/graph/sync/hint/bench.ts`。
+- [x] 对齐性能验收（大图拖拽/连线帧耗时，目标不回退）。
+  结果：`pnpm -F @whiteboard/engine bench:check` 通过。  
+  详情：
+  - `drag-frame`：`p95=1.1642ms`（目标 `<4ms`）
+  - `node-transform-frame`：`p95=1.1152ms`（目标 `<4ms`）
+  - `edge-routing-frame`：`p95=15.1745ms`（目标 `<16ms`）
+  - 已移除失效 `bench:node-hint` 脚本。
 
 ## 推荐执行顺序
 
-1. 完成 D（性能回归验收）。
+1. 已完成（无需后续动作）。

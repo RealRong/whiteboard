@@ -24,7 +24,7 @@ export const createMindmapDrag = (): PointerSession => ({
       if (active.kind !== 'mindmapDrag' || active.pointerId !== event.pointerId) return null
     } else {
       if (!event.target.treeId || !event.target.nodeId) return null
-      const started = context.actors.mindmap.startDrag(
+      const started = context.mindmapInput.drag.start(
         event.target.treeId,
         event.target.nodeId,
         event.pointer
@@ -34,13 +34,13 @@ export const createMindmapDrag = (): PointerSession => ({
     return {
       pointerId: event.pointerId,
       update: (nextEvent, nextContext) => {
-        nextContext.actors.mindmap.updateDrag(nextEvent.pointer)
+        nextContext.mindmapInput.drag.update(nextEvent.pointer)
       },
       end: (nextEvent, nextContext) => {
-        nextContext.actors.mindmap.endDrag(nextEvent.pointer)
+        nextContext.mindmapInput.drag.end(nextEvent.pointer)
       },
       cancel: (_reason, nextContext) => {
-        nextContext.actors.mindmap.cancelDrag()
+        nextContext.mindmapInput.drag.cancel()
       }
     }
   }
