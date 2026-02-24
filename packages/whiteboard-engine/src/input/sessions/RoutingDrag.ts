@@ -4,9 +4,9 @@ export const createRoutingDrag = (): PointerSession => ({
   kind: 'routingDrag',
   priority: 70,
   canStart: (event, context) => {
-    const active = context.state.read('routingDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      return active.pointerId === event.pointerId
+      return active.kind === 'routingDrag' && active.pointerId === event.pointerId
     }
     if (event.phase !== 'down') return false
     if (event.source !== 'container') return false
@@ -19,9 +19,9 @@ export const createRoutingDrag = (): PointerSession => ({
     )
   },
   start: (event, context) => {
-    const active = context.state.read('routingDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      if (active.pointerId !== event.pointerId) return null
+      if (active.kind !== 'routingDrag' || active.pointerId !== event.pointerId) return null
     } else {
       if (!event.target.edgeId || !Number.isInteger(event.target.routingIndex)) return null
       if (event.clickCount >= 2) {

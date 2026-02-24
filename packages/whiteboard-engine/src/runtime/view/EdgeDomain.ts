@@ -5,6 +5,7 @@ import type {
   EdgeSelectedRoutingView,
   EdgesView
 } from '@engine-types/instance/view'
+import type { ProjectionChange } from '@engine-types/projection'
 import type { EdgeId } from '@whiteboard/core/types'
 import {
   createIndexedState,
@@ -21,25 +22,20 @@ type EdgeDerivations = {
 export type EdgeStateSyncKey =
   | 'tool'
   | 'edgeConnect'
-  | 'edgeSelection'
-
-export type EdgeProjectionSyncInput = {
-  fullSync: boolean
-  canvasNodesChanged: boolean
-  visibleEdgesChanged: boolean
-}
+  | 'selection'
 
 type Options = {
   derive: EdgeDerivations
+  applyProjection: (change: ProjectionChange) => void
 }
 
 export type EdgeDomain = {
   syncState: (key: EdgeStateSyncKey) => boolean
-  syncProjection: (input: EdgeProjectionSyncInput) => boolean
+  syncProjection: (change: ProjectionChange) => boolean
   getState: () => EdgesView
 }
 
-export const createEdgeDomain = ({ derive }: Options): EdgeDomain => {
+export const createEdgeDomain = ({ derive, applyProjection }: Options): EdgeDomain => {
   let edgeIndex = createIndexedState<EdgeId, EdgePathEntry>(
     [],
     (entry) => entry.id
@@ -94,11 +90,11 @@ export const createEdgeDomain = ({ derive }: Options): EdgeDomain => {
     return changed
   }
 
-  const syncProjection = ({
-    fullSync,
-    canvasNodesChanged,
-    visibleEdgesChanged
-  }: EdgeProjectionSyncInput) => {
+  const syncProjection = (change: ProjectionChange) => {
+    applyProjection(change)
+    const fullSync = change.kind === 'full'
+    const canvasNodesChanged = change.projection.canvasNodesChanged
+    const visibleEdgesChanged = change.projection.visibleEdgesChanged
     const shouldSyncEdgePaths =
       fullSync ||
       canvasNodesChanged ||

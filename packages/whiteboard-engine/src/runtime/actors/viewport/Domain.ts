@@ -1,25 +1,19 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { ApplyMutationsApi } from '@engine-types/command'
 import { panViewport, zoomViewport } from '@whiteboard/core/geometry'
 import type { DispatchResult, Point, Viewport } from '@whiteboard/core/types'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 
-type DomainInstance = Pick<InternalInstance, 'runtime'>
-
 type DomainOptions = {
-  instance: DomainInstance
-  mutate: ApplyMutationsApi
+  instance: Pick<InternalInstance, 'document' | 'mutate'>
 }
 
 export class Domain {
   readonly name = 'ViewportDomain'
 
-  private readonly instance: DomainInstance
-  private readonly mutate: ApplyMutationsApi
+  private readonly instance: DomainOptions['instance']
 
-  constructor({ instance, mutate }: DomainOptions) {
+  constructor({ instance }: DomainOptions) {
     this.instance = instance
-    this.mutate = mutate
   }
 
   private createInvalidResult = (message: string): DispatchResult => ({
@@ -29,13 +23,13 @@ export class Domain {
   })
 
   private readViewport = () =>
-    this.instance.runtime.document.get().viewport ?? DEFAULT_DOCUMENT_VIEWPORT
+    this.instance.document.get().viewport ?? DEFAULT_DOCUMENT_VIEWPORT
 
   private applyViewport = (
     before: Viewport,
     after: Viewport
   ): Promise<DispatchResult> =>
-    this.mutate(
+    this.instance.mutate(
       [
         {
           type: 'viewport.update',

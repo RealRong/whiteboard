@@ -75,9 +75,6 @@ export const DEFAULT_TUNING = {
   nodeDrag: {
     snapCrossThresholdRatio: 0.6
   },
-  nodeSizeObserver: {
-    sizeEpsilon: 0.5
-  },
   group: {
     rectEpsilon: 0.5
   },

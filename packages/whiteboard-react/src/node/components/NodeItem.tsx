@@ -1,34 +1,30 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
+import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
-import { useInstance } from '../../common/hooks'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
   node: NodeItemProps['item']['node']
-  handles: NonNullable<NodeItemProps['transformHandles']>
-  canRotate: boolean
+  handles: TransformHandle[]
+  zoom: number
 }
 const NODE_TRANSFORM_HANDLE_SIZE = 10
+const NODE_SIZE_EPSILON = 0.5
+const NODE_ROTATE_HANDLE_OFFSET = 24
 
 const NodeTransformHandles = ({
   node,
   handles,
-  canRotate
+  zoom
 }: NodeTransformHandlesProps) => {
-  const instance = useInstance()
-  const getZoom = instance.runtime.viewport.getZoom
-  const filteredHandles = useMemo(
-    () => (canRotate ? handles : handles.filter((handle) => handle.kind !== 'rotate')),
-    [canRotate, handles]
-  )
-
   return (
     <>
-      {filteredHandles.map((handle) => {
-        const half = NODE_TRANSFORM_HANDLE_SIZE / Math.max(getZoom(), 0.0001) / 2
+      {handles.map((handle) => {
+        const half = NODE_TRANSFORM_HANDLE_SIZE / Math.max(zoom, 0.0001) / 2
         return (
           <div
             key={handle.id}
@@ -51,19 +47,51 @@ const NodeTransformHandles = ({
   )
 }
 
-export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
+export const NodeItem = ({ item }: NodeItemProps) => {
   const instance = useInstance()
   const registry = useNodeRegistry()
   const node = item.node
   const rect = item.rect
-  const selected = item.selected
-  const hovered = item.hovered
-  const zoom = item.zoom
   const container = item.container
+  const activeTool = useWhiteboardSelector('tool')
+  const selected = useWhiteboardSelector(
+    (snapshot) => snapshot.selection.selectedNodeIds.has(node.id),
+    {
+      keys: ['selection']
+    }
+  )
+  const hovered = useWhiteboardSelector(
+    (snapshot) => snapshot.selection.groupHovered === node.id,
+    {
+      keys: ['selection']
+    }
+  )
+  const zoom = useWhiteboardSelector(
+    (snapshot) => snapshot.viewport.zoom,
+    {
+      keys: ['viewport']
+    }
+  )
   const containerRef = useRef<HTMLDivElement>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const measureFrameRef = useRef<number | null>(null)
+  const pendingSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const lastSizeRef = useRef<{ width: number; height: number } | null>(null)
   const definition = useMemo(() => registry.get(node.type), [node.type, registry])
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : node.type !== 'group'
+
+  const transformHandles = useMemo<TransformHandle[]>(() => {
+    if (activeTool !== 'select') return []
+    if (!selected || node.locked) return []
+    return buildTransformHandles({
+      rect,
+      rotation: container.rotation,
+      canRotate,
+      rotateHandleOffset: NODE_ROTATE_HANDLE_OFFSET,
+      zoom
+    })
+  }, [activeTool, canRotate, container.rotation, node.locked, rect, selected, zoom])
 
   const nodeStyle = useMemo(
     () =>
@@ -79,19 +107,84 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     [definition, hovered, instance.commands, instance.query, node, rect, selected, zoom]
   )
 
+  const emitMeasuredSize = useCallback(
+    (size: { width: number; height: number }) => {
+      if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return
+      if (size.width <= 0 || size.height <= 0) return
+      const prev = lastSizeRef.current
+      if (
+        prev
+        && Math.abs(prev.width - size.width) < NODE_SIZE_EPSILON
+        && Math.abs(prev.height - size.height) < NODE_SIZE_EPSILON
+      ) {
+        return
+      }
+      lastSizeRef.current = size
+      instance.commands.host.nodeMeasured(node.id, size)
+    },
+    [instance.commands.host, node.id]
+  )
+
+  const flushPendingMeasure = useCallback(() => {
+    measureFrameRef.current = null
+    const pending = pendingSizeRef.current
+    pendingSizeRef.current = null
+    if (!pending) return
+    emitMeasuredSize(pending)
+  }, [emitMeasuredSize])
+
+  const scheduleMeasure = useCallback(
+    (size: { width: number; height: number }) => {
+      pendingSizeRef.current = size
+      if (measureFrameRef.current !== null) return
+      if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+        flushPendingMeasure()
+        return
+      }
+      measureFrameRef.current = window.requestAnimationFrame(flushPendingMeasure)
+    },
+    [flushPendingMeasure]
+  )
+
   const setContainerRef = useCallback(
     (element: HTMLDivElement | null) => {
       if (containerRef.current === element) return
-      if (containerRef.current) {
-        instance.runtime.dom.nodeSize.unobserve(node.id)
+      if (containerRef.current && resizeObserverRef.current) {
+        resizeObserverRef.current.unobserve(containerRef.current)
       }
       containerRef.current = element
-      if (element) {
-        instance.runtime.dom.nodeSize.observe(node.id, element, true)
+      if (!element) return
+
+      const rect = element.getBoundingClientRect()
+      scheduleMeasure({ width: rect.width, height: rect.height })
+
+      if (typeof ResizeObserver === 'undefined') return
+      if (!resizeObserverRef.current) {
+        resizeObserverRef.current = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const target = entry.target as HTMLElement | null
+            if (!target || target !== containerRef.current) continue
+            const box = entry.borderBoxSize?.[0]
+            scheduleMeasure({
+              width: box?.inlineSize ?? entry.contentRect.width,
+              height: box?.blockSize ?? entry.contentRect.height
+            })
+          }
+        })
       }
+      resizeObserverRef.current.observe(element)
     },
-    [instance.runtime.dom.nodeSize, node.id]
+    [scheduleMeasure]
   )
+
+  useEffect(() => () => {
+    if (measureFrameRef.current !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(measureFrameRef.current)
+      measureFrameRef.current = null
+    }
+    resizeObserverRef.current?.disconnect()
+    resizeObserverRef.current = null
+  }, [])
 
   const handlePointerEnter = useCallback(() => {
     instance.commands.interaction.update({ hover: { nodeId: node.id } })
@@ -144,8 +237,7 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
     [definition, renderProps]
   )
 
-  const resolvedTransformHandles = transformHandles ?? []
-  const shouldMountTransform = resolvedTransformHandles.length > 0
+  const shouldMountTransform = transformHandles.length > 0
 
   return (
     <>
@@ -167,8 +259,8 @@ export const NodeItem = ({ item, transformHandles }: NodeItemProps) => {
       {shouldMountTransform ? (
         <NodeTransformHandles
           node={node}
-          handles={resolvedTransformHandles}
-          canRotate={canRotate}
+          handles={transformHandles}
+          zoom={zoom}
         />
       ) : null}
     </>

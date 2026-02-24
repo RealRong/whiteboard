@@ -17,10 +17,8 @@ export type EdgeReconnectInfo = {
 }
 
 export type EdgeConnectState = {
-  isConnecting: boolean
   from?: EdgeConnectFrom
   to?: EdgeConnectTo
   hover?: EdgeConnectTo
   reconnect?: EdgeReconnectInfo
-  pointerId?: number | null
 }

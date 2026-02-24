@@ -1,97 +1,107 @@
-import type { Edge, Node, NodeId } from '@whiteboard/core/types'
-import type { ProjectionSnapshot } from '@engine-types/projection'
+import type { Document } from '@whiteboard/core/types'
+import type {
+  ProjectionEdgesSlice,
+  ProjectionIndexesSlice,
+  ProjectionMindmapSlice,
+  ProjectionNodesSlice,
+  ProjectionSnapshot
+} from '@engine-types/projection'
 import {
   EMPTY_EDGES,
+  EMPTY_INDEX_BY_ID,
+  EMPTY_NODE_IDS,
   EMPTY_NODE_MAP,
-  EMPTY_NODES,
-  buildIndexById,
-  isSameRefList
+  EMPTY_NODES
 } from './shared'
 
 type SnapshotInput = {
-  visibleNodes: Node[]
-  canvasNodes: Node[]
-  visibleEdges: Edge[]
+  docId: Document['id'] | undefined
+  nodes: ProjectionNodesSlice
+  edges: ProjectionEdgesSlice
+  mindmap: ProjectionMindmapSlice
+  indexes: ProjectionIndexesSlice
 }
 
 export class SnapshotState {
   private snapshot: ProjectionSnapshot = {
-    visibleNodes: EMPTY_NODES,
-    canvasNodes: EMPTY_NODES,
-    canvasNodeById: EMPTY_NODE_MAP,
-    visibleEdges: EMPTY_EDGES
+    revision: 0,
+    docId: undefined,
+    nodes: {
+      visible: EMPTY_NODES,
+      canvas: EMPTY_NODES
+    },
+    edges: {
+      visible: EMPTY_EDGES
+    },
+    mindmap: {
+      roots: EMPTY_NODE_IDS
+    },
+    indexes: {
+      canvasNodeById: EMPTY_NODE_MAP,
+      visibleNodeIndexById: EMPTY_INDEX_BY_ID,
+      canvasNodeIndexById: EMPTY_INDEX_BY_ID
+    }
   }
-
-  private visibleNodeIndexById = new Map<NodeId, number>()
-  private canvasNodeIndexById = new Map<NodeId, number>()
 
   read = () => this.snapshot
 
-  readVisibleNodeIndex = () => this.visibleNodeIndexById
-
-  readCanvasNodeIndex = () => this.canvasNodeIndexById
-
   reset = () => {
-    this.visibleNodeIndexById = new Map<NodeId, number>()
-    this.canvasNodeIndexById = new Map<NodeId, number>()
-    if (
-      this.snapshot.visibleNodes === EMPTY_NODES &&
-      this.snapshot.canvasNodes === EMPTY_NODES &&
-      this.snapshot.canvasNodeById === EMPTY_NODE_MAP &&
-      this.snapshot.visibleEdges === EMPTY_EDGES
-    ) {
-      return this.snapshot
-    }
+    const previous = this.snapshot
+    const isEmpty =
+      previous.docId === undefined &&
+      previous.nodes.visible === EMPTY_NODES &&
+      previous.nodes.canvas === EMPTY_NODES &&
+      previous.edges.visible === EMPTY_EDGES &&
+      previous.mindmap.roots === EMPTY_NODE_IDS &&
+      previous.indexes.canvasNodeById === EMPTY_NODE_MAP &&
+      previous.indexes.visibleNodeIndexById === EMPTY_INDEX_BY_ID &&
+      previous.indexes.canvasNodeIndexById === EMPTY_INDEX_BY_ID
+    if (isEmpty) return previous
+
     this.snapshot = {
-      visibleNodes: EMPTY_NODES,
-      canvasNodes: EMPTY_NODES,
-      canvasNodeById: EMPTY_NODE_MAP,
-      visibleEdges: EMPTY_EDGES
+      revision: previous.revision + 1,
+      docId: undefined,
+      nodes: {
+        visible: EMPTY_NODES,
+        canvas: EMPTY_NODES
+      },
+      edges: {
+        visible: EMPTY_EDGES
+      },
+      mindmap: {
+        roots: EMPTY_NODE_IDS
+      },
+      indexes: {
+        canvasNodeById: EMPTY_NODE_MAP,
+        visibleNodeIndexById: EMPTY_INDEX_BY_ID,
+        canvasNodeIndexById: EMPTY_INDEX_BY_ID
+      }
     }
     return this.snapshot
   }
 
-  apply = ({
-    visibleNodes: nextVisibleNodes,
-    canvasNodes: nextCanvasNodes,
-    visibleEdges: nextVisibleEdges
-  }: SnapshotInput): ProjectionSnapshot => {
+  apply = ({ docId, nodes, edges, mindmap, indexes }: SnapshotInput): ProjectionSnapshot => {
     const previous = this.snapshot
-    const visibleNodes = isSameRefList(previous.visibleNodes, nextVisibleNodes)
-      ? previous.visibleNodes
-      : nextVisibleNodes
-    const canvasNodes = isSameRefList(previous.canvasNodes, nextCanvasNodes)
-      ? previous.canvasNodes
-      : nextCanvasNodes
-    const canvasNodeById =
-      canvasNodes === previous.canvasNodes
-        ? previous.canvasNodeById
-        : new Map(canvasNodes.map((node) => [node.id, node]))
-    const visibleEdges = isSameRefList(previous.visibleEdges, nextVisibleEdges)
-      ? previous.visibleEdges
-      : nextVisibleEdges
+    const changed =
+      docId !== previous.docId ||
+      nodes.visible !== previous.nodes.visible ||
+      nodes.canvas !== previous.nodes.canvas ||
+      edges.visible !== previous.edges.visible ||
+      mindmap.roots !== previous.mindmap.roots ||
+      indexes.canvasNodeById !== previous.indexes.canvasNodeById ||
+      indexes.visibleNodeIndexById !== previous.indexes.visibleNodeIndexById ||
+      indexes.canvasNodeIndexById !== previous.indexes.canvasNodeIndexById
 
-    if (visibleNodes !== previous.visibleNodes) {
-      this.visibleNodeIndexById = buildIndexById(visibleNodes)
-    }
-    if (canvasNodes !== previous.canvasNodes) {
-      this.canvasNodeIndexById = buildIndexById(canvasNodes)
-    }
+    if (!changed) return previous
 
-    if (
-      visibleNodes !== previous.visibleNodes ||
-      canvasNodes !== previous.canvasNodes ||
-      canvasNodeById !== previous.canvasNodeById ||
-      visibleEdges !== previous.visibleEdges
-    ) {
-      this.snapshot = {
-        visibleNodes,
-        canvasNodes,
-        canvasNodeById,
-        visibleEdges
-      }
+    this.snapshot = {
+      revision: previous.revision + 1,
+      docId,
+      nodes,
+      edges,
+      mindmap,
+      indexes
     }
-
     return this.snapshot
   }
 }

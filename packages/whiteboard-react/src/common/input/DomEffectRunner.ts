@@ -1,26 +1,26 @@
-import type { InputEffect, Instance } from '@whiteboard/engine'
+import type { InputEffect } from '@whiteboard/engine'
 
 type DomEffectRunnerOptions = {
-  instance: Instance
+  getContainer: () => HTMLDivElement | null
   onWindowPointerMove: (event: PointerEvent) => void
   onWindowPointerUp: (event: PointerEvent) => void
   onWindowPointerCancel: (event: PointerEvent) => void
 }
 
 export class DomEffectRunner {
-  private instance: Instance
+  private getContainer: () => HTMLDivElement | null
   private onWindowPointerMove: (event: PointerEvent) => void
   private onWindowPointerUp: (event: PointerEvent) => void
   private onWindowPointerCancel: (event: PointerEvent) => void
   private offWindowPointer: (() => void) | null = null
 
   constructor({
-    instance,
+    getContainer,
     onWindowPointerMove,
     onWindowPointerUp,
     onWindowPointerCancel
   }: DomEffectRunnerOptions) {
-    this.instance = instance
+    this.getContainer = getContainer
     this.onWindowPointerMove = onWindowPointerMove
     this.onWindowPointerUp = onWindowPointerUp
     this.onWindowPointerCancel = onWindowPointerCancel
@@ -59,7 +59,7 @@ export class DomEffectRunner {
   }
 
   private capturePointer = (pointerId: number) => {
-    const container = this.instance.runtime.containerRef.current
+    const container = this.getContainer()
     if (!container) return
     try {
       container.setPointerCapture(pointerId)
@@ -69,7 +69,7 @@ export class DomEffectRunner {
   }
 
   private releasePointer = (pointerId: number) => {
-    const container = this.instance.runtime.containerRef.current
+    const container = this.getContainer()
     if (!container) return
     try {
       container.releasePointerCapture(pointerId)
@@ -79,7 +79,7 @@ export class DomEffectRunner {
   }
 
   private setCursor = (cursor: string) => {
-    const container = this.instance.runtime.containerRef.current
+    const container = this.getContainer()
     if (!container) return
     container.style.cursor = cursor
   }

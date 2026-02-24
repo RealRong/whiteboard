@@ -5,7 +5,6 @@ import type {
   WritableStateKey,
   WritableStateSnapshot
 } from '@engine-types/instance/state'
-import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
 import { ProjectionStore } from '../../runtime/projection/Store'
 import { WritableStore } from '../store'
 import { createInitialState } from '../initialState'
@@ -18,33 +17,23 @@ type Result = {
 
 type Options = {
   getDoc: () => Document | null
+  readViewport: () => Viewport
 }
 
-const toViewport = (
-  doc: Document | null,
-  previous?: Viewport
-): Viewport => {
-  const source = doc?.viewport
-  const nextCenterX = source?.center?.x ?? DEFAULT_DOCUMENT_VIEWPORT.center.x
-  const nextCenterY = source?.center?.y ?? DEFAULT_DOCUMENT_VIEWPORT.center.y
-  const nextZoom = source?.zoom ?? DEFAULT_DOCUMENT_VIEWPORT.zoom
+const cloneViewport = (viewport: Viewport): Viewport => ({
+  center: {
+    x: viewport.center.x,
+    y: viewport.center.y
+  },
+  zoom: viewport.zoom
+})
 
-  if (
-    previous &&
-    previous.center.x === nextCenterX &&
-    previous.center.y === nextCenterY &&
-    previous.zoom === nextZoom
-  ) {
-    return previous
-  }
+const isSameViewport = (left: Viewport, right: Viewport) =>
+  left.zoom === right.zoom
+  && left.center.x === right.center.x
+  && left.center.y === right.center.y
 
-  return {
-    center: { x: nextCenterX, y: nextCenterY },
-    zoom: nextZoom
-  }
-}
-
-export const createState = ({ getDoc }: Options): Result => {
+export const createState = ({ getDoc, readViewport }: Options): Result => {
   const store = new WritableStore<WritableStateSnapshot>(
     createInitialState()
   )
@@ -53,19 +42,19 @@ export const createState = ({ getDoc }: Options): Result => {
 
   const viewportListeners = new Set<() => void>()
   const changeListeners = new Set<(key: StateKey) => void>()
-  let viewportSnapshot = toViewport(getDoc())
+  let viewportSnapshot = cloneViewport(readViewport())
 
   const readState = ((key) => {
     if (key === 'viewport') {
-      return viewportSnapshot
+      return readViewport()
     }
     return store.get(key as WritableStateKey)
   }) as State['read']
 
   const syncViewport = () => {
-    const nextViewport = toViewport(getDoc(), viewportSnapshot)
-    if (Object.is(nextViewport, viewportSnapshot)) return
-    viewportSnapshot = nextViewport
+    const nextViewport = readViewport()
+    if (isSameViewport(nextViewport, viewportSnapshot)) return
+    viewportSnapshot = cloneViewport(nextViewport)
     if (!viewportListeners.size) return
     viewportListeners.forEach((listener) => listener())
     notifyChange('viewport')

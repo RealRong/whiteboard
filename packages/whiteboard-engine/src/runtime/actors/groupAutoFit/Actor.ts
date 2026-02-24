@@ -1,16 +1,16 @@
 import type { Node } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
-import type { GroupAutoFit as GroupAutoFitApi } from '@engine-types/instance/services'
-import type { GroupAutoFitContext } from '../../../contracts'
-import { MicrotaskTask } from '../../../TaskQueue'
-import { DEFAULT_TUNING } from '../../../../config'
+import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Scheduler } from '../../Scheduler'
+import { MicrotaskTask } from '../../TaskQueue'
+import { DEFAULT_TUNING } from '../../../config'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
   getGroupDescendants,
   getNodesBoundingRect,
   rectEquals
-} from '../domain'
+} from '../node/domain'
 
 type Snapshot = {
   nodeMap: Map<string, Node>
@@ -21,6 +21,11 @@ type LayoutSnapshot = {
   width: number
   height: number
   padding: number
+}
+
+type ActorOptions = {
+  instance: Pick<InternalInstance, 'document' | 'config' | 'mutate' | 'events'>
+  scheduler: Scheduler
 }
 
 const createNodeSignature = (node: Node) => {
@@ -148,7 +153,7 @@ const applyGroupAutoFit = ({
   nodeSize,
   defaultPadding
 }: {
-  mutate: GroupAutoFitContext['mutate']
+  mutate: ActorOptions['instance']['mutate']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -181,31 +186,28 @@ const applyGroupAutoFit = ({
   )
 }
 
-export class GroupAutoFit implements GroupAutoFitApi {
-  private readonly context: GroupAutoFitContext
+export class Actor {
+  readonly name = 'GroupAutoFit'
+
+  private readonly instance: ActorOptions['instance']
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private started = false
+  private offDocChanged: (() => void) | null = null
   private readonly syncTask: MicrotaskTask
 
-  constructor(context: GroupAutoFitContext) {
-    this.context = context
-    this.syncTask = new MicrotaskTask(context.scheduler, this.triggerSync)
+  constructor({ instance, scheduler }: ActorOptions) {
+    this.instance = instance
+    this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
   }
 
-  reset: GroupAutoFitApi['reset'] = () => {
-    this.snapshot = null
-    this.layoutSnapshot = null
-    this.lastDocId = undefined
-  }
-
-  sync: GroupAutoFitApi['sync'] = () => {
-    const doc = this.context.runtime.document.get()
+  private runSync = () => {
+    const doc = this.instance.document.get()
     const docId = doc.id
     const nodes = doc.nodes
-    const nodeSize = this.context.runtime.config.nodeSize
-    const padding = this.context.runtime.config.node.groupPadding
+    const nodeSize = this.instance.config.nodeSize
+    const padding = this.instance.config.node.groupPadding
 
     if (docId !== this.lastDocId) {
       this.snapshot = null
@@ -224,7 +226,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
 
     groupsToProcess.forEach((group) => {
       applyGroupAutoFit({
-        mutate: this.context.mutate,
+        mutate: this.instance.mutate,
         nodes,
         group,
         nodeSize,
@@ -238,7 +240,7 @@ export class GroupAutoFit implements GroupAutoFitApi {
 
   private triggerSync = () => {
     if (!this.started) return
-    this.sync()
+    this.runSync()
   }
 
   private scheduleSync = () => {
@@ -246,28 +248,27 @@ export class GroupAutoFit implements GroupAutoFitApi {
     this.syncTask.schedule()
   }
 
-  stop: GroupAutoFitApi['stop'] = () => {
+  stop = () => {
     if (!this.started) return
     this.started = false
+    this.offDocChanged?.()
+    this.offDocChanged = null
     this.syncTask.cancel()
   }
 
-  start: GroupAutoFitApi['start'] = () => {
-    if (this.started) return this.stop
+  start = () => {
+    if (this.started) return
     this.started = true
+    this.offDocChanged = this.instance.events.on('doc.changed', ({ operationTypes }) => {
+      this.handleMutations(operationTypes)
+    })
     this.scheduleSync()
-    return this.stop
   }
 
-  onDocumentChanged = (operationTypes: string[]) => {
+  private handleMutations = (operationTypes: string[]) => {
     const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
     const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
     if (!hasRelevantChange) return
     this.scheduleSync()
-  }
-
-  dispose: GroupAutoFitApi['dispose'] = () => {
-    this.stop()
-    this.reset()
   }
 }

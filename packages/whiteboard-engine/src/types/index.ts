@@ -10,6 +10,7 @@ export type {
   ProjectionFullChange,
   ProjectionPartialChange,
   ProjectionInvalidation,
+  ProjectionCommit,
   ProjectionChangeSource,
   ProjectionSyncInput,
   ProjectionStore,
@@ -29,7 +30,6 @@ export type {
   InputCommand,
   InputResult,
   InputDispatchResult,
-  InputConfig,
   InputController,
   InputPort,
   InputSessionContext,
@@ -56,7 +56,6 @@ export type {
   MindmapView,
   MindmapDragView,
   NodesView,
-  NodeTransformHandle,
   MindmapViewTree,
   MindmapViewTreeLine,
   NodeViewItem,
@@ -90,7 +89,7 @@ export type {
   Shortcuts
 } from './shortcuts'
 export type {
-  RoutingDragActiveState,
+  RoutingDragPayload,
   RoutingDragState,
   EdgeConnectFrom,
   EdgeConnectState,
@@ -102,8 +101,9 @@ export type {
   MindmapDragState,
   MindmapRootDragState,
   MindmapSubtreeDragState,
-  NodeDragActiveState,
+  NodeDragPayload,
   NodeDragState,
+  NodeTransformPayload,
   TransformDragState,
   ResizeDirection,
   ResizeDragState,

@@ -6,7 +6,6 @@ import { createNodeDrag } from './NodeDrag'
 import { createNodeTransform } from './NodeTransform'
 import { createRoutingDrag } from './RoutingDrag'
 import { createSelectionBox } from './SelectionBox'
-import { createViewportPan } from './ViewportPan'
 
 export const createDefaultPointerSessions = (): PointerSession[] => [
   createNodeTransform(),
@@ -15,6 +14,5 @@ export const createDefaultPointerSessions = (): PointerSession[] => [
   createEdgePath(),
   createRoutingDrag(),
   createMindmapDrag(),
-  createSelectionBox(),
-  createViewportPan()
+  createSelectionBox()
 ]

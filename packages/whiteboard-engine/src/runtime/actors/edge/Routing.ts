@@ -1,4 +1,5 @@
 import type {
+  RoutingDragPayload,
   RoutingDragCancelOptions,
   RoutingDragEndOptions,
   RoutingDragStartOptions,
@@ -18,20 +19,65 @@ type RoutingOptions = {
 export class Routing {
   private readonly instance: RoutingInstance
   private readonly submitMutations: SubmitMutations
+  private session: RoutingDragPayload | null = null
 
   constructor({ instance, submitMutations }: RoutingOptions) {
     this.instance = instance
     this.submitMutations = submitMutations
   }
 
+  private setInteractionSession = (pointerId?: number) => {
+    this.instance.state.write('interactionSession', (prev) => {
+      if (pointerId !== undefined) {
+        if (
+          prev.active?.kind === 'routingDrag'
+          && prev.active.pointerId === pointerId
+        ) {
+          return prev
+        }
+        return {
+          active: {
+            kind: 'routingDrag',
+            pointerId
+          }
+        }
+      }
+      if (prev.active?.kind !== 'routingDrag') return prev
+      return {}
+    })
+  }
+
   private clear = () => {
+    this.session = null
     this.instance.state.write('routingDrag', {})
+    this.setInteractionSession(undefined)
+  }
+
+  private readActive = (pointerId?: number) => {
+    const session = this.instance.state.read('interactionSession').active
+    if (!session || session.kind !== 'routingDrag') return undefined
+    if (pointerId !== undefined && session.pointerId !== pointerId) return undefined
+
+    const active = this.session
+    if (!active) return undefined
+    if (active.pointerId !== session.pointerId) return undefined
+    return active
+  }
+
+  getPayload = () => this.readActive()
+
+  reset = () => {
+    this.clear()
   }
 
   private selectEdge = (edgeId: EdgeId) => {
-    this.instance.state.write('edgeSelection', (prev) =>
-      prev === edgeId ? prev : edgeId
-    )
+    this.instance.state.write('selection', (prev) => {
+      if (prev.selectedEdgeId === edgeId) return prev
+      return {
+        ...prev,
+        selectedEdgeId: edgeId
+      }
+    })
   }
 
   private moveRoutingPoint = (
@@ -65,25 +111,28 @@ export class Routing {
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {
     const { state, projection } = this.instance
-    if (state.read('routingDrag').active) return false
+    if (state.read('interactionSession').active) return false
 
-    const edge = projection.read().visibleEdges.find((item) => item.id === edgeId)
+    const edge = projection.get().edges.visible.find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false
 
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return false
 
     const start = pointer.world
+    const payload: RoutingDragPayload = {
+      edgeId,
+      index,
+      pointerId: pointer.pointerId,
+      start,
+      origin: points[index]
+    }
     state.batch(() => {
+      this.session = payload
       state.write('routingDrag', {
-        active: {
-          edgeId,
-          index,
-          pointerId: pointer.pointerId,
-          start,
-          origin: points[index]
-        }
+        payload
       })
+      this.setInteractionSession(pointer.pointerId)
       this.selectEdge(edgeId)
     })
 
@@ -91,11 +140,11 @@ export class Routing {
   }
 
   update = ({ pointer }: RoutingDragUpdateOptions) => {
-    const { state, projection } = this.instance
-    const active = state.read('routingDrag').active
-    if (!active || active.pointerId !== pointer.pointerId) return false
+    const { projection } = this.instance
+    const active = this.readActive(pointer.pointerId)
+    if (!active) return false
 
-    const edge = projection.read().visibleEdges.find((item) => item.id === active.edgeId)
+    const edge = projection.get().edges.visible.find((item) => item.id === active.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       this.clear()
       return false
@@ -124,14 +173,14 @@ export class Routing {
   }
 
   end = ({ pointer }: RoutingDragEndOptions) => {
-    const active = this.instance.state.read('routingDrag').active
-    if (!active || active.pointerId !== pointer.pointerId) return false
+    const active = this.readActive(pointer.pointerId)
+    if (!active) return false
     this.clear()
     return true
   }
 
   cancel = (options?: RoutingDragCancelOptions) => {
-    const active = this.instance.state.read('routingDrag').active
+    const active = this.readActive(options?.pointer?.pointerId)
     if (!active) return false
     if (options?.pointer && active.pointerId !== options.pointer.pointerId) return false
     this.clear()

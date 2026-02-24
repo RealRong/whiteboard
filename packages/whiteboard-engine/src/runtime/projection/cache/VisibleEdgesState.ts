@@ -48,12 +48,4 @@ export class VisibleEdgesState {
     }
     return visibleEdges
   }
-
-  syncVisibleEdgesRef = (visibleEdges: Edge[]) => {
-    if (!this.cache || this.cache.visibleEdges === visibleEdges) return
-    this.cache = {
-      ...this.cache,
-      visibleEdges
-    }
-  }
 }

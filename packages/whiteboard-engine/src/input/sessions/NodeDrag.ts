@@ -5,9 +5,9 @@ export const createNodeDrag = (): PointerSession => ({
   kind: 'nodeDrag',
   priority: 90,
   canStart: (event, context) => {
-    const active = context.state.read('nodeDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      return active.pointerId === event.pointerId
+      return active.kind === 'nodeDrag' && active.pointerId === event.pointerId
     }
     if (event.phase !== 'down') return false
     if (event.source !== 'container') return false
@@ -17,9 +17,9 @@ export const createNodeDrag = (): PointerSession => ({
     return event.target.role === 'node' && Boolean(event.target.nodeId)
   },
   start: (event, context) => {
-    const active = context.state.read('nodeDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      if (active.pointerId !== event.pointerId) return null
+      if (active.kind !== 'nodeDrag' || active.pointerId !== event.pointerId) return null
     } else {
       const nodeId = event.target.nodeId
       if (!nodeId) return null

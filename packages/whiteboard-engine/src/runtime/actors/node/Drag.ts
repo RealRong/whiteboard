@@ -25,7 +25,7 @@ import type { SubmitMutations } from '../shared/MutationCommit'
 
 type DragInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'runtime' | 'query'
+  'state' | 'projection' | 'query' | 'config' | 'viewport'
 >
 
 type DragChildren = {
@@ -70,19 +70,61 @@ export class Drag {
     this.submitMutations = submitMutations
   }
 
-  private getCanvasNodes = () => this.instance.projection.read().canvasNodes
+  private getCanvasNodes = () => this.instance.projection.get().nodes.canvas
 
-  private setDragState = (active?: {
+  private setDragState = (payload?: {
     pointerId: number
     nodeId: NodeId
     nodeType: Node['type']
   }) => {
-    this.instance.state.write('nodeDrag', active ? { active } : {})
+    this.instance.state.write('nodeDrag', payload ? { payload } : {})
+    this.instance.state.write('interactionSession', (prev) => {
+      if (payload) {
+        if (
+          prev.active?.kind === 'nodeDrag'
+          && prev.active.pointerId === payload.pointerId
+        ) {
+          return prev
+        }
+        return {
+          active: {
+            kind: 'nodeDrag',
+            pointerId: payload.pointerId
+          }
+        }
+      }
+      if (prev.active?.kind !== 'nodeDrag') return prev
+      return {}
+    })
+  }
+
+  private readSession = (pointerId?: number) => {
+    const session = this.session
+    if (!session) return undefined
+
+    const active = this.instance.state.read('interactionSession').active
+    if (
+      !active
+      || active.kind !== 'nodeDrag'
+      || active.pointerId !== session.pointerId
+    ) {
+      this.session = null
+      this.instance.state.write('nodeDrag', {})
+      return undefined
+    }
+
+    if (pointerId !== undefined && session.pointerId !== pointerId) return undefined
+    return session
   }
 
   private setHoveredGroup = (groupId?: NodeId) => {
-    if (this.instance.state.read('groupHovered') === groupId) return
-    this.instance.state.write('groupHovered', groupId)
+    this.instance.state.write('selection', (prev) => {
+      if (prev.groupHovered === groupId) return prev
+      return {
+        ...prev,
+        groupHovered: groupId
+      }
+    })
   }
 
   private clearGuides = () => {
@@ -157,8 +199,8 @@ export class Drag {
       return position
     }
 
-    const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
-    const nodeConfig = this.instance.runtime.config.node
+    const zoom = resolveInteractionZoom(this.instance.viewport.getZoom())
+    const nodeConfig = this.instance.config.node
     const thresholdWorld = resolveSnapThresholdWorld(nodeConfig, zoom)
     const movingRect: Rect = {
       x: position.x,
@@ -193,7 +235,7 @@ export class Drag {
     }
     const hovered = findSmallestGroupAtPoint(
       this.getCanvasNodes(),
-      this.instance.runtime.config.nodeSize,
+      this.instance.config.nodeSize,
       center,
       session.nodeId
     )
@@ -220,9 +262,9 @@ export class Drag {
     const currentNode = nodes.find((node) => node.id === session.nodeId)
     if (!currentNode) return
 
-    const hoveredId = this.instance.state.read('groupHovered')
+    const hoveredId = this.instance.state.read('selection').groupHovered
     const parentId = currentNode.parentId
-    const nodeSize = this.instance.runtime.config.nodeSize
+    const nodeSize = this.instance.config.nodeSize
 
     if (hoveredId && hoveredId !== parentId) {
       const hovered = nodes.find((node) => node.id === hoveredId)
@@ -242,7 +284,7 @@ export class Drag {
       const padding =
         hovered.data && typeof hovered.data.padding === 'number'
           ? hovered.data.padding
-          : this.instance.runtime.config.node.groupPadding
+          : this.instance.config.node.groupPadding
       const expanded = expandGroupRect(groupRect, contentRect, padding)
       if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
 
@@ -271,16 +313,16 @@ export class Drag {
   }
 
   start = ({ nodeId, pointer }: NodeDragStartOptions) => {
-    if (this.session) return false
-    if (this.instance.state.read('nodeDrag').active) return false
+    if (this.session && this.readSession(this.session.pointerId)) return false
+    if (this.instance.state.read('interactionSession').active) return false
     if (this.instance.state.read('tool') !== 'select') return false
 
     const node = this.getCanvasNodes().find((item) => item.id === nodeId)
     if (!node) return false
 
     const size = {
-      width: node.size?.width ?? this.instance.runtime.config.nodeSize.width,
-      height: node.size?.height ?? this.instance.runtime.config.nodeSize.height
+      width: node.size?.width ?? this.instance.config.nodeSize.width,
+      height: node.size?.height ?? this.instance.config.nodeSize.height
     }
     const origin = {
       x: node.position.x,
@@ -314,11 +356,11 @@ export class Drag {
   }
 
   update = ({ pointer }: NodeDragUpdateOptions) => {
-    const session = this.session
-    if (!session || session.pointerId !== pointer.pointerId) return false
+    const session = this.readSession(pointer.pointerId)
+    if (!session) return false
 
     this.instance.state.batchFrame(() => {
-      const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
+      const zoom = resolveInteractionZoom(this.instance.viewport.getZoom())
       let nextPosition = {
         x: session.origin.x + (pointer.client.x - session.start.x) / zoom,
         y: session.origin.y + (pointer.client.y - session.start.y) / zoom
@@ -343,8 +385,8 @@ export class Drag {
   }
 
   end = ({ pointer }: NodeDragEndOptions) => {
-    const session = this.session
-    if (!session || session.pointerId !== pointer.pointerId) return false
+    const session = this.readSession(pointer.pointerId)
+    if (!session) return false
 
     const finalPos = session.last
     if (session.children) {
@@ -363,7 +405,7 @@ export class Drag {
   }
 
   cancel = (options?: NodeDragCancelOptions) => {
-    const session = this.session
+    const session = this.readSession(options?.pointer?.pointerId)
     if (!session) return false
     if (options?.pointer && session.pointerId !== options.pointer.pointerId) {
       return false

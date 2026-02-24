@@ -1,16 +1,13 @@
 import type { Guide } from '@engine-types/node/snap'
-import type { ProjectionChange, ProjectionStore, NodeViewUpdate } from '@engine-types/projection'
+import type { NodeViewUpdate } from '@engine-types/projection'
 import type { PointerInput } from '@engine-types/common'
-import type { ApplyMutationsApi } from '@engine-types/command'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { State } from '@engine-types/instance/state'
 import type {
   NodeDragCancelOptions,
   NodeTransformCancelOptions
 } from '@engine-types/commands'
 import type { ResizeDirection } from '@engine-types/state'
 import type {
-  CoreRegistries,
   DispatchResult,
   Document,
   Node,
@@ -36,45 +33,27 @@ import { Drag } from './Drag'
 import { Transform } from './Transform'
 
 type ActorOptions = {
-  state: Pick<State, 'write'>
-  projection: ProjectionStore
-  applyProjection: (change: ProjectionChange) => void
-  readDoc: () => Document
-  registries: CoreRegistries
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'runtime' | 'query'>
-  mutate: ApplyMutationsApi
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
 }
 
 export class Actor {
   readonly name = 'Node'
 
-  private readonly state: Pick<State, 'write'>
-  private readonly projection: ProjectionStore
-  private readonly applyProjection: (change: ProjectionChange) => void
+  private readonly state: ActorOptions['instance']['state']
+  private readonly projection: ActorOptions['instance']['projection']
   private readonly readDoc: () => Document
-  private readonly registries: CoreRegistries
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
   private readonly submitMutations: SubmitMutations
   private readonly drag: Drag
   private readonly transform: Transform
 
-  constructor({
-    state,
-    projection,
-    applyProjection,
-    readDoc,
-    registries,
-    instance,
-    mutate
-  }: ActorOptions) {
-    this.state = state
-    this.projection = projection
-    this.applyProjection = applyProjection
-    this.readDoc = readDoc
-    this.registries = registries
+  constructor({ instance }: ActorOptions) {
     this.instance = instance
-    const commit = createMutationCommit(mutate)
+    this.state = instance.state
+    this.projection = instance.projection
+    this.readDoc = () => this.instance.document.get()
+    const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
     this.submitMutations = commit.submit
     const transient = {
@@ -94,11 +73,6 @@ export class Actor {
       transient,
       submitMutations: this.submitMutations
     })
-  }
-
-  private flushProjectionChange = (change: ProjectionChange | undefined) => {
-    if (!change) return
-    this.applyProjection(change)
   }
 
   private createGroupId = () => {
@@ -146,21 +120,22 @@ export class Actor {
         error: this.createInvalidResult(`Node ${payload.id} already exists.`)
       }
     }
-    const typeDef = this.registries.nodeTypes.get(payload.type)
+    const registries = this.instance.registries
+    const typeDef = registries.nodeTypes.get(payload.type)
     if (typeDef?.validate && !typeDef.validate(payload.data)) {
       return {
         ok: false as const,
         error: this.createInvalidResult(`Node ${payload.type} validation failed.`)
       }
     }
-    const missing = getMissingNodeFields(payload, this.registries)
+    const missing = getMissingNodeFields(payload, registries)
     if (missing.length > 0) {
       return {
         ok: false as const,
         error: this.createInvalidResult(`Missing required fields: ${missing.join(', ')}.`)
       }
     }
-    const normalized = applyNodeDefaults(payload, this.registries)
+    const normalized = applyNodeDefaults(payload, registries)
     const id = normalized.id ?? this.createNodeId()
     const node: Node = {
       ...normalized,
@@ -188,7 +163,7 @@ export class Actor {
     this.runMutations([{ type: 'node.update', id, patch }])
 
   updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const node = this.instance.projection.read().canvasNodes.find((item) => item.id === id)
+    const node = this.instance.projection.get().nodes.canvas.find((item) => item.id === id)
     if (!node) return undefined
     return this.runMutations([
       {
@@ -243,7 +218,7 @@ export class Actor {
       nodes.push(node)
     }
 
-    const nodeSize = this.instance.runtime.config.nodeSize
+    const nodeSize = this.instance.config.nodeSize
     const minX = Math.min(...nodes.map((node) => node.position.x))
     const minY = Math.min(...nodes.map((node) => node.position.y))
     const maxX = Math.max(...nodes.map((node) => node.position.x + (node.size?.width ?? nodeSize.width)))
@@ -343,11 +318,11 @@ export class Actor {
   }
 
   setOverrides = (updates: NodeViewUpdate[]) => {
-    this.flushProjectionChange(this.projection.patchNodeOverrides(updates))
+    this.projection.patchNodeOverrides(updates)
   }
 
   clearOverrides = (ids?: NodeId[]) => {
-    this.flushProjectionChange(this.projection.clearNodeOverrides(ids))
+    this.projection.clearNodeOverrides(ids)
   }
 
   commitOverrides = (updates?: NodeViewUpdate[]) => {
@@ -402,10 +377,25 @@ export class Actor {
 
   resetTransientState = () => {
     this.clearDragGuides()
-    this.state.write('groupHovered', undefined)
+    this.state.write('selection', (prev) => {
+      if (prev.groupHovered === undefined) return prev
+      return {
+        ...prev,
+        groupHovered: undefined
+      }
+    })
     this.clearOverrides()
     this.state.write('nodeDrag', {})
     this.state.write('nodeTransform', {})
+    this.state.write('interactionSession', (prev) => {
+      if (
+        prev.active?.kind !== 'nodeDrag'
+        && prev.active?.kind !== 'nodeTransform'
+      ) {
+        return prev
+      }
+      return {}
+    })
   }
 
   cancelDrag = (options?: NodeDragCancelOptions) =>

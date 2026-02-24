@@ -16,13 +16,16 @@ export const createEdgeViewDerivations = ({
   readState,
   edgeViewQuery
 }: EdgeDerivationOptions) => {
+  const isEdgeConnecting = () =>
+    readState('interactionSession').active?.kind === 'edgeConnect'
+
   const paths = (): EdgePathEntry[] =>
-    edgeViewQuery.getPaths(readState('edgeConnect'))
+    edgeViewQuery.getPaths(readState('edgeConnect'), isEdgeConnecting())
 
   const preview = (): EdgePreviewView => {
     const edgeConnect = readState('edgeConnect')
     const tool = readState('tool')
-    const resolved = edgeViewQuery.getPreview(edgeConnect)
+    const resolved = edgeViewQuery.getPreview(edgeConnect, isEdgeConnecting())
     return {
       from: resolved.showPreviewLine ? resolved.from : undefined,
       to: resolved.showPreviewLine ? resolved.to : undefined,
@@ -33,7 +36,7 @@ export const createEdgeViewDerivations = ({
   }
 
   const selectedEndpoints = (): EdgeEndpoints | undefined => {
-    const selectedEdgeId = readState('edgeSelection')
+    const selectedEdgeId = readState('selection').selectedEdgeId
     if (!selectedEdgeId) return undefined
     const edge = edgeViewQuery.getEdge(selectedEdgeId)
     if (!edge) return undefined
@@ -41,7 +44,7 @@ export const createEdgeViewDerivations = ({
   }
 
   const selectedRouting = (): EdgeSelectedRoutingView => {
-    const selectedEdgeId = readState('edgeSelection')
+    const selectedEdgeId = readState('selection').selectedEdgeId
     if (!selectedEdgeId) return undefined
     const edge = edgeViewQuery.getEdge(selectedEdgeId)
     if (!edge) return undefined

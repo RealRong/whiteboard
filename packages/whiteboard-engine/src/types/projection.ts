@@ -7,6 +7,25 @@ import type {
   Size
 } from '@whiteboard/core/types'
 
+export type ProjectionNodesSlice = {
+  visible: Node[]
+  canvas: Node[]
+}
+
+export type ProjectionEdgesSlice = {
+  visible: Edge[]
+}
+
+export type ProjectionMindmapSlice = {
+  roots: NodeId[]
+}
+
+export type ProjectionIndexesSlice = {
+  canvasNodeById: Map<NodeId, Node>
+  visibleNodeIndexById: Map<NodeId, number>
+  canvasNodeIndexById: Map<NodeId, number>
+}
+
 export type NodeViewUpdate = {
   id: NodeId
   position?: Point
@@ -14,10 +33,12 @@ export type NodeViewUpdate = {
 }
 
 export type ProjectionSnapshot = {
-  visibleNodes: Node[]
-  canvasNodes: Node[]
-  canvasNodeById: Map<NodeId, Node>
-  visibleEdges: Edge[]
+  revision: number
+  docId: Document['id'] | undefined
+  nodes: ProjectionNodesSlice
+  edges: ProjectionEdgesSlice
+  mindmap: ProjectionMindmapSlice
+  indexes: ProjectionIndexesSlice
 }
 
 export type ProjectionInvalidation = {
@@ -34,7 +55,6 @@ type ProjectionChangeBase = {
 export type ProjectionPartialChange = ProjectionChangeBase & {
   kind: 'partial'
   dirtyNodeIds?: NodeId[]
-  orderChanged?: true
 }
 
 export type ProjectionFullChange = ProjectionChangeBase & {
@@ -49,16 +69,21 @@ export type ProjectionSyncInput = {
   source?: ProjectionChangeSource
   full?: boolean
   dirtyNodeIds?: readonly NodeId[]
-  orderChanged?: true
+}
+
+export type ProjectionCommit = {
+  snapshot: ProjectionSnapshot
+  change: ProjectionChange
 }
 
 export type ProjectionStore = {
-  read: () => ProjectionSnapshot
-  readNode: (nodeId: NodeId) => Node | undefined
+  get: () => ProjectionSnapshot
+  subscribe: (listener: (commit: ProjectionCommit) => void) => () => void
   readNodeOverrides: () => NodeViewUpdate[]
-  patchNodeOverrides: (updates: NodeViewUpdate[]) => ProjectionChange | undefined
-  clearNodeOverrides: (ids?: NodeId[]) => ProjectionChange | undefined
-  sync: (input?: ProjectionSyncInput) => ProjectionChange | undefined
+  patchNodeOverrides: (updates: NodeViewUpdate[]) => ProjectionCommit | undefined
+  clearNodeOverrides: (ids?: NodeId[]) => ProjectionCommit | undefined
+  apply: (input?: ProjectionSyncInput) => ProjectionCommit | undefined
+  replace: (source?: ProjectionChangeSource) => ProjectionCommit
 }
 
 export type CreateProjectionStoreOptions = {

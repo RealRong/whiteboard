@@ -30,7 +30,7 @@ import {
 
 type TransformInstance = Pick<
   InternalInstance,
-  'state' | 'runtime' | 'query'
+  'state' | 'query' | 'config' | 'viewport'
 >
 
 type TransformTransient = {
@@ -51,6 +51,7 @@ export class Transform {
   private readonly instance: TransformInstance
   private readonly transient: TransformTransient
   private readonly submitMutations: SubmitMutations
+  private session: { nodeId: NodeId; drag: ResizeDragState | RotateDragState } | null = null
 
   constructor({ instance, transient, submitMutations }: TransformOptions) {
     this.instance = instance
@@ -58,8 +59,40 @@ export class Transform {
     this.submitMutations = submitMutations
   }
 
+  private setInteractionSession = (pointerId?: number) => {
+    this.instance.state.write('interactionSession', (prev) => {
+      if (pointerId !== undefined) {
+        if (
+          prev.active?.kind === 'nodeTransform'
+          && prev.active.pointerId === pointerId
+        ) {
+          return prev
+        }
+        return {
+          active: {
+            kind: 'nodeTransform',
+            pointerId
+          }
+        }
+      }
+      if (prev.active?.kind !== 'nodeTransform') return prev
+      return {}
+    })
+  }
+
   private clear = () => {
     this.transient.clearGuides()
+  }
+
+  private readActive = (pointerId?: number) => {
+    const session = this.instance.state.read('interactionSession').active
+    if (!session || session.kind !== 'nodeTransform') return undefined
+    if (pointerId !== undefined && session.pointerId !== pointerId) return undefined
+
+    const active = this.session
+    if (!active) return undefined
+    if (active.drag.pointerId !== session.pointerId) return undefined
+    return active
   }
 
   private createResizeDrag = (options: {
@@ -112,7 +145,7 @@ export class Transform {
     shiftKey: boolean
   }) => {
     const { nodeId, drag, clientX, clientY, minSize, altKey, shiftKey } = options
-    const zoom = resolveInteractionZoom(this.instance.runtime.viewport.getZoom())
+    const zoom = resolveInteractionZoom(this.instance.viewport.getZoom())
     const resizeResult = computeResizeRect({
       handle: drag.handle,
       startScreen: drag.startScreen,
@@ -133,7 +166,7 @@ export class Transform {
 
     if (this.instance.state.read('tool') === 'select') {
       if (drag.startRotation === 0 && !altKey) {
-        const nodeConfig = this.instance.runtime.config.node
+        const nodeConfig = this.instance.config.node
         const thresholdWorld = resolveSnapThresholdWorld(nodeConfig, zoom)
         const movingRect: Rect = {
           x: nextRect.x,
@@ -179,7 +212,7 @@ export class Transform {
     shiftKey: boolean
   }) => {
     const { nodeId, drag, clientX, clientY, shiftKey } = options
-    const worldPoint = this.instance.runtime.viewport.clientToWorld(clientX, clientY)
+    const worldPoint = this.instance.viewport.clientToWorld(clientX, clientY)
     const nextRotation = computeNextRotation({
       center: drag.center,
       currentPoint: worldPoint,
@@ -220,19 +253,18 @@ export class Transform {
     rotation
   }: NodeResizeStartOptions) => {
     const { state } = this.instance
-    if (state.read('nodeTransform').active) return false
+    if (state.read('interactionSession').active) return false
     const drag = this.createResizeDrag({
       pointer,
       handle,
       rect,
       rotation
     })
+    this.session = { nodeId, drag }
     state.write('nodeTransform', {
-      active: {
-        nodeId,
-        drag
-      }
+      payload: { nodeId, drag }
     })
+    this.setInteractionSession(pointer.pointerId)
     return true
   }
 
@@ -243,18 +275,17 @@ export class Transform {
     rotation
   }: NodeRotateStartOptions) => {
     const { state } = this.instance
-    if (state.read('nodeTransform').active) return false
+    if (state.read('interactionSession').active) return false
     const drag = this.createRotateDrag({
       pointer,
       rect,
       rotation
     })
+    this.session = { nodeId, drag }
     state.write('nodeTransform', {
-      active: {
-        nodeId,
-        drag
-      }
+      payload: { nodeId, drag }
     })
+    this.setInteractionSession(pointer.pointerId)
     return true
   }
 
@@ -263,8 +294,8 @@ export class Transform {
     minSize
   }: NodeTransformUpdateOptions) => {
     const { state } = this.instance
-    const active = state.read('nodeTransform').active
-    if (!active || active.drag.pointerId !== pointer.pointerId) return false
+    const active = this.readActive(pointer.pointerId)
+    if (!active) return false
     const resolvedMinSize = minSize ?? DEFAULT_TUNING.nodeTransform.minSize
 
     state.batchFrame(() => {
@@ -289,7 +320,10 @@ export class Transform {
       }
 
       state.write('nodeTransform', {
-        active
+        payload: {
+          nodeId: active.nodeId,
+          drag: active.drag
+        }
       })
     })
     return true
@@ -297,8 +331,8 @@ export class Transform {
 
   end = ({ pointer }: NodeTransformEndOptions) => {
     const { state } = this.instance
-    const active = state.read('nodeTransform').active
-    if (!active || active.drag.pointerId !== pointer.pointerId) return false
+    const active = this.readActive(pointer.pointerId)
+    if (!active) return false
 
     if (active.drag.mode === 'resize') {
       this.finishResize({
@@ -309,13 +343,15 @@ export class Transform {
       this.clear()
     }
 
+    this.session = null
     state.write('nodeTransform', {})
+    this.setInteractionSession(undefined)
     return true
   }
 
   cancel = (options?: NodeTransformCancelOptions) => {
     const { state } = this.instance
-    const active = state.read('nodeTransform').active
+    const active = this.readActive(options?.pointer?.pointerId)
     if (!active) return false
     if (options?.pointer && active.drag.pointerId !== options.pointer.pointerId) {
       return false
@@ -325,7 +361,9 @@ export class Transform {
       this.transient.clearOverrides([active.nodeId])
     }
     this.clear()
+    this.session = null
     state.write('nodeTransform', {})
+    this.setInteractionSession(undefined)
     return true
   }
 }

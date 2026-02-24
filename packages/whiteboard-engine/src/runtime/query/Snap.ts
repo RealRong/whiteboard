@@ -3,22 +3,16 @@ import type { QueryIndexes } from './Indexes'
 
 type Options = {
   indexes: QueryIndexes
-  ensureIndexesSynced: () => void
 }
 
 export const createSnap = ({
-  indexes,
-  ensureIndexesSynced
+  indexes
 }: Options): QuerySnap => {
-  const candidates: QuerySnap['candidates'] = () => {
-    ensureIndexesSynced()
-    return indexes.getSnapCandidates()
-  }
+  const candidates: QuerySnap['candidates'] = () =>
+    indexes.getSnapCandidates()
 
-  const candidatesInRect: QuerySnap['candidatesInRect'] = (rect) => {
-    ensureIndexesSynced()
-    return indexes.getSnapCandidatesInRect(rect)
-  }
+  const candidatesInRect: QuerySnap['candidatesInRect'] = (rect) =>
+    indexes.getSnapCandidatesInRect(rect)
 
   return { candidates, candidatesInRect }
 }

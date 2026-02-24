@@ -1,4 +1,4 @@
-import type { Scheduler } from './contracts'
+import type { Scheduler } from './Scheduler'
 
 export class FrameTask {
   private taskId: number | null = null

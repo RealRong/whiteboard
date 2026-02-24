@@ -1,10 +1,7 @@
-import type { InstanceEventEmitter } from '@engine-types/instance/events'
-import type { InternalInstance } from '@engine-types/instance/instance'
-import type { State } from '@engine-types/instance/state'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { PointerInput } from '@engine-types/common'
-import type { ApplyMutationsApi } from '@engine-types/command'
 import type { Commands } from '@engine-types/commands'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   MindmapCancelDragOptions
 } from '@engine-types/commands'
@@ -40,10 +37,7 @@ import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 import { Drag } from './Drag'
 
 type ActorOptions = {
-  state: State
-  emit: InstanceEventEmitter['emit']
-  instance: Pick<InternalInstance, 'state' | 'view' | 'runtime' | 'projection'>
-  mutate: ApplyMutationsApi
+  instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit'>
 }
 
 const cloneValue = <T,>(value: T): T => {
@@ -91,18 +85,16 @@ const cloneLayout = (
 export class Actor {
   readonly name = 'Mindmap'
 
-  private readonly state: State
-  private readonly emit: InstanceEventEmitter['emit']
+  private readonly state: ActorOptions['instance']['state']
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
   private readonly drag: Drag
   private readonly layoutEmitter: StateWatchEmitter<MindmapLayoutConfig>
 
-  constructor({ state, emit, instance, mutate }: ActorOptions) {
-    this.state = state
-    this.emit = emit
+  constructor({ instance }: ActorOptions) {
+    this.state = instance.state
     this.instance = instance
-    this.runMutations = createMutationCommit(mutate).run
+    this.runMutations = createMutationCommit(instance.mutate).run
     this.drag = new Drag({
       instance,
       mindmap: {
@@ -111,13 +103,13 @@ export class Actor {
       }
     })
     this.layoutEmitter = new StateWatchEmitter({
-      state,
+      state: this.state,
       keys: ['mindmapLayout'],
-      read: () => state.read('mindmapLayout'),
+      read: () => this.state.read('mindmapLayout'),
       equals: isSameLayout,
       clone: cloneLayout,
       emit: (layout) => {
-        emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
+        instance.emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
       }
     })
   }
@@ -129,10 +121,10 @@ export class Actor {
   })
 
   private readMindmap = (id: string): MindmapTree | undefined =>
-    this.instance.runtime.document.get().mindmaps.find((tree) => tree.id === id)
+    this.instance.document.get().mindmaps.find((tree) => tree.id === id)
 
   private readMindmapNode = (id: string): Node | undefined =>
-    this.instance.runtime.document.get().nodes.find((node) => node.id === id)
+    this.instance.document.get().nodes.find((node) => node.id === id)
 
   private createMindmapId = () => {
     const exists = (id: string) => Boolean(this.readMindmap(id))
@@ -146,7 +138,7 @@ export class Actor {
 
   private createMindmapNodeId = () => {
     const exists = (id: string) =>
-      this.instance.runtime.document.get().mindmaps.some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
+      this.instance.document.get().mindmaps.some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `mnode_${seed}_${index.toString(36)}`
@@ -622,7 +614,7 @@ export class Actor {
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    const node = this.instance.projection.read().canvasNodes.find((item) => item.id === nodeId)
+    const node = this.instance.projection.get().nodes.canvas.find((item) => item.id === nodeId)
     if (!node) return
     if (
       Math.abs(node.position.x - position.x) < threshold &&
@@ -668,5 +660,9 @@ export class Actor {
 
   resetTransientState = () => {
     this.state.write('mindmapDrag', {})
+    this.state.write('interactionSession', (prev) => {
+      if (prev.active?.kind !== 'mindmapDrag') return prev
+      return {}
+    })
   }
 }

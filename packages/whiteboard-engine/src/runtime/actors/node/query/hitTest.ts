@@ -14,17 +14,3 @@ export const getNodeIdsInRect = (rect: Rect, entries: CanvasNodeRect[]): NodeId[
       return rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
     })
     .map((entry) => entry.node.id)
-
-type BackgroundTargetInput = {
-  container: HTMLDivElement | null
-  target: EventTarget | null
-}
-
-export const isBackgroundTarget = ({ container, target }: BackgroundTargetInput) => {
-  if (!(target instanceof HTMLElement)) return false
-  if (!container?.contains(target)) return false
-  if (target.closest('[data-node-id]')) return false
-  if (target.closest('[data-mindmap-node-id]')) return false
-  if (target.closest('[data-selection-ignore]')) return false
-  return true
-}

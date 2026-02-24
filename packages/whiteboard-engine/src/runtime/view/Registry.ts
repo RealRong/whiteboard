@@ -31,10 +31,7 @@ type Options = {
 
 export type ViewRuntime = {
   view: View
-  applyProjection: (change: ProjectionChange) => void
 }
-
-type SyncAction = () => boolean
 
 export const createViewRegistry = ({
   state,
@@ -42,8 +39,11 @@ export const createViewRegistry = ({
   query,
   config
 }: Options): ViewRuntime => {
+  let snapshot = projection.get()
+  const readProjection = () => snapshot
+
   const edgeViewQuery = createEdgeViewQuery({
-    readProjection: projection.read,
+    readProjection,
     query
   })
   const edgeDerived = createEdgeViewDerivations({
@@ -52,18 +52,18 @@ export const createViewRegistry = ({
   })
   const mindmapDerived = createMindmapViewDerivations({
     readState: state.read,
-    readProjection: projection.read,
+    readProjection,
     config
   })
 
   const viewport = createViewportDomain({ state })
   const node = createNodeDomain({
-    state,
     query,
-    projection
+    readProjection
   })
   const edge = createEdgeDomain({
-    derive: edgeDerived
+    derive: edgeDerived,
+    applyProjection: edgeViewQuery.applyProjection
   })
   const mindmap = createMindmapDomain({
     derive: mindmapDerived
@@ -71,74 +71,53 @@ export const createViewRegistry = ({
 
   const listeners = new Set<() => void>()
 
-  const stateSyncActions: Partial<Record<StateKey, SyncAction>> = {
-    viewport: () => {
-      let changed = false
-      changed = viewport.sync() || changed
-      changed = node.syncState('viewport') || changed
-      return changed
-    },
-    selection: () => node.syncState('selection'),
-    groupHovered: () => node.syncState('groupHovered'),
-    tool: () => {
-      let changed = false
-      changed = node.syncState('tool') || changed
-      changed = edge.syncState('tool') || changed
-      return changed
-    },
-    edgeConnect: () => edge.syncState('edgeConnect'),
-    edgeSelection: () => edge.syncState('edgeSelection'),
-    mindmapLayout: () => mindmap.syncState('mindmapLayout'),
-    mindmapDrag: () => mindmap.syncState('mindmapDrag')
-  }
-
   const handleStateChange = (key: StateKey) => {
-    const action = stateSyncActions[key]
-    if (!action) return
-    const changed = action()
+    let changed = false
+    switch (key) {
+      case 'viewport':
+        changed = viewport.sync()
+        break
+      case 'tool':
+        changed = edge.syncState('tool')
+        break
+      case 'edgeConnect':
+        changed = edge.syncState('edgeConnect')
+        break
+      case 'selection':
+        changed = edge.syncState('selection')
+        break
+      case 'mindmapLayout':
+        changed = mindmap.syncState('mindmapLayout')
+        break
+      case 'mindmapDrag':
+        changed = mindmap.syncState('mindmapDrag')
+        break
+      default:
+        return
+    }
     if (!changed) return
     notifyListeners(listeners)
   }
 
   const runProjectionSync = (change: ProjectionChange) => {
-    const fullSync = change.kind === 'full'
-    const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
-    const orderChanged = change.kind === 'partial' ? change.orderChanged : undefined
-    const shouldSyncNodeCanvas =
-      fullSync ||
-      change.projection.canvasNodesChanged ||
-      Boolean(dirtyNodeIds?.length) ||
-      Boolean(orderChanged)
-
     let changed = false
-    changed = edge.syncProjection({
-      fullSync,
-      canvasNodesChanged: change.projection.canvasNodesChanged,
-      visibleEdgesChanged: change.projection.visibleEdgesChanged
-    }) || changed
-    changed = mindmap.syncProjection({
-      fullSync,
-      visibleNodesChanged: change.projection.visibleNodesChanged
-    }) || changed
-    if (shouldSyncNodeCanvas) {
-      changed = node.syncGraph({
-        dirtyNodeIds,
-        orderChanged,
-        fullSync
-      }) || changed
-    }
+    changed = edge.syncProjection(change) || changed
+    changed = mindmap.syncProjection(change) || changed
+    changed = node.syncProjection(change) || changed
     return changed
   }
 
   const applyProjection = (change: ProjectionChange) => {
-    edgeViewQuery.applyProjection(change)
-
     const changed = runProjectionSync(change)
     if (!changed) return
     notifyListeners(listeners)
   }
 
   state.watchChanges(handleStateChange)
+  projection.subscribe((commit) => {
+    snapshot = commit.snapshot
+    applyProjection(commit.change)
+  })
   applyProjection({
     source: 'runtime',
     kind: 'full',
@@ -166,7 +145,6 @@ export const createViewRegistry = ({
     view: {
       getState,
       subscribe
-    },
-    applyProjection
+    }
   }
 }

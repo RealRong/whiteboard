@@ -1,14 +1,12 @@
 import type {
-  EdgeId,
-  NodeId,
   Viewport
 } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Guide } from '../node/snap'
 import type {
   EdgeConnectState,
-  HistoryState,
   InteractionState,
+  InteractionSessionState,
   MindmapDragState,
   NodeDragState,
   NodeTransformState,
@@ -18,10 +16,9 @@ import type {
 
 export type StateSnapshot = {
   interaction: InteractionState
+  interactionSession: InteractionSessionState
   tool: 'select' | 'edge'
   selection: SelectionState
-  edgeSelection: EdgeId | undefined
-  history: HistoryState
   edgeConnect: EdgeConnectState
   routingDrag: RoutingDragState
   viewport: Viewport
@@ -31,17 +28,15 @@ export type StateSnapshot = {
   nodeTransform: NodeTransformState
   spacePressed: boolean
   dragGuides: Guide[]
-  groupHovered: NodeId | undefined
 }
 
 export type StateKey = keyof StateSnapshot
 export type WritableStateSnapshot = Pick<
   StateSnapshot,
   | 'interaction'
+  | 'interactionSession'
   | 'tool'
   | 'selection'
-  | 'edgeSelection'
-  | 'history'
   | 'edgeConnect'
   | 'routingDrag'
   | 'mindmapLayout'
@@ -50,7 +45,6 @@ export type WritableStateSnapshot = Pick<
   | 'nodeTransform'
   | 'spacePressed'
   | 'dragGuides'
-  | 'groupHovered'
 >
 export type WritableStateKey = keyof WritableStateSnapshot
 

@@ -1,10 +1,6 @@
 import type { DocumentId, Viewport } from '@whiteboard/core/types'
 import type { ResolvedConfig, Config } from '@engine-types/common'
-import type {
-  LifecycleConfig,
-  LifecycleViewportConfig
-} from '@engine-types/instance/lifecycle'
-import type { Instance } from '@engine-types/instance/instance'
+import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
@@ -93,22 +89,18 @@ export const toInstanceConfig = (
 })
 
 type LifecycleOptions = {
-  instance: Instance
   docId?: DocumentId
   tool: 'select' | 'edge'
   viewport?: Viewport
-  viewportConfig?: Partial<LifecycleViewportConfig>
   mindmapLayout?: MindmapLayoutConfig
   history?: LifecycleConfig['history']
   shortcuts?: ShortcutOverrides
 }
 
 export const toLifecycleConfig = ({
-  instance,
   docId,
   tool,
   viewport,
-  viewportConfig,
   mindmapLayout,
   history,
   shortcuts
@@ -121,13 +113,6 @@ export const toLifecycleConfig = ({
       y: viewport?.center?.y ?? DEFAULT_DOCUMENT_VIEWPORT.center.y
     },
     zoom: viewport?.zoom ?? DEFAULT_DOCUMENT_VIEWPORT.zoom
-  },
-  viewportConfig: {
-    minZoom: viewportConfig?.minZoom ?? DEFAULT_CONFIG.viewport.minZoom,
-    maxZoom: viewportConfig?.maxZoom ?? DEFAULT_CONFIG.viewport.maxZoom,
-    enablePan: viewportConfig?.enablePan ?? DEFAULT_CONFIG.viewport.enablePan,
-    enableWheel: viewportConfig?.enableWheel ?? DEFAULT_CONFIG.viewport.enableWheel,
-    wheelSensitivity: viewportConfig?.wheelSensitivity ?? instance.runtime.config.viewport.wheelSensitivity
   },
   mindmapLayout: mindmapLayout ?? {},
   history: history ?? DEFAULT_CONFIG.history,

@@ -27,7 +27,7 @@ const mergeInteraction = (
 export class Actor {
   readonly name = 'Interaction'
 
-  private readonly state: ActorOptions['state']
+  private readonly state: Pick<State, 'write'>
 
   constructor({ state }: ActorOptions) {
     this.state = state

@@ -4,4 +4,4 @@ export {
   computeSnap,
   createGridIndex,
   queryGridIndex
-} from '@whiteboard/core/types'
+} from '@whiteboard/core/node'

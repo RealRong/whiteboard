@@ -58,8 +58,13 @@ const EdgeItemById = memo(
 export const EdgeLayer = () => {
   const instance = useInstance()
   const edgeIds = useEdgeIds()
-  const stateSelectedEdgeId = useWhiteboardSelector('edgeSelection')
-  const hitTestThresholdScreen = instance.runtime.config.edge.hitTestThresholdScreen
+  const stateSelectedEdgeId = useWhiteboardSelector(
+    (snapshot) => snapshot.selection.selectedEdgeId,
+    {
+      keys: ['selection']
+    }
+  )
+  const hitTestThresholdScreen = instance.query.config.get().edge.hitTestThresholdScreen
 
   return (
     <svg width="100%" height="100%" className="wb-edge-layer">

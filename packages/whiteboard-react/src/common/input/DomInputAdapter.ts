@@ -2,22 +2,38 @@ import type { Instance, PointerPhase, PointerStage } from '@whiteboard/engine'
 import { DomEffectRunner } from './DomEffectRunner'
 import {
   toKeyInputEvent,
-  toPointerInputEvent,
-  toWheelInputEvent
+  toPointerInputEvent
 } from './DomEventMapper'
+import {
+  ViewportGestureController,
+  type ViewportPolicy
+} from './ViewportGestureController'
+
+type DomInputAdapterOptions = {
+  viewportPolicy: ViewportPolicy
+  getContainer: () => HTMLDivElement | null
+}
 
 export class DomInputAdapter {
   private instance: Instance
+  private getContainer: () => HTMLDivElement | null
   private effects: DomEffectRunner
+  private viewportGestures: ViewportGestureController
   private started = false
   private offContainer: (() => void) | null = null
   private offWindowBlur: (() => void) | null = null
   private offWindowKey: (() => void) | null = null
 
-  constructor(instance: Instance) {
+  constructor(instance: Instance, options: DomInputAdapterOptions) {
     this.instance = instance
-    this.effects = new DomEffectRunner({
+    this.getContainer = options.getContainer
+    this.viewportGestures = new ViewportGestureController({
       instance,
+      viewportPolicy: options.viewportPolicy,
+      getContainer: this.getContainer
+    })
+    this.effects = new DomEffectRunner({
+      getContainer: this.getContainer,
       onWindowPointerMove: this.handleWindowPointerMove,
       onWindowPointerUp: this.handleWindowPointerUp,
       onWindowPointerCancel: this.handleWindowPointerCancel
@@ -35,6 +51,7 @@ export class DomInputAdapter {
   stop = () => {
     if (!this.started) return
     this.started = false
+    this.viewportGestures.reset()
     this.effects.run(this.instance.input.reset('forced').effects)
     this.effects.stop()
     this.offContainer?.()
@@ -46,7 +63,7 @@ export class DomInputAdapter {
   }
 
   private bindContainerEvents = () => {
-    const container = this.instance.runtime.containerRef.current
+    const container = this.getContainer()
     if (!container) return
 
     container.addEventListener('pointerdown', this.handleContainerPointerDown)
@@ -81,6 +98,7 @@ export class DomInputAdapter {
   private bindWindowBlur = () => {
     if (typeof window === 'undefined') return
     const onBlur = () => {
+      this.viewportGestures.reset()
       this.effects.run(
         this.instance.input.handle({
           kind: 'focus',
@@ -100,7 +118,7 @@ export class DomInputAdapter {
   private bindWindowKey = () => {
     if (typeof window === 'undefined') return
     const isFromContainer = (target: EventTarget | null) => {
-      const container = this.instance.runtime.containerRef.current
+      const container = this.getContainer()
       if (!container) return false
       if (!(target instanceof Node)) return false
       return container.contains(target)
@@ -132,8 +150,11 @@ export class DomInputAdapter {
   }
 
   private handleContainerPointerDown = (event: PointerEvent) => {
-    const container = this.instance.runtime.containerRef.current
-    this.dispatchPointer(event, 'bubble', 'down', 'container')
+    const container = this.getContainer()
+    const startedPan = this.viewportGestures.onPointerDown(event)
+    if (!startedPan) {
+      this.dispatchPointer(event, 'bubble', 'down', 'container')
+    }
     if (event.target === container) {
       container?.focus({ preventScroll: true })
       this.instance.commands.edge.select(undefined)
@@ -152,10 +173,15 @@ export class DomInputAdapter {
   }
 
   private handleContainerPointerMove = (event: PointerEvent) => {
+    if (this.viewportGestures.isPanning()) return
     this.dispatchPointer(event, 'bubble', 'move', 'container')
   }
 
   private handleContainerPointerUp = (event: PointerEvent) => {
+    if (this.viewportGestures.isPanning()) {
+      this.viewportGestures.onPointerUp(event)
+      return
+    }
     this.dispatchPointer(event, 'bubble', 'up', 'container')
   }
 
@@ -168,10 +194,7 @@ export class DomInputAdapter {
   }
 
   private handleContainerWheel = (event: WheelEvent) => {
-    this.effects.run(
-      this.instance.input.handle(toWheelInputEvent(event, 'container')).effects,
-      event
-    )
+    this.viewportGestures.onWheel(event)
   }
 
   private handleWindowPointerMove = (event: PointerEvent) => {

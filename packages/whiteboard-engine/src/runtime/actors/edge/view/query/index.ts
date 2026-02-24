@@ -48,9 +48,12 @@ export const createEdgeViewQuery = ({ readProjection, query }: Options) => {
   const getEdge = (edgeId: EdgeId): Edge | undefined =>
     pathStore.getEdge(edgeId)
 
-  const getPaths = (edgeConnect: EdgeConnectState): EdgePathEntry[] => {
+  const getPaths = (
+    edgeConnect: EdgeConnectState,
+    isConnecting: boolean
+  ): EdgePathEntry[] => {
     const entries = pathStore.getEntries()
-    const reconnectEntry = pathStore.getReconnectEntry(edgeConnect)
+    const reconnectEntry = pathStore.getReconnectEntry(edgeConnect, isConnecting)
     return mergeReconnectPath(entries, reconnectEntry)
   }
 

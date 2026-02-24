@@ -28,7 +28,7 @@ export const createMindmapViewDerivations = ({
   let treeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
 
   const roots = (): Node[] =>
-    getMindmapRoots(readProjection().visibleNodes)
+    getMindmapRoots(readProjection().nodes.visible)
 
   const trees = (): MindmapViewTree[] => {
     const allRoots = roots()
@@ -87,7 +87,7 @@ export const createMindmapViewDerivations = ({
   }
 
   const drag = (): MindmapDragView | undefined => {
-    const active = readState('mindmapDrag').active
+    const active = readState('mindmapDrag').payload
     if (!active) return undefined
 
     if (active.kind === 'root') {

@@ -1,5 +1,4 @@
 import type {
-  InputConfig,
   InputController as InputControllerType,
   InputEffect,
   InputEvent,
@@ -8,11 +7,10 @@ import type {
 } from '@engine-types/input'
 import { PointerSessionEngine } from './PointerSessionEngine'
 
-type InputContextBase = Omit<InputSessionContext, 'input'>
+type InputContextBase = InputSessionContext
 
 type InputControllerOptions = {
   getContext: () => InputContextBase
-  config: InputConfig
   sessions?: PointerSession[]
 }
 
@@ -28,11 +26,9 @@ const isDeleteKey = (key: string) => key === 'Backspace' || key === 'Delete'
 export class InputControllerImpl implements InputControllerType {
   private readonly pointerEngine: PointerSessionEngine
   private readonly getContextBase: () => InputContextBase
-  private config: InputConfig
 
-  constructor({ getContext, config, sessions }: InputControllerOptions) {
+  constructor({ getContext, sessions }: InputControllerOptions) {
     this.getContextBase = getContext
-    this.config = config
     this.pointerEngine = new PointerSessionEngine({
       getContext: this.getSessionContext,
       sessions
@@ -51,16 +47,12 @@ export class InputControllerImpl implements InputControllerType {
       return this.handleKey(event)
     }
     if (event.kind === 'wheel') {
-      return this.handleWheel(event)
+      return emptyResult()
     }
     if (event.kind === 'focus' && event.phase === 'blur') {
       return this.reset('blur')
     }
     return emptyResult()
-  }
-
-  configure: InputControllerType['configure'] = (config) => {
-    this.config = config
   }
 
   reset: InputControllerType['reset'] = (reason = 'forced') => {
@@ -78,12 +70,7 @@ export class InputControllerImpl implements InputControllerType {
     return this.pointerEngine.cancelActive(reason)
   }
 
-  private readonly getSessionContext = (): InputSessionContext => ({
-    ...this.getContextBase(),
-    input: {
-      config: this.config
-    }
-  })
+  private readonly getSessionContext = (): InputSessionContext => this.getContextBase()
 
   private handlePointerHover = (
     context: InputSessionContext,
@@ -246,27 +233,5 @@ export class InputControllerImpl implements InputControllerType {
     }
 
     return { effects }
-  }
-
-  private handleWheel = (
-    event: Extract<InputEvent, { kind: 'wheel' }>
-  ): ReturnType<InputControllerType['handle']> => {
-    const context = this.getSessionContext()
-    const viewportConfig = context.input.config.viewport
-    const handled = context.services.viewportNavigation.applyWheelZoom({
-      clientX: event.client.x,
-      clientY: event.client.y,
-      deltaY: event.deltaY,
-      enableWheel: viewportConfig.enableWheel,
-      minZoom: viewportConfig.minZoom,
-      maxZoom: viewportConfig.maxZoom,
-      wheelSensitivity: viewportConfig.wheelSensitivity
-    })
-    if (!handled) {
-      return emptyResult()
-    }
-    return {
-      effects: [{ type: 'preventDefault', reason: 'viewport.wheelZoom' }]
-    }
   }
 }

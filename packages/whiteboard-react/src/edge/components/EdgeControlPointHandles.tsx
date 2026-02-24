@@ -6,7 +6,7 @@ export const EdgeControlPointHandles = () => {
   const routingDrag = useWhiteboardSelector('routingDrag')
   const edge = selectedRouting?.edge
   const points = selectedRouting?.points ?? []
-  const activeDrag = routingDrag.active
+  const activeDrag = routingDrag.payload
   const activeIndex = edge && activeDrag && activeDrag.edgeId === edge.id ? activeDrag.index : null
 
   if (!edge || points.length === 0 || edge.type === 'bezier' || edge.type === 'curve') return null

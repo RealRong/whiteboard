@@ -12,7 +12,7 @@ type MindmapTreeViewProps = {
 export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
   const { tree, node: mindmapNode, computed, shiftX, shiftY, lines, labels, layout } = item
   const instance = useInstance()
-  const nodeSize = instance.runtime.config.mindmapNodeSize
+  const nodeSize = instance.query.config.get().mindmapNodeSize
   const treeDrag = drag?.treeId === mindmapNode.id ? drag : undefined
   const dragPreview = treeDrag?.preview
   const baseOffset = treeDrag?.baseOffset ?? mindmapNode.position

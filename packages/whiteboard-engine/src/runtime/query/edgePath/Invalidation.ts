@@ -1,0 +1,57 @@
+import type { Edge, NodeId } from '@whiteboard/core/types'
+import type { ProjectionChange, ProjectionSnapshot } from '@engine-types/projection'
+
+type Plan = {
+  edges: Edge[]
+  edgesChanged: boolean
+  dirtyNodeIds: Set<NodeId>
+}
+
+export class Invalidation {
+  private renderEdgesRef: unknown
+  private pendingNodeIds = new Set<NodeId>()
+
+  onProjectionChange = (change: ProjectionChange) => {
+    const fullSync = change.kind === 'full'
+    const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
+    const shouldReset =
+      fullSync ||
+      change.projection.canvasNodesChanged ||
+      change.projection.visibleEdgesChanged
+
+    if (fullSync) {
+      this.renderEdgesRef = undefined
+      this.pendingNodeIds = new Set<NodeId>()
+      return
+    }
+    if (shouldReset) {
+      this.renderEdgesRef = undefined
+    }
+    if (!dirtyNodeIds?.length) return
+    dirtyNodeIds.forEach((nodeId) => {
+      this.pendingNodeIds.add(nodeId)
+    })
+  }
+
+  consume = (readProjection: () => ProjectionSnapshot): Plan => {
+    const edges = readProjection().edges.visible
+    const edgesChanged = edges !== this.renderEdgesRef
+    if (edgesChanged) {
+      this.renderEdgesRef = edges
+      this.pendingNodeIds = new Set<NodeId>()
+      return {
+        edges,
+        edgesChanged: true,
+        dirtyNodeIds: new Set<NodeId>()
+      }
+    }
+
+    const dirtyNodeIds = this.pendingNodeIds
+    this.pendingNodeIds = new Set<NodeId>()
+    return {
+      edges,
+      edgesChanged: false,
+      dirtyNodeIds
+    }
+  }
+}

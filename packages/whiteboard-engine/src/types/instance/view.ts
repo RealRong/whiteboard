@@ -14,8 +14,7 @@ import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type {
   EdgeReconnectInfo,
-  MindmapDragDropTarget,
-  ResizeDirection
+  MindmapDragDropTarget
 } from '../state'
 
 export type CanvasNodeRect = {
@@ -106,18 +105,6 @@ export type NodeViewItem = {
     rotation: number
     transformOrigin: 'center center'
   }
-  selected: boolean
-  hovered: boolean
-  activeTool: 'select' | 'edge'
-  zoom: number
-}
-
-export type NodeTransformHandle = {
-  id: string
-  kind: 'resize' | 'rotate'
-  direction?: ResizeDirection
-  position: Point
-  cursor: string
 }
 
 export type ReadonlyStore<TState> = {
@@ -132,7 +119,6 @@ export type ViewportView = {
 export type NodesView = {
   ids: NodeId[]
   byId: ReadonlyMap<NodeId, NodeViewItem>
-  handlesById: ReadonlyMap<NodeId, readonly NodeTransformHandle[]>
 }
 
 export type EdgesView = {

@@ -7,4 +7,4 @@ export {
   getNodesBoundingRect,
   isHiddenByCollapsedGroup,
   rectEquals
-} from '@whiteboard/core/types'
+} from '@whiteboard/core/node'

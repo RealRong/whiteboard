@@ -15,6 +15,8 @@ export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
 export type SelectionState = {
   selectedNodeIds: Set<NodeId>
+  selectedEdgeId?: EdgeId
+  groupHovered?: NodeId
   isSelecting: boolean
   selectionRect?: Rect
   selectionRectWorld?: Rect
@@ -40,6 +42,20 @@ export type InteractionState = {
   hover: {
     nodeId?: NodeId
     edgeId?: EdgeId
+  }
+}
+
+export type InteractionSessionKind =
+  | 'nodeDrag'
+  | 'nodeTransform'
+  | 'edgeConnect'
+  | 'routingDrag'
+  | 'mindmapDrag'
+
+export type InteractionSessionState = {
+  active?: {
+    kind: InteractionSessionKind
+    pointerId: number
   }
 }
 
@@ -77,22 +93,24 @@ export type MindmapSubtreeDragState = {
 }
 
 export type MindmapDragState = {
-  active?: MindmapRootDragState | MindmapSubtreeDragState
+  payload?: MindmapRootDragState | MindmapSubtreeDragState
 }
 
-export type NodeDragActiveState = {
+export type NodeDragPayload = {
   pointerId: number
   nodeId: NodeId
   nodeType: Node['type']
 }
 
 export type NodeDragState = {
-  active?: NodeDragActiveState
+  payload?: NodeDragPayload
+}
+
+export type NodeTransformPayload = {
+  nodeId: NodeId
+  drag: TransformDragState
 }
 
 export type NodeTransformState = {
-  active?: {
-    nodeId: NodeId
-    drag: TransformDragState
-  }
+  payload?: NodeTransformPayload
 }

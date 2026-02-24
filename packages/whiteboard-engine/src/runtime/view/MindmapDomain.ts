@@ -3,6 +3,7 @@ import type {
   MindmapView,
   MindmapViewTree
 } from '@engine-types/instance/view'
+import type { ProjectionChange } from '@engine-types/projection'
 import type { NodeId } from '@whiteboard/core/types'
 import {
   createIndexedState,
@@ -18,18 +19,13 @@ export type MindmapStateSyncKey =
   | 'mindmapLayout'
   | 'mindmapDrag'
 
-export type MindmapProjectionSyncInput = {
-  fullSync: boolean
-  visibleNodesChanged: boolean
-}
-
 type Options = {
   derive: MindmapDerivations
 }
 
 export type MindmapDomain = {
   syncState: (key: MindmapStateSyncKey) => boolean
-  syncProjection: (input: MindmapProjectionSyncInput) => boolean
+  syncProjection: (change: ProjectionChange) => boolean
   getState: () => MindmapView
 }
 
@@ -61,10 +57,9 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
       ? recomputeMindmapTrees()
       : recomputeMindmapDrag()
 
-  const syncProjection = ({
-    fullSync,
-    visibleNodesChanged
-  }: MindmapProjectionSyncInput) => {
+  const syncProjection = (change: ProjectionChange) => {
+    const fullSync = change.kind === 'full'
+    const visibleNodesChanged = change.projection.visibleNodesChanged
     const shouldSyncTrees = fullSync || visibleNodesChanged
     if (!shouldSyncTrees) return false
     return recomputeMindmapTrees()

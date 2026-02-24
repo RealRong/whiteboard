@@ -25,7 +25,6 @@ export type {
   MindmapViewTree,
   MindmapViewTreeLine,
   NodesView,
-  NodeTransformHandle,
   NodeViewItem,
   ReadonlyStore,
   View,
@@ -37,18 +36,12 @@ export type {
 export type {
   Query,
   QueryCanvas,
+  QueryConfig,
+  QueryDocument,
   QueryGeometry,
-  QuerySnap
+  QuerySnap,
+  QueryViewport
 } from './query'
-
-export type {
-  RuntimeDom,
-  RuntimeHistory,
-  Runtime,
-  RuntimeInternal,
-  RuntimeServices,
-  ViewportApi
-} from './runtime'
 
 export type {
   CreateEngineOptions,
@@ -58,8 +51,7 @@ export type {
 
 export type {
   Lifecycle,
-  LifecycleConfig,
-  LifecycleViewportConfig
+  LifecycleConfig
 } from './lifecycle'
 
 export type {

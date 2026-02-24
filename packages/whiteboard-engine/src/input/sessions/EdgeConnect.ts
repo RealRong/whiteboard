@@ -4,11 +4,9 @@ export const createEdgeConnect = (): PointerSession => ({
   kind: 'edgeConnect',
   priority: 80,
   canStart: (event, context) => {
-    const edgeConnect = context.state.read('edgeConnect')
-    if (edgeConnect.isConnecting) {
-      const pointerId = edgeConnect.pointerId
-      if (pointerId === null || pointerId === undefined) return false
-      return pointerId === event.pointerId
+    const active = context.state.read('interactionSession').active
+    if (active) {
+      return active.kind === 'edgeConnect' && active.pointerId === event.pointerId
     }
     if (event.phase !== 'down') return false
     if (event.source !== 'container') return false
@@ -26,8 +24,8 @@ export const createEdgeConnect = (): PointerSession => ({
     return false
   },
   start: (event, context) => {
-    const edgeConnect = context.state.read('edgeConnect')
-    if (!edgeConnect.isConnecting) {
+    const active = context.state.read('interactionSession').active
+    if (!active) {
       if (event.target.role === 'handle' && event.target.handleType === 'node-connect') {
         if (!event.target.nodeId || !event.target.handleSide) return null
         context.actors.edge.startFromHandle(
@@ -52,16 +50,17 @@ export const createEdgeConnect = (): PointerSession => ({
         return null
       }
     } else {
-      const pointerId = edgeConnect.pointerId
-      if (pointerId === null || pointerId === undefined) return null
-      if (pointerId !== event.pointerId) return null
+      if (active.kind !== 'edgeConnect' || active.pointerId !== event.pointerId) return null
     }
 
+    const session = context.state.read('interactionSession').active
+    if (!session || session.kind !== 'edgeConnect' || session.pointerId !== event.pointerId) {
+      return null
+    }
     const current = context.state.read('edgeConnect')
-    const pointerId = current.pointerId
-    if (!current.isConnecting || pointerId === null || pointerId === undefined) return null
+    if (!current.from) return null
     return {
-      pointerId,
+      pointerId: session.pointerId,
       update: (nextEvent, nextContext) => {
         nextContext.actors.edge.updateConnect(nextEvent.pointer)
       },

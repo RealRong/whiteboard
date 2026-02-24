@@ -1,2 +1,2 @@
 export { toLayerOrderedCanvasNodes } from './layer'
-export { getNodeIdsInRect, isBackgroundTarget } from './hitTest'
+export { getNodeIdsInRect } from './hitTest'

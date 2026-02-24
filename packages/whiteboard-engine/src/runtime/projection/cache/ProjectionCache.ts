@@ -1,88 +1,59 @@
 import type {
   Document,
-  Node,
   NodeId
 } from '@whiteboard/core/types'
 import { NodeOverrideState } from './NodeOverrideState'
 import type { ProjectionSnapshot, NodeViewUpdate } from '@engine-types/projection'
-import {
-  orderByIds,
-  patchNodeListByIds
-} from './shared'
-import {
-  deriveCanvasNodes,
-  deriveVisibleNodes
-} from '../../actors/node/domain'
 import { SnapshotState } from './SnapshotState'
-import { ViewNodesState } from './ViewNodesState'
-import { VisibleEdgesState } from './VisibleEdgesState'
+import { NodeProjector } from '../projectors/NodeProjector'
+import { EdgeProjector } from '../projectors/EdgeProjector'
+import { MindmapProjector } from '../projectors/MindmapProjector'
+import { IndexProjector } from '../projectors/IndexProjector'
 
 export class ProjectionCache {
   private readonly nodeOverrides = new NodeOverrideState()
-  private readonly viewNodesState = new ViewNodesState()
-  private readonly visibleEdgesState = new VisibleEdgesState()
+  private readonly nodeProjector = new NodeProjector()
+  private readonly edgeProjector = new EdgeProjector()
+  private readonly mindmapProjector = new MindmapProjector()
+  private readonly indexProjector = new IndexProjector()
   private readonly snapshotState = new SnapshotState()
 
   read = (doc: Document | null): ProjectionSnapshot => {
     if (!doc) {
-      this.viewNodesState.reset()
-      this.visibleEdgesState.reset()
+      this.nodeProjector.reset()
+      this.edgeProjector.reset()
       return this.snapshotState.reset()
     }
 
     const overrides = this.nodeOverrides.readMap()
-    const viewNodesUpdate = this.viewNodesState.update(
+    const snapshot = this.snapshotState.read()
+    const nodes = this.nodeProjector.project({
       doc,
       overrides
-    )
-    const nextViewNodesCache = viewNodesUpdate.cache
-
-    const readViewNodeById = (nodeId: NodeId): Node | undefined => {
-      const index = nextViewNodesCache.indexById.get(nodeId)
-      if (index === undefined) return undefined
-      return nextViewNodesCache.nodes[index]
-    }
-
-    const snapshot = this.snapshotState.read()
-    let nextVisibleNodes: Node[]
-    let nextCanvasNodes: Node[]
-
-    if (!viewNodesUpdate.sourceNodesChanged && viewNodesUpdate.changedNodeIds.size) {
-      nextVisibleNodes = patchNodeListByIds(
-        snapshot.visibleNodes,
-        viewNodesUpdate.changedNodeIds,
-        this.snapshotState.readVisibleNodeIndex(),
-        readViewNodeById
-      )
-      nextCanvasNodes = patchNodeListByIds(
-        snapshot.canvasNodes,
-        viewNodesUpdate.changedNodeIds,
-        this.snapshotState.readCanvasNodeIndex(),
-        readViewNodeById
-      )
-    } else {
-      const nodeOrder = doc.order?.nodes ?? doc.nodes.map((node) => node.id)
-      const orderedViewNodes = orderByIds(nextViewNodesCache.nodes, nodeOrder)
-      nextVisibleNodes = deriveVisibleNodes(orderedViewNodes)
-      nextCanvasNodes = deriveCanvasNodes(nextVisibleNodes)
-    }
-
-    const resolvedVisibleEdges = this.visibleEdgesState.resolve(
-      doc,
-      nextCanvasNodes
-    )
-    const nextSnapshot = this.snapshotState.apply({
-      visibleNodes: nextVisibleNodes,
-      canvasNodes: nextCanvasNodes,
-      visibleEdges: resolvedVisibleEdges
     })
-    this.visibleEdgesState.syncVisibleEdgesRef(nextSnapshot.visibleEdges)
+    const edges = this.edgeProjector.project({
+      doc,
+      canvasNodes: nodes.canvas
+    })
+    const mindmap = this.mindmapProjector.project({
+      visibleNodes: nodes.visible,
+      previous: snapshot.mindmap
+    })
+    const indexes = this.indexProjector.project({
+      nodes,
+      previous: snapshot
+    })
+
+    const nextSnapshot = this.snapshotState.apply({
+      docId: doc.id,
+      nodes,
+      edges,
+      mindmap,
+      indexes
+    })
 
     return nextSnapshot
   }
-
-  readNode = (doc: Document | null, nodeId: NodeId): Node | undefined =>
-    this.read(doc).canvasNodeById.get(nodeId)
 
   readNodeOverrides = (): NodeViewUpdate[] => this.nodeOverrides.readUpdates()
 

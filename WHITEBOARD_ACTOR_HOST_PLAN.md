@@ -1,315 +1,223 @@
-# Whiteboard Engine Actor 化与 Host 化设计方案
+# Whiteboard Engine Actor 化与 Host 化设计方案（精简版）
 
-## 1. 目标与问题
+## 1. 目标
 
-当前 engine 仍保留部分宿主职责（如 `ResizeObserver`），并且在装配层存在业务规则（如 interaction/selection 的写入规则迁移前状态）。  
-目标是把系统收敛到两条清晰边界：
+本方案目标是用最小复杂度实现四阶段解耦：
 
-1. **Engine 内部**：只保留领域行为与状态演算（Actor + Mutation）。
-2. **Host/React 层**：负责 DOM 监听、事件采集、环境信号，并将规范化输入传给 engine。
+1. `React/Host`
+2. `Gateway`
+3. `Actors`
+4. `Mutate`
 
-最终效果：
-
-1. engine 不直接依赖 DOM 观察器。
-2. 写入链路统一为 `commands -> actor -> mutate -> reduce -> projection/view`。
-3. 输入链路分为两类：
-   1. 用户输入（pointer/keyboard/wheel）。
-   2. 宿主信号（node size/container rect/focus visibility 等）。
+每个阶段只处理自己的输入，并向下一阶段输出规范化结果，不跨层调用实现细节。
 
 ---
 
-## 2. 总体原则
+## 2. 为什么要重写
 
-1. **单向边界**：Host 只向 engine 输入信号，不读取 engine 内部实现细节。
-2. **同步直调优先**：engine 内部 actor 之间通过方法调用协作，不用内部事件总线。
-3. **事件仅对外**：`instance.events` 用于外部订阅，不用于内部编排。
-4. **最小 API 面**：对外暴露语义化命令，不暴露原子状态结构。
-5. **无兼容层迁移**：一步到位移除 engine 内的 DOM observer。
+之前设计里有以下冗余：
+
+1. `EngineRequest` / `ActorRequest` / `MutationPlan` 三层请求类型过多。
+2. `routeInput` / `routeHost` / `routeCommand` 三套公开路由入口会膨胀。
+3. 概念多于收益，不利于新成员理解和维护。
+
+本版收敛策略：
+
+1. 保留一个统一请求类型 `EngineRequest`。
+2. Gateway 只保留一个公开入口 `dispatch(request)`。
+3. Actor 返回 `Operation[]`，不单独引入 `MutationPlan` 类型。
 
 ---
 
-## 3. 目标架构（四阶段）
-
-采用四阶段流水线，每一阶段只产出规范化输出，交给下一阶段：
-
-```text
-Stage 1: React/Host
-  -> 输出 EngineRequest
-
-Stage 2: Gateway
-  -> 输出 ActorRequest
-
-Stage 3: Actors
-  -> 输出 MutationPlan (operations + source)
-
-Stage 4: Mutate
-  -> 输出 DispatchResult + Projection/View 更新
-```
-
-高层图：
+## 3. 最小化四阶段架构
 
 ```text
 React/Host
-  ├─ Pointer/Keyboard Adapter
-  ├─ Resize Adapter (node/container)
-  └─ Host Signal Normalizer
-          │
-          ▼
-Gateway (统一入口，不做业务)
-  ├─ request normalize
-  ├─ route
-  └─ context assemble
-          │
-          ▼
-Actors (同步直调，纯领域决策)
-  ├─ Node / Edge / Mindmap
-  ├─ Selection / Interaction / Viewport
-  └─ GroupAutoFit / Shortcut
-          │
-          ▼
-Mutate (唯一写入)
-  -> ChangeGateway.reduceOperations
-  -> projection.sync
-  -> view.applyProjection
+  -> EngineRequest
+Gateway.dispatch(request)
+  -> actor handler
+Actor handler
+  -> Operation[]
+Mutate.apply(operations, source)
+  -> reduce -> projection -> view -> events
 ```
 
-### 3.1 阶段契约
-
-每层只依赖下一层契约，不依赖实现：
-
-1. `Stage1 -> Stage2`: `EngineRequest`
-   1. `kind: 'input' | 'host' | 'command'`
-   2. `payload: normalized data`
-2. `Stage2 -> Stage3`: `ActorRequest`
-   1. `actor: 'node' | 'edge' | 'selection' ...`
-   2. `action: string`
-   3. `args: unknown[]`
-3. `Stage3 -> Stage4`: `MutationPlan`
-   1. `operations: Operation[]`
-   2. `source: CommandSource`
-
-### 3.2 关键约束
-
-1. React/Host 不直接调用 actor。
-2. Gateway 不写业务规则，不读写业务状态。
-3. Actor 不直接操作 projection/view，只产出 mutation。
-4. Mutate 是唯一文档写入入口。
-5. 对外事件仅由 mutate 后统一发出。
-
-### 3.3 避免过度设计
-
-这是“轻量分层”，不是中间件系统：
-
-1. 不引入内部事件总线。
-2. 不做可插拔管线框架。
-3. 不做多层 DTO 套娃。
-4. Gateway 保持薄层（normalize + route + assemble）。
-
----
-
-## 4. Actor 化方案
-
-## 4.1 Actor 分层
-
-建议按职责拆成三层：
-
-1. **Domain Actor（业务）**
-   1. `node`
-   2. `edge`
-   3. `mindmap`
-   4. `selection`
-   5. `interaction`
-   6. `viewport`
-2. **Orchestration Actor（跨域协同）**
-   1. `groupAutoFit`
-   2. `shortcut`
-3. **View/Query Actor（读模型）**
-   1. `view`（投影输出）
-   2. `query`（按需同步索引）
-
-## 4.2 命名与目录
-
-建议目录：
-
-1. `packages/whiteboard-engine/src/runtime/actors/<domain>/Actor.ts`
-2. `packages/whiteboard-engine/src/runtime/actors/<domain>/...`（子能力）
-
-约束：
-
-1. 类名统一 `Actor`（目录已表达域，不再重复前后缀）。
-2. 对外能力使用动词语义：`select`, `clear`, `startDrag`, `commit`。
-3. 共享逻辑放 `actors/shared`，只放纯工具或无域状态 helper。
-
-## 4.3 create.ts 的目标职责
-
-`create.ts` 仅保留：
-
-1. 构建基础对象（state/document/projection/query/view）。
-2. 构建 actors。
-3. 将 `commands` 绑定到 actor 方法。
-4. 构建 lifecycle/input。
-
-`create.ts` 不应再包含：
-
-1. 业务 merge 规则。
-2. 复杂 selection/interaction 写入逻辑。
-3. observer 实例化与 DOM 生命周期管理。
-
----
-
-## 5. Host 化方案
-
-## 5.1 迁移对象
-
-从 engine 移出到 host（React）：
-
-1. `NodeSizeObserver`（节点 DOM 尺寸监听）
-2. `ContainerSizeObserver`（画布容器矩形监听）
-
-原因：
-
-1. 这两者本质是 DOM adapter，不是领域行为。
-2. 它们依赖 host 框架生命周期（mount/unmount/ref 变化）。
-3. 放在 host 可减少 engine 平台绑定，方便非 DOM 宿主接入。
-
-## 5.2 Host -> Engine 新接口
-
-新增 `commands.host`（建议）：
-
-1. `nodeMeasured(id, size)`
-2. `nodeMeasuredBatch(items)`
-3. `containerResized(rect)`
-4. `visibilityChanged(visible)`（可选）
-5. `focusChanged(focused)`（可选）
-
-类型建议：
+### 3.1 统一请求契约（唯一）
 
 ```ts
-type HostCommands = {
-  nodeMeasured: (id: NodeId, size: Size) => void
-  nodeMeasuredBatch: (items: Array<{ id: NodeId; size: Size }>) => void
-  containerResized: (rect: { left: number; top: number; width: number; height: number }) => void
+type EngineRequest = {
+  action: string        // 例如: input.pointerMove / host.nodeMeasured / node.update
+  payload: unknown
+  source: CommandSource // ui / interaction / system / ...
 }
 ```
 
 说明：
 
-1. 这些命令是“宿主信号”，不是用户意图命令。
-2. 进入 engine 后由对应 actor 同步处理。
+1. `action` 使用命名空间前缀表达类别，不再拆 `kind`。
+2. `payload` 由上游 adapter 先做规范化。
+3. Gateway 只依赖此契约。
 
-## 5.3 React 侧建议
+### 3.2 Gateway（薄层，不做业务）
 
-在 `whiteboard-react` 增加 host adapter 层：
+Gateway 只做四件事：
 
-1. `host/NodeMeasureAdapter.ts`
-2. `host/ContainerResizeAdapter.ts`
-3. `host/createHostSignals.ts`
+1. `normalize`（兜底校验）
+2. `lookup`（通过 action 找 handler）
+3. `dispatch`（调用 actor handler）
+4. `commit`（统一提交 mutate）
 
-职责：
+对外仅暴露：
 
-1. 绑定 `ResizeObserver`。
-2. 做帧级聚合（`requestAnimationFrame`）。
-3. 做 epsilon 去抖（宽高微小变化不触发）。
-4. 调用 `instance.commands.host.*`。
+```ts
+dispatch(request: EngineRequest): Promise<DispatchResult>
+```
 
----
+不对外暴露：
 
-## 6. 调用链设计（四阶段映射）
+1. `routeInput`
+2. `routeHost`
+3. `routeCommand`
 
-## 6.1 用户输入链
+这些可以作为内部私有函数存在，但不是公开 API。
 
-`React events -> Stage1 request -> Stage2 gateway.routeInput -> Stage3 actor -> Stage4 mutate`
+### 3.3 Actor（纯领域决策）
 
-示例：
+Actor handler 推荐签名：
 
-`pointermove -> InputRequest -> gateway -> nodeActor.updateDrag -> mutate`
+```ts
+type ActorHandler = (payload: unknown, ctx: ActorContext) => Operation[] | Promise<Operation[]>
+```
 
-## 6.2 宿主信号链
+约束：
 
-`ResizeObserver -> HostRequest -> gateway.routeHost -> actor -> mutate(必要时)`
+1. Actor 不直接调用 `mutate`。
+2. Actor 不直接写 projection/view。
+3. Actor 只产出 operations（必要时返回附加值，但不新增一层通用 DTO）。
 
-示例：
+### 3.4 Mutate（唯一写入口）
 
-`node measured -> HostRequest(nodeMeasured) -> gateway -> nodeActor.applyMeasuredSize -> mutate`
+Mutate 层职责：
 
-## 6.3 业务命令链
+1. `reduceOperations`
+2. `projection.sync`
+3. `view.applyProjection`
+4. 对外事件发射（如 `doc.changed`）
 
-`commands.* -> CommandRequest -> gateway.routeCommand -> actor -> mutate`
-
-示例：
-
-`commands.node.update -> gateway -> nodeActor.update -> mutate`
-
-## 6.4 GroupAutoFit 触发链
-
-保持同步直调，不走内部事件总线：
-
-1. mutate 完成后，gateway 根据 operations 计算影响。
-2. 直接调用 `groupAutoFitActor.onMutationsApplied(operations)`。
-3. 对外再统一发 `doc.changed`。
+所有写路径最终必须进入该层。
 
 ---
 
-## 7. 落地步骤（建议顺序）
+## 4. 服务发现模式（替代“大路由文件”）
 
-## Step 1：定义阶段契约
+为了避免 Gateway 变成巨大 `switch`，使用注册表：
 
-1. 定义 `EngineRequest` / `ActorRequest` / `MutationPlan` 类型。
-2. 明确 gateway 只接受 request，不接受业务对象引用。
+```ts
+register(action: string, handler: ActorHandler)
+dispatch(request) => registry.get(request.action)
+```
 
-## Step 2：建立 Gateway 薄层
+这等价于单进程内的“请求找服务”，但不会让请求对象耦合具体 actor 实现。
 
-1. 新增 gateway route 方法：`routeInput` / `routeHost` / `routeCommand`。
-2. 将现有 `commands` 与 `input` 入口改为先到 gateway。
+建议 action 命名：
 
-## Step 3：host 侧适配
-
-1. 在 `whiteboard-react` 新增 node/container observer adapter。
-2. 由 adapter 发送 `HostRequest` 给 gateway（不直接触达 actor）。
-
-## Step 4：engine 移除 DOM observer
-
-1. 删除 `NodeSizeObserver`、`ContainerSizeObserver` 服务创建与引用。
-2. 删除 lifecycle 中对应 dispose 流程。
-3. 删除 `runtime.dom.*` 中 observer 暴露 API（若不再需要）。
-
-## Step 5：Actor 收敛
-
-1. host request 统一路由到 `HostActor` 或域 actor。
-2. `groupAutoFit` 触发改为 mutate 后 gateway 直调。
-3. 清理装配层中的临时回调变量与桥接代码。
-
-## Step 6：文档与验收
-
-1. 更新架构文档中的输入链与职责边界。
-2. 补充测试用例（至少 smoke + 集成链路）。
+1. `input.pointer.down`
+2. `input.pointer.move`
+3. `host.node.measured`
+4. `host.container.resized`
+5. `node.update`
+6. `edge.create`
 
 ---
 
-## 8. 风险与规避
+## 5. Host 化（保持简洁）
 
-1. **风险：尺寸更新频率高导致写入抖动**
-   1. 规避：host 层做 frame-batch + epsilon。
-2. **风险：迁移后丢失清理时机**
-   1. 规避：observer 生命周期完全跟随 React 组件卸载。
-3. **风险：host 与 engine 坐标系不一致**
-   1. 规避：host 只传“已规范化”的尺寸/容器 rect，不传业务推导值。
+从 engine 移出的职责：
+
+1. `NodeSizeObserver`
+2. `ContainerSizeObserver`
+
+放在 React/Host adapter 中，输出 `EngineRequest`：
+
+1. `host.node.measured`
+2. `host.container.resized`
+
+Host adapter 职责：
+
+1. 绑定 `ResizeObserver`
+2. `requestAnimationFrame` 聚合
+3. epsilon 去抖
+4. 调用 `gateway.dispatch(request)`（或等价外部入口）
+
+---
+
+## 6. 现有对外 API 的兼容映射（内部统一到 dispatch）
+
+对外仍可保留以下入口以保持易用：
+
+1. `commands.*`
+2. `input.handle(event)`
+3. `commands.host.*`（新增）
+
+但三者内部都转换成 `EngineRequest` 后进入同一 `dispatch`。
+
+这样可以做到：
+
+1. 外部 API 易用。
+2. 内部执行路径统一。
+3. 不引入额外请求层。
+
+---
+
+## 7. 迁移步骤（一步步降复杂度）
+
+## Step 1：引入单入口 dispatch
+
+1. 新增 `EngineRequest` 类型。
+2. 新增 `dispatch(request)` 与 registry。
+3. 先接入 `commands.node/edge/mindmap` 主路径。
+
+## Step 2：接入 input 与 host
+
+1. `input.handle` 转 `EngineRequest` 再 dispatch。
+2. 新增 `commands.host`（或 host adapter 直接 dispatch）。
+
+## Step 3：迁移 observer 到 React
+
+1. 删除 engine 内 `NodeSizeObserver` 与 `ContainerSizeObserver`。
+2. React adapter 接管监听并上报 host request。
+
+## Step 4：清理装配层临时桥接
+
+1. 去掉临时回调变量（如后绑定 hook）。
+2. mutate 后直接走 gateway 内部协同（必要时直调对应 actor）。
+
+---
+
+## 8. 明确不做（防止过度设计）
+
+1. 不新增 `ActorRequest` 类型。
+2. 不新增 `MutationPlan` 通用类型。
+3. 不做三套公开 route API。
+4. 不引入内部事件总线。
+5. 不做中间件框架化。
 
 ---
 
 ## 9. 验收标准
 
-1. `whiteboard-engine` 不再直接 `new ResizeObserver`。
-2. `create.ts` 不再创建 observer service。
-3. `commands.host` 能覆盖 node/container 现有能力。
-4. Node 尺寸变化、容器变化、拖拽/缩放/选区行为回归通过。
+1. 公开写入路径最终都走 `dispatch -> actor -> mutate`。
+2. `whiteboard-engine` 不再直接创建 `ResizeObserver`。
+3. Gateway 文件不含业务规则，只含路由与提交。
+4. Actor 内部职责清晰，返回 operations 为主。
 5. 构建通过：
    1. `pnpm -r -F @whiteboard/core -F @whiteboard/engine -F @whiteboard/react build`
 
 ---
 
-## 10. 最终状态（期望）
+## 10. 目标状态
 
-1. Engine：纯领域运行时（Actor + Mutation + Projection）。
-2. Host：纯环境适配层（DOM 监听 + 规范化输入）。
-3. 两侧通过稳定、简洁、语义化命令接口对接。
+1. Host：负责环境监听与规范化输入。
+2. Gateway：负责统一入口与服务发现。
+3. Actor：负责领域决策与操作生成。
+4. Mutate：负责唯一写入与读模型同步。

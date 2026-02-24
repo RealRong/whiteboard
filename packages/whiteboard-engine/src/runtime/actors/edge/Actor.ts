@@ -2,12 +2,10 @@ import type { EdgeConnectState } from '@engine-types/state'
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { State } from '@engine-types/instance/state'
-import type { ApplyMutationsApi } from '@engine-types/command'
 import type {
   RoutingDragCancelOptions
 } from '@engine-types/commands'
 import type {
-  CoreRegistries,
   DispatchResult,
   Edge,
   EdgeAnchor,
@@ -25,18 +23,16 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
-import type { Scheduler } from '../../contracts'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
+import type { Scheduler } from '../../Scheduler'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
 import { buildEdgeCreateOperation } from './createOperation'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'runtime' | 'view'>
-  registries: CoreRegistries
+  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries'>
   scheduler: Scheduler
-  mutate: ApplyMutationsApi
 }
 
 export class Actor {
@@ -44,22 +40,19 @@ export class Actor {
 
   private readonly state: Pick<State, 'write'>
   private readonly instance: ActorOptions['instance']
-  private readonly registries: CoreRegistries
   private readonly runMutations: RunMutations
   private readonly submitMutations: SubmitMutations
   private readonly connect: Connect
   private readonly routing: Routing
 
-  constructor({ instance, registries, scheduler, mutate }: ActorOptions) {
+  constructor({ instance, scheduler }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
-    this.registries = registries
-    const commit = createMutationCommit(mutate)
+    const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
     this.submitMutations = commit.submit
     this.connect = new Connect({
       instance,
-      registries,
       scheduler,
       submitMutations: this.submitMutations
     })
@@ -70,12 +63,12 @@ export class Actor {
   }
 
   private clearRoutingDrag = () => {
-    this.instance.state.write('routingDrag', {})
+    this.routing.reset()
   }
 
   private createEdgeId = () => {
     const exists = (id: string) =>
-      Boolean(this.instance.runtime.document.get().edges.some((edge) => edge.id === id))
+      Boolean(this.instance.document.get().edges.some((edge) => edge.id === id))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `edge_${seed}_${index.toString(36)}`
@@ -93,8 +86,8 @@ export class Actor {
   create = (payload: EdgeInput) => {
     const built = buildEdgeCreateOperation({
       payload,
-      doc: this.instance.runtime.document.get(),
-      registries: this.registries,
+      doc: this.instance.document.get(),
+      registries: this.instance.registries,
       createEdgeId: this.createEdgeId
     })
     if (!built.ok) {
@@ -107,7 +100,7 @@ export class Actor {
     this.runMutations([{ type: 'edge.update', id, patch }])
 
   delete = (ids: EdgeId[]) => {
-    const activeDrag = this.instance.state.read('routingDrag').active
+    const activeDrag = this.routing.getPayload()
     if (activeDrag && ids.includes(activeDrag.edgeId)) {
       this.clearRoutingDrag()
     }
@@ -116,11 +109,17 @@ export class Actor {
 
   select = (id?: EdgeId) => {
     this.instance.state.batch(() => {
-      const activeDrag = this.instance.state.read('routingDrag').active
+      const activeDrag = this.routing.getPayload()
       if (activeDrag && activeDrag.edgeId !== id) {
         this.clearRoutingDrag()
       }
-      this.instance.state.write('edgeSelection', (prev) => (prev === id ? prev : id))
+      this.instance.state.write('selection', (prev) => {
+        if (prev.selectedEdgeId === id) return prev
+        return {
+          ...prev,
+          selectedEdgeId: id
+        }
+      })
     })
   }
 
@@ -177,7 +176,7 @@ export class Actor {
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
 
-    const activeDrag = this.instance.state.read('routingDrag').active
+    const activeDrag = this.routing.getPayload()
     if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
       this.clearRoutingDrag()
     }
@@ -215,7 +214,7 @@ export class Actor {
   }
 
   resetRouting = (edge: Edge) => {
-    const activeDrag = this.instance.state.read('routingDrag').active
+    const activeDrag = this.routing.getPayload()
     if (activeDrag?.edgeId === edge.id) {
       this.clearRoutingDrag()
     }
@@ -263,31 +262,40 @@ export class Actor {
 
   bringToFront = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.document.get().order.edges
+    const current = this.instance.document.get().order.edges
     return this.setOrder(bringOrderToFront(current, target))
   }
 
   sendToBack = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.document.get().order.edges
+    const current = this.instance.document.get().order.edges
     return this.setOrder(sendOrderToBack(current, target))
   }
 
   bringForward = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.document.get().order.edges
+    const current = this.instance.document.get().order.edges
     return this.setOrder(bringOrderForward(current, target))
   }
 
   sendBackward = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)
-    const current = this.instance.runtime.document.get().order.edges
+    const current = this.instance.document.get().order.edges
     return this.setOrder(sendOrderBackward(current, target))
   }
 
   resetTransientState = () => {
-    this.state.write('edgeConnect', { isConnecting: false } as EdgeConnectState)
-    this.state.write('routingDrag', {})
+    this.state.write('edgeConnect', {} as EdgeConnectState)
+    this.routing.reset()
+    this.state.write('interactionSession', (prev) => {
+      if (
+        prev.active?.kind !== 'edgeConnect'
+        && prev.active?.kind !== 'routingDrag'
+      ) {
+        return prev
+      }
+      return {}
+    })
   }
 
   startFromHandle = (

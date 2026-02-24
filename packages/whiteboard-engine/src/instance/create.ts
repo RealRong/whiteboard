@@ -5,122 +5,58 @@ import type {
 } from '@engine-types/instance/instance'
 import type { Commands } from '@engine-types/commands'
 import { createRegistries } from '@whiteboard/core/kernel'
-import type { InputConfig } from '@engine-types/input'
-import type { LifecycleViewportConfig } from '@engine-types/instance/lifecycle'
-import type { RuntimeInternal } from '@engine-types/instance/runtime'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import type { NodeId } from '@whiteboard/core/types'
+import type { DocumentId } from '@whiteboard/core/types'
 import { EventCenter } from '../runtime/EventCenter'
 import { createInputPort, createShortcuts } from '../input'
 import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
-import { ChangeGateway } from '../runtime/gateway/ChangeGateway'
-import { DEFAULT_CONFIG, resolveInstanceConfig } from '../config'
+import { HistoryDomain } from '../runtime/history/HistoryDomain'
+import { DocChangePublisher } from '../runtime/write/DocChangePublisher'
+import { MutationExecutor } from '../runtime/write/MutationExecutor'
+import { WriteCoordinator } from '../runtime/write/WriteCoordinator'
+import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
 import { Scheduler } from '../runtime/Scheduler'
 import { Actor as EdgeActor } from '../runtime/actors/edge/Actor'
-import { Actor as HistoryActor } from '../runtime/actors/history/Actor'
+import { Actor as GroupAutoFitActor } from '../runtime/actors/groupAutoFit/Actor'
 import { Actor as InteractionActor } from '../runtime/actors/interaction/Actor'
 import { Actor as MindmapActor } from '../runtime/actors/mindmap/Actor'
 import { Actor as NodeActor } from '../runtime/actors/node/Actor'
-import { GroupAutoFit, NodeSizeObserver } from '../runtime/actors/node/services'
 import { Actor as SelectionActor } from '../runtime/actors/selection/Actor'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
-import {
-  ContainerSizeObserver,
-  ViewportNavigation
-} from '../runtime/actors/viewport/services'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
 import { createDocumentStore } from '../document/Store'
-import { createHistoryStore } from '../document/History'
-
-const toOperationTypes = (operations: Array<{ type: string }>, reset = false) => {
-  const types = new Set<string>()
-  if (reset) {
-    types.add('doc.reset')
-  }
-  operations.forEach((operation) => {
-    types.add(operation.type)
-  })
-  return Array.from(types)
-}
-
-const toInputViewportConfig = (
-  viewportConfig: LifecycleViewportConfig
-): InputConfig['viewport'] => ({
-  minZoom: viewportConfig.minZoom,
-  maxZoom: viewportConfig.maxZoom,
-  enablePan: viewportConfig.enablePan,
-  enableWheel: viewportConfig.enableWheel,
-  wheelSensitivity: viewportConfig.wheelSensitivity
-})
-
-const createDefaultInputConfig = (): InputConfig => ({
-  viewport: {
-    minZoom: DEFAULT_CONFIG.viewport.minZoom,
-    maxZoom: DEFAULT_CONFIG.viewport.maxZoom,
-    enablePan: DEFAULT_CONFIG.viewport.enablePan,
-    enableWheel: DEFAULT_CONFIG.viewport.enableWheel,
-    wheelSensitivity: DEFAULT_CONFIG.viewport.wheelSensitivity
-  }
-})
-
-const createDeferred = <T,>(name: string) => {
-  let value: T | undefined
-  return {
-    get: () => {
-      if (typeof value === 'undefined') {
-        throw new Error(`${name} is not ready.`)
-      }
-      return value
-    },
-    set: (next: T) => {
-      value = next
-    }
-  }
-}
 
 export const createEngine = ({
   registries,
   document,
   onDocumentChange,
-  containerRef,
   config: overrides
 }: CreateEngineOptions): Instance => {
   const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
   const runtimeRegistries = registries ?? createRegistries()
   const documentStore = createDocumentStore(document, onDocumentChange)
-  const historyStore = createHistoryStore({ now: scheduler.now })
-  const { state, projection, syncDocument } = createState({ getDoc: documentStore.get })
-  const getContainer = () => containerRef.current
-  const base = {
-    document: documentStore,
-    containerRef,
-    getContainer,
-    config,
-    viewport: new ViewportRuntime()
-  }
-  const eventCenter = new EventCenter<InstanceEventMap>()
-  const events = {
-    on: eventCenter.on,
-    off: eventCenter.off,
-    emit: eventCenter.emit
-  }
-  const commandsRef = createDeferred<InternalInstance['commands']>('Commands')
-  const inputRef = createDeferred<InternalInstance['input']>('Input')
-  const servicesRef = createDeferred<RuntimeInternal['services']>('Runtime services')
-  const shortcutsRef = createDeferred<RuntimeInternal['shortcuts']>('Runtime shortcuts')
-  const lifecycleRef = createDeferred<InternalInstance['lifecycle']>('Lifecycle')
-  let onDocApplied: ((operationTypes: string[]) => void) | undefined
+  const viewport = new ViewportRuntime()
+  viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
+  const { state, projection, syncDocument } = createState({
+    getDoc: documentStore.get,
+    readViewport: viewport.get
+  })
+  const events = new EventCenter<InstanceEventMap>()
+  const docChangePublisher = new DocChangePublisher({
+    emit: events.emit
+  })
 
   const queryRuntime = createQueryRuntime({
     projection,
     config,
-    getContainer: base.getContainer
+    readDoc: documentStore.get,
+    viewport
   })
   const viewRuntime = createViewRegistry({
     state,
@@ -128,112 +64,72 @@ export const createEngine = ({
     query: queryRuntime.query,
     config
   })
-  const changeGateway = new ChangeGateway({
-    documentStore,
-    history: historyStore,
-    registries: runtimeRegistries,
-    projection,
-    sinks: [viewRuntime],
-    syncStateFromDocument: syncDocument,
-    now: scheduler.now,
-    onApplied: ({ docId, origin, operations, reset }) => {
-      const operationTypes = toOperationTypes(operations, reset)
-      if (!operationTypes.length) return
-      onDocApplied?.(operationTypes)
-      events.emit('doc.changed', {
-        docId,
-        operationTypes,
-        origin
-      })
-    }
-  })
-
-  const mutate = changeGateway.applyMutations
-  const history = changeGateway.history
-  const resetDoc = changeGateway.resetDocument
-
-  const runtime: RuntimeInternal = {
-    ...base,
-    history,
-    dom: {
-      nodeSize: {
-        observe: (nodeId, element, enabled) => {
-          servicesRef.get().nodeSizeObserver.observe(nodeId, element, enabled)
-        },
-        unobserve: (nodeId) => {
-          servicesRef.get().nodeSizeObserver.unobserve(nodeId)
-        }
-      }
-    },
-    get services() {
-      return servicesRef.get()
-    },
-    get shortcuts() {
-      return shortcutsRef.get()
-    }
-  }
 
   const instance: InternalInstance = {
-    mutate,
+    mutate: null as unknown as InternalInstance['mutate'],
     state,
     projection,
-    get input() {
-      return inputRef.get()
-    },
-    runtime,
+    input: null as unknown as InternalInstance['input'],
+    document: documentStore,
+    config,
+    viewport,
+    registries: runtimeRegistries,
     query: queryRuntime.query,
     view: viewRuntime.view,
     events: {
       on: events.on,
       off: events.off
     },
-    get lifecycle() {
-      return lifecycleRef.get()
-    },
-    get commands() {
-      return commandsRef.get()
-    }
+    emit: events.emit,
+    lifecycle: null as unknown as InternalInstance['lifecycle'],
+    commands: null as unknown as InternalInstance['commands']
   }
   state.write('tool', 'select')
 
+  const mutationExecutor = new MutationExecutor({
+    instance,
+    projection,
+    syncState: () => {
+      viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
+      syncDocument()
+    },
+    now: scheduler.now
+  })
+  const historyDomain = new HistoryDomain({
+    now: scheduler.now
+  })
+  const writeCoordinator = new WriteCoordinator({
+    executor: mutationExecutor,
+    history: historyDomain,
+    publishApplied: docChangePublisher.publish
+  })
+
+  const mutate = writeCoordinator.applyMutations
+  const history = writeCoordinator.history
+  const resetDoc = writeCoordinator.resetDocument
+  instance.mutate = mutate
+
   const edgeActor = new EdgeActor({
     instance,
-    registries: runtimeRegistries,
-    scheduler,
-    mutate
+    scheduler
   })
   const nodeActor = new NodeActor({
-    state,
-    projection,
-    applyProjection: viewRuntime.applyProjection,
-    readDoc: documentStore.get,
-    registries: runtimeRegistries,
-    instance,
-    mutate
+    instance
   })
   const mindmapActor = new MindmapActor({
-    state,
-    emit: events.emit,
-    instance,
-    mutate
-  })
-  const historyActor = new HistoryActor({
-    instance,
-    emit: events.emit
+    instance
   })
   const interactionActor = new InteractionActor({
     state
   })
   const selectionActor = new SelectionActor({
-    instance,
-    emit: events.emit
+    instance
   })
   const viewportActor = new ViewportDomainActor({
-    instance,
-    mutate
+    instance
   })
 
-  const { read, write } = state
+  const { write } = state
   const commands: Commands = {
     doc: {
       reset: resetDoc
@@ -249,24 +145,34 @@ export const createEngine = ({
       }
     },
     history: {
-      configure: (historyConfig) => {
-        history.configure(historyConfig)
-      },
-      undo: () => {
-        if (!read('history').canUndo) return false
-        return history.undo()
-      },
-      redo: () => {
-        if (!read('history').canRedo) return false
-        return history.redo()
-      },
-      clear: () => {
-        history.clear()
-      }
+      get: history.get,
+      configure: history.configure,
+      undo: history.undo,
+      redo: history.redo,
+      clear: history.clear
     },
     interaction: {
       update: interactionActor.update,
       clearHover: interactionActor.clearHover
+    },
+    host: {
+      nodeMeasured: (id, size) => {
+        if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return
+        if (size.width <= 0 || size.height <= 0) return
+        void mutate(
+          [{
+            type: 'node.update',
+            id,
+            patch: {
+              size
+            }
+          }],
+          'system'
+        )
+      },
+      containerResized: (rect) => {
+        viewport.setContainerRect(rect)
+      }
     },
     selection: {
       select: selectionActor.select,
@@ -341,37 +247,21 @@ export const createEngine = ({
       moveRoot: mindmapActor.moveRoot
     }
   }
-  commandsRef.set(commands)
+  instance.commands = commands
 
-  const groupAutoFit = new GroupAutoFit({
-    runtime,
-    scheduler,
-    mutate
-  })
-  const viewportNavigation = new ViewportNavigation({
-    state,
-    runtime,
-    setViewport: viewportActor.set,
-    zoomViewportBy: viewportActor.zoomBy
-  })
-  onDocApplied = groupAutoFit.onDocumentChanged
-  servicesRef.set({
-    nodeSizeObserver: new NodeSizeObserver(mutate, scheduler),
-    containerSizeObserver: new ContainerSizeObserver(),
-    groupAutoFit,
-    viewportNavigation
+  const groupAutoFitActor = new GroupAutoFitActor({
+    instance,
+    scheduler
   })
 
   const shortcutActor = new ShortcutActor({
     selection: selectionActor,
-    history: historyActor
+    history
   })
-  shortcutsRef.set(
-    createShortcuts({
-      instance,
-      runAction: shortcutActor.execute
-    })
-  )
+  const shortcuts = createShortcuts({
+    instance,
+    runAction: shortcutActor.execute
+  })
 
   const inputPort = createInputPort({
     getContext: () => ({
@@ -383,51 +273,68 @@ export const createEngine = ({
         node: nodeActor,
         mindmap: mindmapActor
       },
-      services: {
-        viewportNavigation: runtime.services.viewportNavigation
+      viewport: {
+        getZoom: queryRuntime.query.viewport.getZoom,
+        clientToWorld: queryRuntime.query.viewport.clientToWorld
       },
-      shortcuts: runtime.shortcuts,
+      shortcuts,
       config
     }),
-    config: createDefaultInputConfig(),
     sessions: createDefaultPointerSessions()
   })
-  inputRef.set(inputPort)
+  instance.input = inputPort
   const lifecycleRuntime = new Lifecycle(
     {
       state,
-      query: queryRuntime.query,
-      view: viewRuntime.view,
-      runtime,
-      events,
-      config
-    },
-    {
-      onViewportConfigChange: (viewportConfig) => {
-        inputPort.configure({
-          viewport: toInputViewportConfig(viewportConfig)
-        })
-      }
+      viewport,
+      syncViewport: syncDocument,
+      shortcuts,
+      emit: events.emit
     },
     {
       edge: edgeActor,
+      groupAutoFit: groupAutoFitActor,
       node: nodeActor,
       mindmap: mindmapActor,
-      history: historyActor,
       selection: selectionActor
     }
   )
+  let prevHistoryDocId: DocumentId | undefined
   const lifecyclePort = {
-    start: lifecycleRuntime.start,
+    start: () => {
+      lifecycleRuntime.start()
+    },
     update: (nextConfig: Parameters<typeof lifecycleRuntime.update>[0]) => {
+      if (nextConfig.history) {
+        history.configure(nextConfig.history)
+      }
+      if (!nextConfig.docId) {
+        prevHistoryDocId = undefined
+      } else {
+        if (prevHistoryDocId && prevHistoryDocId !== nextConfig.docId) {
+          history.clear()
+        }
+        prevHistoryDocId = nextConfig.docId
+      }
       lifecycleRuntime.update(nextConfig)
     },
     stop: () => {
       lifecycleRuntime.stop()
+      prevHistoryDocId = undefined
       scheduler.cancelAll()
     }
   }
-  lifecycleRef.set(lifecyclePort)
 
-  return instance
+  instance.lifecycle = lifecyclePort
+
+  return {
+    state: instance.state,
+    projection: instance.projection,
+    input: instance.input,
+    query: instance.query,
+    view: instance.view,
+    events: instance.events,
+    lifecycle: instance.lifecycle,
+    commands: instance.commands
+  }
 }

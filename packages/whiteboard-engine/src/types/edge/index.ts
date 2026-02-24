@@ -12,7 +12,7 @@ export type {
 } from './connect'
 export type { EdgePath, EdgePathEntry, EdgeGeometryOptions } from './geometry'
 export type {
-  RoutingDragActiveState,
+  RoutingDragPayload,
   RoutingDragState,
   RoutingDragStartOptions,
   RoutingDragUpdateOptions,

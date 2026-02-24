@@ -99,10 +99,10 @@ class ShortcutsImpl implements Shortcuts {
 
   private readShortcutContext = (): ShortcutContext => {
     const interaction = this.readState('interaction')
+    const interactionSession = this.readState('interactionSession')
     const tool = this.readState('tool')
     const selection = this.readState('selection')
-    const selectedEdgeId = this.readState('edgeSelection')
-    const edgeConnect = this.readState('edgeConnect')
+    const selectedEdgeId = selection.selectedEdgeId
     const selectedNodeIds = Array.from(selection.selectedNodeIds)
 
     return {
@@ -118,7 +118,10 @@ class ShortcutsImpl implements Shortcuts {
       hover: interaction.hover,
       pointer: {
         ...interaction.pointer,
-        isDragging: interaction.pointer.isDragging || selection.isSelecting || edgeConnect.isConnecting
+        isDragging:
+          interaction.pointer.isDragging ||
+          selection.isSelecting ||
+          interactionSession.active?.kind === 'edgeConnect'
       },
       viewport: {
         zoom: this.readState('viewport').zoom

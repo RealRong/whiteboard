@@ -24,30 +24,23 @@ export const createInitialState = (): WritableStateSnapshot => ({
       edgeId: undefined
     }
   },
+  interactionSession: {},
   tool: DEFAULT_CONFIG.tool,
   selection: {
     selectedNodeIds: new Set<NodeId>(),
+    selectedEdgeId: undefined,
+    groupHovered: undefined,
     isSelecting: false,
     mode: 'replace',
     selectionRect: undefined,
     selectionRectWorld: undefined
   },
-  edgeSelection: undefined,
-  history: {
-    canUndo: false,
-    canRedo: false,
-    undoDepth: 0,
-    redoDepth: 0,
-    isApplying: false,
-    lastUpdatedAt: undefined
-  },
-  edgeConnect: { isConnecting: false },
+  edgeConnect: {},
   routingDrag: {},
   mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout },
   mindmapDrag: {},
   nodeDrag: {},
   nodeTransform: {},
   spacePressed: false,
-  dragGuides: [],
-  groupHovered: undefined
+  dragGuides: []
 })

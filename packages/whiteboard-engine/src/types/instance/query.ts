@@ -1,5 +1,7 @@
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { Document, NodeId, Point, Rect, Viewport } from '@whiteboard/core/types'
 import type { SnapCandidate } from '../node/snap'
+import type { Size } from '../common'
+import type { InstanceConfig } from './config'
 import type {
   CanvasNodeRect,
   EdgeConnectAnchorResult
@@ -9,7 +11,6 @@ export type QueryCanvas = {
   nodeRects: () => CanvasNodeRect[]
   nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
   nodeIdsInRect: (rect: Rect) => NodeId[]
-  isBackgroundTarget: (target: EventTarget | null) => boolean
 }
 
 export type QuerySnap = {
@@ -22,7 +23,29 @@ export type QueryGeometry = {
   nearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) => number
 }
 
+export type QueryDocument = {
+  get: () => Document
+}
+
+export type QueryViewport = {
+  get: () => Viewport
+  getZoom: () => number
+  screenToWorld: (point: Point) => Point
+  worldToScreen: (point: Point) => Point
+  clientToScreen: (clientX: number, clientY: number) => Point
+  clientToWorld: (clientX: number, clientY: number) => Point
+  getScreenCenter: () => Point
+  getContainerSize: () => Size
+}
+
+export type QueryConfig = {
+  get: () => InstanceConfig
+}
+
 export type Query = {
+  doc: QueryDocument
+  viewport: QueryViewport
+  config: QueryConfig
   canvas: QueryCanvas
   snap: QuerySnap
   geometry: QueryGeometry

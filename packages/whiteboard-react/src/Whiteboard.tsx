@@ -68,7 +68,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
             replaceDocumentDraft(draft, nextDoc)
           })
         },
-        containerRef,
         config: instanceConfig
       }),
     [instanceConfig, registries]
@@ -83,12 +82,10 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   const lifecycleConfig = useMemo(
     () =>
       toLifecycleConfig({
-        instance,
         docId: doc.id,
         tool: resolvedConfig.tool,
         mindmapLayout: resolvedConfig.mindmapLayout,
         viewport: doc.viewport,
-        viewportConfig: resolvedConfig.viewport,
         history: resolvedConfig.history,
         shortcuts: resolvedConfig.shortcuts
       }),
@@ -98,7 +95,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       resolvedConfig.history.capacity,
       resolvedConfig.history.captureSystem,
       resolvedConfig.history.captureRemote,
-      instance,
       doc.viewport?.center?.x,
       doc.viewport?.center?.y,
       doc.viewport?.zoom,
@@ -107,17 +103,32 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       resolvedConfig.mindmapLayout.mode,
       resolvedConfig.mindmapLayout.options?.hGap,
       resolvedConfig.mindmapLayout.options?.vGap,
-      resolvedConfig.mindmapLayout.options?.side,
-      resolvedConfig.viewport?.enablePan,
-      resolvedConfig.viewport?.enableWheel,
-      resolvedConfig.viewport?.maxZoom,
-      resolvedConfig.viewport?.minZoom,
-      resolvedConfig.viewport?.wheelSensitivity
+      resolvedConfig.mindmapLayout.options?.side
     ]
   )
 
   const lifecycle = instance.lifecycle
-  const inputAdapter = useMemo(() => new DomInputAdapter(instance), [instance])
+  const inputAdapter = useMemo(
+    () =>
+      new DomInputAdapter(instance, {
+        viewportPolicy: {
+          panEnabled: resolvedConfig.viewport.enablePan,
+          wheelEnabled: resolvedConfig.viewport.enableWheel,
+          minZoom: resolvedConfig.viewport.minZoom,
+          maxZoom: resolvedConfig.viewport.maxZoom,
+          wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
+        },
+        getContainer: () => containerRef.current
+      }),
+    [
+      instance,
+      resolvedConfig.viewport.enablePan,
+      resolvedConfig.viewport.enableWheel,
+      resolvedConfig.viewport.minZoom,
+      resolvedConfig.viewport.maxZoom,
+      resolvedConfig.viewport.wheelSensitivity
+    ]
+  )
 
   useEffect(() => {
     lifecycle.start()
@@ -136,6 +147,38 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   useEffect(() => {
     lifecycle.update(lifecycleConfig)
   }, [lifecycle, lifecycleConfig])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const emitRect = (rect: { left: number; top: number; width: number; height: number }) => {
+      instance.commands.host.containerResized(rect)
+    }
+
+    const initial = container.getBoundingClientRect()
+    emitRect({
+      left: initial.left,
+      top: initial.top,
+      width: initial.width,
+      height: initial.height
+    })
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      const next = container.getBoundingClientRect()
+      emitRect({
+        left: next.left,
+        top: next.top,
+        width: next.width,
+        height: next.height
+      })
+    })
+    observer.observe(container)
+    return () => {
+      observer.disconnect()
+    }
+  }, [instance])
 
   const containerStyle = useMemo<CSSProperties>(
     () => ({

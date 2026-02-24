@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeTransformHandle, NodeViewItem } from '@whiteboard/engine'
+import type { NodeViewItem } from '@whiteboard/engine'
 import { useViewSelector } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
@@ -23,18 +23,11 @@ const useNodeItem = (nodeId: NodeId) => {
   )
 }
 
-const useNodeTransformHandles = (nodeId: NodeId) => {
-  return useViewSelector<NodeTransformHandle[] | undefined>(
-    (state) => state.nodes.handlesById.get(nodeId) as NodeTransformHandle[] | undefined
-  )
-}
-
 const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
   const item = useNodeItem(nodeId)
-  const transformHandles = useNodeTransformHandles(nodeId)
 
   if (!item) return null
-  return <NodeItem item={item} transformHandles={transformHandles} />
+  return <NodeItem item={item} />
 }
 
 export const NodeLayer = () => {

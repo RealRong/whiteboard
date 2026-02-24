@@ -3,7 +3,6 @@ import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
-import type { RuntimeServices } from './instance/runtime'
 import type { State } from './instance/state'
 import type { Shortcuts } from './shortcuts'
 
@@ -130,16 +129,6 @@ export type InputResult = {
 
 export type InputDispatchResult = InputResult
 
-export type InputConfig = {
-  viewport: {
-    minZoom: number
-    maxZoom: number
-    enablePan: boolean
-    enableWheel: boolean
-    wheelSensitivity: number
-  }
-}
-
 export type InputSessionContext = {
   state: Pick<State, 'read' | 'write' | 'batch'>
   commands: Commands
@@ -197,17 +186,16 @@ export type InputSessionContext = {
       cancelDrag: () => boolean
     }
   }
-  services: Pick<RuntimeServices, 'viewportNavigation'>
-  shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
-  input: {
-    config: InputConfig
+  viewport: {
+    getZoom: () => number
+    clientToWorld: (clientX: number, clientY: number) => Point
   }
+  shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
   config: InstanceConfig
 }
 
 export type InputController = {
   handle: (event: InputEvent) => InputResult
-  configure: (config: InputConfig) => void
   reset: (reason?: CancelReason) => InputResult
 }
 
@@ -222,7 +210,6 @@ export type CancelReason =
 export type PointerSessionKind =
   | 'nodeDrag'
   | 'nodeTransform'
-  | 'viewportPan'
   | 'selectionBox'
   | 'edgeConnect'
   | 'edgePath'

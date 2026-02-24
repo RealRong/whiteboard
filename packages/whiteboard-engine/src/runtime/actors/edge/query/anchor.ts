@@ -3,7 +3,7 @@ export {
   getAnchorFromPoint,
   getAutoAnchorFromRect,
   type AnchorSnapOptions
-} from '@whiteboard/core/types'
+} from '@whiteboard/core/edge'
 
 export type ConnectTo = NonNullable<EdgeConnectState['to']>
 

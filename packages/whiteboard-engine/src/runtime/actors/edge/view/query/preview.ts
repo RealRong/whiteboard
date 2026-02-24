@@ -35,7 +35,8 @@ export const createEdgePreviewResolver = ({
   getNodeRect
 }: Options) => {
   const getPreview = (
-    edgeConnect: EdgeConnectState
+    edgeConnect: EdgeConnectState,
+    isConnecting: boolean
   ): EdgeConnectPreview => {
     const nodeRectCache = new Map<EdgeConnectFrom['nodeId'], ReturnType<NodeRectReader> | null>()
     const getCachedEntry = (nodeId: EdgeConnectFrom['nodeId']) => {
@@ -46,7 +47,7 @@ export const createEdgePreviewResolver = ({
       return entry
     }
     const isPreviewLineMode =
-      edgeConnect.isConnecting && !edgeConnect.reconnect
+      isConnecting && !edgeConnect.reconnect
 
     const from = isPreviewLineMode
       ? resolveEdgeConnectPoint(edgeConnect.from, {

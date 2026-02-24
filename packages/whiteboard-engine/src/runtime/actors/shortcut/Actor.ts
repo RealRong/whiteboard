@@ -1,5 +1,4 @@
 import type { ShortcutAction } from '@engine-types/shortcuts'
-import type { Actor as HistoryActor } from '../history/Actor'
 import type { Actor as SelectionActor } from '../selection/Actor'
 
 type ActorOptions = {
@@ -7,7 +6,10 @@ type ActorOptions = {
     SelectionActor,
     'selectAll' | 'clear' | 'groupSelected' | 'ungroupSelected' | 'deleteSelected' | 'duplicateSelected'
   >
-  history: Pick<HistoryActor, 'undo' | 'redo'>
+  history: {
+    undo: () => boolean
+    redo: () => boolean
+  }
 }
 
 export class Actor {

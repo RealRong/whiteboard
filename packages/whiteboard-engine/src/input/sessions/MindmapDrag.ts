@@ -4,9 +4,9 @@ export const createMindmapDrag = (): PointerSession => ({
   kind: 'mindmapDrag',
   priority: 60,
   canStart: (event, context) => {
-    const active = context.state.read('mindmapDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      return active.pointerId === event.pointerId
+      return active.kind === 'mindmapDrag' && active.pointerId === event.pointerId
     }
     if (event.phase !== 'down') return false
     if (event.source !== 'container') return false
@@ -19,9 +19,9 @@ export const createMindmapDrag = (): PointerSession => ({
     )
   },
   start: (event, context) => {
-    const active = context.state.read('mindmapDrag').active
+    const active = context.state.read('interactionSession').active
     if (active) {
-      if (active.pointerId !== event.pointerId) return null
+      if (active.kind !== 'mindmapDrag' || active.pointerId !== event.pointerId) return null
     } else {
       if (!event.target.treeId || !event.target.nodeId) return null
       const started = context.actors.mindmap.startDrag(

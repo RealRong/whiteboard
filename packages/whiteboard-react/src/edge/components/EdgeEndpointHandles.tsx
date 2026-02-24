@@ -2,7 +2,12 @@ import type { CSSProperties } from 'react'
 import { useEdgeSelectedEndpointsView, useWhiteboardSelector } from '../../common/hooks'
 
 export const EdgeEndpointHandles = () => {
-  const stateSelectedEdgeId = useWhiteboardSelector('edgeSelection')
+  const stateSelectedEdgeId = useWhiteboardSelector(
+    (snapshot) => snapshot.selection.selectedEdgeId,
+    {
+      keys: ['selection']
+    }
+  )
   const endpoints = useEdgeSelectedEndpointsView()
   if (!stateSelectedEdgeId || !endpoints) return null
 

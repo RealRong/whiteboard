@@ -1,7 +1,7 @@
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { PointerInput } from '../common'
 
-export type RoutingDragActiveState = {
+export type RoutingDragPayload = {
   edgeId: EdgeId
   index: number
   pointerId: number
@@ -10,7 +10,7 @@ export type RoutingDragActiveState = {
 }
 
 export type RoutingDragState = {
-  active?: RoutingDragActiveState
+  payload?: RoutingDragPayload
 }
 
 export type RoutingDragStartOptions = {

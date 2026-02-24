@@ -3,19 +3,10 @@ import type { ShortcutOverrides } from '../shortcuts'
 import type { ResolvedHistoryConfig } from '../common'
 import type { MindmapLayoutConfig } from '../mindmap'
 
-export type LifecycleViewportConfig = {
-  minZoom: number
-  maxZoom: number
-  enablePan: boolean
-  enableWheel: boolean
-  wheelSensitivity: number
-}
-
 export type LifecycleConfig = {
   docId?: DocumentId
   tool: 'select' | 'edge'
   viewport: Viewport
-  viewportConfig: LifecycleViewportConfig
   mindmapLayout: MindmapLayoutConfig
   history?: ResolvedHistoryConfig
   shortcuts?: ShortcutOverrides

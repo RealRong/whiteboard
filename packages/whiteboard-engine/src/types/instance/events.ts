@@ -1,13 +1,11 @@
 import type { DocumentId, EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../mindmap'
-import type { HistoryState } from '../state'
 
 export type InstanceEventMap = {
   'selection.changed': { nodeIds: NodeId[] }
   'edge.selection.changed': { edgeId?: EdgeId }
   'tool.changed': { tool: 'select' | 'edge' }
   'viewport.changed': { viewport: Viewport }
-  'history.changed': { history: HistoryState }
   'mindmap.layout.changed': { layout: MindmapLayoutConfig }
   'doc.changed': {
     docId?: DocumentId

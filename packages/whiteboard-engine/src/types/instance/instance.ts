@@ -1,22 +1,20 @@
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
 import type { Commands } from '../commands'
 import type { ApplyMutationsApi } from '../command'
-import type { RefLike } from '../ui'
-import type { InstanceEvents } from './events'
+import type { InstanceEventEmitter, InstanceEvents } from './events'
 import type { Lifecycle } from './lifecycle'
 import type { InstanceConfig } from './config'
 import type { Query } from './query'
-import type { Runtime, RuntimeInternal } from './runtime'
 import type { State } from './state'
 import type { View } from './view'
 import type { ProjectionStore } from '../projection'
 import type { InputPort } from '../input'
+import type { ViewportApi } from '../viewport'
 
 export type Instance = {
   state: State
   projection: ProjectionStore
   input: InputPort
-  runtime: Runtime
   query: Query
   view: View
   events: InstanceEvents
@@ -26,13 +24,19 @@ export type Instance = {
 
 export type InternalInstance = Instance & {
   mutate: ApplyMutationsApi
-  runtime: RuntimeInternal
+  emit: InstanceEventEmitter['emit']
+  document: {
+    get: () => Document
+    replace: (doc: Document, options?: { silent?: boolean }) => void
+  }
+  config: InstanceConfig
+  viewport: ViewportApi
+  registries: CoreRegistries
 }
 
 export type CreateEngineOptions = {
   registries?: CoreRegistries
   document: Document
   onDocumentChange?: (doc: Document) => void
-  containerRef: RefLike<HTMLDivElement | null>
   config?: Partial<InstanceConfig>
 }

@@ -1,18 +1,16 @@
-import type { Scheduler as SchedulerType } from './contracts'
-
-export class Scheduler implements SchedulerType {
+export class Scheduler {
   private fallbackRafId = 0
   private fallbackRafTimers = new Map<number, ReturnType<typeof setTimeout>>()
   private nativeRafIds = new Set<number>()
 
-  now: SchedulerType['now'] = () => {
+  now = (): number => {
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
       return performance.now()
     }
     return Date.now()
   }
 
-  microtask: SchedulerType['microtask'] = (callback) => {
+  microtask = (callback: () => void): void => {
     if (typeof queueMicrotask === 'function') {
       queueMicrotask(callback)
       return
@@ -20,7 +18,7 @@ export class Scheduler implements SchedulerType {
     void Promise.resolve().then(callback)
   }
 
-  raf: SchedulerType['raf'] = (callback) => {
+  raf = (callback: FrameRequestCallback): number => {
     if (typeof requestAnimationFrame === 'function') {
       const id = requestAnimationFrame((timestamp) => {
         this.nativeRafIds.delete(id)
@@ -39,7 +37,7 @@ export class Scheduler implements SchedulerType {
     return id
   }
 
-  cancelRaf: SchedulerType['cancelRaf'] = (id) => {
+  cancelRaf = (id: number): void => {
     if (this.nativeRafIds.has(id)) {
       if (typeof cancelAnimationFrame === 'function') {
         cancelAnimationFrame(id)

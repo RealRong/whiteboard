@@ -264,7 +264,7 @@ class SnapIndex {
 }
 
 export type QueryIndexes = {
-  syncFull: (nodes: Node[]) => void
+  sync: (nodes: Node[]) => void
   getNodeRects: () => CanvasNodeRect[]
   getNodeRectById: (nodeId: NodeId) => CanvasNodeRect | undefined
   getSnapCandidates: () => SnapCandidate[]
@@ -286,13 +286,13 @@ export const createQueryIndexes = ({
     )
   )
 
-  const syncFull: QueryIndexes['syncFull'] = (nodes) => {
+  const sync: QueryIndexes['sync'] = (nodes) => {
     nodeRectIndex.updateFull(nodes)
     snapIndex.update(nodeRectIndex.getAll())
   }
 
   return {
-    syncFull,
+    sync,
     getNodeRects: () => nodeRectIndex.getAll(),
     getNodeRectById: (nodeId) => nodeRectIndex.getById(nodeId),
     getSnapCandidates: () => snapIndex.getAll(),

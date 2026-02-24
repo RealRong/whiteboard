@@ -24,7 +24,7 @@ import type {
   Size,
   ResolvedHistoryConfig
 } from './common'
-import type { InteractionState, SelectionMode } from './state'
+import type { HistoryState, InteractionState, SelectionMode } from './state'
 import type { ResizeDirection } from './state'
 import type {
   RoutingDragStartOptions,
@@ -211,7 +211,8 @@ export type Commands = {
     setSpacePressed: (pressed: boolean) => void
   }
   history: {
-    configure: (config: ResolvedHistoryConfig) => void
+    configure: (config: Partial<ResolvedHistoryConfig>) => void
+    get: () => HistoryState
     undo: () => boolean
     redo: () => boolean
     clear: () => void
@@ -219,6 +220,10 @@ export type Commands = {
   interaction: {
     update: (patch: Partial<InteractionState>) => void
     clearHover: () => void
+  }
+  host: {
+    nodeMeasured: (id: NodeId, size: Size) => void
+    containerResized: (rect: { left: number; top: number; width: number; height: number }) => void
   }
   selection: {
     select: (ids: NodeId[], mode?: SelectionMode) => void

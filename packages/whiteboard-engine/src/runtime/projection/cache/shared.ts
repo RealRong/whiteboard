@@ -2,7 +2,9 @@ import type { Edge, Node, NodeId } from '@whiteboard/core/types'
 
 export const EMPTY_NODES: Node[] = []
 export const EMPTY_EDGES: Edge[] = []
+export const EMPTY_NODE_IDS: NodeId[] = []
 export const EMPTY_NODE_MAP = new Map<NodeId, Node>()
+export const EMPTY_INDEX_BY_ID = new Map<NodeId, number>()
 
 export const buildIndexById = (nodes: Node[]) => {
   const indexById = new Map<NodeId, number>()
@@ -62,26 +64,4 @@ export const orderByIds = <T extends { id: string }>(items: T[], ids: string[]) 
   })
 
   return ordered
-}
-
-export const patchNodeListByIds = (
-  list: Node[],
-  changedNodeIds: Set<NodeId>,
-  listIndexById: Map<NodeId, number>,
-  readNodeById: (nodeId: NodeId) => Node | undefined
-) => {
-  if (!list.length || !changedNodeIds.size) return list
-  let next = list
-  changedNodeIds.forEach((nodeId) => {
-    const index = listIndexById.get(nodeId)
-    if (index === undefined) return
-    const node = readNodeById(nodeId)
-    if (!node) return
-    if (next[index] === node) return
-    if (next === list) {
-      next = list.slice()
-    }
-    next[index] = node
-  })
-  return next
 }

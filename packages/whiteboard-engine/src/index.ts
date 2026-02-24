@@ -30,7 +30,6 @@ export type {
   MindmapView,
   ReadonlyStore,
   MindmapDragView,
-  NodeTransformHandle,
   MindmapViewTree,
   NodeViewItem
 } from './types/instance'
@@ -52,7 +51,6 @@ export type {
   InputCommand,
   InputResult,
   InputDispatchResult,
-  InputConfig,
   InputController,
   InputPort,
   InputSessionContext,

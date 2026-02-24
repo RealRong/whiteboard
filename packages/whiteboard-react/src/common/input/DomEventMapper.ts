@@ -3,8 +3,7 @@ import type {
   KeyInputEvent,
   PointerInputEvent,
   PointerPhase,
-  PointerStage,
-  WheelInputEvent
+  PointerStage
 } from '@whiteboard/engine'
 
 type PointerSource = 'container' | 'window'
@@ -198,22 +197,17 @@ const resolveTargetByEventTarget = (
   return { surface: baseSurface }
 }
 
-const resolvePointerTarget = ({
-  event,
-  source,
-  isBackground
-}: {
-  event: PointerEvent
+const resolvePointerTarget = (
+  eventTarget: EventTarget | null,
   source: PointerSource
-  isBackground: boolean
-}): PointerInputEvent['target'] => {
-  if (isBackground) {
-    return {
-      surface: 'canvas',
-      role: 'background'
-    }
+): PointerInputEvent['target'] => {
+  const target = resolveTargetByEventTarget(eventTarget, source)
+  if (source !== 'container') return target
+  if (target.role || target.ignoreInput) return target
+  return {
+    surface: 'canvas',
+    role: 'background'
   }
-  return resolveTargetByEventTarget(event.target, source)
 }
 
 export const toKeyInputEvent = (
@@ -258,7 +252,7 @@ export const toPointerInputEvent = ({
     x: event.clientX,
     y: event.clientY
   }
-  const screen = instance.runtime.viewport.clientToScreen(
+  const screen = instance.query.viewport.clientToScreen(
     event.clientX,
     event.clientY
   )
@@ -273,15 +267,10 @@ export const toPointerInputEvent = ({
     button,
     client,
     screen,
-    world: instance.runtime.viewport.screenToWorld(screen),
+    world: instance.query.viewport.screenToWorld(screen),
     modifiers
   }
-  const isBackground = instance.query.canvas.isBackgroundTarget(event.target)
-  const target = resolvePointerTarget({
-    event,
-    source,
-    isBackground
-  })
+  const target = resolvePointerTarget(event.target, source)
 
   return {
     kind: 'pointer',
@@ -304,25 +293,3 @@ export const toPointerInputEvent = ({
     source
   }
 }
-
-export const toWheelInputEvent = (
-  event: WheelEvent,
-  source: WheelInputEvent['source']
-): WheelInputEvent => ({
-  kind: 'wheel',
-  client: {
-    x: event.clientX,
-    y: event.clientY
-  },
-  deltaX: event.deltaX,
-  deltaY: event.deltaY,
-  deltaZ: event.deltaZ,
-  modifiers: {
-    shift: event.shiftKey,
-    alt: event.altKey,
-    ctrl: event.ctrlKey,
-    meta: event.metaKey
-  },
-  timestamp: event.timeStamp,
-  source
-})
