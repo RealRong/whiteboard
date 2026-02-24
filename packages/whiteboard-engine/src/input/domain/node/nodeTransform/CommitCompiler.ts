@@ -46,4 +46,21 @@ export class CommitCompiler {
       patch
     }]
   }
+
+  compileRotate = (
+    nodeId: NodeId,
+    rotation: number | undefined
+  ): Operation[] => {
+    if (typeof rotation !== 'number') return []
+    const node = this.readDoc().nodes.find((item) => item.id === nodeId)
+    if (!node) return []
+    if ((node.rotation ?? 0) === rotation) return []
+    return [{
+      type: 'node.update',
+      id: nodeId,
+      patch: {
+        rotation
+      }
+    }]
+  }
 }

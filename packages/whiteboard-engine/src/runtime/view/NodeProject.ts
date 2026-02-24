@@ -13,11 +13,19 @@ const getNodeRect = (query: Query, node: Node): Rect =>
 export const projectNodeItem = (options: {
   node: Node
   query: Query
+  rotationOverride?: number
   previous?: NodeViewItem
 }): NodeViewItem => {
-  const { node, query, previous } = options
+  const { node, query, previous, rotationOverride } = options
   const rect = getNodeRect(query, node)
-  const rotation = typeof node.rotation === 'number' ? node.rotation : 0
+  const rotation =
+    typeof rotationOverride === 'number'
+      ? rotationOverride
+      : (
+          typeof node.rotation === 'number'
+            ? node.rotation
+            : 0
+        )
   const transformBase = `translate(${rect.x}px, ${rect.y}px)`
 
   if (

@@ -1,8 +1,10 @@
 import type {
   Document,
+  EdgeId,
   Edge,
   Node,
   NodeId,
+  Operation,
   Point,
   Size
 } from '@whiteboard/core/types'
@@ -41,51 +43,52 @@ export type ProjectionSnapshot = {
   indexes: ProjectionIndexesSlice
 }
 
-export type ProjectionInvalidation = {
-  visibleNodesChanged: boolean
-  canvasNodesChanged: boolean
-  visibleEdgesChanged: boolean
-}
+export type ProjectionImpactTag =
+  | 'full'
+  | 'nodes'
+  | 'edges'
+  | 'order'
+  | 'geometry'
+  | 'mindmap'
+  | 'viewport'
 
-type ProjectionChangeBase = {
-  source: ProjectionChangeSource
-  projection: ProjectionInvalidation
-}
-
-export type ProjectionPartialChange = ProjectionChangeBase & {
-  kind: 'partial'
-  dirtyNodeIds?: NodeId[]
-}
-
-export type ProjectionFullChange = ProjectionChangeBase & {
-  kind: 'full'
-}
-
-export type ProjectionChange = ProjectionPartialChange | ProjectionFullChange
-
-export type ProjectionChangeSource = 'runtime' | 'doc'
-
-export type ProjectionSyncInput = {
-  source?: ProjectionChangeSource
-  full?: boolean
+export type ProjectionImpact = {
+  tags: ReadonlySet<ProjectionImpactTag>
   dirtyNodeIds?: readonly NodeId[]
+  dirtyEdgeIds?: readonly EdgeId[]
+}
+
+export type ProjectionCommitKind = 'apply' | 'replace'
+
+export type ProjectionApplyInput = {
+  doc: Document
+  operations: readonly Operation[]
+  impact?: ProjectionImpact
+}
+
+export type ProjectionReplaceInput = {
+  doc: Document
+  impact?: ProjectionImpact
 }
 
 export type ProjectionCommit = {
+  revision: number
+  kind: ProjectionCommitKind
   snapshot: ProjectionSnapshot
-  change: ProjectionChange
+  impact: ProjectionImpact
 }
 
 export type ProjectionStore = {
-  get: () => ProjectionSnapshot
+  getSnapshot: () => ProjectionSnapshot
+  getRevision: () => number
   subscribe: (listener: (commit: ProjectionCommit) => void) => () => void
   readNodeOverrides: () => NodeViewUpdate[]
   patchNodeOverrides: (updates: NodeViewUpdate[]) => ProjectionCommit | undefined
   clearNodeOverrides: (ids?: NodeId[]) => ProjectionCommit | undefined
-  apply: (input?: ProjectionSyncInput) => ProjectionCommit | undefined
-  replace: (source?: ProjectionChangeSource) => ProjectionCommit
+  apply: (input: ProjectionApplyInput) => ProjectionCommit
+  replace: (input: ProjectionReplaceInput) => ProjectionCommit
 }
 
 export type CreateProjectionStoreOptions = {
-  getDoc: () => Document | null
+  getDoc: () => Document
 }

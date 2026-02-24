@@ -42,7 +42,7 @@ export class Planner {
     this.state = instance.state
     this.projection = instance.projection
     this.nodeSize = instance.config.nodeSize
-    const readCanvasNodes = () => this.projection.get().nodes.canvas
+    const readCanvasNodes = () => this.projection.getSnapshot().nodes.canvas
     this.rules = new Rules({
       config: instance.config,
       query: instance.query,
@@ -66,7 +66,7 @@ export class Planner {
     if (this.state.read('interactionSession').active) return undefined
     if (this.state.read('tool') !== 'select') return undefined
 
-    const nodes = this.projection.get().nodes.canvas
+    const nodes = this.projection.getSnapshot().nodes.canvas
     const node = nodes.find((item) => item.id === nodeId)
     if (!node || node.locked) return undefined
 

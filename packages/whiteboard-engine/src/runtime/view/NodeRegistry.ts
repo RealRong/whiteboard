@@ -1,5 +1,5 @@
 import type {
-  ProjectionChange,
+  ProjectionCommit,
   ProjectionSnapshot
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
@@ -7,6 +7,7 @@ import type {
   NodeViewItem,
 } from '@engine-types/instance/view'
 import type { NodeId } from '@whiteboard/core/types'
+import { hasImpactTag } from '../mutation/Impact'
 import { toLayerOrderedCanvasNodes } from '../actors/node/query'
 import { isSameIdOrder } from './shared'
 import { NodeProjectionCache } from './NodeProjectionCache'
@@ -16,20 +17,34 @@ type NodeViewItemEntry = NodeViewItem
 type Options = {
   query: Query
   readProjection: () => ProjectionSnapshot
+  readRotatePreview: () => { nodeId: NodeId; rotation: number } | undefined
 }
 
+export type NodeStateSyncKey = 'nodeTransform'
+
 export type NodeRegistry = {
-  syncProjection: (change: ProjectionChange) => boolean
+  applyCommit: (commit: ProjectionCommit) => boolean
+  syncState: (key: NodeStateSyncKey) => boolean
   getNodeItemsMap: () => ReadonlyMap<NodeId, NodeViewItemEntry>
   getNodeIds: () => NodeId[]
 }
 
 export const createNodeRegistry = ({
   query,
-  readProjection
+  readProjection,
+  readRotatePreview
 }: Options): NodeRegistry => {
   const cache = new NodeProjectionCache(query)
   let nodeIds: NodeId[] = []
+  let previewNodeId: NodeId | undefined
+
+  const withRotationPreview = (
+    nodeId: NodeId
+  ): number | undefined => {
+    const preview = readRotatePreview()
+    if (!preview || preview.nodeId !== nodeId) return undefined
+    return preview.rotation
+  }
 
   const syncNodeOrder = () => {
     const nextNodeIds = toLayerOrderedCanvasNodes(readProjection().nodes.canvas).map(
@@ -48,37 +63,75 @@ export const createNodeRegistry = ({
       changedNodeIds.add(nodeId)
     }
     if (!changedNodeIds.size) return changed
-    changed = cache.syncByIds(changedNodeIds, snapshot.indexes.canvasNodeById) || changed
+    changed = cache.syncByIds(
+      changedNodeIds,
+      snapshot.indexes.canvasNodeById,
+      withRotationPreview
+    ) || changed
     return changed
   }
 
-  const syncProjection: NodeRegistry['syncProjection'] = (change) => {
-    if (change.kind === 'full') {
+  const applyCommit: NodeRegistry['applyCommit'] = (commit) => {
+    const impact = commit.impact
+    const fullSync = commit.kind === 'replace' || hasImpactTag(impact, 'full')
+    if (fullSync) {
       return syncFull()
     }
 
-    if (!change.projection.canvasNodesChanged && !change.dirtyNodeIds?.length) {
+    const dirtyNodeIds = impact.dirtyNodeIds
+    const orderChanged = hasImpactTag(impact, 'order')
+    const nodesChanged = hasImpactTag(impact, 'nodes')
+    const hasDirtyNodeIds = Boolean(dirtyNodeIds?.length)
+
+    if (!orderChanged && !nodesChanged && !hasDirtyNodeIds) {
       return false
     }
 
     let changed = false
     const snapshot = readProjection()
-    const dirtyNodeIds = change.dirtyNodeIds
     if (dirtyNodeIds?.length) {
-      changed = cache.syncByIds(dirtyNodeIds, snapshot.indexes.canvasNodeById) || changed
+      changed = cache.syncByIds(
+        dirtyNodeIds,
+        snapshot.indexes.canvasNodeById,
+        withRotationPreview
+      ) || changed
     }
 
-    const shouldSyncOrder =
-      change.projection.canvasNodesChanged &&
-      !(change.source === 'runtime' && dirtyNodeIds?.length)
-    if (shouldSyncOrder) {
+    if (orderChanged) {
       changed = syncNodeOrder() || changed
+    }
+
+    if (nodesChanged && !hasDirtyNodeIds) {
+      changed = syncFull() || changed
     }
     return changed
   }
 
+  const syncNodeTransform = () => {
+    const nextPreview = readRotatePreview()
+    const nextPreviewNodeId = nextPreview?.nodeId
+    const targetNodeIds = new Set<NodeId>()
+    if (previewNodeId) targetNodeIds.add(previewNodeId)
+    if (nextPreviewNodeId) targetNodeIds.add(nextPreviewNodeId)
+    previewNodeId = nextPreviewNodeId
+    if (!targetNodeIds.size) return false
+    return cache.syncByIds(
+      targetNodeIds,
+      readProjection().indexes.canvasNodeById,
+      withRotationPreview
+    )
+  }
+
+  const syncState: NodeRegistry['syncState'] = (key) => {
+    if (key === 'nodeTransform') {
+      return syncNodeTransform()
+    }
+    return false
+  }
+
   return {
-    syncProjection,
+    applyCommit,
+    syncState,
     getNodeItemsMap: () => cache.getNodeItemsMap(),
     getNodeIds: () => nodeIds
   }

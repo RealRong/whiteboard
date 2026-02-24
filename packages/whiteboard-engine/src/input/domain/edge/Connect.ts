@@ -1,7 +1,7 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../Scheduler'
-import { FrameTask } from '../TaskQueue'
+import type { Scheduler } from '../../../runtime/Scheduler'
+import { FrameTask } from '../../../runtime/TaskQueue'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -9,10 +9,10 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../config'
-import { type ConnectTo, isSameConnectTo } from '../actors/edge/query'
-import { buildEdgeCreateOperation } from '../actors/edge/createOperation'
-import type { SubmitMutations } from '../actors/shared/MutationCommit'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
+import { type ConnectTo, isSameConnectTo } from '../../../runtime/actors/edge/query'
+import { buildEdgeCreateOperation } from '../../../runtime/actors/edge/createOperation'
+import type { SubmitMutations } from '../../../runtime/actors/shared/MutationCommit'
 
 type ConnectInstance = Pick<
   InternalInstance,
@@ -189,7 +189,7 @@ export class Connect {
     end: 'source' | 'target',
     pointer: PointerInput
   ) => {
-    const visibleEdges = this.instance.projection.get().edges.visible
+    const visibleEdges = this.instance.projection.getSnapshot().edges.visible
     const edge = visibleEdges.find((item) => item.id === edgeId)
     if (!edge) return
     const endpoint = edge[end]
@@ -238,7 +238,7 @@ export class Connect {
     const targetAnchor = snap.anchor
 
     if (reconnect) {
-      const visibleEdges = this.instance.projection.get().edges.visible
+      const visibleEdges = this.instance.projection.getSnapshot().edges.visible
       const edge = visibleEdges.find(
         (item) => item.id === reconnect.edgeId
       )

@@ -18,7 +18,8 @@ export class NodeProjectionCache {
 
   syncByIds = (
     targetNodeIds: Iterable<NodeId>,
-    canvasNodeById: ReadonlyMap<NodeId, Node>
+    canvasNodeById: ReadonlyMap<NodeId, Node>,
+    readRotationPreview?: (nodeId: NodeId) => number | undefined
   ) => {
     let nextById = this.nodeItemsById
     let changed = false
@@ -38,6 +39,7 @@ export class NodeProjectionCache {
       const next = projectNodeItem({
         node,
         query: this.query,
+        rotationOverride: readRotationPreview?.(nodeId),
         previous
       })
       if (previous === next) continue

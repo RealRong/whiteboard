@@ -7,7 +7,7 @@ import type {
 } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
-import type { SubmitMutations } from '../actors/shared/MutationCommit'
+import type { SubmitMutations } from '../../../runtime/actors/shared/MutationCommit'
 
 type RoutingInstance = Pick<InternalInstance, 'state' | 'projection'>
 
@@ -88,32 +88,29 @@ export class Routing {
     pointWorld: Point
   ) => {
     if (index < 0 || index >= points.length) return
+    const current = points[index]
+    if (current.x === pointWorld.x && current.y === pointWorld.y) return
     const nextPoints = points.map((point, idx) =>
       idx === index ? pointWorld : point
     )
-    this.submitMutations(
-      [
-        {
-          type: 'edge.update',
-          id: edgeId,
-          patch: {
-            routing: {
-              ...(routing ?? {}),
-              mode: routing?.mode ?? 'manual',
-              points: nextPoints
-            }
-          }
+    return {
+      type: 'edge.update' as const,
+      id: edgeId,
+      patch: {
+        routing: {
+          ...(routing ?? {}),
+          mode: routing?.mode ?? 'manual',
+          points: nextPoints
         }
-      ],
-      'interaction'
-    )
+      }
+    }
   }
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {
     const { state, projection } = this.instance
     if (state.read('interactionSession').active) return false
 
-    const edge = projection.get().edges.visible.find((item) => item.id === edgeId)
+    const edge = projection.getSnapshot().edges.visible.find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false
 
     const points = edge.routing?.points ?? []
@@ -125,7 +122,8 @@ export class Routing {
       index,
       pointerId: pointer.pointerId,
       start,
-      origin: points[index]
+      origin: points[index],
+      point: points[index]
     }
     state.batch(() => {
       this.session = payload
@@ -144,7 +142,7 @@ export class Routing {
     const active = this.readActive(pointer.pointerId)
     if (!active) return false
 
-    const edge = projection.get().edges.visible.find((item) => item.id === active.edgeId)
+    const edge = projection.getSnapshot().edges.visible.find((item) => item.id === active.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       this.clear()
       return false
@@ -161,13 +159,16 @@ export class Routing {
       x: active.origin.x + (current.x - active.start.x),
       y: active.origin.y + (current.y - active.start.y)
     }
-    this.moveRoutingPoint(
-      edge.id,
-      edge.routing,
-      points,
-      active.index,
-      nextPoint
-    )
+    this.instance.state.batchFrame(() => {
+      const payload: RoutingDragPayload = {
+        ...active,
+        point: nextPoint
+      }
+      this.session = payload
+      this.instance.state.write('routingDrag', {
+        payload
+      })
+    })
 
     return true
   }
@@ -175,6 +176,23 @@ export class Routing {
   end = ({ pointer }: RoutingDragEndOptions) => {
     const active = this.readActive(pointer.pointerId)
     if (!active) return false
+    const edge = this.instance.projection
+      .getSnapshot()
+      .edges.visible
+      .find((item) => item.id === active.edgeId)
+    if (edge && edge.type !== 'bezier' && edge.type !== 'curve') {
+      const points = edge.routing?.points ?? []
+      const operation = this.moveRoutingPoint(
+        edge.id,
+        edge.routing,
+        points,
+        active.index,
+        active.point
+      )
+      if (operation) {
+        this.submitMutations([operation], 'interaction')
+      }
+    }
     this.clear()
     return true
   }

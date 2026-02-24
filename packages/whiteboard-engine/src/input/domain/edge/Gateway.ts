@@ -1,8 +1,8 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import { createMutationCommit } from '../actors/shared/MutationCommit'
-import type { Scheduler } from '../Scheduler'
+import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
+import type { Scheduler } from '../../../runtime/Scheduler'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
 

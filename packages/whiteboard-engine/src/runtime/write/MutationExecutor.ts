@@ -98,18 +98,23 @@ export class MutationExecutor {
   }
 
   private syncProjectionState = (
+    doc: Document,
     operations: Operation[],
     impact = this.impactAnalyzer.analyze(operations)
   ) => {
     if (!affectsProjection(impact)) return
     const full = hasImpactTag(impact, 'full')
     if (full) {
-      this.projection.replace('doc')
+      this.projection.replace({
+        doc,
+        impact
+      })
       return
     }
     this.projection.apply({
-      source: 'doc',
-      dirtyNodeIds: impact.dirtyNodeIds
+      doc,
+      operations,
+      impact
     })
   }
 
@@ -129,7 +134,7 @@ export class MutationExecutor {
 
     this.commitDocument(reduced.doc)
     const docAfter = this.syncDocumentState()
-    this.syncProjectionState(reduced.changes.operations)
+    this.syncProjectionState(docAfter, reduced.changes.operations)
     const applied: MutationAppliedChange = {
       docId: docAfter?.id,
       origin,
@@ -151,7 +156,7 @@ export class MutationExecutor {
   }: ResetDocumentInput): MutationResetResult => {
     this.commitDocument(doc, { silent: true })
     const docAfter = this.syncDocumentState()
-    this.syncProjectionState([], FULL_MUTATION_IMPACT)
+    this.syncProjectionState(docAfter, [], FULL_MUTATION_IMPACT)
     const applied: MutationAppliedChange = {
       docId: docAfter?.id,
       origin,

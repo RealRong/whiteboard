@@ -1,19 +1,10 @@
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type {
+  ProjectionImpact,
+  ProjectionImpactTag
+} from '@engine-types/projection'
 
-export type MutationImpactTag =
-  | 'full'
-  | 'nodes'
-  | 'edges'
-  | 'order'
-  | 'geometry'
-  | 'mindmap'
-  | 'viewport'
-
-export type MutationImpact = {
-  tags: ReadonlySet<MutationImpactTag>
-  dirtyNodeIds?: readonly NodeId[]
-  dirtyEdgeIds?: readonly EdgeId[]
-}
+export type MutationImpact = ProjectionImpact
+export type MutationImpactTag = ProjectionImpactTag
 
 const PROJECTION_TAGS: readonly MutationImpactTag[] = [
   'full',

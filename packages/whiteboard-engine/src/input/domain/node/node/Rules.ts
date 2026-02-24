@@ -6,7 +6,7 @@ import type { NodeViewUpdate } from '@engine-types/projection'
 import type { SelectionMode, SelectionState } from '@engine-types/state'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { computeSnap, findSmallestGroupAtPoint, getGroupDescendants } from '@whiteboard/core/node'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
 import type { SelectionPatch } from '../RuntimeOutput'
 import type { DragChildren, NodeDragSession } from './SessionStore'
 

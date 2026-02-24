@@ -23,6 +23,7 @@ export type RotateDragState = {
   pointerId: number
   startAngle: number
   startRotation: number
+  currentRotation?: number
   center: Point
 }
 

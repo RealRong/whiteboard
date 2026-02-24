@@ -11,7 +11,7 @@ import {
   getResizeSourceEdges
 } from '@whiteboard/core/node'
 import { getRectCenter } from '@whiteboard/core/geometry'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
 
 type RulesOptions = {
   config: InstanceConfig
@@ -96,6 +96,7 @@ export class Rules {
       pointerId: pointer.pointerId,
       startAngle,
       startRotation: rotation,
+      currentRotation: rotation,
       center
     }
   }

@@ -20,7 +20,11 @@ export const createEdgeViewDerivations = ({
     readState('interactionSession').active?.kind === 'edgeConnect'
 
   const paths = (): EdgePathEntry[] =>
-    edgeViewQuery.getPaths(readState('edgeConnect'), isEdgeConnecting())
+    edgeViewQuery.getPaths(
+      readState('edgeConnect'),
+      isEdgeConnecting(),
+      readState('routingDrag')
+    )
 
   const preview = (): EdgePreviewView => {
     const edgeConnect = readState('edgeConnect')
@@ -50,9 +54,16 @@ export const createEdgeViewDerivations = ({
     if (!edge) return undefined
     const points = edge.routing?.points
     if (!points?.length) return undefined
+    const activeDrag = readState('routingDrag').payload
+    const previewPoints =
+      activeDrag && activeDrag.edgeId === edge.id
+        ? points.map((point, index) =>
+            index === activeDrag.index ? activeDrag.point : point
+          )
+        : points
     return {
       edge,
-      points
+      points: previewPoints
     }
   }
 

@@ -15,7 +15,7 @@ import {
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
-import { DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_TUNING } from '../../../../config'
 import type { NodeDragSession } from './SessionStore'
 
 type CompilerOptions = {

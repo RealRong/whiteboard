@@ -1,23 +1,66 @@
 import type { Document, NodeId } from '@whiteboard/core/types'
-import { hasProjectionChange } from './ProjectionChange'
 import { ProjectionCache } from './cache/ProjectionCache'
 import type {
+  ProjectionApplyInput,
   ProjectionCommit,
-  ProjectionChange,
-  ProjectionChangeSource,
-  ProjectionSyncInput,
-  ProjectionInvalidation,
+  ProjectionImpact,
+  ProjectionImpactTag,
+  ProjectionReplaceInput,
   ProjectionStore as ProjectionStoreType
 } from '@engine-types/projection'
+
+const EMPTY_TAGS = new Set<ProjectionImpactTag>()
+const FULL_TAGS = new Set<ProjectionImpactTag>(['full'])
+const RUNTIME_NODE_DIRTY_TAGS = new Set<ProjectionImpactTag>([
+  'nodes',
+  'geometry'
+])
+
+const EMPTY_IMPACT: ProjectionImpact = {
+  tags: EMPTY_TAGS
+}
+
+const FULL_IMPACT: ProjectionImpact = {
+  tags: FULL_TAGS
+}
+
+const hasDirtyHints = (impact: ProjectionImpact) =>
+  Boolean(impact.dirtyNodeIds?.length || impact.dirtyEdgeIds?.length)
+
+const uniqueNodeIds = (nodeIds: readonly NodeId[]): NodeId[] =>
+  Array.from(new Set(nodeIds))
+
+const normalizeImpact = (
+  impact: ProjectionImpact | undefined,
+  fallback: ProjectionImpact
+): ProjectionImpact => {
+  const next = impact ?? fallback
+  const dirtyNodeIds = next.dirtyNodeIds?.length
+    ? uniqueNodeIds(next.dirtyNodeIds)
+    : undefined
+  const dirtyEdgeIds = next.dirtyEdgeIds?.length
+    ? Array.from(new Set(next.dirtyEdgeIds))
+    : undefined
+  return {
+    tags: next.tags,
+    dirtyNodeIds,
+    dirtyEdgeIds
+  }
+}
+
+const toFallbackApplyImpact = (input: ProjectionApplyInput): ProjectionImpact =>
+  input.operations.length ? FULL_IMPACT : EMPTY_IMPACT
 
 export class ProjectionStore implements ProjectionStoreType {
   private readonly cache = new ProjectionCache()
   private currentSnapshot = this.cache.read(this.getDoc())
   private listeners = new Set<(commit: ProjectionCommit) => void>()
 
-  constructor(private readonly getDoc: () => Document | null) {}
+  constructor(private readonly getDoc: () => Document) {}
 
-  get: ProjectionStoreType['get'] = () => this.currentSnapshot
+  getSnapshot: ProjectionStoreType['getSnapshot'] = () => this.currentSnapshot
+
+  getRevision: ProjectionStoreType['getRevision'] = () => this.currentSnapshot.revision
 
   subscribe: ProjectionStoreType['subscribe'] = (listener) => {
     this.listeners.add(listener)
@@ -29,41 +72,20 @@ export class ProjectionStore implements ProjectionStoreType {
   readNodeOverrides: ProjectionStoreType['readNodeOverrides'] = () =>
     this.cache.readNodeOverrides()
 
-  apply: ProjectionStoreType['apply'] = (input = {}) => {
-    const source = input.source ?? 'doc'
+  apply: ProjectionStoreType['apply'] = (input) => {
+    const impact = normalizeImpact(
+      input.impact,
+      toFallbackApplyImpact(input)
+    )
     const previous = this.currentSnapshot
-    const next = this.cache.read(this.getDoc())
+    const next = this.cache.read(input.doc)
     this.currentSnapshot = next
-    const projection: ProjectionInvalidation = {
-      visibleNodesChanged: previous.nodes.visible !== next.nodes.visible,
-      canvasNodesChanged: previous.nodes.canvas !== next.nodes.canvas,
-      visibleEdgesChanged: previous.edges.visible !== next.edges.visible
-    }
 
-    if (input.full) {
-      const commit = this.toCommit(this.toFullChange(source))
+    const changed = next !== previous
+    const commit = this.toCommit('apply', impact)
+    if (changed || hasDirtyHints(impact)) {
       this.emitCommit(commit)
-      return commit
     }
-
-    const dirtyNodeIds = this.collectChangedNodeIds({
-      source,
-      previous,
-      next,
-      hintNodeIds: input.dirtyNodeIds
-    })
-    const payload: ProjectionChange = {
-      source,
-      kind: 'partial',
-      projection,
-      dirtyNodeIds
-    }
-    const changed =
-      hasProjectionChange(payload) ||
-      Boolean(dirtyNodeIds?.length)
-    if (!changed) return undefined
-    const commit = this.toCommit(payload)
-    this.emitCommit(commit)
     return commit
   }
 
@@ -71,8 +93,12 @@ export class ProjectionStore implements ProjectionStoreType {
     const changedNodeIds = this.cache.patchNodeOverrides(updates)
     if (!changedNodeIds.length) return undefined
     return this.apply({
-      source: 'runtime',
-      dirtyNodeIds: changedNodeIds
+      doc: this.getDoc(),
+      operations: [],
+      impact: {
+        tags: RUNTIME_NODE_DIRTY_TAGS,
+        dirtyNodeIds: changedNodeIds
+      }
     })
   }
 
@@ -80,67 +106,31 @@ export class ProjectionStore implements ProjectionStoreType {
     const changedNodeIds = this.cache.clearNodeOverrides(ids)
     if (!changedNodeIds.length) return undefined
     return this.apply({
-      source: 'runtime',
-      dirtyNodeIds: changedNodeIds
+      doc: this.getDoc(),
+      operations: [],
+      impact: {
+        tags: RUNTIME_NODE_DIRTY_TAGS,
+        dirtyNodeIds: changedNodeIds
+      }
     })
   }
 
-  replace: ProjectionStoreType['replace'] = (source = 'doc') => {
-    this.currentSnapshot = this.cache.read(this.getDoc())
-    const commit = this.toCommit(this.toFullChange(source))
+  replace: ProjectionStoreType['replace'] = (input) => {
+    this.currentSnapshot = this.cache.read(input.doc)
+    const impact = normalizeImpact(input.impact, FULL_IMPACT)
+    const commit = this.toCommit('replace', impact)
     this.emitCommit(commit)
     return commit
   }
 
-  private collectChangedNodeIds = ({
-    source,
-    previous,
-    next,
-    hintNodeIds
-  }: {
-    source: ProjectionChangeSource
-    previous: ReturnType<ProjectionStoreType['get']>
-    next: ReturnType<ProjectionStoreType['get']>
-    hintNodeIds?: ProjectionSyncInput['dirtyNodeIds']
-  }): NodeId[] | undefined => {
-    const hinted = hintNodeIds?.length
-      ? Array.from(new Set<NodeId>(hintNodeIds))
-      : undefined
-    if (source === 'runtime') return hinted
-
-    const merged = new Set<NodeId>(hintNodeIds ?? [])
-
-    if (previous.indexes.canvasNodeById !== next.indexes.canvasNodeById) {
-      previous.indexes.canvasNodeById.forEach((node, nodeId) => {
-        if (next.indexes.canvasNodeById.get(nodeId) !== node) {
-          merged.add(nodeId)
-        }
-      })
-
-      next.indexes.canvasNodeById.forEach((node, nodeId) => {
-        if (previous.indexes.canvasNodeById.get(nodeId) !== node) {
-          merged.add(nodeId)
-        }
-      })
-    }
-
-    if (!merged.size) return undefined
-    return Array.from(merged)
-  }
-
-  private toFullChange = (source: ProjectionChangeSource): ProjectionChange => ({
-    source,
-    kind: 'full',
-    projection: {
-      visibleNodesChanged: true,
-      canvasNodesChanged: true,
-      visibleEdgesChanged: true
-    }
-  })
-
-  private toCommit = (change: ProjectionChange): ProjectionCommit => ({
+  private toCommit = (
+    kind: ProjectionCommit['kind'],
+    impact: ProjectionImpact
+  ): ProjectionCommit => ({
+    revision: this.currentSnapshot.revision,
+    kind,
     snapshot: this.currentSnapshot,
-    change
+    impact
   })
 
   private emitCommit = (commit: ProjectionCommit) => {

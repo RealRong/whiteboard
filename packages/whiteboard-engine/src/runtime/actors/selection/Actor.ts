@@ -106,7 +106,7 @@ export class Actor {
   private getDocument = (): Document => this.instance.document.get()
 
   private getSelectableNodeIds = (): NodeId[] =>
-    this.instance.projection.get().nodes.canvas.map((canvasNode) => canvasNode.id)
+    this.instance.projection.getSnapshot().nodes.canvas.map((canvasNode) => canvasNode.id)
 
   getSelectedNodeIds = (): NodeId[] =>
     Array.from(this.instance.state.read('selection').selectedNodeIds)

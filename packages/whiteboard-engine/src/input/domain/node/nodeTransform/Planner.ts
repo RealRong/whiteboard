@@ -149,6 +149,7 @@ export class Planner {
       drag: active.drag,
       pointer
     })
+    active.drag.currentRotation = rotation
     return {
       frame: true,
       guides: [],
@@ -157,14 +158,7 @@ export class Planner {
           nodeId: active.nodeId,
           drag: active.drag
         }
-      },
-      mutations: [{
-        type: 'node.update',
-        id: active.nodeId,
-        patch: {
-          rotation
-        }
-      }]
+      }
     }
   }
 
@@ -182,6 +176,11 @@ export class Planner {
         active.drag.lastUpdate
       )
       clearOverrideIds = [active.nodeId]
+    } else {
+      mutations = this.commitCompiler.compileRotate(
+        active.nodeId,
+        active.drag.currentRotation
+      )
     }
 
     this.sessions.clear()

@@ -7,6 +7,7 @@ export type RoutingDragPayload = {
   pointerId: number
   start: Point
   origin: Point
+  point: Point
 }
 
 export type RoutingDragState = {

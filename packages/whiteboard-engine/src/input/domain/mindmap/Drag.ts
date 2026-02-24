@@ -4,7 +4,7 @@ import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { MindmapRootDragState, MindmapSubtreeDragState } from '@engine-types/state'
 import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 
 type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
 

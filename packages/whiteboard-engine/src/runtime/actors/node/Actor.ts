@@ -136,7 +136,7 @@ export class Actor {
     this.runMutations([{ type: 'node.update', id, patch }])
 
   updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const node = this.instance.projection.get().nodes.canvas.find((item) => item.id === id)
+    const node = this.instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === id)
     if (!node) return undefined
     return this.runMutations([
       {

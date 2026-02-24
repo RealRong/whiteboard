@@ -6,13 +6,12 @@ export type {
 } from './command'
 export type {
   ProjectionSnapshot,
-  ProjectionChange,
-  ProjectionFullChange,
-  ProjectionPartialChange,
-  ProjectionInvalidation,
+  ProjectionImpactTag,
+  ProjectionImpact,
+  ProjectionCommitKind,
+  ProjectionApplyInput,
+  ProjectionReplaceInput,
   ProjectionCommit,
-  ProjectionChangeSource,
-  ProjectionSyncInput,
   ProjectionStore,
   CreateProjectionStoreOptions,
   NodeViewUpdate

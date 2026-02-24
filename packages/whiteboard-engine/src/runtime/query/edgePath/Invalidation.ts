@@ -1,5 +1,6 @@
 import type { Edge, NodeId } from '@whiteboard/core/types'
-import type { ProjectionChange, ProjectionSnapshot } from '@engine-types/projection'
+import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
+import { hasImpactTag } from '../../mutation/Impact'
 
 type Plan = {
   edges: Edge[]
@@ -11,12 +12,22 @@ export class Invalidation {
   private renderEdgesRef: unknown
   private pendingNodeIds = new Set<NodeId>()
 
-  onProjectionChange = (change: ProjectionChange) => {
-    const fullSync = change.kind === 'full'
-    const dirtyNodeIds = change.kind === 'partial' ? change.dirtyNodeIds : undefined
+  onProjectionCommit = (commit: ProjectionCommit) => {
+    const impact = commit.impact
+    const fullSync = commit.kind === 'replace' || hasImpactTag(impact, 'full')
+    const dirtyNodeIds = impact.dirtyNodeIds
     const shouldReset =
       fullSync ||
-      change.projection.visibleEdgesChanged
+      hasImpactTag(impact, 'edges') ||
+      hasImpactTag(impact, 'order') ||
+      hasImpactTag(impact, 'mindmap') ||
+      (
+        (
+          hasImpactTag(impact, 'nodes') ||
+          hasImpactTag(impact, 'geometry')
+        ) &&
+        !dirtyNodeIds?.length
+      )
 
     if (fullSync) {
       this.renderEdgesRef = undefined

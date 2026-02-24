@@ -16,7 +16,7 @@ type Result = {
 }
 
 type Options = {
-  getDoc: () => Document | null
+  getDoc: () => Document
   readViewport: () => Viewport
 }
 

@@ -3,8 +3,9 @@ import type {
   MindmapView,
   MindmapViewTree
 } from '@engine-types/instance/view'
-import type { ProjectionChange } from '@engine-types/projection'
+import type { ProjectionCommit } from '@engine-types/projection'
 import type { NodeId } from '@whiteboard/core/types'
+import { hasImpactTag } from '../mutation/Impact'
 import {
   createIndexedState,
   updateIndexedState
@@ -25,7 +26,7 @@ type Options = {
 
 export type MindmapDomain = {
   syncState: (key: MindmapStateSyncKey) => boolean
-  syncProjection: (change: ProjectionChange) => boolean
+  applyCommit: (commit: ProjectionCommit) => boolean
   getState: () => MindmapView
 }
 
@@ -57,10 +58,13 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
       ? recomputeMindmapTrees()
       : recomputeMindmapDrag()
 
-  const syncProjection = (change: ProjectionChange) => {
-    const fullSync = change.kind === 'full'
-    const visibleNodesChanged = change.projection.visibleNodesChanged
-    const shouldSyncTrees = fullSync || visibleNodesChanged
+  const applyCommit = (commit: ProjectionCommit) => {
+    const impact = commit.impact
+    const fullSync = commit.kind === 'replace' || hasImpactTag(impact, 'full')
+    const shouldSyncTrees =
+      fullSync ||
+      hasImpactTag(impact, 'mindmap') ||
+      hasImpactTag(impact, 'nodes')
     if (!shouldSyncTrees) return false
     return recomputeMindmapTrees()
   }
@@ -73,7 +77,7 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
 
   return {
     syncState,
-    syncProjection,
+    applyCommit,
     getState
   }
 }

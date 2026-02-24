@@ -2,7 +2,7 @@ import type {
   InstanceConfig,
 } from '@engine-types/instance/config'
 import type {
-  ProjectionChange,
+  ProjectionCommit,
   ProjectionStore
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
@@ -11,6 +11,7 @@ import type {
   StateKey
 } from '@engine-types/instance/state'
 import type { View } from '@engine-types/instance/view'
+import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import {
   createEdgeViewDerivations,
   createEdgeViewQuery
@@ -39,17 +40,14 @@ export const createViewRegistry = ({
   query,
   config
 }: Options): ViewRuntime => {
-  const fullProjectionChange: ProjectionChange = {
-    source: 'runtime',
-    kind: 'full',
-    projection: {
-      visibleNodesChanged: true,
-      canvasNodesChanged: true,
-      visibleEdgesChanged: true
-    }
-  }
-  let snapshot = projection.get()
+  let snapshot = projection.getSnapshot()
   const readProjection = () => snapshot
+  const createFullProjectionCommit = (): ProjectionCommit => ({
+    revision: snapshot.revision,
+    kind: 'replace',
+    snapshot,
+    impact: FULL_MUTATION_IMPACT
+  })
 
   const edgeViewQuery = createEdgeViewQuery({
     readProjection,
@@ -68,11 +66,12 @@ export const createViewRegistry = ({
   const viewport = createViewportDomain({ state })
   const node = createNodeDomain({
     query,
-    readProjection
+    readProjection,
+    readState: state.read
   })
   const edge = createEdgeDomain({
     derive: edgeDerived,
-    applyProjection: edgeViewQuery.applyProjection
+    applyCommit: edgeViewQuery.applyCommit
   })
   const mindmap = createMindmapDomain({
     derive: mindmapDerived
@@ -83,8 +82,10 @@ export const createViewRegistry = ({
 
   const syncStateAll = () => {
     viewport.sync()
+    node.syncState('nodeTransform')
     edge.syncState('tool')
     edge.syncState('edgeConnect')
+    edge.syncState('routingDrag')
     edge.syncState('selection')
     mindmap.syncState('mindmapLayout')
     mindmap.syncState('mindmapDrag')
@@ -92,7 +93,7 @@ export const createViewRegistry = ({
 
   const ensureViewSynced = () => {
     if (!dirtyWithoutListeners) return
-    runProjectionSync(fullProjectionChange)
+    applyCommitToDomains(createFullProjectionCommit())
     syncStateAll()
     dirtyWithoutListeners = false
   }
@@ -110,8 +111,14 @@ export const createViewRegistry = ({
       case 'tool':
         changed = edge.syncState('tool')
         break
+      case 'nodeTransform':
+        changed = node.syncState('nodeTransform')
+        break
       case 'edgeConnect':
         changed = edge.syncState('edgeConnect')
+        break
+      case 'routingDrag':
+        changed = edge.syncState('routingDrag')
         break
       case 'selection':
         changed = edge.syncState('selection')
@@ -129,16 +136,16 @@ export const createViewRegistry = ({
     notifyListeners(listeners)
   }
 
-  const runProjectionSync = (change: ProjectionChange) => {
+  const applyCommitToDomains = (commit: ProjectionCommit) => {
     let changed = false
-    changed = edge.syncProjection(change) || changed
-    changed = mindmap.syncProjection(change) || changed
-    changed = node.syncProjection(change) || changed
+    changed = edge.applyCommit(commit) || changed
+    changed = mindmap.applyCommit(commit) || changed
+    changed = node.applyCommit(commit) || changed
     return changed
   }
 
-  const applyProjection = (change: ProjectionChange) => {
-    const changed = runProjectionSync(change)
+  const applyCommit = (commit: ProjectionCommit) => {
+    const changed = applyCommitToDomains(commit)
     if (!changed) return
     notifyListeners(listeners)
   }
@@ -150,7 +157,7 @@ export const createViewRegistry = ({
       dirtyWithoutListeners = true
       return
     }
-    applyProjection(commit.change)
+    applyCommit(commit)
   })
 
   const getState: View['getState'] = () => {

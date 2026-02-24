@@ -100,8 +100,8 @@ export const createEdgePathStore = ({
     })
   }
 
-  const syncProjection: EdgePathStore['syncProjection'] = (change) => {
-    invalidation.onProjectionChange(change)
+  const applyCommit: EdgePathStore['applyCommit'] = (commit) => {
+    invalidation.onProjectionCommit(commit)
   }
 
   const getReconnectEntry = (edgeConnect: EdgeConnectState, isConnecting: boolean) => {
@@ -125,7 +125,7 @@ export const createEdgePathStore = ({
   }
 
   return {
-    syncProjection,
+    applyCommit,
     getEntries,
     getReconnectEntry,
     getEdge

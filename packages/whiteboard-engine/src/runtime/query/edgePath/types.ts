@@ -1,7 +1,7 @@
 import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
-import type { ProjectionChange, ProjectionSnapshot } from '@engine-types/projection'
+import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
 import type { EdgeConnectState } from '@engine-types/state'
 
 export type ReconnectPoint = {
@@ -26,7 +26,7 @@ export type EdgePathStoreOptions = {
 }
 
 export type EdgePathStore = {
-  syncProjection: (change: ProjectionChange) => void
+  applyCommit: (commit: ProjectionCommit) => void
   getEntries: () => EdgePathEntry[]
   getReconnectEntry: (
     edgeConnect: EdgeConnectState,

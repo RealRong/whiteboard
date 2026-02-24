@@ -601,7 +601,7 @@ export class Actor {
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    const node = this.instance.projection.get().nodes.canvas.find((item) => item.id === nodeId)
+    const node = this.instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === nodeId)
     if (!node) return
     if (
       Math.abs(node.position.x - position.x) < threshold &&

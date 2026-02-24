@@ -191,7 +191,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.projection.get().nodes.canvas.find((node) => node.id === movingNodeId)
+  const movingNode = instance.projection.getSnapshot().nodes.canvas.find((node) => node.id === movingNodeId)
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }

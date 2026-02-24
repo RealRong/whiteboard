@@ -5,8 +5,9 @@ import type {
   EdgeSelectedRoutingView,
   EdgesView
 } from '@engine-types/instance/view'
-import type { ProjectionChange } from '@engine-types/projection'
+import type { ProjectionCommit } from '@engine-types/projection'
 import type { EdgeId } from '@whiteboard/core/types'
+import { hasImpactTag } from '../mutation/Impact'
 import {
   createIndexedState,
   updateIndexedState
@@ -22,20 +23,21 @@ type EdgeDerivations = {
 export type EdgeStateSyncKey =
   | 'tool'
   | 'edgeConnect'
+  | 'routingDrag'
   | 'selection'
 
 type Options = {
   derive: EdgeDerivations
-  applyProjection: (change: ProjectionChange) => void
+  applyCommit: (commit: ProjectionCommit) => void
 }
 
 export type EdgeDomain = {
   syncState: (key: EdgeStateSyncKey) => boolean
-  syncProjection: (change: ProjectionChange) => boolean
+  applyCommit: (commit: ProjectionCommit) => boolean
   getState: () => EdgesView
 }
 
-export const createEdgeDomain = ({ derive, applyProjection }: Options): EdgeDomain => {
+export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain => {
   let edgeIndex = createIndexedState<EdgeId, EdgePathEntry>(
     [],
     (entry) => entry.id
@@ -84,17 +86,29 @@ export const createEdgeDomain = ({ derive, applyProjection }: Options): EdgeDoma
       changed = recomputeEdgePreview() || changed
       return changed
     }
+    if (key === 'routingDrag') {
+      let changed = false
+      changed = recomputeEdgePaths() || changed
+      changed = recomputeEdgeSelectedRouting() || changed
+      return changed
+    }
     let changed = false
     changed = recomputeEdgeSelectedEndpoints() || changed
     changed = recomputeEdgeSelectedRouting() || changed
     return changed
   }
 
-  const syncProjection = (change: ProjectionChange) => {
-    applyProjection(change)
-    const fullSync = change.kind === 'full'
-    const canvasNodesChanged = change.projection.canvasNodesChanged
-    const visibleEdgesChanged = change.projection.visibleEdgesChanged
+  const commitProjection = (commit: ProjectionCommit) => {
+    applyCommit(commit)
+    const impact = commit.impact
+    const fullSync = commit.kind === 'replace' || hasImpactTag(impact, 'full')
+    const canvasNodesChanged =
+      hasImpactTag(impact, 'nodes') ||
+      hasImpactTag(impact, 'geometry')
+    const visibleEdgesChanged =
+      hasImpactTag(impact, 'edges') ||
+      hasImpactTag(impact, 'order') ||
+      hasImpactTag(impact, 'mindmap')
     const shouldSyncEdgePaths =
       fullSync ||
       canvasNodesChanged ||
@@ -132,7 +146,7 @@ export const createEdgeDomain = ({ derive, applyProjection }: Options): EdgeDoma
 
   return {
     syncState,
-    syncProjection,
+    applyCommit: commitProjection,
     getState
   }
 }
