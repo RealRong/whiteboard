@@ -18,7 +18,6 @@ export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 export type SelectionState = {
   selectedNodeIds: Set<NodeId>
   selectedEdgeId?: EdgeId
-  groupHovered?: NodeId
   mode: SelectionMode
 }
 
@@ -26,6 +25,10 @@ export type SelectionBoxState = {
   isSelecting: boolean
   selectionRect?: Rect
   selectionRectWorld?: Rect
+}
+
+export type GroupHoverState = {
+  nodeId?: NodeId
 }
 
 export type InteractionState = {

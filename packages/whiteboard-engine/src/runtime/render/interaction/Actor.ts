@@ -1,5 +1,9 @@
 import type { Render } from '@engine-types/instance/render'
 import type { InteractionSessionKind } from '@engine-types/state'
+import {
+  clearInteractionKinds,
+  writeInteractionSession
+} from '../../../shared/interactionSession'
 
 type InteractionRender = Pick<Render, 'read' | 'write'>
 
@@ -13,32 +17,11 @@ export class Actor {
   getActive = () => this.render.read('interactionSession').active
 
   set = (kind: InteractionSessionKind, pointerId: number | null) => {
-    this.render.write('interactionSession', (prev) => {
-      if (pointerId === null) {
-        if (prev.active?.kind !== kind) return prev
-        return {}
-      }
-      if (
-        prev.active?.kind === kind
-        && prev.active.pointerId === pointerId
-      ) {
-        return prev
-      }
-      return {
-        active: {
-          kind,
-          pointerId
-        }
-      }
-    })
+    writeInteractionSession(this.render, kind, pointerId)
   }
 
   clearKinds = (kinds: readonly InteractionSessionKind[]) => {
-    this.render.write('interactionSession', (prev) => {
-      if (!prev.active) return prev
-      if (!kinds.includes(prev.active.kind)) return prev
-      return {}
-    })
+    clearInteractionKinds(this.render, kinds)
   }
 
   clear = () => {

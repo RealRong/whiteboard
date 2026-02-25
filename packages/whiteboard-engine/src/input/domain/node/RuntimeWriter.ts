@@ -1,8 +1,9 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Operation } from '@whiteboard/core/types'
 import type {
   RuntimeOutput
 } from './RuntimeOutput'
+import { writeInteractionSession } from '../shared/interactionSession'
+import { InteractionWriter } from '../writer/InteractionWriter'
 
 type WriterOptions = {
   instance: Pick<InternalInstance, 'state' | 'render' | 'mutate'>
@@ -16,51 +17,16 @@ const isSameSet = <T,>(left: Set<T>, right: Set<T>) => {
   return true
 }
 
-export class RuntimeWriter {
+export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
   private readonly state: WriterOptions['instance']['state']
-  private readonly render: WriterOptions['instance']['render']
-  private readonly mutate: WriterOptions['instance']['mutate']
 
   constructor({ instance }: WriterOptions) {
+    super(instance)
     this.state = instance.state
-    this.render = instance.render
-    this.mutate = instance.mutate
-  }
-
-  private submitMutations = (operations: Operation[]) => {
-    if (!operations.length) return
-    void this.mutate(operations, 'interaction')
-  }
-
-  private writeInteractionSession = (
-    kind: 'nodeDrag' | 'nodeTransform',
-    pointerId: number | null
-  ) => {
-    this.render.write('interactionSession', (prev) => {
-      if (pointerId === null) {
-        if (prev.active?.kind !== kind) return prev
-        return {}
-      }
-      if (
-        prev.active?.kind === kind &&
-        prev.active.pointerId === pointerId
-      ) {
-        return prev
-      }
-      return {
-        active: {
-          kind,
-          pointerId
-        }
-      }
-    })
   }
 
   apply = (output: RuntimeOutput) => {
-    const runBatch = output.frame
-      ? this.render.batchFrame
-      : this.render.batch
-    runBatch(() => {
+    this.inRenderBatch(output, () => {
       const selection = output.selection
       if (selection) {
         this.state.write('selection', (prev) => {
@@ -78,12 +44,6 @@ export class RuntimeWriter {
               changed = true
             }
           }
-          if ('groupHovered' in selection) {
-            if (prev.groupHovered !== selection.groupHovered) {
-              next.groupHovered = selection.groupHovered
-              changed = true
-            }
-          }
           if ('mode' in selection && selection.mode) {
             if (prev.mode !== selection.mode) {
               next.mode = selection.mode
@@ -95,10 +55,17 @@ export class RuntimeWriter {
       }
 
       if (output.interaction) {
-        this.writeInteractionSession(
+        writeInteractionSession(
+          this.render,
           output.interaction.kind,
           output.interaction.pointerId
         )
+      }
+
+      if ('groupHover' in output) {
+        this.render.write('groupHover', {
+          nodeId: output.groupHover
+        })
       }
 
       if (

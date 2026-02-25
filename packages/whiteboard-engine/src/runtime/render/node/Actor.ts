@@ -1,6 +1,7 @@
 import type { Render } from '@engine-types/instance/render'
 import type { Guide } from '@engine-types/node/snap'
 import type {
+  GroupHoverState,
   NodeDragPayload,
   NodePreviewUpdate,
   NodeTransformPayload
@@ -33,12 +34,19 @@ export class Actor {
     this.render.write('dragGuides', guides)
   }
 
+  setGroupHover = (
+    next: GroupHoverState | ((prev: GroupHoverState) => GroupHoverState)
+  ) => {
+    this.render.write('groupHover', next)
+  }
+
   clearTransient = () => {
     this.render.batch(() => {
       this.render.write('nodeDrag', {})
       this.render.write('nodeTransform', {})
       this.render.write('nodePreview', { updates: [] })
       this.render.write('dragGuides', [])
+      this.render.write('groupHover', {})
     })
   }
 }

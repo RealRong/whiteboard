@@ -14,6 +14,7 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
+import { clearInteractionKinds } from '../../../shared/interactionSession'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 import { buildEdgeCreateOperation } from './createOperation'
@@ -25,7 +26,6 @@ type ActorOptions = {
 export class Actor {
   readonly name = 'Edge'
 
-  private readonly state: ActorOptions['instance']['state']
   private readonly render: ActorOptions['instance']['render']
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
@@ -33,7 +33,6 @@ export class Actor {
 
   constructor({ instance }: ActorOptions) {
     this.instance = instance
-    this.state = instance.state
     this.render = instance.render
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
@@ -43,10 +42,7 @@ export class Actor {
   private clearRoutingDrag = () => {
     this.render.batch(() => {
       this.render.write('routingDrag', {})
-      this.render.write('interactionSession', (prev) => {
-        if (prev.active?.kind !== 'routingDrag') return prev
-        return {}
-      })
+      clearInteractionKinds(this.render, ['routingDrag'])
     })
   }
 
@@ -97,6 +93,7 @@ export class Actor {
       if (activeDrag && activeDrag.edgeId !== id) {
         this.clearRoutingDrag()
       }
+      this.render.write('groupHover', {})
       this.instance.state.write('selection', (prev) => {
         if (prev.selectedEdgeId === id) return prev
         return {

@@ -144,6 +144,14 @@ export class Planner {
 
     this.sessions.updateLast(nextPosition)
 
+    const hoveredGroupId = session.children
+      ? undefined
+      : this.rules.resolveHoveredGroup(
+        session.nodeId,
+        session.size,
+        nextPosition
+      )
+
     return {
       frame: true,
       nodePreview: previewUpdates,
@@ -155,15 +163,7 @@ export class Planner {
           nodeType: session.nodeType
         }
       },
-      selection: {
-        groupHovered: session.children
-          ? undefined
-          : this.rules.resolveHoveredGroup(
-            session.nodeId,
-            session.size,
-            nextPosition
-          )
-      }
+      groupHover: hoveredGroupId
     }
   }
 
@@ -186,14 +186,12 @@ export class Planner {
       session,
       finalPosition,
       updates,
-      hoveredGroupId: this.state.read('selection').groupHovered
+      hoveredGroupId: this.render.read('groupHover').nodeId
     })
     this.sessions.clear()
 
     return {
-      selection: {
-        groupHovered: undefined
-      },
+      groupHover: undefined,
       interaction: {
         kind: 'nodeDrag',
         pointerId: null
@@ -215,9 +213,7 @@ export class Planner {
 
     this.sessions.clear()
     return {
-      selection: {
-        groupHovered: undefined
-      },
+      groupHover: undefined,
       interaction: {
         kind: 'nodeDrag',
         pointerId: null

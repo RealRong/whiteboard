@@ -10,6 +10,8 @@ import type {
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
 import { DEFAULT_TUNING } from '../../../config'
+import { clearInteractionKinds } from '../../../shared/interactionSession'
+import { applySelection } from '../../../shared/selection'
 import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
@@ -33,36 +35,6 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
     if (left[index] !== right[index]) return false
   }
   return true
-}
-
-const applySelection = (
-  prevSelectedIds: Set<NodeId>,
-  ids: NodeId[],
-  mode: SelectionMode
-): Set<NodeId> => {
-  if (mode === 'replace') {
-    return new Set(ids)
-  }
-
-  const next = new Set(prevSelectedIds)
-  if (mode === 'add') {
-    ids.forEach((id) => next.add(id))
-    return next
-  }
-
-  if (mode === 'subtract') {
-    ids.forEach((id) => next.delete(id))
-    return next
-  }
-
-  ids.forEach((id) => {
-    if (next.has(id)) {
-      next.delete(id)
-      return
-    }
-    next.add(id)
-  })
-  return next
 }
 
 const EMPTY_SELECTION_BOX: SelectionBoxState = {
@@ -119,19 +91,21 @@ export class Actor {
   private getSelectedEdgeId = (): EdgeId | undefined =>
     this.instance.state.read('selection').selectedEdgeId
 
+  private resetSelectionTransientRender = () => {
+    const { render } = this.instance
+    render.write('routingDrag', {})
+    clearInteractionKinds(render, ['routingDrag'])
+    render.write('groupHover', {})
+    render.write('selectionBox', EMPTY_SELECTION_BOX)
+  }
+
   select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
-    const { state, render } = this.instance
+    const { state } = this.instance
     state.batch(() => {
-      render.write('routingDrag', {})
-      render.write('interactionSession', (prev) => {
-        if (prev.active?.kind !== 'routingDrag') return prev
-        return {}
-      })
-      render.write('selectionBox', EMPTY_SELECTION_BOX)
+      this.resetSelectionTransientRender()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
-        groupHovered: undefined,
         mode,
         selectedNodeIds: applySelection(prev.selectedNodeIds, ids, mode)
       }))
@@ -139,18 +113,12 @@ export class Actor {
   }
 
   toggle = (ids: NodeId[]) => {
-    const { state, render } = this.instance
+    const { state } = this.instance
     state.batch(() => {
-      render.write('routingDrag', {})
-      render.write('interactionSession', (prev) => {
-        if (prev.active?.kind !== 'routingDrag') return prev
-        return {}
-      })
-      render.write('selectionBox', EMPTY_SELECTION_BOX)
+      this.resetSelectionTransientRender()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
-        groupHovered: undefined,
         mode: 'toggle',
         selectedNodeIds: applySelection(prev.selectedNodeIds, ids, 'toggle')
       }))
@@ -163,18 +131,12 @@ export class Actor {
   }
 
   clear = () => {
-    const { state, render } = this.instance
+    const { state } = this.instance
     state.batch(() => {
-      render.write('routingDrag', {})
-      render.write('interactionSession', (prev) => {
-        if (prev.active?.kind !== 'routingDrag') return prev
-        return {}
-      })
-      render.write('selectionBox', EMPTY_SELECTION_BOX)
+      this.resetSelectionTransientRender()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
-        groupHovered: undefined,
         selectedNodeIds: new Set()
       }))
     })

@@ -1,35 +1,35 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeOutput } from './RuntimeOutput'
+import { clearInteractionKinds } from '../shared/interactionSession'
+import { InteractionWriter } from '../writer/InteractionWriter'
 
 type WriterOptions = {
   instance: Pick<InternalInstance, 'state' | 'render'>
 }
 
-export class RuntimeWriter {
+export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
   private readonly state: WriterOptions['instance']['state']
-  private readonly render: WriterOptions['instance']['render']
 
   constructor({ instance }: WriterOptions) {
+    super(instance)
     this.state = instance.state
-    this.render = instance.render
   }
 
   apply = (output: RuntimeOutput) => {
-    const runBatch = output.frame
-      ? this.render.batchFrame
-      : this.render.batch
-    runBatch(() => {
+    this.inRenderBatch(output, () => {
       if (output.clearRoutingInteraction) {
-        this.render.write('interactionSession', (prev) => {
-          if (prev.active?.kind !== 'routingDrag') return prev
-          return {}
-        })
+        clearInteractionKinds(this.render, ['routingDrag'])
       }
       if (output.routingDrag !== undefined) {
         this.render.write('routingDrag', output.routingDrag as never)
       }
       if (output.selection !== undefined) {
         this.state.write('selection', output.selection as never)
+      }
+      if ('groupHover' in output) {
+        this.render.write('groupHover', {
+          nodeId: output.groupHover
+        })
       }
       if (output.selectionBox !== undefined) {
         this.render.write('selectionBox', output.selectionBox as never)

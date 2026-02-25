@@ -4,21 +4,18 @@ import type { Query } from '@engine-types/instance/query'
 import type { Guide } from '@engine-types/node/snap'
 import type {
   NodePreviewUpdate,
-  SelectionMode,
   SelectionState
 } from '@engine-types/state'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { computeSnap, findSmallestGroupAtPoint, getGroupDescendants } from '@whiteboard/core/node'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
+import {
+  applySelection,
+  resolveSelectionMode,
+  type SelectionModifiers
+} from '../../../../shared/selection'
 import type { SelectionPatch } from '../RuntimeOutput'
 import type { DragChildren, NodeDragSession } from './SessionStore'
-
-type SelectionModifiers = {
-  alt: boolean
-  shift: boolean
-  ctrl: boolean
-  meta: boolean
-}
 
 type MoveOptions = {
   nodeId: NodeId
@@ -34,45 +31,6 @@ type RulesOptions = {
   readTool: () => 'select' | 'edge'
   readZoom: () => number
   readCanvasNodes: () => Node[]
-}
-
-const resolveSelectionMode = (
-  modifiers: SelectionModifiers
-): SelectionMode => {
-  if (modifiers.alt) return 'subtract'
-  if (modifiers.meta || modifiers.ctrl) return 'toggle'
-  if (modifiers.shift) return 'add'
-  return 'replace'
-}
-
-const applySelection = (
-  prevSelectedIds: Set<NodeId>,
-  ids: NodeId[],
-  mode: SelectionMode
-): Set<NodeId> => {
-  if (mode === 'replace') {
-    return new Set(ids)
-  }
-
-  const next = new Set(prevSelectedIds)
-  if (mode === 'add') {
-    ids.forEach((id) => next.add(id))
-    return next
-  }
-
-  if (mode === 'subtract') {
-    ids.forEach((id) => next.delete(id))
-    return next
-  }
-
-  ids.forEach((id) => {
-    if (next.has(id)) {
-      next.delete(id)
-      return
-    }
-    next.add(id)
-  })
-  return next
 }
 
 const resolveInteractionZoom = (zoom: number) =>
@@ -121,7 +79,6 @@ export class Rules {
     return {
       selectedNodeIds: applySelection(current.selectedNodeIds, [nodeId], mode),
       selectedEdgeId: undefined,
-      groupHovered: undefined,
       mode
     }
   }

@@ -2,7 +2,10 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { SelectionMode } from '@engine-types/state'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import { rectFromPoints } from '@whiteboard/core/geometry'
-import { resolveSelectionMode } from '../../shared/selection'
+import {
+  applySelection,
+  resolveSelectionMode
+} from '../../../shared/selection'
 import type { RuntimeOutput } from './RuntimeOutput'
 
 type BoxInstance = Pick<InternalInstance, 'state' | 'query' | 'config'>
@@ -64,36 +67,6 @@ export class Box {
     return true
   }
 
-  private static applySelection = (
-    prevSelectedIds: Set<NodeId>,
-    ids: NodeId[],
-    mode: SelectionMode
-  ): Set<NodeId> => {
-    if (mode === 'replace') {
-      return new Set(ids)
-    }
-
-    const next = new Set(prevSelectedIds)
-    if (mode === 'add') {
-      ids.forEach((id) => next.add(id))
-      return next
-    }
-
-    if (mode === 'subtract') {
-      ids.forEach((id) => next.delete(id))
-      return next
-    }
-
-    ids.forEach((id) => {
-      if (next.has(id)) {
-        next.delete(id)
-        return
-      }
-      next.add(id)
-    })
-    return next
-  }
-
   private flushSelection = () => {
     this.scheduled = false
     const session = this.session
@@ -105,7 +78,7 @@ export class Box {
     if (!matched.length) return
     this.emit({
       selection: (prev) => {
-        const selectedNodeIds = Box.applySelection(
+        const selectedNodeIds = applySelection(
           prev.selectedNodeIds,
           matched,
           session.mode
@@ -113,14 +86,12 @@ export class Box {
         const changed =
           !Box.isSameSet(prev.selectedNodeIds, selectedNodeIds)
           || prev.selectedEdgeId !== undefined
-          || prev.groupHovered !== undefined
           || prev.mode !== session.mode
         if (!changed) return prev
         return {
           ...prev,
           selectedNodeIds,
           selectedEdgeId: undefined,
-          groupHovered: undefined,
           mode: session.mode
         }
       }
@@ -145,11 +116,11 @@ export class Box {
     this.emit({
       routingDrag: {},
       clearRoutingInteraction: true,
+      groupHover: undefined,
       selectionBox: EMPTY_SELECTION_BOX,
       selection: (prev) => {
         if (
           prev.selectedEdgeId === undefined
-          && prev.groupHovered === undefined
           && prev.mode === mode
         ) {
           return prev
@@ -157,7 +128,6 @@ export class Box {
         return {
           ...prev,
           selectedEdgeId: undefined,
-          groupHovered: undefined,
           mode
         }
       }
@@ -211,15 +181,13 @@ export class Box {
           if (
             !prev.selectedNodeIds.size
             && prev.selectedEdgeId === undefined
-            && prev.groupHovered === undefined
           ) {
             return prev
           }
           return {
             ...prev,
             selectedNodeIds: new Set<NodeId>(),
-            selectedEdgeId: undefined,
-            groupHovered: undefined
+            selectedEdgeId: undefined
           }
         }
       })

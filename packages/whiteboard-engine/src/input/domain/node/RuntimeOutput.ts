@@ -14,7 +14,6 @@ import type {
 export type SelectionPatch = {
   selectedNodeIds?: Set<NodeId>
   selectedEdgeId?: EdgeId | undefined
-  groupHovered?: NodeId | undefined
   mode?: SelectionMode
 }
 
@@ -31,6 +30,7 @@ export type NodePayloadPatch = {
 export type RuntimeOutput = {
   frame?: boolean
   selection?: SelectionPatch
+  groupHover?: NodeId | undefined
   interaction?: InteractionPatch
   nodePayload?: NodePayloadPatch
   nodePreview?: NodePreviewUpdate[]

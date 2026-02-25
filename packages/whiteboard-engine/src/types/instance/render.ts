@@ -1,6 +1,7 @@
 import type { Guide } from '../node/snap'
 import type {
   EdgeConnectState,
+  GroupHoverState,
   InteractionSessionState,
   MindmapDragState,
   NodeDragState,
@@ -23,6 +24,7 @@ export type RenderSnapshot = {
   nodePreview: NodePreviewState
   spacePressed: boolean
   dragGuides: Guide[]
+  groupHover: GroupHoverState
 }
 
 export type RenderKey = keyof RenderSnapshot

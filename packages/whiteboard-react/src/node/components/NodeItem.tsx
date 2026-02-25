@@ -4,7 +4,11 @@ import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/no
 import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
-import { useInstance, useWhiteboardSelector } from '../../common/hooks'
+import {
+  useInstance,
+  useWhiteboardRenderSelector,
+  useWhiteboardSelector
+} from '../../common/hooks'
 import { NodeBlock } from './NodeBlock'
 
 type NodeTransformHandlesProps = {
@@ -60,10 +64,10 @@ export const NodeItem = ({ item }: NodeItemProps) => {
       keys: ['selection']
     }
   )
-  const hovered = useWhiteboardSelector(
-    (snapshot) => snapshot.selection.groupHovered === node.id,
+  const hovered = useWhiteboardRenderSelector(
+    (snapshot) => snapshot.groupHover.nodeId === node.id,
     {
-      keys: ['selection']
+      keys: ['groupHover']
     }
   )
   const zoom = useWhiteboardSelector(

@@ -255,6 +255,17 @@ packages/whiteboard-engine/src/
 
 ---
 
+## 6.1 当前已落地（增量）
+
+1. `interactionSession` 写逻辑已收敛到单一实现：`src/shared/interactionSession.ts`。
+2. `input/domain/*/RuntimeWriter` 已接入统一基座：`input/domain/writer/InteractionWriter.ts`（统一 frame batch 与 interaction mutate 提交）。
+3. Edge routing point 增删改已收敛到 command/actor 单实现，input 仅编排调用。
+4. Selection 规则已单源化到 `src/shared/selection.ts`。
+5. 高频 `groupHovered` 已迁移为 `render.groupHover`，不再污染 `state.selection`。
+6. 新增架构防回退检查：`packages/whiteboard-engine/scripts/check-architecture.mjs`，并接入 `@whiteboard/engine lint`。
+
+---
+
 ## 7. 最终写入策略（必须遵守）
 
 1. 持久化动作：`commands.*` -> `mutate`。
@@ -310,4 +321,3 @@ DOM Event
 优先级顺序：
 
 `Edge 双实现清理` > `Writer 统一` > `State/Render 边界校正` > `Lifecycle/Actor 纯化`。
-

@@ -29,7 +29,6 @@ export const createInitialState = (): WritableStateSnapshot => ({
   selection: {
     selectedNodeIds: new Set<NodeId>(),
     selectedEdgeId: undefined,
-    groupHovered: undefined,
     mode: 'replace'
   },
   mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout }
@@ -52,5 +51,6 @@ export const createInitialRenderState = (): WritableRenderSnapshot => ({
     updates: []
   },
   spacePressed: false,
-  dragGuides: []
+  dragGuides: [],
+  groupHover: {}
 })

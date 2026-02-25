@@ -133,7 +133,11 @@ export const createEngine = ({
   })
   const edgeInputGateway = new EdgeInputGateway({
     instance,
-    scheduler
+    scheduler,
+    edgeCommands: {
+      insertRoutingPointAt: edgeActor.insertRoutingPointAt,
+      removeRoutingPointAt: edgeActor.removeRoutingPointAt
+    }
   })
   const nodeActor = new NodeActor({
     instance

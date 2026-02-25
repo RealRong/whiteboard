@@ -9,22 +9,28 @@ import { RuntimeWriter } from './RuntimeWriter'
 
 type GatewayInstance = Pick<
   InternalInstance,
-  'state' | 'render' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries' | 'config' | 'viewport'
+  'state' | 'render' | 'projection' | 'query' | 'mutate' | 'document' | 'registries' | 'config' | 'viewport'
 >
+
+type EdgeCommands = {
+  insertRoutingPointAt: (edgeId: EdgeId, pointWorld: Point) => boolean
+  removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
+}
 
 type GatewayOptions = {
   instance: GatewayInstance
   scheduler: Scheduler
+  edgeCommands: EdgeCommands
 }
 
 export class EdgeInputGateway {
-  private readonly instance: GatewayInstance
   private readonly writer: RuntimeWriter
   private readonly connect: Connect
   private readonly routing: Routing
+  private readonly edgeCommands: EdgeCommands
 
-  constructor({ instance, scheduler }: GatewayOptions) {
-    this.instance = instance
+  constructor({ instance, scheduler, edgeCommands }: GatewayOptions) {
+    this.edgeCommands = edgeCommands
     this.writer = new RuntimeWriter({
       instance
     })
@@ -46,92 +52,18 @@ export class EdgeInputGateway {
   private insertRoutingPoint = (
     edgeId: EdgeId,
     pointWorld: Point
-  ) => {
-    const entry = this.instance.view.getState().edges.byId.get(edgeId)
-    if (!entry) return false
-    if (entry.edge.type === 'bezier' || entry.edge.type === 'curve') return false
-
-    const basePoints = entry.edge.routing?.points?.length
-      ? entry.edge.routing.points
-      : entry.path.points.slice(1, -1)
-    const segmentIndex = this.instance.query.geometry.nearestEdgeSegment(
-      pointWorld,
-      entry.path.points
-    )
-    const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
-    const nextPoints = [...basePoints]
-    nextPoints.splice(insertIndex, 0, pointWorld)
-
-    this.emit({
-      mutations: [
-        {
-          type: 'edge.update',
-          id: entry.edge.id,
-          patch: {
-            routing: {
-              ...(entry.edge.routing ?? {}),
-              mode: 'manual',
-              points: nextPoints
-            }
-          }
-        }
-      ]
-    })
-    return true
-  }
+  ) =>
+    this.edgeCommands.insertRoutingPointAt(edgeId, pointWorld)
 
   private removeRoutingPoint = (
     edgeId: EdgeId,
     index: number
   ) => {
-    const entry = this.instance.view.getState().edges.byId.get(edgeId)
-    if (!entry) return false
-    if (entry.edge.type === 'bezier' || entry.edge.type === 'curve') return false
-
-    const points = entry.edge.routing?.points ?? []
-    if (index < 0 || index >= points.length) return false
-
     const activeDrag = this.routing.getPayload()
     if (activeDrag?.edgeId === edgeId && activeDrag.index === index) {
       this.routing.reset()
     }
-
-    const nextPoints = points.filter((_, idx) => idx !== index)
-    if (!nextPoints.length) {
-      this.emit({
-        mutations: [
-          {
-            type: 'edge.update',
-            id: edgeId,
-            patch: {
-              routing: {
-                ...(entry.edge.routing ?? {}),
-                mode: 'auto',
-                points: undefined
-              }
-            }
-          }
-        ]
-      })
-      return true
-    }
-
-    this.emit({
-      mutations: [
-        {
-          type: 'edge.update',
-          id: edgeId,
-          patch: {
-            routing: {
-              ...(entry.edge.routing ?? {}),
-              mode: 'manual',
-              points: nextPoints
-            }
-          }
-        }
-      ]
-    })
-    return true
+    return this.edgeCommands.removeRoutingPointAt(edgeId, index)
   }
 
   connectInput = {

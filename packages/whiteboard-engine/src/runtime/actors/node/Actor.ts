@@ -18,17 +18,17 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
+import { clearInteractionKinds } from '../../../shared/interactionSession'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'render' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
+  instance: Pick<InternalInstance, 'render' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
 }
 
 export class Actor {
   readonly name = 'Node'
 
-  private readonly state: ActorOptions['instance']['state']
   private readonly render: ActorOptions['instance']['render']
   private readonly readDoc: () => Document
   private readonly instance: ActorOptions['instance']
@@ -37,7 +37,6 @@ export class Actor {
 
   constructor({ instance }: ActorOptions) {
     this.instance = instance
-    this.state = instance.state
     this.render = instance.render
     this.readDoc = () => this.instance.document.get()
     const commit = createMutationCommit(instance.mutate)
@@ -289,27 +288,13 @@ export class Actor {
 
   resetTransientState = () => {
     this.clearDragGuides()
-    this.state.write('selection', (prev) => {
-      if (prev.groupHovered === undefined) return prev
-      return {
-        ...prev,
-        groupHovered: undefined
-      }
-    })
+    this.render.write('groupHover', {})
     this.render.write('nodeDrag', {})
     this.render.write('nodeTransform', {})
     this.render.write('nodePreview', {
       updates: []
     })
-    this.render.write('interactionSession', (prev) => {
-      if (
-        prev.active?.kind !== 'nodeDrag'
-        && prev.active?.kind !== 'nodeTransform'
-      ) {
-        return prev
-      }
-      return {}
-    })
+    clearInteractionKinds(this.render, ['nodeDrag', 'nodeTransform'])
   }
 
   cancelInteractions = () => {

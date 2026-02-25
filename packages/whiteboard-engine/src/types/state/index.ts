@@ -14,6 +14,7 @@ export type {
   NodeDragState,
   NodeTransformPayload,
   NodeTransformState,
+  GroupHoverState,
   SelectionBoxState,
   SelectionMode,
   SelectionState

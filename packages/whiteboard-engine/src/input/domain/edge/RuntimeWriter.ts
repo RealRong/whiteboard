@@ -1,65 +1,31 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeOutput } from './RuntimeOutput'
+import {
+  clearInteractionKinds,
+  writeInteractionSession
+} from '../shared/interactionSession'
+import { InteractionWriter } from '../writer/InteractionWriter'
 
 type WriterOptions = {
   instance: Pick<InternalInstance, 'state' | 'render' | 'mutate'>
 }
 
-export class RuntimeWriter {
+export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
   private readonly state: WriterOptions['instance']['state']
-  private readonly render: WriterOptions['instance']['render']
-  private readonly mutate: WriterOptions['instance']['mutate']
 
   constructor({ instance }: WriterOptions) {
+    super(instance)
     this.state = instance.state
-    this.render = instance.render
-    this.mutate = instance.mutate
-  }
-
-  private clearInteractionKinds = (kinds: readonly ('edgeConnect' | 'routingDrag')[]) => {
-    this.render.write('interactionSession', (prev) => {
-      if (!prev.active) return prev
-      if (!kinds.includes(prev.active.kind as 'edgeConnect' | 'routingDrag')) {
-        return prev
-      }
-      return {}
-    })
-  }
-
-  private writeInteractionSession = (
-    kind: 'edgeConnect' | 'routingDrag',
-    pointerId: number | null
-  ) => {
-    this.render.write('interactionSession', (prev) => {
-      if (pointerId === null) {
-        if (prev.active?.kind !== kind) return prev
-        return {}
-      }
-      if (
-        prev.active?.kind === kind
-        && prev.active.pointerId === pointerId
-      ) {
-        return prev
-      }
-      return {
-        active: {
-          kind,
-          pointerId
-        }
-      }
-    })
   }
 
   apply = (output: RuntimeOutput) => {
-    const runBatch = output.frame
-      ? this.render.batchFrame
-      : this.render.batch
-    runBatch(() => {
+    this.inRenderBatch(output, () => {
       if (output.clearInteractions?.length) {
-        this.clearInteractionKinds(output.clearInteractions)
+        clearInteractionKinds(this.render, output.clearInteractions)
       }
       if (output.interaction) {
-        this.writeInteractionSession(
+        writeInteractionSession(
+          this.render,
           output.interaction.kind,
           output.interaction.pointerId
         )
@@ -74,7 +40,7 @@ export class RuntimeWriter {
         this.state.write('selection', output.selection as never)
       }
       if (output.mutations?.length) {
-        void this.mutate(output.mutations, 'interaction')
+        this.submitMutations(output.mutations)
       }
     })
   }
