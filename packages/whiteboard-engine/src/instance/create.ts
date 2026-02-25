@@ -146,7 +146,6 @@ export const createEngine = ({
   const edgeCommands = createEdgeCommands({ instance })
   const edgeInputGateway = new EdgeInputGateway({
     instance,
-    scheduler,
     edgeCommands: {
       insertRoutingPointAt: edgeCommands.insertRoutingPointAt,
       removeRoutingPointAt: edgeCommands.removeRoutingPointAt
@@ -349,7 +348,6 @@ export const createEngine = ({
     edge: createEdgeDomainApi({
       commands,
       edgeInput: {
-        connect: edgeInputGateway.connectInput,
         routing: edgeInputGateway.routingInput
       },
       query: queryRuntime.query,
@@ -408,7 +406,6 @@ export const createEngine = ({
         transform: nodeInputGateway.nodeTransform
       },
       edgeInput: {
-        connect: edgeInputGateway.connectInput,
         routing: edgeInputGateway.routingInput
       },
       mindmapInput: {
@@ -440,7 +437,6 @@ export const createEngine = ({
       emit: events.emit
     },
     {
-      edgeInput: edgeInputGateway,
       groupAutoFit: groupAutoFitActor,
       mindmap: mindmapActor,
       selection: selectionActor

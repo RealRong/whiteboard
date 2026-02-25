@@ -101,7 +101,6 @@ class ShortcutsImpl implements Shortcuts {
 
   private readShortcutContext = (): ShortcutContext => {
     const interaction = this.readState('interaction')
-    const interactionSession = this.readRender('interactionSession')
     const tool = this.readState('tool')
     const selection = this.readState('selection')
     const selectionBox = this.readRender('selectionBox')
@@ -123,8 +122,7 @@ class ShortcutsImpl implements Shortcuts {
         ...interaction.pointer,
         isDragging:
           interaction.pointer.isDragging ||
-          selectionBox.isSelecting ||
-          interactionSession.active?.kind === 'edgeConnect'
+          selectionBox.isSelecting
       },
       viewport: {
         zoom: this.readState('viewport').zoom

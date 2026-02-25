@@ -1,11 +1,9 @@
 import { getEdgePath } from '@whiteboard/core/edge'
 import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/cache'
 import type { EdgePathEntry } from '@engine-types/instance/view'
-import type { EdgeConnectState } from '@engine-types/state'
 import { Cache } from './Cache'
 import { Index } from './Index'
 import { Invalidation } from './Invalidation'
-import { Preview } from './Preview'
 import type {
   EdgePathCacheEntry,
   EdgePathStore,
@@ -15,8 +13,7 @@ import type {
 export const createEdgePathStore = ({
   readProjection,
   getNodeRect,
-  resolveEndpoints,
-  resolveReconnectPoint
+  resolveEndpoints
 }: EdgePathStoreOptions): EdgePathStore => {
   const getNodeGeometrySignature = (
     nodeId: EdgePathEntry['edge']['source']['nodeId']
@@ -77,10 +74,6 @@ export const createEdgePathStore = ({
     toCacheEntry
   })
   const invalidation = new Invalidation()
-  const preview = new Preview({
-    resolveEndpoints,
-    resolveReconnectPoint
-  })
 
   const ensureEntries = () => {
     const plan = invalidation.consume(readProjection)
@@ -104,16 +97,6 @@ export const createEdgePathStore = ({
     invalidation.onProjectionCommit(commit)
   }
 
-  const getReconnectEntry = (edgeConnect: EdgeConnectState, isConnecting: boolean) => {
-    if (!isConnecting || !edgeConnect.reconnect) return undefined
-    ensureEntries()
-
-    const reconnectBase = cache.getEntryById(edgeConnect.reconnect.edgeId)?.entry
-    if (!reconnectBase) return undefined
-
-    return preview.createReconnectEntry(edgeConnect, reconnectBase)
-  }
-
   const getEntries: EdgePathStore['getEntries'] = () => {
     ensureEntries()
     return cache.getEntries()
@@ -127,7 +110,6 @@ export const createEdgePathStore = ({
   return {
     applyCommit,
     getEntries,
-    getReconnectEntry,
     getEdge
   }
 }

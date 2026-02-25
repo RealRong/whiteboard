@@ -21,9 +21,6 @@ type EdgeDerivations = {
 }
 
 export type EdgeStateSyncKey =
-  | 'tool'
-  | 'interactionSession'
-  | 'edgeConnect'
   | 'routingDrag'
   | 'selection'
 
@@ -43,7 +40,7 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
     [],
     (entry) => entry.id
   )
-  let edgePreview: EdgePreviewView = derive.preview()
+  const edgePreview: EdgePreviewView = derive.preview()
   let edgeSelectedEndpoints: EdgeEndpoints | undefined = derive.selectedEndpoints()
   let edgeSelectedRouting: EdgeSelectedRoutingView = derive.selectedRouting()
 
@@ -54,13 +51,6 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
       edgeIndex = result.state
     }
     return result.changed
-  }
-
-  const recomputeEdgePreview = () => {
-    const next = derive.preview()
-    const changed = !Object.is(edgePreview, next)
-    edgePreview = next
-    return changed
   }
 
   const recomputeEdgeSelectedEndpoints = () => {
@@ -78,21 +68,6 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
   }
 
   const syncState = (key: EdgeStateSyncKey) => {
-    if (key === 'tool') {
-      return recomputeEdgePreview()
-    }
-    if (key === 'interactionSession') {
-      let changed = false
-      changed = recomputeEdgePaths() || changed
-      changed = recomputeEdgePreview() || changed
-      return changed
-    }
-    if (key === 'edgeConnect') {
-      let changed = false
-      changed = recomputeEdgePaths() || changed
-      changed = recomputeEdgePreview() || changed
-      return changed
-    }
     if (key === 'routingDrag') {
       let changed = false
       changed = recomputeEdgePaths() || changed
@@ -127,9 +102,6 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
 
     if (shouldSyncEdgePaths) {
       changed = recomputeEdgePaths() || changed
-    }
-    if (affectsEdgeNodes) {
-      changed = recomputeEdgePreview() || changed
     }
     if (affectsEdgeNodes || affectsEdgeVisibility) {
       changed = recomputeEdgeSelectedEndpoints() || changed

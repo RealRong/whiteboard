@@ -30,7 +30,6 @@ export const createEdgeDomainApi = ({
     order: commands.order.edge
   },
   interaction: {
-    connect: edgeInput.connect,
     routing: edgeInput.routing
   },
   query: {
@@ -68,17 +67,6 @@ export const bindEdgeDomainApiById = (
     sendBackward: () => api.commands.order.sendBackward([edgeId])
   },
   interaction: {
-    connect: {
-      beginReconnect: (end, pointer) =>
-        api.interaction.connect.beginReconnect({
-          edgeId,
-          end,
-          pointer
-        }),
-      updateDraft: api.interaction.connect.updateDraft,
-      commitDraft: api.interaction.connect.commitDraft,
-      cancelDraft: api.interaction.connect.cancelDraft
-    },
     routing: {
       begin: (index, pointer) =>
         api.interaction.routing.begin({

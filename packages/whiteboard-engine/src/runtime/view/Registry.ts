@@ -91,9 +91,6 @@ export const createViewRegistry = ({
   const syncStateAll = () => {
     viewport.sync()
     node.syncState('nodePreview')
-    edge.syncState('tool')
-    edge.syncState('interactionSession')
-    edge.syncState('edgeConnect')
     edge.syncState('routingDrag')
     edge.syncState('selection')
     mindmap.syncState('mindmapLayout')
@@ -117,9 +114,6 @@ export const createViewRegistry = ({
     switch (key) {
       case 'viewport':
         changed = viewport.sync()
-        break
-      case 'tool':
-        changed = edge.syncState('tool')
         break
       case 'selection':
         changed = edge.syncState('selection')
@@ -148,12 +142,6 @@ export const createViewRegistry = ({
         break
       case 'nodePreview':
         changed = node.syncState('nodePreview')
-        break
-      case 'interactionSession':
-        changed = edge.syncState('interactionSession')
-        break
-      case 'edgeConnect':
-        changed = edge.syncState('edgeConnect')
         break
       case 'routingDrag':
         changed = edge.syncState('routingDrag')

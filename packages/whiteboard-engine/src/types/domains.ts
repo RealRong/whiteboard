@@ -58,7 +58,6 @@ export type EdgeDomainApi = {
     order: Commands['order']['edge']
   }
   interaction: {
-    connect: InputSessionContext['edgeInput']['connect']
     routing: InputSessionContext['edgeInput']['routing']
   }
   query: {
@@ -177,15 +176,6 @@ export type EdgeEntityApi = {
     sendBackward: () => ReturnType<Commands['order']['edge']['sendBackward']>
   }
   interaction: {
-    connect: {
-      beginReconnect: (
-        end: Parameters<InputSessionContext['edgeInput']['connect']['beginReconnect']>[0]['end'],
-        pointer: Parameters<InputSessionContext['edgeInput']['connect']['beginReconnect']>[0]['pointer']
-      ) => ReturnType<InputSessionContext['edgeInput']['connect']['beginReconnect']>
-      updateDraft: InputSessionContext['edgeInput']['connect']['updateDraft']
-      commitDraft: InputSessionContext['edgeInput']['connect']['commitDraft']
-      cancelDraft: InputSessionContext['edgeInput']['connect']['cancelDraft']
-    }
     routing: {
       begin: (index: number, pointer: Parameters<InputSessionContext['edgeInput']['routing']['begin']>[0]['pointer']) => ReturnType<InputSessionContext['edgeInput']['routing']['begin']>
       updateDraft: InputSessionContext['edgeInput']['routing']['updateDraft']

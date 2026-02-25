@@ -1,6 +1,5 @@
 import type { Guide } from '../node/snap'
 import type {
-  EdgeConnectState,
   GroupHoverState,
   InteractionSessionState,
   MindmapDragState,
@@ -14,7 +13,6 @@ import type {
 export type RenderSnapshot = {
   interactionSession: InteractionSessionState
   selectionBox: SelectionBoxState
-  edgeConnect: EdgeConnectState
   routingDrag: RoutingDragState
   viewportGesture: ViewportGestureState
   mindmapDrag: MindmapDragState

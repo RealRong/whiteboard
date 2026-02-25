@@ -80,17 +80,6 @@ export class InputControllerImpl implements InputControllerType {
 
   private readonly getSessionContext = (): InputSessionContext => this.getContextBase()
 
-  private handlePointerHover = (
-    context: InputSessionContext,
-    event: Extract<InputEvent, { kind: 'pointer' }>
-  ) => {
-    if (event.phase !== 'move' || event.stage !== 'bubble' || event.source !== 'container') {
-      return
-    }
-    const enabled = context.state.read('tool') === 'edge'
-    context.edgeInput.connect.hoverMove(event.pointer, enabled)
-  }
-
   private handlePointerDownCapture = (
     context: InputSessionContext,
     event: Extract<InputEvent, { kind: 'pointer' }>
@@ -132,8 +121,6 @@ export class InputControllerImpl implements InputControllerType {
     ) {
       return emptyResult()
     }
-
-    this.handlePointerHover(context, event)
 
     if (event.phase === 'down' && event.stage === 'capture') {
       return this.handlePointerDownCapture(context, event)

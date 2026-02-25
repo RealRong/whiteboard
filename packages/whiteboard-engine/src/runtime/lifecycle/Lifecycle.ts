@@ -19,9 +19,6 @@ type LifecycleContext = {
 }
 
 type LifecycleActors = {
-  edgeInput: {
-    hoverCancel: () => void
-  }
   groupAutoFit: GroupAutoFitActor
   mindmap: MindmapActor
   selection: SelectionActor
@@ -34,7 +31,6 @@ export class Lifecycle implements LifecycleApi {
   private selectionActor: SelectionActor
   private toolActor: ToolActor
   private viewportActor: ViewportActor
-  private edgeInput: LifecycleActors['edgeInput']
   private groupAutoFitActor: GroupAutoFitActor
   private mindmapActor: MindmapActor
 
@@ -44,7 +40,6 @@ export class Lifecycle implements LifecycleApi {
   ) {
     this.context = context
 
-    this.edgeInput = actors.edgeInput
     this.groupAutoFitActor = actors.groupAutoFit
 
     this.selectionActor = actors.selection
@@ -100,9 +95,6 @@ export class Lifecycle implements LifecycleApi {
 
   update: LifecycleApi['update'] = (config) => {
     this.applyConfig(config)
-    if (config.tool !== 'edge') {
-      this.edgeInput.hoverCancel()
-    }
   }
 
   stop: LifecycleApi['stop'] = () => {

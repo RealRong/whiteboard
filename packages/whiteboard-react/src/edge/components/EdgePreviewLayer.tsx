@@ -1,12 +1,69 @@
-import { useEdgePreviewView } from '../../common/hooks'
+import { useEffect } from 'react'
+import { useInstance, useWhiteboardSelector } from '../../common/hooks'
+import { resolveSnapTarget } from '../interaction/connectMath'
+import {
+  edgeConnectPreviewStore,
+  useEdgeConnectPreviewState
+} from '../interaction/connectPreviewStore'
 
 export const EdgePreviewLayer = () => {
-  const { from, to, snap } = useEdgePreviewView()
+  const instance = useInstance()
+  const tool = useWhiteboardSelector('tool')
+  const { activePointerId, from, to, snap, showPreviewLine } = useEdgeConnectPreviewState()
+
+  useEffect(() => {
+    if (tool !== 'edge') {
+      edgeConnectPreviewStore.reset()
+      return
+    }
+    if (typeof window === 'undefined') return
+
+    let frameId: number | null = null
+    let latestEvent: PointerEvent | null = null
+
+    const flush = () => {
+      frameId = null
+      if (!latestEvent) return
+      if (edgeConnectPreviewStore.getSnapshot().activePointerId !== undefined) return
+
+      const screen = instance.query.viewport.clientToScreen(
+        latestEvent.clientX,
+        latestEvent.clientY
+      )
+      const world = instance.query.viewport.screenToWorld(screen)
+      const target = resolveSnapTarget(instance, world)
+      edgeConnectPreviewStore.setHoverSnap(target?.pointWorld)
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      latestEvent = event
+      if (frameId !== null) return
+      frameId = window.requestAnimationFrame(flush)
+    }
+
+    const clearHover = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+        frameId = null
+      }
+      edgeConnectPreviewStore.clearHoverSnap()
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('blur', clearHover)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('blur', clearHover)
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [instance, tool])
 
   if (!from && !to && !snap) return null
   return (
     <svg width="100%" height="100%" className="wb-edge-preview-layer">
-      {from && to && (
+      {showPreviewLine && from && to && (
         <>
           <line
             x1={from.x}
@@ -32,6 +89,7 @@ export const EdgePreviewLayer = () => {
           strokeWidth={2}
           vectorEffect="non-scaling-stroke"
           className="wb-edge-preview-point"
+          data-active={activePointerId !== undefined ? 'true' : 'false'}
         />
       )}
     </svg>

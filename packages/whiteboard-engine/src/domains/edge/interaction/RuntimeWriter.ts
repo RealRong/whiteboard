@@ -30,9 +30,6 @@ export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
           output.interaction.pointerId
         )
       }
-      if (output.edgeConnect !== undefined) {
-        this.render.write('edgeConnect', output.edgeConnect as never)
-      }
       if (output.routingDrag !== undefined) {
         this.render.write('routingDrag', output.routingDrag as never)
       }

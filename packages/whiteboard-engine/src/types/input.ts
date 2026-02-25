@@ -1,7 +1,7 @@
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
-import type { EdgeConnectDraft, RoutingDragPayload } from './edge'
+import type { RoutingDragPayload } from './edge'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
@@ -178,30 +178,6 @@ export type InputSessionContext = {
     }
   }
   edgeInput: {
-    connect: {
-      beginFromHandle: (options: {
-        nodeId: NodeId
-        side: 'top' | 'right' | 'bottom' | 'left'
-        pointer: PointerInput
-      }) => EdgeConnectDraft | undefined
-      beginFromNode: (options: {
-        nodeId: NodeId
-        pointer: PointerInput
-      }) => EdgeConnectDraft | undefined
-      beginReconnect: (options: {
-        edgeId: EdgeId
-        end: 'source' | 'target'
-        pointer: PointerInput
-      }) => EdgeConnectDraft | undefined
-      updateDraft: (options: {
-        draft: EdgeConnectDraft
-        pointer: PointerInput
-      }) => boolean
-      commitDraft: (draft: EdgeConnectDraft) => boolean
-      cancelDraft: (options?: { draft?: EdgeConnectDraft }) => boolean
-      hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
-      hoverCancel: () => void
-    }
     routing: {
       begin: (options: {
         edgeId: EdgeId

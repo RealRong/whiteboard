@@ -41,7 +41,6 @@ export const createInitialRenderState = (): WritableRenderSnapshot => ({
     selectionRect: undefined,
     selectionRectWorld: undefined
   },
-  edgeConnect: {},
   routingDrag: {},
   viewportGesture: {},
   mindmapDrag: {},

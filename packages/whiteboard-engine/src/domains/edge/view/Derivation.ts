@@ -19,28 +19,19 @@ export const createEdgeViewDerivations = ({
   readRender,
   edgeViewQuery
 }: EdgeDerivationOptions) => {
-  const isEdgeConnecting = () =>
-    readRender('interactionSession').active?.kind === 'edgeConnect'
+  const emptyPreview: EdgePreviewView = {
+    from: undefined,
+    to: undefined,
+    snap: undefined,
+    reconnect: undefined,
+    showPreviewLine: false
+  }
 
   const paths = (): EdgePathEntry[] =>
-    edgeViewQuery.getPaths(
-      readRender('edgeConnect'),
-      isEdgeConnecting(),
-      readRender('routingDrag')
-    )
+    edgeViewQuery.getPaths(readRender('routingDrag'))
 
-  const preview = (): EdgePreviewView => {
-    const edgeConnect = readRender('edgeConnect')
-    const tool = readState('tool')
-    const resolved = edgeViewQuery.getPreview(edgeConnect, isEdgeConnecting())
-    return {
-      from: resolved.showPreviewLine ? resolved.from : undefined,
-      to: resolved.showPreviewLine ? resolved.to : undefined,
-      snap: tool === 'edge' ? resolved.hover : undefined,
-      reconnect: resolved.reconnect,
-      showPreviewLine: resolved.showPreviewLine
-    }
-  }
+  const preview = (): EdgePreviewView =>
+    emptyPreview
 
   const selectedEndpoints = (): EdgeEndpoints | undefined => {
     const selectedEdgeId = readState('selection').selectedEdgeId

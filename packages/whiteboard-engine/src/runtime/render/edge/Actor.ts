@@ -1,11 +1,10 @@
 import type { Render } from '@engine-types/instance/render'
 import type {
-  EdgeConnectState,
   RoutingDragPayload,
   RoutingDragState
 } from '@engine-types/state'
 
-type EdgeRender = Pick<Render, 'read' | 'write' | 'batch'>
+type EdgeRender = Pick<Render, 'read' | 'write'>
 
 export class Actor {
   private readonly render: EdgeRender
@@ -15,12 +14,6 @@ export class Actor {
   }
 
   getRouting = () => this.render.read('routingDrag').payload
-
-  setConnect = (
-    next: EdgeConnectState | ((prev: EdgeConnectState) => EdgeConnectState)
-  ) => {
-    this.render.write('edgeConnect', next)
-  }
 
   setRouting = (
     next: RoutingDragState | ((prev: RoutingDragState) => RoutingDragState)
@@ -37,9 +30,6 @@ export class Actor {
   }
 
   resetTransient = () => {
-    this.render.batch(() => {
-      this.render.write('edgeConnect', {})
-      this.render.write('routingDrag', {})
-    })
+    this.render.write('routingDrag', {})
   }
 }
