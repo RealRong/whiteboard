@@ -4,6 +4,7 @@ import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/no
 import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
+import { useNodeDragInteraction } from '../hooks/useNodeDragInteraction'
 import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteraction'
 import {
   useInstance,
@@ -208,6 +209,10 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     instance.commands.interaction.update({ hover: { nodeId: undefined } })
   }, [instance])
 
+  const { handleNodePointerDown } = useNodeDragInteraction({
+    nodeId: node.id
+  })
+
   const baseContainerProps = useMemo<NodeContainerProps>(
     () => ({
       rect,
@@ -222,11 +227,13 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   const containerProps = useMemo<NodeContainerProps>(
     () => ({
       ...baseContainerProps,
+      onPointerDown: handleNodePointerDown,
       onPointerEnter: handlePointerEnter,
       onPointerLeave: handlePointerLeave
     }),
     [
       baseContainerProps,
+      handleNodePointerDown,
       handlePointerEnter,
       handlePointerLeave
     ]

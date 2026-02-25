@@ -5,7 +5,8 @@ import {
   type Point
 } from '@whiteboard/core/types'
 import { createEngine } from '../instance/create'
-import type { PointerInputEvent } from '@engine-types/input'
+import type { PointerInput } from '../types/common'
+import type { NodeDragUpdateConstraints } from '../types/node'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -127,53 +128,34 @@ const average = (values: number[]) =>
 
 const format = (value: number) => `${value.toFixed(4)}ms`
 
-const createPointerEvent = (options: {
-  phase: 'down' | 'move' | 'up'
+const createPointerInput = (options: {
+  instance: ReturnType<typeof createEngine>
   pointerId: number
-  nodeId: string
   client: Point
-  clickCount?: number
-}): PointerInputEvent => {
-  const { phase, pointerId, nodeId, client, clickCount = 1 } = options
+}): PointerInput => {
+  const { instance, pointerId, client } = options
+  const screen = instance.query.viewport.clientToScreen(
+    client.x,
+    client.y
+  )
   return {
-    kind: 'pointer',
-    stage: 'bubble',
-    phase,
-    clickCount,
-    pointer: {
-      pointerId,
-      button: 0,
-      client,
-      screen: client,
-      world: client,
-      modifiers: {
-        alt: false,
-        shift: false,
-        ctrl: false,
-        meta: false
-      }
-    },
     pointerId,
-    pointerType: 'mouse',
     button: 0,
-    buttons: phase === 'up' ? 0 : 1,
     client,
-    screen: client,
+    screen,
+    world: instance.query.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,
       ctrl: false,
-      meta: false,
-      space: false
-    },
-    target: {
-      surface: 'canvas',
-      role: 'node',
-      nodeId
-    },
-    timestamp: now(),
-    source: 'container'
+      meta: false
+    }
   }
+}
+
+const DRAG_CONSTRAINTS: NodeDragUpdateConstraints = {
+  snapEnabled: true,
+  allowCross: false
 }
 
 const main = () => {
@@ -204,17 +186,20 @@ const main = () => {
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
     const startClient = { x: 0, y: 0 }
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'down',
+    const draft = instance.domains.node.interaction.drag.begin({
+      nodeId: movingNodeId,
+      pointer: createPointerInput({
+        instance,
         pointerId,
-        nodeId: movingNodeId,
         client: startClient
       })
-    )
+    })
+    if (!draft) {
+      throw new Error(`nodeDrag.begin failed at run ${run + 1}`)
+    }
     const activeSession = instance.render.read('interactionSession').active
     if (!activeSession || activeSession.kind !== 'nodeDrag' || activeSession.pointerId !== pointerId) {
-      throw new Error(`nodeDrag.start failed at run ${run + 1}`)
+      throw new Error(`nodeDrag.begin failed at run ${run + 1}`)
     }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
@@ -222,14 +207,15 @@ const main = () => {
         x: frame * 1.2,
         y: frame * 0.8 + Math.sin(frame / 10) * 6
       }
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.node.interaction.drag.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          nodeId: movingNodeId,
           client
-        })
-      )
+        }),
+        constraints: DRAG_CONSTRAINTS
+      })
     }
 
     const samples: number[] = []
@@ -241,25 +227,19 @@ const main = () => {
         y: clientY
       }
       const startedAt = now()
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.node.interaction.drag.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          nodeId: movingNodeId,
           client
-        })
-      )
+        }),
+        constraints: DRAG_CONSTRAINTS
+      })
       samples.push(now() - startedAt)
     }
 
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'up',
-        pointerId,
-        nodeId: movingNodeId,
-        client: { x: 0, y: 0 }
-      })
-    )
+    instance.domains.node.interaction.drag.commitDraft(draft)
     const resetDoc = cloneDoc(doc)
     const resetNode = resetDoc.nodes.find((node) => node.id === movingNodeId)
     if (resetNode) {

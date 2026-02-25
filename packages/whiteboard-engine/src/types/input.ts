@@ -4,7 +4,12 @@ import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
-import type { NodeTransformDraft, NodeTransformUpdateConstraints } from './node'
+import type {
+  NodeDragDraft,
+  NodeDragUpdateConstraints,
+  NodeTransformDraft,
+  NodeTransformUpdateConstraints
+} from './node'
 import type { State } from './instance/state'
 import type { Shortcuts } from './shortcuts'
 
@@ -135,17 +140,17 @@ export type InputSessionContext = {
   query: Query
   nodeInput: {
     drag: {
-      start: (options: {
+      begin: (options: {
         nodeId: NodeId
         pointer: PointerInput
-        modifiers: Pick<
-          PointerInputEvent['modifiers'],
-          'alt' | 'shift' | 'ctrl' | 'meta'
-        >
+      }) => NodeDragDraft | undefined
+      updateDraft: (options: {
+        draft: NodeDragDraft
+        pointer: PointerInput
+        constraints: NodeDragUpdateConstraints
       }) => boolean
-      update: (pointer: PointerInput) => boolean
-      end: (pointer: PointerInput) => boolean
-      cancel: (options?: { pointer?: PointerInput }) => boolean
+      commitDraft: (draft: NodeDragDraft) => boolean
+      cancelDraft: (options?: { draft?: NodeDragDraft }) => boolean
     }
     transform: {
       beginResize: (options: {
@@ -261,7 +266,6 @@ export type CancelReason =
   | 'forced'
 
 export type PointerSessionKind =
-  | 'nodeDrag'
   | 'selectionBox'
   | 'edgeConnect'
   | 'edgePath'

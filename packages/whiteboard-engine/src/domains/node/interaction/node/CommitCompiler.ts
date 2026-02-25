@@ -1,4 +1,5 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
+import type { NodeDragDraft } from '@engine-types/node'
 import type { NodePreviewUpdate } from '@engine-types/state'
 import type {
   Document,
@@ -16,7 +17,6 @@ import {
   rectEquals
 } from '@whiteboard/core/node'
 import { DEFAULT_TUNING } from '../../../../config'
-import type { NodeDragSession } from './SessionStore'
 
 type CompilerOptions = {
   readDoc: () => Document
@@ -25,7 +25,7 @@ type CompilerOptions = {
 }
 
 type CompileInput = {
-  session: NodeDragSession
+  draft: NodeDragDraft
   finalPosition: Point
   updates: NodePreviewUpdate[]
   hoveredGroupId?: NodeId
@@ -49,7 +49,7 @@ export class CommitCompiler {
   }
 
   compile = ({
-    session,
+    draft,
     finalPosition,
     updates,
     hoveredGroupId
@@ -62,10 +62,10 @@ export class CommitCompiler {
       this.mergePatch(patches, update.id, patch)
     })
 
-    if (!session.children && session.nodeType !== 'group') {
+    if (!draft.children && draft.nodeType !== 'group') {
       this.appendDropToGroupPatch(
         patches,
-        session,
+        draft,
         finalPosition,
         hoveredGroupId
       )
@@ -86,13 +86,13 @@ export class CommitCompiler {
 
   private appendDropToGroupPatch = (
     patches: Map<NodeId, NodePatch>,
-    session: NodeDragSession,
+    draft: NodeDragDraft,
     finalPosition: Point,
     hoveredGroupId?: NodeId
   ) => {
     const nodes = this.readCanvasNodes()
     const nodeById = toNodeById(nodes)
-    const currentNode = nodeById.get(session.nodeId)
+    const currentNode = nodeById.get(draft.nodeId)
     if (!currentNode) return
 
     const parentId = currentNode.parentId
@@ -101,7 +101,7 @@ export class CommitCompiler {
       const hovered = nodeById.get(hoveredGroupId)
       if (!hovered) return
 
-      this.mergePatch(patches, session.nodeId, { parentId: hovered.id })
+      this.mergePatch(patches, draft.nodeId, { parentId: hovered.id })
 
       const groupRect = getNodeAABB(hovered, this.config.nodeSize)
       const children = getGroupDescendants(nodes, hovered.id)
@@ -146,12 +146,12 @@ export class CommitCompiler {
       const nodeRect = {
         x: finalPosition.x,
         y: finalPosition.y,
-        width: session.size.width,
-        height: session.size.height
+        width: draft.size.width,
+        height: draft.size.height
       }
       const parentRect = getNodeAABB(parentNode, this.config.nodeSize)
       if (!rectContains(parentRect, nodeRect)) {
-        this.mergePatch(patches, session.nodeId, { parentId: undefined })
+        this.mergePatch(patches, draft.nodeId, { parentId: undefined })
       }
     }
   }

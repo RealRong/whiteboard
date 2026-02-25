@@ -122,7 +122,7 @@ export type DomainApis = {
   viewport: ViewportDomainApi
 }
 
-type NodeDragStartInput = Parameters<InputSessionContext['nodeInput']['drag']['start']>[0]
+type NodeDragBeginInput = Parameters<InputSessionContext['nodeInput']['drag']['begin']>[0]
 type NodeResizeStartInput = Parameters<InputSessionContext['nodeInput']['transform']['beginResize']>[0]
 type NodeRotateStartInput = Parameters<InputSessionContext['nodeInput']['transform']['beginRotate']>[0]
 type MindmapInsertNodeInput = Parameters<Commands['mindmap']['insertNode']>[0]
@@ -142,10 +142,10 @@ export type NodeEntityApi = {
   }
   interaction: {
     drag: {
-      start: (options: Omit<NodeDragStartInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['drag']['start']>
-      update: InputSessionContext['nodeInput']['drag']['update']
-      end: InputSessionContext['nodeInput']['drag']['end']
-      cancel: InputSessionContext['nodeInput']['drag']['cancel']
+      begin: (options: Omit<NodeDragBeginInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['drag']['begin']>
+      updateDraft: InputSessionContext['nodeInput']['drag']['updateDraft']
+      commitDraft: InputSessionContext['nodeInput']['drag']['commitDraft']
+      cancelDraft: InputSessionContext['nodeInput']['drag']['cancelDraft']
     }
     transform: {
       beginResize: (options: Omit<NodeResizeStartInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['transform']['beginResize']>

@@ -59,13 +59,13 @@ export const bindNodeDomainApiById = (
   },
   interaction: {
     drag: {
-      start: (options) => api.interaction.drag.start({
+      begin: (options) => api.interaction.drag.begin({
         nodeId,
         ...options
       }),
-      update: api.interaction.drag.update,
-      end: api.interaction.drag.end,
-      cancel: api.interaction.drag.cancel
+      updateDraft: api.interaction.drag.updateDraft,
+      commitDraft: api.interaction.drag.commitDraft,
+      cancelDraft: api.interaction.drag.cancelDraft
     },
     transform: {
       beginResize: (options) => api.interaction.transform.beginResize({

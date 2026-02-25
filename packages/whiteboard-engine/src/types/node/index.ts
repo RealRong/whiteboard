@@ -2,6 +2,11 @@ export type { NodeContainerProps, NodeDefinition, NodeRegistry, NodeRenderProps 
 export type { NodeContainerHandlers, NodeInteractionOptions } from './interaction'
 export type { NodePresentation, NodePresentationOptions } from './presentation'
 export type {
+  NodeDragChildren,
+  NodeDragDraft,
+  NodeDragUpdateConstraints
+} from './drag'
+export type {
   SelectionHandlers,
   SelectionOptions,
   SelectionModel,

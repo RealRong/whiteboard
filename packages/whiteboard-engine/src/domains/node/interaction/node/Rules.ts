@@ -1,34 +1,25 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
+import type { NodeDragChildren, NodeDragDraft } from '@engine-types/node'
 import type { Guide } from '@engine-types/node/snap'
-import type {
-  NodePreviewUpdate,
-  SelectionState
-} from '@engine-types/state'
+import type { NodePreviewUpdate } from '@engine-types/state'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { computeSnap, findSmallestGroupAtPoint, getGroupDescendants } from '@whiteboard/core/node'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
-import {
-  applySelection,
-  resolveSelectionMode,
-  type SelectionModifiers
-} from '../../../../shared/selection'
-import type { SelectionPatch } from '../RuntimeOutput'
-import type { DragChildren, NodeDragSession } from './SessionStore'
 
 type MoveOptions = {
   nodeId: NodeId
   position: Point
   size: { width: number; height: number }
   childrenIds?: NodeId[]
+  snapEnabled: boolean
   allowCross: boolean
 }
 
 type RulesOptions = {
   config: InstanceConfig
   query: Pick<Query, 'snap'>
-  readTool: () => 'select' | 'edge'
   readZoom: () => number
   readCanvasNodes: () => Node[]
 }
@@ -58,36 +49,21 @@ const expandRectByThreshold = (
 export class Rules {
   private readonly config: RulesOptions['config']
   private readonly query: RulesOptions['query']
-  private readonly readTool: RulesOptions['readTool']
   private readonly readZoom: RulesOptions['readZoom']
   private readonly readCanvasNodes: RulesOptions['readCanvasNodes']
 
   constructor(options: RulesOptions) {
     this.config = options.config
     this.query = options.query
-    this.readTool = options.readTool
     this.readZoom = options.readZoom
     this.readCanvasNodes = options.readCanvasNodes
-  }
-
-  createSelectionPatchOnStart = (
-    current: SelectionState,
-    nodeId: NodeId,
-    modifiers: SelectionModifiers
-  ): SelectionPatch => {
-    const mode = resolveSelectionMode(modifiers)
-    return {
-      selectedNodeIds: applySelection(current.selectedNodeIds, [nodeId], mode),
-      selectedEdgeId: undefined,
-      mode
-    }
   }
 
   buildGroupChildren = (
     nodes: Node[],
     nodeId: NodeId,
     origin: Point
-  ): DragChildren | undefined => {
+  ): NodeDragChildren | undefined => {
     const ids = getGroupDescendants(nodes, nodeId).map((child) => child.id)
     if (!ids.length) return undefined
 
@@ -109,13 +85,13 @@ export class Rules {
   }
 
   resolvePosition = (
-    session: NodeDragSession,
+    draft: NodeDragDraft,
     pointer: PointerInput
   ): Point => {
     const zoom = resolveInteractionZoom(this.readZoom())
     return {
-      x: session.origin.x + (pointer.client.x - session.start.x) / zoom,
-      y: session.origin.y + (pointer.client.y - session.start.y) / zoom
+      x: draft.origin.x + (pointer.client.x - draft.start.x) / zoom,
+      y: draft.origin.y + (pointer.client.y - draft.start.y) / zoom
     }
   }
 
@@ -124,12 +100,13 @@ export class Rules {
     position,
     size,
     childrenIds,
+    snapEnabled,
     allowCross
   }: MoveOptions): {
     position: Point
     guides: Guide[]
   } => {
-    if (this.readTool() !== 'select') {
+    if (!snapEnabled) {
       return {
         position,
         guides: []
@@ -199,16 +176,16 @@ export class Rules {
   }
 
   buildGroupUpdates = (
-    session: NodeDragSession,
+    draft: NodeDragDraft,
     position: Point
   ): NodePreviewUpdate[] => {
     const updates: NodePreviewUpdate[] = [{
-      id: session.nodeId,
+      id: draft.nodeId,
       position
     }]
 
-    session.children?.ids.forEach((childId) => {
-      const offset = session.children?.offsets.get(childId)
+    draft.children?.ids.forEach((childId) => {
+      const offset = draft.children?.offsets.get(childId)
       if (!offset) return
       updates.push({
         id: childId,

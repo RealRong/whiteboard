@@ -1,17 +1,14 @@
 import type { PointerInput, Size } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
+  NodeDragDraft,
+  NodeDragUpdateConstraints,
   NodeTransformDraft,
   NodeTransformUpdateConstraints,
   ResizeDirection
 } from '@engine-types/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import type { RuntimeOutput } from './RuntimeOutput'
-import {
-  Planner as NodeDragPlanner,
-  type NodeDragCancelInput,
-  type NodeDragStartInput
-} from './node/Planner'
+import { NodeDragKernel } from './node/Kernel'
 import { NodeTransformKernel } from './nodeTransform/Kernel'
 import { RuntimeWriter } from './RuntimeWriter'
 
@@ -49,7 +46,7 @@ export type NodeTransformBeginRotateInput = {
 export class NodeInputGateway {
   private readonly writer: RuntimeWriter
   private readonly render: GatewayInstance['render']
-  private readonly nodePlanner: NodeDragPlanner
+  private readonly nodeDragKernel: NodeDragKernel
   private readonly nodeTransformKernel: NodeTransformKernel
 
   constructor({ instance }: GatewayOptions) {
@@ -57,7 +54,7 @@ export class NodeInputGateway {
       instance
     })
     this.render = instance.render
-    this.nodePlanner = new NodeDragPlanner({
+    this.nodeDragKernel = new NodeDragKernel({
       instance
     })
     this.nodeTransformKernel = new NodeTransformKernel({
@@ -65,24 +62,115 @@ export class NodeInputGateway {
     })
   }
 
-  private apply = (output: RuntimeOutput | undefined) => {
-    if (!output) return false
-    this.writer.apply(output)
-    return true
+  private isNodeDragDraftActive = (draft: NodeDragDraft) => {
+    const active = this.render.read('interactionSession').active
+    return Boolean(
+      active
+      && active.kind === 'nodeDrag'
+      && active.pointerId === draft.pointerId
+    )
+  }
+
+  private beginDrag = (draft: NodeDragDraft | undefined) => {
+    if (!draft) return undefined
+    const active = this.render.read('interactionSession').active
+    if (active) return undefined
+    this.writer.apply({
+      interaction: {
+        kind: 'nodeDrag',
+        pointerId: draft.pointerId
+      },
+      groupHover: undefined,
+      nodePayload: {
+        drag: {
+          pointerId: draft.pointerId,
+          nodeId: draft.nodeId,
+          nodeType: draft.nodeType
+        }
+      },
+      nodePreview: [],
+      guides: []
+    })
+    return draft
   }
 
   node = {
-    start: (options: NodeDragStartInput) =>
-      this.apply(this.nodePlanner.start(options)),
-    update: (pointer: PointerInput) =>
-      this.apply(this.nodePlanner.update(pointer)),
-    end: (pointer: PointerInput) =>
-      this.apply(this.nodePlanner.end(pointer)),
-    cancel: (options?: NodeDragCancelInput) =>
-      this.apply(this.nodePlanner.cancel(options))
+    begin: (options: {
+      nodeId: NodeId
+      pointer: PointerInput
+    }) => this.beginDrag(this.nodeDragKernel.begin(options)),
+    updateDraft: (options: {
+      draft: NodeDragDraft
+      pointer: PointerInput
+      constraints: NodeDragUpdateConstraints
+    }) => {
+      const { draft, pointer, constraints } = options
+      if (pointer.pointerId !== draft.pointerId) return false
+      if (!this.isNodeDragDraftActive(draft)) return false
+      const resolved = this.nodeDragKernel.update(
+        draft,
+        pointer,
+        constraints
+      )
+      this.writer.apply({
+        frame: true,
+        groupHover: resolved.groupHover,
+        nodePayload: {
+          drag: {
+            pointerId: draft.pointerId,
+            nodeId: draft.nodeId,
+            nodeType: draft.nodeType
+          }
+        },
+        nodePreview: resolved.nodePreview,
+        guides: resolved.guides
+      })
+      return true
+    },
+    commitDraft: (draft: NodeDragDraft) => {
+      if (!this.isNodeDragDraftActive(draft)) return false
+      const mutations = this.nodeDragKernel.commit(draft)
+      this.writer.apply({
+        interaction: {
+          kind: 'nodeDrag',
+          pointerId: null
+        },
+        groupHover: undefined,
+        nodePayload: {
+          drag: null
+        },
+        nodePreview: [],
+        guides: [],
+        mutations
+      })
+      return true
+    },
+    cancelDraft: (options?: { draft?: NodeDragDraft }) => {
+      const active = this.render.read('interactionSession').active
+      if (!active || active.kind !== 'nodeDrag') return false
+      if (
+        options?.draft
+        && active.pointerId !== options.draft.pointerId
+      ) {
+        return false
+      }
+      this.writer.apply({
+        interaction: {
+          kind: 'nodeDrag',
+          pointerId: null
+        },
+        groupHover: undefined,
+        nodePayload: {
+          drag: null
+        },
+        nodePreview: [],
+        guides: []
+      })
+      return true
+    }
   }
 
-  private isDraftActive = (draft: NodeTransformDraft) => {
+  private isTransformDraftActive = (draft: NodeTransformDraft) => {
     const active = this.render.read('interactionSession').active
     return Boolean(
       active
@@ -127,7 +215,7 @@ export class NodeInputGateway {
         minSize
       } = options
       if (pointer.pointerId !== draft.drag.pointerId) return false
-      if (!this.isDraftActive(draft)) return false
+      if (!this.isTransformDraftActive(draft)) return false
       const resolved = this.nodeTransformKernel.update(
         draft,
         pointer,
@@ -142,7 +230,7 @@ export class NodeInputGateway {
       return true
     },
     commitDraft: (draft: NodeTransformDraft) => {
-      if (!this.isDraftActive(draft)) return false
+      if (!this.isTransformDraftActive(draft)) return false
       const mutations = this.nodeTransformKernel.commit(draft)
       this.writer.apply({
         interaction: {
@@ -177,7 +265,7 @@ export class NodeInputGateway {
   }
 
   cancelInteractions = () => {
-    this.node.cancel()
+    this.node.cancelDraft()
     this.nodeTransform.cancelDraft()
   }
 
