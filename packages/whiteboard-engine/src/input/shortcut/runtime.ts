@@ -79,12 +79,14 @@ class ShortcutsImpl implements Shortcuts {
   private readonly shortcutManager: ShortcutManager
   private readonly runAction: (action: ShortcutAction) => boolean
   private readonly readState: InternalInstance['state']['read']
+  private readonly readRender: InternalInstance['render']['read']
   private readonly platform: ShortcutContext['platform']
 
   constructor(instance: InternalInstance, runAction: (action: ShortcutAction) => boolean) {
     this.shortcutManager = createShortcutManager()
     this.runAction = runAction
     this.readState = instance.state.read
+    this.readRender = instance.render.read
     this.platform = getPlatformInfo()
 
     this.setShortcuts()
@@ -99,10 +101,10 @@ class ShortcutsImpl implements Shortcuts {
 
   private readShortcutContext = (): ShortcutContext => {
     const interaction = this.readState('interaction')
-    const interactionSession = this.readState('interactionSession')
+    const interactionSession = this.readRender('interactionSession')
     const tool = this.readState('tool')
     const selection = this.readState('selection')
-    const selectionBox = this.readState('selectionBox')
+    const selectionBox = this.readRender('selectionBox')
     const selectedEdgeId = selection.selectedEdgeId
     const selectedNodeIds = Array.from(selection.selectedNodeIds)
 

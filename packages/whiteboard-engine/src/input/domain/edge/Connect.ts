@@ -16,7 +16,7 @@ import type { RuntimeOutput } from './RuntimeOutput'
 
 type ConnectInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'query' | 'document' | 'registries' | 'config' | 'viewport'
+  'state' | 'render' | 'projection' | 'query' | 'document' | 'registries' | 'config' | 'viewport'
 >
 
 type ConnectOptions = {
@@ -203,7 +203,7 @@ export class Connect {
   }
 
   updateTo = (pointer: PointerInput) => {
-    const active = this.instance.state.read('interactionSession').active
+    const active = this.instance.render.read('interactionSession').active
     if (active?.kind !== 'edgeConnect' || active.pointerId !== pointer.pointerId) return
     const pointWorld = pointer.world
     this.emit({
@@ -219,10 +219,10 @@ export class Connect {
   }
 
   commitTo = (pointer: PointerInput) => {
-    const active = this.instance.state.read('interactionSession').active
+    const active = this.instance.render.read('interactionSession').active
     if (active?.kind !== 'edgeConnect' || active.pointerId !== pointer.pointerId) return
     const pointWorld = pointer.world
-    const currentState = this.instance.state.read('edgeConnect')
+    const currentState = this.instance.render.read('edgeConnect')
     if (!currentState.from) return
     const from = currentState.from
     const reconnect = currentState.reconnect
@@ -285,7 +285,7 @@ export class Connect {
   private applyHover = (pointer: PointerInput) => {
     const activeTool = this.instance.state.read('tool')
     if (activeTool !== 'edge') return
-    const active = this.instance.state.read('interactionSession').active
+    const active = this.instance.render.read('interactionSession').active
     if (active?.kind === 'edgeConnect') return
     const snap = this.snapAt(pointer.world)
     this.emit({

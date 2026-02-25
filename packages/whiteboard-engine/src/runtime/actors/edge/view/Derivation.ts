@@ -1,4 +1,5 @@
 import type { State } from '@engine-types/instance/state'
+import type { Render } from '@engine-types/instance/render'
 import type {
   EdgeEndpoints,
   EdgePathEntry,
@@ -9,25 +10,27 @@ import type { EdgeViewQuery } from './query'
 
 type EdgeDerivationOptions = {
   readState: State['read']
+  readRender: Render['read']
   edgeViewQuery: EdgeViewQuery
 }
 
 export const createEdgeViewDerivations = ({
   readState,
+  readRender,
   edgeViewQuery
 }: EdgeDerivationOptions) => {
   const isEdgeConnecting = () =>
-    readState('interactionSession').active?.kind === 'edgeConnect'
+    readRender('interactionSession').active?.kind === 'edgeConnect'
 
   const paths = (): EdgePathEntry[] =>
     edgeViewQuery.getPaths(
-      readState('edgeConnect'),
+      readRender('edgeConnect'),
       isEdgeConnecting(),
-      readState('routingDrag')
+      readRender('routingDrag')
     )
 
   const preview = (): EdgePreviewView => {
-    const edgeConnect = readState('edgeConnect')
+    const edgeConnect = readRender('edgeConnect')
     const tool = readState('tool')
     const resolved = edgeViewQuery.getPreview(edgeConnect, isEdgeConnecting())
     return {
@@ -54,7 +57,7 @@ export const createEdgeViewDerivations = ({
     if (!edge) return undefined
     const points = edge.routing?.points
     if (!points?.length) return undefined
-    const activeDrag = readState('routingDrag').payload
+    const activeDrag = readRender('routingDrag').payload
     const previewPoints =
       activeDrag && activeDrag.edgeId === edge.id
         ? points.map((point, index) =>

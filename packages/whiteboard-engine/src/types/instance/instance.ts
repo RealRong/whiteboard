@@ -6,6 +6,7 @@ import type { Lifecycle } from './lifecycle'
 import type { InstanceConfig } from './config'
 import type { Query } from './query'
 import type { State } from './state'
+import type { Render } from './render'
 import type { View } from './view'
 import type { ProjectionStore } from '../projection'
 import type { InputPort } from '../input'
@@ -13,6 +14,7 @@ import type { ViewportApi } from '../viewport'
 
 export type Instance = {
   state: State
+  render: Render
   projection: ProjectionStore
   input: InputPort
   query: Query

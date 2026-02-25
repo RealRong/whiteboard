@@ -1,5 +1,8 @@
 import type { Rect } from '@whiteboard/core/types'
-import { useWhiteboardSelector } from '../../common/hooks'
+import {
+  useWhiteboardRenderSelector,
+  useWhiteboardSelector
+} from '../../common/hooks'
 
 const isSameRect = (left?: Rect, right?: Rect) => {
   if (left === right) return true
@@ -8,15 +11,16 @@ const isSameRect = (left?: Rect, right?: Rect) => {
 }
 
 export const SelectionLayer = () => {
-  const rect = useWhiteboardSelector(
-    (snapshot) => (snapshot.tool === 'edge' ? undefined : snapshot.selectionBox.selectionRect),
+  const tool = useWhiteboardSelector('tool')
+  const rect = useWhiteboardRenderSelector(
+    (snapshot) => snapshot.selectionBox.selectionRect,
     {
-      keys: ['tool', 'selectionBox'],
+      keys: ['selectionBox'],
       equality: isSameRect
     }
   )
 
-  if (!rect) return null
+  if (!rect || tool === 'edge') return null
 
   return (
     <div

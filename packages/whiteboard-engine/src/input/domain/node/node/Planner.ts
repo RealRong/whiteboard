@@ -8,7 +8,7 @@ import { SessionStore } from './SessionStore'
 
 type PlannerInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'query' | 'config' | 'viewport' | 'document'
+  'state' | 'render' | 'projection' | 'query' | 'config' | 'viewport' | 'document'
 >
 
 export type NodeDragStartInput = {
@@ -32,6 +32,7 @@ type PlannerOptions = {
 
 export class Planner {
   private readonly state: PlannerInstance['state']
+  private readonly render: PlannerInstance['render']
   private readonly projection: PlannerInstance['projection']
   private readonly nodeSize: PlannerInstance['config']['nodeSize']
   private readonly rules: Rules
@@ -40,6 +41,7 @@ export class Planner {
 
   constructor({ instance }: PlannerOptions) {
     this.state = instance.state
+    this.render = instance.render
     this.projection = instance.projection
     this.nodeSize = instance.config.nodeSize
     const readCanvasNodes = () => this.projection.getSnapshot().nodes.canvas
@@ -63,7 +65,7 @@ export class Planner {
     modifiers
   }: NodeDragStartInput): NodeDragRuntimeOutput | undefined => {
     if (this.readSession()) return undefined
-    if (this.state.read('interactionSession').active) return undefined
+    if (this.render.read('interactionSession').active) return undefined
     if (this.state.read('tool') !== 'select') return undefined
 
     const nodes = this.projection.getSnapshot().nodes.canvas
@@ -231,7 +233,7 @@ export class Planner {
   private readSession = (pointerId?: number) => {
     const session = this.sessions.read(pointerId)
     if (!session) return undefined
-    const active = this.state.read('interactionSession').active
+    const active = this.render.read('interactionSession').active
     if (
       !active ||
       active.kind !== 'nodeDrag' ||

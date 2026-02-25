@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react'
-import { useEdgeSelectedRoutingView, useWhiteboardSelector } from '../../common/hooks'
+import { useEdgeSelectedRoutingView, useWhiteboardRenderSelector } from '../../common/hooks'
 
 export const EdgeControlPointHandles = () => {
   const selectedRouting = useEdgeSelectedRoutingView()
-  const routingDrag = useWhiteboardSelector('routingDrag')
+  const routingDrag = useWhiteboardRenderSelector('routingDrag')
   const edge = selectedRouting?.edge
   const points = selectedRouting?.points ?? []
   const activeDrag = routingDrag.payload

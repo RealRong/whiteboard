@@ -1,0 +1,44 @@
+import type { Guide } from '../node/snap'
+import type {
+  EdgeConnectState,
+  InteractionSessionState,
+  MindmapDragState,
+  NodeDragState,
+  NodePreviewState,
+  NodeTransformState,
+  RoutingDragState,
+  SelectionBoxState,
+  ViewportGestureState
+} from '../state'
+
+export type RenderSnapshot = {
+  interactionSession: InteractionSessionState
+  selectionBox: SelectionBoxState
+  edgeConnect: EdgeConnectState
+  routingDrag: RoutingDragState
+  viewportGesture: ViewportGestureState
+  mindmapDrag: MindmapDragState
+  nodeDrag: NodeDragState
+  nodeTransform: NodeTransformState
+  nodePreview: NodePreviewState
+  spacePressed: boolean
+  dragGuides: Guide[]
+}
+
+export type RenderKey = keyof RenderSnapshot
+export type WritableRenderSnapshot = RenderSnapshot
+export type WritableRenderKey = keyof WritableRenderSnapshot
+
+export type Render = {
+  read: <K extends RenderKey>(key: K) => RenderSnapshot[K]
+  write: <K extends WritableRenderKey>(
+    key: K,
+    next:
+      | WritableRenderSnapshot[K]
+      | ((prev: WritableRenderSnapshot[K]) => WritableRenderSnapshot[K])
+  ) => void
+  batch: (action: () => void) => void
+  batchFrame: (action: () => void) => void
+  watchChanges: (listener: (key: RenderKey) => void) => () => void
+  watch: (key: RenderKey, listener: () => void) => () => void
+}

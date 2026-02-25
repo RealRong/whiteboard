@@ -158,7 +158,7 @@ export class ViewportGestureController {
   private canStartViewportPan = (event: PointerEvent) => {
     if (!this.viewportPolicy.panEnabled) return false
     const middleDrag = event.button === 1 || (event.buttons & 4) === 4
-    const spacePressed = this.instance.state.read('spacePressed')
+    const spacePressed = this.instance.render.read('spacePressed')
     const leftDrag = (event.button === 0 || (event.buttons & 1) === 1) && spacePressed
     return middleDrag || leftDrag
   }
@@ -185,16 +185,16 @@ export class ViewportGestureController {
     this.instance.query.viewport.get()
 
   private readGestureViewport = (): Viewport =>
-    this.instance.state.read('viewportGesture').preview ?? this.readCommittedViewport()
+    this.instance.render.read('viewportGesture').preview ?? this.readCommittedViewport()
 
   private writeViewportPreview = (viewport: Viewport) => {
-    this.instance.state.write('viewportGesture', {
+    this.instance.render.write('viewportGesture', {
       preview: copyViewport(viewport)
     })
   }
 
   private clearViewportPreview = () => {
-    this.instance.state.write('viewportGesture', {})
+    this.instance.render.write('viewportGesture', {})
   }
 
   private commitViewport = (viewport: Viewport) => {
@@ -207,7 +207,7 @@ export class ViewportGestureController {
     void this.instance.commands.viewport
       .set(target)
       .finally(() => {
-        const preview = this.instance.state.read('viewportGesture').preview
+        const preview = this.instance.render.read('viewportGesture').preview
         if (!preview || isSameViewport(preview, target)) {
           this.clearViewportPreview()
         }

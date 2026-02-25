@@ -7,7 +7,7 @@ import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../config'
 import type { RuntimeOutput } from './RuntimeOutput'
 
-type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
+type DragInstance = Pick<InternalInstance, 'state' | 'render' | 'view' | 'config'>
 
 type MindmapCommands = {
   moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
@@ -89,7 +89,7 @@ export class Drag {
   }
 
   private readActive = (pointerId?: number) => {
-    const session = this.instance.state.read('interactionSession').active
+    const session = this.instance.render.read('interactionSession').active
     if (!session || session.kind !== 'mindmapDrag') return undefined
     if (pointerId !== undefined && session.pointerId !== pointerId) return undefined
 
@@ -113,7 +113,7 @@ export class Drag {
 
   start = ({ treeId, nodeId, pointer }: { treeId: NodeId; nodeId: NodeId; pointer: { pointerId: number; world: { x: number; y: number } } }) => {
     const { state } = this.instance
-    if (state.read('interactionSession').active) return false
+    if (this.instance.render.read('interactionSession').active) return false
 
     const treeItem = this.getTreeView(treeId)
     if (!treeItem) return false

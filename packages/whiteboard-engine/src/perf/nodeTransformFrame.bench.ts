@@ -228,7 +228,7 @@ const main = () => {
         client: startClient
       })
     )
-    const activeSession = instance.state.read('interactionSession').active
+    const activeSession = instance.render.read('interactionSession').active
     if (
       !activeSession
       || activeSession.kind !== 'nodeTransform'

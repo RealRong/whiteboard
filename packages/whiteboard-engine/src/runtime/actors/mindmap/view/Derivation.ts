@@ -1,6 +1,7 @@
 import type { ProjectionSnapshot } from '@engine-types/projection'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
+import type { Render } from '@engine-types/instance/render'
 import type { MindmapDragView, MindmapViewTree } from '@engine-types/instance/view'
 import type { Node } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../../config'
@@ -16,12 +17,14 @@ import {
 
 type MindmapDerivationOptions = {
   readState: State['read']
+  readRender: Render['read']
   readProjection: () => ProjectionSnapshot
   config: InstanceConfig
 }
 
 export const createMindmapViewDerivations = ({
   readState,
+  readRender,
   readProjection,
   config
 }: MindmapDerivationOptions) => {
@@ -87,7 +90,7 @@ export const createMindmapViewDerivations = ({
   }
 
   const drag = (): MindmapDragView | undefined => {
-    const active = readState('mindmapDrag').payload
+    const active = readRender('mindmapDrag').payload
     if (!active) return undefined
 
     if (active.kind === 'root') {

@@ -35,6 +35,7 @@ import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
+import { RenderCoordinator } from '../runtime/render/RenderCoordinator'
 
 export const createEngine = ({
   registries,
@@ -48,6 +49,7 @@ export const createEngine = ({
   const documentStore = createDocumentStore(document, onDocumentChange)
   const viewport = new ViewportRuntime()
   viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
+  const render = new RenderCoordinator()
   const { state, projection, syncDocument } = createState({
     getDoc: documentStore.get,
     readViewport: viewport.get
@@ -65,6 +67,7 @@ export const createEngine = ({
   })
   const viewRuntime = createViewRegistry({
     state,
+    render,
     projection,
     query: queryRuntime.query,
     config
@@ -73,6 +76,7 @@ export const createEngine = ({
   const instance: InternalInstance = {
     mutate: null as unknown as InternalInstance['mutate'],
     state,
+    render,
     projection,
     input: null as unknown as InternalInstance['input'],
     document: documentStore,
@@ -172,7 +176,7 @@ export const createEngine = ({
     },
     keyboard: {
       setSpacePressed: (pressed) => {
-        write('spacePressed', pressed)
+        render.keyboard.setSpacePressed(pressed)
       }
     },
     history: {
@@ -283,6 +287,7 @@ export const createEngine = ({
   const inputPort = createInputPort({
     getContext: () => ({
       state,
+      render,
       commands,
       query: queryRuntime.query,
       nodeInput: {
@@ -360,6 +365,7 @@ export const createEngine = ({
 
   return {
     state: instance.state,
+    render: instance.render,
     projection: instance.projection,
     input: instance.input,
     query: instance.query,

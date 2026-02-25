@@ -9,7 +9,7 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
 import type { RuntimeOutput } from './RuntimeOutput'
 
-type RoutingInstance = Pick<InternalInstance, 'state' | 'projection'>
+type RoutingInstance = Pick<InternalInstance, 'render' | 'projection'>
 
 type RoutingOptions = {
   instance: RoutingInstance
@@ -44,7 +44,7 @@ export class Routing {
   }
 
   private readActive = (pointerId?: number) => {
-    const session = this.instance.state.read('interactionSession').active
+    const session = this.instance.render.read('interactionSession').active
     if (!session || session.kind !== 'routingDrag') return undefined
     if (pointerId !== undefined && session.pointerId !== pointerId) return undefined
 
@@ -87,8 +87,8 @@ export class Routing {
   }
 
   start = ({ edgeId, index, pointer }: RoutingDragStartOptions) => {
-    const { state, projection } = this.instance
-    if (state.read('interactionSession').active) return false
+    const { projection } = this.instance
+    if (this.instance.render.read('interactionSession').active) return false
 
     const edge = projection.getSnapshot().edges.visible.find((item) => item.id === edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return false

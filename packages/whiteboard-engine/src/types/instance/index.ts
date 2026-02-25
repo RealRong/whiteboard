@@ -11,6 +11,14 @@ export type {
 } from './state'
 
 export type {
+  Render,
+  RenderKey,
+  RenderSnapshot,
+  WritableRenderKey,
+  WritableRenderSnapshot
+} from './render'
+
+export type {
   CanvasNodeRect,
   EdgeConnectAnchorResult,
   EdgeEndpoint,

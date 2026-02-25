@@ -1,7 +1,7 @@
-import { useWhiteboardSelector } from '../../common/hooks'
+import { useWhiteboardRenderSelector } from '../../common/hooks'
 
 export const DragGuidesLayer = () => {
-  const guides = useWhiteboardSelector('dragGuides')
+  const guides = useWhiteboardRenderSelector('dragGuides')
 
   if (!guides.length) return null
 

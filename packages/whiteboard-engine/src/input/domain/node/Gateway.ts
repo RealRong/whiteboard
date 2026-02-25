@@ -17,6 +17,7 @@ import { RuntimeWriter } from './RuntimeWriter'
 type GatewayInstance = Pick<
   InternalInstance,
   | 'state'
+  | 'render'
   | 'projection'
   | 'query'
   | 'config'

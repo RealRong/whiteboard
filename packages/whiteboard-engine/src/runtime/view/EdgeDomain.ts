@@ -22,6 +22,7 @@ type EdgeDerivations = {
 
 export type EdgeStateSyncKey =
   | 'tool'
+  | 'interactionSession'
   | 'edgeConnect'
   | 'routingDrag'
   | 'selection'
@@ -79,6 +80,12 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
   const syncState = (key: EdgeStateSyncKey) => {
     if (key === 'tool') {
       return recomputeEdgePreview()
+    }
+    if (key === 'interactionSession') {
+      let changed = false
+      changed = recomputeEdgePaths() || changed
+      changed = recomputeEdgePreview() || changed
+      return changed
     }
     if (key === 'edgeConnect') {
       let changed = false

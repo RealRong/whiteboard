@@ -3,7 +3,7 @@ import type {
   ProjectionSnapshot
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
-import type { State } from '@engine-types/instance/state'
+import type { Render } from '@engine-types/instance/render'
 import type {
   NodesView
 } from '@engine-types/instance/view'
@@ -15,7 +15,7 @@ import {
 type Options = {
   query: Query
   readProjection: () => ProjectionSnapshot
-  readState: State['read']
+  readRender: Render['read']
 }
 
 export type NodeDomain = {
@@ -27,13 +27,13 @@ export type NodeDomain = {
 export const createNodeDomain = ({
   query,
   readProjection,
-  readState
+  readRender
 }: Options): NodeDomain => {
   const node = createNodeRegistry({
     query,
     readProjection,
     readPreviewUpdates: () =>
-      readState('nodePreview').updates
+      readRender('nodePreview').updates
   })
 
   const readNodeItems = () => node.getNodeItemsMap()

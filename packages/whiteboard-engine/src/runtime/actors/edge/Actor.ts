@@ -19,13 +19,14 @@ import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 import { buildEdgeCreateOperation } from './createOperation'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries'>
+  instance: Pick<InternalInstance, 'state' | 'render' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries'>
 }
 
 export class Actor {
   readonly name = 'Edge'
 
   private readonly state: ActorOptions['instance']['state']
+  private readonly render: ActorOptions['instance']['render']
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
   private readonly submitMutations: SubmitMutations
@@ -33,15 +34,16 @@ export class Actor {
   constructor({ instance }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
+    this.render = instance.render
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
     this.submitMutations = commit.submit
   }
 
   private clearRoutingDrag = () => {
-    this.state.batch(() => {
-      this.state.write('routingDrag', {})
-      this.state.write('interactionSession', (prev) => {
+    this.render.batch(() => {
+      this.render.write('routingDrag', {})
+      this.render.write('interactionSession', (prev) => {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
@@ -82,7 +84,7 @@ export class Actor {
     this.runMutations([{ type: 'edge.update', id, patch }])
 
   delete = (ids: EdgeId[]) => {
-    const activeDrag = this.state.read('routingDrag').payload
+    const activeDrag = this.render.read('routingDrag').payload
     if (activeDrag && ids.includes(activeDrag.edgeId)) {
       this.clearRoutingDrag()
     }
@@ -91,7 +93,7 @@ export class Actor {
 
   select = (id?: EdgeId) => {
     this.instance.state.batch(() => {
-      const activeDrag = this.state.read('routingDrag').payload
+      const activeDrag = this.render.read('routingDrag').payload
       if (activeDrag && activeDrag.edgeId !== id) {
         this.clearRoutingDrag()
       }
@@ -158,7 +160,7 @@ export class Actor {
     const points = edge.routing?.points ?? []
     if (index < 0 || index >= points.length) return
 
-    const activeDrag = this.state.read('routingDrag').payload
+    const activeDrag = this.render.read('routingDrag').payload
     if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
       this.clearRoutingDrag()
     }
@@ -196,7 +198,7 @@ export class Actor {
   }
 
   resetRouting = (edge: Edge) => {
-    const activeDrag = this.state.read('routingDrag').payload
+    const activeDrag = this.render.read('routingDrag').payload
     if (activeDrag?.edgeId === edge.id) {
       this.clearRoutingDrag()
     }

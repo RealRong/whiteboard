@@ -212,7 +212,7 @@ const main = () => {
         client: startClient
       })
     )
-    const activeSession = instance.state.read('interactionSession').active
+    const activeSession = instance.render.read('interactionSession').active
     if (!activeSession || activeSession.kind !== 'nodeDrag' || activeSession.pointerId !== pointerId) {
       throw new Error(`nodeDrag.start failed at run ${run + 1}`)
     }

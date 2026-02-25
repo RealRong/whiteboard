@@ -1,5 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { WritableStateSnapshot } from '@engine-types/instance/state'
+import type { WritableRenderSnapshot } from '@engine-types/instance/render'
 import { DEFAULT_CONFIG } from '../config'
 
 export const createInitialState = (): WritableStateSnapshot => ({
@@ -24,7 +25,6 @@ export const createInitialState = (): WritableStateSnapshot => ({
       edgeId: undefined
     }
   },
-  interactionSession: {},
   tool: DEFAULT_CONFIG.tool,
   selection: {
     selectedNodeIds: new Set<NodeId>(),
@@ -32,6 +32,11 @@ export const createInitialState = (): WritableStateSnapshot => ({
     groupHovered: undefined,
     mode: 'replace'
   },
+  mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout }
+})
+
+export const createInitialRenderState = (): WritableRenderSnapshot => ({
+  interactionSession: {},
   selectionBox: {
     isSelecting: false,
     selectionRect: undefined,
@@ -40,7 +45,6 @@ export const createInitialState = (): WritableStateSnapshot => ({
   edgeConnect: {},
   routingDrag: {},
   viewportGesture: {},
-  mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout },
   mindmapDrag: {},
   nodeDrag: {},
   nodeTransform: {},

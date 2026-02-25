@@ -5,7 +5,7 @@ import type {
 } from './RuntimeOutput'
 
 type WriterOptions = {
-  instance: Pick<InternalInstance, 'state' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'render' | 'mutate'>
 }
 
 const isSameSet = <T,>(left: Set<T>, right: Set<T>) => {
@@ -18,10 +18,12 @@ const isSameSet = <T,>(left: Set<T>, right: Set<T>) => {
 
 export class RuntimeWriter {
   private readonly state: WriterOptions['instance']['state']
+  private readonly render: WriterOptions['instance']['render']
   private readonly mutate: WriterOptions['instance']['mutate']
 
   constructor({ instance }: WriterOptions) {
     this.state = instance.state
+    this.render = instance.render
     this.mutate = instance.mutate
   }
 
@@ -34,7 +36,7 @@ export class RuntimeWriter {
     kind: 'nodeDrag' | 'nodeTransform',
     pointerId: number | null
   ) => {
-    this.state.write('interactionSession', (prev) => {
+    this.render.write('interactionSession', (prev) => {
       if (pointerId === null) {
         if (prev.active?.kind !== kind) return prev
         return {}
@@ -56,8 +58,8 @@ export class RuntimeWriter {
 
   apply = (output: RuntimeOutput) => {
     const runBatch = output.frame
-      ? this.state.batchFrame
-      : this.state.batch
+      ? this.render.batchFrame
+      : this.render.batch
     runBatch(() => {
       const selection = output.selection
       if (selection) {
@@ -104,7 +106,7 @@ export class RuntimeWriter {
         'drag' in output.nodePayload &&
         output.nodePayload.drag !== undefined
       ) {
-        this.state.write(
+        this.render.write(
           'nodeDrag',
           output.nodePayload.drag === null
             ? {}
@@ -117,7 +119,7 @@ export class RuntimeWriter {
         'transform' in output.nodePayload &&
         output.nodePayload.transform !== undefined
       ) {
-        this.state.write(
+        this.render.write(
           'nodeTransform',
           output.nodePayload.transform === null
             ? {}
@@ -126,13 +128,13 @@ export class RuntimeWriter {
       }
 
       if (output.nodePreview !== undefined) {
-        this.state.write('nodePreview', {
+        this.render.write('nodePreview', {
           updates: output.nodePreview
         })
       }
 
       if (output.guides) {
-        this.state.write('dragGuides', output.guides)
+        this.render.write('dragGuides', output.guides)
       }
 
       if (output.mutations?.length) {

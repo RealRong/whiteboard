@@ -286,7 +286,7 @@ export const toPointerInputEvent = ({
     screen,
     modifiers: {
       ...modifiers,
-      space: instance.state.read('spacePressed')
+      space: instance.render.read('spacePressed')
     },
     target,
     timestamp: event.timeStamp,

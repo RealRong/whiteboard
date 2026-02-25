@@ -9,7 +9,7 @@ import { SessionStore } from './SessionStore'
 
 type PlannerInstance = Pick<
   InternalInstance,
-  'state' | 'query' | 'config' | 'viewport' | 'document'
+  'state' | 'render' | 'query' | 'config' | 'viewport' | 'document'
 >
 
 export type NodeTransformStartResizeInput = {
@@ -37,12 +37,14 @@ type PlannerOptions = {
 
 export class Planner {
   private readonly state: PlannerInstance['state']
+  private readonly render: PlannerInstance['render']
   private readonly rules: Rules
   private readonly commitCompiler: CommitCompiler
   private readonly sessions = new SessionStore()
 
   constructor({ instance }: PlannerOptions) {
     this.state = instance.state
+    this.render = instance.render
     this.rules = new Rules({
       config: instance.config,
       query: instance.query,
@@ -57,7 +59,7 @@ export class Planner {
   startResize = (
     options: NodeTransformStartResizeInput
   ): NodeTransformRuntimeOutput | undefined => {
-    if (this.state.read('interactionSession').active) return undefined
+    if (this.render.read('interactionSession').active) return undefined
     const drag = this.rules.createResizeDrag({
       pointer: options.pointer,
       handle: options.handle,
@@ -86,7 +88,7 @@ export class Planner {
   startRotate = (
     options: NodeTransformStartRotateInput
   ): NodeTransformRuntimeOutput | undefined => {
-    if (this.state.read('interactionSession').active) return undefined
+    if (this.render.read('interactionSession').active) return undefined
     const drag = this.rules.createRotateDrag({
       pointer: options.pointer,
       rect: options.rect,
@@ -225,7 +227,7 @@ export class Planner {
   private readActive = (pointerId?: number) => {
     const active = this.sessions.read(pointerId)
     if (!active) return undefined
-    const interaction = this.state.read('interactionSession').active
+    const interaction = this.render.read('interactionSession').active
     if (
       !interaction ||
       interaction.kind !== 'nodeTransform' ||

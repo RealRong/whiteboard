@@ -22,13 +22,14 @@ import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
+  instance: Pick<InternalInstance, 'state' | 'render' | 'projection' | 'query' | 'mutate' | 'document' | 'config' | 'registries'>
 }
 
 export class Actor {
   readonly name = 'Node'
 
   private readonly state: ActorOptions['instance']['state']
+  private readonly render: ActorOptions['instance']['render']
   private readonly readDoc: () => Document
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
@@ -37,6 +38,7 @@ export class Actor {
   constructor({ instance }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
+    this.render = instance.render
     this.readDoc = () => this.instance.document.get()
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
@@ -278,11 +280,11 @@ export class Actor {
   }
 
   setDragGuides = (guides: Guide[]) => {
-    this.state.write('dragGuides', guides)
+    this.render.write('dragGuides', guides)
   }
 
   clearDragGuides = () => {
-    this.state.write('dragGuides', [])
+    this.render.write('dragGuides', [])
   }
 
   resetTransientState = () => {
@@ -294,12 +296,12 @@ export class Actor {
         groupHovered: undefined
       }
     })
-    this.state.write('nodeDrag', {})
-    this.state.write('nodeTransform', {})
-    this.state.write('nodePreview', {
+    this.render.write('nodeDrag', {})
+    this.render.write('nodeTransform', {})
+    this.render.write('nodePreview', {
       updates: []
     })
-    this.state.write('interactionSession', (prev) => {
+    this.render.write('interactionSession', (prev) => {
       if (
         prev.active?.kind !== 'nodeDrag'
         && prev.active?.kind !== 'nodeTransform'

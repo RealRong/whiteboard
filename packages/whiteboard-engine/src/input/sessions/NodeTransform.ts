@@ -7,7 +7,7 @@ export const createNodeTransform = (): PointerSession => ({
   kind: 'nodeTransform',
   priority: 100,
   canStart: (event, context) => {
-    const active = context.state.read('interactionSession').active
+    const active = context.render.read('interactionSession').active
     if (active) {
       return active.kind === 'nodeTransform' && active.pointerId === event.pointerId
     }
@@ -19,7 +19,7 @@ export const createNodeTransform = (): PointerSession => ({
     return Boolean(event.target.nodeId)
   },
   start: (event, context) => {
-    const active = context.state.read('interactionSession').active
+    const active = context.render.read('interactionSession').active
     if (active) {
       if (active.kind !== 'nodeTransform' || active.pointerId !== event.pointerId) return null
     } else {

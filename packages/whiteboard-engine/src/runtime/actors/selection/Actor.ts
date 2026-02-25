@@ -13,7 +13,7 @@ import { DEFAULT_TUNING } from '../../../config'
 import { StateWatchEmitter } from '../shared/StateWatchEmitter'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'commands' | 'state' | 'projection' | 'document' | 'emit'>
+  instance: Pick<InternalInstance, 'commands' | 'state' | 'render' | 'projection' | 'document' | 'emit'>
 }
 
 type EdgeSelectionValue = EdgeId | undefined
@@ -120,14 +120,14 @@ export class Actor {
     this.instance.state.read('selection').selectedEdgeId
 
   select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
-    const { state } = this.instance
+    const { state, render } = this.instance
     state.batch(() => {
-      state.write('routingDrag', {})
-      state.write('interactionSession', (prev) => {
+      render.write('routingDrag', {})
+      render.write('interactionSession', (prev) => {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
-      state.write('selectionBox', EMPTY_SELECTION_BOX)
+      render.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -139,14 +139,14 @@ export class Actor {
   }
 
   toggle = (ids: NodeId[]) => {
-    const { state } = this.instance
+    const { state, render } = this.instance
     state.batch(() => {
-      state.write('routingDrag', {})
-      state.write('interactionSession', (prev) => {
+      render.write('routingDrag', {})
+      render.write('interactionSession', (prev) => {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
-      state.write('selectionBox', EMPTY_SELECTION_BOX)
+      render.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -163,14 +163,14 @@ export class Actor {
   }
 
   clear = () => {
-    const { state } = this.instance
+    const { state, render } = this.instance
     state.batch(() => {
-      state.write('routingDrag', {})
-      state.write('interactionSession', (prev) => {
+      render.write('routingDrag', {})
+      render.write('interactionSession', (prev) => {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
-      state.write('selectionBox', EMPTY_SELECTION_BOX)
+      render.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,

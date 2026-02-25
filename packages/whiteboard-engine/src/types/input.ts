@@ -3,6 +3,7 @@ import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
+import type { Render } from './instance/render'
 import type { State } from './instance/state'
 import type { Shortcuts } from './shortcuts'
 
@@ -131,6 +132,7 @@ export type InputDispatchResult = InputResult
 
 export type InputSessionContext = {
   state: Pick<State, 'read' | 'write' | 'batch' | 'batchFrame'>
+  render: Pick<Render, 'read' | 'write' | 'batch' | 'batchFrame'>
   commands: Commands
   query: Query
   nodeInput: {

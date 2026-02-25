@@ -2,20 +2,22 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeOutput } from './RuntimeOutput'
 
 type WriterOptions = {
-  instance: Pick<InternalInstance, 'state' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'render' | 'mutate'>
 }
 
 export class RuntimeWriter {
   private readonly state: WriterOptions['instance']['state']
+  private readonly render: WriterOptions['instance']['render']
   private readonly mutate: WriterOptions['instance']['mutate']
 
   constructor({ instance }: WriterOptions) {
     this.state = instance.state
+    this.render = instance.render
     this.mutate = instance.mutate
   }
 
   private clearInteractionKinds = (kinds: readonly ('edgeConnect' | 'routingDrag')[]) => {
-    this.state.write('interactionSession', (prev) => {
+    this.render.write('interactionSession', (prev) => {
       if (!prev.active) return prev
       if (!kinds.includes(prev.active.kind as 'edgeConnect' | 'routingDrag')) {
         return prev
@@ -28,7 +30,7 @@ export class RuntimeWriter {
     kind: 'edgeConnect' | 'routingDrag',
     pointerId: number | null
   ) => {
-    this.state.write('interactionSession', (prev) => {
+    this.render.write('interactionSession', (prev) => {
       if (pointerId === null) {
         if (prev.active?.kind !== kind) return prev
         return {}
@@ -50,8 +52,8 @@ export class RuntimeWriter {
 
   apply = (output: RuntimeOutput) => {
     const runBatch = output.frame
-      ? this.state.batchFrame
-      : this.state.batch
+      ? this.render.batchFrame
+      : this.render.batch
     runBatch(() => {
       if (output.clearInteractions?.length) {
         this.clearInteractionKinds(output.clearInteractions)
@@ -63,10 +65,10 @@ export class RuntimeWriter {
         )
       }
       if (output.edgeConnect !== undefined) {
-        this.state.write('edgeConnect', output.edgeConnect as never)
+        this.render.write('edgeConnect', output.edgeConnect as never)
       }
       if (output.routingDrag !== undefined) {
-        this.state.write('routingDrag', output.routingDrag as never)
+        this.render.write('routingDrag', output.routingDrag as never)
       }
       if (output.selection !== undefined) {
         this.state.write('selection', output.selection as never)

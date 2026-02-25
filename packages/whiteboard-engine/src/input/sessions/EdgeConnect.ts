@@ -4,7 +4,7 @@ export const createEdgeConnect = (): PointerSession => ({
   kind: 'edgeConnect',
   priority: 80,
   canStart: (event, context) => {
-    const active = context.state.read('interactionSession').active
+    const active = context.render.read('interactionSession').active
     if (active) {
       return active.kind === 'edgeConnect' && active.pointerId === event.pointerId
     }
@@ -24,7 +24,7 @@ export const createEdgeConnect = (): PointerSession => ({
     return false
   },
   start: (event, context) => {
-    const active = context.state.read('interactionSession').active
+    const active = context.render.read('interactionSession').active
     if (!active) {
       if (event.target.role === 'handle' && event.target.handleType === 'node-connect') {
         if (!event.target.nodeId || !event.target.handleSide) return null
@@ -53,11 +53,11 @@ export const createEdgeConnect = (): PointerSession => ({
       if (active.kind !== 'edgeConnect' || active.pointerId !== event.pointerId) return null
     }
 
-    const session = context.state.read('interactionSession').active
+    const session = context.render.read('interactionSession').active
     if (!session || session.kind !== 'edgeConnect' || session.pointerId !== event.pointerId) {
       return null
     }
-    const current = context.state.read('edgeConnect')
+    const current = context.render.read('edgeConnect')
     if (!current.from) return null
     return {
       pointerId: session.pointerId,

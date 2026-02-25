@@ -10,6 +10,10 @@ import type {
   State,
   StateKey
 } from '@engine-types/instance/state'
+import type {
+  Render,
+  RenderKey
+} from '@engine-types/instance/render'
 import type { View } from '@engine-types/instance/view'
 import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import {
@@ -25,6 +29,7 @@ import { createMindmapDomain } from './MindmapDomain'
 
 type Options = {
   state: State
+  render: Render
   projection: ProjectionStore
   query: Query
   config: InstanceConfig
@@ -36,6 +41,7 @@ export type ViewRuntime = {
 
 export const createViewRegistry = ({
   state,
+  render,
   projection,
   query,
   config
@@ -55,19 +61,21 @@ export const createViewRegistry = ({
   })
   const edgeDerived = createEdgeViewDerivations({
     readState: state.read,
+    readRender: render.read,
     edgeViewQuery
   })
   const mindmapDerived = createMindmapViewDerivations({
     readState: state.read,
+    readRender: render.read,
     readProjection,
     config
   })
 
-  const viewport = createViewportDomain({ state })
+  const viewport = createViewportDomain({ state, render })
   const node = createNodeDomain({
     query,
     readProjection,
-    readState: state.read
+    readRender: render.read
   })
   const edge = createEdgeDomain({
     derive: edgeDerived,
@@ -84,6 +92,7 @@ export const createViewRegistry = ({
     viewport.sync()
     node.syncState('nodePreview')
     edge.syncState('tool')
+    edge.syncState('interactionSession')
     edge.syncState('edgeConnect')
     edge.syncState('routingDrag')
     edge.syncState('selection')
@@ -103,23 +112,14 @@ export const createViewRegistry = ({
       dirtyWithoutListeners = true
       return
     }
+
     let changed = false
     switch (key) {
       case 'viewport':
-      case 'viewportGesture':
         changed = viewport.sync()
         break
       case 'tool':
         changed = edge.syncState('tool')
-        break
-      case 'nodePreview':
-        changed = node.syncState('nodePreview')
-        break
-      case 'edgeConnect':
-        changed = edge.syncState('edgeConnect')
-        break
-      case 'routingDrag':
-        changed = edge.syncState('routingDrag')
         break
       case 'selection':
         changed = edge.syncState('selection')
@@ -127,12 +127,44 @@ export const createViewRegistry = ({
       case 'mindmapLayout':
         changed = mindmap.syncState('mindmapLayout')
         break
+      default:
+        return
+    }
+
+    if (!changed) return
+    notifyListeners(listeners)
+  }
+
+  const handleRenderChange = (key: RenderKey) => {
+    if (!listeners.size) {
+      dirtyWithoutListeners = true
+      return
+    }
+
+    let changed = false
+    switch (key) {
+      case 'viewportGesture':
+        changed = viewport.sync()
+        break
+      case 'nodePreview':
+        changed = node.syncState('nodePreview')
+        break
+      case 'interactionSession':
+        changed = edge.syncState('interactionSession')
+        break
+      case 'edgeConnect':
+        changed = edge.syncState('edgeConnect')
+        break
+      case 'routingDrag':
+        changed = edge.syncState('routingDrag')
+        break
       case 'mindmapDrag':
         changed = mindmap.syncState('mindmapDrag')
         break
       default:
         return
     }
+
     if (!changed) return
     notifyListeners(listeners)
   }
@@ -152,6 +184,7 @@ export const createViewRegistry = ({
   }
 
   state.watchChanges(handleStateChange)
+  render.watchChanges(handleRenderChange)
   projection.subscribe((commit) => {
     snapshot = commit.snapshot
     if (!listeners.size) {

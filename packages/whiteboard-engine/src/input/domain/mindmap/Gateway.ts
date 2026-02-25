@@ -6,7 +6,7 @@ import { Drag } from './Drag'
 import type { RuntimeOutput } from './RuntimeOutput'
 import { RuntimeWriter } from './RuntimeWriter'
 
-type GatewayInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
+type GatewayInstance = Pick<InternalInstance, 'state' | 'render' | 'view' | 'config'>
 
 type GatewayOptions = {
   instance: GatewayInstance

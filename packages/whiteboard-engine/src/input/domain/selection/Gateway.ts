@@ -4,7 +4,7 @@ import { Box } from './Box'
 import type { RuntimeOutput } from './RuntimeOutput'
 import { RuntimeWriter } from './RuntimeWriter'
 
-type GatewayInstance = Pick<InternalInstance, 'state' | 'query' | 'config'>
+type GatewayInstance = Pick<InternalInstance, 'state' | 'render' | 'query' | 'config'>
 
 type GatewayOptions = {
   instance: GatewayInstance
