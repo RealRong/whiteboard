@@ -27,9 +27,9 @@ import {
   toggleCollapse as toggleMindmapCollapse
 } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../../config'
-import { createMutationCommit } from '../shared/MutationCommit'
-import type { RunMutations } from '../shared/MutationCommit'
-import { StateWatchEmitter } from '../shared/StateWatchEmitter'
+import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
+import type { RunMutations } from '../../../runtime/actors/shared/MutationCommit'
+import { StateWatchEmitter } from '../../../runtime/actors/shared/StateWatchEmitter'
 
 type ActorOptions = {
   instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>

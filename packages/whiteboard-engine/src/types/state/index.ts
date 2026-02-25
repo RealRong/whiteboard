@@ -12,8 +12,6 @@ export type {
   NodePreviewUpdate,
   NodeDragPayload,
   NodeDragState,
-  NodeTransformPayload,
-  NodeTransformState,
   GroupHoverState,
   SelectionBoxState,
   SelectionMode,
@@ -21,6 +19,12 @@ export type {
 } from './model'
 
 export type { SnapRuntimeData } from './node'
-export type { ResizeDirection, ResizeDragState, RotateDragState, TransformDragState } from '../node'
+export type {
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState,
+  TransformDragState,
+  NodeTransformDraft
+} from '../node'
 export type { RoutingDragPayload, RoutingDragState } from '../edge/routing'
 export type { EdgeConnectFrom, EdgeConnectState, EdgeConnectTo, EdgeReconnectInfo } from '../edge/state'

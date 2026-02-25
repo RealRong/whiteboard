@@ -9,7 +9,7 @@ import {
   resizeHandleMap as resizeHandleMapCore,
   rotateVector as rotateVectorCore
 } from '@whiteboard/core/node'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
+import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1

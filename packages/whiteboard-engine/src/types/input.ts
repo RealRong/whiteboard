@@ -4,6 +4,7 @@ import type { Commands } from './commands'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
+import type { NodeTransformDraft, NodeTransformUpdateConstraints } from './node'
 import type { State } from './instance/state'
 import type { Shortcuts } from './shortcuts'
 
@@ -12,7 +13,6 @@ export type PointerStage = 'capture' | 'bubble'
 export type PointerTargetRole = 'node' | 'edge' | 'handle' | 'background'
 export type PointerHandleType =
   | 'node-connect'
-  | 'node-transform'
   | 'edge-routing'
   | 'edge-endpoint'
   | 'mindmap-node'
@@ -26,8 +26,6 @@ export type InputTarget = {
   edgeId?: EdgeId
   handleType?: PointerHandleType
   handleSide?: 'top' | 'right' | 'bottom' | 'left'
-  transformKind?: 'resize' | 'rotate'
-  resizeDirection?: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
   routingIndex?: number
   edgeEnd?: 'source' | 'target'
   treeId?: NodeId
@@ -150,22 +148,27 @@ export type InputSessionContext = {
       cancel: (options?: { pointer?: PointerInput }) => boolean
     }
     transform: {
-      startResize: (options: {
+      beginResize: (options: {
         nodeId: NodeId
         pointer: PointerInput
         handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
         rect: Rect
         rotation: number
-      }) => boolean
-      startRotate: (options: {
+      }) => NodeTransformDraft | undefined
+      beginRotate: (options: {
         nodeId: NodeId
         pointer: PointerInput
         rect: Rect
         rotation: number
+      }) => NodeTransformDraft | undefined
+      updateDraft: (options: {
+        draft: NodeTransformDraft
+        pointer: PointerInput
+        constraints: NodeTransformUpdateConstraints
+        minSize?: Size
       }) => boolean
-      update: (pointer: PointerInput, minSize?: Size) => boolean
-      end: (pointer: PointerInput) => boolean
-      cancel: (options?: { pointer?: PointerInput }) => boolean
+      commitDraft: (draft: NodeTransformDraft) => boolean
+      cancelDraft: (options?: { draft?: NodeTransformDraft }) => boolean
     }
   }
   edgeInput: {
@@ -231,6 +234,10 @@ export type InputSessionContext = {
       cancel: (pointerId?: number) => boolean
     }
   }
+  inputLifecycle: {
+    cancelAll: () => void
+    resetTransientState: () => void
+  }
   viewport: {
     getZoom: () => number
     clientToWorld: (clientX: number, clientY: number) => Point
@@ -242,6 +249,7 @@ export type InputSessionContext = {
 export type InputController = {
   handle: (event: InputEvent) => InputResult
   reset: (reason?: CancelReason) => InputResult
+  resetAll: (reason?: CancelReason) => InputResult
 }
 
 export type InputPort = InputController
@@ -254,7 +262,6 @@ export type CancelReason =
 
 export type PointerSessionKind =
   | 'nodeDrag'
-  | 'nodeTransform'
   | 'selectionBox'
   | 'edgeConnect'
   | 'edgePath'

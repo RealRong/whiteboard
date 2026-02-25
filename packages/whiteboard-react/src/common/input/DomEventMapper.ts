@@ -117,28 +117,9 @@ const resolveTargetByEventTarget = (
     }
 
     if (inputRole === 'node-transform-handle') {
-      const transformKind = inputRoleElement.dataset.transformKind
-      const resizeDirection = inputRoleElement.dataset.resizeDirection
       return {
         surface: baseSurface,
-        role: 'handle',
-        handleType: 'node-transform',
-        nodeId: toOptionalNodeId(inputRoleElement.dataset.nodeId),
-        transformKind:
-          transformKind === 'resize' || transformKind === 'rotate'
-            ? transformKind
-            : undefined,
-        resizeDirection:
-          resizeDirection === 'nw'
-          || resizeDirection === 'n'
-          || resizeDirection === 'ne'
-          || resizeDirection === 'e'
-          || resizeDirection === 'se'
-          || resizeDirection === 's'
-          || resizeDirection === 'sw'
-          || resizeDirection === 'w'
-            ? resizeDirection
-            : undefined
+        ignoreInput: true
       }
     }
 

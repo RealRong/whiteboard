@@ -11,6 +11,7 @@ import type { View } from './view'
 import type { ProjectionStore } from '../projection'
 import type { InputPort } from '../input'
 import type { ViewportApi } from '../viewport'
+import type { DomainApis, DomainEntityApis } from '../domains'
 
 export type Instance = {
   state: State
@@ -19,6 +20,10 @@ export type Instance = {
   input: InputPort
   query: Query
   view: View
+  domains: DomainApis
+  node: DomainEntityApis['node']
+  edge: DomainEntityApis['edge']
+  mindmap: DomainEntityApis['mindmap']
   events: InstanceEvents
   lifecycle: Lifecycle
   commands: Commands

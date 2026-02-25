@@ -5,7 +5,7 @@ import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/project
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
 import type { EdgeConnectState, RoutingDragState } from '@engine-types/state'
 import { createEdgeEndpointsResolver } from './endpoints'
-import { createEdgePathStore } from '../../../../query/EdgePath'
+import { createEdgePathStore } from '../../../../runtime/query/EdgePath'
 import { createEdgePreviewResolver } from './preview'
 
 type Options = {

@@ -1,7 +1,7 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { RuntimeOutput } from './RuntimeOutput'
-import { clearInteractionKinds } from '../shared/interactionSession'
-import { InteractionWriter } from '../writer/InteractionWriter'
+import { clearInteractionKinds } from '../../shared/interaction/interactionSession'
+import { InteractionWriter } from '../../shared/interaction/InteractionWriter'
 
 type WriterOptions = {
   instance: Pick<InternalInstance, 'state' | 'render'>

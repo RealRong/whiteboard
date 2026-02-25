@@ -2,7 +2,6 @@ import type { Guide } from '@engine-types/node/snap'
 import type {
   NodePreviewUpdate,
   NodeDragPayload,
-  NodeTransformPayload,
   SelectionMode
 } from '@engine-types/state'
 import type {
@@ -24,11 +23,11 @@ export type InteractionPatch = {
 
 export type NodePayloadPatch = {
   drag?: NodeDragPayload | null
-  transform?: NodeTransformPayload | null
 }
 
 export type RuntimeOutput = {
   frame?: boolean
+  clearInteractions?: readonly InteractionPatch['kind'][]
   selection?: SelectionPatch
   groupHover?: NodeId | undefined
   interaction?: InteractionPatch

@@ -3,12 +3,10 @@ import { createEdgeConnect } from './EdgeConnect'
 import { createEdgePath } from './EdgePath'
 import { createMindmapDrag } from './MindmapDrag'
 import { createNodeDrag } from './NodeDrag'
-import { createNodeTransform } from './NodeTransform'
 import { createRoutingDrag } from './RoutingDrag'
 import { createSelectionBox } from './SelectionBox'
 
 export const createDefaultPointerSessions = (): PointerSession[] => [
-  createNodeTransform(),
   createNodeDrag(),
   createEdgeConnect(),
   createEdgePath(),

@@ -70,6 +70,14 @@ export class InputControllerImpl implements InputControllerType {
     return this.pointerEngine.cancelActive(reason)
   }
 
+  resetAll: InputControllerType['resetAll'] = (reason = 'forced') => {
+    const result = this.reset(reason)
+    const context = this.getSessionContext()
+    context.inputLifecycle.cancelAll()
+    context.inputLifecycle.resetTransientState()
+    return result
+  }
+
   private readonly getSessionContext = (): InputSessionContext => this.getContextBase()
 
   private handlePointerHover = (

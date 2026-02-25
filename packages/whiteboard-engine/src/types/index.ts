@@ -1,5 +1,17 @@
 export type { Commands } from './commands'
 export type {
+  DomainApis,
+  DomainEntityApis,
+  NodeDomainApi,
+  NodeEntityApi,
+  EdgeDomainApi,
+  EdgeEntityApi,
+  MindmapDomainApi,
+  MindmapEntityApi,
+  SelectionDomainApi,
+  ViewportDomainApi
+} from './domains'
+export type {
   CommandSource,
   Mutation,
   ApplyMutationsApi,
@@ -107,12 +119,11 @@ export type {
   NodePreviewUpdate,
   NodeDragPayload,
   NodeDragState,
-  NodeTransformPayload,
+  NodeTransformDraft,
   TransformDragState,
   ResizeDirection,
   ResizeDragState,
   RotateDragState,
-  NodeTransformState,
   SelectionBoxState,
   SelectionMode,
   SelectionState,

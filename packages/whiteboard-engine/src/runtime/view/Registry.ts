@@ -19,11 +19,11 @@ import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import {
   createEdgeViewDerivations,
   createEdgeViewQuery
-} from '../actors/edge/view'
-import { createMindmapViewDerivations } from '../actors/mindmap/view'
+} from '../../domains/edge/view'
+import { createMindmapViewDerivations } from '../../domains/mindmap/view'
 import { notifyListeners, watchSet } from './shared'
 import { createViewportDomain } from './ViewportDomain'
-import { createNodeDomain } from './NodeDomain'
+import { createNodeDomain } from '../../domains/node/view/NodeDomain'
 import { createEdgeDomain } from './EdgeDomain'
 import { createMindmapDomain } from './MindmapDomain'
 

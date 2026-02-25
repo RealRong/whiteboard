@@ -9,7 +9,6 @@ import type {
   Viewport
 } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
-import type { TransformDragState } from '../node'
 
 export type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 
@@ -127,13 +126,4 @@ export type NodeDragPayload = {
 
 export type NodeDragState = {
   payload?: NodeDragPayload
-}
-
-export type NodeTransformPayload = {
-  nodeId: NodeId
-  drag: TransformDragState
-}
-
-export type NodeTransformState = {
-  payload?: NodeTransformPayload
 }

@@ -2,7 +2,12 @@ import type { PointerInput, Size } from '@engine-types/common'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { Guide } from '@engine-types/node/snap'
-import type { ResizeDirection, ResizeDragState, RotateDragState } from '@engine-types/node'
+import type {
+  NodeTransformResizeConstraints,
+  ResizeDirection,
+  ResizeDragState,
+  RotateDragState
+} from '@engine-types/node'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
   computeNextRotation,
@@ -16,7 +21,6 @@ import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
 type RulesOptions = {
   config: InstanceConfig
   query: Pick<Query, 'snap'>
-  readTool: () => 'select' | 'edge'
   readZoom: () => number
 }
 
@@ -45,13 +49,11 @@ const expandRectByThreshold = (
 export class Rules {
   private readonly config: RulesOptions['config']
   private readonly query: RulesOptions['query']
-  private readonly readTool: RulesOptions['readTool']
   private readonly readZoom: RulesOptions['readZoom']
 
   constructor(options: RulesOptions) {
     this.config = options.config
     this.query = options.query
-    this.readTool = options.readTool
     this.readZoom = options.readZoom
   }
 
@@ -104,7 +106,8 @@ export class Rules {
   resolveResizeMove = (options: {
     nodeId: NodeId
     drag: ResizeDragState
-    pointer: PointerInput
+    cursorScreen: Point
+    constraints: NodeTransformResizeConstraints
     minSize: Size
   }): {
     update: {
@@ -113,23 +116,20 @@ export class Rules {
     }
     guides: Guide[]
   } => {
-    const { nodeId, drag, pointer, minSize } = options
+    const { nodeId, drag, cursorScreen, constraints, minSize } = options
     const zoom = resolveInteractionZoom(this.readZoom())
     const resized = computeResizeRect({
       handle: drag.handle,
       startScreen: drag.startScreen,
-      currentScreen: {
-        x: pointer.client.x,
-        y: pointer.client.y
-      },
+      currentScreen: cursorScreen,
       startCenter: drag.startCenter,
       startRotation: drag.startRotation,
       startSize: drag.startSize,
       startAspect: drag.startAspect,
       minSize,
       zoom,
-      altKey: pointer.modifiers.alt,
-      shiftKey: pointer.modifiers.shift
+      altKey: constraints.fromCenter,
+      shiftKey: constraints.keepAspect
     })
 
     let nextRect = resized.rect
@@ -139,11 +139,7 @@ export class Rules {
     }
     let guides: Guide[] = []
 
-    if (
-      this.readTool() === 'select' &&
-      drag.startRotation === 0 &&
-      !pointer.modifiers.alt
-    ) {
+    if (constraints.snapEnabled && drag.startRotation === 0) {
       const thresholdWorld = resolveSnapThresholdWorld(
         this.config.node,
         zoom
@@ -191,14 +187,15 @@ export class Rules {
 
   resolveRotate = (options: {
     drag: RotateDragState
-    pointer: PointerInput
+    currentPoint: Point
+    snapToStep: boolean
   }) =>
     computeNextRotation({
       center: options.drag.center,
-      currentPoint: options.pointer.world,
+      currentPoint: options.currentPoint,
       startAngle: options.drag.startAngle,
       startRotation: options.drag.startRotation,
-      shiftKey: options.pointer.modifiers.shift
+      shiftKey: options.snapToStep
     })
 
   resolveMinSize = (minSize?: Size): Size =>

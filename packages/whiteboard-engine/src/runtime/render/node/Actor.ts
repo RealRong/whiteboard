@@ -3,8 +3,7 @@ import type { Guide } from '@engine-types/node/snap'
 import type {
   GroupHoverState,
   NodeDragPayload,
-  NodePreviewUpdate,
-  NodeTransformPayload
+  NodePreviewUpdate
 } from '@engine-types/state'
 
 type NodeRender = Pick<Render, 'read' | 'write' | 'batch'>
@@ -20,10 +19,6 @@ export class Actor {
 
   setDrag = (payload: NodeDragPayload | null) => {
     this.render.write('nodeDrag', payload === null ? {} : { payload })
-  }
-
-  setTransform = (payload: NodeTransformPayload | null) => {
-    this.render.write('nodeTransform', payload === null ? {} : { payload })
   }
 
   setPreview = (updates: NodePreviewUpdate[]) => {
@@ -43,7 +38,6 @@ export class Actor {
   clearTransient = () => {
     this.render.batch(() => {
       this.render.write('nodeDrag', {})
-      this.render.write('nodeTransform', {})
       this.render.write('nodePreview', { updates: [] })
       this.render.write('dragGuides', [])
       this.render.write('groupHover', {})

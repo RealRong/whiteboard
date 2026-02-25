@@ -46,7 +46,6 @@ export const createInitialRenderState = (): WritableRenderSnapshot => ({
   viewportGesture: {},
   mindmapDrag: {},
   nodeDrag: {},
-  nodeTransform: {},
   nodePreview: {
     updates: []
   },

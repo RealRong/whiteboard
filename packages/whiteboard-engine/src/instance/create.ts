@@ -18,24 +18,35 @@ import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory'
 import { createDefaultPointerSessions } from '../input/sessions/defaults'
 import { Scheduler } from '../runtime/Scheduler'
-import { Actor as EdgeActor } from '../runtime/actors/edge/Actor'
+import { createEdgeCommands } from '../domains/edge/commands/edgeCommands'
 import { Actor as GroupAutoFitActor } from '../runtime/actors/groupAutoFit/Actor'
 import { Actor as InteractionActor } from '../runtime/actors/interaction/Actor'
-import { Actor as MindmapActor } from '../runtime/actors/mindmap/Actor'
-import { Actor as NodeActor } from '../runtime/actors/node/Actor'
-import { Actor as SelectionActor } from '../runtime/actors/selection/Actor'
+import { Actor as MindmapActor } from '../domains/mindmap/commands/Actor'
+import { createNodeCommands } from '../domains/node/commands/nodeCommands'
+import { Actor as SelectionActor } from '../domains/selection/commands/Actor'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
-import { NodeInputGateway } from '../input/domain/node/Gateway'
-import { EdgeInputGateway } from '../input/domain/edge/Gateway'
-import { MindmapInputGateway } from '../input/domain/mindmap/Gateway'
-import { SelectionInputGateway } from '../input/domain/selection/Gateway'
+import { NodeInputGateway } from '../domains/node/interaction/Gateway'
+import { EdgeInputGateway } from '../domains/edge/interaction/Gateway'
+import { MindmapInputGateway } from '../domains/mindmap/interaction/Gateway'
+import { SelectionInputGateway } from '../domains/selection/interaction/Gateway'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
 import { RenderCoordinator } from '../runtime/render/RenderCoordinator'
+import { clearInteractionKinds } from '../shared/interactionSession'
+import {
+  bindEdgeDomainApiById,
+  bindMindmapDomainApiById,
+  bindNodeDomainApiById,
+  createEdgeDomainApi,
+  createMindmapDomainApi,
+  createNodeDomainApi,
+  createSelectionDomainApi,
+  createViewportDomainApi
+} from '../domains'
 
 export const createEngine = ({
   registries,
@@ -85,6 +96,10 @@ export const createEngine = ({
     registries: runtimeRegistries,
     query: queryRuntime.query,
     view: viewRuntime.view,
+    domains: null as unknown as InternalInstance['domains'],
+    node: null as unknown as InternalInstance['node'],
+    edge: null as unknown as InternalInstance['edge'],
+    mindmap: null as unknown as InternalInstance['mindmap'],
     events: {
       on: events.on,
       off: events.off
@@ -128,20 +143,16 @@ export const createEngine = ({
     }
   })
 
-  const edgeActor = new EdgeActor({
-    instance
-  })
+  const edgeCommands = createEdgeCommands({ instance })
   const edgeInputGateway = new EdgeInputGateway({
     instance,
     scheduler,
     edgeCommands: {
-      insertRoutingPointAt: edgeActor.insertRoutingPointAt,
-      removeRoutingPointAt: edgeActor.removeRoutingPointAt
+      insertRoutingPointAt: edgeCommands.insertRoutingPointAt,
+      removeRoutingPointAt: edgeCommands.removeRoutingPointAt
     }
   })
-  const nodeActor = new NodeActor({
-    instance
-  })
+  const nodeCommands = createNodeCommands({ instance })
   const nodeInputGateway = new NodeInputGateway({
     instance
   })
@@ -158,11 +169,38 @@ export const createEngine = ({
   const interactionActor = new InteractionActor({
     state
   })
-  const selectionActor = new SelectionActor({
-    instance
-  })
   const selectionInputGateway = new SelectionInputGateway({
     instance
+  })
+  const clearRoutingTransient = () => {
+    const cancelled = edgeInputGateway.routingInput.cancelRouting()
+    if (cancelled) return
+    render.batch(() => {
+      render.write('routingDrag', {})
+      clearInteractionKinds(render, ['routingDrag'])
+    })
+  }
+  const resetSelectionTransient = () => {
+    clearRoutingTransient()
+    render.write('groupHover', {})
+    selectionInputGateway.resetTransientState()
+  }
+  const cancelAllInputInteractions = () => {
+    nodeInputGateway.cancelInteractions()
+    edgeInputGateway.cancelInteractions()
+    mindmapInputGateway.cancelDrag()
+    selectionInputGateway.cancelBox()
+  }
+  const resetAllInputTransientState = () => {
+    nodeInputGateway.resetTransientState()
+    edgeInputGateway.resetTransientState()
+    mindmapInputGateway.resetTransientState()
+    selectionInputGateway.resetTransientState()
+  }
+  const getActiveRoutingDrag = () => render.read('routingDrag').payload
+  const selectionActor = new SelectionActor({
+    instance,
+    resetTransient: resetSelectionTransient
   })
   const viewportActor = new ViewportDomainActor({
     instance
@@ -209,29 +247,54 @@ export const createEngine = ({
       getSelectedNodeIds: selectionActor.getSelectedNodeIds
     },
     edge: {
-      create: edgeActor.create,
-      update: edgeActor.update,
-      delete: edgeActor.delete,
-      insertRoutingPoint: edgeActor.insertRoutingPoint,
-      moveRoutingPoint: edgeActor.moveRoutingPoint,
-      removeRoutingPoint: edgeActor.removeRoutingPoint,
-      resetRouting: edgeActor.resetRouting,
-      select: edgeActor.select
+      create: edgeCommands.create,
+      update: edgeCommands.update,
+      delete: (ids) => {
+        const activeDrag = getActiveRoutingDrag()
+        if (activeDrag && ids.includes(activeDrag.edgeId)) {
+          clearRoutingTransient()
+        }
+        return edgeCommands.delete(ids)
+      },
+      insertRoutingPoint: edgeCommands.insertRoutingPoint,
+      moveRoutingPoint: edgeCommands.moveRoutingPoint,
+      removeRoutingPoint: (edge, index) => {
+        const activeDrag = getActiveRoutingDrag()
+        if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
+          clearRoutingTransient()
+        }
+        edgeCommands.removeRoutingPoint(edge, index)
+      },
+      resetRouting: (edge) => {
+        const activeDrag = getActiveRoutingDrag()
+        if (activeDrag?.edgeId === edge.id) {
+          clearRoutingTransient()
+        }
+        edgeCommands.resetRouting(edge)
+      },
+      select: (id) => {
+        const activeDrag = getActiveRoutingDrag()
+        if (activeDrag && activeDrag.edgeId !== id) {
+          clearRoutingTransient()
+        }
+        render.write('groupHover', {})
+        edgeCommands.select(id)
+      }
     },
     order: {
       node: {
-        set: nodeActor.setOrder,
-        bringToFront: nodeActor.bringToFront,
-        sendToBack: nodeActor.sendToBack,
-        bringForward: nodeActor.bringForward,
-        sendBackward: nodeActor.sendBackward
+        set: nodeCommands.setOrder,
+        bringToFront: nodeCommands.bringToFront,
+        sendToBack: nodeCommands.sendToBack,
+        bringForward: nodeCommands.bringForward,
+        sendBackward: nodeCommands.sendBackward
       },
       edge: {
-        set: edgeActor.setOrder,
-        bringToFront: edgeActor.bringToFront,
-        sendToBack: edgeActor.sendToBack,
-        bringForward: edgeActor.bringForward,
-        sendBackward: edgeActor.sendBackward
+        set: edgeCommands.setOrder,
+        bringToFront: edgeCommands.bringToFront,
+        sendToBack: edgeCommands.sendToBack,
+        bringForward: edgeCommands.bringForward,
+        sendBackward: edgeCommands.sendBackward
       }
     },
     viewport: {
@@ -242,15 +305,15 @@ export const createEngine = ({
       reset: viewportActor.reset
     },
     node: {
-      create: nodeActor.create,
-      update: nodeActor.update,
-      updateData: nodeActor.updateData,
-      updateManyPosition: nodeActor.updateManyPosition,
-      delete: nodeActor.delete
+      create: nodeCommands.create,
+      update: nodeCommands.update,
+      updateData: nodeCommands.updateData,
+      updateManyPosition: nodeCommands.updateManyPosition,
+      delete: nodeCommands.delete
     },
     group: {
-      create: nodeActor.createGroup,
-      ungroup: nodeActor.ungroup
+      create: nodeCommands.createGroup,
+      ungroup: nodeCommands.ungroup
     },
     mindmap: {
       create: mindmapActor.create,
@@ -273,6 +336,52 @@ export const createEngine = ({
     }
   }
   instance.commands = commands
+  instance.domains = {
+    node: createNodeDomainApi({
+      commands,
+      nodeInput: {
+        drag: nodeInputGateway.node,
+        transform: nodeInputGateway.nodeTransform
+      },
+      query: queryRuntime.query,
+      view: viewRuntime.view
+    }),
+    edge: createEdgeDomainApi({
+      commands,
+      edgeInput: {
+        connect: edgeInputGateway.connectInput,
+        routing: edgeInputGateway.routingInput
+      },
+      query: queryRuntime.query,
+      view: viewRuntime.view
+    }),
+    mindmap: createMindmapDomainApi({
+      commands,
+      mindmapInput: {
+        drag: mindmapInputGateway.dragInput
+      },
+      view: viewRuntime.view
+    }),
+    selection: createSelectionDomainApi({
+      commands,
+      selectionInput: {
+        box: selectionInputGateway.boxInput
+      },
+      state,
+      view: viewRuntime.view
+    }),
+    viewport: createViewportDomainApi({
+      commands,
+      query: queryRuntime.query,
+      view: viewRuntime.view
+    })
+  }
+  instance.node = (id) =>
+    bindNodeDomainApiById(instance.domains.node, id)
+  instance.edge = (id) =>
+    bindEdgeDomainApiById(instance.domains.edge, id)
+  instance.mindmap = (id) =>
+    bindMindmapDomainApiById(instance.domains.mindmap, id)
 
   const groupAutoFitActor = new GroupAutoFitActor({
     instance,
@@ -308,6 +417,10 @@ export const createEngine = ({
       selectionInput: {
         box: selectionInputGateway.boxInput
       },
+      inputLifecycle: {
+        cancelAll: cancelAllInputInteractions,
+        resetTransientState: resetAllInputTransientState
+      },
       viewport: {
         getZoom: queryRuntime.query.viewport.getZoom,
         clientToWorld: queryRuntime.query.viewport.clientToWorld
@@ -328,10 +441,7 @@ export const createEngine = ({
     },
     {
       edgeInput: edgeInputGateway,
-      mindmapInput: mindmapInputGateway,
-      selectionInput: selectionInputGateway,
       groupAutoFit: groupAutoFitActor,
-      node: nodeActor,
       mindmap: mindmapActor,
       selection: selectionActor
     }
@@ -356,8 +466,7 @@ export const createEngine = ({
       lifecycleRuntime.update(nextConfig)
     },
     stop: () => {
-      nodeInputGateway.node.cancel()
-      nodeInputGateway.nodeTransform.cancel()
+      inputPort.resetAll('forced')
       lifecycleRuntime.stop()
       prevHistoryDocId = undefined
       nodeMeasureQueue.clear()
@@ -374,6 +483,10 @@ export const createEngine = ({
     input: instance.input,
     query: instance.query,
     view: instance.view,
+    domains: instance.domains,
+    node: instance.node,
+    edge: instance.edge,
+    mindmap: instance.mindmap,
     events: instance.events,
     lifecycle: instance.lifecycle,
     commands: instance.commands

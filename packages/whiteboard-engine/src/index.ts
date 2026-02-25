@@ -12,6 +12,18 @@ export {
 
 export type { Commands } from './types/commands'
 export type {
+  DomainApis,
+  DomainEntityApis,
+  NodeDomainApi,
+  NodeEntityApi,
+  EdgeDomainApi,
+  EdgeEntityApi,
+  MindmapDomainApi,
+  MindmapEntityApi,
+  SelectionDomainApi,
+  ViewportDomainApi
+} from './types/domains'
+export type {
   CommandSource,
   Mutation,
   ApplyMutationsApi

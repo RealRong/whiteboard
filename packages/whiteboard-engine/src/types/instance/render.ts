@@ -6,7 +6,6 @@ import type {
   MindmapDragState,
   NodeDragState,
   NodePreviewState,
-  NodeTransformState,
   RoutingDragState,
   SelectionBoxState,
   ViewportGestureState
@@ -20,7 +19,6 @@ export type RenderSnapshot = {
   viewportGesture: ViewportGestureState
   mindmapDrag: MindmapDragState
   nodeDrag: NodeDragState
-  nodeTransform: NodeTransformState
   nodePreview: NodePreviewState
   spacePressed: boolean
   dragGuides: Guide[]

@@ -4,8 +4,9 @@ import {
   type Node,
   type Point
 } from '@whiteboard/core/types'
-import type { PointerInputEvent } from '@engine-types/input'
 import { createEngine } from '../instance/create'
+import type { PointerInput } from '../types/common'
+import type { NodeTransformUpdateConstraints } from '../types/node'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -133,55 +134,39 @@ const average = (values: number[]) =>
 
 const format = (value: number) => `${value.toFixed(4)}ms`
 
-const createPointerEvent = (options: {
-  phase: 'down' | 'move' | 'up'
+const createPointerInput = (options: {
+  instance: ReturnType<typeof createEngine>
   pointerId: number
-  nodeId: string
   client: Point
-  clickCount?: number
-}): PointerInputEvent => {
-  const { phase, pointerId, nodeId, client, clickCount = 1 } = options
+}): PointerInput => {
+  const { instance, pointerId, client } = options
+  const screen = instance.query.viewport.clientToScreen(
+    client.x,
+    client.y
+  )
   return {
-    kind: 'pointer',
-    stage: 'bubble',
-    phase,
-    clickCount,
-    pointer: {
-      pointerId,
-      button: 0,
-      client,
-      screen: client,
-      world: client,
-      modifiers: {
-        alt: false,
-        shift: false,
-        ctrl: false,
-        meta: false
-      }
-    },
     pointerId,
-    pointerType: 'mouse',
     button: 0,
-    buttons: phase === 'up' ? 0 : 1,
     client,
-    screen: client,
+    screen,
+    world: instance.query.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,
       ctrl: false,
-      meta: false,
-      space: false
-    },
-    target: {
-      surface: 'overlay',
-      role: 'handle',
-      handleType: 'node-transform',
-      nodeId,
-      transformKind: 'resize',
-      resizeDirection: 'se'
-    },
-    timestamp: now(),
-    source: 'container'
+      meta: false
+    }
+  }
+}
+
+const TRANSFORM_CONSTRAINTS: NodeTransformUpdateConstraints = {
+  resize: {
+    keepAspect: false,
+    fromCenter: false,
+    snapEnabled: true
+  },
+  rotate: {
+    snapToStep: false
   }
 }
 
@@ -216,18 +201,28 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
+    const nodeRect = instance.query.canvas.nodeRect(nodeId)
+    if (!nodeRect) {
+      throw new Error(`Missing nodeRect for node ${nodeId} at run ${run + 1}`)
+    }
     const startClient = {
       x: basePosition.x + baseSize.width,
       y: basePosition.y + baseSize.height
     }
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'down',
+    const draft = instance.domains.node.interaction.transform.beginResize({
+      nodeId,
+      pointer: createPointerInput({
+        instance,
         pointerId,
-        nodeId,
         client: startClient
-      })
-    )
+      }),
+      handle: 'se',
+      rect: nodeRect.rect,
+      rotation: nodeRect.rotation
+    })
+    if (!draft) {
+      throw new Error(`nodeTransform.beginResize failed at run ${run + 1}`)
+    }
     const activeSession = instance.render.read('interactionSession').active
     if (
       !activeSession
@@ -242,14 +237,15 @@ const main = () => {
         x: startClient.x + frame * 0.8,
         y: startClient.y + frame * 0.5 + Math.sin(frame / 10) * 2
       }
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.node.interaction.transform.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          nodeId,
           client
-        })
-      )
+        }),
+        constraints: TRANSFORM_CONSTRAINTS
+      })
     }
 
     const samples: number[] = []
@@ -259,24 +255,20 @@ const main = () => {
         y: startClient.y + (WARMUP_FRAMES + frame) * 0.5 + Math.sin(frame / 12) * 2
       }
       const startedAt = now()
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.node.interaction.transform.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          nodeId,
           client
-        })
-      )
+        }),
+        constraints: TRANSFORM_CONSTRAINTS
+      })
       samples.push(now() - startedAt)
     }
 
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'up',
-        pointerId,
-        nodeId,
-        client: startClient
-      })
+    instance.domains.node.interaction.transform.commitDraft(
+      draft
     )
 
     const resetDoc = cloneDoc(doc)

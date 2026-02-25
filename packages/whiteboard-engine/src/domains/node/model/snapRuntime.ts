@@ -1,6 +1,6 @@
 import type { ResolvedNodeConfig } from '@engine-types/common'
 import type { Rect } from '@whiteboard/core/types'
-import { DEFAULT_INTERNALS } from '../../../../config'
+import { DEFAULT_INTERNALS } from '../../../config'
 
 type SnapNodeConfig = Pick<
   ResolvedNodeConfig,

@@ -1,4 +1,4 @@
-import type { SelectionBoxState, SelectionMode } from '@engine-types/state'
+import type { SelectionMode } from '@engine-types/state'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   DispatchResult,
@@ -10,12 +10,12 @@ import type {
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
 import { DEFAULT_TUNING } from '../../../config'
-import { clearInteractionKinds } from '../../../shared/interactionSession'
 import { applySelection } from '../../../shared/selection'
-import { StateWatchEmitter } from '../shared/StateWatchEmitter'
+import { StateWatchEmitter } from '../../../runtime/actors/shared/StateWatchEmitter'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'commands' | 'state' | 'render' | 'projection' | 'document' | 'emit'>
+  instance: Pick<InternalInstance, 'commands' | 'state' | 'projection' | 'document' | 'emit'>
+  resetTransient?: () => void
 }
 
 type EdgeSelectionValue = EdgeId | undefined
@@ -37,21 +37,17 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
   return true
 }
 
-const EMPTY_SELECTION_BOX: SelectionBoxState = {
-  isSelecting: false,
-  selectionRect: undefined,
-  selectionRectWorld: undefined
-}
-
 export class Actor {
   readonly name = 'Selection'
   private readonly instance: ActorOptions['instance']
+  private readonly resetTransient?: ActorOptions['resetTransient']
 
   private readonly selectionEmitter: StateWatchEmitter<NodeId[]>
   private readonly edgeSelectionEmitter: StateWatchEmitter<EdgeSelectionValue>
 
-  constructor({ instance }: ActorOptions) {
+  constructor({ instance, resetTransient }: ActorOptions) {
     this.instance = instance
+    this.resetTransient = resetTransient
     const state = instance.state
     this.selectionEmitter = new StateWatchEmitter({
       state,
@@ -91,18 +87,10 @@ export class Actor {
   private getSelectedEdgeId = (): EdgeId | undefined =>
     this.instance.state.read('selection').selectedEdgeId
 
-  private resetSelectionTransientRender = () => {
-    const { render } = this.instance
-    render.write('routingDrag', {})
-    clearInteractionKinds(render, ['routingDrag'])
-    render.write('groupHover', {})
-    render.write('selectionBox', EMPTY_SELECTION_BOX)
-  }
-
   select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
     const { state } = this.instance
     state.batch(() => {
-      this.resetSelectionTransientRender()
+      this.resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -115,7 +103,7 @@ export class Actor {
   toggle = (ids: NodeId[]) => {
     const { state } = this.instance
     state.batch(() => {
-      this.resetSelectionTransientRender()
+      this.resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -133,7 +121,7 @@ export class Actor {
   clear = () => {
     const { state } = this.instance
     state.batch(() => {
-      this.resetSelectionTransientRender()
+      this.resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,

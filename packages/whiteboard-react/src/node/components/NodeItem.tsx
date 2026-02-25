@@ -4,17 +4,23 @@ import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/no
 import type { NodeContainerProps, NodeItemProps, NodeRenderProps } from 'types/node'
 import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaultNodes'
 import { useNodeRegistry } from '../registry'
+import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteraction'
 import {
   useInstance,
   useWhiteboardRenderSelector,
   useWhiteboardSelector
 } from '../../common/hooks'
 import { NodeBlock } from './NodeBlock'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type NodeTransformHandlesProps = {
   node: NodeItemProps['item']['node']
   handles: TransformHandle[]
   zoom: number
+  onHandlePointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    handle: TransformHandle
+  ) => void
 }
 const NODE_TRANSFORM_HANDLE_SIZE = 10
 const NODE_SIZE_EPSILON = 0.5
@@ -23,7 +29,8 @@ const NODE_ROTATE_HANDLE_OFFSET = 24
 const NodeTransformHandles = ({
   node,
   handles,
-  zoom
+  zoom,
+  onHandlePointerDown
 }: NodeTransformHandlesProps) => {
   return (
     <>
@@ -38,6 +45,9 @@ const NodeTransformHandles = ({
             data-transform-kind={handle.kind}
             data-resize-direction={handle.direction}
             className="wb-node-transform-handle"
+            onPointerDown={(event) => {
+              onHandlePointerDown(event, handle)
+            }}
             style={{
               '--wb-node-handle-size': `${NODE_TRANSFORM_HANDLE_SIZE}px`,
               '--wb-node-handle-x': `${handle.position.x - half}px`,
@@ -242,6 +252,9 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   )
 
   const shouldMountTransform = transformHandles.length > 0
+  const { handleTransformPointerDown } = useNodeTransformInteraction({
+    nodeId: node.id
+  })
 
   return (
     <>
@@ -265,6 +278,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
           node={node}
           handles={transformHandles}
           zoom={zoom}
+          onHandlePointerDown={handleTransformPointerDown}
         />
       ) : null}
     </>

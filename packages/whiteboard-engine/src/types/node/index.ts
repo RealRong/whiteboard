@@ -13,6 +13,10 @@ export type {
   ResizeDirection,
   ResizeDragState,
   RotateDragState,
+  NodeTransformDraft,
+  NodeTransformResizeConstraints,
+  NodeTransformRotateConstraints,
+  NodeTransformUpdateConstraints,
   TransformDragState,
   TransformHandle,
   NodeTransformOptions

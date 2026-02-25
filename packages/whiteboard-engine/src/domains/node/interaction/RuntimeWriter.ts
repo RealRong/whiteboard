@@ -2,8 +2,11 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   RuntimeOutput
 } from './RuntimeOutput'
-import { writeInteractionSession } from '../shared/interactionSession'
-import { InteractionWriter } from '../writer/InteractionWriter'
+import {
+  clearInteractionKinds,
+  writeInteractionSession
+} from '../../shared/interaction/interactionSession'
+import { InteractionWriter } from '../../shared/interaction/InteractionWriter'
 
 type WriterOptions = {
   instance: Pick<InternalInstance, 'state' | 'render' | 'mutate'>
@@ -27,6 +30,10 @@ export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
 
   apply = (output: RuntimeOutput) => {
     this.inRenderBatch(output, () => {
+      if (output.clearInteractions?.length) {
+        clearInteractionKinds(this.render, output.clearInteractions)
+      }
+
       const selection = output.selection
       if (selection) {
         this.state.write('selection', (prev) => {
@@ -78,19 +85,6 @@ export class RuntimeWriter extends InteractionWriter<RuntimeOutput> {
           output.nodePayload.drag === null
             ? {}
             : { payload: output.nodePayload.drag }
-        )
-      }
-
-      if (
-        output.nodePayload &&
-        'transform' in output.nodePayload &&
-        output.nodePayload.transform !== undefined
-      ) {
-        this.render.write(
-          'nodeTransform',
-          output.nodePayload.transform === null
-            ? {}
-            : { payload: output.nodePayload.transform }
         )
       }
 

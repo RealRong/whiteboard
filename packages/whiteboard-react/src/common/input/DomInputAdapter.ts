@@ -24,6 +24,13 @@ export class DomInputAdapter {
   private offWindowBlur: (() => void) | null = null
   private offWindowKey: (() => void) | null = null
 
+  private isNodeTransformHandleEvent = (event: PointerEvent) => {
+    if (!(event.target instanceof Element)) return false
+    return Boolean(
+      event.target.closest('[data-input-role="node-transform-handle"]')
+    )
+  }
+
   constructor(instance: Instance, options: DomInputAdapterOptions) {
     this.instance = instance
     this.getContainer = options.getContainer
@@ -52,7 +59,7 @@ export class DomInputAdapter {
     if (!this.started) return
     this.started = false
     this.viewportGestures.reset()
-    this.effects.run(this.instance.input.reset('forced').effects)
+    this.effects.run(this.instance.input.resetAll('forced').effects)
     this.effects.stop()
     this.offContainer?.()
     this.offContainer = null
@@ -151,9 +158,14 @@ export class DomInputAdapter {
 
   private handleContainerPointerDown = (event: PointerEvent) => {
     const container = this.getContainer()
+    const isNodeTransformHandle = this.isNodeTransformHandleEvent(event)
     const startedPan = this.viewportGestures.onPointerDown(event)
-    if (!startedPan) {
+    if (!startedPan && !isNodeTransformHandle) {
       this.dispatchPointer(event, 'bubble', 'down', 'container')
+    }
+    if (isNodeTransformHandle) {
+      container?.focus({ preventScroll: true })
+      return
     }
     if (event.target === container) {
       container?.focus({ preventScroll: true })
@@ -169,11 +181,13 @@ export class DomInputAdapter {
   }
 
   private handleContainerPointerDownCapture = (event: PointerEvent) => {
+    if (this.isNodeTransformHandleEvent(event)) return
     this.dispatchPointer(event, 'capture', 'down', 'container')
   }
 
   private handleContainerPointerMove = (event: PointerEvent) => {
     if (this.viewportGestures.isPanning()) return
+    if (this.isNodeTransformHandleEvent(event)) return
     this.dispatchPointer(event, 'bubble', 'move', 'container')
   }
 
@@ -182,6 +196,7 @@ export class DomInputAdapter {
       this.viewportGestures.onPointerUp(event)
       return
     }
+    if (this.isNodeTransformHandleEvent(event)) return
     this.dispatchPointer(event, 'bubble', 'up', 'container')
   }
 

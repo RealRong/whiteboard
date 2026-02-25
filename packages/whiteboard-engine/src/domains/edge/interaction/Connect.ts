@@ -10,8 +10,8 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
-import { type ConnectTo, isSameConnectTo } from '../../../runtime/actors/edge/query'
-import { buildEdgeCreateOperation } from '../../../runtime/actors/edge/createOperation'
+import { type ConnectTo, isSameConnectTo } from '../query'
+import { buildEdgeCreateOperation } from '../commands/createOperation'
 import type { RuntimeOutput } from './RuntimeOutput'
 
 type ConnectInstance = Pick<

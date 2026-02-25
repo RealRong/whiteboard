@@ -1,5 +1,5 @@
 import type { QueryCanvas } from '@engine-types/instance/query'
-import { getNodeIdsInRect as getNodeIdsInRectRaw } from '../actors/node/query'
+import { getNodeIdsInRect as getNodeIdsInRectRaw } from '../../domains/node/query'
 import type { QueryIndexes } from './Indexes'
 
 type Options = {

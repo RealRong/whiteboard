@@ -8,9 +8,9 @@ import type {
   NodeViewItem,
 } from '@engine-types/instance/view'
 import type { NodeId } from '@whiteboard/core/types'
-import { hasImpactTag } from '../mutation/Impact'
-import { toLayerOrderedCanvasNodes } from '../actors/node/query'
-import { isSameIdOrder } from './shared'
+import { hasImpactTag } from '../../../runtime/mutation/Impact'
+import { toLayerOrderedCanvasNodes } from '../query'
+import { isSameIdOrder } from '../../../runtime/view/shared'
 import { NodeProjectionCache } from './NodeProjectionCache'
 
 type NodeViewItemEntry = NodeViewItem

@@ -7,7 +7,7 @@ import {
   layoutMindmapTidy,
   moveSubtree,
   removeSubtree
-} from '../dist/index.js'
+} from '../dist/mindmap/index.js'
 
 test('mindmap commands', () => {
   let nodeSeq = 1

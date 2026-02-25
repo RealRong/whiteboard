@@ -1,5 +1,5 @@
 import type { ShortcutAction } from '@engine-types/shortcuts'
-import type { Actor as SelectionActor } from '../selection/Actor'
+import type { Actor as SelectionActor } from '../../../domains/selection/commands/Actor'
 
 type ActorOptions = {
   selection: Pick<

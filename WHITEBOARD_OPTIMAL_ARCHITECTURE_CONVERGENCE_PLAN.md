@@ -263,6 +263,31 @@ packages/whiteboard-engine/src/
 4. Selection 规则已单源化到 `src/shared/selection.ts`。
 5. 高频 `groupHovered` 已迁移为 `render.groupHover`，不再污染 `state.selection`。
 6. 新增架构防回退检查：`packages/whiteboard-engine/scripts/check-architecture.mjs`，并接入 `@whiteboard/engine lint`。
+7. 输入域新增统一复位入口：`input.resetAll(reason)`，由 InputPort 聚合 `cancelAll + resetTransientState`。
+8. `Lifecycle.stop` 已收口为统一输入入口调用，不再拼接 node/edge/mindmap/selection 分散 cancel/reset。
+9. `NodeActor` 已移除输入会话 `cancel/reset` 逻辑，改由 `NodeInputGateway` 负责 transient 清理。
+10. `SelectionActor` 已移除直接 render/transient 清理逻辑，改为注入式 `resetTransient` 回调。
+11. `EdgeActor` 已移除 `routingDrag/interactionSession` 清理分支；相关 transient 互斥上移到 `create.ts` 命令装配层。
+12. Phase 8 自动化回归已全通过：`pnpm lint` / `pnpm build` / `pnpm bench` / `pnpm test`。
+13. 已新增领域 API 骨架：`domains/node|edge|mindmap|selection|viewport/api.ts`，并在 `instance.domains` 暴露。
+14. 已新增实体级 Facade：`instance.node(id)` / `instance.edge(id)` / `instance.mindmap(id)`（基于统一 domains API 绑定 id）。
+15. `node query` 已完成无兼容切换：`runtime/actors/node/query/*` 已删除，统一由 `domains/node/query/*` 提供实现。
+16. `node/edge/mindmap/selection` 命令实现已迁移到 `domains/*/commands/*`，`createEngine` 与 `lifecycle` 引用已全部切换。
+17. `edge query/view` 已迁移到 `domains/edge/query|view/*`，`runtime/query/Geometry`、`runtime/view/Registry`、`input/domain/edge/Connect` 已改用新路径。
+18. `mindmap query/view` 已迁移到 `domains/mindmap/query|view/*`，`runtime/view/Registry` 已改用新路径。
+19. `node model/view` 已迁移到 `domains/node/model|view/*`，`NodeProjector`、`GroupAutoFitActor`、`ViewRegistry` 已改用新路径。
+20. 旧 `runtime/actors/{node,edge,mindmap,selection}` 目录内核心实现已清空并移除文件，不再保留兼容 re-export。
+21. `input/domain/{node,edge,mindmap,selection}` 已整体并入 `domains/*/interaction/*`，`createEngine` 已切换到新 Gateway 路径。
+22. 交互共享基础设施已迁移到 `domains/shared/interaction/*`，`input/domain` 目录已清空并移除。
+23. `node/edge` 命令层已去 Actor 化：改为 `createNodeCommands` / `createEdgeCommands` 工厂函数（无生命周期类），`createEngine` 已完成接线切换。
+
+## 6.2 当前阶段结论（2026-02-25）
+
+1. Phase 7：完成。
+2. Phase 8 自动化：完成。
+3. Phase 8 手工交互回归：待在真实页面按 `PHASE8_REGRESSION_CHECKLIST.md` 执行 M-01 ~ M-15。
+4. 领域化纵切（Node/Edge/Mindmap/Selection 首轮）：已完成“无兼容路径切换”，下一步可进入按域继续细拆（尤其 `mindmap/commands/Actor.ts` 大文件拆分）。
+5. `input/domain -> domains/*/interaction` 收敛：完成。
 
 ---
 
