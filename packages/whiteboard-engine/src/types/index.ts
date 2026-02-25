@@ -95,6 +95,7 @@ export type {
   EdgeReconnectInfo,
   HistoryState,
   InteractionState,
+  ViewportGestureState,
   MindmapDragDropTarget,
   MindmapDragState,
   MindmapRootDragState,

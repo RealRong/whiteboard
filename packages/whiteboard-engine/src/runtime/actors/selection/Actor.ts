@@ -5,8 +5,7 @@ import type {
   Document,
   EdgeId,
   Node,
-  NodeId,
-  Rect
+  NodeId
 } from '@whiteboard/core/types'
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
@@ -179,36 +178,6 @@ export class Actor {
         selectedNodeIds: new Set()
       }))
     })
-  }
-
-  beginBox = (mode: SelectionMode = 'replace') => {
-    const { state } = this.instance
-    state.batch(() => {
-      state.write('routingDrag', {})
-      state.write('interactionSession', (prev) => {
-        if (prev.active?.kind !== 'routingDrag') return prev
-        return {}
-      })
-      state.write('selectionBox', EMPTY_SELECTION_BOX)
-      state.write('selection', (prev) => ({
-        ...prev,
-        selectedEdgeId: undefined,
-        groupHovered: undefined,
-        mode
-      }))
-    })
-  }
-
-  updateBox = (selectionRect: Rect, selectionRectWorld?: Rect) => {
-    this.instance.state.write('selectionBox', {
-      isSelecting: true,
-      selectionRect,
-      selectionRectWorld
-    })
-  }
-
-  endBox = () => {
-    this.instance.state.write('selectionBox', EMPTY_SELECTION_BOX)
   }
 
   groupSelected = async () => {

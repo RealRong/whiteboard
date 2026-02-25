@@ -3,6 +3,8 @@ import type { MindmapMoveDropOptions, MindmapMoveRootOptions } from '@engine-typ
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerInput } from '@engine-types/common'
 import { Drag } from './Drag'
+import type { RuntimeOutput } from './RuntimeOutput'
+import { RuntimeWriter } from './RuntimeWriter'
 
 type GatewayInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
 
@@ -15,13 +17,22 @@ type GatewayOptions = {
 }
 
 export class MindmapInputGateway {
+  private readonly writer: RuntimeWriter
   private readonly drag: Drag
 
   constructor({ instance, mindmap }: GatewayOptions) {
+    this.writer = new RuntimeWriter({
+      instance
+    })
     this.drag = new Drag({
       instance,
-      mindmap
+      mindmap,
+      emit: this.emit
     })
+  }
+
+  private emit = (output: RuntimeOutput) => {
+    this.writer.apply(output)
   }
 
   dragInput = {

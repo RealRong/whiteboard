@@ -29,6 +29,10 @@ type LifecycleActors = {
     cancelDrag: () => void
     resetTransientState: () => void
   }
+  selectionInput: {
+    cancelBox: () => void
+    resetTransientState: () => void
+  }
   groupAutoFit: GroupAutoFitActor
   node: NodeActor
   mindmap: MindmapActor
@@ -44,6 +48,7 @@ export class Lifecycle implements LifecycleApi {
   private viewportActor: ViewportActor
   private edgeInput: LifecycleActors['edgeInput']
   private mindmapInput: LifecycleActors['mindmapInput']
+  private selectionInput: LifecycleActors['selectionInput']
   private groupAutoFitActor: GroupAutoFitActor
   private nodeActor: NodeActor
   private mindmapActor: MindmapActor
@@ -56,6 +61,7 @@ export class Lifecycle implements LifecycleApi {
 
     this.edgeInput = actors.edgeInput
     this.mindmapInput = actors.mindmapInput
+    this.selectionInput = actors.selectionInput
     this.groupAutoFitActor = actors.groupAutoFit
     this.nodeActor = actors.node
 
@@ -100,6 +106,9 @@ export class Lifecycle implements LifecycleApi {
       stop: this.mindmapInput.cancelDrag
     })
     this.registry.register({
+      stop: this.selectionInput.cancelBox
+    })
+    this.registry.register({
       stop: this.edgeInput.resetTransientState
     })
     this.registry.register({
@@ -107,6 +116,9 @@ export class Lifecycle implements LifecycleApi {
     })
     this.registry.register({
       stop: this.mindmapInput.resetTransientState
+    })
+    this.registry.register({
+      stop: this.selectionInput.resetTransientState
     })
     this.registry.register({
       stop: this.context.shortcuts.dispose

@@ -106,6 +106,7 @@ export const createViewRegistry = ({
     let changed = false
     switch (key) {
       case 'viewport':
+      case 'viewportGesture':
         changed = viewport.sync()
         break
       case 'tool':

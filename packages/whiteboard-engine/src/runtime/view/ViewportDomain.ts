@@ -24,10 +24,13 @@ const toViewportTransformView = (viewport: Viewport): ViewportTransformView => {
 }
 
 export const createViewportDomain = ({ state }: Options): ViewportDomain => {
-  let transform = toViewportTransformView(state.read('viewport'))
+  const readViewport = () =>
+    state.read('viewportGesture').preview ?? state.read('viewport')
+
+  let transform = toViewportTransformView(readViewport())
 
   const sync = () => {
-    const next = toViewportTransformView(state.read('viewport'))
+    const next = toViewportTransformView(readViewport())
     const prev = transform
     const changed =
       prev.zoom !== next.zoom ||

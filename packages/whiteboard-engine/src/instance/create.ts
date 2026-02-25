@@ -29,10 +29,12 @@ import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain
 import { NodeInputGateway } from '../input/domain/node/Gateway'
 import { EdgeInputGateway } from '../input/domain/edge/Gateway'
 import { MindmapInputGateway } from '../input/domain/mindmap/Gateway'
+import { SelectionInputGateway } from '../input/domain/selection/Gateway'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
 import { createDocumentStore } from '../document/Store'
+import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
 
 export const createEngine = ({
   registries,
@@ -111,6 +113,16 @@ export const createEngine = ({
   const history = writeCoordinator.history
   const resetDoc = writeCoordinator.resetDocument
   instance.mutate = mutate
+  const nodeMeasureQueue = new NodeMeasureQueue({
+    scheduler,
+    projection,
+    mutate
+  })
+  projection.subscribe((commit) => {
+    if (commit.kind === 'replace') {
+      nodeMeasureQueue.clear()
+    }
+  })
 
   const edgeActor = new EdgeActor({
     instance
@@ -139,6 +151,9 @@ export const createEngine = ({
     state
   })
   const selectionActor = new SelectionActor({
+    instance
+  })
+  const selectionInputGateway = new SelectionInputGateway({
     instance
   })
   const viewportActor = new ViewportDomainActor({
@@ -173,18 +188,7 @@ export const createEngine = ({
     },
     host: {
       nodeMeasured: (id, size) => {
-        if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return
-        if (size.width <= 0 || size.height <= 0) return
-        void mutate(
-          [{
-            type: 'node.update',
-            id,
-            patch: {
-              size
-            }
-          }],
-          'system'
-        )
+        nodeMeasureQueue.enqueue(id, size)
       },
       containerResized: (rect) => {
         viewport.setContainerRect(rect)
@@ -194,10 +198,7 @@ export const createEngine = ({
       select: selectionActor.select,
       toggle: selectionActor.toggle,
       clear: selectionActor.clear,
-      getSelectedNodeIds: selectionActor.getSelectedNodeIds,
-      beginBox: selectionActor.beginBox,
-      updateBox: selectionActor.updateBox,
-      endBox: selectionActor.endBox
+      getSelectedNodeIds: selectionActor.getSelectedNodeIds
     },
     edge: {
       create: edgeActor.create,
@@ -295,6 +296,9 @@ export const createEngine = ({
       mindmapInput: {
         drag: mindmapInputGateway.dragInput
       },
+      selectionInput: {
+        box: selectionInputGateway.boxInput
+      },
       viewport: {
         getZoom: queryRuntime.query.viewport.getZoom,
         clientToWorld: queryRuntime.query.viewport.clientToWorld
@@ -316,6 +320,7 @@ export const createEngine = ({
     {
       edgeInput: edgeInputGateway,
       mindmapInput: mindmapInputGateway,
+      selectionInput: selectionInputGateway,
       groupAutoFit: groupAutoFitActor,
       node: nodeActor,
       mindmap: mindmapActor,
@@ -346,6 +351,7 @@ export const createEngine = ({
       nodeInputGateway.nodeTransform.cancel()
       lifecycleRuntime.stop()
       prevHistoryDocId = undefined
+      nodeMeasureQueue.clear()
       scheduler.cancelAll()
     }
   }

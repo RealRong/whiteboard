@@ -35,6 +35,7 @@ type RenderBuckets = {
   interaction: Pick<RenderStateSnapshot, 'interaction' | 'interactionSession'>
   selection: Pick<RenderStateSnapshot, 'selectionBox'>
   edge: Pick<RenderStateSnapshot, 'edgeConnect' | 'routingDrag'>
+  viewport: Pick<RenderStateSnapshot, 'viewportGesture'>
   mindmap: Pick<RenderStateSnapshot, 'mindmapDrag'>
   node: Pick<RenderStateSnapshot, 'nodeDrag' | 'nodeTransform' | 'nodePreview' | 'dragGuides'>
   keyboard: Pick<RenderStateSnapshot, 'spacePressed'>
@@ -47,6 +48,7 @@ const RENDER_BUCKET_BY_KEY: Record<RenderStateKey, RenderBucketKey> = {
   selectionBox: 'selection',
   edgeConnect: 'edge',
   routingDrag: 'edge',
+  viewportGesture: 'viewport',
   mindmapDrag: 'mindmap',
   nodeDrag: 'node',
   nodeTransform: 'node',
@@ -59,6 +61,7 @@ const RENDER_KEYS_BY_BUCKET: Record<RenderBucketKey, readonly RenderStateKey[]> 
   interaction: ['interaction', 'interactionSession'],
   selection: ['selectionBox'],
   edge: ['edgeConnect', 'routingDrag'],
+  viewport: ['viewportGesture'],
   mindmap: ['mindmapDrag'],
   node: ['nodeDrag', 'nodeTransform', 'nodePreview', 'dragGuides'],
   keyboard: ['spacePressed']
@@ -72,6 +75,7 @@ const createInitialRenderSnapshot = (
   selectionBox: initial.selectionBox,
   edgeConnect: initial.edgeConnect,
   routingDrag: initial.routingDrag,
+  viewportGesture: initial.viewportGesture,
   mindmapDrag: initial.mindmapDrag,
   nodeDrag: initial.nodeDrag,
   nodeTransform: initial.nodeTransform,
@@ -93,6 +97,9 @@ const createRenderBuckets = (
   edge: {
     edgeConnect: snapshot.edgeConnect,
     routingDrag: snapshot.routingDrag
+  },
+  viewport: {
+    viewportGesture: snapshot.viewportGesture
   },
   mindmap: {
     mindmapDrag: snapshot.mindmapDrag
@@ -133,6 +140,8 @@ const readRenderValueFromBucket = <K extends RenderStateKey>(
       return (bucket as RenderBuckets['edge']).edgeConnect as RenderStateSnapshot[K]
     case 'routingDrag':
       return (bucket as RenderBuckets['edge']).routingDrag as RenderStateSnapshot[K]
+    case 'viewportGesture':
+      return (bucket as RenderBuckets['viewport']).viewportGesture as RenderStateSnapshot[K]
     case 'mindmapDrag':
       return (bucket as RenderBuckets['mindmap']).mindmapDrag as RenderStateSnapshot[K]
     case 'nodeDrag':
@@ -182,6 +191,11 @@ const writeRenderValueToBucket = <K extends RenderStateKey>(
       return {
         ...(bucket as RenderBuckets['edge']),
         routingDrag: value as RenderStateSnapshot['routingDrag']
+      }
+    case 'viewportGesture':
+      return {
+        ...(bucket as RenderBuckets['viewport']),
+        viewportGesture: value as RenderStateSnapshot['viewportGesture']
       }
     case 'mindmapDrag':
       return {

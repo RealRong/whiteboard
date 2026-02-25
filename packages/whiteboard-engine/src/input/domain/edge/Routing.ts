@@ -7,49 +7,39 @@ import type {
 } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Point } from '@whiteboard/core/types'
-import type { SubmitMutations } from '../../../runtime/actors/shared/MutationCommit'
+import type { RuntimeOutput } from './RuntimeOutput'
 
 type RoutingInstance = Pick<InternalInstance, 'state' | 'projection'>
 
 type RoutingOptions = {
   instance: RoutingInstance
-  submitMutations: SubmitMutations
+  emit: (output: RuntimeOutput) => void
 }
 
 export class Routing {
   private readonly instance: RoutingInstance
-  private readonly submitMutations: SubmitMutations
+  private readonly emit: (output: RuntimeOutput) => void
   private session: RoutingDragPayload | null = null
 
-  constructor({ instance, submitMutations }: RoutingOptions) {
+  constructor({ instance, emit }: RoutingOptions) {
     this.instance = instance
-    this.submitMutations = submitMutations
+    this.emit = emit
   }
 
   private setInteractionSession = (pointerId?: number) => {
-    this.instance.state.write('interactionSession', (prev) => {
-      if (pointerId !== undefined) {
-        if (
-          prev.active?.kind === 'routingDrag'
-          && prev.active.pointerId === pointerId
-        ) {
-          return prev
-        }
-        return {
-          active: {
-            kind: 'routingDrag',
-            pointerId
-          }
-        }
+    this.emit({
+      interaction: {
+        kind: 'routingDrag',
+        pointerId: pointerId ?? null
       }
-      if (prev.active?.kind !== 'routingDrag') return prev
-      return {}
     })
   }
 
   private clear = () => {
     this.session = null
-    this.instance.state.write('routingDrag', {})
+    this.emit({
+      routingDrag: {}
+    })
     this.setInteractionSession(undefined)
   }
 
@@ -68,16 +58,6 @@ export class Routing {
 
   reset = () => {
     this.clear()
-  }
-
-  private selectEdge = (edgeId: EdgeId) => {
-    this.instance.state.write('selection', (prev) => {
-      if (prev.selectedEdgeId === edgeId) return prev
-      return {
-        ...prev,
-        selectedEdgeId: edgeId
-      }
-    })
   }
 
   private moveRoutingPoint = (
@@ -125,14 +105,23 @@ export class Routing {
       origin: points[index],
       point: points[index]
     }
-    state.batch(() => {
-      this.session = payload
-      state.write('routingDrag', {
+    this.emit({
+      routingDrag: {
         payload
-      })
-      this.setInteractionSession(pointer.pointerId)
-      this.selectEdge(edgeId)
+      },
+      interaction: {
+        kind: 'routingDrag',
+        pointerId: pointer.pointerId
+      },
+      selection: (prev) => {
+        if (prev.selectedEdgeId === edgeId) return prev
+        return {
+          ...prev,
+          selectedEdgeId: edgeId
+        }
+      }
     })
+    this.session = payload
 
     return true
   }
@@ -159,16 +148,17 @@ export class Routing {
       x: active.origin.x + (current.x - active.start.x),
       y: active.origin.y + (current.y - active.start.y)
     }
-    this.instance.state.batchFrame(() => {
-      const payload: RoutingDragPayload = {
-        ...active,
-        point: nextPoint
-      }
-      this.session = payload
-      this.instance.state.write('routingDrag', {
+    const payload: RoutingDragPayload = {
+      ...active,
+      point: nextPoint
+    }
+    this.emit({
+      frame: true,
+      routingDrag: {
         payload
-      })
+      }
     })
+    this.session = payload
 
     return true
   }
@@ -190,7 +180,9 @@ export class Routing {
         active.point
       )
       if (operation) {
-        this.submitMutations([operation], 'interaction')
+        this.emit({
+          mutations: [operation]
+        })
       }
     }
     this.clear()

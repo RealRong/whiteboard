@@ -5,7 +5,8 @@ import type {
   NodeId,
   Point,
   Rect,
-  Size
+  Size,
+  Viewport
 } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { TransformDragState } from '../node'
@@ -61,6 +62,10 @@ export type InteractionSessionState = {
     kind: InteractionSessionKind
     pointerId: number
   }
+}
+
+export type ViewportGestureState = {
+  preview?: Viewport
 }
 
 export type HistoryState = {

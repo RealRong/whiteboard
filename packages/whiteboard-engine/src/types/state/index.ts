@@ -3,6 +3,7 @@ export type {
   InteractionState,
   InteractionSessionKind,
   InteractionSessionState,
+  ViewportGestureState,
   MindmapDragDropTarget,
   MindmapDragState,
   MindmapRootDragState,

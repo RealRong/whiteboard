@@ -209,6 +209,26 @@ export type InputSessionContext = {
       cancel: () => boolean
     }
   }
+  selectionInput: {
+    box: {
+      start: (options: {
+        pointerId: number
+        screen: Point
+        world: Point
+        modifiers: Pick<
+          PointerInputEvent['modifiers'],
+          'alt' | 'shift' | 'ctrl' | 'meta'
+        >
+      }) => boolean
+      update: (options: {
+        pointerId: number
+        screen: Point
+        world: Point
+      }) => boolean
+      end: (pointerId: number) => boolean
+      cancel: (pointerId?: number) => boolean
+    }
+  }
   viewport: {
     getZoom: () => number
     clientToWorld: (clientX: number, clientY: number) => Point

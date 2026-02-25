@@ -1,10 +1,11 @@
 import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
 import type { Scheduler } from '../../../runtime/Scheduler'
 import { Connect } from './Connect'
 import { Routing } from './Routing'
+import type { RuntimeOutput } from './RuntimeOutput'
+import { RuntimeWriter } from './RuntimeWriter'
 
 type GatewayInstance = Pick<
   InternalInstance,
@@ -18,25 +19,28 @@ type GatewayOptions = {
 
 export class EdgeInputGateway {
   private readonly instance: GatewayInstance
-  private readonly state: GatewayInstance['state']
-  private readonly submitMutations: ReturnType<typeof createMutationCommit>['submit']
+  private readonly writer: RuntimeWriter
   private readonly connect: Connect
   private readonly routing: Routing
 
   constructor({ instance, scheduler }: GatewayOptions) {
     this.instance = instance
-    this.state = instance.state
-    const commit = createMutationCommit(instance.mutate)
-    this.submitMutations = commit.submit
+    this.writer = new RuntimeWriter({
+      instance
+    })
     this.connect = new Connect({
       instance,
       scheduler,
-      submitMutations: commit.submit
+      emit: this.emit
     })
     this.routing = new Routing({
       instance,
-      submitMutations: commit.submit
+      emit: this.emit
     })
+  }
+
+  private emit = (output: RuntimeOutput) => {
+    this.writer.apply(output)
   }
 
   private insertRoutingPoint = (
@@ -58,19 +62,21 @@ export class EdgeInputGateway {
     const nextPoints = [...basePoints]
     nextPoints.splice(insertIndex, 0, pointWorld)
 
-    this.submitMutations([
-      {
-        type: 'edge.update',
-        id: entry.edge.id,
-        patch: {
-          routing: {
-            ...(entry.edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
+    this.emit({
+      mutations: [
+        {
+          type: 'edge.update',
+          id: entry.edge.id,
+          patch: {
+            routing: {
+              ...(entry.edge.routing ?? {}),
+              mode: 'manual',
+              points: nextPoints
+            }
           }
         }
-      }
-    ], 'interaction')
+      ]
+    })
     return true
   }
 
@@ -92,35 +98,39 @@ export class EdgeInputGateway {
 
     const nextPoints = points.filter((_, idx) => idx !== index)
     if (!nextPoints.length) {
-      this.submitMutations([
+      this.emit({
+        mutations: [
+          {
+            type: 'edge.update',
+            id: edgeId,
+            patch: {
+              routing: {
+                ...(entry.edge.routing ?? {}),
+                mode: 'auto',
+                points: undefined
+              }
+            }
+          }
+        ]
+      })
+      return true
+    }
+
+    this.emit({
+      mutations: [
         {
           type: 'edge.update',
           id: edgeId,
           patch: {
             routing: {
               ...(entry.edge.routing ?? {}),
-              mode: 'auto',
-              points: undefined
+              mode: 'manual',
+              points: nextPoints
             }
           }
         }
-      ], 'interaction')
-      return true
-    }
-
-    this.submitMutations([
-      {
-        type: 'edge.update',
-        id: edgeId,
-        patch: {
-          routing: {
-            ...(entry.edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
-          }
-        }
-      }
-    ], 'interaction')
+      ]
+    })
     return true
   }
 
@@ -179,24 +189,12 @@ export class EdgeInputGateway {
     cancelRouting: () => this.routing.cancel()
   }
 
-  private clearInteractionIfNeeded = () => {
-    this.state.write('interactionSession', (prev) => {
-      if (
-        prev.active?.kind !== 'edgeConnect' &&
-        prev.active?.kind !== 'routingDrag'
-      ) {
-        return prev
-      }
-      return {}
-    })
-  }
-
   resetTransientState = () => {
     this.connect.hoverCancel()
-    this.state.batch(() => {
-      this.state.write('edgeConnect', {})
-      this.routing.reset()
-      this.clearInteractionIfNeeded()
+    this.routing.reset()
+    this.emit({
+      edgeConnect: {},
+      clearInteractions: ['edgeConnect', 'routingDrag']
     })
   }
 

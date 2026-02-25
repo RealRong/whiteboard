@@ -39,6 +39,7 @@ export const createInitialState = (): WritableStateSnapshot => ({
   },
   edgeConnect: {},
   routingDrag: {},
+  viewportGesture: {},
   mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout },
   mindmapDrag: {},
   nodeDrag: {},

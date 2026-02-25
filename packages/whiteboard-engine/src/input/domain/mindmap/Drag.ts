@@ -5,6 +5,7 @@ import type { MindmapRootDragState, MindmapSubtreeDragState } from '@engine-type
 import { computeSubtreeDropTarget, getSubtreeIds } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../config'
+import type { RuntimeOutput } from './RuntimeOutput'
 
 type DragInstance = Pick<InternalInstance, 'state' | 'view' | 'config'>
 
@@ -16,36 +17,26 @@ type MindmapCommands = {
 type DragOptions = {
   instance: DragInstance
   mindmap: MindmapCommands
+  emit: (output: RuntimeOutput) => void
 }
 
 export class Drag {
   private readonly instance: DragInstance
   private readonly mindmap: MindmapCommands
+  private readonly emit: (output: RuntimeOutput) => void
   private session: MindmapRootDragState | MindmapSubtreeDragState | null = null
 
-  constructor({ instance, mindmap }: DragOptions) {
+  constructor({ instance, mindmap, emit }: DragOptions) {
     this.instance = instance
     this.mindmap = mindmap
+    this.emit = emit
   }
 
   private setInteractionSession = (pointerId?: number) => {
-    this.instance.state.write('interactionSession', (prev) => {
-      if (pointerId !== undefined) {
-        if (
-          prev.active?.kind === 'mindmapDrag'
-          && prev.active.pointerId === pointerId
-        ) {
-          return prev
-        }
-        return {
-          active: {
-            kind: 'mindmapDrag',
-            pointerId
-          }
-        }
+    this.emit({
+      interaction: {
+        pointerId: pointerId ?? null
       }
-      if (prev.active?.kind !== 'mindmapDrag') return prev
-      return {}
     })
   }
 
@@ -110,7 +101,9 @@ export class Drag {
 
   private clear = () => {
     this.session = null
-    this.instance.state.write('mindmapDrag', {})
+    this.emit({
+      mindmapDrag: {}
+    })
     this.setInteractionSession(undefined)
   }
 
@@ -141,8 +134,10 @@ export class Drag {
         position: baseOffset
       }
       this.session = payload
-      state.write('mindmapDrag', {
-        payload
+      this.emit({
+        mindmapDrag: {
+          payload
+        }
       })
       this.setInteractionSession(pointer.pointerId)
       return true
@@ -175,7 +170,9 @@ export class Drag {
       excludeIds: getSubtreeIds(treeItem.tree, nodeId)
     }
     this.session = payload
-    state.write('mindmapDrag', { payload })
+    this.emit({
+      mindmapDrag: { payload }
+    })
     this.setInteractionSession(pointer.pointerId)
     return true
   }
@@ -185,56 +182,60 @@ export class Drag {
     const active = this.readActive(pointer.pointerId)
     if (!active) return false
 
-    state.batchFrame(() => {
-      const world = pointer.world
+    const world = pointer.world
 
-      if (active.kind === 'root') {
-        const nextPosition = {
-          x: active.origin.x + (world.x - active.start.x),
-          y: active.origin.y + (world.y - active.start.y)
-        }
-        this.session = {
-          ...active,
-          position: nextPosition
-        }
-        state.write('mindmapDrag', {
-          payload: this.session
-        })
-        return
+    if (active.kind === 'root') {
+      const nextPosition = {
+        x: active.origin.x + (world.x - active.start.x),
+        y: active.origin.y + (world.y - active.start.y)
       }
-
-      const ghost = this.buildSubtreeGhostRect({
-        pointerWorld: world,
-        pointerOffset: active.offset,
-        nodeRect: active.rect
-      })
-
-      let drop = active.drop
-      const treeItem = this.getTreeView(active.treeId)
-      if (treeItem) {
-        const nodeRects = this.getNodeRects(treeItem, active.baseOffset)
-        drop = computeSubtreeDropTarget({
-          tree: treeItem.tree,
-          nodeRects,
-          ghost,
-          dragNodeId: active.nodeId,
-          dragExcludeIds: new Set(active.excludeIds),
-          layoutOptions: (state.read('mindmapLayout') ?? treeItem.layout).options,
-          snapThreshold: DEFAULT_TUNING.mindmap.dropSnapThreshold,
-          defaultSide: DEFAULT_TUNING.mindmap.defaultSide,
-          reorderLineGap: DEFAULT_TUNING.mindmap.reorderLineGap,
-          reorderLineOverflow: DEFAULT_TUNING.mindmap.reorderLineOverflow
-        })
-      }
-
       this.session = {
         ...active,
-        ghost,
-        drop
+        position: nextPosition
       }
-      state.write('mindmapDrag', {
-        payload: this.session
+      this.emit({
+        frame: true,
+        mindmapDrag: {
+          payload: this.session
+        }
       })
+      return true
+    }
+
+    const ghost = this.buildSubtreeGhostRect({
+      pointerWorld: world,
+      pointerOffset: active.offset,
+      nodeRect: active.rect
+    })
+
+    let drop = active.drop
+    const treeItem = this.getTreeView(active.treeId)
+    if (treeItem) {
+      const nodeRects = this.getNodeRects(treeItem, active.baseOffset)
+      drop = computeSubtreeDropTarget({
+        tree: treeItem.tree,
+        nodeRects,
+        ghost,
+        dragNodeId: active.nodeId,
+        dragExcludeIds: new Set(active.excludeIds),
+        layoutOptions: (state.read('mindmapLayout') ?? treeItem.layout).options,
+        snapThreshold: DEFAULT_TUNING.mindmap.dropSnapThreshold,
+        defaultSide: DEFAULT_TUNING.mindmap.defaultSide,
+        reorderLineGap: DEFAULT_TUNING.mindmap.reorderLineGap,
+        reorderLineOverflow: DEFAULT_TUNING.mindmap.reorderLineOverflow
+      })
+    }
+
+    this.session = {
+      ...active,
+      ghost,
+      drop
+    }
+    this.emit({
+      frame: true,
+      mindmapDrag: {
+        payload: this.session
+      }
     })
     return true
   }

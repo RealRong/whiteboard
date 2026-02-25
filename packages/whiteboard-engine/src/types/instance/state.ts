@@ -7,6 +7,7 @@ import type {
   EdgeConnectState,
   InteractionState,
   InteractionSessionState,
+  ViewportGestureState,
   MindmapDragState,
   NodeDragState,
   NodePreviewState,
@@ -24,6 +25,7 @@ export type StateSnapshot = {
   selectionBox: SelectionBoxState
   edgeConnect: EdgeConnectState
   routingDrag: RoutingDragState
+  viewportGesture: ViewportGestureState
   viewport: Viewport
   mindmapLayout: MindmapLayoutConfig
   mindmapDrag: MindmapDragState
@@ -44,6 +46,7 @@ export type WritableStateSnapshot = Pick<
   | 'selectionBox'
   | 'edgeConnect'
   | 'routingDrag'
+  | 'viewportGesture'
   | 'mindmapLayout'
   | 'mindmapDrag'
   | 'nodeDrag'

@@ -12,7 +12,7 @@ import type {
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 import { type ConnectTo, isSameConnectTo } from '../../../runtime/actors/edge/query'
 import { buildEdgeCreateOperation } from '../../../runtime/actors/edge/createOperation'
-import type { SubmitMutations } from '../../../runtime/actors/shared/MutationCommit'
+import type { RuntimeOutput } from './RuntimeOutput'
 
 type ConnectInstance = Pick<
   InternalInstance,
@@ -22,43 +22,31 @@ type ConnectInstance = Pick<
 type ConnectOptions = {
   instance: ConnectInstance
   scheduler: Scheduler
-  submitMutations: SubmitMutations
+  emit: (output: RuntimeOutput) => void
 }
 
 export class Connect {
   private readonly instance: ConnectInstance
-  private readonly submitMutations: SubmitMutations
+  private readonly emit: (output: RuntimeOutput) => void
   private readonly hoverTask: FrameTask
   private hoverPointer: PointerInput | null = null
 
   constructor({
     instance,
     scheduler,
-    submitMutations
+    emit
   }: ConnectOptions) {
     this.instance = instance
-    this.submitMutations = submitMutations
+    this.emit = emit
     this.hoverTask = new FrameTask(scheduler, this.flushHover)
   }
 
   private setInteractionSession = (pointerId?: number) => {
-    this.instance.state.write('interactionSession', (prev) => {
-      if (pointerId !== undefined) {
-        if (
-          prev.active?.kind === 'edgeConnect'
-          && prev.active.pointerId === pointerId
-        ) {
-          return prev
-        }
-        return {
-          active: {
-            kind: 'edgeConnect',
-            pointerId
-          }
-        }
+    this.emit({
+      interaction: {
+        kind: 'edgeConnect',
+        pointerId: pointerId ?? null
       }
-      if (prev.active?.kind !== 'edgeConnect') return prev
-      return {}
     })
   }
 
@@ -142,12 +130,14 @@ export class Connect {
   }
 
   private finish = () => {
-    this.instance.state.write('edgeConnect', (prev) => ({
-      ...prev,
-      from: undefined,
-      to: undefined,
-      reconnect: undefined
-    }))
+    this.emit({
+      edgeConnect: (prev) => ({
+        ...prev,
+        from: undefined,
+        to: undefined,
+        reconnect: undefined
+      })
+    })
     this.setInteractionSession(undefined)
   }
 
@@ -157,11 +147,13 @@ export class Connect {
     pointer: PointerInput
   ) => {
     const anchor: EdgeAnchor = { side, offset: DEFAULT_TUNING.edge.anchorOffset }
-    this.instance.state.write('edgeConnect', {
-      from: { nodeId, anchor },
-      to: undefined,
-      hover: undefined,
-      reconnect: undefined
+    this.emit({
+      edgeConnect: {
+        from: { nodeId, anchor },
+        to: undefined,
+        hover: undefined,
+        reconnect: undefined
+      }
     })
     this.setInteractionSession(pointer.pointerId)
   }
@@ -175,11 +167,13 @@ export class Connect {
       entry.rotation,
       pointWorld
     )
-    this.instance.state.write('edgeConnect', {
-      from: { nodeId, anchor },
-      to: { pointWorld },
-      hover: undefined,
-      reconnect: undefined
+    this.emit({
+      edgeConnect: {
+        from: { nodeId, anchor },
+        to: { pointWorld },
+        hover: undefined,
+        reconnect: undefined
+      }
     })
     this.setInteractionSession(pointer.pointerId)
   }
@@ -197,11 +191,13 @@ export class Connect {
       side: 'right',
       offset: DEFAULT_TUNING.edge.anchorOffset
     }
-    this.instance.state.write('edgeConnect', {
-      from: { nodeId: endpoint.nodeId, anchor },
-      to: undefined,
-      hover: undefined,
-      reconnect: { edgeId, end }
+    this.emit({
+      edgeConnect: {
+        from: { nodeId: endpoint.nodeId, anchor },
+        to: undefined,
+        hover: undefined,
+        reconnect: { edgeId, end }
+      }
     })
     this.setInteractionSession(pointer.pointerId)
   }
@@ -210,13 +206,15 @@ export class Connect {
     const active = this.instance.state.read('interactionSession').active
     if (active?.kind !== 'edgeConnect' || active.pointerId !== pointer.pointerId) return
     const pointWorld = pointer.world
-    this.instance.state.write('edgeConnect', (prev) => {
-      if (!prev.from) return prev
-      const snap = this.snapAt(pointWorld)
-      if (snap) {
-        return { ...prev, to: snap }
+    this.emit({
+      edgeConnect: (prev) => {
+        if (!prev.from) return prev
+        const snap = this.snapAt(pointWorld)
+        if (snap) {
+          return { ...prev, to: snap }
+        }
+        return { ...prev, to: { pointWorld } }
       }
-      return { ...prev, to: { pointWorld } }
     })
   }
 
@@ -243,8 +241,8 @@ export class Connect {
         (item) => item.id === reconnect.edgeId
       )
       if (edge) {
-        this.submitMutations(
-          [
+        this.emit({
+          mutations: [
             {
               type: 'edge.update',
               id: edge.id,
@@ -253,9 +251,8 @@ export class Connect {
                   ? { source: { nodeId: targetNodeId, anchor: targetAnchor } }
                   : { target: { nodeId: targetNodeId, anchor: targetAnchor } }
             }
-          ],
-          'interaction'
-        )
+          ]
+        })
       }
     } else {
       const createOperation = this.buildEdgeCreateOperation({
@@ -268,10 +265,9 @@ export class Connect {
       })
 
       if (createOperation) {
-        this.submitMutations(
-          [createOperation],
-          'interaction'
-        )
+        this.emit({
+          mutations: [createOperation]
+        })
       } else {
         this.finish()
         return
@@ -292,13 +288,15 @@ export class Connect {
     const active = this.instance.state.read('interactionSession').active
     if (active?.kind === 'edgeConnect') return
     const snap = this.snapAt(pointer.world)
-    this.instance.state.write('edgeConnect', (prev) => {
-      if (!snap) {
-        if (!prev.hover) return prev
-        return { ...prev, hover: undefined }
+    this.emit({
+      edgeConnect: (prev) => {
+        if (!snap) {
+          if (!prev.hover) return prev
+          return { ...prev, hover: undefined }
+        }
+        if (isSameConnectTo(prev.hover, snap)) return prev
+        return { ...prev, hover: snap }
       }
-      if (isSameConnectTo(prev.hover, snap)) return prev
-      return { ...prev, hover: snap }
     })
   }
 

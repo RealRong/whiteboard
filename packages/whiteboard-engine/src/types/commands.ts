@@ -230,9 +230,6 @@ export type Commands = {
     toggle: (ids: NodeId[]) => void
     clear: () => void
     getSelectedNodeIds: () => NodeId[]
-    beginBox: (mode?: SelectionMode) => void
-    updateBox: (selectionRect: Rect, selectionRectWorld?: Rect) => void
-    endBox: () => void
   }
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>
