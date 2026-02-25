@@ -1,6 +1,7 @@
 import type { NodeId } from '@whiteboard/core/types'
 import { MindmapLayer } from './MindmapLayer'
-import { useMindmapDragView, useViewSelector } from '../../common/hooks'
+import { useViewSelector } from '../../common/hooks'
+import { useMindmapDragInteraction } from '../hooks/useMindmapDragInteraction'
 
 const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
   if (left.length !== right.length) return false
@@ -18,6 +19,12 @@ const useMindmapTreeIds = () => {
 
 export const MindmapLayerStack = () => {
   const treeIds = useMindmapTreeIds()
-  const drag = useMindmapDragView()
-  return <MindmapLayer treeIds={treeIds} drag={drag} />
+  const { drag, handleMindmapNodePointerDown } = useMindmapDragInteraction()
+  return (
+    <MindmapLayer
+      treeIds={treeIds}
+      drag={drag}
+      onNodePointerDown={handleMindmapNodePointerDown}
+    />
+  )
 }

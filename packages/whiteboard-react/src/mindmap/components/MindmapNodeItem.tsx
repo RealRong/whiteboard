@@ -6,6 +6,7 @@ import {
   MINDMAP_NODE_DEFAULT_BORDER,
   MINDMAP_NODE_TRANSITION
 } from '../constants'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type MindmapNodeItemProps = {
   id: MindmapNodeId
@@ -18,6 +19,7 @@ type MindmapNodeItemProps = {
   showActions: boolean
   dragPreviewActive: boolean
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => void
 }
 
 export const MindmapNodeItem = ({
@@ -30,7 +32,8 @@ export const MindmapNodeItem = ({
   attachTarget,
   showActions,
   dragPreviewActive,
-  onAddChild
+  onAddChild,
+  onPointerDown
 }: MindmapNodeItemProps) => {
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
   const borderWidth = attachTarget ? MINDMAP_NODE_ACTIVE_BORDER : MINDMAP_NODE_DEFAULT_BORDER
@@ -42,6 +45,9 @@ export const MindmapNodeItem = ({
       data-drag-active={dragActive ? 'true' : undefined}
       data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
       className="wb-mindmap-node-item"
+      onPointerDown={(event) => {
+        onPointerDown(event, id)
+      }}
       style={{
         '--wb-mindmap-node-w': `${rect.width}px`,
         '--wb-mindmap-node-h': `${rect.height}px`,

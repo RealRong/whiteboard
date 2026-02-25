@@ -5,7 +5,10 @@ import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
 export const EdgeControlPointHandles = () => {
   const selectedRouting = useEdgeSelectedRoutingView()
   const routingDrag = useWhiteboardRenderSelector('routingDrag')
-  const { handleRoutingPointerDown } = useEdgeRoutingInteraction()
+  const {
+    handleRoutingPointerDown,
+    handleRoutingKeyDown
+  } = useEdgeRoutingInteraction()
   const edge = selectedRouting?.edge
   const points = selectedRouting?.points ?? []
   const activeDrag = routingDrag.payload
@@ -26,6 +29,9 @@ export const EdgeControlPointHandles = () => {
           data-routing-index={index}
           onPointerDown={(event) => {
             handleRoutingPointerDown(event, edge.id, index)
+          }}
+          onKeyDown={(event) => {
+            handleRoutingKeyDown(event, edge.id, index)
           }}
           style={{
             '--wb-edge-control-point-x': point.x,

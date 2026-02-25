@@ -1,24 +1,12 @@
 import type { Rect } from '@whiteboard/core/types'
-import {
-  useWhiteboardRenderSelector,
-  useWhiteboardSelector
-} from '../../common/hooks'
+import { useWhiteboardSelector } from '../../common/hooks'
 
-const isSameRect = (left?: Rect, right?: Rect) => {
-  if (left === right) return true
-  if (!left || !right) return false
-  return left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height
+type SelectionLayerProps = {
+  rect?: Rect
 }
 
-export const SelectionLayer = () => {
+export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
   const tool = useWhiteboardSelector('tool')
-  const rect = useWhiteboardRenderSelector(
-    (snapshot) => snapshot.selectionBox.selectionRect,
-    {
-      keys: ['selectionBox'],
-      equality: isSameRect
-    }
-  )
 
   if (!rect || tool === 'edge') return null
 

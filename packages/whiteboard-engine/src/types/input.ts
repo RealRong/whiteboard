@@ -194,34 +194,6 @@ export type InputSessionContext = {
       removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
     }
   }
-  mindmapInput: {
-    drag: {
-      start: (treeId: NodeId, nodeId: NodeId, pointer: PointerInput) => boolean
-      update: (pointer: PointerInput) => boolean
-      end: (pointer: PointerInput) => boolean
-      cancel: () => boolean
-    }
-  }
-  selectionInput: {
-    box: {
-      start: (options: {
-        pointerId: number
-        screen: Point
-        world: Point
-        modifiers: Pick<
-          PointerInputEvent['modifiers'],
-          'alt' | 'shift' | 'ctrl' | 'meta'
-        >
-      }) => boolean
-      update: (options: {
-        pointerId: number
-        screen: Point
-        world: Point
-      }) => boolean
-      end: (pointerId: number) => boolean
-      cancel: (pointerId?: number) => boolean
-    }
-  }
   inputLifecycle: {
     cancelAll: () => void
     resetTransientState: () => void

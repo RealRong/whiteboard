@@ -72,9 +72,6 @@ export type EdgeDomainApi = {
 
 export type MindmapDomainApi = {
   commands: Commands['mindmap']
-  interaction: {
-    drag: InputSessionContext['mindmapInput']['drag']
-  }
   query: {
     getTree: (id: MindmapId) => MindmapViewTree | undefined
   }
@@ -86,9 +83,6 @@ export type MindmapDomainApi = {
 
 export type SelectionDomainApi = {
   commands: Commands['selection']
-  interaction: {
-    box: InputSessionContext['selectionInput']['box']
-  }
   query: {
     get: () => SelectionState
     getSelectedNodeIds: () => NodeId[]
@@ -206,14 +200,6 @@ export type MindmapEntityApi = {
     insertNode: (options: Omit<MindmapInsertNodeInput, 'id'>) => ReturnType<Commands['mindmap']['insertNode']>
     moveSubtreeWithLayout: (options: Omit<MindmapMoveSubtreeWithLayoutInput, 'id'>) => ReturnType<Commands['mindmap']['moveSubtreeWithLayout']>
     moveSubtreeWithDrop: (options: Omit<MindmapMoveSubtreeWithDropInput, 'id'>) => ReturnType<Commands['mindmap']['moveSubtreeWithDrop']>
-  }
-  interaction: {
-    drag: {
-      start: (nodeId: Parameters<InputSessionContext['mindmapInput']['drag']['start']>[1], pointer: Parameters<InputSessionContext['mindmapInput']['drag']['start']>[2]) => ReturnType<InputSessionContext['mindmapInput']['drag']['start']>
-      update: InputSessionContext['mindmapInput']['drag']['update']
-      end: InputSessionContext['mindmapInput']['drag']['end']
-      cancel: InputSessionContext['mindmapInput']['drag']['cancel']
-    }
   }
   query: {
     tree: () => MindmapViewTree | undefined

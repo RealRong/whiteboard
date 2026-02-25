@@ -1,9 +1,11 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@whiteboard/engine'
-import { memo } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useCallback } from 'react'
 import { useInstance, useViewSelector, useWhiteboardSelector } from '../../common/hooks'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
+import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 
 const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
   if (left.length !== right.length) return false
@@ -29,13 +31,18 @@ type EdgeItemByIdProps = {
   edgeId: EdgeId
   hitTestThresholdScreen: number
   selected: boolean
+  onEdgePathPointerDown: (
+    event: ReactPointerEvent<SVGPathElement>,
+    entry: EdgePathEntry
+  ) => void
 }
 
 const EdgeItemById = memo(
   ({
     edgeId,
     hitTestThresholdScreen,
-    selected
+    selected,
+    onEdgePathPointerDown
   }: EdgeItemByIdProps) => {
     const path = useEdgePath(edgeId)
     if (!path) return null
@@ -46,17 +53,22 @@ const EdgeItemById = memo(
         path={path.path}
         hitTestThresholdScreen={hitTestThresholdScreen}
         selected={selected}
+        onPathPointerDown={(event) => {
+          onEdgePathPointerDown(event, path)
+        }}
       />
     )
   },
   (prev, next) =>
     prev.edgeId === next.edgeId &&
     prev.hitTestThresholdScreen === next.hitTestThresholdScreen &&
-    prev.selected === next.selected
+    prev.selected === next.selected &&
+    prev.onEdgePathPointerDown === next.onEdgePathPointerDown
 )
 
 export const EdgeLayer = () => {
   const instance = useInstance()
+  const { handleEdgePathPointerDown } = useEdgePathInteraction()
   const edgeIds = useEdgeIds()
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,
@@ -65,6 +77,12 @@ export const EdgeLayer = () => {
     }
   )
   const hitTestThresholdScreen = instance.query.config.get().edge.hitTestThresholdScreen
+  const handleEdgePointerDown = useCallback(
+    (event: ReactPointerEvent<SVGPathElement>, entry: EdgePathEntry) => {
+      handleEdgePathPointerDown(event, entry.edge, entry.path.points)
+    },
+    [handleEdgePathPointerDown]
+  )
 
   return (
     <svg width="100%" height="100%" className="wb-edge-layer">
@@ -75,6 +93,7 @@ export const EdgeLayer = () => {
           edgeId={edgeId}
           hitTestThresholdScreen={hitTestThresholdScreen}
           selected={edgeId === stateSelectedEdgeId}
+          onEdgePathPointerDown={handleEdgePointerDown}
         />
       ))}
     </svg>

@@ -21,8 +21,6 @@ const toShortcutButton = (button: number): 0 | 1 | 2 | undefined => {
   return undefined
 }
 
-const isDeleteKey = (key: string) => key === 'Backspace' || key === 'Delete'
-
 export class InputControllerImpl implements InputControllerType {
   private readonly pointerEngine: PointerSessionEngine
   private readonly getContextBase: () => InputContextBase
@@ -176,32 +174,6 @@ export class InputControllerImpl implements InputControllerType {
     effects.push({ type: 'preventDefault', reason: 'keyboard.space' })
   }
 
-  private handleEdgeRoutingDelete = (
-    context: InputSessionContext,
-    event: Extract<InputEvent, { kind: 'key' }>,
-    effects: InputEffect[]
-  ) => {
-    if (
-      event.target.role !== 'handle'
-      || event.target.handleType !== 'edge-routing'
-      || !isDeleteKey(event.key)
-    ) {
-      return false
-    }
-
-    effects.push({ type: 'preventDefault', reason: 'edge.routing.removePoint' })
-    effects.push({ type: 'stopPropagation', reason: 'edge.routing.removePoint' })
-    const edgeId = event.target.edgeId
-    const routingIndex = event.target.routingIndex
-    if (edgeId && Number.isInteger(routingIndex)) {
-      context.edgeInput.routing.removeRoutingPointAt(
-        edgeId,
-        routingIndex as number
-      )
-    }
-    return true
-  }
-
   private handleKey = (
     event: Extract<InputEvent, { kind: 'key' }>
   ): ReturnType<InputControllerType['handle']> => {
@@ -221,10 +193,6 @@ export class InputControllerImpl implements InputControllerType {
     }
 
     if (event.phase !== 'down' || event.source !== 'container') {
-      return { effects }
-    }
-
-    if (this.handleEdgeRoutingDelete(context, event, effects)) {
       return { effects }
     }
 

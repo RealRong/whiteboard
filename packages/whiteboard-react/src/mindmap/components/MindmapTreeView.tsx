@@ -3,13 +3,24 @@ import type { MindmapNodeId } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
 import { MindmapNodeItem } from './MindmapNodeItem'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { NodeId } from '@whiteboard/core/types'
 
 type MindmapTreeViewProps = {
   item: MindmapViewTree
   drag?: MindmapDragView
+  onNodePointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    treeId: NodeId,
+    nodeId: MindmapNodeId
+  ) => void
 }
 
-export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
+export const MindmapTreeView = ({
+  item,
+  drag,
+  onNodePointerDown
+}: MindmapTreeViewProps) => {
   const { tree, node: mindmapNode, computed, shiftX, shiftY, lines, labels, layout } = item
   const instance = useInstance()
   const nodeSize = instance.query.config.get().mindmapNodeSize
@@ -70,6 +81,9 @@ export const MindmapTreeView = ({ item, drag }: MindmapTreeViewProps) => {
             showActions={!dragPreview}
             dragPreviewActive={Boolean(dragPreview)}
             onAddChild={handleAddChild}
+            onPointerDown={(event, nextNodeId) => {
+              onNodePointerDown(event, mindmapNode.id, nextNodeId)
+            }}
           />
         )
       })}

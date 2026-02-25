@@ -15,6 +15,7 @@ import {
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
 import { DomInputAdapter } from './common/input/DomInputAdapter'
+import { useSelectionBoxInteraction } from './common/interaction/useSelectionBoxInteraction'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -207,6 +208,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     }),
     [viewportTransform]
   )
+  const { selectionRect, handleViewportPointerDown } = useSelectionBoxInteraction(instance)
 
   return (
     <InstanceProvider value={instance}>
@@ -217,13 +219,17 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
           style={containerStyle}
           tabIndex={0}
         >
-          <div className="wb-root-viewport" style={transformStyle}>
+          <div
+            className="wb-root-viewport"
+            style={transformStyle}
+            onPointerDown={handleViewportPointerDown}
+          >
             <EdgeLayerStack />
             <MindmapLayerStack />
             <DragGuidesLayer />
             <NodeLayer />
           </div>
-          <SelectionLayer />
+          <SelectionLayer rect={selectionRect} />
         </div>
       </NodeRegistryProvider>
     </InstanceProvider>

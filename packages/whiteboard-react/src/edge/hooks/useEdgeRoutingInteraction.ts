@@ -1,95 +1,102 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { Point } from '@whiteboard/core/types'
-import type { Instance, PointerInput } from '@whiteboard/engine'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent
+} from 'react'
+import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
 
-type RoutingDraft = NonNullable<
-  ReturnType<
-    Instance['domains']['edge']['interaction']['routing']['begin']
-  >
->
-
-type RoutingEdgeId = Parameters<
-  Instance['domains']['edge']['interaction']['routing']['begin']
->[0]['edgeId']
-
-type ActiveRouting = {
+type RoutingDraft = {
+  edgeId: EdgeId
+  index: number
   pointerId: number
-  button: 0 | 1 | 2
-  draft: RoutingDraft
+  start: Point
+  origin: Point
+  point: Point
 }
 
-const normalizeButton = (button: number): 0 | 1 | 2 => {
-  if (button === 1 || button === 2) return button
-  return 0
+type EdgeEntry = {
+  edge: Edge
 }
 
-const toPointerInput = (
-  instance: Instance,
-  event: PointerEvent | ReactPointerEvent<HTMLDivElement>,
-  fallbackButton?: 0 | 1 | 2
-): PointerInput => {
-  const button = fallbackButton ?? normalizeButton(event.button)
-  const client: Point = {
-    x: event.clientX,
-    y: event.clientY
-  }
-  const screen = instance.query.viewport.clientToScreen(
-    event.clientX,
-    event.clientY
-  )
-  return {
-    pointerId: event.pointerId,
-    button,
-    client,
-    screen,
-    world: instance.query.viewport.screenToWorld(screen),
-    modifiers: {
-      shift: event.shiftKey,
-      alt: event.altKey,
-      ctrl: event.ctrlKey,
-      meta: event.metaKey
-    }
-  }
+const toPointerWorld = (
+  clientX: number,
+  clientY: number,
+  clientToScreen: (clientX: number, clientY: number) => Point,
+  screenToWorld: (screen: Point) => Point
+) => {
+  const screen = clientToScreen(clientX, clientY)
+  return screenToWorld(screen)
 }
+
+const resolveEdgeEntry = (
+  edgeId: EdgeId,
+  readById: (id: EdgeId) => EdgeEntry | undefined
+): EdgeEntry | undefined => readById(edgeId)
 
 export const useEdgeRoutingInteraction = () => {
   const instance = useInstance()
-  const [active, setActive] = useState<ActiveRouting | null>(null)
-  const activeRef = useRef<ActiveRouting | null>(null)
+  const [activePointerId, setActivePointerId] = useState<number | null>(null)
+  const activeRef = useRef<RoutingDraft | null>(null)
+
+  const readEdgeById = useCallback(
+    (edgeId: EdgeId) =>
+      instance.view.getState().edges.byId.get(edgeId) as EdgeEntry | undefined,
+    [instance.view]
+  )
+
+  const clearActive = useCallback((pointerId?: number) => {
+    const active = activeRef.current
+    if (!active) return
+    if (pointerId !== undefined && active.pointerId !== pointerId) return
+    activeRef.current = null
+    setActivePointerId(null)
+    instance.render.write('routingDrag', {})
+  }, [instance.render])
 
   const handleRoutingPointerDown = useCallback(
     (
       event: ReactPointerEvent<HTMLDivElement>,
-      edgeId: RoutingEdgeId,
+      edgeId: EdgeId,
       index: number
     ) => {
       if (event.button !== 0) return
-      if (active) return
+      if (activeRef.current) return
+      if (instance.render.read('spacePressed')) return
+
+      const entry = resolveEdgeEntry(edgeId, readEdgeById)
+      if (!entry) return
+      if (entry.edge.type === 'bezier' || entry.edge.type === 'curve') return
+      const points = entry.edge.routing?.points ?? []
+      if (index < 0 || index >= points.length) return
 
       if (event.detail >= 2) {
-        instance.domains.edge.interaction.routing.removeRoutingPointAt(
-          edgeId,
-          index
-        )
+        instance.commands.edge.removeRoutingPoint(entry.edge, index)
         event.preventDefault()
         event.stopPropagation()
         return
       }
 
-      const pointer = toPointerInput(instance, event)
-      const draft = instance.domains.edge.interaction.routing.begin({
+      const start = toPointerWorld(
+        event.clientX,
+        event.clientY,
+        instance.query.viewport.clientToScreen,
+        instance.query.viewport.screenToWorld
+      )
+      const origin = points[index]
+      if (!origin) return
+      const draft: RoutingDraft = {
         edgeId,
         index,
-        pointer
-      })
-      if (!draft) return
-
-      setActive({
         pointerId: event.pointerId,
-        button: pointer.button,
-        draft
+        start,
+        origin,
+        point: origin
+      }
+      activeRef.current = draft
+      setActivePointerId(event.pointerId)
+      instance.render.write('routingDrag', {
+        payload: draft
       })
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -99,53 +106,99 @@ export const useEdgeRoutingInteraction = () => {
       event.preventDefault()
       event.stopPropagation()
     },
-    [active, instance]
+    [
+      instance.commands.edge,
+      instance.query.viewport.clientToScreen,
+      instance.query.viewport.screenToWorld,
+      instance.render,
+      readEdgeById
+    ]
+  )
+
+  const handleRoutingKeyDown = useCallback(
+    (
+      event: ReactKeyboardEvent<HTMLDivElement>,
+      edgeId: EdgeId,
+      index: number
+    ) => {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return
+      const entry = resolveEdgeEntry(edgeId, readEdgeById)
+      if (!entry) return
+      if (entry.edge.type === 'bezier' || entry.edge.type === 'curve') return
+      const points = entry.edge.routing?.points ?? []
+      if (index < 0 || index >= points.length) return
+      instance.commands.edge.removeRoutingPoint(entry.edge, index)
+      event.preventDefault()
+      event.stopPropagation()
+    },
+    [instance.commands.edge, readEdgeById]
   )
 
   useEffect(() => {
-    activeRef.current = active
-  }, [active])
-
-  useEffect(() => {
-    if (!active || typeof window === 'undefined') return
+    if (activePointerId === null || typeof window === 'undefined') return undefined
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
-      instance.domains.edge.interaction.routing.updateDraft({
-        draft: active.draft,
-        pointer: toPointerInput(instance, event, active.button)
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
+
+      const entry = resolveEdgeEntry(active.edgeId, readEdgeById)
+      if (!entry || entry.edge.type === 'bezier' || entry.edge.type === 'curve') {
+        clearActive(active.pointerId)
+        return
+      }
+      const points = entry.edge.routing?.points ?? []
+      if (active.index < 0 || active.index >= points.length) {
+        clearActive(active.pointerId)
+        return
+      }
+
+      const world = toPointerWorld(
+        event.clientX,
+        event.clientY,
+        instance.query.viewport.clientToScreen,
+        instance.query.viewport.screenToWorld
+      )
+      const point = {
+        x: active.origin.x + (world.x - active.start.x),
+        y: active.origin.y + (world.y - active.start.y)
+      }
+      const next: RoutingDraft = {
+        ...active,
+        point
+      }
+      activeRef.current = next
+      instance.render.batchFrame(() => {
+        instance.render.write('routingDrag', { payload: next })
       })
     }
 
     const handlePointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
-      instance.domains.edge.interaction.routing.commitDraft(
-        active.draft
-      )
-      setActive(null)
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
+      const entry = resolveEdgeEntry(active.edgeId, readEdgeById)
+      if (entry && entry.edge.type !== 'bezier' && entry.edge.type !== 'curve') {
+        instance.commands.edge.moveRoutingPoint(
+          entry.edge,
+          active.index,
+          active.point
+        )
+      }
+      clearActive(active.pointerId)
     }
 
     const handlePointerCancel = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
-      instance.domains.edge.interaction.routing.cancelDraft({
-        draft: active.draft
-      })
-      setActive(null)
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
+      clearActive(active.pointerId)
     }
 
     const handleBlur = () => {
-      instance.domains.edge.interaction.routing.cancelDraft({
-        draft: active.draft
-      })
-      setActive(null)
+      clearActive()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      instance.domains.edge.interaction.routing.cancelDraft({
-        draft: active.draft
-      })
-      setActive(null)
+      clearActive()
     }
 
     window.addEventListener('pointermove', handlePointerMove)
@@ -161,16 +214,25 @@ export const useEdgeRoutingInteraction = () => {
       window.removeEventListener('blur', handleBlur)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [active, instance])
+  }, [
+    activePointerId,
+    clearActive,
+    instance.commands.edge,
+    instance.query.viewport.clientToScreen,
+    instance.query.viewport.screenToWorld,
+    instance.render,
+    readEdgeById
+  ])
 
-  useEffect(() => () => {
-    if (!activeRef.current) return
-    instance.domains.edge.interaction.routing.cancelDraft({
-      draft: activeRef.current.draft
-    })
-  }, [instance])
+  useEffect(
+    () => () => {
+      clearActive()
+    },
+    [clearActive]
+  )
 
   return {
-    handleRoutingPointerDown
+    handleRoutingPointerDown,
+    handleRoutingKeyDown
   }
 }

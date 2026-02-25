@@ -1,24 +1,18 @@
 import type { Commands } from '@engine-types/commands'
 import type { MindmapDomainApi, MindmapEntityApi } from '@engine-types/domains'
-import type { InputSessionContext } from '@engine-types/input'
 import type { View } from '@engine-types/instance/view'
 import type { MindmapId } from '@whiteboard/core/types'
 
 type Options = {
   commands: Pick<Commands, 'mindmap'>
-  mindmapInput: InputSessionContext['mindmapInput']
   view: View
 }
 
 export const createMindmapDomainApi = ({
   commands,
-  mindmapInput,
   view
 }: Options): MindmapDomainApi => ({
   commands: commands.mindmap,
-  interaction: {
-    drag: mindmapInput.drag
-  },
   query: {
     getTree: (id) => view.getState().mindmap.byId.get(id)
   },
@@ -77,19 +71,6 @@ export const bindMindmapDomainApiById = (
         id: mindmapId,
         ...options
       })
-  },
-  interaction: {
-    drag: {
-      start: (nodeId, pointer) =>
-        api.interaction.drag.start(
-          mindmapId,
-          nodeId,
-          pointer
-        ),
-      update: api.interaction.drag.update,
-      end: api.interaction.drag.end,
-      cancel: api.interaction.drag.cancel
-    }
   },
   query: {
     tree: () => api.query.getTree(mindmapId)

@@ -1,6 +1,7 @@
 import type { Edge, Point } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
 
 type EdgeItemProps = {
@@ -8,6 +9,7 @@ type EdgeItemProps = {
   path: { svgPath: string; points: Point[] }
   hitTestThresholdScreen: number
   selected?: boolean
+  onPathPointerDown?: (event: ReactPointerEvent<SVGPathElement>) => void
 }
 
 const resolveMarker = (value: string | undefined, fallbackId: string) => {
@@ -57,7 +59,8 @@ const EdgeItemBase = ({
   edge,
   path,
   hitTestThresholdScreen,
-  selected
+  selected,
+  onPathPointerDown
 }: EdgeItemProps) => {
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useMemo(() => {
     const baseStroke = edge.style?.stroke ?? '#2f2f33'
@@ -102,6 +105,7 @@ const EdgeItemBase = ({
         pointerEvents="stroke"
         tabIndex={0}
         className="wb-edge-hit-path"
+        onPointerDown={onPathPointerDown}
       />
       <path
         d={path.svgPath}

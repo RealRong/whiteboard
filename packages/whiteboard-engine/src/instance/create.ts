@@ -16,7 +16,6 @@ import { MutationExecutor } from '../runtime/write/MutationExecutor'
 import { WriteCoordinator } from '../runtime/write/WriteCoordinator'
 import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory'
-import { createDefaultPointerSessions } from '../input/sessions/defaults'
 import { Scheduler } from '../runtime/Scheduler'
 import { createEdgeCommands } from '../domains/edge/commands/edgeCommands'
 import { Actor as GroupAutoFitActor } from '../runtime/actors/groupAutoFit/Actor'
@@ -28,8 +27,6 @@ import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 import { NodeInputGateway } from '../domains/node/interaction/Gateway'
 import { EdgeInputGateway } from '../domains/edge/interaction/Gateway'
-import { MindmapInputGateway } from '../domains/mindmap/interaction/Gateway'
-import { SelectionInputGateway } from '../domains/selection/interaction/Gateway'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
@@ -158,18 +155,8 @@ export const createEngine = ({
   const mindmapActor = new MindmapActor({
     instance
   })
-  const mindmapInputGateway = new MindmapInputGateway({
-    instance,
-    mindmap: {
-      moveRoot: mindmapActor.moveRoot,
-      moveSubtreeWithDrop: mindmapActor.moveSubtreeWithDrop
-    }
-  })
   const interactionActor = new InteractionActor({
     state
-  })
-  const selectionInputGateway = new SelectionInputGateway({
-    instance
   })
   const clearRoutingTransient = () => {
     const cancelled = edgeInputGateway.routingInput.cancelDraft()
@@ -182,19 +169,14 @@ export const createEngine = ({
   const resetSelectionTransient = () => {
     clearRoutingTransient()
     render.write('groupHover', {})
-    selectionInputGateway.resetTransientState()
   }
   const cancelAllInputInteractions = () => {
     nodeInputGateway.cancelInteractions()
     edgeInputGateway.cancelInteractions()
-    mindmapInputGateway.cancelDrag()
-    selectionInputGateway.cancelBox()
   }
   const resetAllInputTransientState = () => {
     nodeInputGateway.resetTransientState()
     edgeInputGateway.resetTransientState()
-    mindmapInputGateway.resetTransientState()
-    selectionInputGateway.resetTransientState()
   }
   const getActiveRoutingDrag = () => render.read('routingDrag').payload
   const selectionActor = new SelectionActor({
@@ -355,16 +337,10 @@ export const createEngine = ({
     }),
     mindmap: createMindmapDomainApi({
       commands,
-      mindmapInput: {
-        drag: mindmapInputGateway.dragInput
-      },
       view: viewRuntime.view
     }),
     selection: createSelectionDomainApi({
       commands,
-      selectionInput: {
-        box: selectionInputGateway.boxInput
-      },
       state,
       view: viewRuntime.view
     }),
@@ -408,12 +384,6 @@ export const createEngine = ({
       edgeInput: {
         routing: edgeInputGateway.routingInput
       },
-      mindmapInput: {
-        drag: mindmapInputGateway.dragInput
-      },
-      selectionInput: {
-        box: selectionInputGateway.boxInput
-      },
       inputLifecycle: {
         cancelAll: cancelAllInputInteractions,
         resetTransientState: resetAllInputTransientState
@@ -424,8 +394,7 @@ export const createEngine = ({
       },
       shortcuts,
       config
-    }),
-    sessions: createDefaultPointerSessions()
+    })
   })
   instance.input = inputPort
   const lifecycleRuntime = new Lifecycle(
