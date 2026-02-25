@@ -13,8 +13,7 @@ export type {
   ProjectionReplaceInput,
   ProjectionCommit,
   ProjectionStore,
-  CreateProjectionStoreOptions,
-  NodeViewUpdate
+  CreateProjectionStoreOptions
 } from './projection'
 export type {
   PointerPhase,
@@ -100,6 +99,8 @@ export type {
   MindmapDragState,
   MindmapRootDragState,
   MindmapSubtreeDragState,
+  NodePreviewState,
+  NodePreviewUpdate,
   NodeDragPayload,
   NodeDragState,
   NodeTransformPayload,
@@ -108,6 +109,7 @@ export type {
   ResizeDragState,
   RotateDragState,
   NodeTransformState,
+  SelectionBoxState,
   SelectionMode,
   SelectionState,
   SnapRuntimeData

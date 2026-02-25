@@ -32,16 +32,8 @@ export const createNodeDomain = ({
   const node = createNodeRegistry({
     query,
     readProjection,
-    readRotatePreview: () => {
-      const payload = readState('nodeTransform').payload
-      if (!payload || payload.drag.mode !== 'rotate') return undefined
-      const rotation = payload.drag.currentRotation
-      if (typeof rotation !== 'number') return undefined
-      return {
-        nodeId: payload.nodeId,
-        rotation
-      }
-    }
+    readPreviewUpdates: () =>
+      readState('nodePreview').updates
   })
 
   const readNodeItems = () => node.getNodeItemsMap()

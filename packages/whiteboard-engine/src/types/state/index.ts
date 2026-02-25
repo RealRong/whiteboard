@@ -7,10 +7,13 @@ export type {
   MindmapDragState,
   MindmapRootDragState,
   MindmapSubtreeDragState,
+  NodePreviewState,
+  NodePreviewUpdate,
   NodeDragPayload,
   NodeDragState,
   NodeTransformPayload,
   NodeTransformState,
+  SelectionBoxState,
   SelectionMode,
   SelectionState
 } from './model'

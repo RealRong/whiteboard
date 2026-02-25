@@ -3,6 +3,7 @@ import type {
   ProjectionSnapshot
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
+import type { NodePreviewUpdate } from '@engine-types/state'
 import type {
   NodeViewItem,
 } from '@engine-types/instance/view'
@@ -17,10 +18,10 @@ type NodeViewItemEntry = NodeViewItem
 type Options = {
   query: Query
   readProjection: () => ProjectionSnapshot
-  readRotatePreview: () => { nodeId: NodeId; rotation: number } | undefined
+  readPreviewUpdates: () => readonly NodePreviewUpdate[]
 }
 
-export type NodeStateSyncKey = 'nodeTransform'
+export type NodeStateSyncKey = 'nodePreview'
 
 export type NodeRegistry = {
   applyCommit: (commit: ProjectionCommit) => boolean
@@ -32,18 +33,20 @@ export type NodeRegistry = {
 export const createNodeRegistry = ({
   query,
   readProjection,
-  readRotatePreview
+  readPreviewUpdates
 }: Options): NodeRegistry => {
   const cache = new NodeProjectionCache(query)
   let nodeIds: NodeId[] = []
-  let previewNodeId: NodeId | undefined
+  let previewById = new Map<NodeId, NodePreviewUpdate>()
 
-  const withRotationPreview = (
-    nodeId: NodeId
-  ): number | undefined => {
-    const preview = readRotatePreview()
-    if (!preview || preview.nodeId !== nodeId) return undefined
-    return preview.rotation
+  const readPreview = (nodeId: NodeId) => previewById.get(nodeId)
+
+  const toPreviewMap = () => {
+    const next = new Map<NodeId, NodePreviewUpdate>()
+    readPreviewUpdates().forEach((update) => {
+      next.set(update.id, update)
+    })
+    return next
   }
 
   const syncNodeOrder = () => {
@@ -66,7 +69,7 @@ export const createNodeRegistry = ({
     changed = cache.syncByIds(
       changedNodeIds,
       snapshot.indexes.canvasNodeById,
-      withRotationPreview
+      readPreview
     ) || changed
     return changed
   }
@@ -93,7 +96,7 @@ export const createNodeRegistry = ({
       changed = cache.syncByIds(
         dirtyNodeIds,
         snapshot.indexes.canvasNodeById,
-        withRotationPreview
+        readPreview
       ) || changed
     }
 
@@ -107,24 +110,23 @@ export const createNodeRegistry = ({
     return changed
   }
 
-  const syncNodeTransform = () => {
-    const nextPreview = readRotatePreview()
-    const nextPreviewNodeId = nextPreview?.nodeId
+  const syncPreviewState = () => {
+    const nextPreviewById = toPreviewMap()
     const targetNodeIds = new Set<NodeId>()
-    if (previewNodeId) targetNodeIds.add(previewNodeId)
-    if (nextPreviewNodeId) targetNodeIds.add(nextPreviewNodeId)
-    previewNodeId = nextPreviewNodeId
+    previewById.forEach((_, nodeId) => targetNodeIds.add(nodeId))
+    nextPreviewById.forEach((_, nodeId) => targetNodeIds.add(nodeId))
+    previewById = nextPreviewById
     if (!targetNodeIds.size) return false
     return cache.syncByIds(
       targetNodeIds,
       readProjection().indexes.canvasNodeById,
-      withRotationPreview
+      readPreview
     )
   }
 
   const syncState: NodeRegistry['syncState'] = (key) => {
-    if (key === 'nodeTransform') {
-      return syncNodeTransform()
+    if (key === 'nodePreview') {
+      return syncPreviewState()
     }
     return false
   }

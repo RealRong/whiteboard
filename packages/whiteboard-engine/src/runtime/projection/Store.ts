@@ -1,4 +1,4 @@
-import type { Document, NodeId } from '@whiteboard/core/types'
+import type { Document } from '@whiteboard/core/types'
 import { ProjectionCache } from './cache/ProjectionCache'
 import type {
   ProjectionApplyInput,
@@ -11,10 +11,6 @@ import type {
 
 const EMPTY_TAGS = new Set<ProjectionImpactTag>()
 const FULL_TAGS = new Set<ProjectionImpactTag>(['full'])
-const RUNTIME_NODE_DIRTY_TAGS = new Set<ProjectionImpactTag>([
-  'nodes',
-  'geometry'
-])
 
 const EMPTY_IMPACT: ProjectionImpact = {
   tags: EMPTY_TAGS
@@ -27,16 +23,13 @@ const FULL_IMPACT: ProjectionImpact = {
 const hasDirtyHints = (impact: ProjectionImpact) =>
   Boolean(impact.dirtyNodeIds?.length || impact.dirtyEdgeIds?.length)
 
-const uniqueNodeIds = (nodeIds: readonly NodeId[]): NodeId[] =>
-  Array.from(new Set(nodeIds))
-
 const normalizeImpact = (
   impact: ProjectionImpact | undefined,
   fallback: ProjectionImpact
 ): ProjectionImpact => {
   const next = impact ?? fallback
   const dirtyNodeIds = next.dirtyNodeIds?.length
-    ? uniqueNodeIds(next.dirtyNodeIds)
+    ? Array.from(new Set(next.dirtyNodeIds))
     : undefined
   const dirtyEdgeIds = next.dirtyEdgeIds?.length
     ? Array.from(new Set(next.dirtyEdgeIds))
@@ -69,9 +62,6 @@ export class ProjectionStore implements ProjectionStoreType {
     }
   }
 
-  readNodeOverrides: ProjectionStoreType['readNodeOverrides'] = () =>
-    this.cache.readNodeOverrides()
-
   apply: ProjectionStoreType['apply'] = (input) => {
     const impact = normalizeImpact(
       input.impact,
@@ -87,32 +77,6 @@ export class ProjectionStore implements ProjectionStoreType {
       this.emitCommit(commit)
     }
     return commit
-  }
-
-  patchNodeOverrides: ProjectionStoreType['patchNodeOverrides'] = (updates) => {
-    const changedNodeIds = this.cache.patchNodeOverrides(updates)
-    if (!changedNodeIds.length) return undefined
-    return this.apply({
-      doc: this.getDoc(),
-      operations: [],
-      impact: {
-        tags: RUNTIME_NODE_DIRTY_TAGS,
-        dirtyNodeIds: changedNodeIds
-      }
-    })
-  }
-
-  clearNodeOverrides: ProjectionStoreType['clearNodeOverrides'] = (ids) => {
-    const changedNodeIds = this.cache.clearNodeOverrides(ids)
-    if (!changedNodeIds.length) return undefined
-    return this.apply({
-      doc: this.getDoc(),
-      operations: [],
-      impact: {
-        tags: RUNTIME_NODE_DIRTY_TAGS,
-        dirtyNodeIds: changedNodeIds
-      }
-    })
   }
 
   replace: ProjectionStoreType['replace'] = (input) => {

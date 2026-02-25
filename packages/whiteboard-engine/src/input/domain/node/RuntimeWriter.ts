@@ -5,7 +5,7 @@ import type {
 } from './RuntimeOutput'
 
 type WriterOptions = {
-  instance: Pick<InternalInstance, 'state' | 'projection' | 'mutate'>
+  instance: Pick<InternalInstance, 'state' | 'mutate'>
 }
 
 const isSameSet = <T,>(left: Set<T>, right: Set<T>) => {
@@ -18,12 +18,10 @@ const isSameSet = <T,>(left: Set<T>, right: Set<T>) => {
 
 export class RuntimeWriter {
   private readonly state: WriterOptions['instance']['state']
-  private readonly projection: WriterOptions['instance']['projection']
   private readonly mutate: WriterOptions['instance']['mutate']
 
   constructor({ instance }: WriterOptions) {
     this.state = instance.state
-    this.projection = instance.projection
     this.mutate = instance.mutate
   }
 
@@ -127,22 +125,18 @@ export class RuntimeWriter {
         )
       }
 
+      if (output.nodePreview !== undefined) {
+        this.state.write('nodePreview', {
+          updates: output.nodePreview
+        })
+      }
+
       if (output.guides) {
         this.state.write('dragGuides', output.guides)
       }
 
-      if (output.overrideUpdates?.length) {
-        this.projection.patchNodeOverrides(output.overrideUpdates)
-      }
-
       if (output.mutations?.length) {
         this.submitMutations(output.mutations)
-      }
-
-      if (output.clearAllOverrides) {
-        this.projection.clearNodeOverrides()
-      } else if (output.clearOverrideIds?.length) {
-        this.projection.clearNodeOverrides(output.clearOverrideIds)
       }
     })
   }

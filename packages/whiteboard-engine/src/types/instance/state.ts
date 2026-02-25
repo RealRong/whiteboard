@@ -9,8 +9,10 @@ import type {
   InteractionSessionState,
   MindmapDragState,
   NodeDragState,
+  NodePreviewState,
   NodeTransformState,
   RoutingDragState,
+  SelectionBoxState,
   SelectionState
 } from '../state'
 
@@ -19,6 +21,7 @@ export type StateSnapshot = {
   interactionSession: InteractionSessionState
   tool: 'select' | 'edge'
   selection: SelectionState
+  selectionBox: SelectionBoxState
   edgeConnect: EdgeConnectState
   routingDrag: RoutingDragState
   viewport: Viewport
@@ -26,6 +29,7 @@ export type StateSnapshot = {
   mindmapDrag: MindmapDragState
   nodeDrag: NodeDragState
   nodeTransform: NodeTransformState
+  nodePreview: NodePreviewState
   spacePressed: boolean
   dragGuides: Guide[]
 }
@@ -37,12 +41,14 @@ export type WritableStateSnapshot = Pick<
   | 'interactionSession'
   | 'tool'
   | 'selection'
+  | 'selectionBox'
   | 'edgeConnect'
   | 'routingDrag'
   | 'mindmapLayout'
   | 'mindmapDrag'
   | 'nodeDrag'
   | 'nodeTransform'
+  | 'nodePreview'
   | 'spacePressed'
   | 'dragGuides'
 >

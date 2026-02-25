@@ -1,5 +1,5 @@
-import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { SelectionMode } from '../state'
+import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import type { SelectionBoxState, SelectionMode } from '../state'
 
 export type SelectionOptions = {
   minDragDistance?: number
@@ -16,9 +16,7 @@ export type SelectionState = {
   tool: 'select' | 'edge'
   selectedEdgeId?: EdgeId
   selectedNodeIds: Set<NodeId>
-  isSelecting: boolean
-  selectionRect?: Rect
-  selectionRectWorld?: Rect
+  selectionBox: SelectionBoxState
   isSelected: (id: NodeId) => boolean
   hasSelection: () => boolean
 }

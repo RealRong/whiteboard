@@ -2,8 +2,11 @@ import type { PointerInput } from '@engine-types/common'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { Guide } from '@engine-types/node/snap'
-import type { NodeViewUpdate } from '@engine-types/projection'
-import type { SelectionMode, SelectionState } from '@engine-types/state'
+import type {
+  NodePreviewUpdate,
+  SelectionMode,
+  SelectionState
+} from '@engine-types/state'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { computeSnap, findSmallestGroupAtPoint, getGroupDescendants } from '@whiteboard/core/node'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../../config'
@@ -241,8 +244,8 @@ export class Rules {
   buildGroupUpdates = (
     session: NodeDragSession,
     position: Point
-  ): NodeViewUpdate[] => {
-    const updates: NodeViewUpdate[] = [{
+  ): NodePreviewUpdate[] => {
+    const updates: NodePreviewUpdate[] = [{
       id: session.nodeId,
       position
     }]

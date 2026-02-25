@@ -4,9 +4,7 @@ import type {
   Edge,
   Node,
   NodeId,
-  Operation,
-  Point,
-  Size
+  Operation
 } from '@whiteboard/core/types'
 
 export type ProjectionNodesSlice = {
@@ -26,12 +24,6 @@ export type ProjectionIndexesSlice = {
   canvasNodeById: Map<NodeId, Node>
   visibleNodeIndexById: Map<NodeId, number>
   canvasNodeIndexById: Map<NodeId, number>
-}
-
-export type NodeViewUpdate = {
-  id: NodeId
-  position?: Point
-  size?: Size
 }
 
 export type ProjectionSnapshot = {
@@ -82,9 +74,6 @@ export type ProjectionStore = {
   getSnapshot: () => ProjectionSnapshot
   getRevision: () => number
   subscribe: (listener: (commit: ProjectionCommit) => void) => () => void
-  readNodeOverrides: () => NodeViewUpdate[]
-  patchNodeOverrides: (updates: NodeViewUpdate[]) => ProjectionCommit | undefined
-  clearNodeOverrides: (ids?: NodeId[]) => ProjectionCommit | undefined
   apply: (input: ProjectionApplyInput) => ProjectionCommit
   replace: (input: ProjectionReplaceInput) => ProjectionCommit
 }

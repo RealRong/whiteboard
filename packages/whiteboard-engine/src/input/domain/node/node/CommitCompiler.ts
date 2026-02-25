@@ -1,5 +1,5 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { NodeViewUpdate } from '@engine-types/projection'
+import type { NodePreviewUpdate } from '@engine-types/state'
 import type {
   Document,
   Node,
@@ -27,7 +27,7 @@ type CompilerOptions = {
 type CompileInput = {
   session: NodeDragSession
   finalPosition: Point
-  updates: NodeViewUpdate[]
+  updates: NodePreviewUpdate[]
   hoveredGroupId?: NodeId
 }
 

@@ -78,7 +78,8 @@ export class Planner {
           nodeId: options.nodeId,
           drag
         }
-      }
+      },
+      nodePreview: []
     }
   }
 
@@ -105,7 +106,8 @@ export class Planner {
           nodeId: options.nodeId,
           drag
         }
-      }
+      },
+      nodePreview: []
     }
   }
 
@@ -130,12 +132,12 @@ export class Planner {
       active.drag.lastUpdate = lastUpdate
       return {
         frame: true,
-        guides: resolved.guides,
-        overrideUpdates: [{
+        nodePreview: [{
           id: active.nodeId,
           position: resolved.update.position,
           size: resolved.update.size
         }],
+        guides: resolved.guides,
         nodePayload: {
           transform: {
             nodeId: active.nodeId,
@@ -152,6 +154,10 @@ export class Planner {
     active.drag.currentRotation = rotation
     return {
       frame: true,
+      nodePreview: [{
+        id: active.nodeId,
+        rotation
+      }],
       guides: [],
       nodePayload: {
         transform: {
@@ -169,13 +175,11 @@ export class Planner {
     if (!active) return undefined
 
     let mutations: NodeTransformRuntimeOutput['mutations']
-    let clearOverrideIds: NodeTransformRuntimeOutput['clearOverrideIds']
     if (active.drag.mode === 'resize') {
       mutations = this.commitCompiler.compileResize(
         active.nodeId,
         active.drag.lastUpdate
       )
-      clearOverrideIds = [active.nodeId]
     } else {
       mutations = this.commitCompiler.compileRotate(
         active.nodeId,
@@ -192,8 +196,8 @@ export class Planner {
       nodePayload: {
         transform: null
       },
+      nodePreview: [],
       guides: [],
-      clearOverrideIds,
       mutations
     }
   }
@@ -213,11 +217,8 @@ export class Planner {
       nodePayload: {
         transform: null
       },
-      guides: [],
-      clearOverrideIds:
-        active.drag.mode === 'resize'
-          ? [active.nodeId]
-          : undefined
+      nodePreview: [],
+      guides: []
     }
   }
 

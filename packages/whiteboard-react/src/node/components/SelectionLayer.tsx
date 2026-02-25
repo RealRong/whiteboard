@@ -9,9 +9,9 @@ const isSameRect = (left?: Rect, right?: Rect) => {
 
 export const SelectionLayer = () => {
   const rect = useWhiteboardSelector(
-    (snapshot) => (snapshot.tool === 'edge' ? undefined : snapshot.selection.selectionRect),
+    (snapshot) => (snapshot.tool === 'edge' ? undefined : snapshot.selectionBox.selectionRect),
     {
-      keys: ['tool', 'selection'],
+      keys: ['tool', 'selectionBox'],
       equality: isSameRect
     }
   )

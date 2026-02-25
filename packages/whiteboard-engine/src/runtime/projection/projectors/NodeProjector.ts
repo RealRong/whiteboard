@@ -1,11 +1,9 @@
 import type {
-  Document,
-  NodeId
+  Document
 } from '@whiteboard/core/types'
 import type {
   ProjectionNodesSlice
 } from '@engine-types/projection'
-import type { NodeOverride } from '../cache/NodeOverride'
 import { ViewNodesState } from '../cache/ViewNodesState'
 import { orderByIds } from '../cache/shared'
 import {
@@ -15,7 +13,6 @@ import {
 
 type NodeProjectInput = {
   doc: Document
-  overrides: Map<NodeId, NodeOverride>
 }
 
 export class NodeProjector {
@@ -26,13 +23,9 @@ export class NodeProjector {
   }
 
   project = ({
-    doc,
-    overrides
+    doc
   }: NodeProjectInput): ProjectionNodesSlice => {
-    const viewNodes = this.viewNodesState.update(
-      doc,
-      overrides
-    ).cache
+    const viewNodes = this.viewNodesState.update(doc).cache
 
     const nodeOrder = doc.order?.nodes ?? doc.nodes.map((node) => node.id)
     const orderedViewNodes = orderByIds(viewNodes.nodes, nodeOrder)

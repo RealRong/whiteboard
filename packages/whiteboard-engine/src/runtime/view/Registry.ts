@@ -82,7 +82,7 @@ export const createViewRegistry = ({
 
   const syncStateAll = () => {
     viewport.sync()
-    node.syncState('nodeTransform')
+    node.syncState('nodePreview')
     edge.syncState('tool')
     edge.syncState('edgeConnect')
     edge.syncState('routingDrag')
@@ -111,8 +111,8 @@ export const createViewRegistry = ({
       case 'tool':
         changed = edge.syncState('tool')
         break
-      case 'nodeTransform':
-        changed = node.syncState('nodeTransform')
+      case 'nodePreview':
+        changed = node.syncState('nodePreview')
         break
       case 'edgeConnect':
         changed = edge.syncState('edgeConnect')

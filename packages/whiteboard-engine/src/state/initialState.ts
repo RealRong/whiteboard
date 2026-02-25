@@ -30,8 +30,10 @@ export const createInitialState = (): WritableStateSnapshot => ({
     selectedNodeIds: new Set<NodeId>(),
     selectedEdgeId: undefined,
     groupHovered: undefined,
+    mode: 'replace'
+  },
+  selectionBox: {
     isSelecting: false,
-    mode: 'replace',
     selectionRect: undefined,
     selectionRectWorld: undefined
   },
@@ -41,6 +43,9 @@ export const createInitialState = (): WritableStateSnapshot => ({
   mindmapDrag: {},
   nodeDrag: {},
   nodeTransform: {},
+  nodePreview: {
+    updates: []
+  },
   spacePressed: false,
   dragGuides: []
 })

@@ -1,7 +1,7 @@
 import type { Query } from '@engine-types/instance/query'
 import type { NodeViewItem } from '@engine-types/instance/view'
 import type { Node, NodeId } from '@whiteboard/core/types'
-import { projectNodeItem } from './NodeProject'
+import { projectNodeItem, type NodePreview } from './NodeProject'
 
 type Options = {
   query: Query
@@ -19,7 +19,7 @@ export class NodeProjectionCache {
   syncByIds = (
     targetNodeIds: Iterable<NodeId>,
     canvasNodeById: ReadonlyMap<NodeId, Node>,
-    readRotationPreview?: (nodeId: NodeId) => number | undefined
+    readPreview?: (nodeId: NodeId) => NodePreview | undefined
   ) => {
     let nextById = this.nodeItemsById
     let changed = false
@@ -39,7 +39,7 @@ export class NodeProjectionCache {
       const next = projectNodeItem({
         node,
         query: this.query,
-        rotationOverride: readRotationPreview?.(nodeId),
+        preview: readPreview?.(nodeId),
         previous
       })
       if (previous === next) continue

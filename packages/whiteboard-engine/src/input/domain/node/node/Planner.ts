@@ -112,7 +112,8 @@ export class Planner {
           nodeId: node.id,
           nodeType: node.type
         }
-      }
+      },
+      nodePreview: []
     }
   }
 
@@ -130,7 +131,7 @@ export class Planner {
       allowCross: pointer.modifiers.alt
     })
     const nextPosition = resolved.position
-    const overrideUpdates = session.children
+    const previewUpdates = session.children
       ? this.rules.buildGroupUpdates(session, nextPosition)
       : [
         {
@@ -143,8 +144,15 @@ export class Planner {
 
     return {
       frame: true,
+      nodePreview: previewUpdates,
       guides: resolved.guides,
-      overrideUpdates,
+      nodePayload: {
+        drag: {
+          pointerId: session.pointerId,
+          nodeId: session.nodeId,
+          nodeType: session.nodeType
+        }
+      },
       selection: {
         groupHovered: session.children
           ? undefined
@@ -178,8 +186,6 @@ export class Planner {
       updates,
       hoveredGroupId: this.state.read('selection').groupHovered
     })
-    const clearOverrideIds = updates.map((update) => update.id)
-
     this.sessions.clear()
 
     return {
@@ -193,8 +199,8 @@ export class Planner {
       nodePayload: {
         drag: null
       },
+      nodePreview: [],
       guides: [],
-      clearOverrideIds,
       mutations: operations
     }
   }
@@ -217,8 +223,8 @@ export class Planner {
       nodePayload: {
         drag: null
       },
-      guides: [],
-      clearOverrideIds: [session.nodeId, ...(session.children?.ids ?? [])]
+      nodePreview: [],
+      guides: []
     }
   }
 

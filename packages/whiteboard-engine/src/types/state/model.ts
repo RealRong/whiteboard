@@ -4,7 +4,8 @@ import type {
   Node,
   NodeId,
   Point,
-  Rect
+  Rect,
+  Size
 } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { TransformDragState } from '../node'
@@ -17,10 +18,13 @@ export type SelectionState = {
   selectedNodeIds: Set<NodeId>
   selectedEdgeId?: EdgeId
   groupHovered?: NodeId
+  mode: SelectionMode
+}
+
+export type SelectionBoxState = {
   isSelecting: boolean
   selectionRect?: Rect
   selectionRectWorld?: Rect
-  mode: SelectionMode
 }
 
 export type InteractionState = {
@@ -94,6 +98,17 @@ export type MindmapSubtreeDragState = {
 
 export type MindmapDragState = {
   payload?: MindmapRootDragState | MindmapSubtreeDragState
+}
+
+export type NodePreviewUpdate = {
+  id: NodeId
+  position?: Point
+  size?: Size
+  rotation?: number
+}
+
+export type NodePreviewState = {
+  updates: NodePreviewUpdate[]
 }
 
 export type NodeDragPayload = {

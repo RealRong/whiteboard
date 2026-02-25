@@ -1,4 +1,4 @@
-import type { SelectionMode } from '@engine-types/state'
+import type { SelectionBoxState, SelectionMode } from '@engine-types/state'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   DispatchResult,
@@ -66,6 +66,12 @@ const applySelection = (
   return next
 }
 
+const EMPTY_SELECTION_BOX: SelectionBoxState = {
+  isSelecting: false,
+  selectionRect: undefined,
+  selectionRectWorld: undefined
+}
+
 export class Actor {
   readonly name = 'Selection'
   private readonly instance: ActorOptions['instance']
@@ -122,6 +128,7 @@ export class Actor {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
+      state.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -140,6 +147,7 @@ export class Actor {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
+      state.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -163,14 +171,12 @@ export class Actor {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
+      state.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
         groupHovered: undefined,
-        selectedNodeIds: new Set(),
-        isSelecting: false,
-        selectionRect: undefined,
-        selectionRectWorld: undefined
+        selectedNodeIds: new Set()
       }))
     })
   }
@@ -183,34 +189,26 @@ export class Actor {
         if (prev.active?.kind !== 'routingDrag') return prev
         return {}
       })
+      state.write('selectionBox', EMPTY_SELECTION_BOX)
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
         groupHovered: undefined,
-        mode,
-        isSelecting: false,
-        selectionRect: undefined,
-        selectionRectWorld: undefined
+        mode
       }))
     })
   }
 
   updateBox = (selectionRect: Rect, selectionRectWorld?: Rect) => {
-    this.instance.state.write('selection', (prev) => ({
-      ...prev,
+    this.instance.state.write('selectionBox', {
       isSelecting: true,
       selectionRect,
       selectionRectWorld
-    }))
+    })
   }
 
   endBox = () => {
-    this.instance.state.write('selection', (prev) => ({
-      ...prev,
-      isSelecting: false,
-      selectionRect: undefined,
-      selectionRectWorld: undefined
-    }))
+    this.instance.state.write('selectionBox', EMPTY_SELECTION_BOX)
   }
 
   groupSelected = async () => {

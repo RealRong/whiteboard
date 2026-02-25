@@ -1,9 +1,7 @@
 import type {
-  Document,
-  NodeId
+  Document
 } from '@whiteboard/core/types'
-import { NodeOverrideState } from './NodeOverrideState'
-import type { ProjectionSnapshot, NodeViewUpdate } from '@engine-types/projection'
+import type { ProjectionSnapshot } from '@engine-types/projection'
 import { SnapshotState } from './SnapshotState'
 import { NodeProjector } from '../projectors/NodeProjector'
 import { EdgeProjector } from '../projectors/EdgeProjector'
@@ -11,7 +9,6 @@ import { MindmapProjector } from '../projectors/MindmapProjector'
 import { IndexProjector } from '../projectors/IndexProjector'
 
 export class ProjectionCache {
-  private readonly nodeOverrides = new NodeOverrideState()
   private readonly nodeProjector = new NodeProjector()
   private readonly edgeProjector = new EdgeProjector()
   private readonly mindmapProjector = new MindmapProjector()
@@ -25,11 +22,9 @@ export class ProjectionCache {
       return this.snapshotState.reset()
     }
 
-    const overrides = this.nodeOverrides.readMap()
     const snapshot = this.snapshotState.read()
     const nodes = this.nodeProjector.project({
-      doc,
-      overrides
+      doc
     })
     const edges = this.edgeProjector.project({
       doc,
@@ -54,12 +49,4 @@ export class ProjectionCache {
 
     return nextSnapshot
   }
-
-  readNodeOverrides = (): NodeViewUpdate[] => this.nodeOverrides.readUpdates()
-
-  patchNodeOverrides = (updates: NodeViewUpdate[]): NodeId[] =>
-    this.nodeOverrides.patch(updates)
-
-  clearNodeOverrides = (ids?: NodeId[]): NodeId[] =>
-    this.nodeOverrides.clear(ids)
 }

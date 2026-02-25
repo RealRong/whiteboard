@@ -102,6 +102,7 @@ class ShortcutsImpl implements Shortcuts {
     const interactionSession = this.readState('interactionSession')
     const tool = this.readState('tool')
     const selection = this.readState('selection')
+    const selectionBox = this.readState('selectionBox')
     const selectedEdgeId = selection.selectedEdgeId
     const selectedNodeIds = Array.from(selection.selectedNodeIds)
 
@@ -120,7 +121,7 @@ class ShortcutsImpl implements Shortcuts {
         ...interaction.pointer,
         isDragging:
           interaction.pointer.isDragging ||
-          selection.isSelecting ||
+          selectionBox.isSelecting ||
           interactionSession.active?.kind === 'edgeConnect'
       },
       viewport: {

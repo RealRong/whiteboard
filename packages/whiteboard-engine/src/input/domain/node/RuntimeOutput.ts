@@ -1,6 +1,6 @@
 import type { Guide } from '@engine-types/node/snap'
-import type { NodeViewUpdate } from '@engine-types/projection'
 import type {
+  NodePreviewUpdate,
   NodeDragPayload,
   NodeTransformPayload,
   SelectionMode
@@ -33,10 +33,8 @@ export type RuntimeOutput = {
   selection?: SelectionPatch
   interaction?: InteractionPatch
   nodePayload?: NodePayloadPatch
+  nodePreview?: NodePreviewUpdate[]
   guides?: Guide[]
-  overrideUpdates?: NodeViewUpdate[]
-  clearOverrideIds?: NodeId[]
-  clearAllOverrides?: boolean
   mutations?: Operation[]
 }
 

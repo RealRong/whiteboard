@@ -1,5 +1,4 @@
 import type { Guide } from '@engine-types/node/snap'
-import type { NodeViewUpdate } from '@engine-types/projection'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   DispatchResult,
@@ -19,8 +18,6 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
-import type { Size } from '@engine-types/common'
-import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import { createMutationCommit } from '../shared/MutationCommit'
 import type { RunMutations, SubmitMutations } from '../shared/MutationCommit'
 
@@ -32,7 +29,6 @@ export class Actor {
   readonly name = 'Node'
 
   private readonly state: ActorOptions['instance']['state']
-  private readonly projection: ActorOptions['instance']['projection']
   private readonly readDoc: () => Document
   private readonly instance: ActorOptions['instance']
   private readonly runMutations: RunMutations
@@ -41,7 +37,6 @@ export class Actor {
   constructor({ instance }: ActorOptions) {
     this.instance = instance
     this.state = instance.state
-    this.projection = instance.projection
     this.readDoc = () => this.instance.document.get()
     const commit = createMutationCommit(instance.mutate)
     this.runMutations = commit.run
@@ -290,64 +285,6 @@ export class Actor {
     this.state.write('dragGuides', [])
   }
 
-  setOverrides = (updates: NodeViewUpdate[]) => {
-    this.projection.patchNodeOverrides(updates)
-  }
-
-  clearOverrides = (ids?: NodeId[]) => {
-    this.projection.clearNodeOverrides(ids)
-  }
-
-  commitOverrides = (updates?: NodeViewUpdate[]) => {
-    const list: NodeViewUpdate[] = updates ?? this.projection.readNodeOverrides()
-    if (!list.length) return
-
-    const currentDoc = this.readDoc()
-    const ops = list
-      .map((item) => {
-        const patch: { position?: Point; size?: Size } = {}
-        if (item.position) patch.position = item.position
-        if (item.size) patch.size = item.size
-        if (!patch.position && !patch.size) return null
-
-        const currentNode = currentDoc?.nodes.find((node) => node.id === item.id)
-        if (currentNode) {
-          const samePosition = patch.position === undefined || isPointEqual(patch.position, currentNode.position)
-          const sameSize = patch.size === undefined || isSizeEqual(patch.size, currentNode.size)
-          if (samePosition && sameSize) return null
-        }
-
-        return {
-          id: item.id,
-          patch
-        }
-      })
-      .filter((item): item is { id: NodeId; patch: { position?: Point; size?: Size } } => Boolean(item))
-
-    if (!ops.length) {
-      if (updates) {
-        this.clearOverrides(updates.map((item) => item.id))
-      } else {
-        this.clearOverrides()
-      }
-      return
-    }
-
-    this.submitMutations(
-      ops.map((item) => ({
-        type: 'node.update',
-        id: item.id,
-        patch: item.patch
-      })),
-      'interaction'
-    )
-    if (updates) {
-      this.clearOverrides(updates.map((item) => item.id))
-    } else {
-      this.clearOverrides()
-    }
-  }
-
   resetTransientState = () => {
     this.clearDragGuides()
     this.state.write('selection', (prev) => {
@@ -357,9 +294,11 @@ export class Actor {
         groupHovered: undefined
       }
     })
-    this.clearOverrides()
     this.state.write('nodeDrag', {})
     this.state.write('nodeTransform', {})
+    this.state.write('nodePreview', {
+      updates: []
+    })
     this.state.write('interactionSession', (prev) => {
       if (
         prev.active?.kind !== 'nodeDrag'
