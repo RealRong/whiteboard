@@ -178,10 +178,13 @@ export type EdgeEntityApi = {
   }
   interaction: {
     connect: {
-      startReconnect: (end: Parameters<InputSessionContext['edgeInput']['connect']['startReconnect']>[1], pointer: Parameters<InputSessionContext['edgeInput']['connect']['startReconnect']>[2]) => void
-      updateConnect: InputSessionContext['edgeInput']['connect']['updateConnect']
-      commitConnect: InputSessionContext['edgeInput']['connect']['commitConnect']
-      cancelConnect: InputSessionContext['edgeInput']['connect']['cancelConnect']
+      beginReconnect: (
+        end: Parameters<InputSessionContext['edgeInput']['connect']['beginReconnect']>[0]['end'],
+        pointer: Parameters<InputSessionContext['edgeInput']['connect']['beginReconnect']>[0]['pointer']
+      ) => ReturnType<InputSessionContext['edgeInput']['connect']['beginReconnect']>
+      updateDraft: InputSessionContext['edgeInput']['connect']['updateDraft']
+      commitDraft: InputSessionContext['edgeInput']['connect']['commitDraft']
+      cancelDraft: InputSessionContext['edgeInput']['connect']['cancelDraft']
     }
     routing: {
       begin: (index: number, pointer: Parameters<InputSessionContext['edgeInput']['routing']['begin']>[0]['pointer']) => ReturnType<InputSessionContext['edgeInput']['routing']['begin']>

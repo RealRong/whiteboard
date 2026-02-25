@@ -2,6 +2,7 @@ export type {
   EdgeConnectFrom,
   EdgeConnectState,
   EdgeConnectTo,
+  EdgeConnectDraft,
   EdgeReconnectInfo
 } from './state'
 export type {

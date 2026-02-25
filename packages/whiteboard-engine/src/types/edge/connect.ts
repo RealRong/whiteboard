@@ -1,6 +1,6 @@
-import type { EdgeAnchor, Node, Point, Rect } from '@whiteboard/core/types'
+import type { EdgeAnchor, EdgeId, Node, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput } from '../common'
-import type { EdgeConnectState } from './state'
+import type { EdgeConnectDraft, EdgeConnectState } from './state'
 import type { RefLike } from '../ui'
 
 export type EdgeConnectAnchorResult = {
@@ -14,14 +14,13 @@ export type EdgeConnectModel = {
   tool: 'select' | 'edge'
   containerRef?: RefLike<HTMLElement | null>
   screenToWorld?: (point: Point) => Point
-  startFromHandle: (nodeId: string, side: EdgeAnchor['side'], pointer: PointerInput) => void
-  startFromPoint: (nodeId: string, pointer: PointerInput) => void
-  startReconnect: (edgeId: string, end: 'source' | 'target', pointer: PointerInput) => void
-  updateTo: (pointer: PointerInput) => void
-  commitTo: (pointer: PointerInput) => void
-  cancel: () => void
+  beginFromHandle: (nodeId: string, side: EdgeAnchor['side'], pointer: PointerInput) => EdgeConnectDraft | undefined
+  beginFromNode: (nodeId: string, pointer: PointerInput) => EdgeConnectDraft | undefined
+  beginReconnect: (edgeId: EdgeId, end: 'source' | 'target', pointer: PointerInput) => EdgeConnectDraft | undefined
+  updateDraft: (draft: EdgeConnectDraft, pointer: PointerInput) => boolean
+  commitDraft: (draft: EdgeConnectDraft) => boolean
+  cancelDraft: (draft?: EdgeConnectDraft) => boolean
   selectEdge: (edgeId?: string) => void
-  handleNodePointerDown: (nodeId: string, pointer: PointerInput) => boolean
   nodeRects: Array<{ node: Node; rect: Rect; aabb: Rect; rotation: number }>
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
 }
@@ -30,12 +29,11 @@ export type EdgeConnectLayerState = Pick<EdgeConnectModel, 'state' | 'selectedEd
 
 export type EdgeConnectActions = Pick<
   EdgeConnectModel,
-  | 'startFromHandle'
-  | 'startFromPoint'
-  | 'startReconnect'
-  | 'updateTo'
-  | 'commitTo'
-  | 'cancel'
+  | 'beginFromHandle'
+  | 'beginFromNode'
+  | 'beginReconnect'
+  | 'updateDraft'
+  | 'commitDraft'
+  | 'cancelDraft'
   | 'selectEdge'
-  | 'handleNodePointerDown'
 >

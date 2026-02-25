@@ -1,7 +1,7 @@
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
-import type { RoutingDragPayload } from './edge'
+import type { EdgeConnectDraft, RoutingDragPayload } from './edge'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
@@ -179,23 +179,26 @@ export type InputSessionContext = {
   }
   edgeInput: {
     connect: {
-      startFromHandle: (
-        nodeId: NodeId,
-        side: 'top' | 'right' | 'bottom' | 'left',
+      beginFromHandle: (options: {
+        nodeId: NodeId
+        side: 'top' | 'right' | 'bottom' | 'left'
         pointer: PointerInput
-      ) => void
-      startReconnect: (
-        edgeId: EdgeId,
-        end: 'source' | 'target',
+      }) => EdgeConnectDraft | undefined
+      beginFromNode: (options: {
+        nodeId: NodeId
         pointer: PointerInput
-      ) => void
-      handleNodePointerDown: (
-        nodeId: NodeId,
+      }) => EdgeConnectDraft | undefined
+      beginReconnect: (options: {
+        edgeId: EdgeId
+        end: 'source' | 'target'
         pointer: PointerInput
-      ) => boolean
-      updateConnect: (pointer: PointerInput) => void
-      commitConnect: (pointer: PointerInput) => void
-      cancelConnect: () => void
+      }) => EdgeConnectDraft | undefined
+      updateDraft: (options: {
+        draft: EdgeConnectDraft
+        pointer: PointerInput
+      }) => boolean
+      commitDraft: (draft: EdgeConnectDraft) => boolean
+      cancelDraft: (options?: { draft?: EdgeConnectDraft }) => boolean
       hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => void
       hoverCancel: () => void
     }
@@ -271,7 +274,6 @@ export type CancelReason =
 
 export type PointerSessionKind =
   | 'selectionBox'
-  | 'edgeConnect'
   | 'edgePath'
   | 'mindmapDrag'
 

@@ -1,4 +1,5 @@
 import type { PointerInput } from '@engine-types/common'
+import type { EdgeConnectState } from '@engine-types/state'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../../runtime/Scheduler'
 import { FrameTask } from '../../../runtime/TaskQueue'
@@ -7,6 +8,7 @@ import type {
   EdgeId,
   EdgeInput,
   NodeId,
+  Operation,
   Point
 } from '@whiteboard/core/types'
 import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
@@ -23,6 +25,11 @@ type ConnectOptions = {
   instance: ConnectInstance
   scheduler: Scheduler
   emit: (output: RuntimeOutput) => void
+}
+
+type CommitTarget = {
+  nodeId: NodeId
+  anchor: EdgeAnchor
 }
 
 export class Connect {
@@ -141,7 +148,65 @@ export class Connect {
     this.setInteractionSession(undefined)
   }
 
-  startFromHandle = (
+  private resolveCommitTarget = (
+    currentState: EdgeConnectState,
+    pointWorld?: Point
+  ): CommitTarget | undefined => {
+    const snap =
+      (pointWorld ? this.snapAt(pointWorld) : undefined)
+      ?? (
+        currentState.to?.nodeId && currentState.to.anchor
+          ? {
+            nodeId: currentState.to.nodeId,
+            anchor: currentState.to.anchor
+          }
+          : undefined
+      )
+    if (!snap?.nodeId || !snap.anchor) return undefined
+    return {
+      nodeId: snap.nodeId,
+      anchor: snap.anchor
+    }
+  }
+
+  private resolveCommitMutations = (options: {
+    from: NonNullable<EdgeConnectState['from']>
+    reconnect: EdgeConnectState['reconnect']
+    target: CommitTarget
+  }): Operation[] | null => {
+    const { from, reconnect, target } = options
+    if (reconnect) {
+      const visibleEdges = this.instance.projection.getSnapshot().edges.visible
+      const edge = visibleEdges.find((item) => item.id === reconnect.edgeId)
+      if (!edge) return []
+      return [
+        {
+          type: 'edge.update',
+          id: edge.id,
+          patch:
+            reconnect.end === 'source'
+              ? { source: { nodeId: target.nodeId, anchor: target.anchor } }
+              : { target: { nodeId: target.nodeId, anchor: target.anchor } }
+        }
+      ]
+    }
+
+    const createOperation = this.buildEdgeCreateOperation({
+      source: {
+        nodeId: from.nodeId,
+        anchor: from.anchor
+      },
+      target: {
+        nodeId: target.nodeId,
+        anchor: target.anchor
+      },
+      type: 'linear'
+    })
+    if (!createOperation) return null
+    return [createOperation]
+  }
+
+  beginFromHandle = (
     nodeId: NodeId,
     side: EdgeAnchor['side'],
     pointer: PointerInput
@@ -158,7 +223,9 @@ export class Connect {
     this.setInteractionSession(pointer.pointerId)
   }
 
-  startFromPoint = (nodeId: NodeId, pointer: PointerInput) => {
+  beginFromNode = (nodeId: NodeId, pointer: PointerInput) => {
+    const activeTool = this.instance.state.read('tool')
+    if (activeTool !== 'edge') return
     const pointWorld = pointer.world
     const entry = this.instance.query.canvas.nodeRect(nodeId)
     if (!entry) return
@@ -178,7 +245,7 @@ export class Connect {
     this.setInteractionSession(pointer.pointerId)
   }
 
-  startReconnect = (
+  beginReconnect = (
     edgeId: EdgeId,
     end: 'source' | 'target',
     pointer: PointerInput
@@ -202,7 +269,7 @@ export class Connect {
     this.setInteractionSession(pointer.pointerId)
   }
 
-  updateTo = (pointer: PointerInput) => {
+  updateDraft = (pointer: PointerInput) => {
     const active = this.instance.render.read('interactionSession').active
     if (active?.kind !== 'edgeConnect' || active.pointerId !== pointer.pointerId) return
     const pointWorld = pointer.world
@@ -218,66 +285,38 @@ export class Connect {
     })
   }
 
-  commitTo = (pointer: PointerInput) => {
+  commitDraft = (pointer?: PointerInput) => {
     const active = this.instance.render.read('interactionSession').active
-    if (active?.kind !== 'edgeConnect' || active.pointerId !== pointer.pointerId) return
-    const pointWorld = pointer.world
+    if (active?.kind !== 'edgeConnect') return
+    if (pointer && active.pointerId !== pointer.pointerId) return
+    const pointWorld = pointer?.world
     const currentState = this.instance.render.read('edgeConnect')
     if (!currentState.from) return
-    const from = currentState.from
-    const reconnect = currentState.reconnect
-
-    const snap = this.snapAt(pointWorld)
-    if (!snap || !snap.nodeId || !snap.anchor) {
+    const target = this.resolveCommitTarget(currentState, pointWorld)
+    if (!target) {
       this.finish()
       return
     }
-    const targetNodeId = snap.nodeId
-    const targetAnchor = snap.anchor
 
-    if (reconnect) {
-      const visibleEdges = this.instance.projection.getSnapshot().edges.visible
-      const edge = visibleEdges.find(
-        (item) => item.id === reconnect.edgeId
-      )
-      if (edge) {
-        this.emit({
-          mutations: [
-            {
-              type: 'edge.update',
-              id: edge.id,
-              patch:
-                reconnect.end === 'source'
-                  ? { source: { nodeId: targetNodeId, anchor: targetAnchor } }
-                  : { target: { nodeId: targetNodeId, anchor: targetAnchor } }
-            }
-          ]
-        })
-      }
-    } else {
-      const createOperation = this.buildEdgeCreateOperation({
-        source: {
-          nodeId: from.nodeId,
-          anchor: from.anchor
-        },
-        target: { nodeId: targetNodeId, anchor: targetAnchor },
-        type: 'linear'
+    const mutations = this.resolveCommitMutations({
+      from: currentState.from,
+      reconnect: currentState.reconnect,
+      target
+    })
+    if (mutations === null) {
+      this.finish()
+      return
+    }
+    if (mutations.length > 0) {
+      this.emit({
+        mutations
       })
-
-      if (createOperation) {
-        this.emit({
-          mutations: [createOperation]
-        })
-      } else {
-        this.finish()
-        return
-      }
     }
 
     this.finish()
   }
 
-  cancel = () => {
+  cancelDraft = () => {
     this.finish()
     this.hoverCancel()
   }
@@ -316,10 +355,4 @@ export class Connect {
     this.hoverTask.schedule()
   }
 
-  handleNodePointerDown = (nodeId: NodeId, pointer: PointerInput) => {
-    const activeTool = this.instance.state.read('tool')
-    if (activeTool !== 'edge') return false
-    this.startFromPoint(nodeId, pointer)
-    return true
-  }
 }

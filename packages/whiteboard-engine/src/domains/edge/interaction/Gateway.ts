@@ -1,4 +1,5 @@
 import type { PointerInput } from '@engine-types/common'
+import type { EdgeConnectDraft } from '@engine-types/edge'
 import type { RoutingDragPayload } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
@@ -68,34 +69,109 @@ export class EdgeInputGateway {
     return this.edgeCommands.removeRoutingPointAt(edgeId, index)
   }
 
+  private readActiveConnectDraft = (pointerId?: number): EdgeConnectDraft | undefined => {
+    const active = this.render.read('interactionSession').active
+    if (!active || active.kind !== 'edgeConnect') return undefined
+    if (pointerId !== undefined && active.pointerId !== pointerId) {
+      return undefined
+    }
+    const state = this.render.read('edgeConnect')
+    if (!state.from) return undefined
+    return {
+      pointerId: active.pointerId,
+      from: state.from,
+      to: state.to,
+      reconnect: state.reconnect
+    }
+  }
+
+  private beginConnect = (
+    pointerId: number,
+    start: () => void
+  ) => {
+    const active = this.render.read('interactionSession').active
+    if (active) return undefined
+    start()
+    return this.readActiveConnectDraft(pointerId)
+  }
+
   connectInput = {
-    startFromHandle: (
-      nodeId: NodeId,
-      side: EdgeAnchor['side'],
+    beginFromHandle: (options: {
+      nodeId: NodeId
+      side: EdgeAnchor['side']
       pointer: PointerInput
-    ) => {
-      this.connect.startFromHandle(nodeId, side, pointer)
-    },
-    startReconnect: (
-      edgeId: EdgeId,
-      end: 'source' | 'target',
+    }) =>
+      this.beginConnect(options.pointer.pointerId, () => {
+        this.connect.beginFromHandle(
+          options.nodeId,
+          options.side,
+          options.pointer
+        )
+      }),
+    beginFromNode: (options: {
+      nodeId: NodeId
       pointer: PointerInput
-    ) => {
-      this.connect.startReconnect(edgeId, end, pointer)
-    },
-    handleNodePointerDown: (
-      nodeId: NodeId,
+    }) =>
+      this.beginConnect(options.pointer.pointerId, () => {
+        this.connect.beginFromNode(
+          options.nodeId,
+          options.pointer
+        )
+      }),
+    beginReconnect: (options: {
+      edgeId: EdgeId
+      end: 'source' | 'target'
       pointer: PointerInput
-    ) =>
-      this.connect.handleNodePointerDown(nodeId, pointer),
-    updateConnect: (pointer: PointerInput) => {
-      this.connect.updateTo(pointer)
+    }) =>
+      this.beginConnect(options.pointer.pointerId, () => {
+        this.connect.beginReconnect(
+          options.edgeId,
+          options.end,
+          options.pointer
+        )
+      }),
+    updateDraft: (options: {
+      draft: EdgeConnectDraft
+      pointer: PointerInput
+    }) => {
+      const { draft, pointer } = options
+      if (pointer.pointerId !== draft.pointerId) return false
+      const active = this.render.read('interactionSession').active
+      if (
+        !active
+        || active.kind !== 'edgeConnect'
+        || active.pointerId !== draft.pointerId
+      ) {
+        return false
+      }
+      this.connect.updateDraft(pointer)
+      const next = this.readActiveConnectDraft(draft.pointerId)
+      if (!next) return false
+      draft.from = next.from
+      draft.to = next.to
+      draft.reconnect = next.reconnect
+      return true
     },
-    commitConnect: (pointer: PointerInput) => {
-      this.connect.commitTo(pointer)
+    commitDraft: (draft: EdgeConnectDraft) => {
+      const active = this.render.read('interactionSession').active
+      if (
+        !active
+        || active.kind !== 'edgeConnect'
+        || active.pointerId !== draft.pointerId
+      ) {
+        return false
+      }
+      this.connect.commitDraft()
+      return true
     },
-    cancelConnect: () => {
-      this.connect.cancel()
+    cancelDraft: (options?: { draft?: EdgeConnectDraft }) => {
+      const active = this.render.read('interactionSession').active
+      if (!active || active.kind !== 'edgeConnect') return false
+      if (options?.draft && active.pointerId !== options.draft.pointerId) {
+        return false
+      }
+      this.connect.cancelDraft()
+      return true
     },
     hoverMove: (pointer: PointerInput | undefined, enabled: boolean) => {
       this.connect.hoverMove(pointer, enabled)
@@ -211,7 +287,7 @@ export class EdgeInputGateway {
   }
 
   cancelInteractions = () => {
-    this.connect.cancel()
+    this.connect.cancelDraft()
     this.routingInput.cancelDraft()
   }
 

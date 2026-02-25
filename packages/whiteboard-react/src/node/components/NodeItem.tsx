@@ -6,6 +6,7 @@ import { getNodeDefinitionStyle, renderNodeDefinition } from '../registry/defaul
 import { useNodeRegistry } from '../registry'
 import { useNodeDragInteraction } from '../hooks/useNodeDragInteraction'
 import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteraction'
+import { useEdgeConnectInteraction } from '../../edge/hooks/useEdgeConnectInteraction'
 import {
   useInstance,
   useWhiteboardRenderSelector,
@@ -21,6 +22,17 @@ type NodeTransformHandlesProps = {
   onHandlePointerDown: (
     event: ReactPointerEvent<HTMLDivElement>,
     handle: TransformHandle
+  ) => void
+}
+const NODE_CONNECT_SIDES = ['top', 'right', 'bottom', 'left'] as const
+type NodeConnectSide = (typeof NODE_CONNECT_SIDES)[number]
+type NodeConnectHandlesProps = {
+  node: NodeItemProps['item']['node']
+  rect: NodeItemProps['item']['rect']
+  style: CSSProperties
+  onHandlePointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    side: NodeConnectSide
   ) => void
 }
 const NODE_TRANSFORM_HANDLE_SIZE = 10
@@ -59,6 +71,38 @@ const NodeTransformHandles = ({
         )
       })}
     </>
+  )
+}
+
+const NodeConnectHandles = ({
+  node,
+  rect,
+  style,
+  onHandlePointerDown
+}: NodeConnectHandlesProps) => {
+  return (
+    <div
+      className="wb-node-connect-handle-layer"
+      style={{
+        ...style,
+        width: rect.width,
+        height: rect.height
+      }}
+    >
+      {NODE_CONNECT_SIDES.map((side) => (
+        <div
+          key={side}
+          data-selection-ignore
+          data-input-role="node-edge-handle"
+          data-node-id={node.id}
+          data-handle-side={side}
+          className={`wb-node-handle wb-node-handle-${side}`}
+          onPointerDown={(event) => {
+            onHandlePointerDown(event, side)
+          }}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -209,9 +253,23 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     instance.commands.interaction.update({ hover: { nodeId: undefined } })
   }, [instance])
 
+  const { handleNodeConnectPointerDown, handleConnectHandlePointerDown } = useEdgeConnectInteraction()
   const { handleNodePointerDown } = useNodeDragInteraction({
     nodeId: node.id
   })
+  const handleContainerPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (handleNodeConnectPointerDown(event, node.id)) return
+      handleNodePointerDown(event)
+    },
+    [handleNodeConnectPointerDown, handleNodePointerDown, node.id]
+  )
+  const handleNodeConnectHandlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, side: NodeConnectSide) => {
+      handleConnectHandlePointerDown(event, node.id, side)
+    },
+    [handleConnectHandlePointerDown, node.id]
+  )
 
   const baseContainerProps = useMemo<NodeContainerProps>(
     () => ({
@@ -227,13 +285,13 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   const containerProps = useMemo<NodeContainerProps>(
     () => ({
       ...baseContainerProps,
-      onPointerDown: handleNodePointerDown,
+      onPointerDown: handleContainerPointerDown,
       onPointerEnter: handlePointerEnter,
       onPointerLeave: handlePointerLeave
     }),
     [
       baseContainerProps,
-      handleNodePointerDown,
+      handleContainerPointerDown,
       handlePointerEnter,
       handlePointerLeave
     ]
@@ -258,6 +316,11 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     [definition, renderProps]
   )
 
+  const connectHandleOverlayStyle = useMemo(
+    () => buildConnectHandleOverlayStyle(container, nodeStyle),
+    [container, nodeStyle]
+  )
+  const shouldMountConnectHandles = activeTool === 'edge' && (selected || hovered)
   const shouldMountTransform = transformHandles.length > 0
   const { handleTransformPointerDown } = useNodeTransformInteraction({
     nodeId: node.id
@@ -280,6 +343,14 @@ export const NodeItem = ({ item }: NodeItemProps) => {
           onPointerLeave={containerProps.onPointerLeave}
         />
       )}
+      {shouldMountConnectHandles ? (
+        <NodeConnectHandles
+          node={node}
+          rect={rect}
+          style={connectHandleOverlayStyle}
+          onHandlePointerDown={handleNodeConnectHandlePointerDown}
+        />
+      ) : null}
       {shouldMountTransform ? (
         <NodeTransformHandles
           node={node}
@@ -292,18 +363,46 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   )
 }
 
+const buildContainerTransformStyle = (
+  container: NodeItemProps['item']['container'],
+  nodeStyle: CSSProperties
+) => {
+  const extraTransform = nodeStyle.transform
+  const rotationTransform = container.rotation !== 0 ? `rotate(${container.rotation}deg)` : undefined
+  const transform = [container.transformBase, extraTransform, rotationTransform]
+    .filter(Boolean)
+    .join(' ')
+
+  return {
+    transform: transform || undefined,
+    transformOrigin: rotationTransform ? container.transformOrigin : nodeStyle.transformOrigin
+  }
+}
+
 const buildContainerStyle = (
   container: NodeItemProps['item']['container'],
   nodeStyle: CSSProperties
 ): CSSProperties => {
-  const extraTransform = nodeStyle.transform
-  const rotationTransform = container.rotation !== 0 ? `rotate(${container.rotation}deg)` : undefined
-  const combinedTransform = [container.transformBase, extraTransform, rotationTransform].filter(Boolean).join(' ')
+  const transformStyle = buildContainerTransformStyle(container, nodeStyle)
 
   return {
     ...nodeStyle,
     pointerEvents: 'auto',
-    transform: combinedTransform,
-    transformOrigin: rotationTransform ? container.transformOrigin : nodeStyle.transformOrigin
+    ...transformStyle
+  }
+}
+
+const buildConnectHandleOverlayStyle = (
+  container: NodeItemProps['item']['container'],
+  nodeStyle: CSSProperties
+): CSSProperties => {
+  const transformStyle = buildContainerTransformStyle(container, nodeStyle)
+
+  return {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    pointerEvents: 'none',
+    ...transformStyle
   }
 }

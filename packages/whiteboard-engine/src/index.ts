@@ -50,6 +50,7 @@ export type {
 } from './types/instance'
 export type { ShortcutOverrides } from './types/shortcuts'
 export type {
+  EdgeConnectDraft,
   EdgeConnectState
 } from './types/state'
 export type { PointerInput, PointerModifiers } from './types/common'

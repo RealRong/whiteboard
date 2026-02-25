@@ -63,6 +63,15 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   cursor: crosshair;
   pointer-events: auto;
+  z-index: 8;
+}
+
+.wb-node-connect-handle-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 8;
 }
 
 .wb-node-handle-top {

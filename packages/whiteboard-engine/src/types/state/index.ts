@@ -27,4 +27,10 @@ export type {
   NodeTransformDraft
 } from '../node'
 export type { RoutingDragPayload, RoutingDragState } from '../edge/routing'
-export type { EdgeConnectFrom, EdgeConnectState, EdgeConnectTo, EdgeReconnectInfo } from '../edge/state'
+export type {
+  EdgeConnectFrom,
+  EdgeConnectState,
+  EdgeConnectTo,
+  EdgeConnectDraft,
+  EdgeReconnectInfo
+} from '../edge/state'

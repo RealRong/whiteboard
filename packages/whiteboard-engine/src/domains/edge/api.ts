@@ -69,11 +69,15 @@ export const bindEdgeDomainApiById = (
   },
   interaction: {
     connect: {
-      startReconnect: (end, pointer) =>
-        api.interaction.connect.startReconnect(edgeId, end, pointer),
-      updateConnect: api.interaction.connect.updateConnect,
-      commitConnect: api.interaction.connect.commitConnect,
-      cancelConnect: api.interaction.connect.cancelConnect
+      beginReconnect: (end, pointer) =>
+        api.interaction.connect.beginReconnect({
+          edgeId,
+          end,
+          pointer
+        }),
+      updateDraft: api.interaction.connect.updateDraft,
+      commitDraft: api.interaction.connect.commitDraft,
+      cancelDraft: api.interaction.connect.cancelDraft
     },
     routing: {
       begin: (index, pointer) =>

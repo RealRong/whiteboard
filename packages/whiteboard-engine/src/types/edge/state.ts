@@ -22,3 +22,10 @@ export type EdgeConnectState = {
   hover?: EdgeConnectTo
   reconnect?: EdgeReconnectInfo
 }
+
+export type EdgeConnectDraft = {
+  pointerId: number
+  from: EdgeConnectFrom
+  to?: EdgeConnectTo
+  reconnect?: EdgeReconnectInfo
+}

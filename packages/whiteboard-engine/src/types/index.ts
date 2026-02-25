@@ -107,6 +107,7 @@ export type {
   EdgeConnectFrom,
   EdgeConnectState,
   EdgeConnectTo,
+  EdgeConnectDraft,
   EdgeReconnectInfo,
   HistoryState,
   InteractionState,
