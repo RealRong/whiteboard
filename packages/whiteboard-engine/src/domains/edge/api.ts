@@ -76,11 +76,15 @@ export const bindEdgeDomainApiById = (
       cancelConnect: api.interaction.connect.cancelConnect
     },
     routing: {
-      start: (index, pointer) =>
-        api.interaction.routing.startRouting(edgeId, index, pointer),
-      update: api.interaction.routing.updateRouting,
-      end: api.interaction.routing.endRouting,
-      cancel: api.interaction.routing.cancelRouting
+      begin: (index, pointer) =>
+        api.interaction.routing.begin({
+          edgeId,
+          index,
+          pointer
+        }),
+      updateDraft: api.interaction.routing.updateDraft,
+      commitDraft: api.interaction.routing.commitDraft,
+      cancelDraft: api.interaction.routing.cancelDraft
     }
   },
   query: {

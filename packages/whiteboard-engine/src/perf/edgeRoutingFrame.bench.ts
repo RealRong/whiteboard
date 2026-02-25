@@ -4,8 +4,8 @@ import {
   type Node,
   type Point
 } from '@whiteboard/core/types'
-import type { PointerInputEvent } from '@engine-types/input'
 import { createEngine } from '../instance/create'
+import type { PointerInput } from '../types/common'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -147,62 +147,28 @@ const average = (values: number[]) =>
 
 const format = (value: number) => `${value.toFixed(4)}ms`
 
-const createPointerEvent = (options: {
-  phase: 'down' | 'move' | 'up'
+const createPointerInput = (options: {
+  instance: ReturnType<typeof createEngine>
   pointerId: number
-  edgeId: string
-  routingIndex: number
   client: Point
-  clickCount?: number
-}): PointerInputEvent => {
-  const {
-    phase,
-    pointerId,
-    edgeId,
-    routingIndex,
-    client,
-    clickCount = 1
-  } = options
+}): PointerInput => {
+  const { instance, pointerId, client } = options
+  const screen = instance.query.viewport.clientToScreen(
+    client.x,
+    client.y
+  )
   return {
-    kind: 'pointer',
-    stage: 'bubble',
-    phase,
-    clickCount,
-    pointer: {
-      pointerId,
-      button: 0,
-      client,
-      screen: client,
-      world: client,
-      modifiers: {
-        alt: false,
-        shift: false,
-        ctrl: false,
-        meta: false
-      }
-    },
     pointerId,
-    pointerType: 'mouse',
     button: 0,
-    buttons: phase === 'up' ? 0 : 1,
     client,
-    screen: client,
+    screen,
+    world: instance.query.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,
       ctrl: false,
-      meta: false,
-      space: false
-    },
-    target: {
-      surface: 'overlay',
-      role: 'handle',
-      handleType: 'edge-routing',
-      edgeId,
-      routingIndex
-    },
-    timestamp: now(),
-    source: 'container'
+      meta: false
+    }
   }
 }
 
@@ -235,22 +201,25 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'down',
+    const draft = instance.domains.edge.interaction.routing.begin({
+      edgeId,
+      index: routingIndex,
+      pointer: createPointerInput({
+        instance,
         pointerId,
-        edgeId,
-        routingIndex,
         client: startClient
       })
-    )
+    })
+    if (!draft) {
+      throw new Error(`routingDrag.begin failed at run ${run + 1}`)
+    }
     const activeSession = instance.render.read('interactionSession').active
     if (
       !activeSession
       || activeSession.kind !== 'routingDrag'
       || activeSession.pointerId !== pointerId
     ) {
-      throw new Error(`routingDrag.start failed at run ${run + 1}`)
+      throw new Error(`routingDrag.begin failed at run ${run + 1}`)
     }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
@@ -258,15 +227,14 @@ const main = () => {
         x: startClient.x + frame * 0.9,
         y: startClient.y + Math.sin(frame / 8) * 6
       }
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.edge.interaction.routing.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          edgeId,
-          routingIndex,
           client
         })
-      )
+      })
     }
 
     const samples: number[] = []
@@ -276,27 +244,18 @@ const main = () => {
         y: startClient.y + Math.sin(frame / 10) * 6
       }
       const startedAt = now()
-      instance.input.handle(
-        createPointerEvent({
-          phase: 'move',
+      instance.domains.edge.interaction.routing.updateDraft({
+        draft,
+        pointer: createPointerInput({
+          instance,
           pointerId,
-          edgeId,
-          routingIndex,
           client
         })
-      )
+      })
       samples.push(now() - startedAt)
     }
 
-    instance.input.handle(
-      createPointerEvent({
-        phase: 'up',
-        pointerId,
-        edgeId,
-        routingIndex,
-        client: startClient
-      })
-    )
+    instance.domains.edge.interaction.routing.commitDraft(draft)
 
     const resetDoc = cloneDoc(doc)
     const resetEdge = resetDoc.edges.find((edge) => edge.id === edgeId)

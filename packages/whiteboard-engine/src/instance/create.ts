@@ -173,7 +173,7 @@ export const createEngine = ({
     instance
   })
   const clearRoutingTransient = () => {
-    const cancelled = edgeInputGateway.routingInput.cancelRouting()
+    const cancelled = edgeInputGateway.routingInput.cancelDraft()
     if (cancelled) return
     render.batch(() => {
       render.write('routingDrag', {})

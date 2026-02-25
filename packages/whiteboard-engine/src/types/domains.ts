@@ -184,10 +184,10 @@ export type EdgeEntityApi = {
       cancelConnect: InputSessionContext['edgeInput']['connect']['cancelConnect']
     }
     routing: {
-      start: (index: number, pointer: Parameters<InputSessionContext['edgeInput']['routing']['startRouting']>[2]) => ReturnType<InputSessionContext['edgeInput']['routing']['startRouting']>
-      update: InputSessionContext['edgeInput']['routing']['updateRouting']
-      end: InputSessionContext['edgeInput']['routing']['endRouting']
-      cancel: InputSessionContext['edgeInput']['routing']['cancelRouting']
+      begin: (index: number, pointer: Parameters<InputSessionContext['edgeInput']['routing']['begin']>[0]['pointer']) => ReturnType<InputSessionContext['edgeInput']['routing']['begin']>
+      updateDraft: InputSessionContext['edgeInput']['routing']['updateDraft']
+      commitDraft: InputSessionContext['edgeInput']['routing']['commitDraft']
+      cancelDraft: InputSessionContext['edgeInput']['routing']['cancelDraft']
     }
   }
   query: {

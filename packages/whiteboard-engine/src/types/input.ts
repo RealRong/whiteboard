@@ -1,6 +1,7 @@
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
 import type { Commands } from './commands'
+import type { RoutingDragPayload } from './edge'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
@@ -199,14 +200,17 @@ export type InputSessionContext = {
       hoverCancel: () => void
     }
     routing: {
-      updateRouting: (pointer: PointerInput) => boolean
-      endRouting: (pointer: PointerInput) => boolean
-      cancelRouting: () => boolean
-      startRouting: (
-        edgeId: EdgeId,
-        index: number,
+      begin: (options: {
+        edgeId: EdgeId
+        index: number
         pointer: PointerInput
-      ) => boolean
+      }) => RoutingDragPayload | undefined
+      updateDraft: (options: {
+        draft: RoutingDragPayload
+        pointer: PointerInput
+      }) => boolean
+      commitDraft: (draft: RoutingDragPayload) => boolean
+      cancelDraft: (options?: { draft?: RoutingDragPayload }) => boolean
       insertRoutingPointAt: (edgeId: EdgeId, pointWorld: Point) => boolean
       removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
     }
@@ -269,7 +273,6 @@ export type PointerSessionKind =
   | 'selectionBox'
   | 'edgeConnect'
   | 'edgePath'
-  | 'routingDrag'
   | 'mindmapDrag'
 
 export type PointerSessionRuntime = {
