@@ -16,7 +16,7 @@ import {
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
-import { DEFAULT_TUNING } from '../../../../config'
+import { DEFAULT_TUNING } from '../../../config'
 
 type CompilerOptions = {
   readDoc: () => Document

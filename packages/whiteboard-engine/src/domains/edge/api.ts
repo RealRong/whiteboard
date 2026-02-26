@@ -1,20 +1,17 @@
 import type { Commands } from '@engine-types/commands'
 import type { EdgeDomainApi, EdgeEntityApi } from '@engine-types/domains'
-import type { InputSessionContext } from '@engine-types/input'
 import type { Query } from '@engine-types/instance/query'
 import type { View } from '@engine-types/instance/view'
 import type { EdgeId } from '@whiteboard/core/types'
 
 type Options = {
   commands: Pick<Commands, 'edge' | 'order'>
-  edgeInput: InputSessionContext['edgeInput']
   query: Query
   view: View
 }
 
 export const createEdgeDomainApi = ({
   commands,
-  edgeInput,
   query,
   view
 }: Options): EdgeDomainApi => ({
@@ -28,9 +25,6 @@ export const createEdgeDomainApi = ({
     resetRouting: commands.edge.resetRouting,
     select: commands.edge.select,
     order: commands.order.edge
-  },
-  interaction: {
-    routing: edgeInput.routing
   },
   query: {
     nearestSegment: query.geometry.nearestEdgeSegment
@@ -52,10 +46,27 @@ export const bindEdgeDomainApiById = (
     delete: () => api.commands.delete([edgeId]),
     select: () => api.commands.select(edgeId),
     unselect: () => api.commands.select(undefined),
-    insertRoutingPointAt: (pointWorld) =>
-      api.interaction.routing.insertRoutingPointAt(edgeId, pointWorld),
-    removeRoutingPointAt: (index) =>
-      api.interaction.routing.removeRoutingPointAt(edgeId, index),
+    insertRoutingPointAt: (pointWorld) => {
+      const entry = api.view.getById(edgeId)
+      if (!entry) return false
+      const segmentIndex = api.query.nearestSegment(
+        pointWorld,
+        entry.path.points
+      )
+      api.commands.insertRoutingPoint(
+        entry.edge,
+        entry.path.points,
+        segmentIndex,
+        pointWorld
+      )
+      return true
+    },
+    removeRoutingPointAt: (index) => {
+      const entry = api.view.getById(edgeId)
+      if (!entry) return false
+      api.commands.removeRoutingPoint(entry.edge, index)
+      return true
+    },
     resetRouting: () => {
       const entry = api.view.getById(edgeId)
       if (!entry) return
@@ -65,19 +76,6 @@ export const bindEdgeDomainApiById = (
     sendToBack: () => api.commands.order.sendToBack([edgeId]),
     bringForward: () => api.commands.order.bringForward([edgeId]),
     sendBackward: () => api.commands.order.sendBackward([edgeId])
-  },
-  interaction: {
-    routing: {
-      begin: (index, pointer) =>
-        api.interaction.routing.begin({
-          edgeId,
-          index,
-          pointer
-        }),
-      updateDraft: api.interaction.routing.updateDraft,
-      commitDraft: api.interaction.routing.commitDraft,
-      cancelDraft: api.interaction.routing.cancelDraft
-    }
   },
   query: {
     view: () => api.view.getById(edgeId)

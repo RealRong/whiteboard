@@ -6,7 +6,9 @@ import {
 } from '@whiteboard/core/types'
 import { createEngine } from '../instance/create'
 import type { PointerInput } from '../types/common'
+import type { InternalInstance } from '../types/instance/instance'
 import type { NodeDragUpdateConstraints } from '../types/node'
+import { NodeDragKernel } from './kernels/nodeDrag/Kernel'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -168,6 +170,22 @@ const main = () => {
       doc = nextDoc
     }
   })
+  const dragKernel = new NodeDragKernel({
+    instance: {
+      projection: instance.projection,
+      query: instance.query,
+      config: instance.query.config.get(),
+      viewport: {
+        getZoom: instance.query.viewport.getZoom
+      },
+      document: {
+        get: instance.query.doc.get
+      }
+    } as unknown as Pick<
+      InternalInstance,
+      'projection' | 'query' | 'config' | 'viewport' | 'document'
+    >
+  })
   const syncDoc = (next: Document) => {
     void instance.commands.doc.reset(next)
   }
@@ -186,7 +204,7 @@ const main = () => {
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
     const startClient = { x: 0, y: 0 }
-    const draft = instance.domains.node.interaction.drag.begin({
+    const draft = dragKernel.begin({
       nodeId: movingNodeId,
       pointer: createPointerInput({
         instance,
@@ -197,25 +215,21 @@ const main = () => {
     if (!draft) {
       throw new Error(`nodeDrag.begin failed at run ${run + 1}`)
     }
-    const activeSession = instance.render.read('interactionSession').active
-    if (!activeSession || activeSession.kind !== 'nodeDrag' || activeSession.pointerId !== pointerId) {
-      throw new Error(`nodeDrag.begin failed at run ${run + 1}`)
-    }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
       const client = {
         x: frame * 1.2,
         y: frame * 0.8 + Math.sin(frame / 10) * 6
       }
-      instance.domains.node.interaction.drag.updateDraft({
+      dragKernel.update(
         draft,
-        pointer: createPointerInput({
+        createPointerInput({
           instance,
           pointerId,
           client
         }),
-        constraints: DRAG_CONSTRAINTS
-      })
+        DRAG_CONSTRAINTS
+      )
     }
 
     const samples: number[] = []
@@ -227,19 +241,19 @@ const main = () => {
         y: clientY
       }
       const startedAt = now()
-      instance.domains.node.interaction.drag.updateDraft({
+      dragKernel.update(
         draft,
-        pointer: createPointerInput({
+        createPointerInput({
           instance,
           pointerId,
           client
         }),
-        constraints: DRAG_CONSTRAINTS
-      })
+        DRAG_CONSTRAINTS
+      )
       samples.push(now() - startedAt)
     }
 
-    instance.domains.node.interaction.drag.commitDraft(draft)
+    dragKernel.commit(draft)
     const resetDoc = cloneDoc(doc)
     const resetNode = resetDoc.nodes.find((node) => node.id === movingNodeId)
     if (resetNode) {

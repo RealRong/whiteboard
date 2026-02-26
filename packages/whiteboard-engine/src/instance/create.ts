@@ -25,8 +25,6 @@ import { createNodeCommands } from '../domains/node/commands/nodeCommands'
 import { Actor as SelectionActor } from '../domains/selection/commands/Actor'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
-import { NodeInputGateway } from '../domains/node/interaction/Gateway'
-import { EdgeInputGateway } from '../domains/edge/interaction/Gateway'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
 import { createViewRegistry } from '../runtime/view/Registry'
@@ -141,44 +139,28 @@ export const createEngine = ({
   })
 
   const edgeCommands = createEdgeCommands({ instance })
-  const edgeInputGateway = new EdgeInputGateway({
-    instance,
-    edgeCommands: {
-      insertRoutingPointAt: edgeCommands.insertRoutingPointAt,
-      removeRoutingPointAt: edgeCommands.removeRoutingPointAt
-    }
-  })
   const nodeCommands = createNodeCommands({ instance })
-  const nodeInputGateway = new NodeInputGateway({
-    instance
-  })
   const mindmapActor = new MindmapActor({
     instance
   })
   const interactionActor = new InteractionActor({
     state
   })
-  const clearRoutingTransient = () => {
-    const cancelled = edgeInputGateway.routingInput.cancelDraft()
-    if (cancelled) return
-    render.batch(() => {
-      render.write('routingDrag', {})
-      clearInteractionKinds(render, ['routingDrag'])
-    })
-  }
   const resetSelectionTransient = () => {
-    clearRoutingTransient()
     render.write('groupHover', {})
   }
   const cancelAllInputInteractions = () => {
-    nodeInputGateway.cancelInteractions()
-    edgeInputGateway.cancelInteractions()
+    clearInteractionKinds(render, ['nodeDrag', 'nodeTransform'])
   }
   const resetAllInputTransientState = () => {
-    nodeInputGateway.resetTransientState()
-    edgeInputGateway.resetTransientState()
+    render.batch(() => {
+      clearInteractionKinds(render, ['nodeDrag', 'nodeTransform'])
+      render.write('nodeDrag', {})
+      render.write('nodePreview', { updates: [] })
+      render.write('dragGuides', [])
+      render.write('groupHover', {})
+    })
   }
-  const getActiveRoutingDrag = () => render.read('routingDrag').payload
   const selectionActor = new SelectionActor({
     instance,
     resetTransient: resetSelectionTransient
@@ -230,34 +212,12 @@ export const createEngine = ({
     edge: {
       create: edgeCommands.create,
       update: edgeCommands.update,
-      delete: (ids) => {
-        const activeDrag = getActiveRoutingDrag()
-        if (activeDrag && ids.includes(activeDrag.edgeId)) {
-          clearRoutingTransient()
-        }
-        return edgeCommands.delete(ids)
-      },
+      delete: edgeCommands.delete,
       insertRoutingPoint: edgeCommands.insertRoutingPoint,
       moveRoutingPoint: edgeCommands.moveRoutingPoint,
-      removeRoutingPoint: (edge, index) => {
-        const activeDrag = getActiveRoutingDrag()
-        if (activeDrag?.edgeId === edge.id && activeDrag.index === index) {
-          clearRoutingTransient()
-        }
-        edgeCommands.removeRoutingPoint(edge, index)
-      },
-      resetRouting: (edge) => {
-        const activeDrag = getActiveRoutingDrag()
-        if (activeDrag?.edgeId === edge.id) {
-          clearRoutingTransient()
-        }
-        edgeCommands.resetRouting(edge)
-      },
+      removeRoutingPoint: edgeCommands.removeRoutingPoint,
+      resetRouting: edgeCommands.resetRouting,
       select: (id) => {
-        const activeDrag = getActiveRoutingDrag()
-        if (activeDrag && activeDrag.edgeId !== id) {
-          clearRoutingTransient()
-        }
         render.write('groupHover', {})
         edgeCommands.select(id)
       }
@@ -320,18 +280,11 @@ export const createEngine = ({
   instance.domains = {
     node: createNodeDomainApi({
       commands,
-      nodeInput: {
-        drag: nodeInputGateway.node,
-        transform: nodeInputGateway.nodeTransform
-      },
       query: queryRuntime.query,
       view: viewRuntime.view
     }),
     edge: createEdgeDomainApi({
       commands,
-      edgeInput: {
-        routing: edgeInputGateway.routingInput
-      },
       query: queryRuntime.query,
       view: viewRuntime.view
     }),
@@ -377,13 +330,6 @@ export const createEngine = ({
       render,
       commands,
       query: queryRuntime.query,
-      nodeInput: {
-        drag: nodeInputGateway.node,
-        transform: nodeInputGateway.nodeTransform
-      },
-      edgeInput: {
-        routing: edgeInputGateway.routingInput
-      },
       inputLifecycle: {
         cancelAll: cancelAllInputInteractions,
         resetTransientState: resetAllInputTransientState

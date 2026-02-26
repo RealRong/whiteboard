@@ -5,15 +5,10 @@ import type {
 } from 'react'
 import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
-
-type RoutingDraft = {
-  edgeId: EdgeId
-  index: number
-  pointerId: number
-  start: Point
-  origin: Point
-  point: Point
-}
+import {
+  edgeRoutingPreviewStore,
+  type RoutingPreviewDraft
+} from '../interaction/routingPreviewStore'
 
 type EdgeEntry = {
   edge: Edge
@@ -37,7 +32,7 @@ const resolveEdgeEntry = (
 export const useEdgeRoutingInteraction = () => {
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
-  const activeRef = useRef<RoutingDraft | null>(null)
+  const activeRef = useRef<RoutingPreviewDraft | null>(null)
 
   const readEdgeById = useCallback(
     (edgeId: EdgeId) =>
@@ -51,8 +46,8 @@ export const useEdgeRoutingInteraction = () => {
     if (pointerId !== undefined && active.pointerId !== pointerId) return
     activeRef.current = null
     setActivePointerId(null)
-    instance.render.write('routingDrag', {})
-  }, [instance.render])
+    edgeRoutingPreviewStore.clearDraft(pointerId)
+  }, [])
 
   const handleRoutingPointerDown = useCallback(
     (
@@ -85,7 +80,7 @@ export const useEdgeRoutingInteraction = () => {
       )
       const origin = points[index]
       if (!origin) return
-      const draft: RoutingDraft = {
+      const draft: RoutingPreviewDraft = {
         edgeId,
         index,
         pointerId: event.pointerId,
@@ -95,9 +90,7 @@ export const useEdgeRoutingInteraction = () => {
       }
       activeRef.current = draft
       setActivePointerId(event.pointerId)
-      instance.render.write('routingDrag', {
-        payload: draft
-      })
+      edgeRoutingPreviewStore.setDraft(draft)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -162,14 +155,12 @@ export const useEdgeRoutingInteraction = () => {
         x: active.origin.x + (world.x - active.start.x),
         y: active.origin.y + (world.y - active.start.y)
       }
-      const next: RoutingDraft = {
+      const next: RoutingPreviewDraft = {
         ...active,
         point
       }
       activeRef.current = next
-      instance.render.batchFrame(() => {
-        instance.render.write('routingDrag', { payload: next })
-      })
+      edgeRoutingPreviewStore.setDraft(next)
     }
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -220,7 +211,6 @@ export const useEdgeRoutingInteraction = () => {
     instance.commands.edge,
     instance.query.viewport.clientToScreen,
     instance.query.viewport.screenToWorld,
-    instance.render,
     readEdgeById
   ])
 

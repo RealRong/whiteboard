@@ -2,7 +2,6 @@ import type {
   EdgeEndpoints,
   EdgePathEntry,
   EdgePreviewView,
-  EdgeSelectedRoutingView,
   EdgesView
 } from '@engine-types/instance/view'
 import type { ProjectionCommit } from '@engine-types/projection'
@@ -17,11 +16,9 @@ type EdgeDerivations = {
   paths: () => EdgePathEntry[]
   preview: () => EdgePreviewView
   selectedEndpoints: () => EdgeEndpoints | undefined
-  selectedRouting: () => EdgeSelectedRoutingView
 }
 
 export type EdgeStateSyncKey =
-  | 'routingDrag'
   | 'selection'
 
 type Options = {
@@ -42,7 +39,6 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
   )
   const edgePreview: EdgePreviewView = derive.preview()
   let edgeSelectedEndpoints: EdgeEndpoints | undefined = derive.selectedEndpoints()
-  let edgeSelectedRouting: EdgeSelectedRoutingView = derive.selectedRouting()
 
   const recomputeEdgePaths = () => {
     const next = derive.paths()
@@ -60,24 +56,9 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
     return changed
   }
 
-  const recomputeEdgeSelectedRouting = () => {
-    const next = derive.selectedRouting()
-    const changed = !Object.is(edgeSelectedRouting, next)
-    edgeSelectedRouting = next
-    return changed
-  }
-
   const syncState = (key: EdgeStateSyncKey) => {
-    if (key === 'routingDrag') {
-      let changed = false
-      changed = recomputeEdgePaths() || changed
-      changed = recomputeEdgeSelectedRouting() || changed
-      return changed
-    }
-    let changed = false
-    changed = recomputeEdgeSelectedEndpoints() || changed
-    changed = recomputeEdgeSelectedRouting() || changed
-    return changed
+    if (key !== 'selection') return false
+    return recomputeEdgeSelectedEndpoints()
   }
 
   const commitProjection = (commit: ProjectionCommit) => {
@@ -106,9 +87,6 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
     if (affectsEdgeNodes || affectsEdgeVisibility) {
       changed = recomputeEdgeSelectedEndpoints() || changed
     }
-    if (affectsEdgeVisibility) {
-      changed = recomputeEdgeSelectedRouting() || changed
-    }
 
     return changed
   }
@@ -118,8 +96,7 @@ export const createEdgeDomain = ({ derive, applyCommit }: Options): EdgeDomain =
     byId: edgeIndex.byId,
     preview: edgePreview,
     selection: {
-      endpoints: edgeSelectedEndpoints,
-      routing: edgeSelectedRouting
+      endpoints: edgeSelectedEndpoints
     }
   })
 

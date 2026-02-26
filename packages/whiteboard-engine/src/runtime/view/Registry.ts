@@ -61,7 +61,6 @@ export const createViewRegistry = ({
   })
   const edgeDerived = createEdgeViewDerivations({
     readState: state.read,
-    readRender: render.read,
     edgeViewQuery
   })
   const mindmapDerived = createMindmapViewDerivations({
@@ -91,7 +90,6 @@ export const createViewRegistry = ({
   const syncStateAll = () => {
     viewport.sync()
     node.syncState('nodePreview')
-    edge.syncState('routingDrag')
     edge.syncState('selection')
     mindmap.syncState('mindmapLayout')
     mindmap.syncState('mindmapDrag')
@@ -142,9 +140,6 @@ export const createViewRegistry = ({
         break
       case 'nodePreview':
         changed = node.syncState('nodePreview')
-        break
-      case 'routingDrag':
-        changed = edge.syncState('routingDrag')
         break
       case 'mindmapDrag':
         changed = mindmap.syncState('mindmapDrag')

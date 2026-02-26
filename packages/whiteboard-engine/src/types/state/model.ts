@@ -55,7 +55,6 @@ export type InteractionState = {
 export type InteractionSessionKind =
   | 'nodeDrag'
   | 'nodeTransform'
-  | 'routingDrag'
   | 'mindmapDrag'
 
 export type InteractionSessionState = {

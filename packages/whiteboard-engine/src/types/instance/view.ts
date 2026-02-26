@@ -1,5 +1,4 @@
 import type {
-  Edge,
   EdgeAnchor,
   EdgeId,
   MindmapNodeId,
@@ -58,11 +57,6 @@ export type EdgePreviewView = {
   reconnect?: EdgeReconnectInfo
   showPreviewLine: boolean
 }
-
-export type EdgeSelectedRoutingView = {
-  edge: Edge
-  points: Point[]
-} | undefined
 
 export type MindmapViewTreeLine = {
   id: string
@@ -127,7 +121,6 @@ export type EdgesView = {
   preview: EdgePreviewView
   selection: {
     endpoints: EdgeEndpoints | undefined
-    routing: EdgeSelectedRoutingView
   }
 }
 

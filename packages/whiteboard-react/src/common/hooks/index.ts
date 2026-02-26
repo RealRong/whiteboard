@@ -6,6 +6,5 @@ export {
   useViewportTransformView,
   useEdgePreviewView,
   useEdgeSelectedEndpointsView,
-  useEdgeSelectedRoutingView,
   useMindmapDragView
 } from './useWhiteboardView'

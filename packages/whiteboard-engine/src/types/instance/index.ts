@@ -26,7 +26,6 @@ export type {
   EdgePathEntry,
   EdgesView,
   EdgePreviewView,
-  EdgeSelectedRoutingView,
   MindmapDragPreview,
   MindmapDragView,
   MindmapView,

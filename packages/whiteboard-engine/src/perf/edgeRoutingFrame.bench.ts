@@ -6,6 +6,7 @@ import {
 } from '@whiteboard/core/types'
 import { createEngine } from '../instance/create'
 import type { PointerInput } from '../types/common'
+import { Routing } from './kernels/edgeRouting/Routing'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -182,6 +183,11 @@ const main = () => {
       doc = nextDoc
     }
   })
+  const routing = new Routing({
+    instance: {
+      projection: instance.projection
+    }
+  })
   const syncDoc = (next: Document) => {
     void instance.commands.doc.reset(next)
   }
@@ -201,7 +207,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const draft = instance.domains.edge.interaction.routing.begin({
+    let draft = routing.begin({
       edgeId,
       index: routingIndex,
       pointer: createPointerInput({
@@ -213,28 +219,26 @@ const main = () => {
     if (!draft) {
       throw new Error(`routingDrag.begin failed at run ${run + 1}`)
     }
-    const activeSession = instance.render.read('interactionSession').active
-    if (
-      !activeSession
-      || activeSession.kind !== 'routingDrag'
-      || activeSession.pointerId !== pointerId
-    ) {
-      throw new Error(`routingDrag.begin failed at run ${run + 1}`)
-    }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
       const client = {
         x: startClient.x + frame * 0.9,
         y: startClient.y + Math.sin(frame / 8) * 6
       }
-      instance.domains.edge.interaction.routing.updateDraft({
+      const next = routing.update(
         draft,
-        pointer: createPointerInput({
-          instance,
-          pointerId,
-          client
-        })
-      })
+        {
+          world: createPointerInput({
+            instance,
+            pointerId,
+            client
+          }).world
+        }
+      )
+      if (!next) {
+        throw new Error(`routingDrag.update failed at warmup ${frame + 1}`)
+      }
+      draft = next
     }
 
     const samples: number[] = []
@@ -244,18 +248,24 @@ const main = () => {
         y: startClient.y + Math.sin(frame / 10) * 6
       }
       const startedAt = now()
-      instance.domains.edge.interaction.routing.updateDraft({
+      const next = routing.update(
         draft,
-        pointer: createPointerInput({
-          instance,
-          pointerId,
-          client
-        })
-      })
+        {
+          world: createPointerInput({
+            instance,
+            pointerId,
+            client
+          }).world
+        }
+      )
+      if (!next) {
+        throw new Error(`routingDrag.update failed at frame ${frame + 1}`)
+      }
+      draft = next
       samples.push(now() - startedAt)
     }
 
-    instance.domains.edge.interaction.routing.commitDraft(draft)
+    routing.commit(draft)
 
     const resetDoc = cloneDoc(doc)
     const resetEdge = resetDoc.edges.find((edge) => edge.id === edgeId)

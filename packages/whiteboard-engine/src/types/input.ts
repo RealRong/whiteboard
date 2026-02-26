@@ -1,16 +1,9 @@
-import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { PointerInput, Size } from './common'
+import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import type { PointerInput } from './common'
 import type { Commands } from './commands'
-import type { RoutingDragPayload } from './edge'
 import type { InstanceConfig } from './instance/config'
 import type { Query } from './instance/query'
 import type { Render } from './instance/render'
-import type {
-  NodeDragDraft,
-  NodeDragUpdateConstraints,
-  NodeTransformDraft,
-  NodeTransformUpdateConstraints
-} from './node'
 import type { State } from './instance/state'
 import type { Shortcuts } from './shortcuts'
 
@@ -139,61 +132,6 @@ export type InputSessionContext = {
   render: Pick<Render, 'read' | 'write' | 'batch' | 'batchFrame'>
   commands: Commands
   query: Query
-  nodeInput: {
-    drag: {
-      begin: (options: {
-        nodeId: NodeId
-        pointer: PointerInput
-      }) => NodeDragDraft | undefined
-      updateDraft: (options: {
-        draft: NodeDragDraft
-        pointer: PointerInput
-        constraints: NodeDragUpdateConstraints
-      }) => boolean
-      commitDraft: (draft: NodeDragDraft) => boolean
-      cancelDraft: (options?: { draft?: NodeDragDraft }) => boolean
-    }
-    transform: {
-      beginResize: (options: {
-        nodeId: NodeId
-        pointer: PointerInput
-        handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-        rect: Rect
-        rotation: number
-      }) => NodeTransformDraft | undefined
-      beginRotate: (options: {
-        nodeId: NodeId
-        pointer: PointerInput
-        rect: Rect
-        rotation: number
-      }) => NodeTransformDraft | undefined
-      updateDraft: (options: {
-        draft: NodeTransformDraft
-        pointer: PointerInput
-        constraints: NodeTransformUpdateConstraints
-        minSize?: Size
-      }) => boolean
-      commitDraft: (draft: NodeTransformDraft) => boolean
-      cancelDraft: (options?: { draft?: NodeTransformDraft }) => boolean
-    }
-  }
-  edgeInput: {
-    routing: {
-      begin: (options: {
-        edgeId: EdgeId
-        index: number
-        pointer: PointerInput
-      }) => RoutingDragPayload | undefined
-      updateDraft: (options: {
-        draft: RoutingDragPayload
-        pointer: PointerInput
-      }) => boolean
-      commitDraft: (draft: RoutingDragPayload) => boolean
-      cancelDraft: (options?: { draft?: RoutingDragPayload }) => boolean
-      insertRoutingPointAt: (edgeId: EdgeId, pointWorld: Point) => boolean
-      removeRoutingPointAt: (edgeId: EdgeId, index: number) => boolean
-    }
-  }
   inputLifecycle: {
     cancelAll: () => void
     resetTransientState: () => void

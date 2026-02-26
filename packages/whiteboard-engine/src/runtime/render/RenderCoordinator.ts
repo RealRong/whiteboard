@@ -2,7 +2,6 @@ import type { Render } from '@engine-types/instance/render'
 import { RenderStore } from './RenderStore'
 import { Actor as InteractionActor } from './interaction/Actor'
 import { Actor as NodeActor } from './node/Actor'
-import { Actor as EdgeActor } from './edge/Actor'
 import { Actor as MindmapActor } from './mindmap/Actor'
 import { Actor as SelectionActor } from './selection/Actor'
 import { Actor as ViewportActor } from './viewport/Actor'
@@ -13,7 +12,6 @@ export class RenderCoordinator implements Render {
 
   readonly interaction: InteractionActor
   readonly node: NodeActor
-  readonly edge: EdgeActor
   readonly mindmap: MindmapActor
   readonly selection: SelectionActor
   readonly viewport: ViewportActor
@@ -23,7 +21,6 @@ export class RenderCoordinator implements Render {
     this.store = store
     this.interaction = new InteractionActor(this)
     this.node = new NodeActor(this)
-    this.edge = new EdgeActor(this)
     this.mindmap = new MindmapActor(this)
     this.selection = new SelectionActor(this)
     this.viewport = new ViewportActor(this)
@@ -55,7 +52,6 @@ export class RenderCoordinator implements Render {
     this.batch(() => {
       this.interaction.clear()
       this.node.clearTransient()
-      this.edge.resetTransient()
       this.mindmap.clearDrag()
       this.selection.clearBox()
       this.viewport.clearPreview()

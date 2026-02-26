@@ -1,6 +1,5 @@
 import type { EdgeId, MindmapId, NodeId, Point } from '@whiteboard/core/types'
 import type { Commands } from './commands'
-import type { InputSessionContext } from './input'
 import type { Query } from './instance/query'
 import type { State } from './instance/state'
 import type {
@@ -29,10 +28,6 @@ export type NodeDomainApi = {
     order: Commands['order']['node']
     group: Commands['group']
   }
-  interaction: {
-    drag: InputSessionContext['nodeInput']['drag']
-    transform: InputSessionContext['nodeInput']['transform']
-  }
   query: {
     rects: Query['canvas']['nodeRects']
     rect: Query['canvas']['nodeRect']
@@ -56,9 +51,6 @@ export type EdgeDomainApi = {
     resetRouting: Commands['edge']['resetRouting']
     select: Commands['edge']['select']
     order: Commands['order']['edge']
-  }
-  interaction: {
-    routing: InputSessionContext['edgeInput']['routing']
   }
   query: {
     nearestSegment: Query['geometry']['nearestEdgeSegment']
@@ -115,9 +107,6 @@ export type DomainApis = {
   viewport: ViewportDomainApi
 }
 
-type NodeDragBeginInput = Parameters<InputSessionContext['nodeInput']['drag']['begin']>[0]
-type NodeResizeStartInput = Parameters<InputSessionContext['nodeInput']['transform']['beginResize']>[0]
-type NodeRotateStartInput = Parameters<InputSessionContext['nodeInput']['transform']['beginRotate']>[0]
 type MindmapInsertNodeInput = Parameters<Commands['mindmap']['insertNode']>[0]
 type MindmapMoveSubtreeWithLayoutInput = Parameters<Commands['mindmap']['moveSubtreeWithLayout']>[0]
 type MindmapMoveSubtreeWithDropInput = Parameters<Commands['mindmap']['moveSubtreeWithDrop']>[0]
@@ -133,21 +122,6 @@ export type NodeEntityApi = {
     bringForward: () => ReturnType<Commands['order']['node']['bringForward']>
     sendBackward: () => ReturnType<Commands['order']['node']['sendBackward']>
   }
-  interaction: {
-    drag: {
-      begin: (options: Omit<NodeDragBeginInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['drag']['begin']>
-      updateDraft: InputSessionContext['nodeInput']['drag']['updateDraft']
-      commitDraft: InputSessionContext['nodeInput']['drag']['commitDraft']
-      cancelDraft: InputSessionContext['nodeInput']['drag']['cancelDraft']
-    }
-    transform: {
-      beginResize: (options: Omit<NodeResizeStartInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['transform']['beginResize']>
-      beginRotate: (options: Omit<NodeRotateStartInput, 'nodeId'>) => ReturnType<InputSessionContext['nodeInput']['transform']['beginRotate']>
-      updateDraft: InputSessionContext['nodeInput']['transform']['updateDraft']
-      commitDraft: InputSessionContext['nodeInput']['transform']['commitDraft']
-      cancelDraft: InputSessionContext['nodeInput']['transform']['cancelDraft']
-    }
-  }
   query: {
     rect: () => ReturnType<Query['canvas']['nodeRect']>
     view: () => NodeViewItem | undefined
@@ -161,21 +135,13 @@ export type EdgeEntityApi = {
     delete: () => ReturnType<Commands['edge']['delete']>
     select: () => void
     unselect: () => void
-    insertRoutingPointAt: (pointWorld: Point) => ReturnType<InputSessionContext['edgeInput']['routing']['insertRoutingPointAt']>
-    removeRoutingPointAt: (index: number) => ReturnType<InputSessionContext['edgeInput']['routing']['removeRoutingPointAt']>
+    insertRoutingPointAt: (pointWorld: Point) => boolean
+    removeRoutingPointAt: (index: number) => boolean
     resetRouting: () => void
     bringToFront: () => ReturnType<Commands['order']['edge']['bringToFront']>
     sendToBack: () => ReturnType<Commands['order']['edge']['sendToBack']>
     bringForward: () => ReturnType<Commands['order']['edge']['bringForward']>
     sendBackward: () => ReturnType<Commands['order']['edge']['sendBackward']>
-  }
-  interaction: {
-    routing: {
-      begin: (index: number, pointer: Parameters<InputSessionContext['edgeInput']['routing']['begin']>[0]['pointer']) => ReturnType<InputSessionContext['edgeInput']['routing']['begin']>
-      updateDraft: InputSessionContext['edgeInput']['routing']['updateDraft']
-      commitDraft: InputSessionContext['edgeInput']['routing']['commitDraft']
-      cancelDraft: InputSessionContext['edgeInput']['routing']['cancelDraft']
-    }
   }
   query: {
     view: () => EdgePathEntry | undefined

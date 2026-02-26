@@ -5,7 +5,6 @@ import type {
   MindmapDragState,
   NodeDragState,
   NodePreviewState,
-  RoutingDragState,
   SelectionBoxState,
   ViewportGestureState
 } from '../state'
@@ -13,7 +12,6 @@ import type {
 export type RenderSnapshot = {
   interactionSession: InteractionSessionState
   selectionBox: SelectionBoxState
-  routingDrag: RoutingDragState
   viewportGesture: ViewportGestureState
   mindmapDrag: MindmapDragState
   nodeDrag: NodeDragState

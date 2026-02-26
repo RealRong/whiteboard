@@ -1,18 +1,27 @@
 import type { CSSProperties } from 'react'
-import { useEdgeSelectedRoutingView, useWhiteboardRenderSelector } from '../../common/hooks'
+import { useViewSelector, useWhiteboardSelector } from '../../common/hooks'
+import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
+import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewStore'
 import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
 
 export const EdgeControlPointHandles = () => {
-  const selectedRouting = useEdgeSelectedRoutingView()
-  const routingDrag = useWhiteboardRenderSelector('routingDrag')
+  const selectedEdgeId = useWhiteboardSelector(
+    (state) => state.selection.selectedEdgeId,
+    { keys: ['selection'] }
+  )
+  const edgeEntry = useViewSelector((state) =>
+    selectedEdgeId ? state.edges.byId.get(selectedEdgeId) : undefined
+  )
+  const { draft } = useEdgeRoutingPreviewState()
   const {
     handleRoutingPointerDown,
     handleRoutingKeyDown
   } = useEdgeRoutingInteraction()
-  const edge = selectedRouting?.edge
-  const points = selectedRouting?.points ?? []
-  const activeDrag = routingDrag.payload
-  const activeIndex = edge && activeDrag && activeDrag.edgeId === edge.id ? activeDrag.index : null
+  const edge = edgeEntry?.edge
+  const points = edge
+    ? resolveRoutingPointsWithDraft(edge.id, edge.routing?.points ?? [], draft)
+    : []
+  const activeIndex = edge && draft && draft.edgeId === edge.id ? draft.index : null
 
   if (!edge || points.length === 0 || edge.type === 'bezier' || edge.type === 'curve') return null
 

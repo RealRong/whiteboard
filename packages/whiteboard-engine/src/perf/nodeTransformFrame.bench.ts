@@ -6,7 +6,9 @@ import {
 } from '@whiteboard/core/types'
 import { createEngine } from '../instance/create'
 import type { PointerInput } from '../types/common'
+import type { InternalInstance } from '../types/instance/instance'
 import type { NodeTransformUpdateConstraints } from '../types/node'
+import { NodeTransformKernel } from './kernels/nodeTransform/Kernel'
 
 const NODE_COUNT = 5000
 const EDGE_COUNT = 10000
@@ -180,6 +182,21 @@ const main = () => {
       doc = nextDoc
     }
   })
+  const transformKernel = new NodeTransformKernel({
+    instance: {
+      query: instance.query,
+      config: instance.query.config.get(),
+      viewport: {
+        getZoom: instance.query.viewport.getZoom
+      },
+      document: {
+        get: instance.query.doc.get
+      }
+    } as unknown as Pick<
+      InternalInstance,
+      'query' | 'config' | 'viewport' | 'document'
+    >
+  })
   const syncDoc = (next: Document) => {
     void instance.commands.doc.reset(next)
   }
@@ -209,7 +226,7 @@ const main = () => {
       x: basePosition.x + baseSize.width,
       y: basePosition.y + baseSize.height
     }
-    const draft = instance.domains.node.interaction.transform.beginResize({
+    const draft = transformKernel.beginResize({
       nodeId,
       pointer: createPointerInput({
         instance,
@@ -223,29 +240,21 @@ const main = () => {
     if (!draft) {
       throw new Error(`nodeTransform.beginResize failed at run ${run + 1}`)
     }
-    const activeSession = instance.render.read('interactionSession').active
-    if (
-      !activeSession
-      || activeSession.kind !== 'nodeTransform'
-      || activeSession.pointerId !== pointerId
-    ) {
-      throw new Error(`nodeTransform.start failed at run ${run + 1}`)
-    }
 
     for (let frame = 0; frame < WARMUP_FRAMES; frame += 1) {
       const client = {
         x: startClient.x + frame * 0.8,
         y: startClient.y + frame * 0.5 + Math.sin(frame / 10) * 2
       }
-      instance.domains.node.interaction.transform.updateDraft({
+      transformKernel.update(
         draft,
-        pointer: createPointerInput({
+        createPointerInput({
           instance,
           pointerId,
           client
         }),
-        constraints: TRANSFORM_CONSTRAINTS
-      })
+        TRANSFORM_CONSTRAINTS
+      )
     }
 
     const samples: number[] = []
@@ -255,21 +264,19 @@ const main = () => {
         y: startClient.y + (WARMUP_FRAMES + frame) * 0.5 + Math.sin(frame / 12) * 2
       }
       const startedAt = now()
-      instance.domains.node.interaction.transform.updateDraft({
+      transformKernel.update(
         draft,
-        pointer: createPointerInput({
+        createPointerInput({
           instance,
           pointerId,
           client
         }),
-        constraints: TRANSFORM_CONSTRAINTS
-      })
+        TRANSFORM_CONSTRAINTS
+      )
       samples.push(now() - startedAt)
     }
 
-    instance.domains.node.interaction.transform.commitDraft(
-      draft
-    )
+    transformKernel.commit(draft)
 
     const resetDoc = cloneDoc(doc)
     const resetNode = resetDoc.nodes.find((node) => node.id === nodeId)

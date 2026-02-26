@@ -22,6 +22,14 @@
 
 ## 2. 当前现状（代码入口）
 
+进度更新（2026-02-26）：
+
+1. `domains.node/domains.edge` 对外 `interaction` API 已移除。
+2. `NodeInputGateway/EdgeInputGateway + RuntimeWriter/RuntimeOutput` 已从 engine 删除。
+3. 仅用于性能基准的 `NodeDragKernel/NodeTransformKernel/Routing` 已迁到 `packages/whiteboard-engine/src/perf/kernels/*`，不再位于 `domains/*/interaction`。
+4. `edgeRouting` 预览已切到 React 本地 store（`edgeRoutingPreviewStore`），engine `render.routingDrag` 及其 view 同步链路已移除。
+5. `edges.selection.routing` 已从 engine view 移除，控制点 UI 直接基于 `selectedEdgeId + edges.byId` 读取并叠加本地 draft。
+
 已 UI 化：
 
 1. `edgeConnect` 生命周期与 preview/snap：`packages/whiteboard-react/src/edge/hooks/useEdgeConnectInteraction.ts`
@@ -31,11 +39,11 @@
 5. `mindmapDrag`：`packages/whiteboard-react/src/mindmap/hooks/useMindmapDragInteraction.ts`
 6. `edgeRouting`：`packages/whiteboard-react/src/edge/hooks/useEdgeRoutingInteraction.ts`
 7. `nodeDrag`：`packages/whiteboard-react/src/node/hooks/useNodeDragInteraction.ts`
+8. `nodeTransform`：`packages/whiteboard-react/src/node/hooks/useNodeTransformInteraction.ts`
 
 仍主要依赖 engine 交互层：
 
-1. `nodeTransform`：`packages/whiteboard-react/src/node/hooks/useNodeTransformInteraction.ts` -> `instance.domains.node.interaction.transform.*`
-2. 旧输入编排壳仍在：`packages/whiteboard-react/src/common/input/DomInputAdapter.ts` + `packages/whiteboard-engine/src/input/core/InputPort.ts`
+1. 旧输入编排壳仍在：`packages/whiteboard-react/src/common/input/DomInputAdapter.ts` + `packages/whiteboard-engine/src/input/core/InputPort.ts`
 
 ---
 
@@ -331,5 +339,5 @@ engine 收敛：
 如果要“尽快降复杂度且降低回归风险”，建议顺序：
 
 1. 先做 `selectionBox + edgePath + mindmapDrag`（替掉 input sessions）。
-2. 再做 `nodeDrag + nodeTransform + edgeRouting`（替掉 domain interaction）。
+2. 再做 `nodeDrag + nodeTransform + edgeRouting`（替掉 domain interaction，现已完成）。
 3. 最后做 `viewport + space + InputPort` 收口（完成 engine 极简边界）。
