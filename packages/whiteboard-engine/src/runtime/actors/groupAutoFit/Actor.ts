@@ -10,7 +10,7 @@ import {
   getGroupDescendants,
   getNodesBoundingRect,
   rectEquals
-} from '../../../domains/node/model'
+} from '@whiteboard/core/node'
 
 type Snapshot = {
   nodeMap: Map<string, Node>

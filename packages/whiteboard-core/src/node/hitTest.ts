@@ -1,11 +1,19 @@
-import type { NodeId, Rect } from '@whiteboard/core/types'
-import type { CanvasNodeRect } from '@engine-types/instance/view'
+import type { NodeId, Rect } from '../types'
 import {
   rectContainsRotatedRect,
   rectIntersectsRotatedRect
-} from '@whiteboard/core/geometry'
+} from '../geometry'
 
-export const getNodeIdsInRect = (rect: Rect, entries: CanvasNodeRect[]): NodeId[] =>
+export type NodeRectHitEntry = {
+  node: {
+    id: NodeId
+    type: string
+  }
+  rect: Rect
+  rotation: number
+}
+
+export const getNodeIdsInRect = (rect: Rect, entries: NodeRectHitEntry[]): NodeId[] =>
   entries
     .filter((entry) => {
       if (entry.node.type === 'group') {

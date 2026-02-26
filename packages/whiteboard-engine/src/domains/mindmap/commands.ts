@@ -26,13 +26,17 @@ import {
   setSide as setMindmapSide,
   toggleCollapse as toggleMindmapCollapse
 } from '@whiteboard/core/mindmap'
-import { DEFAULT_TUNING } from '../../../config'
-import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
-import type { RunMutations } from '../../../runtime/actors/shared/MutationCommit'
-import { StateWatchEmitter } from '../../../runtime/actors/shared/StateWatchEmitter'
+import { DEFAULT_TUNING } from '../../config'
+import { StateWatchEmitter } from '../../runtime/actors/shared/StateWatchEmitter'
 
 type ActorOptions = {
   instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>
+}
+
+export type MindmapController = Commands['mindmap'] & {
+  readonly name: 'Mindmap'
+  start: () => void
+  stop: () => void
 }
 
 const cloneValue = <T,>(value: T): T => {
@@ -77,44 +81,33 @@ const cloneLayout = (
     : undefined
 })
 
-export class Actor {
-  readonly name = 'Mindmap'
+export const createMindmapController = ({ instance }: ActorOptions): MindmapController => {
+  const state = instance.state
+  const layoutEmitter = new StateWatchEmitter({
+    state,
+    keys: ['mindmapLayout'],
+    read: () => state.read('mindmapLayout'),
+    equals: isSameLayout,
+    clone: cloneLayout,
+    emit: (layout) => {
+      instance.emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
+    }
+  })
 
-  private readonly state: ActorOptions['instance']['state']
-  private readonly instance: ActorOptions['instance']
-  private readonly runMutations: RunMutations
-  private readonly layoutEmitter: StateWatchEmitter<MindmapLayoutConfig>
-
-  constructor({ instance }: ActorOptions) {
-    this.state = instance.state
-    this.instance = instance
-    this.runMutations = createMutationCommit(instance.mutate).run
-    this.layoutEmitter = new StateWatchEmitter({
-      state: this.state,
-      keys: ['mindmapLayout'],
-      read: () => this.state.read('mindmapLayout'),
-      equals: isSameLayout,
-      clone: cloneLayout,
-      emit: (layout) => {
-        instance.emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
-      }
-    })
-  }
-
-  private createInvalidResult = (message: string): DispatchResult => ({
+  const createInvalidResult = (message: string): DispatchResult => ({
     ok: false,
     reason: 'invalid',
     message
   })
 
-  private readMindmap = (id: string): MindmapTree | undefined =>
-    (this.instance.document.get().mindmaps ?? []).find((tree) => tree.id === id)
+  const readMindmap = (id: string): MindmapTree | undefined =>
+    (instance.document.get().mindmaps ?? []).find((tree) => tree.id === id)
 
-  private readMindmapNode = (id: string): Node | undefined =>
-    this.instance.document.get().nodes.find((node) => node.id === id)
+  const readMindmapNode = (id: string): Node | undefined =>
+    instance.document.get().nodes.find((node) => node.id === id)
 
-  private createMindmapId = () => {
-    const exists = (id: string) => Boolean(this.readMindmap(id))
+  const createMindmapId = () => {
+    const exists = (id: string) => Boolean(readMindmap(id))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `mindmap_${seed}_${index.toString(36)}`
@@ -123,9 +116,9 @@ export class Actor {
     return `mindmap_${seed}_${Math.random().toString(36).slice(2, 8)}`
   }
 
-  private createMindmapNodeId = () => {
+  const createMindmapNodeId = () => {
     const exists = (id: string) =>
-      (this.instance.document.get().mindmaps ?? []).some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
+      (instance.document.get().mindmaps ?? []).some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
     const seed = Date.now().toString(36)
     for (let index = 0; index < 1024; index += 1) {
       const id = `mnode_${seed}_${index.toString(36)}`
@@ -134,15 +127,15 @@ export class Actor {
     return `mnode_${seed}_${Math.random().toString(36).slice(2, 8)}`
   }
 
-  private cloneTree = (tree: MindmapTree): MindmapTree => cloneValue(tree)
+  const cloneTree = (tree: MindmapTree): MindmapTree => cloneValue(tree)
 
-  private cloneNode = (node: Node): Node => cloneValue(node)
+  const cloneNode = (node: Node): Node => cloneValue(node)
 
-  private runMutationsWithValue = async (
+  const runMutationsWithValue = async (
     operations: Operation[],
     value?: unknown
   ): Promise<DispatchResult> => {
-    const result = await this.runMutations(operations)
+    const result = await instance.mutate(operations, 'ui')
     if (!result.ok || typeof value === 'undefined') {
       return result
     }
@@ -152,7 +145,7 @@ export class Actor {
     }
   }
 
-  private toLayoutHint = (
+  const toLayoutHint = (
     anchorId: MindmapNodeId,
     nodeSize: { width: number; height: number },
     layout: MindmapLayoutConfig
@@ -163,13 +156,13 @@ export class Actor {
     anchorId
   })
 
-  private getLayoutHint = (hint?: MindmapLayoutHint) => {
+  const getLayoutHint = (hint?: MindmapLayoutHint) => {
     if (!hint?.nodeSize) return undefined
     if (!hint.anchorId) return undefined
     return hint
   }
 
-  private computeAnchorWorld = (
+  const computeAnchorWorld = (
     tree: MindmapTree,
     hint: MindmapLayoutHint,
     nodePosition: { x: number; y: number }
@@ -187,14 +180,14 @@ export class Actor {
     }
   }
 
-  private computeAnchorPatch = (
+  const computeAnchorPatch = (
     beforeTree: MindmapTree,
     afterTree: MindmapTree,
     hint: MindmapLayoutHint,
     mindmapNode: Node
   ) => {
-    const before = this.computeAnchorWorld(beforeTree, hint, mindmapNode.position)
-    const after = this.computeAnchorWorld(afterTree, hint, mindmapNode.position)
+    const before = computeAnchorWorld(beforeTree, hint, mindmapNode.position)
+    const after = computeAnchorWorld(afterTree, hint, mindmapNode.position)
     if (!before || !after) return undefined
     const dx = before.x - after.x
     const dy = before.y - after.y
@@ -207,18 +200,18 @@ export class Actor {
     }
   }
 
-  private appendAnchorPatch = (
+  const appendAnchorPatch = (
     operations: Operation[],
     mindmapId: string,
     beforeTree: MindmapTree,
     afterTree: MindmapTree,
     layout?: MindmapLayoutHint
   ): Operation[] => {
-    const layoutHint = this.getLayoutHint(layout)
+    const layoutHint = getLayoutHint(layout)
     if (!layoutHint) return operations
-    const mindmapNode = this.readMindmapNode(mindmapId)
+    const mindmapNode = readMindmapNode(mindmapId)
     if (!mindmapNode) return operations
-    const anchorPatch = this.computeAnchorPatch(beforeTree, afterTree, layoutHint, mindmapNode)
+    const anchorPatch = computeAnchorPatch(beforeTree, afterTree, layoutHint, mindmapNode)
     if (!anchorPatch) return operations
     return [
       ...operations,
@@ -226,12 +219,12 @@ export class Actor {
         type: 'node.update',
         id: mindmapNode.id,
         patch: anchorPatch,
-        before: this.cloneNode(mindmapNode)
+        before: cloneNode(mindmapNode)
       }
     ]
   }
 
-  private createReplaceOperations = (
+  const createReplaceOperations = (
     id: string,
     before: MindmapTree,
     after: MindmapTree,
@@ -241,14 +234,14 @@ export class Actor {
       {
         type: 'mindmap.replace',
         id,
-        before: this.cloneTree(before),
-        after: this.cloneTree(after)
+        before: cloneTree(before),
+        after: cloneTree(after)
       }
     ]
-    return this.appendAnchorPatch(operations, id, before, after, layout)
+    return appendAnchorPatch(operations, id, before, after, layout)
   }
 
-  private resolveRootInsertSide = (
+  const resolveRootInsertSide = (
     placement: 'left' | 'right' | 'up' | 'down',
     layout: MindmapLayoutConfig
   ): 'left' | 'right' => {
@@ -260,110 +253,112 @@ export class Actor {
       : DEFAULT_TUNING.mindmap.defaultSide
   }
 
-  create: Commands['mindmap']['create'] = (payload) => {
-    if (payload?.id && this.readMindmap(payload.id)) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${payload.id} already exists.`))
+  const create: Commands['mindmap']['create'] = (payload) => {
+    if (payload?.id && readMindmap(payload.id)) {
+      return Promise.resolve(createInvalidResult(`Mindmap ${payload.id} already exists.`))
     }
     const mindmap = createMindmap({
-      id: payload?.id ?? this.createMindmapId(),
+      id: payload?.id ?? createMindmapId(),
       rootId: payload?.rootId,
       rootData: payload?.rootData,
       idGenerator: {
-        treeId: this.createMindmapId,
-        nodeId: this.createMindmapNodeId
+        treeId: createMindmapId,
+        nodeId: createMindmapNodeId
       }
     })
-    return this.runMutationsWithValue(
+    return runMutationsWithValue(
       [{ type: 'mindmap.create', mindmap }],
       mindmap.id
     )
   }
 
-  replace: Commands['mindmap']['replace'] = (id, tree) => {
-    const current = this.readMindmap(id)
+  const replace: Commands['mindmap']['replace'] = (id, tree) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
     if (tree.id !== id) {
-      return Promise.resolve(this.createInvalidResult('Mindmap id mismatch.'))
+      return Promise.resolve(createInvalidResult('Mindmap id mismatch.'))
     }
-    return this.runMutations(
+    return instance.mutate(
       [{
         type: 'mindmap.replace',
         id,
-        before: this.cloneTree(current),
-        after: this.cloneTree(tree)
-      }]
+        before: cloneTree(current),
+        after: cloneTree(tree)
+      }],
+      'ui'
     )
   }
 
-  delete: Commands['mindmap']['delete'] = (ids) => {
+  const remove: Commands['mindmap']['delete'] = (ids) => {
     if (!ids.length) {
-      return Promise.resolve(this.createInvalidResult('No mindmap ids provided.'))
+      return Promise.resolve(createInvalidResult('No mindmap ids provided.'))
     }
 
     const trees: MindmapTree[] = []
     for (const id of ids) {
-      const tree = this.readMindmap(id)
+      const tree = readMindmap(id)
       if (!tree) {
-        return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+        return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
       }
       trees.push(tree)
     }
 
-    return this.runMutations(
+    return instance.mutate(
       trees.map((tree) => ({
         type: 'mindmap.delete' as const,
         id: tree.id,
-        before: this.cloneTree(tree)
-      }))
+        before: cloneTree(tree)
+      })),
+      'ui'
     )
   }
 
-  addChild: Commands['mindmap']['addChild'] = (id, parentId, payload, options) => {
-    const current = this.readMindmap(id)
+  const addChild: Commands['mindmap']['addChild'] = (id, parentId, payload, options) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = addMindmapChild(current, parentId, payload, {
       index: options?.index,
       side: options?.side,
       idGenerator: {
-        nodeId: this.createMindmapNodeId
+        nodeId: createMindmapNodeId
       }
     })
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    const operations = this.createReplaceOperations(id, current, next.tree, options?.layout)
-    return this.runMutationsWithValue(operations, next.value?.id)
+    const operations = createReplaceOperations(id, current, next.tree, options?.layout)
+    return runMutationsWithValue(operations, next.value?.id)
   }
 
-  addSibling: Commands['mindmap']['addSibling'] = (id, nodeId, position, payload, options) => {
-    const current = this.readMindmap(id)
+  const addSibling: Commands['mindmap']['addSibling'] = (id, nodeId, position, payload, options) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = addMindmapSibling(current, nodeId, position, payload, {
       idGenerator: {
-        nodeId: this.createMindmapNodeId
+        nodeId: createMindmapNodeId
       }
     })
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    const operations = this.createReplaceOperations(id, current, next.tree, options?.layout)
-    return this.runMutationsWithValue(operations, next.value?.id)
+    const operations = createReplaceOperations(id, current, next.tree, options?.layout)
+    return runMutationsWithValue(operations, next.value?.id)
   }
 
-  moveSubtree: Commands['mindmap']['moveSubtree'] = (id, nodeId, newParentId, options) => {
-    const current = this.readMindmap(id)
+  const moveSubtree: Commands['mindmap']['moveSubtree'] = (id, nodeId, newParentId, options) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const fromParentId = current.nodes[nodeId]?.parentId
@@ -379,33 +374,34 @@ export class Actor {
       side: options?.side
     })
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    const operations = this.createReplaceOperations(id, current, next.tree, options?.layout)
-    return this.runMutations(operations)
+    const operations = createReplaceOperations(id, current, next.tree, options?.layout)
+    return instance.mutate(operations, 'ui')
   }
 
-  removeSubtree: Commands['mindmap']['removeSubtree'] = (id, nodeId) => {
-    const current = this.readMindmap(id)
+  const removeSubtree: Commands['mindmap']['removeSubtree'] = (id, nodeId) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = removeMindmapSubtree(current, nodeId)
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutations(
-      this.createReplaceOperations(id, current, next.tree)
+    return instance.mutate(
+      createReplaceOperations(id, current, next.tree),
+      'ui'
     )
   }
 
-  cloneSubtree: Commands['mindmap']['cloneSubtree'] = (id, nodeId, options) => {
-    const current = this.readMindmap(id)
+  const cloneSubtree: Commands['mindmap']['cloneSubtree'] = (id, nodeId, options) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = cloneMindmapSubtree(current, nodeId, {
@@ -413,107 +409,111 @@ export class Actor {
       index: options?.index,
       side: options?.side,
       idGenerator: {
-        nodeId: this.createMindmapNodeId
+        nodeId: createMindmapNodeId
       }
     })
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutationsWithValue(
-      this.createReplaceOperations(id, current, next.tree),
+    return runMutationsWithValue(
+      createReplaceOperations(id, current, next.tree),
       next.value?.id
     )
   }
 
-  toggleCollapse: Commands['mindmap']['toggleCollapse'] = (id, nodeId, collapsed) => {
-    const current = this.readMindmap(id)
+  const toggleCollapse: Commands['mindmap']['toggleCollapse'] = (id, nodeId, collapsed) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = toggleMindmapCollapse(current, nodeId, collapsed)
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutations(
-      this.createReplaceOperations(id, current, next.tree)
+    return instance.mutate(
+      createReplaceOperations(id, current, next.tree),
+      'ui'
     )
   }
 
-  setNodeData: Commands['mindmap']['setNodeData'] = (id, nodeId, patch) => {
-    const current = this.readMindmap(id)
+  const setNodeData: Commands['mindmap']['setNodeData'] = (id, nodeId, patch) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = setMindmapNodeData(current, nodeId, patch)
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutations(
-      this.createReplaceOperations(id, current, next.tree)
+    return instance.mutate(
+      createReplaceOperations(id, current, next.tree),
+      'ui'
     )
   }
 
-  reorderChild: Commands['mindmap']['reorderChild'] = (id, parentId, fromIndex, toIndex) => {
-    const current = this.readMindmap(id)
+  const reorderChild: Commands['mindmap']['reorderChild'] = (id, parentId, fromIndex, toIndex) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = reorderMindmapChild(current, parentId, fromIndex, toIndex)
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutations(
-      this.createReplaceOperations(id, current, next.tree)
+    return instance.mutate(
+      createReplaceOperations(id, current, next.tree),
+      'ui'
     )
   }
 
-  setSide: Commands['mindmap']['setSide'] = (id, nodeId, side) => {
-    const current = this.readMindmap(id)
+  const setSide: Commands['mindmap']['setSide'] = (id, nodeId, side) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = setMindmapSide(current, nodeId, side)
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutations(
-      this.createReplaceOperations(id, current, next.tree)
+    return instance.mutate(
+      createReplaceOperations(id, current, next.tree),
+      'ui'
     )
   }
 
-  attachExternal: Commands['mindmap']['attachExternal'] = (id, targetId, payload, options) => {
-    const current = this.readMindmap(id)
+  const attachExternal: Commands['mindmap']['attachExternal'] = (id, targetId, payload, options) => {
+    const current = readMindmap(id)
     if (!current) {
-      return Promise.resolve(this.createInvalidResult(`Mindmap ${id} not found.`))
+      return Promise.resolve(createInvalidResult(`Mindmap ${id} not found.`))
     }
 
     const next = attachMindmapExternal(current, targetId, payload, {
       index: options?.index,
       side: options?.side,
       idGenerator: {
-        nodeId: this.createMindmapNodeId
+        nodeId: createMindmapNodeId
       }
     })
     if (!next.ok) {
-      return Promise.resolve(this.createInvalidResult(next.error))
+      return Promise.resolve(createInvalidResult(next.error))
     }
 
-    return this.runMutationsWithValue(
-      this.createReplaceOperations(id, current, next.tree),
+    return runMutationsWithValue(
+      createReplaceOperations(id, current, next.tree),
       next.value?.id
     )
   }
 
-  insertNode: Commands['mindmap']['insertNode'] = async ({
+  const insertNode: Commands['mindmap']['insertNode'] = async ({
     id,
     tree,
     targetNodeId,
@@ -522,18 +522,18 @@ export class Actor {
     layout,
     payload = { kind: 'text', text: '' }
   }) => {
-    const layoutHint = this.toLayoutHint(targetNodeId, nodeSize, layout)
+    const layoutHint = toLayoutHint(targetNodeId, nodeSize, layout)
 
     if (targetNodeId === tree.rootId) {
       const children = tree.children[targetNodeId] ?? []
       const index = placement === 'up' ? 0 : placement === 'down' ? children.length : undefined
-      const side = this.resolveRootInsertSide(placement, layout)
-      await this.addChild(id, targetNodeId, payload, { index, side, layout: layoutHint })
+      const side = resolveRootInsertSide(placement, layout)
+      await addChild(id, targetNodeId, payload, { index, side, layout: layoutHint })
       return
     }
 
     if (placement === 'up' || placement === 'down') {
-      await this.addSibling(id, targetNodeId, placement === 'up' ? 'before' : 'after', payload, {
+      await addSibling(id, targetNodeId, placement === 'up' ? 'before' : 'after', payload, {
         layout: layoutHint
       })
       return
@@ -544,21 +544,21 @@ export class Actor {
       (placement === 'left' && targetSide === 'right') || (placement === 'right' && targetSide === 'left')
 
     if (towardRoot) {
-      const result = await this.addSibling(id, targetNodeId, 'before', payload, {
+      const result = await addSibling(id, targetNodeId, 'before', payload, {
         layout: layoutHint
       })
       if (!result.ok || !result.value) return
-      await this.moveSubtree(id, targetNodeId, result.value as MindmapNodeId, {
+      await moveSubtree(id, targetNodeId, result.value as MindmapNodeId, {
         index: 0,
-        layout: this.toLayoutHint(result.value as MindmapNodeId, nodeSize, layout)
+        layout: toLayoutHint(result.value as MindmapNodeId, nodeSize, layout)
       })
       return
     }
 
-    await this.addChild(id, targetNodeId, payload, { layout: layoutHint })
+    await addChild(id, targetNodeId, payload, { layout: layoutHint })
   }
 
-  moveSubtreeWithLayout: Commands['mindmap']['moveSubtreeWithLayout'] = ({
+  const moveSubtreeWithLayout: Commands['mindmap']['moveSubtreeWithLayout'] = ({
     id,
     nodeId,
     newParentId,
@@ -567,13 +567,13 @@ export class Actor {
     nodeSize,
     layout
   }) =>
-    this.moveSubtree(id, nodeId, newParentId, {
+    moveSubtree(id, nodeId, newParentId, {
       index,
       side,
-      layout: this.toLayoutHint(newParentId, nodeSize, layout)
+      layout: toLayoutHint(newParentId, nodeSize, layout)
     })
 
-  moveSubtreeWithDrop: Commands['mindmap']['moveSubtreeWithDrop'] = async ({
+  const moveSubtreeWithDrop: Commands['mindmap']['moveSubtreeWithDrop'] = async ({
     id,
     nodeId,
     drop,
@@ -585,7 +585,7 @@ export class Actor {
       drop.parentId !== origin?.parentId || drop.index !== origin?.index || typeof drop.side !== 'undefined'
     if (!shouldMove) return
 
-    await this.moveSubtreeWithLayout({
+    await moveSubtreeWithLayout({
       id,
       nodeId,
       newParentId: drop.parentId,
@@ -596,12 +596,12 @@ export class Actor {
     })
   }
 
-  moveRoot: Commands['mindmap']['moveRoot'] = async ({
+  const moveRoot: Commands['mindmap']['moveRoot'] = async ({
     nodeId,
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    const node = this.instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === nodeId)
+    const node = instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === nodeId)
     if (!node) return
     if (
       Math.abs(node.position.x - position.x) < threshold &&
@@ -610,22 +610,46 @@ export class Actor {
       return
     }
 
-    await this.runMutations(
+    await instance.mutate(
       [{
         type: 'node.update',
         id: nodeId,
         patch: {
           position: { x: position.x, y: position.y }
         }
-      }]
+      }],
+      'ui'
     )
   }
 
-  start = () => {
-    this.layoutEmitter.start()
+  const start = () => {
+    layoutEmitter.start()
   }
 
-  stop = () => {
-    this.layoutEmitter.stop()
+  const stop = () => {
+    layoutEmitter.stop()
+  }
+
+  return {
+    name: 'Mindmap',
+    create,
+    replace,
+    delete: remove,
+    addChild,
+    addSibling,
+    moveSubtree,
+    removeSubtree,
+    cloneSubtree,
+    toggleCollapse,
+    setNodeData,
+    reorderChild,
+    setSide,
+    attachExternal,
+    insertNode,
+    moveSubtreeWithLayout,
+    moveSubtreeWithDrop,
+    moveRoot,
+    start,
+    stop
   }
 }

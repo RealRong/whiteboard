@@ -9,9 +9,9 @@ import type {
 } from '@whiteboard/core/types'
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
-import { DEFAULT_TUNING } from '../../../config'
-import { applySelection } from '../../../shared/selection'
-import { StateWatchEmitter } from '../../../runtime/actors/shared/StateWatchEmitter'
+import { DEFAULT_TUNING } from '../../config'
+import { applySelection } from '../../shared/selection'
+import { StateWatchEmitter } from '../../runtime/actors/shared/StateWatchEmitter'
 
 type ActorOptions = {
   instance: Pick<InternalInstance, 'commands' | 'state' | 'projection' | 'document' | 'emit'>
@@ -19,6 +19,21 @@ type ActorOptions = {
 }
 
 type EdgeSelectionValue = EdgeId | undefined
+
+export type SelectionController = {
+  readonly name: 'Selection'
+  start: () => void
+  stop: () => void
+  getSelectedNodeIds: () => NodeId[]
+  select: (ids: NodeId[], mode?: SelectionMode) => void
+  toggle: (ids: NodeId[]) => void
+  selectAll: () => void
+  clear: () => void
+  groupSelected: () => Promise<void>
+  ungroupSelected: () => Promise<void>
+  deleteSelected: () => Promise<void>
+  duplicateSelected: () => Promise<void>
+}
 
 const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   if (!result.ok) return undefined
@@ -37,60 +52,41 @@ const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
   return true
 }
 
-export class Actor {
-  readonly name = 'Selection'
-  private readonly instance: ActorOptions['instance']
-  private readonly resetTransient?: ActorOptions['resetTransient']
+export const createSelectionController = ({
+  instance,
+  resetTransient
+}: ActorOptions): SelectionController => {
+  const state = instance.state
+  const selectionEmitter = new StateWatchEmitter({
+    state,
+    keys: ['selection'],
+    read: () => Array.from(state.read('selection').selectedNodeIds),
+    equals: isSameNodeIds,
+    clone: (value) => [...value],
+    emit: (nodeIds) => instance.emit('selection.changed', { nodeIds })
+  })
+  const edgeSelectionEmitter = new StateWatchEmitter({
+    state,
+    keys: ['selection'],
+    read: () => state.read('selection').selectedEdgeId,
+    equals: (left, right) => left === right,
+    emit: (edgeId) => instance.emit('edge.selection.changed', { edgeId })
+  })
 
-  private readonly selectionEmitter: StateWatchEmitter<NodeId[]>
-  private readonly edgeSelectionEmitter: StateWatchEmitter<EdgeSelectionValue>
+  const getDocument = (): Document => instance.document.get()
 
-  constructor({ instance, resetTransient }: ActorOptions) {
-    this.instance = instance
-    this.resetTransient = resetTransient
-    const state = instance.state
-    this.selectionEmitter = new StateWatchEmitter({
-      state,
-      keys: ['selection'],
-      read: () => Array.from(state.read('selection').selectedNodeIds),
-      equals: isSameNodeIds,
-      clone: (value) => [...value],
-      emit: (nodeIds) => instance.emit('selection.changed', { nodeIds })
-    })
-    this.edgeSelectionEmitter = new StateWatchEmitter({
-      state,
-      keys: ['selection'],
-      read: () => state.read('selection').selectedEdgeId,
-      equals: (left, right) => left === right,
-      emit: (edgeId) => instance.emit('edge.selection.changed', { edgeId })
-    })
-  }
+  const getSelectableNodeIds = (): NodeId[] =>
+    instance.projection.getSnapshot().nodes.canvas.map((canvasNode) => canvasNode.id)
 
-  start = () => {
-    this.selectionEmitter.start()
-    this.edgeSelectionEmitter.start()
-  }
+  const getSelectedNodeIds = (): NodeId[] =>
+    Array.from(instance.state.read('selection').selectedNodeIds)
 
-  stop = () => {
-    this.selectionEmitter.stop()
-    this.edgeSelectionEmitter.stop()
-  }
+  const getSelectedEdgeId = (): EdgeId | undefined =>
+    instance.state.read('selection').selectedEdgeId
 
-  private getDocument = (): Document => this.instance.document.get()
-
-  private getSelectableNodeIds = (): NodeId[] =>
-    this.instance.projection.getSnapshot().nodes.canvas.map((canvasNode) => canvasNode.id)
-
-  getSelectedNodeIds = (): NodeId[] =>
-    Array.from(this.instance.state.read('selection').selectedNodeIds)
-
-  private getSelectedEdgeId = (): EdgeId | undefined =>
-    this.instance.state.read('selection').selectedEdgeId
-
-  select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
-    const { state } = this.instance
+  const select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
     state.batch(() => {
-      this.resetTransient?.()
+      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -100,10 +96,9 @@ export class Actor {
     })
   }
 
-  toggle = (ids: NodeId[]) => {
-    const { state } = this.instance
+  const toggle = (ids: NodeId[]) => {
     state.batch(() => {
-      this.resetTransient?.()
+      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -113,15 +108,14 @@ export class Actor {
     })
   }
 
-  selectAll = () => {
-    const ids = this.getSelectableNodeIds()
-    this.select(ids, 'replace')
+  const selectAll = () => {
+    const ids = getSelectableNodeIds()
+    select(ids, 'replace')
   }
 
-  clear = () => {
-    const { state } = this.instance
+  const clear = () => {
     state.batch(() => {
-      this.resetTransient?.()
+      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -130,42 +124,42 @@ export class Actor {
     })
   }
 
-  groupSelected = async () => {
-    const selectedNodeIds = this.getSelectedNodeIds()
+  const groupSelected = async () => {
+    const selectedNodeIds = getSelectedNodeIds()
     if (selectedNodeIds.length < 2) return
 
-    const result = await this.instance.commands.group.create(selectedNodeIds)
+    const result = await instance.commands.group.create(selectedNodeIds)
     const groupId = getCreatedNodeId(result, 'group')
     if (!groupId) return
-    this.select([groupId], 'replace')
+    select([groupId], 'replace')
   }
 
-  ungroupSelected = async () => {
-    const selectedNodeIds = this.getSelectedNodeIds()
+  const ungroupSelected = async () => {
+    const selectedNodeIds = getSelectedNodeIds()
     if (!selectedNodeIds.length) return
 
-    const doc = this.getDocument()
+    const doc = getDocument()
     const groups = doc.nodes.filter((node) => node.type === 'group' && selectedNodeIds.includes(node.id))
     if (!groups.length) return
 
     for (const group of groups) {
-      await this.instance.commands.group.ungroup(group.id)
+      await instance.commands.group.ungroup(group.id)
     }
-    this.clear()
+    clear()
   }
 
-  deleteSelected = async () => {
-    const selectedEdgeId = this.getSelectedEdgeId()
+  const deleteSelected = async () => {
+    const selectedEdgeId = getSelectedEdgeId()
     if (selectedEdgeId) {
-      await this.instance.commands.edge.delete([selectedEdgeId])
-      this.instance.commands.edge.select(undefined)
+      await instance.commands.edge.delete([selectedEdgeId])
+      instance.commands.edge.select(undefined)
       return
     }
 
-    const selectedNodeIds = this.getSelectedNodeIds()
+    const selectedNodeIds = getSelectedNodeIds()
     if (!selectedNodeIds.length) return
 
-    const doc = this.getDocument()
+    const doc = getDocument()
     const { expandedIds } = expandNodeSelection(doc.nodes, selectedNodeIds)
     const ids = Array.from(expandedIds)
     const edgeIds = doc.edges
@@ -173,17 +167,17 @@ export class Actor {
       .map((edge) => edge.id)
 
     if (edgeIds.length) {
-      await this.instance.commands.edge.delete(edgeIds)
+      await instance.commands.edge.delete(edgeIds)
     }
-    await this.instance.commands.node.delete(ids)
-    this.clear()
+    await instance.commands.node.delete(ids)
+    clear()
   }
 
-  duplicateSelected = async () => {
-    const selectedIds = this.getSelectedNodeIds()
+  const duplicateSelected = async () => {
+    const selectedIds = getSelectedNodeIds()
     if (!selectedIds.length) return
 
-    const doc = this.getDocument()
+    const doc = getDocument()
     const { expandedIds, nodeById } = expandNodeSelection(doc.nodes, selectedIds)
     const nodes = Array.from(expandedIds)
       .map((id) => nodeById.get(id))
@@ -209,7 +203,7 @@ export class Actor {
     for (const node of nodes) {
       const parentId = node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : node.parentId
       const payload = createNodeDuplicateInput(node, parentId, offset)
-      const result = await this.instance.commands.node.create(payload)
+      const result = await instance.commands.node.create(payload)
       const createdId = getCreatedNodeId(result)
       if (createdId) {
         idMap.set(node.id, createdId)
@@ -223,11 +217,32 @@ export class Actor {
       const targetId = idMap.get(edge.target.nodeId)
       if (!sourceId || !targetId) continue
       const payload = createEdgeDuplicateInput(edge, sourceId, targetId)
-      await this.instance.commands.edge.create(payload)
+      await instance.commands.edge.create(payload)
     }
 
     if (createdIds.length) {
-      this.select(createdIds, 'replace')
+      select(createdIds, 'replace')
     }
+  }
+
+  return {
+    name: 'Selection',
+    start: () => {
+      selectionEmitter.start()
+      edgeSelectionEmitter.start()
+    },
+    stop: () => {
+      selectionEmitter.stop()
+      edgeSelectionEmitter.stop()
+    },
+    getSelectedNodeIds,
+    select,
+    toggle,
+    selectAll,
+    clear,
+    groupSelected,
+    ungroupSelected,
+    deleteSelected,
+    duplicateSelected
   }
 }

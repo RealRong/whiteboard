@@ -4,7 +4,7 @@ import { DEFAULT_TUNING } from '../../config'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
-} from '../../domains/edge/query'
+} from '@whiteboard/core/edge'
 
 type Options = {
   config: InstanceConfig

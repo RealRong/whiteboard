@@ -8,14 +8,19 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import {
+  buildEdgeCreateOperation,
+  insertRoutingPoint as insertRoutingPointPatch,
+  moveRoutingPoint as moveRoutingPointPatch,
+  removeRoutingPoint as removeRoutingPointPatch,
+  resetRouting as resetRoutingPatch
+} from '@whiteboard/core/edge'
+import {
   bringOrderForward,
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
-import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
-import { buildEdgeCreateOperation } from './createOperation'
 
 type EdgeCommandsInstance = Pick<
   InternalInstance,
@@ -33,10 +38,6 @@ const createInvalidResult = (message: string): DispatchResult => ({
 })
 
 export const createEdgeCommands = ({ instance }: Options) => {
-  const commit = createMutationCommit(instance.mutate)
-  const runMutations = commit.run
-  const submitMutations = commit.submit
-
   const createEdgeId = () => {
     const exists = (id: string) =>
       Boolean(instance.document.get().edges.some((edge) => edge.id === id))
@@ -58,14 +59,14 @@ export const createEdgeCommands = ({ instance }: Options) => {
     if (!built.ok) {
       return Promise.resolve(createInvalidResult(built.message))
     }
-    return runMutations([built.operation])
+    return instance.mutate([built.operation], 'ui')
   }
 
   const update = (id: EdgeId, patch: EdgePatch) =>
-    runMutations([{ type: 'edge.update', id, patch }])
+    instance.mutate([{ type: 'edge.update', id, patch }], 'ui')
 
   const remove = (ids: EdgeId[]) =>
-    runMutations(ids.map((id) => ({ type: 'edge.delete' as const, id })))
+    instance.mutate(ids.map((id) => ({ type: 'edge.delete' as const, id })), 'ui')
 
   const select = (id?: EdgeId) => {
     instance.state.batch(() => {
@@ -85,99 +86,53 @@ export const createEdgeCommands = ({ instance }: Options) => {
     segmentIndex: number,
     pointWorld: Point
   ) => {
-    if (edge.type === 'bezier' || edge.type === 'curve') return
-    const basePoints = edge.routing?.points?.length
-      ? edge.routing.points
-      : pathPoints.slice(1, -1)
-    const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
-    const nextPoints = [...basePoints]
-    nextPoints.splice(insertIndex, 0, pointWorld)
-    submitMutations(
+    const patch = insertRoutingPointPatch(edge, pathPoints, segmentIndex, pointWorld)
+    if (!patch) return
+    void instance.mutate(
       [{
         type: 'edge.update',
         id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
-          }
-        }
-      }]
+        patch
+      }],
+      'ui'
     )
   }
 
   const moveRoutingPoint = (edge: Edge, index: number, pointWorld: Point) => {
-    if (edge.type === 'bezier' || edge.type === 'curve') return
-    const points = edge.routing?.points ?? []
-    if (index < 0 || index >= points.length) return
-    const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
-    submitMutations(
+    const patch = moveRoutingPointPatch(edge, index, pointWorld)
+    if (!patch) return
+    void instance.mutate(
       [{
         type: 'edge.update',
         id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
-          }
-        }
-      }]
+        patch
+      }],
+      'ui'
     )
   }
 
   const removeRoutingPoint = (edge: Edge, index: number) => {
-    if (edge.type === 'bezier' || edge.type === 'curve') return
-    const points = edge.routing?.points ?? []
-    if (index < 0 || index >= points.length) return
-
-    const nextPoints = points.filter((_, idx) => idx !== index)
-    if (nextPoints.length === 0) {
-      submitMutations(
-        [{
-          type: 'edge.update',
-          id: edge.id,
-          patch: {
-            routing: {
-              ...(edge.routing ?? {}),
-              mode: 'auto',
-              points: undefined
-            }
-          }
-        }]
-      )
-      return
-    }
-
-    submitMutations(
+    const patch = removeRoutingPointPatch(edge, index)
+    if (!patch) return
+    void instance.mutate(
       [{
         type: 'edge.update',
         id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'manual',
-            points: nextPoints
-          }
-        }
-      }]
+        patch
+      }],
+      'ui'
     )
   }
 
   const resetRouting = (edge: Edge) => {
-    submitMutations(
+    const patch = resetRoutingPatch(edge)
+    void instance.mutate(
       [{
         type: 'edge.update',
         id: edge.id,
-        patch: {
-          routing: {
-            ...(edge.routing ?? {}),
-            mode: 'auto',
-            points: undefined
-          }
-        }
-      }]
+        patch
+      }],
+      'ui'
     )
   }
 
@@ -205,7 +160,7 @@ export const createEdgeCommands = ({ instance }: Options) => {
   }
 
   const setOrder = (ids: EdgeId[]) =>
-    runMutations([{ type: 'edge.order.set', ids }])
+    instance.mutate([{ type: 'edge.order.set', ids }], 'ui')
 
   const bringToFront = (ids: EdgeId[]) => {
     const target = sanitizeOrderIds(ids)

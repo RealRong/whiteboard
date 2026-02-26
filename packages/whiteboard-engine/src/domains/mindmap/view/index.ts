@@ -1,1 +1,0 @@
-export { createMindmapViewDerivations } from './Derivation'

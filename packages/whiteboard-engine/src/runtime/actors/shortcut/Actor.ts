@@ -1,9 +1,9 @@
 import type { ShortcutAction } from '@engine-types/shortcuts'
-import type { Actor as SelectionActor } from '../../../domains/selection/commands/Actor'
+import type { SelectionController } from '../../../domains/selection/commands'
 
 type ActorOptions = {
   selection: Pick<
-    SelectionActor,
+    SelectionController,
     'selectAll' | 'clear' | 'groupSelected' | 'ungroupSelected' | 'deleteSelected' | 'duplicateSelected'
   >
   history: {

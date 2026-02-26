@@ -17,12 +17,12 @@ import { WriteCoordinator } from '../runtime/write/WriteCoordinator'
 import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory'
 import { Scheduler } from '../runtime/Scheduler'
-import { createEdgeCommands } from '../domains/edge/commands/edgeCommands'
+import { createEdgeCommands } from '../domains/edge/commands'
 import { Actor as GroupAutoFitActor } from '../runtime/actors/groupAutoFit/Actor'
 import { Actor as InteractionActor } from '../runtime/actors/interaction/Actor'
-import { Actor as MindmapActor } from '../domains/mindmap/commands/Actor'
-import { createNodeCommands } from '../domains/node/commands/nodeCommands'
-import { Actor as SelectionActor } from '../domains/selection/commands/Actor'
+import { createMindmapController } from '../domains/mindmap/commands'
+import { createNodeCommands } from '../domains/node/commands'
+import { createSelectionController } from '../domains/selection/commands'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 import { ViewportRuntime } from '../runtime/viewport'
@@ -40,7 +40,7 @@ import {
   createNodeDomainApi,
   createSelectionDomainApi,
   createViewportDomainApi
-} from '../domains'
+} from '../domains/api'
 
 export const createEngine = ({
   registries,
@@ -137,14 +137,14 @@ export const createEngine = ({
 
   const edgeCommands = createEdgeCommands({ instance })
   const nodeCommands = createNodeCommands({ instance })
-  const mindmapActor = new MindmapActor({
+  const mindmapActor = createMindmapController({
     instance
   })
   const interactionActor = new InteractionActor({
     state
   })
   const resetSelectionTransient = () => {}
-  const selectionActor = new SelectionActor({
+  const selectionActor = createSelectionController({
     instance,
     resetTransient: resetSelectionTransient
   })

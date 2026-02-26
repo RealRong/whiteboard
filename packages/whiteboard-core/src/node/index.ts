@@ -35,11 +35,27 @@ export {
   queryGridIndex
 } from './snap'
 export {
+  expandRectByThreshold,
+  resolveInteractionZoom,
+  resolveSnapThresholdWorld
+} from './snapRuntime'
+export { getNodeIdsInRect, type NodeRectHitEntry } from './hitTest'
+export { toLayerOrderedCanvasNodes } from './layer'
+export {
+  buildNodeCreateOperation,
+  buildNodeGroupOperations,
+  buildNodeUngroupOperations,
+  createInvalidDispatchResult
+} from './commands'
+export {
   buildNodeHint,
   hasNodeOperation,
   NodeHintContext,
   NodeHintPipeline
 } from './hint'
+export type {
+  SnapThresholdConfig
+} from './snapRuntime'
 export type {
   GridIndex,
   Guide,

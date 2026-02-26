@@ -4,8 +4,8 @@ import type { InstanceEventEmitter } from '@engine-types/instance/events'
 import type { Shortcuts } from '@engine-types/shortcuts'
 import type { ViewportApi } from '@engine-types/viewport'
 import { Actor as GroupAutoFitActor } from '../actors/groupAutoFit/Actor'
-import { Actor as MindmapActor } from '../../domains/mindmap/commands/Actor'
-import { Actor as SelectionActor } from '../../domains/selection/commands/Actor'
+import type { MindmapController } from '../../domains/mindmap/commands'
+import type { SelectionController } from '../../domains/selection/commands'
 import { Actor as ToolActor } from '../actors/tool/Actor'
 import { Actor as ViewportActor } from '../actors/viewport/Actor'
 import { Registry } from './Registry'
@@ -20,19 +20,19 @@ type LifecycleContext = {
 
 type LifecycleActors = {
   groupAutoFit: GroupAutoFitActor
-  mindmap: MindmapActor
-  selection: SelectionActor
+  mindmap: MindmapController
+  selection: SelectionController
 }
 
 export class Lifecycle implements LifecycleApi {
   private context: LifecycleContext
   private started = false
   private readonly registry = new Registry()
-  private selectionActor: SelectionActor
+  private selectionActor: SelectionController
   private toolActor: ToolActor
   private viewportActor: ViewportActor
   private groupAutoFitActor: GroupAutoFitActor
-  private mindmapActor: MindmapActor
+  private mindmapActor: MindmapController
 
   constructor(
     context: LifecycleContext,

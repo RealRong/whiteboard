@@ -12,14 +12,11 @@ import type {
 } from '@engine-types/instance/state'
 import type { View } from '@engine-types/instance/view'
 import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
-import {
-  createEdgeViewDerivations,
-  createEdgeViewQuery
-} from '../../domains/edge/view'
+import { createEdgeViewStore } from '../../domains/edge/view'
 import { createMindmapViewDerivations } from '../../domains/mindmap/view'
 import { notifyListeners, watchSet } from './shared'
 import { createViewportDomain } from './ViewportDomain'
-import { createNodeDomain } from '../../domains/node/view/NodeDomain'
+import { createNodeDomain } from '../../domains/node/view'
 import { createEdgeDomain } from './EdgeDomain'
 import { createMindmapDomain } from './MindmapDomain'
 
@@ -49,13 +46,10 @@ export const createViewRegistry = ({
     impact: FULL_MUTATION_IMPACT
   })
 
-  const edgeViewQuery = createEdgeViewQuery({
+  const edgeViewStore = createEdgeViewStore({
     readProjection,
-    query
-  })
-  const edgeDerived = createEdgeViewDerivations({
-    readState: state.read,
-    edgeViewQuery
+    query,
+    readState: state.read
   })
   const mindmapDerived = createMindmapViewDerivations({
     readState: state.read,
@@ -69,8 +63,8 @@ export const createViewRegistry = ({
     readProjection
   })
   const edge = createEdgeDomain({
-    derive: edgeDerived,
-    applyCommit: edgeViewQuery.applyCommit
+    derive: edgeViewStore,
+    applyCommit: edgeViewStore.applyCommit
   })
   const mindmap = createMindmapDomain({
     derive: mindmapDerived

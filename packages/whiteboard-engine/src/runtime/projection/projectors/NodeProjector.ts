@@ -9,7 +9,7 @@ import { orderByIds } from '../cache/shared'
 import {
   deriveCanvasNodes,
   deriveVisibleNodes
-} from '../../../domains/node/model'
+} from '@whiteboard/core/node'
 
 type NodeProjectInput = {
   doc: Document

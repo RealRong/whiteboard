@@ -2,14 +2,17 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type {
   DispatchResult,
   Document,
-  Node,
   NodeId,
   NodeInput,
   NodePatch,
-  Operation,
   Point
 } from '@whiteboard/core/types'
-import { applyNodeDefaults, getMissingNodeFields } from '@whiteboard/core/schema'
+import {
+  buildNodeCreateOperation as buildNodeCreateOperationCore,
+  buildNodeGroupOperations,
+  buildNodeUngroupOperations,
+  createInvalidDispatchResult
+} from '@whiteboard/core/node'
 import {
   bringOrderForward,
   bringOrderToFront,
@@ -17,7 +20,6 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
-import { createMutationCommit } from '../../../runtime/actors/shared/MutationCommit'
 
 type NodeCommandsInstance = Pick<
   InternalInstance,
@@ -28,17 +30,11 @@ type Options = {
   instance: NodeCommandsInstance
 }
 
-const createInvalidResult = (message: string): DispatchResult => ({
-  ok: false,
-  reason: 'invalid',
-  message
-})
+const createInvalidResult = (message: string): DispatchResult =>
+  createInvalidDispatchResult(message)
 
 export const createNodeCommands = ({ instance }: Options) => {
   const readDoc = (): Document => instance.document.get()
-  const commit = createMutationCommit(instance.mutate)
-  const runMutations = commit.run
-  const submitMutations = commit.submit
 
   const createGroupId = () => {
     const exists = (id: string) => Boolean(readDoc().nodes.some((node) => node.id === id))
@@ -60,75 +56,40 @@ export const createNodeCommands = ({ instance }: Options) => {
     return `node_${seed}_${Math.random().toString(36).slice(2, 8)}`
   }
 
-  const buildNodeCreateOperation = (payload: NodeInput) => {
-    if (!payload.type) {
+  const buildCreateOperation = (payload: NodeInput) => {
+    const result = buildNodeCreateOperationCore({
+      payload,
+      doc: readDoc(),
+      registries: instance.registries,
+      createNodeId
+    })
+    if (!result.ok) {
       return {
         ok: false as const,
-        error: createInvalidResult('Missing node type.')
+        error: createInvalidResult(result.message)
       }
     }
-    if (!payload.position) {
-      return {
-        ok: false as const,
-        error: createInvalidResult('Missing node position.')
-      }
-    }
-    if (payload.id && readDoc().nodes.some((node) => node.id === payload.id)) {
-      return {
-        ok: false as const,
-        error: createInvalidResult(`Node ${payload.id} already exists.`)
-      }
-    }
-
-    const registries = instance.registries
-    const typeDef = registries.nodeTypes.get(payload.type)
-    if (typeDef?.validate && !typeDef.validate(payload.data)) {
-      return {
-        ok: false as const,
-        error: createInvalidResult(`Node ${payload.type} validation failed.`)
-      }
-    }
-
-    const missing = getMissingNodeFields(payload, registries)
-    if (missing.length > 0) {
-      return {
-        ok: false as const,
-        error: createInvalidResult(`Missing required fields: ${missing.join(', ')}.`)
-      }
-    }
-
-    const normalized = applyNodeDefaults(payload, registries)
-    const id = normalized.id ?? createNodeId()
-    const node: Node = {
-      ...normalized,
-      id,
-      layer: normalized.type === 'group' ? (normalized.layer ?? 'background') : normalized.layer
-    }
-
     return {
       ok: true as const,
-      operation: {
-        type: 'node.create' as const,
-        node
-      }
+      operation: result.operation
     }
   }
 
   const create = (payload: NodeInput) => {
-    const built = buildNodeCreateOperation(payload)
+    const built = buildCreateOperation(payload)
     if (!built.ok) {
       return Promise.resolve(built.error)
     }
-    return runMutations([built.operation])
+    return instance.mutate([built.operation], 'ui')
   }
 
   const update = (id: NodeId, patch: NodePatch) =>
-    runMutations([{ type: 'node.update', id, patch }])
+    instance.mutate([{ type: 'node.update', id, patch }], 'ui')
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) => {
     const node = instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === id)
     if (!node) return undefined
-    return runMutations([
+    return instance.mutate([
       {
         type: 'node.update',
         id,
@@ -139,12 +100,12 @@ export const createNodeCommands = ({ instance }: Options) => {
           }
         }
       }
-    ])
+    ], 'ui')
   }
 
   const updateManyPosition = (updates: Array<{ id: NodeId; position: Point }>) => {
     if (!updates.length) return
-    submitMutations(
+    void instance.mutate(
       updates.map((item) => ({
         type: 'node.update',
         id: item.id,
@@ -155,98 +116,40 @@ export const createNodeCommands = ({ instance }: Options) => {
   }
 
   const remove = (ids: NodeId[]) =>
-    runMutations(ids.map((id) => ({ type: 'node.delete' as const, id })))
+    instance.mutate(ids.map((id) => ({ type: 'node.delete' as const, id })), 'ui')
 
   const createGroup = async (ids: NodeId[]) => {
-    const uniqueIds = Array.from(new Set(ids))
-    if (!uniqueIds.length) {
+    const result = buildNodeGroupOperations({
+      ids,
+      doc: readDoc(),
+      nodeSize: instance.config.nodeSize,
+      createGroupId
+    })
+    if (!result.ok) {
       return {
         ok: false,
         reason: 'invalid',
-        message: 'No node ids provided.'
+        message: result.message
       } as const
     }
 
-    const doc = readDoc()
-    const nodes: Node[] = []
-    for (const id of uniqueIds) {
-      const node = doc.nodes.find((item) => item.id === id)
-      if (!node) {
-        return {
-          ok: false,
-          reason: 'invalid',
-          message: `Node ${id} not found.`
-        } as const
-      }
-      nodes.push(node)
-    }
-
-    const nodeSize = instance.config.nodeSize
-    const minX = Math.min(...nodes.map((node) => node.position.x))
-    const minY = Math.min(...nodes.map((node) => node.position.y))
-    const maxX = Math.max(...nodes.map((node) => node.position.x + (node.size?.width ?? nodeSize.width)))
-    const maxY = Math.max(...nodes.map((node) => node.position.y + (node.size?.height ?? nodeSize.height)))
-    const groupId = createGroupId()
-
-    const operations: Operation[] = [
-      {
-        type: 'node.create',
-        node: {
-          id: groupId,
-          type: 'group',
-          layer: 'background',
-          position: { x: minX, y: minY },
-          size: {
-            width: Math.max(0, maxX - minX),
-            height: Math.max(0, maxY - minY)
-          }
-        }
-      },
-      ...nodes.map((node) => ({
-        type: 'node.update' as const,
-        id: node.id,
-        patch: { parentId: groupId },
-        before: node
-      }))
-    ]
-
-    return runMutations(operations)
+    return instance.mutate(result.operations, 'ui')
   }
 
   const ungroup = async (id: NodeId) => {
-    const doc = readDoc()
-    const groupNode = doc.nodes.find((node) => node.id === id)
-    if (!groupNode) {
+    const result = buildNodeUngroupOperations(id, readDoc())
+    if (!result.ok) {
       return {
         ok: false,
         reason: 'invalid',
-        message: `Node ${id} not found.`
+        message: result.message
       } as const
     }
-
-    const childOperations = doc.nodes
-      .filter((node) => node.parentId === id)
-      .map((node) => ({
-        type: 'node.update' as const,
-        id: node.id,
-        patch: { parentId: undefined },
-        before: node
-      }))
-
-    const operations: Operation[] = [
-      ...childOperations,
-      {
-        type: 'node.delete',
-        id,
-        before: groupNode
-      }
-    ]
-
-    return runMutations(operations)
+    return instance.mutate(result.operations, 'ui')
   }
 
   const setOrder = (ids: NodeId[]) =>
-    runMutations([{ type: 'node.order.set', ids }])
+    instance.mutate([{ type: 'node.order.set', ids }], 'ui')
 
   const bringToFront = (ids: NodeId[]) => {
     const target = sanitizeOrderIds(ids)
