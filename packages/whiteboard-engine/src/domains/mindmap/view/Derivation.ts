@@ -1,8 +1,7 @@
 import type { ProjectionSnapshot } from '@engine-types/projection'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
-import type { Render } from '@engine-types/instance/render'
-import type { MindmapDragView, MindmapViewTree } from '@engine-types/instance/view'
+import type { MindmapViewTree } from '@engine-types/instance/view'
 import type { Node } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../config'
 import { toMindmapLayoutSignature } from '@whiteboard/core/cache'
@@ -17,14 +16,12 @@ import {
 
 type MindmapDerivationOptions = {
   readState: State['read']
-  readRender: Render['read']
   readProjection: () => ProjectionSnapshot
   config: InstanceConfig
 }
 
 export const createMindmapViewDerivations = ({
   readState,
-  readRender,
   readProjection,
   config
 }: MindmapDerivationOptions) => {
@@ -89,33 +86,8 @@ export const createMindmapViewDerivations = ({
     return nextTrees
   }
 
-  const drag = (): MindmapDragView | undefined => {
-    const active = readRender('mindmapDrag').payload
-    if (!active) return undefined
-
-    if (active.kind === 'root') {
-      return {
-        treeId: active.treeId,
-        kind: 'root',
-        baseOffset: active.position
-      }
-    }
-
-    return {
-      treeId: active.treeId,
-      kind: 'subtree',
-      baseOffset: active.baseOffset,
-      preview: {
-        nodeId: active.nodeId,
-        ghost: active.ghost,
-        drop: active.drop
-      }
-    }
-  }
-
   return {
     roots,
-    trees,
-    drag
+    trees
   }
 }

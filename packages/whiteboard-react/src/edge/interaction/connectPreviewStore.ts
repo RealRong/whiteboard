@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from 'react'
+import { atom, useAtomValue } from 'jotai'
+import { createStore } from 'jotai/vanilla'
 import type { Point } from '@whiteboard/core/types'
 
 type EdgeConnectPreviewSnapshot = {
@@ -21,16 +22,13 @@ const EMPTY_SNAPSHOT: EdgeConnectPreviewSnapshot = {
   showPreviewLine: false
 }
 
-let snapshot: EdgeConnectPreviewSnapshot = EMPTY_SNAPSHOT
-const listeners = new Set<() => void>()
-
-const notify = () => {
-  listeners.forEach((listener) => listener())
-}
+const edgeConnectPreviewAtom = atom<EdgeConnectPreviewSnapshot>(EMPTY_SNAPSHOT)
+const edgeConnectPreviewAtomStore = createStore()
 
 const setSnapshot = (
   next: EdgeConnectPreviewSnapshot
 ) => {
+  const snapshot = edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom)
   const unchanged =
     snapshot.activePointerId === next.activePointerId
     && snapshot.from === next.from
@@ -38,18 +36,13 @@ const setSnapshot = (
     && snapshot.snap === next.snap
     && snapshot.showPreviewLine === next.showPreviewLine
   if (unchanged) return
-  snapshot = next
-  notify()
+  edgeConnectPreviewAtomStore.set(edgeConnectPreviewAtom, next)
 }
 
 export const edgeConnectPreviewStore = {
-  subscribe: (listener: () => void) => {
-    listeners.add(listener)
-    return () => {
-      listeners.delete(listener)
-    }
-  },
-  getSnapshot: () => snapshot,
+  subscribe: (listener: () => void) =>
+    edgeConnectPreviewAtomStore.sub(edgeConnectPreviewAtom, listener),
+  getSnapshot: () => edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom),
   setActivePreview: (preview: ActivePreviewInput) => {
     setSnapshot({
       activePointerId: preview.pointerId,
@@ -60,6 +53,7 @@ export const edgeConnectPreviewStore = {
     })
   },
   setHoverSnap: (snap: Point | undefined) => {
+    const snapshot = edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom)
     if (snapshot.activePointerId !== undefined) return
     setSnapshot({
       ...snapshot,
@@ -67,6 +61,7 @@ export const edgeConnectPreviewStore = {
     })
   },
   clearHoverSnap: () => {
+    const snapshot = edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom)
     if (snapshot.activePointerId !== undefined) return
     if (!snapshot.snap) return
     setSnapshot({
@@ -75,6 +70,7 @@ export const edgeConnectPreviewStore = {
     })
   },
   clearActivePreview: (pointerId?: number) => {
+    const snapshot = edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom)
     if (
       pointerId !== undefined
       && snapshot.activePointerId !== undefined
@@ -86,14 +82,11 @@ export const edgeConnectPreviewStore = {
     setSnapshot(EMPTY_SNAPSHOT)
   },
   reset: () => {
+    const snapshot = edgeConnectPreviewAtomStore.get(edgeConnectPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
     setSnapshot(EMPTY_SNAPSHOT)
   }
 }
 
 export const useEdgeConnectPreviewState = () =>
-  useSyncExternalStore(
-    edgeConnectPreviewStore.subscribe,
-    edgeConnectPreviewStore.getSnapshot,
-    edgeConnectPreviewStore.getSnapshot
-  )
+  useAtomValue(edgeConnectPreviewAtom, { store: edgeConnectPreviewAtomStore })

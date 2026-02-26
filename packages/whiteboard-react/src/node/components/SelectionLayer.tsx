@@ -1,11 +1,8 @@
-import type { Rect } from '@whiteboard/core/types'
 import { useWhiteboardSelector } from '../../common/hooks'
+import { useSelectionBoxSelector } from '../../common/interaction/selectionBoxStore'
 
-type SelectionLayerProps = {
-  rect?: Rect
-}
-
-export const SelectionLayer = ({ rect }: SelectionLayerProps) => {
+export const SelectionLayer = () => {
+  const rect = useSelectionBoxSelector((snapshot) => snapshot.rect)
   const tool = useWhiteboardSelector('tool')
 
   if (!rect || tool === 'edge') return null

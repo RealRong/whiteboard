@@ -10,10 +10,6 @@ import type {
   State,
   StateKey
 } from '@engine-types/instance/state'
-import type {
-  Render,
-  RenderKey
-} from '@engine-types/instance/render'
 import type { View } from '@engine-types/instance/view'
 import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import {
@@ -29,7 +25,6 @@ import { createMindmapDomain } from './MindmapDomain'
 
 type Options = {
   state: State
-  render: Render
   projection: ProjectionStore
   query: Query
   config: InstanceConfig
@@ -41,7 +36,6 @@ export type ViewRuntime = {
 
 export const createViewRegistry = ({
   state,
-  render,
   projection,
   query,
   config
@@ -65,16 +59,14 @@ export const createViewRegistry = ({
   })
   const mindmapDerived = createMindmapViewDerivations({
     readState: state.read,
-    readRender: render.read,
     readProjection,
     config
   })
 
-  const viewport = createViewportDomain({ state, render })
+  const viewport = createViewportDomain({ state })
   const node = createNodeDomain({
     query,
-    readProjection,
-    readRender: render.read
+    readProjection
   })
   const edge = createEdgeDomain({
     derive: edgeDerived,
@@ -89,10 +81,8 @@ export const createViewRegistry = ({
 
   const syncStateAll = () => {
     viewport.sync()
-    node.syncState('nodePreview')
     edge.syncState('selection')
     mindmap.syncState('mindmapLayout')
-    mindmap.syncState('mindmapDrag')
   }
 
   const ensureViewSynced = () => {
@@ -127,31 +117,6 @@ export const createViewRegistry = ({
     notifyListeners(listeners)
   }
 
-  const handleRenderChange = (key: RenderKey) => {
-    if (!listeners.size) {
-      dirtyWithoutListeners = true
-      return
-    }
-
-    let changed = false
-    switch (key) {
-      case 'viewportGesture':
-        changed = viewport.sync()
-        break
-      case 'nodePreview':
-        changed = node.syncState('nodePreview')
-        break
-      case 'mindmapDrag':
-        changed = mindmap.syncState('mindmapDrag')
-        break
-      default:
-        return
-    }
-
-    if (!changed) return
-    notifyListeners(listeners)
-  }
-
   const applyCommitToDomains = (commit: ProjectionCommit) => {
     let changed = false
     changed = edge.applyCommit(commit) || changed
@@ -167,7 +132,6 @@ export const createViewRegistry = ({
   }
 
   state.watchChanges(handleStateChange)
-  render.watchChanges(handleRenderChange)
   projection.subscribe((commit) => {
     snapshot = commit.snapshot
     if (!listeners.size) {

@@ -1,7 +1,7 @@
-import { useWhiteboardRenderSelector } from '../../common/hooks'
+import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewStore'
 
 export const DragGuidesLayer = () => {
-  const guides = useWhiteboardRenderSelector('dragGuides')
+  const guides = useNodeInteractionPreviewSelector((snapshot) => snapshot.guides)
 
   if (!guides.length) return null
 

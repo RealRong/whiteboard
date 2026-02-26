@@ -127,7 +127,6 @@ export type EdgesView = {
 export type MindmapView = {
   ids: NodeId[]
   byId: ReadonlyMap<NodeId, MindmapViewTree>
-  drag: MindmapDragView | undefined
 }
 
 export type ViewState = {

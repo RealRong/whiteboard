@@ -14,8 +14,8 @@ import {
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
-import { DomInputAdapter } from './common/input/DomInputAdapter'
-import { useSelectionBoxInteraction } from './common/interaction/useSelectionBoxInteraction'
+import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
+import { useViewportGestureSelector } from './common/interaction/viewportGestureStore'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -27,6 +27,24 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.background = next.background
   draft.viewport = next.viewport
   draft.meta = next.meta
+}
+
+const toViewportTransform = (viewport: {
+  center: {
+    x: number
+    y: number
+  }
+  zoom: number
+}) => {
+  const zoom = viewport.zoom
+  return {
+    center: viewport.center,
+    zoom,
+    transform: `translate(50%, 50%) scale(${zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
+    cssVars: {
+      '--wb-zoom': `${zoom}`
+    }
+  }
 }
 
 const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function WhiteboardInner(
@@ -109,41 +127,12 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   )
 
   const lifecycle = instance.lifecycle
-  const inputAdapter = useMemo(
-    () =>
-      new DomInputAdapter(instance, {
-        viewportPolicy: {
-          panEnabled: resolvedConfig.viewport.enablePan,
-          wheelEnabled: resolvedConfig.viewport.enableWheel,
-          minZoom: resolvedConfig.viewport.minZoom,
-          maxZoom: resolvedConfig.viewport.maxZoom,
-          wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
-        },
-        getContainer: () => containerRef.current
-      }),
-    [
-      instance,
-      resolvedConfig.viewport.enablePan,
-      resolvedConfig.viewport.enableWheel,
-      resolvedConfig.viewport.minZoom,
-      resolvedConfig.viewport.maxZoom,
-      resolvedConfig.viewport.wheelSensitivity
-    ]
-  )
-
   useEffect(() => {
     lifecycle.start()
     return () => {
       lifecycle.stop()
     }
   }, [lifecycle])
-
-  useEffect(() => {
-    inputAdapter.start()
-    return () => {
-      inputAdapter.stop()
-    }
-  }, [inputAdapter])
 
   useEffect(() => {
     lifecycle.update(lifecycleConfig)
@@ -199,16 +188,36 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     update()
     return instance.view.subscribe(update)
   }, [instance])
+  const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
+  const resolvedViewportTransform = useMemo(
+    () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),
+    [previewViewport, viewportTransform]
+  )
+  const viewportPolicy = useMemo(
+    () => ({
+      panEnabled: resolvedConfig.viewport.enablePan,
+      wheelEnabled: resolvedConfig.viewport.enableWheel,
+      minZoom: resolvedConfig.viewport.minZoom,
+      maxZoom: resolvedConfig.viewport.maxZoom,
+      wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
+    }),
+    [
+      resolvedConfig.viewport.enablePan,
+      resolvedConfig.viewport.enableWheel,
+      resolvedConfig.viewport.minZoom,
+      resolvedConfig.viewport.maxZoom,
+      resolvedConfig.viewport.wheelSensitivity
+    ]
+  )
 
   const transformStyle = useMemo<CSSProperties>(
     () => ({
-      transform: viewportTransform.transform,
+      transform: resolvedViewportTransform.transform,
       transformOrigin: '0 0',
-      ...viewportTransform.cssVars
+      ...resolvedViewportTransform.cssVars
     }),
-    [viewportTransform]
+    [resolvedViewportTransform]
   )
-  const { selectionRect, handleViewportPointerDown } = useSelectionBoxInteraction(instance)
 
   return (
     <InstanceProvider value={instance}>
@@ -219,17 +228,19 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
           style={containerStyle}
           tabIndex={0}
         >
-          <div
+          <CanvasInteractionLayer
+            instance={instance}
+            viewportPolicy={viewportPolicy}
+            getContainer={() => containerRef.current}
             className="wb-root-viewport"
             style={transformStyle}
-            onPointerDown={handleViewportPointerDown}
           >
             <EdgeLayerStack />
             <MindmapLayerStack />
             <DragGuidesLayer />
             <NodeLayer />
-          </div>
-          <SelectionLayer rect={selectionRect} />
+          </CanvasInteractionLayer>
+          <SelectionLayer />
         </div>
       </NodeRegistryProvider>
     </InstanceProvider>

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,6 +9,9 @@ const srcRoot = join(projectRoot, 'src')
 const toPosix = (value) => value.replaceAll('\\', '/')
 
 const collectFiles = (root, output = []) => {
+  if (!existsSync(root)) {
+    return output
+  }
   const entries = readdirSync(root)
   for (const entry of entries) {
     const fullPath = join(root, entry)

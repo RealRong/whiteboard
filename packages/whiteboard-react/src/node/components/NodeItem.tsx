@@ -9,9 +9,9 @@ import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteractio
 import { useEdgeConnectInteraction } from '../../edge/hooks/useEdgeConnectInteraction'
 import {
   useInstance,
-  useWhiteboardRenderSelector,
   useWhiteboardSelector
 } from '../../common/hooks'
+import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewStore'
 import { NodeBlock } from './NodeBlock'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -109,9 +109,45 @@ const NodeConnectHandles = ({
 export const NodeItem = ({ item }: NodeItemProps) => {
   const instance = useInstance()
   const registry = useNodeRegistry()
-  const node = item.node
-  const rect = item.rect
-  const container = item.container
+  const previewUpdate = useNodeInteractionPreviewSelector(
+    (snapshot) => snapshot.updatesById.get(item.node.id)
+  )
+  const node = useMemo(() => {
+    if (!previewUpdate) return item.node
+    const next = { ...item.node }
+    if (previewUpdate.position) {
+      next.position = previewUpdate.position
+    }
+    if (previewUpdate.size) {
+      next.size = previewUpdate.size
+    }
+    if (typeof previewUpdate.rotation === 'number') {
+      next.rotation = previewUpdate.rotation
+    }
+    return next
+  }, [item.node, previewUpdate])
+  const rect = useMemo(() => {
+    if (!previewUpdate?.position && !previewUpdate?.size) return item.rect
+    return {
+      x: previewUpdate.position?.x ?? item.rect.x,
+      y: previewUpdate.position?.y ?? item.rect.y,
+      width: previewUpdate.size?.width ?? item.rect.width,
+      height: previewUpdate.size?.height ?? item.rect.height
+    }
+  }, [item.rect, previewUpdate])
+  const container = useMemo(() => {
+    if (!previewUpdate?.position && !previewUpdate?.size && typeof previewUpdate?.rotation !== 'number') {
+      return item.container
+    }
+    return {
+      transformBase: `translate(${rect.x}px, ${rect.y}px)`,
+      rotation:
+        typeof previewUpdate?.rotation === 'number'
+          ? previewUpdate.rotation
+          : item.container.rotation,
+      transformOrigin: item.container.transformOrigin
+    }
+  }, [item.container, previewUpdate, rect.x, rect.y])
   const activeTool = useWhiteboardSelector('tool')
   const selected = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedNodeIds.has(node.id),
@@ -119,11 +155,8 @@ export const NodeItem = ({ item }: NodeItemProps) => {
       keys: ['selection']
     }
   )
-  const hovered = useWhiteboardRenderSelector(
-    (snapshot) => snapshot.groupHover.nodeId === node.id,
-    {
-      keys: ['groupHover']
-    }
+  const hovered = useNodeInteractionPreviewSelector(
+    (snapshot) => snapshot.hoveredGroupId === node.id
   )
   const zoom = useWhiteboardSelector(
     (snapshot) => snapshot.viewport.zoom,

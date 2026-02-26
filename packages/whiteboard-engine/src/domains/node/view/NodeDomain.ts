@@ -3,37 +3,28 @@ import type {
   ProjectionSnapshot
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
-import type { Render } from '@engine-types/instance/render'
 import type {
   NodesView
 } from '@engine-types/instance/view'
-import {
-  createNodeRegistry,
-  type NodeStateSyncKey
-} from './NodeRegistry'
+import { createNodeRegistry } from './NodeRegistry'
 
 type Options = {
   query: Query
   readProjection: () => ProjectionSnapshot
-  readRender: Render['read']
 }
 
 export type NodeDomain = {
-  syncState: (key: NodeStateSyncKey) => boolean
   applyCommit: (commit: ProjectionCommit) => boolean
   getState: () => NodesView
 }
 
 export const createNodeDomain = ({
   query,
-  readProjection,
-  readRender
+  readProjection
 }: Options): NodeDomain => {
   const node = createNodeRegistry({
     query,
-    readProjection,
-    readPreviewUpdates: () =>
-      readRender('nodePreview').updates
+    readProjection
   })
 
   const readNodeItems = () => node.getNodeItemsMap()
@@ -42,16 +33,12 @@ export const createNodeDomain = ({
     return node.applyCommit(commit)
   }
 
-  const syncState = (key: NodeStateSyncKey) =>
-    node.syncState(key)
-
   const getState = (): NodesView => ({
     ids: node.getNodeIds(),
     byId: readNodeItems()
   })
 
   return {
-    syncState,
     applyCommit,
     getState
   }

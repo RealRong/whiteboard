@@ -1,18 +1,10 @@
 export type {
   HistoryState,
   InteractionState,
-  InteractionSessionKind,
-  InteractionSessionState,
-  ViewportGestureState,
   MindmapDragDropTarget,
   MindmapDragState,
   MindmapRootDragState,
   MindmapSubtreeDragState,
-  NodePreviewState,
-  NodePreviewUpdate,
-  NodeDragPayload,
-  NodeDragState,
-  GroupHoverState,
   SelectionBoxState,
   SelectionMode,
   SelectionState

@@ -8,6 +8,9 @@ import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
+import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
+import { viewportGestureStore } from '../../common/interaction/viewportGestureStore'
 
 type RootDragSession = {
   kind: 'root'
@@ -101,14 +104,41 @@ const resolveTreeView = (
 export const useMindmapDragInteraction = () => {
   const instance = useInstance()
   const [drag, setDrag] = useState<MindmapDragView | undefined>(undefined)
+  const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<MindmapDragSession | null>(null)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
-    if (!active) return
+    const lockToken = lockTokenRef.current
+    if (!active) {
+      if (
+        lockToken
+        && (
+          pointerId === undefined
+          || lockToken.pointerId === undefined
+          || lockToken.pointerId === pointerId
+        )
+      ) {
+        sessionLockStore.release(lockToken)
+        lockTokenRef.current = null
+      }
+      return
+    }
     if (pointerId !== undefined && active.pointerId !== pointerId) return
     activeRef.current = null
+    setActivePointerId(null)
     setDrag(undefined)
+    if (
+      lockToken
+      && (
+        lockToken.pointerId === undefined
+        || lockToken.pointerId === active.pointerId
+      )
+    ) {
+      sessionLockStore.release(lockToken)
+      lockTokenRef.current = null
+    }
   }, [])
 
   const readTree = useCallback(
@@ -116,10 +146,9 @@ export const useMindmapDragInteraction = () => {
     [instance.view]
   )
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    const handlePointerMove = (event: PointerEvent) => {
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       const world = toPointerWorld(
@@ -164,9 +193,9 @@ export const useMindmapDragInteraction = () => {
       }
       activeRef.current = next
       setDrag(toDragView(next))
-    }
+    },
 
-    const handlePointerUp = (event: PointerEvent) => {
+    onPointerUp: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       clearActive(active.pointerId)
@@ -195,45 +224,23 @@ export const useMindmapDragInteraction = () => {
         nodeSize: instance.query.config.get().mindmapNodeSize,
         layout: instance.state.read('mindmapLayout') ?? {}
       })
-    }
+    },
 
-    const handlePointerCancel = (event: PointerEvent) => {
+    onPointerCancel: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       clearActive(active.pointerId)
-    }
+    },
 
-    const handleBlur = () => {
+    onBlur: () => {
       clearActive()
-    }
+    },
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
       clearActive()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    clearActive,
-    instance.commands.mindmap,
-    instance.query.config,
-    instance.query.viewport.clientToScreen,
-    instance.query.viewport.screenToWorld,
-    instance.state,
-    readTree
-  ])
+  })
 
   useEffect(
     () => () => {
@@ -250,7 +257,7 @@ export const useMindmapDragInteraction = () => {
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.render.read('spacePressed')) return
+      if (viewportGestureStore.isSpacePressed()) return
       if (
         event.target instanceof Element
         && event.target.closest('[data-selection-ignore]')
@@ -270,9 +277,10 @@ export const useMindmapDragInteraction = () => {
         x: treeView.node.position.x,
         y: treeView.node.position.y
       }
+      let nextActive: MindmapDragSession | undefined
 
       if (nodeId === treeView.tree.rootId) {
-        const active: RootDragSession = {
+        nextActive = {
           kind: 'root',
           treeId,
           pointerId: event.pointerId,
@@ -280,8 +288,6 @@ export const useMindmapDragInteraction = () => {
           origin: baseOffset,
           position: baseOffset
         }
-        activeRef.current = active
-        setDrag(toDragView(active))
       } else {
         const nodeRects = buildNodeRectMap(treeView, baseOffset)
         const rect = nodeRects.get(nodeId)
@@ -292,7 +298,7 @@ export const useMindmapDragInteraction = () => {
             ? (treeView.tree.children[originParentId] ?? []).indexOf(nodeId)
             : undefined
 
-        const active: SubtreeDragSession = {
+        nextActive = {
           kind: 'subtree',
           treeId,
           pointerId: event.pointerId,
@@ -308,9 +314,14 @@ export const useMindmapDragInteraction = () => {
           ghost: rect,
           excludeIds: getSubtreeIds(treeView.tree, nodeId)
         }
-        activeRef.current = active
-        setDrag(toDragView(active))
       }
+      if (!nextActive) return
+      const lockToken = sessionLockStore.tryAcquire('mindmapDrag', event.pointerId)
+      if (!lockToken) return
+      lockTokenRef.current = lockToken
+      activeRef.current = nextActive
+      setActivePointerId(event.pointerId)
+      setDrag(toDragView(nextActive))
 
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -323,7 +334,6 @@ export const useMindmapDragInteraction = () => {
     [
       instance.query.viewport.clientToScreen,
       instance.query.viewport.screenToWorld,
-      instance.render,
       readTree
     ]
   )

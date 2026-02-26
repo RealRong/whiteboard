@@ -1,11 +1,9 @@
 import type { State } from '@engine-types/instance/state'
-import type { Render } from '@engine-types/instance/render'
 import type { ViewportTransformView } from '@engine-types/instance/view'
 import type { Viewport } from '@whiteboard/core/types'
 
 type Options = {
   state: Pick<State, 'read'>
-  render: Pick<Render, 'read'>
 }
 
 export type ViewportDomain = {
@@ -25,14 +23,11 @@ const toViewportTransformView = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-export const createViewportDomain = ({ state, render }: Options): ViewportDomain => {
-  const readViewport = () =>
-    render.read('viewportGesture').preview ?? state.read('viewport')
-
-  let transform = toViewportTransformView(readViewport())
+export const createViewportDomain = ({ state }: Options): ViewportDomain => {
+  let transform = toViewportTransformView(state.read('viewport'))
 
   const sync = () => {
-    const next = toViewportTransformView(readViewport())
+    const next = toViewportTransformView(state.read('viewport'))
     const prev = transform
     const changed =
       prev.zoom !== next.zoom ||

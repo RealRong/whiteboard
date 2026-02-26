@@ -9,7 +9,6 @@ import type { State } from './state'
 import type { Render } from './render'
 import type { View } from './view'
 import type { ProjectionStore } from '../projection'
-import type { InputPort } from '../input'
 import type { ViewportApi } from '../viewport'
 import type { DomainApis, DomainEntityApis } from '../domains'
 
@@ -17,7 +16,6 @@ export type Instance = {
   state: State
   render: Render
   projection: ProjectionStore
-  input: InputPort
   query: Query
   view: View
   domains: DomainApis

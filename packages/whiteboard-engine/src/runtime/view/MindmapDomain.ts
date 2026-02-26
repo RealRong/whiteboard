@@ -1,5 +1,4 @@
 import type {
-  MindmapDragView,
   MindmapView,
   MindmapViewTree
 } from '@engine-types/instance/view'
@@ -13,12 +12,10 @@ import {
 
 type MindmapDerivations = {
   trees: () => MindmapViewTree[]
-  drag: () => MindmapDragView | undefined
 }
 
 export type MindmapStateSyncKey =
   | 'mindmapLayout'
-  | 'mindmapDrag'
 
 type Options = {
   derive: MindmapDerivations
@@ -35,7 +32,6 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
     [],
     (entry) => entry.id
   )
-  let mindmapDrag: MindmapDragView | undefined = derive.drag()
 
   const recomputeMindmapTrees = () => {
     const next = derive.trees()
@@ -46,17 +42,8 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
     return result.changed
   }
 
-  const recomputeMindmapDrag = () => {
-    const next = derive.drag()
-    const changed = !Object.is(mindmapDrag, next)
-    mindmapDrag = next
-    return changed
-  }
-
-  const syncState = (key: MindmapStateSyncKey) =>
-    key === 'mindmapLayout'
-      ? recomputeMindmapTrees()
-      : recomputeMindmapDrag()
+  const syncState = (_key: MindmapStateSyncKey) =>
+    recomputeMindmapTrees()
 
   const applyCommit = (commit: ProjectionCommit) => {
     const impact = commit.impact
@@ -71,8 +58,7 @@ export const createMindmapDomain = ({ derive }: Options): MindmapDomain => {
 
   const getState = (): MindmapView => ({
     ids: mindmapIndex.ids,
-    byId: mindmapIndex.byId,
-    drag: mindmapDrag
+    byId: mindmapIndex.byId
   })
 
   return {

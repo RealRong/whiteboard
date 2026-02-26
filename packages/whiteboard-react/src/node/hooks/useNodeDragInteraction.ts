@@ -16,6 +16,9 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
+import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
+import { nodeInteractionPreviewStore } from '../interaction/nodeInteractionPreviewStore'
 
 type UseNodeDragInteractionOptions = {
   nodeId: NodeId
@@ -163,21 +166,41 @@ export const useNodeDragInteraction = ({
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveDrag | null>(null)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
-    if (!active) return
+    const lockToken = lockTokenRef.current
+    if (!active) {
+      if (
+        lockToken
+        && (
+          pointerId === undefined
+          || lockToken.pointerId === undefined
+          || lockToken.pointerId === pointerId
+        )
+      ) {
+        sessionLockStore.release(lockToken)
+        lockTokenRef.current = null
+      }
+      return
+    }
     if (pointerId !== undefined && active.pointerId !== pointerId) return
 
     activeRef.current = null
     setActivePointerId(null)
-    instance.render.batch(() => {
-      instance.render.write('nodeDrag', {})
-      instance.render.write('groupHover', {})
-      instance.render.write('nodePreview', { updates: [] })
-      instance.render.write('dragGuides', [])
-    })
-  }, [instance.render])
+    nodeInteractionPreviewStore.clearTransient()
+    if (
+      lockToken
+      && (
+        lockToken.pointerId === undefined
+        || lockToken.pointerId === active.pointerId
+      )
+    ) {
+      sessionLockStore.release(lockToken)
+      lockTokenRef.current = null
+    }
+  }, [])
 
   const commitDrag = useCallback((draft: ActiveDrag) => {
     const nodes = instance.query.doc.get().nodes
@@ -299,6 +322,8 @@ export const useNodeDragInteraction = ({
 
       const nodeRect = instance.query.canvas.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
+      const lockToken = sessionLockStore.tryAcquire('nodeDrag', event.pointerId)
+      if (!lockToken) return
 
       instance.commands.selection.select(
         [nodeId],
@@ -330,19 +355,9 @@ export const useNodeDragInteraction = ({
         children
       }
       activeRef.current = draft
+      lockTokenRef.current = lockToken
       setActivePointerId(event.pointerId)
-      instance.render.batch(() => {
-        instance.render.write('nodeDrag', {
-          payload: {
-            pointerId: draft.pointerId,
-            nodeId: draft.nodeId,
-            nodeType: draft.nodeType
-          }
-        })
-        instance.render.write('groupHover', {})
-        instance.render.write('nodePreview', { updates: [] })
-        instance.render.write('dragGuides', [])
-      })
+      nodeInteractionPreviewStore.clearTransient()
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -354,10 +369,9 @@ export const useNodeDragInteraction = ({
     [instance, nodeId]
   )
 
-  useEffect(() => {
-    if (activePointerId === null || typeof window === 'undefined') return undefined
-
-    const handlePointerMove = (event: PointerEvent) => {
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
@@ -434,63 +448,35 @@ export const useNodeDragInteraction = ({
           id: active.nodeId,
           position
         }]
-      instance.render.batchFrame(() => {
-        instance.render.write('groupHover', {
-          nodeId: active.hoveredGroupId
-        })
-        instance.render.write('nodePreview', {
-          updates
-        })
-        instance.render.write('dragGuides', guides)
+      nodeInteractionPreviewStore.setTransient({
+        updates,
+        guides,
+        hoveredGroupId: active.hoveredGroupId
       })
-    }
+    },
 
-    const handlePointerUp = (event: PointerEvent) => {
+    onPointerUp: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       commitDrag(active)
       clearActive(active.pointerId)
-    }
+    },
 
-    const handlePointerCancel = (event: PointerEvent) => {
+    onPointerCancel: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       clearActive(active.pointerId)
-    }
+    },
 
-    const handleBlur = () => {
+    onBlur: () => {
       clearActive()
-    }
+    },
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
       clearActive()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    activePointerId,
-    clearActive,
-    commitDrag,
-    instance.query.config,
-    instance.query.doc,
-    instance.query.snap,
-    instance.query.viewport,
-    instance.render,
-    instance.state
-  ])
+  })
 
   useEffect(
     () => () => {

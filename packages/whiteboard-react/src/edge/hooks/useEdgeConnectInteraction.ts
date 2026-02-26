@@ -3,6 +3,8 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import type { EdgeConnectDraft, Instance, PointerInput } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
+import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveConnectPreview,
@@ -192,12 +194,29 @@ const commitDraft = (
 
 export const useEdgeConnectInteraction = () => {
   const instance = useInstance()
-  const [active, setActive] = useState<ActiveConnect | null>(null)
+  const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveConnect | null>(null)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
+    const active = activeRef.current
+    if (pointerId !== undefined && active && active.pointerId !== pointerId) {
+      return
+    }
     edgeConnectPreviewStore.clearActivePreview(pointerId)
-    setActive(null)
+    activeRef.current = null
+    setActivePointerId(null)
+    const lockToken = lockTokenRef.current
+    if (!lockToken) return
+    if (
+      pointerId !== undefined
+      && lockToken.pointerId !== undefined
+      && lockToken.pointerId !== pointerId
+    ) {
+      return
+    }
+    sessionLockStore.release(lockToken)
+    lockTokenRef.current = null
   }, [])
 
   const startDraft = useCallback(
@@ -206,7 +225,7 @@ export const useEdgeConnectInteraction = () => {
       begin: (pointer: PointerInput) => EdgeConnectDraft | undefined
     ) => {
       if (event.button !== 0) return false
-      if (active) return false
+      if (activeRef.current) return false
       if (edgeConnectPreviewStore.getSnapshot().activePointerId !== undefined) {
         return false
       }
@@ -214,12 +233,17 @@ export const useEdgeConnectInteraction = () => {
       const pointer = toPointerInput(instance, event)
       const draft = begin(pointer)
       if (!draft) return false
-
-      setActive({
+      const lockToken = sessionLockStore.tryAcquire('edgeConnect', event.pointerId)
+      if (!lockToken) return false
+      const nextActive: ActiveConnect = {
         pointerId: event.pointerId,
         button: pointer.button,
         draft
-      })
+      }
+
+      lockTokenRef.current = lockToken
+      activeRef.current = nextActive
+      setActivePointerId(event.pointerId)
       syncPreview(instance, draft)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -230,7 +254,7 @@ export const useEdgeConnectInteraction = () => {
       event.stopPropagation()
       return true
     },
-    [active, instance]
+    [instance]
   )
 
   const handleNodeConnectPointerDown = useCallback(
@@ -268,56 +292,36 @@ export const useEdgeConnectInteraction = () => {
     [instance, startDraft]
   )
 
-  useEffect(() => {
-    activeRef.current = active
-  }, [active])
-
-  useEffect(() => {
-    if (!active || typeof window === 'undefined') return
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
       const pointer = toPointerInput(instance, event, active.button)
       if (!updateDraft(instance, active.draft, pointer)) return
       syncPreview(instance, active.draft)
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
+    },
+    onPointerUp: (event) => {
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
       const pointer = toPointerInput(instance, event, active.button)
       updateDraft(instance, active.draft, pointer)
       void commitDraft(instance, active.draft)
       clearActive(active.pointerId)
-    }
-
-    const handlePointerCancel = (event: PointerEvent) => {
-      if (event.pointerId !== active.pointerId) return
+    },
+    onPointerCancel: (event) => {
+      const active = activeRef.current
+      if (!active || event.pointerId !== active.pointerId) return
       clearActive(active.pointerId)
-    }
-
-    const handleBlur = () => {
-      clearActive(active.pointerId)
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
+    },
+    onBlur: () => {
+      clearActive()
+    },
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
-      clearActive(active.pointerId)
+      clearActive()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [active, clearActive, instance])
+  })
 
   useEffect(() => () => {
     if (!activeRef.current) return

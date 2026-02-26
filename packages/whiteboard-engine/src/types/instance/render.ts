@@ -1,24 +1,9 @@
-import type { Guide } from '../node/snap'
 import type {
-  GroupHoverState,
-  InteractionSessionState,
-  MindmapDragState,
-  NodeDragState,
-  NodePreviewState,
-  SelectionBoxState,
-  ViewportGestureState
+  SelectionBoxState
 } from '../state'
 
 export type RenderSnapshot = {
-  interactionSession: InteractionSessionState
   selectionBox: SelectionBoxState
-  viewportGesture: ViewportGestureState
-  mindmapDrag: MindmapDragState
-  nodeDrag: NodeDragState
-  nodePreview: NodePreviewState
-  spacePressed: boolean
-  dragGuides: Guide[]
-  groupHover: GroupHoverState
 }
 
 export type RenderKey = keyof RenderSnapshot

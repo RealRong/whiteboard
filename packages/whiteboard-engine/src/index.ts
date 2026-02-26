@@ -54,24 +54,3 @@ export type {
   EdgeConnectState
 } from './types/state'
 export type { PointerInput, PointerModifiers } from './types/common'
-export type {
-  PointerPhase,
-  PointerStage,
-  PointerInputEvent,
-  WheelInputEvent,
-  KeyInputEvent,
-  FocusInputEvent,
-  CompositionInputEvent,
-  InputEvent,
-  InputEffect,
-  InputCommand,
-  InputResult,
-  InputDispatchResult,
-  InputController,
-  InputPort,
-  InputSessionContext,
-  CancelReason,
-  PointerSessionKind,
-  PointerSessionRuntime,
-  PointerSession
-} from './types/input'

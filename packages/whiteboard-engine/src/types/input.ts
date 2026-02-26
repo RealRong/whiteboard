@@ -1,11 +1,5 @@
-import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { PointerInput } from './common'
-import type { Commands } from './commands'
-import type { InstanceConfig } from './instance/config'
-import type { Query } from './instance/query'
-import type { Render } from './instance/render'
-import type { State } from './instance/state'
-import type { Shortcuts } from './shortcuts'
 
 export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 export type PointerStage = 'capture' | 'bubble'
@@ -54,22 +48,6 @@ export type PointerInputEvent = {
   source: 'container' | 'window' | 'program'
 }
 
-export type WheelInputEvent = {
-  kind: 'wheel'
-  client: { x: number; y: number }
-  deltaX: number
-  deltaY: number
-  deltaZ: number
-  modifiers: {
-    shift: boolean
-    alt: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-  timestamp: number
-  source: 'container' | 'window' | 'program'
-}
-
 export type KeyInputEvent = {
   kind: 'key'
   phase: 'down' | 'up'
@@ -86,105 +64,4 @@ export type KeyInputEvent = {
   isComposing?: boolean
   timestamp: number
   source: 'container' | 'window' | 'program'
-}
-
-export type FocusInputEvent = {
-  kind: 'focus'
-  phase: 'focus' | 'blur'
-  timestamp: number
-  source: 'container' | 'window' | 'program'
-}
-
-export type CompositionInputEvent = {
-  kind: 'composition'
-  phase: 'start' | 'update' | 'end'
-  data?: string
-  timestamp: number
-  source: 'container' | 'window' | 'program'
-}
-
-export type InputEvent =
-  | PointerInputEvent
-  | WheelInputEvent
-  | KeyInputEvent
-  | FocusInputEvent
-  | CompositionInputEvent
-
-export type InputEffect =
-  | { type: 'capturePointer'; pointerId: number }
-  | { type: 'releasePointer'; pointerId: number }
-  | { type: 'setWindowPointerTracking'; enabled: boolean }
-  | { type: 'preventDefault'; reason: string }
-  | { type: 'stopPropagation'; reason: string }
-  | { type: 'setCursor'; cursor: string }
-  | { type: 'requestRender'; reason: string }
-
-export type InputCommand = InputEffect
-
-export type InputResult = {
-  effects: InputEffect[]
-}
-
-export type InputDispatchResult = InputResult
-
-export type InputSessionContext = {
-  state: Pick<State, 'read' | 'write' | 'batch' | 'batchFrame'>
-  render: Pick<Render, 'read' | 'write' | 'batch' | 'batchFrame'>
-  commands: Commands
-  query: Query
-  inputLifecycle: {
-    cancelAll: () => void
-    resetTransientState: () => void
-  }
-  viewport: {
-    getZoom: () => number
-    clientToWorld: (clientX: number, clientY: number) => Point
-  }
-  shortcuts: Pick<Shortcuts, 'handlePointerDownCapture' | 'handleKeyDown'>
-  config: InstanceConfig
-}
-
-export type InputController = {
-  handle: (event: InputEvent) => InputResult
-  reset: (reason?: CancelReason) => InputResult
-  resetAll: (reason?: CancelReason) => InputResult
-}
-
-export type InputPort = InputController
-
-export type CancelReason =
-  | 'pointercancel'
-  | 'blur'
-  | 'escape'
-  | 'forced'
-
-export type PointerSessionKind =
-  | 'selectionBox'
-  | 'edgePath'
-  | 'mindmapDrag'
-
-export type PointerSessionRuntime = {
-  pointerId: number
-  update: (
-    event: PointerInputEvent,
-    context: InputSessionContext
-  ) => void
-  end: (
-    event: PointerInputEvent,
-    context: InputSessionContext
-  ) => void
-  cancel: (
-    reason: CancelReason,
-    context: InputSessionContext
-  ) => void
-}
-
-export type PointerSession = {
-  kind: PointerSessionKind
-  priority: number
-  canStart: (event: PointerInputEvent, context: InputSessionContext) => boolean
-  start: (
-    event: PointerInputEvent,
-    context: InputSessionContext
-  ) => PointerSessionRuntime | null
 }

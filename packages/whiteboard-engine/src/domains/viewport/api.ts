@@ -4,7 +4,7 @@ import type { Query } from '@engine-types/instance/query'
 import type { View } from '@engine-types/instance/view'
 
 type Options = {
-  commands: Pick<Commands, 'viewport' | 'keyboard'>
+  commands: Pick<Commands, 'viewport'>
   query: Query
   view: View
 }
@@ -15,9 +15,6 @@ export const createViewportDomainApi = ({
   view
 }: Options): ViewportDomainApi => ({
   commands: commands.viewport,
-  interaction: {
-    setSpacePressed: commands.keyboard.setSpacePressed
-  },
   query: query.viewport,
   view: {
     get: () => view.getState().viewport,

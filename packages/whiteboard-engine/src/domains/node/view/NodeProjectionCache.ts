@@ -1,7 +1,7 @@
 import type { Query } from '@engine-types/instance/query'
 import type { NodeViewItem } from '@engine-types/instance/view'
 import type { Node, NodeId } from '@whiteboard/core/types'
-import { projectNodeItem, type NodePreview } from './NodeProject'
+import { projectNodeItem } from './NodeProject'
 
 type Options = {
   query: Query
@@ -18,8 +18,7 @@ export class NodeProjectionCache {
 
   syncByIds = (
     targetNodeIds: Iterable<NodeId>,
-    canvasNodeById: ReadonlyMap<NodeId, Node>,
-    readPreview?: (nodeId: NodeId) => NodePreview | undefined
+    canvasNodeById: ReadonlyMap<NodeId, Node>
   ) => {
     let nextById = this.nodeItemsById
     let changed = false
@@ -39,7 +38,6 @@ export class NodeProjectionCache {
       const next = projectNodeItem({
         node,
         query: this.query,
-        preview: readPreview?.(nodeId),
         previous
       })
       if (previous === next) continue

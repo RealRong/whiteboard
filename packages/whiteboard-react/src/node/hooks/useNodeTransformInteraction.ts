@@ -11,6 +11,9 @@ import {
 import { getRectCenter, isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
+import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
+import { nodeInteractionPreviewStore } from '../interaction/nodeInteractionPreviewStore'
 
 type UseNodeTransformInteractionOptions = {
   nodeId: NodeId
@@ -132,18 +135,40 @@ export const useNodeTransformInteraction = ({
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveTransform | null>(null)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
-    if (!active) return
+    const lockToken = lockTokenRef.current
+    if (!active) {
+      if (
+        lockToken
+        && (
+          pointerId === undefined
+          || lockToken.pointerId === undefined
+          || lockToken.pointerId === pointerId
+        )
+      ) {
+        sessionLockStore.release(lockToken)
+        lockTokenRef.current = null
+      }
+      return
+    }
     if (pointerId !== undefined && active.drag.pointerId !== pointerId) return
     activeRef.current = null
     setActivePointerId(null)
-    instance.render.batch(() => {
-      instance.render.write('nodePreview', { updates: [] })
-      instance.render.write('dragGuides', [])
-    })
-  }, [instance.render])
+    nodeInteractionPreviewStore.clearTransient()
+    if (
+      lockToken
+      && (
+        lockToken.pointerId === undefined
+        || lockToken.pointerId === active.drag.pointerId
+      )
+    ) {
+      sessionLockStore.release(lockToken)
+      lockTokenRef.current = null
+    }
+  }, [])
 
   const commitTransform = useCallback((active: ActiveTransform) => {
     const node = instance.query.doc.get().nodes.find((item) => item.id === active.nodeId)
@@ -228,16 +253,16 @@ export const useNodeTransformInteraction = ({
       }
 
       if (!nextDrag) return
+      const lockToken = sessionLockStore.tryAcquire('nodeTransform', event.pointerId)
+      if (!lockToken) return
 
       activeRef.current = {
         nodeId,
         drag: nextDrag
       }
+      lockTokenRef.current = lockToken
       setActivePointerId(event.pointerId)
-      instance.render.batch(() => {
-        instance.render.write('nodePreview', { updates: [] })
-        instance.render.write('dragGuides', [])
-      })
+      nodeInteractionPreviewStore.clearTransient()
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -250,16 +275,14 @@ export const useNodeTransformInteraction = ({
       instance.query.canvas,
       instance.query.viewport.clientToScreen,
       instance.query.viewport.screenToWorld,
-      instance.render,
       instance.state,
       nodeId
     ]
   )
 
-  useEffect(() => {
-    if (activePointerId === null || typeof window === 'undefined') return undefined
-
-    const handlePointerMove = (event: PointerEvent) => {
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.drag.pointerId) return
 
@@ -333,15 +356,13 @@ export const useNodeTransformInteraction = ({
           size: nextSize
         }
         active.drag.lastUpdate = update
-        instance.render.batchFrame(() => {
-          instance.render.write('nodePreview', {
-            updates: [{
-              id: active.nodeId,
-              position: update.position,
-              size: update.size
-            }]
-          })
-          instance.render.write('dragGuides', guides)
+        nodeInteractionPreviewStore.setTransient({
+          updates: [{
+            id: active.nodeId,
+            position: update.position,
+            size: update.size
+          }],
+          guides
         })
         return
       }
@@ -360,62 +381,37 @@ export const useNodeTransformInteraction = ({
         shiftKey: event.shiftKey
       })
       active.drag.currentRotation = rotation
-      instance.render.batchFrame(() => {
-        instance.render.write('nodePreview', {
-          updates: [{
-            id: active.nodeId,
-            rotation
-          }]
-        })
-        instance.render.write('dragGuides', [])
+      nodeInteractionPreviewStore.setTransient({
+        updates: [{
+          id: active.nodeId,
+          rotation
+        }],
+        guides: []
       })
-    }
+    },
 
-    const handlePointerUp = (event: PointerEvent) => {
+    onPointerUp: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.drag.pointerId) return
       commitTransform(active)
       clearActive(active.drag.pointerId)
-    }
+    },
 
-    const handlePointerCancel = (event: PointerEvent) => {
+    onPointerCancel: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.drag.pointerId) return
       clearActive(active.drag.pointerId)
-    }
+    },
 
-    const handleBlur = () => {
+    onBlur: () => {
       clearActive()
-    }
+    },
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
       clearActive()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    activePointerId,
-    clearActive,
-    commitTransform,
-    instance.query.config,
-    instance.query.snap,
-    instance.query.viewport,
-    instance.render,
-    instance.state
-  ])
+  })
 
   useEffect(
     () => () => {

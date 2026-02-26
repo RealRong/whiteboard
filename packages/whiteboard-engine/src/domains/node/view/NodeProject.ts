@@ -1,12 +1,6 @@
 import type { Query } from '@engine-types/instance/query'
 import type { NodeViewItem } from '@engine-types/instance/view'
-import type { Node, Point, Rect, Size } from '@whiteboard/core/types'
-
-export type NodePreview = {
-  position?: Point
-  size?: Size
-  rotation?: number
-}
+import type { Node, Rect } from '@whiteboard/core/types'
 
 const getNodeRect = (query: Query, node: Node): Rect =>
   query.canvas.nodeRect(node.id)?.rect ?? {
@@ -19,29 +13,11 @@ const getNodeRect = (query: Query, node: Node): Rect =>
 export const projectNodeItem = (options: {
   node: Node
   query: Query
-  preview?: NodePreview
   previous?: NodeViewItem
 }): NodeViewItem => {
-  const { node, query, previous, preview } = options
-  const committedRect = getNodeRect(query, node)
-  const position = preview?.position ?? node.position
-  const size = preview?.size ?? node.size
-  const rect = preview?.position || preview?.size
-    ? {
-      x: position.x,
-      y: position.y,
-      width: size?.width ?? committedRect.width,
-      height: size?.height ?? committedRect.height
-    }
-    : committedRect
-  const rotation =
-    typeof preview?.rotation === 'number'
-      ? preview.rotation
-      : (
-          typeof node.rotation === 'number'
-            ? node.rotation
-            : 0
-        )
+  const { node, query, previous } = options
+  const rect = getNodeRect(query, node)
+  const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const transformBase = `translate(${rect.x}px, ${rect.y}px)`
 
   if (

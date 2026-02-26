@@ -207,9 +207,6 @@ export type Commands = {
   tool: {
     set: (tool: 'select' | 'edge') => void
   }
-  keyboard: {
-    setSpacePressed: (pressed: boolean) => void
-  }
   history: {
     configure: (config: Partial<ResolvedHistoryConfig>) => void
     get: () => HistoryState

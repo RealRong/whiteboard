@@ -5,6 +5,9 @@ import type {
 } from 'react'
 import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
+import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
+import { viewportGestureStore } from '../../common/interaction/viewportGestureStore'
 import {
   edgeRoutingPreviewStore,
   type RoutingPreviewDraft
@@ -33,6 +36,7 @@ export const useEdgeRoutingInteraction = () => {
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<RoutingPreviewDraft | null>(null)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const readEdgeById = useCallback(
     (edgeId: EdgeId) =>
@@ -42,11 +46,35 @@ export const useEdgeRoutingInteraction = () => {
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
-    if (!active) return
+    const lockToken = lockTokenRef.current
+    if (!active) {
+      if (
+        lockToken
+        && (
+          pointerId === undefined
+          || lockToken.pointerId === undefined
+          || lockToken.pointerId === pointerId
+        )
+      ) {
+        sessionLockStore.release(lockToken)
+        lockTokenRef.current = null
+      }
+      return
+    }
     if (pointerId !== undefined && active.pointerId !== pointerId) return
     activeRef.current = null
     setActivePointerId(null)
     edgeRoutingPreviewStore.clearDraft(pointerId)
+    if (
+      lockToken
+      && (
+        lockToken.pointerId === undefined
+        || lockToken.pointerId === active.pointerId
+      )
+    ) {
+      sessionLockStore.release(lockToken)
+      lockTokenRef.current = null
+    }
   }, [])
 
   const handleRoutingPointerDown = useCallback(
@@ -57,7 +85,7 @@ export const useEdgeRoutingInteraction = () => {
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.render.read('spacePressed')) return
+      if (viewportGestureStore.isSpacePressed()) return
 
       const entry = resolveEdgeEntry(edgeId, readEdgeById)
       if (!entry) return
@@ -80,6 +108,8 @@ export const useEdgeRoutingInteraction = () => {
       )
       const origin = points[index]
       if (!origin) return
+      const lockToken = sessionLockStore.tryAcquire('edgeRouting', event.pointerId)
+      if (!lockToken) return
       const draft: RoutingPreviewDraft = {
         edgeId,
         index,
@@ -89,6 +119,7 @@ export const useEdgeRoutingInteraction = () => {
         point: origin
       }
       activeRef.current = draft
+      lockTokenRef.current = lockToken
       setActivePointerId(event.pointerId)
       edgeRoutingPreviewStore.setDraft(draft)
       try {
@@ -103,7 +134,6 @@ export const useEdgeRoutingInteraction = () => {
       instance.commands.edge,
       instance.query.viewport.clientToScreen,
       instance.query.viewport.screenToWorld,
-      instance.render,
       readEdgeById
     ]
   )
@@ -127,10 +157,9 @@ export const useEdgeRoutingInteraction = () => {
     [instance.commands.edge, readEdgeById]
   )
 
-  useEffect(() => {
-    if (activePointerId === null || typeof window === 'undefined') return undefined
-
-    const handlePointerMove = (event: PointerEvent) => {
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
@@ -161,9 +190,9 @@ export const useEdgeRoutingInteraction = () => {
       }
       activeRef.current = next
       edgeRoutingPreviewStore.setDraft(next)
-    }
+    },
 
-    const handlePointerUp = (event: PointerEvent) => {
+    onPointerUp: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       const entry = resolveEdgeEntry(active.edgeId, readEdgeById)
@@ -175,44 +204,23 @@ export const useEdgeRoutingInteraction = () => {
         )
       }
       clearActive(active.pointerId)
-    }
+    },
 
-    const handlePointerCancel = (event: PointerEvent) => {
+    onPointerCancel: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       clearActive(active.pointerId)
-    }
+    },
 
-    const handleBlur = () => {
+    onBlur: () => {
       clearActive()
-    }
+    },
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
       clearActive()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    activePointerId,
-    clearActive,
-    instance.commands.edge,
-    instance.query.viewport.clientToScreen,
-    instance.query.viewport.screenToWorld,
-    readEdgeById
-  ])
+  })
 
   useEffect(
     () => () => {

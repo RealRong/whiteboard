@@ -8,7 +8,7 @@ import { createRegistries } from '@whiteboard/core/kernel'
 import type { InstanceEventMap } from '@engine-types/instance/events'
 import type { DocumentId } from '@whiteboard/core/types'
 import { EventCenter } from '../runtime/EventCenter'
-import { createInputPort, createShortcuts } from '../input'
+import { createShortcuts } from '../runtime/shortcut'
 import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
 import { HistoryDomain } from '../runtime/history/HistoryDomain'
 import { DocChangePublisher } from '../runtime/write/DocChangePublisher'
@@ -31,7 +31,6 @@ import { createViewRegistry } from '../runtime/view/Registry'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
 import { RenderCoordinator } from '../runtime/render/RenderCoordinator'
-import { clearInteractionKinds } from '../shared/interactionSession'
 import {
   bindEdgeDomainApiById,
   bindMindmapDomainApiById,
@@ -73,7 +72,6 @@ export const createEngine = ({
   })
   const viewRuntime = createViewRegistry({
     state,
-    render,
     projection,
     query: queryRuntime.query,
     config
@@ -84,7 +82,6 @@ export const createEngine = ({
     state,
     render,
     projection,
-    input: null as unknown as InternalInstance['input'],
     document: documentStore,
     config,
     viewport,
@@ -146,21 +143,7 @@ export const createEngine = ({
   const interactionActor = new InteractionActor({
     state
   })
-  const resetSelectionTransient = () => {
-    render.write('groupHover', {})
-  }
-  const cancelAllInputInteractions = () => {
-    clearInteractionKinds(render, ['nodeDrag', 'nodeTransform'])
-  }
-  const resetAllInputTransientState = () => {
-    render.batch(() => {
-      clearInteractionKinds(render, ['nodeDrag', 'nodeTransform'])
-      render.write('nodeDrag', {})
-      render.write('nodePreview', { updates: [] })
-      render.write('dragGuides', [])
-      render.write('groupHover', {})
-    })
-  }
+  const resetSelectionTransient = () => {}
   const selectionActor = new SelectionActor({
     instance,
     resetTransient: resetSelectionTransient
@@ -177,11 +160,6 @@ export const createEngine = ({
     tool: {
       set: (tool) => {
         write('tool', tool)
-      }
-    },
-    keyboard: {
-      setSpacePressed: (pressed) => {
-        render.keyboard.setSpacePressed(pressed)
       }
     },
     history: {
@@ -218,7 +196,6 @@ export const createEngine = ({
       removeRoutingPoint: edgeCommands.removeRoutingPoint,
       resetRouting: edgeCommands.resetRouting,
       select: (id) => {
-        render.write('groupHover', {})
         edgeCommands.select(id)
       }
     },
@@ -323,26 +300,6 @@ export const createEngine = ({
     instance,
     runAction: shortcutActor.execute
   })
-
-  const inputPort = createInputPort({
-    getContext: () => ({
-      state,
-      render,
-      commands,
-      query: queryRuntime.query,
-      inputLifecycle: {
-        cancelAll: cancelAllInputInteractions,
-        resetTransientState: resetAllInputTransientState
-      },
-      viewport: {
-        getZoom: queryRuntime.query.viewport.getZoom,
-        clientToWorld: queryRuntime.query.viewport.clientToWorld
-      },
-      shortcuts,
-      config
-    })
-  })
-  instance.input = inputPort
   const lifecycleRuntime = new Lifecycle(
     {
       state,
@@ -377,7 +334,6 @@ export const createEngine = ({
       lifecycleRuntime.update(nextConfig)
     },
     stop: () => {
-      inputPort.resetAll('forced')
       lifecycleRuntime.stop()
       prevHistoryDocId = undefined
       nodeMeasureQueue.clear()
@@ -391,7 +347,6 @@ export const createEngine = ({
     state: instance.state,
     render: instance.render,
     projection: instance.projection,
-    input: instance.input,
     query: instance.query,
     view: instance.view,
     domains: instance.domains,

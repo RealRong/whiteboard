@@ -89,9 +89,6 @@ export type SelectionDomainApi = {
 
 export type ViewportDomainApi = {
   commands: Commands['viewport']
-  interaction: {
-    setSpacePressed: Commands['keyboard']['setSpacePressed']
-  }
   query: Query['viewport']
   view: {
     get: () => ViewportView

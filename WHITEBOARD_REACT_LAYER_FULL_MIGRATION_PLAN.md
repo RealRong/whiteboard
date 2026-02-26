@@ -8,6 +8,12 @@
 2. `commands` 写入入口与一致性规则。
 3. `history/projection` 等文档级能力。
 
+React 层状态基线（明确约束）：
+
+1. React 侧共享交互态（preview/session/transient）统一用 **Jotai** 作为底层数据管理。
+2. 不再新增自维护 `subscribe/getSnapshot` 外部 store；统一以 atom + hook 读写。
+3. 保持“无 Provider”模式：通过模块级 store（vanilla store）供 hooks/命令读写。
+
 结论：除已完成的 `edgeConnect + snap + guide` 外，下一批最适合迁移到 React 的是：
 
 1. `selectionBox`
@@ -29,6 +35,19 @@
 3. 仅用于性能基准的 `NodeDragKernel/NodeTransformKernel/Routing` 已迁到 `packages/whiteboard-engine/src/perf/kernels/*`，不再位于 `domains/*/interaction`。
 4. `edgeRouting` 预览已切到 React 本地 store（`edgeRoutingPreviewStore`），engine `render.routingDrag` 及其 view 同步链路已移除。
 5. `edges.selection.routing` 已从 engine view 移除，控制点 UI 直接基于 `selectedEdgeId + edges.byId` 读取并叠加本地 draft。
+6. `nodeDrag/nodeTransform` 预览已切到 React 本地 store（`nodeInteractionPreviewStore`），engine `render.nodePreview/dragGuides/groupHover/nodeDrag` 及 node view 的 preview 同步链路已移除。
+7. `interactionSession`（含 `nodeDrag/nodeTransform` 残留）已从 engine render 链路移除，不再保留无消费者的交互会话状态键。
+8. `types/state` 中 node 交互残留状态类型已下线；bench 所需 `NodePreviewUpdate` 改为 `perf/kernels/types.ts` 局部类型，不再占用 engine 全局状态类型空间。
+9. `mindmapDrag` 的 engine render/view 同步链路与 `useMindmapDragView` 钩子已移除；`PointerSessionKind` 也去掉了无实现的 `mindmapDrag` 枚举值。
+10. `viewportGesture + space` 已迁到 React：新增 `viewportGestureStore + useViewportGestureInteraction`，`Whiteboard.tsx` 直接接管 pan/wheel/space 生命周期与 preview commit。
+11. engine 已移除 `render.viewportGesture/render.spacePressed` 与对应 view 同步依赖；`whiteboard-react` 旧 `common/input/*`（`DomInputAdapter` 等）已下线。
+12. React 侧交互共享 store 已开始切换到 Jotai：`viewportGestureStore`、`nodeInteractionPreviewStore`、`routingPreviewStore`、`connectPreviewStore` 改为 atom 驱动。
+13. engine 主链路 `InputPort/PointerSessionEngine` 已移除：`instance.input`、`createInputPort`、`input/core/*` 已下线；仅保留快捷键运行时（`runtime/shortcut/*`）。
+14. 快捷键运行时已从 `input/shortcut/*` 迁移至 `runtime/shortcut/*`，`input` 目录已不再承载运行时代码。
+15. React 侧新增 `sessionLockStore + useWindowPointerSession`，并已接入 `viewportGesture/selectionBox/nodeDrag/nodeTransform/edgeRouting/edgeConnect/mindmapDrag`，统一会话锁与 window pointer 生命周期，避免多交互并发竞态。
+16. 新增 `CanvasInteractionLayer` 作为容器级交互单点组合入口，`Whiteboard.tsx` 已收口 `viewportGesture + selectionBox` 的事件绑定与渲染拼装。
+17. `selectionBox` 视觉态已收敛到 `selectionBoxStore`（Jotai）：`SelectionLayer` 直接读 store，移除经 `CanvasInteractionLayer` 的 `selectionRect` props 透传。
+18. `CanvasInteractionLayer` 已进一步收敛为纯容器交互层（无 `renderSelectionLayer` 回调口）；`SelectionLayer` 在 `Whiteboard.tsx` 同级组合，保持 API 最小化。
 
 已 UI 化：
 
@@ -43,7 +62,7 @@
 
 仍主要依赖 engine 交互层：
 
-1. 旧输入编排壳仍在：`packages/whiteboard-react/src/common/input/DomInputAdapter.ts` + `packages/whiteboard-engine/src/input/core/InputPort.ts`
+1. engine 侧仅剩快捷键运行时：`packages/whiteboard-engine/src/runtime/shortcut/*`（`input/core/*` 已移除）。
 
 ---
 

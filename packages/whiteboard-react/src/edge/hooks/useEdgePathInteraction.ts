@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Edge, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
+import { viewportGestureStore } from '../../common/interaction/viewportGestureStore'
 
 const toPointerWorld = (
   clientX: number,
@@ -23,7 +24,7 @@ export const useEdgePathInteraction = () => {
       pathPoints: Point[]
     ) => {
       if (event.button !== 0) return
-      if (instance.render.read('spacePressed')) return
+      if (viewportGestureStore.isSpacePressed()) return
 
       const pointWorld = toPointerWorld(
         event.clientX,
@@ -56,4 +57,3 @@ export const useEdgePathInteraction = () => {
     handleEdgePathPointerDown
   }
 }
-

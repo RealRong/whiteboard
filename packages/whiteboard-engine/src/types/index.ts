@@ -28,27 +28,6 @@ export type {
   CreateProjectionStoreOptions
 } from './projection'
 export type {
-  PointerPhase,
-  PointerStage,
-  PointerInputEvent,
-  WheelInputEvent,
-  KeyInputEvent,
-  FocusInputEvent,
-  CompositionInputEvent,
-  InputEvent,
-  InputEffect,
-  InputCommand,
-  InputResult,
-  InputDispatchResult,
-  InputController,
-  InputPort,
-  InputSessionContext,
-  CancelReason,
-  PointerSessionKind,
-  PointerSessionRuntime,
-  PointerSession
-} from './input'
-export type {
   CreateEngineOptions,
   EventUnsubscribe,
   InstanceEventMap,
@@ -111,15 +90,10 @@ export type {
   EdgeReconnectInfo,
   HistoryState,
   InteractionState,
-  ViewportGestureState,
   MindmapDragDropTarget,
   MindmapDragState,
   MindmapRootDragState,
   MindmapSubtreeDragState,
-  NodePreviewState,
-  NodePreviewUpdate,
-  NodeDragPayload,
-  NodeDragState,
   NodeTransformDraft,
   TransformDragState,
   ResizeDirection,

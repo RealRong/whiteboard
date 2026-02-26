@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { rectFromPoints } from '@whiteboard/core/geometry'
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { NodeId, Point } from '@whiteboard/core/types'
 import type { Instance } from '@whiteboard/engine'
+import { sessionLockStore, type SessionLockToken } from './sessionLockStore'
+import { selectionBoxStore } from './selectionBoxStore'
+import { useWindowPointerSession } from './useWindowPointerSession'
+import { viewportGestureStore } from './viewportGestureStore'
 
 type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
@@ -98,7 +102,6 @@ const toScreenWorld = (
 }
 
 type UseSelectionBoxInteractionResult = {
-  selectionRect?: Rect
   handleViewportPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
 }
 
@@ -106,7 +109,8 @@ export const useSelectionBoxInteraction = (
   instance: Instance
 ): UseSelectionBoxInteractionResult => {
   const activeRef = useRef<ActiveSelection | null>(null)
-  const [selectionRect, setSelectionRect] = useState<Rect | undefined>(undefined)
+  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const [activePointerId, setActivePointerId] = useState<number | null>(null)
 
   const clearFrame = (active: ActiveSelection) => {
     if (active.frameId === undefined || typeof window === 'undefined') return
@@ -140,19 +144,37 @@ export const useSelectionBoxInteraction = (
     })
   }, [flushSelection])
 
+  const releaseSessionLock = useCallback((pointerId?: number) => {
+    const lockToken = lockTokenRef.current
+    if (!lockToken) return
+    if (
+      pointerId !== undefined
+      && lockToken.pointerId !== undefined
+      && lockToken.pointerId !== pointerId
+    ) {
+      return
+    }
+    sessionLockStore.release(lockToken)
+    lockTokenRef.current = null
+  }, [])
+
   const clearSelectionBox = useCallback((pointerId?: number) => {
     const active = activeRef.current
-    if (!active) return
+    if (!active) {
+      releaseSessionLock(pointerId)
+      return
+    }
     if (pointerId !== undefined && active.pointerId !== pointerId) return
     clearFrame(active)
     activeRef.current = null
-    setSelectionRect(undefined)
-  }, [])
+    setActivePointerId(null)
+    selectionBoxStore.clear()
+    releaseSessionLock(active.pointerId)
+  }, [releaseSessionLock])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    const handlePointerMove = (event: PointerEvent) => {
+  useWindowPointerSession({
+    pointerId: activePointerId,
+    onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       const minDragDistance = instance.query.config.get().node.selectionMinDragDistance
@@ -169,13 +191,12 @@ export const useSelectionBoxInteraction = (
       }
 
       active.isSelecting = true
-      setSelectionRect(rectFromPoints(active.startScreen, resolved.screen))
+      selectionBoxStore.setRect(rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)
       active.latestMatchedIds = instance.query.canvas.nodeIdsInRect(worldRect)
       scheduleFlush()
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
+    },
+    onPointerUp: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
@@ -194,45 +215,20 @@ export const useSelectionBoxInteraction = (
       }
 
       clearSelectionBox(active.pointerId)
-    }
-
-    const handlePointerCancel = (event: PointerEvent) => {
+    },
+    onPointerCancel: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
       clearSelectionBox(active.pointerId)
-    }
-
-    const handleBlur = () => {
+    },
+    onBlur: () => {
       clearSelectionBox()
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
+    },
+    onKeyDown: (event) => {
       if (event.key !== 'Escape') return
       clearSelectionBox()
     }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerCancel)
-    window.addEventListener('blur', handleBlur)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-      window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    clearSelectionBox,
-    flushSelection,
-    instance.commands.selection,
-    instance.query.canvas,
-    instance.query.config,
-    instance.query.viewport,
-    scheduleFlush
-  ])
+  })
 
   useEffect(
     () => () => {
@@ -246,8 +242,11 @@ export const useSelectionBoxInteraction = (
       if (event.button !== 0) return
       if (activeRef.current) return
       if (instance.state.read('tool') === 'edge') return
-      if (instance.render.read('spacePressed')) return
+      if (viewportGestureStore.isSpacePressed()) return
       if (!isBackgroundPointerTarget(event.target, event.currentTarget)) return
+
+      const lockToken = sessionLockStore.tryAcquire('selectionBox', event.pointerId)
+      if (!lockToken) return
 
       const mode = resolveSelectionMode(event)
       const resolved = toScreenWorld(
@@ -256,6 +255,7 @@ export const useSelectionBoxInteraction = (
         instance.query.viewport.clientToScreen,
         instance.query.viewport.screenToWorld
       )
+      lockTokenRef.current = lockToken
       instance.commands.edge.select(undefined)
       const selectedNodeIds = instance.state.read('selection').selectedNodeIds
       activeRef.current = {
@@ -267,7 +267,8 @@ export const useSelectionBoxInteraction = (
         baseSelectedNodeIds: new Set(selectedNodeIds),
         lastSelectionKey: toSelectionKey(selectedNodeIds)
       }
-      setSelectionRect(undefined)
+      setActivePointerId(event.pointerId)
+      selectionBoxStore.clear()
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -280,7 +281,6 @@ export const useSelectionBoxInteraction = (
   )
 
   return {
-    selectionRect,
     handleViewportPointerDown
   }
 }

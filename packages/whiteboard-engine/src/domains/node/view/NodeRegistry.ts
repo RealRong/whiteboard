@@ -3,7 +3,6 @@ import type {
   ProjectionSnapshot
 } from '@engine-types/projection'
 import type { Query } from '@engine-types/instance/query'
-import type { NodePreviewUpdate } from '@engine-types/state'
 import type {
   NodeViewItem,
 } from '@engine-types/instance/view'
@@ -18,36 +17,20 @@ type NodeViewItemEntry = NodeViewItem
 type Options = {
   query: Query
   readProjection: () => ProjectionSnapshot
-  readPreviewUpdates: () => readonly NodePreviewUpdate[]
 }
-
-export type NodeStateSyncKey = 'nodePreview'
 
 export type NodeRegistry = {
   applyCommit: (commit: ProjectionCommit) => boolean
-  syncState: (key: NodeStateSyncKey) => boolean
   getNodeItemsMap: () => ReadonlyMap<NodeId, NodeViewItemEntry>
   getNodeIds: () => NodeId[]
 }
 
 export const createNodeRegistry = ({
   query,
-  readProjection,
-  readPreviewUpdates
+  readProjection
 }: Options): NodeRegistry => {
   const cache = new NodeProjectionCache(query)
   let nodeIds: NodeId[] = []
-  let previewById = new Map<NodeId, NodePreviewUpdate>()
-
-  const readPreview = (nodeId: NodeId) => previewById.get(nodeId)
-
-  const toPreviewMap = () => {
-    const next = new Map<NodeId, NodePreviewUpdate>()
-    readPreviewUpdates().forEach((update) => {
-      next.set(update.id, update)
-    })
-    return next
-  }
 
   const syncNodeOrder = () => {
     const nextNodeIds = toLayerOrderedCanvasNodes(readProjection().nodes.canvas).map(
@@ -68,8 +51,7 @@ export const createNodeRegistry = ({
     if (!changedNodeIds.size) return changed
     changed = cache.syncByIds(
       changedNodeIds,
-      snapshot.indexes.canvasNodeById,
-      readPreview
+      snapshot.indexes.canvasNodeById
     ) || changed
     return changed
   }
@@ -95,8 +77,7 @@ export const createNodeRegistry = ({
     if (dirtyNodeIds?.length) {
       changed = cache.syncByIds(
         dirtyNodeIds,
-        snapshot.indexes.canvasNodeById,
-        readPreview
+        snapshot.indexes.canvasNodeById
       ) || changed
     }
 
@@ -110,30 +91,8 @@ export const createNodeRegistry = ({
     return changed
   }
 
-  const syncPreviewState = () => {
-    const nextPreviewById = toPreviewMap()
-    const targetNodeIds = new Set<NodeId>()
-    previewById.forEach((_, nodeId) => targetNodeIds.add(nodeId))
-    nextPreviewById.forEach((_, nodeId) => targetNodeIds.add(nodeId))
-    previewById = nextPreviewById
-    if (!targetNodeIds.size) return false
-    return cache.syncByIds(
-      targetNodeIds,
-      readProjection().indexes.canvasNodeById,
-      readPreview
-    )
-  }
-
-  const syncState: NodeRegistry['syncState'] = (key) => {
-    if (key === 'nodePreview') {
-      return syncPreviewState()
-    }
-    return false
-  }
-
   return {
     applyCommit,
-    syncState,
     getNodeItemsMap: () => cache.getNodeItemsMap(),
     getNodeIds: () => nodeIds
   }

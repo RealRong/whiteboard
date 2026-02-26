@@ -49,9 +49,5 @@ export const useEdgeSelectedEndpointsView = (
   options?: UseWhiteboardViewOptions<ViewState['edges']['selection']['endpoints']>
 ) => useViewSelector((state) => state.edges.selection.endpoints, options)
 
-export const useMindmapDragView = (
-  options?: UseWhiteboardViewOptions<ViewState['mindmap']['drag']>
-) => useViewSelector((state) => state.mindmap.drag, options)
-
 export type { UseWhiteboardViewOptions }
 export type ViewStore = Instance['view']

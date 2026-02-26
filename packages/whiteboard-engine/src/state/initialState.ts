@@ -35,19 +35,9 @@ export const createInitialState = (): WritableStateSnapshot => ({
 })
 
 export const createInitialRenderState = (): WritableRenderSnapshot => ({
-  interactionSession: {},
   selectionBox: {
     isSelecting: false,
     selectionRect: undefined,
     selectionRectWorld: undefined
-  },
-  viewportGesture: {},
-  mindmapDrag: {},
-  nodeDrag: {},
-  nodePreview: {
-    updates: []
-  },
-  spacePressed: false,
-  dragGuides: [],
-  groupHover: {}
+  }
 })
