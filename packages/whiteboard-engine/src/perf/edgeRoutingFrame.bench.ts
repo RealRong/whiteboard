@@ -185,7 +185,7 @@ const main = () => {
   })
   const routing = new Routing({
     instance: {
-      projection: instance.projection
+      read: instance.read
     }
   })
   const syncDoc = (next: Document) => {
@@ -194,7 +194,7 @@ const main = () => {
 
   const edgeId = 'e_route'
   const routingIndex = 0
-  const baseEdge = instance.projection.getSnapshot().edges.visible.find((edge) => edge.id === edgeId)
+  const baseEdge = instance.read.get.edgeById(edgeId)?.edge
   if (!baseEdge || !baseEdge.routing?.points?.length) {
     throw new Error(`Missing routing edge: ${edgeId}`)
   }

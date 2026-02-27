@@ -1,8 +1,9 @@
 import type { Document } from '@whiteboard/core/types'
 import type { Query } from '@engine-types/instance/query'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { ProjectionStore } from '@engine-types/projection'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { ViewportApi } from '@engine-types/viewport'
+import type { MutationMeta } from '../../write/pipeline/MutationMetaBus'
 import { createQueryIndexRuntime } from '../indexes/QueryIndexRuntime'
 import { createCanvas } from './Canvas'
 import { createConfig } from './Config'
@@ -12,7 +13,7 @@ import { createSnap } from './Snap'
 import { createViewport } from './Viewport'
 
 type Options = {
-  projection: ProjectionStore
+  readSnapshot: () => ReadModelSnapshot
   config: InstanceConfig
   readDoc: () => Document
   viewport: ViewportApi
@@ -20,21 +21,18 @@ type Options = {
 
 export type QueryRuntime = {
   query: Query
+  applyMutation: (meta: MutationMeta) => void
 }
 
 export const createQueryRuntime = ({
-  projection,
+  readSnapshot,
   config,
   readDoc,
   viewport
 }: Options): QueryRuntime => {
   const queryIndex = createQueryIndexRuntime({
-    projection,
+    readSnapshot,
     config
-  })
-
-  projection.subscribe((commit) => {
-    queryIndex.applyCommit(commit)
   })
 
   const canvas = createCanvas({
@@ -57,6 +55,7 @@ export const createQueryRuntime = ({
   })
 
   return {
+    applyMutation: queryIndex.applyMutation,
     query: {
       doc,
       viewport: viewportQuery,

@@ -7,6 +7,27 @@ Jotai 作为一个极其轻量（无 Context）且支持在 Vanilla JS 中使用
 
 ---
 
+## 最新落地快照（2026-02-27）
+
+当前代码已完成以下关键切换（优先级高于文内早期示例）：
+
+1. 已删除 `ProjectionStore` 与 `projection.commit -> applyCommit` 管线。
+2. 写入边界统一为：
+   - `MutationExecutor` 直接写 `documentAtom` 与 `projectionRevisionAtom`
+   - 同步发布 `mutationMetaBus`
+3. 读侧统一为：
+   - `projection derived atoms`（由 `documentAtom` 派生 `visible/canvas/edges/indexes/snapshot`）
+   - `QueryIndexRuntime.applyMutation(meta)`
+   - `ReadRuntime.applyMutation(meta)`（驱动 materialized 失效与 revision）
+4. `instance.projection` 已从类型与实现中移除，`instance.runtime.store` 是唯一 store 锚点。
+
+说明：
+
+1. 文内凡是出现 `projection.subscribe/applyCommit` 的旧示例，均以本节描述为准。
+2. `ReadModelSnapshot` 现在是读侧结构类型（type shape），不是独立存储管线。
+
+---
+
 ## 1. 为什么选择 Jotai？
 
 Jotai 的核心思想是**原子化（Atomic）**和**派生（Derived）**：
@@ -56,21 +77,30 @@ instance.runtime = {
 ### 3.2 Root Atoms（按当前代码分层）
 在当前实现中，Root Atoms 已具备雏形：
 
-1. `projectionSnapshotAtom`：Projection 快照根。
+1. `readModelSnapshotAtom`：读模型快照根（由 `documentAtom + readModelRevisionAtom` 派生）。
 2. `stateAtoms.*`：交互状态根（`selection/tool/viewport/mindmapLayout/...`）。
 3. `materializedRevisionAtom`：可变 materialized cache 的可观察桥。
 
-当 commit 到来时，遵循“先更新读模型，再发布可观察状态”的顺序：
+其中 `viewport` 采用单真值策略：
+
+1. `stateAtoms.viewport` 是唯一可写源（engine/runtime/react 共用同一 atom）。
+2. `ViewportRuntime` 通过 `store.get/set(stateAtoms.viewport)` 作为几何 getter/转换入口，不再维护第二份内存副本。
+3. `document.viewport` 仅作为持久化快照，在 mutation 提交后同步写回 runtime（例如 reset/import/history/remote 回放）。
+
+当 mutation meta 到来时，遵循“先更新可变读模型，再发布可观察 revision”的顺序：
 
 ```typescript
-projection.subscribe((commit) => {
-  materialized.applyCommit(commit)
-  store.set(projectionSnapshotAtom, commit.snapshot)
-  if (shouldBumpMaterializedRevision(commit)) {
+mutationMetaBus.subscribe((meta) => {
+  queryIndex.applyMutation(meta)
+  materialized.applyMutation(meta)
+  if (shouldBumpMaterializedRevision(meta)) {
     store.set(materializedRevisionAtom, (x) => x + 1)
   }
 })
 ```
+
+当前实现已在 `createEngine` 中收敛为单一 dispatcher：同一个 mutation meta 按固定顺序执行
+`queryIndex.applyMutation -> materialized.applyMutation -> revision atoms`。
 
 ### 3.3 领域派生 Atom（以 edge 读侧为例）
 当前读侧正确做法不是“事件中转 atom”，而是直接从 Root Atoms 派生：
@@ -87,12 +117,16 @@ const edgeSelectedEndpointsAtom = atom((get) => {
 ```
 
 ### 3.4 React 消费方式
-React 组件统一使用 `useAtomValue(atom, { store: instance.runtime.store })`（或同引用的 `instance.read.store`）：
+在 `Whiteboard` 根层统一注入一次 `JotaiProvider`，子树直接 `useAtomValue(atom)`：
 
 ```tsx
-const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints, {
-  store: instance.runtime.store
-})
+<JotaiProvider store={instance.runtime.store}>
+  <WhiteboardCanvas />
+</JotaiProvider>
+```
+
+```tsx
+const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints)
 ```
 
 ### 3.5 Materialized Model 管线（对应现有实现）
@@ -100,7 +134,7 @@ const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints, {
 
 1. 主入口：`runtime/read/materialized/MaterializedModel.ts`
 2. edgePath：`runtime/read/materialized/edgePath/*`
-3. 触发方式：`applyCommit(commit)` 记录失效，读取时按需 `ensureEntries()`
+3. 触发方式：`applyMutation(meta)` 记录失效，读取时按需 `ensureEntries()`
 4. 输出能力：
    - `getNodeIds()`
    - `getEdgeIds()/getEdgeById()/getEdge()`
@@ -112,13 +146,13 @@ const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints, {
 2. 节点排序与脑图视图使用引用稳定/值相等判断，减少无效分配。
 
 ### 3.6 Query Index 管线（对应现有实现）
-当前 Query Index 已是“commit 同步更新 + 查询纯 getter”模型：
+当前 Query Index 已是“mutation meta 同步更新 + 查询纯 getter”模型：
 
 1. 主入口：`runtime/read/indexes/QueryIndexRuntime.ts`
 2. 索引实现：`runtime/read/indexes/QueryIndexes.ts`
 3. API 绑定：`runtime/read/api/Runtime.ts` -> `createCanvas/createSnap`
 
-`applyCommit` 策略（现行）：
+`applyMutation` 策略（现行）：
 
 1. `replace/full`：`indexes.sync(full nodes)`
 2. `order && !edges`：全量 `sync`（保障有序输出）
@@ -134,11 +168,11 @@ const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints, {
 
 ## 4. 彻底解决性能瓶颈：细粒度的粒度控制
 
-如果您觉得 `projectionSnapshotAtom` 这个基础 Atom 粒度太大（一有改动所有的派生都可能去跑一边函数），Jotai 强大的地方在于可以结合 `selectAtom` 做深度的**引用对比（Equality Check）**：
+如果您觉得 `readModelSnapshotAtom` 这个基础 Atom 粒度太大（一有改动所有的派生都可能去跑一边函数），Jotai 强大的地方在于可以结合 `selectAtom` 做深度的**引用对比（Equality Check）**：
 
 ```typescript
 export const canvasNodesRectsAtom = selectAtom(
-   projectionSnapshotAtom,
+   readModelSnapshotAtom,
    (snap) => snap.nodes.computedRects, // 只关心节点矩阵信息
    (prev, next) => prev === next // 浅对比，如果没变，依赖它的 derived Atom 绝对不执行！
 )
@@ -157,12 +191,12 @@ export const canvasNodesRectsAtom = selectAtom(
 白板是一个严肃的文档生产工具。
 - **协作与冲突合并**：需要定义严密的 Mutation（Insert, Update, Delete）配合 CRDT，才能在多人协作时完美融合状态。
 - **历史记录 (Undo / Redo)**：必须通过精准拦截 Command/Mutation 才能打包可靠的撤销记录。
-- **因此：** `WriteCoordinator`、`HistoryDomain` 等保留，它们构成了绝对安全的**命令路 (Command)**，确保状态的合法性。这条路的终点，是产出一个全新的、只读的 `ProjectionSnapshot`。
+- **因此：** `WriteCoordinator`、`HistoryDomain` 等保留，它们构成了绝对安全的**命令路 (Command)**，确保状态的合法性。这条路的终点，是产出一个全新的、只读的 `ReadModelSnapshot`。
 
 ### 第二条路：查询与派生（View / Query via Jotai）—— 彻底数据驱动分发
 - 写入管线追求**安全可溯**，而读取管线追求**极速按需**。
 - **因此：** 历史命令式读侧调度（手写路由、惰性补账、二次事件桥）全部收敛。
-- **终极形态：** 将 `ProjectionSnapshot` 作为 Jotai 的 **Root Atom**。当快照推新时，Jotai 内部的依赖图谱自动使所有的下游派生原子（如 `EdgePathAtom`、`SelectedEndpointsAtom`）脏化并极速重算。
+- **终极形态：** 将 `ReadModelSnapshot` 作为 Jotai 的 **Root Atom**。当快照推新时，Jotai 内部的依赖图谱自动使所有的下游派生原子（如 `EdgePathAtom`、`SelectedEndpointsAtom`）脏化并极速重算。
 
 ### 真正的引擎骨架蓝图：
 
@@ -174,13 +208,13 @@ export const canvasNodesRectsAtom = selectAtom(
      ↓ 
  [Mutation 管线 (拦截/冲突处理/History 记录)] 
      ↓
- 生成全新只读快照 (ProjectionSnapshot)
+ 生成全新只读快照 (ReadModelSnapshot)
        │
       ====（职责割裂的黄金分割线）====
        │
        ▼
 ================【 查询/响应路 (Read / Query via Jotai) 】=========
- [ Root Atom: projectionSnapshotAtom ] <- 每产生新快照，更新它的值
+ [ Root Atom: readModelSnapshotAtom ] <- 每产生新快照，更新它的值
        │
     (自动订阅推导关系)
        │───> [ Derived Atom: nodeRectsAtom ]
@@ -224,7 +258,7 @@ export const edgePathsAtom = atom((get) => {
 ```typescript
 export const nodeByIdAtomFamily = atomFamily((id: string) => 
   selectAtom(
-    projectionSnapshotAtom,
+    readModelSnapshotAtom,
     (snap) => snap.nodes.byId.get(id), // 抽取 O(1)
     (prev, next) => prev === next      // Referencial Equality Check
   )
@@ -235,8 +269,8 @@ export const nodeByIdAtomFamily = atomFamily((id: string) =>
 ### 6.3 对齐 MM/QI 实现时的现实约束
 结合当前 `MaterializedModel + QueryIndexRuntime` 实现，需要明确三条规则：
 
-1. Query Index 走 commit 同步更新，query getter 只读：
-   - `runtime/read/api/Runtime.ts` 中 `projection.subscribe -> queryIndex.applyCommit`
+1. Query Index 走 mutation meta 同步更新，query getter 只读：
+   - `runtime/read/api/Runtime.ts` 中 `mutationMetaBus.subscribe -> queryIndex.applyMutation`
    - `runtime/read/indexes/QueryIndexRuntime.ts` 负责增量/全量策略切换
 2. Materialized（尤其 edgePath）允许“失效记录 + 读取时 ensure”：
    - `runtime/read/materialized/edgePath/Invalidation.ts` 仅记录 dirty
@@ -248,9 +282,9 @@ export const nodeByIdAtomFamily = atomFamily((id: string) =>
 
 ## 7. 下一步重构行动指引
 
-1. **确立边界**：不动目前的 `WriteCoordinator` 和指令系统，保持 `Projection` 产出机制不变。
+1. **确立边界**：不动目前的 `WriteCoordinator` 和指令系统，写入边界统一输出 `MutationMeta`。
 2. **初始化并挂载 Store**：在引擎启动时创建唯一 store，并挂载到 `instance.runtime.store`（`instance.read.store` 与其同引用）。
-3. **建立 Root Atoms**：监听 `projection.subscribe`，接收到新 snapshot 就 `store.set(snapshotAtom)`。
-4. **对齐 MM/QI 管线**：确保 `applyCommit` 顺序为“先更新 materialized/indexes，再发布可观察原子”。
+3. **建立 Root Atoms**：以 `documentAtom + readModelRevisionAtom` 作为读模型根，派生 `readModelSnapshotAtom`。
+4. **对齐 MM/QI 管线**：确保 `applyMutation` 顺序为“先更新 materialized/indexes，再发布可观察 revision”。
 5. **处理高频计算**：将可变缓存统一通过 `RevisionAtom` 暴露，不做 event-only atom。
 6. **拆除脚手架**：当所有读侧消费者均走 atom/store 后，删除手写 watch 与历史事件桥调度层。

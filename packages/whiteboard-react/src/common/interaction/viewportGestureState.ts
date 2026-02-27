@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
-import { createStore } from 'jotai/vanilla'
 import { isSameViewport } from '@whiteboard/core/geometry'
 import type { Viewport } from '@whiteboard/core/types'
+import type { Instance } from '@whiteboard/engine'
 
 type ViewportGestureSnapshot = {
   preview?: Viewport
@@ -18,7 +18,6 @@ const EMPTY_SNAPSHOT: ViewportGestureSnapshot = {
 }
 
 const viewportGestureAtom = atom<ViewportGestureSnapshot>(EMPTY_SNAPSHOT)
-const viewportGestureAtomStore = createStore()
 
 const copyViewport = (viewport: Viewport): Viewport => ({
   center: {
@@ -28,13 +27,13 @@ const copyViewport = (viewport: Viewport): Viewport => ({
   zoom: viewport.zoom
 })
 
-const readSnapshot = () => viewportGestureAtomStore.get(viewportGestureAtom)
-const writeSnapshot = (next: ViewportGestureSnapshot) => {
-  viewportGestureAtomStore.set(viewportGestureAtom, next)
+const readSnapshot = (instance: Instance) => instance.runtime.store.get(viewportGestureAtom)
+const writeSnapshot = (instance: Instance, next: ViewportGestureSnapshot) => {
+  instance.runtime.store.set(viewportGestureAtom, next)
 }
 
-const setSnapshot = (next: ViewportGestureSnapshot) => {
-  const snapshot = readSnapshot()
+const setSnapshot = (instance: Instance, next: ViewportGestureSnapshot) => {
+  const snapshot = readSnapshot(instance)
   const samePreview =
     snapshot.preview === next.preview
     || (
@@ -43,18 +42,19 @@ const setSnapshot = (next: ViewportGestureSnapshot) => {
       && isSameViewport(snapshot.preview, next.preview)
     )
   if (samePreview && snapshot.spacePressed === next.spacePressed) return
-  writeSnapshot(next)
+  writeSnapshot(instance, next)
 }
 
-export const viewportGestureStore = {
-  subscribe: (listener: () => void) =>
-    viewportGestureAtomStore.sub(viewportGestureAtom, listener),
-  getSnapshot: () => readSnapshot(),
-  isSpacePressed: () => readSnapshot().spacePressed,
-  setSpacePressed: (pressed: boolean) => {
-    const snapshot = readSnapshot()
+export const viewportGestureState = {
+  subscribe: (instance: Instance, listener: () => void) =>
+    instance.runtime.store.sub(viewportGestureAtom, listener),
+  getSnapshot: (instance: Instance) => readSnapshot(instance),
+  isSpacePressed: (instance: Instance) => readSnapshot(instance).spacePressed,
+  setSpacePressed: (instance: Instance, pressed: boolean) => {
+    const snapshot = readSnapshot(instance)
     if (snapshot.spacePressed === pressed) return
     setSnapshot(
+      instance,
       pressed
         ? {
           preview: snapshot.preview,
@@ -68,29 +68,30 @@ export const viewportGestureStore = {
           : EMPTY_SNAPSHOT
     )
   },
-  setPreview: (viewport: Viewport) => {
-    const snapshot = readSnapshot()
-    setSnapshot({
+  setPreview: (instance: Instance, viewport: Viewport) => {
+    const snapshot = readSnapshot(instance)
+    setSnapshot(instance, {
       preview: copyViewport(viewport),
       spacePressed: snapshot.spacePressed
     })
   },
-  clearPreview: () => {
-    const snapshot = readSnapshot()
+  clearPreview: (instance: Instance) => {
+    const snapshot = readSnapshot(instance)
     if (!snapshot.preview) return
     setSnapshot(
+      instance,
       snapshot.spacePressed
         ? {
           preview: undefined,
           spacePressed: true
         }
-        : EMPTY_SNAPSHOT
+          : EMPTY_SNAPSHOT
     )
   },
-  reset: () => {
-    const snapshot = readSnapshot()
+  reset: (instance: Instance) => {
+    const snapshot = readSnapshot(instance)
     if (snapshot === EMPTY_SNAPSHOT) return
-    writeSnapshot(EMPTY_SNAPSHOT)
+    writeSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 
@@ -98,9 +99,7 @@ export const useViewportGestureSelector = <T,>(
   selector: (next: ViewportGestureSnapshot) => T,
   equality?: Equality<T>
 ) => {
-  const snapshot = useAtomValue(viewportGestureAtom, {
-    store: viewportGestureAtomStore
-  })
+  const snapshot = useAtomValue(viewportGestureAtom)
   const selectorRef = useRef(selector)
   const equalityRef = useRef((equality ?? defaultEquality) as Equality<T>)
   selectorRef.current = selector

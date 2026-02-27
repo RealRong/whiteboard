@@ -1,14 +1,12 @@
 import type { Size } from '@engine-types/common'
-import type { ProjectionStore } from '@engine-types/projection'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../Scheduler'
 import { FrameTask } from '../TaskQueue'
 import type { NodeId, Operation } from '@whiteboard/core/types'
-import type { ApplyMutationsApi } from '@engine-types/command'
 
 type Options = {
+  instance: Pick<InternalInstance, 'document' | 'mutate'>
   scheduler: Scheduler
-  projection: ProjectionStore
-  mutate: ApplyMutationsApi
 }
 
 const MEASURE_EPSILON = 0.5
@@ -24,15 +22,13 @@ const isSameSize = (left: Size, right: Size) =>
   && Math.abs(left.height - right.height) < MEASURE_EPSILON
 
 export class NodeMeasureQueue {
-  private readonly projection: ProjectionStore
-  private readonly mutate: ApplyMutationsApi
+  private readonly instance: Options['instance']
   private readonly flushTask: FrameTask
   private readonly pending = new Map<NodeId, Size>()
   private readonly committed = new Map<NodeId, Size>()
 
-  constructor({ scheduler, projection, mutate }: Options) {
-    this.projection = projection
-    this.mutate = mutate
+  constructor({ instance, scheduler }: Options) {
+    this.instance = instance
     this.flushTask = new FrameTask(scheduler, this.flush)
   }
 
@@ -53,11 +49,12 @@ export class NodeMeasureQueue {
 
   private flush = () => {
     if (!this.pending.size) return
-    const nodeById = this.projection.getSnapshot().indexes.canvasNodeById
+    const doc = this.instance.document.get()
+    const nodeIds = new Set(doc.nodes.map((node) => node.id))
     const operations: Operation[] = []
 
     this.pending.forEach((size, nodeId) => {
-      if (!nodeById.has(nodeId)) return
+      if (!nodeIds.has(nodeId)) return
       const prev = this.committed.get(nodeId)
       if (prev && isSameSize(prev, size)) return
       this.committed.set(nodeId, size)
@@ -70,6 +67,6 @@ export class NodeMeasureQueue {
     this.pending.clear()
 
     if (!operations.length) return
-    void this.mutate(operations, 'system')
+    void this.instance.mutate(operations, 'system')
   }
 }

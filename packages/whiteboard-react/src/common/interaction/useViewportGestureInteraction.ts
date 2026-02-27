@@ -11,9 +11,9 @@ import {
 } from '@whiteboard/core/geometry'
 import type { Viewport } from '@whiteboard/core/types'
 import type { Instance } from '@whiteboard/engine'
-import { sessionLockStore, type SessionLockToken } from './sessionLockStore'
+import { sessionLockState, type SessionLockToken } from './sessionLockState'
 import { useWindowPointerSession } from './useWindowPointerSession'
-import { viewportGestureStore } from './viewportGestureStore'
+import { viewportGestureState } from './viewportGestureState'
 
 type ViewportPanState = {
   pointerId: number
@@ -90,8 +90,8 @@ export const useViewportGestureInteraction = ({
   )
 
   const readGestureViewport = useCallback(
-    () => viewportGestureStore.getSnapshot().preview ?? readCommittedViewport(),
-    [readCommittedViewport]
+    () => viewportGestureState.getSnapshot(instance).preview ?? readCommittedViewport(),
+    [instance, readCommittedViewport]
   )
 
   const clearWheelCommit = useCallback(() => {
@@ -105,20 +105,20 @@ export const useViewportGestureInteraction = ({
     (viewport: Viewport) => {
       const committed = readCommittedViewport()
       if (isSameViewport(committed, viewport)) {
-        viewportGestureStore.clearPreview()
+        viewportGestureState.clearPreview(instance)
         return
       }
       const target = copyViewport(viewport)
       void instance.commands.viewport
         .set(target)
         .finally(() => {
-          const preview = viewportGestureStore.getSnapshot().preview
+          const preview = viewportGestureState.getSnapshot(instance).preview
           if (!preview || isSameViewport(preview, target)) {
-            viewportGestureStore.clearPreview()
+            viewportGestureState.clearPreview(instance)
           }
         })
     },
-    [instance.commands.viewport, readCommittedViewport]
+    [instance, instance.commands.viewport, readCommittedViewport]
   )
 
   const scheduleWheelCommit = useCallback(
@@ -146,9 +146,9 @@ export const useViewportGestureInteraction = ({
     ) {
       return
     }
-    sessionLockStore.release(lockToken)
+    sessionLockState.release(instance, lockToken)
     lockTokenRef.current = null
-  }, [])
+  }, [instance])
 
   const resetViewportPan = useCallback((pointerId?: number) => {
     const pan = panRef.current
@@ -172,10 +172,10 @@ export const useViewportGestureInteraction = ({
 
   const reset = useCallback(() => {
     clearWheelCommit()
-    viewportGestureStore.clearPreview()
+    viewportGestureState.clearPreview(instance)
     resetViewportPan()
     releaseSessionLock()
-  }, [clearWheelCommit, releaseSessionLock, resetViewportPan])
+  }, [clearWheelCommit, instance, releaseSessionLock, resetViewportPan])
 
   const canStartViewportPan = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -183,16 +183,17 @@ export const useViewportGestureInteraction = ({
       const middleDrag = event.button === 1 || (event.buttons & 4) === 4
       const leftDrag =
         (event.button === 0 || (event.buttons & 1) === 1)
-        && viewportGestureStore.isSpacePressed()
+        && viewportGestureState.isSpacePressed(instance)
       return middleDrag || leftDrag
     },
-    [viewportPolicy.panEnabled]
+    [instance, viewportPolicy.panEnabled]
   )
 
   const handleViewportPointerDownCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!canStartViewportPan(event)) return
-      const lockToken = sessionLockStore.tryAcquire(
+      const lockToken = sessionLockState.tryAcquire(
+        instance,
         'viewportGesture',
         event.pointerId
       )
@@ -208,7 +209,7 @@ export const useViewportGestureInteraction = ({
         captureTarget: event.currentTarget
       }
       setActivePointerId(event.pointerId)
-      viewportGestureStore.setPreview(viewport)
+      viewportGestureState.setPreview(instance, viewport)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -217,7 +218,7 @@ export const useViewportGestureInteraction = ({
       event.preventDefault()
       event.stopPropagation()
     },
-    [canStartViewportPan, clearWheelCommit, readGestureViewport]
+    [canStartViewportPan, clearWheelCommit, instance, readGestureViewport]
   )
 
   const handleViewportWheel = useCallback(
@@ -244,7 +245,7 @@ export const useViewportGestureInteraction = ({
         instance.query.viewport.getScreenCenter()
       )
       const nextViewport = zoomViewport(viewport, appliedFactor, anchor)
-      viewportGestureStore.setPreview(nextViewport)
+      viewportGestureState.setPreview(instance, nextViewport)
       scheduleWheelCommit(nextViewport)
       event.preventDefault()
       event.stopPropagation()
@@ -276,7 +277,7 @@ export const useViewportGestureInteraction = ({
         x: -deltaX / zoom,
         y: -deltaY / zoom
       })
-      viewportGestureStore.setPreview(pan.viewport)
+      viewportGestureState.setPreview(instance, pan.viewport)
       event.preventDefault()
     },
     onPointerUp: (event) => {
@@ -291,7 +292,7 @@ export const useViewportGestureInteraction = ({
       const pan = panRef.current
       if (!pan || event.pointerId !== pan.pointerId) return
       resetViewportPan(pan.pointerId)
-      viewportGestureStore.clearPreview()
+      viewportGestureState.clearPreview(instance)
     }
   })
 
@@ -299,20 +300,20 @@ export const useViewportGestureInteraction = ({
     if (typeof window === 'undefined') return undefined
 
     const handleBlur = () => {
-      viewportGestureStore.setSpacePressed(false)
+      viewportGestureState.setSpacePressed(instance, false)
       reset()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'Space') return
       if (isTextInputElement(event.target)) return
-      viewportGestureStore.setSpacePressed(true)
+      viewportGestureState.setSpacePressed(instance, true)
       event.preventDefault()
     }
 
     const handleKeyUp = (event: KeyboardEvent) => {
       if (event.code !== 'Space') return
-      viewportGestureStore.setSpacePressed(false)
+      viewportGestureState.setSpacePressed(instance, false)
       if (!isTextInputElement(event.target)) {
         event.preventDefault()
       }
@@ -327,14 +328,14 @@ export const useViewportGestureInteraction = ({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [reset])
+  }, [instance, reset])
 
   useEffect(
     () => () => {
-      viewportGestureStore.setSpacePressed(false)
+      viewportGestureState.setSpacePressed(instance, false)
       reset()
     },
-    [reset]
+    [instance, reset]
   )
 
   return {

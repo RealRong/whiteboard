@@ -1,5 +1,5 @@
 import { useWhiteboardSelector } from '../../common/hooks'
-import { useSelectionBoxSelector } from '../../common/interaction/selectionBoxStore'
+import { useSelectionBoxSelector } from '../../common/interaction/selectionBoxState'
 
 export const SelectionLayer = () => {
   const rect = useSelectionBoxSelector((snapshot) => snapshot.rect)

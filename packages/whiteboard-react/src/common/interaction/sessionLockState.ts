@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import { createStore } from 'jotai/vanilla'
+import type { Instance } from '@whiteboard/engine'
 
 export type InteractionSessionKind =
   | 'viewportGesture'
@@ -23,25 +23,31 @@ type SessionLockSnapshot = {
 const EMPTY_SNAPSHOT: SessionLockSnapshot = {}
 
 const sessionLockAtom = atom<SessionLockSnapshot>(EMPTY_SNAPSHOT)
-const sessionLockAtomStore = createStore()
 
 let nextTokenId = 1
 
-const setSnapshot = (next: SessionLockSnapshot) => {
-  const snapshot = sessionLockAtomStore.get(sessionLockAtom)
-  if (snapshot.active === next.active) return
-  sessionLockAtomStore.set(sessionLockAtom, next)
+const readSnapshot = (instance: Instance) => instance.runtime.store.get(sessionLockAtom)
+
+const writeSnapshot = (instance: Instance, next: SessionLockSnapshot) => {
+  instance.runtime.store.set(sessionLockAtom, next)
 }
 
-export const sessionLockStore = {
-  subscribe: (listener: () => void) =>
-    sessionLockAtomStore.sub(sessionLockAtom, listener),
-  getSnapshot: () => sessionLockAtomStore.get(sessionLockAtom),
+const setSnapshot = (instance: Instance, next: SessionLockSnapshot) => {
+  const snapshot = readSnapshot(instance)
+  if (snapshot.active === next.active) return
+  writeSnapshot(instance, next)
+}
+
+export const sessionLockState = {
+  subscribe: (instance: Instance, listener: () => void) =>
+    instance.runtime.store.sub(sessionLockAtom, listener),
+  getSnapshot: (instance: Instance) => readSnapshot(instance),
   tryAcquire: (
+    instance: Instance,
     kind: InteractionSessionKind,
     pointerId?: number
   ): SessionLockToken | null => {
-    const snapshot = sessionLockAtomStore.get(sessionLockAtom)
+    const snapshot = readSnapshot(instance)
     if (snapshot.active) return null
     const token: SessionLockToken = {
       id: nextTokenId,
@@ -49,18 +55,18 @@ export const sessionLockStore = {
       pointerId
     }
     nextTokenId += 1
-    setSnapshot({ active: token })
+    setSnapshot(instance, { active: token })
     return token
   },
-  release: (token: SessionLockToken) => {
-    const snapshot = sessionLockAtomStore.get(sessionLockAtom)
+  release: (instance: Instance, token: SessionLockToken) => {
+    const snapshot = readSnapshot(instance)
     if (!snapshot.active) return
     if (snapshot.active.id !== token.id) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   },
-  forceReset: () => {
-    const snapshot = sessionLockAtomStore.get(sessionLockAtom)
+  forceReset: (instance: Instance) => {
+    const snapshot = readSnapshot(instance)
     if (!snapshot.active) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }

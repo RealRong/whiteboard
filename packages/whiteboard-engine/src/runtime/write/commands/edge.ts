@@ -24,7 +24,7 @@ import {
 
 type EdgeCommandsInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'query' | 'read' | 'mutate' | 'document' | 'registries'
+  'state' | 'query' | 'read' | 'mutate' | 'document' | 'registries'
 >
 
 type Options = {

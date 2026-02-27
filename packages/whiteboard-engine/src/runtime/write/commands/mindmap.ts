@@ -26,17 +26,14 @@ import {
   setSide as setMindmapSide,
   toggleCollapse as toggleMindmapCollapse
 } from '@whiteboard/core/mindmap'
-import { DEFAULT_TUNING } from '../../config'
-import { StateWatchEmitter } from '../../runtime/actors/shared/StateWatchEmitter'
+import { DEFAULT_TUNING } from '../../../config'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>
+  instance: Pick<InternalInstance, 'document' | 'mutate'>
 }
 
 export type MindmapController = Commands['mindmap'] & {
   readonly name: 'Mindmap'
-  start: () => void
-  stop: () => void
 }
 
 const cloneValue = <T,>(value: T): T => {
@@ -47,53 +44,7 @@ const cloneValue = <T,>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-const isSameOptions = (
-  left?: Record<string, unknown>,
-  right?: Record<string, unknown>
-) => {
-  if (!left || !right) return !left && !right
-
-  const leftKeys = Object.keys(left)
-  const rightKeys = Object.keys(right)
-  if (leftKeys.length !== rightKeys.length) return false
-  for (const key of leftKeys) {
-    if (left[key] !== right[key]) return false
-  }
-  return true
-}
-
-const isSameLayout = (
-  left: MindmapLayoutConfig,
-  right: MindmapLayoutConfig
-) =>
-  left.mode === right.mode &&
-  isSameOptions(
-    left.options as Record<string, unknown> | undefined,
-    right.options as Record<string, unknown> | undefined
-  )
-
-const cloneLayout = (
-  layout: MindmapLayoutConfig
-): MindmapLayoutConfig => ({
-  mode: layout.mode,
-  options: layout.options
-    ? { ...layout.options }
-    : undefined
-})
-
 export const createMindmapController = ({ instance }: ActorOptions): MindmapController => {
-  const state = instance.state
-  const layoutEmitter = new StateWatchEmitter({
-    state,
-    keys: ['mindmapLayout'],
-    read: () => state.read('mindmapLayout'),
-    equals: isSameLayout,
-    clone: cloneLayout,
-    emit: (layout) => {
-      instance.emit('mindmap.layout.changed', { layout: cloneLayout(layout) })
-    }
-  })
-
   const createInvalidResult = (message: string): DispatchResult => ({
     ok: false,
     reason: 'invalid',
@@ -601,7 +552,7 @@ export const createMindmapController = ({ instance }: ActorOptions): MindmapCont
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }) => {
-    const node = instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === nodeId)
+    const node = instance.document.get().nodes.find((item) => item.id === nodeId)
     if (!node) return
     if (
       Math.abs(node.position.x - position.x) < threshold &&
@@ -622,14 +573,6 @@ export const createMindmapController = ({ instance }: ActorOptions): MindmapCont
     )
   }
 
-  const start = () => {
-    layoutEmitter.start()
-  }
-
-  const stop = () => {
-    layoutEmitter.stop()
-  }
-
   return {
     name: 'Mindmap',
     create,
@@ -648,8 +591,6 @@ export const createMindmapController = ({ instance }: ActorOptions): MindmapCont
     insertNode,
     moveSubtreeWithLayout,
     moveSubtreeWithDrop,
-    moveRoot,
-    start,
-    stop
+    moveRoot
   }
 }

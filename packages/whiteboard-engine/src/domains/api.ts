@@ -1,5 +1,6 @@
 import type { Commands } from '@engine-types/commands'
 import type {
+  DomainApis,
   EdgeDomainApi,
   EdgeEntityApi,
   MindmapDomainApi,
@@ -12,6 +13,7 @@ import type {
 } from '@engine-types/domains'
 import type { Query } from '@engine-types/instance/query'
 import type { EngineRead } from '@engine-types/instance/read'
+import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, MindmapId, NodeId } from '@whiteboard/core/types'
 
 type NodeOptions = {
@@ -41,6 +43,10 @@ type ViewportOptions = {
   commands: Pick<Commands, 'viewport'>
   query: Query
   read: EngineRead
+}
+
+type DomainApisOptions = {
+  instance: Pick<InternalInstance, 'commands' | 'query' | 'read' | 'state'>
 }
 
 export const createNodeDomainApi = ({
@@ -297,4 +303,33 @@ export const createViewportDomainApi = ({
       transform: read.get.viewportTransform()
     })
   }
+})
+
+export const createDomainApis = ({
+  instance
+}: DomainApisOptions): DomainApis => ({
+  node: createNodeDomainApi({
+    commands: instance.commands,
+    query: instance.query,
+    read: instance.read
+  }),
+  edge: createEdgeDomainApi({
+    commands: instance.commands,
+    query: instance.query,
+    read: instance.read
+  }),
+  mindmap: createMindmapDomainApi({
+    commands: instance.commands,
+    read: instance.read
+  }),
+  selection: createSelectionDomainApi({
+    commands: instance.commands,
+    state: instance.state,
+    read: instance.read
+  }),
+  viewport: createViewportDomainApi({
+    commands: instance.commands,
+    query: instance.query,
+    read: instance.read
+  })
 })

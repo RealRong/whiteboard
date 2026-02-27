@@ -23,7 +23,7 @@ import {
 
 type NodeCommandsInstance = Pick<
   InternalInstance,
-  'projection' | 'mutate' | 'document' | 'config' | 'registries'
+  'mutate' | 'document' | 'config' | 'registries'
 >
 
 type Options = {
@@ -87,7 +87,7 @@ export const createNodeCommands = ({ instance }: Options) => {
     instance.mutate([{ type: 'node.update', id, patch }], 'ui')
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const node = instance.projection.getSnapshot().nodes.canvas.find((item) => item.id === id)
+    const node = readDoc().nodes.find((item) => item.id === id)
     if (!node) return undefined
     return instance.mutate([
       {

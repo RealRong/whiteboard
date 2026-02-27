@@ -1,6 +1,6 @@
 import { atom, useAtomValue } from 'jotai'
-import { createStore } from 'jotai/vanilla'
 import type { EdgeId, Point } from '@whiteboard/core/types'
+import type { Instance } from '@whiteboard/engine'
 
 export type RoutingPreviewDraft = {
   edgeId: EdgeId
@@ -18,33 +18,31 @@ type RoutingPreviewSnapshot = {
 const EMPTY_SNAPSHOT: RoutingPreviewSnapshot = {}
 
 const routingPreviewAtom = atom<RoutingPreviewSnapshot>(EMPTY_SNAPSHOT)
-const routingPreviewAtomStore = createStore()
 
-const setSnapshot = (next: RoutingPreviewSnapshot) => {
-  const snapshot = routingPreviewAtomStore.get(routingPreviewAtom)
+const setSnapshot = (instance: Instance, next: RoutingPreviewSnapshot) => {
+  const snapshot = instance.runtime.store.get(routingPreviewAtom)
   if (snapshot.draft === next.draft) return
-  routingPreviewAtomStore.set(routingPreviewAtom, next)
+  instance.runtime.store.set(routingPreviewAtom, next)
 }
 
-export const edgeRoutingPreviewStore = {
-  subscribe: (listener: () => void) =>
-    routingPreviewAtomStore.sub(routingPreviewAtom, listener),
-  getSnapshot: () => routingPreviewAtomStore.get(routingPreviewAtom),
-  setDraft: (draft: RoutingPreviewDraft) => {
-    setSnapshot({ draft })
+export const edgeRoutingPreviewState = {
+  subscribe: (instance: Instance, listener: () => void) =>
+    instance.runtime.store.sub(routingPreviewAtom, listener),
+  getSnapshot: (instance: Instance) => instance.runtime.store.get(routingPreviewAtom),
+  setDraft: (instance: Instance, draft: RoutingPreviewDraft) => {
+    setSnapshot(instance, { draft })
   },
-  clearDraft: (pointerId?: number) => {
-    const snapshot = routingPreviewAtomStore.get(routingPreviewAtom)
+  clearDraft: (instance: Instance, pointerId?: number) => {
+    const snapshot = instance.runtime.store.get(routingPreviewAtom)
     if (!snapshot.draft) return
     if (pointerId !== undefined && snapshot.draft.pointerId !== pointerId) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   },
-  reset: () => {
-    const snapshot = routingPreviewAtomStore.get(routingPreviewAtom)
+  reset: (instance: Instance) => {
+    const snapshot = instance.runtime.store.get(routingPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 
-export const useEdgeRoutingPreviewState = () =>
-  useAtomValue(routingPreviewAtom, { store: routingPreviewAtomStore })
+export const useEdgeRoutingPreviewState = () => useAtomValue(routingPreviewAtom)

@@ -8,9 +8,9 @@ import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInstance } from '../../common/hooks'
-import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import { viewportGestureStore } from '../../common/interaction/viewportGestureStore'
+import { viewportGestureState } from '../../common/interaction/viewportGestureState'
 
 type RootDragSession = {
   kind: 'root'
@@ -120,7 +120,7 @@ export const useMindmapDragInteraction = () => {
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockStore.release(lockToken)
+        sessionLockState.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -136,10 +136,10 @@ export const useMindmapDragInteraction = () => {
         || lockToken.pointerId === active.pointerId
       )
     ) {
-      sessionLockStore.release(lockToken)
+      sessionLockState.release(instance, lockToken)
       lockTokenRef.current = null
     }
-  }, [])
+  }, [instance])
 
   const readTree = useCallback(
     (treeId: NodeId) => instance.read.get.mindmapById(treeId),
@@ -257,7 +257,7 @@ export const useMindmapDragInteraction = () => {
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (viewportGestureStore.isSpacePressed()) return
+      if (viewportGestureState.isSpacePressed(instance)) return
       if (
         event.target instanceof Element
         && event.target.closest('[data-selection-ignore]')
@@ -316,7 +316,7 @@ export const useMindmapDragInteraction = () => {
         }
       }
       if (!nextActive) return
-      const lockToken = sessionLockStore.tryAcquire('mindmapDrag', event.pointerId)
+      const lockToken = sessionLockState.tryAcquire(instance, 'mindmapDrag', event.pointerId)
       if (!lockToken) return
       lockTokenRef.current = lockToken
       activeRef.current = nextActive
@@ -334,6 +334,7 @@ export const useMindmapDragInteraction = () => {
     [
       instance.query.viewport.clientToScreen,
       instance.query.viewport.screenToWorld,
+      instance,
       readTree
     ]
   )

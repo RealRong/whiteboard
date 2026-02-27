@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { resolveSnapTarget } from '../interaction/connectMath'
 import {
-  edgeConnectPreviewStore,
+  edgeConnectPreviewState,
   useEdgeConnectPreviewState
-} from '../interaction/connectPreviewStore'
+} from '../interaction/connectPreviewState'
 
 export const EdgePreviewLayer = () => {
   const instance = useInstance()
@@ -13,7 +13,7 @@ export const EdgePreviewLayer = () => {
 
   useEffect(() => {
     if (tool !== 'edge') {
-      edgeConnectPreviewStore.reset()
+      edgeConnectPreviewState.reset(instance)
       return
     }
     if (typeof window === 'undefined') return
@@ -24,7 +24,7 @@ export const EdgePreviewLayer = () => {
     const flush = () => {
       frameId = null
       if (!latestEvent) return
-      if (edgeConnectPreviewStore.getSnapshot().activePointerId !== undefined) return
+      if (edgeConnectPreviewState.getSnapshot(instance).activePointerId !== undefined) return
 
       const screen = instance.query.viewport.clientToScreen(
         latestEvent.clientX,
@@ -32,7 +32,7 @@ export const EdgePreviewLayer = () => {
       )
       const world = instance.query.viewport.screenToWorld(screen)
       const target = resolveSnapTarget(instance, world)
-      edgeConnectPreviewStore.setHoverSnap(target?.pointWorld)
+      edgeConnectPreviewState.setHoverSnap(instance, target?.pointWorld)
     }
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -46,7 +46,7 @@ export const EdgePreviewLayer = () => {
         window.cancelAnimationFrame(frameId)
         frameId = null
       }
-      edgeConnectPreviewStore.clearHoverSnap()
+      edgeConnectPreviewState.clearHoverSnap(instance)
     }
 
     window.addEventListener('pointermove', handlePointerMove)

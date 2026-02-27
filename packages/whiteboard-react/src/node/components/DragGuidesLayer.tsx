@@ -1,4 +1,4 @@
-import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewStore'
+import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewState'
 
 export const DragGuidesLayer = () => {
   const guides = useNodeInteractionPreviewSelector((snapshot) => snapshot.guides)

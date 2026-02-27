@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { EdgeId } from '@whiteboard/core/types'
 import { useInstance, useReadAtom, useWhiteboardSelector } from '../../common/hooks'
 import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
-import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewStore'
+import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewState'
 import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
 
 export const EdgeControlPointHandles = () => {

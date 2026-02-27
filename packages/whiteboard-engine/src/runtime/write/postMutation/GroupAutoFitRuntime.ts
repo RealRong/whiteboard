@@ -4,6 +4,7 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../Scheduler'
 import { MicrotaskTask } from '../../TaskQueue'
 import { DEFAULT_TUNING } from '../../../config'
+import type { MutationMeta, MutationMetaBus } from '../pipeline/MutationMetaBus'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
@@ -23,8 +24,9 @@ type LayoutSnapshot = {
   padding: number
 }
 
-type ActorOptions = {
-  instance: Pick<InternalInstance, 'document' | 'config' | 'mutate' | 'events'>
+type RuntimeOptions = {
+  instance: Pick<InternalInstance, 'document' | 'config' | 'mutate'>
+  mutationMetaBus: MutationMetaBus
   scheduler: Scheduler
 }
 
@@ -153,7 +155,7 @@ const applyGroupAutoFit = ({
   nodeSize,
   defaultPadding
 }: {
-  mutate: ActorOptions['instance']['mutate']
+  mutate: RuntimeOptions['instance']['mutate']
   nodes: Node[]
   group: Node
   nodeSize: Size
@@ -186,20 +188,24 @@ const applyGroupAutoFit = ({
   )
 }
 
-export class Actor {
+export class GroupAutoFitRuntime {
   readonly name = 'GroupAutoFit'
 
-  private readonly instance: ActorOptions['instance']
+  private readonly instance: RuntimeOptions['instance']
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
-  private started = false
-  private offDocChanged: (() => void) | null = null
+  private disposed = false
+  private readonly offMutationMeta: () => void
   private readonly syncTask: MicrotaskTask
 
-  constructor({ instance, scheduler }: ActorOptions) {
+  constructor({ instance, mutationMetaBus, scheduler }: RuntimeOptions) {
     this.instance = instance
     this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
+    this.offMutationMeta = mutationMetaBus.subscribe((meta) => {
+      this.handleCommit(meta)
+    })
+    this.syncTask.schedule()
   }
 
   private runSync = () => {
@@ -239,35 +245,30 @@ export class Actor {
   }
 
   private triggerSync = () => {
-    if (!this.started) return
+    if (this.disposed) return
     this.runSync()
   }
 
   private scheduleSync = () => {
-    if (!this.started) return
+    if (this.disposed) return
     this.syncTask.schedule()
   }
 
-  stop = () => {
-    if (!this.started) return
-    this.started = false
-    this.offDocChanged?.()
-    this.offDocChanged = null
+  dispose = () => {
+    if (this.disposed) return
+    this.disposed = true
+    this.offMutationMeta()
     this.syncTask.cancel()
   }
 
-  start = () => {
-    if (this.started) return
-    this.started = true
-    this.offDocChanged = this.instance.events.on('doc.changed', ({ operationTypes }) => {
-      this.handleMutations(operationTypes)
-    })
-    this.scheduleSync()
-  }
-
-  private handleMutations = (operationTypes: string[]) => {
-    const hasNodeOperation = operationTypes.some((type) => type.startsWith('node.'))
-    const hasRelevantChange = hasNodeOperation || operationTypes.includes('doc.reset')
+  private handleCommit = (meta: MutationMeta) => {
+    const hasRelevantChange =
+      meta.kind === 'replace'
+      || meta.impact.tags.has('full')
+      || meta.impact.tags.has('nodes')
+      || meta.impact.tags.has('geometry')
+      || meta.impact.tags.has('order')
+      || Boolean(meta.impact.dirtyNodeIds?.length)
     if (!hasRelevantChange) return
     this.scheduleSync()
   }

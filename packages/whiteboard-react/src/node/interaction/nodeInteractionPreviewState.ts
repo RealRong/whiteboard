@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
-import { createStore } from 'jotai/vanilla'
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
+import type { Instance } from '@whiteboard/engine'
 
 export type NodePreviewUpdate = {
   id: NodeId
@@ -32,16 +32,15 @@ const EMPTY_SNAPSHOT: NodeInteractionPreviewSnapshot = {
 }
 
 const nodeInteractionPreviewAtom = atom<NodeInteractionPreviewSnapshot>(EMPTY_SNAPSHOT)
-const nodeInteractionPreviewAtomStore = createStore()
 
-const setSnapshot = (next: NodeInteractionPreviewSnapshot) => {
-  const snapshot = nodeInteractionPreviewAtomStore.get(nodeInteractionPreviewAtom)
+const setSnapshot = (instance: Instance, next: NodeInteractionPreviewSnapshot) => {
+  const snapshot = instance.runtime.store.get(nodeInteractionPreviewAtom)
   const unchanged =
     snapshot.updatesById === next.updatesById
     && snapshot.guides === next.guides
     && snapshot.hoveredGroupId === next.hoveredGroupId
   if (unchanged) return
-  nodeInteractionPreviewAtomStore.set(nodeInteractionPreviewAtom, next)
+  instance.runtime.store.set(nodeInteractionPreviewAtom, next)
 }
 
 const toUpdatesById = (
@@ -61,21 +60,24 @@ type SetTransientInput = {
   hoveredGroupId?: NodeId
 }
 
-export const nodeInteractionPreviewStore = {
-  subscribe: (listener: () => void) =>
-    nodeInteractionPreviewAtomStore.sub(nodeInteractionPreviewAtom, listener),
-  getSnapshot: () => nodeInteractionPreviewAtomStore.get(nodeInteractionPreviewAtom),
-  setTransient: ({ updates, guides, hoveredGroupId }: SetTransientInput) => {
-    setSnapshot({
+export const nodeInteractionPreviewState = {
+  subscribe: (instance: Instance, listener: () => void) =>
+    instance.runtime.store.sub(nodeInteractionPreviewAtom, listener),
+  getSnapshot: (instance: Instance) => instance.runtime.store.get(nodeInteractionPreviewAtom),
+  setTransient: (
+    instance: Instance,
+    { updates, guides, hoveredGroupId }: SetTransientInput
+  ) => {
+    setSnapshot(instance, {
       updatesById: toUpdatesById(updates),
       guides: guides.length ? guides : EMPTY_GUIDES,
       hoveredGroupId
     })
   },
-  clearTransient: () => {
-    const snapshot = nodeInteractionPreviewAtomStore.get(nodeInteractionPreviewAtom)
+  clearTransient: (instance: Instance) => {
+    const snapshot = instance.runtime.store.get(nodeInteractionPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 
@@ -83,9 +85,7 @@ export const useNodeInteractionPreviewSelector = <T,>(
   selector: (snapshot: NodeInteractionPreviewSnapshot) => T,
   equality?: Equality<T>
 ) => {
-  const snapshot = useAtomValue(nodeInteractionPreviewAtom, {
-    store: nodeInteractionPreviewAtomStore
-  })
+  const snapshot = useAtomValue(nodeInteractionPreviewAtom)
   const selectorRef = useRef(selector)
   const equalityRef = useRef((equality ?? defaultEquality) as Equality<T>)
   selectorRef.current = selector

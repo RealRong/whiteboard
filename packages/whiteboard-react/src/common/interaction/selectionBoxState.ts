@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
-import { createStore } from 'jotai/vanilla'
 import type { Rect } from '@whiteboard/core/types'
+import type { Instance } from '@whiteboard/engine'
 
 type SelectionBoxSnapshot = {
   rect?: Rect
@@ -13,25 +13,30 @@ const defaultEquality: Equality<unknown> = Object.is
 const EMPTY_SNAPSHOT: SelectionBoxSnapshot = {}
 
 const selectionBoxAtom = atom<SelectionBoxSnapshot>(EMPTY_SNAPSHOT)
-const selectionBoxAtomStore = createStore()
 
-const setSnapshot = (next: SelectionBoxSnapshot) => {
-  const snapshot = selectionBoxAtomStore.get(selectionBoxAtom)
-  if (snapshot.rect === next.rect) return
-  selectionBoxAtomStore.set(selectionBoxAtom, next)
+const readSnapshot = (instance: Instance) => instance.runtime.store.get(selectionBoxAtom)
+
+const writeSnapshot = (instance: Instance, next: SelectionBoxSnapshot) => {
+  instance.runtime.store.set(selectionBoxAtom, next)
 }
 
-export const selectionBoxStore = {
-  subscribe: (listener: () => void) =>
-    selectionBoxAtomStore.sub(selectionBoxAtom, listener),
-  getSnapshot: () => selectionBoxAtomStore.get(selectionBoxAtom),
-  setRect: (rect: Rect) => {
-    setSnapshot({ rect })
+const setSnapshot = (instance: Instance, next: SelectionBoxSnapshot) => {
+  const snapshot = readSnapshot(instance)
+  if (snapshot.rect === next.rect) return
+  writeSnapshot(instance, next)
+}
+
+export const selectionBoxState = {
+  subscribe: (instance: Instance, listener: () => void) =>
+    instance.runtime.store.sub(selectionBoxAtom, listener),
+  getSnapshot: (instance: Instance) => readSnapshot(instance),
+  setRect: (instance: Instance, rect: Rect) => {
+    setSnapshot(instance, { rect })
   },
-  clear: () => {
-    const snapshot = selectionBoxAtomStore.get(selectionBoxAtom)
+  clear: (instance: Instance) => {
+    const snapshot = readSnapshot(instance)
     if (!snapshot.rect) return
-    setSnapshot(EMPTY_SNAPSHOT)
+    setSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 
@@ -39,9 +44,7 @@ export const useSelectionBoxSelector = <T,>(
   selector: (snapshot: SelectionBoxSnapshot) => T,
   equality?: Equality<T>
 ) => {
-  const snapshot = useAtomValue(selectionBoxAtom, {
-    store: selectionBoxAtomStore
-  })
+  const snapshot = useAtomValue(selectionBoxAtom)
   const selectorRef = useRef(selector)
   const equalityRef = useRef((equality ?? defaultEquality) as Equality<T>)
   selectorRef.current = selector

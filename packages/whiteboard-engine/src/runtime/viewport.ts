@@ -6,7 +6,7 @@ import {
 import type { Point, Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { ContainerRect, ViewportApi } from '@engine-types/viewport'
-import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_INTERNALS } from '../config'
+import { DEFAULT_INTERNALS } from '../config'
 
 const toContainerSize = (rect: ContainerRect): Size => ({
   width: rect.width,
@@ -37,10 +37,19 @@ const copyRect = (rect: ContainerRect): ContainerRect => ({
 })
 
 export class ViewportRuntime implements ViewportApi {
-  private viewport: Viewport = copyViewport(DEFAULT_DOCUMENT_VIEWPORT)
+  private readonly readViewport: () => Viewport
+  private readonly writeViewport: (viewport: Viewport) => void
   private containerRect: ContainerRect = copyRect(DEFAULT_INTERNALS.containerRect)
   private containerSize: Size = toContainerSize(DEFAULT_INTERNALS.containerRect)
   private screenCenter: Point = toScreenCenter(this.containerSize)
+
+  constructor({ readViewport, writeViewport }: {
+    readViewport: () => Viewport
+    writeViewport: (viewport: Viewport) => void
+  }) {
+    this.readViewport = readViewport
+    this.writeViewport = writeViewport
+  }
 
   private updateDerivedFromRect = (rect: ContainerRect) => {
     this.containerRect = copyRect(rect)
@@ -48,15 +57,15 @@ export class ViewportRuntime implements ViewportApi {
     this.screenCenter = toScreenCenter(this.containerSize)
   }
 
-  get: ViewportApi['get'] = () => this.viewport
+  get: ViewportApi['get'] = () => this.readViewport()
 
-  getZoom: ViewportApi['getZoom'] = () => this.viewport.zoom
+  getZoom: ViewportApi['getZoom'] = () => this.readViewport().zoom
 
   screenToWorld: ViewportApi['screenToWorld'] = (point) =>
-    viewportScreenToWorld(point, this.viewport, this.screenCenter)
+    viewportScreenToWorld(point, this.readViewport(), this.screenCenter)
 
   worldToScreen: ViewportApi['worldToScreen'] = (point) =>
-    viewportWorldToScreen(point, this.viewport, this.screenCenter)
+    viewportWorldToScreen(point, this.readViewport(), this.screenCenter)
 
   clientToScreen: ViewportApi['clientToScreen'] = (clientX, clientY) => ({
     x: clientX - this.containerRect.left,
@@ -71,8 +80,9 @@ export class ViewportRuntime implements ViewportApi {
   getContainerSize: ViewportApi['getContainerSize'] = () => this.containerSize
 
   setViewport: ViewportApi['setViewport'] = (nextViewport) => {
-    if (isSameViewport(nextViewport, this.viewport)) return
-    this.viewport = copyViewport(nextViewport)
+    const previous = this.readViewport()
+    if (isSameViewport(nextViewport, previous)) return
+    this.writeViewport(copyViewport(nextViewport))
   }
 
   setContainerRect: ViewportApi['setContainerRect'] = (nextRect) => {

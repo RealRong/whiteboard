@@ -1,8 +1,9 @@
 import type { InteractionState } from '@engine-types/state'
-import type { State } from '@engine-types/instance/state'
+import type { Commands } from '@engine-types/commands'
+import type { InternalInstance } from '@engine-types/instance/instance'
 
-type ActorOptions = {
-  state: Pick<State, 'write'>
+type Options = {
+  instance: Pick<InternalInstance, 'state'>
 }
 
 const mergeInteraction = (
@@ -24,21 +25,13 @@ const mergeInteraction = (
   hover: patch.hover ? { ...prev.hover, ...patch.hover } : prev.hover
 })
 
-export class Actor {
-  readonly name = 'Interaction'
-
-  private readonly state: Pick<State, 'write'>
-
-  constructor({ state }: ActorOptions) {
-    this.state = state
+export const createInteractionCommands = ({ instance }: Options): Commands['interaction'] => {
+  const update: Commands['interaction']['update'] = (patch) => {
+    instance.state.write('interaction', (prev) => mergeInteraction(prev, patch))
   }
 
-  update = (patch: Partial<InteractionState>) => {
-    this.state.write('interaction', (prev) => mergeInteraction(prev, patch))
-  }
-
-  clearHover = () => {
-    this.state.write('interaction', (prev) =>
+  const clearHover: Commands['interaction']['clearHover'] = () => {
+    instance.state.write('interaction', (prev) =>
       mergeInteraction(prev, {
         hover: {
           nodeId: undefined,
@@ -47,4 +40,11 @@ export class Actor {
       })
     )
   }
+
+  return {
+    update,
+    clearHover
+  }
 }
+
+export type InteractionCommandsApi = ReturnType<typeof createInteractionCommands>

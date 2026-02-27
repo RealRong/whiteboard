@@ -2,7 +2,7 @@ import { getAutoAnchorFromRect, getEdgePath } from '@whiteboard/core/edge'
 import { getAnchorPoint, getRectCenter } from '@whiteboard/core/geometry'
 import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@whiteboard/engine'
-import type { RoutingPreviewDraft } from './routingPreviewStore'
+import type { RoutingPreviewDraft } from './routingPreviewState'
 
 type NodeRectEntry = {
   node: {

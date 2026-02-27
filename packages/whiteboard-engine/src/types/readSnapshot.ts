@@ -1,83 +1,34 @@
 import type {
   Document,
-  EdgeId,
   Edge,
   Node,
-  NodeId,
-  Operation
+  NodeId
 } from '@whiteboard/core/types'
 
-export type ProjectionNodesSlice = {
+export type ReadModelNodesSlice = {
   visible: Node[]
   canvas: Node[]
 }
 
-export type ProjectionEdgesSlice = {
+export type ReadModelEdgesSlice = {
   visible: Edge[]
 }
 
-export type ProjectionMindmapSlice = {
+export type ReadModelMindmapSlice = {
   roots: NodeId[]
 }
 
-export type ProjectionIndexesSlice = {
+export type ReadModelIndexesSlice = {
   canvasNodeById: Map<NodeId, Node>
   visibleNodeIndexById: Map<NodeId, number>
   canvasNodeIndexById: Map<NodeId, number>
 }
 
-export type ProjectionSnapshot = {
+export type ReadModelSnapshot = {
   revision: number
   docId: Document['id'] | undefined
-  nodes: ProjectionNodesSlice
-  edges: ProjectionEdgesSlice
-  mindmap: ProjectionMindmapSlice
-  indexes: ProjectionIndexesSlice
-}
-
-export type ProjectionImpactTag =
-  | 'full'
-  | 'nodes'
-  | 'edges'
-  | 'order'
-  | 'geometry'
-  | 'mindmap'
-  | 'viewport'
-
-export type ProjectionImpact = {
-  tags: ReadonlySet<ProjectionImpactTag>
-  dirtyNodeIds?: readonly NodeId[]
-  dirtyEdgeIds?: readonly EdgeId[]
-}
-
-export type ProjectionCommitKind = 'apply' | 'replace'
-
-export type ProjectionApplyInput = {
-  doc: Document
-  operations: readonly Operation[]
-  impact?: ProjectionImpact
-}
-
-export type ProjectionReplaceInput = {
-  doc: Document
-  impact?: ProjectionImpact
-}
-
-export type ProjectionCommit = {
-  revision: number
-  kind: ProjectionCommitKind
-  snapshot: ProjectionSnapshot
-  impact: ProjectionImpact
-}
-
-export type ProjectionStore = {
-  getSnapshot: () => ProjectionSnapshot
-  getRevision: () => number
-  subscribe: (listener: (commit: ProjectionCommit) => void) => () => void
-  apply: (input: ProjectionApplyInput) => ProjectionCommit
-  replace: (input: ProjectionReplaceInput) => ProjectionCommit
-}
-
-export type CreateProjectionStoreOptions = {
-  getDoc: () => Document
+  nodes: ReadModelNodesSlice
+  edges: ReadModelEdgesSlice
+  mindmap: ReadModelMindmapSlice
+  indexes: ReadModelIndexesSlice
 }

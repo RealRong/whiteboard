@@ -12,10 +12,10 @@ import type {
   MindmapViewTree
 } from '@engine-types/instance/read'
 import type {
-  ProjectionCommit,
-  ProjectionSnapshot
-} from '@engine-types/projection'
+  ReadModelSnapshot
+} from '@engine-types/readSnapshot'
 import type { State } from '@engine-types/instance/state'
+import type { MutationMeta } from '../../write/pipeline/MutationMetaBus'
 import { createEdgeEndpointsResolver } from '../../../domains/edge/view'
 import { createMindmapViewDerivations } from '../../../domains/mindmap/view'
 import { createEdgePathStore } from './edgePath/Query'
@@ -47,14 +47,14 @@ type MindmapViewCache = {
 }
 
 type CreateMaterializedReadModelOptions = {
-  readProjection: () => ProjectionSnapshot
+  readSnapshot: () => ReadModelSnapshot
   state: State
   query: Query
   config: InstanceConfig
 }
 
 export type MaterializedReadModel = {
-  applyCommit: (commit: ProjectionCommit) => void
+  applyMutation: (meta: MutationMeta) => void
   getNodeIds: () => NodeId[]
   getEdgeIds: () => EdgeId[]
   getEdgeById: (edgeId: EdgeId) => EdgePathEntry | undefined
@@ -64,21 +64,21 @@ export type MaterializedReadModel = {
 }
 
 export const createMaterializedReadModel = ({
-  readProjection,
+  readSnapshot,
   state,
   query,
   config
 }: CreateMaterializedReadModelOptions): MaterializedReadModel => {
   const resolveEndpoints = createEdgeEndpointsResolver(query.canvas.nodeRect)
   const edgePathStore = createEdgePathStore({
-    readProjection,
+    readSnapshot,
     getNodeRect: query.canvas.nodeRect,
     resolveEndpoints
   })
 
   const mindmapDerivations = createMindmapViewDerivations({
     readState: state.read,
-    readProjection,
+    readSnapshot,
     config
   })
 
@@ -87,7 +87,7 @@ export const createMaterializedReadModel = ({
   let mindmapViewCache: MindmapViewCache | undefined
 
   const getNodeIds = () => {
-    const canvasNodes = readProjection().nodes.canvas
+    const canvasNodes = readSnapshot().nodes.canvas
     if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
     const next = toLayerOrderedCanvasNodes(canvasNodes).map((node) => node.id)
     if (isSameNodeOrder(nodeIdsCache, next)) {
@@ -116,8 +116,8 @@ export const createMaterializedReadModel = ({
   }
 
   return {
-    applyCommit: (commit) => {
-      edgePathStore.applyCommit(commit)
+    applyMutation: (meta) => {
+      edgePathStore.applyMutation(meta)
     },
     getNodeIds,
     getEdgeIds: () => edgePathStore.getIds(),

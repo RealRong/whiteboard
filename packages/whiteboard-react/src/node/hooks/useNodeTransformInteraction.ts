@@ -11,9 +11,9 @@ import {
 import { getRectCenter, isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
-import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import { nodeInteractionPreviewStore } from '../interaction/nodeInteractionPreviewStore'
+import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
 
 type UseNodeTransformInteractionOptions = {
   nodeId: NodeId
@@ -149,7 +149,7 @@ export const useNodeTransformInteraction = ({
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockStore.release(lockToken)
+        sessionLockState.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -157,7 +157,7 @@ export const useNodeTransformInteraction = ({
     if (pointerId !== undefined && active.drag.pointerId !== pointerId) return
     activeRef.current = null
     setActivePointerId(null)
-    nodeInteractionPreviewStore.clearTransient()
+    nodeInteractionPreviewState.clearTransient(instance)
     if (
       lockToken
       && (
@@ -165,10 +165,10 @@ export const useNodeTransformInteraction = ({
         || lockToken.pointerId === active.drag.pointerId
       )
     ) {
-      sessionLockStore.release(lockToken)
+      sessionLockState.release(instance, lockToken)
       lockTokenRef.current = null
     }
-  }, [])
+  }, [instance])
 
   const commitTransform = useCallback((active: ActiveTransform) => {
     const node = instance.query.doc.get().nodes.find((item) => item.id === active.nodeId)
@@ -253,7 +253,7 @@ export const useNodeTransformInteraction = ({
       }
 
       if (!nextDrag) return
-      const lockToken = sessionLockStore.tryAcquire('nodeTransform', event.pointerId)
+      const lockToken = sessionLockState.tryAcquire(instance, 'nodeTransform', event.pointerId)
       if (!lockToken) return
 
       activeRef.current = {
@@ -262,7 +262,7 @@ export const useNodeTransformInteraction = ({
       }
       lockTokenRef.current = lockToken
       setActivePointerId(event.pointerId)
-      nodeInteractionPreviewStore.clearTransient()
+      nodeInteractionPreviewState.clearTransient(instance)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -356,7 +356,7 @@ export const useNodeTransformInteraction = ({
           size: nextSize
         }
         active.drag.lastUpdate = update
-        nodeInteractionPreviewStore.setTransient({
+        nodeInteractionPreviewState.setTransient(instance, {
           updates: [{
             id: active.nodeId,
             position: update.position,
@@ -381,7 +381,7 @@ export const useNodeTransformInteraction = ({
         shiftKey: event.shiftKey
       })
       active.drag.currentRotation = rotation
-      nodeInteractionPreviewStore.setTransient({
+      nodeInteractionPreviewState.setTransient(instance, {
         updates: [{
           id: active.nodeId,
           rotation

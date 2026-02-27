@@ -1,6 +1,7 @@
 import type { Edge, NodeId } from '@whiteboard/core/types'
-import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
-import { hasImpactTag } from '../../../mutation/Impact'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
+import { hasImpactTag } from '../../../write/mutation/Impact'
+import type { MutationMeta } from '../../../write/pipeline/MutationMetaBus'
 
 type Plan = {
   edges: Edge[]
@@ -12,9 +13,9 @@ export class Invalidation {
   private renderEdgesRef: unknown
   private pendingNodeIds = new Set<NodeId>()
 
-  onProjectionCommit = (commit: ProjectionCommit) => {
-    const impact = commit.impact
-    const fullSync = commit.kind === 'replace' || hasImpactTag(impact, 'full')
+  onMutation = (meta: MutationMeta) => {
+    const impact = meta.impact
+    const fullSync = meta.kind === 'replace' || hasImpactTag(impact, 'full')
     const dirtyNodeIds = impact.dirtyNodeIds
     const shouldReset =
       fullSync ||
@@ -39,8 +40,8 @@ export class Invalidation {
     })
   }
 
-  consume = (readProjection: () => ProjectionSnapshot): Plan => {
-    const edges = readProjection().edges.visible
+  consume = (readSnapshot: () => ReadModelSnapshot): Plan => {
+    const edges = readSnapshot().edges.visible
     const edgesChanged = edges !== this.renderEdgesRef
     if (edgesChanged) {
       this.renderEdgesRef = edges

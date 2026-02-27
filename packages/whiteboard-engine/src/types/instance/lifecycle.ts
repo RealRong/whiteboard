@@ -13,7 +13,6 @@ export type LifecycleConfig = {
 }
 
 export type Lifecycle = {
-  start: () => void
   update: (config: LifecycleConfig) => void
-  stop: () => void
+  dispose: () => void
 }

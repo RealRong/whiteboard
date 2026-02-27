@@ -16,7 +16,7 @@ import {
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
 import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
-import { useViewportGestureSelector } from './common/interaction/viewportGestureStore'
+import { useViewportGestureSelector } from './common/interaction/viewportGestureState'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -46,6 +46,72 @@ const toViewportTransform = (viewport: {
       '--wb-zoom': `${zoom}`
     }
   }
+}
+
+type WhiteboardCanvasProps = {
+  instance: Instance
+  registry: ReturnType<typeof createDefaultNodeRegistry>
+  resolvedConfig: ReturnType<typeof normalizeConfig>
+  containerRef: {
+    current: HTMLDivElement | null
+  }
+  containerStyle: CSSProperties
+  viewportPolicy: {
+    panEnabled: boolean
+    wheelEnabled: boolean
+    minZoom: number
+    maxZoom: number
+    wheelSensitivity: number
+  }
+}
+
+const WhiteboardCanvas = ({
+  instance,
+  registry,
+  resolvedConfig,
+  containerRef,
+  containerStyle,
+  viewportPolicy
+}: WhiteboardCanvasProps) => {
+  const viewportTransform = useAtomValue(instance.read.atoms.viewportTransform)
+  const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
+  const resolvedViewportTransform = useMemo(
+    () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),
+    [previewViewport, viewportTransform]
+  )
+  const transformStyle = useMemo<CSSProperties>(
+    () => ({
+      transform: resolvedViewportTransform.transform,
+      transformOrigin: '0 0',
+      ...resolvedViewportTransform.cssVars
+    }),
+    [resolvedViewportTransform]
+  )
+
+  return (
+    <NodeRegistryProvider registry={registry}>
+      <div
+        ref={containerRef}
+        className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
+        style={containerStyle}
+        tabIndex={0}
+      >
+        <CanvasInteractionLayer
+          instance={instance}
+          viewportPolicy={viewportPolicy}
+          getContainer={() => containerRef.current}
+          className="wb-root-viewport"
+          style={transformStyle}
+        >
+          <EdgeLayerStack />
+          <MindmapLayerStack />
+          <DragGuidesLayer />
+          <NodeLayer />
+        </CanvasInteractionLayer>
+        <SelectionLayer />
+      </div>
+    </NodeRegistryProvider>
+  )
 }
 
 const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function WhiteboardInner(
@@ -177,15 +243,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     }),
     [resolvedConfig.style]
   )
-
-  const viewportTransform = useAtomValue(instance.read.atoms.viewportTransform, {
-    store: instance.runtime.store
-  })
-  const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
-  const resolvedViewportTransform = useMemo(
-    () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),
-    [previewViewport, viewportTransform]
-  )
   const viewportPolicy = useMemo(
     () => ({
       panEnabled: resolvedConfig.viewport.enablePan,
@@ -203,40 +260,17 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     ]
   )
 
-  const transformStyle = useMemo<CSSProperties>(
-    () => ({
-      transform: resolvedViewportTransform.transform,
-      transformOrigin: '0 0',
-      ...resolvedViewportTransform.cssVars
-    }),
-    [resolvedViewportTransform]
-  )
-
   return (
     <InstanceProvider value={instance}>
       <JotaiProvider store={instance.runtime.store}>
-        <NodeRegistryProvider registry={registry}>
-          <div
-            ref={containerRef}
-            className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
-            style={containerStyle}
-            tabIndex={0}
-          >
-            <CanvasInteractionLayer
-              instance={instance}
-              viewportPolicy={viewportPolicy}
-              getContainer={() => containerRef.current}
-              className="wb-root-viewport"
-              style={transformStyle}
-            >
-              <EdgeLayerStack />
-              <MindmapLayerStack />
-              <DragGuidesLayer />
-              <NodeLayer />
-            </CanvasInteractionLayer>
-            <SelectionLayer />
-          </div>
-        </NodeRegistryProvider>
+        <WhiteboardCanvas
+          instance={instance}
+          registry={registry}
+          resolvedConfig={resolvedConfig}
+          containerRef={containerRef}
+          containerStyle={containerStyle}
+          viewportPolicy={viewportPolicy}
+        />
       </JotaiProvider>
     </InstanceProvider>
   )

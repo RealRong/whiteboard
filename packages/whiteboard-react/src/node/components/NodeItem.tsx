@@ -11,7 +11,7 @@ import {
   useInstance,
   useWhiteboardSelector
 } from '../../common/hooks'
-import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewStore'
+import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewState'
 import { NodeBlock } from './NodeBlock'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 

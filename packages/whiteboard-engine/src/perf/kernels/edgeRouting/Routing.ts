@@ -2,7 +2,7 @@ import type { RoutingDragPayload } from '@engine-types/edge/routing'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { EdgeId, EdgeRouting, Operation, Point } from '@whiteboard/core/types'
 
-type RoutingInstance = Pick<InternalInstance, 'projection'>
+type RoutingInstance = Pick<InternalInstance, 'read'>
 
 type RoutingOptions = {
   instance: RoutingInstance
@@ -14,6 +14,9 @@ export class Routing {
   constructor({ instance }: RoutingOptions) {
     this.instance = instance
   }
+
+  private getEdge = (edgeId: EdgeId) =>
+    this.instance.read.get.edgeById(edgeId)?.edge
 
   private moveRoutingPoint = (
     edgeId: EdgeId,
@@ -49,11 +52,7 @@ export class Routing {
       world: Point
     }
   }): RoutingDragPayload | undefined => {
-    const edge = this.instance.projection
-      .getSnapshot()
-      .edges
-      .visible
-      .find((item) => item.id === options.edgeId)
+    const edge = this.getEdge(options.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') return undefined
 
     const points = edge.routing?.points ?? []
@@ -79,11 +78,7 @@ export class Routing {
       world: Point
     }
   ): RoutingDragPayload | undefined => {
-    const edge = this.instance.projection
-      .getSnapshot()
-      .edges
-      .visible
-      .find((item) => item.id === draft.edgeId)
+    const edge = this.getEdge(draft.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       return undefined
     }
@@ -104,11 +99,7 @@ export class Routing {
   }
 
   commit = (draft: RoutingDragPayload): Operation[] => {
-    const edge = this.instance.projection
-      .getSnapshot()
-      .edges
-      .visible
-      .find((item) => item.id === draft.edgeId)
+    const edge = this.getEdge(draft.edgeId)
     if (!edge || edge.type === 'bezier' || edge.type === 'curve') {
       return []
     }

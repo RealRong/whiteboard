@@ -1,35 +1,36 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { ProjectionCommit, ProjectionStore } from '@engine-types/projection'
-import { hasImpactTag } from '../../mutation/Impact'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
+import type { MutationMeta } from '../../write/pipeline/MutationMetaBus'
+import { hasImpactTag } from '../../write/mutation/Impact'
 import {
   createQueryIndexes,
   type QueryIndexes
 } from './QueryIndexes'
 
 type CreateQueryIndexRuntimeOptions = {
-  projection: ProjectionStore
+  readSnapshot: () => ReadModelSnapshot
   config: InstanceConfig
 }
 
 export type QueryIndexRuntime = QueryIndexes & {
-  applyCommit: (commit: ProjectionCommit) => void
+  applyMutation: (meta: MutationMeta) => void
 }
 
 export const createQueryIndexRuntime = ({
-  projection,
+  readSnapshot,
   config
 }: CreateQueryIndexRuntimeOptions): QueryIndexRuntime => {
-  let snapshot = projection.getSnapshot()
+  let snapshot = readSnapshot()
 
   const indexes = createQueryIndexes({
     config
   })
   indexes.sync(snapshot.nodes.canvas)
 
-  const applyCommit: QueryIndexRuntime['applyCommit'] = (commit) => {
-    snapshot = commit.snapshot
-    const impact = commit.impact
-    if (commit.kind === 'replace' || hasImpactTag(impact, 'full')) {
+  const applyMutation: QueryIndexRuntime['applyMutation'] = (meta) => {
+    snapshot = readSnapshot()
+    const impact = meta.impact
+    if (meta.kind === 'replace' || hasImpactTag(impact, 'full')) {
       indexes.sync(snapshot.nodes.canvas)
       return
     }
@@ -48,6 +49,6 @@ export const createQueryIndexRuntime = ({
 
   return {
     ...indexes,
-    applyCommit
+    applyMutation
   }
 }

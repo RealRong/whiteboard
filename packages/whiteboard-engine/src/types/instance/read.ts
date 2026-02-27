@@ -7,13 +7,16 @@ import type {
   Node,
   NodeId,
   Point,
-  Rect
+  Rect,
+  Viewport
 } from '@whiteboard/core/types'
 import type { MindmapLayout } from '@whiteboard/core/mindmap'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type {
-  MindmapDragDropTarget
+  InteractionState,
+  MindmapDragDropTarget,
+  SelectionState
 } from '../state'
 
 export type CanvasNodeRect = {
@@ -116,6 +119,11 @@ export type MindmapView = {
 }
 
 export type EngineReadAtoms = {
+  interaction: Atom<InteractionState>
+  tool: Atom<'select' | 'edge'>
+  selection: Atom<SelectionState>
+  viewport: Atom<Viewport>
+  mindmapLayout: Atom<MindmapLayoutConfig>
   viewportTransform: Atom<ViewportTransformView>
   nodeIds: Atom<NodeId[]>
   nodeById: (id: NodeId) => Atom<NodeViewItem | undefined>

@@ -11,22 +11,25 @@ import type {
   NodeViewItem,
   ViewportTransformView
 } from '@engine-types/instance/read'
-import type {
-  ProjectionCommit,
-  ProjectionStore
-} from '@engine-types/projection'
 import type { State } from '@engine-types/instance/state'
 import type { StateAtoms } from '../../state/factory/CreateState'
+import type { ReadModelAtoms } from './atoms/readModel'
+import type { MutationMeta } from '../write/pipeline/MutationMetaBus'
 import { createEdgeEndpointsResolver } from '../../domains/edge/view'
 import { createMaterializedReadModel } from './materialized/MaterializedModel'
 
 type Options = {
-  projection: ProjectionStore
   state: State
-  stateStore: ReturnType<typeof createStore>
+  runtimeStore: ReturnType<typeof createStore>
   stateAtoms: StateAtoms
+  readModelAtoms: ReadModelAtoms
   query: Query
   config: InstanceConfig
+}
+
+export type ReadRuntime = {
+  read: EngineRead
+  applyMutation: (meta: MutationMeta) => void
 }
 
 const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
@@ -41,9 +44,9 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-const shouldBumpMaterializedRevision = (commit: ProjectionCommit) => {
-  if (commit.kind === 'replace') return true
-  const { impact } = commit
+const shouldBumpMaterializedRevision = (meta: MutationMeta) => {
+  if (meta.kind === 'replace') return true
+  const { impact } = meta
   if (
     impact.tags.has('full') ||
     impact.tags.has('edges') ||
@@ -56,22 +59,22 @@ const shouldBumpMaterializedRevision = (commit: ProjectionCommit) => {
 }
 
 export const createReadRuntime = ({
-  projection,
   state,
-  stateStore,
+  runtimeStore,
   stateAtoms,
+  readModelAtoms,
   query,
   config
-}: Options): EngineRead => {
-  const store = stateStore
-  const projectionSnapshotAtom = atom(projection.getSnapshot())
+}: Options): ReadRuntime => {
+  const store = runtimeStore
+  const readModelSnapshotAtom = readModelAtoms.snapshot
   const selectionAtom = stateAtoms.selection
   const mindmapLayoutAtom = stateAtoms.mindmapLayout
   const viewportAtom = stateAtoms.viewport
   const materializedRevisionAtom = atom(0)
 
   const materialized = createMaterializedReadModel({
-    readProjection: () => store.get(projectionSnapshotAtom),
+    readSnapshot: () => store.get(readModelSnapshotAtom),
     state,
     query,
     config
@@ -91,7 +94,7 @@ export const createReadRuntime = ({
   )
 
   const nodeIdsAtom = atom((get) => {
-    get(projectionSnapshotAtom)
+    get(readModelSnapshotAtom)
     return materialized.getNodeIds()
   })
 
@@ -99,7 +102,7 @@ export const createReadRuntime = ({
     const cached = nodeByIdAtoms.get(id)
     if (cached) return cached
     const nextAtom = atom((get) => {
-      const snapshot = get(projectionSnapshotAtom)
+      const snapshot = get(readModelSnapshotAtom)
       const node = snapshot.indexes.canvasNodeById.get(id)
       if (!node) {
         nodeItemCacheById.delete(id)
@@ -179,7 +182,7 @@ export const createReadRuntime = ({
   })
 
   const mindmapIdsAtom = atom((get) => {
-    get(projectionSnapshotAtom)
+    get(readModelSnapshotAtom)
     get(mindmapLayoutAtom)
     return materialized.getMindmapIds()
   })
@@ -188,7 +191,7 @@ export const createReadRuntime = ({
     const cached = mindmapByIdAtoms.get(id)
     if (cached) return cached
     const nextAtom = atom((get) => {
-      get(projectionSnapshotAtom)
+      get(readModelSnapshotAtom)
       get(mindmapLayoutAtom)
       return materialized.getMindmapById(id)
     })
@@ -196,15 +199,19 @@ export const createReadRuntime = ({
     return nextAtom
   }
 
-  projection.subscribe((commit) => {
-    materialized.applyCommit(commit)
-    store.set(projectionSnapshotAtom, commit.snapshot)
-    if (shouldBumpMaterializedRevision(commit)) {
+  const applyMutation: ReadRuntime['applyMutation'] = (meta) => {
+    materialized.applyMutation(meta)
+    if (shouldBumpMaterializedRevision(meta)) {
       store.set(materializedRevisionAtom, (previous: number) => previous + 1)
     }
-  })
+  }
 
   const atoms = {
+    interaction: stateAtoms.interaction,
+    tool: stateAtoms.tool,
+    selection: stateAtoms.selection,
+    viewport: stateAtoms.viewport,
+    mindmapLayout: stateAtoms.mindmapLayout,
     viewportTransform: viewportTransformAtom,
     nodeIds: nodeIdsAtom,
     nodeById: createNodeByIdAtom,
@@ -217,18 +224,21 @@ export const createReadRuntime = ({
   }
 
   return {
-    store,
-    atoms,
-    get: {
-      viewportTransform: () => store.get(atoms.viewportTransform),
-      nodeIds: () => store.get(atoms.nodeIds),
-      nodeById: (id) => store.get(atoms.nodeById(id)),
-      edgeIds: () => store.get(atoms.edgeIds),
-      edgeById: (id) => store.get(atoms.edgeById(id)),
-      selectedEdgeId: () => store.get(atoms.selectedEdgeId),
-      edgeSelectedEndpoints: () => store.get(atoms.edgeSelectedEndpoints),
-      mindmapIds: () => store.get(atoms.mindmapIds),
-      mindmapById: (id) => store.get(atoms.mindmapById(id))
+    applyMutation,
+    read: {
+      store,
+      atoms,
+      get: {
+        viewportTransform: () => store.get(atoms.viewportTransform),
+        nodeIds: () => store.get(atoms.nodeIds),
+        nodeById: (id) => store.get(atoms.nodeById(id)),
+        edgeIds: () => store.get(atoms.edgeIds),
+        edgeById: (id) => store.get(atoms.edgeById(id)),
+        selectedEdgeId: () => store.get(atoms.selectedEdgeId),
+        edgeSelectedEndpoints: () => store.get(atoms.edgeSelectedEndpoints),
+        mindmapIds: () => store.get(atoms.mindmapIds),
+        mindmapById: (id) => store.get(atoms.mindmapById(id))
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import type { ProjectionSnapshot } from '@engine-types/projection'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
 import type { MindmapViewTree } from '@engine-types/instance/read'
@@ -16,19 +16,19 @@ import {
 
 type MindmapDerivationOptions = {
   readState: State['read']
-  readProjection: () => ProjectionSnapshot
+  readSnapshot: () => ReadModelSnapshot
   config: InstanceConfig
 }
 
 export const createMindmapViewDerivations = ({
   readState,
-  readProjection,
+  readSnapshot,
   config
 }: MindmapDerivationOptions) => {
   let treeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
 
   const roots = (): Node[] =>
-    getMindmapRoots(readProjection().nodes.visible)
+    getMindmapRoots(readSnapshot().nodes.visible)
 
   const trees = (): MindmapViewTree[] => {
     const allRoots = roots()

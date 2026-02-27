@@ -202,7 +202,7 @@ const main = () => {
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const baseNode = instance.projection.getSnapshot().nodes.canvas.find((node) => node.id === nodeId)
+  const baseNode = instance.query.canvas.nodeRect(nodeId)?.node
   if (!baseNode) {
     throw new Error(`Missing transform node: ${nodeId}`)
   }

@@ -2,13 +2,13 @@ import type { PointerInput } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
 import type { NodeDragDraft, NodeDragUpdateConstraints } from '@engine-types/node'
 import type { Guide } from '@engine-types/node/snap'
-import type { NodeId, Operation, Point, Size } from '@whiteboard/core/types'
+import type { Node, NodeId, Operation, Point, Size } from '@whiteboard/core/types'
 import { CommitCompiler } from './CommitCompiler'
 import { Rules } from './Rules'
 
 type KernelInstance = Pick<
   InternalInstance,
-  'projection' | 'query' | 'config' | 'viewport' | 'document'
+  'query' | 'config' | 'viewport' | 'document'
 >
 
 type KernelOptions = {
@@ -34,30 +34,30 @@ type KernelUpdateResult = {
 }
 
 export class NodeDragKernel {
-  private readonly projection: KernelInstance['projection']
   private readonly nodeSize: KernelInstance['config']['nodeSize']
+  private readonly readCanvasNodes: () => Node[]
   private readonly rules: Rules
   private readonly commitCompiler: CommitCompiler
 
   constructor({ instance }: KernelOptions) {
-    this.projection = instance.projection
     this.nodeSize = instance.config.nodeSize
-    const readCanvasNodes = () => this.projection.getSnapshot().nodes.canvas
+    this.readCanvasNodes = () =>
+      instance.query.canvas.nodeRects().map((entry) => entry.node)
     this.rules = new Rules({
       config: instance.config,
       query: instance.query,
       readZoom: instance.viewport.getZoom,
-      readCanvasNodes
+      readCanvasNodes: this.readCanvasNodes
     })
     this.commitCompiler = new CommitCompiler({
       readDoc: instance.document.get,
-      readCanvasNodes,
+      readCanvasNodes: this.readCanvasNodes,
       config: instance.config
     })
   }
 
   begin = (options: BeginDragInput): NodeDragDraft | undefined => {
-    const nodes = this.projection.getSnapshot().nodes.canvas
+    const nodes = this.readCanvasNodes()
     const node = nodes.find((item) => item.id === options.nodeId)
     if (!node || node.locked) return undefined
 

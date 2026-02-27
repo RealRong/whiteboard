@@ -9,21 +9,16 @@ import type {
 } from '@whiteboard/core/types'
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
-import { DEFAULT_TUNING } from '../../config'
-import { applySelection } from '../../shared/selection'
-import { StateWatchEmitter } from '../../runtime/actors/shared/StateWatchEmitter'
+import { DEFAULT_TUNING } from '../../../config'
+import { applySelection } from '../../../shared/selection'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'commands' | 'state' | 'projection' | 'document' | 'emit'>
+  instance: Pick<InternalInstance, 'commands' | 'state' | 'document' | 'read'>
   resetTransient?: () => void
 }
 
-type EdgeSelectionValue = EdgeId | undefined
-
 export type SelectionController = {
   readonly name: 'Selection'
-  start: () => void
-  stop: () => void
   getSelectedNodeIds: () => NodeId[]
   select: (ids: NodeId[], mode?: SelectionMode) => void
   toggle: (ids: NodeId[]) => void
@@ -44,39 +39,16 @@ const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   return op?.node?.id
 }
 
-const isSameNodeIds = (left: NodeId[], right: NodeId[]) => {
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
 export const createSelectionController = ({
   instance,
   resetTransient
 }: ActorOptions): SelectionController => {
   const state = instance.state
-  const selectionEmitter = new StateWatchEmitter({
-    state,
-    keys: ['selection'],
-    read: () => Array.from(state.read('selection').selectedNodeIds),
-    equals: isSameNodeIds,
-    clone: (value) => [...value],
-    emit: (nodeIds) => instance.emit('selection.changed', { nodeIds })
-  })
-  const edgeSelectionEmitter = new StateWatchEmitter({
-    state,
-    keys: ['selection'],
-    read: () => state.read('selection').selectedEdgeId,
-    equals: (left, right) => left === right,
-    emit: (edgeId) => instance.emit('edge.selection.changed', { edgeId })
-  })
 
   const getDocument = (): Document => instance.document.get()
 
   const getSelectableNodeIds = (): NodeId[] =>
-    instance.projection.getSnapshot().nodes.canvas.map((canvasNode) => canvasNode.id)
+    instance.read.get.nodeIds()
 
   const getSelectedNodeIds = (): NodeId[] =>
     Array.from(instance.state.read('selection').selectedNodeIds)
@@ -227,14 +199,6 @@ export const createSelectionController = ({
 
   return {
     name: 'Selection',
-    start: () => {
-      selectionEmitter.start()
-      edgeSelectionEmitter.start()
-    },
-    stop: () => {
-      selectionEmitter.stop()
-      edgeSelectionEmitter.stop()
-    },
     getSelectedNodeIds,
     select,
     toggle,

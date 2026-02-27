@@ -1,7 +1,8 @@
 import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/read'
-import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
+import type { MutationMeta } from '../../../write/pipeline/MutationMetaBus'
 
 export type ResolveEndpoints = (edge: Edge) => EdgeEndpoints | undefined
 
@@ -13,13 +14,13 @@ export type EdgePathCacheEntry = {
 }
 
 export type EdgePathStoreOptions = {
-  readProjection: () => ProjectionSnapshot
+  readSnapshot: () => ReadModelSnapshot
   getNodeRect: QueryCanvas['nodeRect']
   resolveEndpoints: ResolveEndpoints
 }
 
 export type EdgePathStore = {
-  applyCommit: (commit: ProjectionCommit) => void
+  applyMutation: (meta: MutationMeta) => void
   getEntries: () => EdgePathEntry[]
   getIds: () => EdgeId[]
   getById: () => Map<EdgeId, EdgePathEntry>

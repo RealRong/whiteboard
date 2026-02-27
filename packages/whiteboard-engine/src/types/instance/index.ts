@@ -51,10 +51,3 @@ export type {
   Lifecycle,
   LifecycleConfig
 } from './lifecycle'
-
-export type {
-  EventUnsubscribe,
-  InstanceEventMap,
-  InstanceEvents,
-  InstanceEventEmitter
-} from './events'

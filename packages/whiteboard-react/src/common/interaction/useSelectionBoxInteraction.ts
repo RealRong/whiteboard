@@ -3,10 +3,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { rectFromPoints } from '@whiteboard/core/geometry'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import type { Instance } from '@whiteboard/engine'
-import { sessionLockStore, type SessionLockToken } from './sessionLockStore'
-import { selectionBoxStore } from './selectionBoxStore'
+import { sessionLockState, type SessionLockToken } from './sessionLockState'
+import { selectionBoxState } from './selectionBoxState'
 import { useWindowPointerSession } from './useWindowPointerSession'
-import { viewportGestureStore } from './viewportGestureStore'
+import { viewportGestureState } from './viewportGestureState'
 
 type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
@@ -154,9 +154,9 @@ export const useSelectionBoxInteraction = (
     ) {
       return
     }
-    sessionLockStore.release(lockToken)
+    sessionLockState.release(instance, lockToken)
     lockTokenRef.current = null
-  }, [])
+  }, [instance])
 
   const clearSelectionBox = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -168,7 +168,7 @@ export const useSelectionBoxInteraction = (
     clearFrame(active)
     activeRef.current = null
     setActivePointerId(null)
-    selectionBoxStore.clear()
+    selectionBoxState.clear(instance)
     if (active.isSelecting) {
       const pointer = instance.state.read('interaction').pointer
       instance.commands.interaction.update({
@@ -179,7 +179,7 @@ export const useSelectionBoxInteraction = (
       })
     }
     releaseSessionLock(active.pointerId)
-  }, [instance.commands.interaction, releaseSessionLock])
+  }, [instance, instance.commands.interaction, releaseSessionLock])
 
   useWindowPointerSession({
     pointerId: activePointerId,
@@ -209,7 +209,7 @@ export const useSelectionBoxInteraction = (
         })
       }
       active.isSelecting = true
-      selectionBoxStore.setRect(rectFromPoints(active.startScreen, resolved.screen))
+      selectionBoxState.setRect(instance, rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)
       active.latestMatchedIds = instance.query.canvas.nodeIdsInRect(worldRect)
       scheduleFlush()
@@ -260,10 +260,10 @@ export const useSelectionBoxInteraction = (
       if (event.button !== 0) return
       if (activeRef.current) return
       if (instance.state.read('tool') === 'edge') return
-      if (viewportGestureStore.isSpacePressed()) return
+      if (viewportGestureState.isSpacePressed(instance)) return
       if (!isBackgroundPointerTarget(event.target, event.currentTarget)) return
 
-      const lockToken = sessionLockStore.tryAcquire('selectionBox', event.pointerId)
+      const lockToken = sessionLockState.tryAcquire(instance, 'selectionBox', event.pointerId)
       if (!lockToken) return
 
       const mode = resolveSelectionMode(event)
@@ -286,7 +286,7 @@ export const useSelectionBoxInteraction = (
         lastSelectionKey: toSelectionKey(selectedNodeIds)
       }
       setActivePointerId(event.pointerId)
-      selectionBoxStore.clear()
+      selectionBoxState.clear(instance)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {

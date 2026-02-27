@@ -17,22 +17,14 @@ export type {
   ApplyMutationsApi,
 } from './command'
 export type {
-  ProjectionSnapshot,
-  ProjectionImpactTag,
-  ProjectionImpact,
-  ProjectionCommitKind,
-  ProjectionApplyInput,
-  ProjectionReplaceInput,
-  ProjectionCommit,
-  ProjectionStore,
-  CreateProjectionStoreOptions
-} from './projection'
+  ReadModelSnapshot,
+  ReadModelNodesSlice,
+  ReadModelEdgesSlice,
+  ReadModelMindmapSlice,
+  ReadModelIndexesSlice
+} from './readSnapshot'
 export type {
   CreateEngineOptions,
-  EventUnsubscribe,
-  InstanceEventMap,
-  InstanceEvents,
-  InstanceEventEmitter,
   Lifecycle,
   LifecycleConfig,
   EngineRead,

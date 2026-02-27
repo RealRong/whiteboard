@@ -34,7 +34,4 @@ export type State = {
       | ((prev: WritableStateSnapshot[K]) => WritableStateSnapshot[K])
   ) => void
   batch: (action: () => void) => void
-  batchFrame: (action: () => void) => void
-  watchChanges: (listener: (key: StateKey) => void) => () => void
-  watch: (key: StateKey, listener: () => void) => () => void
 }

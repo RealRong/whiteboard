@@ -7,7 +7,7 @@ import { resolveEdgePathEntryWithRoutingDraft } from '../interaction/routingPrev
 import {
   useEdgeRoutingPreviewState,
   type RoutingPreviewDraft
-} from '../interaction/routingPreviewStore'
+} from '../interaction/routingPreviewState'
 import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'

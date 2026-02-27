@@ -11,7 +11,7 @@ import type {
 } from './types'
 
 export const createEdgePathStore = ({
-  readProjection,
+  readSnapshot,
   getNodeRect,
   resolveEndpoints
 }: EdgePathStoreOptions): EdgePathStore => {
@@ -76,7 +76,7 @@ export const createEdgePathStore = ({
   const invalidation = new Invalidation()
 
   const ensureEntries = () => {
-    const plan = invalidation.consume(readProjection)
+    const plan = invalidation.consume(readSnapshot)
     if (plan.edgesChanged) {
       index.rebuild(plan.edges)
       cache.rebuild(plan.edges)
@@ -93,8 +93,8 @@ export const createEdgePathStore = ({
     })
   }
 
-  const applyCommit: EdgePathStore['applyCommit'] = (commit) => {
-    invalidation.onProjectionCommit(commit)
+  const applyMutation: EdgePathStore['applyMutation'] = (meta) => {
+    invalidation.onMutation(meta)
   }
 
   const getEntries: EdgePathStore['getEntries'] = () => {
@@ -118,7 +118,7 @@ export const createEdgePathStore = ({
   }
 
   return {
-    applyCommit,
+    applyMutation,
     getEntries,
     getIds,
     getById,

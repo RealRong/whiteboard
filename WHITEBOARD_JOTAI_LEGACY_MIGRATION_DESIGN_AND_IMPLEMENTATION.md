@@ -5,6 +5,23 @@
 管线对齐文档：`WHITEBOARD_OPERATION_MM_QUERY_INDEX_OPTIMAL_ARCHITECTURE.md`  
 策略：一步到位，不保兼容（No-Compatibility, One-Shot）
 
+实施状态（2026-02-27）：
+- 已完成：任务 S（统一 store 挂载到 `instance.runtime.store`）
+- 已完成：任务 A（移除 `State.watch/watchChanges/batchFrame`）
+- 已完成：任务 B（`StateWatchEmitter` -> `AtomWatchEmitter`，统一 `store.sub(atom)`）
+- 已完成：任务 C（`useWhiteboardSelector` 切换到 atom 图）
+- 已完成：任务 D（transient interaction store 实例隔离，移除 React 侧模块级 `createStore`）
+- 已完成：任务 E（`GroupAutoFitActor` 改为 projection commit 数据订阅，不再依赖 `doc.changed`）
+- 已完成：任务 F（MM/QI 管线收敛与顺序显式化）
+- 已完成：任务 G（viewport 单真值收敛到 `stateAtoms.viewport`，移除 runtime 双状态桥）
+- 已完成：任务 H（移除 `ProjectionStore` 与 `instance.projection`，切换为 `documentAtom + mutationMetaBus + derived projection atoms` 单管线）
+
+补充说明（覆盖旧表述）：
+
+1. 运行时不再存在 `projection.commit` 事件桥。
+2. `QueryIndexRuntime` 与 `ReadRuntime` 已统一为 `applyMutation(meta)`。
+3. `types/readSnapshot.ts` 已收敛为读侧 `ReadModelSnapshot` 结构类型，不再暴露 `ProjectionStore/ProjectionCommit` 契约。
+
 ---
 
 ## 1. 目标与边界
@@ -83,18 +100,18 @@
 
 现状（均为模块级 `createStore()`）：
 
-- `sessionLockStore`
-- `selectionBoxStore`
-- `viewportGestureStore`
+- `sessionLockState`
+- `selectionBoxState`
+- `viewportGestureState`
 - `edgeConnectPreviewStore`
 - `edgeRoutingPreviewStore`
-- `nodeInteractionPreviewStore`
+- `nodeInteractionPreviewState`
 
 对应文件（示例）：
 
-- `packages/whiteboard-react/src/common/interaction/sessionLockStore.ts`
-- `packages/whiteboard-react/src/common/interaction/viewportGestureStore.ts`
-- `packages/whiteboard-react/src/node/interaction/nodeInteractionPreviewStore.ts`
+- `packages/whiteboard-react/src/common/interaction/sessionLockState.ts`
+- `packages/whiteboard-react/src/common/interaction/viewportGestureState.ts`
+- `packages/whiteboard-react/src/node/interaction/nodeInteractionPreviewState.ts`
 
 问题：
 
@@ -170,7 +187,7 @@ Read Path:
 projection/state root atoms -> derived atoms -> read getters / React hooks
 
 Subscription:
-store.sub(atom) / useAtomValue(atom, { store })
+store.sub(atom) / useAtomValue(atom)（由根层 `JotaiProvider` 注入 store）
 
 Internal side effects:
 由 atom 订阅触发（selection/tool/viewport/mindmap layout/group autofit）
@@ -230,7 +247,8 @@ instance.runtime.store（instance.read.store 与其同引用）
   - `keyListeners/changeListeners`
   - `pendingKeys/frameFlush/scheduleFrameFlush`
   - `watchKey/watchChanges/batchFrame`
-- `syncViewport` 保留（负责 runtime viewport -> state atom 桥接）。
+- `syncViewport` 已移除：`viewport` 初始化直接来自 `document.viewport`。
+- `ViewportRuntime` 改为通过 `store.get/set(stateAtoms.viewport)` 读写，不再维护独立 viewport 内存副本。
 - `batch` 简化为同步 action 包装（必要时保留深度计数，但不再承担通知聚合）。
 
 ### A3. 直接依赖 atom map
@@ -266,7 +284,7 @@ instance.runtime.store（instance.read.store 与其同引用）
 ### B3. 结果
 
 - engine 内部不再依赖 `state.watch`。
-- `StateWatchEmitter` 与 `WatchGroup` 可删除。
+- `StateWatchEmitter` 已删除，统一为 `AtomWatchEmitter`（`WatchGroup` 作为通用订阅生命周期工具保留）。
 
 ---
 
@@ -292,7 +310,7 @@ instance.runtime.store（instance.read.store 与其同引用）
 
 文件：`packages/whiteboard-react/src/common/hooks/useWhiteboardSelector.ts`
 
-- 单 key：直接 `useAtomValue(instance.read.atoms.<key>, { store: instance.runtime.store })`
+- 单 key：直接 `useAtomValue(instance.read.atoms.<key>)`（由根层 `JotaiProvider` 注入 store）
 - selector + keys：内部用 `selectAtom` 基于“组合基 atom”派生，再 `useAtomValue`
 - 删除对 `instance.state.watch` 的依赖。
 
@@ -318,18 +336,18 @@ instance.runtime.store（instance.read.store 与其同引用）
 
 优点：
 
-- 无需新增 React Provider。
+- 在 `Whiteboard` 根层仅注入一次 `JotaiProvider store={instance.runtime.store}`，子树不再手传 store。
 - 不再存在模块级 singleton 引起的跨实例污染。
 - engine/read/react 三方共享同一 store 锚点，订阅模型一致。
 
 ### D3. 迁移文件清单
 
-- `common/interaction/sessionLockStore.ts`
-- `common/interaction/selectionBoxStore.ts`
-- `common/interaction/viewportGestureStore.ts`
-- `edge/interaction/connectPreviewStore.ts`
-- `edge/interaction/routingPreviewStore.ts`
-- `node/interaction/nodeInteractionPreviewStore.ts`
+- `common/interaction/sessionLockState.ts`
+- `common/interaction/selectionBoxState.ts`
+- `common/interaction/viewportGestureState.ts`
+- `edge/interaction/connectPreviewState.ts`
+- `edge/interaction/routingPreviewState.ts`
+- `node/interaction/nodeInteractionPreviewState.ts`
 
 ### D4. 调用侧改造
 
@@ -348,7 +366,7 @@ instance.runtime.store（instance.read.store 与其同引用）
 
 - 引入 `mutationMetaAtom`（或 `lastCommitAtom`）：
   - 内容：`revision/kind/impact/operationTypes`（按需要）
-- `GroupAutoFitActor` 订阅该 atom 或直接订阅 projection commit 结构化数据。
+- `GroupAutoFitActor` 订阅该 atom 或直接订阅 mutation meta 结构化数据。
 
 ### E3. 事件边界
 
@@ -365,7 +383,7 @@ instance.runtime.store（instance.read.store 与其同引用）
 
 现有实现：
 
-- `runtime/read/api/Runtime.ts`：`projection.subscribe -> queryIndex.applyCommit`
+- `runtime/read/api/Runtime.ts`：`mutationMetaBus.subscribe -> queryIndex.applyMutation`
 - `runtime/read/indexes/QueryIndexRuntime.ts`：增量/全量策略
 - `runtime/read/indexes/QueryIndexes.ts`：NodeRectIndex + SnapIndex 具体索引
 
@@ -380,27 +398,26 @@ instance.runtime.store（instance.read.store 与其同引用）
 
 现有实现：
 
-- `runtime/read/Runtime.ts`：维护 `projectionSnapshotAtom + materializedRevisionAtom`
+- `runtime/read/Runtime.ts`：维护 `readModelSnapshotAtom + materializedRevisionAtom`
 - `runtime/read/materialized/MaterializedModel.ts`：`nodeIds/edgePath/mindmap` 物化
 - `runtime/read/materialized/edgePath/*`：invalidaton + cache/index
 
 需在文档与代码中固定的策略：
 
-1. commit 时先 `materialized.applyCommit(commit)`，再发布 snapshot/revision。
+1. mutation meta 到来时先 `materialized.applyMutation(meta)`，再按需发布 revision。
 2. `materializedRevisionAtom` 仅在必要影响域（`full/edges/mindmap/geometry/dirty*`）递增。
 3. 可变缓存（Map/Index）必须通过 revision atom 暴露可观察性。
 
 ### F3. 订阅顺序与一致性
 
-当前 projection 存在多个订阅者（query runtime、read runtime）。  
-建议收敛为单一“read pipeline dispatcher”，统一顺序：
+已收敛为单一“read pipeline dispatcher”（`createEngine` 内统一订阅 mutation meta），顺序固定为：
 
-1. `queryIndex.applyCommit(commit)`
-2. `materialized.applyCommit(commit)`
-3. `store.set(projectionSnapshotAtom, commit.snapshot)`
+1. `queryIndex.applyMutation(meta)`
+2. `materialized.applyMutation(meta)`
+3. `readModelSnapshotAtom` 由 `documentAtom + readModelRevisionAtom` 自动派生
 4. 按需 bump revision atoms
 
-目标：
+结果：
 
 - 避免多订阅者顺序不透明导致的边界不一致。
 - 保证同一 commit 下 query/getter/react 观察结果一致。
@@ -418,6 +435,7 @@ instance.runtime.store（instance.read.store 与其同引用）
 5. `useWhiteboardSelector` 内部实现切换到 atom 图（语义不变，触发机制变化）。
 6. 所有 interaction preview/lock store 从模块级单例改为 `instance.runtime.store` 作用域。
 7. 内部 actor 不再依赖 `doc.changed` 事件进行调度。
+8. 移除 `InstanceEvents['doc.changed']` 与 `DocChangePublisher`（无兼容保留）。
 
 ---
 
@@ -553,14 +571,14 @@ const baseAtom = atom((get) => ({
 }))
 
 const selectedAtom = selectAtom(baseAtom, selector, equality)
-const value = useAtomValue(selectedAtom, { store: instance.runtime.store })
+const value = useAtomValue(selectedAtom)
 ```
 
 ---
 
 ## 11. 结论
 
-当前架构已经完成 read/runtime/query 的主干收敛，但仍保留几块历史层（watch 总线、模块级 transient store、内部事件桥、MM/QI 订阅顺序分散）。这些都可以且应该切到 Jotai 统一模型。  
+当前架构已经完成 read/runtime/query 的主干收敛，并已完成 transient store 的实例隔离；剩余主要是 watch 总线、内部事件桥和 MM/QI 订阅顺序治理。  
 
 按本文 one-shot 方案执行后，可得到：
 

@@ -1,7 +1,7 @@
 import type { Operation, Origin } from '@whiteboard/core/types'
 import type { ResolvedHistoryConfig } from '@engine-types/common'
 import type { HistoryState } from '@engine-types/state'
-import { DEFAULT_CONFIG } from '../../config'
+import { DEFAULT_CONFIG } from '../../../config'
 
 type HistoryEntry = {
   forward: Operation[]

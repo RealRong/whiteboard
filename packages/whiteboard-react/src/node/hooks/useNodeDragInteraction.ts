@@ -16,9 +16,9 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { useInstance } from '../../common/hooks'
-import { sessionLockStore, type SessionLockToken } from '../../common/interaction/sessionLockStore'
+import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import { nodeInteractionPreviewStore } from '../interaction/nodeInteractionPreviewStore'
+import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
 
 type UseNodeDragInteractionOptions = {
   nodeId: NodeId
@@ -180,7 +180,7 @@ export const useNodeDragInteraction = ({
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockStore.release(lockToken)
+        sessionLockState.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -189,7 +189,7 @@ export const useNodeDragInteraction = ({
 
     activeRef.current = null
     setActivePointerId(null)
-    nodeInteractionPreviewStore.clearTransient()
+    nodeInteractionPreviewState.clearTransient(instance)
     if (
       lockToken
       && (
@@ -197,10 +197,10 @@ export const useNodeDragInteraction = ({
         || lockToken.pointerId === active.pointerId
       )
     ) {
-      sessionLockStore.release(lockToken)
+      sessionLockState.release(instance, lockToken)
       lockTokenRef.current = null
     }
-  }, [])
+  }, [instance])
 
   const commitDrag = useCallback((draft: ActiveDrag) => {
     const nodes = instance.query.doc.get().nodes
@@ -322,7 +322,7 @@ export const useNodeDragInteraction = ({
 
       const nodeRect = instance.query.canvas.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
-      const lockToken = sessionLockStore.tryAcquire('nodeDrag', event.pointerId)
+      const lockToken = sessionLockState.tryAcquire(instance, 'nodeDrag', event.pointerId)
       if (!lockToken) return
 
       instance.commands.selection.select(
@@ -357,7 +357,7 @@ export const useNodeDragInteraction = ({
       activeRef.current = draft
       lockTokenRef.current = lockToken
       setActivePointerId(event.pointerId)
-      nodeInteractionPreviewStore.clearTransient()
+      nodeInteractionPreviewState.clearTransient(instance)
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -448,7 +448,7 @@ export const useNodeDragInteraction = ({
           id: active.nodeId,
           position
         }]
-      nodeInteractionPreviewStore.setTransient({
+      nodeInteractionPreviewState.setTransient(instance, {
         updates,
         guides,
         hoveredGroupId: active.hoveredGroupId

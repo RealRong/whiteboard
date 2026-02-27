@@ -172,7 +172,6 @@ const main = () => {
   })
   const dragKernel = new NodeDragKernel({
     instance: {
-      projection: instance.projection,
       query: instance.query,
       config: instance.query.config.get(),
       viewport: {
@@ -183,7 +182,7 @@ const main = () => {
       }
     } as unknown as Pick<
       InternalInstance,
-      'projection' | 'query' | 'config' | 'viewport' | 'document'
+      'query' | 'config' | 'viewport' | 'document'
     >
   })
   const syncDoc = (next: Document) => {
@@ -191,7 +190,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.projection.getSnapshot().nodes.canvas.find((node) => node.id === movingNodeId)
+  const movingNode = instance.query.canvas.nodeRect(movingNodeId)?.node
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }
