@@ -1,4 +1,4 @@
-export { createEngine } from './instance'
+export { createEngine } from './instance/create'
 export {
   DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG,

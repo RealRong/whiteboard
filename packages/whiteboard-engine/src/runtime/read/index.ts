@@ -1,1 +1,1 @@
-export { createReadRuntime } from './Store'
+export { createReadRuntime } from './Runtime'

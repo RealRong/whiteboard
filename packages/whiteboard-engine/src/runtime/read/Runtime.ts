@@ -1,24 +1,24 @@
 import { atom, createStore } from 'jotai/vanilla'
 import type { Atom } from 'jotai/vanilla'
-import { toLayerOrderedCanvasNodes } from '@whiteboard/core/node'
-import type { EdgeId, Node, NodeId, Viewport } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type {
   EdgeEndpoints,
   EdgePathEntry,
   EngineRead,
-  MindmapView,
   MindmapViewTree,
   NodeViewItem,
   ViewportTransformView
 } from '@engine-types/instance/read'
-import type { ProjectionStore } from '@engine-types/projection'
+import type {
+  ProjectionCommit,
+  ProjectionStore
+} from '@engine-types/projection'
 import type { State } from '@engine-types/instance/state'
 import type { StateAtoms } from '../../state/factory'
-import { createEdgePathStore } from '../query/EdgePath'
 import { createEdgeEndpointsResolver } from '../../domains/edge/view'
-import { createMindmapViewDerivations } from '../../domains/mindmap/view'
+import { createMaterializedReadModel } from './materialized'
 
 type Options = {
   projection: ProjectionStore
@@ -41,27 +41,18 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-const isSameNodeOrder = (left: readonly string[], right: readonly string[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
+const shouldBumpMaterializedRevision = (commit: ProjectionCommit) => {
+  if (commit.kind === 'replace') return true
+  const { impact } = commit
+  if (
+    impact.tags.has('full') ||
+    impact.tags.has('edges') ||
+    impact.tags.has('mindmap') ||
+    impact.tags.has('geometry')
+  ) {
+    return true
   }
-  return true
-}
-
-const isSameMindmapTreeList = (left: readonly MindmapViewTree[], right: readonly MindmapViewTree[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
-type MindmapViewCache = {
-  trees: MindmapViewTree[]
-  view: MindmapView
+  return Boolean(impact.dirtyNodeIds?.length || impact.dirtyEdgeIds?.length)
 }
 
 export const createReadRuntime = ({
@@ -77,47 +68,31 @@ export const createReadRuntime = ({
   const selectionAtom = stateAtoms.selection
   const mindmapLayoutAtom = stateAtoms.mindmapLayout
   const viewportAtom = stateAtoms.viewport
-  const edgePathRevisionAtom = atom(0)
+  const materializedRevisionAtom = atom(0)
+
+  const materialized = createMaterializedReadModel({
+    readProjection: () => store.get(projectionSnapshotAtom),
+    state,
+    query,
+    config
+  })
 
   const resolveEndpoints = createEdgeEndpointsResolver(query.canvas.nodeRect)
-  const edgePathStore = createEdgePathStore({
-    readProjection: () => store.get(projectionSnapshotAtom),
-    getNodeRect: query.canvas.nodeRect,
-    resolveEndpoints
-  })
 
   const nodeByIdAtoms = new Map<NodeId, Atom<NodeViewItem | undefined>>()
   const edgeByIdAtoms = new Map<EdgeId, Atom<EdgePathEntry | undefined>>()
   const mindmapByIdAtoms = new Map<NodeId, Atom<MindmapViewTree | undefined>>()
 
   const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
-  let nodeIdsCache: NodeId[] = []
-  let nodeIdsSourceRef: Node[] | undefined
   let edgeSelectedEndpointsCache: EdgeEndpoints | undefined
-  let mindmapViewCache: MindmapViewCache | undefined
-
-  const readState = state.read
-  const mindmapDerivations = createMindmapViewDerivations({
-    readState,
-    readProjection: () => store.get(projectionSnapshotAtom),
-    config
-  })
 
   const viewportTransformAtom = atom((get) =>
     toViewportTransform(get(viewportAtom))
   )
 
   const nodeIdsAtom = atom((get) => {
-    const canvasNodes = get(projectionSnapshotAtom).nodes.canvas
-    if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
-    const next = toLayerOrderedCanvasNodes(canvasNodes).map((node) => node.id)
-    if (isSameNodeOrder(nodeIdsCache, next)) {
-      nodeIdsSourceRef = canvasNodes
-      return nodeIdsCache
-    }
-    nodeIdsSourceRef = canvasNodes
-    nodeIdsCache = next
-    return nodeIdsCache
+    get(projectionSnapshotAtom)
+    return materialized.getNodeIds()
   })
 
   const createNodeByIdAtom = (id: NodeId) => {
@@ -166,16 +141,16 @@ export const createReadRuntime = ({
   }
 
   const edgeIdsAtom = atom((get) => {
-    get(edgePathRevisionAtom)
-    return edgePathStore.getIds()
+    get(materializedRevisionAtom)
+    return materialized.getEdgeIds()
   })
 
   const createEdgeByIdAtom = (id: EdgeId) => {
     const cached = edgeByIdAtoms.get(id)
     if (cached) return cached
     const nextAtom = atom((get) => {
-      get(edgePathRevisionAtom)
-      return edgePathStore.getById().get(id)
+      get(materializedRevisionAtom)
+      return materialized.getEdgeById(id)
     })
     edgeByIdAtoms.set(id, nextAtom)
     return nextAtom
@@ -184,9 +159,9 @@ export const createReadRuntime = ({
   const selectedEdgeIdAtom = atom((get) => get(selectionAtom).selectedEdgeId)
 
   const edgeSelectedEndpointsAtom = atom((get) => {
-    get(edgePathRevisionAtom)
+    get(materializedRevisionAtom)
     const selectedEdgeId = get(selectedEdgeIdAtom)
-    const edge = selectedEdgeId ? edgePathStore.getEdge(selectedEdgeId) : undefined
+    const edge = selectedEdgeId ? materialized.getEdge(selectedEdgeId) : undefined
     const next = edge ? resolveEndpoints(edge) : undefined
 
     const changed =
@@ -203,42 +178,30 @@ export const createReadRuntime = ({
     return edgeSelectedEndpointsCache
   })
 
-  const mindmapTreesAtom = atom((get) => {
+  const mindmapIdsAtom = atom((get) => {
     get(projectionSnapshotAtom)
     get(mindmapLayoutAtom)
-    return mindmapDerivations.trees()
+    return materialized.getMindmapIds()
   })
-
-  const mindmapViewAtom = atom((get) => {
-    const trees = get(mindmapTreesAtom)
-    if (mindmapViewCache && isSameMindmapTreeList(mindmapViewCache.trees, trees)) {
-      return mindmapViewCache.view
-    }
-    const view: MindmapView = {
-      ids: trees.map((entry) => entry.id),
-      byId: new Map(trees.map((entry) => [entry.id, entry]))
-    }
-    mindmapViewCache = {
-      trees,
-      view
-    }
-    return view
-  })
-
-  const mindmapIdsAtom = atom((get) => get(mindmapViewAtom).ids)
 
   const createMindmapByIdAtom = (id: NodeId) => {
     const cached = mindmapByIdAtoms.get(id)
     if (cached) return cached
-    const nextAtom = atom((get) => get(mindmapViewAtom).byId.get(id))
+    const nextAtom = atom((get) => {
+      get(projectionSnapshotAtom)
+      get(mindmapLayoutAtom)
+      return materialized.getMindmapById(id)
+    })
     mindmapByIdAtoms.set(id, nextAtom)
     return nextAtom
   }
 
   projection.subscribe((commit) => {
-    edgePathStore.applyCommit(commit)
+    materialized.applyCommit(commit)
     store.set(projectionSnapshotAtom, commit.snapshot)
-    store.set(edgePathRevisionAtom, (previous: number) => previous + 1)
+    if (shouldBumpMaterializedRevision(commit)) {
+      store.set(materializedRevisionAtom, (previous: number) => previous + 1)
+    }
   })
 
   const atoms = {

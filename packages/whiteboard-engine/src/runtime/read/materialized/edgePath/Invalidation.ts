@@ -1,6 +1,6 @@
 import type { Edge, NodeId } from '@whiteboard/core/types'
 import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
-import { hasImpactTag } from '../../mutation/Impact'
+import { hasImpactTag } from '../../../mutation/Impact'
 
 type Plan = {
   edges: Edge[]
@@ -19,13 +19,9 @@ export class Invalidation {
     const shouldReset =
       fullSync ||
       hasImpactTag(impact, 'edges') ||
-      hasImpactTag(impact, 'order') ||
       hasImpactTag(impact, 'mindmap') ||
       (
-        (
-          hasImpactTag(impact, 'nodes') ||
-          hasImpactTag(impact, 'geometry')
-        ) &&
+        hasImpactTag(impact, 'geometry') &&
         !dirtyNodeIds?.length
       )
 

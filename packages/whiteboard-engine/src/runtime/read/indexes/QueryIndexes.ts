@@ -2,7 +2,7 @@ import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 import { toNodeStateSignature, toRectSignature } from '@whiteboard/core/cache'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 

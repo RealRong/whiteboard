@@ -7,6 +7,10 @@ import type {
   MutationImpact,
   MutationImpactTag
 } from './Impact'
+import {
+  classifyEdgePatch,
+  classifyNodePatch
+} from './PatchClassifier'
 
 const DEFAULT_MAX_OPERATIONS = 100
 const DEFAULT_MAX_DIRTY_NODES = 200
@@ -81,8 +85,14 @@ export class MutationImpactAnalyzer {
 
       if (operation.type === 'node.update') {
         tags.add('nodes')
-        tags.add('geometry')
-        dirtyNodeIds.add(operation.id)
+        const patchClass = classifyNodePatch(operation.patch)
+        if (patchClass.affectsOrder) {
+          tags.add('order')
+        }
+        if (patchClass.affectsGeometry) {
+          tags.add('geometry')
+          dirtyNodeIds.add(operation.id)
+        }
         continue
       }
 
@@ -108,8 +118,14 @@ export class MutationImpactAnalyzer {
 
       if (operation.type === 'edge.update') {
         tags.add('edges')
-        tags.add('geometry')
-        dirtyEdgeIds.add(operation.id)
+        const patchClass = classifyEdgePatch(operation.patch)
+        if (patchClass.affectsOrder) {
+          tags.add('order')
+        }
+        if (patchClass.affectsGeometry) {
+          tags.add('geometry')
+          dirtyEdgeIds.add(operation.id)
+        }
         continue
       }
 

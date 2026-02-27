@@ -1,25 +1,18 @@
 import type { QueryCanvas } from '@engine-types/instance/query'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
-import type { QueryIndexes } from './Indexes'
+import type { QueryIndexes } from '../read/indexes/QueryIndexes'
 
 type Options = {
   indexes: QueryIndexes
-  ensureIndexes: () => void
 }
 
 export const createCanvas = ({
-  indexes,
-  ensureIndexes
+  indexes
 }: Options): QueryCanvas => {
-  const nodeRects: QueryCanvas['nodeRects'] = () => {
-    ensureIndexes()
-    return indexes.getNodeRects()
-  }
+  const nodeRects: QueryCanvas['nodeRects'] = () => indexes.getNodeRects()
 
-  const nodeRect: QueryCanvas['nodeRect'] = (nodeId) => {
-    ensureIndexes()
-    return indexes.getNodeRectById(nodeId)
-  }
+  const nodeRect: QueryCanvas['nodeRect'] = (nodeId) =>
+    indexes.getNodeRectById(nodeId)
 
   const nodeIdsInRect: QueryCanvas['nodeIdsInRect'] = (rect) =>
     getNodeIdsInRectRaw(rect, nodeRects())
