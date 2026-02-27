@@ -16,9 +16,9 @@ import type {
   ProjectionStore
 } from '@engine-types/projection'
 import type { State } from '@engine-types/instance/state'
-import type { StateAtoms } from '../../state/factory'
+import type { StateAtoms } from '../../state/factory/CreateState'
 import { createEdgeEndpointsResolver } from '../../domains/edge/view'
-import { createMaterializedReadModel } from './materialized'
+import { createMaterializedReadModel } from './materialized/MaterializedModel'
 
 type Options = {
   projection: ProjectionStore

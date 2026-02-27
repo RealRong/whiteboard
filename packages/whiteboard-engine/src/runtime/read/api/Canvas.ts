@@ -1,6 +1,6 @@
 import type { QueryCanvas } from '@engine-types/instance/query'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
-import type { QueryIndexes } from '../read/indexes/QueryIndexes'
+import type { QueryIndexes } from '../indexes/QueryIndexes'
 
 type Options = {
   indexes: QueryIndexes

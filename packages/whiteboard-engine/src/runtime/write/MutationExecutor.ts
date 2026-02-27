@@ -28,7 +28,7 @@ export type MutationAppliedChange = {
 export type MutationExecutorOptions = {
   instance: Pick<InternalInstance, 'document' | 'registries'>
   projection: ProjectionStore
-  syncState: () => void
+  syncState: (doc: Document) => void
   now?: () => number
 }
 
@@ -50,7 +50,7 @@ export type MutationResetResult = {
 export class MutationExecutor {
   private readonly instance: MutationExecutorOptions['instance']
   private readonly projection: ProjectionStore
-  private readonly syncState: () => void
+  private readonly syncState: (doc: Document) => void
   private readonly now: () => number
   private readonly impactAnalyzer = new MutationImpactAnalyzer()
 
@@ -92,8 +92,8 @@ export class MutationExecutor {
     this.instance.document.replace(doc, options)
   }
 
-  private syncDocumentState = () => {
-    this.syncState()
+  private syncDocumentState = (doc: Document) => {
+    this.syncState(doc)
     return this.instance.document.get()
   }
 
@@ -133,7 +133,7 @@ export class MutationExecutor {
     }
 
     this.commitDocument(reduced.doc)
-    const docAfter = this.syncDocumentState()
+    const docAfter = this.syncDocumentState(reduced.doc)
     this.syncProjectionState(docAfter, reduced.changes.operations)
     const applied: MutationAppliedChange = {
       docId: docAfter?.id,
@@ -155,7 +155,7 @@ export class MutationExecutor {
     timestamp
   }: ResetDocumentInput): MutationResetResult => {
     this.commitDocument(doc, { silent: true })
-    const docAfter = this.syncDocumentState()
+    const docAfter = this.syncDocumentState(doc)
     this.syncProjectionState(docAfter, [], FULL_MUTATION_IMPACT)
     const applied: MutationAppliedChange = {
       docId: docAfter?.id,

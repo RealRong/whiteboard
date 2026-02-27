@@ -5,8 +5,9 @@ import type {
 } from '@engine-types/instance/instance'
 import type { Commands } from '@engine-types/commands'
 import { createRegistries } from '@whiteboard/core/kernel'
+import { createStore } from 'jotai/vanilla'
 import type { InstanceEventMap } from '@engine-types/instance/events'
-import type { DocumentId } from '@whiteboard/core/types'
+import type { Document, DocumentId } from '@whiteboard/core/types'
 import { EventCenter } from '../runtime/EventCenter'
 import { createShortcuts } from '../runtime/shortcut'
 import { Lifecycle } from '../runtime/lifecycle/Lifecycle'
@@ -15,7 +16,7 @@ import { DocChangePublisher } from '../runtime/write/DocChangePublisher'
 import { MutationExecutor } from '../runtime/write/MutationExecutor'
 import { WriteCoordinator } from '../runtime/write/WriteCoordinator'
 import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
-import { createState } from '../state/factory'
+import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
 import { createEdgeCommands } from '../domains/edge/commands'
 import { Actor as GroupAutoFitActor } from '../runtime/actors/groupAutoFit/Actor'
@@ -26,8 +27,8 @@ import { createSelectionController } from '../domains/selection/commands'
 import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 import { ViewportRuntime } from '../runtime/viewport'
-import { createQueryRuntime } from '../runtime/query/Runtime'
-import { createReadRuntime } from '../runtime/read'
+import { createQueryRuntime } from '../runtime/read/api/Runtime'
+import { createReadRuntime } from '../runtime/read/Runtime'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
 import {
@@ -47,15 +48,17 @@ export const createEngine = ({
   onDocumentChange,
   config: overrides
 }: CreateEngineOptions): Instance => {
+  const runtimeStore = createStore()
   const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
   const runtimeRegistries = registries ?? createRegistries()
   const documentStore = createDocumentStore(document, onDocumentChange)
   const viewport = new ViewportRuntime()
   viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-  const { state, projection, syncDocument, stateStore, stateAtoms } = createState({
+  const { state, projection, syncViewport, stateStore, stateAtoms } = createState({
     getDoc: documentStore.get,
-    readViewport: viewport.get
+    readViewport: viewport.get,
+    store: runtimeStore
   })
   const events = new EventCenter<InstanceEventMap>()
   const docChangePublisher = new DocChangePublisher({
@@ -81,6 +84,9 @@ export const createEngine = ({
     mutate: null as unknown as InternalInstance['mutate'],
     state,
     projection,
+    runtime: {
+      store: runtimeStore
+    },
     document: documentStore,
     config,
     viewport,
@@ -101,13 +107,15 @@ export const createEngine = ({
   }
   state.write('tool', 'select')
 
+  const syncViewportFromDocument = (doc: Document) => {
+    viewport.setViewport(doc.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
+    syncViewport()
+  }
+
   const mutationExecutor = new MutationExecutor({
     instance,
     projection,
-    syncState: () => {
-      viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-      syncDocument()
-    },
+    syncState: syncViewportFromDocument,
     now: scheduler.now
   })
   const historyDomain = new HistoryDomain({
@@ -303,7 +311,7 @@ export const createEngine = ({
     {
       state,
       viewport,
-      syncViewport: syncDocument,
+      syncViewport,
       shortcuts,
       emit: events.emit
     },
@@ -345,6 +353,7 @@ export const createEngine = ({
   return {
     state: instance.state,
     projection: instance.projection,
+    runtime: instance.runtime,
     query: instance.query,
     read: instance.read,
     domains: instance.domains,

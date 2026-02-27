@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
-import { useAtomValue } from 'jotai'
+import { Provider as JotaiProvider, useAtomValue } from 'jotai'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
@@ -179,7 +179,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   )
 
   const viewportTransform = useAtomValue(instance.read.atoms.viewportTransform, {
-    store: instance.read.store
+    store: instance.runtime.store
   })
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
   const resolvedViewportTransform = useMemo(
@@ -214,28 +214,30 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
 
   return (
     <InstanceProvider value={instance}>
-      <NodeRegistryProvider registry={registry}>
-        <div
-          ref={containerRef}
-          className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
-          style={containerStyle}
-          tabIndex={0}
-        >
-          <CanvasInteractionLayer
-            instance={instance}
-            viewportPolicy={viewportPolicy}
-            getContainer={() => containerRef.current}
-            className="wb-root-viewport"
-            style={transformStyle}
+      <JotaiProvider store={instance.runtime.store}>
+        <NodeRegistryProvider registry={registry}>
+          <div
+            ref={containerRef}
+            className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
+            style={containerStyle}
+            tabIndex={0}
           >
-            <EdgeLayerStack />
-            <MindmapLayerStack />
-            <DragGuidesLayer />
-            <NodeLayer />
-          </CanvasInteractionLayer>
-          <SelectionLayer />
-        </div>
-      </NodeRegistryProvider>
+            <CanvasInteractionLayer
+              instance={instance}
+              viewportPolicy={viewportPolicy}
+              getContainer={() => containerRef.current}
+              className="wb-root-viewport"
+              style={transformStyle}
+            >
+              <EdgeLayerStack />
+              <MindmapLayerStack />
+              <DragGuidesLayer />
+              <NodeLayer />
+            </CanvasInteractionLayer>
+            <SelectionLayer />
+          </div>
+        </NodeRegistryProvider>
+      </JotaiProvider>
     </InstanceProvider>
   )
 })

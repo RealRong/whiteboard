@@ -2,7 +2,8 @@
 
 Jotai 作为一个极其轻量（无 Context）且支持在 Vanilla JS 中使用（原生 Store 和 Atom）的状态管理库，**非常适合**作为非 React 层复杂应用的“响应式基建（Reactivity Infrastructure）”。
 
-基于 `jotai/vanilla` 的 API，我们可以彻底砸碎当前 `Registry.ts` 中写死的 `switch-case` 和 `hasImpactTag` 流水线，将白板引擎真正进化为**数据驱动（Data-Driven）**的架构。
+基于 `jotai/vanilla` 的 API，我们可以系统性收敛历史遗留的命令式调度层（旧 query store / 手写 watch / 事件桥），将白板引擎真正进化为**数据驱动（Data-Driven）**的架构。  
+本文内容已对齐 `WHITEBOARD_OPERATION_MM_QUERY_INDEX_OPTIMAL_ARCHITECTURE.md` 里的 Materialized Model / Query Index 管线与当前实现代码路径。
 
 ---
 
@@ -17,7 +18,7 @@ Jotai 的核心思想是**原子化（Atomic）**和**派生（Derived）**：
 
 ## 2. 现状（Imperative） vs 未来（Jotai Reactive）
 
-### 病症回顾（目前的 `Registry.ts`）
+### 病症回顾（历史命令式层）
 1. `commit.impact` 需要全量打标签。
 2. `applyCommit` 内部是一串 `if-else`。
 3. Registry 手动 `edge.syncState('selection')` 去触发更新。
@@ -30,94 +31,104 @@ Jotai 的核心思想是**原子化（Atomic）**和**派生（Derived）**：
 
 ---
 
-## 3. 架构改造蓝图：Jotai 化引擎试图 (Engine View via Jotai)
+## 3. 架构改造蓝图：Jotai 化引擎读侧（结合当前实现）
 
-### 3.1 定义引擎隔离的独立 Store
-为了防止污染全局，在 `instance/create.ts` 创建引擎实例时，我们创建一个专用的 Engine Store：
+### 3.1 Store 创建后直接挂载到 instance
+在 `createEngine` 内只创建一次 Jotai store，并直接挂到 instance。  
+推荐挂载位：`instance.runtime.store`（符合 `state/runtime/query/commands` 命名分域）。
+
 ```typescript
 import { createStore } from 'jotai/vanilla'
 
-export const engineViewStore = createStore()
-```
-
-### 3.2 基础原子数据 (Root Atoms)
-首先拦截最底层变化的数据，比如在 `Registry.ts` 中维护的：
-```typescript
-import { atom } from 'jotai/vanilla'
-// 用来存放不可变的 ProjectionSnapshot
-export const projectionSnapshotAtom = atom<ProjectionSnapshot>(defaultSnapshot)
-
-// 用来存放引擎的交互 State（比如选中态）
-export const engineStateAtom = atom<StateSnapshot>(defaultState)
-```
-当 `applyCommit` 发生时，我们**只做这一件事**：
-```typescript
-const applyCommit = (commit: ProjectionCommit) => {
-   // 一旦写入，所有派生的 Atom 自动进入脏检查
-   engineViewStore.set(projectionSnapshotAtom, commit.snapshot)
+const runtimeStore = createStore()
+instance.runtime = {
+  ...instance.runtime,
+  store: runtimeStore
 }
 ```
 
-### 3.3 领域视角的派生视图 (Derived Atoms) : 以 EdgeDomain 为例
-原本 `EdgeDomain` 里的 `recomputeEdgeSelectedEndpoints` 是典型的命令式，有了 Jotai 后：
+说明：
+
+1. `instance.runtime.store` 是引擎与 React 的统一订阅源。
+2. `instance.read.store` 建议最终与 `instance.runtime.store` 统一为同一个引用。
+3. 不再接受模块级 singleton store 承载实例相关状态。
+
+### 3.2 Root Atoms（按当前代码分层）
+在当前实现中，Root Atoms 已具备雏形：
+
+1. `projectionSnapshotAtom`：Projection 快照根。
+2. `stateAtoms.*`：交互状态根（`selection/tool/viewport/mindmapLayout/...`）。
+3. `materializedRevisionAtom`：可变 materialized cache 的可观察桥。
+
+当 commit 到来时，遵循“先更新读模型，再发布可观察状态”的顺序：
 
 ```typescript
-import { atom } from 'jotai/vanilla'
-import { selectAtom } from 'jotai/utils'
-
-// 1. 利用 selectAtom （如果只是提取浅数据）或者纯 getter 派生
-const selectedEdgeIdAtom = selectAtom(
-  engineStateAtom, 
-  (state) => state.selection.selectedEdgeId,
-  Object.is // 避免引用变化带来的误渲染
-)
-
-// 2. 核心派生视图（这替代了原来的整个 EdgeDomain.ts 相关逻辑！）
-export const edgeSelectedEndpointsAtom = atom((get) => {
-   const selectedEdgeId = get(selectedEdgeIdAtom)
-   if (!selectedEdgeId) return undefined
-
-   // 获取整个快照，读取对应的边
-   const snapshot = get(projectionSnapshotAtom)
-   const edge = snapshot.edges.byId.get(selectedEdgeId)
-   if (!edge) return undefined
-
-   // 返回重新计算的端点。注意：
-   // 只有 selectedEdgeId 或 snapshot 变了，这个函数才会执行
-   return createEdgeEndpointsResolver(snapshot.nodes.byId)(edge)
-})
-
-// 3. 构建 EdgesView，给外部消费
-export const edgesViewAtom = atom((get) => {
-   const snapshot = get(projectionSnapshotAtom) // 注意：这里可以细化成 pathStoreAtom
-   return {
-      ids: snapshot.edges.ids, // (假设已经由 cache 完成计算，也可以由 Jotai 管理)
-      byId: snapshot.edges.byId,
-      selection: {
-         endpoints: get(edgeSelectedEndpointsAtom) // 自动关联！
-      }
-   }
+projection.subscribe((commit) => {
+  materialized.applyCommit(commit)
+  store.set(projectionSnapshotAtom, commit.snapshot)
+  if (shouldBumpMaterializedRevision(commit)) {
+    store.set(materializedRevisionAtom, (x) => x + 1)
+  }
 })
 ```
 
-### 3.4 消费方 (React) 的极简绑定
-因为 React 端本来就深度集成了 Jotai，我们可以直接在组件侧通过 `useAtomValue` 读取具体部位的值，**彻底废除 `useWhiteboardView.ts` 中缓慢的全量订阅。**
+### 3.3 领域派生 Atom（以 edge 读侧为例）
+当前读侧正确做法不是“事件中转 atom”，而是直接从 Root Atoms 派生：
+
+```typescript
+const selectedEdgeIdAtom = atom((get) => get(selectionAtom).selectedEdgeId)
+
+const edgeSelectedEndpointsAtom = atom((get) => {
+  get(materializedRevisionAtom)
+  const selectedEdgeId = get(selectedEdgeIdAtom)
+  const edge = selectedEdgeId ? materialized.getEdge(selectedEdgeId) : undefined
+  return edge ? resolveEndpoints(edge) : undefined
+})
+```
+
+### 3.4 React 消费方式
+React 组件统一使用 `useAtomValue(atom, { store: instance.runtime.store })`（或同引用的 `instance.read.store`）：
 
 ```tsx
-import { useAtomValue } from 'jotai'
-
-// 原来：从一个庞大的状态包里去挑选，引擎一动，全量触发组件 diff
-// const endpoints = useEdgeSelectedEndpointsView()
-
-// 现在：直接订阅引擎 Store 里这根极细维度的“毛细血管”
-export const EdgeEndpointHandles = () => {
-   // 只有 edgeSelectedEndpointsAtom 的返回值变了，当前组件才会 Render!
-   const endpoints = useAtomValue(edgeSelectedEndpointsAtom, { store: engineViewStore })
-   
-   if (!endpoints) return null
-   // ...
-}
+const endpoints = useAtomValue(instance.read.atoms.edgeSelectedEndpoints, {
+  store: instance.runtime.store
+})
 ```
+
+### 3.5 Materialized Model 管线（对应现有实现）
+当前 Materialized Model 的职责与实现对应如下：
+
+1. 主入口：`runtime/read/materialized/MaterializedModel.ts`
+2. edgePath：`runtime/read/materialized/edgePath/*`
+3. 触发方式：`applyCommit(commit)` 记录失效，读取时按需 `ensureEntries()`
+4. 输出能力：
+   - `getNodeIds()`
+   - `getEdgeIds()/getEdgeById()/getEdge()`
+   - `getMindmapIds()/getMindmapById()`
+
+关键点：
+
+1. edgePath 使用可变缓存（Map/Index），因此需要 revision atom 做桥接。
+2. 节点排序与脑图视图使用引用稳定/值相等判断，减少无效分配。
+
+### 3.6 Query Index 管线（对应现有实现）
+当前 Query Index 已是“commit 同步更新 + 查询纯 getter”模型：
+
+1. 主入口：`runtime/read/indexes/QueryIndexRuntime.ts`
+2. 索引实现：`runtime/read/indexes/QueryIndexes.ts`
+3. API 绑定：`runtime/read/api/Runtime.ts` -> `createCanvas/createSnap`
+
+`applyCommit` 策略（现行）：
+
+1. `replace/full`：`indexes.sync(full nodes)`
+2. `order && !edges`：全量 `sync`（保障有序输出）
+3. `dirtyNodeIds`：`syncByNodeIds`
+4. `geometry/mindmap`（且无 dirtyNodeIds 分支提前返回）：全量 `sync`
+
+结果：
+
+1. `query.canvas/*`、`query.snap/*` 不再做“惰性补账”。
+2. `pointermove` 热路径只读索引，无写操作。
 
 ---
 
@@ -150,7 +161,7 @@ export const canvasNodesRectsAtom = selectAtom(
 
 ### 第二条路：查询与派生（View / Query via Jotai）—— 彻底数据驱动分发
 - 写入管线追求**安全可溯**，而读取管线追求**极速按需**。
-- **因此：** 原本 `Registry.ts` 中难看的路由和 `syncState` 调度全部废弃。
+- **因此：** 历史命令式读侧调度（手写路由、惰性补账、二次事件桥）全部收敛。
 - **终极形态：** 将 `ProjectionSnapshot` 作为 Jotai 的 **Root Atom**。当快照推新时，Jotai 内部的依赖图谱自动使所有的下游派生原子（如 `EdgePathAtom`、`SelectedEndpointsAtom`）脏化并极速重算。
 
 ### 真正的引擎骨架蓝图：
@@ -221,13 +232,25 @@ export const nodeByIdAtomFamily = atomFamily((id: string) =>
 ```
 利用 `atomFamily` 加上 `selectAtom`，我们可以做到：**即使产生了一万个节点的全新树快照，React 端也只有真正被修改（引用改变）的那一两个节点组件会发生重新渲染**，其余9999个组件在 `prev === next` 处就被瞬间拦截！
 
+### 6.3 对齐 MM/QI 实现时的现实约束
+结合当前 `MaterializedModel + QueryIndexRuntime` 实现，需要明确三条规则：
+
+1. Query Index 走 commit 同步更新，query getter 只读：
+   - `runtime/read/api/Runtime.ts` 中 `projection.subscribe -> queryIndex.applyCommit`
+   - `runtime/read/indexes/QueryIndexRuntime.ts` 负责增量/全量策略切换
+2. Materialized（尤其 edgePath）允许“失效记录 + 读取时 ensure”：
+   - `runtime/read/materialized/edgePath/Invalidation.ts` 仅记录 dirty
+   - `runtime/read/materialized/edgePath/Query.ts` 在 getter 中 `ensureEntries()`
+3. 只要底层缓存是可变结构，就必须保留 revision 桥（如 `materializedRevisionAtom`）：
+   - 没有 revision，Jotai 只看引用，会漏掉 Map 原地更新。
+
 ---
 
 ## 7. 下一步重构行动指引
 
 1. **确立边界**：不动目前的 `WriteCoordinator` 和指令系统，保持 `Projection` 产出机制不变。
-2. **初始化 Store**：在引擎启动时创建局部的 `engineViewStore`。
+2. **初始化并挂载 Store**：在引擎启动时创建唯一 store，并挂载到 `instance.runtime.store`（`instance.read.store` 与其同引用）。
 3. **建立 Root Atoms**：监听 `projection.subscribe`，接收到新 snapshot 就 `store.set(snapshotAtom)`。
-4. **验证原子模型**：拿最简单的 `ViewportDomain` 练手，把它改为 `viewportTransformAtom`。
-5. **处理高频计算**：将 `EdgeDomain` 和刚改好的 `Cache.ts` 结合上面提到的 `RevisionAtom` 进行迁移。
-6. **拆除脚手架**：当所有 Domain 都是 Atom 后，删掉 `Registry.ts` 中所有的 `applyCommit` 和事件分发代码。
+4. **对齐 MM/QI 管线**：确保 `applyCommit` 顺序为“先更新 materialized/indexes，再发布可观察原子”。
+5. **处理高频计算**：将可变缓存统一通过 `RevisionAtom` 暴露，不做 event-only atom。
+6. **拆除脚手架**：当所有读侧消费者均走 atom/store 后，删除手写 watch 与历史事件桥调度层。

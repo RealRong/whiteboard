@@ -48,19 +48,19 @@ const rules = [
     ]
   },
   {
-    name: 'runtime/query|view 禁止写入口',
+    name: 'runtime/read|view 禁止写入口',
     root: join(srcRoot, 'runtime'),
     include: (path) =>
-      path.includes('/runtime/query/')
+      path.includes('/runtime/read/')
       || path.includes('/runtime/view/'),
     checks: [
       {
         pattern: /\bcommands\b/g,
-        message: '禁止在 query/view 中依赖 commands'
+        message: '禁止在 read/view 中依赖 commands'
       },
       {
         pattern: /\bmutate\b/g,
-        message: '禁止在 query/view 中依赖 mutate'
+        message: '禁止在 read/view 中依赖 mutate'
       }
     ]
   }

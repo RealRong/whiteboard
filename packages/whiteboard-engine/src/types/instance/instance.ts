@@ -1,4 +1,5 @@
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
+import type { createStore } from 'jotai/vanilla'
 import type { Commands } from '../commands'
 import type { ApplyMutationsApi } from '../command'
 import type { InstanceEventEmitter, InstanceEvents } from './events'
@@ -14,6 +15,9 @@ import type { DomainApis, DomainEntityApis } from '../domains'
 export type Instance = {
   state: State
   projection: ProjectionStore
+  runtime: {
+    store: ReturnType<typeof createStore>
+  }
   query: Query
   read: EngineRead
   domains: DomainApis

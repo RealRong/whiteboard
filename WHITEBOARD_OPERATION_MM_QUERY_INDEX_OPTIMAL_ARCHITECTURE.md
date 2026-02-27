@@ -523,25 +523,27 @@ const edgeByIdAtom = (id: EdgeId) =>
    - `MutationImpactAnalyzer` 已改为基于 patch 分类输出 `geometry/order/dirty*Ids`。
    - `node/edge` 样式类更新不再默认触发几何增量链路。
 2. 阶段 B 部分完成：
-   - 已新增 `runtime/read/materialized/Model.ts`，承接 `nodeIds/edgePath/mindmap` 读侧物化维护。
+   - 已新增 `runtime/read/materialized/MaterializedModel.ts`，承接 `nodeIds/edgePath/mindmap` 读侧物化维护。
    - `runtime/query/EdgePath.ts` 与 `runtime/query/edgePath/*` 已物理迁移至 `runtime/read/materialized/`。
-   - `runtime/read/Store.ts` 已改为组合 Materialized Model，不再内联维护上述缓存逻辑。
+   - `runtime/read/Runtime.ts` 已改为组合 Materialized Model，不再内联维护上述缓存逻辑。
 3. 阶段 C 核心完成：
-   - 已新增 `runtime/read/indexes/QueryIndex.ts`，抽离 Query Index 同步策略。
-   - `runtime/query/Indexes.ts` 已物理迁移至 `runtime/read/indexes/Indexes.ts`，索引实现与读侧分层一致。
-   - `runtime/query/Store.ts` 已改为 commit 同步更新索引，删除 `ensureIndexes` 惰性补账。
-   - `runtime/query/Canvas.ts`、`runtime/query/Snap.ts` 已改为纯 getter，不再触发补账同步。
+   - 已新增 `runtime/read/indexes/QueryIndexRuntime.ts`，抽离 Query Index 同步策略。
+   - `runtime/query/Indexes.ts` 已物理迁移至 `runtime/read/indexes/QueryIndexes.ts`，索引实现与读侧分层一致。
+   - 查询 API 层已整体迁移到 `runtime/read/api/*`，原 `runtime/query/*` 已收敛删除。
+   - `runtime/read/api/Runtime.ts` 已改为 commit 同步更新索引，删除 `ensureIndexes` 惰性补账。
+   - `runtime/read/api/Canvas.ts`、`runtime/read/api/Snap.ts` 已改为纯 getter，不再触发补账同步。
 4. 阶段 D 部分完成：
    - `runtime/read/Store.ts` 的 revision 信号已收敛为 `materializedRevisionAtom`。
    - 仅在 `full/edges/mindmap/geometry/dirty*` 相关 commit 上递增 revision，避免每次 commit 无差别写 atom。
    - 已进一步剔除 `node.order` 对 edgePath/materialized revision 的无效触发，降低无效重算。
 5. 命名与转发层清理已完成一轮：
    - `runtime/read/Store.ts` 重命名为 `runtime/read/Runtime.ts`。
-   - `runtime/query/Store.ts` 重命名为 `runtime/query/Runtime.ts`。
+   - 查询 API 层从 `runtime/query/*` 迁移到 `runtime/read/api/*`。
    - `runtime/read/indexes/Indexes.ts` 重命名为 `runtime/read/indexes/QueryIndexes.ts`。
    - `runtime/read/indexes/QueryIndex.ts` 重命名为 `runtime/read/indexes/QueryIndexRuntime.ts`。
    - `runtime/read/materialized/Model.ts` 重命名为 `runtime/read/materialized/MaterializedModel.ts`。
-   - 已删除单行转发文件：`instance/index.ts`、`runtime/read/materialized/EdgePath.ts`。
+   - 已删除单行转发文件：`instance/index.ts`、`runtime/read/materialized/EdgePath.ts`、`runtime/read/index.ts`、`runtime/read/api/index.ts`、`runtime/read/indexes/index.ts`、`runtime/read/materialized/index.ts`、`runtime/index.ts`。
+   - `instance/create.ts`、`runtime/read/Runtime.ts`、`runtime/read/api/Runtime.ts` 已改为直连实现文件导入，减少目录级二次跳转。
 6. 已通过验证：
    - `pnpm --filter @whiteboard/engine lint`
    - `pnpm --filter @whiteboard/react lint`

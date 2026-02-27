@@ -1,6 +1,6 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { QueryGeometry } from '@engine-types/instance/query'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw

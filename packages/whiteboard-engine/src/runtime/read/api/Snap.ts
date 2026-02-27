@@ -1,5 +1,5 @@
 import type { QuerySnap } from '@engine-types/instance/query'
-import type { QueryIndexes } from '../read/indexes/QueryIndexes'
+import type { QueryIndexes } from '../indexes/QueryIndexes'
 
 type Options = {
   indexes: QueryIndexes

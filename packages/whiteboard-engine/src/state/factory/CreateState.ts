@@ -2,6 +2,7 @@ import type { Document, Viewport } from '@whiteboard/core/types'
 import { atom, createStore, type PrimitiveAtom } from 'jotai/vanilla'
 import type {
   State,
+  StateSnapshot,
   StateKey,
   WritableStateKey,
   WritableStateSnapshot
@@ -14,7 +15,7 @@ import { createInitialState } from '../initialState'
 type Result = {
   state: State
   projection: ProjectionStore
-  syncDocument: () => void
+  syncViewport: () => void
   stateStore: ReturnType<typeof createStore>
   stateAtoms: StateAtoms
 }
@@ -22,6 +23,7 @@ type Result = {
 type Options = {
   getDoc: () => Document
   readViewport: () => Viewport
+  store: ReturnType<typeof createStore>
 }
 
 const cloneViewport = (viewport: Viewport): Viewport => ({
@@ -52,18 +54,28 @@ export type StateAtoms = WritableStateAtoms & {
   viewport: PrimitiveAtom<Viewport>
 }
 
+type WritableStateAtomMap = {
+  [K in WritableStateKey]: PrimitiveAtom<WritableStateSnapshot[K]>
+}
+
 const resolveNext = <T,>(next: Updater<T>, prev: T): T =>
   typeof next === 'function' ? (next as (value: T) => T)(prev) : next
 
-export const createState = ({ getDoc, readViewport }: Options): Result => {
+export const createState = ({ getDoc, readViewport, store }: Options): Result => {
   const initialState = createInitialState()
-  const stateStore = createStore()
+  const stateStore = store
   const stateAtoms: StateAtoms = {
     interaction: atom(initialState.interaction),
     tool: atom(initialState.tool),
     selection: atom(initialState.selection),
     mindmapLayout: atom(initialState.mindmapLayout),
     viewport: atom(cloneViewport(readViewport()))
+  }
+  const writableStateAtoms: WritableStateAtomMap = {
+    interaction: stateAtoms.interaction,
+    tool: stateAtoms.tool,
+    selection: stateAtoms.selection,
+    mindmapLayout: stateAtoms.mindmapLayout
   }
   const projection = new ProjectionStore(getDoc)
 
@@ -149,10 +161,7 @@ export const createState = ({ getDoc, readViewport }: Options): Result => {
   }
 
   const readWritable = <K extends WritableStateKey>(key: K): WritableStateSnapshot[K] => {
-    if (key === 'interaction') return stateStore.get(stateAtoms.interaction) as WritableStateSnapshot[K]
-    if (key === 'tool') return stateStore.get(stateAtoms.tool) as WritableStateSnapshot[K]
-    if (key === 'selection') return stateStore.get(stateAtoms.selection) as WritableStateSnapshot[K]
-    return stateStore.get(stateAtoms.mindmapLayout) as WritableStateSnapshot[K]
+    return stateStore.get(writableStateAtoms[key])
   }
 
   const writeWritable = <K extends WritableStateKey>(
@@ -163,31 +172,24 @@ export const createState = ({ getDoc, readViewport }: Options): Result => {
     const resolved = resolveNext(next, prev)
     if (Object.is(prev, resolved)) return
 
-    if (key === 'interaction') {
-      stateStore.set(stateAtoms.interaction, resolved as WritableStateSnapshot['interaction'])
-    } else if (key === 'tool') {
-      stateStore.set(stateAtoms.tool, resolved as WritableStateSnapshot['tool'])
-    } else if (key === 'selection') {
-      stateStore.set(stateAtoms.selection, resolved as WritableStateSnapshot['selection'])
-    } else {
-      stateStore.set(stateAtoms.mindmapLayout, resolved as WritableStateSnapshot['mindmapLayout'])
-    }
+    stateStore.set(writableStateAtoms[key], resolved)
     enqueueChange(key)
   }
 
+  const readState = <K extends StateKey>(key: K): StateSnapshot[K] => {
+    if (key === 'viewport') {
+      return stateStore.get(stateAtoms.viewport) as StateSnapshot[K]
+    }
+    return readWritable(key as WritableStateKey) as StateSnapshot[K]
+  }
+
+  const writeState: State['write'] = (key, next) => {
+    writeWritable(key, next)
+  }
+
   const state: State = {
-    read: ((key) => {
-      if (key === 'viewport') {
-        return stateStore.get(stateAtoms.viewport)
-      }
-      return readWritable(key as WritableStateKey)
-    }) as State['read'],
-    write: ((key, next) => {
-      writeWritable(
-        key,
-        next as Updater<WritableStateSnapshot[typeof key]>
-      )
-    }) as State['write'],
+    read: readState,
+    write: writeState,
     batch: (action) => {
       batchDepth += 1
       try {
@@ -220,15 +222,13 @@ export const createState = ({ getDoc, readViewport }: Options): Result => {
         changeListeners.delete(listener)
       }
     },
-    watch: (key, listener) => {
-      return watchKey(key, listener)
-    }
+    watch: watchKey
   }
 
   return {
     state,
     projection,
-    syncDocument: syncViewport,
+    syncViewport,
     stateStore,
     stateAtoms
   }
