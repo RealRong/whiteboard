@@ -1,23 +1,12 @@
-import type { Edge, EdgeId } from '@whiteboard/core/types'
+import type { Edge } from '@whiteboard/core/types'
 import { getAnchorPoint, getRectCenter } from '@whiteboard/core/geometry'
 import { getAutoAnchorFromRect } from '@whiteboard/core/edge'
 import type { Query } from '@engine-types/instance/query'
-import type { State } from '@engine-types/instance/state'
-import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
 import type {
-  EdgeEndpoints,
-  EdgePathEntry,
-  EdgePreviewView
-} from '@engine-types/instance/view'
-import { createEdgePathStore } from '../../runtime/query/EdgePath'
+  EdgeEndpoints
+} from '@engine-types/instance/read'
 
-type Options = {
-  readProjection: () => ProjectionSnapshot
-  query: Query
-  readState: State['read']
-}
-
-const createEdgeEndpointsResolver = (
+export const createEdgeEndpointsResolver = (
   getNodeRect: Query['canvas']['nodeRect']
 ) => {
   const resolveEndpoints = (edge: Edge): EdgeEndpoints | undefined => {
@@ -65,57 +54,3 @@ const createEdgeEndpointsResolver = (
 
   return resolveEndpoints
 }
-
-export const createEdgeViewStore = ({
-  readProjection,
-  query,
-  readState
-}: Options) => {
-  const resolveEndpoints = createEdgeEndpointsResolver(query.canvas.nodeRect)
-  const pathStore = createEdgePathStore({
-    readProjection,
-    getNodeRect: query.canvas.nodeRect,
-    resolveEndpoints
-  })
-
-  const emptyPreview: EdgePreviewView = {
-    from: undefined,
-    to: undefined,
-    snap: undefined,
-    reconnect: undefined,
-    showPreviewLine: false
-  }
-
-  const getEdge = (edgeId: EdgeId): Edge | undefined =>
-    pathStore.getEdge(edgeId)
-
-  const getEndpoints = (edge: Edge): EdgeEndpoints | undefined =>
-    resolveEndpoints(edge)
-
-  const applyCommit = (commit: ProjectionCommit) => {
-    pathStore.applyCommit(commit)
-  }
-
-  const paths = (): EdgePathEntry[] =>
-    pathStore.getEntries()
-
-  const preview = (): EdgePreviewView =>
-    emptyPreview
-
-  const selectedEndpoints = (): EdgeEndpoints | undefined => {
-    const selectedEdgeId = readState('selection').selectedEdgeId
-    if (!selectedEdgeId) return undefined
-    const edge = getEdge(selectedEdgeId)
-    if (!edge) return undefined
-    return getEndpoints(edge)
-  }
-
-  return {
-    applyCommit,
-    paths,
-    preview,
-    selectedEndpoints
-  }
-}
-
-export type EdgeViewStore = ReturnType<typeof createEdgeViewStore>

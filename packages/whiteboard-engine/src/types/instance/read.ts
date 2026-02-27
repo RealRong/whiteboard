@@ -1,3 +1,4 @@
+import { createStore, type Atom } from 'jotai/vanilla'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -12,7 +13,6 @@ import type { MindmapLayout } from '@whiteboard/core/mindmap'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type {
-  EdgeReconnectInfo,
   MindmapDragDropTarget
 } from '../state'
 
@@ -48,14 +48,6 @@ export type ViewportTransformView = {
   cssVars: {
     '--wb-zoom': string
   }
-}
-
-export type EdgePreviewView = {
-  from?: Point
-  to?: Point
-  snap?: Point
-  reconnect?: EdgeReconnectInfo
-  showPreviewLine: boolean
 }
 
 export type MindmapViewTreeLine = {
@@ -101,11 +93,6 @@ export type NodeViewItem = {
   }
 }
 
-export type ReadonlyStore<TState> = {
-  getState: () => TState
-  subscribe: (listener: () => void) => () => void
-}
-
 export type ViewportView = {
   transform: ViewportTransformView
 }
@@ -118,7 +105,6 @@ export type NodesView = {
 export type EdgesView = {
   ids: EdgeId[]
   byId: ReadonlyMap<EdgeId, EdgePathEntry>
-  preview: EdgePreviewView
   selection: {
     endpoints: EdgeEndpoints | undefined
   }
@@ -129,11 +115,32 @@ export type MindmapView = {
   byId: ReadonlyMap<NodeId, MindmapViewTree>
 }
 
-export type ViewState = {
-  viewport: ViewportView
-  nodes: NodesView
-  edges: EdgesView
-  mindmap: MindmapView
+export type EngineReadAtoms = {
+  viewportTransform: Atom<ViewportTransformView>
+  nodeIds: Atom<NodeId[]>
+  nodeById: (id: NodeId) => Atom<NodeViewItem | undefined>
+  edgeIds: Atom<EdgeId[]>
+  edgeById: (id: EdgeId) => Atom<EdgePathEntry | undefined>
+  selectedEdgeId: Atom<EdgeId | undefined>
+  edgeSelectedEndpoints: Atom<EdgeEndpoints | undefined>
+  mindmapIds: Atom<NodeId[]>
+  mindmapById: (id: NodeId) => Atom<MindmapViewTree | undefined>
 }
 
-export type View = ReadonlyStore<ViewState>
+export type EngineReadGetters = {
+  viewportTransform: () => ViewportTransformView
+  nodeIds: () => NodeId[]
+  nodeById: (id: NodeId) => NodeViewItem | undefined
+  edgeIds: () => EdgeId[]
+  edgeById: (id: EdgeId) => EdgePathEntry | undefined
+  selectedEdgeId: () => EdgeId | undefined
+  edgeSelectedEndpoints: () => EdgeEndpoints | undefined
+  mindmapIds: () => NodeId[]
+  mindmapById: (id: NodeId) => MindmapViewTree | undefined
+}
+
+export type EngineRead = {
+  store: ReturnType<typeof createStore>
+  atoms: EngineReadAtoms
+  get: EngineReadGetters
+}

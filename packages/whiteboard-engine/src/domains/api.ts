@@ -11,42 +11,42 @@ import type {
   ViewportDomainApi
 } from '@engine-types/domains'
 import type { Query } from '@engine-types/instance/query'
-import type { View } from '@engine-types/instance/view'
+import type { EngineRead } from '@engine-types/instance/read'
 import type { EdgeId, MindmapId, NodeId } from '@whiteboard/core/types'
 
 type NodeOptions = {
   commands: Pick<Commands, 'node' | 'order' | 'group'>
   query: Query
-  view: View
+  read: EngineRead
 }
 
 type EdgeOptions = {
   commands: Pick<Commands, 'edge' | 'order'>
   query: Query
-  view: View
+  read: EngineRead
 }
 
 type MindmapOptions = {
   commands: Pick<Commands, 'mindmap'>
-  view: View
+  read: EngineRead
 }
 
 type SelectionOptions = {
   commands: Pick<Commands, 'selection'>
   state: SelectionStateReader
-  view: View
+  read: EngineRead
 }
 
 type ViewportOptions = {
   commands: Pick<Commands, 'viewport'>
   query: Query
-  view: View
+  read: EngineRead
 }
 
 export const createNodeDomainApi = ({
   commands,
   query,
-  view
+  read
 }: NodeOptions): NodeDomainApi => ({
   commands: {
     create: commands.node.create,
@@ -62,10 +62,21 @@ export const createNodeDomainApi = ({
     rect: query.canvas.nodeRect,
     idsInRect: query.canvas.nodeIdsInRect
   },
-  view: {
-    get: () => view.getState().nodes,
-    getById: (id) => view.getState().nodes.byId.get(id),
-    subscribe: view.subscribe
+  read: {
+    get: () => {
+      const ids = read.get.nodeIds()
+      const byId = new Map<NodeId, NonNullable<ReturnType<typeof read.get.nodeById>>>()
+      ids.forEach((id) => {
+        const entry = read.get.nodeById(id)
+        if (!entry) return
+        byId.set(id, entry)
+      })
+      return {
+        ids,
+        byId
+      }
+    },
+    getById: (id) => read.get.nodeById(id)
   }
 })
 
@@ -85,14 +96,14 @@ export const bindNodeDomainApiById = (
   },
   query: {
     rect: () => api.query.rect(nodeId),
-    view: () => api.view.getById(nodeId)
+    read: () => api.read.getById(nodeId)
   }
 })
 
 export const createEdgeDomainApi = ({
   commands,
   query,
-  view
+  read
 }: EdgeOptions): EdgeDomainApi => ({
   commands: {
     create: commands.edge.create,
@@ -108,10 +119,24 @@ export const createEdgeDomainApi = ({
   query: {
     nearestSegment: query.geometry.nearestEdgeSegment
   },
-  view: {
-    get: () => view.getState().edges,
-    getById: (id) => view.getState().edges.byId.get(id),
-    subscribe: view.subscribe
+  read: {
+    get: () => {
+      const ids = read.get.edgeIds()
+      const byId = new Map<EdgeId, NonNullable<ReturnType<typeof read.get.edgeById>>>()
+      ids.forEach((id) => {
+        const entry = read.get.edgeById(id)
+        if (!entry) return
+        byId.set(id, entry)
+      })
+      return {
+        ids,
+        byId,
+        selection: {
+          endpoints: read.get.edgeSelectedEndpoints()
+        }
+      }
+    },
+    getById: (id) => read.get.edgeById(id)
   }
 })
 
@@ -126,7 +151,7 @@ export const bindEdgeDomainApiById = (
     select: () => api.commands.select(edgeId),
     unselect: () => api.commands.select(undefined),
     insertRoutingPointAt: (pointWorld) => {
-      const entry = api.view.getById(edgeId)
+      const entry = api.read.getById(edgeId)
       if (!entry) return false
       const segmentIndex = api.query.nearestSegment(
         pointWorld,
@@ -141,13 +166,13 @@ export const bindEdgeDomainApiById = (
       return true
     },
     removeRoutingPointAt: (index) => {
-      const entry = api.view.getById(edgeId)
+      const entry = api.read.getById(edgeId)
       if (!entry) return false
       api.commands.removeRoutingPoint(entry.edge, index)
       return true
     },
     resetRouting: () => {
-      const entry = api.view.getById(edgeId)
+      const entry = api.read.getById(edgeId)
       if (!entry) return
       api.commands.resetRouting(entry.edge)
     },
@@ -157,21 +182,32 @@ export const bindEdgeDomainApiById = (
     sendBackward: () => api.commands.order.sendBackward([edgeId])
   },
   query: {
-    view: () => api.view.getById(edgeId)
+    read: () => api.read.getById(edgeId)
   }
 })
 
 export const createMindmapDomainApi = ({
   commands,
-  view
+  read
 }: MindmapOptions): MindmapDomainApi => ({
   commands: commands.mindmap,
   query: {
-    getTree: (id) => view.getState().mindmap.byId.get(id)
+    getTree: (id) => read.get.mindmapById(id)
   },
-  view: {
-    get: () => view.getState().mindmap,
-    subscribe: view.subscribe
+  read: {
+    get: () => {
+      const ids = read.get.mindmapIds()
+      const byId = new Map<NodeId, NonNullable<ReturnType<typeof read.get.mindmapById>>>()
+      ids.forEach((id) => {
+        const entry = read.get.mindmapById(id)
+        if (!entry) return
+        byId.set(id, entry)
+      })
+      return {
+        ids,
+        byId
+      }
+    }
   }
 })
 
@@ -233,7 +269,7 @@ export const bindMindmapDomainApiById = (
 export const createSelectionDomainApi = ({
   commands,
   state,
-  view
+  read
 }: SelectionOptions): SelectionDomainApi => ({
   commands: commands.selection,
   query: {
@@ -242,21 +278,23 @@ export const createSelectionDomainApi = ({
     getSelectedEdgeId: () => state.read('selection').selectedEdgeId,
     getMode: () => state.read('selection').mode
   },
-  view: {
-    getEdgeSelection: () => view.getState().edges.selection,
-    subscribe: view.subscribe
+  read: {
+    getEdgeSelection: () => ({
+      endpoints: read.get.edgeSelectedEndpoints()
+    })
   }
 })
 
 export const createViewportDomainApi = ({
   commands,
   query,
-  view
+  read
 }: ViewportOptions): ViewportDomainApi => ({
   commands: commands.viewport,
   query: query.viewport,
-  view: {
-    get: () => view.getState().viewport,
-    subscribe: view.subscribe
+  read: {
+    get: () => ({
+      transform: read.get.viewportTransform()
+    })
   }
 })

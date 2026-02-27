@@ -1,5 +1,5 @@
 import type { Edge, EdgeId } from '@whiteboard/core/types'
-import type { EdgePathEntry } from '@engine-types/instance/view'
+import type { EdgePathEntry } from '@engine-types/instance/read'
 import type { EdgePathCacheEntry } from './types'
 
 type Options = {
@@ -21,8 +21,10 @@ const isSameEntryList = (left: EdgePathEntry[], right: EdgePathEntry[]) => {
 export class Cache {
   private entryById = new Map<EdgePathEntry['id'], EdgePathCacheEntry>()
   private entries: EdgePathEntry[] = []
+  private ids: EdgeId[] = []
+  private byId = new Map<EdgeId, EdgePathEntry>()
 
-  constructor(private readonly options: Options) {}
+  constructor(private readonly options: Options) { }
 
   rebuild = (edges: EdgePathEntry['edge'][]) => {
     const previousMap = this.entryById
@@ -82,6 +84,8 @@ export class Cache {
   }
 
   getEntries = () => this.entries
+  getIds = () => this.ids
+  getById = () => this.byId
 
   getEntryById = (edgeId: EdgeId): EdgePathCacheEntry | undefined =>
     this.entryById.get(edgeId)
@@ -96,5 +100,7 @@ export class Cache {
 
     if (isSameEntryList(this.entries, nextEntries)) return
     this.entries = nextEntries
+    this.ids = nextEntries.map((e) => e.id)
+    this.byId = new Map(nextEntries.map((e) => [e.id, e]))
   }
 }

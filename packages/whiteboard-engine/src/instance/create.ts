@@ -27,10 +27,9 @@ import { Actor as ShortcutActor } from '../runtime/actors/shortcut/Actor'
 import { Domain as ViewportDomainActor } from '../runtime/actors/viewport/Domain'
 import { ViewportRuntime } from '../runtime/viewport'
 import { createQueryRuntime } from '../runtime/query/Store'
-import { createViewRegistry } from '../runtime/view/Registry'
+import { createReadRuntime } from '../runtime/read'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
-import { RenderCoordinator } from '../runtime/render/RenderCoordinator'
 import {
   bindEdgeDomainApiById,
   bindMindmapDomainApiById,
@@ -54,8 +53,7 @@ export const createEngine = ({
   const documentStore = createDocumentStore(document, onDocumentChange)
   const viewport = new ViewportRuntime()
   viewport.setViewport(documentStore.get()?.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-  const render = new RenderCoordinator()
-  const { state, projection, syncDocument } = createState({
+  const { state, projection, syncDocument, stateStore, stateAtoms } = createState({
     getDoc: documentStore.get,
     readViewport: viewport.get
   })
@@ -70,8 +68,10 @@ export const createEngine = ({
     readDoc: documentStore.get,
     viewport
   })
-  const viewRuntime = createViewRegistry({
+  const readRuntime = createReadRuntime({
     state,
+    stateStore,
+    stateAtoms,
     projection,
     query: queryRuntime.query,
     config
@@ -80,14 +80,13 @@ export const createEngine = ({
   const instance: InternalInstance = {
     mutate: null as unknown as InternalInstance['mutate'],
     state,
-    render,
     projection,
     document: documentStore,
     config,
     viewport,
     registries: runtimeRegistries,
     query: queryRuntime.query,
-    view: viewRuntime.view,
+    read: readRuntime,
     domains: null as unknown as InternalInstance['domains'],
     node: null as unknown as InternalInstance['node'],
     edge: null as unknown as InternalInstance['edge'],
@@ -258,26 +257,26 @@ export const createEngine = ({
     node: createNodeDomainApi({
       commands,
       query: queryRuntime.query,
-      view: viewRuntime.view
+      read: readRuntime
     }),
     edge: createEdgeDomainApi({
       commands,
       query: queryRuntime.query,
-      view: viewRuntime.view
+      read: readRuntime
     }),
     mindmap: createMindmapDomainApi({
       commands,
-      view: viewRuntime.view
+      read: readRuntime
     }),
     selection: createSelectionDomainApi({
       commands,
       state,
-      view: viewRuntime.view
+      read: readRuntime
     }),
     viewport: createViewportDomainApi({
       commands,
       query: queryRuntime.query,
-      view: viewRuntime.view
+      read: readRuntime
     })
   }
   instance.node = (id) =>
@@ -345,10 +344,9 @@ export const createEngine = ({
 
   return {
     state: instance.state,
-    render: instance.render,
     projection: instance.projection,
     query: instance.query,
-    view: instance.view,
+    read: instance.read,
     domains: instance.domains,
     node: instance.node,
     edge: instance.edge,

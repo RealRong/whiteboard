@@ -1,9 +1,3 @@
 export { useInstance } from './useInstance'
+export { useReadAtom } from './useReadAtom'
 export { useWhiteboardSelector } from './useWhiteboardSelector'
-export { useWhiteboardRenderSelector } from './useWhiteboardRenderSelector'
-export {
-  useViewSelector,
-  useViewportTransformView,
-  useEdgePreviewView,
-  useEdgeSelectedEndpointsView
-} from './useWhiteboardView'

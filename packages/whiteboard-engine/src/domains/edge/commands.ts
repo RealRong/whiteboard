@@ -24,7 +24,7 @@ import {
 
 type EdgeCommandsInstance = Pick<
   InternalInstance,
-  'state' | 'projection' | 'query' | 'view' | 'mutate' | 'document' | 'registries'
+  'state' | 'projection' | 'query' | 'read' | 'mutate' | 'document' | 'registries'
 >
 
 type Options = {
@@ -137,7 +137,7 @@ export const createEdgeCommands = ({ instance }: Options) => {
   }
 
   const insertRoutingPointAt = (edgeId: EdgeId, pointWorld: Point) => {
-    const entry = instance.view.getState().edges.byId.get(edgeId)
+    const entry = instance.read.get.edgeById(edgeId)
     if (!entry) return false
     const segmentIndex = instance.query.geometry.nearestEdgeSegment(
       pointWorld,
@@ -153,7 +153,7 @@ export const createEdgeCommands = ({ instance }: Options) => {
   }
 
   const removeRoutingPointAt = (edgeId: EdgeId, index: number) => {
-    const entry = instance.view.getState().edges.byId.get(edgeId)
+    const entry = instance.read.get.edgeById(edgeId)
     if (!entry) return false
     removeRoutingPoint(entry.edge, index)
     return true

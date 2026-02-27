@@ -169,8 +169,17 @@ export const useSelectionBoxInteraction = (
     activeRef.current = null
     setActivePointerId(null)
     selectionBoxStore.clear()
+    if (active.isSelecting) {
+      const pointer = instance.state.read('interaction').pointer
+      instance.commands.interaction.update({
+        pointer: {
+          ...pointer,
+          isDragging: false
+        }
+      })
+    }
     releaseSessionLock(active.pointerId)
-  }, [releaseSessionLock])
+  }, [instance.commands.interaction, releaseSessionLock])
 
   useWindowPointerSession({
     pointerId: activePointerId,
@@ -190,6 +199,15 @@ export const useSelectionBoxInteraction = (
         return
       }
 
+      if (!active.isSelecting) {
+        const pointer = instance.state.read('interaction').pointer
+        instance.commands.interaction.update({
+          pointer: {
+            ...pointer,
+            isDragging: true
+          }
+        })
+      }
       active.isSelecting = true
       selectionBoxStore.setRect(rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)

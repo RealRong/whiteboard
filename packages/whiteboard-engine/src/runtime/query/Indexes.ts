@@ -1,5 +1,5 @@
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
-import type { CanvasNodeRect } from '@engine-types/instance/view'
+import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import { DEFAULT_TUNING } from '../../config'

@@ -2,7 +2,7 @@ import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@whiteboard/engine'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo, useCallback } from 'react'
-import { useInstance, useViewSelector, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useReadAtom, useWhiteboardSelector } from '../../common/hooks'
 import { resolveEdgePathEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
 import {
   useEdgeRoutingPreviewState,
@@ -12,24 +12,9 @@ import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 
-const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
-const useEdgeIds = () => {
-  return useViewSelector((state) => state.edges.ids, {
-    equality: isSameIdOrder
-  })
-}
-
 const useEdgePath = (edgeId: EdgeId) => {
-  return useViewSelector<EdgePathEntry | undefined>(
-    (state) => state.edges.byId.get(edgeId)
-  )
+  const instance = useInstance()
+  return useReadAtom<EdgePathEntry | undefined>(instance.read.atoms.edgeById(edgeId))
 }
 
 type EdgeItemByIdProps = {
@@ -84,7 +69,7 @@ export const EdgeLayer = () => {
   const instance = useInstance()
   const { draft } = useEdgeRoutingPreviewState()
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
-  const edgeIds = useEdgeIds()
+  const edgeIds = useReadAtom(instance.read.atoms.edgeIds)
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,
     {

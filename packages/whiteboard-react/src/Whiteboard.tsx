@@ -1,6 +1,7 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
+import { useAtomValue } from 'jotai'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
@@ -177,17 +178,9 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     [resolvedConfig.style]
   )
 
-  const [viewportTransform, setViewportTransform] = useState(
-    () => instance.view.getState().viewport.transform
-  )
-  useEffect(() => {
-    const update = () => {
-      const next = instance.view.getState().viewport.transform
-      setViewportTransform((prev) => (Object.is(prev, next) ? prev : next))
-    }
-    update()
-    return instance.view.subscribe(update)
-  }, [instance])
+  const viewportTransform = useAtomValue(instance.read.atoms.viewportTransform, {
+    store: instance.read.store
+  })
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
   const resolvedViewportTransform = useMemo(
     () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),

@@ -6,18 +6,16 @@ import type { Lifecycle } from './lifecycle'
 import type { InstanceConfig } from './config'
 import type { Query } from './query'
 import type { State } from './state'
-import type { Render } from './render'
-import type { View } from './view'
+import type { EngineRead } from './read'
 import type { ProjectionStore } from '../projection'
 import type { ViewportApi } from '../viewport'
 import type { DomainApis, DomainEntityApis } from '../domains'
 
 export type Instance = {
   state: State
-  render: Render
   projection: ProjectionStore
   query: Query
-  view: View
+  read: EngineRead
   domains: DomainApis
   node: DomainEntityApis['node']
   edge: DomainEntityApis['edge']

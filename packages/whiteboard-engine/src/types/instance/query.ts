@@ -5,7 +5,7 @@ import type { InstanceConfig } from './config'
 import type {
   CanvasNodeRect,
   EdgeConnectAnchorResult
-} from './view'
+} from './read'
 
 export type QueryCanvas = {
   nodeRects: () => CanvasNodeRect[]

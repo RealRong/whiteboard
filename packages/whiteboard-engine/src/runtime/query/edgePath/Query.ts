@@ -1,6 +1,6 @@
 import { getEdgePath } from '@whiteboard/core/edge'
 import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/cache'
-import type { EdgePathEntry } from '@engine-types/instance/view'
+import type { EdgePathEntry } from '@engine-types/instance/read'
 import { Cache } from './Cache'
 import { Index } from './Index'
 import { Invalidation } from './Invalidation'
@@ -102,6 +102,16 @@ export const createEdgePathStore = ({
     return cache.getEntries()
   }
 
+  const getIds: EdgePathStore['getIds'] = () => {
+    ensureEntries()
+    return cache.getIds()
+  }
+
+  const getById: EdgePathStore['getById'] = () => {
+    ensureEntries()
+    return cache.getById()
+  }
+
   const getEdge: EdgePathStore['getEdge'] = (edgeId) => {
     ensureEntries()
     return index.getEdge(edgeId)
@@ -110,6 +120,8 @@ export const createEdgePathStore = ({
   return {
     applyCommit,
     getEntries,
+    getIds,
+    getById,
     getEdge
   }
 }

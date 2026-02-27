@@ -142,8 +142,8 @@ export const useMindmapDragInteraction = () => {
   }, [])
 
   const readTree = useCallback(
-    (treeId: NodeId) => instance.view.getState().mindmap.byId.get(treeId),
-    [instance.view]
+    (treeId: NodeId) => instance.read.get.mindmapById(treeId),
+    [instance.read]
   )
 
   useWindowPointerSession({

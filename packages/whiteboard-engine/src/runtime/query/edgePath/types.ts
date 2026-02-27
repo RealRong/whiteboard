@@ -1,6 +1,6 @@
 import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
-import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/view'
+import type { EdgePathEntry, EdgeEndpoints } from '@engine-types/instance/read'
 import type { ProjectionCommit, ProjectionSnapshot } from '@engine-types/projection'
 
 export type ResolveEndpoints = (edge: Edge) => EdgeEndpoints | undefined
@@ -21,5 +21,7 @@ export type EdgePathStoreOptions = {
 export type EdgePathStore = {
   applyCommit: (commit: ProjectionCommit) => void
   getEntries: () => EdgePathEntry[]
+  getIds: () => EdgeId[]
+  getById: () => Map<EdgeId, EdgePathEntry>
   getEdge: (edgeId: EdgeId) => Edge | undefined
 }

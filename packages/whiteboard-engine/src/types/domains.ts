@@ -10,10 +10,9 @@ import type {
   NodeViewItem,
   NodesView,
   ViewportView
-} from './instance/view'
+} from './instance/read'
 import type { SelectionMode, SelectionState } from './state'
 
-type DomainSubscribe = (listener: () => void) => () => void
 type BindFirst<T> = T extends (first: any, ...rest: infer TRest) => infer TResult
   ? (...rest: TRest) => TResult
   : never
@@ -33,10 +32,9 @@ export type NodeDomainApi = {
     rect: Query['canvas']['nodeRect']
     idsInRect: Query['canvas']['nodeIdsInRect']
   }
-  view: {
+  read: {
     get: () => NodesView
     getById: (id: NodeId) => NodeViewItem | undefined
-    subscribe: DomainSubscribe
   }
 }
 
@@ -55,10 +53,9 @@ export type EdgeDomainApi = {
   query: {
     nearestSegment: Query['geometry']['nearestEdgeSegment']
   }
-  view: {
+  read: {
     get: () => EdgesView
     getById: (id: EdgeId) => EdgePathEntry | undefined
-    subscribe: DomainSubscribe
   }
 }
 
@@ -67,9 +64,8 @@ export type MindmapDomainApi = {
   query: {
     getTree: (id: MindmapId) => MindmapViewTree | undefined
   }
-  view: {
+  read: {
     get: () => MindmapView
-    subscribe: DomainSubscribe
   }
 }
 
@@ -81,18 +77,16 @@ export type SelectionDomainApi = {
     getSelectedEdgeId: () => EdgeId | undefined
     getMode: () => SelectionMode
   }
-  view: {
+  read: {
     getEdgeSelection: () => EdgesView['selection']
-    subscribe: DomainSubscribe
   }
 }
 
 export type ViewportDomainApi = {
   commands: Commands['viewport']
   query: Query['viewport']
-  view: {
+  read: {
     get: () => ViewportView
-    subscribe: DomainSubscribe
   }
 }
 
@@ -121,7 +115,7 @@ export type NodeEntityApi = {
   }
   query: {
     rect: () => ReturnType<Query['canvas']['nodeRect']>
-    view: () => NodeViewItem | undefined
+    read: () => NodeViewItem | undefined
   }
 }
 
@@ -141,7 +135,7 @@ export type EdgeEntityApi = {
     sendBackward: () => ReturnType<Commands['order']['edge']['sendBackward']>
   }
   query: {
-    view: () => EdgePathEntry | undefined
+    read: () => EdgePathEntry | undefined
   }
 }
 

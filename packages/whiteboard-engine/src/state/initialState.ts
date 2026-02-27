@@ -1,6 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { WritableStateSnapshot } from '@engine-types/instance/state'
-import type { WritableRenderSnapshot } from '@engine-types/instance/render'
 import { DEFAULT_CONFIG } from '../config'
 
 export const createInitialState = (): WritableStateSnapshot => ({
@@ -32,12 +31,4 @@ export const createInitialState = (): WritableStateSnapshot => ({
     mode: 'replace'
   },
   mindmapLayout: { ...DEFAULT_CONFIG.mindmapLayout }
-})
-
-export const createInitialRenderState = (): WritableRenderSnapshot => ({
-  selectionBox: {
-    isSelecting: false,
-    selectionRect: undefined,
-    selectionRectWorld: undefined
-  }
 })

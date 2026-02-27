@@ -40,8 +40,8 @@ export const useEdgeRoutingInteraction = () => {
 
   const readEdgeById = useCallback(
     (edgeId: EdgeId) =>
-      instance.view.getState().edges.byId.get(edgeId) as EdgeEntry | undefined,
-    [instance.view]
+      instance.read.get.edgeById(edgeId) as EdgeEntry | undefined,
+    [instance.read]
   )
 
   const clearActive = useCallback((pointerId?: number) => {

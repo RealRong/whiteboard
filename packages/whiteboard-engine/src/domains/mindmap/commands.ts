@@ -30,7 +30,7 @@ import { DEFAULT_TUNING } from '../../config'
 import { StateWatchEmitter } from '../../runtime/actors/shared/StateWatchEmitter'
 
 type ActorOptions = {
-  instance: Pick<InternalInstance, 'state' | 'view' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>
+  instance: Pick<InternalInstance, 'state' | 'document' | 'projection' | 'mutate' | 'emit' | 'config'>
 }
 
 export type MindmapController = Commands['mindmap'] & {
