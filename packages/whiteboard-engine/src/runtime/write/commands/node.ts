@@ -20,6 +20,7 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
+import { createScopedId } from '../id'
 
 type NodeCommandsInstance = Pick<
   InternalInstance,
@@ -36,25 +37,9 @@ const createInvalidResult = (message: string): DispatchResult =>
 export const createNodeCommands = ({ instance }: Options) => {
   const readDoc = (): Document => instance.document.get()
 
-  const createGroupId = () => {
-    const exists = (id: string) => Boolean(readDoc().nodes.some((node) => node.id === id))
-    const seed = Date.now().toString(36)
-    for (let index = 0; index < 1024; index += 1) {
-      const id = `group_${seed}_${index.toString(36)}`
-      if (!exists(id)) return id
-    }
-    return `group_${seed}_${Math.random().toString(36).slice(2, 8)}`
-  }
-
-  const createNodeId = () => {
-    const exists = (id: string) => Boolean(readDoc().nodes.some((node) => node.id === id))
-    const seed = Date.now().toString(36)
-    for (let index = 0; index < 1024; index += 1) {
-      const id = `node_${seed}_${index.toString(36)}`
-      if (!exists(id)) return id
-    }
-    return `node_${seed}_${Math.random().toString(36).slice(2, 8)}`
-  }
+  const hasNodeId = (id: string) => readDoc().nodes.some((node) => node.id === id)
+  const createGroupId = () => createScopedId({ prefix: 'group', exists: hasNodeId })
+  const createNodeId = () => createScopedId({ prefix: 'node', exists: hasNodeId })
 
   const buildCreateOperation = (payload: NodeInput) => {
     const result = buildNodeCreateOperationCore({

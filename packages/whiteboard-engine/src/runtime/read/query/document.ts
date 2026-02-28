@@ -5,6 +5,6 @@ type Options = {
   readDoc: () => Document
 }
 
-export const createDocument = ({ readDoc }: Options): QueryDocument => ({
+export const document = ({ readDoc }: Options): QueryDocument => ({
   get: readDoc
 })

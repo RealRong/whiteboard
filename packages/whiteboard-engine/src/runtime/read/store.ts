@@ -1,15 +1,17 @@
 import { type createStore } from 'jotai/vanilla'
+import { atom } from 'jotai/vanilla'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { EngineRead } from '@engine-types/instance/read'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { State } from '@engine-types/instance/state'
 import type { StateAtoms } from '../../state/factory/CreateState'
-import type { ReadAtoms } from './atoms/createReadAtoms'
+import type { ReadAtoms } from './atoms/read'
 import type { Change } from '../write/pipeline/ChangeBus'
-import { createEdgeReadDomain } from './edge/createEdgeReadDomain'
-import { createNodeReadDomain } from './node/createNodeReadDomain'
-import { createMindmapReadDomain } from './mindmap/createMindmapReadDomain'
+import { model as edgeModel } from './edge/model'
+import { view as edgeView } from './edge/view'
+import { domain as nodeDomain } from './node/domain'
+import { domain as mindmapDomain } from './mindmap/domain'
 
 type Options = {
   state: State
@@ -25,7 +27,21 @@ export type ReadStore = {
   applyChange: (change: Change) => void
 }
 
-export const createReadStore = ({
+const shouldBumpEdgeRevision = (change: Change) => {
+  if (change.kind === 'replace') return true
+  const { impact } = change
+  if (
+    impact.tags.has('full') ||
+    impact.tags.has('edges') ||
+    impact.tags.has('mindmap') ||
+    impact.tags.has('geometry')
+  ) {
+    return true
+  }
+  return Boolean(impact.dirtyNodeIds?.length || impact.dirtyEdgeIds?.length)
+}
+
+export const store = ({
   state,
   runtimeStore,
   stateAtoms,
@@ -33,28 +49,34 @@ export const createReadStore = ({
   config,
   getNodeRect
 }: Options): ReadStore => {
-  const store = runtimeStore
+  const runtime = runtimeStore
   const readSnapshotAtom = readAtoms.snapshot
 
-  const readSnapshot = (): ReadModelSnapshot => store.get(readSnapshotAtom)
+  const readSnapshot = (): ReadModelSnapshot => runtime.get(readSnapshotAtom)
 
-  const edgeDomain = createEdgeReadDomain({
-    store,
-    selectionAtom: stateAtoms.selection,
+  const edgeRevisionAtom = atom(0)
+  const edge = edgeModel({
     readSnapshot,
     getNodeRect
   })
+  const edgeAtoms = edgeView({
+    selectionAtom: stateAtoms.selection,
+    edgeRevisionAtom,
+    getEdgeIds: edge.getIds,
+    getEdgeById: edge.getById,
+    getEdgeEndpoints: edge.getEndpoints
+  })
 
-  const nodeDomain = createNodeReadDomain({
-    store,
+  const node = nodeDomain({
+    store: runtime,
     viewportAtom: stateAtoms.viewport,
     readSnapshotAtom,
     readSnapshot,
     getNodeRect
   })
 
-  const mindmapDomain = createMindmapReadDomain({
-    store,
+  const mindmap = mindmapDomain({
+    store: runtime,
     readState: state.read,
     readSnapshot,
     readSnapshotAtom,
@@ -63,9 +85,12 @@ export const createReadStore = ({
   })
 
   const applyChange: ReadStore['applyChange'] = (change) => {
-    edgeDomain.applyChange(change)
-    nodeDomain.applyChange(change)
-    mindmapDomain.applyChange(change)
+    edge.applyChange(change)
+    if (shouldBumpEdgeRevision(change)) {
+      runtime.set(edgeRevisionAtom, (previous: number) => previous + 1)
+    }
+    node.applyChange?.(change)
+    mindmap.applyChange?.(change)
   }
 
   const atoms = {
@@ -74,26 +99,26 @@ export const createReadStore = ({
     selection: stateAtoms.selection,
     viewport: stateAtoms.viewport,
     mindmapLayout: stateAtoms.mindmapLayout,
-    ...nodeDomain.atoms,
-    ...edgeDomain.atoms,
-    ...mindmapDomain.atoms
+    ...node.atoms,
+    ...edgeAtoms,
+    ...mindmap.atoms
   }
 
   return {
     applyChange,
     read: {
-      store,
+      store: runtime,
       atoms,
       get: {
-        viewportTransform: nodeDomain.get.viewportTransform,
-        nodeIds: nodeDomain.get.nodeIds,
-        nodeById: nodeDomain.get.nodeById,
-        edgeIds: edgeDomain.get.edgeIds,
-        edgeById: edgeDomain.get.edgeById,
-        selectedEdgeId: edgeDomain.get.selectedEdgeId,
-        edgeSelectedEndpoints: edgeDomain.get.edgeSelectedEndpoints,
-        mindmapIds: mindmapDomain.get.mindmapIds,
-        mindmapById: mindmapDomain.get.mindmapById
+        viewportTransform: node.get.viewportTransform,
+        nodeIds: node.get.nodeIds,
+        nodeById: node.get.nodeById,
+        edgeIds: () => runtime.get(edgeAtoms.edgeIds),
+        edgeById: (id) => runtime.get(edgeAtoms.edgeById(id)),
+        selectedEdgeId: () => runtime.get(edgeAtoms.selectedEdgeId),
+        edgeSelectedEndpoints: () => runtime.get(edgeAtoms.edgeSelectedEndpoints),
+        mindmapIds: mindmap.get.mindmapIds,
+        mindmapById: mindmap.get.mindmapById
       }
     }
   }

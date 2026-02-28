@@ -1,18 +1,18 @@
 import type { Atom, createStore } from 'jotai/vanilla'
 import type { NodeId } from '@whiteboard/core/types'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { MindmapViewTree } from '@engine-types/instance/read'
+import type { MindmapView, MindmapViewTree } from '@engine-types/instance/read'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { State } from '@engine-types/instance/state'
 import type { StateAtoms } from '../../../state/factory/CreateState'
 import type { Change } from '../../write/pipeline/ChangeBus'
-import { createMindmapModel } from './createMindmapModel'
+import { derivations } from './derivations'
 import {
-  createMindmapView,
+  view,
   type MindmapViewAtoms
-} from './createMindmapView'
+} from './view'
 
-type CreateMindmapReadDomainOptions = {
+type MindmapOptions = {
   store: ReturnType<typeof createStore>
   readState: State['read']
   readSnapshot: () => ReadModelSnapshot
@@ -23,38 +23,71 @@ type CreateMindmapReadDomainOptions = {
 
 export type MindmapReadDomain = {
   atoms: MindmapViewAtoms
-  applyChange: (change: Change) => void
+  applyChange?: (change: Change) => void
   get: {
     mindmapIds: () => NodeId[]
     mindmapById: (id: NodeId) => MindmapViewTree | undefined
   }
 }
 
-export const createMindmapReadDomain = ({
+type MindmapViewCache = {
+  trees: MindmapViewTree[]
+  view: MindmapView
+}
+
+const isSameMindmapTreeList = (
+  left: readonly MindmapViewTree[],
+  right: readonly MindmapViewTree[]
+) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+export const domain = ({
   store,
   readState,
   readSnapshot,
   readSnapshotAtom,
   mindmapLayoutAtom,
   config
-}: CreateMindmapReadDomainOptions): MindmapReadDomain => {
-  const mindmapModel = createMindmapModel({
+}: MindmapOptions): MindmapReadDomain => {
+  const model = derivations({
     readState,
     readSnapshot,
     config
   })
+  let mindmapViewCache: MindmapViewCache | undefined
 
-  const atoms = createMindmapView({
+  const getMindmapView = (): MindmapView => {
+    const trees = model.trees()
+    if (mindmapViewCache && isSameMindmapTreeList(mindmapViewCache.trees, trees)) {
+      return mindmapViewCache.view
+    }
+
+    const view: MindmapView = {
+      ids: trees.map((entry) => entry.id),
+      byId: new Map(trees.map((entry) => [entry.id, entry]))
+    }
+    mindmapViewCache = {
+      trees,
+      view
+    }
+    return view
+  }
+
+  const atoms = view({
     mindmapLayoutAtom,
     readSnapshotAtom,
-    mindmapModel
+    getMindmapIds: () => getMindmapView().ids,
+    getMindmapById: (id) => getMindmapView().byId.get(id)
   })
 
   return {
     atoms,
-    applyChange: (change) => {
-      mindmapModel.applyChange(change)
-    },
     get: {
       mindmapIds: () => store.get(atoms.mindmapIds),
       mindmapById: (id) => store.get(atoms.mindmapById(id))

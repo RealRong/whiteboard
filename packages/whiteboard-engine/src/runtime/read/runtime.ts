@@ -6,16 +6,16 @@ import type { EngineRead } from '@engine-types/instance/read'
 import type { State } from '@engine-types/instance/state'
 import type { ViewportApi } from '@engine-types/viewport'
 import type { StateAtoms } from '../../state/factory/CreateState'
-import type { ReadAtoms } from './atoms/createReadAtoms'
+import type { ReadAtoms } from './atoms/read'
 import type { Change } from '../write/pipeline/ChangeBus'
-import { createReadStore } from './createReadStore'
-import { createIndex } from './index/createIndex'
-import { createCanvas } from './query/canvas'
-import { createConfig } from './query/config'
-import { createDocument } from './query/document'
-import { createGeometry } from './query/geometry'
-import { createSnap } from './query/snap'
-import { createViewport } from './query/viewport'
+import { store as readStore } from './store'
+import { runtime as indexRuntime } from './index/runtime'
+import { canvas } from './query/canvas'
+import { config as queryConfig } from './query/config'
+import { document as queryDocument } from './query/document'
+import { geometry } from './query/geometry'
+import { snap } from './query/snap'
+import { viewport as queryViewport } from './query/viewport'
 
 type Options = {
   state: State
@@ -33,7 +33,7 @@ export type ReadRuntime = {
   applyChange: (change: Change) => void
 }
 
-export const createReadRuntime = ({
+export const runtime = ({
   state,
   runtimeStore,
   stateAtoms,
@@ -44,42 +44,42 @@ export const createReadRuntime = ({
 }: Options): ReadRuntime => {
   const readSnapshot = () => runtimeStore.get(readAtoms.snapshot)
 
-  const index = createIndex({
+  const index = indexRuntime({
     readSnapshot,
     config
   })
 
-  const canvas = createCanvas({
+  const canvasQuery = canvas({
     indexes: index
   })
-  const snap = createSnap({
+  const snapQuery = snap({
     indexes: index
   })
 
   const query: Query = {
-    doc: createDocument({ readDoc }),
-    viewport: createViewport({ viewport }),
-    config: createConfig({ config }),
-    canvas,
-    snap,
-    geometry: createGeometry({ config })
+    doc: queryDocument({ readDoc }),
+    viewport: queryViewport({ viewport }),
+    config: queryConfig({ config }),
+    canvas: canvasQuery,
+    snap: snapQuery,
+    geometry: geometry({ config })
   }
 
-  const readStore = createReadStore({
+  const readLayer = readStore({
     state,
     runtimeStore,
     stateAtoms,
     readAtoms,
     config,
-    getNodeRect: canvas.nodeRect
+    getNodeRect: canvasQuery.nodeRect
   })
 
   return {
     query,
-    read: readStore.read,
+    read: readLayer.read,
     applyChange: (change) => {
       index.applyChange(change)
-      readStore.applyChange(change)
+      readLayer.applyChange(change)
     }
   }
 }

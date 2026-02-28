@@ -21,6 +21,7 @@ import {
   sendOrderBackward,
   sendOrderToBack
 } from '@whiteboard/core/utils'
+import { createScopedId } from '../id'
 
 type EdgeCommandsInstance = Pick<
   InternalInstance,
@@ -38,16 +39,8 @@ const createInvalidResult = (message: string): DispatchResult => ({
 })
 
 export const createEdgeCommands = ({ instance }: Options) => {
-  const createEdgeId = () => {
-    const exists = (id: string) =>
-      Boolean(instance.document.get().edges.some((edge) => edge.id === id))
-    const seed = Date.now().toString(36)
-    for (let index = 0; index < 1024; index += 1) {
-      const id = `edge_${seed}_${index.toString(36)}`
-      if (!exists(id)) return id
-    }
-    return `edge_${seed}_${Math.random().toString(36).slice(2, 8)}`
-  }
+  const hasEdgeId = (id: string) => instance.document.get().edges.some((edge) => edge.id === id)
+  const createEdgeId = () => createScopedId({ prefix: 'edge', exists: hasEdgeId })
 
   const create = (payload: EdgeInput) => {
     const built = buildEdgeCreateOperation({

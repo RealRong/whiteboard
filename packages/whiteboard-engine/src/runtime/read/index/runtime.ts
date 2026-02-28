@@ -3,11 +3,11 @@ import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { Change } from '../../write/pipeline/ChangeBus'
 import { hasImpactTag } from '../../write/mutation/Impact'
 import {
-  createIndexStore,
+  store,
   type IndexStore
-} from './createIndexStore'
+} from './store'
 
-type CreateIndexOptions = {
+type IndexOptions = {
   readSnapshot: () => ReadModelSnapshot
   config: InstanceConfig
 }
@@ -16,13 +16,13 @@ export type IndexRuntime = IndexStore & {
   applyChange: (change: Change) => void
 }
 
-export const createIndex = ({
+export const runtime = ({
   readSnapshot,
   config
-}: CreateIndexOptions): IndexRuntime => {
+}: IndexOptions): IndexRuntime => {
   let snapshot = readSnapshot()
 
-  const indexes = createIndexStore({
+  const indexes = store({
     config
   })
   indexes.sync(snapshot.nodes.canvas)

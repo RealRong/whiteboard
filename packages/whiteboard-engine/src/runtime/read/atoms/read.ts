@@ -6,15 +6,15 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import { createVisibleEdgesAtom } from './edges'
-import { createIndexesAtom } from './indexes'
+import { visibleEdges } from './edges'
+import { indexes } from './indexes'
 import {
-  createCanvasNodesAtom,
-  createMindmapRootsAtom,
-  createOrderedNodesAtom,
-  createVisibleNodesAtom
+  canvasNodes,
+  mindmapRoots,
+  orderedNodes,
+  visibleNodes
 } from './nodes'
-import { createSnapshotAtom } from './snapshot'
+import { snapshot } from './snapshot'
 
 export type ReadAtoms = {
   document: PrimitiveAtom<Document>
@@ -28,21 +28,21 @@ export type ReadAtoms = {
   snapshot: Atom<ReadModelSnapshot>
 }
 
-type CreateReadAtomsOptions = {
+type ReadOptions = {
   documentAtom: PrimitiveAtom<Document>
   revisionAtom: PrimitiveAtom<number>
 }
 
-export const createReadAtoms = ({
+export const read = ({
   documentAtom,
   revisionAtom
-}: CreateReadAtomsOptions): ReadAtoms => {
-  const orderedNodesAtom = createOrderedNodesAtom(documentAtom)
-  const visibleNodesAtom = createVisibleNodesAtom(orderedNodesAtom)
-  const canvasNodesAtom = createCanvasNodesAtom(visibleNodesAtom)
-  const visibleEdgesAtom = createVisibleEdgesAtom(documentAtom, canvasNodesAtom)
-  const mindmapRootsAtom = createMindmapRootsAtom(visibleNodesAtom)
-  const indexesAtom = createIndexesAtom(visibleNodesAtom, canvasNodesAtom)
+}: ReadOptions): ReadAtoms => {
+  const orderedNodesAtom = orderedNodes(documentAtom)
+  const visibleNodesAtom = visibleNodes(orderedNodesAtom)
+  const canvasNodesAtom = canvasNodes(visibleNodesAtom)
+  const visibleEdgesAtom = visibleEdges(documentAtom, canvasNodesAtom)
+  const mindmapRootsAtom = mindmapRoots(visibleNodesAtom)
+  const indexesAtom = indexes(visibleNodesAtom, canvasNodesAtom)
 
   return {
     document: documentAtom,
@@ -53,7 +53,7 @@ export const createReadAtoms = ({
     visibleEdges: visibleEdgesAtom,
     mindmapRoots: mindmapRootsAtom,
     indexes: indexesAtom,
-    snapshot: createSnapshotAtom({
+    snapshot: snapshot({
       documentAtom,
       revisionAtom,
       visibleNodesAtom,

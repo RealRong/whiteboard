@@ -11,7 +11,7 @@ const deriveMindmapRoots = (visibleNodes: readonly Node[]): NodeId[] => {
   return roots.length ? roots : EMPTY_NODE_IDS
 }
 
-export const createOrderedNodesAtom = (
+export const orderedNodes = (
   documentAtom: PrimitiveAtom<Document>
 ): Atom<Node[]> => {
   let previousNodesRef: Document['nodes'] | undefined
@@ -47,7 +47,7 @@ export const createOrderedNodesAtom = (
   })
 }
 
-export const createVisibleNodesAtom = (orderedNodesAtom: Atom<Node[]>): Atom<Node[]> => {
+export const visibleNodes = (orderedNodesAtom: Atom<Node[]>): Atom<Node[]> => {
   let orderedNodesRef: Node[] | undefined
   let visibleCache: Node[] = EMPTY_NODES
 
@@ -68,7 +68,7 @@ export const createVisibleNodesAtom = (orderedNodesAtom: Atom<Node[]>): Atom<Nod
   })
 }
 
-export const createCanvasNodesAtom = (visibleNodesAtom: Atom<Node[]>): Atom<Node[]> => {
+export const canvasNodes = (visibleNodesAtom: Atom<Node[]>): Atom<Node[]> => {
   let visibleNodesRef: Node[] | undefined
   let canvasCache: Node[] = EMPTY_NODES
 
@@ -89,7 +89,7 @@ export const createCanvasNodesAtom = (visibleNodesAtom: Atom<Node[]>): Atom<Node
   })
 }
 
-export const createMindmapRootsAtom = (visibleNodesAtom: Atom<Node[]>): Atom<NodeId[]> => {
+export const mindmapRoots = (visibleNodesAtom: Atom<Node[]>): Atom<NodeId[]> => {
   let visibleNodesRef: Node[] | undefined
   let rootsCache: NodeId[] = EMPTY_NODE_IDS
 

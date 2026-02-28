@@ -1,11 +1,11 @@
 import type { QuerySnap } from '@engine-types/instance/query'
-import type { IndexStore } from '../index/createIndexStore'
+import type { IndexStore } from '../index/store'
 
 type Options = {
   indexes: IndexStore
 }
 
-export const createSnap = ({
+export const snap = ({
   indexes
 }: Options): QuerySnap => {
   const candidates: QuerySnap['candidates'] = () =>

@@ -2,7 +2,7 @@ import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import type { Document, Edge, EdgeId, Node } from '@whiteboard/core/types'
 import { EMPTY_EDGES, isSameNodeIdOrder, orderByIds } from './shared'
 
-export const createVisibleEdgesAtom = (
+export const visibleEdges = (
   documentAtom: PrimitiveAtom<Document>,
   canvasNodesAtom: Atom<Node[]>
 ): Atom<Edge[]> => {

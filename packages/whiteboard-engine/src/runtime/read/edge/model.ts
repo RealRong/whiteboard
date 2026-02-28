@@ -40,7 +40,7 @@ type EdgeModelState = {
   byId: Map<EdgeId, EdgePathEntry>
 }
 
-const createEmptyState = (): EdgeModelState => ({
+const emptyState = (): EdgeModelState => ({
   edgesRef: undefined,
   pendingDirtyNodeIds: new Set<NodeId>(),
   edgeById: new Map<EdgeId, Edge>(),
@@ -93,11 +93,11 @@ const syncRelations = (state: EdgeModelState, edges: Edge[]) => {
   state.nodeToEdgeIds = relations.nodeToEdgeIds
 }
 
-export const createEdgeModel = ({
+export const model = ({
   readSnapshot,
   getNodeRect
 }: EdgeModelOptions): EdgeReadModel => {
-  const state = createEmptyState()
+  const state = emptyState()
 
   const getNodeGeometrySignature = (
     nodeId: EdgePathEntry['edge']['source']['nodeId']

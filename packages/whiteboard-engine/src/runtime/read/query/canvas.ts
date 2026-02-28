@@ -1,12 +1,12 @@
 import type { QueryCanvas } from '@engine-types/instance/query'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
-import type { IndexStore } from '../index/createIndexStore'
+import type { IndexStore } from '../index/store'
 
 type Options = {
   indexes: IndexStore
 }
 
-export const createCanvas = ({
+export const canvas = ({
   indexes
 }: Options): QueryCanvas => {
   const nodeRects: QueryCanvas['nodeRects'] = () => indexes.getNodeRects()

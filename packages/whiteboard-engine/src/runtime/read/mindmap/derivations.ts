@@ -20,7 +20,7 @@ type MindmapDerivationOptions = {
   config: InstanceConfig
 }
 
-export const createMindmapDerivations = ({
+export const derivations = ({
   readState,
   readSnapshot,
   config

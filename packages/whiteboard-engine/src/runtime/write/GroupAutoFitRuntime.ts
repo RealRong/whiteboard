@@ -1,10 +1,10 @@
 import type { Node } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../../Scheduler'
-import { MicrotaskTask } from '../../TaskQueue'
-import { DEFAULT_TUNING } from '../../../config'
-import type { Change, ChangeBus } from '../pipeline/ChangeBus'
+import type { Scheduler } from '../Scheduler'
+import { MicrotaskTask } from '../TaskQueue'
+import { DEFAULT_TUNING } from '../../config'
+import type { Change, ChangeBus } from './pipeline/ChangeBus'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,

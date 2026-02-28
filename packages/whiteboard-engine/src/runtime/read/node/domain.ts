@@ -1,15 +1,15 @@
 import type { createStore } from 'jotai/vanilla'
-import type { NodeId } from '@whiteboard/core/types'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import type { QueryCanvas } from '@engine-types/instance/query'
 import type { NodeViewItem, ViewportTransformView } from '@engine-types/instance/read'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { Atom } from 'jotai/vanilla'
 import type { StateAtoms } from '../../../state/factory/CreateState'
+import { toLayerOrderedCanvasNodes } from '@whiteboard/core/node'
 import type { Change } from '../../write/pipeline/ChangeBus'
-import { createNodeModel } from './createNodeModel'
-import { createNodeView, type NodeViewAtoms } from './createNodeView'
+import { view, type NodeViewAtoms } from './view'
 
-type CreateNodeReadDomainOptions = {
+type NodeOptions = {
   store: ReturnType<typeof createStore>
   viewportAtom: StateAtoms['viewport']
   readSnapshotAtom: Atom<ReadModelSnapshot>
@@ -19,7 +19,7 @@ type CreateNodeReadDomainOptions = {
 
 export type NodeReadDomain = {
   atoms: NodeViewAtoms
-  applyChange: (change: Change) => void
+  applyChange?: (change: Change) => void
   get: {
     viewportTransform: () => ViewportTransformView
     nodeIds: () => NodeId[]
@@ -27,29 +27,49 @@ export type NodeReadDomain = {
   }
 }
 
-export const createNodeReadDomain = ({
+const isSameNodeOrder = (left: readonly string[], right: readonly string[]) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+export const domain = ({
   store,
   viewportAtom,
   readSnapshotAtom,
   readSnapshot,
   getNodeRect
-}: CreateNodeReadDomainOptions): NodeReadDomain => {
-  const nodeModel = createNodeModel({
-    readSnapshot
-  })
+}: NodeOptions): NodeReadDomain => {
+  let nodeIdsCache: NodeId[] = []
+  let nodeIdsSourceRef: Node[] | undefined
 
-  const atoms = createNodeView({
+  const getNodeIds = () => {
+    const canvasNodes = readSnapshot().nodes.canvas
+    if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
+
+    const next = toLayerOrderedCanvasNodes(canvasNodes).map((node) => node.id)
+    if (isSameNodeOrder(nodeIdsCache, next)) {
+      nodeIdsSourceRef = canvasNodes
+      return nodeIdsCache
+    }
+
+    nodeIdsSourceRef = canvasNodes
+    nodeIdsCache = next
+    return nodeIdsCache
+  }
+
+  const atoms = view({
     viewportAtom,
     readSnapshotAtom,
     getNodeRect,
-    nodeModel
+    getNodeIds
   })
 
   return {
     atoms,
-    applyChange: (change) => {
-      nodeModel.applyChange(change)
-    },
     get: {
       viewportTransform: () => store.get(atoms.viewportTransform),
       nodeIds: () => store.get(atoms.nodeIds),

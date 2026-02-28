@@ -5,7 +5,7 @@ type Options = {
   viewport: ViewportApi
 }
 
-export const createViewport = ({ viewport }: Options): QueryViewport => ({
+export const viewport = ({ viewport }: Options): QueryViewport => ({
   get: viewport.get,
   getZoom: viewport.getZoom,
   screenToWorld: viewport.screenToWorld,

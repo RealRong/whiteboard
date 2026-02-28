@@ -13,6 +13,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { ChangeBus } from './ChangeBus'
 import type { PrimitiveAtom } from 'jotai/vanilla'
+import { createBatchId } from '../id'
 
 type ResetDocumentInput = {
   doc: Document
@@ -76,11 +77,6 @@ export class MutationExecutor {
       }
       return Date.now()
     })
-  }
-
-  private createBatchId = (prefix: 'ms') => {
-    const random = Math.random().toString(36).slice(2, 10)
-    return `${prefix}_${Date.now().toString(36)}_${random}`
   }
 
   private createKernelRegistriesSnapshot = (): KernelRegistriesSnapshot => ({
@@ -178,7 +174,7 @@ export class MutationExecutor {
     return {
       ok: true,
       changes: {
-        id: this.createBatchId('ms'),
+        id: createBatchId('ms'),
         timestamp: timestamp ?? this.now(),
         operations: [],
         origin

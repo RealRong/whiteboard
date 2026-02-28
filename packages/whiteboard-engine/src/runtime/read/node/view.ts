@@ -7,13 +7,12 @@ import type {
 } from '@engine-types/instance/read'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { StateAtoms } from '../../../state/factory/CreateState'
-import type { NodeReadModel } from './createNodeModel'
 
 type NodeViewOptions = {
   viewportAtom: StateAtoms['viewport']
   readSnapshotAtom: Atom<ReadModelSnapshot>
   getNodeRect: QueryCanvas['nodeRect']
-  nodeModel: Pick<NodeReadModel, 'getNodeIds'>
+  getNodeIds: () => NodeId[]
 }
 
 export type NodeViewAtoms = {
@@ -34,11 +33,11 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-export const createNodeView = ({
+export const view = ({
   viewportAtom,
   readSnapshotAtom,
   getNodeRect,
-  nodeModel
+  getNodeIds
 }: NodeViewOptions): NodeViewAtoms => {
   const nodeByIdAtoms = new Map<NodeId, Atom<NodeViewItem | undefined>>()
   const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
@@ -49,7 +48,7 @@ export const createNodeView = ({
 
   const nodeIdsAtom = atom((get) => {
     get(readSnapshotAtom)
-    return nodeModel.getNodeIds()
+    return getNodeIds()
   })
 
   const nodeById = (id: NodeId) => {

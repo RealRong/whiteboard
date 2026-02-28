@@ -5,6 +5,6 @@ type Options = {
   config: InstanceConfig
 }
 
-export const createConfig = ({ config }: Options): QueryConfig => ({
+export const config = ({ config }: Options): QueryConfig => ({
   get: () => config
 })

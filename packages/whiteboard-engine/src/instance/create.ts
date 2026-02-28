@@ -18,8 +18,8 @@ import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
 import { GroupAutoFitRuntime } from '../runtime/write/GroupAutoFitRuntime'
 import { ViewportRuntime } from '../runtime/Viewport'
-import { createReadRuntime } from '../runtime/read/createReadRuntime'
-import { createReadAtoms } from '../runtime/read/atoms/createReadAtoms'
+import { runtime as readRuntimeFactory } from '../runtime/read/runtime'
+import { read as readAtomsFactory } from '../runtime/read/atoms/read'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
 
@@ -214,7 +214,7 @@ export const createEngine = ({
     getDoc: documentStore.get,
     store: runtimeStore
   })
-  const readAtoms = createReadAtoms({
+  const readAtoms = readAtomsFactory({
     documentAtom: stateAtoms.document,
     revisionAtom: stateAtoms.readModelRevision
   })
@@ -225,7 +225,7 @@ export const createEngine = ({
     }
   })
 
-  const readRuntime = createReadRuntime({
+  const readRuntime = readRuntimeFactory({
     state,
     runtimeStore,
     stateAtoms,

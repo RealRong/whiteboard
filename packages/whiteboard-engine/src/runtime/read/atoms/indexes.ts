@@ -3,7 +3,7 @@ import type { Node } from '@whiteboard/core/types'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import { buildIndexById, EMPTY_INDEX_BY_ID, EMPTY_NODE_MAP } from './shared'
 
-export const createIndexesAtom = (
+export const indexes = (
   visibleNodesAtom: Atom<Node[]>,
   canvasNodesAtom: Atom<Node[]>
 ): Atom<ReadModelSnapshot['indexes']> => {

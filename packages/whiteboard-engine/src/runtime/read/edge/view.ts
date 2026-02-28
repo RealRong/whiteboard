@@ -2,12 +2,13 @@ import { atom, type Atom } from 'jotai/vanilla'
 import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgeEndpoints, EdgePathEntry } from '@engine-types/instance/read'
 import type { StateAtoms } from '../../../state/factory/CreateState'
-import type { EdgeReadModel } from './createEdgeModel'
 
 type EdgeViewOptions = {
   selectionAtom: StateAtoms['selection']
   edgeRevisionAtom: Atom<number>
-  edgeModel: Pick<EdgeReadModel, 'getIds' | 'getById' | 'getEndpoints'>
+  getEdgeIds: () => EdgeId[]
+  getEdgeById: () => Map<EdgeId, EdgePathEntry>
+  getEdgeEndpoints: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }
 
 export type EdgeViewAtoms = {
@@ -17,17 +18,19 @@ export type EdgeViewAtoms = {
   edgeSelectedEndpoints: Atom<EdgeEndpoints | undefined>
 }
 
-export const createEdgeView = ({
+export const view = ({
   selectionAtom,
   edgeRevisionAtom,
-  edgeModel
+  getEdgeIds,
+  getEdgeById,
+  getEdgeEndpoints
 }: EdgeViewOptions): EdgeViewAtoms => {
   const edgeByIdAtoms = new Map<EdgeId, Atom<EdgePathEntry | undefined>>()
   let edgeSelectedEndpointsCache: EdgeEndpoints | undefined
 
   const edgeIdsAtom = atom((get) => {
     get(edgeRevisionAtom)
-    return edgeModel.getIds()
+    return getEdgeIds()
   })
 
   const edgeById = (id: EdgeId) => {
@@ -36,7 +39,7 @@ export const createEdgeView = ({
 
     const nextAtom = atom((get) => {
       get(edgeRevisionAtom)
-      return edgeModel.getById().get(id)
+      return getEdgeById().get(id)
     })
     edgeByIdAtoms.set(id, nextAtom)
     return nextAtom
@@ -48,7 +51,7 @@ export const createEdgeView = ({
     get(edgeRevisionAtom)
     const selectedEdgeId = get(selectedEdgeIdAtom)
     const next = selectedEdgeId
-      ? edgeModel.getEndpoints(selectedEdgeId)
+      ? getEdgeEndpoints(selectedEdgeId)
       : undefined
 
     const changed =

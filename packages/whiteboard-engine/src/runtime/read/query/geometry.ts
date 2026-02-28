@@ -10,7 +10,7 @@ type Options = {
   config: InstanceConfig
 }
 
-export const createGeometry = ({
+export const geometry = ({
   config
 }: Options): QueryGeometry => ({
   anchorFromPoint: (rect, rotation, point) =>

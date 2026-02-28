@@ -2,7 +2,7 @@ import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import type { Document, Edge, Node, NodeId } from '@whiteboard/core/types'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 
-type CreateSnapshotAtomOptions = {
+type SnapshotOptions = {
   documentAtom: PrimitiveAtom<Document>
   revisionAtom: PrimitiveAtom<number>
   visibleNodesAtom: Atom<Node[]>
@@ -12,7 +12,7 @@ type CreateSnapshotAtomOptions = {
   indexesAtom: Atom<ReadModelSnapshot['indexes']>
 }
 
-export const createSnapshotAtom = ({
+export const snapshot = ({
   documentAtom,
   revisionAtom,
   visibleNodesAtom,
@@ -20,7 +20,7 @@ export const createSnapshotAtom = ({
   visibleEdgesAtom,
   mindmapRootsAtom,
   indexesAtom
-}: CreateSnapshotAtomOptions): Atom<ReadModelSnapshot> => {
+}: SnapshotOptions): Atom<ReadModelSnapshot> => {
   let cache: ReadModelSnapshot | undefined
 
   return atom((get) => {

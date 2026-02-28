@@ -18,13 +18,13 @@ export type IndexStore = {
   getSnapCandidatesInRect: (rect: Rect) => SnapCandidate[]
 }
 
-type CreateIndexStoreOptions = {
+type IndexStoreOptions = {
   config: InstanceConfig
 }
 
-export const createIndexStore = ({
+export const store = ({
   config
-}: CreateIndexStoreOptions): IndexStore => {
+}: IndexStoreOptions): IndexStore => {
   const nodeRectIndex = new NodeRectIndex(config)
   const snapIndex = new SnapIndex(() =>
     Math.max(
