@@ -3,28 +3,201 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/instance'
+import type { Shortcuts } from '@engine-types/shortcuts'
 import type { Commands } from '@engine-types/commands'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
 import type { DocumentId } from '@whiteboard/core/types'
 import { createShortcuts } from '../runtime/shortcut'
-import { createWriteRuntime } from '../runtime/write/runtime/createWriteRuntime'
+import {
+  createWriteRuntime,
+  type WriteRuntime
+} from '../runtime/write/createRuntime'
 import { resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
-import { GroupAutoFitRuntime } from '../runtime/write/postMutation/GroupAutoFitRuntime'
+import { GroupAutoFitRuntime } from '../runtime/write/GroupAutoFitRuntime'
 import { ViewportRuntime } from '../runtime/Viewport'
-import { createQueryRuntime } from '../runtime/read/api/Runtime'
-import { createReadRuntime } from '../runtime/read/Runtime'
-import { createReadModelAtoms } from '../runtime/read/atoms/readModel'
+import { createReadRuntime } from '../runtime/read/createReadRuntime'
+import { createReadAtoms } from '../runtime/read/atoms/createReadAtoms'
 import { createDocumentStore } from '../document/Store'
 import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
-import {
-  bindEdgeDomainApiById,
-  bindMindmapDomainApiById,
-  bindNodeDomainApiById,
-  createDomainApis
-} from '../domains/api'
+
+type CreateCommandsOptions = {
+  state: InternalInstance['state']
+  viewport: ViewportRuntime
+  nodeMeasureQueue: NodeMeasureQueue
+  writeRuntime: WriteRuntime
+}
+
+const createCommands = ({
+  state,
+  viewport,
+  nodeMeasureQueue,
+  writeRuntime
+}: CreateCommandsOptions): Commands => {
+  const { history, resetDoc } = writeRuntime
+  const {
+    edge,
+    interaction,
+    viewport: viewportCommands,
+    node,
+    mindmap,
+    selection
+  } = writeRuntime.commands
+
+  return {
+    doc: {
+      reset: resetDoc
+    },
+    tool: {
+      set: (tool) => {
+        state.write('tool', tool)
+      }
+    },
+    history: {
+      get: history.get,
+      configure: history.configure,
+      undo: history.undo,
+      redo: history.redo,
+      clear: history.clear
+    },
+    interaction: {
+      update: interaction.update,
+      clearHover: interaction.clearHover
+    },
+    host: {
+      nodeMeasured: (id, size) => {
+        nodeMeasureQueue.enqueue(id, size)
+      },
+      containerResized: (rect) => {
+        viewport.setContainerRect(rect)
+      }
+    },
+    selection: {
+      select: selection.select,
+      toggle: selection.toggle,
+      clear: selection.clear,
+      getSelectedNodeIds: selection.getSelectedNodeIds
+    },
+    edge: {
+      create: edge.create,
+      update: edge.update,
+      delete: edge.delete,
+      insertRoutingPoint: edge.insertRoutingPoint,
+      moveRoutingPoint: edge.moveRoutingPoint,
+      removeRoutingPoint: edge.removeRoutingPoint,
+      resetRouting: edge.resetRouting,
+      select: edge.select
+    },
+    order: {
+      node: {
+        set: node.setOrder,
+        bringToFront: node.bringToFront,
+        sendToBack: node.sendToBack,
+        bringForward: node.bringForward,
+        sendBackward: node.sendBackward
+      },
+      edge: {
+        set: edge.setOrder,
+        bringToFront: edge.bringToFront,
+        sendToBack: edge.sendToBack,
+        bringForward: edge.bringForward,
+        sendBackward: edge.sendBackward
+      }
+    },
+    viewport: {
+      set: viewportCommands.set,
+      panBy: viewportCommands.panBy,
+      zoomBy: viewportCommands.zoomBy,
+      zoomTo: viewportCommands.zoomTo,
+      reset: viewportCommands.reset
+    },
+    node: {
+      create: node.create,
+      update: node.update,
+      updateData: node.updateData,
+      updateManyPosition: node.updateManyPosition,
+      delete: node.delete
+    },
+    group: {
+      create: node.createGroup,
+      ungroup: node.ungroup
+    },
+    mindmap: {
+      create: mindmap.create,
+      replace: mindmap.replace,
+      delete: mindmap.delete,
+      addChild: mindmap.addChild,
+      addSibling: mindmap.addSibling,
+      moveSubtree: mindmap.moveSubtree,
+      removeSubtree: mindmap.removeSubtree,
+      cloneSubtree: mindmap.cloneSubtree,
+      toggleCollapse: mindmap.toggleCollapse,
+      setNodeData: mindmap.setNodeData,
+      reorderChild: mindmap.reorderChild,
+      setSide: mindmap.setSide,
+      attachExternal: mindmap.attachExternal,
+      insertNode: mindmap.insertNode,
+      moveSubtreeWithLayout: mindmap.moveSubtreeWithLayout,
+      moveSubtreeWithDrop: mindmap.moveSubtreeWithDrop,
+      moveRoot: mindmap.moveRoot
+    }
+  }
+}
+
+type CreateRuntimePortOptions = {
+  state: InternalInstance['state']
+  viewport: ViewportRuntime
+  history: Commands['history']
+  shortcuts: Shortcuts
+  groupAutoFitRuntime: GroupAutoFitRuntime
+  nodeMeasureQueue: NodeMeasureQueue
+  scheduler: Scheduler
+}
+
+const createRuntimePort = ({
+  state,
+  viewport,
+  history,
+  shortcuts,
+  groupAutoFitRuntime,
+  nodeMeasureQueue,
+  scheduler
+}: CreateRuntimePortOptions): Pick<InternalInstance['runtime'], 'applyConfig' | 'dispose'> => {
+  let prevHistoryDocId: DocumentId | undefined
+
+  const applyConfig: InternalInstance['runtime']['applyConfig'] = (nextConfig) => {
+    if (nextConfig.history) {
+      history.configure(nextConfig.history)
+    }
+    if (!nextConfig.docId) {
+      prevHistoryDocId = undefined
+    } else {
+      if (prevHistoryDocId && prevHistoryDocId !== nextConfig.docId) {
+        history.clear()
+      }
+      prevHistoryDocId = nextConfig.docId
+    }
+    state.write('tool', nextConfig.tool)
+    viewport.setViewport(nextConfig.viewport)
+    shortcuts.setShortcuts(nextConfig.shortcuts)
+    state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
+  }
+
+  const dispose: InternalInstance['runtime']['dispose'] = () => {
+    prevHistoryDocId = undefined
+    groupAutoFitRuntime.dispose()
+    shortcuts.dispose()
+    nodeMeasureQueue.clear()
+    scheduler.cancelAll()
+  }
+
+  return {
+    applyConfig,
+    dispose
+  }
+}
 
 export const createEngine = ({
   registries,
@@ -41,7 +214,7 @@ export const createEngine = ({
     getDoc: documentStore.get,
     store: runtimeStore
   })
-  const readModelAtoms = createReadModelAtoms({
+  const readAtoms = createReadAtoms({
     documentAtom: stateAtoms.document,
     revisionAtom: stateAtoms.readModelRevision
   })
@@ -52,19 +225,14 @@ export const createEngine = ({
     }
   })
 
-  const queryRuntime = createQueryRuntime({
-    readSnapshot: () => runtimeStore.get(readModelAtoms.snapshot),
-    config,
-    readDoc: documentStore.get,
-    viewport
-  })
   const readRuntime = createReadRuntime({
     state,
     runtimeStore,
     stateAtoms,
-    readModelAtoms,
-    query: queryRuntime.query,
-    config
+    readAtoms,
+    config,
+    readDoc: documentStore.get,
+    viewport
   })
   const read = readRuntime.read
 
@@ -72,216 +240,73 @@ export const createEngine = ({
     mutate: null as unknown as InternalInstance['mutate'],
     state,
     runtime: {
-      store: runtimeStore
+      store: runtimeStore,
+      applyConfig: (() => {}) as InternalInstance['runtime']['applyConfig'],
+      dispose: (() => {}) as InternalInstance['runtime']['dispose']
     },
     document: documentStore,
     config,
     viewport,
     registries: runtimeRegistries,
-    query: queryRuntime.query,
-    read,
-    domains: null as unknown as InternalInstance['domains'],
-    node: null as unknown as InternalInstance['node'],
-    edge: null as unknown as InternalInstance['edge'],
-    mindmap: null as unknown as InternalInstance['mindmap'],
-    lifecycle: null as unknown as InternalInstance['lifecycle'],
+    query: readRuntime.query,
+    read: readRuntime.read,
     commands: null as unknown as InternalInstance['commands']
   }
   state.write('tool', 'select')
-  const resetSelectionTransient = () => {}
   const writeRuntime = createWriteRuntime({
     instance,
     scheduler,
     documentAtom: stateAtoms.document,
-    readModelRevisionAtom: stateAtoms.readModelRevision,
-    resetSelectionTransient
+    readModelRevisionAtom: stateAtoms.readModelRevision
   })
 
-  const mutate = writeRuntime.mutate
-  const history = writeRuntime.history
-  const resetDoc = writeRuntime.resetDoc
-  const mutationMetaBus = writeRuntime.mutationMetaBus
-  instance.mutate = mutate
+  instance.mutate = writeRuntime.mutate
   const nodeMeasureQueue = new NodeMeasureQueue({
     instance,
-    scheduler,
+    scheduler
   })
-  mutationMetaBus.subscribe((meta) => {
-    queryRuntime.applyMutation(meta)
-    readRuntime.applyMutation(meta)
-    if (meta.kind === 'replace') {
+  writeRuntime.changeBus.subscribe((change) => {
+    readRuntime.applyChange(change)
+    if (change.kind === 'replace') {
       nodeMeasureQueue.clear()
     }
   })
 
-  const edgeCommands = writeRuntime.commands.edge
-  const interactionCommands = writeRuntime.commands.interaction
-  const viewportCommands = writeRuntime.commands.viewport
-  const nodeCommands = writeRuntime.commands.node
-  const mindmapCommands = writeRuntime.commands.mindmap
-  const selectionCommands = writeRuntime.commands.selection
-  const shortcutDispatcher = writeRuntime.commands.shortcut
-
-  const { write } = state
-  const commands: Commands = {
-    doc: {
-      reset: resetDoc
-    },
-    tool: {
-      set: (tool) => {
-        write('tool', tool)
-      }
-    },
-    history: {
-      get: history.get,
-      configure: history.configure,
-      undo: history.undo,
-      redo: history.redo,
-      clear: history.clear
-    },
-    interaction: {
-      update: interactionCommands.update,
-      clearHover: interactionCommands.clearHover
-    },
-    host: {
-      nodeMeasured: (id, size) => {
-        nodeMeasureQueue.enqueue(id, size)
-      },
-      containerResized: (rect) => {
-        viewport.setContainerRect(rect)
-      }
-    },
-    selection: {
-      select: selectionCommands.select,
-      toggle: selectionCommands.toggle,
-      clear: selectionCommands.clear,
-      getSelectedNodeIds: selectionCommands.getSelectedNodeIds
-    },
-    edge: {
-      create: edgeCommands.create,
-      update: edgeCommands.update,
-      delete: edgeCommands.delete,
-      insertRoutingPoint: edgeCommands.insertRoutingPoint,
-      moveRoutingPoint: edgeCommands.moveRoutingPoint,
-      removeRoutingPoint: edgeCommands.removeRoutingPoint,
-      resetRouting: edgeCommands.resetRouting,
-      select: (id) => {
-        edgeCommands.select(id)
-      }
-    },
-    order: {
-      node: {
-        set: nodeCommands.setOrder,
-        bringToFront: nodeCommands.bringToFront,
-        sendToBack: nodeCommands.sendToBack,
-        bringForward: nodeCommands.bringForward,
-        sendBackward: nodeCommands.sendBackward
-      },
-      edge: {
-        set: edgeCommands.setOrder,
-        bringToFront: edgeCommands.bringToFront,
-        sendToBack: edgeCommands.sendToBack,
-        bringForward: edgeCommands.bringForward,
-        sendBackward: edgeCommands.sendBackward
-      }
-    },
-    viewport: {
-      set: viewportCommands.set,
-      panBy: viewportCommands.panBy,
-      zoomBy: viewportCommands.zoomBy,
-      zoomTo: viewportCommands.zoomTo,
-      reset: viewportCommands.reset
-    },
-    node: {
-      create: nodeCommands.create,
-      update: nodeCommands.update,
-      updateData: nodeCommands.updateData,
-      updateManyPosition: nodeCommands.updateManyPosition,
-      delete: nodeCommands.delete
-    },
-    group: {
-      create: nodeCommands.createGroup,
-      ungroup: nodeCommands.ungroup
-    },
-    mindmap: {
-      create: mindmapCommands.create,
-      replace: mindmapCommands.replace,
-      delete: mindmapCommands.delete,
-      addChild: mindmapCommands.addChild,
-      addSibling: mindmapCommands.addSibling,
-      moveSubtree: mindmapCommands.moveSubtree,
-      removeSubtree: mindmapCommands.removeSubtree,
-      cloneSubtree: mindmapCommands.cloneSubtree,
-      toggleCollapse: mindmapCommands.toggleCollapse,
-      setNodeData: mindmapCommands.setNodeData,
-      reorderChild: mindmapCommands.reorderChild,
-      setSide: mindmapCommands.setSide,
-      attachExternal: mindmapCommands.attachExternal,
-      insertNode: mindmapCommands.insertNode,
-      moveSubtreeWithLayout: mindmapCommands.moveSubtreeWithLayout,
-      moveSubtreeWithDrop: mindmapCommands.moveSubtreeWithDrop,
-      moveRoot: mindmapCommands.moveRoot
-    }
-  }
-  instance.commands = commands
-  instance.domains = createDomainApis({ instance })
-  instance.node = (id) =>
-    bindNodeDomainApiById(instance.domains.node, id)
-  instance.edge = (id) =>
-    bindEdgeDomainApiById(instance.domains.edge, id)
-  instance.mindmap = (id) =>
-    bindMindmapDomainApiById(instance.domains.mindmap, id)
+  instance.commands = createCommands({
+    state,
+    viewport,
+    nodeMeasureQueue,
+    writeRuntime
+  })
 
   const groupAutoFitRuntime = new GroupAutoFitRuntime({
     instance,
-    mutationMetaBus,
+    changeBus: writeRuntime.changeBus,
     scheduler
   })
 
   const shortcuts = createShortcuts({
     instance,
-    runAction: shortcutDispatcher.execute
+    runAction: writeRuntime.commands.shortcut.execute
   })
-  let prevHistoryDocId: DocumentId | undefined
-  const lifecyclePort = {
-    update: (nextConfig: Parameters<InternalInstance['lifecycle']['update']>[0]) => {
-      if (nextConfig.history) {
-        history.configure(nextConfig.history)
-      }
-      if (!nextConfig.docId) {
-        prevHistoryDocId = undefined
-      } else {
-        if (prevHistoryDocId && prevHistoryDocId !== nextConfig.docId) {
-          history.clear()
-        }
-        prevHistoryDocId = nextConfig.docId
-      }
-      state.write('tool', nextConfig.tool)
-      viewport.setViewport(nextConfig.viewport)
-      shortcuts.setShortcuts(nextConfig.shortcuts)
-      state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
-    },
-    dispose: () => {
-      prevHistoryDocId = undefined
-      groupAutoFitRuntime.dispose()
-      shortcuts.dispose()
-      nodeMeasureQueue.clear()
-      scheduler.cancelAll()
-    }
-  }
+  const runtimePort = createRuntimePort({
+    state,
+    viewport,
+    history: writeRuntime.history,
+    shortcuts,
+    groupAutoFitRuntime,
+    nodeMeasureQueue,
+    scheduler
+  })
 
-  instance.lifecycle = lifecyclePort
+  instance.runtime.applyConfig = runtimePort.applyConfig
+  instance.runtime.dispose = runtimePort.dispose
 
   return {
     state: instance.state,
     runtime: instance.runtime,
     query: instance.query,
     read: instance.read,
-    domains: instance.domains,
-    node: instance.node,
-    edge: instance.edge,
-    mindmap: instance.mindmap,
-    lifecycle: instance.lifecycle,
     commands: instance.commands
   }
 }

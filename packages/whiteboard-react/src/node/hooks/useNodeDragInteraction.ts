@@ -8,6 +8,7 @@ import {
 } from '@whiteboard/core/geometry'
 import {
   computeSnap,
+  resolveSelectionMode,
   expandGroupRect,
   findSmallestGroupAtPoint,
   getGroupDescendants,
@@ -23,8 +24,6 @@ import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPrevi
 type UseNodeDragInteractionOptions = {
   nodeId: NodeId
 }
-
-type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
 type GroupChildren = {
   ids: NodeId[]
@@ -49,15 +48,6 @@ type ActiveDrag = {
 const ZOOM_EPSILON = 0.0001
 const SNAP_CROSS_THRESHOLD_RATIO = 0.6
 const GROUP_RECT_EPSILON = 0.5
-
-const resolveSelectionMode = (
-  event: PointerEvent | ReactPointerEvent<HTMLDivElement>
-): SelectionMode => {
-  if (event.altKey) return 'subtract'
-  if (event.metaKey || event.ctrlKey) return 'toggle'
-  if (event.shiftKey) return 'add'
-  return 'replace'
-}
 
 const toNodeById = (nodes: Node[]) => new Map(nodes.map((node) => [node.id, node]))
 
@@ -361,7 +351,7 @@ export const useNodeDragInteraction = ({
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
-        // Ignore capture errors, window listeners still handle lifecycle.
+        // Ignore capture errors, window listeners still handle session cleanup.
       }
       event.preventDefault()
       event.stopPropagation()

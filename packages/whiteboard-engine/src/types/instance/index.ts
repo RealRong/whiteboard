@@ -48,6 +48,6 @@ export type {
 } from './instance'
 
 export type {
-  Lifecycle,
-  LifecycleConfig
-} from './lifecycle'
+  RuntimeApi,
+  RuntimeConfig
+} from './runtime'

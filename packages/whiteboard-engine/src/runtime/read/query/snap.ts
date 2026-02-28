@@ -1,8 +1,8 @@
 import type { QuerySnap } from '@engine-types/instance/query'
-import type { QueryIndexes } from '../indexes/QueryIndexes'
+import type { IndexStore } from '../index/createIndexStore'
 
 type Options = {
-  indexes: QueryIndexes
+  indexes: IndexStore
 }
 
 export const createSnap = ({

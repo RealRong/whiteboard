@@ -1,5 +1,5 @@
 import type { ShortcutAction } from '@engine-types/shortcuts'
-import type { SelectionController } from './selection'
+import type { SelectionCommandsApi } from './selection'
 
 type HistoryCommands = {
   undo: () => boolean
@@ -8,7 +8,7 @@ type HistoryCommands = {
 
 type Options = {
   selection: Pick<
-    SelectionController,
+    SelectionCommandsApi,
     'selectAll' | 'clear' | 'groupSelected' | 'ungroupSelected' | 'deleteSelected' | 'duplicateSelected'
   >
   history: HistoryCommands

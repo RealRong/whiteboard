@@ -1,6 +1,6 @@
 import type { DocumentId, Viewport } from '@whiteboard/core/types'
 import type { ResolvedConfig, Config } from '@engine-types/common'
-import type { LifecycleConfig } from '@engine-types/instance/lifecycle'
+import type { RuntimeConfig } from '@engine-types/instance/runtime'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { ShortcutOverrides } from '@engine-types/shortcuts'
@@ -88,23 +88,23 @@ export const toInstanceConfig = (
   }
 })
 
-type LifecycleOptions = {
+type RuntimeOptions = {
   docId?: DocumentId
   tool: 'select' | 'edge'
   viewport?: Viewport
   mindmapLayout?: MindmapLayoutConfig
-  history?: LifecycleConfig['history']
+  history?: RuntimeConfig['history']
   shortcuts?: ShortcutOverrides
 }
 
-export const toLifecycleConfig = ({
+export const toRuntimeConfig = ({
   docId,
   tool,
   viewport,
   mindmapLayout,
   history,
   shortcuts
-}: LifecycleOptions): LifecycleConfig => ({
+}: RuntimeOptions): RuntimeConfig => ({
   docId,
   tool,
   viewport: {

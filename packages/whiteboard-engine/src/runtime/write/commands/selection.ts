@@ -8,16 +8,14 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
-import { createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
+import { applySelection, createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
 import { DEFAULT_TUNING } from '../../../config'
-import { applySelection } from '../../../shared/selection'
 
-type ActorOptions = {
+type Options = {
   instance: Pick<InternalInstance, 'commands' | 'state' | 'document' | 'read'>
-  resetTransient?: () => void
 }
 
-export type SelectionController = {
+export type SelectionCommandsApi = {
   readonly name: 'Selection'
   getSelectedNodeIds: () => NodeId[]
   select: (ids: NodeId[], mode?: SelectionMode) => void
@@ -39,10 +37,9 @@ const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   return op?.node?.id
 }
 
-export const createSelectionController = ({
-  instance,
-  resetTransient
-}: ActorOptions): SelectionController => {
+export const createSelectionCommands = ({
+  instance
+}: Options): SelectionCommandsApi => {
   const state = instance.state
 
   const getDocument = (): Document => instance.document.get()
@@ -58,7 +55,6 @@ export const createSelectionController = ({
 
   const select = (ids: NodeId[], mode: SelectionMode = 'replace') => {
     state.batch(() => {
-      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -70,7 +66,6 @@ export const createSelectionController = ({
 
   const toggle = (ids: NodeId[]) => {
     state.batch(() => {
-      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
@@ -87,7 +82,6 @@ export const createSelectionController = ({
 
   const clear = () => {
     state.batch(() => {
-      resetTransient?.()
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,

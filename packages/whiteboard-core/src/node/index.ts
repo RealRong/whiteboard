@@ -53,6 +53,10 @@ export {
   NodeHintContext,
   NodeHintPipeline
 } from './hint'
+export {
+  applySelection,
+  resolveSelectionMode
+} from './selection'
 export type {
   SnapThresholdConfig
 } from './snapRuntime'
@@ -70,3 +74,7 @@ export type {
   NodeHintRule,
   NodePartialHint
 } from './hint'
+export type {
+  SelectionMode,
+  SelectionModifiers
+} from './selection'

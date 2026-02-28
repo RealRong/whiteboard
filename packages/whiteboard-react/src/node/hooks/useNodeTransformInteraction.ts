@@ -266,7 +266,7 @@ export const useNodeTransformInteraction = ({
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
-        // Ignore capture errors, window listeners still handle lifecycle.
+        // Ignore capture errors, window listeners still handle session cleanup.
       }
       event.preventDefault()
       event.stopPropagation()

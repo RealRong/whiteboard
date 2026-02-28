@@ -20,11 +20,14 @@ Jotai 作为一个极其轻量（无 Context）且支持在 Vanilla JS 中使用
    - `QueryIndexRuntime.applyMutation(meta)`
    - `ReadRuntime.applyMutation(meta)`（驱动 materialized 失效与 revision）
 4. `instance.projection` 已从类型与实现中移除，`instance.runtime.store` 是唯一 store 锚点。
+5. 对外实例 API 已收敛为 `state/runtime/query/commands` 四象限，`instance.events`、`instance.lifecycle`、`instance.domains` 已移除。
+6. 目录层面已移除 `runtime/actors/**` 与 `runtime/lifecycle/**`，写入统一收敛到 `runtime/write/**`。
 
 说明：
 
 1. 文内凡是出现 `projection.subscribe/applyCommit` 的旧示例，均以本节描述为准。
 2. `ReadModelSnapshot` 现在是读侧结构类型（type shape），不是独立存储管线。
+3. 文内历史路径若出现 `events/lifecycle/domains facade/actors`，仅用于迁移背景，不代表当前主流程。
 
 ---
 
@@ -71,7 +74,7 @@ instance.runtime = {
 说明：
 
 1. `instance.runtime.store` 是引擎与 React 的统一订阅源。
-2. `instance.read.store` 建议最终与 `instance.runtime.store` 统一为同一个引用。
+2. `instance.read.store` 当前与 `instance.runtime.store` 保持同一个引用。
 3. 不再接受模块级 singleton store 承载实例相关状态。
 
 ### 3.2 Root Atoms（按当前代码分层）

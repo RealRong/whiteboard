@@ -11,7 +11,7 @@ import type {
   Operation,
   Origin
 } from '@whiteboard/core/types'
-import type { MutationMetaBus } from './MutationMetaBus'
+import type { ChangeBus } from './ChangeBus'
 import type { PrimitiveAtom } from 'jotai/vanilla'
 
 type ResetDocumentInput = {
@@ -29,7 +29,7 @@ export type MutationAppliedChange = {
 
 export type MutationExecutorOptions = {
   instance: Pick<InternalInstance, 'document' | 'registries' | 'viewport' | 'runtime'>
-  mutationMetaBus: MutationMetaBus
+  changeBus: ChangeBus
   documentAtom: PrimitiveAtom<Document>
   readModelRevisionAtom: PrimitiveAtom<number>
   now?: () => number
@@ -52,7 +52,7 @@ export type MutationResetResult = {
 
 export class MutationExecutor {
   private readonly instance: MutationExecutorOptions['instance']
-  private readonly mutationMetaBus: MutationMetaBus
+  private readonly changeBus: ChangeBus
   private readonly documentAtom: PrimitiveAtom<Document>
   private readonly readModelRevisionAtom: PrimitiveAtom<number>
   private readonly now: () => number
@@ -60,13 +60,13 @@ export class MutationExecutor {
 
   constructor({
     instance,
-    mutationMetaBus,
+    changeBus,
     documentAtom,
     readModelRevisionAtom,
     now
   }: MutationExecutorOptions) {
     this.instance = instance
-    this.mutationMetaBus = mutationMetaBus
+    this.changeBus = changeBus
     this.documentAtom = documentAtom
     this.readModelRevisionAtom = readModelRevisionAtom
     this.now = now ?? (() => {
@@ -126,7 +126,7 @@ export class MutationExecutor {
     const docAfter = this.syncDocumentState(reduced.doc)
     const impact = this.impactAnalyzer.analyze(reduced.changes.operations)
     const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
-    this.mutationMetaBus.publish({
+    this.changeBus.publish({
       revision,
       kind: 'apply',
       origin,
@@ -159,7 +159,7 @@ export class MutationExecutor {
     const docAfter = this.syncDocumentState(doc)
     const impact = FULL_MUTATION_IMPACT
     const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
-    this.mutationMetaBus.publish({
+    this.changeBus.publish({
       revision,
       kind: 'replace',
       origin,

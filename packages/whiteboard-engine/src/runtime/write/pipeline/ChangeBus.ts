@@ -1,7 +1,7 @@
 import type { MutationImpact } from '../mutation/Impact'
 import type { Document, Operation, Origin } from '@whiteboard/core/types'
 
-export type MutationMeta = {
+export type Change = {
   revision: number
   kind: 'apply' | 'replace'
   origin: Origin
@@ -11,19 +11,19 @@ export type MutationMeta = {
   docAfter: Document
 }
 
-export type MutationMetaBus = {
-  publish: (meta: MutationMeta) => void
-  subscribe: (listener: (meta: MutationMeta) => void) => () => void
+export type ChangeBus = {
+  publish: (change: Change) => void
+  subscribe: (listener: (change: Change) => void) => () => void
 }
 
-export const createMutationMetaBus = (): MutationMetaBus => {
-  const listeners = new Set<(meta: MutationMeta) => void>()
+export const createChangeBus = (): ChangeBus => {
+  const listeners = new Set<(change: Change) => void>()
 
   return {
-    publish: (meta) => {
+    publish: (change) => {
       if (!listeners.size) return
       listeners.forEach((listener) => {
-        listener(meta)
+        listener(change)
       })
     },
     subscribe: (listener) => {

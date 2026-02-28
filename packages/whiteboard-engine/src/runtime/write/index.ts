@@ -1,5 +1,5 @@
 export { createWriteRuntime, type WriteRuntime, type WriteRuntimeCommands } from './runtime/createWriteRuntime'
-export { createMutationMetaBus, type MutationMetaBus, type MutationMeta } from './pipeline/MutationMetaBus'
+export { createChangeBus, type ChangeBus, type Change } from './pipeline/ChangeBus'
 export { WriteCoordinator } from './pipeline/WriteCoordinator'
 export { MutationExecutor } from './pipeline/MutationExecutor'
 export { HistoryDomain } from './history/HistoryDomain'

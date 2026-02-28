@@ -1,27 +1,18 @@
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
-import type { createStore } from 'jotai/vanilla'
 import type { Commands } from '../commands'
 import type { ApplyMutationsApi } from '../command'
-import type { Lifecycle } from './lifecycle'
 import type { InstanceConfig } from './config'
 import type { Query } from './query'
 import type { State } from './state'
 import type { EngineRead } from './read'
 import type { ViewportApi } from '../viewport'
-import type { DomainApis, DomainEntityApis } from '../domains'
+import type { RuntimeApi } from './runtime'
 
 export type Instance = {
   state: State
-  runtime: {
-    store: ReturnType<typeof createStore>
-  }
+  runtime: RuntimeApi
   query: Query
   read: EngineRead
-  domains: DomainApis
-  node: DomainEntityApis['node']
-  edge: DomainEntityApis['edge']
-  mindmap: DomainEntityApis['mindmap']
-  lifecycle: Lifecycle
   commands: Commands
 }
 

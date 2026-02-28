@@ -12,7 +12,7 @@ import { createSelectionController, type SelectionController } from '../commands
 import { createViewportCommands, type ViewportCommandsApi } from '../commands/viewport'
 import { HistoryDomain } from '../history/HistoryDomain'
 import { MutationExecutor } from '../pipeline/MutationExecutor'
-import { createMutationMetaBus, type MutationMetaBus } from '../pipeline/MutationMetaBus'
+import { createChangeBus, type ChangeBus } from '../pipeline/ChangeBus'
 import { WriteCoordinator } from '../pipeline/WriteCoordinator'
 
 export type WriteRuntimeCommands = {
@@ -29,7 +29,7 @@ export type WriteRuntime = {
   mutate: InternalInstance['mutate']
   history: Commands['history']
   resetDoc: Commands['doc']['reset']
-  mutationMetaBus: MutationMetaBus
+  changeBus: ChangeBus
   commands: WriteRuntimeCommands
 }
 
@@ -38,20 +38,18 @@ type CreateWriteRuntimeOptions = {
   scheduler: Scheduler
   documentAtom: PrimitiveAtom<Document>
   readModelRevisionAtom: PrimitiveAtom<number>
-  resetSelectionTransient?: () => void
 }
 
 export const createWriteRuntime = ({
   instance,
   scheduler,
   documentAtom,
-  readModelRevisionAtom,
-  resetSelectionTransient
+  readModelRevisionAtom
 }: CreateWriteRuntimeOptions): WriteRuntime => {
-  const mutationMetaBus = createMutationMetaBus()
+  const changeBus = createChangeBus()
   const mutationExecutor = new MutationExecutor({
     instance,
-    mutationMetaBus,
+    changeBus,
     documentAtom,
     readModelRevisionAtom,
     now: scheduler.now
@@ -69,10 +67,7 @@ export const createWriteRuntime = ({
   const viewport = createViewportCommands({ instance })
   const node = createNodeCommands({ instance })
   const mindmap = createMindmapController({ instance })
-  const selection = createSelectionController({
-    instance,
-    resetTransient: resetSelectionTransient
-  })
+  const selection = createSelectionController({ instance })
   const shortcut = createShortcutActionDispatcher({
     selection,
     history: writeCoordinator.history
@@ -82,7 +77,7 @@ export const createWriteRuntime = ({
     mutate: writeCoordinator.applyMutations,
     history: writeCoordinator.history,
     resetDoc: writeCoordinator.resetDocument,
-    mutationMetaBus,
+    changeBus,
     commands: {
       edge,
       interaction,

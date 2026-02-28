@@ -3,7 +3,7 @@ import type { InstanceConfig } from '@engine-types/instance/config'
 import type { State } from '@engine-types/instance/state'
 import type { MindmapViewTree } from '@engine-types/instance/read'
 import type { Node } from '@whiteboard/core/types'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 import { toMindmapLayoutSignature } from '@whiteboard/core/cache'
 import {
   buildMindmapLines,
@@ -20,7 +20,7 @@ type MindmapDerivationOptions = {
   config: InstanceConfig
 }
 
-export const createMindmapViewDerivations = ({
+export const createMindmapDerivations = ({
   readState,
   readSnapshot,
   config

@@ -4,7 +4,7 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../Scheduler'
 import { MicrotaskTask } from '../../TaskQueue'
 import { DEFAULT_TUNING } from '../../../config'
-import type { MutationMeta, MutationMetaBus } from '../pipeline/MutationMetaBus'
+import type { Change, ChangeBus } from '../pipeline/ChangeBus'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
@@ -26,7 +26,7 @@ type LayoutSnapshot = {
 
 type RuntimeOptions = {
   instance: Pick<InternalInstance, 'document' | 'config' | 'mutate'>
-  mutationMetaBus: MutationMetaBus
+  changeBus: ChangeBus
   scheduler: Scheduler
 }
 
@@ -196,13 +196,13 @@ export class GroupAutoFitRuntime {
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private disposed = false
-  private readonly offMutationMeta: () => void
+  private readonly offChange: () => void
   private readonly syncTask: MicrotaskTask
 
-  constructor({ instance, mutationMetaBus, scheduler }: RuntimeOptions) {
+  constructor({ instance, changeBus, scheduler }: RuntimeOptions) {
     this.instance = instance
     this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
-    this.offMutationMeta = mutationMetaBus.subscribe((meta) => {
+    this.offChange = changeBus.subscribe((meta) => {
       this.handleCommit(meta)
     })
     this.syncTask.schedule()
@@ -257,11 +257,11 @@ export class GroupAutoFitRuntime {
   dispose = () => {
     if (this.disposed) return
     this.disposed = true
-    this.offMutationMeta()
+    this.offChange()
     this.syncTask.cancel()
   }
 
-  private handleCommit = (meta: MutationMeta) => {
+  private handleCommit = (meta: Change) => {
     const hasRelevantChange =
       meta.kind === 'replace'
       || meta.impact.tags.has('full')

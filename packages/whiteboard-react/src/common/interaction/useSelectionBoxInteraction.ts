@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { rectFromPoints } from '@whiteboard/core/geometry'
+import { applySelection, resolveSelectionMode, type SelectionMode } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import type { Instance } from '@whiteboard/engine'
 import { sessionLockState, type SessionLockToken } from './sessionLockState'
 import { selectionBoxState } from './selectionBoxState'
 import { useWindowPointerSession } from './useWindowPointerSession'
 import { viewportGestureState } from './viewportGestureState'
-
-type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
 type ActiveSelection = {
   pointerId: number
@@ -20,45 +19,6 @@ type ActiveSelection = {
   latestMatchedIds?: NodeId[]
   frameId?: number
   lastSelectionKey: string
-}
-
-const resolveSelectionMode = (
-  event: Pick<PointerEvent | ReactPointerEvent<HTMLElement>, 'altKey' | 'shiftKey' | 'ctrlKey' | 'metaKey'>
-): SelectionMode => {
-  if (event.altKey) return 'subtract'
-  if (event.metaKey || event.ctrlKey) return 'toggle'
-  if (event.shiftKey) return 'add'
-  return 'replace'
-}
-
-const applySelection = (
-  prevSelectedIds: Set<NodeId>,
-  ids: NodeId[],
-  mode: SelectionMode
-): Set<NodeId> => {
-  if (mode === 'replace') {
-    return new Set(ids)
-  }
-
-  const next = new Set(prevSelectedIds)
-  if (mode === 'add') {
-    ids.forEach((id) => next.add(id))
-    return next
-  }
-
-  if (mode === 'subtract') {
-    ids.forEach((id) => next.delete(id))
-    return next
-  }
-
-  ids.forEach((id) => {
-    if (next.has(id)) {
-      next.delete(id)
-      return
-    }
-    next.add(id)
-  })
-  return next
 }
 
 const toSelectionKey = (selectedIds: Set<NodeId>) =>
@@ -290,7 +250,7 @@ export const useSelectionBoxInteraction = (
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
-        // Ignore capture errors, window listeners still handle lifecycle.
+        // Ignore capture errors, window listeners still handle session cleanup.
       }
       event.preventDefault()
       event.stopPropagation()

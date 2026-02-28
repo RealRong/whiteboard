@@ -1,6 +1,6 @@
 # Whiteboard Write 管线文件排布重构方案（One-Shot / No-Compatibility）
 
-更新时间：2026-02-27
+更新时间：2026-02-28
 
 实施进度（2026-02-27）：
 
@@ -13,7 +13,7 @@
 
 ## 1. 结论
 
-结论：**应该把 write 相关管线放在一块**，并且以“写入流程阶段”组织目录，而不是继续分散在 `runtime/write`、`runtime/mutation`、`runtime/history`、`domains/*/commands.ts` 四处。
+结论：**应该把 write 相关管线放在一块**，并且以“写入流程阶段”组织目录。历史分散目录（`runtime/mutation`、`runtime/history`、`domains/*/commands.ts`）已完成清理。
 
 当前代码虽然功能上已经单管线（`commands -> mutate -> mutationMeta -> read/query`），但文件排布仍然分散，导致：
 
@@ -25,24 +25,15 @@
 
 ## 2. 现状排布（已调研）
 
-当前 write 主链路分布：
+当前 write 主链路已收敛到 `runtime/write/**`：
 
-1. 写入执行：`packages/whiteboard-engine/src/runtime/write/*`
-   - `MutationExecutor.ts`
-   - `WriteCoordinator.ts`
-   - `MutationMetaBus.ts`
-2. mutation 语义：`packages/whiteboard-engine/src/runtime/mutation/*`
-   - `Analyzer.ts`
-   - `Impact.ts`
-   - `PatchClassifier.ts`
-3. 历史栈：`packages/whiteboard-engine/src/runtime/history/HistoryDomain.ts`
-4. 写入入口（commands）：`packages/whiteboard-engine/src/domains/*/commands.ts`
-   - `node/commands.ts`
-   - `edge/commands.ts`
-   - `mindmap/commands.ts`
-   - `selection/commands.ts`
+1. 写入执行：`packages/whiteboard-engine/src/runtime/write/pipeline/*`
+2. mutation 语义：`packages/whiteboard-engine/src/runtime/write/mutation/*`
+3. 历史栈：`packages/whiteboard-engine/src/runtime/write/history/*`
+4. 写入入口（commands）：`packages/whiteboard-engine/src/runtime/write/commands/*`
+5. 提交后运行时：`packages/whiteboard-engine/src/runtime/write/postMutation/*`
 
-核心问题不是功能错误，而是**物理分布与逻辑边界不一致**。
+当前剩余问题主要是文档与术语需要持续跟随代码更新，避免把已删除目录继续作为“现状”描述。
 
 ---
 
@@ -114,8 +105,8 @@ packages/whiteboard-engine/src/runtime/write/
 ### 4.2 保留不迁移
 
 1. `src/domains/*/view.ts` 保持原位（读侧语义，不属于 write 入口）。
-2. `src/domains/api.ts` 可保留（它是对外 domain facade，不是写入执行层）。
-3. `instance.events` / `EventCenter` / `types/instance/events.ts` 不保留（无用户场景下彻底删除对外事件总线）。
+2. `src/domains/api.ts` 已移除（对外 domain facade 已退出）。
+3. `instance.events` / `EventCenter` / `types/instance/events.ts` 已移除（无用户场景下彻底删除对外事件总线）。
 
 ---
 
@@ -200,7 +191,7 @@ type WriteRuntime = {
 
 ## 8. 验收标准
 
-1. write 全链路文件只出现在 `runtime/write/**`（除 `domains/api.ts` facade 例外）。
+1. write 全链路文件只出现在 `runtime/write/**`。
 2. `domains/*` 不再包含 `commands.ts`。
 3. `instance/create.ts` 不再直接 import `HistoryDomain` / `MutationExecutor` / `WriteCoordinator` / 各 domain command 工厂。
 4. `runtime/actors/**` 与 `instance.events` 主链路彻底清理。
@@ -214,7 +205,7 @@ type WriteRuntime = {
 
 1. 风险：大量路径迁移导致 import 断裂。
    - 控制：分阶段迁移，每阶段都跑 lint/build。
-2. 风险：`domains/*` API 与 write commands 重名引发心智混乱。
-   - 控制：明确 `domains` 是 facade/read 语义，`runtime/write/commands` 是写入入口实现。
+2. 风险：`runtime/read` 与 `runtime/write` 边界被后续提交破坏。
+   - 控制：在评审中强制校验“读侧不写入、写侧不做查询编排”的单向约束。
 3. 风险：`createEngine` 改动过大。
    - 控制：先引入 `createWriteRuntime`，再逐步替换装配，不一次性重写实例装配。

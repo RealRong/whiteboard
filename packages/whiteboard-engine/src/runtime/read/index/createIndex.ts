@@ -1,36 +1,36 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import type { MutationMeta } from '../../write/pipeline/MutationMetaBus'
+import type { Change } from '../../write/pipeline/ChangeBus'
 import { hasImpactTag } from '../../write/mutation/Impact'
 import {
-  createQueryIndexes,
-  type QueryIndexes
-} from './QueryIndexes'
+  createIndexStore,
+  type IndexStore
+} from './createIndexStore'
 
-type CreateQueryIndexRuntimeOptions = {
+type CreateIndexOptions = {
   readSnapshot: () => ReadModelSnapshot
   config: InstanceConfig
 }
 
-export type QueryIndexRuntime = QueryIndexes & {
-  applyMutation: (meta: MutationMeta) => void
+export type IndexRuntime = IndexStore & {
+  applyChange: (change: Change) => void
 }
 
-export const createQueryIndexRuntime = ({
+export const createIndex = ({
   readSnapshot,
   config
-}: CreateQueryIndexRuntimeOptions): QueryIndexRuntime => {
+}: CreateIndexOptions): IndexRuntime => {
   let snapshot = readSnapshot()
 
-  const indexes = createQueryIndexes({
+  const indexes = createIndexStore({
     config
   })
   indexes.sync(snapshot.nodes.canvas)
 
-  const applyMutation: QueryIndexRuntime['applyMutation'] = (meta) => {
+  const applyChange: IndexRuntime['applyChange'] = (change) => {
     snapshot = readSnapshot()
-    const impact = meta.impact
-    if (meta.kind === 'replace' || hasImpactTag(impact, 'full')) {
+    const impact = change.impact
+    if (change.kind === 'replace' || hasImpactTag(impact, 'full')) {
       indexes.sync(snapshot.nodes.canvas)
       return
     }
@@ -49,6 +49,6 @@ export const createQueryIndexRuntime = ({
 
   return {
     ...indexes,
-    applyMutation
+    applyChange
   }
 }

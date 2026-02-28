@@ -9,7 +9,7 @@ import type { WhiteboardProps } from 'types/common'
 import {
   createEngine,
   normalizeConfig,
-  toLifecycleConfig,
+  toRuntimeConfig,
   toInstanceConfig,
   type Instance
 } from '@whiteboard/engine'
@@ -165,9 +165,9 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     void instance.commands.doc.reset(doc)
   }, [doc, instance])
 
-  const lifecycleConfig = useMemo(
+  const runtimeConfig = useMemo(
     () =>
-      toLifecycleConfig({
+      toRuntimeConfig({
         docId: doc.id,
         tool: resolvedConfig.tool,
         mindmapLayout: resolvedConfig.mindmapLayout,
@@ -193,17 +193,16 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     ]
   )
 
-  const lifecycle = instance.lifecycle
+  const runtime = instance.runtime
   useEffect(() => {
-    lifecycle.start()
     return () => {
-      lifecycle.stop()
+      runtime.dispose()
     }
-  }, [lifecycle])
+  }, [runtime])
 
   useEffect(() => {
-    lifecycle.update(lifecycleConfig)
-  }, [lifecycle, lifecycleConfig])
+    runtime.applyConfig(runtimeConfig)
+  }, [runtime, runtimeConfig])
 
   useEffect(() => {
     const container = containerRef.current

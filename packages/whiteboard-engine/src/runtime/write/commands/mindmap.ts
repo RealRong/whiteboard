@@ -28,11 +28,11 @@ import {
 } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../../config'
 
-type ActorOptions = {
+type Options = {
   instance: Pick<InternalInstance, 'document' | 'mutate'>
 }
 
-export type MindmapController = Commands['mindmap'] & {
+export type MindmapCommandsApi = Commands['mindmap'] & {
   readonly name: 'Mindmap'
 }
 
@@ -44,7 +44,7 @@ const cloneValue = <T,>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-export const createMindmapController = ({ instance }: ActorOptions): MindmapController => {
+export const createMindmapCommands = ({ instance }: Options): MindmapCommandsApi => {
   const createInvalidResult = (message: string): DispatchResult => ({
     ok: false,
     reason: 'invalid',

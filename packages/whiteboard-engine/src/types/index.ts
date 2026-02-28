@@ -1,17 +1,5 @@
 export type { Commands } from './commands'
 export type {
-  DomainApis,
-  DomainEntityApis,
-  NodeDomainApi,
-  NodeEntityApi,
-  EdgeDomainApi,
-  EdgeEntityApi,
-  MindmapDomainApi,
-  MindmapEntityApi,
-  SelectionDomainApi,
-  ViewportDomainApi
-} from './domains'
-export type {
   CommandSource,
   Mutation,
   ApplyMutationsApi,
@@ -25,8 +13,8 @@ export type {
 } from './readSnapshot'
 export type {
   CreateEngineOptions,
-  Lifecycle,
-  LifecycleConfig,
+  RuntimeApi,
+  RuntimeConfig,
   EngineRead,
   EngineReadAtoms,
   EngineReadGetters,
