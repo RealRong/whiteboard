@@ -5,10 +5,10 @@ import type { InternalInstance } from '@engine-types/instance/instance'
 import type { Scheduler } from '../../Scheduler'
 import { createEdgeCommands, type EdgeCommandsApi } from '../commands/edge'
 import { createInteractionCommands, type InteractionCommandsApi } from '../commands/interaction'
-import { createMindmapController, type MindmapController } from '../commands/mindmap'
+import { createMindmapCommands, type MindmapCommandsApi } from '../commands/mindmap'
 import { createNodeCommands, type NodeCommandsApi } from '../commands/node'
 import { createShortcutActionDispatcher, type ShortcutActionDispatcher } from '../commands/shortcut'
-import { createSelectionController, type SelectionController } from '../commands/selection'
+import { createSelectionCommands, type SelectionCommandsApi } from '../commands/selection'
 import { createViewportCommands, type ViewportCommandsApi } from '../commands/viewport'
 import { HistoryDomain } from '../history/HistoryDomain'
 import { MutationExecutor } from '../pipeline/MutationExecutor'
@@ -20,8 +20,8 @@ export type WriteRuntimeCommands = {
   interaction: InteractionCommandsApi
   viewport: ViewportCommandsApi
   node: NodeCommandsApi
-  mindmap: MindmapController
-  selection: SelectionController
+  mindmap: MindmapCommandsApi
+  selection: SelectionCommandsApi
   shortcut: ShortcutActionDispatcher
 }
 
@@ -66,8 +66,8 @@ export const createWriteRuntime = ({
   const interaction = createInteractionCommands({ instance })
   const viewport = createViewportCommands({ instance })
   const node = createNodeCommands({ instance })
-  const mindmap = createMindmapController({ instance })
-  const selection = createSelectionController({ instance })
+  const mindmap = createMindmapCommands({ instance })
+  const selection = createSelectionCommands({ instance })
   const shortcut = createShortcutActionDispatcher({
     selection,
     history: writeCoordinator.history

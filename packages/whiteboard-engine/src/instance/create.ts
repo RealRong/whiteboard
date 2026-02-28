@@ -234,7 +234,6 @@ export const createEngine = ({
     readDoc: documentStore.get,
     viewport
   })
-  const read = readRuntime.read
 
   const instance: InternalInstance = {
     mutate: null as unknown as InternalInstance['mutate'],
