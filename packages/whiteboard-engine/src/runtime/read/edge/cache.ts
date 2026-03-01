@@ -1,4 +1,3 @@
-import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/cache'
 import {
   collectRelatedEdgeIds,
   createEdgeRelations,
@@ -8,6 +7,7 @@ import {
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
   READ_SUBSCRIBE_KEYS,
+  type CanvasNodeRect,
   type EdgeEndpoints,
   type EdgePathEntry
 } from '@engine-types/instance/read'
@@ -15,7 +15,11 @@ import type { ReadRuntimeContext } from '../context'
 import type { EdgeChangePlan } from '../changePlan'
 
 type EdgeCacheEntry = {
-  geometrySignature: string
+  sourceRectRef: CanvasNodeRect
+  targetRectRef: CanvasNodeRect
+  sourceGeometry: NodeGeometryTuple
+  targetGeometry: NodeGeometryTuple
+  structure: EdgeStructureTuple
   endpoints: EdgeEndpoints
   entry: EdgePathEntry
 }
@@ -36,6 +40,40 @@ type EdgeCacheState = {
   cacheById: Map<EdgeId, EdgeCacheEntry>
   ids: EdgeId[]
   byId: Map<EdgeId, EdgePathEntry>
+}
+
+type ReconcileMemo = {
+  nodeRectById: Map<NodeId, ReturnType<ReadRuntimeContext['query']['canvas']['nodeRect']>>
+}
+
+type NodeGeometryTuple = {
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation: number
+}
+
+type EdgeStructureTuple = {
+  type: string
+  sourceNodeId: NodeId
+  targetNodeId: NodeId
+  sourceAnchorSide?: string
+  sourceAnchorOffset?: number
+  targetAnchorSide?: string
+  targetAnchorOffset?: number
+  routingMode?: string
+  routingOrthoOffset?: number
+  routingOrthoRadius?: number
+  routingPointsRef?: readonly { x: number; y: number }[]
+}
+
+type EdgeCacheMaterial = {
+  sourceRectRef: CanvasNodeRect
+  targetRectRef: CanvasNodeRect
+  sourceGeometry: NodeGeometryTuple
+  targetGeometry: NodeGeometryTuple
+  structure: EdgeStructureTuple
 }
 
 const emptyRelations = (): EdgeRelations => ({
@@ -83,10 +121,72 @@ const rebuildView = (state: EdgeCacheState) => {
   state.byId = nextById
 }
 
+const toNodeGeometryTuple = (entry: CanvasNodeRect): NodeGeometryTuple => ({
+  x: entry.rect.x,
+  y: entry.rect.y,
+  width: entry.rect.width,
+  height: entry.rect.height,
+  rotation: entry.rotation
+})
+
+const toEdgeStructureTuple = (edge: EdgePathEntry['edge']): EdgeStructureTuple => ({
+  type: edge.type,
+  sourceNodeId: edge.source.nodeId,
+  targetNodeId: edge.target.nodeId,
+  sourceAnchorSide: edge.source.anchor?.side,
+  sourceAnchorOffset: edge.source.anchor?.offset,
+  targetAnchorSide: edge.target.anchor?.side,
+  targetAnchorOffset: edge.target.anchor?.offset,
+  routingMode: edge.routing?.mode,
+  routingOrthoOffset: edge.routing?.ortho?.offset,
+  routingOrthoRadius: edge.routing?.ortho?.radius,
+  routingPointsRef: edge.routing?.points
+})
+
+const isSameNodeGeometryTuple = (
+  left: NodeGeometryTuple,
+  right: NodeGeometryTuple
+) =>
+  left.x === right.x &&
+  left.y === right.y &&
+  left.width === right.width &&
+  left.height === right.height &&
+  left.rotation === right.rotation
+
+const isSameRoutingPoints = (
+  left?: readonly { x: number; y: number }[],
+  right?: readonly { x: number; y: number }[]
+) => {
+  if (left === right) return true
+  if (!left || !right) return false
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index]?.x !== right[index]?.x) return false
+    if (left[index]?.y !== right[index]?.y) return false
+  }
+  return true
+}
+
+const isSameEdgeStructureTuple = (
+  left: EdgeStructureTuple,
+  right: EdgeStructureTuple
+) =>
+  left.type === right.type &&
+  left.sourceNodeId === right.sourceNodeId &&
+  left.targetNodeId === right.targetNodeId &&
+  left.sourceAnchorSide === right.sourceAnchorSide &&
+  left.sourceAnchorOffset === right.sourceAnchorOffset &&
+  left.targetAnchorSide === right.targetAnchorSide &&
+  left.targetAnchorOffset === right.targetAnchorOffset &&
+  left.routingMode === right.routingMode &&
+  left.routingOrthoOffset === right.routingOrthoOffset &&
+  left.routingOrthoRadius === right.routingOrthoRadius &&
+  isSameRoutingPoints(left.routingPointsRef, right.routingPointsRef)
+
 // Invariants:
 // 1) `ids/byId` are derived only from `relations.edgeIds + cacheById`.
 // 2) `snapshot` object reference is stable and reads latest state via getters.
-// 3) cache reuse requires the same geometrySignature; edge ref change only swaps entry.edge.
+// 3) cache reuse is fully data-driven (`refs + tuples`).
 export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const getNodeRect = context.query.canvas.nodeRect
   const readModelSnapshot = () => context.get(READ_SUBSCRIBE_KEYS.snapshot)
@@ -105,50 +205,105 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     getEndpoints: (edgeId) => state.cacheById.get(edgeId)?.endpoints
   }
 
-  const getNodeGeometrySignature = (
-    nodeId: EdgePathEntry['edge']['source']['nodeId']
-  ) => toNodeGeometrySignature(getNodeRect(nodeId))
+  const createReconcileMemo = (): ReconcileMemo => ({
+    nodeRectById: new Map<NodeId, ReturnType<typeof getNodeRect>>()
+  })
 
-  const reuseCacheEntry = (
+  const getNodeRectMemo = (
+    memo: ReconcileMemo,
+    nodeId: EdgePathEntry['edge']['source']['nodeId']
+  ) => {
+    if (memo.nodeRectById.has(nodeId)) {
+      return memo.nodeRectById.get(nodeId)
+    }
+    const next = getNodeRect(nodeId)
+    memo.nodeRectById.set(nodeId, next)
+    return next
+  }
+
+  const toEdgeCacheMaterial = (
     edge: EdgePathEntry['edge'],
-    geometrySignature: string,
+    memo: ReconcileMemo
+  ): EdgeCacheMaterial | undefined => {
+    const sourceRectRef = getNodeRectMemo(memo, edge.source.nodeId)
+    const targetRectRef = getNodeRectMemo(memo, edge.target.nodeId)
+    if (!sourceRectRef || !targetRectRef) return undefined
+
+    return {
+      sourceRectRef,
+      targetRectRef,
+      sourceGeometry: toNodeGeometryTuple(sourceRectRef),
+      targetGeometry: toNodeGeometryTuple(targetRectRef),
+      structure: toEdgeStructureTuple(edge)
+    }
+  }
+
+  const reuseCacheEntryByData = (
+    edge: EdgePathEntry['edge'],
+    material: EdgeCacheMaterial,
     previous?: EdgeCacheEntry
-  ): EdgeCacheEntry | undefined =>
-    previous?.geometrySignature === geometrySignature
-      ? previous.entry.edge === edge
-        ? previous
+  ): EdgeCacheEntry | undefined => {
+    if (!previous) return undefined
+
+    const isSameGeometry = (
+      previous.sourceRectRef === material.sourceRectRef &&
+      previous.targetRectRef === material.targetRectRef
+    ) || (
+      isSameNodeGeometryTuple(previous.sourceGeometry, material.sourceGeometry) &&
+      isSameNodeGeometryTuple(previous.targetGeometry, material.targetGeometry)
+    )
+    if (!isSameGeometry) return undefined
+
+    if (!isSameEdgeStructureTuple(previous.structure, material.structure)) {
+      return undefined
+    }
+
+    if (
+      previous.entry.edge === edge &&
+      previous.sourceRectRef === material.sourceRectRef &&
+      previous.targetRectRef === material.targetRectRef
+    ) {
+      return previous
+    }
+
+    return {
+      ...previous,
+      sourceRectRef: material.sourceRectRef,
+      targetRectRef: material.targetRectRef,
+      sourceGeometry: material.sourceGeometry,
+      targetGeometry: material.targetGeometry,
+      structure: material.structure,
+      entry: previous.entry.edge === edge
+        ? previous.entry
         : {
-          geometrySignature,
-          endpoints: previous.endpoints,
-          entry: {
-            ...previous.entry,
-            edge
-          }
+          ...previous.entry,
+          edge
         }
-      : undefined
+    }
+  }
 
   const buildCacheEntry = (
     edge: EdgePathEntry['edge'],
-    geometrySignature: string
+    material: EdgeCacheMaterial
   ): EdgeCacheEntry | undefined => {
-    const sourceEntry = getNodeRect(edge.source.nodeId)
-    const targetEntry = getNodeRect(edge.target.nodeId)
-    if (!sourceEntry || !targetEntry) return undefined
-
     const { path, endpoints } = resolveEdgePathFromRects({
       edge,
       source: {
-        rect: sourceEntry.rect,
-        rotation: sourceEntry.rotation
+        rect: material.sourceRectRef.rect,
+        rotation: material.sourceRectRef.rotation
       },
       target: {
-        rect: targetEntry.rect,
-        rotation: targetEntry.rotation
+        rect: material.targetRectRef.rect,
+        rotation: material.targetRectRef.rotation
       }
     })
 
     return {
-      geometrySignature,
+      sourceRectRef: material.sourceRectRef,
+      targetRectRef: material.targetRectRef,
+      sourceGeometry: material.sourceGeometry,
+      targetGeometry: material.targetGeometry,
+      structure: material.structure,
       endpoints,
       entry: {
         id: edge.id,
@@ -160,13 +315,16 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
 
   const toCacheEntry = (
     edge: EdgePathEntry['edge'],
-    previous?: EdgeCacheEntry
+    previous: EdgeCacheEntry | undefined,
+    memo: ReconcileMemo
   ): EdgeCacheEntry | undefined => {
-    const geometrySignature = toEdgePathSignature(edge, getNodeGeometrySignature)
-    return (
-      reuseCacheEntry(edge, geometrySignature, previous) ??
-      buildCacheEntry(edge, geometrySignature)
-    )
+    const material = toEdgeCacheMaterial(edge, memo)
+    if (!material) return undefined
+
+    const reusedByData = reuseCacheEntryByData(edge, material, previous)
+    if (reusedByData) return reusedByData
+
+    return buildCacheEntry(edge, material)
   }
 
   const commitEntriesAndView = (nextCacheById: Map<EdgeId, EdgeCacheEntry>) => {
@@ -178,12 +336,13 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const reconcileAll = (edges: Edge[]) => {
     const previousCacheById = state.cacheById
     state.relations = createEdgeRelations(edges)
+    const memo = createReconcileMemo()
 
     const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
     state.relations.edgeIds.forEach((edgeId) => {
       const edge = state.relations.edgeById.get(edgeId)
       if (!edge) return
-      const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId))
+      const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId), memo)
       if (!nextEntry) return
       nextCacheById.set(edgeId, nextEntry)
     })
@@ -193,11 +352,12 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
 
   const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
     let draftCacheById: Map<EdgeId, EdgeCacheEntry> | undefined
+    const memo = createReconcileMemo()
 
     for (const edgeId of edgeIds) {
       const edge = state.relations.edgeById.get(edgeId)
       const previous = state.cacheById.get(edgeId)
-      const next = edge ? toCacheEntry(edge, previous) : undefined
+      const next = edge ? toCacheEntry(edge, previous, memo) : undefined
       if (previous === next) continue
 
       if (!draftCacheById) {

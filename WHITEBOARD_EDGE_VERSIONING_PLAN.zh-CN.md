@@ -206,13 +206,13 @@ type EdgeCacheEntry = {
 
 ## Phase 2：双轨判定
 
-1. 新增“引用+tuple”判定。
-2. signature 退为 fallback（仅 debug 或断言模式使用）。
+1. 新增“引用+tuple”判定并作为主路径。
+2. 迁移验证通过后，移除 signature fallback。
 3. 观测命中率和 path 重算次数。
 
 ## Phase 3：收敛主路径
 
-1. 若双轨稳定，移除 signature 主路径。
+1. 保持 data comparator 单路径（无 signature fallback）。
 2. 保留 feature flag 回滚开关。
 
 ---
@@ -226,12 +226,11 @@ type EdgeCacheEntry = {
 
 控制：
 
-1. 迁移期保留 signature fallback + mismatch 计数。
+1. 迁移期记录 comparator mismatch 计数。
 2. 加调试计数器：
    - `refHit`
    - `tupleHit`
    - `pathRebuild`
-   - `signatureFallbackHit`（迁移期）
 3. 保留开关：`edgeCacheDataDrivenComparator`。
 
 ---
@@ -241,11 +240,34 @@ type EdgeCacheEntry = {
 推荐执行顺序：
 
 1. 先做 `ensureEntries()` 周期 memo（最小成本）。
-2. 再做“引用+tuple”双轨判定。
-3. 最后再决定是否彻底移除 signature 主路径。
+2. 再做“引用+tuple”判定。
+3. 验证通过后维持单路径实现。
 
 一句话：
 
 - 不走高复杂度“指令驱动版本表”。
 - 走低复杂度“数据驱动比较链”。
 - 让性能优化与架构可读性同时提升。
+
+---
+
+## 11. 验证结论（当前实现）
+
+基于脚本：
+
+- `packages/whiteboard-engine/src/perf/edgeCacheComparatorCheck.bench.ts`
+
+得到结果：
+
+1. 常规有限值随机样本（20,000 组）：
+   - `data comparator` 与 `signature comparator` 复用判定一致率 `100%`。
+2. 混合随机样本（5,000 组，含部分非有限值扰动）：
+   - 一致率 `100%`。
+3. 定向边界用例（语义相同，但字段包含 `NaN/Infinity`）：
+   - 出现差异：`dataReuse=false`、`signatureReuse=true`。
+
+结论：
+
+1. 常规有限值场景下，data comparator 与 signature 判定一致。
+2. 若系统允许 `NaN/Infinity`，需要先做数值归一化再删除 fallback。
+3. 当前实现已按“输入为有限值”的约束，移除 signature fallback。
