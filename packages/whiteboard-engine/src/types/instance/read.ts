@@ -1,4 +1,4 @@
-import { createStore, type Atom } from 'jotai/vanilla'
+import type { Atom } from 'jotai/vanilla'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -148,13 +148,21 @@ export type EngineReadGetters = {
   mindmapById: (id: NodeId) => MindmapViewTree | undefined
 }
 
+export const READ_PUBLIC_KEYS = {
+  interaction: 'interaction',
+  tool: 'tool',
+  selection: 'selection',
+  viewport: 'viewport',
+  mindmapLayout: 'mindmapLayout'
+} as const
+
+export const READ_SUBSCRIBE_KEYS = {
+  ...READ_PUBLIC_KEYS,
+  snapshot: 'snapshot'
+} as const
+
 export type ReadPublicKey =
-  | 'interaction'
-  | 'tool'
-  | 'selection'
-  | 'viewport'
-  | 'mindmapLayout'
-  | 'snapshot'
+  (typeof READ_PUBLIC_KEYS)[keyof typeof READ_PUBLIC_KEYS]
 
 export type ReadPublicValueMap = {
   interaction: InteractionState
@@ -162,6 +170,14 @@ export type ReadPublicValueMap = {
   selection: SelectionState
   viewport: Viewport
   mindmapLayout: MindmapLayoutConfig
+}
+
+export type ReadSubscribeKey =
+  (typeof READ_SUBSCRIBE_KEYS)[keyof typeof READ_SUBSCRIBE_KEYS]
+
+export type ReadInternalKey = ReadSubscribeKey
+
+export type ReadInternalValueMap = ReadPublicValueMap & {
   snapshot: ReadModelSnapshot
 }
 
@@ -170,8 +186,6 @@ export type EngineReadGet = {
 } & EngineReadGetters
 
 export type EngineRead = {
-  store: ReturnType<typeof createStore>
-  atoms: EngineReadAtoms
   get: EngineReadGet
-  subscribe: (keys: readonly ReadPublicKey[], listener: () => void) => () => void
+  subscribe: (keys: readonly ReadSubscribeKey[], listener: () => void) => () => void
 }

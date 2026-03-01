@@ -14,6 +14,11 @@ export {
 } from './group'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
 export {
+  deriveMindmapRoots,
+  deriveVisibleEdges,
+  orderByIds
+} from './readModel'
+export {
   buildTransformHandles,
   computeNextRotation,
   computeResizeRect,

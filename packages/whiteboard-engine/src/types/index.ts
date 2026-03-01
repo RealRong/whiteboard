@@ -8,7 +8,6 @@ export type {
   ReadModelSnapshot,
   ReadModelNodesSlice,
   ReadModelEdgesSlice,
-  ReadModelMindmapSlice,
   ReadModelIndexesSlice
 } from './readSnapshot'
 export type {
@@ -16,8 +15,11 @@ export type {
   RuntimeApi,
   RuntimeConfig,
   EngineRead,
-  EngineReadAtoms,
+  EngineReadGet,
   EngineReadGetters,
+  ReadPublicKey,
+  ReadSubscribeKey,
+  ReadPublicValueMap,
   Instance,
   InstanceConfig,
   State,
@@ -32,6 +34,10 @@ export type {
   NodeViewItem,
   ViewportView,
   ViewportTransformView
+} from './instance'
+export {
+  READ_PUBLIC_KEYS,
+  READ_SUBSCRIBE_KEYS
 } from './instance'
 
 export type {

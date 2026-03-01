@@ -5,19 +5,18 @@ import {
   resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
-import type { QueryCanvas } from '@engine-types/instance/query'
-import type { EdgeEndpoints, EdgePathEntry } from '@engine-types/instance/read'
+import {
+  READ_SUBSCRIBE_KEYS,
+  type EdgeEndpoints,
+  type EdgePathEntry
+} from '@engine-types/instance/read'
+import type { ReadRuntimeContext } from '../context'
+import type { EdgeChangePlan } from '../changePlan'
 
-type EdgeModelCacheEntry = {
+type EdgeCacheEntry = {
   geometrySignature: string
   endpoints: EdgeEndpoints
   entry: EdgePathEntry
-}
-
-type EdgeNodeRectGetter = QueryCanvas['nodeRect']
-
-type EdgeModelOptions = {
-  getNodeRect: EdgeNodeRectGetter
 }
 
 export type EdgeReadSnapshot = {
@@ -26,34 +25,33 @@ export type EdgeReadSnapshot = {
   getEndpoints: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }
 
-export type EdgeReadModel = {
-  rebuildAll: (edges: Edge[]) => void
-  updateByDirtyNodeIds: (dirtyNodeIds: Iterable<NodeId>) => void
+export type EdgeReadCache = {
+  applyPlan: (plan: EdgeChangePlan) => void
   getSnapshot: () => EdgeReadSnapshot
 }
 
-type EdgeModelRelations = {
+type EdgeCacheRelations = {
   edgeById: Map<EdgeId, Edge>
   edgeOrderIds: EdgeId[]
   nodeToEdgeIds: Map<NodeId, Set<EdgeId>>
 }
 
-type EdgeModelState = {
-  relations: EdgeModelRelations
-  cacheById: Map<EdgeId, EdgeModelCacheEntry>
+type EdgeCacheState = {
+  relations: EdgeCacheRelations
+  cacheById: Map<EdgeId, EdgeCacheEntry>
   ids: EdgeId[]
   byId: Map<EdgeId, EdgePathEntry>
 }
 
-const emptyRelations = (): EdgeModelRelations => ({
+const emptyRelations = (): EdgeCacheRelations => ({
   edgeById: new Map<EdgeId, Edge>(),
   edgeOrderIds: [],
   nodeToEdgeIds: new Map<NodeId, Set<EdgeId>>()
 })
 
-const emptyState = (): EdgeModelState => ({
+const emptyState = (): EdgeCacheState => ({
   relations: emptyRelations(),
-  cacheById: new Map<EdgeId, EdgeModelCacheEntry>(),
+  cacheById: new Map<EdgeId, EdgeCacheEntry>(),
   ids: [],
   byId: new Map<EdgeId, EdgePathEntry>()
 })
@@ -73,7 +71,7 @@ const isSameView = (
   return true
 }
 
-const rebuildView = (state: EdgeModelState) => {
+const rebuildView = (state: EdgeCacheState) => {
   const nextIds: EdgeId[] = []
   const nextById = new Map<EdgeId, EdgePathEntry>()
 
@@ -90,7 +88,7 @@ const rebuildView = (state: EdgeModelState) => {
   state.byId = nextById
 }
 
-const replaceRelations = (state: EdgeModelState, edges: Edge[]) => {
+const replaceRelations = (state: EdgeCacheState, edges: Edge[]) => {
   const next = createEdgeRelations(edges)
   state.relations = {
     edgeById: next.edgeById,
@@ -103,8 +101,12 @@ const replaceRelations = (state: EdgeModelState, edges: Edge[]) => {
 // 1) `ids/byId` are derived only from `relations.edgeOrderIds + cacheById`.
 // 2) `snapshot` object reference is stable and reads latest state via getters.
 // 3) cache reuse requires the same geometrySignature; edge ref change only swaps entry.edge.
-export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
+export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
+  const getNodeRect = context.query.canvas.nodeRect
+  const readSnapshot = () => context.get(READ_SUBSCRIBE_KEYS.snapshot)
   const state = emptyState()
+  let visibleEdgesRef: ReturnType<typeof readSnapshot>['edges']['visible'] | undefined
+  let pendingDirtyNodeIds = new Set<NodeId>()
   const snapshot: EdgeReadSnapshot = {
     get ids() {
       return state.ids
@@ -125,8 +127,8 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
   const reuseCacheEntry = (
     edge: EdgePathEntry['edge'],
     geometrySignature: string,
-    previous?: EdgeModelCacheEntry
-  ): EdgeModelCacheEntry | undefined => {
+    previous?: EdgeCacheEntry
+  ): EdgeCacheEntry | undefined => {
     if (!previous || previous.geometrySignature !== geometrySignature) {
       return undefined
     }
@@ -146,7 +148,7 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
   const buildCacheEntry = (
     edge: EdgePathEntry['edge'],
     geometrySignature: string
-  ): EdgeModelCacheEntry | undefined => {
+  ): EdgeCacheEntry | undefined => {
     const sourceEntry = getNodeRect(edge.source.nodeId)
     const targetEntry = getNodeRect(edge.target.nodeId)
     if (!sourceEntry || !targetEntry) return undefined
@@ -176,8 +178,8 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
 
   const toCacheEntry = (
     edge: EdgePathEntry['edge'],
-    previous?: EdgeModelCacheEntry
-  ): EdgeModelCacheEntry | undefined => {
+    previous?: EdgeCacheEntry
+  ): EdgeCacheEntry | undefined => {
     const geometrySignature = getEdgeGeometrySignature(edge)
     return (
       reuseCacheEntry(edge, geometrySignature, previous) ??
@@ -186,7 +188,7 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
   }
 
   const commitEntriesAndView = (
-    nextCacheById: Map<EdgeId, EdgeModelCacheEntry>
+    nextCacheById: Map<EdgeId, EdgeCacheEntry>
   ) => {
     if (state.cacheById === nextCacheById) return
     state.cacheById = nextCacheById
@@ -195,7 +197,7 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
 
   const rebuildEntries = (edges: Edge[]) => {
     const previousCacheById = state.cacheById
-    const nextCacheById = new Map<EdgeId, EdgeModelCacheEntry>()
+    const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
 
     edges.forEach((edge) => {
       const nextEntry = toCacheEntry(edge, previousCacheById.get(edge.id))
@@ -233,14 +235,12 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
     }
   }
 
-  const rebuildAll: EdgeReadModel['rebuildAll'] = (edges) => {
+  const rebuildAll = (edges: Edge[]) => {
     replaceRelations(state, edges)
     rebuildEntries(edges)
   }
 
-  const updateByDirtyNodeIds: EdgeReadModel['updateByDirtyNodeIds'] = (
-    dirtyNodeIds
-  ) => {
+  const updateByDirtyNodeIds = (dirtyNodeIds: Iterable<NodeId>) => {
     const dirtyNodeIdSet = new Set(dirtyNodeIds)
     if (!dirtyNodeIdSet.size) return
     const affectedEdgeIds = collectRelatedEdgeIds(
@@ -252,11 +252,45 @@ export const model = ({ getNodeRect }: EdgeModelOptions): EdgeReadModel => {
     patchEntriesByEdgeIds(affectedEdgeIds)
   }
 
-  const getSnapshot: EdgeReadModel['getSnapshot'] = () => snapshot
+  const ensureEntries = () => {
+    const edges = readSnapshot().edges.visible
+    if (edges !== visibleEdgesRef) {
+      visibleEdgesRef = edges
+      pendingDirtyNodeIds = new Set<NodeId>()
+      rebuildAll(edges)
+      return
+    }
+
+    if (!pendingDirtyNodeIds.size) return
+    const dirtyNodeIds = pendingDirtyNodeIds
+    pendingDirtyNodeIds = new Set<NodeId>()
+    updateByDirtyNodeIds(dirtyNodeIds)
+  }
+
+  const applyPlan: EdgeReadCache['applyPlan'] = (plan) => {
+    if (plan.clearPendingDirtyNodeIds) {
+      visibleEdgesRef = undefined
+      pendingDirtyNodeIds = new Set<NodeId>()
+      return
+    }
+
+    if (plan.resetVisibleEdges) {
+      visibleEdgesRef = undefined
+    }
+    if (plan.appendDirtyNodeIds.length) {
+      plan.appendDirtyNodeIds.forEach((nodeId) => {
+        pendingDirtyNodeIds.add(nodeId)
+      })
+    }
+  }
+
+  const getSnapshot: EdgeReadCache['getSnapshot'] = () => {
+    ensureEntries()
+    return snapshot
+  }
 
   return {
-    rebuildAll,
-    updateByDirtyNodeIds,
+    applyPlan,
     getSnapshot
   }
 }

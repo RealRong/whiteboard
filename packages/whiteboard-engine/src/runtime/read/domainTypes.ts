@@ -1,6 +1,7 @@
 import type { EngineReadAtoms, EngineReadGetters } from '@engine-types/instance/read'
-import type { Change } from '../write/pipeline/ChangeBus'
+import type { ReadChangePlan } from './changePlan'
 
+// Runtime modules expose atoms/getters slices only; dependencies are injected via ReadRuntimeContext.
 export type ReadAtomsSlice<TKey extends keyof EngineReadAtoms> = Pick<
   EngineReadAtoms,
   TKey
@@ -11,17 +12,11 @@ export type ReadGettersSlice<TKey extends keyof EngineReadGetters> = Pick<
   TKey
 >
 
-export type ReadFeature<
+export type ReadDomain<
   TAtomKey extends keyof EngineReadAtoms,
   TGetterKey extends keyof EngineReadGetters
 > = {
   atoms: ReadAtomsSlice<TAtomKey>
   get: ReadGettersSlice<TGetterKey>
-}
-
-export type ReadMutableFeature<
-  TAtomKey extends keyof EngineReadAtoms,
-  TGetterKey extends keyof EngineReadGetters
-> = ReadFeature<TAtomKey, TGetterKey> & {
-  applyChange: (change: Change) => void
+  applyChange: (plan: ReadChangePlan) => void
 }

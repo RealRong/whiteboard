@@ -1,4 +1,3 @@
-import type { InstanceConfig } from '@engine-types/instance/config'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { MindmapViewTree } from '@engine-types/instance/read'
 import type { Node } from '@whiteboard/core/types'
@@ -12,26 +11,22 @@ import {
   getMindmapRoots,
   toMindmapStructureSignature
 } from '@whiteboard/core/mindmap'
+import type { ReadRuntimeContext } from '../context'
 
-type MindmapModelOptions = {
-  config: InstanceConfig
-}
-
-type MindmapModelInput = {
+type MindmapCacheInput = {
   visibleNodes: Node[]
   layout: MindmapLayoutConfig
 }
 
-export type MindmapReadModel = {
-  trees: (input: MindmapModelInput) => MindmapViewTree[]
+export type MindmapReadCache = {
+  trees: (input: MindmapCacheInput) => MindmapViewTree[]
 }
 
-export const model = ({
-  config
-}: MindmapModelOptions): MindmapReadModel => {
+export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
+  const config = context.config
   let treeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
 
-  const trees: MindmapReadModel['trees'] = ({
+  const trees: MindmapReadCache['trees'] = ({
     visibleNodes,
     layout
   }) => {

@@ -1,5 +1,8 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/engine'
+import {
+  READ_SUBSCRIBE_KEYS,
+  type NodeViewItem
+} from '@whiteboard/engine'
 import { useInstance, useReadGetter } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
@@ -7,7 +10,7 @@ const useNodeItem = (nodeId: NodeId) => {
   const instance = useInstance()
   return useReadGetter<NodeViewItem | undefined>(
     () => instance.read.get.nodeById(nodeId),
-    { keys: ['snapshot'] }
+    { keys: [READ_SUBSCRIBE_KEYS.snapshot] }
   )
 }
 
@@ -22,7 +25,7 @@ export const NodeLayer = () => {
   const instance = useInstance()
   const nodeIds = useReadGetter(
     () => instance.read.get.nodeIds(),
-    { keys: ['snapshot'] }
+    { keys: [READ_SUBSCRIBE_KEYS.snapshot] }
   )
 
   return (

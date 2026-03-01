@@ -1,19 +1,19 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react'
-import type { ReadPublicKey } from '@whiteboard/engine'
+import type { ReadSubscribeKey } from '@whiteboard/engine'
 import { useInstance } from './useInstance'
 
 type Equality<T> = (left: T, right: T) => boolean
 
 type ReadGetterOptions<T> = {
-  keys: ReadPublicKey[]
+  keys: ReadSubscribeKey[]
   equality?: Equality<T>
 }
 
 const defaultEquality: Equality<unknown> = Object.is
 
-const normalizeKeys = (keys: ReadPublicKey[]) => Array.from(new Set(keys))
+const normalizeKeys = (keys: ReadSubscribeKey[]) => Array.from(new Set(keys))
 
-const isSameKeys = (left: ReadPublicKey[], right: ReadPublicKey[]) => {
+const isSameKeys = (left: ReadSubscribeKey[], right: ReadSubscribeKey[]) => {
   if (left === right) return true
   if (left.length !== right.length) return false
   for (let index = 0; index < left.length; index += 1) {
@@ -36,7 +36,7 @@ export const useReadGetter = <T,>(
     [options.keys]
   )
 
-  const keysRef = useRef<ReadPublicKey[]>(computedKeys)
+  const keysRef = useRef<ReadSubscribeKey[]>(computedKeys)
   if (!isSameKeys(keysRef.current, computedKeys)) {
     keysRef.current = computedKeys
   }

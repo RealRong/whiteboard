@@ -1,48 +1,28 @@
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { ReadRuntimeContext } from '../context'
-import type { ReadFeature } from '../featureTypes'
-import { model as createMindmapModel } from './model'
-import { view as createMindmapView } from './view'
-import { viewModel as createMindmapViewModel } from './viewModel'
+import type { ReadDomain } from '../domainTypes'
+import { atoms as createMindmapAtoms } from './atoms'
+import { projection as createMindmapProjection } from './projection'
 
 type MindmapReadAtomKey = 'mindmapIds' | 'mindmapById'
 
 type MindmapReadGetterKey = MindmapReadAtomKey
 
-export type MindmapReadFeature = ReadFeature<
+export type MindmapReadDomain = ReadDomain<
   MindmapReadAtomKey,
   MindmapReadGetterKey
 >
 
-export const feature = (context: ReadRuntimeContext): MindmapReadFeature => {
-  const readSnapshot = (): ReadModelSnapshot => context.get('snapshot')
-  const readMindmapLayout = (): MindmapLayoutConfig =>
-    context.get('mindmapLayout')
+export const domain = (context: ReadRuntimeContext): MindmapReadDomain => {
+  const mindmapProjection = createMindmapProjection(context)
 
-  const model = createMindmapModel({
-    config: context.config
-  })
-
-  const mindmapViewModel = createMindmapViewModel({
-    getTrees: () =>
-      model.trees({
-        visibleNodes: readSnapshot().nodes.visible,
-        layout: readMindmapLayout()
-      })
-  })
-
-  const atoms = createMindmapView({
-    mindmapLayoutAtom: context.atom('mindmapLayout'),
-    readSnapshotAtom: context.atom('snapshot'),
-    getSnapshot: mindmapViewModel.getSnapshot
-  })
+  const derivedAtoms = createMindmapAtoms(context, mindmapProjection)
 
   return {
-    atoms,
+    atoms: derivedAtoms,
     get: {
-      mindmapIds: () => context.readAtom(atoms.mindmapIds),
-      mindmapById: (id) => context.readAtom(atoms.mindmapById(id))
-    }
+      mindmapIds: () => context.store.get(derivedAtoms.mindmapIds),
+      mindmapById: (id) => context.store.get(derivedAtoms.mindmapById(id))
+    },
+    applyChange: () => {}
   }
 }

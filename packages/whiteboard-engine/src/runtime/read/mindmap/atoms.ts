@@ -1,32 +1,30 @@
 import { atom, type Atom } from 'jotai/vanilla'
 import type { NodeId } from '@whiteboard/core/types'
-import type { MindmapViewTree } from '@engine-types/instance/read'
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import type { StateAtoms } from '../../../state/factory/CreateState'
-import type { MindmapReadSnapshot } from './viewModel'
+import {
+  READ_PUBLIC_KEYS,
+  READ_SUBSCRIBE_KEYS,
+  type MindmapViewTree
+} from '@engine-types/instance/read'
+import type { ReadRuntimeContext } from '../context'
+import type { MindmapProjection } from './projection'
 
-type MindmapViewOptions = {
-  mindmapLayoutAtom: StateAtoms['mindmapLayout']
-  readSnapshotAtom: Atom<ReadModelSnapshot>
-  getSnapshot: () => MindmapReadSnapshot
-}
-
-export type MindmapViewAtoms = {
+export type MindmapReadAtoms = {
   mindmapIds: Atom<NodeId[]>
   mindmapById: (id: NodeId) => Atom<MindmapViewTree | undefined>
 }
 
-export const view = ({
-  mindmapLayoutAtom,
-  readSnapshotAtom,
-  getSnapshot
-}: MindmapViewOptions): MindmapViewAtoms => {
+export const atoms = (
+  context: ReadRuntimeContext,
+  projection: MindmapProjection
+): MindmapReadAtoms => {
+  const mindmapLayoutAtom = context.atom(READ_PUBLIC_KEYS.mindmapLayout)
+  const readSnapshotAtom = context.atom(READ_SUBSCRIBE_KEYS.snapshot)
   const mindmapByIdAtoms = new Map<NodeId, Atom<MindmapViewTree | undefined>>()
 
   const mindmapIdsAtom = atom((get) => {
     get(readSnapshotAtom)
     get(mindmapLayoutAtom)
-    return getSnapshot().ids
+    return projection.getSnapshot().ids
   })
 
   const mindmapById = (id: NodeId) => {
@@ -36,7 +34,7 @@ export const view = ({
     const nextAtom = atom((get) => {
       get(readSnapshotAtom)
       get(mindmapLayoutAtom)
-      return getSnapshot().byId.get(id)
+      return projection.getSnapshot().byId.get(id)
     })
     mindmapByIdAtoms.set(id, nextAtom)
     return nextAtom

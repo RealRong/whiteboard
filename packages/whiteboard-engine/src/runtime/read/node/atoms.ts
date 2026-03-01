@@ -1,21 +1,17 @@
 import { atom, type Atom } from 'jotai/vanilla'
-import type { NodeId, Viewport } from '@whiteboard/core/types'
-import type { QueryCanvas } from '@engine-types/instance/query'
-import type {
-  NodeViewItem,
-  ViewportTransformView
+import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
+import { toLayerOrderedCanvasNodes } from '@whiteboard/core/node'
+import {
+  READ_PUBLIC_KEYS,
+  READ_SUBSCRIBE_KEYS,
+  type NodeViewItem,
+  type ViewportTransformView
 } from '@engine-types/instance/read'
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import type { StateAtoms } from '../../../state/factory/CreateState'
+import type {
+  ReadRuntimeContext
+} from '../context'
 
-type NodeViewOptions = {
-  viewportAtom: StateAtoms['viewport']
-  readSnapshotAtom: Atom<ReadModelSnapshot>
-  getNodeRect: QueryCanvas['nodeRect']
-  getNodeIds: () => NodeId[]
-}
-
-export type NodeViewAtoms = {
+export type NodeReadAtoms = {
   viewportTransform: Atom<ViewportTransformView>
   nodeIds: Atom<NodeId[]>
   nodeById: (id: NodeId) => Atom<NodeViewItem | undefined>
@@ -33,12 +29,37 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-export const view = ({
-  viewportAtom,
-  readSnapshotAtom,
-  getNodeRect,
-  getNodeIds
-}: NodeViewOptions): NodeViewAtoms => {
+const isSameNodeOrder = (left: readonly string[], right: readonly string[]) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
+
+export const atoms = (context: ReadRuntimeContext): NodeReadAtoms => {
+  const viewportAtom = context.atom(READ_PUBLIC_KEYS.viewport)
+  const readSnapshotAtom = context.atom(READ_SUBSCRIBE_KEYS.snapshot)
+  const getNodeRect = context.query.canvas.nodeRect
+
+  let nodeIdsCache: NodeId[] = []
+  let nodeIdsSourceRef: Node[] | undefined
+  const getNodeIds = () => {
+    const canvasNodes = context.get(READ_SUBSCRIBE_KEYS.snapshot).nodes.canvas
+    if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
+
+    const next = toLayerOrderedCanvasNodes(canvasNodes).map((node) => node.id)
+    if (isSameNodeOrder(nodeIdsCache, next)) {
+      nodeIdsSourceRef = canvasNodes
+      return nodeIdsCache
+    }
+
+    nodeIdsSourceRef = canvasNodes
+    nodeIdsCache = next
+    return nodeIdsCache
+  }
+
   const nodeByIdAtoms = new Map<NodeId, Atom<NodeViewItem | undefined>>()
   const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
 

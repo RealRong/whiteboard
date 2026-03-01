@@ -17,7 +17,7 @@ import { resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
 import { ViewportRuntime } from '../runtime/Viewport'
-import { runtime as readRuntimeFactory } from '../runtime/read/runtime'
+import { orchestrator as createReadOrchestrator } from '../runtime/read/orchestrator'
 import { read as readAtomsFactory } from '../runtime/read/atoms'
 import { createDocumentStore } from '../document/Store'
 import { Reactions } from './reactions/Reactions'
@@ -205,7 +205,7 @@ export const createEngine = ({
     }
   })
 
-  const readRuntime = readRuntimeFactory({
+  const readRuntime = createReadOrchestrator({
     runtimeStore,
     stateAtoms,
     readAtoms,

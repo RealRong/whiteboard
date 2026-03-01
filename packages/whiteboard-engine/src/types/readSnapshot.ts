@@ -14,14 +14,8 @@ export type ReadModelEdgesSlice = {
   visible: Edge[]
 }
 
-export type ReadModelMindmapSlice = {
-  roots: NodeId[]
-}
-
 export type ReadModelIndexesSlice = {
   canvasNodeById: Map<NodeId, Node>
-  visibleNodeIndexById: Map<NodeId, number>
-  canvasNodeIndexById: Map<NodeId, number>
 }
 
 export type ReadModelSnapshot = {
@@ -29,6 +23,5 @@ export type ReadModelSnapshot = {
   docId: Document['id'] | undefined
   nodes: ReadModelNodesSlice
   edges: ReadModelEdgesSlice
-  mindmap: ReadModelMindmapSlice
   indexes: ReadModelIndexesSlice
 }

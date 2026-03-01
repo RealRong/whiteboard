@@ -22,9 +22,9 @@ export type {
   InstanceConfig,
   EngineRead,
   EngineReadGet,
-  EngineReadAtoms,
   EngineReadGetters,
   ReadPublicKey,
+  ReadSubscribeKey,
   ReadPublicValueMap,
   EdgePathEntry,
   StateKey,
@@ -36,6 +36,10 @@ export type {
   MindmapDragView,
   MindmapViewTree,
   NodeViewItem
+} from './types/instance'
+export {
+  READ_PUBLIC_KEYS,
+  READ_SUBSCRIBE_KEYS
 } from './types/instance'
 export type { ShortcutOverrides } from './types/shortcuts'
 export type {

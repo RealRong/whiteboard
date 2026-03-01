@@ -4,16 +4,16 @@
 
 ## 1. 结论先行
 
-本方案采用统一的类型化 key 访问模型，但只把“状态值”放进 key：
+本方案采用统一的类型化 key 访问模型，并把“读取 key”与“订阅 key”分离：
 
-1. 内部（read runtime/store/feature）统一通过 `get(key)`、`subscribe(keys)` 读取与订阅状态。
+1. 内部（read runtime/store/feature）统一通过 `get(key)`、`subscribe(keys)` 读取与订阅。
 2. `setSignal(key)` 仅保留在内部，且只能写入内部信号 key，不对业务层开放。
 3. `getNodeRect`、`config` 这类 query/常量能力不进入 key 体系，直接走 `context.query.xxx` / `context.config`。
 4. 对外不暴露 atom；atom 仅作为内部实现细节，由 key -> source 映射层承载。
 
 核心目标：
 
-1. API 更少：调用统一 `get('selection')`、`subscribe([...])`。
+1. API 更少：状态读取统一 `get('selection')`，失效监听统一 `subscribe([...])`。
 2. 检索更快：可直接全局搜索 key 使用点。
 3. 语义清晰：状态走 key，查询走 query，配置走 config。
 
@@ -40,29 +40,38 @@
 
 ```ts
 type ReadPublicKey =
+  | 'interaction'
+  | 'tool'
   | 'selection'
   | 'viewport'
   | 'mindmapLayout'
-  | 'snapshot'
+
+type ReadSubscribeKey = ReadPublicKey | 'snapshot'
 
 type ReadInternalSignalKey =
   | 'signal.edgeRevision'
 
-type ReadInternalKey = ReadPublicKey | ReadInternalSignalKey
+type ReadInternalKey = ReadSubscribeKey | ReadInternalSignalKey
 ```
 
 说明：
 
-1. `ReadPublicKey` 可对外暴露。
-2. `ReadInternalSignalKey` 仅内部使用，承载 read 层失效/触发信号。
+1. `ReadPublicKey` 用于 `read.get`（仅状态值）。
+2. `ReadSubscribeKey` 用于 `read.subscribe`（包含 `snapshot` 失效信号）。
+3. `ReadInternalSignalKey` 仅内部使用，承载 read 层失效/触发信号。
 
 ### 4.2 key 到值类型映射
 
 ```ts
-type ReadKeyValueMap = {
+type ReadPublicValueMap = {
+  interaction: InteractionState
+  tool: 'select' | 'edge'
   selection: SelectionState
   viewport: Viewport
   mindmapLayout: MindmapLayoutConfig
+}
+
+type ReadInternalValueMap = ReadPublicValueMap & {
   snapshot: ReadModelSnapshot
   'signal.edgeRevision': number
 }
@@ -76,10 +85,10 @@ type ReadKeyValueMap = {
 ### 4.3 订阅 key 约束
 
 ```ts
-type ReadSubscribablePublicKey = ReadPublicKey
+type ReadSubscribablePublicKey = ReadSubscribeKey
 
 type ReadSubscribableInternalKey =
-  | ReadPublicKey
+  | ReadSubscribeKey
   | ReadInternalSignalKey
 ```
 
@@ -94,15 +103,18 @@ type ReadSubscribableInternalKey =
 
 ```ts
 type EngineReadPublic = {
-  get: <K extends ReadPublicKey>(key: K) => ReadKeyValueMap[K]
+  get: EngineReadGet
   subscribe: (
     keys: readonly ReadSubscribablePublicKey[],
     listener: () => void
   ) => () => void
-  // 保留参数化读取能力
-  getters: EngineReadGetters
 }
 ```
+
+`EngineReadGet` 的语义：
+
+1. 可调用 key 读取：`get('selection')`。
+2. 兼容参数化 getter：`get.edgeById(edgeId)`、`get.nodeById(nodeId)`。
 
 约束：
 
@@ -218,14 +230,14 @@ context.setSignal('signal.edgeRevision', (prev) => prev + 1)
 ```ts
 const selection = instance.read.get('selection')
 const off = instance.read.subscribe(['snapshot'], onReadChanged)
-const edge = instance.read.getters.edgeById(edgeId)
+const edge = instance.read.get.edgeById(edgeId)
 ```
 
 ## 9. 迁移计划
 
 ### Phase 0：加类型与文档（零行为改动）
 
-1. 新增 `ReadPublicKey`、`ReadInternalSignalKey`、`ReadKeyValueMap`。
+1. 新增 `ReadPublicKey`、`ReadSubscribeKey`、`ReadInternalSignalKey`、`ReadInternalValueMap`。
 2. 在文档中明确：query/config 不进入 key。
 
 ### Phase 1：引入 context 映射层
@@ -241,7 +253,7 @@ const edge = instance.read.getters.edgeById(edgeId)
 
 ### Phase 3：公共 API 与内部 API 分离
 
-1. 公共 `EngineRead` 切到 `get/subscribe/getters`。
+1. 公共 `EngineRead` 切到 `get/subscribe`（`get` 同时承载参数化 getter）。
 2. 内部保留 `ReadRuntimeContext` 与可选内部适配器。
 
 ### Phase 4：迁移 whiteboard-react 调用

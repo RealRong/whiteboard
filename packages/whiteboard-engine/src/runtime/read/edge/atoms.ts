@@ -1,33 +1,35 @@
 import { atom, type Atom } from 'jotai/vanilla'
 import type { EdgeId } from '@whiteboard/core/types'
-import type { EdgeEndpoints, EdgePathEntry } from '@engine-types/instance/read'
-import type { StateAtoms } from '../../../state/factory/CreateState'
-import type { EdgeReadSnapshot } from './model'
+import {
+  READ_PUBLIC_KEYS,
+  type EdgeEndpoints,
+  type EdgePathEntry
+} from '@engine-types/instance/read'
+import {
+  READ_INTERNAL_SIGNAL_KEYS,
+  type ReadRuntimeContext
+} from '../context'
+import type { EdgeReadCache } from './cache'
 
-type EdgeViewOptions = {
-  selectionAtom: StateAtoms['selection']
-  edgeRevisionAtom: Atom<number>
-  getSnapshot: () => EdgeReadSnapshot
-}
-
-export type EdgeViewAtoms = {
+export type EdgeReadAtoms = {
   edgeIds: Atom<EdgeId[]>
   edgeById: (id: EdgeId) => Atom<EdgePathEntry | undefined>
   selectedEdgeId: Atom<EdgeId | undefined>
   edgeSelectedEndpoints: Atom<EdgeEndpoints | undefined>
 }
 
-export const view = ({
-  selectionAtom,
-  edgeRevisionAtom,
-  getSnapshot
-}: EdgeViewOptions): EdgeViewAtoms => {
+export const atoms = (
+  context: ReadRuntimeContext,
+  cache: EdgeReadCache
+): EdgeReadAtoms => {
+  const selectionAtom = context.atom(READ_PUBLIC_KEYS.selection)
+  const edgeRevisionAtom = context.atom(READ_INTERNAL_SIGNAL_KEYS.edgeRevision)
   const edgeByIdAtoms = new Map<EdgeId, Atom<EdgePathEntry | undefined>>()
   let edgeSelectedEndpointsCache: EdgeEndpoints | undefined
 
   const edgeIdsAtom = atom((get) => {
     get(edgeRevisionAtom)
-    return getSnapshot().ids
+    return cache.getSnapshot().ids
   })
 
   const edgeById = (id: EdgeId) => {
@@ -36,7 +38,7 @@ export const view = ({
 
     const nextAtom = atom((get) => {
       get(edgeRevisionAtom)
-      return getSnapshot().byId.get(id)
+      return cache.getSnapshot().byId.get(id)
     })
     edgeByIdAtoms.set(id, nextAtom)
     return nextAtom
@@ -47,7 +49,7 @@ export const view = ({
   const edgeSelectedEndpointsAtom = atom((get) => {
     get(edgeRevisionAtom)
     const selectedEdgeId = get(selectedEdgeIdAtom)
-    const snapshot = getSnapshot()
+    const snapshot = cache.getSnapshot()
     const next = selectedEdgeId
       ? snapshot.getEndpoints(selectedEdgeId)
       : undefined
