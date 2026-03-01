@@ -9,10 +9,10 @@ import {
   nodeSlices,
   orderedNodes,
   visibleNodes,
-  canvasNodes
+  canvasNodes,
+  indexes
 } from './nodes'
 import { visibleEdges } from './edges'
-import { indexes } from './indexes'
 import { snapshot } from './snapshot'
 
 type ReadOptions = {

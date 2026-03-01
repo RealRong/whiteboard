@@ -1,12 +1,21 @@
 import type { Edge, EdgeId, Node, NodeId } from '../types'
 
 const EMPTY_EDGE_IDS: EdgeId[] = []
+const EMPTY_NODES: Node[] = []
+const EMPTY_NODE_MAP = new Map<NodeId, Node>()
+
+export type NodeReadSlices = {
+  ordered: Node[]
+  visible: Node[]
+  canvas: Node[]
+  canvasNodeById: Map<NodeId, Node>
+}
 
 export const orderByIds = <T extends { id: string }>(
   items: T[],
-  ids: readonly string[]
+  ids?: readonly string[]
 ) => {
-  if (!ids.length) return items
+  if (!ids?.length) return items
 
   if (items.length === ids.length) {
     let sameOrder = true
@@ -44,12 +53,10 @@ export const orderByIds = <T extends { id: string }>(
 export const deriveVisibleEdges = (
   edges: readonly Edge[],
   canvasNodes: readonly Node[],
-  edgeOrder: readonly EdgeId[] = EMPTY_EDGE_IDS
+  edgeOrder?: readonly EdgeId[]
 ): Edge[] => {
   if (!edges.length || !canvasNodes.length) return []
 
-  const orderedEdgeIds =
-    edgeOrder.length ? edgeOrder : edges.map((edge) => edge.id)
   const canvasNodeIds = new Set<NodeId>(canvasNodes.map((node) => node.id))
   const visibleEdges = edges.filter(
     (edge) =>
@@ -57,7 +64,76 @@ export const deriveVisibleEdges = (
       canvasNodeIds.has(edge.target.nodeId)
   )
 
-  return orderByIds(visibleEdges, orderedEdgeIds)
+  return orderByIds(visibleEdges, edgeOrder ?? EMPTY_EDGE_IDS)
+}
+
+const isCollapsedGroup = (node: Node) =>
+  node.type === 'group' &&
+  node.data &&
+  typeof node.data.collapsed === 'boolean' &&
+  node.data.collapsed
+
+const isHiddenByCollapsedGroup = (
+  node: Node,
+  nodeById: ReadonlyMap<NodeId, Node>,
+  collapsedGroupIds: ReadonlySet<NodeId>
+) => {
+  let parentId = node.parentId
+  while (parentId) {
+    if (collapsedGroupIds.has(parentId)) return true
+    const parent = nodeById.get(parentId)
+    parentId = parent?.parentId
+  }
+  return false
+}
+
+export const deriveNodeReadSlices = (
+  nodes: Node[],
+  nodeOrder?: readonly NodeId[]
+): NodeReadSlices => {
+  if (!nodes.length) {
+    return {
+      ordered: EMPTY_NODES,
+      visible: EMPTY_NODES,
+      canvas: EMPTY_NODES,
+      canvasNodeById: EMPTY_NODE_MAP
+    }
+  }
+
+  const ordered = orderByIds(nodes, nodeOrder)
+  const nodeById = new Map<NodeId, Node>()
+  const collapsedGroupIds = new Set<NodeId>()
+
+  ordered.forEach((node) => {
+    nodeById.set(node.id, node)
+    if (isCollapsedGroup(node)) {
+      collapsedGroupIds.add(node.id)
+    }
+  })
+
+  const visible: Node[] = []
+  const canvas: Node[] = []
+  const canvasNodeById = new Map<NodeId, Node>()
+
+  ordered.forEach((node) => {
+    const hidden =
+      collapsedGroupIds.size > 0 &&
+      isHiddenByCollapsedGroup(node, nodeById, collapsedGroupIds)
+    if (hidden) return
+
+    visible.push(node)
+    if (node.type !== 'mindmap') {
+      canvas.push(node)
+      canvasNodeById.set(node.id, node)
+    }
+  })
+
+  return {
+    ordered,
+    visible,
+    canvas,
+    canvasNodeById
+  }
 }
 
 export const deriveMindmapRoots = (visibleNodes: readonly Node[]): NodeId[] => {

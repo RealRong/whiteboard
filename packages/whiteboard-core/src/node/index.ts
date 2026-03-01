@@ -14,10 +14,12 @@ export {
 } from './group'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
 export {
+  deriveNodeReadSlices,
   deriveMindmapRoots,
   deriveVisibleEdges,
   orderByIds
 } from './readModel'
+export type { NodeReadSlices } from './readModel'
 export {
   buildTransformHandles,
   computeNextRotation,
@@ -45,7 +47,7 @@ export {
   resolveSnapThresholdWorld
 } from './snapRuntime'
 export { getNodeIdsInRect, type NodeRectHitEntry } from './hitTest'
-export { toLayerOrderedCanvasNodes } from './layer'
+export { toLayerOrderedCanvasNodes, toLayerOrderedCanvasNodeIds } from './layer'
 export {
   buildNodeCreateOperation,
   buildNodeGroupOperations,

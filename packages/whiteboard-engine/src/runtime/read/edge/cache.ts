@@ -2,7 +2,8 @@ import { toEdgePathSignature, toNodeGeometrySignature } from '@whiteboard/core/c
 import {
   collectRelatedEdgeIds,
   createEdgeRelations,
-  resolveEdgePathFromRects
+  resolveEdgePathFromRects,
+  type EdgeRelations
 } from '@whiteboard/core/edge'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
@@ -30,22 +31,16 @@ export type EdgeReadCache = {
   getSnapshot: () => EdgeReadSnapshot
 }
 
-type EdgeCacheRelations = {
-  edgeById: Map<EdgeId, Edge>
-  edgeOrderIds: EdgeId[]
-  nodeToEdgeIds: Map<NodeId, Set<EdgeId>>
-}
-
 type EdgeCacheState = {
-  relations: EdgeCacheRelations
+  relations: EdgeRelations
   cacheById: Map<EdgeId, EdgeCacheEntry>
   ids: EdgeId[]
   byId: Map<EdgeId, EdgePathEntry>
 }
 
-const emptyRelations = (): EdgeCacheRelations => ({
+const emptyRelations = (): EdgeRelations => ({
   edgeById: new Map<EdgeId, Edge>(),
-  edgeOrderIds: [],
+  edgeIds: [],
   nodeToEdgeIds: new Map<NodeId, Set<EdgeId>>()
 })
 
@@ -75,7 +70,7 @@ const rebuildView = (state: EdgeCacheState) => {
   const nextIds: EdgeId[] = []
   const nextById = new Map<EdgeId, EdgePathEntry>()
 
-  state.relations.edgeOrderIds.forEach((edgeId) => {
+  state.relations.edgeIds.forEach((edgeId) => {
     const entry = state.cacheById.get(edgeId)?.entry
     if (!entry) return
     nextIds.push(edgeId)
@@ -88,25 +83,18 @@ const rebuildView = (state: EdgeCacheState) => {
   state.byId = nextById
 }
 
-const replaceRelations = (state: EdgeCacheState, edges: Edge[]) => {
-  const next = createEdgeRelations(edges)
-  state.relations = {
-    edgeById: next.edgeById,
-    edgeOrderIds: next.edgeIds,
-    nodeToEdgeIds: next.nodeToEdgeIds
-  }
-}
-
 // Invariants:
-// 1) `ids/byId` are derived only from `relations.edgeOrderIds + cacheById`.
+// 1) `ids/byId` are derived only from `relations.edgeIds + cacheById`.
 // 2) `snapshot` object reference is stable and reads latest state via getters.
 // 3) cache reuse requires the same geometrySignature; edge ref change only swaps entry.edge.
 export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const getNodeRect = context.query.canvas.nodeRect
-  const readSnapshot = () => context.get(READ_SUBSCRIBE_KEYS.snapshot)
+  const readModelSnapshot = () => context.get(READ_SUBSCRIBE_KEYS.snapshot)
   const state = emptyState()
-  let visibleEdgesRef: ReturnType<typeof readSnapshot>['edges']['visible'] | undefined
+  let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
+  let pendingResetVisibleEdges = false
   let pendingDirtyNodeIds = new Set<NodeId>()
+
   const snapshot: EdgeReadSnapshot = {
     get ids() {
       return state.ids
@@ -121,29 +109,23 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     nodeId: EdgePathEntry['edge']['source']['nodeId']
   ) => toNodeGeometrySignature(getNodeRect(nodeId))
 
-  const getEdgeGeometrySignature = (edge: EdgePathEntry['edge']) =>
-    toEdgePathSignature(edge, getNodeGeometrySignature)
-
   const reuseCacheEntry = (
     edge: EdgePathEntry['edge'],
     geometrySignature: string,
     previous?: EdgeCacheEntry
-  ): EdgeCacheEntry | undefined => {
-    if (!previous || previous.geometrySignature !== geometrySignature) {
-      return undefined
-    }
-    if (previous.entry.edge === edge) {
-      return previous
-    }
-    return {
-      geometrySignature,
-      endpoints: previous.endpoints,
-      entry: {
-        ...previous.entry,
-        edge
-      }
-    }
-  }
+  ): EdgeCacheEntry | undefined =>
+    previous?.geometrySignature === geometrySignature
+      ? previous.entry.edge === edge
+        ? previous
+        : {
+          geometrySignature,
+          endpoints: previous.endpoints,
+          entry: {
+            ...previous.entry,
+            edge
+          }
+        }
+      : undefined
 
   const buildCacheEntry = (
     edge: EdgePathEntry['edge'],
@@ -180,103 +162,103 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     edge: EdgePathEntry['edge'],
     previous?: EdgeCacheEntry
   ): EdgeCacheEntry | undefined => {
-    const geometrySignature = getEdgeGeometrySignature(edge)
+    const geometrySignature = toEdgePathSignature(edge, getNodeGeometrySignature)
     return (
       reuseCacheEntry(edge, geometrySignature, previous) ??
       buildCacheEntry(edge, geometrySignature)
     )
   }
 
-  const commitEntriesAndView = (
-    nextCacheById: Map<EdgeId, EdgeCacheEntry>
-  ) => {
+  const commitEntriesAndView = (nextCacheById: Map<EdgeId, EdgeCacheEntry>) => {
     if (state.cacheById === nextCacheById) return
     state.cacheById = nextCacheById
     rebuildView(state)
   }
 
-  const rebuildEntries = (edges: Edge[]) => {
+  const reconcileAll = (edges: Edge[]) => {
     const previousCacheById = state.cacheById
-    const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
+    state.relations = createEdgeRelations(edges)
 
-    edges.forEach((edge) => {
-      const nextEntry = toCacheEntry(edge, previousCacheById.get(edge.id))
+    const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
+    state.relations.edgeIds.forEach((edgeId) => {
+      const edge = state.relations.edgeById.get(edgeId)
+      if (!edge) return
+      const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId))
       if (!nextEntry) return
-      nextCacheById.set(edge.id, nextEntry)
+      nextCacheById.set(edgeId, nextEntry)
     })
 
     commitEntriesAndView(nextCacheById)
   }
 
-  const patchEntriesByEdgeIds = (edgeIds: Iterable<EdgeId>) => {
-    let draftCacheById = state.cacheById
-    const ensureDraftCache = () => {
-      if (draftCacheById === state.cacheById) {
-        draftCacheById = new Map(state.cacheById)
-      }
-      return draftCacheById
-    }
+  const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
+    let draftCacheById: Map<EdgeId, EdgeCacheEntry> | undefined
 
     for (const edgeId of edgeIds) {
       const edge = state.relations.edgeById.get(edgeId)
       const previous = state.cacheById.get(edgeId)
       const next = edge ? toCacheEntry(edge, previous) : undefined
       if (previous === next) continue
-      const draft = ensureDraftCache()
+
+      if (!draftCacheById) {
+        draftCacheById = new Map(state.cacheById)
+      }
+
       if (next) {
-        draft.set(edgeId, next)
+        draftCacheById.set(edgeId, next)
       } else {
-        draft.delete(edgeId)
+        draftCacheById.delete(edgeId)
       }
     }
 
-    if (draftCacheById !== state.cacheById) {
+    if (draftCacheById) {
       commitEntriesAndView(draftCacheById)
     }
   }
 
-  const rebuildAll = (edges: Edge[]) => {
-    replaceRelations(state, edges)
-    rebuildEntries(edges)
-  }
-
-  const updateByDirtyNodeIds = (dirtyNodeIds: Iterable<NodeId>) => {
-    const dirtyNodeIdSet = new Set(dirtyNodeIds)
-    if (!dirtyNodeIdSet.size) return
-    const affectedEdgeIds = collectRelatedEdgeIds(
-      state.relations.nodeToEdgeIds,
-      dirtyNodeIdSet
-    )
-    if (!affectedEdgeIds.size) return
-
-    patchEntriesByEdgeIds(affectedEdgeIds)
-  }
-
   const ensureEntries = () => {
-    const edges = readSnapshot().edges.visible
-    if (edges !== visibleEdgesRef) {
-      visibleEdgesRef = edges
+    if (pendingResetVisibleEdges) {
+      visibleEdgesRef = undefined
+      pendingResetVisibleEdges = false
+    }
+
+    const visibleEdges = readModelSnapshot().edges.visible
+    if (visibleEdges !== visibleEdgesRef) {
+      visibleEdgesRef = visibleEdges
       pendingDirtyNodeIds = new Set<NodeId>()
-      rebuildAll(edges)
+      reconcileAll(visibleEdges)
       return
     }
 
     if (!pendingDirtyNodeIds.size) return
+
     const dirtyNodeIds = pendingDirtyNodeIds
     pendingDirtyNodeIds = new Set<NodeId>()
-    updateByDirtyNodeIds(dirtyNodeIds)
+
+    const affectedEdgeIds = collectRelatedEdgeIds(
+      state.relations.nodeToEdgeIds,
+      dirtyNodeIds
+    )
+    if (!affectedEdgeIds.size) return
+
+    reconcileEdges(affectedEdgeIds)
   }
 
   const applyPlan: EdgeReadCache['applyPlan'] = (plan) => {
+    // `clearPendingDirtyNodeIds` only appears on full-sync plans.
+    // In that case we force next ensureEntries() into full reconcile by clearing
+    // all pending signals and invalidating visibleEdgesRef.
     if (plan.clearPendingDirtyNodeIds) {
       visibleEdgesRef = undefined
+      pendingResetVisibleEdges = false
       pendingDirtyNodeIds = new Set<NodeId>()
       return
     }
 
     if (plan.resetVisibleEdges) {
-      visibleEdgesRef = undefined
+      pendingResetVisibleEdges = true
     }
+
     if (plan.appendDirtyNodeIds.length) {
       plan.appendDirtyNodeIds.forEach((nodeId) => {
         pendingDirtyNodeIds.add(nodeId)

@@ -21,3 +21,15 @@ export const isSameNodeIdOrder = (left: readonly Node[], right: readonly Node[])
   }
   return true
 }
+
+export const isSameNodeMap = (
+  left: ReadonlyMap<NodeId, Node>,
+  right: ReadonlyMap<NodeId, Node>
+) => {
+  if (left === right) return true
+  if (left.size !== right.size) return false
+  for (const [nodeId, node] of left) {
+    if (right.get(nodeId) !== node) return false
+  }
+  return true
+}

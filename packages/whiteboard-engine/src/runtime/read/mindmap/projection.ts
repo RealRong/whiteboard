@@ -47,9 +47,16 @@ export const projection = (context: ReadRuntimeContext): MindmapProjection => {
       return projectionCache.view
     }
 
+    const ids: NodeId[] = []
+    const byId = new Map<NodeId, MindmapViewTree>()
+    trees.forEach((entry) => {
+      ids.push(entry.id)
+      byId.set(entry.id, entry)
+    })
+
     const view: MindmapView = {
-      ids: trees.map((entry) => entry.id),
-      byId: new Map(trees.map((entry) => [entry.id, entry]))
+      ids,
+      byId
     }
     projectionCache = {
       trees,

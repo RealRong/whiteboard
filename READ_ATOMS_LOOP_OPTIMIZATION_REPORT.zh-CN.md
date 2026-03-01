@@ -10,6 +10,47 @@
 
 ---
 
+## 状态更新（第二轮已落地）
+
+在第一轮 `nodeSlices + indexes` 收敛后，本轮又继续落地了三项优化：
+
+1. `runtime/read/node/atoms.ts`
+- 去掉 `nodeIdsAtom` 里对 snapshot 的二次读取（原来 `get(readSnapshotAtom)` 后又 `context.get(snapshot)`）。
+- 新增并使用 core 的 `toLayerOrderedCanvasNodeIds`，避免 `toLayerOrderedCanvasNodes(...).map(...)` 的额外映射遍历。
+
+2. `runtime/read/mindmap/projection.ts`
+- `trees -> view` 从“两次遍历（ids + byId）”改为“一次遍历同时填充 ids 与 byId”。
+
+3. `runtime/read/atoms/edges.ts` + `@whiteboard/core/node/readModel.ts`
+- `deriveVisibleEdges` 支持不传 `edgeOrder`，不再在调用侧做 `doc.edges.map(edge => edge.id)` 的兜底构建。
+- `orderByIds` 支持可选 `ids`，在无 order 时直接返回原数组，避免无意义处理。
+
+---
+
+## 状态更新（第三轮已落地）
+
+本轮继续把 `nodes -> visible -> canvas -> indexes` 的派生链路向“单次派生”收敛，核心变化如下：
+
+1. `@whiteboard/core/node/readModel.ts`
+- 新增 `deriveNodeReadSlices(nodes, nodeOrder?)`，一次返回：
+  - `ordered`
+  - `visible`
+  - `canvas`
+  - `canvasNodeById`
+- 逻辑上将“可见性判定 + canvas 筛选 + byId 索引构建”合并在同一派生流程中，减少中间态重复循环。
+
+2. `runtime/read/atoms/nodes.ts`
+- 从原先 `orderByIds -> deriveVisibleNodes -> deriveCanvasNodes -> Map 构建` 的分段链路，改为直接消费 `deriveNodeReadSlices`。
+- 保留引用稳定策略：对 `ordered/visible/canvas/canvasNodeById` 做等价复用判断，仅在语义变化时替换缓存引用。
+
+3. `runtime/read/atoms/shared.ts`
+- 新增 `isSameNodeMap`，用于 `canvasNodeById` 的等价判断，避免在 `canvas` 变化但映射不变时无意义替换 `Map` 引用。
+
+4. `@whiteboard/core/node/index.ts`
+- 导出 `deriveNodeReadSlices` 与 `NodeReadSlices`，统一下沉到 core 作为可复用算法能力。
+
+---
+
 ## 已落地优化
 
 ### 1) 引入统一子 atom：`nodeSlices`
@@ -60,11 +101,15 @@
 3. 引用稳定性更强。
 - `nodeSlices` 与 `indexes` 都有缓存对象复用逻辑，减少无意义对象分配。
 
+4. `nodes` 主链路派生环节进一步收敛。
+- 之前是“多个分段派生 + 多次中间数组处理”。
+- 现在是“单次 core 派生 + engine 侧引用复用”，结构更集中，可读性更高。
+
 ---
 
 ## 其他 atoms 的同类问题研究
 
-### A. `runtime/read/node/atoms.ts`
+### A. `runtime/read/node/atoms.ts`（已落地）
 文件：`packages/whiteboard-engine/src/runtime/read/node/atoms.ts`
 
 现状：
@@ -73,12 +118,13 @@
 问题类型：
 - 与本次同类：对同一源数组进行“再次全量映射”。
 
-建议：
-- 可考虑把 `layerOrderedNodeIds` 下沉到 read 基础层（如 `nodeSlices` 或 snapshot 扩展字段）统一产出。
+结论：
+- 已落地：通过 core 新增 `toLayerOrderedCanvasNodeIds`，避免额外 `map`。
+- 已落地：去掉 snapshot 的二次读取。
 
-优先级：中。
+优先级：已完成。
 
-### B. `runtime/read/atoms/edges.ts`
+### B. `runtime/read/atoms/edges.ts`（已落地）
 文件：`packages/whiteboard-engine/src/runtime/read/atoms/edges.ts`
 
 现状：
@@ -87,12 +133,13 @@
 问题类型：
 - 额外一次 `edges` 扫描（通常可接受，但在大数据量会放大）。
 
-建议：
-- 可在上游维护稳定 `edgeOrderIds` 视图，避免 fallback map。
+结论：
+- 已落地：调用侧去除 fallback `doc.edges.map(...)`。
+- 已落地：core `deriveVisibleEdges/orderByIds` 支持无 order 快路径。
 
-优先级：中低。
+优先级：已完成。
 
-### C. `runtime/read/mindmap/projection.ts`
+### C. `runtime/read/mindmap/projection.ts`（已落地）
 文件：`packages/whiteboard-engine/src/runtime/read/mindmap/projection.ts`
 
 现状：
@@ -101,10 +148,10 @@
 问题类型：
 - 同一输入集合两次循环。
 
-建议：
-- 一次循环同时填充 `ids` + `byId`。
+结论：
+- 已落地：改为单次循环填充 `ids + byId`。
 
-优先级：中。
+优先级：已完成。
 
 ### D. `runtime/read/mindmap/cache.ts`
 文件：`packages/whiteboard-engine/src/runtime/read/mindmap/cache.ts`
@@ -141,14 +188,15 @@
 
 1. 你的判断是对的：通过统一 sub atom 可以把“同一源数据的重复遍历”收敛掉。
 2. 本次 `nodeSlices` + `indexes` 改造已经落地并实现该目标。
-3. 同类问题还存在于 `node/atoms.ts`（`nodeIds`）与 `mindmap/projection.ts`（双遍历），可作为下一批优化目标。
-4. `mindmap/cache.ts` 与 `edge/atoms.ts` 更建议基于 profiling 决定，避免过早微优化。
+3. 第二轮已继续完成 `node/atoms.ts`、`mindmap/projection.ts`、`atoms/edges.ts + core/readModel` 的循环收敛。
+4. 第三轮继续把 `nodes` 主链路改为“core 单次派生”，并在 engine 侧保持强引用稳定缓存。
+5. 当前剩余更值得关注的是 `mindmap/cache.ts` 的签名命中与布局缓存策略，而不是小粒度循环优化。
 
 ---
 
 ## 验证
 
 已通过：
+- `pnpm -C packages/whiteboard-core lint`
 - `pnpm -C packages/whiteboard-engine lint`
 - `pnpm -C packages/whiteboard-react lint`
-

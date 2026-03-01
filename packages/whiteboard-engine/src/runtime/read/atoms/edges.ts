@@ -53,7 +53,7 @@ export const visibleEdges = (
     const nextVisibleEdges = deriveVisibleEdges(
       doc.edges,
       canvasNodes,
-      edgeOrderRef ?? doc.edges.map((edge) => edge.id)
+      edgeOrderRef
     )
     const normalized = nextVisibleEdges.length ? nextVisibleEdges : EMPTY_EDGES
 

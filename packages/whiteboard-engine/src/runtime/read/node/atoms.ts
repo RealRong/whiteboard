@@ -1,6 +1,6 @@
 import { atom, type Atom } from 'jotai/vanilla'
 import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
-import { toLayerOrderedCanvasNodes } from '@whiteboard/core/node'
+import { toLayerOrderedCanvasNodeIds } from '@whiteboard/core/node'
 import {
   READ_PUBLIC_KEYS,
   READ_SUBSCRIBE_KEYS,
@@ -45,11 +45,10 @@ export const atoms = (context: ReadRuntimeContext): NodeReadAtoms => {
 
   let nodeIdsCache: NodeId[] = []
   let nodeIdsSourceRef: Node[] | undefined
-  const getNodeIds = () => {
-    const canvasNodes = context.get(READ_SUBSCRIBE_KEYS.snapshot).nodes.canvas
+  const getNodeIds = (canvasNodes: Node[]) => {
     if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
 
-    const next = toLayerOrderedCanvasNodes(canvasNodes).map((node) => node.id)
+    const next = toLayerOrderedCanvasNodeIds(canvasNodes)
     if (isSameNodeOrder(nodeIdsCache, next)) {
       nodeIdsSourceRef = canvasNodes
       return nodeIdsCache
@@ -68,8 +67,8 @@ export const atoms = (context: ReadRuntimeContext): NodeReadAtoms => {
   )
 
   const nodeIdsAtom = atom((get) => {
-    get(readSnapshotAtom)
-    return getNodeIds()
+    const snapshot = get(readSnapshotAtom)
+    return getNodeIds(snapshot.nodes.canvas)
   })
 
   const nodeById = (id: NodeId) => {
