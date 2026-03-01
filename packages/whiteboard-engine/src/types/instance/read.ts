@@ -13,6 +13,7 @@ import type {
 import type { MindmapLayout } from '@whiteboard/core/mindmap'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge'
 import type { MindmapLayoutConfig } from '../mindmap'
+import type { ReadModelSnapshot } from '../readSnapshot'
 import type {
   InteractionState,
   MindmapDragDropTarget,
@@ -147,8 +148,30 @@ export type EngineReadGetters = {
   mindmapById: (id: NodeId) => MindmapViewTree | undefined
 }
 
+export type ReadPublicKey =
+  | 'interaction'
+  | 'tool'
+  | 'selection'
+  | 'viewport'
+  | 'mindmapLayout'
+  | 'snapshot'
+
+export type ReadPublicValueMap = {
+  interaction: InteractionState
+  tool: 'select' | 'edge'
+  selection: SelectionState
+  viewport: Viewport
+  mindmapLayout: MindmapLayoutConfig
+  snapshot: ReadModelSnapshot
+}
+
+export type EngineReadGet = {
+  <K extends ReadPublicKey>(key: K): ReadPublicValueMap[K]
+} & EngineReadGetters
+
 export type EngineRead = {
   store: ReturnType<typeof createStore>
   atoms: EngineReadAtoms
-  get: EngineReadGetters
+  get: EngineReadGet
+  subscribe: (keys: readonly ReadPublicKey[], listener: () => void) => () => void
 }

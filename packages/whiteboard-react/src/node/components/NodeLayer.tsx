@@ -1,11 +1,14 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
-import { useInstance, useReadAtom } from '../../common/hooks'
+import { useInstance, useReadGetter } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
 const useNodeItem = (nodeId: NodeId) => {
   const instance = useInstance()
-  return useReadAtom<NodeViewItem | undefined>(instance.read.atoms.nodeById(nodeId))
+  return useReadGetter<NodeViewItem | undefined>(
+    () => instance.read.get.nodeById(nodeId),
+    { keys: ['snapshot'] }
+  )
 }
 
 const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
@@ -17,7 +20,10 @@ const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
 
 export const NodeLayer = () => {
   const instance = useInstance()
-  const nodeIds = useReadAtom(instance.read.atoms.nodeIds)
+  const nodeIds = useReadGetter(
+    () => instance.read.get.nodeIds(),
+    { keys: ['snapshot'] }
+  )
 
   return (
     <div className="wb-node-layer">

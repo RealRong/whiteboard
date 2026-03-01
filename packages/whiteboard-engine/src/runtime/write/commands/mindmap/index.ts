@@ -1,10 +1,22 @@
-import type { Commands } from '@engine-types/commands'
+import type {
+  Commands,
+  MindmapInsertNodeOptions,
+  MindmapMoveDropOptions,
+  MindmapMoveLayoutOptions,
+  MindmapMoveRootOptions
+} from '@engine-types/commands'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { MindmapNodeId } from '@whiteboard/core/types'
-import { getSide as getMindmapSide } from '@whiteboard/core/mindmap'
+import type {
+  DispatchResult,
+  MindmapAttachPayload,
+  MindmapLayoutHint,
+  MindmapNodeId,
+  MindmapNodeData
+} from '@whiteboard/core/types'
+import { resolveInsertPlan } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../../../config'
 import { createBaseMindmapCommands } from './base'
-import { createMindmapHelpers } from './helpers'
 
 type Options = {
   instance: Pick<InternalInstance, 'document' | 'mutate'>
@@ -14,60 +26,83 @@ export type MindmapCommandsApi = Commands['mindmap'] & {
   readonly name: 'Mindmap'
 }
 
+type MindmapApply = Commands['mindmap']['apply']
+
 export const createMindmapCommands = ({ instance }: Options): MindmapCommandsApi => {
-  const helpers = createMindmapHelpers({ instance })
-  const baseCommands = createBaseMindmapCommands({
-    instance,
-    helpers
+  const baseCommands = createBaseMindmapCommands({ instance })
+
+  const createCancelledResult = (message?: string): DispatchResult => ({
+    ok: false,
+    reason: 'cancelled',
+    message
+  })
+  const createInvalidResult = (message: string): DispatchResult => ({
+    ok: false,
+    reason: 'invalid',
+    message
+  })
+  const toLayoutHint = (
+    anchorId: MindmapNodeId,
+    nodeSize: { width: number; height: number },
+    layout: MindmapLayoutConfig
+  ): MindmapLayoutHint => ({
+    nodeSize,
+    mode: layout.mode,
+    options: layout.options,
+    anchorId
   })
 
-  const insertNode: Commands['mindmap']['insertNode'] = async ({
+  const insertByPlacement = async ({
     id,
     tree,
     targetNodeId,
     placement,
     nodeSize,
     layout,
-    payload = { kind: 'text', text: '' }
-  }) => {
-    const layoutHint = helpers.toLayoutHint(targetNodeId, nodeSize, layout)
-
-    if (targetNodeId === tree.rootId) {
-      const children = tree.children[targetNodeId] ?? []
-      const index = placement === 'up' ? 0 : placement === 'down' ? children.length : undefined
-      const side = helpers.resolveRootInsertSide(placement, layout)
-      await baseCommands.addChild(id, targetNodeId, payload, { index, side, layout: layoutHint })
-      return
+    payload
+  }: MindmapInsertNodeOptions): Promise<DispatchResult> => {
+    const normalizedPayload: MindmapNodeData | MindmapAttachPayload = payload ?? {
+      kind: 'text',
+      text: ''
     }
+    const layoutHint = toLayoutHint(targetNodeId, nodeSize, layout)
+    const plan = resolveInsertPlan({
+      tree,
+      targetNodeId,
+      placement,
+      layoutSide: layout.options?.side,
+      defaultSide: DEFAULT_TUNING.mindmap.defaultSide
+    })
 
-    if (placement === 'up' || placement === 'down') {
-      await baseCommands.addSibling(id, targetNodeId, placement === 'up' ? 'before' : 'after', payload, {
+    if (plan.mode === 'child') {
+      return baseCommands.addChild(id, plan.parentId, normalizedPayload, {
+        index: plan.index,
+        side: plan.side,
         layout: layoutHint
       })
-      return
     }
 
-    const targetSide = getMindmapSide(tree, targetNodeId) ?? DEFAULT_TUNING.mindmap.defaultSide
-    const towardRoot =
-      (placement === 'left' && targetSide === 'right') || (placement === 'right' && targetSide === 'left')
-
-    if (towardRoot) {
-      const result = await baseCommands.addSibling(id, targetNodeId, 'before', payload, {
+    if (plan.mode === 'sibling') {
+      return baseCommands.addSibling(id, plan.nodeId, plan.position, normalizedPayload, {
         layout: layoutHint
       })
-      if (!result.ok || !result.value) return
+    }
 
-      await baseCommands.moveSubtree(id, targetNodeId, result.value as MindmapNodeId, {
+    if (plan.mode === 'towardRoot') {
+      const result = await baseCommands.addSibling(id, plan.nodeId, 'before', normalizedPayload, {
+        layout: layoutHint
+      })
+      if (!result.ok || typeof result.value !== 'string') return result
+      return baseCommands.moveSubtree(id, targetNodeId, result.value, {
         index: 0,
-        layout: helpers.toLayoutHint(result.value as MindmapNodeId, nodeSize, layout)
+        layout: toLayoutHint(result.value, nodeSize, layout)
       })
-      return
     }
 
-    await baseCommands.addChild(id, targetNodeId, payload, { layout: layoutHint })
+    return createInvalidResult('Unsupported insert plan.')
   }
 
-  const moveSubtreeWithLayout: Commands['mindmap']['moveSubtreeWithLayout'] = ({
+  const moveWithLayout = ({
     id,
     nodeId,
     newParentId,
@@ -75,26 +110,26 @@ export const createMindmapCommands = ({ instance }: Options): MindmapCommandsApi
     side,
     nodeSize,
     layout
-  }) =>
+  }: MindmapMoveLayoutOptions): Promise<DispatchResult> =>
     baseCommands.moveSubtree(id, nodeId, newParentId, {
       index,
       side,
-      layout: helpers.toLayoutHint(newParentId, nodeSize, layout)
+      layout: toLayoutHint(newParentId, nodeSize, layout)
     })
 
-  const moveSubtreeWithDrop: Commands['mindmap']['moveSubtreeWithDrop'] = async ({
+  const moveWithDrop = async ({
     id,
     nodeId,
     drop,
     origin,
     nodeSize,
     layout
-  }) => {
+  }: MindmapMoveDropOptions): Promise<DispatchResult> => {
     const shouldMove =
       drop.parentId !== origin?.parentId || drop.index !== origin?.index || typeof drop.side !== 'undefined'
-    if (!shouldMove) return
+    if (!shouldMove) return createCancelledResult('No subtree movement required.')
 
-    await moveSubtreeWithLayout({
+    return moveWithLayout({
       id,
       nodeId,
       newParentId: drop.parentId,
@@ -105,21 +140,23 @@ export const createMindmapCommands = ({ instance }: Options): MindmapCommandsApi
     })
   }
 
-  const moveRoot: Commands['mindmap']['moveRoot'] = async ({
+  const moveRootByPosition = async ({
     nodeId,
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
-  }) => {
+  }: MindmapMoveRootOptions): Promise<DispatchResult> => {
     const node = instance.document.get().nodes.find((item) => item.id === nodeId)
-    if (!node) return
+    if (!node) {
+      return createCancelledResult(`Node ${nodeId} not found.`)
+    }
     if (
       Math.abs(node.position.x - position.x) < threshold &&
       Math.abs(node.position.y - position.y) < threshold
     ) {
-      return
+      return createCancelledResult('Root movement is below threshold.')
     }
 
-    await instance.mutate(
+    return instance.mutate(
       [{
         type: 'node.update',
         id: nodeId,
@@ -131,12 +168,64 @@ export const createMindmapCommands = ({ instance }: Options): MindmapCommandsApi
     )
   }
 
+  const apply: MindmapApply = async (command) => {
+    switch (command.type) {
+      case 'create':
+        return baseCommands.create(command.payload)
+      case 'replace':
+        return baseCommands.replace(command.id, command.tree)
+      case 'delete':
+        return baseCommands.delete(command.ids)
+      case 'insert':
+        switch (command.mode) {
+          case 'child':
+            return baseCommands.addChild(command.id, command.parentId, command.payload, command.options)
+          case 'sibling':
+            return baseCommands.addSibling(command.id, command.nodeId, command.position, command.payload, command.options)
+          case 'external':
+            return baseCommands.attachExternal(command.id, command.targetId, command.payload, command.options)
+          case 'placement':
+            return insertByPlacement(command)
+          default:
+            return createInvalidResult('Unsupported insert mode.')
+        }
+      case 'move':
+        switch (command.mode) {
+          case 'direct':
+            return baseCommands.moveSubtree(command.id, command.nodeId, command.newParentId, command.options)
+          case 'layout':
+            return moveWithLayout(command)
+          case 'drop':
+            return moveWithDrop(command)
+          case 'reorder':
+            return baseCommands.reorderChild(command.id, command.parentId, command.fromIndex, command.toIndex)
+          default:
+            return createInvalidResult('Unsupported move mode.')
+        }
+      case 'remove':
+        return baseCommands.removeSubtree(command.id, command.nodeId)
+      case 'clone':
+        return baseCommands.cloneSubtree(command.id, command.nodeId, command.options)
+      case 'update':
+        switch (command.mode) {
+          case 'data':
+            return baseCommands.setNodeData(command.id, command.nodeId, command.patch)
+          case 'collapse':
+            return baseCommands.toggleCollapse(command.id, command.nodeId, command.collapsed)
+          case 'side':
+            return baseCommands.setSide(command.id, command.nodeId, command.side)
+          default:
+            return createInvalidResult('Unsupported update mode.')
+        }
+      case 'root':
+        return moveRootByPosition(command)
+      default:
+        return createInvalidResult('Unsupported mindmap command type.')
+    }
+  }
+
   return {
     name: 'Mindmap',
-    ...baseCommands,
-    insertNode,
-    moveSubtreeWithLayout,
-    moveSubtreeWithDrop,
-    moveRoot
+    apply
   }
 }

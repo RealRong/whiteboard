@@ -1,4 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/instance'
+import type { ApplyMutationsApi, CommandSource } from '@engine-types/command'
 import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import { MutationImpactAnalyzer } from '../mutation/Analyzer'
 import { reduceOperations } from '@whiteboard/core/kernel'
@@ -6,6 +7,7 @@ import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 import type {
   ChangeSet,
+  DispatchResult,
   DispatchFailure,
   Document,
   Operation,
@@ -14,21 +16,22 @@ import type {
 import type { ChangeBus } from './ChangeBus'
 import type { PrimitiveAtom } from 'jotai/vanilla'
 import { createBatchId } from '../id'
+import { HistoryDomain } from '../history/HistoryDomain'
 
-type ResetDocumentInput = {
+type ResetInput = {
   doc: Document
   origin: Origin
   timestamp?: number
 }
 
-export type MutationAppliedChange = {
+export type AppliedChange = {
   docId: string | undefined
   origin: Origin
   operations: Operation[]
   reset?: boolean
 }
 
-export type MutationExecutorOptions = {
+export type WriterOptions = {
   instance: Pick<InternalInstance, 'document' | 'registries' | 'viewport' | 'runtime'>
   changeBus: ChangeBus
   documentAtom: PrimitiveAtom<Document>
@@ -36,28 +39,29 @@ export type MutationExecutorOptions = {
   now?: () => number
 }
 
-export type MutationExecutionResult =
+export type ApplyResult =
   | {
       ok: true
       changes: ChangeSet
       inverse: Operation[]
-      applied: MutationAppliedChange
+      applied: AppliedChange
     }
   | DispatchFailure
 
-export type MutationResetResult = {
+export type ResetResult = {
   ok: true
   changes: ChangeSet
-  applied: MutationAppliedChange
+  applied: AppliedChange
 }
 
-export class MutationExecutor {
-  private readonly instance: MutationExecutorOptions['instance']
+export class Writer {
+  private readonly instance: WriterOptions['instance']
   private readonly changeBus: ChangeBus
   private readonly documentAtom: PrimitiveAtom<Document>
   private readonly readModelRevisionAtom: PrimitiveAtom<number>
   private readonly now: () => number
   private readonly impactAnalyzer = new MutationImpactAnalyzer()
+  private readonly historyDomain: HistoryDomain
 
   constructor({
     instance,
@@ -65,7 +69,7 @@ export class MutationExecutor {
     documentAtom,
     readModelRevisionAtom,
     now
-  }: MutationExecutorOptions) {
+  }: WriterOptions) {
     this.instance = instance
     this.changeBus = changeBus
     this.documentAtom = documentAtom
@@ -77,6 +81,7 @@ export class MutationExecutor {
       }
       return Date.now()
     })
+    this.historyDomain = new HistoryDomain({ now: this.now })
   }
 
   private createKernelRegistriesSnapshot = (): KernelRegistriesSnapshot => ({
@@ -107,7 +112,7 @@ export class MutationExecutor {
   applyOperations = (
     operations: Operation[],
     origin: Origin
-  ): MutationExecutionResult => {
+  ): ApplyResult => {
     const docBefore = this.instance.document.get()
     const reduced = reduceOperations(docBefore, operations, {
       now: this.now,
@@ -131,7 +136,7 @@ export class MutationExecutor {
       docBefore,
       docAfter
     })
-    const applied: MutationAppliedChange = {
+    const applied: AppliedChange = {
       docId: docAfter?.id,
       origin,
       operations: reduced.changes.operations
@@ -145,11 +150,48 @@ export class MutationExecutor {
     }
   }
 
+  private applyHistoryOperations = (operations: Operation[]) =>
+    this.applyOperations(operations, 'system').ok
+
+  readonly history = {
+    get: () => this.historyDomain.getState(),
+    configure: (config: Parameters<HistoryDomain['configure']>[0]) => {
+      this.historyDomain.configure(config)
+    },
+    undo: () => this.historyDomain.undo(this.applyHistoryOperations),
+    redo: () => this.historyDomain.redo(this.applyHistoryOperations),
+    clear: () => this.historyDomain.clear()
+  }
+
+  private toOrigin = (source: CommandSource): Origin => {
+    if (source === 'remote') return 'remote'
+    if (source === 'system' || source === 'import') return 'system'
+    return 'user'
+  }
+
+  mutate: ApplyMutationsApi = async (operations, source) => {
+    const origin = this.toOrigin(source)
+    const result = this.applyOperations(operations, origin)
+    if (!result.ok) return result
+
+    this.historyDomain.capture({
+      forward: result.changes.operations,
+      inverse: result.inverse,
+      origin,
+      timestamp: result.changes.timestamp
+    })
+
+    return {
+      ok: true,
+      changes: result.changes
+    }
+  }
+
   resetDocument = ({
     doc,
     origin,
     timestamp
-  }: ResetDocumentInput): MutationResetResult => {
+  }: ResetInput): ResetResult => {
     const docBefore = this.instance.document.get()
     this.commitDocument(doc, { silent: true })
     const docAfter = this.syncDocumentState(doc)
@@ -164,7 +206,7 @@ export class MutationExecutor {
       docBefore,
       docAfter
     })
-    const applied: MutationAppliedChange = {
+    const applied: AppliedChange = {
       docId: docAfter?.id,
       origin,
       operations: [],
@@ -180,6 +222,18 @@ export class MutationExecutor {
         origin
       },
       applied
+    }
+  }
+
+  resetDoc = async (doc: Document): Promise<DispatchResult> => {
+    this.historyDomain.clear()
+    const result = this.resetDocument({
+      doc,
+      origin: 'system'
+    })
+    return {
+      ok: true,
+      changes: result.changes
     }
   }
 }

@@ -16,24 +16,23 @@ import {
 import { resolveInstanceConfig } from '../config'
 import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
-import { GroupAutoFitRuntime } from '../runtime/write/GroupAutoFitRuntime'
 import { ViewportRuntime } from '../runtime/Viewport'
 import { runtime as readRuntimeFactory } from '../runtime/read/runtime'
-import { read as readAtomsFactory } from '../runtime/read/atoms/read'
+import { read as readAtomsFactory } from '../runtime/read/atoms'
 import { createDocumentStore } from '../document/Store'
-import { NodeMeasureQueue } from '../runtime/host/NodeMeasureQueue'
+import { Reactions } from './reactions/Reactions'
 
 type CreateCommandsOptions = {
   state: InternalInstance['state']
   viewport: ViewportRuntime
-  nodeMeasureQueue: NodeMeasureQueue
+  reactions: Pick<Reactions, 'nodeMeasured'>
   writeRuntime: WriteRuntime
 }
 
 const createCommands = ({
   state,
   viewport,
-  nodeMeasureQueue,
+  reactions,
   writeRuntime
 }: CreateCommandsOptions): Commands => {
   const { history, resetDoc } = writeRuntime
@@ -68,7 +67,7 @@ const createCommands = ({
     },
     host: {
       nodeMeasured: (id, size) => {
-        nodeMeasureQueue.enqueue(id, size)
+        reactions.nodeMeasured(id, size)
       },
       containerResized: (rect) => {
         viewport.setContainerRect(rect)
@@ -125,23 +124,7 @@ const createCommands = ({
       ungroup: node.ungroup
     },
     mindmap: {
-      create: mindmap.create,
-      replace: mindmap.replace,
-      delete: mindmap.delete,
-      addChild: mindmap.addChild,
-      addSibling: mindmap.addSibling,
-      moveSubtree: mindmap.moveSubtree,
-      removeSubtree: mindmap.removeSubtree,
-      cloneSubtree: mindmap.cloneSubtree,
-      toggleCollapse: mindmap.toggleCollapse,
-      setNodeData: mindmap.setNodeData,
-      reorderChild: mindmap.reorderChild,
-      setSide: mindmap.setSide,
-      attachExternal: mindmap.attachExternal,
-      insertNode: mindmap.insertNode,
-      moveSubtreeWithLayout: mindmap.moveSubtreeWithLayout,
-      moveSubtreeWithDrop: mindmap.moveSubtreeWithDrop,
-      moveRoot: mindmap.moveRoot
+      apply: mindmap.apply
     }
   }
 }
@@ -151,8 +134,7 @@ type CreateRuntimePortOptions = {
   viewport: ViewportRuntime
   history: Commands['history']
   shortcuts: Shortcuts
-  groupAutoFitRuntime: GroupAutoFitRuntime
-  nodeMeasureQueue: NodeMeasureQueue
+  reactions: Pick<Reactions, 'dispose'>
   scheduler: Scheduler
 }
 
@@ -161,8 +143,7 @@ const createRuntimePort = ({
   viewport,
   history,
   shortcuts,
-  groupAutoFitRuntime,
-  nodeMeasureQueue,
+  reactions,
   scheduler
 }: CreateRuntimePortOptions): Pick<InternalInstance['runtime'], 'applyConfig' | 'dispose'> => {
   let prevHistoryDocId: DocumentId | undefined
@@ -187,9 +168,8 @@ const createRuntimePort = ({
 
   const dispose: InternalInstance['runtime']['dispose'] = () => {
     prevHistoryDocId = undefined
-    groupAutoFitRuntime.dispose()
+    reactions.dispose()
     shortcuts.dispose()
-    nodeMeasureQueue.clear()
     scheduler.cancelAll()
   }
 
@@ -226,7 +206,6 @@ export const createEngine = ({
   })
 
   const readRuntime = readRuntimeFactory({
-    state,
     runtimeStore,
     stateAtoms,
     readAtoms,
@@ -260,28 +239,19 @@ export const createEngine = ({
   })
 
   instance.mutate = writeRuntime.mutate
-  const nodeMeasureQueue = new NodeMeasureQueue({
+  const reactions = new Reactions({
     instance,
+    readRuntime,
+    writeRuntime,
     scheduler
   })
-  writeRuntime.changeBus.subscribe((change) => {
-    readRuntime.applyChange(change)
-    if (change.kind === 'replace') {
-      nodeMeasureQueue.clear()
-    }
-  })
+  reactions.start()
 
   instance.commands = createCommands({
     state,
     viewport,
-    nodeMeasureQueue,
+    reactions,
     writeRuntime
-  })
-
-  const groupAutoFitRuntime = new GroupAutoFitRuntime({
-    instance,
-    changeBus: writeRuntime.changeBus,
-    scheduler
   })
 
   const shortcuts = createShortcuts({
@@ -293,8 +263,7 @@ export const createEngine = ({
     viewport,
     history: writeRuntime.history,
     shortcuts,
-    groupAutoFitRuntime,
-    nodeMeasureQueue,
+    reactions,
     scheduler
   })
 

@@ -201,7 +201,8 @@ export const useMindmapDragInteraction = () => {
       clearActive(active.pointerId)
 
       if (active.kind === 'root') {
-        void instance.commands.mindmap.moveRoot({
+        void instance.commands.mindmap.apply({
+          type: 'root',
           nodeId: active.treeId,
           position: active.position
         })
@@ -209,7 +210,9 @@ export const useMindmapDragInteraction = () => {
       }
 
       if (!active.drop) return
-      void instance.commands.mindmap.moveSubtreeWithDrop({
+      void instance.commands.mindmap.apply({
+        type: 'move',
+        mode: 'drop',
         id: active.treeId,
         nodeId: active.nodeId,
         drop: {

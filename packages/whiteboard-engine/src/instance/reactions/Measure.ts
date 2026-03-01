@@ -1,7 +1,7 @@
 import type { Size } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../Scheduler'
-import { FrameTask } from '../TaskQueue'
+import type { Scheduler } from '../../runtime/Scheduler'
+import { FrameTask } from '../../runtime/TaskQueue'
 import type { NodeId, Operation } from '@whiteboard/core/types'
 
 type Options = {
@@ -21,7 +21,7 @@ const isSameSize = (left: Size, right: Size) =>
   Math.abs(left.width - right.width) < MEASURE_EPSILON
   && Math.abs(left.height - right.height) < MEASURE_EPSILON
 
-export class NodeMeasureQueue {
+export class Measure {
   private readonly instance: Options['instance']
   private readonly flushTask: FrameTask
   private readonly pending = new Map<NodeId, Size>()

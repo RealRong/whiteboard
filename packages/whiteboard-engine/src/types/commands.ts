@@ -152,52 +152,132 @@ export type GroupCommands = {
   ungroup: (id: NodeId) => Promise<DispatchResult>
 }
 
-export type BaseMindmapCommands = {
-  create: (payload?: { id?: MindmapId; rootId?: MindmapNodeId; rootData?: MindmapNodeData }) => Promise<DispatchResult>
-  replace: (id: MindmapId, tree: MindmapTree) => Promise<DispatchResult>
-  delete: (ids: MindmapId[]) => Promise<DispatchResult>
-  addChild: (
-    id: MindmapId,
-    parentId: MindmapNodeId,
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
-  addSibling: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    position: 'before' | 'after',
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
-  moveSubtree: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    newParentId: MindmapNodeId,
-    options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
-  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<DispatchResult>
-  cloneSubtree: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right' }
-  ) => Promise<DispatchResult>
-  toggleCollapse: (id: MindmapId, nodeId: MindmapNodeId, collapsed?: boolean) => Promise<DispatchResult>
-  setNodeData: (id: MindmapId, nodeId: MindmapNodeId, patch: Partial<MindmapNodeData>) => Promise<DispatchResult>
-  reorderChild: (id: MindmapId, parentId: MindmapNodeId, fromIndex: number, toIndex: number) => Promise<DispatchResult>
-  setSide: (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right') => Promise<DispatchResult>
-  attachExternal: (
-    id: MindmapId,
-    targetId: MindmapNodeId,
-    payload: MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
+export type MindmapCreateOptions = {
+  id?: MindmapId
+  rootId?: MindmapNodeId
+  rootData?: MindmapNodeData
 }
 
-export type MindmapCommands = BaseMindmapCommands & {
-  insertNode: (options: MindmapInsertNodeOptions) => Promise<void>
-  moveSubtreeWithLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
-  moveSubtreeWithDrop: (options: MindmapMoveDropOptions) => Promise<void>
-  moveRoot: (options: MindmapMoveRootOptions) => Promise<void>
+export type MindmapCloneSubtreeOptions = {
+  parentId?: MindmapNodeId
+  index?: number
+  side?: 'left' | 'right'
+}
+
+export type MindmapInsertCommand =
+  | {
+      type: 'insert'
+      mode: 'child'
+      id: MindmapId
+      parentId: MindmapNodeId
+      payload?: MindmapNodeData | MindmapAttachPayload
+      options?: MindmapCommandOptions
+    }
+  | {
+      type: 'insert'
+      mode: 'sibling'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      position: 'before' | 'after'
+      payload?: MindmapNodeData | MindmapAttachPayload
+      options?: MindmapCommandOptions
+    }
+  | {
+      type: 'insert'
+      mode: 'external'
+      id: MindmapId
+      targetId: MindmapNodeId
+      payload: MindmapAttachPayload
+      options?: MindmapCommandOptions
+    }
+  | ({
+      type: 'insert'
+      mode: 'placement'
+    } & MindmapInsertNodeOptions)
+
+export type MindmapMoveCommand =
+  | {
+      type: 'move'
+      mode: 'direct'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      newParentId: MindmapNodeId
+      options?: MindmapCommandOptions
+    }
+  | ({
+      type: 'move'
+      mode: 'layout'
+    } & MindmapMoveLayoutOptions)
+  | ({
+      type: 'move'
+      mode: 'drop'
+    } & MindmapMoveDropOptions)
+  | {
+      type: 'move'
+      mode: 'reorder'
+      id: MindmapId
+      parentId: MindmapNodeId
+      fromIndex: number
+      toIndex: number
+    }
+
+export type MindmapUpdateCommand =
+  | {
+      type: 'update'
+      mode: 'data'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      patch: Partial<MindmapNodeData>
+    }
+  | {
+      type: 'update'
+      mode: 'collapse'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      collapsed?: boolean
+    }
+  | {
+      type: 'update'
+      mode: 'side'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      side: 'left' | 'right'
+    }
+
+export type MindmapApplyCommand =
+  | {
+      type: 'create'
+      payload?: MindmapCreateOptions
+    }
+  | {
+      type: 'replace'
+      id: MindmapId
+      tree: MindmapTree
+    }
+  | {
+      type: 'delete'
+      ids: MindmapId[]
+    }
+  | MindmapInsertCommand
+  | MindmapMoveCommand
+  | {
+      type: 'remove'
+      id: MindmapId
+      nodeId: MindmapNodeId
+    }
+  | {
+      type: 'clone'
+      id: MindmapId
+      nodeId: MindmapNodeId
+      options?: MindmapCloneSubtreeOptions
+    }
+  | MindmapUpdateCommand
+  | ({
+      type: 'root'
+    } & MindmapMoveRootOptions)
+
+export type MindmapCommands = {
+  apply: (command: MindmapApplyCommand) => Promise<DispatchResult>
 }
 
 export type Commands = {

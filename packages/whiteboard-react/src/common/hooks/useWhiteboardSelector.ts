@@ -1,7 +1,4 @@
-import { useMemo, useRef } from 'react'
-import { atom, useAtomValue } from 'jotai'
-import { selectAtom } from 'jotai/utils'
-import type { Atom } from 'jotai/vanilla'
+import { useMemo, useRef, useSyncExternalStore } from 'react'
 import type { StateKey, StateSnapshot } from '@whiteboard/engine'
 import { useInstance } from './useInstance'
 
@@ -10,14 +7,6 @@ type Equality<T> = (left: T, right: T) => boolean
 type SelectorOptions<T> = {
   keys: StateKey[]
   equality?: Equality<T>
-}
-
-type StateAtoms = {
-  interaction: Atom<StateSnapshot['interaction']>
-  tool: Atom<StateSnapshot['tool']>
-  selection: Atom<StateSnapshot['selection']>
-  viewport: Atom<StateSnapshot['viewport']>
-  mindmapLayout: Atom<StateSnapshot['mindmapLayout']>
 }
 
 const defaultEquality: Equality<unknown> = Object.is
@@ -33,26 +22,14 @@ const isSameKeys = (left: StateKey[], right: StateKey[]) => {
 
 const normalizeKeys = (keys: StateKey[]) => Array.from(new Set(keys))
 
-const getStateAtomByKey = <K extends StateKey>(
-  atoms: StateAtoms,
-  key: K
-): Atom<StateSnapshot[K]> => {
-  if (key === 'interaction') return atoms.interaction as Atom<StateSnapshot[K]>
-  if (key === 'tool') return atoms.tool as Atom<StateSnapshot[K]>
-  if (key === 'selection') return atoms.selection as Atom<StateSnapshot[K]>
-  if (key === 'viewport') return atoms.viewport as Atom<StateSnapshot[K]>
-  return atoms.mindmapLayout as Atom<StateSnapshot[K]>
-}
-
 const readSnapshotByKeys = (
-  get: <T>(atom: Atom<T>) => T,
-  atoms: StateAtoms,
+  getValueByKey: <K extends StateKey>(key: K) => StateSnapshot[K],
   keys: StateKey[]
 ): StateSnapshot => {
   const snapshot = {} as StateSnapshot
   const target = snapshot as Record<StateKey, StateSnapshot[StateKey]>
   keys.forEach((stateKey) => {
-    target[stateKey] = get(getStateAtomByKey(atoms, stateKey))
+    target[stateKey] = getValueByKey(stateKey)
   })
   return snapshot
 }
@@ -91,22 +68,37 @@ export function useWhiteboardSelector<T>(
   const equalityRef = useRef((options?.equality ?? defaultEquality) as Equality<T>)
   selectorRef.current = selector
   equalityRef.current = (options?.equality ?? defaultEquality) as Equality<T>
+  const cacheRef = useRef<{ hasValue: boolean; value: T }>({
+    hasValue: false,
+    value: undefined as T
+  })
 
-  const stateAtoms = instance.read.atoms as StateAtoms
-  const snapshotAtom = useMemo(
-    () => atom((get) => readSnapshotByKeys(get, stateAtoms, keys)),
-    [keys, stateAtoms]
+  const subscribe = useMemo(
+    () => (onStoreChange: () => void) => instance.read.subscribe(keys, onStoreChange),
+    [instance, keys]
   )
 
-  const selectedAtom = useMemo(
-    () =>
-      selectAtom(
-        snapshotAtom,
-        (snapshot) => selectorRef.current(snapshot),
-        (left, right) => equalityRef.current(left, right)
-      ),
-    [snapshotAtom]
+  const getSnapshot = useMemo(
+    () => () => {
+      const snapshot = readSnapshotByKeys(
+        instance.read.get as <K extends StateKey>(key: K) => StateSnapshot[K],
+        keys
+      )
+      const next = selectorRef.current(snapshot)
+      if (
+        cacheRef.current.hasValue
+        && equalityRef.current(cacheRef.current.value, next)
+      ) {
+        return cacheRef.current.value
+      }
+      cacheRef.current = {
+        hasValue: true,
+        value: next
+      }
+      return next
+    },
+    [instance, keys]
   )
 
-  return useAtomValue(selectedAtom)
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }

@@ -2,13 +2,12 @@ import { atom, type Atom } from 'jotai/vanilla'
 import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgeEndpoints, EdgePathEntry } from '@engine-types/instance/read'
 import type { StateAtoms } from '../../../state/factory/CreateState'
+import type { EdgeReadSnapshot } from './model'
 
 type EdgeViewOptions = {
   selectionAtom: StateAtoms['selection']
   edgeRevisionAtom: Atom<number>
-  getEdgeIds: () => EdgeId[]
-  getEdgeById: () => Map<EdgeId, EdgePathEntry>
-  getEdgeEndpoints: (edgeId: EdgeId) => EdgeEndpoints | undefined
+  getSnapshot: () => EdgeReadSnapshot
 }
 
 export type EdgeViewAtoms = {
@@ -21,16 +20,14 @@ export type EdgeViewAtoms = {
 export const view = ({
   selectionAtom,
   edgeRevisionAtom,
-  getEdgeIds,
-  getEdgeById,
-  getEdgeEndpoints
+  getSnapshot
 }: EdgeViewOptions): EdgeViewAtoms => {
   const edgeByIdAtoms = new Map<EdgeId, Atom<EdgePathEntry | undefined>>()
   let edgeSelectedEndpointsCache: EdgeEndpoints | undefined
 
   const edgeIdsAtom = atom((get) => {
     get(edgeRevisionAtom)
-    return getEdgeIds()
+    return getSnapshot().ids
   })
 
   const edgeById = (id: EdgeId) => {
@@ -39,7 +36,7 @@ export const view = ({
 
     const nextAtom = atom((get) => {
       get(edgeRevisionAtom)
-      return getEdgeById().get(id)
+      return getSnapshot().byId.get(id)
     })
     edgeByIdAtoms.set(id, nextAtom)
     return nextAtom
@@ -50,8 +47,9 @@ export const view = ({
   const edgeSelectedEndpointsAtom = atom((get) => {
     get(edgeRevisionAtom)
     const selectedEdgeId = get(selectedEdgeIdAtom)
+    const snapshot = getSnapshot()
     const next = selectedEdgeId
-      ? getEdgeEndpoints(selectedEdgeId)
+      ? snapshot.getEndpoints(selectedEdgeId)
       : undefined
 
     const changed =

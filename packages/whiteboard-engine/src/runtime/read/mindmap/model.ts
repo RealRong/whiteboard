@@ -1,6 +1,5 @@
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { State } from '@engine-types/instance/state'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { MindmapViewTree } from '@engine-types/instance/read'
 import type { Node } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../../config'
@@ -14,27 +13,32 @@ import {
   toMindmapStructureSignature
 } from '@whiteboard/core/mindmap'
 
-type MindmapDerivationOptions = {
-  readState: State['read']
-  readSnapshot: () => ReadModelSnapshot
+type MindmapModelOptions = {
   config: InstanceConfig
 }
 
-export const derivations = ({
-  readState,
-  readSnapshot,
+type MindmapModelInput = {
+  visibleNodes: Node[]
+  layout: MindmapLayoutConfig
+}
+
+export type MindmapReadModel = {
+  trees: (input: MindmapModelInput) => MindmapViewTree[]
+}
+
+export const model = ({
   config
-}: MindmapDerivationOptions) => {
+}: MindmapModelOptions): MindmapReadModel => {
   let treeCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
 
-  const roots = (): Node[] =>
-    getMindmapRoots(readSnapshot().nodes.visible)
-
-  const trees = (): MindmapViewTree[] => {
-    const allRoots = roots()
-    const layout = readState('mindmapLayout') ?? {}
+  const trees: MindmapReadModel['trees'] = ({
+    visibleNodes,
+    layout
+  }) => {
+    const allRoots = getMindmapRoots(visibleNodes)
     const nextCache = new Map<string, { signature: string; tree: MindmapViewTree }>()
     const nextTrees: MindmapViewTree[] = []
+    const nextLayout = layout ?? {}
 
     allRoots.forEach((root) => {
       const tree = getMindmapTree(root)
@@ -47,10 +51,10 @@ export const derivations = ({
         treeId: root.id,
         structureSignature,
         nodeSize: config.mindmapNodeSize,
-        mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
-        hGap: layout.options?.hGap,
-        vGap: layout.options?.vGap,
-        side: layout.options?.side
+        mode: nextLayout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
+        hGap: nextLayout.options?.hGap,
+        vGap: nextLayout.options?.vGap,
+        side: nextLayout.options?.side
       })
 
       const previous = treeCache.get(root.id)
@@ -60,26 +64,26 @@ export const derivations = ({
         return
       }
 
-      const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
+      const computed = computeMindmapLayout(tree, config.mindmapNodeSize, nextLayout)
       const shiftX = -computed.bbox.x
       const shiftY = -computed.bbox.y
       const labels = Object.fromEntries(
         Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, getMindmapLabel(node)])
       )
-      const model: MindmapViewTree = {
+      const treeModel: MindmapViewTree = {
         id: root.id,
         node: root,
         tree,
-        layout,
+        layout: nextLayout,
         computed,
         shiftX,
         shiftY,
         lines: buildMindmapLines(tree, computed),
         labels
       }
-      const cacheEntry = { signature, tree: model }
+      const cacheEntry = { signature, tree: treeModel }
       nextCache.set(root.id, cacheEntry)
-      nextTrees.push(model)
+      nextTrees.push(treeModel)
     })
 
     treeCache = nextCache
@@ -87,7 +91,6 @@ export const derivations = ({
   }
 
   return {
-    roots,
     trees
   }
 }

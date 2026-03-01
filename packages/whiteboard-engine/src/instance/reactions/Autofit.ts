@@ -1,21 +1,19 @@
-import type { Node } from '@whiteboard/core/types'
+import type { Node, Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { InternalInstance } from '@engine-types/instance/instance'
-import type { Scheduler } from '../Scheduler'
-import { MicrotaskTask } from '../TaskQueue'
+import type { Scheduler } from '../../runtime/Scheduler'
+import { MicrotaskTask } from '../../runtime/TaskQueue'
 import { DEFAULT_TUNING } from '../../config'
-import type { Change, ChangeBus } from './pipeline/ChangeBus'
+import type { Change, ChangeBus } from '../../runtime/write/pipeline/ChangeBus'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
-  getGroupDescendants,
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
 
 type Snapshot = {
   nodeMap: Map<string, Node>
-  signatureMap: Map<string, string>
 }
 
 type LayoutSnapshot = {
@@ -24,13 +22,19 @@ type LayoutSnapshot = {
   padding: number
 }
 
+type Indexes = {
+  nodeMap: Map<string, Node>
+  childrenMap: Map<string, Node[]>
+  groups: Node[]
+}
+
 type RuntimeOptions = {
   instance: Pick<InternalInstance, 'document' | 'config' | 'mutate'>
-  changeBus: ChangeBus
   scheduler: Scheduler
 }
 
-const createNodeSignature = (node: Node) => {
+const createNodeSignature = (node?: Node) => {
+  if (!node) return '__missing__'
   const autoFit = node.data && typeof node.data.autoFit === 'string' ? node.data.autoFit : ''
   const groupPadding = node.data && typeof node.data.padding === 'number' ? node.data.padding : ''
   const width = node.size?.width ?? ''
@@ -49,24 +53,43 @@ const createNodeSignature = (node: Node) => {
   ].join('|')
 }
 
-const createSnapshot = (nodes: Node[]): Snapshot => {
+const createIndexes = (nodes: Node[]): Indexes => {
   const nodeMap = new Map<string, Node>()
-  const signatureMap = new Map<string, string>()
+  const childrenMap = new Map<string, Node[]>()
+  const groups: Node[] = []
+
   nodes.forEach((node) => {
     nodeMap.set(node.id, node)
-    signatureMap.set(node.id, createNodeSignature(node))
+    if (node.type === 'group') {
+      groups.push(node)
+    }
+    if (!node.parentId) return
+    const list = childrenMap.get(node.parentId) ?? []
+    list.push(node)
+    childrenMap.set(node.parentId, list)
   })
-  return { nodeMap, signatureMap }
+
+  return {
+    nodeMap,
+    childrenMap,
+    groups
+  }
+}
+
+const createSnapshot = (indexes: Indexes): Snapshot => {
+  return {
+    nodeMap: indexes.nodeMap
+  }
 }
 
 const collectChangedNodeIds = (prev: Snapshot, next: Snapshot): Set<string> => {
   const changedIds = new Set<string>()
   const allIds = new Set<string>()
-  prev.signatureMap.forEach((_value, id) => allIds.add(id))
-  next.signatureMap.forEach((_value, id) => allIds.add(id))
+  prev.nodeMap.forEach((_value, id) => allIds.add(id))
+  next.nodeMap.forEach((_value, id) => allIds.add(id))
 
   allIds.forEach((id) => {
-    if (prev.signatureMap.get(id) !== next.signatureMap.get(id)) {
+    if (createNodeSignature(prev.nodeMap.get(id)) !== createNodeSignature(next.nodeMap.get(id))) {
       changedIds.add(id)
     }
   })
@@ -95,16 +118,10 @@ const collectDirtyGroupIds = (changedNodeIds: Set<string>, prev: Snapshot, next:
 
     if (prevNode) {
       addGroupAncestors(prevNode.id, prev.nodeMap, dirtyGroupIds)
-      if (prevNode.parentId) {
-        addGroupAncestors(prevNode.parentId, prev.nodeMap, dirtyGroupIds)
-      }
     }
 
     if (nextNode) {
       addGroupAncestors(nextNode.id, next.nodeMap, dirtyGroupIds)
-      if (nextNode.parentId) {
-        addGroupAncestors(nextNode.parentId, next.nodeMap, dirtyGroupIds)
-      }
     }
   })
 
@@ -124,84 +141,118 @@ const toLayoutSnapshot = (nodeSize: Size, padding: number): LayoutSnapshot => ({
 })
 
 const resolveGroupsToProcess = ({
-  nodes,
+  groups,
   prevSnapshot,
   currentSnapshot,
-  layoutChanged
+  layoutChanged,
+  forceFullSync,
+  pendingDirtyNodeIds,
+  pendingDiff
 }: {
-  nodes: Node[]
+  groups: Node[]
   prevSnapshot: Snapshot | null
   currentSnapshot: Snapshot
   layoutChanged: boolean
+  forceFullSync: boolean
+  pendingDirtyNodeIds: Set<string>
+  pendingDiff: boolean
 }): Node[] => {
-  if (!nodes.length) return []
-  if (!prevSnapshot || layoutChanged) {
-    return nodes.filter((node) => node.type === 'group')
+  if (!groups.length) return []
+  if (!prevSnapshot || layoutChanged || forceFullSync) {
+    return groups
   }
 
-  const changedNodeIds = collectChangedNodeIds(prevSnapshot, currentSnapshot)
-  if (!changedNodeIds.size) return []
+  const dirtyGroupIds = new Set<string>()
 
-  const dirtyGroupIds = collectDirtyGroupIds(changedNodeIds, prevSnapshot, currentSnapshot)
+  if (pendingDirtyNodeIds.size) {
+    const fromDirtyNodes = collectDirtyGroupIds(pendingDirtyNodeIds, prevSnapshot, currentSnapshot)
+    fromDirtyNodes.forEach((id) => dirtyGroupIds.add(id))
+  }
+
+  if (pendingDiff) {
+    const changedNodeIds = collectChangedNodeIds(prevSnapshot, currentSnapshot)
+    if (changedNodeIds.size) {
+      const fromDiff = collectDirtyGroupIds(changedNodeIds, prevSnapshot, currentSnapshot)
+      fromDiff.forEach((id) => dirtyGroupIds.add(id))
+    }
+  }
+
   if (!dirtyGroupIds.size) return []
 
-  return nodes.filter((node) => node.type === 'group' && dirtyGroupIds.has(node.id))
+  return groups.filter((group) => dirtyGroupIds.has(group.id))
 }
 
-const applyGroupAutoFit = ({
-  mutate,
-  nodes,
+const getDescendants = (indexes: Indexes, groupId: string): Node[] => {
+  const result: Node[] = []
+  const stack = [...(indexes.childrenMap.get(groupId) ?? [])]
+  while (stack.length) {
+    const node = stack.pop()
+    if (!node) continue
+    result.push(node)
+    const children = indexes.childrenMap.get(node.id)
+    if (children?.length) {
+      children.forEach((child) => stack.push(child))
+    }
+  }
+  return result
+}
+
+const createAutoFitOperation = ({
+  indexes,
   group,
   nodeSize,
   defaultPadding
 }: {
-  mutate: RuntimeOptions['instance']['mutate']
-  nodes: Node[]
+  indexes: Indexes
   group: Node
   nodeSize: Size
   defaultPadding: number
-}) => {
+}): Operation | null => {
   const autoFit = group.data && typeof group.data.autoFit === 'string' ? group.data.autoFit : 'expand-only'
-  if (autoFit === 'manual') return
+  if (autoFit === 'manual') return null
 
   const groupPadding = group.data && typeof group.data.padding === 'number' ? group.data.padding : defaultPadding
-  const children = getGroupDescendants(nodes, group.id)
-  if (!children.length) return
+  const children = getDescendants(indexes, group.id)
+  if (!children.length) return null
 
   const contentRect = getNodesBoundingRect(children, nodeSize)
-  if (!contentRect) return
+  if (!contentRect) return null
 
   const groupRect = getNodeAABB(group, nodeSize)
   const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
-  if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return
+  if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return null
 
-  void mutate(
-    [{
-      type: 'node.update',
-      id: group.id,
-      patch: {
-        position: { x: expanded.x, y: expanded.y },
-        size: { width: expanded.width, height: expanded.height }
-      }
-    }],
-    'system'
-  )
+  return {
+    type: 'node.update',
+    id: group.id,
+    patch: {
+      position: { x: expanded.x, y: expanded.y },
+      size: { width: expanded.width, height: expanded.height }
+    }
+  }
 }
 
-export class GroupAutoFitRuntime {
-  readonly name = 'GroupAutoFit'
+export class Autofit {
+  readonly name = 'Autofit'
 
   private readonly instance: RuntimeOptions['instance']
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private disposed = false
-  private readonly offChange: () => void
+  private forceFullSync = true
+  private pendingDiff = false
+  private readonly pendingDirtyNodeIds = new Set<string>()
+  private offChange: (() => void) | null = null
   private readonly syncTask: MicrotaskTask
 
-  constructor({ instance, changeBus, scheduler }: RuntimeOptions) {
+  constructor({ instance, scheduler }: RuntimeOptions) {
     this.instance = instance
     this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
+  }
+
+  start = (changeBus: ChangeBus) => {
+    if (this.disposed || this.offChange) return
     this.offChange = changeBus.subscribe((meta) => {
       this.handleCommit(meta)
     })
@@ -214,31 +265,50 @@ export class GroupAutoFitRuntime {
     const nodes = doc.nodes
     const nodeSize = this.instance.config.nodeSize
     const padding = this.instance.config.node.groupPadding
+    let forceFullSync = this.forceFullSync
+    let pendingDiff = this.pendingDiff
+    const pendingDirtyNodeIds = new Set(this.pendingDirtyNodeIds)
+    this.forceFullSync = false
+    this.pendingDiff = false
+    this.pendingDirtyNodeIds.clear()
 
     if (docId !== this.lastDocId) {
       this.snapshot = null
       this.layoutSnapshot = null
       this.lastDocId = docId
+      forceFullSync = true
+      pendingDiff = false
+      pendingDirtyNodeIds.clear()
     }
 
-    const currentSnapshot = createSnapshot(nodes)
+    const indexes = createIndexes(nodes)
+    const currentSnapshot = createSnapshot(indexes)
     const nextLayout = toLayoutSnapshot(nodeSize, padding)
     const groupsToProcess = resolveGroupsToProcess({
-      nodes,
+      groups: indexes.groups,
       prevSnapshot: this.snapshot,
       currentSnapshot,
-      layoutChanged: isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
+      layoutChanged: isLayoutChanged(this.layoutSnapshot, nodeSize, padding),
+      forceFullSync,
+      pendingDirtyNodeIds,
+      pendingDiff
     })
 
+    const operations: Operation[] = []
     groupsToProcess.forEach((group) => {
-      applyGroupAutoFit({
-        mutate: this.instance.mutate,
-        nodes,
+      const operation = createAutoFitOperation({
+        indexes,
         group,
         nodeSize,
         defaultPadding: padding
       })
+      if (operation) {
+        operations.push(operation)
+      }
     })
+    if (operations.length) {
+      void this.instance.mutate(operations, 'system')
+    }
 
     this.snapshot = currentSnapshot
     this.layoutSnapshot = nextLayout
@@ -257,7 +327,8 @@ export class GroupAutoFitRuntime {
   dispose = () => {
     if (this.disposed) return
     this.disposed = true
-    this.offChange()
+    this.offChange?.()
+    this.offChange = null
     this.syncTask.cancel()
   }
 
@@ -270,6 +341,22 @@ export class GroupAutoFitRuntime {
       || meta.impact.tags.has('order')
       || Boolean(meta.impact.dirtyNodeIds?.length)
     if (!hasRelevantChange) return
+    if (meta.kind === 'replace' || meta.impact.tags.has('full')) {
+      this.forceFullSync = true
+      this.pendingDiff = false
+      this.pendingDirtyNodeIds.clear()
+      this.scheduleSync()
+      return
+    }
+
+    if (meta.impact.dirtyNodeIds?.length) {
+      meta.impact.dirtyNodeIds.forEach((id) => {
+        this.pendingDirtyNodeIds.add(id)
+      })
+    } else {
+      this.pendingDiff = true
+    }
+
     this.scheduleSync()
   }
 }

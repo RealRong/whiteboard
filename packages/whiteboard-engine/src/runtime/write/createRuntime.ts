@@ -10,10 +10,8 @@ import { createNodeCommands, type NodeCommandsApi } from './commands/node'
 import { createShortcutActionDispatcher, type ShortcutActionDispatcher } from './commands/shortcut'
 import { createSelectionCommands, type SelectionCommandsApi } from './commands/selection'
 import { createViewportCommands, type ViewportCommandsApi } from './commands/viewport'
-import { HistoryDomain } from './history/HistoryDomain'
-import { MutationExecutor } from './pipeline/MutationExecutor'
+import { Writer } from './pipeline/Writer'
 import { createChangeBus, type ChangeBus } from './pipeline/ChangeBus'
-import { WriteCoordinator } from './pipeline/WriteCoordinator'
 
 export type WriteRuntimeCommands = {
   edge: EdgeCommandsApi
@@ -47,20 +45,16 @@ export const createWriteRuntime = ({
   readModelRevisionAtom
 }: CreateWriteRuntimeOptions): WriteRuntime => {
   const changeBus = createChangeBus()
-  const mutationExecutor = new MutationExecutor({
+  const writer = new Writer({
     instance,
     changeBus,
     documentAtom,
     readModelRevisionAtom,
     now: scheduler.now
   })
-  const historyDomain = new HistoryDomain({
-    now: scheduler.now
-  })
-  const writeCoordinator = new WriteCoordinator({
-    executor: mutationExecutor,
-    history: historyDomain
-  })
+  const history: Commands['history'] = writer.history
+  const mutate: InternalInstance['mutate'] = writer.mutate
+  const resetDoc: Commands['doc']['reset'] = writer.resetDoc
 
   const edge = createEdgeCommands({ instance })
   const interaction = createInteractionCommands({ instance })
@@ -70,13 +64,13 @@ export const createWriteRuntime = ({
   const selection = createSelectionCommands({ instance })
   const shortcut = createShortcutActionDispatcher({
     selection,
-    history: writeCoordinator.history
+    history
   })
 
   return {
-    mutate: writeCoordinator.applyMutations,
-    history: writeCoordinator.history,
-    resetDoc: writeCoordinator.resetDocument,
+    mutate,
+    history,
+    resetDoc,
     changeBus,
     commands: {
       edge,

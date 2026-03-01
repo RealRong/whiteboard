@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useInstance, useReadAtom, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
 import { useEdgeConnectInteraction } from '../hooks/useEdgeConnectInteraction'
 
 export const EdgeEndpointHandles = () => {
@@ -12,7 +12,10 @@ export const EdgeEndpointHandles = () => {
     }
   )
   const instance = useInstance()
-  const endpoints = useReadAtom(instance.read.atoms.edgeSelectedEndpoints)
+  const endpoints = useReadGetter(
+    () => instance.read.get.edgeSelectedEndpoints(),
+    { keys: ['selection', 'snapshot'] }
+  )
   if (!stateSelectedEdgeId || !endpoints) return null
 
   const renderHandle = (end: 'source' | 'target', point: { x: number; y: number }) => (

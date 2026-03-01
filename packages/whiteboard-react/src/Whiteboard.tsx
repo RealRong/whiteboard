@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
-import { Provider as JotaiProvider, useAtomValue } from 'jotai'
+import { Provider as JotaiProvider } from 'jotai'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
@@ -15,6 +15,7 @@ import {
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
+import { useReadGetter } from './common/hooks'
 import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
 import { useViewportGestureSelector } from './common/interaction/viewportGestureState'
 
@@ -73,7 +74,10 @@ const WhiteboardCanvas = ({
   containerStyle,
   viewportPolicy
 }: WhiteboardCanvasProps) => {
-  const viewportTransform = useAtomValue(instance.read.atoms.viewportTransform)
+  const viewportTransform = useReadGetter(
+    () => instance.read.get.viewportTransform(),
+    { keys: ['viewport'] }
+  )
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
   const resolvedViewportTransform = useMemo(
     () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),

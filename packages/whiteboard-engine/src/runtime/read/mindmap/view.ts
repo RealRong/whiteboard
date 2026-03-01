@@ -3,12 +3,12 @@ import type { NodeId } from '@whiteboard/core/types'
 import type { MindmapViewTree } from '@engine-types/instance/read'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { StateAtoms } from '../../../state/factory/CreateState'
+import type { MindmapReadSnapshot } from './viewModel'
 
 type MindmapViewOptions = {
   mindmapLayoutAtom: StateAtoms['mindmapLayout']
   readSnapshotAtom: Atom<ReadModelSnapshot>
-  getMindmapIds: () => NodeId[]
-  getMindmapById: (id: NodeId) => MindmapViewTree | undefined
+  getSnapshot: () => MindmapReadSnapshot
 }
 
 export type MindmapViewAtoms = {
@@ -19,15 +19,14 @@ export type MindmapViewAtoms = {
 export const view = ({
   mindmapLayoutAtom,
   readSnapshotAtom,
-  getMindmapIds,
-  getMindmapById
+  getSnapshot
 }: MindmapViewOptions): MindmapViewAtoms => {
   const mindmapByIdAtoms = new Map<NodeId, Atom<MindmapViewTree | undefined>>()
 
   const mindmapIdsAtom = atom((get) => {
     get(readSnapshotAtom)
     get(mindmapLayoutAtom)
-    return getMindmapIds()
+    return getSnapshot().ids
   })
 
   const mindmapById = (id: NodeId) => {
@@ -37,7 +36,7 @@ export const view = ({
     const nextAtom = atom((get) => {
       get(readSnapshotAtom)
       get(mindmapLayoutAtom)
-      return getMindmapById(id)
+      return getSnapshot().byId.get(id)
     })
     mindmapByIdAtoms.set(id, nextAtom)
     return nextAtom

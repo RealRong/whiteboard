@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { EdgeId } from '@whiteboard/core/types'
-import { useInstance, useReadAtom, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
 import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
 import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewState'
 import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
@@ -11,10 +10,9 @@ export const EdgeControlPointHandles = () => {
     { keys: ['selection'] }
   )
   const instance = useInstance()
-  const edgeEntry = useReadAtom(
-    instance.read.atoms.edgeById(
-      selectedEdgeId ?? ('__wb_none_edge__' as EdgeId)
-    )
+  const edgeEntry = useReadGetter(
+    () => (selectedEdgeId ? instance.read.get.edgeById(selectedEdgeId) : undefined),
+    { keys: ['selection', 'snapshot'] }
   )
   const { draft } = useEdgeRoutingPreviewState()
   const {

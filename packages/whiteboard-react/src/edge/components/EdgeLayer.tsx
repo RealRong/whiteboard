@@ -2,7 +2,7 @@ import type { EdgeId } from '@whiteboard/core/types'
 import type { EdgePathEntry } from '@whiteboard/engine'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo, useCallback } from 'react'
-import { useInstance, useReadAtom, useWhiteboardSelector } from '../../common/hooks'
+import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
 import { resolveEdgePathEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
 import {
   useEdgeRoutingPreviewState,
@@ -14,7 +14,10 @@ import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 
 const useEdgePath = (edgeId: EdgeId) => {
   const instance = useInstance()
-  return useReadAtom<EdgePathEntry | undefined>(instance.read.atoms.edgeById(edgeId))
+  return useReadGetter<EdgePathEntry | undefined>(
+    () => instance.read.get.edgeById(edgeId),
+    { keys: ['snapshot'] }
+  )
 }
 
 type EdgeItemByIdProps = {
@@ -69,7 +72,10 @@ export const EdgeLayer = () => {
   const instance = useInstance()
   const { draft } = useEdgeRoutingPreviewState()
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
-  const edgeIds = useReadAtom(instance.read.atoms.edgeIds)
+  const edgeIds = useReadGetter(
+    () => instance.read.get.edgeIds(),
+    { keys: ['snapshot'] }
+  )
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,
     {

@@ -67,6 +67,24 @@ const isAncestorOf = (tree: MindmapTree, ancestorId: MindmapNodeId, nodeId: Mind
   return false
 }
 
+const normalizeMoveIndex = ({
+  prevParentId,
+  nextParentId,
+  prevIndex,
+  requestedIndex
+}: {
+  prevParentId: MindmapNodeId
+  nextParentId: MindmapNodeId
+  prevIndex: number
+  requestedIndex: number | undefined
+}) => {
+  if (typeof requestedIndex !== 'number') return requestedIndex
+  if (prevParentId !== nextParentId) return requestedIndex
+  if (prevIndex < 0) return requestedIndex
+  if (requestedIndex <= prevIndex) return requestedIndex
+  return Math.max(0, requestedIndex - 1)
+}
+
 export const createMindmap = (
   options: {
     id?: MindmapTree['id']
@@ -171,7 +189,12 @@ export const moveSubtree = (
   }
 
   const nextChildren = ensureChildren(draft, newParentId)
-  const insertIndex = options?.index
+  const insertIndex = normalizeMoveIndex({
+    prevParentId,
+    nextParentId: newParentId,
+    prevIndex,
+    requestedIndex: options?.index
+  })
   if (insertIndex === undefined || insertIndex < 0 || insertIndex > nextChildren.length) {
     nextChildren.push(nodeId)
   } else {

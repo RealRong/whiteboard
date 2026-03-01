@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
-import { useInstance, useReadAtom } from '../../common/hooks'
+import { useInstance, useReadGetter } from '../../common/hooks'
 import { MindmapTreeView } from './MindmapTreeView'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { MindmapNodeId } from '@whiteboard/core/types'
@@ -17,7 +17,10 @@ type MindmapLayerProps = {
 
 const useMindmapTree = (treeId: NodeId) => {
   const instance = useInstance()
-  return useReadAtom<MindmapViewTree | undefined>(instance.read.atoms.mindmapById(treeId))
+  return useReadGetter<MindmapViewTree | undefined>(
+    () => instance.read.get.mindmapById(treeId),
+    { keys: ['snapshot', 'mindmapLayout'] }
+  )
 }
 
 const MindmapTreeById = ({
