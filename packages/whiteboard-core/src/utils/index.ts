@@ -1,4 +1,5 @@
 export * from './group'
+export * from './equality'
 export * from './merge'
 export * from './number'
 export * from './objectPath'

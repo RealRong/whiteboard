@@ -1,4 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
+import { isSameRefOrder } from '@whiteboard/core/utils'
 import {
   READ_PUBLIC_KEYS,
   READ_SUBSCRIBE_KEYS,
@@ -22,18 +23,6 @@ type MindmapProjectionCache = {
   view: MindmapView
 }
 
-const isSameMindmapTreeList = (
-  left: readonly MindmapViewTree[],
-  right: readonly MindmapViewTree[]
-) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
 export const projection = (context: ReadRuntimeContext): MindmapProjection => {
   const cache = createMindmapCache(context)
   let projectionCache: MindmapProjectionCache | undefined
@@ -43,7 +32,7 @@ export const projection = (context: ReadRuntimeContext): MindmapProjection => {
       visibleNodes: context.get(READ_SUBSCRIBE_KEYS.snapshot).nodes.visible,
       layout: context.get(READ_PUBLIC_KEYS.mindmapLayout)
     })
-    if (projectionCache && isSameMindmapTreeList(projectionCache.trees, trees)) {
+    if (projectionCache && isSameRefOrder(projectionCache.trees, trees)) {
       return projectionCache.view
     }
 

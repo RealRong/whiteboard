@@ -11,7 +11,6 @@ export default defineConfig({
     'edge/index': 'src/edge/index.ts',
     'schema/index': 'src/schema/index.ts',
     'kernel/index': 'src/kernel/index.ts',
-    'cache/index': 'src/cache/index.ts',
     'perf/index': 'src/perf/index.ts'
   },
   format: ['esm', 'cjs'],

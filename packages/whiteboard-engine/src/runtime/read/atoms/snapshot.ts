@@ -15,6 +15,35 @@ type SnapshotOptions = {
   indexesAtom: Atom<ReadModelSnapshot['indexes']>
 }
 
+const isSameSnapshotRefs = (
+  cache: ReadModelSnapshot | undefined,
+  {
+    revision,
+    docId,
+    visibleNodes,
+    canvasNodes,
+    visibleEdges,
+    canvasNodeById
+  }: {
+    revision: number
+    docId: string
+    visibleNodes: Node[]
+    canvasNodes: Node[]
+    visibleEdges: Edge[]
+    canvasNodeById: ReadModelSnapshot['indexes']['canvasNodeById']
+  }
+): cache is ReadModelSnapshot => {
+  if (!cache) return false
+  return (
+    cache.revision === revision &&
+    cache.docId === docId &&
+    cache.nodes.visible === visibleNodes &&
+    cache.nodes.canvas === canvasNodes &&
+    cache.edges.visible === visibleEdges &&
+    cache.indexes.canvasNodeById === canvasNodeById
+  )
+}
+
 export const snapshot = ({
   documentAtom,
   revisionAtom,
@@ -33,15 +62,14 @@ export const snapshot = ({
     const visibleEdges = get(visibleEdgesAtom)
     const snapshotIndexes = get(indexesAtom)
 
-    if (
-      cache &&
-      cache.revision === revision &&
-      cache.docId === doc.id &&
-      cache.nodes.visible === visibleNodes &&
-      cache.nodes.canvas === canvasNodes &&
-      cache.edges.visible === visibleEdges &&
-      cache.indexes.canvasNodeById === snapshotIndexes.canvasNodeById
-    ) {
+    if (isSameSnapshotRefs(cache, {
+      revision,
+      docId: doc.id,
+      visibleNodes,
+      canvasNodes,
+      visibleEdges,
+      canvasNodeById: snapshotIndexes.canvasNodeById
+    })) {
       return cache
     }
 

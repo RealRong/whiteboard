@@ -4,6 +4,10 @@ import {
   resolveEdgePathFromRects,
   type EdgeRelations
 } from '@whiteboard/core/edge'
+import {
+  isSamePointArray,
+  isSameRectWithRotationTuple
+} from '@whiteboard/core/utils'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
   READ_SUBSCRIBE_KEYS,
@@ -76,6 +80,19 @@ type EdgeCacheMaterial = {
   structure: EdgeStructureTuple
 }
 
+const EDGE_STRUCTURE_SCALAR_KEYS = [
+  'type',
+  'sourceNodeId',
+  'targetNodeId',
+  'sourceAnchorSide',
+  'sourceAnchorOffset',
+  'targetAnchorSide',
+  'targetAnchorOffset',
+  'routingMode',
+  'routingOrthoOffset',
+  'routingOrthoRadius'
+] as const satisfies readonly (Exclude<keyof EdgeStructureTuple, 'routingPointsRef'>)[]
+
 const emptyRelations = (): EdgeRelations => ({
   edgeById: new Map<EdgeId, Edge>(),
   edgeIds: [],
@@ -143,45 +160,15 @@ const toEdgeStructureTuple = (edge: EdgePathEntry['edge']): EdgeStructureTuple =
   routingPointsRef: edge.routing?.points
 })
 
-const isSameNodeGeometryTuple = (
-  left: NodeGeometryTuple,
-  right: NodeGeometryTuple
-) =>
-  left.x === right.x &&
-  left.y === right.y &&
-  left.width === right.width &&
-  left.height === right.height &&
-  left.rotation === right.rotation
-
-const isSameRoutingPoints = (
-  left?: readonly { x: number; y: number }[],
-  right?: readonly { x: number; y: number }[]
-) => {
-  if (left === right) return true
-  if (!left || !right) return false
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index]?.x !== right[index]?.x) return false
-    if (left[index]?.y !== right[index]?.y) return false
-  }
-  return true
-}
-
 const isSameEdgeStructureTuple = (
   left: EdgeStructureTuple,
   right: EdgeStructureTuple
-) =>
-  left.type === right.type &&
-  left.sourceNodeId === right.sourceNodeId &&
-  left.targetNodeId === right.targetNodeId &&
-  left.sourceAnchorSide === right.sourceAnchorSide &&
-  left.sourceAnchorOffset === right.sourceAnchorOffset &&
-  left.targetAnchorSide === right.targetAnchorSide &&
-  left.targetAnchorOffset === right.targetAnchorOffset &&
-  left.routingMode === right.routingMode &&
-  left.routingOrthoOffset === right.routingOrthoOffset &&
-  left.routingOrthoRadius === right.routingOrthoRadius &&
-  isSameRoutingPoints(left.routingPointsRef, right.routingPointsRef)
+) => {
+  for (const key of EDGE_STRUCTURE_SCALAR_KEYS) {
+    if (left[key] !== right[key]) return false
+  }
+  return isSamePointArray(left.routingPointsRef, right.routingPointsRef)
+}
 
 // Invariants:
 // 1) `ids/byId` are derived only from `relations.edgeIds + cacheById`.
@@ -249,8 +236,8 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
       previous.sourceRectRef === material.sourceRectRef &&
       previous.targetRectRef === material.targetRectRef
     ) || (
-      isSameNodeGeometryTuple(previous.sourceGeometry, material.sourceGeometry) &&
-      isSameNodeGeometryTuple(previous.targetGeometry, material.targetGeometry)
+      isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry) &&
+      isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
     )
     if (!isSameGeometry) return undefined
 

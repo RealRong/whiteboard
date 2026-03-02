@@ -1,5 +1,6 @@
 import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import { deriveVisibleEdges } from '@whiteboard/core/node'
+import { isSameIdOrder } from '@whiteboard/core/utils'
 import type {
   Document,
   Edge,
@@ -7,8 +8,7 @@ import type {
   Node
 } from '@whiteboard/core/types'
 import {
-  EMPTY_EDGES,
-  isSameNodeIdOrder
+  EMPTY_EDGES
 } from './shared'
 
 export const visibleEdges = (
@@ -45,7 +45,7 @@ export const visibleEdges = (
       cache &&
       cache.edgesRef === doc.edges &&
       cache.edgeOrderRef === edgeOrderRef &&
-      isSameNodeIdOrder(cache.canvasNodes, canvasNodes)
+      isSameIdOrder(cache.canvasNodes, canvasNodes)
     ) {
       return cache.visibleEdges
     }

@@ -11,6 +11,7 @@ import {
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
+import { isSameNumberish } from '@whiteboard/core/utils'
 
 type Snapshot = {
   nodeMap: Map<string, Node>
@@ -33,24 +34,26 @@ type RuntimeOptions = {
   scheduler: Scheduler
 }
 
-const createNodeSignature = (node?: Node) => {
-  if (!node) return '__missing__'
-  const autoFit = node.data && typeof node.data.autoFit === 'string' ? node.data.autoFit : ''
-  const groupPadding = node.data && typeof node.data.padding === 'number' ? node.data.padding : ''
-  const width = node.size?.width ?? ''
-  const height = node.size?.height ?? ''
-  const rotation = typeof node.rotation === 'number' ? node.rotation : ''
-  return [
-    node.type,
-    node.parentId ?? '',
-    node.position.x,
-    node.position.y,
-    width,
-    height,
-    rotation,
-    autoFit,
-    groupPadding
-  ].join('|')
+const isSameNodeForAutofit = (left?: Node, right?: Node) => {
+  if (left === right) return true
+  if (!left || !right) return false
+
+  const leftAutoFit = left.data && typeof left.data.autoFit === 'string' ? left.data.autoFit : undefined
+  const rightAutoFit = right.data && typeof right.data.autoFit === 'string' ? right.data.autoFit : undefined
+  const leftPadding = left.data && typeof left.data.padding === 'number' ? left.data.padding : undefined
+  const rightPadding = right.data && typeof right.data.padding === 'number' ? right.data.padding : undefined
+  const leftRotation = typeof left.rotation === 'number' ? left.rotation : undefined
+  const rightRotation = typeof right.rotation === 'number' ? right.rotation : undefined
+
+  return left.type === right.type
+    && left.parentId === right.parentId
+    && isSameNumberish(left.position.x, right.position.x)
+    && isSameNumberish(left.position.y, right.position.y)
+    && isSameNumberish(left.size?.width, right.size?.width)
+    && isSameNumberish(left.size?.height, right.size?.height)
+    && isSameNumberish(leftRotation, rightRotation)
+    && leftAutoFit === rightAutoFit
+    && isSameNumberish(leftPadding, rightPadding)
 }
 
 const createIndexes = (nodes: Node[]): Indexes => {
@@ -89,7 +92,7 @@ const collectChangedNodeIds = (prev: Snapshot, next: Snapshot): Set<string> => {
   next.nodeMap.forEach((_value, id) => allIds.add(id))
 
   allIds.forEach((id) => {
-    if (createNodeSignature(prev.nodeMap.get(id)) !== createNodeSignature(next.nodeMap.get(id))) {
+    if (!isSameNodeForAutofit(prev.nodeMap.get(id), next.nodeMap.get(id))) {
       changedIds.add(id)
     }
   })

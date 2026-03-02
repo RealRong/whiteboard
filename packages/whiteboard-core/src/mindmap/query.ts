@@ -44,14 +44,6 @@ export type MindmapLayoutConfigLike = {
   }
 }
 
-const safeStringify = (value: unknown) => {
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return ''
-  }
-}
-
 const cloneValue = <T,>(value: T): T => {
   const clone = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
   if (typeof clone === 'function') {
@@ -263,20 +255,6 @@ export const getMindmapLabel = (node: MindmapNode | undefined) => {
     default:
       return data.kind ?? 'mindmap'
   }
-}
-
-export const toMindmapStructureSignature = (tree: MindmapTree) => {
-  const nodesSignature = Object.entries(tree.nodes)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, node]) => `${id}:${node.parentId ?? ''}:${node.side ?? ''}:${safeStringify(node.data)}`)
-    .join(';')
-
-  const childrenSignature = Object.entries(tree.children)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, children]) => `${id}:${children.join(',')}`)
-    .join(';')
-
-  return `${tree.rootId}|${nodesSignature}|${childrenSignature}`
 }
 
 export const computeMindmapLayout = (

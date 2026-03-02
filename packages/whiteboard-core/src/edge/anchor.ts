@@ -1,5 +1,5 @@
 import type { EdgeAnchor, Point, Rect } from '../types'
-import { clamp, getAnchorPoint, getRectCenter, rotatePoint } from '../geometry'
+import { clamp, getAnchorPoint, getRectCenter, isPointEqual, rotatePoint } from '../geometry'
 
 const getSideCenters = (rect: Rect) => ({
   top: { x: rect.x + rect.width / 2, y: rect.y },
@@ -51,8 +51,7 @@ export const isSameConnectTarget = (
     left.nodeId === right.nodeId &&
     left.anchor?.side === right.anchor?.side &&
     left.anchor?.offset === right.anchor?.offset &&
-    left.pointWorld?.x === right.pointWorld?.x &&
-    left.pointWorld?.y === right.pointWorld?.y
+    isPointEqual(left.pointWorld, right.pointWorld)
   )
 }
 

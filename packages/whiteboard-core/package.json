@@ -48,11 +48,6 @@
       "import": "./dist/kernel/index.js",
       "require": "./dist/kernel/index.cjs"
     },
-    "./cache": {
-      "types": "./dist/cache/index.d.ts",
-      "import": "./dist/cache/index.js",
-      "require": "./dist/cache/index.cjs"
-    },
     "./perf": {
       "types": "./dist/perf/index.d.ts",
       "import": "./dist/perf/index.js",

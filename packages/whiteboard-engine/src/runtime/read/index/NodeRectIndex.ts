@@ -1,19 +1,23 @@
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import { toNodeStateSignature } from '@whiteboard/core/cache'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
+import {
+  isSameRectWithRotationTuple,
+  isSameRefOrder,
+  toFiniteOrUndefined
+} from '@whiteboard/core/utils'
 
-const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
+type NodeRectStateTuple = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  rotation?: number
 }
 
 type NodeRectCacheEntry = {
-  signature: string
+  state: NodeRectStateTuple
   entry: CanvasNodeRect
 }
 
@@ -32,6 +36,17 @@ export class NodeRectIndex {
     rotation: typeof node.rotation === 'number' ? node.rotation : 0
   })
 
+  private toStateTuple = (node: Node): NodeRectStateTuple => {
+    const size = node.size ?? this.config.nodeSize
+    return {
+      x: toFiniteOrUndefined(node.position.x),
+      y: toFiniteOrUndefined(node.position.y),
+      width: toFiniteOrUndefined(size.width),
+      height: toFiniteOrUndefined(size.height),
+      rotation: toFiniteOrUndefined(node.rotation ?? 0)
+    }
+  }
+
   updateFull = (nodes: Node[]): { changed: boolean; changedNodeIds: Set<NodeId> } => {
     const seen = new Set<NodeId>()
     const nextOrderedIds: NodeId[] = []
@@ -42,14 +57,14 @@ export class NodeRectIndex {
       seen.add(node.id)
       nextOrderedIds.push(node.id)
 
-      const signature = toNodeStateSignature(node, this.config.nodeSize)
+      const state = this.toStateTuple(node)
       const current = this.byId.get(node.id)
-      if (current && current.signature === signature) {
+      if (current && isSameRectWithRotationTuple(current.state, state)) {
         return
       }
 
       this.byId.set(node.id, {
-        signature,
+        state,
         entry: this.toEntry(node)
       })
       changedNodeIds.add(node.id)
@@ -65,7 +80,7 @@ export class NodeRectIndex {
       changed = true
     })
 
-    if (!isSameIdOrder(this.orderedIds, nextOrderedIds)) {
+    if (!isSameRefOrder(this.orderedIds, nextOrderedIds)) {
       this.orderedIds = nextOrderedIds
       this.orderDirty = true
       changed = true
@@ -96,11 +111,11 @@ export class NodeRectIndex {
         continue
       }
 
-      const signature = toNodeStateSignature(node, this.config.nodeSize)
-      if (current && current.signature === signature) continue
+      const state = this.toStateTuple(node)
+      if (current && isSameRectWithRotationTuple(current.state, state)) continue
 
       this.byId.set(nodeId, {
-        signature,
+        state,
         entry: this.toEntry(node)
       })
       if (!current && !this.orderedIds.includes(nodeId)) {

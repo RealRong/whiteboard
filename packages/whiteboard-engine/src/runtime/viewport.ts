@@ -3,6 +3,7 @@ import {
   viewportScreenToWorld,
   viewportWorldToScreen
 } from '@whiteboard/core/geometry'
+import { isSameBoxTuple } from '@whiteboard/core/utils'
 import type { Point, Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { ContainerRect, ViewportApi } from '@engine-types/viewport'
@@ -17,9 +18,6 @@ const toScreenCenter = (size: Size): Point => ({
   x: size.width / 2,
   y: size.height / 2
 })
-
-const isSameRect = (a: ContainerRect, b: ContainerRect) =>
-  a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
 
 const copyViewport = (viewport: Viewport): Viewport => ({
   center: {
@@ -86,7 +84,7 @@ export class ViewportRuntime implements ViewportApi {
   }
 
   setContainerRect: ViewportApi['setContainerRect'] = (nextRect) => {
-    if (isSameRect(nextRect, this.containerRect)) return
+    if (isSameBoxTuple(nextRect, this.containerRect)) return
     this.updateDerivedFromRect(nextRect)
   }
 }

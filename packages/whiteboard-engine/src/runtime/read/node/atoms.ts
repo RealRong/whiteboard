@@ -1,6 +1,7 @@
 import { atom, type Atom } from 'jotai/vanilla'
 import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
 import { toLayerOrderedCanvasNodeIds } from '@whiteboard/core/node'
+import { isSameRefOrder } from '@whiteboard/core/utils'
 import {
   READ_PUBLIC_KEYS,
   READ_SUBSCRIBE_KEYS,
@@ -29,15 +30,6 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-const isSameNodeOrder = (left: readonly string[], right: readonly string[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
-
 export const atoms = (context: ReadRuntimeContext): NodeReadAtoms => {
   const viewportAtom = context.atom(READ_PUBLIC_KEYS.viewport)
   const readSnapshotAtom = context.atom(READ_SUBSCRIBE_KEYS.snapshot)
@@ -49,7 +41,7 @@ export const atoms = (context: ReadRuntimeContext): NodeReadAtoms => {
     if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
 
     const next = toLayerOrderedCanvasNodeIds(canvasNodes)
-    if (isSameNodeOrder(nodeIdsCache, next)) {
+    if (isSameRefOrder(nodeIdsCache, next)) {
       nodeIdsSourceRef = canvasNodes
       return nodeIdsCache
     }

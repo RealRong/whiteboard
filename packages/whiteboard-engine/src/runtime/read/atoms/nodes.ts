@@ -1,5 +1,9 @@
 import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import { deriveNodeReadSlices } from '@whiteboard/core/node'
+import {
+  isSameMapValueRefs,
+  isSameRefOrder
+} from '@whiteboard/core/utils'
 import type {
   Document,
   Node,
@@ -8,9 +12,7 @@ import type {
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import {
   EMPTY_NODE_MAP,
-  EMPTY_NODES,
-  isSameNodeMap,
-  isSameRefOrder
+  EMPTY_NODES
 } from './shared'
 
 export type NodeSlices = {
@@ -84,7 +86,7 @@ export const nodeSlices = (documentAtom: PrimitiveAtom<Document>): Atom<NodeSlic
         : normalizedCanvas
 
       const nextCanvasNodeByIdCache = nextCanvasCache === canvasCache ||
-        isSameNodeMap(canvasNodeByIdCache, normalizedCanvasNodeById)
+        isSameMapValueRefs(canvasNodeByIdCache, normalizedCanvasNodeById)
         ? canvasNodeByIdCache
         : normalizedCanvasNodeById
 

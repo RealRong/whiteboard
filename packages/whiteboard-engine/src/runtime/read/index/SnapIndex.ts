@@ -1,18 +1,28 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { SnapCandidate } from '@engine-types/node/snap'
-import { toRectSignature } from '@whiteboard/core/cache'
+import {
+  isSameRectTuple,
+  isSameRefOrder,
+  toFiniteOrUndefined
+} from '@whiteboard/core/utils'
 
-const isSameIdOrder = (left: readonly string[], right: readonly string[]) => {
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
+type RectTuple = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
 }
 
+const toRectTuple = (rect: Rect): RectTuple => ({
+  x: toFiniteOrUndefined(rect.x),
+  y: toFiniteOrUndefined(rect.y),
+  width: toFiniteOrUndefined(rect.width),
+  height: toFiniteOrUndefined(rect.height)
+})
+
 type SnapCacheEntry = {
-  signature: string
+  rect: RectTuple
   candidate: SnapCandidate
   cellKeys: string[]
 }
@@ -91,7 +101,7 @@ export class SnapIndex {
       const cellKeys = toCellKeys(candidate.rect, this.cellSize)
       this.addToBuckets(entry.node.id, cellKeys)
       this.byId.set(entry.node.id, {
-        signature: toRectSignature(entry.aabb),
+        rect: toRectTuple(entry.aabb),
         candidate,
         cellKeys
       })
@@ -118,9 +128,9 @@ export class SnapIndex {
       seen.add(nodeId)
       nextOrderedIds.push(nodeId)
 
-      const signature = toRectSignature(entry.aabb)
+      const rect = toRectTuple(entry.aabb)
       const current = this.byId.get(nodeId)
-      if (current && current.signature === signature) {
+      if (current && isSameRectTuple(current.rect, rect)) {
         return
       }
 
@@ -131,7 +141,7 @@ export class SnapIndex {
       }
       this.addToBuckets(nodeId, cellKeys)
       this.byId.set(nodeId, {
-        signature,
+        rect,
         candidate,
         cellKeys
       })
@@ -147,7 +157,7 @@ export class SnapIndex {
       changed = true
     })
 
-    if (!isSameIdOrder(this.orderedIds, nextOrderedIds)) {
+    if (!isSameRefOrder(this.orderedIds, nextOrderedIds)) {
       this.orderedIds = nextOrderedIds
       this.orderDirty = true
       changed = true
@@ -176,8 +186,8 @@ export class SnapIndex {
         continue
       }
 
-      const signature = toRectSignature(entry.aabb)
-      if (current && current.signature === signature) continue
+      const rect = toRectTuple(entry.aabb)
+      if (current && isSameRectTuple(current.rect, rect)) continue
 
       const candidate = this.toCandidate(nodeId, entry.aabb)
       const cellKeys = toCellKeys(candidate.rect, this.cellSize)
@@ -188,7 +198,7 @@ export class SnapIndex {
       }
       this.addToBuckets(nodeId, cellKeys)
       this.byId.set(nodeId, {
-        signature,
+        rect,
         candidate,
         cellKeys
       })
