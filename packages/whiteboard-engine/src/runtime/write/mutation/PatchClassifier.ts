@@ -1,16 +1,8 @@
 import type { EdgePatch, NodePatch } from '@whiteboard/core/types'
-
-export type NodePatchClass = {
-  affectsGeometry: boolean
-  affectsOrder: boolean
-  affectsStyleOnly: boolean
-}
-
-export type EdgePatchClass = {
-  affectsGeometry: boolean
-  affectsOrder: boolean
-  affectsStyleOnly: boolean
-}
+import type {
+  EdgePatchClass,
+  NodePatchClass
+} from '@engine-types/write/mutation'
 
 type PatchClass = {
   affectsGeometry: boolean

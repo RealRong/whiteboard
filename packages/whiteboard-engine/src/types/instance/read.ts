@@ -1,4 +1,3 @@
-import type { Atom } from 'jotai/vanilla'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -11,14 +10,14 @@ import type {
   Viewport
 } from '@whiteboard/core/types'
 import type { MindmapLayout } from '@whiteboard/core/mindmap'
-import type { EdgePathEntry as EdgePathEntryType } from '../edge'
-import type { MindmapLayoutConfig } from '../mindmap'
-import type { ReadModelSnapshot } from '../readSnapshot'
+import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
+import type { EdgePathEntry as EdgePathEntryType } from '../edge/geometry'
+import type { MindmapLayoutConfig } from '../mindmap/layout'
+import type { ReadModelSnapshot } from '../read/snapshot'
 import type {
   InteractionState,
-  MindmapDragDropTarget,
   SelectionState
-} from '../state'
+} from '../state/model'
 
 export type CanvasNodeRect = {
   node: Node
@@ -117,23 +116,6 @@ export type EdgesView = {
 export type MindmapView = {
   ids: NodeId[]
   byId: ReadonlyMap<NodeId, MindmapViewTree>
-}
-
-export type EngineReadAtoms = {
-  interaction: Atom<InteractionState>
-  tool: Atom<'select' | 'edge'>
-  selection: Atom<SelectionState>
-  viewport: Atom<Viewport>
-  mindmapLayout: Atom<MindmapLayoutConfig>
-  viewportTransform: Atom<ViewportTransformView>
-  nodeIds: Atom<NodeId[]>
-  nodeById: (id: NodeId) => Atom<NodeViewItem | undefined>
-  edgeIds: Atom<EdgeId[]>
-  edgeById: (id: EdgeId) => Atom<EdgePathEntry | undefined>
-  selectedEdgeId: Atom<EdgeId | undefined>
-  edgeSelectedEndpoints: Atom<EdgeEndpoints | undefined>
-  mindmapIds: Atom<NodeId[]>
-  mindmapById: (id: NodeId) => Atom<MindmapViewTree | undefined>
 }
 
 export type EngineReadGetters = {

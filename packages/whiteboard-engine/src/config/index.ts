@@ -1,9 +1,9 @@
 import type { DocumentId, Viewport } from '@whiteboard/core/types'
-import type { ResolvedConfig, Config } from '@engine-types/common'
-import type { RuntimeConfig } from '@engine-types/instance/runtime'
+import type { ResolvedConfig, Config } from '@engine-types/common/config'
+import type { Config as Runtime } from '@engine-types/instance/runtime'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { ShortcutOverrides } from '@engine-types/shortcuts'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
+import type { ShortcutOverrides } from '@engine-types/shortcuts/manager'
 import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_CONFIG,
@@ -93,7 +93,7 @@ type RuntimeOptions = {
   tool: 'select' | 'edge'
   viewport?: Viewport
   mindmapLayout?: MindmapLayoutConfig
-  history?: RuntimeConfig['history']
+  history?: Runtime['history']
   shortcuts?: ShortcutOverrides
 }
 
@@ -104,7 +104,7 @@ export const toRuntimeConfig = ({
   mindmapLayout,
   history,
   shortcuts
-}: RuntimeOptions): RuntimeConfig => ({
+}: RuntimeOptions): Runtime => ({
   docId,
   tool,
   viewport: {

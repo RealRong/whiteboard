@@ -5,7 +5,6 @@
     "baseUrl": ".",
     "paths": {
       "@whiteboard/core/*": ["../whiteboard-core/src/*/index.ts"],
-      "@engine-types": ["src/types/index.ts"],
       "@engine-types/*": ["src/types/*"]
     }
   },

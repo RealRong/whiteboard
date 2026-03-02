@@ -1,6 +1,10 @@
 import type { Operation, Origin } from '@whiteboard/core/types'
-import type { ResolvedHistoryConfig } from '@engine-types/common'
-import type { HistoryState } from '@engine-types/state'
+import type { ResolvedHistoryConfig } from '@engine-types/common/config'
+import type { HistoryState } from '@engine-types/state/model'
+import type {
+  HistoryApplyEntry,
+  HistoryCaptureInput
+} from '@engine-types/write/history'
 import { DEFAULT_CONFIG } from '../../../config'
 
 type HistoryEntry = {
@@ -10,16 +14,7 @@ type HistoryEntry = {
   timestamp: number
 }
 
-export type HistoryCaptureInput = {
-  forward: Operation[]
-  inverse: Operation[]
-  origin: Origin
-  timestamp: number
-}
-
-export type HistoryApplyEntry = (operations: Operation[]) => boolean
-
-type HistoryDomainOptions = {
+type HistoryOptions = {
   now?: () => number
   onStateChange?: (state: HistoryState) => void
 }
@@ -43,7 +38,7 @@ const shouldCaptureOrigin = (
   return true
 }
 
-export class HistoryDomain {
+export class History {
   private readonly now: () => number
   private readonly onStateChange: (state: HistoryState) => void
   private readonly config: ResolvedHistoryConfig = {
@@ -58,7 +53,7 @@ export class HistoryDomain {
   private isApplying = false
   private lastUpdatedAt: number | undefined
 
-  constructor(options: HistoryDomainOptions = {}) {
+  constructor(options: HistoryOptions = {}) {
     this.now = options.now ?? (() => Date.now())
     this.onStateChange = options.onStateChange ?? (() => {})
   }

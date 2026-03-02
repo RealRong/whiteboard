@@ -1,11 +1,3 @@
-type IdExists = (id: string) => boolean
-
-type CreateScopedIdOptions = {
-  prefix: string
-  exists: IdExists
-  maxAttempts?: number
-}
-
 const DEFAULT_MAX_ATTEMPTS = 1024
 
 const createSeed = () => Date.now().toString(36)
@@ -17,7 +9,11 @@ export const createScopedId = ({
   prefix,
   exists,
   maxAttempts = DEFAULT_MAX_ATTEMPTS
-}: CreateScopedIdOptions): string => {
+}: {
+  prefix: string
+  exists: (id: string) => boolean
+  maxAttempts?: number
+}): string => {
   const seed = createSeed()
   for (let index = 0; index < maxAttempts; index += 1) {
     const id = `${prefix}_${seed}_${index.toString(36)}`

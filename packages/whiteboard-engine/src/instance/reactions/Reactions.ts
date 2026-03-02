@@ -1,9 +1,9 @@
-import type { Size } from '@engine-types/common'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Size } from '@engine-types/common/base'
+import type { InternalInstance } from '@engine-types/instance/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { Scheduler } from '../../runtime/Scheduler'
-import type { ReadOrchestrator } from '../../runtime/read/orchestrator'
-import type { WriteRuntime } from '../../runtime/write/createRuntime'
+import type { Orchestrator as ReadOrchestrator } from '@engine-types/read/orchestrator'
+import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import { Measure } from './Measure'
 import { Autofit } from './Autofit'
 

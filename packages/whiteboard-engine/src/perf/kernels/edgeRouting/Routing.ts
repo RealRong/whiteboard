@@ -1,5 +1,5 @@
 import type { RoutingDragPayload } from '@engine-types/edge/routing'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { InternalInstance } from '@engine-types/instance/engine'
 import type { EdgeId, EdgeRouting, Operation, Point } from '@whiteboard/core/types'
 
 type RoutingInstance = Pick<InternalInstance, 'read'>

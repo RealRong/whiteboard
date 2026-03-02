@@ -1,22 +1,21 @@
-import type { Commands } from '@engine-types/commands'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Commands } from '@engine-types/command/api'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { ViewportCommandsApi } from '@engine-types/write/commands'
 import { panViewport, zoomViewport } from '@whiteboard/core/geometry'
 import type { DispatchResult, Point, Viewport } from '@whiteboard/core/types'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 
-type ViewportCommandsInstance = Pick<InternalInstance, 'mutate' | 'viewport'>
-
-type Options = {
-  instance: ViewportCommandsInstance
-}
-
-const createInvalidResult = (message: string): DispatchResult => ({
+const invalid = (message: string): DispatchResult => ({
   ok: false,
   reason: 'invalid',
   message
 })
 
-export const createViewportCommands = ({ instance }: Options): Commands['viewport'] => {
+export const viewport = ({
+  instance
+}: {
+  instance: Pick<InternalInstance, 'mutate' | 'viewport'>
+}): ViewportCommandsApi => {
   const readViewport = () => instance.viewport.get() ?? DEFAULT_DOCUMENT_VIEWPORT
 
   const applyViewport = (
@@ -36,17 +35,17 @@ export const createViewportCommands = ({ instance }: Options): Commands['viewpor
 
   const set: Commands['viewport']['set'] = (viewport) => {
     if (!viewport.center) {
-      return Promise.resolve(createInvalidResult('Missing viewport center.'))
+      return Promise.resolve(invalid('Missing viewport center.'))
     }
     if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
-      return Promise.resolve(createInvalidResult('Invalid viewport zoom.'))
+      return Promise.resolve(invalid('Invalid viewport zoom.'))
     }
     return applyViewport(readViewport(), viewport)
   }
 
   const panBy: Commands['viewport']['panBy'] = (delta) => {
     if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
-      return Promise.resolve(createInvalidResult('Invalid pan delta.'))
+      return Promise.resolve(invalid('Invalid pan delta.'))
     }
     const before = readViewport()
     return applyViewport(before, panViewport(before, delta))
@@ -54,7 +53,7 @@ export const createViewportCommands = ({ instance }: Options): Commands['viewpor
 
   const zoomBy: Commands['viewport']['zoomBy'] = (factor, anchor?: Point) => {
     if (!Number.isFinite(factor) || factor <= 0) {
-      return Promise.resolve(createInvalidResult('Invalid zoom factor.'))
+      return Promise.resolve(invalid('Invalid zoom factor.'))
     }
     const before = readViewport()
     return applyViewport(before, zoomViewport(before, factor, anchor))
@@ -81,5 +80,3 @@ export const createViewportCommands = ({ instance }: Options): Commands['viewpor
     reset
   }
 }
-
-export type ViewportCommandsApi = ReturnType<typeof createViewportCommands>

@@ -1,17 +1,19 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
-import type { KeyInputEvent, PointerInputEvent } from '@engine-types/input'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { KeyInputEvent, PointerInputEvent } from '@engine-types/input/event'
 import type {
   ShortcutAction,
   ShortcutContext,
-  ShortcutManager,
   ShortcutKeyEvent,
   ShortcutPointerEvent,
+} from '@engine-types/shortcuts/types'
+import type {
+  ShortcutManager,
   ShortcutOverrides,
   Shortcuts
-} from '@engine-types/shortcuts'
-import { createShortcutManager, resolveShortcuts } from './manager'
-import { createDefaultShortcuts } from './defaultShortcuts'
-import { getPlatformInfo } from './chord'
+} from '@engine-types/shortcuts/manager'
+import { manager, resolveShortcuts } from './manager'
+import { defaults } from './defaults'
+import { platform } from './chord'
 
 const toPointerShortcutEvent = (event: PointerInputEvent): ShortcutPointerEvent => ({
   button: event.button,
@@ -82,19 +84,19 @@ class ShortcutsImpl implements Shortcuts {
   private readonly platform: ShortcutContext['platform']
 
   constructor(instance: InternalInstance, runAction: (action: ShortcutAction) => boolean) {
-    this.shortcutManager = createShortcutManager()
+    this.shortcutManager = manager()
     this.runAction = runAction
     this.readState = instance.state.read
-    this.platform = getPlatformInfo()
+    this.platform = platform()
 
     this.setShortcuts()
   }
 
   setShortcuts = (overrides?: ShortcutOverrides) => {
-    const defaults = createDefaultShortcuts({
+    const all = defaults({
       runAction: this.runAction
     })
-    this.shortcutManager.setShortcuts(resolveShortcuts(defaults, overrides))
+    this.shortcutManager.setShortcuts(resolveShortcuts(all, overrides))
   }
 
   private readShortcutContext = (): ShortcutContext => {
@@ -137,11 +139,11 @@ class ShortcutsImpl implements Shortcuts {
   dispose = () => {}
 }
 
-type CreateShortcutsOptions = {
+type Deps = {
   instance: InternalInstance
   runAction: (action: ShortcutAction) => boolean
 }
 
-export const createShortcuts = ({ instance, runAction }: CreateShortcutsOptions): Shortcuts => {
+export const shortcuts = ({ instance, runAction }: Deps): Shortcuts => {
   return new ShortcutsImpl(instance, runAction)
 }

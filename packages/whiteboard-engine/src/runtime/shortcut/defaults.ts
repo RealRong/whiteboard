@@ -1,10 +1,10 @@
-import type { Shortcut, ShortcutAction } from '@engine-types/shortcuts'
+import type { Shortcut, ShortcutAction } from '@engine-types/shortcuts/types'
 
 type ShortcutDependencies = {
   runAction: (action: ShortcutAction) => boolean
 }
 
-export const createDefaultShortcuts = (deps: ShortcutDependencies): Shortcut[] => [
+export const defaults = (deps: ShortcutDependencies): Shortcut[] => [
   {
     id: 'group.create',
     title: 'Group',

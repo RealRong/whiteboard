@@ -5,8 +5,8 @@ import {
 } from '@whiteboard/core/geometry'
 import { isSameBoxTuple } from '@whiteboard/core/utils'
 import type { Point, Viewport } from '@whiteboard/core/types'
-import type { Size } from '@engine-types/common'
-import type { ContainerRect, ViewportApi } from '@engine-types/viewport'
+import type { Size } from '@engine-types/common/base'
+import type { ContainerRect, ViewportApi } from '@engine-types/viewport/api'
 import { DEFAULT_INTERNALS } from '../config'
 
 const toContainerSize = (rect: ContainerRect): Size => ({

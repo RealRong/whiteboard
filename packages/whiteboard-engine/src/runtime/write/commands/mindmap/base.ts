@@ -1,8 +1,8 @@
+import type { InternalInstance } from '@engine-types/instance/engine'
 import type {
   MindmapCloneSubtreeOptions,
   MindmapCreateOptions
-} from '@engine-types/commands'
-import type { InternalInstance } from '@engine-types/instance/instance'
+} from '@engine-types/command/api'
 import type {
   DispatchResult,
   MindmapAttachPayload,
@@ -33,9 +33,9 @@ import {
 } from '@whiteboard/core/mindmap'
 import { createScopedId } from '../../id'
 
-type MindmapInstance = Pick<InternalInstance, 'document' | 'mutate'>
+type CommandSuccess<T> = Extract<MindmapCommandResult<T>, { ok: true }>
 
-export type BaseMindmapCommands = {
+type BaseMindmapCommands = {
   create: (payload?: MindmapCreateOptions) => Promise<DispatchResult>
   replace: (id: MindmapId, tree: MindmapTree) => Promise<DispatchResult>
   delete: (ids: MindmapId[]) => Promise<DispatchResult>
@@ -64,10 +64,27 @@ export type BaseMindmapCommands = {
     nodeId: MindmapNodeId,
     options?: MindmapCloneSubtreeOptions
   ) => Promise<DispatchResult>
-  toggleCollapse: (id: MindmapId, nodeId: MindmapNodeId, collapsed?: boolean) => Promise<DispatchResult>
-  setNodeData: (id: MindmapId, nodeId: MindmapNodeId, patch: Partial<MindmapNodeData>) => Promise<DispatchResult>
-  reorderChild: (id: MindmapId, parentId: MindmapNodeId, fromIndex: number, toIndex: number) => Promise<DispatchResult>
-  setSide: (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right') => Promise<DispatchResult>
+  toggleCollapse: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    collapsed?: boolean
+  ) => Promise<DispatchResult>
+  setNodeData: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    patch: Partial<MindmapNodeData>
+  ) => Promise<DispatchResult>
+  reorderChild: (
+    id: MindmapId,
+    parentId: MindmapNodeId,
+    fromIndex: number,
+    toIndex: number
+  ) => Promise<DispatchResult>
+  setSide: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    side: 'left' | 'right'
+  ) => Promise<DispatchResult>
   attachExternal: (
     id: MindmapId,
     targetId: MindmapNodeId,
@@ -76,22 +93,17 @@ export type BaseMindmapCommands = {
   ) => Promise<DispatchResult>
 }
 
-type CreateBaseMindmapCommandsOptions = {
-  instance: MindmapInstance
-}
-
-type CommandSuccess<T> = Extract<MindmapCommandResult<T>, { ok: true }>
-
-export const createBaseMindmapCommands = ({
+export const base = ({
   instance
-}: CreateBaseMindmapCommandsOptions): BaseMindmapCommands => {
-  const createInvalidResult = (message: string): DispatchResult => ({
-    ok: false,
-    reason: 'invalid',
-    message
-  })
+}: {
+  instance: Pick<InternalInstance, 'document' | 'mutate'>
+}): BaseMindmapCommands => {
   const invalid = (message: string): Promise<DispatchResult> =>
-    Promise.resolve(createInvalidResult(message))
+    Promise.resolve({
+      ok: false,
+      reason: 'invalid',
+      message
+    })
 
   const readMindmap = (id: string): MindmapTree | undefined =>
     (instance.document.get().mindmaps ?? []).find((tree) => tree.id === id)

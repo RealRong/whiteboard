@@ -1,5 +1,5 @@
 import type { Point, Viewport } from '@whiteboard/core/types'
-import type { Size } from './common'
+import type { Size } from '../common/base'
 
 export type ContainerRect = {
   left: number

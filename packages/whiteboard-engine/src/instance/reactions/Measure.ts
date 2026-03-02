@@ -1,5 +1,5 @@
-import type { Size } from '@engine-types/common'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Size } from '@engine-types/common/base'
+import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { FrameTask } from '../../runtime/TaskQueue'
 import type { NodeId, Operation } from '@whiteboard/core/types'

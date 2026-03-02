@@ -7,8 +7,9 @@ import type {
   WritableStateKey,
   WritableStateSnapshot
 } from '@engine-types/instance/state'
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { InteractionState, SelectionState } from '@engine-types/state'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
+import type { InteractionState, SelectionState } from '@engine-types/state/model'
+import type { Atoms as StateAtoms } from '@engine-types/state/factory'
 import { createInitialState } from '../initialState'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
 
@@ -39,12 +40,6 @@ type WritableStateAtoms = {
   mindmapLayout: PrimitiveAtom<MindmapLayoutConfig>
 }
 
-export type StateAtoms = WritableStateAtoms & {
-  viewport: PrimitiveAtom<Viewport>
-  document: PrimitiveAtom<Document>
-  readModelRevision: PrimitiveAtom<number>
-}
-
 type WritableStateAtomMap = {
   [K in WritableStateKey]: PrimitiveAtom<WritableStateSnapshot[K]>
 }
@@ -52,7 +47,7 @@ type WritableStateAtomMap = {
 const resolveNext = <T,>(next: Updater<T>, prev: T): T =>
   typeof next === 'function' ? (next as (value: T) => T)(prev) : next
 
-export const createState = ({ getDoc, store }: Options): Result => {
+export const state = ({ getDoc, store }: Options): Result => {
   const initialDoc = getDoc()
   const initialState = createInitialState()
   const initialViewport = cloneViewport(initialDoc.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)

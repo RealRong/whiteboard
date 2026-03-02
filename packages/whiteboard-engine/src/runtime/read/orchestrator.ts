@@ -1,32 +1,13 @@
-import type { Document } from '@whiteboard/core/types'
-import type { createStore } from 'jotai/vanilla'
-import type { InstanceConfig } from '@engine-types/instance/config'
-import type { Query } from '@engine-types/instance/query'
-import type { EngineRead } from '@engine-types/instance/read'
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import type { ViewportApi } from '@engine-types/viewport'
-import type { Atom } from 'jotai/vanilla'
-import type { StateAtoms } from '../../state/factory/CreateState'
-import type { Change } from '../write/pipeline/ChangeBus'
+import type { EngineRead, ReadPublicKey } from '@engine-types/instance/read'
+import type { Orchestrator as ReadOrchestrator } from '@engine-types/read/orchestrator'
+import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import { toReadChangePlan } from './changePlan'
-import { runtime as createReadRuntime } from './runtime'
-import { runtime as createIndexRuntime } from './index/runtime'
-import { createQuery } from './query'
-
-type Options = {
-  runtimeStore: ReturnType<typeof createStore>
-  stateAtoms: StateAtoms
-  snapshotAtom: Atom<ReadModelSnapshot>
-  config: InstanceConfig
-  readDoc: () => Document
-  viewport: ViewportApi
-}
-
-export type ReadOrchestrator = {
-  query: Query
-  read: EngineRead
-  applyChange: (change: Change) => void
-}
+import { context } from './context'
+import { edge } from './edge/runtime'
+import { node } from './node/runtime'
+import { mindmap } from './mindmap/runtime'
+import { indexer } from './index/runtime'
+import { query } from './query'
 
 export const orchestrator = ({
   runtimeStore,
@@ -35,34 +16,44 @@ export const orchestrator = ({
   config,
   readDoc,
   viewport
-}: Options): ReadOrchestrator => {
-  const initialSnapshot = runtimeStore.get(snapshotAtom)
-  const indexes = createIndexRuntime(config, initialSnapshot.nodes.canvas)
-  const query: Query = createQuery({
+}: ReadDeps): ReadOrchestrator => {
+  const snapshot = () => runtimeStore.get(snapshotAtom)
+  const indexes = indexer(config, snapshot)
+  const api = query({
     readDoc,
     viewport,
     config,
     indexes
   })
 
-  const readLayer = createReadRuntime({
+  const ctx = context({
     runtimeStore,
     stateAtoms,
     snapshotAtom,
     config,
-    query
+    query: api
   })
+  const edges = edge(ctx)
+  const nodes = node(ctx)
+  const maps = mindmap(ctx)
+
+  const get: EngineRead['get'] = Object.assign(
+    <K extends ReadPublicKey>(key: K) => ctx.get(key),
+    nodes.get,
+    edges.get,
+    maps.get
+  )
 
   return {
-    query,
-    read: readLayer.read,
+    query: api,
+    read: {
+      get,
+      subscribe: ctx.subscribe
+    },
     applyChange: (change) => {
       const plan = toReadChangePlan(change)
-      if (plan.index.mode !== 'none') {
-        const snapshot = runtimeStore.get(snapshotAtom)
-        indexes.applyPlan(plan.index, snapshot)
-      }
-      readLayer.applyChange(plan)
+      indexes.applyPlan(plan.index)
+      edges.applyChange(plan)
     }
   }
 }

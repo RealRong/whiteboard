@@ -1,58 +1,41 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
-import type { ApplyMutationsApi, CommandSource } from '@engine-types/command'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { ApplyMutationsApi, CommandSource } from '@engine-types/command/source'
+import type {
+  ApplyResult,
+  Options as WriterOptions,
+  ResetResult
+} from '@engine-types/write/writer'
+import type { Bus as ChangeBus } from '@engine-types/write/change'
 import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
 import { MutationImpactAnalyzer } from '../mutation/Analyzer'
 import { reduceOperations } from '@whiteboard/core/kernel'
 import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
 import type {
-  ChangeSet,
   DispatchResult,
-  DispatchFailure,
   Document,
   Operation,
   Origin
 } from '@whiteboard/core/types'
-import type { ChangeBus } from './ChangeBus'
 import type { PrimitiveAtom } from 'jotai/vanilla'
 import { createBatchId } from '../id'
-import { HistoryDomain } from '../history/HistoryDomain'
+import { History } from '../history/history'
 
-type ResetInput = {
-  doc: Document
+type ApplyInput = {
+  kind: 'apply'
   origin: Origin
+  operations: Operation[]
+}
+
+type ReplaceInput = {
+  kind: 'replace'
+  origin: Origin
+  doc: Document
   timestamp?: number
 }
 
-export type AppliedChange = {
-  docId: string | undefined
-  origin: Origin
-  operations: Operation[]
-  reset?: boolean
-}
-
-export type WriterOptions = {
-  instance: Pick<InternalInstance, 'document' | 'registries' | 'viewport' | 'runtime'>
-  changeBus: ChangeBus
-  documentAtom: PrimitiveAtom<Document>
-  readModelRevisionAtom: PrimitiveAtom<number>
-  now?: () => number
-}
-
-export type ApplyResult =
-  | {
-      ok: true
-      changes: ChangeSet
-      inverse: Operation[]
-      applied: AppliedChange
-    }
-  | DispatchFailure
-
-export type ResetResult = {
-  ok: true
-  changes: ChangeSet
-  applied: AppliedChange
-}
+type WriteInput = ApplyInput | ReplaceInput
+type WriteResult<T extends WriteInput> = T extends ApplyInput ? ApplyResult : ResetResult
 
 export class Writer {
   private readonly instance: WriterOptions['instance']
@@ -61,7 +44,7 @@ export class Writer {
   private readonly readModelRevisionAtom: PrimitiveAtom<number>
   private readonly now: () => number
   private readonly impactAnalyzer = new MutationImpactAnalyzer()
-  private readonly historyDomain: HistoryDomain
+  private readonly timeline: History
 
   constructor({
     instance,
@@ -81,7 +64,7 @@ export class Writer {
       }
       return Date.now()
     })
-    this.historyDomain = new HistoryDomain({ now: this.now })
+    this.timeline = new History({ now: this.now })
   }
 
   private createKernelRegistriesSnapshot = (): KernelRegistriesSnapshot => ({
@@ -109,58 +92,113 @@ export class Writer {
     return this.instance.document.get()
   }
 
-  applyOperations = (
-    operations: Operation[],
+  private publishChange = ({
+    kind,
+    origin,
+    operations,
+    impact,
+    docBefore,
+    docAfter
+  }: {
+    kind: 'apply' | 'replace'
     origin: Origin
-  ): ApplyResult => {
-    const docBefore = this.instance.document.get()
-    const reduced = reduceOperations(docBefore, operations, {
-      now: this.now,
-      origin,
-      registries: this.createKernelRegistriesSnapshot()
-    })
-    if (!reduced.ok) {
-      return reduced
-    }
-
-    this.commitDocument(reduced.doc)
-    const docAfter = this.syncDocumentState(reduced.doc)
-    const impact = this.impactAnalyzer.analyze(reduced.changes.operations)
+    operations: Operation[]
+    impact: ReturnType<MutationImpactAnalyzer['analyze']>
+    docBefore: Document
+    docAfter: Document
+  }) => {
     const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
     this.changeBus.publish({
       revision,
-      kind: 'apply',
+      kind,
       origin,
-      operations: reduced.changes.operations,
+      operations,
       impact,
       docBefore,
       docAfter
     })
-    const applied: AppliedChange = {
-      docId: docAfter?.id,
-      origin,
-      operations: reduced.changes.operations
+  }
+
+  private run = <T extends WriteInput>(input: T): WriteResult<T> => {
+    if (input.kind === 'apply') {
+      const docBefore = this.instance.document.get()
+      const reduced = reduceOperations(docBefore, input.operations, {
+        now: this.now,
+        origin: input.origin,
+        registries: this.createKernelRegistriesSnapshot()
+      })
+      if (!reduced.ok) {
+        return reduced as unknown as WriteResult<T>
+      }
+
+      this.commitDocument(reduced.doc)
+      const docAfter = this.syncDocumentState(reduced.doc)
+      const operations = reduced.changes.operations
+      this.publishChange({
+        kind: 'apply',
+        origin: input.origin,
+        operations,
+        impact: this.impactAnalyzer.analyze(operations),
+        docBefore,
+        docAfter
+      })
+
+      return {
+        ok: true,
+        changes: reduced.changes,
+        inverse: reduced.inverse,
+        applied: {
+          docId: docAfter?.id,
+          origin: input.origin,
+          operations
+        }
+      } as unknown as WriteResult<T>
     }
+
+    const docBefore = this.instance.document.get()
+    this.commitDocument(input.doc, { silent: true })
+    const docAfter = this.syncDocumentState(input.doc)
+    this.publishChange({
+      kind: 'replace',
+      origin: input.origin,
+      operations: [],
+      impact: FULL_MUTATION_IMPACT,
+      docBefore,
+      docAfter
+    })
 
     return {
       ok: true,
-      changes: reduced.changes,
-      inverse: reduced.inverse,
-      applied
-    }
+      changes: {
+        id: createBatchId('ms'),
+        timestamp: input.timestamp ?? this.now(),
+        operations: [],
+        origin: input.origin
+      },
+      applied: {
+        docId: docAfter?.id,
+        origin: input.origin,
+        operations: [],
+        reset: true
+      }
+    } as unknown as WriteResult<T>
   }
 
   private applyHistoryOperations = (operations: Operation[]) =>
-    this.applyOperations(operations, 'system').ok
+    this.run({
+      kind: 'apply',
+      operations,
+      origin: 'system'
+    }).ok
 
   readonly history = {
-    get: () => this.historyDomain.getState(),
-    configure: (config: Parameters<HistoryDomain['configure']>[0]) => {
-      this.historyDomain.configure(config)
+    get: () => this.timeline.getState(),
+    configure: (config: Parameters<History['configure']>[0]) => {
+      this.timeline.configure(config)
     },
-    undo: () => this.historyDomain.undo(this.applyHistoryOperations),
-    redo: () => this.historyDomain.redo(this.applyHistoryOperations),
-    clear: () => this.historyDomain.clear()
+    undo: () => this.timeline.undo(this.applyHistoryOperations),
+    redo: () => this.timeline.redo(this.applyHistoryOperations),
+    clear: () => this.timeline.clear()
   }
 
   private toOrigin = (source: CommandSource): Origin => {
@@ -171,10 +209,14 @@ export class Writer {
 
   mutate: ApplyMutationsApi = async (operations, source) => {
     const origin = this.toOrigin(source)
-    const result = this.applyOperations(operations, origin)
+    const result = this.run({
+      kind: 'apply',
+      operations,
+      origin
+    })
     if (!result.ok) return result
 
-    this.historyDomain.capture({
+    this.timeline.capture({
       forward: result.changes.operations,
       inverse: result.inverse,
       origin,
@@ -187,47 +229,10 @@ export class Writer {
     }
   }
 
-  resetDocument = ({
-    doc,
-    origin,
-    timestamp
-  }: ResetInput): ResetResult => {
-    const docBefore = this.instance.document.get()
-    this.commitDocument(doc, { silent: true })
-    const docAfter = this.syncDocumentState(doc)
-    const impact = FULL_MUTATION_IMPACT
-    const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
-    this.changeBus.publish({
-      revision,
-      kind: 'replace',
-      origin,
-      operations: [],
-      impact,
-      docBefore,
-      docAfter
-    })
-    const applied: AppliedChange = {
-      docId: docAfter?.id,
-      origin,
-      operations: [],
-      reset: true
-    }
-
-    return {
-      ok: true,
-      changes: {
-        id: createBatchId('ms'),
-        timestamp: timestamp ?? this.now(),
-        operations: [],
-        origin
-      },
-      applied
-    }
-  }
-
   resetDoc = async (doc: Document): Promise<DispatchResult> => {
-    this.historyDomain.clear()
-    const result = this.resetDocument({
+    this.timeline.clear()
+    const result = this.run({
+      kind: 'replace',
       doc,
       origin: 'system'
     })

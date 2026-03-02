@@ -1,10 +1,12 @@
-import type { ShortcutContext, ShortcutKeyEvent } from '@engine-types/shortcuts'
+import type {
+  PlatformInfo,
+  ShortcutContext,
+  ShortcutKeyEvent
+} from '@engine-types/shortcuts/types'
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
-export type PlatformInfo = ShortcutContext['platform']
-
-export const getPlatformInfo = (): PlatformInfo => {
+export const platform = (): PlatformInfo => {
   if (typeof navigator === 'undefined') {
     return { os: 'win', metaKeyLabel: 'ctrl' }
   }
@@ -18,13 +20,13 @@ export const getPlatformInfo = (): PlatformInfo => {
   return { os: 'linux', metaKeyLabel: 'ctrl' }
 }
 
-export const normalizeKeyName = (key: string) => {
-  if (key === ' ') return 'Space'
-  if (key.length === 1) return key.toUpperCase()
-  return key
+export const key = (value: string) => {
+  if (value === ' ') return 'Space'
+  if (value.length === 1) return value.toUpperCase()
+  return value
 }
 
-export const normalizeShortcutChord = (raw: string, platform: PlatformInfo): string | undefined => {
+export const chord = (raw: string, info: PlatformInfo): string | undefined => {
   const tokens = raw
     .split('+')
     .map((token) => token.trim())
@@ -35,7 +37,7 @@ export const normalizeShortcutChord = (raw: string, platform: PlatformInfo): str
   tokens.forEach((token) => {
     const lowered = token.toLowerCase()
     if (lowered === 'mod') {
-      modifiers.add(platform.os === 'mac' ? 'Meta' : 'Ctrl')
+      modifiers.add(info.os === 'mac' ? 'Meta' : 'Ctrl')
       return
     }
     if (lowered === 'ctrl' || lowered === 'control') {
@@ -54,23 +56,23 @@ export const normalizeShortcutChord = (raw: string, platform: PlatformInfo): str
       modifiers.add('Shift')
       return
     }
-    keyToken = normalizeKeyName(token)
+    keyToken = key(token)
   })
   if (!keyToken) return undefined
   const ordered = MODIFIER_ORDER.filter((mod) => modifiers.has(mod))
   return [...ordered, keyToken].join('+')
 }
 
-export const getEventChord = (event: ShortcutKeyEvent): string | undefined => {
-  const key = normalizeKeyName(event.key)
-  if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return undefined
+export const eventChord = (event: ShortcutKeyEvent): string | undefined => {
+  const normalized = key(event.key)
+  if (normalized === 'Control' || normalized === 'Shift' || normalized === 'Alt' || normalized === 'Meta') return undefined
   const modifiers: string[] = []
   if (event.modifiers.ctrl) modifiers.push('Ctrl')
   if (event.modifiers.alt) modifiers.push('Alt')
   if (event.modifiers.shift) modifiers.push('Shift')
   if (event.modifiers.meta) modifiers.push('Meta')
-  modifiers.push(key)
+  modifiers.push(normalized)
   return modifiers.join('+')
 }
 
-export const countModifiers = (chord: string) => chord.split('+').length - 1
+export const mods = (value: string) => value.split('+').length - 1

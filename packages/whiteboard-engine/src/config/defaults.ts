@@ -1,7 +1,8 @@
 import type { Viewport } from '@whiteboard/core/types'
-import type { ResolvedConfig, Size } from '@engine-types/common'
+import type { ResolvedConfig } from '@engine-types/common/config'
+import type { Size } from '@engine-types/common/base'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { MindmapLayoutMode } from '@engine-types/mindmap'
+import type { MindmapLayoutMode } from '@engine-types/mindmap/layout'
 
 export const DEFAULT_NODE_SIZE: Size = {
   width: 120,

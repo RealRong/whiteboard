@@ -3,8 +3,8 @@ import type {
   ShortcutContext,
   ShortcutKeyEvent,
   ShortcutPointerEvent
-} from './index'
-import type { KeyInputEvent, PointerInputEvent } from '../input'
+} from './types'
+import type { KeyInputEvent, PointerInputEvent } from '../input/event'
 
 export type ShortcutOverrides = Shortcut[] | ((defaults: Shortcut[]) => Shortcut[])
 

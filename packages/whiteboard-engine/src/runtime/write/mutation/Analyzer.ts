@@ -6,7 +6,7 @@ import type {
 import type {
   MutationImpact,
   MutationImpactTag
-} from './Impact'
+} from '@engine-types/write/mutation'
 import {
   classifyEdgePatch,
   classifyNodePatch
@@ -34,11 +34,6 @@ const EDGE_ORDER_TYPES = new Set<Operation['type']>([
 const EMPTY_TAGS = new Set<MutationImpactTag>()
 const FULL_TAGS = new Set<MutationImpactTag>(['full'])
 
-type AnalyzerOptions = {
-  maxOperations?: number
-  maxDirtyNodes?: number
-}
-
 export class MutationImpactAnalyzer {
   private readonly maxOperations: number
   private readonly maxDirtyNodes: number
@@ -46,7 +41,10 @@ export class MutationImpactAnalyzer {
   constructor({
     maxOperations = DEFAULT_MAX_OPERATIONS,
     maxDirtyNodes = DEFAULT_MAX_DIRTY_NODES
-  }: AnalyzerOptions = {}) {
+  }: {
+    maxOperations?: number
+    maxDirtyNodes?: number
+  } = {}) {
     this.maxOperations = maxOperations
     this.maxDirtyNodes = maxDirtyNodes
   }

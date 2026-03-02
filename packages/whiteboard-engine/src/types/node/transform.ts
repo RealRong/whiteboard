@@ -1,5 +1,5 @@
 import type { Node, NodeId, Point } from '@whiteboard/core/types'
-import type { Size } from '../common'
+import type { Size } from '../common/base'
 
 export type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 

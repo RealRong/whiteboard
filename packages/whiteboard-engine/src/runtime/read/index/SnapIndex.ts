@@ -1,6 +1,8 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { SnapCandidate } from '@engine-types/node/snap'
+import type { IndexChange } from '@engine-types/read/change'
+import type { IndexApplySource } from '@engine-types/read/indexer'
 import {
   isSameRectTuple,
   isSameRefOrder,
@@ -52,12 +54,13 @@ export class SnapIndex {
   private byId = new Map<NodeId, SnapCacheEntry>()
   private buckets = new Map<string, Set<NodeId>>()
   private orderedIds: NodeId[] = []
+  private orderedIdSet = new Set<NodeId>()
   private orderedCandidates: SnapCandidate[] = []
   private orderDirty = true
-  private cellSize: number
+  private readonly cellSize: number
 
-  constructor(private getCellSize: () => number) {
-    this.cellSize = getCellSize()
+  constructor(cellSize: number) {
+    this.cellSize = cellSize
   }
 
   private toCandidate = (nodeId: NodeId, rect: Rect): SnapCandidate => ({
@@ -92,33 +95,46 @@ export class SnapIndex {
     })
   }
 
-  private rebuildAll = (entries: CanvasNodeRect[]) => {
-    this.byId.clear()
-    this.buckets.clear()
-
-    entries.forEach((entry) => {
-      const candidate = this.toCandidate(entry.node.id, entry.aabb)
-      const cellKeys = toCellKeys(candidate.rect, this.cellSize)
-      this.addToBuckets(entry.node.id, cellKeys)
-      this.byId.set(entry.node.id, {
-        rect: toRectTuple(entry.aabb),
-        candidate,
-        cellKeys
-      })
+  private writeEntry = (
+    nodeId: NodeId,
+    rect: Rect,
+    current: SnapCacheEntry | undefined,
+    appendIfMissing: boolean
+  ) => {
+    const candidate = this.toCandidate(nodeId, rect)
+    const cellKeys = toCellKeys(candidate.rect, this.cellSize)
+    if (current) {
+      this.removeFromBuckets(nodeId, current.cellKeys)
+    } else if (appendIfMissing && !this.orderedIdSet.has(nodeId)) {
+      this.orderedIds.push(nodeId)
+      this.orderedIdSet.add(nodeId)
+    }
+    this.addToBuckets(nodeId, cellKeys)
+    this.byId.set(nodeId, {
+      rect: toRectTuple(rect),
+      candidate,
+      cellKeys
     })
-
-    this.orderedIds = entries.map((entry) => entry.node.id)
     this.orderDirty = true
   }
 
-  syncFull = (entries: CanvasNodeRect[]): boolean => {
-    const nextCellSize = this.getCellSize()
-    if (nextCellSize !== this.cellSize) {
-      this.cellSize = nextCellSize
-      this.rebuildAll(entries)
-      return true
+  applyPlan = (
+    plan: IndexChange,
+    source: IndexApplySource
+  ): boolean => {
+    switch (plan.mode) {
+      case 'none':
+        return false
+      case 'full':
+        return this.syncFull(source.canvas.all())
+      case 'dirtyNodeIds':
+        return this.syncByNodeIds(plan.dirtyNodeIds, source.canvas.byId)
+      default:
+        return false
     }
+  }
 
+  private syncFull = (entries: CanvasNodeRect[]): boolean => {
     const seen = new Set<NodeId>()
     const nextOrderedIds: NodeId[] = []
     let changed = false
@@ -134,18 +150,7 @@ export class SnapIndex {
         return
       }
 
-      const candidate = this.toCandidate(nodeId, entry.aabb)
-      const cellKeys = toCellKeys(candidate.rect, this.cellSize)
-      if (current) {
-        this.removeFromBuckets(nodeId, current.cellKeys)
-      }
-      this.addToBuckets(nodeId, cellKeys)
-      this.byId.set(nodeId, {
-        rect,
-        candidate,
-        cellKeys
-      })
-      this.orderDirty = true
+      this.writeEntry(nodeId, entry.aabb, current, false)
       changed = true
     })
 
@@ -159,6 +164,7 @@ export class SnapIndex {
 
     if (!isSameRefOrder(this.orderedIds, nextOrderedIds)) {
       this.orderedIds = nextOrderedIds
+      this.orderedIdSet = new Set(nextOrderedIds)
       this.orderDirty = true
       changed = true
     }
@@ -166,7 +172,7 @@ export class SnapIndex {
     return changed
   }
 
-  syncByNodeIds = (
+  private syncByNodeIds = (
     nodeIds: Iterable<NodeId>,
     getEntry: (nodeId: NodeId) => CanvasNodeRect | undefined
   ): boolean => {
@@ -189,19 +195,7 @@ export class SnapIndex {
       const rect = toRectTuple(entry.aabb)
       if (current && isSameRectTuple(current.rect, rect)) continue
 
-      const candidate = this.toCandidate(nodeId, entry.aabb)
-      const cellKeys = toCellKeys(candidate.rect, this.cellSize)
-      if (current) {
-        this.removeFromBuckets(nodeId, current.cellKeys)
-      } else if (!this.orderedIds.includes(nodeId)) {
-        this.orderedIds.push(nodeId)
-      }
-      this.addToBuckets(nodeId, cellKeys)
-      this.byId.set(nodeId, {
-        rect,
-        candidate,
-        cellKeys
-      })
+      this.writeEntry(nodeId, entry.aabb, current, true)
       changed = true
     }
 
@@ -209,8 +203,10 @@ export class SnapIndex {
 
     if (removed.size) {
       this.orderedIds = this.orderedIds.filter((nodeId) => !removed.has(nodeId))
+      removed.forEach((nodeId) => {
+        this.orderedIdSet.delete(nodeId)
+      })
     }
-    this.orderDirty = true
     return true
   }
 

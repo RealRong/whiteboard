@@ -1,11 +1,11 @@
 import type {
   Viewport
 } from '@whiteboard/core/types'
-import type { MindmapLayoutConfig } from '../mindmap'
+import type { MindmapLayoutConfig } from '../mindmap/layout'
 import type {
   InteractionState,
   SelectionState
-} from '../state'
+} from '../state/model'
 
 export type StateSnapshot = {
   interaction: InteractionState

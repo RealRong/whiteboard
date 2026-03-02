@@ -7,7 +7,7 @@ import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
 import {
-  createEngine,
+  engine,
   normalizeConfig,
   toRuntimeConfig,
   toInstanceConfig,
@@ -151,7 +151,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   )
   const instance = useMemo(
     () =>
-      createEngine({
+      engine({
         registries,
         document: initialDocRef.current,
         onDocumentChange: (nextDoc) => {

@@ -1,5 +1,5 @@
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { PointerInput } from './common'
+import type { PointerInput } from '../common/input'
 
 export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 export type PointerStage = 'capture' | 'bubble'

@@ -1,4 +1,5 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EdgeCommandsApi } from '@engine-types/write/commands'
 import type {
   DispatchResult,
   Edge,
@@ -23,22 +24,20 @@ import {
 } from '@whiteboard/core/utils'
 import { createScopedId } from '../id'
 
-type EdgeCommandsInstance = Pick<
-  InternalInstance,
-  'state' | 'query' | 'read' | 'mutate' | 'document' | 'registries'
->
-
-type Options = {
-  instance: EdgeCommandsInstance
-}
-
-const createInvalidResult = (message: string): DispatchResult => ({
+const invalid = (message: string): DispatchResult => ({
   ok: false,
   reason: 'invalid',
   message
 })
 
-export const createEdgeCommands = ({ instance }: Options) => {
+export const edge = ({
+  instance
+}: {
+  instance: Pick<
+    InternalInstance,
+    'state' | 'query' | 'read' | 'mutate' | 'document' | 'registries'
+  >
+}): EdgeCommandsApi => {
   const hasEdgeId = (id: string) => instance.document.get().edges.some((edge) => edge.id === id)
   const createEdgeId = () => createScopedId({ prefix: 'edge', exists: hasEdgeId })
 
@@ -50,7 +49,7 @@ export const createEdgeCommands = ({ instance }: Options) => {
       createEdgeId
     })
     if (!built.ok) {
-      return Promise.resolve(createInvalidResult(built.message))
+      return Promise.resolve(invalid(built.message))
     }
     return instance.mutate([built.operation], 'ui')
   }
@@ -197,5 +196,3 @@ export const createEdgeCommands = ({ instance }: Options) => {
     sendBackward
   }
 }
-
-export type EdgeCommandsApi = ReturnType<typeof createEdgeCommands>

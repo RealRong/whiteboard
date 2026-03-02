@@ -2,39 +2,39 @@ import type {
   CreateEngineOptions,
   InternalInstance,
   Instance
-} from '@engine-types/instance/instance'
-import type { Shortcuts } from '@engine-types/shortcuts'
-import type { Commands } from '@engine-types/commands'
+} from '@engine-types/instance/engine'
+import type { Shortcuts } from '@engine-types/shortcuts/manager'
+import type { Commands } from '@engine-types/command/api'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
 import type { DocumentId } from '@whiteboard/core/types'
-import { createShortcuts } from '../runtime/shortcut'
+import { shortcuts as bindShortcuts } from '../runtime/shortcut'
 import {
-  createWriteRuntime,
-  type WriteRuntime
-} from '../runtime/write/createRuntime'
+  runtime as write
+} from '../runtime/write/runtime'
+import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import { resolveInstanceConfig } from '../config'
-import { createState } from '../state/factory/CreateState'
+import { state as setupState } from '../state/factory/state'
 import { Scheduler } from '../runtime/Scheduler'
 import { ViewportRuntime } from '../runtime/Viewport'
-import { orchestrator as createReadOrchestrator } from '../runtime/read/orchestrator'
-import { snapshot as createSnapshotAtom } from '../runtime/read/snapshot'
+import { orchestrator as read } from '../runtime/read/orchestrator'
+import { snapshot } from '../runtime/read/snapshot'
 import { createDocumentStore } from '../document/Store'
 import { Reactions } from './reactions/Reactions'
 
-type CreateCommandsOptions = {
+type CommandDeps = {
   state: InternalInstance['state']
   viewport: ViewportRuntime
   reactions: Pick<Reactions, 'nodeMeasured'>
   writeRuntime: WriteRuntime
 }
 
-const createCommands = ({
+const commands = ({
   state,
   viewport,
   reactions,
   writeRuntime
-}: CreateCommandsOptions): Commands => {
+}: CommandDeps): Commands => {
   const { history, resetDoc } = writeRuntime
   const {
     edge,
@@ -129,7 +129,7 @@ const createCommands = ({
   }
 }
 
-type CreateRuntimePortOptions = {
+type PortDeps = {
   state: InternalInstance['state']
   viewport: ViewportRuntime
   history: Commands['history']
@@ -138,14 +138,14 @@ type CreateRuntimePortOptions = {
   scheduler: Scheduler
 }
 
-const createRuntimePort = ({
+const port = ({
   state,
   viewport,
   history,
   shortcuts,
   reactions,
   scheduler
-}: CreateRuntimePortOptions): Pick<InternalInstance['runtime'], 'applyConfig' | 'dispose'> => {
+}: PortDeps): Pick<InternalInstance['runtime'], 'applyConfig' | 'dispose'> => {
   let prevHistoryDocId: DocumentId | undefined
 
   const applyConfig: InternalInstance['runtime']['applyConfig'] = (nextConfig) => {
@@ -179,7 +179,7 @@ const createRuntimePort = ({
   }
 }
 
-export const createEngine = ({
+export const engine = ({
   registries,
   document,
   onDocumentChange,
@@ -190,11 +190,11 @@ export const createEngine = ({
   const config = resolveInstanceConfig(overrides)
   const runtimeRegistries = registries ?? createRegistries()
   const documentStore = createDocumentStore(document, onDocumentChange)
-  const { state, stateAtoms } = createState({
+  const { state, stateAtoms } = setupState({
     getDoc: documentStore.get,
     store: runtimeStore
   })
-  const snapshotAtom = createSnapshotAtom({
+  const snapshotAtom = snapshot({
     documentAtom: stateAtoms.document,
     revisionAtom: stateAtoms.readModelRevision
   })
@@ -205,7 +205,7 @@ export const createEngine = ({
     }
   })
 
-  const readRuntime = createReadOrchestrator({
+  const readRuntime = read({
     runtimeStore,
     stateAtoms,
     snapshotAtom,
@@ -231,7 +231,7 @@ export const createEngine = ({
     commands: null as unknown as InternalInstance['commands']
   }
   state.write('tool', 'select')
-  const writeRuntime = createWriteRuntime({
+  const writeRuntime = write({
     instance,
     scheduler,
     documentAtom: stateAtoms.document,
@@ -247,18 +247,18 @@ export const createEngine = ({
   })
   reactions.start()
 
-  instance.commands = createCommands({
+  instance.commands = commands({
     state,
     viewport,
     reactions,
     writeRuntime
   })
 
-  const shortcuts = createShortcuts({
+  const shortcuts = bindShortcuts({
     instance,
     runAction: writeRuntime.commands.shortcut.execute
   })
-  const runtimePort = createRuntimePort({
+  const runtimePort = port({
     state,
     viewport,
     history: writeRuntime.history,

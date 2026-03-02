@@ -1,10 +1,11 @@
-import type { PointerInput, Size } from '@engine-types/common'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { Size } from '@engine-types/common/base'
+import type { PointerInput } from '@engine-types/common/input'
+import type { InternalInstance } from '@engine-types/instance/engine'
 import type {
   NodeTransformDraft,
   NodeTransformUpdateConstraints,
   ResizeDirection
-} from '@engine-types/node'
+} from '@engine-types/node/transform'
 import type { Guide } from '@engine-types/node/snap'
 import type { NodeId, Operation, Point, Rect, Size as CoreSize } from '@whiteboard/core/types'
 import { CommitCompiler } from './CommitCompiler'

@@ -1,27 +1,22 @@
-import type { ShortcutAction } from '@engine-types/shortcuts'
-import type { SelectionCommandsApi } from './selection'
+import type { ShortcutAction } from '@engine-types/shortcuts/types'
+import type {
+  SelectionCommandsApi,
+  ShortcutActionDispatcher
+} from '@engine-types/write/commands'
 
-type HistoryCommands = {
-  undo: () => boolean
-  redo: () => boolean
-}
-
-type Options = {
+export const shortcut = ({
+  selection,
+  history
+}: {
   selection: Pick<
     SelectionCommandsApi,
     'selectAll' | 'clear' | 'groupSelected' | 'ungroupSelected' | 'deleteSelected' | 'duplicateSelected'
   >
-  history: HistoryCommands
-}
-
-export type ShortcutActionDispatcher = {
-  execute: (action: ShortcutAction) => boolean
-}
-
-export const createShortcutActionDispatcher = ({
-  selection,
-  history
-}: Options): ShortcutActionDispatcher => {
+  history: {
+    undo: () => boolean
+    redo: () => boolean
+  }
+}): ShortcutActionDispatcher => {
   const execute = (action: ShortcutAction): boolean => {
     switch (action) {
       case 'selection.selectAll':

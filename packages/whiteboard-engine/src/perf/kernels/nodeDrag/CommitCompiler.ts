@@ -1,5 +1,5 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { NodeDragDraft } from '@engine-types/node'
+import type { NodeDragDraft } from '@engine-types/node/drag'
 import type {
   Document,
   Node,

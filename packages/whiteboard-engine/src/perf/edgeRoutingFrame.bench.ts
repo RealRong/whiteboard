@@ -4,8 +4,8 @@ import {
   type Node,
   type Point
 } from '@whiteboard/core/types'
-import { createEngine } from '../instance/create'
-import type { PointerInput } from '../types/common'
+import { engine } from '../instance/engine'
+import type { PointerInput } from '../types/common/input'
 import { Routing } from './kernels/edgeRouting/Routing'
 
 const NODE_COUNT = 5000
@@ -149,7 +149,7 @@ const average = (values: number[]) =>
 const format = (value: number) => `${value.toFixed(4)}ms`
 
 const createPointerInput = (options: {
-  instance: ReturnType<typeof createEngine>
+  instance: ReturnType<typeof engine>
   pointerId: number
   client: Point
 }): PointerInput => {
@@ -177,7 +177,7 @@ const main = () => {
   ensureRaf()
 
   let doc = createDocument()
-  const instance = createEngine({
+  const instance = engine({
     document: doc,
     onDocumentChange: (nextDoc) => {
       doc = nextDoc

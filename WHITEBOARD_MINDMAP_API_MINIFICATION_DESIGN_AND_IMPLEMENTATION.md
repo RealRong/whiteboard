@@ -161,3 +161,31 @@ type MindmapCommands = {
 
 1. 可评估将命令 `type` 从字符串字面量进一步收敛到常量枚举（或命名常量对象），减少调用端拼写风险。
 2. 可评估将 `base.ts` 的 `replace/delete` 前置校验（id 存在、数组为空等）进一步抽成可复用校验器，继续减少边界层重复分支。
+
+## 10. 2026-03-02 增量落地（继续收敛）
+
+本轮在不改变行为的前提下，继续做“单词命名 + 减少转发噪音”的增量优化：
+
+1. read 路径去掉 `runtime as xxx` 别名风格，改为直接语义导出：
+   - `edge/runtime.ts` 导出 `edge`
+   - `node/runtime.ts` 导出 `node`
+   - `mindmap/runtime.ts` 导出 `mindmap`
+   - `index/runtime.ts` 导出 `indexer`
+2. `orchestrator.ts` 组装层进一步降噪，索引运行时改为 `indexer(...)` 直连。
+3. `Writer` 收敛 `apply/replace` 为一个 `run(input)`（`type` 判别 union），不使用函数重载。
+4. `HistoryDomain` 命名收敛为 `History`，文件名改为 `history.ts`。
+5. `mindmap/edge/node/viewport` 命令里 `createInvalidResult/createCancelledResult` 收敛为 `invalid/cancelled` 等短名。
+6. `shortcut/manager.ts` 继续收敛冲突选择相关命名，减少阅读噪音（如 `pick`, `hits`）。
+
+主要文件：
+
+1. [packages/whiteboard-engine/src/runtime/read/orchestrator.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/orchestrator.ts)
+2. [packages/whiteboard-engine/src/runtime/read/layer.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/layer.ts)
+3. [packages/whiteboard-engine/src/runtime/read/index/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/index/runtime.ts)
+4. [packages/whiteboard-engine/src/runtime/read/edge/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/edge/runtime.ts)
+5. [packages/whiteboard-engine/src/runtime/read/node/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/node/runtime.ts)
+6. [packages/whiteboard-engine/src/runtime/read/mindmap/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/mindmap/runtime.ts)
+7. [packages/whiteboard-engine/src/runtime/write/pipeline/Writer.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/pipeline/Writer.ts)
+8. [packages/whiteboard-engine/src/runtime/write/history/history.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/history/history.ts)
+9. [packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts)
+10. [packages/whiteboard-engine/src/runtime/shortcut/manager.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/shortcut/manager.ts)

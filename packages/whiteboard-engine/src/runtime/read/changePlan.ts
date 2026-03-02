@@ -1,23 +1,11 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { Change } from '../write/pipeline/ChangeBus'
+import type { Change } from '@engine-types/write/change'
 import { hasImpactTag } from '../write/mutation/Impact'
-
-export type EdgeChangePlan = {
-  bumpRevision: boolean
-  resetVisibleEdges: boolean
-  clearPendingDirtyNodeIds: boolean
-  appendDirtyNodeIds: readonly NodeId[]
-}
-
-export type ReadIndexChangePlan = {
-  mode: 'none' | 'full' | 'dirtyNodeIds'
-  dirtyNodeIds: readonly NodeId[]
-}
-
-export type ReadChangePlan = {
-  index: ReadIndexChangePlan
-  edge: EdgeChangePlan
-}
+import type {
+  ChangePlan as ReadChangePlan,
+  EdgeChange as EdgeChangePlan,
+  IndexChange as ReadIndexChangePlan
+} from '@engine-types/read/change'
 
 export const toReadChangePlan = (change: Change): ReadChangePlan => {
   const { impact } = change
@@ -37,13 +25,6 @@ export const toReadChangePlan = (change: Change): ReadChangePlan => {
   })()
 
   const edgePlan: EdgeChangePlan = {
-    bumpRevision:
-      fullSync ||
-      impact.tags.has('full') ||
-      impact.tags.has('edges') ||
-      impact.tags.has('mindmap') ||
-      impact.tags.has('geometry') ||
-      Boolean(dirtyNodeIds.length || impact.dirtyEdgeIds?.length),
     resetVisibleEdges:
       fullSync ||
       hasEdgesImpact ||

@@ -1,10 +1,10 @@
 import type { createStore } from 'jotai/vanilla'
 import type { DocumentId, Viewport } from '@whiteboard/core/types'
-import type { ShortcutOverrides } from '../shortcuts'
-import type { ResolvedHistoryConfig } from '../common'
-import type { MindmapLayoutConfig } from '../mindmap'
+import type { ShortcutOverrides } from '../shortcuts/manager'
+import type { ResolvedHistoryConfig } from '../common/config'
+import type { MindmapLayoutConfig } from '../mindmap/layout'
 
-export type RuntimeConfig = {
+export type Config = {
   docId?: DocumentId
   tool: 'select' | 'edge'
   viewport: Viewport
@@ -13,8 +13,8 @@ export type RuntimeConfig = {
   shortcuts?: ShortcutOverrides
 }
 
-export type RuntimeApi = {
+export type Api = {
   store: ReturnType<typeof createStore>
-  applyConfig: (config: RuntimeConfig) => void
+  applyConfig: (config: Config) => void
   dispose: () => void
 }

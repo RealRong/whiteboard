@@ -1,4 +1,5 @@
-import type { PointerInput, Size } from '@engine-types/common'
+import type { Size } from '@engine-types/common/base'
+import type { PointerInput } from '@engine-types/common/input'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { Guide } from '@engine-types/node/snap'
@@ -7,7 +8,7 @@ import type {
   ResizeDirection,
   ResizeDragState,
   RotateDragState
-} from '@engine-types/node'
+} from '@engine-types/node/transform'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
   computeNextRotation,

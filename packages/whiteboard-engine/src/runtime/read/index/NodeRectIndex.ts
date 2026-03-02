@@ -1,6 +1,9 @@
-import type { Node, NodeId } from '@whiteboard/core/types'
+import type { Node, NodeId, Rect } from '@whiteboard/core/types'
+import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
+import type { IndexChange } from '@engine-types/read/change'
+import type { IndexApplySource } from '@engine-types/read/indexer'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 import {
   isSameRectWithRotationTuple,
@@ -24,6 +27,7 @@ type NodeRectCacheEntry = {
 export class NodeRectIndex {
   private entriesById = new Map<NodeId, NodeRectCacheEntry>()
   private orderedIds: NodeId[] = []
+  private orderedIdSet = new Set<NodeId>()
   private orderedEntries: CanvasNodeRect[] = []
   private orderDirty = true
 
@@ -47,7 +51,26 @@ export class NodeRectIndex {
     }
   }
 
-  syncFull = (nodes: Node[]): boolean => {
+  applyPlan = (
+    plan: IndexChange,
+    source: IndexApplySource
+  ): boolean => {
+    switch (plan.mode) {
+      case 'none':
+        return false
+      case 'full':
+        return this.syncFull(source.snapshot.nodes.canvas)
+      case 'dirtyNodeIds':
+        return this.syncByNodeIds(
+          plan.dirtyNodeIds,
+          source.snapshot.indexes.canvasNodeById
+        )
+      default:
+        return false
+    }
+  }
+
+  private syncFull = (nodes: Node[]): boolean => {
     const seen = new Set<NodeId>()
     const nextOrderedIds: NodeId[] = []
     let changed = false
@@ -79,6 +102,7 @@ export class NodeRectIndex {
 
     if (!isSameRefOrder(this.orderedIds, nextOrderedIds)) {
       this.orderedIds = nextOrderedIds
+      this.orderedIdSet = new Set(nextOrderedIds)
       this.orderDirty = true
       changed = true
     }
@@ -86,7 +110,7 @@ export class NodeRectIndex {
     return changed
   }
 
-  syncByNodeIds = (
+  private syncByNodeIds = (
     nodeIds: Iterable<NodeId>,
     nodeById: ReadonlyMap<NodeId, Node>
   ): boolean => {
@@ -112,8 +136,9 @@ export class NodeRectIndex {
         state,
         entry: this.toEntry(node)
       })
-      if (!current && !this.orderedIds.includes(nodeId)) {
+      if (!current && !this.orderedIdSet.has(nodeId)) {
         this.orderedIds.push(nodeId)
+        this.orderedIdSet.add(nodeId)
       }
       this.orderDirty = true
       changed = true
@@ -121,6 +146,9 @@ export class NodeRectIndex {
 
     if (removed.size) {
       this.orderedIds = this.orderedIds.filter((nodeId) => !removed.has(nodeId))
+      removed.forEach((nodeId) => {
+        this.orderedIdSet.delete(nodeId)
+      })
     }
 
     return changed
@@ -134,6 +162,9 @@ export class NodeRectIndex {
     this.orderDirty = false
     return this.orderedEntries
   }
+
+  nodeIdsInRect = (rect: Rect): NodeId[] =>
+    getNodeIdsInRectRaw(rect, this.all())
 
   byId = (nodeId: NodeId): CanvasNodeRect | undefined =>
     this.entriesById.get(nodeId)?.entry

@@ -1,3 +1,3 @@
-export { createDefaultShortcuts } from './defaultShortcuts'
-export { createShortcutManager } from './manager'
-export { createShortcuts } from './runtime'
+export { defaults } from './defaults'
+export { manager } from './manager'
+export { shortcuts } from './shortcuts'

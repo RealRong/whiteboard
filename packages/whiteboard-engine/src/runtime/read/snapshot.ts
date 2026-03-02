@@ -14,12 +14,7 @@ import type {
   Node,
   NodeId
 } from '@whiteboard/core/types'
-import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-
-type SnapshotOptions = {
-  documentAtom: PrimitiveAtom<Document>
-  revisionAtom: PrimitiveAtom<number>
-}
+import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
 
 const isSameSnapshotRefs = (
   cache: ReadModelSnapshot | undefined,
@@ -53,7 +48,10 @@ const isSameSnapshotRefs = (
 export const snapshot = ({
   documentAtom,
   revisionAtom
-}: SnapshotOptions): Atom<ReadModelSnapshot> => {
+}: {
+  documentAtom: PrimitiveAtom<Document>
+  revisionAtom: PrimitiveAtom<number>
+}): Atom<ReadModelSnapshot> => {
   const EMPTY_NODES: Node[] = []
   const EMPTY_EDGES: Edge[] = []
   const EMPTY_NODE_MAP = new Map<NodeId, Node>()

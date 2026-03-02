@@ -1,4 +1,4 @@
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
 import {
   READ_PUBLIC_KEYS,
   READ_SUBSCRIBE_KEYS,
@@ -15,26 +15,20 @@ import {
   getMindmapTree,
   getMindmapRoots
 } from '@whiteboard/core/mindmap'
-import type { ReadRuntimeContext } from '../context'
+import type { ReadRuntimeContext } from '@engine-types/read/context'
+import type {
+  MindmapReadCache,
+  MindmapReadSnapshot
+} from '@engine-types/read/mindmap'
 
 type MindmapCacheInput = {
   visibleNodes: Node[]
   layout: MindmapLayoutConfig
 }
 
-export type MindmapReadSnapshot = {
-  readonly ids: NodeId[]
-  readonly byId: ReadonlyMap<NodeId, MindmapViewTree>
-}
-
-export type MindmapReadCache = {
-  getSnapshot: () => MindmapReadSnapshot
-}
-
 type MindmapTreeCacheKey = {
   treeId: string
   rootId: string
-  treeRef: MindmapTree
   treeNodesRef: MindmapTree['nodes']
   treeChildrenRef: MindmapTree['children']
   rootPositionX: number
@@ -62,7 +56,6 @@ type MindmapProjectionCache = {
 const MINDMAP_CACHE_SCALAR_KEYS = [
   'treeId',
   'rootId',
-  'treeRef',
   'treeNodesRef',
   'treeChildrenRef',
   'rootPositionX',
@@ -90,7 +83,6 @@ const toCacheKey = ({
 }): MindmapTreeCacheKey => ({
   treeId: tree.id,
   rootId: tree.rootId,
-  treeRef: tree,
   treeNodesRef: tree.nodes,
   treeChildrenRef: tree.children,
   rootPositionX: root.position.x,
@@ -124,7 +116,10 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
     const allRoots = getMindmapRoots(visibleNodes)
     const nextCache = new Map<string, MindmapTreeCacheEntry>()
     const nextTrees: MindmapViewTree[] = []
-    const nextLayout = layout ?? {}
+    const layoutForCacheKey: MindmapLayoutConfig = {
+      mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
+      options: layout.options
+    }
 
     allRoots.forEach((root) => {
       const tree = getMindmapTree(root)
@@ -133,10 +128,7 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
       const cacheKey = toCacheKey({
         tree,
         root,
-        layout: {
-          mode: nextLayout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
-          options: nextLayout.options
-        },
+        layout: layoutForCacheKey,
         nodeSize: config.mindmapNodeSize
       })
       const previous = treeCache.get(root.id)
@@ -146,7 +138,7 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
         return
       }
 
-      const computed = computeMindmapLayout(tree, config.mindmapNodeSize, nextLayout)
+      const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
       const shiftX = -computed.bbox.x
       const shiftY = -computed.bbox.y
       const labels = Object.fromEntries(
@@ -156,7 +148,7 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
         id: root.id,
         node: root,
         tree,
-        layout: nextLayout,
+        layout,
         computed,
         shiftX,
         shiftY,

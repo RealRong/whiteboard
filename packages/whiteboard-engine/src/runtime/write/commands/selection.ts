@@ -1,5 +1,6 @@
-import type { SelectionMode } from '@engine-types/state'
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { SelectionMode } from '@engine-types/state/model'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { SelectionCommandsApi } from '@engine-types/write/commands'
 import type {
   DispatchResult,
   Document,
@@ -11,23 +12,6 @@ import { createEdgeDuplicateInput } from '@whiteboard/core/edge'
 import { applySelection, createNodeDuplicateInput, expandNodeSelection } from '@whiteboard/core/node'
 import { DEFAULT_TUNING } from '../../../config'
 
-type Options = {
-  instance: Pick<InternalInstance, 'commands' | 'state' | 'document' | 'read'>
-}
-
-export type SelectionCommandsApi = {
-  readonly name: 'Selection'
-  getSelectedNodeIds: () => NodeId[]
-  select: (ids: NodeId[], mode?: SelectionMode) => void
-  toggle: (ids: NodeId[]) => void
-  selectAll: () => void
-  clear: () => void
-  groupSelected: () => Promise<void>
-  ungroupSelected: () => Promise<void>
-  deleteSelected: () => Promise<void>
-  duplicateSelected: () => Promise<void>
-}
-
 const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   if (!result.ok) return undefined
   const op = result.changes.operations.find(
@@ -37,9 +21,11 @@ const getCreatedNodeId = (result: DispatchResult, type?: string) => {
   return op?.node?.id
 }
 
-export const createSelectionCommands = ({
+export const selection = ({
   instance
-}: Options): SelectionCommandsApi => {
+}: {
+  instance: Pick<InternalInstance, 'commands' | 'state' | 'document' | 'read'>
+}): SelectionCommandsApi => {
   const state = instance.state
 
   const getDocument = (): Document => instance.document.get()

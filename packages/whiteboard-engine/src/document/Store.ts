@@ -1,9 +1,5 @@
 import type { Document } from '@whiteboard/core/types'
-
-export type DocumentStore = {
-  get: () => Document
-  replace: (doc: Document, options?: { silent?: boolean }) => void
-}
+import type { Store as DocumentStore } from '@engine-types/document/store'
 
 export const createDocumentStore = (
   initial: Document,

@@ -15,8 +15,12 @@ import {
   type EdgeEndpoints,
   type EdgePathEntry
 } from '@engine-types/instance/read'
-import type { ReadRuntimeContext } from '../context'
-import type { EdgeChangePlan } from '../changePlan'
+import type { ReadRuntimeContext } from '@engine-types/read/context'
+import type { EdgeChange as EdgeChangePlan } from '@engine-types/read/change'
+import type {
+  EdgeReadCache,
+  EdgeReadSnapshot
+} from '@engine-types/read/edge'
 
 type EdgeCacheEntry = {
   sourceRectRef: CanvasNodeRect
@@ -26,17 +30,6 @@ type EdgeCacheEntry = {
   structure: EdgeStructureTuple
   endpoints: EdgeEndpoints
   entry: EdgePathEntry
-}
-
-export type EdgeReadSnapshot = {
-  readonly ids: EdgeId[]
-  readonly byId: Map<EdgeId, EdgePathEntry>
-  getEndpoints: (edgeId: EdgeId) => EdgeEndpoints | undefined
-}
-
-export type EdgeReadCache = {
-  applyPlan: (plan: EdgeChangePlan) => void
-  getSnapshot: () => EdgeReadSnapshot
 }
 
 type EdgeCacheState = {
@@ -292,12 +285,6 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     return buildCacheEntry(edge, material)
   }
 
-  const commitEntriesAndView = (nextCacheById: Map<EdgeId, EdgeCacheEntry>) => {
-    if (state.cacheById === nextCacheById) return
-    state.cacheById = nextCacheById
-    rebuildView(state)
-  }
-
   const reconcileAll = (edges: Edge[]) => {
     const previousCacheById = state.cacheById
     state.relations = createEdgeRelations(edges)
@@ -311,7 +298,8 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
       nextCacheById.set(edgeId, nextEntry)
     })
 
-    commitEntriesAndView(nextCacheById)
+    state.cacheById = nextCacheById
+    rebuildView(state)
   }
 
   const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
@@ -334,9 +322,9 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
       }
     }
 
-    if (draftCacheById) {
-      commitEntriesAndView(draftCacheById)
-    }
+    if (!draftCacheById) return
+    state.cacheById = draftCacheById
+    rebuildView(state)
   }
 
   const ensureEntries = () => {

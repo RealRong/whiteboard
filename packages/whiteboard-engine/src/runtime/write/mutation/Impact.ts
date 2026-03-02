@@ -1,19 +1,7 @@
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
-
-export type MutationImpactTag =
-  | 'full'
-  | 'nodes'
-  | 'edges'
-  | 'order'
-  | 'geometry'
-  | 'mindmap'
-  | 'viewport'
-
-export type MutationImpact = {
-  tags: ReadonlySet<MutationImpactTag>
-  dirtyNodeIds?: readonly NodeId[]
-  dirtyEdgeIds?: readonly EdgeId[]
-}
+import type {
+  MutationImpact,
+  MutationImpactTag
+} from '@engine-types/write/mutation'
 
 const FULL_IMPACT_TAGS = new Set<MutationImpactTag>(['full'])
 

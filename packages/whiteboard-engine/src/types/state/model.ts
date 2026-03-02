@@ -7,8 +7,6 @@ import type {
 } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 
-export type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
-
 export type SelectionMode = 'replace' | 'add' | 'subtract' | 'toggle'
 
 export type SelectionState = {

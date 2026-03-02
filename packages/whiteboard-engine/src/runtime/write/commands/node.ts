@@ -1,4 +1,5 @@
-import type { InternalInstance } from '@engine-types/instance/instance'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { NodeCommandsApi } from '@engine-types/write/commands'
 import type {
   DispatchResult,
   Document,
@@ -22,19 +23,14 @@ import {
 } from '@whiteboard/core/utils'
 import { createScopedId } from '../id'
 
-type NodeCommandsInstance = Pick<
-  InternalInstance,
-  'mutate' | 'document' | 'config' | 'registries'
->
-
-type Options = {
-  instance: NodeCommandsInstance
-}
-
-const createInvalidResult = (message: string): DispatchResult =>
+const invalid = (message: string): DispatchResult =>
   createInvalidDispatchResult(message)
 
-export const createNodeCommands = ({ instance }: Options) => {
+export const node = ({
+  instance
+}: {
+  instance: Pick<InternalInstance, 'mutate' | 'document' | 'config' | 'registries'>
+}): NodeCommandsApi => {
   const readDoc = (): Document => instance.document.get()
 
   const hasNodeId = (id: string) => readDoc().nodes.some((node) => node.id === id)
@@ -51,7 +47,7 @@ export const createNodeCommands = ({ instance }: Options) => {
     if (!result.ok) {
       return {
         ok: false as const,
-        error: createInvalidResult(result.message)
+        error: invalid(result.message)
       }
     }
     return {
@@ -175,5 +171,3 @@ export const createNodeCommands = ({ instance }: Options) => {
     sendBackward
   }
 }
-
-export type NodeCommandsApi = ReturnType<typeof createNodeCommands>

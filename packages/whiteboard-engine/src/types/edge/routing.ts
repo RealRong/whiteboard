@@ -1,5 +1,5 @@
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import type { PointerInput } from '../common'
+import type { PointerInput } from '../common/input'
 
 export type RoutingDragPayload = {
   edgeId: EdgeId

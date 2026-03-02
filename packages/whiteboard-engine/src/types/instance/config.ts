@@ -1,4 +1,4 @@
-import type { Size } from '../common'
+import type { Size } from '../common/base'
 
 export type InstanceConfig = {
   nodeSize: Size

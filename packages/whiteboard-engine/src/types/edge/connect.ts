@@ -1,7 +1,7 @@
 import type { EdgeAnchor, EdgeId, Node, Point, Rect } from '@whiteboard/core/types'
-import type { PointerInput } from '../common'
+import type { PointerInput } from '../common/input'
 import type { EdgeConnectDraft, EdgeConnectState } from './state'
-import type { RefLike } from '../ui'
+import type { RefLike } from '../ui/model'
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -24,16 +24,3 @@ export type EdgeConnectModel = {
   nodeRects: Array<{ node: Node; rect: Rect; aabb: Rect; rotation: number }>
   getAnchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
 }
-
-export type EdgeConnectLayerState = Pick<EdgeConnectModel, 'state' | 'selectedEdgeId'>
-
-export type EdgeConnectActions = Pick<
-  EdgeConnectModel,
-  | 'beginFromHandle'
-  | 'beginFromNode'
-  | 'beginReconnect'
-  | 'updateDraft'
-  | 'commitDraft'
-  | 'cancelDraft'
-  | 'selectEdge'
->

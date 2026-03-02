@@ -1,44 +1,25 @@
-import {
-  READ_INTERNAL_SIGNAL_KEYS,
-  type ReadRuntimeContext
-} from '../context'
-import type { EngineReadGetters } from '@engine-types/instance/read'
-import type { ReadChangePlan } from '../changePlan'
-import { cache as createEdgeCache } from './cache'
-import { atoms as createEdgeAtoms } from './atoms'
+import { READ_PUBLIC_KEYS } from '@engine-types/instance/read'
+import type { ReadRuntimeContext } from '@engine-types/read/context'
+import type { EdgeReadRuntime } from '@engine-types/read/edge'
+import { cache } from './cache'
 
-type EdgeReadGet = Pick<
-  EngineReadGetters,
-  'edgeIds' | 'edgeById' | 'selectedEdgeId' | 'edgeSelectedEndpoints'
->
-
-export type EdgeReadRuntime = {
-  get: EdgeReadGet
-  applyChange: (plan: ReadChangePlan) => void
-}
-
-export const runtime = (context: ReadRuntimeContext): EdgeReadRuntime => {
-  const cache = createEdgeCache(context)
-  const derivedAtoms = createEdgeAtoms(context, cache)
+export const edge = (context: ReadRuntimeContext): EdgeReadRuntime => {
+  const memo = cache(context)
 
   const applyChange: EdgeReadRuntime['applyChange'] = (plan) => {
-    cache.applyPlan(plan.edge)
-
-    if (plan.edge.bumpRevision) {
-      context.setSignal(
-        READ_INTERNAL_SIGNAL_KEYS.edgeRevision,
-        (previous: number) => previous + 1
-      )
-    }
+    memo.applyPlan(plan.edge)
   }
 
   return {
     get: {
-      edgeIds: () => context.store.get(derivedAtoms.edgeIds),
-      edgeById: (id) => context.store.get(derivedAtoms.edgeById(id)),
-      selectedEdgeId: () => context.store.get(derivedAtoms.selectedEdgeId),
-      edgeSelectedEndpoints: () =>
-        context.store.get(derivedAtoms.edgeSelectedEndpoints)
+      edgeIds: () => memo.getSnapshot().ids,
+      edgeById: (id) => memo.getSnapshot().byId.get(id),
+      selectedEdgeId: () => context.get(READ_PUBLIC_KEYS.selection).selectedEdgeId,
+      edgeSelectedEndpoints: () => {
+        const selectedEdgeId = context.get(READ_PUBLIC_KEYS.selection).selectedEdgeId
+        if (!selectedEdgeId) return undefined
+        return memo.getSnapshot().getEndpoints(selectedEdgeId)
+      }
     },
     applyChange
   }

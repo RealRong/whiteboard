@@ -1,5 +1,5 @@
 import type { Document, NodeId, Operation } from '@whiteboard/core/types'
-import type { Size } from '@engine-types/common'
+import type { Size } from '@engine-types/common/base'
 import type { Point } from '@whiteboard/core/types'
 import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 

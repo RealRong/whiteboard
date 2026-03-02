@@ -18,20 +18,24 @@ import type {
   Rect,
   Viewport
 } from '@whiteboard/core/types'
-import type { MindmapLayoutConfig } from './mindmap'
+import type { MindmapLayoutConfig } from '../mindmap/layout'
 import type {
-  PointerInput,
-  Size,
-  ResolvedHistoryConfig
-} from './common'
-import type { HistoryState, InteractionState, SelectionMode } from './state'
-import type { ResizeDirection } from './state'
+  Size
+} from '../common/base'
+import type { PointerInput } from '../common/input'
+import type { ResolvedHistoryConfig } from '../common/config'
+import type {
+  HistoryState,
+  InteractionState,
+  SelectionMode
+} from '../state/model'
+import type { ResizeDirection } from '../node/transform'
 import type {
   RoutingDragStartOptions,
   RoutingDragUpdateOptions,
   RoutingDragEndOptions,
   RoutingDragCancelOptions
-} from './edge/routing'
+} from '../edge/routing'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -111,13 +115,6 @@ export type NodeDragEndOptions = {
 export type NodeDragCancelOptions = {
   pointer?: PointerInput
 }
-
-export type {
-  RoutingDragStartOptions,
-  RoutingDragUpdateOptions,
-  RoutingDragEndOptions,
-  RoutingDragCancelOptions
-} from './edge/routing'
 
 export type NodeResizeStartOptions = {
   nodeId: NodeId

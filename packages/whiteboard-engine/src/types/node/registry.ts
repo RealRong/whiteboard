@@ -1,7 +1,7 @@
 import type { Node, Rect } from '@whiteboard/core/types'
-import type { Commands } from '../commands'
+import type { Commands } from '../command/api'
 import type { Query } from '../instance/query'
-import type { NodeLike, RefLike, StyleObject } from '../ui'
+import type { NodeLike, RefLike, StyleObject } from '../ui/model'
 
 export type NodeContainerProps = {
   rect: Rect
