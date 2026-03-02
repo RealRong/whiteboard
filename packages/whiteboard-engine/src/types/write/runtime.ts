@@ -8,10 +8,12 @@ import type {
   NodeCommandsApi,
   SelectionCommandsApi,
   ShortcutActionDispatcher,
+  WriteCommandsApi,
   ViewportCommandsApi
 } from './commands'
 
 export type CommandSet = {
+  write: WriteCommandsApi
   edge: EdgeCommandsApi
   interaction: InteractionCommandsApi
   viewport: ViewportCommandsApi

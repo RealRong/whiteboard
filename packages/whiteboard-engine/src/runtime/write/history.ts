@@ -5,7 +5,7 @@ import type {
   HistoryApplyEntry,
   HistoryCaptureInput
 } from '@engine-types/write/history'
-import { DEFAULT_CONFIG } from '../../../config'
+import { DEFAULT_CONFIG } from '../../config'
 
 type HistoryEntry = {
   forward: Operation[]

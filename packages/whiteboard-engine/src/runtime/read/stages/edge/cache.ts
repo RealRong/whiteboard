@@ -16,7 +16,6 @@ import {
   type EdgePathEntry
 } from '@engine-types/instance/read'
 import type { ReadRuntimeContext } from '@engine-types/read/context'
-import type { EdgeChange as EdgeChangePlan } from '@engine-types/read/change'
 import type {
   EdgeReadCache,
   EdgeReadSnapshot

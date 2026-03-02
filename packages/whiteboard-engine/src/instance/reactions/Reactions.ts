@@ -2,14 +2,16 @@ import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { Scheduler } from '../../runtime/Scheduler'
-import type { Orchestrator as ReadOrchestrator } from '@engine-types/read/orchestrator'
+import type { Change } from '@engine-types/write/change'
 import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import { Measure } from './Measure'
 import { Autofit } from './Autofit'
 
 type ReactionsOptions = {
   instance: Pick<InternalInstance, 'document' | 'config' | 'mutate'>
-  readRuntime: Pick<ReadOrchestrator, 'applyChange'>
+  readRuntime: {
+    applyChange: (change: Change) => void
+  }
   writeRuntime: Pick<WriteRuntime, 'changeBus'>
   scheduler: Scheduler
 }

@@ -1,6 +1,4 @@
-import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
-import { toLayerOrderedCanvasNodeIds } from '@whiteboard/core/node'
-import { isSameRefOrder } from '@whiteboard/core/utils'
+import type { NodeId, Viewport } from '@whiteboard/core/types'
 import {
   READ_SUBSCRIBE_KEYS,
   READ_PUBLIC_KEYS,
@@ -24,23 +22,7 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
 
 export const node = (context: ReadRuntimeContext): NodeReadRuntime => {
   const getNodeRect = context.query.canvas.nodeRect
-  let nodeIdsCache: NodeId[] = []
-  let nodeIdsSourceRef: Node[] | undefined
   const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
-
-  const getNodeIds = (canvasNodes: Node[]) => {
-    if (canvasNodes === nodeIdsSourceRef) return nodeIdsCache
-
-    const next = toLayerOrderedCanvasNodeIds(canvasNodes)
-    if (isSameRefOrder(nodeIdsCache, next)) {
-      nodeIdsSourceRef = canvasNodes
-      return nodeIdsCache
-    }
-
-    nodeIdsSourceRef = canvasNodes
-    nodeIdsCache = next
-    return nodeIdsCache
-  }
 
   return {
     get: {
@@ -48,7 +30,7 @@ export const node = (context: ReadRuntimeContext): NodeReadRuntime => {
         toViewportTransform(context.get(READ_PUBLIC_KEYS.viewport)),
       nodeIds: () => {
         const snapshot = context.get(READ_SUBSCRIBE_KEYS.snapshot)
-        return getNodeIds(snapshot.nodes.canvas)
+        return snapshot.indexes.canvasNodeIds
       },
       nodeById: (id) => {
         const snapshot = context.get(READ_SUBSCRIBE_KEYS.snapshot)

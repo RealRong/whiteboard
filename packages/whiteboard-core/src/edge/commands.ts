@@ -1,5 +1,6 @@
 import { applyEdgeDefaults, getMissingEdgeFields } from '../schema'
 import type {
+  CoreResult,
   CoreRegistries,
   Document,
   Edge,
@@ -11,14 +12,9 @@ import type {
 } from '../types'
 
 export type EdgeCreateOperationResult =
-  | {
-      ok: true
-      operation: Extract<Operation, { type: 'edge.create' }>
-    }
-  | {
-      ok: false
-      message: string
-    }
+  CoreResult<{
+    operation: Extract<Operation, { type: 'edge.create' }>
+  }>
 
 type BuildEdgeCreateOperationInput = {
   payload: EdgeInput

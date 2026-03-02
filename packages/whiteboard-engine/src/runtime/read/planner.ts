@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { Change } from '@engine-types/write/change'
-import { hasImpactTag } from '../write/mutation/Impact'
+import { hasImpactTag } from '../write/impact'
 import type {
   ChangePlan as ReadChangePlan,
   EdgeChange as EdgeChangePlan,

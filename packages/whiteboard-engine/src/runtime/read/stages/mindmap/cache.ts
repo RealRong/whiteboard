@@ -7,7 +7,7 @@ import {
 } from '@engine-types/instance/read'
 import type { MindmapTree, Node, NodeId } from '@whiteboard/core/types'
 import { isSameRefOrder } from '@whiteboard/core/utils'
-import { DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_TUNING } from '../../../../config'
 import {
   buildMindmapLines,
   computeMindmapLayout,

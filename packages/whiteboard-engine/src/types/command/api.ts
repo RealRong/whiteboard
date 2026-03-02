@@ -36,6 +36,7 @@ import type {
   RoutingDragEndOptions,
   RoutingDragCancelOptions
 } from '../edge/routing'
+import type { CommandSource } from './source'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -273,6 +274,125 @@ export type MindmapApplyCommand =
       type: 'root'
     } & MindmapMoveRootOptions)
 
+export type NodeWriteCommand =
+  | {
+      type: 'create'
+      payload: NodeInput
+    }
+  | {
+      type: 'update'
+      id: NodeId
+      patch: NodePatch
+    }
+  | {
+      type: 'delete'
+      ids: NodeId[]
+    }
+  | {
+      type: 'group'
+      ids: NodeId[]
+    }
+  | {
+      type: 'ungroup'
+      id: NodeId
+    }
+  | {
+      type: 'order.set'
+      ids: NodeId[]
+    }
+  | {
+      type: 'updateManyPosition'
+      updates: Array<{ id: NodeId; position: Point }>
+    }
+
+export type EdgeWriteCommand =
+  | {
+      type: 'create'
+      payload: EdgeInput
+    }
+  | {
+      type: 'update'
+      id: EdgeId
+      patch: EdgePatch
+    }
+  | {
+      type: 'delete'
+      ids: EdgeId[]
+    }
+  | {
+      type: 'order.set'
+      ids: EdgeId[]
+    }
+  | {
+      type: 'routing.insert'
+      edge: Edge
+      pathPoints: Point[]
+      segmentIndex: number
+      pointWorld: Point
+    }
+  | {
+      type: 'routing.move'
+      edge: Edge
+      index: number
+      pointWorld: Point
+    }
+  | {
+      type: 'routing.remove'
+      edge: Edge
+      index: number
+    }
+  | {
+      type: 'routing.reset'
+      edge: Edge
+    }
+
+export type ViewportWriteCommand =
+  | {
+      type: 'set'
+      viewport: Viewport
+    }
+  | {
+      type: 'panBy'
+      delta: { x: number; y: number }
+    }
+  | {
+      type: 'zoomBy'
+      factor: number
+      anchor?: Point
+    }
+  | {
+      type: 'zoomTo'
+      zoom: number
+      anchor?: Point
+    }
+  | {
+      type: 'reset'
+    }
+
+export type MindmapWriteCommand = MindmapApplyCommand
+
+export type WriteDomain =
+  | 'node'
+  | 'edge'
+  | 'viewport'
+  | 'mindmap'
+
+export type WriteCommandMap = {
+  node: NodeWriteCommand
+  edge: EdgeWriteCommand
+  viewport: ViewportWriteCommand
+  mindmap: MindmapWriteCommand
+}
+
+export type WriteInput<D extends WriteDomain = WriteDomain> =
+  D extends WriteDomain
+    ? {
+        domain: D
+        command: WriteCommandMap[D]
+        source?: CommandSource
+      }
+    : never
+
 export type MindmapCommands = {
   apply: (command: MindmapApplyCommand) => Promise<DispatchResult>
 }
@@ -347,4 +467,7 @@ export type Commands = {
   }
   group: GroupCommands
   mindmap: MindmapCommands
+  write: {
+    apply: <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>
+  }
 }

@@ -1,5 +1,6 @@
 import { applyNodeDefaults, getMissingNodeFields } from '../schema'
 import type {
+  CoreResult,
   CoreRegistries,
   DispatchResult,
   Document,
@@ -11,24 +12,14 @@ import type {
 } from '../types'
 
 type NodeCreateOperationResult =
-  | {
-      ok: true
-      operation: Extract<Operation, { type: 'node.create' }>
-    }
-  | {
-      ok: false
-      message: string
-    }
+  CoreResult<{
+    operation: Extract<Operation, { type: 'node.create' }>
+  }>
 
 type GroupOperationResult =
-  | {
-      ok: true
-      operations: Operation[]
-    }
-  | {
-      ok: false
-      message: string
-    }
+  CoreResult<{
+    operations: Operation[]
+  }>
 
 type BuildNodeCreateOperationInput = {
   payload: NodeInput

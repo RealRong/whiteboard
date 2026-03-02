@@ -17,8 +17,8 @@
 1. 类型定义：
    - [packages/whiteboard-engine/src/types/commands.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/types/commands.ts)
 2. 命令实现：
-   - [packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts)
-   - [packages/whiteboard-engine/src/runtime/write/commands/mindmap/base.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/base.ts)
+   - [packages/whiteboard-engine/src/runtime/write/api/mindmap.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/api/mindmap.ts)
+   - [packages/whiteboard-engine/src/runtime/write/plan/mindmapBase.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/plan/mindmapBase.ts)
 3. 实例导出：
    - [packages/whiteboard-engine/src/instance/create.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/instance/create.ts)
 4. UI 调用迁移：
@@ -88,7 +88,7 @@ type MindmapCommands = {
 3. 旧语法糖实现与导出已移除。
 4. `insert` 的 `placement` 决策改为复用 core 的 `resolveInsertPlan`（engine 不再自行判定侧别与插入模式）。
 5. `apply` 采用 `type + mode` 收敛分发：`insert/move/update` 在同一入口内完成子能力路由，减少公开 API 断面。
-6. 删除 `mindmap/helpers.ts`，`index.ts`/`base.ts` 分别内联所需辅助逻辑，不再保留中间 helper 对象转发。
+6. 删除 `mindmap/helpers.ts`，`index.ts`/`mindmapBase.ts` 分别内联所需辅助逻辑，不再保留中间 helper 对象转发。
 
 ## 5.3 基础命令层
 
@@ -126,8 +126,8 @@ type MindmapCommands = {
 
 1. [packages/whiteboard-core/src/mindmap/query.ts](/Users/realrong/whiteboard/packages/whiteboard-core/src/mindmap/query.ts)
 2. [packages/whiteboard-core/src/mindmap/commands.ts](/Users/realrong/whiteboard/packages/whiteboard-core/src/mindmap/commands.ts)
-3. [packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts)
-4. [packages/whiteboard-engine/src/runtime/write/commands/mindmap/base.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/base.ts)
+3. [packages/whiteboard-engine/src/runtime/write/api/mindmap.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/api/mindmap.ts)
+4. [packages/whiteboard-engine/src/runtime/write/plan/mindmapBase.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/plan/mindmapBase.ts)
 
 ## 6. 兼容策略
 
@@ -185,7 +185,7 @@ type MindmapCommands = {
 4. [packages/whiteboard-engine/src/runtime/read/edge/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/edge/runtime.ts)
 5. [packages/whiteboard-engine/src/runtime/read/node/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/node/runtime.ts)
 6. [packages/whiteboard-engine/src/runtime/read/mindmap/runtime.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/read/mindmap/runtime.ts)
-7. [packages/whiteboard-engine/src/runtime/write/pipeline/Writer.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/pipeline/Writer.ts)
-8. [packages/whiteboard-engine/src/runtime/write/history/history.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/history/history.ts)
-9. [packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/commands/mindmap/index.ts)
+7. [packages/whiteboard-engine/src/runtime/write/writer.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/writer.ts)
+8. [packages/whiteboard-engine/src/runtime/write/history.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/history.ts)
+9. [packages/whiteboard-engine/src/runtime/write/api/mindmap.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/write/api/mindmap.ts)
 10. [packages/whiteboard-engine/src/runtime/shortcut/manager.ts](/Users/realrong/whiteboard/packages/whiteboard-engine/src/runtime/shortcut/manager.ts)

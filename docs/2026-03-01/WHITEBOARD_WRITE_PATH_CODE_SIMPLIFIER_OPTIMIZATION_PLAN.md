@@ -7,9 +7,9 @@
 本方案从 `packages/whiteboard-engine/src/instance/create.ts` 出发，沿 write 主链路梳理与优化：
 
 1. `instance/create.ts`（装配入口）
-2. `runtime/write/createRuntime.ts`（write runtime 装配）
-3. `runtime/write/commands/*`（命令入口）
-4. `runtime/write/pipeline/*`（执行与历史）
+2. `runtime/write/runtime.ts`（write runtime 装配）
+3. `runtime/write/api/*`（命令入口）
+4. `runtime/write/writer.ts` / `runtime/write/history.ts` / `runtime/write/bus.ts`（执行与历史）
 5. `instance/reactions/*`（写后 reaction）
 
 目标：提升可读性、简洁度、命名一致性，收敛目录结构，降低后续维护与迁移成本。
@@ -28,7 +28,7 @@
 - 问题：
   - write 下存在单文件目录语义（`runtime/`、`postMutation/`），路径冗长，导航成本高。
 - 修改建议：
-  - 使用 `runtime/write/createRuntime.ts` 作为 write runtime 工厂单入口。
+  - 使用 `runtime/write/runtime.ts` 作为 write runtime 工厂单入口。
   - 写后 reaction 收敛到 `instance/reactions/`（`Reactions.ts` 组合、`Autofit.ts`、`Measure.ts`）。
 - 收益：
   - 路径更短，目录语义更直接，符合“尽量避免单文件目录”的简化原则。
@@ -87,9 +87,9 @@
   - 原 `commands/mindmap.ts` 约 580+ 行，命令实现与辅助逻辑混杂，阅读与维护成本高。
 - 修改建议：
   - 将 `commands/mindmap.ts` 拆为目录：
-    - `commands/mindmap/index.ts`（组合层，仅装配）
-    - `commands/mindmap/base.ts`（create/replace/delete/add/move 等基础命令）
-  - 已在后续收敛中删除 `commands/mindmap/helpers.ts`，将必要辅助能力内联回 `index.ts`/`base.ts`，减少一层转发。
+    - `api/mindmap.ts`（组合层，仅装配）
+    - `plan/mindmapBase.ts`（create/replace/delete/add/move 等基础命令）
+  - 已在后续收敛中删除 `commands/mindmap/helpers.ts`，将必要辅助能力内联回 `index.ts`/`mindmapBase.ts`，减少一层转发。
 - 收益：
   - 降低单文件复杂度，职责边界清晰，定位问题更快。
   - 与 `CODE_SIMPLIFIER` 的“函数拆分/目录化操作族”原则一致。
@@ -103,8 +103,8 @@
 - 问题：
   - `WriteCoordinator` 主要承担薄包装与转发，形成 `createRuntime -> WriteCoordinator -> Writer` 额外层级。
 - 修改建议：
-  - 删除 `runtime/write/pipeline/WriteCoordinator.ts`。
-  - 将 `mutate/history/resetDoc` 协调逻辑内聚到 `runtime/write/pipeline/Writer.ts`，`createRuntime.ts` 仅保留装配。
+  - 删除 `runtime/write/flow.ts`。
+  - 将 `mutate/history/resetDoc` 协调逻辑内聚到 `runtime/write/writer.ts`，`createRuntime.ts` 仅保留装配。
 - 收益：
   - 减少一个中间类与一次对象跳转，写链路更直观。
   - `createWriteRuntime` 更薄，`Writer` 作为写执行入口更集中。
@@ -136,16 +136,16 @@
 ## 4. 文件与命名调整清单（write path）
 
 ### 4.1 目录与文件
-1. `runtime/write/createRuntime.ts` 作为 write runtime 工厂入口。
+1. `runtime/write/runtime.ts` 作为 write runtime 工厂入口。
 2. `instance/reactions/Reactions.ts` 作为 change reaction 组合入口。
 3. `instance/reactions/Autofit.ts` 作为 group 自动收敛入口。
 4. `instance/reactions/Measure.ts` 作为测量写入队列入口。
 5. `runtime/write/id.ts` 新增公共 ID 生成工具。
-6. `runtime/write/commands/mindmap/` 目录化拆分：
+6. `runtime/write/api/mindmap/` 目录化拆分：
    - `index.ts`
    - `base.ts`
-7. 删除 `runtime/write/pipeline/WriteCoordinator.ts`，由 `Writer` 内聚 `apply/history/reset`，`createRuntime.ts` 仅保留装配。
-8. `runtime/write/pipeline/MutationExecutor.ts` 重命名为 `runtime/write/pipeline/Writer.ts`。
+7. 删除 `runtime/write/flow.ts`，由 `Writer` 内聚 `apply/history/reset`，`createRuntime.ts` 仅保留装配。
+8. `runtime/write/writer.ts` 重命名为 `runtime/write/writer.ts`。
 
 ### 4.2 命名
 1. `MindmapController` -> `MindmapCommandsApi`

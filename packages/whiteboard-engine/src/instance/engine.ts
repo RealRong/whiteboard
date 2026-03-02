@@ -18,7 +18,7 @@ import { state as setupState } from '../state/factory/state'
 import { Scheduler } from '../runtime/Scheduler'
 import { ViewportRuntime } from '../runtime/Viewport'
 import { orchestrator as read } from '../runtime/read/orchestrator'
-import { snapshot } from '../runtime/read/snapshot'
+import { snapshot } from '../runtime/read/stages/snapshot'
 import { createDocumentStore } from '../document/Store'
 import { Reactions } from './reactions/Reactions'
 
@@ -37,6 +37,7 @@ const commands = ({
 }: CommandDeps): Commands => {
   const { history, resetDoc } = writeRuntime
   const {
+    write,
     edge,
     interaction,
     viewport: viewportCommands,
@@ -125,6 +126,9 @@ const commands = ({
     },
     mindmap: {
       apply: mindmap.apply
+    },
+    write: {
+      apply: write.apply
     }
   }
 }

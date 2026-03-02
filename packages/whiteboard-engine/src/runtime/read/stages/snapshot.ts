@@ -1,7 +1,8 @@
 import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import {
   deriveNodeReadSlices,
-  deriveVisibleEdges
+  deriveVisibleEdges,
+  toLayerOrderedCanvasNodeIds
 } from '@whiteboard/core/node'
 import {
   isSameIdOrder,
@@ -24,7 +25,8 @@ const isSameSnapshotRefs = (
     visibleNodes,
     canvasNodes,
     visibleEdges,
-    canvasNodeById
+    canvasNodeById,
+    canvasNodeIds
   }: {
     revision: number
     docId: string
@@ -32,6 +34,7 @@ const isSameSnapshotRefs = (
     canvasNodes: Node[]
     visibleEdges: Edge[]
     canvasNodeById: ReadModelSnapshot['indexes']['canvasNodeById']
+    canvasNodeIds: ReadModelSnapshot['indexes']['canvasNodeIds']
   }
 ): cache is ReadModelSnapshot => {
   if (!cache) return false
@@ -41,7 +44,8 @@ const isSameSnapshotRefs = (
     cache.nodes.visible === visibleNodes &&
     cache.nodes.canvas === canvasNodes &&
     cache.edges.visible === visibleEdges &&
-    cache.indexes.canvasNodeById === canvasNodeById
+    cache.indexes.canvasNodeById === canvasNodeById &&
+    cache.indexes.canvasNodeIds === canvasNodeIds
   )
 }
 
@@ -54,6 +58,7 @@ export const snapshot = ({
 }): Atom<ReadModelSnapshot> => {
   const EMPTY_NODES: Node[] = []
   const EMPTY_EDGES: Edge[] = []
+  const EMPTY_NODE_IDS: NodeId[] = []
   const EMPTY_NODE_MAP = new Map<NodeId, Node>()
 
   let previousNodesRef: Document['nodes'] | undefined
@@ -63,8 +68,10 @@ export const snapshot = ({
   let visibleNodesCache: Node[] = EMPTY_NODES
   let canvasNodesCache: Node[] = EMPTY_NODES
   let canvasNodeByIdCache: Map<NodeId, Node> = EMPTY_NODE_MAP
+  let canvasNodeIdsCache: NodeId[] = EMPTY_NODE_IDS
   let indexesCache: ReadModelSnapshot['indexes'] = {
-    canvasNodeById: EMPTY_NODE_MAP
+    canvasNodeById: EMPTY_NODE_MAP,
+    canvasNodeIds: EMPTY_NODE_IDS
   }
 
   type EdgeVisibleCache = {
@@ -91,8 +98,10 @@ export const snapshot = ({
       visibleNodesCache = EMPTY_NODES
       canvasNodesCache = EMPTY_NODES
       canvasNodeByIdCache = EMPTY_NODE_MAP
+      canvasNodeIdsCache = EMPTY_NODE_IDS
       indexesCache = {
-        canvasNodeById: EMPTY_NODE_MAP
+        canvasNodeById: EMPTY_NODE_MAP,
+        canvasNodeIds: EMPTY_NODE_IDS
       }
     } else if (
       nodes !== previousNodesRef ||
@@ -105,6 +114,9 @@ export const snapshot = ({
       const normalizedCanvasNodeById = next.canvasNodeById.size
         ? next.canvasNodeById
         : EMPTY_NODE_MAP
+      const normalizedCanvasNodeIds = normalizedCanvas.length
+        ? toLayerOrderedCanvasNodeIds(normalizedCanvas)
+        : EMPTY_NODE_IDS
 
       visibleNodesCache = isSameRefOrder(visibleNodesCache, normalizedVisible)
         ? visibleNodesCache
@@ -116,10 +128,17 @@ export const snapshot = ({
         isSameMapValueRefs(canvasNodeByIdCache, normalizedCanvasNodeById)
         ? canvasNodeByIdCache
         : normalizedCanvasNodeById
-      indexesCache = indexesCache.canvasNodeById === canvasNodeByIdCache
+      canvasNodeIdsCache = isSameRefOrder(canvasNodeIdsCache, normalizedCanvasNodeIds)
+        ? canvasNodeIdsCache
+        : normalizedCanvasNodeIds
+      indexesCache = (
+        indexesCache.canvasNodeById === canvasNodeByIdCache &&
+        indexesCache.canvasNodeIds === canvasNodeIdsCache
+      )
         ? indexesCache
         : {
-          canvasNodeById: canvasNodeByIdCache
+          canvasNodeById: canvasNodeByIdCache,
+          canvasNodeIds: canvasNodeIdsCache
         }
 
       previousNodesRef = nodes
@@ -164,7 +183,8 @@ export const snapshot = ({
       visibleNodes: visibleNodesCache,
       canvasNodes: canvasNodesCache,
       visibleEdges: visibleEdgesCache,
-      canvasNodeById: indexesCache.canvasNodeById
+      canvasNodeById: indexesCache.canvasNodeById,
+      canvasNodeIds: indexesCache.canvasNodeIds
     })) {
       return cache
     }

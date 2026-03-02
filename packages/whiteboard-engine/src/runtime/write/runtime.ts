@@ -1,14 +1,23 @@
 import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import type { Deps as WriteDeps } from '@engine-types/write/deps'
-import { edge } from './commands/edge'
-import { interaction } from './commands/interaction'
-import { mindmap } from './commands/mindmap'
-import { node } from './commands/node'
-import { shortcut } from './commands/shortcut'
-import { selection } from './commands/selection'
-import { viewport } from './commands/viewport'
-import { Writer } from './pipeline/Writer'
-import { bus } from './pipeline/ChangeBus'
+import {
+  edge,
+  interaction,
+  mindmap,
+  node,
+  write as writeApi,
+  shortcut,
+  selection,
+  viewport
+} from './api'
+import { Writer } from './writer'
+import { bus } from './bus'
+import { plan } from './plan'
+import {
+  type Apply,
+  type Dispatch,
+  toDispatchInput
+} from './model'
 
 export const runtime = ({
   instance,
@@ -24,12 +33,21 @@ export const runtime = ({
     readModelRevisionAtom,
     now: scheduler.now
   })
+  const planner = plan({ instance })
+  const dispatch: Dispatch = (payload, source) =>
+    writer.applyDraft(planner(payload), source)
+  const apply: Apply = (payload) =>
+    dispatch(
+      toDispatchInput(payload),
+      payload.source ?? 'ui'
+    )
   const commands = {
-    edge: edge({ instance }),
+    write: writeApi({ apply }),
+    edge: edge({ instance, apply }),
     interaction: interaction({ instance }),
-    viewport: viewport({ instance }),
-    node: node({ instance }),
-    mindmap: mindmap({ instance }),
+    viewport: viewport({ apply }),
+    node: node({ instance, apply }),
+    mindmap: mindmap({ apply }),
     selection: selection({ instance })
   }
   const hotkeys = shortcut({

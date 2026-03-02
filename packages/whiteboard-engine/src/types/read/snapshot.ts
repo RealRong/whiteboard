@@ -17,5 +17,6 @@ export type ReadModelSnapshot = {
   }
   indexes: {
     canvasNodeById: Map<NodeId, Node>
+    canvasNodeIds: NodeId[]
   }
 }

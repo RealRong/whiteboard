@@ -10,7 +10,7 @@ import type {
 
 type TreeDraft = MindmapTree
 
-const createFailure = (error: string) => ({ ok: false as const, error })
+const createFailure = (message: string) => ({ ok: false as const, message })
 
 let defaultNodeSeq = 1
 let defaultTreeSeq = 1

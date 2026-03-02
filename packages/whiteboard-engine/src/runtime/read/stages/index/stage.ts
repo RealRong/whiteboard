@@ -1,6 +1,6 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
-import { DEFAULT_TUNING } from '../../../config'
+import { DEFAULT_TUNING } from '../../../../config'
 import { NodeRectIndex } from './NodeRectIndex'
 import { SnapIndex } from './SnapIndex'
 import type { IndexApplySource, Indexer } from '@engine-types/read/indexer'

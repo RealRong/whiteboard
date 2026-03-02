@@ -6,11 +6,10 @@ import type {
   ResetResult
 } from '@engine-types/write/writer'
 import type { Bus as ChangeBus } from '@engine-types/write/change'
-import { FULL_MUTATION_IMPACT } from '../mutation/Impact'
-import { MutationImpactAnalyzer } from '../mutation/Analyzer'
+import { FULL_MUTATION_IMPACT, MutationImpactAnalyzer } from './impact'
 import { reduceOperations } from '@whiteboard/core/kernel'
 import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
-import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
+import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
 import type {
   DispatchResult,
   Document,
@@ -18,8 +17,9 @@ import type {
   Origin
 } from '@whiteboard/core/types'
 import type { PrimitiveAtom } from 'jotai/vanilla'
-import { createBatchId } from '../id'
-import { History } from '../history/history'
+import { createBatchId } from './id'
+import { History } from './history'
+import type { Draft } from './model'
 
 type ApplyInput = {
   kind: 'apply'
@@ -226,6 +226,20 @@ export class Writer {
     return {
       ok: true,
       changes: result.changes
+    }
+  }
+
+  applyDraft = async (
+    draft: Draft,
+    source: CommandSource
+  ): Promise<DispatchResult> => {
+    if (!draft.ok) return draft
+    const result = await this.mutate(draft.operations, source)
+    if (!result.ok) return result
+    if (typeof draft.value === 'undefined') return result
+    return {
+      ...result,
+      value: draft.value
     }
   }
 

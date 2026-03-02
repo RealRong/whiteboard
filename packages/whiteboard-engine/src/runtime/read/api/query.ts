@@ -6,7 +6,7 @@ import {
   getAnchorFromPoint as getAnchorFromPointRaw,
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
 } from '@whiteboard/core/edge'
-import { DEFAULT_TUNING } from '../../config'
+import { DEFAULT_TUNING } from '../../../config'
 
 type QueryDeps = Pick<ReadDeps, 'readDoc' | 'viewport' | 'config'> & {
   indexes: Indexer
