@@ -46,10 +46,6 @@ type EdgeCacheState = {
   byId: Map<EdgeId, EdgePathEntry>
 }
 
-type ReconcileMemo = {
-  nodeRectById: Map<NodeId, ReturnType<ReadRuntimeContext['query']['canvas']['nodeRect']>>
-}
-
 type NodeGeometryTuple = {
   x: number
   y: number
@@ -192,28 +188,11 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     getEndpoints: (edgeId) => state.cacheById.get(edgeId)?.endpoints
   }
 
-  const createReconcileMemo = (): ReconcileMemo => ({
-    nodeRectById: new Map<NodeId, ReturnType<typeof getNodeRect>>()
-  })
-
-  const getNodeRectMemo = (
-    memo: ReconcileMemo,
-    nodeId: EdgePathEntry['edge']['source']['nodeId']
-  ) => {
-    if (memo.nodeRectById.has(nodeId)) {
-      return memo.nodeRectById.get(nodeId)
-    }
-    const next = getNodeRect(nodeId)
-    memo.nodeRectById.set(nodeId, next)
-    return next
-  }
-
   const toEdgeCacheMaterial = (
-    edge: EdgePathEntry['edge'],
-    memo: ReconcileMemo
+    edge: EdgePathEntry['edge']
   ): EdgeCacheMaterial | undefined => {
-    const sourceRectRef = getNodeRectMemo(memo, edge.source.nodeId)
-    const targetRectRef = getNodeRectMemo(memo, edge.target.nodeId)
+    const sourceRectRef = getNodeRect(edge.source.nodeId)
+    const targetRectRef = getNodeRect(edge.target.nodeId)
     if (!sourceRectRef || !targetRectRef) return undefined
 
     return {
@@ -302,10 +281,9 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
 
   const toCacheEntry = (
     edge: EdgePathEntry['edge'],
-    previous: EdgeCacheEntry | undefined,
-    memo: ReconcileMemo
+    previous: EdgeCacheEntry | undefined
   ): EdgeCacheEntry | undefined => {
-    const material = toEdgeCacheMaterial(edge, memo)
+    const material = toEdgeCacheMaterial(edge)
     if (!material) return undefined
 
     const reusedByData = reuseCacheEntryByData(edge, material, previous)
@@ -323,13 +301,12 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const reconcileAll = (edges: Edge[]) => {
     const previousCacheById = state.cacheById
     state.relations = createEdgeRelations(edges)
-    const memo = createReconcileMemo()
 
     const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
     state.relations.edgeIds.forEach((edgeId) => {
       const edge = state.relations.edgeById.get(edgeId)
       if (!edge) return
-      const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId), memo)
+      const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId))
       if (!nextEntry) return
       nextCacheById.set(edgeId, nextEntry)
     })
@@ -339,12 +316,11 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
 
   const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
     let draftCacheById: Map<EdgeId, EdgeCacheEntry> | undefined
-    const memo = createReconcileMemo()
 
     for (const edgeId of edgeIds) {
       const edge = state.relations.edgeById.get(edgeId)
       const previous = state.cacheById.get(edgeId)
-      const next = edge ? toCacheEntry(edge, previous, memo) : undefined
+      const next = edge ? toCacheEntry(edge, previous) : undefined
       if (previous === next) continue
 
       if (!draftCacheById) {

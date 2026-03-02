@@ -3,19 +3,20 @@ import type { createStore } from 'jotai/vanilla'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { EngineRead } from '@engine-types/instance/read'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import type { ViewportApi } from '@engine-types/viewport'
+import type { Atom } from 'jotai/vanilla'
 import type { StateAtoms } from '../../state/factory/CreateState'
-import type { ReadAtoms } from './atoms'
 import type { Change } from '../write/pipeline/ChangeBus'
 import { toReadChangePlan } from './changePlan'
-import { facade as readFacade } from './facade'
-import { indexRuntime as createIndexRuntime } from './indexRuntime'
-import { queryFactory } from './queryFactory'
+import { runtime as createReadRuntime } from './runtime'
+import { runtime as createIndexRuntime } from './index/runtime'
+import { createQuery } from './query'
 
 type Options = {
   runtimeStore: ReturnType<typeof createStore>
   stateAtoms: StateAtoms
-  readAtoms: ReadAtoms
+  snapshotAtom: Atom<ReadModelSnapshot>
   config: InstanceConfig
   readDoc: () => Document
   viewport: ViewportApi
@@ -30,24 +31,24 @@ export type ReadOrchestrator = {
 export const orchestrator = ({
   runtimeStore,
   stateAtoms,
-  readAtoms,
+  snapshotAtom,
   config,
   readDoc,
   viewport
 }: Options): ReadOrchestrator => {
-  const initialSnapshot = runtimeStore.get(readAtoms.snapshot)
+  const initialSnapshot = runtimeStore.get(snapshotAtom)
   const indexes = createIndexRuntime(config, initialSnapshot.nodes.canvas)
-  const query: Query = queryFactory({
+  const query: Query = createQuery({
     readDoc,
     viewport,
     config,
     indexes
   })
 
-  const readLayer = readFacade({
+  const readLayer = createReadRuntime({
     runtimeStore,
     stateAtoms,
-    readAtoms,
+    snapshotAtom,
     config,
     query
   })
@@ -58,7 +59,7 @@ export const orchestrator = ({
     applyChange: (change) => {
       const plan = toReadChangePlan(change)
       if (plan.index.mode !== 'none') {
-        const snapshot = runtimeStore.get(readAtoms.snapshot)
+        const snapshot = runtimeStore.get(snapshotAtom)
         indexes.applyPlan(plan.index, snapshot)
       }
       readLayer.applyChange(plan)

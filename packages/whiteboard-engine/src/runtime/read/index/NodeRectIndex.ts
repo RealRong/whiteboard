@@ -22,7 +22,7 @@ type NodeRectCacheEntry = {
 }
 
 export class NodeRectIndex {
-  private byId = new Map<NodeId, NodeRectCacheEntry>()
+  private entriesById = new Map<NodeId, NodeRectCacheEntry>()
   private orderedIds: NodeId[] = []
   private orderedEntries: CanvasNodeRect[] = []
   private orderDirty = true
@@ -47,10 +47,9 @@ export class NodeRectIndex {
     }
   }
 
-  updateFull = (nodes: Node[]): { changed: boolean; changedNodeIds: Set<NodeId> } => {
+  syncFull = (nodes: Node[]): boolean => {
     const seen = new Set<NodeId>()
     const nextOrderedIds: NodeId[] = []
-    const changedNodeIds = new Set<NodeId>()
     let changed = false
 
     nodes.forEach((node) => {
@@ -58,24 +57,22 @@ export class NodeRectIndex {
       nextOrderedIds.push(node.id)
 
       const state = this.toStateTuple(node)
-      const current = this.byId.get(node.id)
+      const current = this.entriesById.get(node.id)
       if (current && isSameRectWithRotationTuple(current.state, state)) {
         return
       }
 
-      this.byId.set(node.id, {
+      this.entriesById.set(node.id, {
         state,
         entry: this.toEntry(node)
       })
-      changedNodeIds.add(node.id)
       this.orderDirty = true
       changed = true
     })
 
-    this.byId.forEach((_, nodeId) => {
+    this.entriesById.forEach((_, nodeId) => {
       if (seen.has(nodeId)) return
-      this.byId.delete(nodeId)
-      changedNodeIds.add(nodeId)
+      this.entriesById.delete(nodeId)
       this.orderDirty = true
       changed = true
     })
@@ -86,13 +83,10 @@ export class NodeRectIndex {
       changed = true
     }
 
-    return {
-      changed,
-      changedNodeIds
-    }
+    return changed
   }
 
-  updateByIds = (
+  syncByNodeIds = (
     nodeIds: Iterable<NodeId>,
     nodeById: ReadonlyMap<NodeId, Node>
   ): boolean => {
@@ -101,10 +95,10 @@ export class NodeRectIndex {
 
     for (const nodeId of nodeIds) {
       const node = nodeById.get(nodeId)
-      const current = this.byId.get(nodeId)
+      const current = this.entriesById.get(nodeId)
       if (!node) {
         if (!current) continue
-        this.byId.delete(nodeId)
+        this.entriesById.delete(nodeId)
         removed.add(nodeId)
         this.orderDirty = true
         changed = true
@@ -114,7 +108,7 @@ export class NodeRectIndex {
       const state = this.toStateTuple(node)
       if (current && isSameRectWithRotationTuple(current.state, state)) continue
 
-      this.byId.set(nodeId, {
+      this.entriesById.set(nodeId, {
         state,
         entry: this.toEntry(node)
       })
@@ -132,15 +126,15 @@ export class NodeRectIndex {
     return changed
   }
 
-  getAll = (): CanvasNodeRect[] => {
+  all = (): CanvasNodeRect[] => {
     if (!this.orderDirty) return this.orderedEntries
     this.orderedEntries = this.orderedIds
-      .map((id) => this.byId.get(id)?.entry)
+      .map((id) => this.entriesById.get(id)?.entry)
       .filter((entry): entry is CanvasNodeRect => Boolean(entry))
     this.orderDirty = false
     return this.orderedEntries
   }
 
-  getById = (nodeId: NodeId): CanvasNodeRect | undefined =>
-    this.byId.get(nodeId)?.entry
+  byId = (nodeId: NodeId): CanvasNodeRect | undefined =>
+    this.entriesById.get(nodeId)?.entry
 }

@@ -18,7 +18,7 @@ import { createState } from '../state/factory/CreateState'
 import { Scheduler } from '../runtime/Scheduler'
 import { ViewportRuntime } from '../runtime/Viewport'
 import { orchestrator as createReadOrchestrator } from '../runtime/read/orchestrator'
-import { read as readAtomsFactory } from '../runtime/read/atoms'
+import { snapshot as createSnapshotAtom } from '../runtime/read/snapshot'
 import { createDocumentStore } from '../document/Store'
 import { Reactions } from './reactions/Reactions'
 
@@ -194,7 +194,7 @@ export const createEngine = ({
     getDoc: documentStore.get,
     store: runtimeStore
   })
-  const readAtoms = readAtomsFactory({
+  const snapshotAtom = createSnapshotAtom({
     documentAtom: stateAtoms.document,
     revisionAtom: stateAtoms.readModelRevision
   })
@@ -208,7 +208,7 @@ export const createEngine = ({
   const readRuntime = createReadOrchestrator({
     runtimeStore,
     stateAtoms,
-    readAtoms,
+    snapshotAtom,
     config,
     readDoc: documentStore.get,
     viewport

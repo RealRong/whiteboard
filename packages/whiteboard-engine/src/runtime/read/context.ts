@@ -1,6 +1,7 @@
 import { atom, type Atom, type PrimitiveAtom, type createStore } from 'jotai/vanilla'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
 import {
   READ_PUBLIC_KEYS,
   READ_SUBSCRIBE_KEYS,
@@ -9,7 +10,6 @@ import {
   type ReadSubscribeKey
 } from '@engine-types/instance/read'
 import type { StateAtoms } from '../../state/factory/CreateState'
-import type { ReadAtoms } from './atoms'
 
 export const READ_INTERNAL_SIGNAL_KEYS = {
   edgeRevision: 'signal.edgeRevision'
@@ -29,7 +29,7 @@ export type ReadSubscribableInternalKey = ReadSubscribeKey | ReadInternalSignalK
 type ReadContextOptions = {
   runtimeStore: ReturnType<typeof createStore>
   stateAtoms: StateAtoms
-  readAtoms: ReadAtoms
+  snapshotAtom: Atom<ReadModelSnapshot>
   config: InstanceConfig
   query: Query
 }
@@ -40,7 +40,7 @@ type ReadAtomMap = {
   [READ_PUBLIC_KEYS.selection]: StateAtoms['selection']
   [READ_PUBLIC_KEYS.viewport]: StateAtoms['viewport']
   [READ_PUBLIC_KEYS.mindmapLayout]: StateAtoms['mindmapLayout']
-  [READ_SUBSCRIBE_KEYS.snapshot]: ReadAtoms['snapshot']
+  [READ_SUBSCRIBE_KEYS.snapshot]: Atom<ReadModelSnapshot>
   [READ_INTERNAL_SIGNAL_KEYS.edgeRevision]: PrimitiveAtom<number>
 }
 
@@ -71,7 +71,7 @@ export type ReadRuntimeContext = {
 export const context = ({
   runtimeStore,
   stateAtoms,
-  readAtoms,
+  snapshotAtom,
   config,
   query
 }: ReadContextOptions): ReadRuntimeContext => {
@@ -82,7 +82,7 @@ export const context = ({
     [READ_PUBLIC_KEYS.selection]: stateAtoms.selection,
     [READ_PUBLIC_KEYS.viewport]: stateAtoms.viewport,
     [READ_PUBLIC_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
-    [READ_SUBSCRIBE_KEYS.snapshot]: readAtoms.snapshot,
+    [READ_SUBSCRIBE_KEYS.snapshot]: snapshotAtom,
     [READ_INTERNAL_SIGNAL_KEYS.edgeRevision]: edgeRevisionAtom
   }
   const signalAtomMap: ReadSignalAtomMap = {

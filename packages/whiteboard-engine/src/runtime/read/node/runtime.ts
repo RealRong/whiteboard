@@ -1,18 +1,22 @@
 import type { ReadRuntimeContext } from '../context'
-import type { ReadDomain } from '../domainTypes'
+import type { EngineReadGetters } from '@engine-types/instance/read'
+import type { ReadChangePlan } from '../changePlan'
 import { atoms as createNodeAtoms } from './atoms'
 
-type NodeReadAtomKey = 'viewportTransform' | 'nodeIds' | 'nodeById'
+type NodeReadGet = Pick<
+  EngineReadGetters,
+  'viewportTransform' | 'nodeIds' | 'nodeById'
+>
 
-type NodeReadGetterKey = NodeReadAtomKey
+export type NodeReadRuntime = {
+  get: NodeReadGet
+  applyChange: (plan: ReadChangePlan) => void
+}
 
-export type NodeReadDomain = ReadDomain<NodeReadAtomKey, NodeReadGetterKey>
-
-export const domain = (context: ReadRuntimeContext): NodeReadDomain => {
+export const runtime = (context: ReadRuntimeContext): NodeReadRuntime => {
   const derivedAtoms = createNodeAtoms(context)
 
   return {
-    atoms: derivedAtoms,
     get: {
       viewportTransform: () => context.store.get(derivedAtoms.viewportTransform),
       nodeIds: () => context.store.get(derivedAtoms.nodeIds),

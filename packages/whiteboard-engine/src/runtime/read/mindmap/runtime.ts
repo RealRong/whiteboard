@@ -1,24 +1,22 @@
 import type { ReadRuntimeContext } from '../context'
-import type { ReadDomain } from '../domainTypes'
+import type { EngineReadGetters } from '@engine-types/instance/read'
+import type { ReadChangePlan } from '../changePlan'
 import { atoms as createMindmapAtoms } from './atoms'
-import { projection as createMindmapProjection } from './projection'
+import { cache as createMindmapCache } from './cache'
 
-type MindmapReadAtomKey = 'mindmapIds' | 'mindmapById'
+type MindmapReadGet = Pick<EngineReadGetters, 'mindmapIds' | 'mindmapById'>
 
-type MindmapReadGetterKey = MindmapReadAtomKey
+export type MindmapReadRuntime = {
+  get: MindmapReadGet
+  applyChange: (plan: ReadChangePlan) => void
+}
 
-export type MindmapReadDomain = ReadDomain<
-  MindmapReadAtomKey,
-  MindmapReadGetterKey
->
+export const runtime = (context: ReadRuntimeContext): MindmapReadRuntime => {
+  const mindmapCache = createMindmapCache(context)
 
-export const domain = (context: ReadRuntimeContext): MindmapReadDomain => {
-  const mindmapProjection = createMindmapProjection(context)
-
-  const derivedAtoms = createMindmapAtoms(context, mindmapProjection)
+  const derivedAtoms = createMindmapAtoms(context, mindmapCache)
 
   return {
-    atoms: derivedAtoms,
     get: {
       mindmapIds: () => context.store.get(derivedAtoms.mindmapIds),
       mindmapById: (id) => context.store.get(derivedAtoms.mindmapById(id))

@@ -8,12 +8,12 @@ import type { InstanceConfig } from '@engine-types/instance/config'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
-import { DEFAULT_TUNING } from '../../config'
-import { NodeRectIndex } from './index/NodeRectIndex'
-import { SnapIndex } from './index/SnapIndex'
-import type { ReadIndexChangePlan } from './changePlan'
+import { DEFAULT_TUNING } from '../../../config'
+import { NodeRectIndex } from './NodeRectIndex'
+import { SnapIndex } from './SnapIndex'
+import type { ReadIndexChangePlan } from '../changePlan'
 
-export type ReadIndexRuntime = {
+export type IndexRuntime = {
   query: {
     nodeRects: () => CanvasNodeRect[]
     nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
@@ -27,10 +27,10 @@ export type ReadIndexRuntime = {
   ) => void
 }
 
-export const indexRuntime = (
+export const runtime = (
   config: InstanceConfig,
   initialCanvasNodes: Node[]
-): ReadIndexRuntime => {
+): IndexRuntime => {
   const nodeRectIndex = new NodeRectIndex(config)
   const snapIndex = new SnapIndex(() =>
     Math.max(
@@ -40,30 +40,30 @@ export const indexRuntime = (
   )
 
   const syncIndex = (nodes: Node[]) => {
-    nodeRectIndex.updateFull(nodes)
-    snapIndex.update(nodeRectIndex.getAll())
+    nodeRectIndex.syncFull(nodes)
+    snapIndex.syncFull(nodeRectIndex.all())
   }
 
   const syncIndexByNodeIds = (
     nodeIds: Iterable<NodeId>,
     nodeById: ReadonlyMap<NodeId, Node>
   ) => {
-    const changed = nodeRectIndex.updateByIds(nodeIds, nodeById)
+    const changed = nodeRectIndex.syncByNodeIds(nodeIds, nodeById)
     if (!changed) return
-    snapIndex.updateByNodeIds(nodeIds, nodeRectIndex.getById)
+    snapIndex.syncByNodeIds(nodeIds, nodeRectIndex.byId)
   }
 
   syncIndex(initialCanvasNodes)
 
-  const query: ReadIndexRuntime['query'] = {
-    nodeRects: () => nodeRectIndex.getAll(),
-    nodeRect: (nodeId) => nodeRectIndex.getById(nodeId),
-    nodeIdsInRect: (rect) => getNodeIdsInRectRaw(rect, nodeRectIndex.getAll()),
-    snapCandidates: () => snapIndex.getAll(),
+  const query: IndexRuntime['query'] = {
+    nodeRects: () => nodeRectIndex.all(),
+    nodeRect: (nodeId) => nodeRectIndex.byId(nodeId),
+    nodeIdsInRect: (rect) => getNodeIdsInRectRaw(rect, nodeRectIndex.all()),
+    snapCandidates: () => snapIndex.all(),
     snapCandidatesInRect: (rect) => snapIndex.queryInRect(rect)
   }
 
-  const applyPlan: ReadIndexRuntime['applyPlan'] = (plan, snapshot) => {
+  const applyPlan: IndexRuntime['applyPlan'] = (plan, snapshot) => {
     if (plan.mode === 'none') return
     if (plan.mode === 'full') {
       syncIndex(snapshot.nodes.canvas)

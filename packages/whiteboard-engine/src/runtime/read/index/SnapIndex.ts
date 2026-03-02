@@ -111,7 +111,7 @@ export class SnapIndex {
     this.orderDirty = true
   }
 
-  update = (entries: CanvasNodeRect[]): boolean => {
+  syncFull = (entries: CanvasNodeRect[]): boolean => {
     const nextCellSize = this.getCellSize()
     if (nextCellSize !== this.cellSize) {
       this.cellSize = nextCellSize
@@ -166,7 +166,7 @@ export class SnapIndex {
     return changed
   }
 
-  updateByNodeIds = (
+  syncByNodeIds = (
     nodeIds: Iterable<NodeId>,
     getEntry: (nodeId: NodeId) => CanvasNodeRect | undefined
   ): boolean => {
@@ -214,7 +214,7 @@ export class SnapIndex {
     return true
   }
 
-  getAll = (): SnapCandidate[] => {
+  all = (): SnapCandidate[] => {
     if (!this.orderDirty) return this.orderedCandidates
     this.orderedCandidates = this.orderedIds
       .map((id) => this.byId.get(id)?.candidate)

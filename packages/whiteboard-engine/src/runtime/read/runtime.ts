@@ -2,49 +2,50 @@ import { type createStore } from 'jotai/vanilla'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { Query } from '@engine-types/instance/query'
 import type { EngineRead, ReadPublicKey } from '@engine-types/instance/read'
+import type { ReadModelSnapshot } from '@engine-types/readSnapshot'
+import type { Atom } from 'jotai/vanilla'
 import type { StateAtoms } from '../../state/factory/CreateState'
-import type { ReadAtoms } from './atoms'
 import type { ReadChangePlan } from './changePlan'
 import { context as createReadContext } from './context'
-import { domain as edgeDomain } from './edge/domain'
-import { domain as nodeDomain } from './node/domain'
-import { domain as mindmapDomain } from './mindmap/domain'
+import { runtime as createEdgeRuntime } from './edge/runtime'
+import { runtime as createNodeRuntime } from './node/runtime'
+import { runtime as createMindmapRuntime } from './mindmap/runtime'
 
 type Options = {
   runtimeStore: ReturnType<typeof createStore>
   stateAtoms: StateAtoms
-  readAtoms: ReadAtoms
+  snapshotAtom: Atom<ReadModelSnapshot>
   config: InstanceConfig
   query: Query
 }
 
-export type ReadFacade = {
+export type ReadRuntime = {
   read: EngineRead
   applyChange: (plan: ReadChangePlan) => void
 }
 
-export const facade = ({
+export const runtime = ({
   runtimeStore,
   stateAtoms,
-  readAtoms,
+  snapshotAtom,
   config,
   query
-}: Options): ReadFacade => {
+}: Options): ReadRuntime => {
   const readContext = createReadContext({
     runtimeStore,
     stateAtoms,
-    readAtoms,
+    snapshotAtom,
     config,
     query
   })
 
-  const edgeRead = edgeDomain(readContext)
+  const edgeRead = createEdgeRuntime(readContext)
 
-  const nodeRead = nodeDomain(readContext)
+  const nodeRead = createNodeRuntime(readContext)
 
-  const mindmapRead = mindmapDomain(readContext)
+  const mindmapRead = createMindmapRuntime(readContext)
 
-  const applyChange: ReadFacade['applyChange'] = (plan) => {
+  const applyChange: ReadRuntime['applyChange'] = (plan) => {
     edgeRead.applyChange(plan)
     nodeRead.applyChange(plan)
     mindmapRead.applyChange(plan)

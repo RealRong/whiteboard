@@ -2,28 +2,26 @@ import {
   READ_INTERNAL_SIGNAL_KEYS,
   type ReadRuntimeContext
 } from '../context'
-import type { ReadDomain } from '../domainTypes'
+import type { EngineReadGetters } from '@engine-types/instance/read'
+import type { ReadChangePlan } from '../changePlan'
 import { cache as createEdgeCache } from './cache'
 import { atoms as createEdgeAtoms } from './atoms'
 
-type EdgeReadAtomKey =
-  | 'edgeIds'
-  | 'edgeById'
-  | 'selectedEdgeId'
-  | 'edgeSelectedEndpoints'
-
-type EdgeReadGetterKey = EdgeReadAtomKey
-
-export type EdgeReadDomain = ReadDomain<
-  EdgeReadAtomKey,
-  EdgeReadGetterKey
+type EdgeReadGet = Pick<
+  EngineReadGetters,
+  'edgeIds' | 'edgeById' | 'selectedEdgeId' | 'edgeSelectedEndpoints'
 >
 
-export const domain = (context: ReadRuntimeContext): EdgeReadDomain => {
+export type EdgeReadRuntime = {
+  get: EdgeReadGet
+  applyChange: (plan: ReadChangePlan) => void
+}
+
+export const runtime = (context: ReadRuntimeContext): EdgeReadRuntime => {
   const cache = createEdgeCache(context)
   const derivedAtoms = createEdgeAtoms(context, cache)
 
-  const applyChange: EdgeReadDomain['applyChange'] = (plan) => {
+  const applyChange: EdgeReadRuntime['applyChange'] = (plan) => {
     cache.applyPlan(plan.edge)
 
     if (plan.edge.bumpRevision) {
@@ -35,7 +33,6 @@ export const domain = (context: ReadRuntimeContext): EdgeReadDomain => {
   }
 
   return {
-    atoms: derivedAtoms,
     get: {
       edgeIds: () => context.store.get(derivedAtoms.edgeIds),
       edgeById: (id) => context.store.get(derivedAtoms.edgeById(id)),

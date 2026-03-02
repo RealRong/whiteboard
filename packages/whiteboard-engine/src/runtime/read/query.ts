@@ -7,16 +7,16 @@ import {
   getNearestEdgeSegment as getNearestEdgeSegmentRaw
 } from '@whiteboard/core/edge'
 import { DEFAULT_TUNING } from '../../config'
-import type { ReadIndexRuntime } from './indexRuntime'
+import type { IndexRuntime } from './index/runtime'
 
 type Options = {
   readDoc: () => Document
   viewport: ViewportApi
   config: InstanceConfig
-  indexes: ReadIndexRuntime
+  indexes: IndexRuntime
 }
 
-export const queryFactory = ({
+export const createQuery = ({
   readDoc,
   viewport,
   config,

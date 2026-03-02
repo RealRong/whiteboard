@@ -1,6 +1,12 @@
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { MindmapViewTree } from '@engine-types/instance/read'
-import type { MindmapTree, Node } from '@whiteboard/core/types'
+import {
+  READ_PUBLIC_KEYS,
+  READ_SUBSCRIBE_KEYS,
+  type MindmapView,
+  type MindmapViewTree
+} from '@engine-types/instance/read'
+import type { MindmapTree, Node, NodeId } from '@whiteboard/core/types'
+import { isSameRefOrder } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../../config'
 import {
   buildMindmapLines,
@@ -16,8 +22,13 @@ type MindmapCacheInput = {
   layout: MindmapLayoutConfig
 }
 
+export type MindmapReadSnapshot = {
+  readonly ids: NodeId[]
+  readonly byId: ReadonlyMap<NodeId, MindmapViewTree>
+}
+
 export type MindmapReadCache = {
-  trees: (input: MindmapCacheInput) => MindmapViewTree[]
+  getSnapshot: () => MindmapReadSnapshot
 }
 
 type MindmapTreeCacheKey = {
@@ -41,6 +52,11 @@ type MindmapTreeCacheKey = {
 type MindmapTreeCacheEntry = {
   key: MindmapTreeCacheKey
   tree: MindmapViewTree
+}
+
+type MindmapProjectionCache = {
+  trees: MindmapViewTree[]
+  view: MindmapView
 }
 
 const MINDMAP_CACHE_SCALAR_KEYS = [
@@ -99,11 +115,12 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
 export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
   const config = context.config
   let treeCache = new Map<string, MindmapTreeCacheEntry>()
+  let projectionCache: MindmapProjectionCache | undefined
 
-  const trees: MindmapReadCache['trees'] = ({
+  const trees = ({
     visibleNodes,
     layout
-  }) => {
+  }: MindmapCacheInput): MindmapViewTree[] => {
     const allRoots = getMindmapRoots(visibleNodes)
     const nextCache = new Map<string, MindmapTreeCacheEntry>()
     const nextTrees: MindmapViewTree[] = []
@@ -155,7 +172,35 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
     return nextTrees
   }
 
+  const getSnapshot: MindmapReadCache['getSnapshot'] = () => {
+    const nextTrees = trees({
+      visibleNodes: context.get(READ_SUBSCRIBE_KEYS.snapshot).nodes.visible,
+      layout: context.get(READ_PUBLIC_KEYS.mindmapLayout)
+    })
+
+    if (projectionCache && isSameRefOrder(projectionCache.trees, nextTrees)) {
+      return projectionCache.view
+    }
+
+    const ids: NodeId[] = []
+    const byId = new Map<NodeId, MindmapViewTree>()
+    nextTrees.forEach((entry) => {
+      ids.push(entry.id)
+      byId.set(entry.id, entry)
+    })
+
+    const view: MindmapView = {
+      ids,
+      byId
+    }
+    projectionCache = {
+      trees: nextTrees,
+      view
+    }
+    return view
+  }
+
   return {
-    trees
+    getSnapshot
   }
 }

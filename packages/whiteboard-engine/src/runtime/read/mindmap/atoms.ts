@@ -6,7 +6,7 @@ import {
   type MindmapViewTree
 } from '@engine-types/instance/read'
 import type { ReadRuntimeContext } from '../context'
-import type { MindmapProjection } from './projection'
+import type { MindmapReadCache } from './cache'
 
 export type MindmapReadAtoms = {
   mindmapIds: Atom<NodeId[]>
@@ -15,7 +15,7 @@ export type MindmapReadAtoms = {
 
 export const atoms = (
   context: ReadRuntimeContext,
-  projection: MindmapProjection
+  cache: MindmapReadCache
 ): MindmapReadAtoms => {
   const mindmapLayoutAtom = context.atom(READ_PUBLIC_KEYS.mindmapLayout)
   const readSnapshotAtom = context.atom(READ_SUBSCRIBE_KEYS.snapshot)
@@ -24,7 +24,7 @@ export const atoms = (
   const mindmapIdsAtom = atom((get) => {
     get(readSnapshotAtom)
     get(mindmapLayoutAtom)
-    return projection.getSnapshot().ids
+    return cache.getSnapshot().ids
   })
 
   const mindmapById = (id: NodeId) => {
@@ -34,7 +34,7 @@ export const atoms = (
     const nextAtom = atom((get) => {
       get(readSnapshotAtom)
       get(mindmapLayoutAtom)
-      return projection.getSnapshot().byId.get(id)
+      return cache.getSnapshot().byId.get(id)
     })
     mindmapByIdAtoms.set(id, nextAtom)
     return nextAtom
