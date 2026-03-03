@@ -50,9 +50,7 @@ export const runtime = ({
     )
   const gateway = createCommandGateway({ apply })
   const writeCommands = writeApi({
-    apply,
-    gateway,
-    commandGatewayEnabled: instance.config.features.commandGatewayEnabled
+    gateway
   })
   const edgeCommands = edge({ instance, apply })
   const interactionCommands = interaction({ instance })

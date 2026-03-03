@@ -36,9 +36,6 @@ export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
   },
   viewport: {
     wheelSensitivity: 0.001
-  },
-  features: {
-    commandGatewayEnabled: true
   }
 }
 

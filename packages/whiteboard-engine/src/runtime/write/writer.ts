@@ -102,20 +102,12 @@ export class Writer {
 
   private publishChange = ({
     kind,
-    origin,
     trace,
-    operations,
-    impact,
-    docBefore,
-    docAfter
+    impact
   }: {
     kind: 'apply' | 'replace'
-    origin: Origin
     trace: ChangeTrace
-    operations: Operation[]
     impact: ReturnType<MutationImpactAnalyzer['analyze']>
-    docBefore: Document
-    docAfter: Document
   }) => {
     const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
     const readHints = createReadInvalidation({
@@ -126,13 +118,8 @@ export class Writer {
     this.changeBus.publish({
       revision,
       kind,
-      origin,
       trace,
-      readHints,
-      operations,
-      impact,
-      docBefore,
-      docAfter
+      readHints
     })
   }
 
@@ -170,12 +157,8 @@ export class Writer {
       const operations = reduced.changes.operations
       this.publishChange({
         kind: 'apply',
-        origin: input.origin,
         trace,
-        operations,
-        impact: this.impactAnalyzer.analyze(operations),
-        docBefore,
-        docAfter
+        impact: this.impactAnalyzer.analyze(operations)
       })
 
       return {
@@ -190,17 +173,12 @@ export class Writer {
       } as unknown as TransactionResult<T>
     }
 
-    const docBefore = this.instance.document.get()
     this.commitDocument(input.doc, { silent: true })
     const docAfter = this.syncDocumentState(input.doc)
     this.publishChange({
       kind: 'replace',
-      origin: input.origin,
       trace,
-      operations: [],
-      impact: FULL_MUTATION_IMPACT,
-      docBefore,
-      docAfter
+      impact: FULL_MUTATION_IMPACT
     })
 
     return {

@@ -351,15 +351,20 @@ export class Autofit {
   }
 
   private handleCommit = (meta: Change) => {
+    const reasons = meta.readHints.reasons
+    const dirtyNodeIds = meta.readHints.dirtyNodeIds
+    const hasReason = (reason: typeof reasons[number]) =>
+      reasons.includes(reason)
     const hasRelevantChange =
       meta.kind === 'replace'
-      || meta.impact.tags.has('full')
-      || meta.impact.tags.has('nodes')
-      || meta.impact.tags.has('geometry')
-      || meta.impact.tags.has('order')
-      || Boolean(meta.impact.dirtyNodeIds?.length)
+      || meta.readHints.mode === 'full'
+      || hasReason('full')
+      || hasReason('nodes')
+      || hasReason('geometry')
+      || hasReason('order')
+      || Boolean(dirtyNodeIds.length)
     if (!hasRelevantChange) return
-    if (meta.kind === 'replace' || meta.impact.tags.has('full')) {
+    if (meta.kind === 'replace' || meta.readHints.mode === 'full') {
       this.forceFullSync = true
       this.pendingDiff = false
       this.pendingDirtyNodeIds.clear()
@@ -367,8 +372,8 @@ export class Autofit {
       return
     }
 
-    if (meta.impact.dirtyNodeIds?.length) {
-      meta.impact.dirtyNodeIds.forEach((id) => {
+    if (dirtyNodeIds.length) {
+      dirtyNodeIds.forEach((id) => {
         this.pendingDirtyNodeIds.add(id)
       })
     } else {

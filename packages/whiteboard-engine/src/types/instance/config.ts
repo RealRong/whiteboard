@@ -18,7 +18,4 @@ export type InstanceConfig = {
   viewport: {
     wheelSensitivity: number
   }
-  features: {
-    commandGatewayEnabled: boolean
-  }
 }

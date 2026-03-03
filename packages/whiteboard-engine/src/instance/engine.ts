@@ -1,8 +1,8 @@
 import type {
   CreateEngineOptions,
-  InternalInstance,
   Instance
 } from '@engine-types/instance/engine'
+import type { Api as RuntimeApi } from '@engine-types/instance/runtime'
 import type { Document } from '@whiteboard/core/types'
 import type { WriteRuntimeInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
@@ -62,16 +62,11 @@ export const engine = ({
     viewport
   })
 
-  let previousHistoryDocId: string | undefined
-  const runtime: InternalInstance['runtime'] = {
-    store: runtimeStore,
-    applyConfig: (() => {}) as InternalInstance['runtime']['applyConfig'],
-    dispose: (() => {}) as InternalInstance['runtime']['dispose']
-  }
-
   const baseInstance: WriteRuntimeInstance = {
     state,
-    runtime,
+    runtime: {
+      store: runtimeStore
+    },
     document: {
       get: readDocument,
       replace: replaceDocument
@@ -101,45 +96,44 @@ export const engine = ({
     reactions,
     writeRuntime
   })
-  const instance: InternalInstance = {
-    ...baseInstance,
-    commands
-  }
   const shortcuts = bindShortcuts({
-    instance,
+    state,
     runAction: writeRuntime.commands.shortcut.execute
   })
 
-  runtime.applyConfig = (nextConfig) => {
-    if (nextConfig.history) {
-      writeRuntime.history.configure(nextConfig.history)
-    }
-    if (!nextConfig.docId) {
-      previousHistoryDocId = undefined
-    } else {
-      if (previousHistoryDocId && previousHistoryDocId !== nextConfig.docId) {
-        writeRuntime.history.clear()
+  let previousHistoryDocId: string | undefined
+  const runtime: RuntimeApi = {
+    store: runtimeStore,
+    applyConfig: (nextConfig) => {
+      if (nextConfig.history) {
+        writeRuntime.history.configure(nextConfig.history)
       }
-      previousHistoryDocId = nextConfig.docId
+      if (!nextConfig.docId) {
+        previousHistoryDocId = undefined
+      } else {
+        if (previousHistoryDocId && previousHistoryDocId !== nextConfig.docId) {
+          writeRuntime.history.clear()
+        }
+        previousHistoryDocId = nextConfig.docId
+      }
+      state.write('tool', nextConfig.tool)
+      viewport.setViewport(nextConfig.viewport)
+      shortcuts.setShortcuts(nextConfig.shortcuts)
+      state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
+    },
+    dispose: () => {
+      previousHistoryDocId = undefined
+      reactions.dispose()
+      shortcuts.dispose()
+      scheduler.cancelAll()
     }
-    state.write('tool', nextConfig.tool)
-    viewport.setViewport(nextConfig.viewport)
-    shortcuts.setShortcuts(nextConfig.shortcuts)
-    state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
-  }
-
-  runtime.dispose = () => {
-    previousHistoryDocId = undefined
-    reactions.dispose()
-    shortcuts.dispose()
-    scheduler.cancelAll()
   }
 
   return {
-    state: instance.state,
-    runtime: instance.runtime,
-    query: instance.query,
-    read: instance.read,
-    commands: instance.commands
+    state,
+    runtime,
+    query: readRuntime.query,
+    read: readRuntime.read,
+    commands
   }
 }

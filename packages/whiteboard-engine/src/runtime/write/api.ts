@@ -59,21 +59,14 @@ type EdgeCommand = WriteCommandMap['edge']
 type ViewportCommand = WriteCommandMap['viewport']
 
 export const write = ({
-  apply,
-  gateway,
-  commandGatewayEnabled
+  gateway
 }: {
-  apply: Apply
   gateway: CommandGateway
-  commandGatewayEnabled: boolean
 }): WriteCommandsApi => {
   const now = () => Date.now()
 
   return {
     apply: async <D extends WriteDomain>(payload: WriteInput<D>) => {
-      if (!commandGatewayEnabled) {
-        return apply(payload)
-      }
       const source = payload.source ?? 'ui'
       const commandId = payload.trace?.commandId ?? createBatchId('command')
       const commandResult = await gateway.dispatch<'write.apply', WriteInput<D>>({

@@ -56,9 +56,6 @@ export const resolveInstanceConfig = (
     viewport: {
       ...merged.viewport,
       wheelSensitivity: Math.max(0, merged.viewport.wheelSensitivity)
-    },
-    features: {
-      commandGatewayEnabled: merged.features.commandGatewayEnabled !== false
     }
   }
 }
@@ -88,9 +85,6 @@ export const toInstanceConfig = (
   },
   viewport: {
     wheelSensitivity: config.viewport.wheelSensitivity
-  },
-  features: {
-    commandGatewayEnabled: DEFAULT_INSTANCE_CONFIG.features.commandGatewayEnabled
   }
 })
 

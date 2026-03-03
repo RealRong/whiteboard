@@ -4,8 +4,10 @@ import type { Scheduler } from '../../runtime/Scheduler'
 
 export type WriteRuntimeInstance = Pick<
   InternalInstance,
-  'state' | 'runtime' | 'document' | 'config' | 'viewport' | 'registries' | 'query' | 'read'
->
+  'state' | 'document' | 'config' | 'viewport' | 'registries' | 'query' | 'read'
+> & {
+  runtime: Pick<InternalInstance['runtime'], 'store'>
+}
 
 export type Deps = {
   instance: WriteRuntimeInstance

@@ -1,4 +1,4 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { State } from '@engine-types/instance/state'
 import type { KeyInputEvent, PointerInputEvent } from '@engine-types/input/event'
 import type {
   ShortcutAction,
@@ -80,13 +80,13 @@ const withKeyContext = (
 class ShortcutsImpl implements Shortcuts {
   private readonly shortcutManager: ShortcutManager
   private readonly runAction: (action: ShortcutAction) => boolean
-  private readonly readState: InternalInstance['state']['read']
+  private readonly readState: State['read']
   private readonly platform: ShortcutContext['platform']
 
-  constructor(instance: InternalInstance, runAction: (action: ShortcutAction) => boolean) {
+  constructor(state: State, runAction: (action: ShortcutAction) => boolean) {
     this.shortcutManager = manager()
     this.runAction = runAction
-    this.readState = instance.state.read
+    this.readState = state.read
     this.platform = platform()
 
     this.setShortcuts()
@@ -140,10 +140,10 @@ class ShortcutsImpl implements Shortcuts {
 }
 
 type Deps = {
-  instance: InternalInstance
+  state: State
   runAction: (action: ShortcutAction) => boolean
 }
 
-export const shortcuts = ({ instance, runAction }: Deps): Shortcuts => {
-  return new ShortcutsImpl(instance, runAction)
+export const shortcuts = ({ state, runAction }: Deps): Shortcuts => {
+  return new ShortcutsImpl(state, runAction)
 }
