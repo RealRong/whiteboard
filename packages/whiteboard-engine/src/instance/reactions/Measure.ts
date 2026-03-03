@@ -1,13 +1,13 @@
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { WriteCommandsApi } from '@engine-types/write/commands'
+import type { WriteApply } from '@engine-types/write/commands'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { FrameTask } from '../../runtime/TaskQueue'
 import type { NodeId } from '@whiteboard/core/types'
 
 type Options = {
   instance: Pick<InternalInstance, 'document'>
-  applyWrite: WriteCommandsApi['apply']
+  applyWrite: WriteApply
   scheduler: Scheduler
 }
 

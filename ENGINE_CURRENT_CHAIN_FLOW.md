@@ -14,6 +14,7 @@
 5. 系统反应统一回流：`Measure/Autofit` 都通过 `write.apply(source='system')` 写入。
 6. 开关清零：`commandGatewayEnabled` 已删除，网关路径固定启用。
 7. 文档切换收敛：`runtime.applyConfig` 不再承载 `docId` 语义，文档替换只走 `commands.doc.reset` 写路径。
+8. 命令面纯语义：`writeRuntime.commands` 不再包含 `write`，内部原语上提为 `writeRuntime.applyWrite`。
 
 最终链路：
 
@@ -30,7 +31,7 @@
 3. 直接以 `stateAtoms.document` 实现 `document.get/replace`（文档单源）。
 4. 创建 `snapshotAtom`、`ViewportRuntime`、`readRuntime`。
 5. 组装最小 `baseInstance`（给 write runtime 使用），其中 `runtime` 仅暴露 `store`。
-6. 创建 `writeRuntime`，再创建 `reactions` 和 `commands`。
+6. 创建 `writeRuntime`（`commands` + `applyWrite`），再创建 `reactions` 和 `commands`。
 7. 绑定 `shortcuts`（依赖降级为 `state + runAction`）。
 8. 在 `engine.ts` 内联创建最终 `runtime.applyConfig/runtime.dispose`。
 
@@ -177,7 +178,7 @@ type Change = {
 
 1. `Measure` 收集尺寸后下发 `node.update`（`source='system'`）。
 2. `Autofit` 监听 `change.readHints.index`（按 `index.mode/dirtyNodeIds` 执行），不再读取 `impact/kind/reasons`。
-3. 二者都回到统一写链路，保持 trace/history/read 同步一致。
+3. 二者都通过 `writeRuntime.applyWrite` 回到统一写链路，保持 trace/history/read 同步一致。
 
 ## 8. History 链路
 
@@ -264,5 +265,6 @@ Host 传入新 doc
 15. write api 进一步扁平化到 `api/*`，移除 `api/commands` 目录与 `runtime/write/api.ts` 中间层。
 16. Operation 与写链路参数收敛为只读契约（`readonly`），把“不可变约定”升级为编译期约束。
 17. Public `instance.commands` 移除 `write` 原语入口，仅保留语义命令；`write.apply` 下沉为 runtime 内部能力（供 reactions 等内部模块使用）。
+18. `writeRuntime.commands` 移除 `write` 字段，`write.apply` 以 `writeRuntime.applyWrite` 顶层内部能力提供，消除“语义命令集中的原语混入”。
 
 以上收敛点已经落地并通过构建验证。

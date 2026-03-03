@@ -7,13 +7,12 @@ import type {
   NodeCommandsApi,
   SelectionCommandsApi,
   ShortcutActionDispatcher,
-  WriteCommandsApi,
+  WriteApply,
   ViewportCommandsApi
 } from './commands'
 import type { CommandGateway } from '../cqrs/command'
 
 export type CommandSet = {
-  write: WriteCommandsApi
   edge: EdgeCommandsApi
   interaction: InteractionCommandsApi
   viewport: ViewportCommandsApi
@@ -25,6 +24,7 @@ export type CommandSet = {
 
 export type Runtime = {
   gateway: CommandGateway
+  applyWrite: WriteApply
   history: EngineCommands['history']
   resetDoc: EngineCommands['doc']['reset']
   commands: CommandSet

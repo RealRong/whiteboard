@@ -6,11 +6,11 @@ import type {
 } from '@engine-types/command/api'
 import type { CommandGateway } from '@engine-types/cqrs/command'
 import {
+  applyWrite as applyWriteApi,
   edge,
   interaction,
   mindmap,
   node,
-  write as writeApi,
   shortcut,
   selection,
   viewport
@@ -31,7 +31,7 @@ const toPlanInput = <D extends WriteDomain>(payload: WriteInput<D>): PlanInput<D
 
 type BaseCommandSet = Pick<
   WriteRuntime['commands'],
-  'write' | 'edge' | 'interaction' | 'viewport' | 'node' | 'mindmap'
+  'edge' | 'interaction' | 'viewport' | 'node' | 'mindmap'
 >
 type DerivedCommandSet = Pick<
   WriteRuntime['commands'],
@@ -40,7 +40,6 @@ type DerivedCommandSet = Pick<
 type BaseCommandBuilderDeps = {
   instance: WriteDeps['instance']
   apply: Apply
-  gateway: CommandGateway
 }
 type DerivedCommandBuilderDeps = {
   instance: WriteDeps['instance']
@@ -51,7 +50,6 @@ type DerivedCommandBuilderDeps = {
 const baseCommandBuilders: {
   [K in keyof BaseCommandSet]: (deps: BaseCommandBuilderDeps) => BaseCommandSet[K]
 } = {
-  write: ({ gateway }) => writeApi({ gateway }),
   edge: ({ instance, apply }) => edge({ instance, apply }),
   interaction: ({ instance }) => interaction({ instance }),
   viewport: ({ apply }) => viewport({ apply }),
@@ -60,7 +58,6 @@ const baseCommandBuilders: {
 }
 
 const createBaseCommandSet = (deps: BaseCommandBuilderDeps): BaseCommandSet => ({
-  write: baseCommandBuilders.write(deps),
   edge: baseCommandBuilders.edge(deps),
   interaction: baseCommandBuilders.interaction(deps),
   viewport: baseCommandBuilders.viewport(deps),
@@ -127,18 +124,15 @@ const createWritePipeline = ({
 const createWriteCommandSet = ({
   instance,
   apply,
-  gateway,
   history
 }: {
   instance: WriteDeps['instance']
   apply: Apply
-  gateway: CommandGateway
   history: WriteRuntime['history']
 }): WriteRuntime['commands'] => {
   const baseCommands = createBaseCommandSet({
     instance,
-    apply,
-    gateway
+    apply
   })
   const derivedCommands = createDerivedCommandSet({
     instance,
@@ -170,12 +164,13 @@ export const runtime = ({
   const commands = createWriteCommandSet({
     instance,
     apply,
-    gateway,
     history: writer.history
   })
+  const applyWrite = applyWriteApi({ gateway })
 
   return {
     gateway,
+    applyWrite,
     history: writer.history,
     resetDoc: writer.resetDoc,
     changeBus,

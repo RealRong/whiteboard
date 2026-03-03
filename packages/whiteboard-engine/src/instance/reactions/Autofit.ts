@@ -1,7 +1,7 @@
 import type { Node, Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { WriteCommandsApi } from '@engine-types/write/commands'
+import type { WriteApply } from '@engine-types/write/commands'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { MicrotaskTask } from '../../runtime/TaskQueue'
 import { DEFAULT_TUNING } from '../../config'
@@ -38,7 +38,7 @@ type RebuildPlan = {
 
 type RuntimeOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
-  applyWrite: WriteCommandsApi['apply']
+  applyWrite: WriteApply
   scheduler: Scheduler
 }
 

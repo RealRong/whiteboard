@@ -1,4 +1,4 @@
-export { write } from './write'
+export { applyWrite } from './write'
 export { node } from './node'
 export { edge } from './edge'
 export { interaction } from './interaction'
