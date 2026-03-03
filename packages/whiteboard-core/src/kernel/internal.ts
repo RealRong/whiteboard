@@ -43,8 +43,31 @@ export const createKernelCore = (
     document: cloneDocument(document),
     now: context.now
   })
+  core.history.configure({ enabled: false })
   applyKernelRegistries(core.registries, context.registries)
   return core
+}
+
+let reusableKernelCore: Core | undefined
+
+export const getReusableKernelCore = (
+  document: Document,
+  context: KernelContext = {}
+): Core => {
+  if (!reusableKernelCore) {
+    reusableKernelCore = createCore({
+      document: cloneDocument(document),
+      now: context.now
+    })
+    reusableKernelCore.history.configure({ enabled: false })
+  } else {
+    reusableKernelCore.load({
+      schemaVersion: reusableKernelCore.serialize().schemaVersion,
+      document: cloneDocument(document)
+    })
+  }
+  applyKernelRegistries(reusableKernelCore.registries, context.registries)
+  return reusableKernelCore
 }
 
 export const createKernelFailure = (

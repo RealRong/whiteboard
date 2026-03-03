@@ -1,6 +1,7 @@
 import type { Document, Operation } from '../types'
-import { createKernelCore } from './internal'
+import { getReusableKernelCore } from './internal'
 import { invertOperations } from './invert'
+import { normalizeOperations } from './normalize'
 import type { KernelContext, KernelReduceResult } from './types'
 
 export const reduceOperations = (
@@ -8,8 +9,9 @@ export const reduceOperations = (
   operations: Operation[],
   context: KernelContext = {}
 ): KernelReduceResult => {
-  const core = createKernelCore(document, context)
-  const applied = core.apply.operations(operations, {
+  const normalizedOperations = normalizeOperations(document, operations)
+  const core = getReusableKernelCore(document, context)
+  const applied = core.apply.operations(normalizedOperations, {
     origin: context.origin ?? 'user'
   })
   if (!applied.ok) return applied
@@ -24,4 +26,3 @@ export const reduceOperations = (
     inverse: inverse.operations
   }
 }
-
