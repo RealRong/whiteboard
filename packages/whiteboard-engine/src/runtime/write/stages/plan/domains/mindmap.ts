@@ -12,8 +12,8 @@ import type {
 } from '@engine-types/command/api'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
-import type { Draft } from '../model'
-import { cancelled, invalid, ops, success } from '../model'
+import type { Draft } from '../draft'
+import { cancelled, invalid, ops, success } from '../draft'
 import type {
   MindmapAttachPayload,
   MindmapCommandOptions,
@@ -26,8 +26,8 @@ import type {
 } from '@whiteboard/core/types'
 import { resolveInsertPlan } from '@whiteboard/core/mindmap'
 import { corePlan } from '@whiteboard/core/kernel'
-import { DEFAULT_TUNING } from '../../../config'
-import { createScopedId } from '../id'
+import { DEFAULT_TUNING } from '../../../../../config'
+import { createScopedId } from '../../../shared/identifiers'
 
 type MindmapCommand = WriteCommandMap['mindmap']
 

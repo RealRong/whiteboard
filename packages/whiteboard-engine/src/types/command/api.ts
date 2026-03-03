@@ -468,7 +468,4 @@ export type Commands = {
   }
   group: GroupCommands
   mindmap: MindmapCommands
-  write: {
-    apply: <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>
-  }
 }

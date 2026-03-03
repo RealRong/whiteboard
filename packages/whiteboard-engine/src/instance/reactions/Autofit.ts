@@ -1,7 +1,7 @@
 import type { Node, Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { Commands } from '@engine-types/command/api'
+import type { WriteCommandsApi } from '@engine-types/write/commands'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { MicrotaskTask } from '../../runtime/TaskQueue'
 import { DEFAULT_TUNING } from '../../config'
@@ -12,7 +12,6 @@ import {
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
-import { isSameNumberish } from '@whiteboard/core/utils'
 
 type Snapshot = {
   nodeMap: Map<string, Node>
@@ -30,32 +29,17 @@ type Indexes = {
   groups: Node[]
 }
 
-type RuntimeOptions = {
-  instance: Pick<InternalInstance, 'document' | 'config'>
-  applyWrite: Commands['write']['apply']
-  scheduler: Scheduler
+type RebuildMode = 'none' | 'dirty' | 'full'
+
+type RebuildPlan = {
+  rebuild: RebuildMode
+  dirtyNodeIds: ReadonlySet<string>
 }
 
-const isSameNodeForAutofit = (left?: Node, right?: Node) => {
-  if (left === right) return true
-  if (!left || !right) return false
-
-  const leftAutoFit = left.data && typeof left.data.autoFit === 'string' ? left.data.autoFit : undefined
-  const rightAutoFit = right.data && typeof right.data.autoFit === 'string' ? right.data.autoFit : undefined
-  const leftPadding = left.data && typeof left.data.padding === 'number' ? left.data.padding : undefined
-  const rightPadding = right.data && typeof right.data.padding === 'number' ? right.data.padding : undefined
-  const leftRotation = typeof left.rotation === 'number' ? left.rotation : undefined
-  const rightRotation = typeof right.rotation === 'number' ? right.rotation : undefined
-
-  return left.type === right.type
-    && left.parentId === right.parentId
-    && isSameNumberish(left.position.x, right.position.x)
-    && isSameNumberish(left.position.y, right.position.y)
-    && isSameNumberish(left.size?.width, right.size?.width)
-    && isSameNumberish(left.size?.height, right.size?.height)
-    && isSameNumberish(leftRotation, rightRotation)
-    && leftAutoFit === rightAutoFit
-    && isSameNumberish(leftPadding, rightPadding)
+type RuntimeOptions = {
+  instance: Pick<InternalInstance, 'document' | 'config'>
+  applyWrite: WriteCommandsApi['apply']
+  scheduler: Scheduler
 }
 
 const createIndexes = (nodes: Node[]): Indexes => {
@@ -87,21 +71,6 @@ const createSnapshot = (indexes: Indexes): Snapshot => {
   }
 }
 
-const collectChangedNodeIds = (prev: Snapshot, next: Snapshot): Set<string> => {
-  const changedIds = new Set<string>()
-  const allIds = new Set<string>()
-  prev.nodeMap.forEach((_value, id) => allIds.add(id))
-  next.nodeMap.forEach((_value, id) => allIds.add(id))
-
-  allIds.forEach((id) => {
-    if (!isSameNodeForAutofit(prev.nodeMap.get(id), next.nodeMap.get(id))) {
-      changedIds.add(id)
-    }
-  })
-
-  return changedIds
-}
-
 const addGroupAncestors = (nodeId: string, map: Map<string, Node>, target: Set<string>) => {
   let cursor: string | undefined = nodeId
   while (cursor) {
@@ -114,10 +83,14 @@ const addGroupAncestors = (nodeId: string, map: Map<string, Node>, target: Set<s
   }
 }
 
-const collectDirtyGroupIds = (changedNodeIds: Set<string>, prev: Snapshot, next: Snapshot): Set<string> => {
+const collectDirtyGroupIds = (
+  changedNodeIds: Iterable<string>,
+  prev: Snapshot,
+  next: Snapshot
+): Set<string> => {
   const dirtyGroupIds = new Set<string>()
 
-  changedNodeIds.forEach((nodeId) => {
+  for (const nodeId of changedNodeIds) {
     const prevNode = prev.nodeMap.get(nodeId)
     const nextNode = next.nodeMap.get(nodeId)
 
@@ -128,7 +101,7 @@ const collectDirtyGroupIds = (changedNodeIds: Set<string>, prev: Snapshot, next:
     if (nextNode) {
       addGroupAncestors(nextNode.id, next.nodeMap, dirtyGroupIds)
     }
-  })
+  }
 
   return dirtyGroupIds
 }
@@ -149,39 +122,23 @@ const resolveGroupsToProcess = ({
   groups,
   prevSnapshot,
   currentSnapshot,
-  layoutChanged,
-  forceFullSync,
-  pendingDirtyNodeIds,
-  pendingDiff
+  plan
 }: {
   groups: Node[]
   prevSnapshot: Snapshot | null
   currentSnapshot: Snapshot
-  layoutChanged: boolean
-  forceFullSync: boolean
-  pendingDirtyNodeIds: Set<string>
-  pendingDiff: boolean
+  plan: RebuildPlan
 }): Node[] => {
   if (!groups.length) return []
-  if (!prevSnapshot || layoutChanged || forceFullSync) {
+  if (!prevSnapshot || plan.rebuild === 'full') {
     return groups
   }
-
-  const dirtyGroupIds = new Set<string>()
-
-  if (pendingDirtyNodeIds.size) {
-    const fromDirtyNodes = collectDirtyGroupIds(pendingDirtyNodeIds, prevSnapshot, currentSnapshot)
-    fromDirtyNodes.forEach((id) => dirtyGroupIds.add(id))
-  }
-
-  if (pendingDiff) {
-    const changedNodeIds = collectChangedNodeIds(prevSnapshot, currentSnapshot)
-    if (changedNodeIds.size) {
-      const fromDiff = collectDirtyGroupIds(changedNodeIds, prevSnapshot, currentSnapshot)
-      fromDiff.forEach((id) => dirtyGroupIds.add(id))
-    }
-  }
-
+  if (plan.rebuild !== 'dirty' || plan.dirtyNodeIds.size === 0) return []
+  const dirtyGroupIds = collectDirtyGroupIds(
+    plan.dirtyNodeIds,
+    prevSnapshot,
+    currentSnapshot
+  )
   if (!dirtyGroupIds.size) return []
 
   return groups.filter((group) => dirtyGroupIds.has(group.id))
@@ -246,8 +203,7 @@ export class Autofit {
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private disposed = false
-  private forceFullSync = true
-  private pendingDiff = false
+  private pendingRebuildMode: RebuildMode = 'none'
   private readonly pendingDirtyNodeIds = new Set<string>()
   private offChange: (() => void) | null = null
   private readonly syncTask: MicrotaskTask
@@ -272,33 +228,26 @@ export class Autofit {
     const nodes = doc.nodes
     const nodeSize = this.instance.config.nodeSize
     const padding = this.instance.config.node.groupPadding
-    let forceFullSync = this.forceFullSync
-    let pendingDiff = this.pendingDiff
-    const pendingDirtyNodeIds = new Set(this.pendingDirtyNodeIds)
-    this.forceFullSync = false
-    this.pendingDiff = false
-    this.pendingDirtyNodeIds.clear()
-
-    if (docId !== this.lastDocId) {
+    const docChanged = docId !== this.lastDocId
+    if (docChanged) {
       this.snapshot = null
       this.layoutSnapshot = null
       this.lastDocId = docId
-      forceFullSync = true
-      pendingDiff = false
-      pendingDirtyNodeIds.clear()
     }
 
     const indexes = createIndexes(nodes)
     const currentSnapshot = createSnapshot(indexes)
+    const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
+    const rebuildPlan = this.consumeRebuildPlan({
+      docChanged,
+      layoutChanged
+    })
     const nextLayout = toLayoutSnapshot(nodeSize, padding)
     const groupsToProcess = resolveGroupsToProcess({
       groups: indexes.groups,
       prevSnapshot: this.snapshot,
       currentSnapshot,
-      layoutChanged: isLayoutChanged(this.layoutSnapshot, nodeSize, padding),
-      forceFullSync,
-      pendingDirtyNodeIds,
-      pendingDiff
+      plan: rebuildPlan
     })
 
     const operations: Operation[] = []
@@ -332,6 +281,39 @@ export class Autofit {
     this.layoutSnapshot = nextLayout
   }
 
+  private consumeRebuildPlan = ({
+    docChanged,
+    layoutChanged
+  }: {
+    docChanged: boolean
+    layoutChanged: boolean
+  }): RebuildPlan => {
+    const rebuild = this.pendingRebuildMode
+    const dirtyNodeIds = new Set(this.pendingDirtyNodeIds)
+
+    this.pendingRebuildMode = 'none'
+    this.pendingDirtyNodeIds.clear()
+
+    if (docChanged || layoutChanged) {
+      return {
+        rebuild: 'full',
+        dirtyNodeIds
+      }
+    }
+
+    if (rebuild === 'dirty' && dirtyNodeIds.size === 0) {
+      return {
+        rebuild: 'none',
+        dirtyNodeIds
+      }
+    }
+
+    return {
+      rebuild,
+      dirtyNodeIds
+    }
+  }
+
   private triggerSync = () => {
     if (this.disposed) return
     this.runSync()
@@ -351,35 +333,30 @@ export class Autofit {
   }
 
   private handleCommit = (meta: Change) => {
-    const reasons = meta.readHints.reasons
-    const dirtyNodeIds = meta.readHints.dirtyNodeIds
-    const hasReason = (reason: typeof reasons[number]) =>
-      reasons.includes(reason)
-    const hasRelevantChange =
-      meta.kind === 'replace'
-      || meta.readHints.mode === 'full'
-      || hasReason('full')
-      || hasReason('nodes')
-      || hasReason('geometry')
-      || hasReason('order')
-      || Boolean(dirtyNodeIds.length)
-    if (!hasRelevantChange) return
-    if (meta.kind === 'replace' || meta.readHints.mode === 'full') {
-      this.forceFullSync = true
-      this.pendingDiff = false
+    const indexPlan = meta.readHints.index
+    if (indexPlan.mode === 'none') return
+
+    if (indexPlan.mode === 'full') {
+      this.pendingRebuildMode = 'full'
       this.pendingDirtyNodeIds.clear()
       this.scheduleSync()
       return
     }
 
-    if (dirtyNodeIds.length) {
-      dirtyNodeIds.forEach((id) => {
-        this.pendingDirtyNodeIds.add(id)
-      })
-    } else {
-      this.pendingDiff = true
+    const dirtyNodeIds = indexPlan.dirtyNodeIds
+    if (!dirtyNodeIds.length) {
+      this.pendingRebuildMode = 'full'
+      this.pendingDirtyNodeIds.clear()
+      this.scheduleSync()
+      return
     }
 
+    if (this.pendingRebuildMode !== 'full') {
+      this.pendingRebuildMode = 'dirty'
+    }
+    dirtyNodeIds.forEach((id) => {
+      this.pendingDirtyNodeIds.add(id)
+    })
     this.scheduleSync()
   }
 }

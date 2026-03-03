@@ -4,7 +4,7 @@ import type {
   CommandResult
 } from '@engine-types/cqrs/command'
 import type { WriteDomain, WriteInput } from '@engine-types/command/api'
-import type { Apply } from '../write/model'
+import type { Apply } from '../write/stages/plan/draft'
 
 type GatewayOptions = {
   apply: Apply

@@ -11,7 +11,7 @@ import type { WriteRuntimeInstance } from './deps'
 export type Applied = {
   docId: string | undefined
   origin: Origin
-  operations: Operation[]
+  operations: readonly Operation[]
   reset?: true
 }
 
@@ -26,7 +26,7 @@ export type ApplyResult =
   | {
       ok: true
       changes: ChangeSet
-      inverse: Operation[]
+      inverse: readonly Operation[]
       applied: Applied
     }
   | DispatchFailure

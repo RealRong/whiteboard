@@ -1,4 +1,4 @@
-import type { DocumentId, Viewport } from '@whiteboard/core/types'
+import type { Viewport } from '@whiteboard/core/types'
 import type { ResolvedConfig, Config } from '@engine-types/common/config'
 import type { Config as Runtime } from '@engine-types/instance/runtime'
 import type { InstanceConfig } from '@engine-types/instance/config'
@@ -89,7 +89,6 @@ export const toInstanceConfig = (
 })
 
 type RuntimeOptions = {
-  docId?: DocumentId
   tool: 'select' | 'edge'
   viewport?: Viewport
   mindmapLayout?: MindmapLayoutConfig
@@ -98,14 +97,12 @@ type RuntimeOptions = {
 }
 
 export const toRuntimeConfig = ({
-  docId,
   tool,
   viewport,
   mindmapLayout,
   history,
   shortcuts
 }: RuntimeOptions): Runtime => ({
-  docId,
   tool,
   viewport: {
     center: {

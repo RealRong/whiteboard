@@ -1,12 +1,10 @@
 import type {
   InvalidationMode,
-  InvalidationReason,
   ReadInvalidation
 } from '@engine-types/read/invalidation'
 import type { MutationImpact } from '@engine-types/write/mutation'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 
-const EMPTY_REASONS: readonly InvalidationReason[] = []
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_EDGE_IDS: readonly EdgeId[] = []
 
@@ -50,16 +48,6 @@ export const createReadInvalidation = ({
     dirtyNodeIds.length > 0 ||
     dirtyEdgeIds.length > 0
 
-  const reasons: InvalidationReason[] = []
-  if (kind === 'replace') reasons.push('replace')
-  if (impact.tags.has('full')) reasons.push('full')
-  if (hasNodes) reasons.push('nodes')
-  if (hasEdges) reasons.push('edges')
-  if (hasOrder) reasons.push('order')
-  if (hasGeometry) reasons.push('geometry')
-  if (hasMindmap) reasons.push('mindmap')
-  if (hasViewport) reasons.push('viewport')
-
   const indexMode = toMode({
     full: full || (hasOrder && !hasEdges) || hasGeometry || hasMindmap,
     partial: !full && dirtyNodeIds.length > 0
@@ -77,7 +65,6 @@ export const createReadInvalidation = ({
 
   return {
     mode: toMode({ full, partial: !full && hasPartialSignal }),
-    reasons: reasons.length > 0 ? reasons : EMPTY_REASONS,
     revision: {
       from: Math.max(0, revision - 1),
       to: revision

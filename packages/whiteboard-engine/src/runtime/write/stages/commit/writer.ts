@@ -12,10 +12,10 @@ import type {
   Bus as ChangeBus,
   ChangeTrace
 } from '@engine-types/write/change'
-import { FULL_MUTATION_IMPACT, MutationImpactAnalyzer } from './impact'
+import { FULL_MUTATION_IMPACT, MutationImpactAnalyzer } from '../invalidation/impact'
 import { reduceOperations } from '@whiteboard/core/kernel'
 import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
-import { DEFAULT_DOCUMENT_VIEWPORT } from '../../config'
+import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../../config'
 import type {
   DispatchResult,
   Document,
@@ -23,16 +23,16 @@ import type {
   Origin
 } from '@whiteboard/core/types'
 import type { PrimitiveAtom } from 'jotai/vanilla'
-import { createBatchId } from './id'
+import { createBatchId } from '../../shared/identifiers'
 import { History } from './history'
-import type { Draft } from './model'
-import { createReadInvalidation } from './readHints'
+import type { Draft } from '../plan/draft'
+import { createReadInvalidation } from '../invalidation/readHints'
 
 type ApplyTransaction = {
   kind: 'apply'
   source: CommandSource
   origin: Origin
-  operations: Operation[]
+  operations: readonly Operation[]
   trace?: CommandTrace
 }
 
@@ -198,7 +198,7 @@ export class Writer {
     } as unknown as TransactionResult<T>
   }
 
-  private applyHistoryOperations = (operations: Operation[]) =>
+  private applyHistoryOperations = (operations: readonly Operation[]) =>
     this.commitTransaction({
       kind: 'apply',
       operations,
@@ -227,7 +227,7 @@ export class Writer {
     source,
     trace
   }: {
-    operations: Operation[]
+    operations: readonly Operation[]
     source: CommandSource
     trace?: CommandTrace
   }): DispatchResult => {
@@ -282,7 +282,10 @@ export class Writer {
   }
 
   resetDoc = async (doc: Document): Promise<DispatchResult> => {
-    this.timeline.clear()
+    const currentDocId = this.instance.document.get().id
+    if (currentDocId !== doc.id) {
+      this.timeline.clear()
+    }
     const result = this.commitTransaction({
       kind: 'replace',
       doc,

@@ -225,8 +225,8 @@ export const invertOperation = (operation: Operation): Operation[] | null => {
 }
 
 export const buildInverseOperations = (
-  operations: Operation[]
-): { ok: true; operations: Operation[] } | { ok: false } => {
+  operations: readonly Operation[]
+): { ok: true; operations: readonly Operation[] } | { ok: false } => {
   const inverse: Operation[] = []
   for (let index = operations.length - 1; index >= 0; index -= 1) {
     const operation = operations[index]

@@ -26,7 +26,7 @@ export type KernelContext = {
 }
 
 export type KernelInvertResult =
-  | { ok: true; operations: Operation[] }
+  | { ok: true; operations: readonly Operation[] }
   | DispatchFailure
 
 export type KernelReduceResult =
@@ -34,6 +34,6 @@ export type KernelReduceResult =
       ok: true
       doc: Document
       changes: ChangeSet
-      inverse: Operation[]
+      inverse: readonly Operation[]
     }
   | DispatchFailure

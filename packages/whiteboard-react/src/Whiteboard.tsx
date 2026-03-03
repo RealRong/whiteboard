@@ -32,6 +32,23 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.meta = next.meta
 }
 
+const EMPTY_MINDMAPS: readonly unknown[] = []
+
+const isMirroredDocumentFromEngine = (
+  outbound: Document,
+  inbound: Document
+) => (
+  outbound.id === inbound.id
+  && outbound.name === inbound.name
+  && outbound.nodes === inbound.nodes
+  && outbound.edges === inbound.edges
+  && (outbound.mindmaps ?? EMPTY_MINDMAPS) === (inbound.mindmaps ?? EMPTY_MINDMAPS)
+  && outbound.order === inbound.order
+  && outbound.background === inbound.background
+  && outbound.viewport === inbound.viewport
+  && outbound.meta === inbound.meta
+)
+
 const toViewportTransform = (viewport: {
   center: {
     x: number
@@ -127,6 +144,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
 
   const initialDocRef = useRef(doc)
   const onDocChangeRef = useRef(onDocChange)
+  const lastOutboundDocRef = useRef(initialDocRef.current)
 
   onDocChangeRef.current = onDocChange
   const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
@@ -155,6 +173,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
         registries,
         document: initialDocRef.current,
         onDocumentChange: (nextDoc) => {
+          lastOutboundDocRef.current = nextDoc
           onDocChangeRef.current((draft) => {
             replaceDocumentDraft(draft, nextDoc)
           })
@@ -167,13 +186,16 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
+    if (isMirroredDocumentFromEngine(lastOutboundDocRef.current, doc)) {
+      return
+    }
+    lastOutboundDocRef.current = doc
     void instance.commands.doc.reset(doc)
   }, [doc, instance])
 
   const runtimeConfig = useMemo(
     () =>
       toRuntimeConfig({
-        docId: doc.id,
         tool: resolvedConfig.tool,
         mindmapLayout: resolvedConfig.mindmapLayout,
         viewport: doc.viewport,
@@ -181,7 +203,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
         shortcuts: resolvedConfig.shortcuts
       }),
     [
-      doc.id,
       resolvedConfig.history.enabled,
       resolvedConfig.history.capacity,
       resolvedConfig.history.captureSystem,

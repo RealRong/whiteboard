@@ -17,16 +17,15 @@ export const createCommands = ({
   reactions,
   writeRuntime
 }: CommandDeps): Commands => {
-  const { history, resetDoc } = writeRuntime
+  const { history, resetDoc, commands } = writeRuntime
   const {
-    write,
     edge,
     interaction,
     viewport: viewportCommands,
     node,
     mindmap,
     selection
-  } = writeRuntime.commands
+  } = commands
 
   return {
     doc: {
@@ -44,34 +43,13 @@ export const createCommands = ({
       redo: history.redo,
       clear: history.clear
     },
-    interaction: {
-      update: interaction.update,
-      clearHover: interaction.clearHover
-    },
+    interaction,
     host: {
-      nodeMeasured: (id, size) => {
-        reactions.nodeMeasured(id, size)
-      },
-      containerResized: (rect) => {
-        viewport.setContainerRect(rect)
-      }
+      nodeMeasured: reactions.nodeMeasured,
+      containerResized: viewport.setContainerRect
     },
-    selection: {
-      select: selection.select,
-      toggle: selection.toggle,
-      clear: selection.clear,
-      getSelectedNodeIds: selection.getSelectedNodeIds
-    },
-    edge: {
-      create: edge.create,
-      update: edge.update,
-      delete: edge.delete,
-      insertRoutingPoint: edge.insertRoutingPoint,
-      moveRoutingPoint: edge.moveRoutingPoint,
-      removeRoutingPoint: edge.removeRoutingPoint,
-      resetRouting: edge.resetRouting,
-      select: edge.select
-    },
+    selection,
+    edge,
     order: {
       node: {
         set: node.setOrder,
@@ -88,29 +66,12 @@ export const createCommands = ({
         sendBackward: edge.sendBackward
       }
     },
-    viewport: {
-      set: viewportCommands.set,
-      panBy: viewportCommands.panBy,
-      zoomBy: viewportCommands.zoomBy,
-      zoomTo: viewportCommands.zoomTo,
-      reset: viewportCommands.reset
-    },
-    node: {
-      create: node.create,
-      update: node.update,
-      updateData: node.updateData,
-      updateManyPosition: node.updateManyPosition,
-      delete: node.delete
-    },
+    viewport: viewportCommands,
+    node,
     group: {
       create: node.createGroup,
       ungroup: node.ungroup
     },
-    mindmap: {
-      apply: mindmap.apply
-    },
-    write: {
-      apply: write.apply
-    }
+    mindmap
   }
 }

@@ -1,10 +1,10 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { WriteCommandMap } from '@engine-types/command/api'
-import type { Draft } from '../model'
-import { invalid, ops, success } from '../model'
+import type { Draft } from '../draft'
+import { invalid, ops, success } from '../draft'
 import type { Document } from '@whiteboard/core/types'
 import { corePlan } from '@whiteboard/core/kernel'
-import { createScopedId } from '../id'
+import { createScopedId } from '../../../shared/identifiers'
 
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group' }>

@@ -22,7 +22,7 @@ export type CommandTrace = {
 }
 
 export type ApplyMutationsApi = (
-  operations: Operation[],
+  operations: readonly Operation[],
   source: CommandSource,
   trace?: CommandTrace
 ) => Promise<DispatchResult>

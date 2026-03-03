@@ -1,7 +1,7 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { WriteCommandMap } from '@engine-types/command/api'
-import type { Draft } from '../model'
-import { cancelled, invalid, ops, success } from '../model'
+import type { Draft } from '../draft'
+import { cancelled, invalid, ops, success } from '../draft'
 import { corePlan } from '@whiteboard/core/kernel'
 import {
   insertRoutingPoint as insertRoutingPointPatch,
@@ -9,7 +9,7 @@ import {
   removeRoutingPoint as removeRoutingPointPatch,
   resetRouting as resetRoutingPatch
 } from '@whiteboard/core/edge'
-import { createScopedId } from '../id'
+import { createScopedId } from '../../../shared/identifiers'
 
 type EdgeCommand = WriteCommandMap['edge']
 

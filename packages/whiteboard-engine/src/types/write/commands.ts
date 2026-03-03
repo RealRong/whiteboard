@@ -1,6 +1,10 @@
 import type { ShortcutAction } from '../shortcuts/types'
 import type { SelectionMode } from '../state/model'
-import type { Commands } from '../command/api'
+import type {
+  Commands,
+  WriteDomain,
+  WriteInput
+} from '../command/api'
 import type {
   DispatchResult,
   Edge,
@@ -48,7 +52,9 @@ export type InteractionCommandsApi = Commands['interaction']
 
 export type ViewportCommandsApi = Commands['viewport']
 
-export type WriteCommandsApi = Commands['write']
+export type WriteCommandsApi = {
+  apply: <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>
+}
 
 export type ShortcutActionDispatcher = {
   execute: (action: ShortcutAction) => boolean

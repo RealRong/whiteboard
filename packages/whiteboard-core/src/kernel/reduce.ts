@@ -6,7 +6,7 @@ import type { KernelContext, KernelReduceResult } from './types'
 
 export const reduceOperations = (
   document: Document,
-  operations: Operation[],
+  operations: readonly Operation[],
   context: KernelContext = {}
 ): KernelReduceResult => {
   const normalizedOperations = normalizeOperations(document, operations)

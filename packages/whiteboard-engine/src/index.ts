@@ -55,7 +55,6 @@ export type {
 } from './types/instance/read'
 export type {
   InvalidationMode,
-  InvalidationReason,
   InvalidationRevision,
   ReadInvalidation
 } from './types/read/invalidation'

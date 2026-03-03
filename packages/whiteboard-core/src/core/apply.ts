@@ -64,21 +64,21 @@ export const createApplyOperations = ({
     return index
   }
 
-  const moveToFront = <T extends string>(order: T[], ids: T[]) => {
+  const moveToFront = <T extends string>(order: T[], ids: readonly T[]) => {
     const set = new Set(ids)
     const kept = order.filter((id) => !set.has(id))
     const moved = order.filter((id) => set.has(id))
     return [...kept, ...moved]
   }
 
-  const moveToBack = <T extends string>(order: T[], ids: T[]) => {
+  const moveToBack = <T extends string>(order: T[], ids: readonly T[]) => {
     const set = new Set(ids)
     const kept = order.filter((id) => !set.has(id))
     const moved = order.filter((id) => set.has(id))
     return [...moved, ...kept]
   }
 
-  const moveForward = <T extends string>(order: T[], ids: T[]) => {
+  const moveForward = <T extends string>(order: T[], ids: readonly T[]) => {
     const set = new Set(ids)
     const next = [...order]
     for (let i = next.length - 2; i >= 0; i -= 1) {
@@ -92,7 +92,7 @@ export const createApplyOperations = ({
     return next
   }
 
-  const moveBackward = <T extends string>(order: T[], ids: T[]) => {
+  const moveBackward = <T extends string>(order: T[], ids: readonly T[]) => {
     const set = new Set(ids)
     const next = [...order]
     for (let i = 1; i < next.length; i += 1) {

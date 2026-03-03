@@ -4,10 +4,6 @@ import type {
   WriteInput
 } from '@engine-types/command/api'
 import type {
-  CommandSource,
-  CommandTrace
-} from '@engine-types/command/source'
-import type {
   DispatchResult,
   Operation
 } from '@whiteboard/core/types'
@@ -20,12 +16,6 @@ export type PlanInput<D extends WriteDomain = WriteDomain> =
       }
     : never
 
-export type Dispatch = <D extends WriteDomain>(
-  payload: PlanInput<D>,
-  source: CommandSource,
-  trace?: CommandTrace
-) => Promise<DispatchResult>
-
 export type Apply = <D extends WriteDomain>(
   payload: WriteInput<D>
 ) => Promise<DispatchResult>
@@ -35,12 +25,12 @@ type Failure = Extract<DispatchResult, { ok: false }>
 export type Draft<T = unknown> =
   | {
       ok: true
-      operations: Operation[]
+      operations: readonly Operation[]
       value?: T
     }
   | Failure
 
-export const success = <T,>(operations: Operation[], value?: T): Draft<T> => ({
+export const success = <T,>(operations: readonly Operation[], value?: T): Draft<T> => ({
   ok: true,
   operations,
   value
@@ -70,7 +60,7 @@ type OpLike = {
 
 type OpsLike = {
   ok: true
-  operations: Operation[] | readonly Operation[]
+  operations: readonly Operation[]
 }
 
 const failMessage = (result: FailLike) =>
@@ -83,5 +73,5 @@ export const op = (result: OpLike | FailLike): Draft =>
 
 export const ops = (result: OpsLike | FailLike): Draft =>
   result.ok
-    ? success(Array.isArray(result.operations) ? result.operations : [...result.operations])
+    ? success(result.operations)
     : invalid(failMessage(result))

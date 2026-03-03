@@ -1,0 +1,110 @@
+import type { WriteCommandMap } from '@engine-types/command/api'
+import type { CommandSource } from '@engine-types/command/source'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { NodeCommandsApi } from '@engine-types/write/commands'
+import type {
+  Document,
+  NodeId,
+  NodeInput,
+  NodePatch,
+  Point
+} from '@whiteboard/core/types'
+import {
+  bringOrderForward,
+  bringOrderToFront,
+  sanitizeOrderIds,
+  sendOrderBackward,
+  sendOrderToBack
+} from '@whiteboard/core/utils'
+import type { Apply } from '../stages/plan/draft'
+
+type NodeCommand = WriteCommandMap['node']
+
+export const node = ({
+  instance,
+  apply
+}: {
+  instance: Pick<InternalInstance, 'document'>
+  apply: Apply
+}): NodeCommandsApi => {
+  const readDoc = (): Document => instance.document.get()
+  const run = (command: NodeCommand, source: CommandSource = 'ui') =>
+    apply({
+      domain: 'node',
+      command,
+      source
+    })
+
+  const create = (payload: NodeInput) =>
+    run({ type: 'create', payload })
+
+  const update = (id: NodeId, patch: NodePatch) =>
+    run({ type: 'update', id, patch })
+
+  const updateData = (id: NodeId, patch: Record<string, unknown>) => {
+    const current = readDoc().nodes.find((item) => item.id === id)
+    if (!current) return undefined
+    return update(id, {
+      data: {
+        ...(current.data ?? {}),
+        ...patch
+      }
+    })
+  }
+
+  const updateManyPosition = (updates: Array<{ id: NodeId; position: Point }>) => {
+    if (!updates.length) return
+    void run({ type: 'updateManyPosition', updates }, 'interaction')
+  }
+
+  const remove = (ids: NodeId[]) =>
+    run({ type: 'delete', ids })
+
+  const createGroup = (ids: NodeId[]) =>
+    run({ type: 'group', ids })
+
+  const ungroup = (id: NodeId) =>
+    run({ type: 'ungroup', id })
+
+  const setOrder = (ids: NodeId[]) =>
+    run({ type: 'order.set', ids })
+
+  const bringToFront = (ids: NodeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = readDoc().order.nodes
+    return setOrder(bringOrderToFront(current, target))
+  }
+
+  const sendToBack = (ids: NodeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = readDoc().order.nodes
+    return setOrder(sendOrderToBack(current, target))
+  }
+
+  const bringForward = (ids: NodeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = readDoc().order.nodes
+    return setOrder(bringOrderForward(current, target))
+  }
+
+  const sendBackward = (ids: NodeId[]) => {
+    const target = sanitizeOrderIds(ids)
+    const current = readDoc().order.nodes
+    return setOrder(sendOrderBackward(current, target))
+  }
+
+  return {
+    create,
+    update,
+    updateData,
+    updateManyPosition,
+    delete: remove,
+    createGroup,
+    ungroup,
+    setOrder,
+    bringToFront,
+    sendToBack,
+    bringForward,
+    sendBackward
+  }
+}

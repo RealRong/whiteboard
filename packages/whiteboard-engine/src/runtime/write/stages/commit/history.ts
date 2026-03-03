@@ -5,11 +5,11 @@ import type {
   HistoryApplyEntry,
   HistoryCaptureInput
 } from '@engine-types/write/history'
-import { DEFAULT_CONFIG } from '../../config'
+import { DEFAULT_CONFIG } from '../../../../config'
 
 type HistoryEntry = {
-  forward: Operation[]
-  inverse: Operation[]
+  forward: readonly Operation[]
+  inverse: readonly Operation[]
   origin: Origin
   timestamp: number
 }
@@ -27,7 +27,7 @@ const cloneValue = <T,>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-const cloneOperations = (operations: Operation[]) => cloneValue(operations)
+const cloneOperations = (operations: readonly Operation[]) => cloneValue(operations)
 
 const shouldCaptureOrigin = (
   config: ResolvedHistoryConfig,

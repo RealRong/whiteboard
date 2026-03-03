@@ -1,10 +1,10 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { Draft, PlanInput } from '../model'
-import { invalid } from '../model'
-import { node as planNode } from './node'
-import { edge as planEdge } from './edge'
-import { viewport as planViewport } from './viewport'
-import { mindmap as planMindmap } from './mindmap'
+import type { Draft, PlanInput } from './draft'
+import { invalid } from './draft'
+import { node as planNode } from './domains/node'
+import { edge as planEdge } from './domains/edge'
+import { viewport as planViewport } from './domains/viewport'
+import { mindmap as planMindmap } from './domains/mindmap'
 
 export const plan = ({
   instance

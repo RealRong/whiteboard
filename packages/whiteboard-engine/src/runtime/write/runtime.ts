@@ -4,6 +4,7 @@ import type {
   WriteDomain,
   WriteInput
 } from '@engine-types/command/api'
+import type { CommandGateway } from '@engine-types/cqrs/command'
 import {
   edge,
   interaction,
@@ -14,21 +15,91 @@ import {
   selection,
   viewport
 } from './api'
-import { Writer } from './writer'
-import { bus } from './bus'
-import { plan } from './plan'
+import { Writer } from './stages/commit/writer'
+import { bus } from './stages/invalidation/changeBus'
+import { plan } from './stages/plan/router'
 import { createCommandGateway } from '../command'
 import {
   type Apply,
-  type Dispatch,
   type PlanInput
-} from './model'
+} from './stages/plan/draft'
 
-export const runtime = ({
+const toPlanInput = <D extends WriteDomain>(payload: WriteInput<D>): PlanInput<D> => ({
+  domain: payload.domain,
+  command: payload.command
+} as PlanInput<D>)
+
+type BaseCommandSet = Pick<
+  WriteRuntime['commands'],
+  'write' | 'edge' | 'interaction' | 'viewport' | 'node' | 'mindmap'
+>
+type DerivedCommandSet = Pick<
+  WriteRuntime['commands'],
+  'selection' | 'shortcut'
+>
+type BaseCommandBuilderDeps = {
+  instance: WriteDeps['instance']
+  apply: Apply
+  gateway: CommandGateway
+}
+type DerivedCommandBuilderDeps = {
+  instance: WriteDeps['instance']
+  baseCommands: BaseCommandSet
+  history: WriteRuntime['history']
+}
+
+const baseCommandBuilders: {
+  [K in keyof BaseCommandSet]: (deps: BaseCommandBuilderDeps) => BaseCommandSet[K]
+} = {
+  write: ({ gateway }) => writeApi({ gateway }),
+  edge: ({ instance, apply }) => edge({ instance, apply }),
+  interaction: ({ instance }) => interaction({ instance }),
+  viewport: ({ apply }) => viewport({ apply }),
+  node: ({ instance, apply }) => node({ instance, apply }),
+  mindmap: ({ apply }) => mindmap({ apply })
+}
+
+const createBaseCommandSet = (deps: BaseCommandBuilderDeps): BaseCommandSet => ({
+  write: baseCommandBuilders.write(deps),
+  edge: baseCommandBuilders.edge(deps),
+  interaction: baseCommandBuilders.interaction(deps),
+  viewport: baseCommandBuilders.viewport(deps),
+  node: baseCommandBuilders.node(deps),
+  mindmap: baseCommandBuilders.mindmap(deps)
+})
+
+const createDerivedCommandSet = ({
+  instance,
+  baseCommands,
+  history
+}: DerivedCommandBuilderDeps): DerivedCommandSet => {
+  const selectionCommands = selection({
+    instance,
+    commands: {
+      node: baseCommands.node,
+      edge: baseCommands.edge
+    }
+  })
+
+  return {
+    selection: selectionCommands,
+    shortcut: shortcut({
+      selection: selectionCommands,
+      history
+    })
+  }
+}
+
+const createWritePipeline = ({
   instance,
   scheduler,
   readModelRevisionAtom
-}: WriteDeps): WriteRuntime => {
+}: WriteDeps): {
+  changeBus: ReturnType<typeof bus>
+  writer: Writer
+  apply: Apply
+  gateway: CommandGateway
+} => {
   const changeBus = bus()
   const writer = new Writer({
     instance,
@@ -37,63 +108,69 @@ export const runtime = ({
     now: scheduler.now
   })
   const planner = plan({ instance })
-  const dispatch: Dispatch = (payload, source, trace) =>
-    writer.applyDraft(planner(payload), source, trace)
-  const apply: Apply = <D extends WriteDomain>(payload: WriteInput<D>) =>
-    dispatch(
-      {
-        domain: payload.domain,
-        command: payload.command
-      } as PlanInput<D>,
+  const apply: Apply = (payload) =>
+    writer.applyDraft(
+      planner(toPlanInput(payload)),
       payload.source ?? 'ui',
       payload.trace
     )
   const gateway = createCommandGateway({ apply })
-  const writeCommands = writeApi({
+
+  return {
+    changeBus,
+    writer,
+    apply,
+    gateway
+  }
+}
+
+const createWriteCommandSet = ({
+  instance,
+  apply,
+  gateway,
+  history
+}: {
+  instance: WriteDeps['instance']
+  apply: Apply
+  gateway: CommandGateway
+  history: WriteRuntime['history']
+}): WriteRuntime['commands'] => {
+  const baseCommands = createBaseCommandSet({
+    instance,
+    apply,
     gateway
   })
-  const edgeCommands = edge({ instance, apply })
-  const interactionCommands = interaction({ instance })
-  const viewportCommands = viewport({ apply })
-  const nodeCommands = node({ instance, apply })
-  const mindmapCommands = mindmap({ apply })
-  const selectionCommands = selection({
+  const derivedCommands = createDerivedCommandSet({
     instance,
-    commands: {
-      group: {
-        create: nodeCommands.createGroup,
-        ungroup: nodeCommands.ungroup
-      },
-      edge: {
-        create: edgeCommands.create,
-        update: edgeCommands.update,
-        delete: edgeCommands.delete,
-        insertRoutingPoint: edgeCommands.insertRoutingPoint,
-        moveRoutingPoint: edgeCommands.moveRoutingPoint,
-        removeRoutingPoint: edgeCommands.removeRoutingPoint,
-        resetRouting: edgeCommands.resetRouting,
-        select: edgeCommands.select
-      },
-      node: {
-        create: nodeCommands.create,
-        update: nodeCommands.update,
-        updateData: nodeCommands.updateData,
-        updateManyPosition: nodeCommands.updateManyPosition,
-        delete: nodeCommands.delete
-      }
-    }
+    baseCommands,
+    history
   })
-  const commands = {
-    write: writeCommands,
-    edge: edgeCommands,
-    interaction: interactionCommands,
-    viewport: viewportCommands,
-    node: nodeCommands,
-    mindmap: mindmapCommands,
-    selection: selectionCommands
+
+  return {
+    ...baseCommands,
+    ...derivedCommands
   }
-  const hotkeys = shortcut({
-    selection: commands.selection,
+}
+
+export const runtime = ({
+  instance,
+  scheduler,
+  readModelRevisionAtom
+}: WriteDeps): WriteRuntime => {
+  const {
+    changeBus,
+    writer,
+    apply,
+    gateway
+  } = createWritePipeline({
+    instance,
+    scheduler,
+    readModelRevisionAtom
+  })
+  const commands = createWriteCommandSet({
+    instance,
+    apply,
+    gateway,
     history: writer.history
   })
 
@@ -102,9 +179,6 @@ export const runtime = ({
     history: writer.history,
     resetDoc: writer.resetDoc,
     changeBus,
-    commands: {
-      ...commands,
-      shortcut: hotkeys
-    }
+    commands
   }
 }

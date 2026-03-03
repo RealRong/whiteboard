@@ -3,8 +3,8 @@ import type { Operation, CoreHistoryConfig, CoreHistoryState, DispatchResult, Or
 import { buildInverseOperations } from '../kernel/inversion'
 
 type HistoryEntry = {
-  forward: Operation[]
-  inverse: Operation[]
+  forward: readonly Operation[]
+  inverse: readonly Operation[]
   timestamp: number
   origin?: Origin
   source: 'single' | 'transaction'
@@ -25,7 +25,7 @@ type HistoryCollectorState = {
 type CreateCoreHistoryDeps = {
   changes: ChangeHandlers
   now: () => number
-  applyOperations: (operations: Operation[], origin?: Origin) => DispatchResult
+  applyOperations: (operations: readonly Operation[], origin?: Origin) => DispatchResult
 }
 
 const DEFAULT_HISTORY_CONFIG: CoreHistoryConfig = {
@@ -43,7 +43,7 @@ const cloneValue = <T,>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-const cloneOperations = (operations: Operation[]) => cloneValue(operations)
+const cloneOperations = (operations: readonly Operation[]) => cloneValue(operations)
 
 const createStateSnapshot = (collector: HistoryCollectorState, now: () => number): CoreHistoryState => ({
   canUndo: collector.undo.length > 0,
@@ -107,7 +107,7 @@ export const createCoreHistory = ({ changes, now, applyOperations }: CreateCoreH
     emit()
   }
 
-  const applyEntry = (operations: Operation[]): boolean => {
+  const applyEntry = (operations: readonly Operation[]): boolean => {
     if (!operations.length) return false
     const result = applyOperations(operations, 'system')
     return result.ok

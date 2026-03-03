@@ -64,7 +64,7 @@ const initState = (document: Document): NormalizeState => ({
 
 export const normalizeOperations = (
   document: Document,
-  operations: Operation[]
+  operations: readonly Operation[]
 ): Operation[] => {
   const state = initState(document)
   const normalized: Operation[] = []
@@ -123,7 +123,7 @@ export const normalizeOperations = (
             before: [...state.nodeOrder]
           }
         }
-        state.nodeOrder = bringOrderToFront(state.nodeOrder, operation.ids)
+        state.nodeOrder = bringOrderToFront(state.nodeOrder, [...operation.ids])
         break
       }
       case 'node.order.sendToBack': {
@@ -133,7 +133,7 @@ export const normalizeOperations = (
             before: [...state.nodeOrder]
           }
         }
-        state.nodeOrder = sendOrderToBack(state.nodeOrder, operation.ids)
+        state.nodeOrder = sendOrderToBack(state.nodeOrder, [...operation.ids])
         break
       }
       case 'node.order.bringForward': {
@@ -143,7 +143,7 @@ export const normalizeOperations = (
             before: [...state.nodeOrder]
           }
         }
-        state.nodeOrder = bringOrderForward(state.nodeOrder, operation.ids)
+        state.nodeOrder = bringOrderForward(state.nodeOrder, [...operation.ids])
         break
       }
       case 'node.order.sendBackward': {
@@ -153,7 +153,7 @@ export const normalizeOperations = (
             before: [...state.nodeOrder]
           }
         }
-        state.nodeOrder = sendOrderBackward(state.nodeOrder, operation.ids)
+        state.nodeOrder = sendOrderBackward(state.nodeOrder, [...operation.ids])
         break
       }
       case 'edge.create': {
@@ -206,7 +206,7 @@ export const normalizeOperations = (
             before: [...state.edgeOrder]
           }
         }
-        state.edgeOrder = bringOrderToFront(state.edgeOrder, operation.ids)
+        state.edgeOrder = bringOrderToFront(state.edgeOrder, [...operation.ids])
         break
       }
       case 'edge.order.sendToBack': {
@@ -216,7 +216,7 @@ export const normalizeOperations = (
             before: [...state.edgeOrder]
           }
         }
-        state.edgeOrder = sendOrderToBack(state.edgeOrder, operation.ids)
+        state.edgeOrder = sendOrderToBack(state.edgeOrder, [...operation.ids])
         break
       }
       case 'edge.order.bringForward': {
@@ -226,7 +226,7 @@ export const normalizeOperations = (
             before: [...state.edgeOrder]
           }
         }
-        state.edgeOrder = bringOrderForward(state.edgeOrder, operation.ids)
+        state.edgeOrder = bringOrderForward(state.edgeOrder, [...operation.ids])
         break
       }
       case 'edge.order.sendBackward': {
@@ -236,7 +236,7 @@ export const normalizeOperations = (
             before: [...state.edgeOrder]
           }
         }
-        state.edgeOrder = sendOrderBackward(state.edgeOrder, operation.ids)
+        state.edgeOrder = sendOrderBackward(state.edgeOrder, [...operation.ids])
         break
       }
       case 'mindmap.create': {

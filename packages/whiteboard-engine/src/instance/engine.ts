@@ -101,20 +101,11 @@ export const engine = ({
     runAction: writeRuntime.commands.shortcut.execute
   })
 
-  let previousHistoryDocId: string | undefined
   const runtime: RuntimeApi = {
     store: runtimeStore,
     applyConfig: (nextConfig) => {
       if (nextConfig.history) {
         writeRuntime.history.configure(nextConfig.history)
-      }
-      if (!nextConfig.docId) {
-        previousHistoryDocId = undefined
-      } else {
-        if (previousHistoryDocId && previousHistoryDocId !== nextConfig.docId) {
-          writeRuntime.history.clear()
-        }
-        previousHistoryDocId = nextConfig.docId
       }
       state.write('tool', nextConfig.tool)
       viewport.setViewport(nextConfig.viewport)
@@ -122,7 +113,6 @@ export const engine = ({
       state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
     },
     dispose: () => {
-      previousHistoryDocId = undefined
       reactions.dispose()
       shortcuts.dispose()
       scheduler.cancelAll()
