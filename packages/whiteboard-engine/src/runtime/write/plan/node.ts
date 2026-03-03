@@ -1,5 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { NodeCommand } from '../model'
+import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../model'
 import { invalid, ops, success } from '../model'
 import type { Document } from '@whiteboard/core/types'
@@ -9,6 +9,7 @@ import { createScopedId } from '../id'
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group' }>
 type UngroupCommand = Extract<NodeCommand, { type: 'ungroup' }>
+type NodeCommand = WriteCommandMap['node']
 
 export const node = ({
   instance

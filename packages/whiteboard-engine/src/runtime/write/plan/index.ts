@@ -1,5 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { DispatchInput, Draft } from '../model'
+import type { Draft, PlanInput } from '../model'
 import { invalid } from '../model'
 import { node as planNode } from './node'
 import { edge as planEdge } from './edge'
@@ -19,7 +19,7 @@ export const plan = ({
   const viewport = planViewport({ instance })
   const mindmap = planMindmap({ instance })
 
-  return (payload: DispatchInput): Draft => {
+  return (payload: PlanInput): Draft => {
     switch (payload.domain) {
       case 'node':
         return node(payload.command)

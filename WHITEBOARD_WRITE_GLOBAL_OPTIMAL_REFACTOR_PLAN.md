@@ -33,7 +33,8 @@
 5. 已引入单入口 `instance.commands.write.apply({ domain, command, source? })`，`api/node|edge|viewport|mindmap` 已改为其薄语法糖。
 6. `WriteInput` / `WriteDomain` / `WriteCommandMap` 已沉淀为统一命令契约，`plan`/`writer.applyDraft` 统一走 `domain + command` 判别联合。
 7. `runtime/write/api/*` 已合并为 `runtime/write/api.ts` 单文件，目录层级进一步收敛。
-8. `@whiteboard/core`、`@whiteboard/engine`、`@whiteboard/react` 三包 lint 已通过。
+8. `runtime/write/model.ts` 已去除 domain 私有命令别名导出，planner/api 改为就地使用 `WriteCommandMap['x']`，类型噪音进一步下降。
+9. `@whiteboard/core`、`@whiteboard/engine`、`@whiteboard/react` 三包 lint 已通过。
 
 进行中：
 

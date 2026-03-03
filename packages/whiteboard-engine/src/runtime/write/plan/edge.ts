@@ -1,5 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { EdgeCommand } from '../model'
+import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../model'
 import { cancelled, invalid, ops, success } from '../model'
 import { corePlan } from '@whiteboard/core/kernel'
@@ -10,6 +10,8 @@ import {
   resetRouting as resetRoutingPatch
 } from '@whiteboard/core/edge'
 import { createScopedId } from '../id'
+
+type EdgeCommand = WriteCommandMap['edge']
 
 export const edge = ({
   instance

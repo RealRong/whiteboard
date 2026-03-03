@@ -1,4 +1,7 @@
-import type { Commands } from '@engine-types/command/api'
+import type {
+  Commands,
+  WriteCommandMap
+} from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { ShortcutAction } from '@engine-types/shortcuts/types'
@@ -45,12 +48,11 @@ import {
   sendOrderToBack
 } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../config'
-import type {
-  Apply,
-  EdgeCommand,
-  NodeCommand,
-  ViewportCommand
-} from './model'
+import type { Apply } from './model'
+
+type NodeCommand = WriteCommandMap['node']
+type EdgeCommand = WriteCommandMap['edge']
+type ViewportCommand = WriteCommandMap['viewport']
 
 export const write = ({
   apply

@@ -7,11 +7,12 @@ import type {
   MindmapMoveDropOptions,
   MindmapMoveLayoutOptions,
   MindmapMoveRootOptions,
-  MindmapUpdateCommand
+  MindmapUpdateCommand,
+  WriteCommandMap
 } from '@engine-types/command/api'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
-import type { Draft, MindmapCommand } from '../model'
+import type { Draft } from '../model'
 import { cancelled, invalid, ops, success } from '../model'
 import type {
   MindmapAttachPayload,
@@ -27,6 +28,8 @@ import { resolveInsertPlan } from '@whiteboard/core/mindmap'
 import { corePlan } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../../../config'
 import { createScopedId } from '../id'
+
+type MindmapCommand = WriteCommandMap['mindmap']
 
 const merge = (...drafts: Draft[]): Draft => {
   const operations: Operation[] = []

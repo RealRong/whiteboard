@@ -1,5 +1,9 @@
 import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import type { Deps as WriteDeps } from '@engine-types/write/deps'
+import type {
+  WriteDomain,
+  WriteInput
+} from '@engine-types/command/api'
 import {
   edge,
   interaction,
@@ -16,7 +20,7 @@ import { plan } from './plan'
 import {
   type Apply,
   type Dispatch,
-  toDispatchInput
+  type PlanInput
 } from './model'
 
 export const runtime = ({
@@ -36,9 +40,12 @@ export const runtime = ({
   const planner = plan({ instance })
   const dispatch: Dispatch = (payload, source) =>
     writer.applyDraft(planner(payload), source)
-  const apply: Apply = (payload) =>
+  const apply: Apply = <D extends WriteDomain>(payload: WriteInput<D>) =>
     dispatch(
-      toDispatchInput(payload),
+      {
+        domain: payload.domain,
+        command: payload.command
+      } as PlanInput<D>,
       payload.source ?? 'ui'
     )
   const commands = {

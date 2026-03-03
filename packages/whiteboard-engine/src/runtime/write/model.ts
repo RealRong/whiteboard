@@ -1,11 +1,7 @@
 import type {
-  EdgeWriteCommand,
-  MindmapWriteCommand,
-  NodeWriteCommand,
-  ViewportWriteCommand,
-  WriteCommandMap as CommandMap,
-  WriteDomain as Domain,
-  WriteInput as Input
+  WriteCommandMap,
+  WriteDomain,
+  WriteInput
 } from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
 import type {
@@ -13,16 +9,7 @@ import type {
   Operation
 } from '@whiteboard/core/types'
 
-export type NodeCommand = NodeWriteCommand
-export type EdgeCommand = EdgeWriteCommand
-export type ViewportCommand = ViewportWriteCommand
-export type MindmapCommand = MindmapWriteCommand
-
-export type WriteDomain = Domain
-export type WriteCommandMap = CommandMap
-export type WriteInput<D extends WriteDomain = WriteDomain> = Input<D>
-
-export type DispatchInput<D extends WriteDomain = WriteDomain> =
+export type PlanInput<D extends WriteDomain = WriteDomain> =
   D extends WriteDomain
     ? {
         domain: D
@@ -30,15 +17,8 @@ export type DispatchInput<D extends WriteDomain = WriteDomain> =
       }
     : never
 
-export const toDispatchInput = <D extends WriteDomain>(
-  payload: WriteInput<D>
-): DispatchInput<D> => ({
-  domain: payload.domain,
-  command: payload.command
-}) as DispatchInput<D>
-
 export type Dispatch = <D extends WriteDomain>(
-  payload: DispatchInput<D>,
+  payload: PlanInput<D>,
   source: CommandSource
 ) => Promise<DispatchResult>
 

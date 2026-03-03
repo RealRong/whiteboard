@@ -23,7 +23,7 @@ Write 侧推荐收敛为单写入通道的三段式流水线：
 
 1. 新增 `model.ts`，并由 `plan/index.ts` 统一规划，形成统一写流水线。
 2. `plan/node.ts`、`plan/edge.ts`、`plan/viewport.ts`、`plan/mindmap.ts` 作为纯计划层。
-3. 已新增单入口 `commands.write.apply({ domain, command, source? })`，`api/node|edge|viewport|mindmap` 为其薄语法糖。
+3. 已新增单入口 `commands.write.apply({ domain, command, source? })`，并将语法糖收敛到 `runtime/write/api.ts`。
 4. `mindmap` 纯计划基座已下沉到 `@whiteboard/core/kernel` 的 `corePlan.mindmap.*`，engine 不再保留 `plan/mindmapBase.ts`。
 5. `flow.ts` 已删除，执行逻辑收敛为 `plan -> writer.applyDraft`。
 6. 架构脚本已增加约束：`runtime/write/api` 禁止直接调用 `instance.mutate`。
@@ -156,6 +156,7 @@ type RunOutput<T = unknown> = Promise<DispatchResult & { value?: T }>
 
 ```txt
 runtime/write/
+  api.ts
   model.ts
   writer.ts
   plan/
@@ -163,19 +164,11 @@ runtime/write/
     edge.ts
     mindmap.ts
     viewport.ts
-  api/
-    node.ts
-    edge.ts
-    mindmap.ts
-    viewport.ts
-    interaction.ts
-    selection.ts
-    shortcut.ts
 ```
 
 说明：
 
-1. `api/*` 是语义糖层（薄）。
+1. `api.ts` 是语义糖层（薄）。
 2. `plan/*` 是纯计划层（核心）。
 3. `writer.applyDraft` 是唯一执行层（强约束）。
 
@@ -185,7 +178,7 @@ runtime/write/
 
 1. 当前 `writer.ts` 承担 apply/history/changeBus/sync 执行内核。
 2. 原 `commands/mindmap/base.ts` 已进一步下沉到 `@whiteboard/core/kernel/plan.ts` 的 `corePlan.mindmap.*`，`plan/mindmap.ts` 仅保留路由与上下文拼装。
-3. 当前 `api/*` 文件改造为 API 适配层，仅负责构造 `domain + command`。
+3. 当前 `api.ts` 改造为 API 适配层，仅负责构造 `domain + command`。
 4. 当前 `instance.mutate` 对外语义不变，但内部应改为：
   - `mutate(operations, source)` 作为 run 层低级能力。
   - `commands.write.apply({ domain, command, source })` 作为命令层标准入口。
@@ -230,7 +223,7 @@ runtime/write/
 
 ## Phase 4：收口与强约束
 
-1. lint 规则：禁止 `api/*` 直接引用 `instance.mutate`。
+1. lint 规则：禁止 write api 层（`api.ts`）直接引用 `instance.mutate`。
 2. 文档约束：所有新增写能力必须先定义 command + planner。
 
 ---

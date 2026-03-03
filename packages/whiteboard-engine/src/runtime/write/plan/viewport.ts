@@ -1,10 +1,12 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { ViewportCommand } from '../model'
+import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../model'
 import { ops } from '../model'
 import { corePlan } from '@whiteboard/core/kernel'
 import type { Viewport } from '@whiteboard/core/types'
 import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../config'
+
+type ViewportCommand = WriteCommandMap['viewport']
 
 export const viewport = ({
   instance
