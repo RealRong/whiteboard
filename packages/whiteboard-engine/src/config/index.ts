@@ -56,6 +56,12 @@ export const resolveInstanceConfig = (
     viewport: {
       ...merged.viewport,
       wheelSensitivity: Math.max(0, merged.viewport.wheelSensitivity)
+    },
+    features: {
+      commandGatewayEnabled: merged.features.commandGatewayEnabled !== false,
+      readInvalidationEnabled: merged.features.readInvalidationEnabled !== false,
+      unifiedInversionEnabled: merged.features.unifiedInversionEnabled !== false,
+      legacyMutateEnabled: Boolean(merged.features.legacyMutateEnabled)
     }
   }
 }
@@ -85,6 +91,12 @@ export const toInstanceConfig = (
   },
   viewport: {
     wheelSensitivity: config.viewport.wheelSensitivity
+  },
+  features: {
+    commandGatewayEnabled: DEFAULT_INSTANCE_CONFIG.features.commandGatewayEnabled,
+    readInvalidationEnabled: DEFAULT_INSTANCE_CONFIG.features.readInvalidationEnabled,
+    unifiedInversionEnabled: DEFAULT_INSTANCE_CONFIG.features.unifiedInversionEnabled,
+    legacyMutateEnabled: DEFAULT_INSTANCE_CONFIG.features.legacyMutateEnabled
   }
 })
 

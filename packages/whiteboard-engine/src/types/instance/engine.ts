@@ -1,6 +1,5 @@
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
 import type { Commands } from '../command/api'
-import type { ApplyMutationsApi } from '../command/source'
 import type { InstanceConfig } from './config'
 import type { Query } from './query'
 import type { State } from './state'
@@ -17,7 +16,6 @@ export type Instance = {
 }
 
 export type InternalInstance = Instance & {
-  mutate: ApplyMutationsApi
   document: {
     get: () => Document
     replace: (doc: Document, options?: { silent?: boolean }) => void

@@ -36,6 +36,12 @@ export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
   },
   viewport: {
     wheelSensitivity: 0.001
+  },
+  features: {
+    commandGatewayEnabled: true,
+    readInvalidationEnabled: true,
+    unifiedInversionEnabled: true,
+    legacyMutateEnabled: false
   }
 }
 

@@ -1,11 +1,13 @@
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
+import type { Commands } from '@engine-types/command/api'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { FrameTask } from '../../runtime/TaskQueue'
-import type { NodeId, Operation } from '@whiteboard/core/types'
+import type { NodeId } from '@whiteboard/core/types'
 
 type Options = {
-  instance: Pick<InternalInstance, 'document' | 'mutate'>
+  instance: Pick<InternalInstance, 'document'>
+  applyWrite: Commands['write']['apply']
   scheduler: Scheduler
 }
 
@@ -23,12 +25,14 @@ const isSameSize = (left: Size, right: Size) =>
 
 export class Measure {
   private readonly instance: Options['instance']
+  private readonly applyWrite: Options['applyWrite']
   private readonly flushTask: FrameTask
   private readonly pending = new Map<NodeId, Size>()
   private readonly committed = new Map<NodeId, Size>()
 
-  constructor({ instance, scheduler }: Options) {
+  constructor({ instance, applyWrite, scheduler }: Options) {
     this.instance = instance
+    this.applyWrite = applyWrite
     this.flushTask = new FrameTask(scheduler, this.flush)
   }
 
@@ -51,22 +55,28 @@ export class Measure {
     if (!this.pending.size) return
     const doc = this.instance.document.get()
     const nodeIds = new Set(doc.nodes.map((node) => node.id))
-    const operations: Operation[] = []
+    const updates: Array<{ id: NodeId; size: Size }> = []
 
     this.pending.forEach((size, nodeId) => {
       if (!nodeIds.has(nodeId)) return
       const prev = this.committed.get(nodeId)
       if (prev && isSameSize(prev, size)) return
       this.committed.set(nodeId, size)
-      operations.push({
-        type: 'node.update',
-        id: nodeId,
-        patch: { size }
-      })
+      updates.push({ id: nodeId, size })
     })
     this.pending.clear()
 
-    if (!operations.length) return
-    void this.instance.mutate(operations, 'system')
+    if (!updates.length) return
+    updates.forEach(({ id, size }) => {
+      void this.applyWrite({
+        domain: 'node',
+        command: {
+          type: 'update',
+          id,
+          patch: { size }
+        },
+        source: 'system'
+      })
+    })
   }
 }

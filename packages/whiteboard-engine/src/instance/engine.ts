@@ -3,16 +3,12 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/engine'
-import type { Shortcuts } from '@engine-types/shortcuts/manager'
-import type { Commands } from '@engine-types/command/api'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
-import type { DocumentId } from '@whiteboard/core/types'
 import { shortcuts as bindShortcuts } from '../runtime/shortcut'
 import {
   runtime as write
 } from '../runtime/write/runtime'
-import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
 import { resolveInstanceConfig } from '../config'
 import { state as setupState } from '../state/factory/state'
 import { Scheduler } from '../runtime/Scheduler'
@@ -21,167 +17,8 @@ import { orchestrator as read } from '../runtime/read/orchestrator'
 import { snapshot } from '../runtime/read/stages/snapshot'
 import { createDocumentStore } from '../document/Store'
 import { Reactions } from './reactions/Reactions'
-
-type CommandDeps = {
-  state: InternalInstance['state']
-  viewport: ViewportRuntime
-  reactions: Pick<Reactions, 'nodeMeasured'>
-  writeRuntime: WriteRuntime
-}
-
-const commands = ({
-  state,
-  viewport,
-  reactions,
-  writeRuntime
-}: CommandDeps): Commands => {
-  const { history, resetDoc } = writeRuntime
-  const {
-    write,
-    edge,
-    interaction,
-    viewport: viewportCommands,
-    node,
-    mindmap,
-    selection
-  } = writeRuntime.commands
-
-  return {
-    doc: {
-      reset: resetDoc
-    },
-    tool: {
-      set: (tool) => {
-        state.write('tool', tool)
-      }
-    },
-    history: {
-      get: history.get,
-      configure: history.configure,
-      undo: history.undo,
-      redo: history.redo,
-      clear: history.clear
-    },
-    interaction: {
-      update: interaction.update,
-      clearHover: interaction.clearHover
-    },
-    host: {
-      nodeMeasured: (id, size) => {
-        reactions.nodeMeasured(id, size)
-      },
-      containerResized: (rect) => {
-        viewport.setContainerRect(rect)
-      }
-    },
-    selection: {
-      select: selection.select,
-      toggle: selection.toggle,
-      clear: selection.clear,
-      getSelectedNodeIds: selection.getSelectedNodeIds
-    },
-    edge: {
-      create: edge.create,
-      update: edge.update,
-      delete: edge.delete,
-      insertRoutingPoint: edge.insertRoutingPoint,
-      moveRoutingPoint: edge.moveRoutingPoint,
-      removeRoutingPoint: edge.removeRoutingPoint,
-      resetRouting: edge.resetRouting,
-      select: edge.select
-    },
-    order: {
-      node: {
-        set: node.setOrder,
-        bringToFront: node.bringToFront,
-        sendToBack: node.sendToBack,
-        bringForward: node.bringForward,
-        sendBackward: node.sendBackward
-      },
-      edge: {
-        set: edge.setOrder,
-        bringToFront: edge.bringToFront,
-        sendToBack: edge.sendToBack,
-        bringForward: edge.bringForward,
-        sendBackward: edge.sendBackward
-      }
-    },
-    viewport: {
-      set: viewportCommands.set,
-      panBy: viewportCommands.panBy,
-      zoomBy: viewportCommands.zoomBy,
-      zoomTo: viewportCommands.zoomTo,
-      reset: viewportCommands.reset
-    },
-    node: {
-      create: node.create,
-      update: node.update,
-      updateData: node.updateData,
-      updateManyPosition: node.updateManyPosition,
-      delete: node.delete
-    },
-    group: {
-      create: node.createGroup,
-      ungroup: node.ungroup
-    },
-    mindmap: {
-      apply: mindmap.apply
-    },
-    write: {
-      apply: write.apply
-    }
-  }
-}
-
-type PortDeps = {
-  state: InternalInstance['state']
-  viewport: ViewportRuntime
-  history: Commands['history']
-  shortcuts: Shortcuts
-  reactions: Pick<Reactions, 'dispose'>
-  scheduler: Scheduler
-}
-
-const port = ({
-  state,
-  viewport,
-  history,
-  shortcuts,
-  reactions,
-  scheduler
-}: PortDeps): Pick<InternalInstance['runtime'], 'applyConfig' | 'dispose'> => {
-  let prevHistoryDocId: DocumentId | undefined
-
-  const applyConfig: InternalInstance['runtime']['applyConfig'] = (nextConfig) => {
-    if (nextConfig.history) {
-      history.configure(nextConfig.history)
-    }
-    if (!nextConfig.docId) {
-      prevHistoryDocId = undefined
-    } else {
-      if (prevHistoryDocId && prevHistoryDocId !== nextConfig.docId) {
-        history.clear()
-      }
-      prevHistoryDocId = nextConfig.docId
-    }
-    state.write('tool', nextConfig.tool)
-    viewport.setViewport(nextConfig.viewport)
-    shortcuts.setShortcuts(nextConfig.shortcuts)
-    state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
-  }
-
-  const dispose: InternalInstance['runtime']['dispose'] = () => {
-    prevHistoryDocId = undefined
-    reactions.dispose()
-    shortcuts.dispose()
-    scheduler.cancelAll()
-  }
-
-  return {
-    applyConfig,
-    dispose
-  }
-}
+import { createCommands } from './facade/commands'
+import { createRuntimePort } from './facade/runtimePort'
 
 export const engine = ({
   registries,
@@ -219,7 +56,6 @@ export const engine = ({
   })
 
   const instance: InternalInstance = {
-    mutate: null as unknown as InternalInstance['mutate'],
     state,
     runtime: {
       store: runtimeStore,
@@ -242,7 +78,6 @@ export const engine = ({
     readModelRevisionAtom: stateAtoms.readModelRevision
   })
 
-  instance.mutate = writeRuntime.mutate
   const reactions = new Reactions({
     instance,
     readRuntime,
@@ -251,7 +86,7 @@ export const engine = ({
   })
   reactions.start()
 
-  instance.commands = commands({
+  instance.commands = createCommands({
     state,
     viewport,
     reactions,
@@ -262,7 +97,7 @@ export const engine = ({
     instance,
     runAction: writeRuntime.commands.shortcut.execute
   })
-  const runtimePort = port({
+  const runtimePort = createRuntimePort({
     state,
     viewport,
     history: writeRuntime.history,

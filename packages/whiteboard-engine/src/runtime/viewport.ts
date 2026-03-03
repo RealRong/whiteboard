@@ -6,7 +6,12 @@ import {
 import { isSameBoxTuple } from '@whiteboard/core/utils'
 import type { Point, Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
-import type { ContainerRect, ViewportApi } from '@engine-types/viewport/api'
+import type {
+  ContainerRect,
+  ViewportApi,
+  ViewportReadApi,
+  ViewportWriteApi
+} from '@engine-types/viewport/api'
 import { DEFAULT_INTERNALS } from '../config'
 
 const toContainerSize = (rect: ContainerRect): Size => ({
@@ -34,7 +39,7 @@ const copyRect = (rect: ContainerRect): ContainerRect => ({
   height: rect.height
 })
 
-export class ViewportRuntime implements ViewportApi {
+export class ViewportRuntime implements ViewportApi, ViewportReadApi, ViewportWriteApi {
   private readonly readViewport: () => Viewport
   private readonly writeViewport: (viewport: Viewport) => void
   private containerRect: ContainerRect = copyRect(DEFAULT_INTERNALS.containerRect)

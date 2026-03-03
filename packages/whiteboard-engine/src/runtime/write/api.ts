@@ -1,8 +1,11 @@
 import type {
   Commands,
-  WriteCommandMap
+  WriteCommandMap,
+  WriteDomain,
+  WriteInput
 } from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
+import type { CommandGateway } from '@engine-types/cqrs/command'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { ShortcutAction } from '@engine-types/shortcuts/types'
 import type {
@@ -48,6 +51,7 @@ import {
   sendOrderToBack
 } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../config'
+import { createBatchId } from './id'
 import type { Apply } from './model'
 
 type NodeCommand = WriteCommandMap['node']
@@ -55,13 +59,60 @@ type EdgeCommand = WriteCommandMap['edge']
 type ViewportCommand = WriteCommandMap['viewport']
 
 export const write = ({
-  apply
+  apply,
+  gateway,
+  commandGatewayEnabled
 }: {
   apply: Apply
-}): WriteCommandsApi => ({
-  apply: (payload) =>
-    apply(payload)
-})
+  gateway: CommandGateway
+  commandGatewayEnabled: boolean
+}): WriteCommandsApi => {
+  const now = () => Date.now()
+
+  return {
+    apply: async <D extends WriteDomain>(payload: WriteInput<D>) => {
+      if (!commandGatewayEnabled) {
+        return apply(payload)
+      }
+      const source = payload.source ?? 'ui'
+      const commandId = payload.trace?.commandId ?? createBatchId('command')
+      const commandResult = await gateway.dispatch<'write.apply', WriteInput<D>>({
+        id: commandId,
+        type: 'write.apply',
+        payload,
+        meta: {
+          source,
+          actorId: undefined,
+          correlationId: payload.trace?.correlationId ?? commandId,
+          causationId: payload.trace?.causationId,
+          transactionId: payload.trace?.transactionId,
+          timestamp: payload.trace?.timestamp ?? now()
+        }
+      })
+
+      if (!commandResult.ok) {
+        return {
+          ok: false,
+          reason: 'invalid',
+          message: `[${commandResult.error.code}] ${commandResult.error.message}`
+        }
+      }
+
+      const raw = commandResult.value
+      if (
+        raw &&
+        typeof raw === 'object' &&
+        'ok' in raw &&
+        typeof (raw as DispatchResult).ok === 'boolean'
+      ) {
+        return raw as DispatchResult
+      }
+
+      // Defensive fallback for temporary mixed gateway versions.
+      return apply(payload)
+    }
+  }
+}
 
 export const node = ({
   instance,
@@ -352,7 +403,7 @@ export const selection = ({
   const state = instance.state
   const readDoc = (): Document => instance.document.get()
   const getSelectableNodeIds = (): NodeId[] =>
-    instance.read.get.nodeIds()
+    [...instance.read.get.nodeIds()]
   const getSelectedNodeIds = (): NodeId[] =>
     Array.from(instance.state.read('selection').selectedNodeIds)
   const getSelectedEdgeId = (): EdgeId | undefined =>

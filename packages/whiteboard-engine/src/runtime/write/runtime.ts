@@ -17,6 +17,7 @@ import {
 import { Writer } from './writer'
 import { bus } from './bus'
 import { plan } from './plan'
+import { createCommandGateway } from '../command'
 import {
   type Apply,
   type Dispatch,
@@ -38,18 +39,24 @@ export const runtime = ({
     now: scheduler.now
   })
   const planner = plan({ instance })
-  const dispatch: Dispatch = (payload, source) =>
-    writer.applyDraft(planner(payload), source)
+  const dispatch: Dispatch = (payload, source, trace) =>
+    writer.applyDraft(planner(payload), source, trace)
   const apply: Apply = <D extends WriteDomain>(payload: WriteInput<D>) =>
     dispatch(
       {
         domain: payload.domain,
         command: payload.command
       } as PlanInput<D>,
-      payload.source ?? 'ui'
+      payload.source ?? 'ui',
+      payload.trace
     )
+  const gateway = createCommandGateway({ apply })
   const commands = {
-    write: writeApi({ apply }),
+    write: writeApi({
+      apply,
+      gateway,
+      commandGatewayEnabled: instance.config.features.commandGatewayEnabled
+    }),
     edge: edge({ instance, apply }),
     interaction: interaction({ instance }),
     viewport: viewport({ apply }),
@@ -63,7 +70,7 @@ export const runtime = ({
   })
 
   return {
-    mutate: writer.mutate,
+    gateway,
     history: writer.history,
     resetDoc: writer.resetDoc,
     changeBus,

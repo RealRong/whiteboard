@@ -8,7 +8,7 @@ export type ContainerRect = {
   height: number
 }
 
-export type ViewportApi = {
+export type ViewportReadApi = {
   get: () => Viewport
   getZoom: () => number
   screenToWorld: (point: Point) => Point
@@ -17,6 +17,11 @@ export type ViewportApi = {
   clientToWorld: (clientX: number, clientY: number) => Point
   getScreenCenter: () => Point
   getContainerSize: () => Size
+}
+
+export type ViewportWriteApi = {
   setViewport: (viewport: Viewport) => void
   setContainerRect: (rect: ContainerRect) => void
 }
+
+export type ViewportApi = ViewportReadApi & ViewportWriteApi
