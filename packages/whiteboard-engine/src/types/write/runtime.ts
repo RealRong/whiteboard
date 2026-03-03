@@ -1,6 +1,5 @@
 import type { Commands as EngineCommands } from '../command/api'
 import type { Bus as ChangeBus } from './change'
-import type { ApplyMutationsApi } from '../command/source'
 import type {
   EdgeCommandsApi,
   InteractionCommandsApi,
@@ -11,6 +10,7 @@ import type {
   WriteCommandsApi,
   ViewportCommandsApi
 } from './commands'
+import type { CommandGateway } from '../cqrs/command'
 
 export type CommandSet = {
   write: WriteCommandsApi
@@ -24,7 +24,7 @@ export type CommandSet = {
 }
 
 export type Runtime = {
-  mutate: ApplyMutationsApi
+  gateway: CommandGateway
   history: EngineCommands['history']
   resetDoc: EngineCommands['doc']['reset']
   commands: CommandSet

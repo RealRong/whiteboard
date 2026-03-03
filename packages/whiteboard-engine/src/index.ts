@@ -13,9 +13,25 @@ export {
 export type { Commands } from './types/command/api'
 export type {
   CommandSource,
+  CommandTrace,
   Mutation,
   ApplyMutationsApi
 } from './types/command/source'
+export type {
+  CommandMeta,
+  CommandEnvelope,
+  CommandError,
+  CommandResult,
+  CommandGateway,
+  EventOrigin,
+  Revision,
+  DomainEventEnvelope,
+  EventJournal,
+  QueryMethod,
+  QueryFacade,
+  ReadFacade,
+  ProjectionRuntime
+} from './types/cqrs'
 export type {
   CreateEngineOptions,
   Instance
@@ -37,6 +53,12 @@ export type {
   MindmapViewTree,
   NodeViewItem
 } from './types/instance/read'
+export type {
+  InvalidationMode,
+  InvalidationReason,
+  InvalidationRevision,
+  ReadInvalidation
+} from './types/read/invalidation'
 export type {
   StateKey,
   StateSnapshot

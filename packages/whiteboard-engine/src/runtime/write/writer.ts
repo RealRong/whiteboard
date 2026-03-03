@@ -1,11 +1,18 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { ApplyMutationsApi, CommandSource } from '@engine-types/command/source'
+import type {
+  ApplyMutationsApi,
+  CommandSource,
+  CommandTrace
+} from '@engine-types/command/source'
 import type {
   ApplyResult,
   Options as WriterOptions,
   ResetResult
 } from '@engine-types/write/writer'
-import type { Bus as ChangeBus } from '@engine-types/write/change'
+import type {
+  Bus as ChangeBus,
+  ChangeTrace
+} from '@engine-types/write/change'
 import { FULL_MUTATION_IMPACT, MutationImpactAnalyzer } from './impact'
 import { reduceOperations } from '@whiteboard/core/kernel'
 import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
@@ -23,15 +30,19 @@ import type { Draft } from './model'
 
 type ApplyInput = {
   kind: 'apply'
+  source: CommandSource
   origin: Origin
   operations: Operation[]
+  trace?: CommandTrace
 }
 
 type ReplaceInput = {
   kind: 'replace'
+  source: CommandSource
   origin: Origin
   doc: Document
   timestamp?: number
+  trace?: CommandTrace
 }
 
 type WriteInput = ApplyInput | ReplaceInput
@@ -95,6 +106,7 @@ export class Writer {
   private publishChange = ({
     kind,
     origin,
+    trace,
     operations,
     impact,
     docBefore,
@@ -102,6 +114,7 @@ export class Writer {
   }: {
     kind: 'apply' | 'replace'
     origin: Origin
+    trace: ChangeTrace
     operations: Operation[]
     impact: ReturnType<MutationImpactAnalyzer['analyze']>
     docBefore: Document
@@ -112,6 +125,7 @@ export class Writer {
       revision,
       kind,
       origin,
+      trace,
       operations,
       impact,
       docBefore,
@@ -119,7 +133,22 @@ export class Writer {
     })
   }
 
+  private normalizeTrace = (
+    source: CommandSource,
+    trace?: CommandTrace
+  ): ChangeTrace => {
+    const commandId = trace?.commandId ?? createBatchId('command')
+    return {
+      commandId,
+      correlationId: trace?.correlationId ?? commandId,
+      transactionId: trace?.transactionId,
+      causationId: trace?.causationId,
+      source
+    }
+  }
+
   private run = <T extends WriteInput>(input: T): WriteResult<T> => {
+    const trace = this.normalizeTrace(input.source, input.trace)
     if (input.kind === 'apply') {
       const docBefore = this.instance.document.get()
       const reduced = reduceOperations(docBefore, input.operations, {
@@ -137,6 +166,7 @@ export class Writer {
       this.publishChange({
         kind: 'apply',
         origin: input.origin,
+        trace,
         operations,
         impact: this.impactAnalyzer.analyze(operations),
         docBefore,
@@ -161,6 +191,7 @@ export class Writer {
     this.publishChange({
       kind: 'replace',
       origin: input.origin,
+      trace,
       operations: [],
       impact: FULL_MUTATION_IMPACT,
       docBefore,
@@ -188,7 +219,8 @@ export class Writer {
     this.run({
       kind: 'apply',
       operations,
-      origin: 'system'
+      origin: 'system',
+      source: 'system'
     }).ok
 
   readonly history = {
@@ -207,12 +239,14 @@ export class Writer {
     return 'user'
   }
 
-  mutate: ApplyMutationsApi = async (operations, source) => {
+  mutate: ApplyMutationsApi = async (operations, source, trace) => {
     const origin = this.toOrigin(source)
     const result = this.run({
       kind: 'apply',
       operations,
-      origin
+      origin,
+      source,
+      trace
     })
     if (!result.ok) return result
 
@@ -231,10 +265,11 @@ export class Writer {
 
   applyDraft = async (
     draft: Draft,
-    source: CommandSource
+    source: CommandSource,
+    trace?: CommandTrace
   ): Promise<DispatchResult> => {
     if (!draft.ok) return draft
-    const result = await this.mutate(draft.operations, source)
+    const result = await this.mutate(draft.operations, source, trace)
     if (!result.ok) return result
     if (typeof draft.value === 'undefined') return result
     return {
@@ -248,7 +283,8 @@ export class Writer {
     const result = this.run({
       kind: 'replace',
       doc,
-      origin: 'system'
+      origin: 'system',
+      source: 'system'
     })
     return {
       ok: true,

@@ -36,7 +36,7 @@ import type {
   RoutingDragEndOptions,
   RoutingDragCancelOptions
 } from '../edge/routing'
-import type { CommandSource } from './source'
+import type { CommandSource, CommandTrace } from './source'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -390,6 +390,7 @@ export type WriteInput<D extends WriteDomain = WriteDomain> =
         domain: D
         command: WriteCommandMap[D]
         source?: CommandSource
+        trace?: CommandTrace
       }
     : never
 

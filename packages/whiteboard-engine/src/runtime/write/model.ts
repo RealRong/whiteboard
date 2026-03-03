@@ -3,7 +3,10 @@ import type {
   WriteDomain,
   WriteInput
 } from '@engine-types/command/api'
-import type { CommandSource } from '@engine-types/command/source'
+import type {
+  CommandSource,
+  CommandTrace
+} from '@engine-types/command/source'
 import type {
   DispatchResult,
   Operation
@@ -19,7 +22,8 @@ export type PlanInput<D extends WriteDomain = WriteDomain> =
 
 export type Dispatch = <D extends WriteDomain>(
   payload: PlanInput<D>,
-  source: CommandSource
+  source: CommandSource,
+  trace?: CommandTrace
 ) => Promise<DispatchResult>
 
 export type Apply = <D extends WriteDomain>(
