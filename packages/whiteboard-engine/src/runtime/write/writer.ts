@@ -1,4 +1,3 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
 import type {
   ApplyMutationsApi,
   CommandSource,
@@ -27,8 +26,9 @@ import type { PrimitiveAtom } from 'jotai/vanilla'
 import { createBatchId } from './id'
 import { History } from './history'
 import type { Draft } from './model'
+import { createReadInvalidation } from './readHints'
 
-type ApplyInput = {
+type ApplyTransaction = {
   kind: 'apply'
   source: CommandSource
   origin: Origin
@@ -36,7 +36,7 @@ type ApplyInput = {
   trace?: CommandTrace
 }
 
-type ReplaceInput = {
+type ReplaceTransaction = {
   kind: 'replace'
   source: CommandSource
   origin: Origin
@@ -45,13 +45,13 @@ type ReplaceInput = {
   trace?: CommandTrace
 }
 
-type WriteInput = ApplyInput | ReplaceInput
-type WriteResult<T extends WriteInput> = T extends ApplyInput ? ApplyResult : ResetResult
+type TransactionInput = ApplyTransaction | ReplaceTransaction
+type TransactionResult<T extends TransactionInput> =
+  T extends ApplyTransaction ? ApplyResult : ResetResult
 
 export class Writer {
   private readonly instance: WriterOptions['instance']
   private readonly changeBus: ChangeBus
-  private readonly documentAtom: PrimitiveAtom<Document>
   private readonly readModelRevisionAtom: PrimitiveAtom<number>
   private readonly now: () => number
   private readonly impactAnalyzer = new MutationImpactAnalyzer()
@@ -60,13 +60,11 @@ export class Writer {
   constructor({
     instance,
     changeBus,
-    documentAtom,
     readModelRevisionAtom,
     now
   }: WriterOptions) {
     this.instance = instance
     this.changeBus = changeBus
-    this.documentAtom = documentAtom
     this.readModelRevisionAtom = readModelRevisionAtom
     this.now = now ?? (() => {
       const runtime = globalThis as { performance?: { now?: () => number } }
@@ -94,7 +92,6 @@ export class Writer {
   }
 
   private syncDocumentState = (doc: Document) => {
-    this.instance.runtime.store.set(this.documentAtom, doc)
     this.instance.runtime.store.set(
       this.readModelRevisionAtom,
       (revision: number) => revision + 1
@@ -121,11 +118,17 @@ export class Writer {
     docAfter: Document
   }) => {
     const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
+    const readHints = createReadInvalidation({
+      kind,
+      revision,
+      impact
+    })
     this.changeBus.publish({
       revision,
       kind,
       origin,
       trace,
+      readHints,
       operations,
       impact,
       docBefore,
@@ -147,7 +150,9 @@ export class Writer {
     }
   }
 
-  private run = <T extends WriteInput>(input: T): WriteResult<T> => {
+  private commitTransaction = <T extends TransactionInput>(
+    input: T
+  ): TransactionResult<T> => {
     const trace = this.normalizeTrace(input.source, input.trace)
     if (input.kind === 'apply') {
       const docBefore = this.instance.document.get()
@@ -157,7 +162,7 @@ export class Writer {
         registries: this.createKernelRegistriesSnapshot()
       })
       if (!reduced.ok) {
-        return reduced as unknown as WriteResult<T>
+        return reduced as unknown as TransactionResult<T>
       }
 
       this.commitDocument(reduced.doc)
@@ -182,7 +187,7 @@ export class Writer {
           origin: input.origin,
           operations
         }
-      } as unknown as WriteResult<T>
+      } as unknown as TransactionResult<T>
     }
 
     const docBefore = this.instance.document.get()
@@ -212,11 +217,11 @@ export class Writer {
         operations: [],
         reset: true
       }
-    } as unknown as WriteResult<T>
+    } as unknown as TransactionResult<T>
   }
 
   private applyHistoryOperations = (operations: Operation[]) =>
-    this.run({
+    this.commitTransaction({
       kind: 'apply',
       operations,
       origin: 'system',
@@ -239,9 +244,17 @@ export class Writer {
     return 'user'
   }
 
-  mutate: ApplyMutationsApi = async (operations, source, trace) => {
+  private commitOperations = ({
+    operations,
+    source,
+    trace
+  }: {
+    operations: Operation[]
+    source: CommandSource
+    trace?: CommandTrace
+  }): DispatchResult => {
     const origin = this.toOrigin(source)
-    const result = this.run({
+    const result = this.commitTransaction({
       kind: 'apply',
       operations,
       origin,
@@ -263,13 +276,25 @@ export class Writer {
     }
   }
 
+  mutate: ApplyMutationsApi = async (operations, source, trace) => {
+    return this.commitOperations({
+      operations,
+      source,
+      trace
+    })
+  }
+
   applyDraft = async (
     draft: Draft,
     source: CommandSource,
     trace?: CommandTrace
   ): Promise<DispatchResult> => {
     if (!draft.ok) return draft
-    const result = await this.mutate(draft.operations, source, trace)
+    const result = this.commitOperations({
+      operations: draft.operations,
+      source,
+      trace
+    })
     if (!result.ok) return result
     if (typeof draft.value === 'undefined') return result
     return {
@@ -280,7 +305,7 @@ export class Writer {
 
   resetDoc = async (doc: Document): Promise<DispatchResult> => {
     this.timeline.clear()
-    const result = this.run({
+    const result = this.commitTransaction({
       kind: 'replace',
       doc,
       origin: 'system',

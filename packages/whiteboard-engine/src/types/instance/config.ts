@@ -20,8 +20,5 @@ export type InstanceConfig = {
   }
   features: {
     commandGatewayEnabled: boolean
-    readInvalidationEnabled: boolean
-    unifiedInversionEnabled: boolean
-    legacyMutateEnabled: boolean
   }
 }

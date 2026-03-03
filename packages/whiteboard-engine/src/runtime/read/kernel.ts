@@ -6,7 +6,6 @@ import {
   READ_SUBSCRIBE_KEYS,
   type EngineRead
 } from '@engine-types/instance/read'
-import type { Change } from '@engine-types/write/change'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type {
   ReadContextKey,
@@ -14,8 +13,6 @@ import type {
   ReadRuntimeContext,
   ReadSubscribableInternalKey
 } from '@engine-types/read/context'
-import { toReadChangePlan } from './planner'
-import { toReadInvalidation } from './invalidationAdapter'
 import { query } from './api/query'
 import { readApi } from './api/read'
 import { edge } from './stages/edge/stage'
@@ -23,10 +20,9 @@ import { node } from './stages/node'
 import { mindmap } from './stages/mindmap/stage'
 import { indexer } from './stages/index/stage'
 
-type ReadRuntimePort = {
+export type ReadRuntimePort = {
   query: Query
   read: EngineRead
-  applyChange: (change: Change) => void
   applyInvalidation: (invalidation: ReadInvalidation) => void
 }
 
@@ -86,19 +82,13 @@ export const createReadKernel = ({
   })
 
   const applyInvalidation = (invalidation: ReadInvalidation) => {
-    const plan = toReadChangePlan(invalidation)
-    indexes.applyPlan(plan.index)
-    edgeStage.applyChange(plan)
-  }
-
-  const applyChange = (change: Change) => {
-    applyInvalidation(toReadInvalidation(change))
+    indexes.applyPlan(invalidation.index)
+    edgeStage.applyPlan(invalidation.edge)
   }
 
   return {
     query: queryApi,
     read,
-    applyChange,
     applyInvalidation
   }
 }

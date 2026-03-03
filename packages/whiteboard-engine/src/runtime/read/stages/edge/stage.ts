@@ -6,8 +6,8 @@ import { cache } from './cache'
 export const edge = (context: ReadRuntimeContext): EdgeReadRuntime => {
   const memo = cache(context)
 
-  const applyChange: EdgeReadRuntime['applyChange'] = (plan) => {
-    memo.applyPlan(plan.edge)
+  const applyPlan: EdgeReadRuntime['applyPlan'] = (plan) => {
+    memo.applyPlan(plan)
   }
 
   return {
@@ -21,6 +21,6 @@ export const edge = (context: ReadRuntimeContext): EdgeReadRuntime => {
         return memo.getSnapshot().getEndpoints(selectedEdgeId)
       }
     },
-    applyChange
+    applyPlan
   }
 }

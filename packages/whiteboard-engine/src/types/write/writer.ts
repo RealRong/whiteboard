@@ -2,12 +2,11 @@ import type { PrimitiveAtom } from 'jotai/vanilla'
 import type {
   ChangeSet,
   DispatchFailure,
-  Document,
   Operation,
   Origin
 } from '@whiteboard/core/types'
-import type { InternalInstance } from '../instance/engine'
 import type { Bus as ChangeBus } from './change'
+import type { WriteRuntimeInstance } from './deps'
 
 export type Applied = {
   docId: string | undefined
@@ -17,9 +16,8 @@ export type Applied = {
 }
 
 export type Options = {
-  instance: InternalInstance
+  instance: WriteRuntimeInstance
   changeBus: ChangeBus
-  documentAtom: PrimitiveAtom<Document>
   readModelRevisionAtom: PrimitiveAtom<number>
   now?: () => number
 }

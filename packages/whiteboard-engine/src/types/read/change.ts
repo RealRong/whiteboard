@@ -11,8 +11,3 @@ export type IndexChange = {
   mode: 'none' | 'full' | 'dirtyNodeIds'
   dirtyNodeIds: readonly NodeId[]
 }
-
-export type ChangePlan = {
-  index: IndexChange
-  edge: EdgeChange
-}

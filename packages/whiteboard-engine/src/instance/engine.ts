@@ -3,6 +3,8 @@ import type {
   InternalInstance,
   Instance
 } from '@engine-types/instance/engine'
+import type { Document } from '@whiteboard/core/types'
+import type { WriteRuntimeInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
 import { shortcuts as bindShortcuts } from '../runtime/shortcut'
@@ -13,12 +15,10 @@ import { resolveInstanceConfig } from '../config'
 import { state as setupState } from '../state/factory/state'
 import { Scheduler } from '../runtime/Scheduler'
 import { ViewportRuntime } from '../runtime/Viewport'
-import { orchestrator as read } from '../runtime/read/orchestrator'
+import { createReadKernel } from '../runtime/read/kernel'
 import { snapshot } from '../runtime/read/stages/snapshot'
-import { createDocumentStore } from '../document/Store'
-import { Reactions } from './reactions/Reactions'
+import { createReactions } from './reactions/Reactions'
 import { createCommands } from './facade/commands'
-import { createRuntimePort } from './facade/runtimePort'
 
 export const engine = ({
   registries,
@@ -30,11 +30,18 @@ export const engine = ({
   const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
   const runtimeRegistries = registries ?? createRegistries()
-  const documentStore = createDocumentStore(document, onDocumentChange)
+  const initialDocument = document
   const { state, stateAtoms } = setupState({
-    getDoc: documentStore.get,
+    getDoc: () => initialDocument,
     store: runtimeStore
   })
+  const readDocument = (): Document => runtimeStore.get(stateAtoms.document)
+  const replaceDocument = (nextDocument: Document, options?: { silent?: boolean }) => {
+    runtimeStore.set(stateAtoms.document, nextDocument)
+    if (!options?.silent) {
+      onDocumentChange?.(nextDocument)
+    }
+  }
   const snapshotAtom = snapshot({
     documentAtom: stateAtoms.document,
     revisionAtom: stateAtoms.readModelRevision
@@ -46,68 +53,87 @@ export const engine = ({
     }
   })
 
-  const readRuntime = read({
+  const readRuntime = createReadKernel({
     runtimeStore,
     stateAtoms,
     snapshotAtom,
     config,
-    readDoc: documentStore.get,
+    readDoc: readDocument,
     viewport
   })
 
-  const instance: InternalInstance = {
+  let previousHistoryDocId: string | undefined
+  const runtime: InternalInstance['runtime'] = {
+    store: runtimeStore,
+    applyConfig: (() => {}) as InternalInstance['runtime']['applyConfig'],
+    dispose: (() => {}) as InternalInstance['runtime']['dispose']
+  }
+
+  const baseInstance: WriteRuntimeInstance = {
     state,
-    runtime: {
-      store: runtimeStore,
-      applyConfig: (() => {}) as InternalInstance['runtime']['applyConfig'],
-      dispose: (() => {}) as InternalInstance['runtime']['dispose']
+    runtime,
+    document: {
+      get: readDocument,
+      replace: replaceDocument
     },
-    document: documentStore,
     config,
     viewport,
     registries: runtimeRegistries,
     query: readRuntime.query,
-    read: readRuntime.read,
-    commands: null as unknown as InternalInstance['commands']
+    read: readRuntime.read
   }
   state.write('tool', 'select')
   const writeRuntime = write({
-    instance,
+    instance: baseInstance,
     scheduler,
-    documentAtom: stateAtoms.document,
     readModelRevisionAtom: stateAtoms.readModelRevision
   })
 
-  const reactions = new Reactions({
-    instance,
+  const reactions = createReactions({
+    instance: baseInstance,
     readRuntime,
     writeRuntime,
     scheduler
   })
-  reactions.start()
-
-  instance.commands = createCommands({
+  const commands = createCommands({
     state,
     viewport,
     reactions,
     writeRuntime
   })
-
+  const instance: InternalInstance = {
+    ...baseInstance,
+    commands
+  }
   const shortcuts = bindShortcuts({
     instance,
     runAction: writeRuntime.commands.shortcut.execute
   })
-  const runtimePort = createRuntimePort({
-    state,
-    viewport,
-    history: writeRuntime.history,
-    shortcuts,
-    reactions,
-    scheduler
-  })
 
-  instance.runtime.applyConfig = runtimePort.applyConfig
-  instance.runtime.dispose = runtimePort.dispose
+  runtime.applyConfig = (nextConfig) => {
+    if (nextConfig.history) {
+      writeRuntime.history.configure(nextConfig.history)
+    }
+    if (!nextConfig.docId) {
+      previousHistoryDocId = undefined
+    } else {
+      if (previousHistoryDocId && previousHistoryDocId !== nextConfig.docId) {
+        writeRuntime.history.clear()
+      }
+      previousHistoryDocId = nextConfig.docId
+    }
+    state.write('tool', nextConfig.tool)
+    viewport.setViewport(nextConfig.viewport)
+    shortcuts.setShortcuts(nextConfig.shortcuts)
+    state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
+  }
+
+  runtime.dispose = () => {
+    previousHistoryDocId = undefined
+    reactions.dispose()
+    shortcuts.dispose()
+    scheduler.cancelAll()
+  }
 
   return {
     state: instance.state,

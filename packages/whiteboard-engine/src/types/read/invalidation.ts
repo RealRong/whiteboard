@@ -1,4 +1,5 @@
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type { EdgeChange, IndexChange } from './change'
 
 export type InvalidationMode = 'none' | 'partial' | 'full'
 
@@ -23,20 +24,6 @@ export type ReadInvalidation = {
   revision: InvalidationRevision
   dirtyNodeIds: readonly NodeId[]
   dirtyEdgeIds: readonly EdgeId[]
-  stages: {
-    index: {
-      nodeRectIndex: InvalidationMode
-      snapIndex: InvalidationMode
-    }
-    projection: {
-      node: InvalidationMode
-      mindmap: InvalidationMode
-      edge: {
-        rebuild: InvalidationMode
-        dirtyNodeIds: readonly NodeId[]
-        dirtyEdgeIds: readonly EdgeId[]
-        resetVisibleEdges: boolean
-      }
-    }
-  }
+  index: IndexChange
+  edge: EdgeChange
 }

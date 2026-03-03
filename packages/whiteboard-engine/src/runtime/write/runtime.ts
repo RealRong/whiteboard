@@ -27,14 +27,12 @@ import {
 export const runtime = ({
   instance,
   scheduler,
-  documentAtom,
   readModelRevisionAtom
 }: WriteDeps): WriteRuntime => {
   const changeBus = bus()
   const writer = new Writer({
     instance,
     changeBus,
-    documentAtom,
     readModelRevisionAtom,
     now: scheduler.now
   })
@@ -51,18 +49,50 @@ export const runtime = ({
       payload.trace
     )
   const gateway = createCommandGateway({ apply })
+  const writeCommands = writeApi({
+    apply,
+    gateway,
+    commandGatewayEnabled: instance.config.features.commandGatewayEnabled
+  })
+  const edgeCommands = edge({ instance, apply })
+  const interactionCommands = interaction({ instance })
+  const viewportCommands = viewport({ apply })
+  const nodeCommands = node({ instance, apply })
+  const mindmapCommands = mindmap({ apply })
+  const selectionCommands = selection({
+    instance,
+    commands: {
+      group: {
+        create: nodeCommands.createGroup,
+        ungroup: nodeCommands.ungroup
+      },
+      edge: {
+        create: edgeCommands.create,
+        update: edgeCommands.update,
+        delete: edgeCommands.delete,
+        insertRoutingPoint: edgeCommands.insertRoutingPoint,
+        moveRoutingPoint: edgeCommands.moveRoutingPoint,
+        removeRoutingPoint: edgeCommands.removeRoutingPoint,
+        resetRouting: edgeCommands.resetRouting,
+        select: edgeCommands.select
+      },
+      node: {
+        create: nodeCommands.create,
+        update: nodeCommands.update,
+        updateData: nodeCommands.updateData,
+        updateManyPosition: nodeCommands.updateManyPosition,
+        delete: nodeCommands.delete
+      }
+    }
+  })
   const commands = {
-    write: writeApi({
-      apply,
-      gateway,
-      commandGatewayEnabled: instance.config.features.commandGatewayEnabled
-    }),
-    edge: edge({ instance, apply }),
-    interaction: interaction({ instance }),
-    viewport: viewport({ apply }),
-    node: node({ instance, apply }),
-    mindmap: mindmap({ apply }),
-    selection: selection({ instance })
+    write: writeCommands,
+    edge: edgeCommands,
+    interaction: interactionCommands,
+    viewport: viewportCommands,
+    node: nodeCommands,
+    mindmap: mindmapCommands,
+    selection: selectionCommands
   }
   const hotkeys = shortcut({
     selection: commands.selection,

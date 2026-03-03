@@ -1,6 +1,7 @@
 import type { Document, Operation, Origin } from '@whiteboard/core/types'
 import type { MutationImpact } from './mutation'
 import type { CommandSource } from '../command/source'
+import type { ReadInvalidation } from '../read/invalidation'
 
 export type ChangeTrace = {
   commandId: string
@@ -15,6 +16,7 @@ export type Change = {
   kind: 'apply' | 'replace'
   origin: Origin
   trace: ChangeTrace
+  readHints: ReadInvalidation
   operations: Operation[]
   impact: MutationImpact
   docBefore: Document

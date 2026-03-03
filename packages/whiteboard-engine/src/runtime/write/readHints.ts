@@ -1,9 +1,9 @@
-import type { Change } from '@engine-types/write/change'
 import type {
   InvalidationMode,
   InvalidationReason,
   ReadInvalidation
 } from '@engine-types/read/invalidation'
+import type { MutationImpact } from '@engine-types/write/mutation'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 
 const EMPTY_REASONS: readonly InvalidationReason[] = []
@@ -22,11 +22,18 @@ const toMode = ({
   return 'none'
 }
 
-export const toReadInvalidation = (change: Change): ReadInvalidation => {
-  const { impact } = change
+export const createReadInvalidation = ({
+  kind,
+  revision,
+  impact
+}: {
+  kind: 'apply' | 'replace'
+  revision: number
+  impact: MutationImpact
+}): ReadInvalidation => {
   const dirtyNodeIds = impact.dirtyNodeIds ?? EMPTY_NODE_IDS
   const dirtyEdgeIds = impact.dirtyEdgeIds ?? EMPTY_EDGE_IDS
-  const full = change.kind === 'replace' || impact.tags.has('full')
+  const full = kind === 'replace' || impact.tags.has('full')
   const hasNodes = impact.tags.has('nodes')
   const hasEdges = impact.tags.has('edges')
   const hasOrder = impact.tags.has('order')
@@ -44,7 +51,7 @@ export const toReadInvalidation = (change: Change): ReadInvalidation => {
     dirtyEdgeIds.length > 0
 
   const reasons: InvalidationReason[] = []
-  if (change.kind === 'replace') reasons.push('replace')
+  if (kind === 'replace') reasons.push('replace')
   if (impact.tags.has('full')) reasons.push('full')
   if (hasNodes) reasons.push('nodes')
   if (hasEdges) reasons.push('edges')
@@ -67,39 +74,26 @@ export const toReadInvalidation = (change: Change): ReadInvalidation => {
       !full &&
       (dirtyNodeIds.length > 0 || dirtyEdgeIds.length > 0)
   })
-  const nodeProjectionMode = toMode({
-    full,
-    partial: !full && (hasNodes || hasGeometry || hasOrder || dirtyNodeIds.length > 0)
-  })
-  const mindmapProjectionMode = toMode({
-    full,
-    partial: !full && (hasMindmap || dirtyNodeIds.length > 0)
-  })
 
   return {
     mode: toMode({ full, partial: !full && hasPartialSignal }),
     reasons: reasons.length > 0 ? reasons : EMPTY_REASONS,
     revision: {
-      from: Math.max(0, change.revision - 1),
-      to: change.revision
+      from: Math.max(0, revision - 1),
+      to: revision
     },
     dirtyNodeIds,
     dirtyEdgeIds,
-    stages: {
-      index: {
-        nodeRectIndex: indexMode,
-        snapIndex: indexMode
-      },
-      projection: {
-        node: nodeProjectionMode,
-        mindmap: mindmapProjectionMode,
-        edge: {
-          rebuild: edgeRebuild,
-          dirtyNodeIds,
-          dirtyEdgeIds,
-          resetVisibleEdges: edgeRebuild === 'full'
-        }
-      }
+    index: {
+      mode: indexMode === 'partial' ? 'dirtyNodeIds' : indexMode,
+      dirtyNodeIds
+    },
+    edge: {
+      resetVisibleEdges: edgeRebuild === 'full',
+      clearPendingDirtyNodeIds:
+        full || edgeRebuild === 'full',
+      appendDirtyNodeIds: dirtyNodeIds,
+      appendDirtyEdgeIds: dirtyEdgeIds
     }
   }
 }

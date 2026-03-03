@@ -108,8 +108,11 @@ export const write = ({
         return raw as DispatchResult
       }
 
-      // Defensive fallback for temporary mixed gateway versions.
-      return apply(payload)
+      return {
+        ok: false,
+        reason: 'invalid',
+        message: '[invalid_gateway_result] Gateway returned an invalid dispatch result.'
+      }
     }
   }
 }
@@ -396,11 +399,14 @@ const getCreatedNodeId = (result: DispatchResult, type?: string) => {
 }
 
 export const selection = ({
-  instance
+  instance,
+  commands
 }: {
-  instance: Pick<InternalInstance, 'commands' | 'state' | 'document' | 'read'>
+  instance: Pick<InternalInstance, 'state' | 'document' | 'read'>
+  commands: Pick<Commands, 'group' | 'edge' | 'node'>
 }): SelectionCommandsApi => {
   const state = instance.state
+  const writeCommands = commands
   const readDoc = (): Document => instance.document.get()
   const getSelectableNodeIds = (): NodeId[] =>
     [...instance.read.get.nodeIds()]
@@ -450,7 +456,7 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (selectedNodeIds.length < 2) return
 
-    const result = await instance.commands.group.create(selectedNodeIds)
+    const result = await writeCommands.group.create(selectedNodeIds)
     const groupId = getCreatedNodeId(result, 'group')
     if (!groupId) return
     select([groupId], 'replace')
@@ -467,7 +473,7 @@ export const selection = ({
     if (!groups.length) return
 
     for (const group of groups) {
-      await instance.commands.group.ungroup(group.id)
+      await writeCommands.group.ungroup(group.id)
     }
     clear()
   }
@@ -475,8 +481,8 @@ export const selection = ({
   const deleteSelected = async () => {
     const selectedEdgeId = getSelectedEdgeId()
     if (selectedEdgeId) {
-      await instance.commands.edge.delete([selectedEdgeId])
-      instance.commands.edge.select(undefined)
+      await writeCommands.edge.delete([selectedEdgeId])
+      writeCommands.edge.select(undefined)
       return
     }
 
@@ -495,9 +501,9 @@ export const selection = ({
       .map((item) => item.id)
 
     if (edgeIds.length) {
-      await instance.commands.edge.delete(edgeIds)
+      await writeCommands.edge.delete(edgeIds)
     }
-    await instance.commands.node.delete(ids)
+    await writeCommands.node.delete(ids)
     clear()
   }
 
@@ -534,7 +540,7 @@ export const selection = ({
           ? idMap.get(item.parentId)
           : item.parentId
       const payload = createNodeDuplicateInput(item, parentId, offset)
-      const result = await instance.commands.node.create(payload)
+      const result = await writeCommands.node.create(payload)
       const createdId = getCreatedNodeId(result)
       if (createdId) {
         idMap.set(item.id, createdId)
@@ -552,7 +558,7 @@ export const selection = ({
       const targetId = idMap.get(item.target.nodeId)
       if (!sourceId || !targetId) continue
       const payload = createEdgeDuplicateInput(item, sourceId, targetId)
-      await instance.commands.edge.create(payload)
+      await writeCommands.edge.create(payload)
     }
 
     if (createdIds.length) {

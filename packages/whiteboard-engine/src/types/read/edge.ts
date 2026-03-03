@@ -4,7 +4,7 @@ import type {
   EdgePathEntry,
   EngineReadGetters
 } from '../instance/read'
-import type { EdgeChange, ChangePlan } from './change'
+import type { EdgeChange } from './change'
 
 export type EdgeReadSnapshot = {
   readonly ids: EdgeId[]
@@ -22,5 +22,5 @@ export type EdgeReadRuntime = {
     EngineReadGetters,
     'edgeIds' | 'edgeById' | 'selectedEdgeId' | 'edgeSelectedEndpoints'
   >
-  applyChange: (plan: ChangePlan) => void
+  applyPlan: (plan: EdgeChange) => void
 }
