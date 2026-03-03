@@ -3,7 +3,7 @@ import type { Atom, createStore } from 'jotai/vanilla'
 import type { InstanceConfig } from '../instance/config'
 import type { Atoms as StateAtoms } from '../state/factory'
 import type { ReadModelSnapshot } from './snapshot'
-import type { ViewportApi } from '../viewport/api'
+import type { ViewportReadApi } from '../viewport/api'
 
 export type Deps = {
   runtimeStore: ReturnType<typeof createStore>
@@ -11,5 +11,5 @@ export type Deps = {
   snapshotAtom: Atom<ReadModelSnapshot>
   config: InstanceConfig
   readDoc: () => Document
-  viewport: ViewportApi
+  viewport: ViewportReadApi
 }

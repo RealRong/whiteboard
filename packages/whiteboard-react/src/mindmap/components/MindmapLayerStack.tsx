@@ -10,7 +10,7 @@ import { useMindmapDragInteraction } from '../hooks/useMindmapDragInteraction'
 export const MindmapLayerStack = () => {
   const instance = useInstance()
   const treeIds = useReadGetter<NodeId[]>(
-    () => instance.read.get.mindmapIds(),
+    () => [...instance.read.get.mindmapIds()],
     {
       keys: [
         READ_SUBSCRIBE_KEYS.snapshot,

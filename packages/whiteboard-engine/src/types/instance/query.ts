@@ -11,7 +11,7 @@ import type {
 
 export type Query = {
   doc: {
-    get: () => Document
+    get: () => Readonly<Document>
   }
   viewport: {
     get: () => Viewport

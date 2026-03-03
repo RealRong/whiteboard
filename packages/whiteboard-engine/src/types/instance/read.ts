@@ -101,33 +101,33 @@ export type ViewportView = {
 }
 
 export type NodesView = {
-  ids: NodeId[]
-  byId: ReadonlyMap<NodeId, NodeViewItem>
+  ids: readonly NodeId[]
+  byId: ReadonlyMap<NodeId, Readonly<NodeViewItem>>
 }
 
 export type EdgesView = {
-  ids: EdgeId[]
-  byId: ReadonlyMap<EdgeId, EdgePathEntry>
+  ids: readonly EdgeId[]
+  byId: ReadonlyMap<EdgeId, Readonly<EdgePathEntry>>
   selection: {
     endpoints: EdgeEndpoints | undefined
   }
 }
 
 export type MindmapView = {
-  ids: NodeId[]
-  byId: ReadonlyMap<NodeId, MindmapViewTree>
+  ids: readonly NodeId[]
+  byId: ReadonlyMap<NodeId, Readonly<MindmapViewTree>>
 }
 
 export type EngineReadGetters = {
-  viewportTransform: () => ViewportTransformView
-  nodeIds: () => NodeId[]
-  nodeById: (id: NodeId) => NodeViewItem | undefined
-  edgeIds: () => EdgeId[]
-  edgeById: (id: EdgeId) => EdgePathEntry | undefined
+  viewportTransform: () => Readonly<ViewportTransformView>
+  nodeIds: () => readonly NodeId[]
+  nodeById: (id: NodeId) => Readonly<NodeViewItem> | undefined
+  edgeIds: () => readonly EdgeId[]
+  edgeById: (id: EdgeId) => Readonly<EdgePathEntry> | undefined
   selectedEdgeId: () => EdgeId | undefined
-  edgeSelectedEndpoints: () => EdgeEndpoints | undefined
-  mindmapIds: () => NodeId[]
-  mindmapById: (id: NodeId) => MindmapViewTree | undefined
+  edgeSelectedEndpoints: () => Readonly<EdgeEndpoints> | undefined
+  mindmapIds: () => readonly NodeId[]
+  mindmapById: (id: NodeId) => Readonly<MindmapViewTree> | undefined
 }
 
 export const READ_PUBLIC_KEYS = {

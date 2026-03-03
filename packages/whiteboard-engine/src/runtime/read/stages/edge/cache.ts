@@ -169,6 +169,7 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
   let pendingResetVisibleEdges = false
   let pendingDirtyNodeIds = new Set<NodeId>()
+  let pendingDirtyEdgeIds = new Set<EdgeId>()
 
   const snapshot: EdgeReadSnapshot = {
     get ids() {
@@ -336,19 +337,31 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     if (visibleEdges !== visibleEdgesRef) {
       visibleEdgesRef = visibleEdges
       pendingDirtyNodeIds = new Set<NodeId>()
+      pendingDirtyEdgeIds = new Set<EdgeId>()
       reconcileAll(visibleEdges)
       return
     }
 
-    if (!pendingDirtyNodeIds.size) return
+    if (!pendingDirtyNodeIds.size && !pendingDirtyEdgeIds.size) return
 
     const dirtyNodeIds = pendingDirtyNodeIds
+    const dirtyEdgeIds = pendingDirtyEdgeIds
     pendingDirtyNodeIds = new Set<NodeId>()
+    pendingDirtyEdgeIds = new Set<EdgeId>()
 
-    const affectedEdgeIds = collectRelatedEdgeIds(
-      state.relations.nodeToEdgeIds,
-      dirtyNodeIds
-    )
+    const affectedEdgeIds = new Set<EdgeId>()
+    if (dirtyNodeIds.size) {
+      const fromNodes = collectRelatedEdgeIds(
+        state.relations.nodeToEdgeIds,
+        dirtyNodeIds
+      )
+      fromNodes.forEach((edgeId) => {
+        affectedEdgeIds.add(edgeId)
+      })
+    }
+    dirtyEdgeIds.forEach((edgeId) => {
+      affectedEdgeIds.add(edgeId)
+    })
     if (!affectedEdgeIds.size) return
 
     reconcileEdges(affectedEdgeIds)
@@ -362,6 +375,7 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
       visibleEdgesRef = undefined
       pendingResetVisibleEdges = false
       pendingDirtyNodeIds = new Set<NodeId>()
+      pendingDirtyEdgeIds = new Set<EdgeId>()
       return
     }
 
@@ -372,6 +386,12 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
     if (plan.appendDirtyNodeIds.length) {
       plan.appendDirtyNodeIds.forEach((nodeId) => {
         pendingDirtyNodeIds.add(nodeId)
+      })
+    }
+
+    if (plan.appendDirtyEdgeIds.length) {
+      plan.appendDirtyEdgeIds.forEach((edgeId) => {
+        pendingDirtyEdgeIds.add(edgeId)
       })
     }
   }

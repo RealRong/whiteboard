@@ -1,5 +1,6 @@
 export type * from './snapshot'
 export type * from './change'
+export type * from './invalidation'
 export type * from './deps'
 export type * from './context'
 export type * from './indexer'

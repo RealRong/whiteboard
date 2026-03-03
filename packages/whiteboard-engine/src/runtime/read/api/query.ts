@@ -1,4 +1,4 @@
-import type { Point, Rect } from '@whiteboard/core/types'
+import type { Document, Point, Rect } from '@whiteboard/core/types'
 import type { Query } from '@engine-types/instance/query'
 import type { Indexer } from '@engine-types/read/indexer'
 import type { Deps as ReadDeps } from '@engine-types/read/deps'
@@ -18,6 +18,14 @@ export const query = ({
   config,
   indexes
 }: QueryDeps): Query => {
+  const cloneValue = <T,>(value: T): T => {
+    const clone = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
+    if (clone) return clone(value)
+    return JSON.parse(JSON.stringify(value)) as T
+  }
+  const readReadonlyDoc = (): Readonly<Document> =>
+    cloneValue(readDoc())
+
   const anchorOptions = {
     snapMin: config.edge.anchorSnapMin,
     snapRatio: config.edge.anchorSnapRatio,
@@ -25,7 +33,7 @@ export const query = ({
   }
 
   return {
-    doc: { get: readDoc },
+    doc: { get: readReadonlyDoc },
     viewport,
     config: { get: () => config },
     canvas: {
