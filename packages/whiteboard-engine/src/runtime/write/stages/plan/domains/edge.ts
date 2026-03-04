@@ -9,7 +9,7 @@ import {
   removeRoutingPoint as removeRoutingPointPatch,
   resetRouting as resetRoutingPatch
 } from '@whiteboard/core/edge'
-import { createScopedId } from '../../../shared/identifiers'
+import { createId } from '@whiteboard/core/utils'
 
 type EdgeCommand = WriteCommandMap['edge']
 
@@ -18,9 +18,7 @@ export const edge = ({
 }: {
   instance: Pick<InternalInstance, 'document' | 'registries'>
 }) => {
-  const hasEdgeId = (id: string) =>
-    instance.document.get().edges.some((edge) => edge.id === id)
-  const createEdgeId = () => createScopedId({ prefix: 'edge', exists: hasEdgeId })
+  const createEdgeId = () => createId('edge')
 
   return (command: EdgeCommand): Draft => {
     switch (command.type) {

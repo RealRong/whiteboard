@@ -18,7 +18,6 @@ export type {
   ApplyMutationsApi
 } from './types/command/source'
 export type {
-  CommandMeta,
   CommandEnvelope,
   CommandError,
   CommandResult,

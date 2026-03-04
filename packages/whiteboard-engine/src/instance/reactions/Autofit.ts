@@ -1,7 +1,7 @@
 import type { Node, Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { WriteApply } from '@engine-types/write/commands'
+import type { Apply } from '@engine-types/write/commands'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { MicrotaskTask } from '../../runtime/TaskQueue'
 import { DEFAULT_TUNING } from '../../config'
@@ -38,7 +38,7 @@ type RebuildPlan = {
 
 type RuntimeOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
-  applyWrite: WriteApply
+  apply: Apply
   scheduler: Scheduler
 }
 
@@ -198,7 +198,7 @@ export class Autofit {
   readonly name = 'Autofit'
 
   private readonly instance: RuntimeOptions['instance']
-  private readonly applyWrite: RuntimeOptions['applyWrite']
+  private readonly apply: RuntimeOptions['apply']
   private snapshot: Snapshot | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
@@ -208,9 +208,9 @@ export class Autofit {
   private offChange: (() => void) | null = null
   private readonly syncTask: MicrotaskTask
 
-  constructor({ instance, applyWrite, scheduler }: RuntimeOptions) {
+  constructor({ instance, apply, scheduler }: RuntimeOptions) {
     this.instance = instance
-    this.applyWrite = applyWrite
+    this.apply = apply
     this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
   }
 
@@ -265,7 +265,7 @@ export class Autofit {
     if (operations.length) {
       operations.forEach((operation) => {
         if (operation.type !== 'node.update') return
-        void this.applyWrite({
+        void this.apply({
           domain: 'node',
           command: {
             type: 'update',

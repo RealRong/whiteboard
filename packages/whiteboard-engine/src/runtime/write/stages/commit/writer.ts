@@ -22,8 +22,8 @@ import type {
   Operation,
   Origin
 } from '@whiteboard/core/types'
+import { createId } from '@whiteboard/core/utils'
 import type { PrimitiveAtom } from 'jotai/vanilla'
-import { createBatchId } from '../../shared/identifiers'
 import { History } from './history'
 import type { Draft } from '../plan/draft'
 import { createReadInvalidation } from '../invalidation/readHints'
@@ -127,7 +127,7 @@ export class Writer {
     source: CommandSource,
     trace?: CommandTrace
   ): ChangeTrace => {
-    const commandId = trace?.commandId ?? createBatchId('command')
+    const commandId = trace?.commandId ?? createId('command')
     return {
       commandId,
       correlationId: trace?.correlationId ?? commandId,
@@ -184,7 +184,7 @@ export class Writer {
     return {
       ok: true,
       changes: {
-        id: createBatchId('ms'),
+        id: createId('ms'),
         timestamp: input.timestamp ?? this.now(),
         operations: [],
         origin: input.origin

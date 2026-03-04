@@ -1,5 +1,4 @@
 import type {
-  WriteCommandMap,
   WriteDomain,
   WriteInput
 } from '@engine-types/command/api'
@@ -7,14 +6,6 @@ import type {
   DispatchResult,
   Operation
 } from '@whiteboard/core/types'
-
-export type PlanInput<D extends WriteDomain = WriteDomain> =
-  D extends WriteDomain
-    ? {
-        domain: D
-        command: WriteCommandMap[D]
-      }
-    : never
 
 export type Apply = <D extends WriteDomain>(
   payload: WriteInput<D>

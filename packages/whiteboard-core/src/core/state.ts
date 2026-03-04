@@ -1,6 +1,7 @@
 import type { Document, DocumentId, Edge, EdgeId, Node, NodeId, Snapshot } from '../types/core'
 import type { MindmapId, MindmapNodeId, MindmapTree } from '../mindmap/types'
 import { getMindmapTreeFromNode } from '../mindmap/helpers'
+import { createId } from '../utils/id'
 
 export interface CreateCoreOptions {
   snapshot?: Snapshot
@@ -60,19 +61,13 @@ const createDefaultDocument = (id: DocumentId): Document => ({
 })
 
 export const createCoreState = (options: CreateCoreOptions = {}): CoreState => {
-  let nodeSeq = 1
-  let edgeSeq = 1
-  let changeSeq = 1
-  let mindmapSeq = 1
-  let mindmapNodeSeq = 1
-
   const now = options.now ?? (() => Date.now())
-  const createDocumentId = options.idGenerator?.documentId ?? (() => `doc_${now()}`)
-  const createNodeId = options.idGenerator?.nodeId ?? (() => `node_${nodeSeq++}`)
-  const createEdgeId = options.idGenerator?.edgeId ?? (() => `edge_${edgeSeq++}`)
-  const createMindmapId = options.idGenerator?.mindmapId ?? (() => `mindmap_${mindmapSeq++}`)
-  const createMindmapNodeId = options.idGenerator?.mindmapNodeId ?? (() => `mnode_${mindmapNodeSeq++}`)
-  const createChangeSetId = options.idGenerator?.changeSetId ?? (() => `change_${changeSeq++}`)
+  const createDocumentId = options.idGenerator?.documentId ?? (() => createId('doc'))
+  const createNodeId = options.idGenerator?.nodeId ?? (() => createId('node'))
+  const createEdgeId = options.idGenerator?.edgeId ?? (() => createId('edge'))
+  const createMindmapId = options.idGenerator?.mindmapId ?? (() => createId('mindmap'))
+  const createMindmapNodeId = options.idGenerator?.mindmapNodeId ?? (() => createId('mnode'))
+  const createChangeSetId = options.idGenerator?.changeSetId ?? (() => createId('change'))
 
   const schemaVersion = options.snapshot?.schemaVersion ?? options.schemaVersion ?? DEFAULT_SCHEMA_VERSION
 

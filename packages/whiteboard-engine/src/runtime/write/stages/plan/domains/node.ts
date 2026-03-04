@@ -3,8 +3,8 @@ import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { invalid, ops, success } from '../draft'
 import type { Document } from '@whiteboard/core/types'
+import { createId } from '@whiteboard/core/utils'
 import { corePlan } from '@whiteboard/core/kernel'
-import { createScopedId } from '../../../shared/identifiers'
 
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group' }>
@@ -17,10 +17,8 @@ export const node = ({
   instance: Pick<InternalInstance, 'document' | 'config' | 'registries'>
 }) => {
   const readDoc = (): Document => instance.document.get()
-
-  const hasNodeId = (id: string) => readDoc().nodes.some((node) => node.id === id)
-  const createGroupId = () => createScopedId({ prefix: 'group', exists: hasNodeId })
-  const createNodeId = () => createScopedId({ prefix: 'node', exists: hasNodeId })
+  const createGroupId = () => createId('group')
+  const createNodeId = () => createId('node')
 
   const create = (command: CreateCommand): Draft => {
     const result = corePlan.node.create({

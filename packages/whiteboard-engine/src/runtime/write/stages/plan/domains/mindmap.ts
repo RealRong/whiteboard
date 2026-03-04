@@ -24,10 +24,10 @@ import type {
   MindmapTree,
   Operation
 } from '@whiteboard/core/types'
+import { createId } from '@whiteboard/core/utils'
 import { resolveInsertPlan } from '@whiteboard/core/mindmap'
 import { corePlan } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../../../../../config'
-import { createScopedId } from '../../../shared/identifiers'
 
 type MindmapCommand = WriteCommandMap['mindmap']
 
@@ -50,16 +50,10 @@ export const mindmap = ({
   instance: Pick<InternalInstance, 'document'>
 }) => {
   const readDoc = () => instance.document.get()
-  const hasMindmapId = (id: string) =>
-    Boolean(readDoc().mindmaps?.some((tree) => tree.id === id))
-  const hasMindmapNodeId = (id: string) =>
-    Boolean(
-      readDoc().mindmaps?.some((tree) => Boolean(tree.nodes[id as MindmapNodeId]))
-    )
   const createTreeId = () =>
-    createScopedId({ prefix: 'mindmap', exists: hasMindmapId })
+    createId('mindmap')
   const createNodeId = () =>
-    createScopedId({ prefix: 'mnode', exists: hasMindmapNodeId })
+    createId('mnode')
 
   const plans = {
     create: (payload?: MindmapCreateOptions): Draft =>

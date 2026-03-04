@@ -1,16 +1,15 @@
 import type { Commands as EngineCommands } from '../command/api'
 import type { Bus as ChangeBus } from './change'
 import type {
+  Apply,
   EdgeCommandsApi,
   InteractionCommandsApi,
   MindmapCommandsApi,
   NodeCommandsApi,
   SelectionCommandsApi,
   ShortcutActionDispatcher,
-  WriteApply,
   ViewportCommandsApi
 } from './commands'
-import type { CommandGateway } from '../cqrs/command'
 
 export type CommandSet = {
   edge: EdgeCommandsApi
@@ -23,8 +22,7 @@ export type CommandSet = {
 }
 
 export type Runtime = {
-  gateway: CommandGateway
-  applyWrite: WriteApply
+  apply: Apply
   history: EngineCommands['history']
   resetDoc: EngineCommands['doc']['reset']
   commands: CommandSet

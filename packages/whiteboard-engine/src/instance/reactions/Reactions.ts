@@ -12,7 +12,7 @@ type ReactionsOptions = {
   readRuntime: {
     applyInvalidation: (invalidation: ReadInvalidation) => void
   }
-  writeRuntime: Pick<WriteRuntime, 'changeBus' | 'applyWrite'>
+  writeRuntime: Pick<WriteRuntime, 'changeBus' | 'apply'>
   scheduler: Scheduler
 }
 
@@ -29,12 +29,12 @@ export const createReactions = ({
 }: ReactionsOptions): Reactions => {
   const measure = new Measure({
     instance,
-    applyWrite: writeRuntime.applyWrite,
+    apply: writeRuntime.apply,
     scheduler
   })
   const autofit = new Autofit({
     instance,
-    applyWrite: writeRuntime.applyWrite,
+    apply: writeRuntime.apply,
     scheduler
   })
   let disposed = false

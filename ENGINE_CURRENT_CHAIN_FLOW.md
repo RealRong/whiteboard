@@ -1,24 +1,24 @@
 # Engine 当前链路总览（CQRS + 漏斗）
 
-> 更新日期：2026-03-03  
+> 更新日期：2026-03-04  
 > 范围：`packages/whiteboard-engine` 最新实现（含“二次收敛”落地）。
 
 ## 1. 总体结论
 
 当前 engine 已收敛为单主链，核心特征如下：
 
-1. 写入口唯一：外部仅 `instance.commands.*` 语义命令；内部统一汇聚到 `write.apply` 原语。
+1. 写入口唯一：外部仅 `instance.commands.*` 语义命令；内部统一汇聚到 `writeRuntime.apply` 原语。
 2. plan 唯一来源：只在 write planner 生成，read 不再推导业务 plan。
 3. change 轻量化：`Change` 仅保留 `revision/kind/trace/readHints`。
 4. read 完全 hints 驱动：读侧只执行 `index` 与 `edge` 两类 plan。
-5. 系统反应统一回流：`Measure/Autofit` 都通过 `write.apply(source='system')` 写入。
-6. 开关清零：`commandGatewayEnabled` 已删除，网关路径固定启用。
+5. 系统反应统一回流：`Measure/Autofit` 都通过 `writeRuntime.apply(source='system')` 写入。
+6. 开关清零：`commandGatewayEnabled` 已删除，写链路为 `apply -> planner -> writer`。
 7. 文档切换收敛：`runtime.applyConfig` 不再承载 `docId` 语义，文档替换只走 `commands.doc.reset` 写路径。
-8. 命令面纯语义：`writeRuntime.commands` 不再包含 `write`，内部原语上提为 `writeRuntime.applyWrite`。
+8. 命令面纯语义：`writeRuntime.commands` 不再包含 `write`，内部原语统一为 `writeRuntime.apply`。
 
 最终链路：
 
-`Commands(semantic) -> InternalWrite.Apply -> CommandGateway -> Planner -> Writer.commitTransaction -> CoreReduce -> ChangeBus(Change{trace+readHints}) -> Reactions -> ReadKernel(index+edge)`
+`Commands(semantic) -> WriteRuntime.apply -> Planner -> Writer(TraceNormalize+CommitTransaction) -> CoreReduce -> ChangeBus(Change{trace+readHints}) -> Reactions -> ReadKernel(index+edge)`
 
 ## 2. 启动与装配链路
 
@@ -31,7 +31,7 @@
 3. 直接以 `stateAtoms.document` 实现 `document.get/replace`（文档单源）。
 4. 创建 `snapshotAtom`、`ViewportRuntime`、`readRuntime`。
 5. 组装最小 `baseInstance`（给 write runtime 使用），其中 `runtime` 仅暴露 `store`。
-6. 创建 `writeRuntime`（`commands` + `applyWrite`），再创建 `reactions` 和 `commands`。
+6. 创建 `writeRuntime`（`commands` + `apply`），再创建 `reactions` 和 `commands`。
 7. 绑定 `shortcuts`（依赖降级为 `state + runAction`）。
 8. 在 `engine.ts` 内联创建最终 `runtime.applyConfig/runtime.dispose`。
 
@@ -47,23 +47,24 @@
 核心文件：
 
 1. `packages/whiteboard-engine/src/runtime/write/runtime.ts`
-2. `packages/whiteboard-engine/src/runtime/write/api/*`
-3. `packages/whiteboard-engine/src/runtime/command/gateway.ts`
-4. `packages/whiteboard-engine/src/runtime/write/stages/plan/*`
-5. `packages/whiteboard-engine/src/runtime/write/stages/commit/writer.ts`
+2. `packages/whiteboard-engine/src/runtime/write/execution.ts`
+3. `packages/whiteboard-engine/src/runtime/write/commands.ts`
+4. `packages/whiteboard-engine/src/runtime/write/api/*`
+5. `packages/whiteboard-engine/src/runtime/write/stages/plan/*`
+6. `packages/whiteboard-engine/src/runtime/write/stages/commit/writer.ts`
 
 ### 3.1 写入口统一
 
-`node/edge/viewport/mindmap/selection/shortcut` 等语义 facade 在 runtime 内部最终都落到 `write.apply(payload)`。
+`node/edge/viewport/mindmap/selection/shortcut` 等语义 facade 在 runtime 内部最终都落到 `writeRuntime.apply(payload)`。
 
-### 3.2 网关固定启用（无 feature flag）
+### 3.2 单入口 apply（无 applyWrite 包装层）
 
-内部 `write.apply` 固定执行：
+内部 `writeRuntime.apply` 固定执行：
 
-1. 生成或继承 `commandId`。
-2. 构造 `write.apply` 命令 envelope（含 trace meta）。
-3. 调用 `gateway.dispatch`。
-4. 返回标准 `DispatchResult`；协议异常返回 `invalid`，不再回退第二写路径。
+1. 接收 `WriteInput`（domain + command + source + trace）。
+2. 调用 `planner(payload)` 生成 `Draft`。
+3. 调用 `writer.applyDraft(draft, source, trace)` 提交事务。
+4. `source/trace` 的最终归一在 `Writer.normalizeTrace` 完成。
 
 ### 3.3 planner 只在写侧生成唯一 plan
 
@@ -178,7 +179,7 @@ type Change = {
 
 1. `Measure` 收集尺寸后下发 `node.update`（`source='system'`）。
 2. `Autofit` 监听 `change.readHints.index`（按 `index.mode/dirtyNodeIds` 执行），不再读取 `impact/kind/reasons`。
-3. 二者都通过 `writeRuntime.applyWrite` 回到统一写链路，保持 trace/history/read 同步一致。
+3. 二者都通过 `writeRuntime.apply` 回到统一写链路，保持 trace/history/read 同步一致。
 
 ## 8. History 链路
 
@@ -211,9 +212,9 @@ type Change = {
 ```text
 UI/Host
   -> instance.commands.* (semantic only)
-  -> internal write.apply
-  -> CommandGateway.dispatch(write.apply)
+  -> writeRuntime.apply
   -> write planner (domain -> operations)
+  -> Writer.normalizeTrace(source/trace)
   -> Writer.commitTransaction(kind='apply')
   -> core.reduce(normalize -> apply -> invert)
   -> document.replace + readModelRevision++
@@ -255,16 +256,23 @@ Host 传入新 doc
 5. engine 装配去占位，改为最终对象一次成型。
 6. 文档切换改为单路径：`runtime` 去 `docId`，`doc.reset` 承担 replace 语义。
 7. React 侧增加镜像识别，避免引擎回传文档触发回声 reset。
-8. write runtime 装配拆分为 `createWritePipeline + createWriteCommandSet`，主函数仅保留“组装 + 返回”。
+8. write runtime 装配拆分为 `createWriteExecution + createWriteCommands`，`runtime.ts` 仅保留“组装 + 返回”。
 9. commands facade 去掉纯别名转发，保留必要转换层（`doc/tool/history/host/order/group`）。
-10. write runtime 基础命令改为声明式 builder 注册表（`BaseCommandSet`），再组合派生命令（`selection/shortcut`）。
+10. write runtime 命令装配收敛为 `createWriteCommands` 直接组装语义命令（移除 builder 注册表中间层）。
 11. selection 写依赖收窄为最小能力面（仅 node/edge 必需方法），runtime 删除桥接映射 helper，直接透传基础命令。
-12. write runtime 派生命令拆为独立装配层（`DerivedCommandSet`），`createWriteCommandSet` 仅做 `base + derived` 组合。
-13. write runtime 目录改为 stage-first 布局（`stages/plan`、`stages/commit`、`stages/invalidation`、`shared`），主链路职责一眼可见。
-14. write api 按命令职责拆分为独立命令文件（`write/node/edge/interaction/selection/mindmap/viewport/shortcut`）。
+12. `selection/shortcut` 派生命令与基础命令统一在 `commands.ts` 装配，移除 `DerivedCommandSet` 分层样板。
+13. write runtime 目录改为 stage-first 布局（`stages/plan`、`stages/commit`、`stages/invalidation`），主链路职责一眼可见。
+14. write api 按命令职责拆分为独立命令文件（`node/edge/interaction/selection/mindmap/viewport/shortcut`）。
 15. write api 进一步扁平化到 `api/*`，移除 `api/commands` 目录与 `runtime/write/api.ts` 中间层。
 16. Operation 与写链路参数收敛为只读契约（`readonly`），把“不可变约定”升级为编译期约束。
 17. Public `instance.commands` 移除 `write` 原语入口，仅保留语义命令；`write.apply` 下沉为 runtime 内部能力（供 reactions 等内部模块使用）。
-18. `writeRuntime.commands` 移除 `write` 字段，`write.apply` 以 `writeRuntime.applyWrite` 顶层内部能力提供，消除“语义命令集中的原语混入”。
+18. `writeRuntime.commands` 移除 `write` 字段，内部原语以 `writeRuntime.apply` 顶层能力提供，消除“语义命令集中的原语混入”。
+19. `runtime/write/api/write.ts` 删除，写入口收敛到 `runtime/write/execution.ts`，进一步拉直主链路实现。
+20. `CommandEnvelope.meta` 删除，追踪信息统一由写 payload 传入并在 writer 端归一，消除 trace 双来源。
+21. `runtime/write/runtime.ts` 继续薄化为纯 compose：执行链路下沉到 `execution.ts`，命令装配下沉到 `commands.ts`。
+22. ID 生成统一到 `@whiteboard/core/utils.createId`：删除 engine 本地 `createScopedId/createBatchId` 与 `runtime/write/shared/identifiers.ts`。
+23. 删除 `PlanInput/toPlanInput` 类型桥接：planner 直接接收 `WriteInput`，写链路类型桥接层归零。
+24. 删除 `runtime/command` gateway 中间层与 `WriteRuntime.gateway`，主链路收敛为 `apply -> planner -> writer`。
+25. 删除 `applyWrite` 包装别名，统一 `WriteRuntime` 单入口为 `apply`，消除双入口命名与重复职责。
 
 以上收敛点已经落地并通过构建验证。

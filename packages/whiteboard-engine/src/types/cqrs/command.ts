@@ -1,14 +1,3 @@
-import type { CommandSource } from '../command/source'
-
-export type CommandMeta = {
-  source: CommandSource
-  actorId?: string
-  correlationId: string
-  causationId?: string
-  transactionId?: string
-  timestamp: number
-}
-
 export type CommandEnvelope<
   TType extends string = string,
   TPayload = unknown
@@ -16,7 +5,6 @@ export type CommandEnvelope<
   id: string
   type: TType
   payload: Readonly<TPayload>
-  meta: CommandMeta
 }
 
 export type CommandError = {

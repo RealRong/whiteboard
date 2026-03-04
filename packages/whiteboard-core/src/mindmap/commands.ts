@@ -7,16 +7,14 @@ import type {
   MindmapNodeId,
   MindmapTree
 } from './types'
+import { createId } from '../utils/id'
 
 type TreeDraft = MindmapTree
 
 const createFailure = (message: string) => ({ ok: false as const, message })
 
-let defaultNodeSeq = 1
-let defaultTreeSeq = 1
-
-const getDefaultNodeId = () => `node_${defaultNodeSeq++}`
-const getDefaultTreeId = () => `mindmap_${defaultTreeSeq++}`
+const getDefaultNodeId = () => createId('mnode')
+const getDefaultTreeId = () => createId('mindmap')
 
 const cloneTree = (tree: MindmapTree): TreeDraft => ({
   ...tree,

@@ -1,13 +1,13 @@
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { WriteApply } from '@engine-types/write/commands'
+import type { Apply } from '@engine-types/write/commands'
 import type { Scheduler } from '../../runtime/Scheduler'
 import { FrameTask } from '../../runtime/TaskQueue'
 import type { NodeId } from '@whiteboard/core/types'
 
 type Options = {
   instance: Pick<InternalInstance, 'document'>
-  applyWrite: WriteApply
+  apply: Apply
   scheduler: Scheduler
 }
 
@@ -25,14 +25,14 @@ const isSameSize = (left: Size, right: Size) =>
 
 export class Measure {
   private readonly instance: Options['instance']
-  private readonly applyWrite: Options['applyWrite']
+  private readonly apply: Options['apply']
   private readonly flushTask: FrameTask
   private readonly pending = new Map<NodeId, Size>()
   private readonly committed = new Map<NodeId, Size>()
 
-  constructor({ instance, applyWrite, scheduler }: Options) {
+  constructor({ instance, apply, scheduler }: Options) {
     this.instance = instance
-    this.applyWrite = applyWrite
+    this.apply = apply
     this.flushTask = new FrameTask(scheduler, this.flush)
   }
 
@@ -68,7 +68,7 @@ export class Measure {
 
     if (!updates.length) return
     updates.forEach(({ id, size }) => {
-      void this.applyWrite({
+      void this.apply({
         domain: 'node',
         command: {
           type: 'update',
