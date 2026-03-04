@@ -272,7 +272,7 @@ export const useNodeDragInteraction = ({
       }
     }
 
-    const positionUpdates: Array<{ id: NodeId; position: Point }> = []
+    const positionUpdates: Array<{ id: NodeId; patch: NodePatch }> = []
     const patchUpdates: Array<{ id: NodeId; patch: NodePatch }> = []
     patches.forEach((patch, id) => {
       const current = nodeById.get(id)
@@ -286,7 +286,7 @@ export const useNodeDragInteraction = ({
       ) {
         positionUpdates.push({
           id,
-          position: normalized.position
+          patch: { position: normalized.position }
         })
         return
       }
@@ -297,7 +297,7 @@ export const useNodeDragInteraction = ({
     })
 
     if (positionUpdates.length) {
-      instance.commands.node.updateManyPosition(positionUpdates)
+      instance.commands.node.updateMany(positionUpdates)
     }
     patchUpdates.forEach((update) => {
       void instance.commands.node.update(update.id, update.patch)

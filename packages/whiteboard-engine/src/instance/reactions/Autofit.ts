@@ -1,4 +1,4 @@
-import type { Node, Operation } from '@whiteboard/core/types'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Apply } from '@engine-types/write/commands'
@@ -13,10 +13,6 @@ import {
   rectEquals
 } from '@whiteboard/core/node'
 
-type Snapshot = {
-  nodeMap: Map<string, Node>
-}
-
 type LayoutSnapshot = {
   width: number
   height: number
@@ -24,8 +20,8 @@ type LayoutSnapshot = {
 }
 
 type Indexes = {
-  nodeMap: Map<string, Node>
-  childrenMap: Map<string, Node[]>
+  nodeMap: Map<NodeId, Node>
+  childrenMap: Map<NodeId, Node[]>
   groups: Node[]
 }
 
@@ -33,7 +29,20 @@ type RebuildMode = 'none' | 'dirty' | 'full'
 
 type RebuildPlan = {
   rebuild: RebuildMode
-  dirtyNodeIds: ReadonlySet<string>
+  dirtyNodeIds: ReadonlySet<NodeId>
+}
+
+type PendingRebuildPlan = {
+  rebuild: RebuildMode
+  dirtyNodeIds: Set<NodeId>
+}
+
+type GroupUpdate = {
+  id: NodeId
+  patch: {
+    position: { x: number; y: number }
+    size: { width: number; height: number }
+  }
 }
 
 type RuntimeOptions = {
@@ -42,9 +51,9 @@ type RuntimeOptions = {
   scheduler: Scheduler
 }
 
-const createIndexes = (nodes: Node[]): Indexes => {
-  const nodeMap = new Map<string, Node>()
-  const childrenMap = new Map<string, Node[]>()
+const createIndexes = (nodes: readonly Node[]): Indexes => {
+  const nodeMap = new Map<NodeId, Node>()
+  const childrenMap = new Map<NodeId, Node[]>()
   const groups: Node[] = []
 
   nodes.forEach((node) => {
@@ -65,14 +74,12 @@ const createIndexes = (nodes: Node[]): Indexes => {
   }
 }
 
-const createSnapshot = (indexes: Indexes): Snapshot => {
-  return {
-    nodeMap: indexes.nodeMap
-  }
-}
-
-const addGroupAncestors = (nodeId: string, map: Map<string, Node>, target: Set<string>) => {
-  let cursor: string | undefined = nodeId
+const addGroupAncestors = (
+  nodeId: NodeId,
+  map: ReadonlyMap<NodeId, Node>,
+  target: Set<NodeId>
+) => {
+  let cursor: NodeId | undefined = nodeId
   while (cursor) {
     const current = map.get(cursor)
     if (!current) break
@@ -84,22 +91,22 @@ const addGroupAncestors = (nodeId: string, map: Map<string, Node>, target: Set<s
 }
 
 const collectDirtyGroupIds = (
-  changedNodeIds: Iterable<string>,
-  prev: Snapshot,
-  next: Snapshot
-): Set<string> => {
-  const dirtyGroupIds = new Set<string>()
+  changedNodeIds: Iterable<NodeId>,
+  prevNodeMap: ReadonlyMap<NodeId, Node>,
+  nextNodeMap: ReadonlyMap<NodeId, Node>
+): Set<NodeId> => {
+  const dirtyGroupIds = new Set<NodeId>()
 
   for (const nodeId of changedNodeIds) {
-    const prevNode = prev.nodeMap.get(nodeId)
-    const nextNode = next.nodeMap.get(nodeId)
+    const prevNode = prevNodeMap.get(nodeId)
+    const nextNode = nextNodeMap.get(nodeId)
 
     if (prevNode) {
-      addGroupAncestors(prevNode.id, prev.nodeMap, dirtyGroupIds)
+      addGroupAncestors(prevNode.id, prevNodeMap, dirtyGroupIds)
     }
 
     if (nextNode) {
-      addGroupAncestors(nextNode.id, next.nodeMap, dirtyGroupIds)
+      addGroupAncestors(nextNode.id, nextNodeMap, dirtyGroupIds)
     }
   }
 
@@ -120,46 +127,43 @@ const toLayoutSnapshot = (nodeSize: Size, padding: number): LayoutSnapshot => ({
 
 const resolveGroupsToProcess = ({
   groups,
-  prevSnapshot,
-  currentSnapshot,
+  prevNodeMap,
+  nextNodeMap,
   plan
 }: {
-  groups: Node[]
-  prevSnapshot: Snapshot | null
-  currentSnapshot: Snapshot
+  groups: readonly Node[]
+  prevNodeMap: ReadonlyMap<NodeId, Node> | null
+  nextNodeMap: ReadonlyMap<NodeId, Node>
   plan: RebuildPlan
 }): Node[] => {
   if (!groups.length) return []
-  if (!prevSnapshot || plan.rebuild === 'full') {
-    return groups
-  }
+  if (plan.rebuild === 'none') return []
+  if (!prevNodeMap || plan.rebuild === 'full') return [...groups]
   if (plan.rebuild !== 'dirty' || plan.dirtyNodeIds.size === 0) return []
   const dirtyGroupIds = collectDirtyGroupIds(
     plan.dirtyNodeIds,
-    prevSnapshot,
-    currentSnapshot
+    prevNodeMap,
+    nextNodeMap
   )
   if (!dirtyGroupIds.size) return []
 
   return groups.filter((group) => dirtyGroupIds.has(group.id))
 }
 
-const getDescendants = (indexes: Indexes, groupId: string): Node[] => {
+const getDescendants = (indexes: Indexes, groupId: NodeId): Node[] => {
   const result: Node[] = []
   const stack = [...(indexes.childrenMap.get(groupId) ?? [])]
   while (stack.length) {
-    const node = stack.pop()
-    if (!node) continue
+    const node = stack.pop()!
     result.push(node)
     const children = indexes.childrenMap.get(node.id)
-    if (children?.length) {
-      children.forEach((child) => stack.push(child))
-    }
+    if (children?.length) stack.push(...children)
   }
   return result
 }
 
-const createAutoFitOperation = ({
+
+const createAutoFitUpdate = ({
   indexes,
   group,
   nodeSize,
@@ -169,11 +173,11 @@ const createAutoFitOperation = ({
   group: Node
   nodeSize: Size
   defaultPadding: number
-}): Operation | null => {
-  const autoFit = group.data && typeof group.data.autoFit === 'string' ? group.data.autoFit : 'expand-only'
+}): GroupUpdate | null => {
+  const autoFit = group.data?.autoFit ?? 'expand-only'
   if (autoFit === 'manual') return null
 
-  const groupPadding = group.data && typeof group.data.padding === 'number' ? group.data.padding : defaultPadding
+  const groupPadding = typeof group.data?.padding === 'number' ? group.data.padding : defaultPadding
   const children = getDescendants(indexes, group.id)
   if (!children.length) return null
 
@@ -185,7 +189,6 @@ const createAutoFitOperation = ({
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return null
 
   return {
-    type: 'node.update',
     id: group.id,
     patch: {
       position: { x: expanded.x, y: expanded.y },
@@ -199,86 +202,80 @@ export class Autofit {
 
   private readonly instance: RuntimeOptions['instance']
   private readonly apply: RuntimeOptions['apply']
-  private snapshot: Snapshot | null = null
+  private prevNodeMap: ReadonlyMap<NodeId, Node> | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
   private disposed = false
-  private pendingRebuildMode: RebuildMode = 'none'
-  private readonly pendingDirtyNodeIds = new Set<string>()
+  private readonly pendingPlan: PendingRebuildPlan = {
+    rebuild: 'none',
+    dirtyNodeIds: new Set<NodeId>()
+  }
   private offChange: (() => void) | null = null
   private readonly syncTask: MicrotaskTask
 
   constructor({ instance, apply, scheduler }: RuntimeOptions) {
     this.instance = instance
     this.apply = apply
-    this.syncTask = new MicrotaskTask(scheduler, this.triggerSync)
+    this.syncTask = new MicrotaskTask(scheduler, () => {
+      if (!this.disposed) this.runSync()
+    })
   }
 
   start = (changeBus: ChangeBus) => {
     if (this.disposed || this.offChange) return
-    this.offChange = changeBus.subscribe((meta) => {
-      this.handleCommit(meta)
-    })
+    this.offChange = changeBus.subscribe(this.handleCommit)
     this.syncTask.schedule()
   }
 
+  private resetStateForDoc = (docId: string): boolean => {
+    const docChanged = docId !== this.lastDocId
+    if (!docChanged) return false
+    this.prevNodeMap = null
+    this.layoutSnapshot = null
+    this.lastDocId = docId
+    return true
+  }
+
+
   private runSync = () => {
     const doc = this.instance.document.get()
-    const docId = doc.id
-    const nodes = doc.nodes
     const nodeSize = this.instance.config.nodeSize
     const padding = this.instance.config.node.groupPadding
-    const docChanged = docId !== this.lastDocId
-    if (docChanged) {
-      this.snapshot = null
-      this.layoutSnapshot = null
-      this.lastDocId = docId
-    }
+    const docChanged = this.resetStateForDoc(doc.id)
 
-    const indexes = createIndexes(nodes)
-    const currentSnapshot = createSnapshot(indexes)
+    const indexes = createIndexes(doc.nodes)
     const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
     const rebuildPlan = this.consumeRebuildPlan({
       docChanged,
       layoutChanged
     })
-    const nextLayout = toLayoutSnapshot(nodeSize, padding)
     const groupsToProcess = resolveGroupsToProcess({
       groups: indexes.groups,
-      prevSnapshot: this.snapshot,
-      currentSnapshot,
+      prevNodeMap: this.prevNodeMap,
+      nextNodeMap: indexes.nodeMap,
       plan: rebuildPlan
     })
 
-    const operations: Operation[] = []
-    groupsToProcess.forEach((group) => {
-      const operation = createAutoFitOperation({
-        indexes,
-        group,
-        nodeSize,
-        defaultPadding: padding
-      })
-      if (operation) {
-        operations.push(operation)
-      }
-    })
-    if (operations.length) {
-      operations.forEach((operation) => {
-        if (operation.type !== 'node.update') return
-        void this.apply({
-          domain: 'node',
-          command: {
-            type: 'update',
-            id: operation.id,
-            patch: operation.patch
-          },
-          source: 'system'
-        })
+    const updates = groupsToProcess
+      .map(group => createAutoFitUpdate({ indexes, group, nodeSize, defaultPadding: padding }))
+      .filter((u): u is GroupUpdate => u !== null)
+
+    if (updates.length) {
+      void this.apply({
+        domain: 'node',
+        command: {
+          type: 'updateMany',
+          updates: updates.map((update) => ({
+            id: update.id,
+            patch: update.patch
+          }))
+        },
+        source: 'system'
       })
     }
 
-    this.snapshot = currentSnapshot
-    this.layoutSnapshot = nextLayout
+    this.prevNodeMap = indexes.nodeMap
+    this.layoutSnapshot = toLayoutSnapshot(nodeSize, padding)
   }
 
   private consumeRebuildPlan = ({
@@ -288,40 +285,32 @@ export class Autofit {
     docChanged: boolean
     layoutChanged: boolean
   }): RebuildPlan => {
-    const rebuild = this.pendingRebuildMode
-    const dirtyNodeIds = new Set(this.pendingDirtyNodeIds)
+    const rebuild = this.pendingPlan.rebuild
+    const dirtyNodeIds = new Set(this.pendingPlan.dirtyNodeIds)
 
-    this.pendingRebuildMode = 'none'
-    this.pendingDirtyNodeIds.clear()
+    this.pendingPlan.rebuild = 'none'
+    this.pendingPlan.dirtyNodeIds.clear()
 
-    if (docChanged || layoutChanged) {
-      return {
-        rebuild: 'full',
-        dirtyNodeIds
-      }
-    }
+    if (docChanged || layoutChanged) return { rebuild: 'full', dirtyNodeIds }
 
-    if (rebuild === 'dirty' && dirtyNodeIds.size === 0) {
-      return {
-        rebuild: 'none',
-        dirtyNodeIds
-      }
-    }
-
-    return {
-      rebuild,
-      dirtyNodeIds
-    }
+    const effective = (rebuild === 'dirty' && dirtyNodeIds.size === 0) ? 'none' : rebuild
+    return { rebuild: effective, dirtyNodeIds }
   }
 
-  private triggerSync = () => {
-    if (this.disposed) return
-    this.runSync()
+  private enqueueFullRebuild = () => {
+    this.pendingPlan.rebuild = 'full'
+    this.pendingPlan.dirtyNodeIds.clear()
+    if (!this.disposed) this.syncTask.schedule()
   }
 
-  private scheduleSync = () => {
-    if (this.disposed) return
-    this.syncTask.schedule()
+  private enqueueDirtyRebuild = (dirtyNodeIds: readonly NodeId[]) => {
+    if (this.pendingPlan.rebuild !== 'full') {
+      this.pendingPlan.rebuild = 'dirty'
+    }
+    dirtyNodeIds.forEach((id) => {
+      this.pendingPlan.dirtyNodeIds.add(id)
+    })
+    if (!this.disposed) this.syncTask.schedule()
   }
 
   dispose = () => {
@@ -332,31 +321,15 @@ export class Autofit {
     this.syncTask.cancel()
   }
 
-  private handleCommit = (meta: Change) => {
-    const indexPlan = meta.readHints.index
+  private handleCommit = (change: Change) => {
+    const indexPlan = change.readHints.index
     if (indexPlan.mode === 'none') return
 
-    if (indexPlan.mode === 'full') {
-      this.pendingRebuildMode = 'full'
-      this.pendingDirtyNodeIds.clear()
-      this.scheduleSync()
+    if (indexPlan.mode === 'full' || indexPlan.dirtyNodeIds.length === 0) {
+      this.enqueueFullRebuild()
       return
     }
 
-    const dirtyNodeIds = indexPlan.dirtyNodeIds
-    if (!dirtyNodeIds.length) {
-      this.pendingRebuildMode = 'full'
-      this.pendingDirtyNodeIds.clear()
-      this.scheduleSync()
-      return
-    }
-
-    if (this.pendingRebuildMode !== 'full') {
-      this.pendingRebuildMode = 'dirty'
-    }
-    dirtyNodeIds.forEach((id) => {
-      this.pendingDirtyNodeIds.add(id)
-    })
-    this.scheduleSync()
+    this.enqueueDirtyRebuild(indexPlan.dirtyNodeIds)
   }
 }

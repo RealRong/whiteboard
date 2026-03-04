@@ -1,9 +1,11 @@
-import type { WriteCommandMap } from '@engine-types/command/api'
+import type {
+  EdgeBatchUpdate,
+  WriteCommandMap
+} from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { EdgeCommandsApi } from '@engine-types/write/commands'
 import type {
-  Edge,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -24,7 +26,7 @@ export const edge = ({
   instance,
   apply
 }: {
-  instance: Pick<InternalInstance, 'state' | 'query' | 'read' | 'document'>
+  instance: Pick<InternalInstance, 'state' | 'document'>
   apply: Apply
 }): EdgeCommandsApi => {
   const run = (command: EdgeCommand, source: CommandSource = 'ui') =>
@@ -38,7 +40,18 @@ export const edge = ({
     run({ type: 'create', payload })
 
   const update = (id: EdgeId, patch: EdgePatch) =>
-    run({ type: 'update', id, patch })
+    run({
+      type: 'updateMany',
+      updates: [{ id, patch }]
+    })
+
+  const updateMany = (updates: readonly EdgeBatchUpdate[]) => {
+    if (!updates.length) return
+    void run({
+      type: 'updateMany',
+      updates
+    })
+  }
 
   const remove = (ids: EdgeId[]) =>
     run({ type: 'delete', ids })
@@ -55,61 +68,36 @@ export const edge = ({
     })
   }
 
-  const insertRoutingPoint = (
-    item: Edge,
-    pathPoints: Point[],
-    segmentIndex: number,
-    pointWorld: Point
-  ) => {
+  const insertAtPoint = (edgeId: EdgeId, pointWorld: Point) => {
     void run({
-      type: 'routing.insert',
-      edge: item,
-      pathPoints,
-      segmentIndex,
+      type: 'routing.insertAtPoint',
+      edgeId,
       pointWorld
     })
   }
 
-  const moveRoutingPoint = (item: Edge, index: number, pointWorld: Point) => {
+  const move = (edgeId: EdgeId, index: number, pointWorld: Point) => {
     void run({
       type: 'routing.move',
-      edge: item,
+      edgeId,
       index,
       pointWorld
     })
   }
 
-  const removeRoutingPoint = (item: Edge, index: number) => {
+  const removeAt = (edgeId: EdgeId, index: number) => {
     void run({
       type: 'routing.remove',
-      edge: item,
+      edgeId,
       index
     })
   }
 
-  const resetRouting = (item: Edge) => {
+  const reset = (edgeId: EdgeId) => {
     void run({
       type: 'routing.reset',
-      edge: item
+      edgeId
     })
-  }
-
-  const insertRoutingPointAt = (edgeId: EdgeId, pointWorld: Point) => {
-    const entry = instance.read.projection.edge.byId.get(edgeId)
-    if (!entry) return false
-    const segmentIndex = instance.query.geometry.nearestEdgeSegment(
-      pointWorld,
-      entry.path.points
-    )
-    insertRoutingPoint(entry.edge, entry.path.points, segmentIndex, pointWorld)
-    return true
-  }
-
-  const removeRoutingPointAt = (edgeId: EdgeId, index: number) => {
-    const entry = instance.read.projection.edge.byId.get(edgeId)
-    if (!entry) return false
-    removeRoutingPoint(entry.edge, index)
-    return true
   }
 
   const setOrder = (ids: EdgeId[]) =>
@@ -142,18 +130,21 @@ export const edge = ({
   return {
     create,
     update,
+    updateMany,
     delete: remove,
     select,
-    insertRoutingPoint,
-    moveRoutingPoint,
-    removeRoutingPoint,
-    resetRouting,
-    insertRoutingPointAt,
-    removeRoutingPointAt,
-    setOrder,
-    bringToFront,
-    sendToBack,
-    bringForward,
-    sendBackward
+    routing: {
+      insertAtPoint,
+      move,
+      remove: removeAt,
+      reset
+    },
+    order: {
+      set: setOrder,
+      bringToFront,
+      sendToBack,
+      bringForward,
+      sendBackward
+    }
   }
 }

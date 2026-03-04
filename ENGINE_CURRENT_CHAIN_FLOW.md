@@ -1,6 +1,6 @@
 # Engine 当前链路总览（CQRS + 漏斗）
 
-> 更新日期：2026-03-04  
+> 更新日期：2026-03-05  
 > 范围：`packages/whiteboard-engine` 最新实现（含“二次收敛”落地）。
 
 ## 1. 总体结论
@@ -11,10 +11,12 @@
 2. plan 唯一来源：只在 write planner 生成，read 不再推导业务 plan。
 3. change 轻量化：`Change` 仅保留 `revision/kind/trace/readHints`。
 4. read 完全 hints 驱动：读侧只执行 `index` 与 `edge` 两类 plan。
-5. 系统反应统一回流：`Measure/Autofit` 都通过 `writeRuntime.apply(source='system')` 写入。
+5. 系统反应统一回流：`Autofit` 通过 `writeRuntime.apply(source='system')` 写入；UI 测量直接走 `commands.node.updateMany(source='system')`。
 6. 开关清零：`commandGatewayEnabled` 已删除，写链路为 `apply -> planner -> writer`。
 7. 文档切换收敛：`runtime.applyConfig` 不再承载 `docId` 语义，文档替换只走 `commands.doc.reset` 写路径。
 8. 命令面纯语义：`writeRuntime.commands` 不再包含 `write`，内部原语统一为 `writeRuntime.apply`。
+9. 顶层重复命名空间已删除：`commands.order` / `commands.group` 并入 `commands.node.*` 与 `commands.edge.*`。
+10. edge routing 对外语义已收敛：调用方只传 `edgeId + index/point`，不再传 `Edge/pathPoints` 中间态。
 
 最终链路：
 
@@ -186,15 +188,15 @@ type Change = {
 
 核心文件：
 
-1. `packages/whiteboard-engine/src/instance/reactions/Measure.ts`
-2. `packages/whiteboard-engine/src/instance/reactions/Autofit.ts`
-3. `packages/whiteboard-engine/src/instance/reactions/Reactions.ts`
+1. `packages/whiteboard-engine/src/instance/reactions/Autofit.ts`
+2. `packages/whiteboard-engine/src/instance/reactions/Reactions.ts`
+3. `packages/whiteboard-react/src/node/components/NodeItem.tsx`
 
 行为：
 
-1. `Measure` 收集尺寸后下发 `node.update`（`source='system'`）。
-2. `Autofit` 监听 `change.readHints.index`（按 `index.mode/dirtyNodeIds` 执行），不再读取 `impact/kind/reasons`。
-3. 二者都通过 `writeRuntime.apply` 回到统一写链路，保持 trace/history/read 同步一致。
+1. `Autofit` 监听 `change.readHints.index`（按 `index.mode/dirtyNodeIds` 执行），不再读取 `impact/kind/reasons`。
+2. UI 节点测量在 React 层聚合后直接调用 `commands.node.updateMany`（`source='system'`）。
+3. 反应写入与测量写入都回到统一写链路，保持 trace/history/read 同步一致。
 
 ## 8. History 链路
 
@@ -272,7 +274,7 @@ Host 传入新 doc
 6. 文档切换改为单路径：`runtime` 去 `docId`，`doc.reset` 承担 replace 语义。
 7. React 侧增加镜像识别，避免引擎回传文档触发回声 reset。
 8. write runtime 装配拆分为 `createWriteExecution + createWriteCommands`，`runtime.ts` 仅保留“组装 + 返回”。
-9. commands facade 去掉纯别名转发，保留必要转换层（`doc/tool/history/host/order/group`）。
+9. commands facade 去掉纯别名转发，保留必要转换层（`doc/tool/history/host`）。
 10. read 对外 API 收敛为属性语义：`read.state` + `read.projection`（去掉 `read.get` 系列）。
 11. projection 移除 `edgeSelectedEndpoints`，selected 语义下沉到 UI 组合，engine 仅提供 `query.edgeEndpointsById` 原语。
 12. read stage 内部删除重复 getter，聚合为 `node/edge/mindmap` 视图读取。
@@ -292,5 +294,9 @@ Host 传入新 doc
 26. 删除 `PlanInput/toPlanInput` 类型桥接：planner 直接接收 `WriteInput`，写链路类型桥接层归零。
 27. 删除 `runtime/command` gateway 中间层与 `WriteRuntime.gateway`，主链路收敛为 `apply -> planner -> writer`。
 28. 删除 `applyWrite` 包装别名，统一 `WriteRuntime` 单入口为 `apply`，消除双入口命名与重复职责。
+29. `node/edge` 更新命令收敛为 `updateMany` 原语，`update` 降级为语法糖委托，移除 `updateManyPosition`。
+30. 移除 `host.nodeMeasured` 与 reactions 内测量桥接，测量写入改为 UI 直接 `node.updateMany(source='system')`。
+31. 删除顶层 `commands.order` / `commands.group`，排序与分组能力收口到 `node.order/node.group/edge.order`。
+32. edge routing 收口到 `commands.edge.routing`，并改为 `edgeId` 语义命令；planner 内部解析 segment 与 path 细节。
 
 以上收敛点已经落地并通过构建验证。

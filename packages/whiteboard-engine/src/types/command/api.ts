@@ -1,7 +1,6 @@
 import type {
   Document,
   DispatchResult,
-  Edge,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -31,12 +30,9 @@ import type {
 } from '../state/model'
 import type { ResizeDirection } from '../node/transform'
 import type {
-  RoutingDragStartOptions,
-  RoutingDragUpdateOptions,
-  RoutingDragEndOptions,
-  RoutingDragCancelOptions
-} from '../edge/routing'
-import type { CommandSource, CommandTrace } from './source'
+  CommandSource,
+  CommandTrace
+} from './source'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 
@@ -143,11 +139,6 @@ export type NodeTransformEndOptions = {
 
 export type NodeTransformCancelOptions = {
   pointer?: PointerInput
-}
-
-export type GroupCommands = {
-  create: (ids: NodeId[]) => Promise<DispatchResult>
-  ungroup: (id: NodeId) => Promise<DispatchResult>
 }
 
 export type MindmapCreateOptions = {
@@ -274,36 +265,45 @@ export type MindmapApplyCommand =
       type: 'root'
     } & MindmapMoveRootOptions)
 
+export type NodeBatchUpdate = {
+  id: NodeId
+  patch: NodePatch
+}
+
+export type NodeUpdateManyOptions = {
+  source?: CommandSource
+}
+
 export type NodeWriteCommand =
   | {
       type: 'create'
       payload: NodeInput
     }
   | {
-      type: 'update'
-      id: NodeId
-      patch: NodePatch
+      type: 'updateMany'
+      updates: readonly NodeBatchUpdate[]
     }
   | {
       type: 'delete'
       ids: NodeId[]
     }
   | {
-      type: 'group'
+      type: 'group.create'
       ids: NodeId[]
     }
   | {
-      type: 'ungroup'
+      type: 'group.ungroup'
       id: NodeId
     }
   | {
       type: 'order.set'
       ids: NodeId[]
     }
-  | {
-      type: 'updateManyPosition'
-      updates: Array<{ id: NodeId; position: Point }>
-    }
+
+export type EdgeBatchUpdate = {
+  id: EdgeId
+  patch: EdgePatch
+}
 
 export type EdgeWriteCommand =
   | {
@@ -311,9 +311,8 @@ export type EdgeWriteCommand =
       payload: EdgeInput
     }
   | {
-      type: 'update'
-      id: EdgeId
-      patch: EdgePatch
+      type: 'updateMany'
+      updates: readonly EdgeBatchUpdate[]
     }
   | {
       type: 'delete'
@@ -324,26 +323,24 @@ export type EdgeWriteCommand =
       ids: EdgeId[]
     }
   | {
-      type: 'routing.insert'
-      edge: Edge
-      pathPoints: Point[]
-      segmentIndex: number
+      type: 'routing.insertAtPoint'
+      edgeId: EdgeId
       pointWorld: Point
     }
   | {
       type: 'routing.move'
-      edge: Edge
+      edgeId: EdgeId
       index: number
       pointWorld: Point
     }
   | {
       type: 'routing.remove'
-      edge: Edge
+      edgeId: EdgeId
       index: number
     }
   | {
       type: 'routing.reset'
-      edge: Edge
+      edgeId: EdgeId
     }
 
 export type ViewportWriteCommand =
@@ -417,7 +414,6 @@ export type Commands = {
     clearHover: () => void
   }
   host: {
-    nodeMeasured: (id: NodeId, size: Size) => void
     containerResized: (rect: { left: number; top: number; width: number; height: number }) => void
   }
   selection: {
@@ -429,22 +425,16 @@ export type Commands = {
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>
     update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
+    updateMany: (updates: readonly EdgeBatchUpdate[]) => void
     delete: (ids: EdgeId[]) => Promise<DispatchResult>
-    insertRoutingPoint: (edge: Edge, pathPoints: Point[], segmentIndex: number, pointWorld: Point) => void
-    moveRoutingPoint: (edge: Edge, index: number, pointWorld: Point) => void
-    removeRoutingPoint: (edge: Edge, index: number) => void
-    resetRouting: (edge: Edge) => void
     select: (id?: EdgeId) => void
-  }
-  order: {
-    node: {
-      set: (ids: NodeId[]) => Promise<DispatchResult>
-      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
-      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
-      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
-      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
+    routing: {
+      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => void
+      move: (edgeId: EdgeId, index: number, pointWorld: Point) => void
+      remove: (edgeId: EdgeId, index: number) => void
+      reset: (edgeId: EdgeId) => void
     }
-    edge: {
+    order: {
       set: (ids: EdgeId[]) => Promise<DispatchResult>
       bringToFront: (ids: EdgeId[]) => Promise<DispatchResult>
       sendToBack: (ids: EdgeId[]) => Promise<DispatchResult>
@@ -462,10 +452,20 @@ export type Commands = {
   node: {
     create: (payload: NodeInput) => Promise<DispatchResult>
     update: (id: NodeId, patch: NodePatch) => Promise<DispatchResult>
+    updateMany: (updates: readonly NodeBatchUpdate[], options?: NodeUpdateManyOptions) => void
     updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<DispatchResult> | undefined
-    updateManyPosition: (updates: Array<{ id: NodeId; position: Point }>) => void
     delete: (ids: NodeId[]) => Promise<DispatchResult>
+    group: {
+      create: (ids: NodeId[]) => Promise<DispatchResult>
+      ungroup: (id: NodeId) => Promise<DispatchResult>
+    }
+    order: {
+      set: (ids: NodeId[]) => Promise<DispatchResult>
+      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
+      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
+      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
+      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
+    }
   }
-  group: GroupCommands
   mindmap: MindmapCommands
 }

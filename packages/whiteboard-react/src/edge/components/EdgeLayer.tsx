@@ -89,7 +89,7 @@ export const EdgeLayer = () => {
   const hitTestThresholdScreen = instance.query.config.get().edge.hitTestThresholdScreen
   const handleEdgePointerDown = useCallback(
     (event: ReactPointerEvent<SVGPathElement>, entry: EdgePathEntry) => {
-      handleEdgePathPointerDown(event, entry.edge, entry.path.points)
+      handleEdgePathPointerDown(event, entry.edge)
     },
     [handleEdgePathPointerDown]
   )

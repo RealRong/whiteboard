@@ -9,6 +9,8 @@
 5. 是否存在冗余代码或逻辑；若有 2 处及以上相同且语义稳定的逻辑，考虑抽取公共函数，并确认其放置层级合理。
 6. 命名原则：class文件使用PascalCase，函数使用camelCase，常量使用UPPER_SNAKE_CASE，枚举使用PascalCase，接口使用PascalCase。
 7. 尽量避免一个目录下只有一个文件。
+8. 薄包装函数/方法（仅 1-2 行转发、仅加一个守卫或仅转换参数格式）若只被调用一次，应 inline 到调用处，减少间接层。
+9. 回调若只是转发到一个已绑定的函数引用（如箭头函数属性），应直接传引用：`subscribe((x) => this.fn(x))` -> `subscribe(this.fn)`。
 
 ### 二、简化检查项（进阶）
 
@@ -27,6 +29,10 @@
 13. 配置模型简化：配置项是否重复、冲突或语义重叠，能否收敛成更清晰模型。
 14. 测试代码简化：重复 fixture、样板断言、重复 mock 是否可抽象为测试辅助工具。
 15. 命名族目录化（prefix-based operation family modularization）：当同层实现共享稳定前缀且仅在操作语义上分化（如 `prepareCreate`、`prepareUpdate`、`prepareUpsert`、`prepareDelete`、`prepareWrite`），应将公共前缀上提为目录边界（`prepare/`），并将文件名收敛为 `create`、`update`、`upsert`、`delete`、`write`，以消除命名冗余并强化语义索引。
+16. 不可达守卫清理：当控制流已保证值非空（如 `while (arr.length)` 内的 `arr.pop()`），移除多余的 null/undefined 检查，使用非空断言 `!` 代替。
+17. Optional chaining 替代冗余守卫：用 `obj?.prop` 替代 `obj && obj.prop`；用 `obj?.prop ?? fallback` 替代 `obj && typeof obj.prop === 'type' ? obj.prop : fallback`。
+18. 集合操作语法糖：`arr.forEach(x => target.push(x))` -> `target.push(...arr)`；`arr.forEach(x => set.add(x))` 在数量可控时可用 spread 构造。
+19. 多分支同构 return 合并：多个 if/return 块返回同一结构但仅字段值不同时，合并为单一 return + 条件表达式，减少代码体积但不牺牲可读性。
 
 ### 三、触发阈值（建议）
 

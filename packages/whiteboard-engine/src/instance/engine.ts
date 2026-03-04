@@ -93,7 +93,6 @@ export const engine = ({
   const commands = createCommands({
     state,
     viewport,
-    reactions,
     writeRuntime
   })
   const shortcuts = bindShortcuts({

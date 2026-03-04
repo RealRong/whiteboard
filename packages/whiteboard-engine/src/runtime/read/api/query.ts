@@ -11,7 +11,6 @@ import type { Indexer } from '@engine-types/read/indexer'
 import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import {
   getAnchorFromPoint as getAnchorFromPointRaw,
-  getNearestEdgeSegment as getNearestEdgeSegmentRaw,
   resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
 import { DEFAULT_TUNING } from '../../../config'
@@ -94,9 +93,7 @@ export const query = ({
     },
     geometry: {
       anchorFromPoint: (rect: Rect, rotation: number, point: Point) =>
-        getAnchorFromPointRaw(rect, rotation, point, anchorOptions),
-      nearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) =>
-        getNearestEdgeSegmentRaw(pointWorld, pathPoints)
+        getAnchorFromPointRaw(rect, rotation, point, anchorOptions)
     },
     edgeEndpointsById: getEdgeEndpointsById
   }

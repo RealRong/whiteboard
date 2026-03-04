@@ -212,9 +212,15 @@ export const NodeItem = ({ item }: NodeItemProps) => {
         return
       }
       lastSizeRef.current = size
-      instance.commands.host.nodeMeasured(node.id, size)
+      instance.commands.node.updateMany(
+        [{
+          id: node.id,
+          patch: { size }
+        }],
+        { source: 'system' }
+      )
     },
-    [instance.commands.host, node.id]
+    [instance.commands.node, node.id]
   )
 
   const flushPendingMeasure = useCallback(() => {

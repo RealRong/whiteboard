@@ -94,7 +94,7 @@ export const useEdgeRoutingInteraction = () => {
       if (index < 0 || index >= points.length) return
 
       if (event.detail >= 2) {
-        instance.commands.edge.removeRoutingPoint(entry.edge, index)
+        instance.commands.edge.routing.remove(edgeId, index)
         event.preventDefault()
         event.stopPropagation()
         return
@@ -151,7 +151,7 @@ export const useEdgeRoutingInteraction = () => {
       if (entry.edge.type === 'bezier' || entry.edge.type === 'curve') return
       const points = entry.edge.routing?.points ?? []
       if (index < 0 || index >= points.length) return
-      instance.commands.edge.removeRoutingPoint(entry.edge, index)
+      instance.commands.edge.routing.remove(edgeId, index)
       event.preventDefault()
       event.stopPropagation()
     },
@@ -198,11 +198,7 @@ export const useEdgeRoutingInteraction = () => {
       if (!active || event.pointerId !== active.pointerId) return
       const entry = resolveEdgeEntry(active.edgeId, readEdgeById)
       if (entry && entry.edge.type !== 'bezier' && entry.edge.type !== 'curve') {
-        instance.commands.edge.moveRoutingPoint(
-          entry.edge,
-          active.index,
-          active.point
-        )
+        instance.commands.edge.routing.move(active.edgeId, active.index, active.point)
       }
       clearActive(active.pointerId)
     },

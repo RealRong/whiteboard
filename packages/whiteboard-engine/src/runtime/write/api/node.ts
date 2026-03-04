@@ -1,4 +1,8 @@
-import type { WriteCommandMap } from '@engine-types/command/api'
+import type {
+  NodeBatchUpdate,
+  NodeUpdateManyOptions,
+  WriteCommandMap
+} from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { NodeCommandsApi } from '@engine-types/write/commands'
@@ -6,8 +10,7 @@ import type {
   Document,
   NodeId,
   NodeInput,
-  NodePatch,
-  Point
+  NodePatch
 } from '@whiteboard/core/types'
 import {
   bringOrderForward,
@@ -39,7 +42,21 @@ export const node = ({
     run({ type: 'create', payload })
 
   const update = (id: NodeId, patch: NodePatch) =>
-    run({ type: 'update', id, patch })
+    run({
+      type: 'updateMany',
+      updates: [{ id, patch }]
+    })
+
+  const updateMany = (
+    updates: readonly NodeBatchUpdate[],
+    options?: NodeUpdateManyOptions
+  ) => {
+    if (!updates.length) return
+    void run({
+      type: 'updateMany',
+      updates
+    }, options?.source ?? 'interaction')
+  }
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) => {
     const current = readDoc().nodes.find((item) => item.id === id)
@@ -52,19 +69,14 @@ export const node = ({
     })
   }
 
-  const updateManyPosition = (updates: Array<{ id: NodeId; position: Point }>) => {
-    if (!updates.length) return
-    void run({ type: 'updateManyPosition', updates }, 'interaction')
-  }
-
   const remove = (ids: NodeId[]) =>
     run({ type: 'delete', ids })
 
   const createGroup = (ids: NodeId[]) =>
-    run({ type: 'group', ids })
+    run({ type: 'group.create', ids })
 
   const ungroup = (id: NodeId) =>
-    run({ type: 'ungroup', id })
+    run({ type: 'group.ungroup', id })
 
   const setOrder = (ids: NodeId[]) =>
     run({ type: 'order.set', ids })
@@ -96,15 +108,19 @@ export const node = ({
   return {
     create,
     update,
+    updateMany,
     updateData,
-    updateManyPosition,
     delete: remove,
-    createGroup,
-    ungroup,
-    setOrder,
-    bringToFront,
-    sendToBack,
-    bringForward,
-    sendBackward
+    group: {
+      create: createGroup,
+      ungroup
+    },
+    order: {
+      set: setOrder,
+      bringToFront,
+      sendToBack,
+      bringForward,
+      sendBackward
+    }
   }
 }

@@ -44,7 +44,6 @@ export type Query = {
   }
   geometry: {
     anchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
-    nearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) => number
   }
   edgeEndpointsById: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }

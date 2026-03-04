@@ -34,7 +34,7 @@ const getCreatedNodeId = (result: DispatchResult, type?: string) => {
 }
 
 export type SelectionWriteCommands = {
-  node: Pick<NodeCommandsApi, 'create' | 'delete' | 'createGroup' | 'ungroup'>
+  node: Pick<NodeCommandsApi, 'create' | 'delete' | 'group'>
   edge: Pick<EdgeCommandsApi, 'create' | 'delete' | 'select'>
 }
 
@@ -96,7 +96,7 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (selectedNodeIds.length < 2) return
 
-    const result = await writeCommands.node.createGroup(selectedNodeIds)
+    const result = await writeCommands.node.group.create(selectedNodeIds)
     const groupId = getCreatedNodeId(result, 'group')
     if (!groupId) return
     select([groupId], 'replace')
@@ -113,7 +113,7 @@ export const selection = ({
     if (!groups.length) return
 
     for (const group of groups) {
-      await writeCommands.node.ungroup(group.id)
+      await writeCommands.node.group.ungroup(group.id)
     }
     clear()
   }
@@ -207,7 +207,6 @@ export const selection = ({
   }
 
   return {
-    name: 'Selection',
     getSelectedNodeIds,
     select,
     toggle,

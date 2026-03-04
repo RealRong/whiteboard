@@ -1,15 +1,46 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { WriteCommandMap } from '@engine-types/command/api'
+import type {
+  NodeBatchUpdate,
+  WriteCommandMap
+} from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { invalid, ops, success } from '../draft'
-import type { Document } from '@whiteboard/core/types'
+import type {
+  Document,
+  NodeId,
+  NodePatch
+} from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
 import { corePlan } from '@whiteboard/core/kernel'
 
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
-type GroupCommand = Extract<NodeCommand, { type: 'group' }>
-type UngroupCommand = Extract<NodeCommand, { type: 'ungroup' }>
+type GroupCommand = Extract<NodeCommand, { type: 'group.create' }>
+type UngroupCommand = Extract<NodeCommand, { type: 'group.ungroup' }>
+type UpdateManyCommand = Extract<NodeCommand, { type: 'updateMany' }>
 type NodeCommand = WriteCommandMap['node']
+
+const hasPatch = (patch: NodePatch) => Object.keys(patch).length > 0
+
+const toUpdateOperations = (
+  updates: readonly NodeBatchUpdate[]
+) => {
+  const patchById = new Map<NodeId, NodePatch>()
+  updates.forEach((item) => {
+    if (!hasPatch(item.patch)) return
+    const previous = patchById.get(item.id)
+    patchById.set(
+      item.id,
+      previous
+        ? { ...previous, ...item.patch }
+        : item.patch
+    )
+  })
+  return Array.from(patchById.entries()).map(([id, patch]) => ({
+    type: 'node.update' as const,
+    id,
+    patch
+  }))
+}
 
 export const node = ({
   instance
@@ -48,28 +79,23 @@ export const node = ({
     return ops(result)
   }
 
+  const updateMany = (command: UpdateManyCommand): Draft =>
+    success(toUpdateOperations(command.updates))
+
   return (command: NodeCommand): Draft => {
     switch (command.type) {
       case 'create':
         return create(command)
-      case 'update':
-        return success([{ type: 'node.update', id: command.id, patch: command.patch }])
+      case 'updateMany':
+        return updateMany(command)
       case 'delete':
         return success(command.ids.map((id) => ({ type: 'node.delete' as const, id })))
-      case 'group':
+      case 'group.create':
         return group(command)
-      case 'ungroup':
+      case 'group.ungroup':
         return ungroup(command)
       case 'order.set':
         return success([{ type: 'node.order.set', ids: command.ids }])
-      case 'updateManyPosition':
-        return success(
-          command.updates.map((item) => ({
-            type: 'node.update' as const,
-            id: item.id,
-            patch: { position: item.position }
-          }))
-        )
       default:
         return invalid('Unsupported node action.')
     }

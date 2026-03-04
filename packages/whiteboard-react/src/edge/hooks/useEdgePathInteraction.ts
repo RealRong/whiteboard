@@ -18,11 +18,7 @@ export const useEdgePathInteraction = () => {
   const instance = useInstance()
 
   const handleEdgePathPointerDown = useCallback(
-    (
-      event: ReactPointerEvent<SVGPathElement>,
-      edge: Edge,
-      pathPoints: Point[]
-    ) => {
+    (event: ReactPointerEvent<SVGPathElement>, edge: Edge) => {
       if (event.button !== 0) return
       if (viewportGestureState.isSpacePressed(instance)) return
 
@@ -34,16 +30,7 @@ export const useEdgePathInteraction = () => {
       )
 
       if (event.shiftKey || event.detail >= 2) {
-        const segmentIndex = instance.query.geometry.nearestEdgeSegment(
-          pointWorld,
-          pathPoints
-        )
-        instance.commands.edge.insertRoutingPoint(
-          edge,
-          pathPoints,
-          segmentIndex,
-          pointWorld
-        )
+        instance.commands.edge.routing.insertAtPoint(edge.id, pointWorld)
       }
 
       instance.commands.edge.select(edge.id)
