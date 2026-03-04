@@ -40,7 +40,7 @@ export const useEdgeRoutingInteraction = () => {
 
   const readEdgeById = useCallback(
     (edgeId: EdgeId) =>
-      instance.read.get.edgeById(edgeId) as EdgeEntry | undefined,
+      instance.read.projection.edge.byId.get(edgeId) as EdgeEntry | undefined,
     [instance.read]
   )
 

@@ -16,7 +16,7 @@ export class Routing {
   }
 
   private getEdge = (edgeId: EdgeId) =>
-    this.instance.read.get.edgeById(edgeId)?.edge
+    this.instance.read.projection.edge.byId.get(edgeId)?.edge
 
   private moveRoutingPoint = (
     edgeId: EdgeId,

@@ -38,11 +38,9 @@ export type {
 export type { InstanceConfig } from './types/instance/config'
 export type {
   EngineRead,
-  EngineReadGet,
-  EngineReadGetters,
-  ReadPublicKey,
-  ReadSubscribeKey,
-  ReadPublicValueMap,
+  EngineReadState,
+  EngineReadProjection,
+  ReadSubscriptionKey,
   EdgePathEntry,
   ViewportView,
   NodesView,
@@ -62,8 +60,8 @@ export type {
   StateSnapshot
 } from './types/instance/state'
 export {
-  READ_PUBLIC_KEYS,
-  READ_SUBSCRIBE_KEYS
+  READ_STATE_KEYS,
+  READ_SUBSCRIPTION_KEYS
 } from './types/instance/read'
 export type { ShortcutOverrides } from './types/shortcuts/manager'
 export type {

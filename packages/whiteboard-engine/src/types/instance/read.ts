@@ -13,7 +13,6 @@ import type { MindmapLayout } from '@whiteboard/core/mindmap'
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge/geometry'
 import type { MindmapLayoutConfig } from '../mindmap/layout'
-import type { ReadModelSnapshot } from '../read/snapshot'
 import type {
   InteractionState,
   SelectionState
@@ -108,9 +107,6 @@ export type NodesView = {
 export type EdgesView = {
   ids: readonly EdgeId[]
   byId: ReadonlyMap<EdgeId, Readonly<EdgePathEntry>>
-  selection: {
-    endpoints: EdgeEndpoints | undefined
-  }
 }
 
 export type MindmapView = {
@@ -118,19 +114,7 @@ export type MindmapView = {
   byId: ReadonlyMap<NodeId, Readonly<MindmapViewTree>>
 }
 
-export type EngineReadGetters = {
-  viewportTransform: () => Readonly<ViewportTransformView>
-  nodeIds: () => readonly NodeId[]
-  nodeById: (id: NodeId) => Readonly<NodeViewItem> | undefined
-  edgeIds: () => readonly EdgeId[]
-  edgeById: (id: EdgeId) => Readonly<EdgePathEntry> | undefined
-  selectedEdgeId: () => EdgeId | undefined
-  edgeSelectedEndpoints: () => Readonly<EdgeEndpoints> | undefined
-  mindmapIds: () => readonly NodeId[]
-  mindmapById: (id: NodeId) => Readonly<MindmapViewTree> | undefined
-}
-
-export const READ_PUBLIC_KEYS = {
+export const READ_STATE_KEYS = {
   interaction: 'interaction',
   tool: 'tool',
   selection: 'selection',
@@ -138,15 +122,15 @@ export const READ_PUBLIC_KEYS = {
   mindmapLayout: 'mindmapLayout'
 } as const
 
-export const READ_SUBSCRIBE_KEYS = {
-  ...READ_PUBLIC_KEYS,
+export const READ_SUBSCRIPTION_KEYS = {
+  ...READ_STATE_KEYS,
   snapshot: 'snapshot'
 } as const
 
-export type ReadPublicKey =
-  (typeof READ_PUBLIC_KEYS)[keyof typeof READ_PUBLIC_KEYS]
+export type ReadSubscriptionKey =
+  (typeof READ_SUBSCRIPTION_KEYS)[keyof typeof READ_SUBSCRIPTION_KEYS]
 
-export type ReadPublicValueMap = {
+export type EngineReadState = {
   interaction: InteractionState
   tool: 'select' | 'edge'
   selection: SelectionState
@@ -154,20 +138,15 @@ export type ReadPublicValueMap = {
   mindmapLayout: MindmapLayoutConfig
 }
 
-export type ReadSubscribeKey =
-  (typeof READ_SUBSCRIBE_KEYS)[keyof typeof READ_SUBSCRIBE_KEYS]
-
-export type ReadInternalKey = ReadSubscribeKey
-
-export type ReadInternalValueMap = ReadPublicValueMap & {
-  snapshot: ReadModelSnapshot
+export type EngineReadProjection = {
+  viewportTransform: Readonly<ViewportTransformView>
+  node: NodesView
+  edge: EdgesView
+  mindmap: MindmapView
 }
 
-export type EngineReadGet = {
-  <K extends ReadPublicKey>(key: K): ReadPublicValueMap[K]
-} & EngineReadGetters
-
 export type EngineRead = {
-  get: EngineReadGet
-  subscribe: (keys: readonly ReadSubscribeKey[], listener: () => void) => () => void
+  state: EngineReadState
+  projection: EngineReadProjection
+  subscribe: (keys: readonly ReadSubscriptionKey[], listener: () => void) => () => void
 }

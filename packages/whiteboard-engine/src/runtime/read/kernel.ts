@@ -2,8 +2,8 @@ import type { Atom } from 'jotai/vanilla'
 import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import type { Query } from '@engine-types/instance/query'
 import {
-  READ_PUBLIC_KEYS,
-  READ_SUBSCRIBE_KEYS,
+  READ_STATE_KEYS,
+  READ_SUBSCRIPTION_KEYS,
   type EngineRead
 } from '@engine-types/instance/read'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
@@ -44,12 +44,12 @@ export const createReadKernel = ({
   })
 
   const keyAtomMap = {
-    [READ_PUBLIC_KEYS.interaction]: stateAtoms.interaction,
-    [READ_PUBLIC_KEYS.tool]: stateAtoms.tool,
-    [READ_PUBLIC_KEYS.selection]: stateAtoms.selection,
-    [READ_PUBLIC_KEYS.viewport]: stateAtoms.viewport,
-    [READ_PUBLIC_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
-    [READ_SUBSCRIBE_KEYS.snapshot]: snapshotAtom
+    [READ_STATE_KEYS.interaction]: stateAtoms.interaction,
+    [READ_STATE_KEYS.tool]: stateAtoms.tool,
+    [READ_STATE_KEYS.selection]: stateAtoms.selection,
+    [READ_STATE_KEYS.viewport]: stateAtoms.viewport,
+    [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
+    [READ_SUBSCRIPTION_KEYS.snapshot]: snapshotAtom
   }
   const get = <K extends ReadContextKey>(key: K): ReadKeyValueMap[K] =>
     runtimeStore.get(keyAtomMap[key] as Atom<ReadKeyValueMap[K]>)

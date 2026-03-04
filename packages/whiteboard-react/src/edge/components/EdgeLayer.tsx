@@ -1,7 +1,7 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import {
-  READ_PUBLIC_KEYS,
-  READ_SUBSCRIBE_KEYS,
+  READ_STATE_KEYS,
+  READ_SUBSCRIPTION_KEYS,
   type EdgePathEntry
 } from '@whiteboard/engine'
 import type { PointerEvent as ReactPointerEvent } from 'react'
@@ -19,8 +19,8 @@ import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 const useEdgePath = (edgeId: EdgeId) => {
   const instance = useInstance()
   return useReadGetter<EdgePathEntry | undefined>(
-    () => instance.read.get.edgeById(edgeId),
-    { keys: [READ_SUBSCRIBE_KEYS.snapshot] }
+    () => instance.read.projection.edge.byId.get(edgeId),
+    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
   )
 }
 
@@ -77,13 +77,13 @@ export const EdgeLayer = () => {
   const { draft } = useEdgeRoutingPreviewState()
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
   const edgeIds = useReadGetter(
-    () => instance.read.get.edgeIds(),
-    { keys: [READ_SUBSCRIBE_KEYS.snapshot] }
+    () => instance.read.projection.edge.ids,
+    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
   )
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,
     {
-      keys: [READ_PUBLIC_KEYS.selection]
+      keys: [READ_STATE_KEYS.selection]
     }
   )
   const hitTestThresholdScreen = instance.query.config.get().edge.hitTestThresholdScreen

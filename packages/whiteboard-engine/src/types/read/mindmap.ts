@@ -1,5 +1,4 @@
 import type {
-  EngineReadGetters,
   MindmapView
 } from '../instance/read'
 
@@ -10,5 +9,7 @@ export type MindmapReadCache = {
 }
 
 export type MindmapReadRuntime = {
-  get: Pick<EngineReadGetters, 'mindmapIds' | 'mindmapById'>
+  get: {
+    mindmap: () => MindmapView
+  }
 }

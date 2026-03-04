@@ -1,7 +1,14 @@
-import type { Document, Point, Rect, Viewport } from '@whiteboard/core/types'
+import type {
+  Document,
+  EdgeId,
+  Point,
+  Rect,
+  Viewport
+} from '@whiteboard/core/types'
 import type { Size } from '../common/base'
 import type { InstanceConfig } from './config'
 import type {
+  EdgeEndpoints,
   EdgeConnectAnchorResult
 } from './read'
 import type {
@@ -39,4 +46,5 @@ export type Query = {
     anchorFromPoint: (rect: Rect, rotation: number, point: Point) => EdgeConnectAnchorResult
     nearestEdgeSegment: (pointWorld: Point, pathPoints: Point[]) => number
   }
+  edgeEndpointsById: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }

@@ -1,5 +1,11 @@
-import type { EngineReadGetters } from '../instance/read'
+import type {
+  NodesView,
+  ViewportTransformView
+} from '../instance/read'
 
 export type NodeReadRuntime = {
-  get: Pick<EngineReadGetters, 'viewportTransform' | 'nodeIds' | 'nodeById'>
+  get: {
+    viewportTransform: () => Readonly<ViewportTransformView>
+    node: () => NodesView
+  }
 }

@@ -81,7 +81,7 @@ export function useWhiteboardSelector<T>(
   const getSnapshot = useMemo(
     () => () => {
       const snapshot = readSnapshotByKeys(
-        instance.read.get as <K extends StateKey>(key: K) => StateSnapshot[K],
+        instance.state.read,
         keys
       )
       const next = selectorRef.current(snapshot)

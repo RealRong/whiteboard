@@ -194,7 +194,7 @@ const main = () => {
 
   const edgeId = 'e_route'
   const routingIndex = 0
-  const baseEdge = instance.read.get.edgeById(edgeId)?.edge
+  const baseEdge = instance.read.projection.edge.byId.get(edgeId)?.edge
   if (!baseEdge || !baseEdge.routing?.points?.length) {
     throw new Error(`Missing routing edge: ${edgeId}`)
   }

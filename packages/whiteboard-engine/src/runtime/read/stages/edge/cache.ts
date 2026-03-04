@@ -10,7 +10,7 @@ import {
 } from '@whiteboard/core/utils'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
-  READ_SUBSCRIBE_KEYS,
+  READ_SUBSCRIPTION_KEYS,
   type CanvasNodeRect,
   type EdgeEndpoints,
   type EdgePathEntry
@@ -164,7 +164,7 @@ const isSameEdgeStructureTuple = (
 // 3) cache reuse is fully data-driven (`refs + tuples`).
 export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const getNodeRect = context.query.canvas.nodeRect
-  const readModelSnapshot = () => context.get(READ_SUBSCRIBE_KEYS.snapshot)
+  const readModelSnapshot = () => context.get(READ_SUBSCRIPTION_KEYS.snapshot)
   const state = emptyState()
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
   let pendingResetVisibleEdges = false

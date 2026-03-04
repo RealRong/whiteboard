@@ -1,8 +1,8 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import type {
+  EdgesView,
   EdgeEndpoints,
-  EdgePathEntry,
-  EngineReadGetters
+  EdgePathEntry
 } from '../instance/read'
 import type { EdgeChange } from './change'
 
@@ -18,9 +18,8 @@ export type EdgeReadCache = {
 }
 
 export type EdgeReadRuntime = {
-  get: Pick<
-    EngineReadGetters,
-    'edgeIds' | 'edgeById' | 'selectedEdgeId' | 'edgeSelectedEndpoints'
-  >
+  get: {
+    edge: () => EdgesView
+  }
   applyPlan: (plan: EdgeChange) => void
 }

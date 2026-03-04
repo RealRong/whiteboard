@@ -7,8 +7,7 @@ export const mindmap = (context: ReadRuntimeContext): MindmapReadRuntime => {
 
   return {
     get: {
-      mindmapIds: () => memo.getSnapshot().ids,
-      mindmapById: (id) => memo.getSnapshot().byId.get(id)
+      mindmap: () => memo.getSnapshot()
     }
   }
 }

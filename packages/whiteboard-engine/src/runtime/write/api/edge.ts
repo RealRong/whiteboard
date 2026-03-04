@@ -95,7 +95,7 @@ export const edge = ({
   }
 
   const insertRoutingPointAt = (edgeId: EdgeId, pointWorld: Point) => {
-    const entry = instance.read.get.edgeById(edgeId)
+    const entry = instance.read.projection.edge.byId.get(edgeId)
     if (!entry) return false
     const segmentIndex = instance.query.geometry.nearestEdgeSegment(
       pointWorld,
@@ -106,7 +106,7 @@ export const edge = ({
   }
 
   const removeRoutingPointAt = (edgeId: EdgeId, index: number) => {
-    const entry = instance.read.get.edgeById(edgeId)
+    const entry = instance.read.projection.edge.byId.get(edgeId)
     if (!entry) return false
     removeRoutingPoint(entry.edge, index)
     return true

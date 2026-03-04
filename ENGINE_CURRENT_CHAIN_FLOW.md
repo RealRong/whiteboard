@@ -155,17 +155,32 @@ type Change = {
 
 1. `packages/whiteboard-engine/src/instance/reactions/Reactions.ts`
 2. `packages/whiteboard-engine/src/runtime/read/kernel.ts`
-3. `packages/whiteboard-engine/src/runtime/read/stages/index/*`
-4. `packages/whiteboard-engine/src/runtime/read/stages/edge/*`
+3. `packages/whiteboard-engine/src/runtime/read/api/read.ts`
+4. `packages/whiteboard-engine/src/runtime/read/api/query.ts`
+5. `packages/whiteboard-engine/src/runtime/read/stages/index/*`
+6. `packages/whiteboard-engine/src/runtime/read/stages/edge/*`
 
 执行顺序：
 
 1. `changeBus` 广播 `Change`。
 2. `Reactions` 直接把 `change.readHints` 传给 `readRuntime.applyInvalidation`。
 3. `readRuntime` 只做两件事：`indexes.applyPlan(hints.index)`、`edgeStage.applyPlan(hints.edge)`。
-4. 查询层通过 `query/read` 对外提供一致的读结果。
+4. 对外读接口保持直通语义：`read.state.*`、`read.projection.*`、`query.*(...)`。
 
 读侧不再存在 `orchestrator/planner/invalidationAdapter` 中间层。
+
+### 6.1 读 API 形态（最终）
+
+1. `read.state`：`interaction/tool/selection/viewport/mindmapLayout`。
+2. `read.projection`：`viewportTransform/node/edge/mindmap`。
+3. `query`：参数化查询（例如 `edgeEndpointsById(edgeId)`）。
+4. `edgeSelectedEndpoints` 不再作为 projection 固定字段，改为 UI 通过 `state.selection + query.edgeEndpointsById` 组合。
+
+### 6.2 read stage 内部收敛
+
+1. `node/edge/mindmap` stage 仅保留聚合视图 getter（`node()`、`edge()`、`mindmap()`）。
+2. 删除 `nodeIds/nodeById`、`edgeIds/edgeById`、`mindmapIds/mindmapById` 这类重复转发接口。
+3. 内核缓存仍保留，保证热路径读取的对象复用与稳定引用。
 
 ## 7. Reactions 回流链路
 
@@ -258,21 +273,24 @@ Host 传入新 doc
 7. React 侧增加镜像识别，避免引擎回传文档触发回声 reset。
 8. write runtime 装配拆分为 `createWriteExecution + createWriteCommands`，`runtime.ts` 仅保留“组装 + 返回”。
 9. commands facade 去掉纯别名转发，保留必要转换层（`doc/tool/history/host/order/group`）。
-10. write runtime 命令装配收敛为 `createWriteCommands` 直接组装语义命令（移除 builder 注册表中间层）。
-11. selection 写依赖收窄为最小能力面（仅 node/edge 必需方法），runtime 删除桥接映射 helper，直接透传基础命令。
-12. `selection/shortcut` 派生命令与基础命令统一在 `commands.ts` 装配，移除 `DerivedCommandSet` 分层样板。
-13. write runtime 目录改为 stage-first 布局（`stages/plan`、`stages/commit`、`stages/invalidation`），主链路职责一眼可见。
-14. write api 按命令职责拆分为独立命令文件（`node/edge/interaction/selection/mindmap/viewport/shortcut`）。
-15. write api 进一步扁平化到 `api/*`，移除 `api/commands` 目录与 `runtime/write/api.ts` 中间层。
-16. Operation 与写链路参数收敛为只读契约（`readonly`），把“不可变约定”升级为编译期约束。
-17. Public `instance.commands` 移除 `write` 原语入口，仅保留语义命令；`write.apply` 下沉为 runtime 内部能力（供 reactions 等内部模块使用）。
-18. `writeRuntime.commands` 移除 `write` 字段，内部原语以 `writeRuntime.apply` 顶层能力提供，消除“语义命令集中的原语混入”。
-19. `runtime/write/api/write.ts` 删除，写入口收敛到 `runtime/write/execution.ts`，进一步拉直主链路实现。
-20. `CommandEnvelope.meta` 删除，追踪信息统一由写 payload 传入并在 writer 端归一，消除 trace 双来源。
-21. `runtime/write/runtime.ts` 继续薄化为纯 compose：执行链路下沉到 `execution.ts`，命令装配下沉到 `commands.ts`。
-22. ID 生成统一到 `@whiteboard/core/utils.createId`：删除 engine 本地 `createScopedId/createBatchId` 与 `runtime/write/shared/identifiers.ts`。
-23. 删除 `PlanInput/toPlanInput` 类型桥接：planner 直接接收 `WriteInput`，写链路类型桥接层归零。
-24. 删除 `runtime/command` gateway 中间层与 `WriteRuntime.gateway`，主链路收敛为 `apply -> planner -> writer`。
-25. 删除 `applyWrite` 包装别名，统一 `WriteRuntime` 单入口为 `apply`，消除双入口命名与重复职责。
+10. read 对外 API 收敛为属性语义：`read.state` + `read.projection`（去掉 `read.get` 系列）。
+11. projection 移除 `edgeSelectedEndpoints`，selected 语义下沉到 UI 组合，engine 仅提供 `query.edgeEndpointsById` 原语。
+12. read stage 内部删除重复 getter，聚合为 `node/edge/mindmap` 视图读取。
+13. write runtime 命令装配收敛为 `createWriteCommands` 直接组装语义命令（移除 builder 注册表中间层）。
+14. selection 写依赖收窄为最小能力面（仅 node/edge 必需方法），runtime 删除桥接映射 helper，直接透传基础命令。
+15. `selection/shortcut` 派生命令与基础命令统一在 `commands.ts` 装配，移除 `DerivedCommandSet` 分层样板。
+16. write runtime 目录改为 stage-first 布局（`stages/plan`、`stages/commit`、`stages/invalidation`），主链路职责一眼可见。
+17. write api 按命令职责拆分为独立命令文件（`node/edge/interaction/selection/mindmap/viewport/shortcut`）。
+18. write api 进一步扁平化到 `api/*`，移除 `api/commands` 目录与 `runtime/write/api.ts` 中间层。
+19. Operation 与写链路参数收敛为只读契约（`readonly`），把“不可变约定”升级为编译期约束。
+20. Public `instance.commands` 移除 `write` 原语入口，仅保留语义命令；`write.apply` 下沉为 runtime 内部能力（供 reactions 等内部模块使用）。
+21. `writeRuntime.commands` 移除 `write` 字段，内部原语以 `writeRuntime.apply` 顶层能力提供，消除“语义命令集中的原语混入”。
+22. `runtime/write/api/write.ts` 删除，写入口收敛到 `runtime/write/execution.ts`，进一步拉直主链路实现。
+23. `CommandEnvelope.meta` 删除，追踪信息统一由写 payload 传入并在 writer 端归一，消除 trace 双来源。
+24. `runtime/write/runtime.ts` 继续薄化为纯 compose：执行链路下沉到 `execution.ts`，命令装配下沉到 `commands.ts`。
+25. ID 生成统一到 `@whiteboard/core/utils.createId`：删除 engine 本地 `createScopedId/createBatchId` 与 `runtime/write/shared/identifiers.ts`。
+26. 删除 `PlanInput/toPlanInput` 类型桥接：planner 直接接收 `WriteInput`，写链路类型桥接层归零。
+27. 删除 `runtime/command` gateway 中间层与 `WriteRuntime.gateway`，主链路收敛为 `apply -> planner -> writer`。
+28. 删除 `applyWrite` 包装别名，统一 `WriteRuntime` 单入口为 `apply`，消除双入口命名与重复职责。
 
 以上收敛点已经落地并通过构建验证。

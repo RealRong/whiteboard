@@ -1,7 +1,7 @@
 import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
 import {
-  READ_PUBLIC_KEYS,
-  READ_SUBSCRIBE_KEYS,
+  READ_STATE_KEYS,
+  READ_SUBSCRIPTION_KEYS,
   type MindmapView,
   type MindmapViewTree
 } from '@engine-types/instance/read'
@@ -166,8 +166,8 @@ export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
 
   const getSnapshot: MindmapReadCache['getSnapshot'] = () => {
     const nextTrees = trees({
-      visibleNodes: context.get(READ_SUBSCRIBE_KEYS.snapshot).nodes.visible,
-      layout: context.get(READ_PUBLIC_KEYS.mindmapLayout)
+      visibleNodes: context.get(READ_SUBSCRIPTION_KEYS.snapshot).nodes.visible,
+      layout: context.get(READ_STATE_KEYS.mindmapLayout)
     })
 
     if (projectionCache && isSameRefOrder(projectionCache.trees, nextTrees)) {

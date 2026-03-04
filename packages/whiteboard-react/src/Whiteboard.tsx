@@ -11,7 +11,7 @@ import {
   normalizeConfig,
   toRuntimeConfig,
   toInstanceConfig,
-  READ_PUBLIC_KEYS,
+  READ_STATE_KEYS,
   type Instance
 } from '@whiteboard/engine'
 import { MindmapLayerStack } from './mindmap/components'
@@ -93,8 +93,8 @@ const WhiteboardCanvas = ({
   viewportPolicy
 }: WhiteboardCanvasProps) => {
   const viewportTransform = useReadGetter(
-    () => instance.read.get.viewportTransform(),
-    { keys: [READ_PUBLIC_KEYS.viewport] }
+    () => instance.read.projection.viewportTransform,
+    { keys: [READ_STATE_KEYS.viewport] }
   )
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
   const resolvedViewportTransform = useMemo(

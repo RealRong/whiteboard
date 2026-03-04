@@ -49,7 +49,7 @@ export const selection = ({
   const writeCommands = commands
   const readDoc = (): Document => instance.document.get()
   const getSelectableNodeIds = (): NodeId[] =>
-    [...instance.read.get.nodeIds()]
+    [...instance.read.projection.node.ids]
   const getSelectedNodeIds = (): NodeId[] =>
     Array.from(instance.state.read('selection').selectedNodeIds)
   const getSelectedEdgeId = (): EdgeId | undefined =>

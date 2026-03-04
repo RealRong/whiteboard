@@ -142,7 +142,7 @@ export const useMindmapDragInteraction = () => {
   }, [instance])
 
   const readTree = useCallback(
-    (treeId: NodeId) => instance.read.get.mindmapById(treeId),
+    (treeId: NodeId) => instance.read.projection.mindmap.byId.get(treeId),
     [instance.read]
   )
 
