@@ -7,7 +7,7 @@ export {
   normalizeConfig,
   resolveInstanceConfig,
   toInstanceConfig,
-  toRuntimeConfig
+  toApplyConfig
 } from './config'
 
 export type { Commands } from './types/command/api'
@@ -47,7 +47,11 @@ export {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS
 } from './types/instance/read'
-export type { ShortcutOverrides } from './types/shortcuts/manager'
+export type {
+  ShortcutAction,
+  ShortcutBinding,
+  ShortcutOverrides
+} from './types/shortcuts/types'
 export type {
   EdgeConnectDraft,
   EdgeConnectState

@@ -1,4 +1,4 @@
-export { runtime } from './runtime'
+export { createWrite } from './runtime'
 export { bus } from './stages/invalidation/changeBus'
 export { Writer } from './stages/commit/writer'
 export { History } from './stages/commit/history'

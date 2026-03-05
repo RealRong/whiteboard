@@ -6,6 +6,7 @@ import {
 import { isSameBoxTuple } from '@whiteboard/core/utils'
 import type { Point, Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
+import type { PrimitiveAtom, createStore } from 'jotai/vanilla'
 import type {
   ContainerRect,
   ViewportApi,
@@ -39,19 +40,26 @@ const copyRect = (rect: ContainerRect): ContainerRect => ({
   height: rect.height
 })
 
-export class ViewportRuntime implements ViewportApi, ViewportReadApi, ViewportWriteApi {
-  private readonly readViewport: () => Viewport
-  private readonly writeViewport: (viewport: Viewport) => void
+export class ViewportHost implements ViewportApi, ViewportReadApi, ViewportWriteApi {
+  private readonly store: ReturnType<typeof createStore>
+  private readonly atom: PrimitiveAtom<Viewport>
   private containerRect: ContainerRect = copyRect(DEFAULT_INTERNALS.containerRect)
   private containerSize: Size = toContainerSize(DEFAULT_INTERNALS.containerRect)
   private screenCenter: Point = toScreenCenter(this.containerSize)
 
-  constructor({ readViewport, writeViewport }: {
-    readViewport: () => Viewport
-    writeViewport: (viewport: Viewport) => void
+  constructor({ store, atom }: {
+    store: ReturnType<typeof createStore>
+    atom: PrimitiveAtom<Viewport>
   }) {
-    this.readViewport = readViewport
-    this.writeViewport = writeViewport
+    this.store = store
+    this.atom = atom
+  }
+
+  private readViewport = (): Viewport =>
+    this.store.get(this.atom)
+
+  private writeViewport = (viewport: Viewport) => {
+    this.store.set(this.atom, viewport)
   }
 
   private updateDerivedFromRect = (rect: ContainerRect) => {

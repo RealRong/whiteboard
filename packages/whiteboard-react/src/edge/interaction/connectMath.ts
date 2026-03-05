@@ -1,10 +1,25 @@
+import { getAnchorFromPoint } from '@whiteboard/core/edge'
 import { getAnchorPoint } from '@whiteboard/core/geometry'
-import type { EdgeAnchor, NodeId, Point } from '@whiteboard/core/types'
+import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EdgeConnectDraft, Instance } from '@whiteboard/engine'
 
 const ZOOM_EPSILON = 0.0001
 
 export const DEFAULT_EDGE_ANCHOR_OFFSET = 0.5
+
+export const resolveAnchorFromPoint = (
+  instance: Instance,
+  rect: Rect,
+  rotation: number,
+  pointWorld: Point
+) => {
+  const config = instance.read.config
+  return getAnchorFromPoint(rect, rotation, pointWorld, {
+    snapMin: config.edge.anchorSnapMin,
+    snapRatio: config.edge.anchorSnapRatio,
+    anchorOffset: DEFAULT_EDGE_ANCHOR_OFFSET
+  })
+}
 
 export type SnapTarget = {
   nodeId: NodeId
@@ -39,7 +54,7 @@ export const resolveSnapTarget = (
   instance: Instance,
   pointWorld: Point
 ): SnapTarget | undefined => {
-  const config = instance.query.config.get()
+  const config = instance.read.config
   const zoom = instance.query.viewport.getZoom()
   const thresholdWorld =
     Math.max(
@@ -57,7 +72,8 @@ export const resolveSnapTarget = (
     const dy = Math.max(rect.y - pointWorld.y, 0, pointWorld.y - (rect.y + rect.height))
     if (Math.hypot(dx, dy) > thresholdWorld) continue
 
-    const resolved = instance.query.geometry.anchorFromPoint(
+    const resolved = resolveAnchorFromPoint(
+      instance,
       entry.rect,
       entry.rotation,
       pointWorld

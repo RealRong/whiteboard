@@ -185,12 +185,12 @@ const main = () => {
   const transformKernel = new NodeTransformKernel({
     instance: {
       query: instance.query,
-      config: instance.query.config.get(),
+      config: instance.read.config,
       viewport: {
         getZoom: instance.query.viewport.getZoom
       },
       document: {
-        get: instance.query.doc.get
+        get: instance.read.doc.get
       }
     } as unknown as Pick<
       InternalInstance,

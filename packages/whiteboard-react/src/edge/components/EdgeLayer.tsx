@@ -86,7 +86,7 @@ export const EdgeLayer = () => {
       keys: [READ_STATE_KEYS.selection]
     }
   )
-  const hitTestThresholdScreen = instance.query.config.get().edge.hitTestThresholdScreen
+  const hitTestThresholdScreen = instance.read.config.edge.hitTestThresholdScreen
   const handleEdgePointerDown = useCallback(
     (event: ReactPointerEvent<SVGPathElement>, entry: EdgePathEntry) => {
       handleEdgePathPointerDown(event, entry.edge)

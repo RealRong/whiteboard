@@ -224,7 +224,7 @@ export const useMindmapDragInteraction = () => {
           parentId: active.originParentId,
           index: active.originIndex
         },
-        nodeSize: instance.query.config.get().mindmapNodeSize,
+        nodeSize: instance.read.config.mindmapNodeSize,
         layout: instance.state.read('mindmapLayout') ?? {}
       })
     },

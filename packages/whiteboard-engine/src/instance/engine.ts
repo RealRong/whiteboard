@@ -2,21 +2,17 @@ import type {
   CreateEngineOptions,
   Instance
 } from '@engine-types/instance/engine'
-import type { Api as RuntimeApi } from '@engine-types/instance/runtime'
+import type { Api as InstanceApi } from '@engine-types/instance/runtime'
 import type { Document } from '@whiteboard/core/types'
-import type { WriteRuntimeInstance } from '@engine-types/write/deps'
+import type { WriteInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
-import { shortcuts as bindShortcuts } from '../runtime/shortcut'
-import {
-  runtime as write
-} from '../runtime/write/runtime'
+import { createWrite } from '../runtime/write/runtime'
 import { resolveInstanceConfig } from '../config'
 import { state as setupState } from '../state/factory/state'
-import { Scheduler } from '../runtime/Scheduler'
-import { ViewportRuntime } from '../runtime/Viewport'
+import { Scheduler } from '../scheduling/Scheduler'
+import { ViewportHost } from '../runtime/Viewport'
 import { createReadKernel } from '../runtime/read/kernel'
-import { snapshot } from '../runtime/read/stages/snapshot'
 import { createReactions } from './reactions/Reactions'
 import { createCommands } from './facade/commands'
 
@@ -26,46 +22,38 @@ export const engine = ({
   onDocumentChange,
   config: overrides
 }: CreateEngineOptions): Instance => {
-  const runtimeStore = createStore()
+  const store = createStore()
   const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
-  const runtimeRegistries = registries ?? createRegistries()
+  const resolvedRegistries = registries ?? createRegistries()
   const initialDocument = document
   const { state, stateAtoms } = setupState({
     getDoc: () => initialDocument,
-    store: runtimeStore
+    store
   })
-  const readDocument = (): Document => runtimeStore.get(stateAtoms.document)
+  const readDocument = (): Document => store.get(stateAtoms.document)
   const setDocument = (nextDocument: Document) => {
-    runtimeStore.set(stateAtoms.document, nextDocument)
+    store.set(stateAtoms.document, nextDocument)
   }
   const notifyDocumentChange = (nextDocument: Document) => {
     onDocumentChange?.(nextDocument)
   }
-  const snapshotAtom = snapshot({
-    documentAtom: stateAtoms.document,
-    revisionAtom: stateAtoms.readModelRevision
-  })
-  const viewport = new ViewportRuntime({
-    readViewport: () => runtimeStore.get(stateAtoms.viewport),
-    writeViewport: (nextViewport) => {
-      runtimeStore.set(stateAtoms.viewport, nextViewport)
-    }
+  const viewport = new ViewportHost({
+    store,
+    atom: stateAtoms.viewport
   })
 
-  const readRuntime = createReadKernel({
-    runtimeStore,
+  const read = createReadKernel({
+    store,
     stateAtoms,
-    snapshotAtom,
     config,
-    readDoc: readDocument,
     viewport
   })
 
-  const baseInstance: WriteRuntimeInstance = {
+  const baseInstance: WriteInstance = {
     state,
     runtime: {
-      store: runtimeStore
+      store
     },
     document: {
       get: readDocument,
@@ -74,47 +62,42 @@ export const engine = ({
     },
     config,
     viewport,
-    registries: runtimeRegistries,
-    query: readRuntime.query,
-    read: readRuntime.read
+    registries: resolvedRegistries,
+    query: read.query,
+    read: read.read
   }
   state.write('tool', 'select')
-  const writeRuntime = write({
+  const write = createWrite({
     instance: baseInstance,
     scheduler,
-    readModelRevisionAtom: stateAtoms.readModelRevision
+    readModelRevisionAtom: stateAtoms.readModelRevision,
+    project: read.applyInvalidation
   })
 
   const reactions = createReactions({
     instance: baseInstance,
-    readRuntime,
-    writeRuntime,
+    write,
     scheduler
   })
+
   const commands = createCommands({
-    state,
+    instance: baseInstance,
     viewport,
-    writeRuntime
-  })
-  const shortcuts = bindShortcuts({
-    state,
-    runAction: writeRuntime.commands.shortcut.execute
+    write
   })
 
-  const runtime: RuntimeApi = {
-    store: runtimeStore,
+  const runtime: InstanceApi = {
+    store,
     applyConfig: (nextConfig) => {
       if (nextConfig.history) {
-        writeRuntime.history.configure(nextConfig.history)
+        write.history.configure(nextConfig.history)
       }
       state.write('tool', nextConfig.tool)
       viewport.setViewport(nextConfig.viewport)
-      shortcuts.setShortcuts(nextConfig.shortcuts)
       state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
     },
     dispose: () => {
       reactions.dispose()
-      shortcuts.dispose()
       scheduler.cancelAll()
     }
   }
@@ -122,8 +105,8 @@ export const engine = ({
   return {
     state,
     runtime,
-    query: readRuntime.query,
-    read: readRuntime.read,
+    query: read.query,
+    read: read.read,
     commands
   }
 }

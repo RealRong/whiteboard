@@ -1,5 +1,5 @@
-import type { Scheduler } from '../../runtime/Scheduler'
-import { MicrotaskTask } from '../../runtime/TaskQueue'
+import type { Scheduler } from '../../scheduling/Scheduler'
+import { MicrotaskTask } from '../../scheduling/Task'
 
 type QueueOptions = {
   scheduler: Scheduler

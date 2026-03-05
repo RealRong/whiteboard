@@ -6,7 +6,7 @@
 
 1. 业务层 API 用属性语义：`read.state.xxx`、`read.projection.xxx`、`query.xxx(...)`。
 2. 内核执行层用 key 协议：`ReadKey -> resolver`。
-3. 参数化几何查询留在 `query`，不进入 `projection`。
+3. 参数化几何查询留在 `query`，端点投影进入 `projection`。
 4. `selected` 语义由 UI 组合，不做 projection 特化 key。
 
 这比纯 key 风格（`read('state.xxx')`）更可读，也比纯属性硬编码更可扩展。
@@ -27,16 +27,14 @@
 
 1. `read.projection.viewportTransform`
 2. `read.projection.node`（`NodesView`，包含 `ids + byId`）
-3. `read.projection.edge`（`EdgesView`，包含 `ids + byId`）
+3. `read.projection.edge`（`EdgesView`，包含 `ids + byId + endpointsById`）
 4. `read.projection.mindmap`（`MindmapView`，包含 `ids + byId`）
 
 ## 2.3 `query`
 
-1. `query.edgeEndpointsById(edgeId)`
-
 说明：
 
-1. `projection` 只放稳定视图。
+1. `projection` 只放稳定视图与稳定派生。
 2. `query` 放参数化查询。
 3. `edgeSelectedEndpoints` 不做 engine API，由 UI 组合。
 
@@ -50,12 +48,12 @@
 
 1. 它是 `selection + geometry` 的组合语义，不是稳定投影。
 2. 放在 engine 会把 UI 策略固化成协议。
-3. 通用原语应是 `query.edgeEndpointsById(edgeId)`。
+3. 通用原语应是 `read.projection.edge.endpointsById(edgeId)`。
 
 UI 组合方式：
 
 1. 读 `read.state.selection.selectedEdgeId`。
-2. 若有 `edgeId`，调用 `query.edgeEndpointsById(edgeId)`。
+2. 若有 `edgeId`，调用 `read.projection.edge.endpointsById(edgeId)`。
 
 ---
 
@@ -105,7 +103,7 @@ type ReadSubscriptionKey =
 
 1. 已完成 `read.state`、`read.projection` 属性 API 落地。
 2. 已完成调用方迁移，代码中不再使用 `read.get`。
-3. 已完成 `edgeSelectedEndpoints` 下沉，统一为 `state.selection + query.edgeEndpointsById`。
+3. 已完成 `edgeSelectedEndpoints` 下沉，统一为 `state.selection + read.projection.edge.endpointsById`。
 4. 已完成 projection 收口与文档同步。
 
 ---
@@ -115,7 +113,7 @@ type ReadSubscriptionKey =
 1. 业务代码不再使用 `read('state.xxx')` 或 `read.get(key)` 字符串读法。
 2. 业务代码统一为 `read.state.xxx`、`read.projection.xxx`、`query.xxx(...)`。
 3. projection 中不存在 `edgeSelectedEndpoints`。
-4. UI selected endpoint 通过 `state.selection + query.edgeEndpointsById` 组合。
+4. UI selected endpoint 通过 `state.selection + read.projection.edge.endpointsById` 组合。
 5. `pnpm -r lint` 通过。
 6. `pnpm -r build` 通过。
 

@@ -7,70 +7,60 @@ import {
   type EngineRead
 } from '@engine-types/instance/read'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
-import type {
-  ReadRuntimeContext
-} from '@engine-types/read/context'
+import type { ReadContext } from '@engine-types/read/context'
 import type { Atom } from 'jotai/vanilla'
-import { query } from './api/query'
-import { readApi } from './api/read'
+import { snapshot } from './stages/snapshot'
 import { edge } from './stages/edge/stage'
 import { node } from './stages/node'
 import { mindmap } from './stages/mindmap/stage'
 import { indexer } from './stages/index/stage'
 
-export type ReadRuntimePort = {
+export type ReadPort = {
   query: Query
   read: EngineRead
   applyInvalidation: (invalidation: ReadInvalidation) => void
 }
 
 export const createReadKernel = ({
-  runtimeStore,
+  store,
   stateAtoms,
-  snapshotAtom,
   config,
-  readDoc,
   viewport
-}: ReadDeps): ReadRuntimePort => {
-  const readSnapshot = () => runtimeStore.get(snapshotAtom)
-  const indexes = indexer(config, readSnapshot)
-  const queryApi = query({
-    readDoc,
-    viewport,
-    config,
-    indexes
+}: ReadDeps): ReadPort => {
+  const snapshotAtom = snapshot({
+    documentAtom: stateAtoms.document,
+    revisionAtom: stateAtoms.readModelRevision
   })
+  const readDoc = () => store.get(stateAtoms.document)
+  const readSnapshot = () => store.get(snapshotAtom)
+  const indexes = indexer(config, readSnapshot)
 
-  const state: ReadRuntimeContext['state'] = {
-    interaction: () => runtimeStore.get(stateAtoms.interaction),
-    tool: () => runtimeStore.get(stateAtoms.tool),
-    selection: () => runtimeStore.get(stateAtoms.selection),
-    viewport: () => runtimeStore.get(stateAtoms.viewport),
-    mindmapLayout: () => runtimeStore.get(stateAtoms.mindmapLayout)
+  const state: ReadContext['state'] = {
+    interaction: () => store.get(stateAtoms.interaction),
+    tool: () => store.get(stateAtoms.tool),
+    selection: () => store.get(stateAtoms.selection),
+    viewport: () => store.get(stateAtoms.viewport),
+    mindmapLayout: () => store.get(stateAtoms.mindmapLayout)
   }
-  const subscribableAtomMap: Record<ReadSubscriptionKey, Atom<unknown>> = {
-    [READ_STATE_KEYS.interaction]: stateAtoms.interaction as Atom<unknown>,
-    [READ_STATE_KEYS.tool]: stateAtoms.tool as Atom<unknown>,
-    [READ_STATE_KEYS.selection]: stateAtoms.selection as Atom<unknown>,
-    [READ_STATE_KEYS.viewport]: stateAtoms.viewport as Atom<unknown>,
-    [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout as Atom<unknown>,
-    [READ_SUBSCRIPTION_KEYS.snapshot]: snapshotAtom as Atom<unknown>
-  }
-  const subscribe: ReadRuntimeContext['subscribe'] = (keys, listener) => {
+  const subscribableAtomMap = {
+    [READ_STATE_KEYS.interaction]: stateAtoms.interaction,
+    [READ_STATE_KEYS.tool]: stateAtoms.tool,
+    [READ_STATE_KEYS.selection]: stateAtoms.selection,
+    [READ_STATE_KEYS.viewport]: stateAtoms.viewport,
+    [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
+    [READ_SUBSCRIPTION_KEYS.snapshot]: snapshotAtom
+  } as Record<ReadSubscriptionKey, Atom<unknown>>
+  const subscribe: ReadContext['subscribe'] = (keys, listener) => {
     const unsubs = keys.map((key) =>
-      runtimeStore.sub(subscribableAtomMap[key], listener)
+      store.sub(subscribableAtomMap[key], listener)
     )
-    return () => {
-      unsubs.forEach((off) => {
-        off()
-      })
-    }
+    return () => unsubs.forEach(off => off())
   }
-  const readContext: ReadRuntimeContext = {
+  const readContext: ReadContext = {
     state,
     snapshot: readSnapshot,
     subscribe,
-    query: queryApi,
+    indexes: indexes.query,
     config
   }
 
@@ -78,12 +68,39 @@ export const createReadKernel = ({
   const nodeStage = node(readContext)
   const mindmapStage = mindmap(readContext)
 
-  const read = readApi({
-    context: readContext,
-    node: nodeStage,
-    edge: edgeStage,
-    mindmap: mindmapStage
-  })
+  const query: Query = {
+    viewport,
+    canvas: {
+      nodeRects: indexes.query.canvas.all,
+      nodeRect: indexes.query.canvas.byId,
+      nodeIdsInRect: indexes.query.canvas.idsInRect
+    },
+    snap: {
+      candidates: indexes.query.snap.all,
+      candidatesInRect: indexes.query.snap.inRect
+    }
+  }
+
+  const read: EngineRead = {
+    state: {
+      get interaction() { return state.interaction() },
+      get tool() { return state.tool() },
+      get selection() { return state.selection() },
+      get viewport() { return state.viewport() },
+      get mindmapLayout() { return state.mindmapLayout() }
+    },
+    projection: {
+      get viewportTransform() { return nodeStage.get.viewportTransform() },
+      get node() { return nodeStage.get.node() },
+      get edge() { return edgeStage.get.edge() },
+      get mindmap() { return mindmapStage.get.mindmap() }
+    },
+    config: readContext.config,
+    doc: {
+      get: readDoc
+    },
+    subscribe
+  }
 
   const applyInvalidation = (invalidation: ReadInvalidation) => {
     indexes.applyPlan(invalidation.index)
@@ -91,7 +108,7 @@ export const createReadKernel = ({
   }
 
   return {
-    query: queryApi,
+    query,
     read,
     applyInvalidation
   }

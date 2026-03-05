@@ -193,7 +193,7 @@ export const useNodeDragInteraction = ({
   }, [instance])
 
   const commitDrag = useCallback((draft: ActiveDrag) => {
-    const nodes = instance.query.doc.get().nodes
+    const nodes = instance.read.doc.get().nodes
     const nodeById = toNodeById(nodes)
     const currentNode = nodeById.get(draft.nodeId)
     if (!currentNode) return
@@ -222,7 +222,7 @@ export const useNodeDragInteraction = ({
           mergePatch(patches, draft.nodeId, {
             parentId: hoveredGroup.id
           })
-          const config = instance.query.config.get()
+          const config = instance.read.config
           const groupRect = getNodeAABB(hoveredGroup, config.nodeSize)
           const children = getGroupDescendants(nodes, hoveredGroup.id)
           const virtualNode: Node = {
@@ -256,7 +256,7 @@ export const useNodeDragInteraction = ({
       } else if (!hoveredGroupId && parentId) {
         const parentNode = nodeById.get(parentId)
         if (parentNode) {
-          const parentRect = getNodeAABB(parentNode, instance.query.config.get().nodeSize)
+          const parentRect = getNodeAABB(parentNode, instance.read.config.nodeSize)
           const nodeRect = {
             x: draft.last.x,
             y: draft.last.y,
@@ -302,7 +302,7 @@ export const useNodeDragInteraction = ({
     patchUpdates.forEach((update) => {
       void instance.commands.node.update(update.id, update.patch)
     })
-  }, [instance.commands.node, instance.query.config, instance.query.doc])
+  }, [instance.commands.node, instance.read.config, instance.read.doc])
 
   const handleNodePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -329,7 +329,7 @@ export const useNodeDragInteraction = ({
         height: nodeRect.rect.height
       }
       const children = nodeRect.node.type === 'group'
-        ? buildGroupChildren(instance.query.doc.get().nodes, nodeRect.node.id, origin)
+        ? buildGroupChildren(instance.read.doc.get().nodes, nodeRect.node.id, origin)
         : undefined
       const draft: ActiveDrag = {
         pointerId: event.pointerId,
@@ -373,7 +373,7 @@ export const useNodeDragInteraction = ({
 
       const snapEnabled = instance.state.read('tool') === 'select'
       const allowCross = event.altKey
-      const config = instance.query.config.get()
+      const config = instance.read.config
       let position = basePosition
       let guides: ReturnType<typeof computeSnap>['guides'] = []
 
@@ -423,7 +423,7 @@ export const useNodeDragInteraction = ({
       active.hoveredGroupId = active.children
         ? undefined
         : findSmallestGroupAtPoint(
-          instance.query.doc.get().nodes,
+          instance.read.doc.get().nodes,
           config.nodeSize,
           {
             x: position.x + active.size.width / 2,

@@ -1,5 +1,5 @@
 import type { MindmapLayoutConfig } from '../mindmap/layout'
-import type { ShortcutOverrides } from '../shortcuts/manager'
+import type { ShortcutOverrides } from '../shortcuts/types'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 
 export type HistoryConfig = {

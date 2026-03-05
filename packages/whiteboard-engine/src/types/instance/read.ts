@@ -1,4 +1,5 @@
 import type {
+  Document,
   EdgeAnchor,
   EdgeId,
   MindmapNodeId,
@@ -17,6 +18,7 @@ import type {
   InteractionState,
   SelectionState
 } from '../state/model'
+import type { InstanceConfig } from './config'
 
 export type CanvasNodeRect = {
   node: Node
@@ -107,6 +109,7 @@ export type NodesView = {
 export type EdgesView = {
   ids: readonly EdgeId[]
   byId: ReadonlyMap<EdgeId, Readonly<EdgePathEntry>>
+  endpointsById: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }
 
 export type MindmapView = {
@@ -148,5 +151,9 @@ export type EngineReadProjection = {
 export type EngineRead = {
   state: EngineReadState
   projection: EngineReadProjection
+  config: InstanceConfig
+  doc: {
+    get: () => Readonly<Document>
+  }
   subscribe: (keys: readonly ReadSubscriptionKey[], listener: () => void) => () => void
 }

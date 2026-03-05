@@ -17,7 +17,7 @@ export type EdgeReadCache = {
   getSnapshot: () => EdgeReadSnapshot
 }
 
-export type EdgeReadRuntime = {
+export type EdgeRead = {
   get: {
     edge: () => EdgesView
   }

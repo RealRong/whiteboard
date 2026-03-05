@@ -7,6 +7,7 @@ import { sessionLockState, type SessionLockToken } from '../../common/interactio
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
+  resolveAnchorFromPoint,
   resolveConnectPreview,
   resolveSnapTarget
 } from '../interaction/connectMath'
@@ -73,7 +74,8 @@ const beginFromNode = (
   if (instance.state.read('tool') !== 'edge') return undefined
   const entry = instance.query.canvas.nodeRect(nodeId)
   if (!entry) return undefined
-  const resolved = instance.query.geometry.anchorFromPoint(
+  const resolved = resolveAnchorFromPoint(
+    instance,
     entry.rect,
     entry.rotation,
     pointer.world
@@ -111,7 +113,7 @@ const beginReconnect = (
   end: 'source' | 'target',
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
-  const edge = instance.query.doc.get().edges.find((item) => item.id === edgeId)
+  const edge = instance.read.doc.get().edges.find((item) => item.id === edgeId)
   if (!edge) return undefined
   const endpoint = edge[end]
   return {

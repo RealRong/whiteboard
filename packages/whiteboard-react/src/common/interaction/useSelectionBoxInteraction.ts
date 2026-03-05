@@ -146,7 +146,7 @@ export const useSelectionBoxInteraction = (
     onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
-      const minDragDistance = instance.query.config.get().node.selectionMinDragDistance
+      const minDragDistance = instance.read.config.node.selectionMinDragDistance
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,

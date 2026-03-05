@@ -1,8 +1,9 @@
 import type { PrimitiveAtom } from 'jotai/vanilla'
 import type { InternalInstance } from '../instance/engine'
-import type { Scheduler } from '../../runtime/Scheduler'
+import type { Scheduler } from '../../scheduling/Scheduler'
+import type { ReadInvalidation } from '../read/invalidation'
 
-export type WriteRuntimeInstance = Pick<
+export type WriteInstance = Pick<
   InternalInstance,
   'state' | 'document' | 'config' | 'viewport' | 'registries' | 'query' | 'read'
 > & {
@@ -10,7 +11,8 @@ export type WriteRuntimeInstance = Pick<
 }
 
 export type Deps = {
-  instance: WriteRuntimeInstance
+  instance: WriteInstance
   scheduler: Scheduler
   readModelRevisionAtom: PrimitiveAtom<number>
+  project: (invalidation: ReadInvalidation) => void
 }

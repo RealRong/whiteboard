@@ -3,7 +3,7 @@ import type {
   ViewportTransformView
 } from '../instance/read'
 
-export type NodeReadRuntime = {
+export type NodeRead = {
   get: {
     viewportTransform: () => Readonly<ViewportTransformView>
     node: () => NodesView

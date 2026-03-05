@@ -1,17 +1,13 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { Scheduler } from '../../runtime/Scheduler'
-import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
-import type { ReadInvalidation } from '@engine-types/read/invalidation'
+import type { Scheduler } from '../../scheduling/Scheduler'
+import type { Write } from '@engine-types/write/runtime'
 import { Autofit } from './Autofit'
 import { ReactionTaskQueue } from './Queue'
 import { createReactionRegistry } from './registry'
 
 type ReactionsOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
-  readRuntime: {
-    applyInvalidation: (invalidation: ReadInvalidation) => void
-  }
-  writeRuntime: Pick<WriteRuntime, 'changeBus' | 'apply'>
+  write: Pick<Write, 'changeBus' | 'apply'>
   scheduler: Scheduler
 }
 
@@ -21,8 +17,7 @@ export type Reactions = {
 
 export const createReactions = ({
   instance,
-  readRuntime,
-  writeRuntime,
+  write,
   scheduler
 }: ReactionsOptions): Reactions => {
   const registry = createReactionRegistry([
@@ -36,15 +31,14 @@ export const createReactions = ({
     onTopic: (topic) => {
       const payload = registry.flush(topic)
       if (!payload) return
-      void writeRuntime.apply(payload)
+      void write.apply(payload)
     }
   })
   let disposed = false
 
   registry.seed(taskQueue.enqueue)
 
-  const offChange = writeRuntime.changeBus.subscribe((change) => {
-    readRuntime.applyInvalidation(change.readHints)
+  const offChange = write.changeBus.subscribe((change) => {
     registry.ingest(change, taskQueue.enqueue)
   })
 

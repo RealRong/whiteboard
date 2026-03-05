@@ -6,7 +6,8 @@ import type {
   Origin
 } from '@whiteboard/core/types'
 import type { Bus as ChangeBus } from './change'
-import type { WriteRuntimeInstance } from './deps'
+import type { WriteInstance } from './deps'
+import type { ReadInvalidation } from '../read/invalidation'
 
 export type Applied = {
   docId: string | undefined
@@ -16,9 +17,10 @@ export type Applied = {
 }
 
 export type Options = {
-  instance: WriteRuntimeInstance
+  instance: WriteInstance
   changeBus: ChangeBus
   readModelRevisionAtom: PrimitiveAtom<number>
+  project: (invalidation: ReadInvalidation) => void
   now?: () => number
 }
 

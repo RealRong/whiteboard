@@ -5,11 +5,11 @@ import type { Query } from './query'
 import type { State } from './state'
 import type { EngineRead } from './read'
 import type { ViewportApi } from '../viewport/api'
-import type { Api as Runtime } from './runtime'
+import type { Api } from './runtime'
 
 export type Instance = {
   state: State
-  runtime: Runtime
+  runtime: Api
   query: Query
   read: EngineRead
   commands: Commands

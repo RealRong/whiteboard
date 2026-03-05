@@ -1,196 +1,167 @@
-# Engine 当前链路总览（最新收敛版）
+# Engine 当前链路总览（主链拉直版）
 
-更新日期：2026-03-05  
+更新日期：2026-03-06  
 范围：`packages/whiteboard-engine`
 
 ---
 
 ## 1. 总体结论
 
-当前链路已经收敛到单主漏斗，核心特征：
+当前主链已经收敛为：
 
-1. 写入口唯一：外部 `instance.commands.*`，内部统一汇聚到 `writeRuntime.apply`。
-2. plan 唯一来源：只在 write planner 生成（含 `selection` 单事务 domain）。
-3. writer 事务语义清晰：`commitApply` / `commitReplace`。
-4. change envelope 最小化：`Change = { trace, readHints }`。
-5. readHints 最小化：只保留 stage-ready 的 `index` 与 `edge` 计划。
-6. read context 直通：`context.state.xxx()` + `context.snapshot()`，去掉 key 反查。
-7. reactions 协议收敛：`seed / ingest / flush`，topic microtask 去重调度。
-8. document 写入语义显式：`document.set` 与 `document.notifyChange` 分离。
-9. command 类型按职责拆分：`mindmap / interaction / write / public`，`api.ts` 仅聚合导出。
-10. legacy CQRS 类型导出已移除，公共 API 与运行时一致。
+`commands -> write -> plan -> commit -> read -> reactions`
 
-最终主链：
+对应原则：
 
-`Commands -> WriteApply -> Planner -> Writer(commitApply|commitReplace) -> CoreReduce -> ChangeBus(trace+readHints) -> Reactions(ingest) -> ReadKernel(index+edge) -> Reactions(flush->system write)`
+1. `commands` 只负责 public 语义入口与本地 state orchestration。
+2. `write` 是唯一文档写漏斗。
+3. `plan` 只从 write 生成，不从 read 反推。
+4. `commit` 负责唯一文档提交事务。
+5. `read` 是提交后的必经同步投影，不再挂在 reactions 下。
+6. `reactions` 只处理可选系统副作用，例如 autofit。
 
 ---
 
-## 2. 写链路（唯一漏斗）
+## 2. 最终主链
+
+```text
+instance.commands.*
+  -> facade commands
+  -> write.apply / write.resetDoc
+  -> planner
+  -> writer.commitApply / writer.commitReplace
+  -> document.set
+  -> revision++ + viewport sync
+  -> read.applyInvalidation(readHints)
+  -> document.notifyChange (apply path)
+  -> changeBus.publish(change)
+  -> reactions.ingest(change)
+  -> topic flush
+  -> write.apply(source='system')
+```
+
+说明：
+
+1. `execution.ts` 已删除。
+2. `write.commands` 已删除。
+3. `read.applyInvalidation` 已从 `Reactions.ts` 移回 write 提交主链。
+
+---
+
+## 3. Commands 层
+
+核心文件：
+
+1. `packages/whiteboard-engine/src/instance/facade/commands.ts`
+2. `packages/whiteboard-engine/src/runtime/write/api/*.ts`
+
+职责：
+
+1. 对外暴露 `instance.commands.*`。
+2. 文档 mutation 类命令直接调用 `write.apply`。
+3. UI state 类命令直接写 `state` 或 `viewport host`。
+4. `selection` 这类“读当前 UI state 再发起 write”的语义编排也停留在 facade，不进入 write 核心对象。
+
+这意味着 public 入口不再经过 `write.commands` 二次转发。
+
+---
+
+## 4. Write 层
 
 核心文件：
 
 1. `packages/whiteboard-engine/src/runtime/write/runtime.ts`
-2. `packages/whiteboard-engine/src/runtime/write/execution.ts`
-3. `packages/whiteboard-engine/src/runtime/write/stages/plan/router.ts`
-4. `packages/whiteboard-engine/src/runtime/write/stages/commit/writer.ts`
-5. `packages/whiteboard-engine/src/runtime/write/stages/plan/domains/selection.ts`
-6. `packages/whiteboard-engine/src/runtime/write/stages/plan/shared/duplicate.ts`
+2. `packages/whiteboard-engine/src/runtime/write/stages/plan/router.ts`
+3. `packages/whiteboard-engine/src/runtime/write/stages/commit/writer.ts`
 
-流程：
+职责：
 
-1. 语义命令最终调用 `writeRuntime.apply(payload)`。
-2. `planner(payload)` 产出 `Draft`（唯一 write plan）。
-3. writer 根据 draft 进入：
-   - `commitApply`（operations）
-   - `commitReplace`（doc reset）
-4. `reduceOperations` 应用 core 规则并产出 inverse。
-5. writer 提交文档与运行时状态：
-   - apply：`document.set + document.notifyChange + revision++ + viewport sync`
-   - replace：`document.set + revision++ + viewport sync`（默认不 notify）
-6. writer 发布最小 `Change` 到 `changeBus`。
-7. history capture 与 undo/redo 仍走同一提交路径。
+1. 组装 `planner`。
+2. 组装 `changeBus`。
+3. 构造 `Writer`。
+4. 暴露唯一文档写入口：
+   - `apply`
+   - `resetDoc`
+   - `history`
+   - `changeBus`
+
+当前 write 内部不再存在独立 `execution` 装配层。
 
 ---
 
-## 3. Change / ReadHints 协议（最新）
+## 5. Commit 层
 
-### 3.1 Change
+`Writer` 当前承担 commit 事务，顺序为：
 
-```ts
-type Change = {
-  trace: {
-    commandId: string
-    source: CommandSource
-  }
-  readHints: ReadInvalidation
-}
-```
+### 5.1 apply 路径
 
-不再包含：`revision`、`kind`、`operations`、`impact` 等顶层冗余字段。
+1. `reduceOperations(docBefore, operations)`
+2. `document.set(reduced.doc)`
+3. `readModelRevision++`
+4. `viewport.setViewport(doc.viewport)`
+5. `createReadInvalidation(impact)`
+6. `read.applyInvalidation(readHints)`
+7. `document.notifyChange(reduced.doc)`
+8. `changeBus.publish({ trace, readHints })`
 
-### 3.2 ReadInvalidation
+### 5.2 replace 路径
 
-```ts
-type ReadInvalidation = {
-  index: {
-    rebuild: 'none' | 'dirty' | 'full'
-    dirtyNodeIds: readonly NodeId[]
-  }
-  edge: {
-    rebuild: 'none' | 'dirty' | 'full'
-    dirtyNodeIds: readonly NodeId[]
-    dirtyEdgeIds: readonly EdgeId[]
-  }
-}
-```
+1. `document.set(doc)`
+2. `readModelRevision++`
+3. `viewport.setViewport(doc.viewport)`
+4. `createReadInvalidation(FULL_MUTATION_IMPACT)`
+5. `read.applyInvalidation(readHints)`
+6. `changeBus.publish({ trace, readHints })`
 
-要点：
+说明：
 
-1. 只保留 read stage 真正执行所需数据。
-2. 不暴露 `append/clear/reset` 这类命令式内部动作。
-3. `createReadInvalidation` 基于 `MutationImpact` 一次生成完整 stage plan。
+1. replace 仍保留当前不触发 `notifyChange` 的行为。
+2. `history` 目前仍由 `Writer` 持有，这是下一步仍可继续上提的点。
 
 ---
 
-## 4. Reactions 链路（最新）
-
-核心文件：
-
-1. `packages/whiteboard-engine/src/instance/reactions/Reactions.ts`
-2. `packages/whiteboard-engine/src/instance/reactions/Autofit.ts`
-3. `packages/whiteboard-engine/src/instance/reactions/ReactionTaskQueue.ts`
-4. `packages/whiteboard-engine/src/instance/reactions/registry.ts`
-
-### 4.1 模块协议
-
-```ts
-{
-  topic: string
-  seed?: () => void
-  ingest: (change: Change) => void
-  flush: () => WriteInput | null
-}
-```
-
-### 4.2 调度流程
-
-1. 启动：`seed()` 后 enqueue topic。
-2. `changeBus` 事件到达：
-   - `readRuntime.applyInvalidation(change.readHints)`
-   - `registry.ingest(change, enqueueTopic)`
-3. `ReactionTaskQueue` 在 microtask 阶段按 topic 去重 flush。
-4. `registry.flush(topic)` 获取 payload，有值才回流 `writeRuntime.apply(source='system')`。
-
----
-
-## 5. 读链路（直通版）
+## 6. Read 层
 
 核心文件：
 
 1. `packages/whiteboard-engine/src/runtime/read/kernel.ts`
 2. `packages/whiteboard-engine/src/runtime/read/stages/index/stage.ts`
-3. `packages/whiteboard-engine/src/runtime/read/stages/edge/cache.ts`
-4. `packages/whiteboard-engine/src/runtime/read/api/read.ts`
-5. `packages/whiteboard-engine/src/runtime/read/api/query.ts`
+3. `packages/whiteboard-engine/src/runtime/read/stages/edge/stage.ts`
 
-流程：
+职责：
 
-1. `ReadKernel.applyInvalidation(hints)` 只做两件事：
-   - `indexes.applyPlan(hints.index)`
-   - `edgeStage.applyPlan(hints.edge)`
-2. read stage 内通过 `context.state.xxx()` 与 `context.snapshot()` 直读，无 `get(key)` 反查。
-3. index 与 edge stage 都按 `rebuild` 解释：
-   - `full`：全量重建
-   - `dirty`：增量脏集刷新
-   - `none`：跳过
+1. 接收 write 提交后的 `readHints`。
+2. 同步刷新 index / edge projection。
+3. 为 `instance.read` 和 `instance.query` 提供稳定读取能力。
+
+关键变化：
+
+1. `read` 已经是主链必经步骤。
+2. `reactions` 不再负责触发 read 刷新。
 
 ---
 
-## 6. 文档替换与 docId 切换
+## 7. Reactions 层
 
-1. 外部注入新 doc：`instance.commands.doc.reset(doc)`。
-2. writer 进入 `commitReplace`：
-   - 若 `doc.id` 变化，history 清空
-   - `document.set(doc)`
-   - 同步 revision + viewport
-   - 发布 full readHints（`FULL_MUTATION_IMPACT`）
-3. reactions 统一驱动 read 刷新与系统副作用。
+核心文件：
 
----
+1. `packages/whiteboard-engine/src/instance/reactions/Reactions.ts`
+2. `packages/whiteboard-engine/src/instance/reactions/Autofit.ts`
+3. `packages/whiteboard-engine/src/instance/reactions/Queue.ts`
+4. `packages/whiteboard-engine/src/instance/reactions/registry.ts`
 
-## 7. 时序图
+职责：
 
-### 7.1 普通写入
+1. 订阅已经 committed 且已经完成 read projection 的 `change`。
+2. 聚合模块内部 pending 状态。
+3. flush 时产出 system write，再回流到统一 `write.apply`。
 
-```text
-UI/Host
-  -> instance.commands.*
-  -> writeRuntime.apply
-  -> planner
-  -> writer.commitApply
-  -> core.reduce
-  -> document.set + document.notifyChange + revision++ + viewport sync
-  -> changeBus.publish(Change{trace, readHints})
-  -> reactions: applyInvalidation + ingest + enqueue(topic)
-  -> microtask flush(topic)
-  -> module.flush -> writeRuntime.apply(source='system')
-```
-
-### 7.2 reset / 文档替换
-
-```text
-Host -> commands.doc.reset(doc)
-  -> writer.commitReplace
-  -> (doc.id changed) history.clear
-  -> document.set + revision++ + viewport sync
-  -> changeBus.publish(Change{trace, readHints(full)})
-  -> reactions/read 同步更新
-```
+因此 reactions 现在只代表“可选副作用层”，而不是读模型同步层。
 
 ---
 
-## 8. 仍可继续优化（可选）
+## 8. 仍可继续优化的点
 
-1. `Autofit` 的 group 增量计算仍集中在单文件，可继续拆成 `indexes / plan / patch` 三段纯函数以降低心智密度。
-2. `selection` domain 的 `group/ungroup/delete` 可继续评估抽 shared operation builder，与 `duplicate` 风格保持一致。
+1. `history` 仍在 `Writer` 内部，后续可提升到 `write` 顶层，进一步明确 `commit` 与 `history` 的职责边界。
+2. `resetDoc` 语义仍偏旧，后续可以继续演进为更显式的 `doc.load / doc.replace`。
+3. `selection` domain 仍包含一部分 orchestration 语义，后续可继续评估是否进一步收敛回 facade。

@@ -9,7 +9,7 @@ import type { WhiteboardProps } from 'types/common'
 import {
   engine,
   normalizeConfig,
-  toRuntimeConfig,
+  toApplyConfig,
   toInstanceConfig,
   READ_STATE_KEYS,
   type Instance
@@ -18,6 +18,7 @@ import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
 import { useReadGetter } from './common/hooks'
 import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
+import { useShortcutDispatch } from './common/interaction/useShortcutDispatch'
 import { useViewportGestureSelector } from './common/interaction/viewportGestureState'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
@@ -109,6 +110,11 @@ const WhiteboardCanvas = ({
     }),
     [resolvedViewportTransform]
   )
+  useShortcutDispatch({
+    instance,
+    containerRef,
+    shortcuts: resolvedConfig.shortcuts
+  })
 
   return (
     <NodeRegistryProvider registry={registry}>
@@ -195,12 +201,11 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
 
   const runtimeConfig = useMemo(
     () =>
-      toRuntimeConfig({
+      toApplyConfig({
         tool: resolvedConfig.tool,
         mindmapLayout: resolvedConfig.mindmapLayout,
         viewport: doc.viewport,
-        history: resolvedConfig.history,
-        shortcuts: resolvedConfig.shortcuts
+        history: resolvedConfig.history
       }),
     [
       resolvedConfig.history.enabled,
@@ -210,7 +215,6 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       doc.viewport?.center?.x,
       doc.viewport?.center?.y,
       doc.viewport?.zoom,
-      resolvedConfig.shortcuts,
       resolvedConfig.tool,
       resolvedConfig.mindmapLayout.mode,
       resolvedConfig.mindmapLayout.options?.hGap,

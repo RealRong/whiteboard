@@ -46,7 +46,7 @@ type GroupUpdate = {
   }
 }
 
-type RuntimeOptions = {
+type AutofitOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
 }
 
@@ -198,7 +198,7 @@ const createAutoFitUpdate = ({
 export class Autofit {
   readonly topic = 'autofit'
 
-  private readonly instance: RuntimeOptions['instance']
+  private readonly instance: AutofitOptions['instance']
   private prevNodeMap: ReadonlyMap<NodeId, Node> | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
@@ -207,7 +207,7 @@ export class Autofit {
     dirtyNodeIds: new Set<NodeId>()
   }
 
-  constructor({ instance }: RuntimeOptions) {
+  constructor({ instance }: AutofitOptions) {
     this.instance = instance
   }
 

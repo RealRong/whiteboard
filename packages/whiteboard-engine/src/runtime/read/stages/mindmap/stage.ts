@@ -1,8 +1,8 @@
-import type { ReadRuntimeContext } from '@engine-types/read/context'
-import type { MindmapReadRuntime } from '@engine-types/read/mindmap'
+import type { ReadContext } from '@engine-types/read/context'
+import type { MindmapRead } from '@engine-types/read/mindmap'
 import { cache } from './cache'
 
-export const mindmap = (context: ReadRuntimeContext): MindmapReadRuntime => {
+export const mindmap = (context: ReadContext): MindmapRead => {
   const memo = cache(context)
 
   return {

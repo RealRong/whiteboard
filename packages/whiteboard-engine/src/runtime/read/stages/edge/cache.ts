@@ -14,7 +14,7 @@ import {
   type EdgeEndpoints,
   type EdgePathEntry
 } from '@engine-types/instance/read'
-import type { ReadRuntimeContext } from '@engine-types/read/context'
+import type { ReadContext } from '@engine-types/read/context'
 import type {
   EdgeReadCache,
   EdgeReadSnapshot
@@ -161,8 +161,8 @@ const isSameEdgeStructureTuple = (
 // 1) `ids/byId` are derived only from `relations.edgeIds + cacheById`.
 // 2) `snapshot` object reference is stable and reads latest state via getters.
 // 3) cache reuse is fully data-driven (`refs + tuples`).
-export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
-  const getNodeRect = context.query.canvas.nodeRect
+export const cache = (context: ReadContext): EdgeReadCache => {
+  const getNodeRect = context.indexes.canvas.byId
   const readModelSnapshot = () => context.snapshot()
   const state = emptyState()
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined

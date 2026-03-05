@@ -13,7 +13,7 @@ import {
   getMindmapTree,
   getMindmapRoots
 } from '@whiteboard/core/mindmap'
-import type { ReadRuntimeContext } from '@engine-types/read/context'
+import type { ReadContext } from '@engine-types/read/context'
 import type {
   MindmapReadCache,
   MindmapReadSnapshot
@@ -102,7 +102,7 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
   return true
 }
 
-export const cache = (context: ReadRuntimeContext): MindmapReadCache => {
+export const cache = (context: ReadContext): MindmapReadCache => {
   const config = context.config
   let treeCache = new Map<string, MindmapTreeCacheEntry>()
   let projectionCache: MindmapProjectionCache | undefined

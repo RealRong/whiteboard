@@ -171,7 +171,7 @@ export const useNodeTransformInteraction = ({
   }, [instance])
 
   const commitTransform = useCallback((active: ActiveTransform) => {
-    const node = instance.query.doc.get().nodes.find((item) => item.id === active.nodeId)
+    const node = instance.read.doc.get().nodes.find((item) => item.id === active.nodeId)
     if (!node) return
 
     if (active.drag.mode === 'resize') {
@@ -201,7 +201,7 @@ export const useNodeTransformInteraction = ({
     void instance.commands.node.update(active.nodeId, {
       rotation: active.drag.currentRotation
     })
-  }, [instance.commands.node, instance.query.doc])
+  }, [instance.commands.node, instance.read.doc])
 
   const handleTransformPointerDown = useCallback(
     (
@@ -314,7 +314,7 @@ export const useNodeTransformInteraction = ({
         let guides: ReturnType<typeof computeResizeSnap>['guides'] = []
 
         if (activeTool === 'select' && !event.altKey && active.drag.startRotation === 0) {
-          const config = instance.query.config.get()
+          const config = instance.read.config
           const thresholdWorld = resolveSnapThresholdWorld(
             config.node.snapThresholdScreen,
             config.node.snapMaxThresholdWorld,

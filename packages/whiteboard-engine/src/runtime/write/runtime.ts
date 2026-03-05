@@ -1,35 +1,39 @@
-import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
+import type { Write } from '@engine-types/write/runtime'
 import type { Deps as WriteDeps } from '@engine-types/write/deps'
-import { createWriteExecution } from './execution'
-import { createWriteCommands } from './commands'
+import { Writer } from './stages/commit/writer'
+import { bus } from './stages/invalidation/changeBus'
+import { plan } from './stages/plan/router'
+import type { Apply } from './stages/plan/draft'
 
-// Write runtime composition (single write funnel):
-// 1) `execution` owns planner + writer + changeBus + history.
-// 2) `commands` exposes semantic APIs and always dispatches to `execution.apply`.
-// 3) External entry remains `instance.commands.*` -> `writeRuntime.apply`.
-// 4) Any system reaction write also re-enters the same `apply` path.
-// 5) No secondary write path is allowed outside this assembly.
-export const runtime = ({
+// Write assembly (single write funnel):
+// `commands` may call into write, but write itself owns the only document mutation path:
+// `apply -> plan -> commit -> read projection -> change publish`.
+export const createWrite = ({
   instance,
   scheduler,
-  readModelRevisionAtom
-}: WriteDeps): WriteRuntime => {
-  const execution = createWriteExecution({
+  readModelRevisionAtom,
+  project
+}: WriteDeps): Write => {
+  const changeBus = bus()
+  const writer = new Writer({
     instance,
-    scheduler,
-    readModelRevisionAtom
+    changeBus,
+    readModelRevisionAtom,
+    project,
+    now: scheduler.now
   })
-  const commands = createWriteCommands({
-    instance,
-    apply: execution.apply,
-    history: execution.history
-  })
+  const planner = plan({ instance })
+  const apply: Apply = (payload) =>
+    writer.applyDraft(
+      planner(payload),
+      payload.source ?? 'ui',
+      payload.trace
+    )
 
   return {
-    apply: execution.apply,
-    history: execution.history,
-    resetDoc: execution.resetDoc,
-    changeBus: execution.changeBus,
-    commands
+    apply,
+    history: writer.history,
+    resetDoc: writer.resetDoc,
+    changeBus
   }
 }

@@ -4,8 +4,8 @@ import {
   type NodeViewItem,
   type ViewportTransformView
 } from '@engine-types/instance/read'
-import type { ReadRuntimeContext } from '@engine-types/read/context'
-import type { NodeReadRuntime } from '@engine-types/read/node'
+import type { ReadContext } from '@engine-types/read/context'
+import type { NodeRead } from '@engine-types/read/node'
 
 const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   const zoom = viewport.zoom
@@ -19,8 +19,8 @@ const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
   }
 }
 
-export const node = (context: ReadRuntimeContext): NodeReadRuntime => {
-  const getNodeRect = context.query.canvas.nodeRect
+export const node = (context: ReadContext): NodeRead => {
+  const getNodeRect = context.indexes.canvas.byId
   const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
   let nodeViewCache: NodesView | undefined
   let nodeViewIdsRef: readonly NodeId[] | undefined

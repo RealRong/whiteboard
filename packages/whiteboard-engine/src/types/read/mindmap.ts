@@ -8,7 +8,7 @@ export type MindmapReadCache = {
   getSnapshot: () => MindmapReadSnapshot
 }
 
-export type MindmapReadRuntime = {
+export type MindmapRead = {
   get: {
     mindmap: () => MindmapView
   }

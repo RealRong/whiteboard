@@ -22,6 +22,7 @@ import type {
   NodeUpdateManyOptions
 } from './write'
 import type { MindmapApplyCommand } from './mindmap'
+import type { ShortcutAction } from '../shortcuts/types'
 
 export type MindmapCommands = {
   apply: (command: MindmapApplyCommand) => Promise<DispatchResult>
@@ -53,6 +54,9 @@ export type Commands = {
     toggle: (ids: NodeId[]) => void
     clear: () => void
     getSelectedNodeIds: () => NodeId[]
+  }
+  shortcut: {
+    dispatch: (action: ShortcutAction) => boolean
   }
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>

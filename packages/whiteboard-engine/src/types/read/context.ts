@@ -1,12 +1,12 @@
 import type { InstanceConfig } from '../instance/config'
-import type { Query } from '../instance/query'
 import type {
   EngineReadState,
   ReadSubscriptionKey
 } from '../instance/read'
+import type { Indexer } from './indexer'
 import type { ReadModelSnapshot } from './snapshot'
 
-export type ReadRuntimeStateGetters = {
+export type ReadStateGetters = {
   interaction: () => EngineReadState['interaction']
   tool: () => EngineReadState['tool']
   selection: () => EngineReadState['selection']
@@ -14,13 +14,13 @@ export type ReadRuntimeStateGetters = {
   mindmapLayout: () => EngineReadState['mindmapLayout']
 }
 
-export type ReadRuntimeContext = {
-  state: ReadRuntimeStateGetters
+export type ReadContext = {
+  state: ReadStateGetters
   snapshot: () => ReadModelSnapshot
   subscribe: (
     keys: readonly ReadSubscriptionKey[],
     listener: () => void
   ) => () => void
-  query: Query
+  indexes: Indexer['query']
   config: InstanceConfig
 }

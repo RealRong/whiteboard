@@ -1,53 +1,75 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Commands } from '@engine-types/command/api'
-import type { Runtime as WriteRuntime } from '@engine-types/write/runtime'
-import type { ViewportRuntime } from '../../runtime/Viewport'
+import type { Write } from '@engine-types/write/runtime'
+import type { ViewportHost } from '../../runtime/Viewport'
+import {
+  edge,
+  interaction,
+  mindmap,
+  node,
+  selection,
+  shortcut,
+  viewport as viewportCommands
+} from '../../runtime/write/api'
 
 type CommandDeps = {
-  state: InternalInstance['state']
-  viewport: ViewportRuntime
-  writeRuntime: WriteRuntime
+  instance: Pick<InternalInstance, 'state' | 'document' | 'read'>
+  viewport: ViewportHost
+  write: Write
 }
 
 export const createCommands = ({
-  state,
+  instance,
   viewport,
-  writeRuntime
+  write
 }: CommandDeps): Commands => {
-  const { history, resetDoc, commands } = writeRuntime
-  const {
-    edge,
-    interaction,
-    viewport: viewportCommands,
-    node,
-    mindmap,
-    selection
-  } = commands
+  const nodeCommands = node({
+    instance,
+    apply: write.apply
+  })
+  const edgeCommands = edge({
+    instance,
+    apply: write.apply
+  })
+  const selectionCommands = selection({
+    instance,
+    apply: write.apply
+  })
+  const interactionCommands = interaction({ instance })
 
   return {
     doc: {
-      reset: resetDoc
+      reset: write.resetDoc
     },
     tool: {
       set: (tool) => {
-        state.write('tool', tool)
+        instance.state.write('tool', tool)
       }
     },
     history: {
-      get: history.get,
-      configure: history.configure,
-      undo: history.undo,
-      redo: history.redo,
-      clear: history.clear
+      get: write.history.get,
+      configure: write.history.configure,
+      undo: write.history.undo,
+      redo: write.history.redo,
+      clear: write.history.clear
     },
-    interaction,
+    interaction: interactionCommands,
     host: {
       containerResized: viewport.setContainerRect
     },
-    selection,
-    edge,
-    viewport: viewportCommands,
-    node,
-    mindmap
+    selection: selectionCommands,
+    edge: edgeCommands,
+    shortcut: shortcut({
+      state: instance.state,
+      selection: selectionCommands,
+      history: write.history
+    }),
+    viewport: viewportCommands({
+      apply: write.apply
+    }),
+    node: nodeCommands,
+    mindmap: mindmap({
+      apply: write.apply
+    })
   }
 }

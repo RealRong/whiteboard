@@ -26,10 +26,10 @@ import { createId } from '@whiteboard/core/utils'
 import type { PrimitiveAtom } from 'jotai/vanilla'
 import { History } from './history'
 import type { Draft } from '../plan/draft'
+import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import { createReadInvalidation } from '../invalidation/readHints'
 
 type ApplyTransaction = {
-  kind: 'apply'
   source: CommandSource
   origin: Origin
   operations: readonly Operation[]
@@ -37,7 +37,6 @@ type ApplyTransaction = {
 }
 
 type ReplaceTransaction = {
-  kind: 'replace'
   source: CommandSource
   origin: Origin
   doc: Document
@@ -49,6 +48,7 @@ export class Writer {
   private readonly instance: WriterOptions['instance']
   private readonly changeBus: ChangeBus
   private readonly readModelRevisionAtom: PrimitiveAtom<number>
+  private readonly project: WriterOptions['project']
   private readonly now: () => number
   private readonly impactAnalyzer = new MutationImpactAnalyzer()
   private readonly timeline: History
@@ -57,11 +57,13 @@ export class Writer {
     instance,
     changeBus,
     readModelRevisionAtom,
+    project,
     now
   }: WriterOptions) {
     this.instance = instance
     this.changeBus = changeBus
     this.readModelRevisionAtom = readModelRevisionAtom
+    this.project = project
     this.now = now ?? (() => {
       const runtime = globalThis as { performance?: { now?: () => number } }
       if (typeof runtime.performance?.now === 'function') {
@@ -94,17 +96,25 @@ export class Writer {
       (revision: number) => revision + 1
     )
     this.instance.viewport.setViewport(doc.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-    return this.instance.document.get()
+  }
+
+  private createReadHints = (
+    impact: ReturnType<MutationImpactAnalyzer['analyze']>
+  ) => createReadInvalidation({ impact })
+
+  private projectChange = (impact: ReturnType<MutationImpactAnalyzer['analyze']>) => {
+    const readHints = this.createReadHints(impact)
+    this.project(readHints)
+    return readHints
   }
 
   private publishChange = ({
     trace,
-    impact
+    readHints
   }: {
     trace: ChangeTrace
-    impact: ReturnType<MutationImpactAnalyzer['analyze']>
+    readHints: ReadInvalidation
   }) => {
-    const readHints = createReadInvalidation({ impact })
     this.changeBus.publish({
       trace,
       readHints
@@ -134,13 +144,14 @@ export class Writer {
       return reduced
     }
 
-    this.setDocument(reduced.doc)
-    this.notifyDocumentChange(reduced.doc)
-    const docAfter = this.syncDocumentState(reduced.doc)
     const operations = reduced.changes.operations
+    this.setDocument(reduced.doc)
+    this.syncDocumentState(reduced.doc)
+    const readHints = this.projectChange(this.impactAnalyzer.analyze(operations))
+    this.notifyDocumentChange(reduced.doc)
     this.publishChange({
       trace,
-      impact: this.impactAnalyzer.analyze(operations)
+      readHints
     })
 
     return {
@@ -148,7 +159,7 @@ export class Writer {
       changes: reduced.changes,
       inverse: reduced.inverse,
       applied: {
-        docId: docAfter?.id,
+        docId: reduced.doc.id,
         origin: input.origin,
         operations
       }
@@ -159,10 +170,11 @@ export class Writer {
     const trace = this.normalizeTrace(input.source, input.trace)
 
     this.setDocument(input.doc)
-    const docAfter = this.syncDocumentState(input.doc)
+    this.syncDocumentState(input.doc)
+    const readHints = this.projectChange(FULL_MUTATION_IMPACT)
     this.publishChange({
       trace,
-      impact: FULL_MUTATION_IMPACT
+      readHints
     })
 
     return {
@@ -174,7 +186,7 @@ export class Writer {
         origin: input.origin
       },
       applied: {
-        docId: docAfter?.id,
+        docId: input.doc.id,
         origin: input.origin,
         operations: [],
         reset: true
@@ -184,7 +196,6 @@ export class Writer {
 
   private applyHistoryOperations = (operations: readonly Operation[]) =>
     this.commitApply({
-      kind: 'apply',
       operations,
       origin: 'system',
       source: 'system'
@@ -217,7 +228,6 @@ export class Writer {
   }): DispatchResult => {
     const origin = this.toOrigin(source)
     const result = this.commitApply({
-      kind: 'apply',
       operations,
       origin,
       source,
@@ -271,7 +281,6 @@ export class Writer {
       this.timeline.clear()
     }
     const result = this.commitReplace({
-      kind: 'replace',
       doc,
       origin: 'system',
       source: 'system'
