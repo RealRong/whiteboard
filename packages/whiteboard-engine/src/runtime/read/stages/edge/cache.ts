@@ -10,7 +10,6 @@ import {
 } from '@whiteboard/core/utils'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
-  READ_SUBSCRIPTION_KEYS,
   type CanvasNodeRect,
   type EdgeEndpoints,
   type EdgePathEntry
@@ -164,10 +163,9 @@ const isSameEdgeStructureTuple = (
 // 3) cache reuse is fully data-driven (`refs + tuples`).
 export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   const getNodeRect = context.query.canvas.nodeRect
-  const readModelSnapshot = () => context.get(READ_SUBSCRIPTION_KEYS.snapshot)
+  const readModelSnapshot = () => context.snapshot()
   const state = emptyState()
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
-  let pendingResetVisibleEdges = false
   let pendingDirtyNodeIds = new Set<NodeId>()
   let pendingDirtyEdgeIds = new Set<EdgeId>()
 
@@ -328,11 +326,6 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   }
 
   const ensureEntries = () => {
-    if (pendingResetVisibleEdges) {
-      visibleEdgesRef = undefined
-      pendingResetVisibleEdges = false
-    }
-
     const visibleEdges = readModelSnapshot().edges.visible
     if (visibleEdges !== visibleEdgesRef) {
       visibleEdgesRef = visibleEdges
@@ -368,29 +361,23 @@ export const cache = (context: ReadRuntimeContext): EdgeReadCache => {
   }
 
   const applyPlan: EdgeReadCache['applyPlan'] = (plan) => {
-    // `clearPendingDirtyNodeIds` only appears on full-sync plans.
-    // In that case we force next ensureEntries() into full reconcile by clearing
-    // all pending signals and invalidating visibleEdgesRef.
-    if (plan.clearPendingDirtyNodeIds) {
+    if (plan.rebuild === 'none') return
+
+    if (plan.rebuild === 'full') {
       visibleEdgesRef = undefined
-      pendingResetVisibleEdges = false
       pendingDirtyNodeIds = new Set<NodeId>()
       pendingDirtyEdgeIds = new Set<EdgeId>()
       return
     }
 
-    if (plan.resetVisibleEdges) {
-      pendingResetVisibleEdges = true
-    }
-
-    if (plan.appendDirtyNodeIds.length) {
-      plan.appendDirtyNodeIds.forEach((nodeId) => {
+    if (plan.dirtyNodeIds.length) {
+      plan.dirtyNodeIds.forEach((nodeId) => {
         pendingDirtyNodeIds.add(nodeId)
       })
     }
 
-    if (plan.appendDirtyEdgeIds.length) {
-      plan.appendDirtyEdgeIds.forEach((edgeId) => {
+    if (plan.dirtyEdgeIds.length) {
+      plan.dirtyEdgeIds.forEach((edgeId) => {
         pendingDirtyEdgeIds.add(edgeId)
       })
     }

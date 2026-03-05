@@ -45,10 +45,6 @@ type ReplaceTransaction = {
   trace?: CommandTrace
 }
 
-type TransactionInput = ApplyTransaction | ReplaceTransaction
-type TransactionResult<T extends TransactionInput> =
-  T extends ApplyTransaction ? ApplyResult : ResetResult
-
 export class Writer {
   private readonly instance: WriterOptions['instance']
   private readonly changeBus: ChangeBus
@@ -84,11 +80,12 @@ export class Writer {
     serializers: this.instance.registries.serializers.list()
   })
 
-  private commitDocument = (
-    doc: Document,
-    options?: { silent?: boolean }
-  ) => {
-    this.instance.document.replace(doc, options)
+  private setDocument = (doc: Document) => {
+    this.instance.document.set(doc)
+  }
+
+  private notifyDocumentChange = (doc: Document) => {
+    this.instance.document.notifyChange(doc)
   }
 
   private syncDocumentState = (doc: Document) => {
@@ -101,23 +98,14 @@ export class Writer {
   }
 
   private publishChange = ({
-    kind,
     trace,
     impact
   }: {
-    kind: 'apply' | 'replace'
     trace: ChangeTrace
     impact: ReturnType<MutationImpactAnalyzer['analyze']>
   }) => {
-    const revision = this.instance.runtime.store.get(this.readModelRevisionAtom)
-    const readHints = createReadInvalidation({
-      kind,
-      revision,
-      impact
-    })
+    const readHints = createReadInvalidation({ impact })
     this.changeBus.publish({
-      revision,
-      kind,
       trace,
       readHints
     })
@@ -130,53 +118,49 @@ export class Writer {
     const commandId = trace?.commandId ?? createId('command')
     return {
       commandId,
-      correlationId: trace?.correlationId ?? commandId,
-      transactionId: trace?.transactionId,
-      causationId: trace?.causationId,
       source
     }
   }
 
-  private commitTransaction = <T extends TransactionInput>(
-    input: T
-  ): TransactionResult<T> => {
+  private commitApply = (input: ApplyTransaction): ApplyResult => {
     const trace = this.normalizeTrace(input.source, input.trace)
-    if (input.kind === 'apply') {
-      const docBefore = this.instance.document.get()
-      const reduced = reduceOperations(docBefore, input.operations, {
-        now: this.now,
-        origin: input.origin,
-        registries: this.createKernelRegistriesSnapshot()
-      })
-      if (!reduced.ok) {
-        return reduced as unknown as TransactionResult<T>
-      }
-
-      this.commitDocument(reduced.doc)
-      const docAfter = this.syncDocumentState(reduced.doc)
-      const operations = reduced.changes.operations
-      this.publishChange({
-        kind: 'apply',
-        trace,
-        impact: this.impactAnalyzer.analyze(operations)
-      })
-
-      return {
-        ok: true,
-        changes: reduced.changes,
-        inverse: reduced.inverse,
-        applied: {
-          docId: docAfter?.id,
-          origin: input.origin,
-          operations
-        }
-      } as unknown as TransactionResult<T>
+    const docBefore = this.instance.document.get()
+    const reduced = reduceOperations(docBefore, input.operations, {
+      now: this.now,
+      origin: input.origin,
+      registries: this.createKernelRegistriesSnapshot()
+    })
+    if (!reduced.ok) {
+      return reduced
     }
 
-    this.commitDocument(input.doc, { silent: true })
+    this.setDocument(reduced.doc)
+    this.notifyDocumentChange(reduced.doc)
+    const docAfter = this.syncDocumentState(reduced.doc)
+    const operations = reduced.changes.operations
+    this.publishChange({
+      trace,
+      impact: this.impactAnalyzer.analyze(operations)
+    })
+
+    return {
+      ok: true,
+      changes: reduced.changes,
+      inverse: reduced.inverse,
+      applied: {
+        docId: docAfter?.id,
+        origin: input.origin,
+        operations
+      }
+    }
+  }
+
+  private commitReplace = (input: ReplaceTransaction): ResetResult => {
+    const trace = this.normalizeTrace(input.source, input.trace)
+
+    this.setDocument(input.doc)
     const docAfter = this.syncDocumentState(input.doc)
     this.publishChange({
-      kind: 'replace',
       trace,
       impact: FULL_MUTATION_IMPACT
     })
@@ -195,11 +179,11 @@ export class Writer {
         operations: [],
         reset: true
       }
-    } as unknown as TransactionResult<T>
+    }
   }
 
   private applyHistoryOperations = (operations: readonly Operation[]) =>
-    this.commitTransaction({
+    this.commitApply({
       kind: 'apply',
       operations,
       origin: 'system',
@@ -232,7 +216,7 @@ export class Writer {
     trace?: CommandTrace
   }): DispatchResult => {
     const origin = this.toOrigin(source)
-    const result = this.commitTransaction({
+    const result = this.commitApply({
       kind: 'apply',
       operations,
       origin,
@@ -286,7 +270,7 @@ export class Writer {
     if (currentDocId !== doc.id) {
       this.timeline.clear()
     }
-    const result = this.commitTransaction({
+    const result = this.commitReplace({
       kind: 'replace',
       doc,
       origin: 'system',

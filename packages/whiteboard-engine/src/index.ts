@@ -18,20 +18,6 @@ export type {
   ApplyMutationsApi
 } from './types/command/source'
 export type {
-  CommandEnvelope,
-  CommandError,
-  CommandResult,
-  CommandGateway,
-  EventOrigin,
-  Revision,
-  DomainEventEnvelope,
-  EventJournal,
-  QueryMethod,
-  QueryFacade,
-  ReadFacade,
-  ProjectionRuntime
-} from './types/cqrs'
-export type {
   CreateEngineOptions,
   Instance
 } from './types/instance/engine'
@@ -51,8 +37,6 @@ export type {
   NodeViewItem
 } from './types/instance/read'
 export type {
-  InvalidationMode,
-  InvalidationRevision,
   ReadInvalidation
 } from './types/read/invalidation'
 export type {

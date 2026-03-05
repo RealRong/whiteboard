@@ -18,7 +18,8 @@ export type Instance = {
 export type InternalInstance = Instance & {
   document: {
     get: () => Document
-    replace: (doc: Document, options?: { silent?: boolean }) => void
+    set: (doc: Document) => void
+    notifyChange: (doc: Document) => void
   }
   config: InstanceConfig
   viewport: ViewportApi

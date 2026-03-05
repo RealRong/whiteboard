@@ -1,7 +1,5 @@
 import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
 import {
-  READ_SUBSCRIPTION_KEYS,
-  READ_STATE_KEYS,
   type NodesView,
   type NodeViewItem,
   type ViewportTransformView
@@ -29,7 +27,7 @@ export const node = (context: ReadRuntimeContext): NodeReadRuntime => {
   let nodeViewByIdRef: ReadonlyMap<NodeId, Node> | undefined
 
   const resolveNodeItem = (id: NodeId): NodeViewItem | undefined => {
-    const snapshot = context.get(READ_SUBSCRIPTION_KEYS.snapshot)
+    const snapshot = context.snapshot()
     const node = snapshot.indexes.canvasNodeById.get(id)
     if (!node) {
       nodeItemCacheById.delete(id)
@@ -71,9 +69,9 @@ export const node = (context: ReadRuntimeContext): NodeReadRuntime => {
   return {
     get: {
       viewportTransform: () =>
-        toViewportTransform(context.get(READ_STATE_KEYS.viewport)),
+        toViewportTransform(context.state.viewport()),
       node: () => {
-        const snapshot = context.get(READ_SUBSCRIPTION_KEYS.snapshot)
+        const snapshot = context.snapshot()
         const ids = snapshot.indexes.canvasNodeIds
         const byIdRef = snapshot.indexes.canvasNodeById
 

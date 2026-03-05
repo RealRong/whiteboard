@@ -1,11 +1,12 @@
-import type { Node, NodeId } from '@whiteboard/core/types'
+import type {
+  Node,
+  NodeId
+} from '@whiteboard/core/types'
+import type { WriteInput } from '@engine-types/command/api'
 import type { Size } from '@engine-types/common/base'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { Apply } from '@engine-types/write/commands'
-import type { Scheduler } from '../../runtime/Scheduler'
-import { MicrotaskTask } from '../../runtime/TaskQueue'
+import type { Change } from '@engine-types/write/change'
 import { DEFAULT_TUNING } from '../../config'
-import type { Change, Bus as ChangeBus } from '@engine-types/write/change'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
@@ -47,8 +48,6 @@ type GroupUpdate = {
 
 type RuntimeOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
-  apply: Apply
-  scheduler: Scheduler
 }
 
 const createIndexes = (nodes: readonly Node[]): Indexes => {
@@ -162,7 +161,6 @@ const getDescendants = (indexes: Indexes, groupId: NodeId): Node[] => {
   return result
 }
 
-
 const createAutoFitUpdate = ({
   indexes,
   group,
@@ -198,33 +196,79 @@ const createAutoFitUpdate = ({
 }
 
 export class Autofit {
-  readonly name = 'Autofit'
+  readonly topic = 'autofit'
 
   private readonly instance: RuntimeOptions['instance']
-  private readonly apply: RuntimeOptions['apply']
   private prevNodeMap: ReadonlyMap<NodeId, Node> | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
-  private disposed = false
-  private readonly pendingPlan: PendingRebuildPlan = {
+  private pending: PendingRebuildPlan = {
     rebuild: 'none',
     dirtyNodeIds: new Set<NodeId>()
   }
-  private offChange: (() => void) | null = null
-  private readonly syncTask: MicrotaskTask
 
-  constructor({ instance, apply, scheduler }: RuntimeOptions) {
+  constructor({ instance }: RuntimeOptions) {
     this.instance = instance
-    this.apply = apply
-    this.syncTask = new MicrotaskTask(scheduler, () => {
-      if (!this.disposed) this.runSync()
-    })
   }
 
-  start = (changeBus: ChangeBus) => {
-    if (this.disposed || this.offChange) return
-    this.offChange = changeBus.subscribe(this.handleCommit)
-    this.syncTask.schedule()
+  seed = () => {
+    this.promoteFull()
+  }
+
+  ingest = (change: Change) => {
+    const indexPlan = change.readHints.index
+    if (indexPlan.rebuild === 'none') return
+
+    if (indexPlan.rebuild === 'full' || indexPlan.dirtyNodeIds.length === 0) {
+      this.promoteFull()
+      return
+    }
+
+    this.promoteDirty(indexPlan.dirtyNodeIds)
+  }
+
+  flush = (): WriteInput | null => {
+    const pending = this.takePending()
+    if (pending.rebuild === 'none') return null
+    const doc = this.instance.document.get()
+    const nodeSize = this.instance.config.nodeSize
+    const padding = this.instance.config.node.groupPadding
+
+    const docChanged = this.resetStateForDoc(doc.id)
+    const indexes = createIndexes(doc.nodes)
+    const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
+    const rebuild = (docChanged || layoutChanged) ? 'full' : pending.rebuild
+    const plan: RebuildPlan = {
+      rebuild,
+      dirtyNodeIds: pending.dirtyNodeIds
+    }
+    const groupsToProcess = resolveGroupsToProcess({
+      groups: indexes.groups,
+      prevNodeMap: this.prevNodeMap,
+      nextNodeMap: indexes.nodeMap,
+      plan
+    })
+
+    const updates = groupsToProcess
+      .map(group => createAutoFitUpdate({ indexes, group, nodeSize, defaultPadding: padding }))
+      .filter((u): u is GroupUpdate => u !== null)
+
+    this.prevNodeMap = indexes.nodeMap
+    this.layoutSnapshot = toLayoutSnapshot(nodeSize, padding)
+
+    if (!updates.length) return null
+
+    return {
+      domain: 'node',
+      command: {
+        type: 'updateMany',
+        updates: updates.map((update) => ({
+          id: update.id,
+          patch: update.patch
+        }))
+      },
+      source: 'system'
+    }
   }
 
   private resetStateForDoc = (docId: string): boolean => {
@@ -236,100 +280,25 @@ export class Autofit {
     return true
   }
 
+  private promoteFull = () => {
+    this.pending.rebuild = 'full'
+    this.pending.dirtyNodeIds.clear()
+  }
 
-  private runSync = () => {
-    const doc = this.instance.document.get()
-    const nodeSize = this.instance.config.nodeSize
-    const padding = this.instance.config.node.groupPadding
-    const docChanged = this.resetStateForDoc(doc.id)
-
-    const indexes = createIndexes(doc.nodes)
-    const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
-    const rebuildPlan = this.consumeRebuildPlan({
-      docChanged,
-      layoutChanged
+  private promoteDirty = (dirtyNodeIds: readonly NodeId[]) => {
+    if (this.pending.rebuild === 'full') return
+    this.pending.rebuild = 'dirty'
+    dirtyNodeIds.forEach((nodeId) => {
+      this.pending.dirtyNodeIds.add(nodeId)
     })
-    const groupsToProcess = resolveGroupsToProcess({
-      groups: indexes.groups,
-      prevNodeMap: this.prevNodeMap,
-      nextNodeMap: indexes.nodeMap,
-      plan: rebuildPlan
-    })
+  }
 
-    const updates = groupsToProcess
-      .map(group => createAutoFitUpdate({ indexes, group, nodeSize, defaultPadding: padding }))
-      .filter((u): u is GroupUpdate => u !== null)
-
-    if (updates.length) {
-      void this.apply({
-        domain: 'node',
-        command: {
-          type: 'updateMany',
-          updates: updates.map((update) => ({
-            id: update.id,
-            patch: update.patch
-          }))
-        },
-        source: 'system'
-      })
+  private takePending = (): PendingRebuildPlan => {
+    const current = this.pending
+    this.pending = {
+      rebuild: 'none',
+      dirtyNodeIds: new Set<NodeId>()
     }
-
-    this.prevNodeMap = indexes.nodeMap
-    this.layoutSnapshot = toLayoutSnapshot(nodeSize, padding)
-  }
-
-  private consumeRebuildPlan = ({
-    docChanged,
-    layoutChanged
-  }: {
-    docChanged: boolean
-    layoutChanged: boolean
-  }): RebuildPlan => {
-    const rebuild = this.pendingPlan.rebuild
-    const dirtyNodeIds = new Set(this.pendingPlan.dirtyNodeIds)
-
-    this.pendingPlan.rebuild = 'none'
-    this.pendingPlan.dirtyNodeIds.clear()
-
-    if (docChanged || layoutChanged) return { rebuild: 'full', dirtyNodeIds }
-
-    const effective = (rebuild === 'dirty' && dirtyNodeIds.size === 0) ? 'none' : rebuild
-    return { rebuild: effective, dirtyNodeIds }
-  }
-
-  private enqueueFullRebuild = () => {
-    this.pendingPlan.rebuild = 'full'
-    this.pendingPlan.dirtyNodeIds.clear()
-    if (!this.disposed) this.syncTask.schedule()
-  }
-
-  private enqueueDirtyRebuild = (dirtyNodeIds: readonly NodeId[]) => {
-    if (this.pendingPlan.rebuild !== 'full') {
-      this.pendingPlan.rebuild = 'dirty'
-    }
-    dirtyNodeIds.forEach((id) => {
-      this.pendingPlan.dirtyNodeIds.add(id)
-    })
-    if (!this.disposed) this.syncTask.schedule()
-  }
-
-  dispose = () => {
-    if (this.disposed) return
-    this.disposed = true
-    this.offChange?.()
-    this.offChange = null
-    this.syncTask.cancel()
-  }
-
-  private handleCommit = (change: Change) => {
-    const indexPlan = change.readHints.index
-    if (indexPlan.mode === 'none') return
-
-    if (indexPlan.mode === 'full' || indexPlan.dirtyNodeIds.length === 0) {
-      this.enqueueFullRebuild()
-      return
-    }
-
-    this.enqueueDirtyRebuild(indexPlan.dirtyNodeIds)
+    return current
   }
 }

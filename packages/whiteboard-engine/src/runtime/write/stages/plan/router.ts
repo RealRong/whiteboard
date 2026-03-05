@@ -6,6 +6,7 @@ import { node as planNode } from './domains/node'
 import { edge as planEdge } from './domains/edge'
 import { viewport as planViewport } from './domains/viewport'
 import { mindmap as planMindmap } from './domains/mindmap'
+import { selection as planSelection } from './domains/selection'
 
 export const plan = ({
   instance
@@ -19,6 +20,7 @@ export const plan = ({
   const edge = planEdge({ instance })
   const viewport = planViewport({ instance })
   const mindmap = planMindmap({ instance })
+  const selection = planSelection({ instance })
 
   return (payload: WriteInput): Draft => {
     switch (payload.domain) {
@@ -30,6 +32,8 @@ export const plan = ({
         return viewport(payload.command)
       case 'mindmap':
         return mindmap(payload.command)
+      case 'selection':
+        return selection(payload.command)
       default:
         return invalid('Unsupported write action domain.')
     }

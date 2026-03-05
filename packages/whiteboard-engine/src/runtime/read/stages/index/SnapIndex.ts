@@ -2,7 +2,7 @@ import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { SnapCandidate } from '@engine-types/node/snap'
 import type { IndexChange } from '@engine-types/read/change'
-import type { IndexApplySource } from '@engine-types/read/indexer'
+import type { IndexCanvasSource } from '@engine-types/read/indexer'
 import {
   isSameRectTuple,
   isSameRefOrder,
@@ -120,15 +120,15 @@ export class SnapIndex {
 
   applyPlan = (
     plan: IndexChange,
-    source: IndexApplySource
+    canvas: IndexCanvasSource
   ): boolean => {
-    switch (plan.mode) {
+    switch (plan.rebuild) {
       case 'none':
         return false
       case 'full':
-        return this.syncFull(source.canvas.all())
-      case 'dirtyNodeIds':
-        return this.syncByNodeIds(plan.dirtyNodeIds, source.canvas.byId)
+        return this.syncFull(canvas.all())
+      case 'dirty':
+        return this.syncByNodeIds(plan.dirtyNodeIds, canvas.byId)
       default:
         return false
     }

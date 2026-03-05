@@ -1,46 +1,22 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type {
-  NodeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { invalid, ops, success } from '../draft'
 import type {
   Document,
-  NodeId,
-  NodePatch
+  NodeId
 } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
 import { corePlan } from '@whiteboard/core/kernel'
+import { toUpdateOperations } from '../shared/update'
 
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group.create' }>
 type UngroupCommand = Extract<NodeCommand, { type: 'group.ungroup' }>
 type UpdateManyCommand = Extract<NodeCommand, { type: 'updateMany' }>
 type NodeCommand = WriteCommandMap['node']
-
-const hasPatch = (patch: NodePatch) => Object.keys(patch).length > 0
-
-const toUpdateOperations = (
-  updates: readonly NodeBatchUpdate[]
-) => {
-  const patchById = new Map<NodeId, NodePatch>()
-  updates.forEach((item) => {
-    if (!hasPatch(item.patch)) return
-    const previous = patchById.get(item.id)
-    patchById.set(
-      item.id,
-      previous
-        ? { ...previous, ...item.patch }
-        : item.patch
-    )
-  })
-  return Array.from(patchById.entries()).map(([id, patch]) => ({
-    type: 'node.update' as const,
-    id,
-    patch
-  }))
-}
 
 export const node = ({
   instance
@@ -80,7 +56,7 @@ export const node = ({
   }
 
   const updateMany = (command: UpdateManyCommand): Draft =>
-    success(toUpdateOperations(command.updates))
+    success(toUpdateOperations('node.update', command.updates))
 
   return (command: NodeCommand): Draft => {
     switch (command.type) {

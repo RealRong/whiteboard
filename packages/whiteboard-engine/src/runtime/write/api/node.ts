@@ -12,14 +12,8 @@ import type {
   NodeInput,
   NodePatch
 } from '@whiteboard/core/types'
-import {
-  bringOrderForward,
-  bringOrderToFront,
-  sanitizeOrderIds,
-  sendOrderBackward,
-  sendOrderToBack
-} from '@whiteboard/core/utils'
 import type { Apply } from '../stages/plan/draft'
+import { createOrderCommands } from './shared/order'
 
 type NodeCommand = WriteCommandMap['node']
 
@@ -81,29 +75,10 @@ export const node = ({
   const setOrder = (ids: NodeId[]) =>
     run({ type: 'order.set', ids })
 
-  const bringToFront = (ids: NodeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = readDoc().order.nodes
-    return setOrder(bringOrderToFront(current, target))
-  }
-
-  const sendToBack = (ids: NodeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = readDoc().order.nodes
-    return setOrder(sendOrderToBack(current, target))
-  }
-
-  const bringForward = (ids: NodeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = readDoc().order.nodes
-    return setOrder(bringOrderForward(current, target))
-  }
-
-  const sendBackward = (ids: NodeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = readDoc().order.nodes
-    return setOrder(sendOrderBackward(current, target))
-  }
+  const order = createOrderCommands({
+    set: setOrder,
+    readCurrent: () => readDoc().order.nodes
+  })
 
   return {
     create,
@@ -115,12 +90,6 @@ export const node = ({
       create: createGroup,
       ungroup
     },
-    order: {
-      set: setOrder,
-      bringToFront,
-      sendToBack,
-      bringForward,
-      sendBackward
-    }
+    order
   }
 }

@@ -1,13 +1,14 @@
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 
+export type Rebuild = 'none' | 'dirty' | 'full'
+
 export type EdgeChange = {
-  resetVisibleEdges: boolean
-  clearPendingDirtyNodeIds: boolean
-  appendDirtyNodeIds: readonly NodeId[]
-  appendDirtyEdgeIds: readonly EdgeId[]
+  rebuild: Rebuild
+  dirtyNodeIds: readonly NodeId[]
+  dirtyEdgeIds: readonly EdgeId[]
 }
 
 export type IndexChange = {
-  mode: 'none' | 'full' | 'dirtyNodeIds'
+  rebuild: Rebuild
   dirtyNodeIds: readonly NodeId[]
 }

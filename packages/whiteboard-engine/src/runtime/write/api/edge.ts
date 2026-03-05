@@ -11,14 +11,8 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import {
-  bringOrderForward,
-  bringOrderToFront,
-  sanitizeOrderIds,
-  sendOrderBackward,
-  sendOrderToBack
-} from '@whiteboard/core/utils'
 import type { Apply } from '../stages/plan/draft'
+import { createOrderCommands } from './shared/order'
 
 type EdgeCommand = WriteCommandMap['edge']
 
@@ -103,29 +97,10 @@ export const edge = ({
   const setOrder = (ids: EdgeId[]) =>
     run({ type: 'order.set', ids })
 
-  const bringToFront = (ids: EdgeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = instance.document.get().order.edges
-    return setOrder(bringOrderToFront(current, target))
-  }
-
-  const sendToBack = (ids: EdgeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = instance.document.get().order.edges
-    return setOrder(sendOrderToBack(current, target))
-  }
-
-  const bringForward = (ids: EdgeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = instance.document.get().order.edges
-    return setOrder(bringOrderForward(current, target))
-  }
-
-  const sendBackward = (ids: EdgeId[]) => {
-    const target = sanitizeOrderIds(ids)
-    const current = instance.document.get().order.edges
-    return setOrder(sendOrderBackward(current, target))
-  }
+  const order = createOrderCommands({
+    set: setOrder,
+    readCurrent: () => instance.document.get().order.edges
+  })
 
   return {
     create,
@@ -139,12 +114,6 @@ export const edge = ({
       remove: removeAt,
       reset
     },
-    order: {
-      set: setOrder,
-      bringToFront,
-      sendToBack,
-      bringForward,
-      sendBackward
-    }
+    order
   }
 }

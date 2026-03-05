@@ -3,7 +3,7 @@ import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
 import { DEFAULT_TUNING } from '../../../../config'
 import { NodeRectIndex } from './NodeRectIndex'
 import { SnapIndex } from './SnapIndex'
-import type { IndexApplySource, Indexer } from '@engine-types/read/indexer'
+import type { Indexer } from '@engine-types/read/indexer'
 
 export const indexer = (
   config: InstanceConfig,
@@ -17,18 +17,14 @@ export const indexer = (
   const snapIndex = new SnapIndex(cellSize)
 
   const applyPlan: Indexer['applyPlan'] = (plan) => {
-    if (plan.mode === 'none') return
+    if (plan.rebuild === 'none') return
     const snapshot = readSnapshot()
-    const source: IndexApplySource = {
-      snapshot,
-      canvas: nodeRectIndex
-    }
-    const changed = nodeRectIndex.applyPlan(plan, source)
+    const changed = nodeRectIndex.applyPlan(plan, snapshot)
     if (!changed) return
-    snapIndex.applyPlan(plan, source)
+    snapIndex.applyPlan(plan, nodeRectIndex)
   }
 
-  applyPlan({ mode: 'full', dirtyNodeIds: [] })
+  applyPlan({ rebuild: 'full', dirtyNodeIds: [] })
 
   const query: Indexer['query'] = {
     canvas: {

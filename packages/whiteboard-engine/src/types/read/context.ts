@@ -6,16 +6,19 @@ import type {
 } from '../instance/read'
 import type { ReadModelSnapshot } from './snapshot'
 
-export type ReadContextKey = ReadSubscriptionKey
-export type ReadKeyValueMap = EngineReadState & {
-  snapshot: ReadModelSnapshot
+export type ReadRuntimeStateGetters = {
+  interaction: () => EngineReadState['interaction']
+  tool: () => EngineReadState['tool']
+  selection: () => EngineReadState['selection']
+  viewport: () => EngineReadState['viewport']
+  mindmapLayout: () => EngineReadState['mindmapLayout']
 }
-export type ReadSubscribableInternalKey = ReadSubscriptionKey
 
 export type ReadRuntimeContext = {
-  get: <K extends ReadContextKey>(key: K) => ReadKeyValueMap[K]
+  state: ReadRuntimeStateGetters
+  snapshot: () => ReadModelSnapshot
   subscribe: (
-    keys: readonly ReadSubscribableInternalKey[],
+    keys: readonly ReadSubscriptionKey[],
     listener: () => void
   ) => () => void
   query: Query

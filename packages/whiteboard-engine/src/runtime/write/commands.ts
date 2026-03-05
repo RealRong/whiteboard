@@ -24,10 +24,7 @@ export const createWriteCommands = ({
   const nodeCommands = node({ instance, apply })
   const selectionCommands = selection({
     instance,
-    commands: {
-      node: nodeCommands,
-      edge: edgeCommands
-    }
+    apply
   })
 
   return {

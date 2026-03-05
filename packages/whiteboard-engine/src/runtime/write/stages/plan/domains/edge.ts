@@ -1,6 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type {
-  EdgeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command/api'
 import type { Draft } from '../draft'
@@ -16,35 +15,12 @@ import {
 import { createId } from '@whiteboard/core/utils'
 import type {
   Edge,
-  EdgeId,
-  EdgePatch
+  EdgeId
 } from '@whiteboard/core/types'
+import { toUpdateOperations } from '../shared/update'
 
 type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
 type EdgeCommand = WriteCommandMap['edge']
-
-const hasPatch = (patch: EdgePatch) => Object.keys(patch).length > 0
-
-const toUpdateOperations = (
-  updates: readonly EdgeBatchUpdate[]
-) => {
-  const patchById = new Map<EdgeId, EdgePatch>()
-  updates.forEach((item) => {
-    if (!hasPatch(item.patch)) return
-    const previous = patchById.get(item.id)
-    patchById.set(
-      item.id,
-      previous
-        ? { ...previous, ...item.patch }
-        : item.patch
-    )
-  })
-  return Array.from(patchById.entries()).map(([id, patch]) => ({
-    type: 'edge.update' as const,
-    id,
-    patch
-  }))
-}
 
 export const edge = ({
   instance
@@ -53,7 +29,7 @@ export const edge = ({
 }) => {
   const createEdgeId = () => createId('edge')
   const updateMany = (command: UpdateManyCommand): Draft =>
-    success(toUpdateOperations(command.updates))
+    success(toUpdateOperations('edge.update', command.updates))
 
   const readEdgeById = (edgeId: EdgeId): Edge | undefined =>
     instance.document.get().edges.find((edge) => edge.id === edgeId)

@@ -1,7 +1,4 @@
-import {
-  READ_STATE_KEYS,
-  type EngineRead
-} from '@engine-types/instance/read'
+import { type EngineRead } from '@engine-types/instance/read'
 import type { ReadRuntimeContext } from '@engine-types/read/context'
 import type { EdgeReadRuntime } from '@engine-types/read/edge'
 import type { MindmapReadRuntime } from '@engine-types/read/mindmap'
@@ -22,19 +19,19 @@ export const readApi = ({
 }: ReadApiDeps): EngineRead => {
   const state: EngineRead['state'] = {
     get interaction() {
-      return context.get(READ_STATE_KEYS.interaction)
+      return context.state.interaction()
     },
     get tool() {
-      return context.get(READ_STATE_KEYS.tool)
+      return context.state.tool()
     },
     get selection() {
-      return context.get(READ_STATE_KEYS.selection)
+      return context.state.selection()
     },
     get viewport() {
-      return context.get(READ_STATE_KEYS.viewport)
+      return context.state.viewport()
     },
     get mindmapLayout() {
-      return context.get(READ_STATE_KEYS.mindmapLayout)
+      return context.state.mindmapLayout()
     }
   }
 

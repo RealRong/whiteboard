@@ -1,18 +1,16 @@
-import type { Atom } from 'jotai/vanilla'
 import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import type { Query } from '@engine-types/instance/query'
 import {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS,
+  type ReadSubscriptionKey,
   type EngineRead
 } from '@engine-types/instance/read'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type {
-  ReadContextKey,
-  ReadKeyValueMap,
-  ReadRuntimeContext,
-  ReadSubscribableInternalKey
+  ReadRuntimeContext
 } from '@engine-types/read/context'
+import type { Atom } from 'jotai/vanilla'
 import { query } from './api/query'
 import { readApi } from './api/read'
 import { edge } from './stages/edge/stage'
@@ -43,19 +41,24 @@ export const createReadKernel = ({
     indexes
   })
 
-  const keyAtomMap = {
-    [READ_STATE_KEYS.interaction]: stateAtoms.interaction,
-    [READ_STATE_KEYS.tool]: stateAtoms.tool,
-    [READ_STATE_KEYS.selection]: stateAtoms.selection,
-    [READ_STATE_KEYS.viewport]: stateAtoms.viewport,
-    [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
-    [READ_SUBSCRIPTION_KEYS.snapshot]: snapshotAtom
+  const state: ReadRuntimeContext['state'] = {
+    interaction: () => runtimeStore.get(stateAtoms.interaction),
+    tool: () => runtimeStore.get(stateAtoms.tool),
+    selection: () => runtimeStore.get(stateAtoms.selection),
+    viewport: () => runtimeStore.get(stateAtoms.viewport),
+    mindmapLayout: () => runtimeStore.get(stateAtoms.mindmapLayout)
   }
-  const get = <K extends ReadContextKey>(key: K): ReadKeyValueMap[K] =>
-    runtimeStore.get(keyAtomMap[key] as Atom<ReadKeyValueMap[K]>)
+  const subscribableAtomMap: Record<ReadSubscriptionKey, Atom<unknown>> = {
+    [READ_STATE_KEYS.interaction]: stateAtoms.interaction as Atom<unknown>,
+    [READ_STATE_KEYS.tool]: stateAtoms.tool as Atom<unknown>,
+    [READ_STATE_KEYS.selection]: stateAtoms.selection as Atom<unknown>,
+    [READ_STATE_KEYS.viewport]: stateAtoms.viewport as Atom<unknown>,
+    [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout as Atom<unknown>,
+    [READ_SUBSCRIPTION_KEYS.snapshot]: snapshotAtom as Atom<unknown>
+  }
   const subscribe: ReadRuntimeContext['subscribe'] = (keys, listener) => {
-    const unsubs = keys.map((key: ReadSubscribableInternalKey) =>
-      runtimeStore.sub(keyAtomMap[key] as Atom<unknown>, listener)
+    const unsubs = keys.map((key) =>
+      runtimeStore.sub(subscribableAtomMap[key], listener)
     )
     return () => {
       unsubs.forEach((off) => {
@@ -64,7 +67,8 @@ export const createReadKernel = ({
     }
   }
   const readContext: ReadRuntimeContext = {
-    get,
+    state,
+    snapshot: readSnapshot,
     subscribe,
     query: queryApi,
     config

@@ -3,51 +3,49 @@ import type {
   SelectionMode
 } from '@engine-types/state/model'
 import type {
-  EdgeCommandsApi,
-  NodeCommandsApi,
+  WriteCommandMap
+} from '@engine-types/command/api'
+import type {
   SelectionCommandsApi
 } from '@engine-types/write/commands'
 import {
-  createEdgeDuplicateInput
-} from '@whiteboard/core/edge'
-import {
-  applySelection,
-  createNodeDuplicateInput,
-  expandNodeSelection
+  applySelection
 } from '@whiteboard/core/node'
 import type {
   DispatchResult,
-  Document,
   EdgeId,
-  Node,
   NodeId
 } from '@whiteboard/core/types'
-import { DEFAULT_TUNING } from '../../../config'
+import type { Apply } from '../stages/plan/draft'
 
-const getCreatedNodeId = (result: DispatchResult, type?: string) => {
-  if (!result.ok) return undefined
-  const operation = result.changes.operations.find(
-    (item): item is { type: 'node.create'; node: Node } =>
-      item.type === 'node.create' && item.node && (!type || item.node.type === type)
-  )
-  return operation?.node?.id
+type SelectionCommand = WriteCommandMap['selection']
+type SelectionWriteValue = {
+  selectedNodeIds?: NodeId[]
 }
 
-export type SelectionWriteCommands = {
-  node: Pick<NodeCommandsApi, 'create' | 'delete' | 'group'>
-  edge: Pick<EdgeCommandsApi, 'create' | 'delete' | 'select'>
+const readSelectedNodeIdsFromResult = (result: DispatchResult): NodeId[] => {
+  if (!result.ok) return []
+  if (!result.value || typeof result.value !== 'object') return []
+  const value = result.value as SelectionWriteValue
+  return Array.isArray(value.selectedNodeIds)
+    ? value.selectedNodeIds
+    : []
 }
 
 export const selection = ({
   instance,
-  commands
+  apply
 }: {
-  instance: Pick<InternalInstance, 'state' | 'document' | 'read'>
-  commands: SelectionWriteCommands
+  instance: Pick<InternalInstance, 'state' | 'read'>
+  apply: Apply
 }): SelectionCommandsApi => {
   const state = instance.state
-  const writeCommands = commands
-  const readDoc = (): Document => instance.document.get()
+  const run = (command: SelectionCommand) =>
+    apply({
+      domain: 'selection',
+      command,
+      source: 'ui'
+    })
   const getSelectableNodeIds = (): NodeId[] =>
     [...instance.read.projection.node.ids]
   const getSelectedNodeIds = (): NodeId[] =>
@@ -96,114 +94,68 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (selectedNodeIds.length < 2) return
 
-    const result = await writeCommands.node.group.create(selectedNodeIds)
-    const groupId = getCreatedNodeId(result, 'group')
-    if (!groupId) return
-    select([groupId], 'replace')
+    const result = await run({
+      type: 'group',
+      selectedNodeIds
+    })
+    const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
+    if (!nextSelectedNodeIds.length) return
+    select(nextSelectedNodeIds, 'replace')
   }
 
   const ungroupSelected = async () => {
     const selectedNodeIds = getSelectedNodeIds()
     if (!selectedNodeIds.length) return
 
-    const doc = readDoc()
-    const groups = doc.nodes.filter(
-      (item) => item.type === 'group' && selectedNodeIds.includes(item.id)
-    )
-    if (!groups.length) return
-
-    for (const group of groups) {
-      await writeCommands.node.group.ungroup(group.id)
-    }
+    const result = await run({
+      type: 'ungroup',
+      selectedNodeIds
+    })
+    if (!result.ok) return
     clear()
   }
 
   const deleteSelected = async () => {
     const selectedEdgeId = getSelectedEdgeId()
+    const selectedNodeIds = getSelectedNodeIds()
+    if (!selectedEdgeId && !selectedNodeIds.length) return
+
+    const result = await run({
+      type: 'delete',
+      selectedNodeIds,
+      selectedEdgeId
+    })
+    if (!result.ok) return
+
     if (selectedEdgeId) {
-      await writeCommands.edge.delete([selectedEdgeId])
-      writeCommands.edge.select(undefined)
+      state.batch(() => {
+        state.write('selection', (prev) => ({
+          ...prev,
+          selectedEdgeId: undefined
+        }))
+      })
       return
     }
 
-    const selectedNodeIds = getSelectedNodeIds()
-    if (!selectedNodeIds.length) return
-
-    const doc = readDoc()
-    const { expandedIds } = expandNodeSelection(doc.nodes, selectedNodeIds)
-    const ids = Array.from(expandedIds)
-    const edgeIds = doc.edges
-      .filter(
-        (item) =>
-          expandedIds.has(item.source.nodeId)
-          || expandedIds.has(item.target.nodeId)
-      )
-      .map((item) => item.id)
-
-    if (edgeIds.length) {
-      await writeCommands.edge.delete(edgeIds)
+    const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
+    if (!nextSelectedNodeIds.length) {
+      clear()
+      return
     }
-    await writeCommands.node.delete(ids)
-    clear()
+    select(nextSelectedNodeIds, 'replace')
   }
 
   const duplicateSelected = async () => {
-    const selectedIds = getSelectedNodeIds()
-    if (!selectedIds.length) return
+    const selectedNodeIds = getSelectedNodeIds()
+    if (!selectedNodeIds.length) return
 
-    const doc = readDoc()
-    const { expandedIds, nodeById } = expandNodeSelection(doc.nodes, selectedIds)
-    const nodes = Array.from(expandedIds)
-      .map((id) => nodeById.get(id))
-      .filter((item): item is Node => Boolean(item))
-
-    const depthCache = new Map<NodeId, number>()
-    const getDepth = (item: Node): number => {
-      if (!item.parentId || !expandedIds.has(item.parentId)) return 0
-      const cached = depthCache.get(item.id)
-      if (cached !== undefined) return cached
-      const parent = nodeById.get(item.parentId)
-      const depth = parent ? getDepth(parent) + 1 : 0
-      depthCache.set(item.id, depth)
-      return depth
-    }
-
-    nodes.sort((a, b) => getDepth(a) - getDepth(b))
-
-    const idMap = new Map<NodeId, NodeId>()
-    const createdIds: NodeId[] = []
-    const offset = DEFAULT_TUNING.shortcuts.duplicateOffset
-
-    for (const item of nodes) {
-      const parentId =
-        item.parentId && idMap.has(item.parentId)
-          ? idMap.get(item.parentId)
-          : item.parentId
-      const payload = createNodeDuplicateInput(item, parentId, offset)
-      const result = await writeCommands.node.create(payload)
-      const createdId = getCreatedNodeId(result)
-      if (createdId) {
-        idMap.set(item.id, createdId)
-        createdIds.push(createdId)
-      }
-    }
-
-    const edges = doc.edges.filter(
-      (item) =>
-        expandedIds.has(item.source.nodeId)
-        && expandedIds.has(item.target.nodeId)
-    )
-    for (const item of edges) {
-      const sourceId = idMap.get(item.source.nodeId)
-      const targetId = idMap.get(item.target.nodeId)
-      if (!sourceId || !targetId) continue
-      const payload = createEdgeDuplicateInput(item, sourceId, targetId)
-      await writeCommands.edge.create(payload)
-    }
-
-    if (createdIds.length) {
-      select(createdIds, 'replace')
-    }
+    const result = await run({
+      type: 'duplicate',
+      selectedNodeIds
+    })
+    const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
+    if (!nextSelectedNodeIds.length) return
+    select(nextSelectedNodeIds, 'replace')
   }
 
   return {

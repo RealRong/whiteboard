@@ -36,11 +36,11 @@ export const engine = ({
     store: runtimeStore
   })
   const readDocument = (): Document => runtimeStore.get(stateAtoms.document)
-  const replaceDocument = (nextDocument: Document, options?: { silent?: boolean }) => {
+  const setDocument = (nextDocument: Document) => {
     runtimeStore.set(stateAtoms.document, nextDocument)
-    if (!options?.silent) {
-      onDocumentChange?.(nextDocument)
-    }
+  }
+  const notifyDocumentChange = (nextDocument: Document) => {
+    onDocumentChange?.(nextDocument)
   }
   const snapshotAtom = snapshot({
     documentAtom: stateAtoms.document,
@@ -69,7 +69,8 @@ export const engine = ({
     },
     document: {
       get: readDocument,
-      replace: replaceDocument
+      set: setDocument,
+      notifyChange: notifyDocumentChange
     },
     config,
     viewport,

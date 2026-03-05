@@ -3,7 +3,7 @@ import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { IndexChange } from '@engine-types/read/change'
-import type { IndexApplySource } from '@engine-types/read/indexer'
+import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 import {
   isSameRectWithRotationTuple,
@@ -53,17 +53,17 @@ export class NodeRectIndex {
 
   applyPlan = (
     plan: IndexChange,
-    source: IndexApplySource
+    snapshot: ReadModelSnapshot
   ): boolean => {
-    switch (plan.mode) {
+    switch (plan.rebuild) {
       case 'none':
         return false
       case 'full':
-        return this.syncFull(source.snapshot.nodes.canvas)
-      case 'dirtyNodeIds':
+        return this.syncFull(snapshot.nodes.canvas)
+      case 'dirty':
         return this.syncByNodeIds(
           plan.dirtyNodeIds,
-          source.snapshot.indexes.canvasNodeById
+          snapshot.indexes.canvasNodeById
         )
       default:
         return false
