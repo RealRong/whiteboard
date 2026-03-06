@@ -18,7 +18,7 @@ export type Instance = {
 export type InternalInstance = Instance & {
   document: {
     get: () => Document
-    set: (doc: Document) => void
+    commit: (doc: Document) => void
     notifyChange: (doc: Document) => void
   }
   config: InstanceConfig

@@ -2,27 +2,38 @@ import type {
   ChangeSet,
   DispatchFailure,
   Document,
-  EdgeSchema,
-  EdgeTypeDefinition,
-  NodeSchema,
-  NodeTypeDefinition,
+  Edge,
+  EdgeId,
+  MindmapId,
+  MindmapTree,
+  Node,
+  NodeId,
   Operation,
   Origin,
-  Serializer
+  Viewport
 } from '../types'
 
-export type KernelRegistriesSnapshot = {
-  nodeTypes?: NodeTypeDefinition[]
-  edgeTypes?: EdgeTypeDefinition[]
-  nodeSchemas?: NodeSchema[]
-  edgeSchemas?: EdgeSchema[]
-  serializers?: Serializer[]
+export type KernelQuery = {
+  document: () => Document
+  node: {
+    get: (id: NodeId) => Node | undefined
+    list: () => Node[]
+  }
+  edge: {
+    get: (id: EdgeId) => Edge | undefined
+    list: () => Edge[]
+    byNode: (id: NodeId) => Edge[]
+  }
+  mindmap: {
+    get: (id: MindmapId) => MindmapTree | undefined
+    list: () => MindmapTree[]
+  }
+  viewport: () => Viewport
 }
 
 export type KernelContext = {
   now?: () => number
   origin?: Origin
-  registries?: KernelRegistriesSnapshot
 }
 
 export type KernelInvertResult =

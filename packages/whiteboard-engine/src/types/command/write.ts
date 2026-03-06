@@ -37,12 +37,24 @@ export type NodeWriteCommand =
       ids: NodeId[]
     }
   | {
+      type: 'deleteCascade'
+      ids: NodeId[]
+    }
+  | {
+      type: 'duplicate'
+      ids: NodeId[]
+    }
+  | {
       type: 'group.create'
       ids: NodeId[]
     }
   | {
       type: 'group.ungroup'
       id: NodeId
+    }
+  | {
+      type: 'group.ungroupMany'
+      ids: NodeId[]
     }
   | {
       type: 'order.set'
@@ -117,38 +129,17 @@ export type ViewportWriteCommand =
 
 export type MindmapWriteCommand = MindmapApplyCommand
 
-export type SelectionWriteCommand =
-  | {
-      type: 'group'
-      selectedNodeIds: NodeId[]
-    }
-  | {
-      type: 'ungroup'
-      selectedNodeIds: NodeId[]
-    }
-  | {
-      type: 'delete'
-      selectedNodeIds: NodeId[]
-      selectedEdgeId?: EdgeId
-    }
-  | {
-      type: 'duplicate'
-      selectedNodeIds: NodeId[]
-    }
-
 export type WriteDomain =
   | 'node'
   | 'edge'
   | 'viewport'
   | 'mindmap'
-  | 'selection'
 
 export type WriteCommandMap = {
   node: NodeWriteCommand
   edge: EdgeWriteCommand
   viewport: ViewportWriteCommand
   mindmap: MindmapWriteCommand
-  selection: SelectionWriteCommand
 }
 
 export type WriteInput<D extends WriteDomain = WriteDomain> =

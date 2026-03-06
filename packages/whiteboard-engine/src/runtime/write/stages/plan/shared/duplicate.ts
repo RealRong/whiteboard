@@ -5,8 +5,7 @@ import {
 } from '@whiteboard/core/node'
 import {
   corePlan,
-  reduceOperations,
-  type KernelRegistriesSnapshot
+  reduceOperations
 } from '@whiteboard/core/kernel'
 import type {
   CoreRegistries,
@@ -20,9 +19,9 @@ import type {
 import type { Draft } from '../draft'
 import { cancelled, invalid, success } from '../draft'
 
-type DuplicateSelectionOptions = {
+type DuplicateNodesOptions = {
   doc: Document
-  selectedNodeIds: readonly NodeId[]
+  ids: readonly NodeId[]
   registries: CoreRegistries
   createNodeId: () => NodeId
   createEdgeId: () => EdgeId
@@ -30,17 +29,7 @@ type DuplicateSelectionOptions = {
 }
 
 const toInvalidMessage = (message?: string) =>
-  message ?? 'Invalid selection duplicate command.'
-
-const createKernelRegistriesSnapshot = (
-  registries: CoreRegistries
-): KernelRegistriesSnapshot => ({
-  nodeTypes: registries.nodeTypes.list(),
-  edgeTypes: registries.edgeTypes.list(),
-  nodeSchemas: registries.schemas.listNodes(),
-  edgeSchemas: registries.schemas.listEdges(),
-  serializers: registries.serializers.list()
-})
+  message ?? 'Invalid node duplicate command.'
 
 const asNodeCreateOperation = (
   operations: readonly Operation[]
@@ -58,21 +47,21 @@ const asEdgeCreateOperation = (
   return operation.type === 'edge.create' ? operation : undefined
 }
 
-export const buildDuplicateSelectionDraft = ({
+export const buildDuplicateNodesDraft = ({
   doc,
-  selectedNodeIds,
+  ids,
   registries,
   createNodeId,
   createEdgeId,
   offset
-}: DuplicateSelectionOptions): Draft => {
-  if (!selectedNodeIds.length) {
+}: DuplicateNodesOptions): Draft => {
+  if (!ids.length) {
     return cancelled('No nodes selected.')
   }
 
   const { expandedIds, nodeById } = expandNodeSelection(
     doc.nodes,
-    Array.from(selectedNodeIds)
+    Array.from(ids)
   )
   const selectedNodes = Array.from(expandedIds)
     .map((id) => nodeById.get(id))
@@ -96,7 +85,6 @@ export const buildDuplicateSelectionDraft = ({
   const operationList: Operation[] = []
   const duplicatedNodeIds: NodeId[] = []
   const sourceToDuplicatedId = new Map<NodeId, NodeId>()
-  const registriesSnapshot = createKernelRegistriesSnapshot(registries)
   let workingDoc = doc
 
   for (const sourceNode of selectedNodes) {
@@ -122,9 +110,7 @@ export const buildDuplicateSelectionDraft = ({
     duplicatedNodeIds.push(operation.node.id)
     sourceToDuplicatedId.set(sourceNode.id, operation.node.id)
 
-    const reduced = reduceOperations(workingDoc, [operation], {
-      registries: registriesSnapshot
-    })
+    const reduced = reduceOperations(workingDoc, [operation])
     if (!reduced.ok) return reduced
     workingDoc = reduced.doc
   }
@@ -158,9 +144,7 @@ export const buildDuplicateSelectionDraft = ({
     }
 
     operationList.push(operation)
-    const reduced = reduceOperations(workingDoc, [operation], {
-      registries: registriesSnapshot
-    })
+    const reduced = reduceOperations(workingDoc, [operation])
     if (!reduced.ok) return reduced
     workingDoc = reduced.doc
   }

@@ -8,11 +8,6 @@
       "import": "./dist/types/index.js",
       "require": "./dist/types/index.cjs"
     },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js",
-      "require": "./dist/core/index.cjs"
-    },
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.js",

@@ -1,6 +1,5 @@
 export { createWrite } from './runtime'
-export { bus } from './stages/invalidation/changeBus'
 export { Writer } from './stages/commit/writer'
 export { History } from './stages/commit/history'
-export * from './stages/invalidation/impact'
+export * from './stages/invalidation/plan'
 export * from './api'

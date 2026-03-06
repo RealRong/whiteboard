@@ -3,7 +3,6 @@ import { defineConfig } from 'tsup'
 export default defineConfig({
   entry: {
     'types/index': 'src/types/index.ts',
-    'core/index': 'src/core/index.ts',
     'utils/index': 'src/utils/index.ts',
     'geometry/index': 'src/geometry/index.ts',
     'node/index': 'src/node/index.ts',

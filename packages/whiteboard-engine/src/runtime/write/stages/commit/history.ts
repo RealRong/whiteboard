@@ -2,32 +2,20 @@ import type { Operation, Origin } from '@whiteboard/core/types'
 import type { ResolvedHistoryConfig } from '@engine-types/common/config'
 import type { HistoryState } from '@engine-types/state/model'
 import type {
-  HistoryApplyEntry,
-  HistoryCaptureInput
+  HistoryCaptureInput,
+  HistoryReplay
 } from '@engine-types/write/history'
 import { DEFAULT_CONFIG } from '../../../../config'
 
 type HistoryEntry = {
   forward: readonly Operation[]
   inverse: readonly Operation[]
-  origin: Origin
-  timestamp: number
 }
 
 type HistoryOptions = {
+  replay: HistoryReplay
   now?: () => number
-  onStateChange?: (state: HistoryState) => void
 }
-
-const cloneValue = <T,>(value: T): T => {
-  const clone = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
-  if (clone) {
-    return clone(value)
-  }
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
-const cloneOperations = (operations: readonly Operation[]) => cloneValue(operations)
 
 const shouldCaptureOrigin = (
   config: ResolvedHistoryConfig,
@@ -39,8 +27,8 @@ const shouldCaptureOrigin = (
 }
 
 export class History {
+  private readonly replay: HistoryReplay
   private readonly now: () => number
-  private readonly onStateChange: (state: HistoryState) => void
   private readonly config: ResolvedHistoryConfig = {
     enabled: DEFAULT_CONFIG.history.enabled,
     capacity: DEFAULT_CONFIG.history.capacity,
@@ -53,14 +41,13 @@ export class History {
   private isApplying = false
   private lastUpdatedAt: number | undefined
 
-  constructor(options: HistoryOptions = {}) {
+  constructor(options: HistoryOptions) {
+    this.replay = options.replay
     this.now = options.now ?? (() => Date.now())
-    this.onStateChange = options.onStateChange ?? (() => {})
   }
 
   private emit = () => {
     this.lastUpdatedAt = this.now()
-    this.onStateChange(this.getState())
   }
 
   private trimUndo = () => {
@@ -81,7 +68,7 @@ export class History {
     this.emit()
   }
 
-  getState = (): HistoryState => ({
+  get = (): HistoryState => ({
     canUndo: this.undoStack.length > 0,
     canRedo: this.redoStack.length > 0,
     undoDepth: this.undoStack.length,
@@ -122,8 +109,7 @@ export class History {
   capture = ({
     forward,
     inverse,
-    origin,
-    timestamp
+    origin
   }: HistoryCaptureInput) => {
     if (!this.config.enabled) return
     if (this.isApplying) return
@@ -131,14 +117,12 @@ export class History {
     if (!forward.length || !inverse.length) return
 
     this.pushUndo({
-      forward: cloneOperations(forward),
-      inverse: cloneOperations(inverse),
-      origin,
-      timestamp
+      forward,
+      inverse
     })
   }
 
-  undo = (apply: HistoryApplyEntry) => {
+  undo = () => {
     if (!this.undoStack.length) {
       this.emit()
       return false
@@ -150,7 +134,7 @@ export class History {
     this.isApplying = true
     this.emit()
     try {
-      const ok = apply(cloneOperations(entry.inverse))
+      const ok = this.replay(entry.inverse)
       if (!ok) {
         this.undoStack.push(entry)
         return false
@@ -163,7 +147,7 @@ export class History {
     return true
   }
 
-  redo = (apply: HistoryApplyEntry) => {
+  redo = () => {
     if (!this.redoStack.length) {
       this.emit()
       return false
@@ -175,7 +159,7 @@ export class History {
     this.isApplying = true
     this.emit()
     try {
-      const ok = apply(cloneOperations(entry.forward))
+      const ok = this.replay(entry.forward)
       if (!ok) {
         this.redoStack.push(entry)
         return false

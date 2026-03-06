@@ -1,58 +1,72 @@
-import type {
-  Node,
-  NodeId
-} from '@whiteboard/core/types'
-import type { WriteInput } from '@engine-types/command/api'
-import type { Size } from '@engine-types/common/base'
-import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Change } from '@engine-types/write/change'
-import { DEFAULT_TUNING } from '../../config'
+import type { WriteInput } from '@engine-types/command/api'
+import type { Rebuild } from '@engine-types/read/change'
+import type { InternalInstance } from '@engine-types/instance/engine'
+import type { Node, NodeId, NodePatch } from '@whiteboard/core/types'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
   getNodesBoundingRect,
   rectEquals
 } from '@whiteboard/core/node'
-
-type LayoutSnapshot = {
-  width: number
-  height: number
-  padding: number
-}
-
-type Indexes = {
-  nodeMap: Map<NodeId, Node>
-  childrenMap: Map<NodeId, Node[]>
-  groups: Node[]
-}
-
-type RebuildMode = 'none' | 'dirty' | 'full'
-
-type RebuildPlan = {
-  rebuild: RebuildMode
-  dirtyNodeIds: ReadonlySet<NodeId>
-}
-
-type PendingRebuildPlan = {
-  rebuild: RebuildMode
-  dirtyNodeIds: Set<NodeId>
-}
-
-type GroupUpdate = {
-  id: NodeId
-  patch: {
-    position: { x: number; y: number }
-    size: { width: number; height: number }
-  }
-}
+import { DEFAULT_TUNING } from '../../config'
 
 type AutofitOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
 }
 
-const createIndexes = (nodes: readonly Node[]): Indexes => {
+type LayoutSnapshot = {
+  nodeWidth: number
+  nodeHeight: number
+  groupPadding: number
+}
+
+type PendingRebuildPlan = {
+  rebuild: Rebuild
+  dirtyNodeIds: Set<NodeId>
+}
+
+type RebuildPlan = {
+  rebuild: Rebuild
+  dirtyNodeIds: Set<NodeId>
+}
+
+type NodeIndexes = {
+  nodeMap: ReadonlyMap<NodeId, Node>
+  childrenByParentId: ReadonlyMap<NodeId, readonly Node[]>
+  groups: readonly Node[]
+}
+
+type GroupUpdate = {
+  id: NodeId
+  patch: NodePatch
+}
+
+const toLayoutSnapshot = (
+  nodeSize: { width: number; height: number },
+  groupPadding: number
+): LayoutSnapshot => ({
+  nodeWidth: nodeSize.width,
+  nodeHeight: nodeSize.height,
+  groupPadding
+})
+
+const isLayoutChanged = (
+  previous: LayoutSnapshot | null,
+  nodeSize: { width: number; height: number },
+  groupPadding: number
+): boolean => {
+  if (!previous) return false
+  return (
+    previous.nodeWidth !== nodeSize.width ||
+    previous.nodeHeight !== nodeSize.height ||
+    previous.groupPadding !== groupPadding
+  )
+}
+
+const createIndexes = (nodes: readonly Node[]): NodeIndexes => {
   const nodeMap = new Map<NodeId, Node>()
-  const childrenMap = new Map<NodeId, Node[]>()
+  const childrenByParentId = new Map<NodeId, Node[]>()
   const groups: Node[] = []
 
   nodes.forEach((node) => {
@@ -61,68 +75,20 @@ const createIndexes = (nodes: readonly Node[]): Indexes => {
       groups.push(node)
     }
     if (!node.parentId) return
-    const list = childrenMap.get(node.parentId) ?? []
-    list.push(node)
-    childrenMap.set(node.parentId, list)
+    const bucket = childrenByParentId.get(node.parentId)
+    if (bucket) {
+      bucket.push(node)
+      return
+    }
+    childrenByParentId.set(node.parentId, [node])
   })
 
   return {
     nodeMap,
-    childrenMap,
+    childrenByParentId,
     groups
   }
 }
-
-const addGroupAncestors = (
-  nodeId: NodeId,
-  map: ReadonlyMap<NodeId, Node>,
-  target: Set<NodeId>
-) => {
-  let cursor: NodeId | undefined = nodeId
-  while (cursor) {
-    const current = map.get(cursor)
-    if (!current) break
-    if (current.type === 'group') {
-      target.add(current.id)
-    }
-    cursor = current.parentId
-  }
-}
-
-const collectDirtyGroupIds = (
-  changedNodeIds: Iterable<NodeId>,
-  prevNodeMap: ReadonlyMap<NodeId, Node>,
-  nextNodeMap: ReadonlyMap<NodeId, Node>
-): Set<NodeId> => {
-  const dirtyGroupIds = new Set<NodeId>()
-
-  for (const nodeId of changedNodeIds) {
-    const prevNode = prevNodeMap.get(nodeId)
-    const nextNode = nextNodeMap.get(nodeId)
-
-    if (prevNode) {
-      addGroupAncestors(prevNode.id, prevNodeMap, dirtyGroupIds)
-    }
-
-    if (nextNode) {
-      addGroupAncestors(nextNode.id, nextNodeMap, dirtyGroupIds)
-    }
-  }
-
-  return dirtyGroupIds
-}
-
-const isLayoutChanged = (prevLayout: LayoutSnapshot | null, nodeSize: Size, padding: number) =>
-  !prevLayout ||
-  prevLayout.width !== nodeSize.width ||
-  prevLayout.height !== nodeSize.height ||
-  prevLayout.padding !== padding
-
-const toLayoutSnapshot = (nodeSize: Size, padding: number): LayoutSnapshot => ({
-  width: nodeSize.width,
-  height: nodeSize.height,
-  padding
-})
 
 const resolveGroupsToProcess = ({
   groups,
@@ -134,31 +100,32 @@ const resolveGroupsToProcess = ({
   prevNodeMap: ReadonlyMap<NodeId, Node> | null
   nextNodeMap: ReadonlyMap<NodeId, Node>
   plan: RebuildPlan
-}): Node[] => {
-  if (!groups.length) return []
-  if (plan.rebuild === 'none') return []
-  if (!prevNodeMap || plan.rebuild === 'full') return [...groups]
-  if (plan.rebuild !== 'dirty' || plan.dirtyNodeIds.size === 0) return []
-  const dirtyGroupIds = collectDirtyGroupIds(
-    plan.dirtyNodeIds,
-    prevNodeMap,
-    nextNodeMap
-  )
-  if (!dirtyGroupIds.size) return []
-
-  return groups.filter((group) => dirtyGroupIds.has(group.id))
-}
-
-const getDescendants = (indexes: Indexes, groupId: NodeId): Node[] => {
-  const result: Node[] = []
-  const stack = [...(indexes.childrenMap.get(groupId) ?? [])]
-  while (stack.length) {
-    const node = stack.pop()!
-    result.push(node)
-    const children = indexes.childrenMap.get(node.id)
-    if (children?.length) stack.push(...children)
+}): readonly Node[] => {
+  if (plan.rebuild === 'full') {
+    return groups
   }
-  return result
+
+  const touchedGroups = new Set<NodeId>()
+  plan.dirtyNodeIds.forEach((id) => {
+    const current = nextNodeMap.get(id)
+    const previous = prevNodeMap?.get(id)
+    const parentIds = [current?.parentId, previous?.parentId]
+    parentIds.forEach((parentId) => {
+      if (!parentId) return
+      const parent = nextNodeMap.get(parentId)
+      if (parent?.type === 'group') {
+        touchedGroups.add(parent.id)
+      }
+    })
+    if (current?.type === 'group') {
+      touchedGroups.add(current.id)
+    }
+    if (previous?.type === 'group') {
+      touchedGroups.add(previous.id)
+    }
+  })
+
+  return groups.filter(group => touchedGroups.has(group.id))
 }
 
 const createAutoFitUpdate = ({
@@ -167,23 +134,22 @@ const createAutoFitUpdate = ({
   nodeSize,
   defaultPadding
 }: {
-  indexes: Indexes
+  indexes: NodeIndexes
   group: Node
-  nodeSize: Size
+  nodeSize: { width: number; height: number }
   defaultPadding: number
 }): GroupUpdate | null => {
-  const autoFit = group.data?.autoFit ?? 'expand-only'
-  if (autoFit === 'manual') return null
-
-  const groupPadding = typeof group.data?.padding === 'number' ? group.data.padding : defaultPadding
-  const children = getDescendants(indexes, group.id)
+  const padding = typeof group.groupPadding === 'number'
+    ? group.groupPadding
+    : defaultPadding
+  const children = indexes.childrenByParentId.get(group.id) ?? []
   if (!children.length) return null
 
   const contentRect = getNodesBoundingRect(children, nodeSize)
   if (!contentRect) return null
 
   const groupRect = getNodeAABB(group, nodeSize)
-  const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
+  const expanded = expandGroupRect(groupRect, contentRect, padding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return null
 
   return {
@@ -216,7 +182,7 @@ export class Autofit {
   }
 
   ingest = (change: Change) => {
-    const indexPlan = change.readHints.index
+    const indexPlan = change.invalidation.index
     if (indexPlan.rebuild === 'none') return
 
     if (indexPlan.rebuild === 'full' || indexPlan.dirtyNodeIds.length === 0) {
@@ -281,24 +247,26 @@ export class Autofit {
   }
 
   private promoteFull = () => {
-    this.pending.rebuild = 'full'
-    this.pending.dirtyNodeIds.clear()
+    this.pending = {
+      rebuild: 'full',
+      dirtyNodeIds: new Set<NodeId>()
+    }
   }
 
   private promoteDirty = (dirtyNodeIds: readonly NodeId[]) => {
     if (this.pending.rebuild === 'full') return
     this.pending.rebuild = 'dirty'
-    dirtyNodeIds.forEach((nodeId) => {
-      this.pending.dirtyNodeIds.add(nodeId)
+    dirtyNodeIds.forEach((id) => {
+      this.pending.dirtyNodeIds.add(id)
     })
   }
 
   private takePending = (): PendingRebuildPlan => {
-    const current = this.pending
+    const pending = this.pending
     this.pending = {
       rebuild: 'none',
       dirtyNodeIds: new Set<NodeId>()
     }
-    return current
+    return pending
   }
 }

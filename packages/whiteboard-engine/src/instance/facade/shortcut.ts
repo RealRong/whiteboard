@@ -1,18 +1,15 @@
 import type { ShortcutAction } from '@engine-types/shortcuts/types'
-import type {
-  SelectionCommandsApi,
-  ShortcutActionDispatcher
-} from '@engine-types/write/commands'
+import type { Commands } from '@engine-types/command/api'
 import type { State } from '@engine-types/instance/state'
 
-export const shortcut = ({
+export const createShortcutCommands = ({
   state,
   selection,
   history
 }: {
   state: Pick<State, 'read'>
   selection: Pick<
-    SelectionCommandsApi,
+    Commands['selection'],
     | 'selectAll'
     | 'clear'
     | 'groupSelected'
@@ -20,11 +17,8 @@ export const shortcut = ({
     | 'deleteSelected'
     | 'duplicateSelected'
   >
-  history: {
-    undo: () => boolean
-    redo: () => boolean
-  }
-}): ShortcutActionDispatcher => {
+  history: Pick<Commands['history'], 'undo' | 'redo'>
+}): Commands['shortcut'] => {
   const canDispatch = (action: ShortcutAction): boolean => {
     const interaction = state.read('interaction')
     const focus = interaction.focus

@@ -1,26 +1,22 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type {
-  SelectionMode
-} from '@engine-types/state/model'
-import type {
-  WriteCommandMap
-} from '@engine-types/command/api'
-import type {
-  SelectionCommandsApi
-} from '@engine-types/write/commands'
-import {
-  applySelection
-} from '@whiteboard/core/node'
+import type { Commands } from '@engine-types/command/api'
+import type { Write } from '@engine-types/write/runtime'
+import type { SelectionMode } from '@engine-types/state/model'
+import { applySelection } from '@whiteboard/core/node'
 import type {
   DispatchResult,
   EdgeId,
-  NodeId
+  NodeId,
+  Operation
 } from '@whiteboard/core/types'
-import type { Apply } from '../stages/plan/draft'
 
-type SelectionCommand = WriteCommandMap['selection']
 type SelectionWriteValue = {
   selectedNodeIds?: NodeId[]
+}
+
+type SelectionDeps = {
+  instance: Pick<InternalInstance, 'state' | 'read'>
+  write: Pick<Write, 'apply'>
 }
 
 const readSelectedNodeIdsFromResult = (result: DispatchResult): NodeId[] => {
@@ -32,20 +28,20 @@ const readSelectedNodeIdsFromResult = (result: DispatchResult): NodeId[] => {
     : []
 }
 
-export const selection = ({
+const readCreatedNodeIds = (result: DispatchResult): NodeId[] => {
+  if (!result.ok) return []
+  return result.changes.operations
+    .filter((operation): operation is Extract<Operation, { type: 'node.create' }> =>
+      operation.type === 'node.create'
+    )
+    .map((operation) => operation.node.id)
+}
+
+export const createSelectionCommands = ({
   instance,
-  apply
-}: {
-  instance: Pick<InternalInstance, 'state' | 'read'>
-  apply: Apply
-}): SelectionCommandsApi => {
+  write
+}: SelectionDeps): Commands['selection'] => {
   const state = instance.state
-  const run = (command: SelectionCommand) =>
-    apply({
-      domain: 'selection',
-      command,
-      source: 'ui'
-    })
   const getSelectableNodeIds = (): NodeId[] =>
     [...instance.read.projection.node.ids]
   const getSelectedNodeIds = (): NodeId[] =>
@@ -85,7 +81,8 @@ export const selection = ({
       state.write('selection', (prev) => ({
         ...prev,
         selectedEdgeId: undefined,
-        selectedNodeIds: new Set()
+        selectedNodeIds: new Set(),
+        mode: 'replace'
       }))
     })
   }
@@ -94,9 +91,13 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (selectedNodeIds.length < 2) return
 
-    const result = await run({
-      type: 'group',
-      selectedNodeIds
+    const result = await write.apply({
+      domain: 'node',
+      command: {
+        type: 'group.create',
+        ids: selectedNodeIds
+      },
+      source: 'ui'
     })
     const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
     if (!nextSelectedNodeIds.length) return
@@ -107,9 +108,13 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (!selectedNodeIds.length) return
 
-    const result = await run({
-      type: 'ungroup',
-      selectedNodeIds
+    const result = await write.apply({
+      domain: 'node',
+      command: {
+        type: 'group.ungroupMany',
+        ids: selectedNodeIds
+      },
+      source: 'ui'
     })
     if (!result.ok) return
     clear()
@@ -120,14 +125,16 @@ export const selection = ({
     const selectedNodeIds = getSelectedNodeIds()
     if (!selectedEdgeId && !selectedNodeIds.length) return
 
-    const result = await run({
-      type: 'delete',
-      selectedNodeIds,
-      selectedEdgeId
-    })
-    if (!result.ok) return
-
     if (selectedEdgeId) {
+      const result = await write.apply({
+        domain: 'edge',
+        command: {
+          type: 'delete',
+          ids: [selectedEdgeId]
+        },
+        source: 'ui'
+      })
+      if (!result.ok) return
       state.batch(() => {
         state.write('selection', (prev) => ({
           ...prev,
@@ -137,25 +144,39 @@ export const selection = ({
       return
     }
 
-    const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
-    if (!nextSelectedNodeIds.length) {
-      clear()
-      return
-    }
-    select(nextSelectedNodeIds, 'replace')
+    const result = await write.apply({
+      domain: 'node',
+      command: {
+        type: 'deleteCascade',
+        ids: selectedNodeIds
+      },
+      source: 'ui'
+    })
+    if (!result.ok) return
+    clear()
   }
 
   const duplicateSelected = async () => {
     const selectedNodeIds = getSelectedNodeIds()
     if (!selectedNodeIds.length) return
 
-    const result = await run({
-      type: 'duplicate',
-      selectedNodeIds
+    const result = await write.apply({
+      domain: 'node',
+      command: {
+        type: 'duplicate',
+        ids: selectedNodeIds
+      },
+      source: 'ui'
     })
     const nextSelectedNodeIds = readSelectedNodeIdsFromResult(result)
-    if (!nextSelectedNodeIds.length) return
-    select(nextSelectedNodeIds, 'replace')
+    if (nextSelectedNodeIds.length) {
+      select(nextSelectedNodeIds, 'replace')
+      return
+    }
+
+    const fallbackSelectedNodeIds = readCreatedNodeIds(result)
+    if (!fallbackSelectedNodeIds.length) return
+    select(fallbackSelectedNodeIds, 'replace')
   }
 
   return {

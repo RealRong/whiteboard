@@ -1,11 +1,10 @@
-import type { Core, Document } from '../types'
-import { createKernelCore } from './internal'
-import type { KernelContext } from './types'
+import type { Document } from '../types'
+import { createKernelRuntime } from './internal'
+import type { KernelContext, KernelQuery } from './types'
 
-export type KernelQuery = Core['query']
+export type { KernelQuery } from './types'
 
 export const createKernelQuery = (
   document: Document,
   context: KernelContext = {}
-): KernelQuery => createKernelCore(document, context).query
-
+): KernelQuery => createKernelRuntime(document, context).query

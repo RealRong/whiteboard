@@ -188,6 +188,8 @@ export type MindmapSubtree = {
   children: Record<MindmapNodeId, MindmapNodeId[]>
 }
 
+// Operation is immutable once created. Any enrichment or normalization must
+// return a new operation instead of mutating an existing one.
 export type Operation =
   | { readonly type: 'node.create'; readonly node: Node }
   | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch; readonly before?: Node }
@@ -239,51 +241,6 @@ export interface ChangeSet {
   origin?: 'user' | 'remote' | 'system'
 }
 
-export interface BeforeChangeSet {
-  changes: ChangeSet
-  cancel(): void
-}
-
-export interface AfterChangeSet {
-  changes: ChangeSet
-}
-
-export interface TransactionSummary {
-  changes: ChangeSet[]
-}
-
-export type CoreEvent =
-  | { type: 'changes.applied'; changes: ChangeSet }
-  | { type: 'node.created'; node: Node }
-  | { type: 'node.updated'; id: NodeId; patch: NodePatch }
-  | { type: 'node.deleted'; id: NodeId }
-  | { type: 'edge.created'; edge: Edge }
-  | { type: 'edge.updated'; id: EdgeId; patch: EdgePatch }
-  | { type: 'edge.deleted'; id: EdgeId }
-  | { type: 'mindmap.created'; mindmap: MindmapTree }
-  | { type: 'mindmap.updated'; id: MindmapId; mindmap: MindmapTree }
-  | { type: 'mindmap.deleted'; id: MindmapId }
-  | { type: 'mindmap.node.created'; id: MindmapId; node: MindmapNode }
-  | { type: 'mindmap.node.updated'; id: MindmapId; nodeId: MindmapNodeId; patch: Partial<MindmapNode> }
-  | { type: 'mindmap.node.deleted'; id: MindmapId; nodeId: MindmapNodeId }
-  | { type: 'mindmap.node.moved'; id: MindmapId; nodeId: MindmapNodeId; toParentId: MindmapNodeId }
-  | { type: 'mindmap.node.reordered'; id: MindmapId; parentId: MindmapNodeId; fromIndex: number; toIndex: number }
-  | { type: 'viewport.updated'; viewport: Viewport }
-
-export interface PluginHost {
-  use(plugin: Plugin): void
-  has(id: string): boolean
-  activate(id: string): void
-  deactivate(id: string): void
-  list(): PluginManifest[]
-}
-
-export interface CommandRegistry {
-  register(name: string, handler: (...args: unknown[]) => void): () => void
-  get(name: string): ((...args: unknown[]) => void) | undefined
-  list(): string[]
-}
-
 export interface NodeTypeDefinition {
   type: NodeType
   label?: string
@@ -328,36 +285,6 @@ export interface CoreRegistries {
   edgeTypes: Registry<EdgeTypeDefinition>
   schemas: SchemaRegistry
   serializers: Registry<Serializer>
-  commands: CommandRegistry
-}
-
-export interface PluginContext {
-  core: Core
-  registries: CoreRegistries
-  commands: CommandRegistry
-}
-
-export interface PluginManifest {
-  id: string
-  name?: string
-  version?: string
-  requires?: string[]
-  capabilities?: string[]
-}
-
-export interface Plugin {
-  manifest: PluginManifest
-  install?: (ctx: PluginContext) => void
-  activate?: (ctx: PluginContext) => void
-  deactivate?: (ctx: PluginContext) => void
-  commands?: Record<string, (...args: any[]) => void>
-  nodes?: NodeTypeDefinition[]
-  edges?: EdgeTypeDefinition[]
-  schemas?: {
-    nodes?: NodeSchema[]
-    edges?: EdgeSchema[]
-  }
-  serializers?: Serializer[]
 }
 
 export type Origin = 'user' | 'remote' | 'system'
@@ -377,113 +304,3 @@ export interface DispatchSuccess {
 }
 
 export type DispatchResult = DispatchSuccess | DispatchFailure
-
-export interface CoreApplyOptions {
-  origin?: Origin
-}
-
-export interface TransactionOptions {
-  origin?: Origin
-  transactionId?: string
-  label?: string
-}
-
-export interface TransactionResult<T = void> {
-  result: T
-  changes: ChangeSet[]
-}
-
-export interface CoreHistoryApi {
-  undo(): boolean
-  redo(): boolean
-  clear(): void
-  configure(config: Partial<CoreHistoryConfig>): void
-  getState(): CoreHistoryState
-  subscribe(listener: (state: CoreHistoryState) => void): () => void
-}
-
-export interface CoreTxApi {
-  <T>(fn: () => T | Promise<T>, options?: TransactionOptions): Promise<TransactionResult<T>>
-}
-
-export type CoreHistoryState = {
-  canUndo: boolean
-  canRedo: boolean
-  undoDepth: number
-  redoDepth: number
-  isApplying: boolean
-  lastUpdatedAt: number
-}
-
-export type CoreHistoryConfig = {
-  enabled: boolean
-  capacity: number
-  captureSystem: boolean
-  captureRemote: boolean
-}
-
-export interface Core {
-  query: {
-    document(): Document
-    node: {
-      get(id: NodeId): Node | undefined
-      list(): Node[]
-    }
-    edge: {
-      get(id: EdgeId): Edge | undefined
-      list(): Edge[]
-      byNode(id: NodeId): Edge[]
-    }
-    mindmap: {
-      get(id: MindmapId): MindmapTree | undefined
-      list(): MindmapTree[]
-    }
-    viewport(): Viewport
-  }
-
-  apply: {
-    operations(operations: readonly Operation[], options?: CoreApplyOptions): DispatchResult
-    changeSet(changes: ChangeSet): DispatchResult
-  }
-
-  model: {
-    node: {
-      create(input: NodeInput): NodeId
-      update(id: NodeId, patch: NodePatch): void
-      updateMany(updates: Array<{ id: NodeId; patch: NodePatch }>): void
-      delete(ids: NodeId[]): void
-    }
-    edge: {
-      create(input: EdgeInput): EdgeId
-      update(id: EdgeId, patch: EdgePatch): void
-      delete(ids: EdgeId[]): void
-    }
-    mindmap: {
-      create(input?: MindmapCreateInput | MindmapTree): MindmapId
-      update(id: MindmapId, tree: MindmapTree): void
-      delete(ids: MindmapId[]): void
-    }
-  }
-
-  history: CoreHistoryApi
-  tx: CoreTxApi
-
-  registries: CoreRegistries
-
-  events: {
-    on<T extends CoreEvent>(type: T['type'], handler: (e: T) => void): void
-    off<T extends CoreEvent>(type: T['type'], handler: (e: T) => void): void
-  }
-
-  changes: {
-    onBefore(handler: (e: BeforeChangeSet) => void | false): () => void
-    onAfter(handler: (e: AfterChangeSet) => void): () => void
-    transactionStart(handler: () => void): () => void
-    transactionEnd(handler: (e: TransactionSummary) => void): () => void
-  }
-
-  serialize(): Snapshot
-  load(snapshot: Snapshot): void
-
-  plugins: PluginHost
-}

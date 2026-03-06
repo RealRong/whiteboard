@@ -1,6 +1,6 @@
-import type { Core, CoreRegistries, DispatchFailure, Document } from '../types'
-import { createCore } from '../core/createCore'
-import type { KernelContext, KernelRegistriesSnapshot } from './types'
+import type { DispatchFailure, Document } from '../types'
+import { createKernelExecutor, type KernelExecutor } from './executor'
+import type { KernelContext } from './types'
 
 const cloneValue = <T,>(value: T): T => {
   const clone = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
@@ -12,62 +12,32 @@ const cloneValue = <T,>(value: T): T => {
 
 export const cloneDocument = (document: Document): Document => cloneValue(document)
 
-export const applyKernelRegistries = (
-  registries: CoreRegistries,
-  snapshot?: KernelRegistriesSnapshot
-) => {
-  if (!snapshot) return
-
-  snapshot.nodeTypes?.forEach((definition) => {
-    registries.nodeTypes.register(definition)
-  })
-  snapshot.edgeTypes?.forEach((definition) => {
-    registries.edgeTypes.register(definition)
-  })
-  snapshot.nodeSchemas?.forEach((schema) => {
-    registries.schemas.registerNode(schema)
-  })
-  snapshot.edgeSchemas?.forEach((schema) => {
-    registries.schemas.registerEdge(schema)
-  })
-  snapshot.serializers?.forEach((serializer) => {
-    registries.serializers.register(serializer)
-  })
-}
-
-export const createKernelCore = (
+export const createKernelRuntime = (
   document: Document,
   context: KernelContext = {}
-): Core => {
-  const core = createCore({
+): KernelExecutor =>
+  createKernelExecutor({
     document: cloneDocument(document),
     now: context.now
   })
-  core.history.configure({ enabled: false })
-  applyKernelRegistries(core.registries, context.registries)
-  return core
-}
 
-let reusableKernelCore: Core | undefined
+let reusableKernelRuntime: KernelExecutor | undefined
 
-export const getReusableKernelCore = (
+export const getReusableKernelRuntime = (
   document: Document,
   context: KernelContext = {}
-): Core => {
-  if (!reusableKernelCore) {
-    reusableKernelCore = createCore({
-      document: cloneDocument(document),
+): KernelExecutor => {
+  const nextDocument = cloneDocument(document)
+  if (!reusableKernelRuntime) {
+    reusableKernelRuntime = createKernelExecutor({
+      document: nextDocument,
       now: context.now
     })
-    reusableKernelCore.history.configure({ enabled: false })
-  } else {
-    reusableKernelCore.load({
-      schemaVersion: reusableKernelCore.serialize().schemaVersion,
-      document: cloneDocument(document)
-    })
+    return reusableKernelRuntime
   }
-  applyKernelRegistries(reusableKernelCore.registries, context.registries)
-  return reusableKernelCore
+
+  reusableKernelRuntime.load(nextDocument)
+  return reusableKernelRuntime
 }
 
 export const createKernelFailure = (

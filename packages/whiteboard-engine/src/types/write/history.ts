@@ -1,10 +1,9 @@
-import type { Operation } from '@whiteboard/core/types'
+import type { Operation, Origin } from '@whiteboard/core/types'
 
 export type HistoryCaptureInput = {
   forward: readonly Operation[]
   inverse: readonly Operation[]
-  origin: import('@whiteboard/core/types').Origin
-  timestamp: number
+  origin: Origin
 }
 
-export type HistoryApplyEntry = (operations: readonly Operation[]) => boolean
+export type HistoryReplay = (operations: readonly Operation[]) => boolean

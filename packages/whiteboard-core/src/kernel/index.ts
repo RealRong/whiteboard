@@ -9,6 +9,5 @@ export { corePlan } from './plan'
 export type {
   KernelContext,
   KernelInvertResult,
-  KernelReduceResult,
-  KernelRegistriesSnapshot
+  KernelReduceResult
 } from './types'

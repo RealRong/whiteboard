@@ -196,7 +196,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
       return
     }
     lastOutboundDocRef.current = doc
-    void instance.commands.doc.reset(doc)
+    void instance.commands.doc.load(doc)
   }, [doc, instance])
 
   const runtimeConfig = useMemo(

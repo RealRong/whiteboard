@@ -189,7 +189,7 @@ const main = () => {
     }
   })
   const syncDoc = (next: Document) => {
-    void instance.commands.doc.reset(next)
+    void instance.commands.doc.load(next)
   }
 
   const edgeId = 'e_route'

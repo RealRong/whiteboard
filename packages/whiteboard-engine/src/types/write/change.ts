@@ -8,10 +8,12 @@ export type ChangeTrace = {
 
 export type Change = {
   trace: ChangeTrace
-  readHints: ReadInvalidation
+  invalidation: ReadInvalidation
 }
+
+export type Subscribe = (listener: (change: Change) => void) => () => void
 
 export type Bus = {
   publish: (change: Change) => void
-  subscribe: (listener: (change: Change) => void) => () => void
+  subscribe: Subscribe
 }

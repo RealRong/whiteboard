@@ -1,69 +1,22 @@
 import type {
-  ApplyMutationsApi,
-  CommandSource,
-  CommandTrace
-} from '@engine-types/command/source'
-import type {
-  ApplyResult,
-  Options as WriterOptions,
-  ResetResult
+  DocumentCommitInput,
+  DocumentCommitResult,
+  OperationsCommitInput,
+  OperationsCommitResult,
+  Options as WriterOptions
 } from '@engine-types/write/writer'
-import type {
-  Bus as ChangeBus,
-  ChangeTrace
-} from '@engine-types/write/change'
-import { FULL_MUTATION_IMPACT, MutationImpactAnalyzer } from '../invalidation/impact'
 import { reduceOperations } from '@whiteboard/core/kernel'
-import type { KernelRegistriesSnapshot } from '@whiteboard/core/kernel'
-import { DEFAULT_DOCUMENT_VIEWPORT } from '../../../../config'
-import type {
-  DispatchResult,
-  Document,
-  Operation,
-  Origin
-} from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
-import type { PrimitiveAtom } from 'jotai/vanilla'
-import { History } from './history'
-import type { Draft } from '../plan/draft'
-import type { ReadInvalidation } from '@engine-types/read/invalidation'
-import { createReadInvalidation } from '../invalidation/readHints'
-
-type ApplyTransaction = {
-  source: CommandSource
-  origin: Origin
-  operations: readonly Operation[]
-  trace?: CommandTrace
-}
-
-type ReplaceTransaction = {
-  source: CommandSource
-  origin: Origin
-  doc: Document
-  timestamp?: number
-  trace?: CommandTrace
-}
 
 export class Writer {
-  private readonly instance: WriterOptions['instance']
-  private readonly changeBus: ChangeBus
-  private readonly readModelRevisionAtom: PrimitiveAtom<number>
-  private readonly project: WriterOptions['project']
+  private readonly document: WriterOptions['document']
   private readonly now: () => number
-  private readonly impactAnalyzer = new MutationImpactAnalyzer()
-  private readonly timeline: History
 
   constructor({
-    instance,
-    changeBus,
-    readModelRevisionAtom,
-    project,
+    document,
     now
   }: WriterOptions) {
-    this.instance = instance
-    this.changeBus = changeBus
-    this.readModelRevisionAtom = readModelRevisionAtom
-    this.project = project
+    this.document = document
     this.now = now ?? (() => {
       const runtime = globalThis as { performance?: { now?: () => number } }
       if (typeof runtime.performance?.now === 'function') {
@@ -71,223 +24,46 @@ export class Writer {
       }
       return Date.now()
     })
-    this.timeline = new History({ now: this.now })
   }
 
-  private createKernelRegistriesSnapshot = (): KernelRegistriesSnapshot => ({
-    nodeTypes: this.instance.registries.nodeTypes.list(),
-    edgeTypes: this.instance.registries.edgeTypes.list(),
-    nodeSchemas: this.instance.registries.schemas.listNodes(),
-    edgeSchemas: this.instance.registries.schemas.listEdges(),
-    serializers: this.instance.registries.serializers.list()
-  })
-
-  private setDocument = (doc: Document) => {
-    this.instance.document.set(doc)
-  }
-
-  private notifyDocumentChange = (doc: Document) => {
-    this.instance.document.notifyChange(doc)
-  }
-
-  private syncDocumentState = (doc: Document) => {
-    this.instance.runtime.store.set(
-      this.readModelRevisionAtom,
-      (revision: number) => revision + 1
-    )
-    this.instance.viewport.setViewport(doc.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-  }
-
-  private createReadHints = (
-    impact: ReturnType<MutationImpactAnalyzer['analyze']>
-  ) => createReadInvalidation({ impact })
-
-  private projectChange = (impact: ReturnType<MutationImpactAnalyzer['analyze']>) => {
-    const readHints = this.createReadHints(impact)
-    this.project(readHints)
-    return readHints
-  }
-
-  private publishChange = ({
-    trace,
-    readHints
-  }: {
-    trace: ChangeTrace
-    readHints: ReadInvalidation
-  }) => {
-    this.changeBus.publish({
-      trace,
-      readHints
-    })
-  }
-
-  private normalizeTrace = (
-    source: CommandSource,
-    trace?: CommandTrace
-  ): ChangeTrace => {
-    const commandId = trace?.commandId ?? createId('command')
-    return {
-      commandId,
-      source
-    }
-  }
-
-  private commitApply = (input: ApplyTransaction): ApplyResult => {
-    const trace = this.normalizeTrace(input.source, input.trace)
-    const docBefore = this.instance.document.get()
-    const reduced = reduceOperations(docBefore, input.operations, {
+  commitOperations({
+    operations,
+    origin
+  }: OperationsCommitInput): OperationsCommitResult {
+    const reduced = reduceOperations(this.document.get(), operations, {
       now: this.now,
-      origin: input.origin,
-      registries: this.createKernelRegistriesSnapshot()
+      origin
     })
     if (!reduced.ok) {
       return reduced
     }
 
-    const operations = reduced.changes.operations
-    this.setDocument(reduced.doc)
-    this.syncDocumentState(reduced.doc)
-    const readHints = this.projectChange(this.impactAnalyzer.analyze(operations))
-    this.notifyDocumentChange(reduced.doc)
-    this.publishChange({
-      trace,
-      readHints
-    })
+    this.document.commit(reduced.doc)
 
     return {
       ok: true,
+      doc: reduced.doc,
       changes: reduced.changes,
-      inverse: reduced.inverse,
-      applied: {
-        docId: reduced.doc.id,
-        origin: input.origin,
-        operations
-      }
+      inverse: reduced.inverse
     }
   }
 
-  private commitReplace = (input: ReplaceTransaction): ResetResult => {
-    const trace = this.normalizeTrace(input.source, input.trace)
-
-    this.setDocument(input.doc)
-    this.syncDocumentState(input.doc)
-    const readHints = this.projectChange(FULL_MUTATION_IMPACT)
-    this.publishChange({
-      trace,
-      readHints
-    })
+  commitDocument({
+    doc,
+    origin,
+    timestamp
+  }: DocumentCommitInput): DocumentCommitResult {
+    this.document.commit(doc)
 
     return {
       ok: true,
+      doc,
       changes: {
         id: createId('ms'),
-        timestamp: input.timestamp ?? this.now(),
+        timestamp: timestamp ?? this.now(),
         operations: [],
-        origin: input.origin
-      },
-      applied: {
-        docId: input.doc.id,
-        origin: input.origin,
-        operations: [],
-        reset: true
+        origin
       }
-    }
-  }
-
-  private applyHistoryOperations = (operations: readonly Operation[]) =>
-    this.commitApply({
-      operations,
-      origin: 'system',
-      source: 'system'
-    }).ok
-
-  readonly history = {
-    get: () => this.timeline.getState(),
-    configure: (config: Parameters<History['configure']>[0]) => {
-      this.timeline.configure(config)
-    },
-    undo: () => this.timeline.undo(this.applyHistoryOperations),
-    redo: () => this.timeline.redo(this.applyHistoryOperations),
-    clear: () => this.timeline.clear()
-  }
-
-  private toOrigin = (source: CommandSource): Origin => {
-    if (source === 'remote') return 'remote'
-    if (source === 'system' || source === 'import') return 'system'
-    return 'user'
-  }
-
-  private commitOperations = ({
-    operations,
-    source,
-    trace
-  }: {
-    operations: readonly Operation[]
-    source: CommandSource
-    trace?: CommandTrace
-  }): DispatchResult => {
-    const origin = this.toOrigin(source)
-    const result = this.commitApply({
-      operations,
-      origin,
-      source,
-      trace
-    })
-    if (!result.ok) return result
-
-    this.timeline.capture({
-      forward: result.changes.operations,
-      inverse: result.inverse,
-      origin,
-      timestamp: result.changes.timestamp
-    })
-
-    return {
-      ok: true,
-      changes: result.changes
-    }
-  }
-
-  mutate: ApplyMutationsApi = async (operations, source, trace) => {
-    return this.commitOperations({
-      operations,
-      source,
-      trace
-    })
-  }
-
-  applyDraft = async (
-    draft: Draft,
-    source: CommandSource,
-    trace?: CommandTrace
-  ): Promise<DispatchResult> => {
-    if (!draft.ok) return draft
-    const result = this.commitOperations({
-      operations: draft.operations,
-      source,
-      trace
-    })
-    if (!result.ok) return result
-    if (typeof draft.value === 'undefined') return result
-    return {
-      ...result,
-      value: draft.value
-    }
-  }
-
-  resetDoc = async (doc: Document): Promise<DispatchResult> => {
-    const currentDocId = this.instance.document.get().id
-    if (currentDocId !== doc.id) {
-      this.timeline.clear()
-    }
-    const result = this.commitReplace({
-      doc,
-      origin: 'system',
-      source: 'system'
-    })
-    return {
-      ok: true,
-      changes: result.changes
     }
   }
 }

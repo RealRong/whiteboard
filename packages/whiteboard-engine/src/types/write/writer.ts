@@ -1,40 +1,40 @@
-import type { PrimitiveAtom } from 'jotai/vanilla'
 import type {
   ChangeSet,
   DispatchFailure,
+  Document,
   Operation,
   Origin
 } from '@whiteboard/core/types'
-import type { Bus as ChangeBus } from './change'
-import type { WriteInstance } from './deps'
-import type { ReadInvalidation } from '../read/invalidation'
+import type { Store as DocumentStore } from '../document/store'
 
-export type Applied = {
-  docId: string | undefined
-  origin: Origin
-  operations: readonly Operation[]
-  reset?: true
+export type CommitSuccess = {
+  ok: true
+  doc: Document
+  changes: ChangeSet
+}
+
+export type OperationsCommitSuccess = CommitSuccess & {
+  inverse: readonly Operation[]
 }
 
 export type Options = {
-  instance: WriteInstance
-  changeBus: ChangeBus
-  readModelRevisionAtom: PrimitiveAtom<number>
-  project: (invalidation: ReadInvalidation) => void
+  document: DocumentStore
   now?: () => number
 }
 
-export type ApplyResult =
-  | {
-      ok: true
-      changes: ChangeSet
-      inverse: readonly Operation[]
-      applied: Applied
-    }
+export type OperationsCommitInput = {
+  operations: readonly Operation[]
+  origin: Origin
+}
+
+export type DocumentCommitInput = {
+  doc: Document
+  origin: Origin
+  timestamp?: number
+}
+
+export type OperationsCommitResult =
+  | OperationsCommitSuccess
   | DispatchFailure
 
-export type ResetResult = {
-  ok: true
-  changes: ChangeSet
-  applied: Applied
-}
+export type DocumentCommitResult = CommitSuccess

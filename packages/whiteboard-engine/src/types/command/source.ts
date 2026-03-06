@@ -9,6 +9,7 @@ export type CommandSource =
   | 'remote'
   | 'import'
   | 'system'
+  | 'history'
   | 'interaction'
 
 export type Mutation = Operation

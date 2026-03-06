@@ -30,7 +30,8 @@ export type MindmapCommands = {
 
 export type Commands = {
   doc: {
-    reset: (doc: Document) => Promise<DispatchResult>
+    load: (doc: Document) => Promise<DispatchResult>
+    replace: (doc: Document) => Promise<DispatchResult>
   }
   tool: {
     set: (tool: 'select' | 'edge') => void
@@ -52,8 +53,13 @@ export type Commands = {
   selection: {
     select: (ids: NodeId[], mode?: SelectionMode) => void
     toggle: (ids: NodeId[]) => void
+    selectAll: () => void
     clear: () => void
     getSelectedNodeIds: () => NodeId[]
+    groupSelected: () => Promise<void>
+    ungroupSelected: () => Promise<void>
+    deleteSelected: () => Promise<void>
+    duplicateSelected: () => Promise<void>
   }
   shortcut: {
     dispatch: (action: ShortcutAction) => boolean

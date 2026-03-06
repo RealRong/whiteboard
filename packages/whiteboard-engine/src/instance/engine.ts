@@ -8,7 +8,7 @@ import type { WriteInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
 import { createWrite } from '../runtime/write/runtime'
-import { resolveInstanceConfig } from '../config'
+import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { state as setupState } from '../state/factory/state'
 import { Scheduler } from '../scheduling/Scheduler'
 import { ViewportHost } from '../runtime/Viewport'
@@ -32,8 +32,13 @@ export const engine = ({
     store
   })
   const readDocument = (): Document => store.get(stateAtoms.document)
-  const setDocument = (nextDocument: Document) => {
+  const commitDocument = (nextDocument: Document) => {
     store.set(stateAtoms.document, nextDocument)
+    store.set(
+      stateAtoms.readModelRevision,
+      (revision: number) => revision + 1
+    )
+    viewport.setViewport(nextDocument.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
   }
   const notifyDocumentChange = (nextDocument: Document) => {
     onDocumentChange?.(nextDocument)
@@ -52,12 +57,9 @@ export const engine = ({
 
   const baseInstance: WriteInstance = {
     state,
-    runtime: {
-      store
-    },
     document: {
       get: readDocument,
-      set: setDocument,
+      commit: commitDocument,
       notifyChange: notifyDocumentChange
     },
     config,
@@ -70,8 +72,7 @@ export const engine = ({
   const write = createWrite({
     instance: baseInstance,
     scheduler,
-    readModelRevisionAtom: stateAtoms.readModelRevision,
-    project: read.applyInvalidation
+    applyInvalidation: read.applyInvalidation
   })
 
   const reactions = createReactions({

@@ -7,7 +7,7 @@ import { createReactionRegistry } from './registry'
 
 type ReactionsOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
-  write: Pick<Write, 'changeBus' | 'apply'>
+  write: Pick<Write, 'subscribe' | 'apply'>
   scheduler: Scheduler
 }
 
@@ -38,7 +38,7 @@ export const createReactions = ({
 
   registry.seed(taskQueue.enqueue)
 
-  const offChange = write.changeBus.subscribe((change) => {
+  const offChange = write.subscribe((change) => {
     registry.ingest(change, taskQueue.enqueue)
   })
 
