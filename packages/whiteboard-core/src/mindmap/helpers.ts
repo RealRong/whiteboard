@@ -1,5 +1,5 @@
+import type { Document, MindmapId, Node } from '../types/core'
 import type { MindmapTree } from './types'
-import type { Node } from '../types/core'
 
 const isMindmapTree = (value: unknown): value is MindmapTree => {
   if (!value || typeof value !== 'object') return false
@@ -10,23 +10,18 @@ const isMindmapTree = (value: unknown): value is MindmapTree => {
 export const getMindmapTreeFromNode = (node: Node | undefined): MindmapTree | undefined => {
   if (!node || node.type !== 'mindmap') return
   const data = node.data as Record<string, unknown> | undefined
-  if (!data) return
-  const direct = data as unknown
-  if (isMindmapTree(direct)) return direct
-  const nested = data.mindmap
-  if (isMindmapTree(nested)) return nested
-  const legacy = data.tree
-  if (isMindmapTree(legacy)) return legacy
-  return
+  if (!data || typeof data !== 'object') return
+  const tree = data.mindmap
+  return isMindmapTree(tree) ? tree : undefined
 }
 
-export const withMindmapTree = (node: Node, tree: MindmapTree): Node => {
-  const data = node.data && typeof node.data === 'object' ? (node.data as Record<string, unknown>) : {}
-  return {
-    ...node,
-    data: {
-      ...data,
-      mindmap: tree
-    }
-  }
-}
+export const getMindmapNodeById = (
+  document: Pick<Document, 'nodes'>,
+  id: MindmapId
+): Node | undefined => document.nodes.find((node) => node.id === id && node.type === 'mindmap')
+
+export const getMindmapTreeFromDocument = (
+  document: Pick<Document, 'nodes'>,
+  id: MindmapId
+): MindmapTree | undefined => getMindmapTreeFromNode(getMindmapNodeById(document, id))
+

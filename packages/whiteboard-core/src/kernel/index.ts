@@ -1,13 +1,19 @@
 export { createRegistries } from './registries'
-export { normalizeOperations } from './normalize'
 export { reduceOperations } from './reduce'
-export { invertOperations } from './invert'
-export { buildInverseOperations } from './inversion'
-export { createKernelQuery } from './query'
+export { createHistory } from './history'
 export { corePlan } from './plan'
 
 export type {
   KernelContext,
-  KernelInvertResult,
+  KernelProjectionInvalidation,
+  KernelRebuild,
   KernelReduceResult
 } from './types'
+
+export type {
+  HistoryApi,
+  HistoryCapture,
+  HistoryConfig,
+  HistoryReplay,
+  HistoryState
+} from './history'

@@ -10,7 +10,7 @@ const useNodeItem = (nodeId: NodeId) => {
   const instance = useInstance()
   return useReadGetter<NodeViewItem | undefined>(
     () => instance.read.projection.node.byId.get(nodeId),
-    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
+    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
   )
 }
 
@@ -25,7 +25,7 @@ export const NodeLayer = () => {
   const instance = useInstance()
   const nodeIds = useReadGetter(
     () => instance.read.projection.node.ids,
-    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
+    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
   )
 
   return (

@@ -69,16 +69,14 @@ export type MindmapCloneSubtreeOptions = {
 
 export type MindmapInsertCommand =
   | {
-      type: 'insert'
-      mode: 'child'
+      type: 'insert.child'
       id: MindmapId
       parentId: MindmapNodeId
       payload?: MindmapNodeData | MindmapAttachPayload
       options?: MindmapCommandOptions
     }
   | {
-      type: 'insert'
-      mode: 'sibling'
+      type: 'insert.sibling'
       id: MindmapId
       nodeId: MindmapNodeId
       position: 'before' | 'after'
@@ -86,62 +84,56 @@ export type MindmapInsertCommand =
       options?: MindmapCommandOptions
     }
   | {
-      type: 'insert'
-      mode: 'external'
+      type: 'insert.external'
       id: MindmapId
       targetId: MindmapNodeId
       payload: MindmapAttachPayload
       options?: MindmapCommandOptions
     }
   | ({
-      type: 'insert'
-      mode: 'placement'
+      type: 'insert.placement'
     } & MindmapInsertNodeOptions)
 
 export type MindmapMoveCommand =
   | {
-      type: 'move'
-      mode: 'direct'
+      type: 'move.subtree'
       id: MindmapId
       nodeId: MindmapNodeId
       newParentId: MindmapNodeId
       options?: MindmapCommandOptions
     }
   | ({
-      type: 'move'
-      mode: 'layout'
+      type: 'move.layout'
     } & MindmapMoveLayoutOptions)
   | ({
-      type: 'move'
-      mode: 'drop'
+      type: 'move.drop'
     } & MindmapMoveDropOptions)
   | {
-      type: 'move'
-      mode: 'reorder'
+      type: 'move.reorder'
       id: MindmapId
       parentId: MindmapNodeId
       fromIndex: number
       toIndex: number
     }
+  | ({
+      type: 'move.root'
+    } & MindmapMoveRootOptions)
 
 export type MindmapUpdateCommand =
   | {
-      type: 'update'
-      mode: 'data'
+      type: 'update.data'
       id: MindmapId
       nodeId: MindmapNodeId
       patch: Partial<MindmapNodeData>
     }
   | {
-      type: 'update'
-      mode: 'collapse'
+      type: 'update.collapse'
       id: MindmapId
       nodeId: MindmapNodeId
       collapsed?: boolean
     }
   | {
-      type: 'update'
-      mode: 'side'
+      type: 'update.side'
       id: MindmapId
       nodeId: MindmapNodeId
       side: 'left' | 'right'
@@ -169,12 +161,9 @@ export type MindmapApplyCommand =
       nodeId: MindmapNodeId
     }
   | {
-      type: 'clone'
+      type: 'clone.subtree'
       id: MindmapId
       nodeId: MindmapNodeId
       options?: MindmapCloneSubtreeOptions
     }
   | MindmapUpdateCommand
-  | ({
-      type: 'root'
-    } & MindmapMoveRootOptions)

@@ -1,6 +1,6 @@
 import type { Node, Rect } from '@whiteboard/core/types'
 import type { Commands } from '../command/api'
-import type { Query } from '../instance/query'
+import type { EngineRead } from '../instance/read'
 import type { NodeLike, RefLike, StyleObject } from '../ui/model'
 
 export type NodeContainerProps = {
@@ -17,7 +17,7 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  query: Query
+  read: Pick<EngineRead, 'viewport' | 'canvas' | 'snap'>
   commands: Commands
   node: Node
   rect: Rect

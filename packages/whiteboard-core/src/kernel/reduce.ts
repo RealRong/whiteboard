@@ -1,7 +1,8 @@
 import type { Document, Operation } from '../types'
-import { getReusableKernelRuntime } from './internal'
-import { invertOperations } from './invert'
-import { normalizeOperations } from './normalize'
+import {
+  cloneDocument,
+  createKernelSession
+} from './session'
 import type { KernelContext, KernelReduceResult } from './types'
 
 export const reduceOperations = (
@@ -9,18 +10,18 @@ export const reduceOperations = (
   operations: readonly Operation[],
   context: KernelContext = {}
 ): KernelReduceResult => {
-  const normalizedOperations = normalizeOperations(document, operations)
-  const runtime = getReusableKernelRuntime(document, context)
-  const applied = runtime.applyOperations(normalizedOperations, context.origin ?? 'user')
+  const session = createKernelSession({
+    document: cloneDocument(document),
+    now: context.now
+  })
+  const applied = session.applyOperations(operations, context.origin ?? 'user')
   if (!applied.ok) return applied
-
-  const inverse = invertOperations(applied.changes.operations)
-  if (!inverse.ok) return inverse
 
   return {
     ok: true,
-    doc: runtime.query.document(),
+    doc: session.exportDocument(),
     changes: applied.changes,
-    inverse: inverse.operations
+    inverse: applied.inverse,
+    invalidation: applied.invalidation
   }
 }

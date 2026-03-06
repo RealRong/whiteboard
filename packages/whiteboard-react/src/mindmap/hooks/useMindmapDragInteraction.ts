@@ -154,8 +154,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
 
       if (active.kind === 'root') {
@@ -202,7 +202,7 @@ export const useMindmapDragInteraction = () => {
 
       if (active.kind === 'root') {
         void instance.commands.mindmap.apply({
-          type: 'root',
+          type: 'move.root',
           nodeId: active.treeId,
           position: active.position
         })
@@ -211,8 +211,7 @@ export const useMindmapDragInteraction = () => {
 
       if (!active.drop) return
       void instance.commands.mindmap.apply({
-        type: 'move',
-        mode: 'drop',
+        type: 'move.drop',
         id: active.treeId,
         nodeId: active.nodeId,
         drop: {
@@ -273,8 +272,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       const baseOffset = {
         x: treeView.node.position.x,
@@ -335,8 +334,8 @@ export const useMindmapDragInteraction = () => {
       event.stopPropagation()
     },
     [
-      instance.query.viewport.clientToScreen,
-      instance.query.viewport.screenToWorld,
+      instance.read.viewport.clientToScreen,
+      instance.read.viewport.screenToWorld,
       instance,
       readTree
     ]

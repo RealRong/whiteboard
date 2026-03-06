@@ -8,7 +8,7 @@ import { Rules } from './Rules'
 
 type KernelInstance = Pick<
   InternalInstance,
-  'query' | 'config' | 'viewport' | 'document'
+  'read' | 'config' | 'document'
 >
 
 type KernelOptions = {
@@ -42,11 +42,11 @@ export class NodeDragKernel {
   constructor({ instance }: KernelOptions) {
     this.nodeSize = instance.config.nodeSize
     this.readCanvasNodes = () =>
-      instance.query.canvas.nodeRects().map((entry) => entry.node)
+      instance.read.canvas.nodeRects().map((entry) => entry.node)
     this.rules = new Rules({
       config: instance.config,
-      query: instance.query,
-      readZoom: instance.viewport.getZoom,
+      read: instance.read,
+      readZoom: () => instance.read.state.viewport.zoom,
       readCanvasNodes: this.readCanvasNodes
     })
     this.commitCompiler = new CommitCompiler({

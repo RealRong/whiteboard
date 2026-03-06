@@ -1,20 +1,11 @@
+import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '../mindmap/layout'
 import type { ShortcutOverrides } from '../shortcuts/types'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 
-export type HistoryConfig = {
-  enabled?: boolean
-  capacity?: number
-  captureSystem?: boolean
-  captureRemote?: boolean
-}
+export type HistoryConfig = Partial<KernelHistoryConfig>
 
-export type ResolvedHistoryConfig = {
-  enabled: boolean
-  capacity: number
-  captureSystem: boolean
-  captureRemote: boolean
-}
+export type ResolvedHistoryConfig = KernelHistoryConfig
 
 export type ResolvedViewportConfig = Required<ViewportConfig>
 export type ResolvedNodeConfig = Required<NodeConfig>

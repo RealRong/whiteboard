@@ -10,10 +10,11 @@ import type {
   Rect,
   Viewport
 } from '@whiteboard/core/types'
-import type { MindmapLayout } from '@whiteboard/core/mindmap'
-import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
+import type { MindmapLayout, MindmapDragDropTarget } from '@whiteboard/core/mindmap'
+import type { Size } from '../common/base'
 import type { EdgePathEntry as EdgePathEntryType } from '../edge/geometry'
 import type { MindmapLayoutConfig } from '../mindmap/layout'
+import type { SnapCandidate } from '../node/snap'
 import type {
   InteractionState,
   SelectionState
@@ -117,6 +118,26 @@ export type MindmapView = {
   byId: ReadonlyMap<NodeId, Readonly<MindmapViewTree>>
 }
 
+export type EngineReadViewport = {
+  screenToWorld: (point: Point) => Point
+  worldToScreen: (point: Point) => Point
+  clientToScreen: (clientX: number, clientY: number) => Point
+  clientToWorld: (clientX: number, clientY: number) => Point
+  getScreenCenter: () => Point
+  getContainerSize: () => Size
+}
+
+export type EngineReadCanvas = {
+  nodeRects: () => CanvasNodeRect[]
+  nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
+  nodeIdsInRect: (rect: Rect) => NodeId[]
+}
+
+export type EngineReadSnap = {
+  candidates: () => SnapCandidate[]
+  candidatesInRect: (rect: Rect) => SnapCandidate[]
+}
+
 export const READ_STATE_KEYS = {
   interaction: 'interaction',
   tool: 'tool',
@@ -127,7 +148,7 @@ export const READ_STATE_KEYS = {
 
 export const READ_SUBSCRIPTION_KEYS = {
   ...READ_STATE_KEYS,
-  snapshot: 'snapshot'
+  projection: 'projection'
 } as const
 
 export type ReadSubscriptionKey =
@@ -151,6 +172,9 @@ export type EngineReadProjection = {
 export type EngineRead = {
   state: EngineReadState
   projection: EngineReadProjection
+  viewport: EngineReadViewport
+  canvas: EngineReadCanvas
+  snap: EngineReadSnap
   config: InstanceConfig
   doc: {
     get: () => Readonly<Document>

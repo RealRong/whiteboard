@@ -20,7 +20,7 @@ const useEdgePath = (edgeId: EdgeId) => {
   const instance = useInstance()
   return useReadGetter<EdgePathEntry | undefined>(
     () => instance.read.projection.edge.byId.get(edgeId),
-    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
+    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
   )
 }
 
@@ -48,7 +48,7 @@ const EdgeItemById = memo(
     if (!path) return null
     const resolvedPath = resolveEdgePathEntryWithRoutingDraft(
       path,
-      instance.query.canvas.nodeRect,
+      instance.read.canvas.nodeRect,
       routingDraft
     )
 
@@ -78,7 +78,7 @@ export const EdgeLayer = () => {
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
   const edgeIds = useReadGetter(
     () => instance.read.projection.edge.ids,
-    { keys: [READ_SUBSCRIPTION_KEYS.snapshot] }
+    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
   )
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,

@@ -154,7 +154,7 @@ const createPointerInput = (options: {
   client: Point
 }): PointerInput => {
   const { instance, pointerId, client } = options
-  const screen = instance.query.viewport.clientToScreen(
+  const screen = instance.read.viewport.clientToScreen(
     client.x,
     client.y
   )
@@ -163,7 +163,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: instance.query.viewport.screenToWorld(screen),
+    world: instance.read.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,

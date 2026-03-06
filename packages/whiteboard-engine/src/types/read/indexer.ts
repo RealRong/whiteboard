@@ -21,5 +21,5 @@ export type Indexer = {
     canvas: CanvasQueryContext
     snap: SnapQueryContext
   }
-  applyPlan: (plan: IndexChange) => void
+  applyChange: (change: IndexChange) => void
 }

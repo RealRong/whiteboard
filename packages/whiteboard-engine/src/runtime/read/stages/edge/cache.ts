@@ -166,8 +166,8 @@ export const cache = (context: ReadContext): EdgeReadCache => {
   const readModelSnapshot = () => context.snapshot()
   const state = emptyState()
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
-  let pendingDirtyNodeIds = new Set<NodeId>()
-  let pendingDirtyEdgeIds = new Set<EdgeId>()
+  let pendingNodeIds = new Set<NodeId>()
+  let pendingEdgeIds = new Set<EdgeId>()
 
   const snapshot: EdgeReadSnapshot = {
     get ids() {
@@ -329,30 +329,30 @@ export const cache = (context: ReadContext): EdgeReadCache => {
     const visibleEdges = readModelSnapshot().edges.visible
     if (visibleEdges !== visibleEdgesRef) {
       visibleEdgesRef = visibleEdges
-      pendingDirtyNodeIds = new Set<NodeId>()
-      pendingDirtyEdgeIds = new Set<EdgeId>()
+      pendingNodeIds = new Set<NodeId>()
+      pendingEdgeIds = new Set<EdgeId>()
       reconcileAll(visibleEdges)
       return
     }
 
-    if (!pendingDirtyNodeIds.size && !pendingDirtyEdgeIds.size) return
+    if (!pendingNodeIds.size && !pendingEdgeIds.size) return
 
-    const dirtyNodeIds = pendingDirtyNodeIds
-    const dirtyEdgeIds = pendingDirtyEdgeIds
-    pendingDirtyNodeIds = new Set<NodeId>()
-    pendingDirtyEdgeIds = new Set<EdgeId>()
+    const nodeIds = pendingNodeIds
+    const edgeIds = pendingEdgeIds
+    pendingNodeIds = new Set<NodeId>()
+    pendingEdgeIds = new Set<EdgeId>()
 
     const affectedEdgeIds = new Set<EdgeId>()
-    if (dirtyNodeIds.size) {
+    if (nodeIds.size) {
       const fromNodes = collectRelatedEdgeIds(
         state.relations.nodeToEdgeIds,
-        dirtyNodeIds
+        nodeIds
       )
       fromNodes.forEach((edgeId) => {
         affectedEdgeIds.add(edgeId)
       })
     }
-    dirtyEdgeIds.forEach((edgeId) => {
+    edgeIds.forEach((edgeId) => {
       affectedEdgeIds.add(edgeId)
     })
     if (!affectedEdgeIds.size) return
@@ -360,25 +360,25 @@ export const cache = (context: ReadContext): EdgeReadCache => {
     reconcileEdges(affectedEdgeIds)
   }
 
-  const applyPlan: EdgeReadCache['applyPlan'] = (plan) => {
-    if (plan.rebuild === 'none') return
+  const applyChange: EdgeReadCache['applyChange'] = (change) => {
+    if (change.rebuild === 'none') return
 
-    if (plan.rebuild === 'full') {
+    if (change.rebuild === 'full') {
       visibleEdgesRef = undefined
-      pendingDirtyNodeIds = new Set<NodeId>()
-      pendingDirtyEdgeIds = new Set<EdgeId>()
+      pendingNodeIds = new Set<NodeId>()
+      pendingEdgeIds = new Set<EdgeId>()
       return
     }
 
-    if (plan.dirtyNodeIds.length) {
-      plan.dirtyNodeIds.forEach((nodeId) => {
-        pendingDirtyNodeIds.add(nodeId)
+    if (change.nodeIds.length) {
+      change.nodeIds.forEach((nodeId) => {
+        pendingNodeIds.add(nodeId)
       })
     }
 
-    if (plan.dirtyEdgeIds.length) {
-      plan.dirtyEdgeIds.forEach((edgeId) => {
-        pendingDirtyEdgeIds.add(edgeId)
+    if (change.edgeIds.length) {
+      change.edgeIds.forEach((edgeId) => {
+        pendingEdgeIds.add(edgeId)
       })
     }
   }
@@ -389,7 +389,7 @@ export const cache = (context: ReadContext): EdgeReadCache => {
   }
 
   return {
-    applyPlan,
+    applyChange,
     getSnapshot
   }
 }

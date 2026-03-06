@@ -25,8 +25,8 @@ export const useEdgePathInteraction = () => {
       const pointWorld = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
 
       if (event.shiftKey || event.detail >= 2) {

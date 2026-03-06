@@ -7,13 +7,14 @@ import type { Document } from '@whiteboard/core/types'
 import type { WriteInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
-import { createWrite } from '../runtime/write/runtime'
+import { createWrite } from '../runtime/write'
 import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
 import { state as setupState } from '../state/factory/state'
+import { createInitialState } from '../state/initialState'
 import { Scheduler } from '../scheduling/Scheduler'
 import { ViewportHost } from '../runtime/Viewport'
 import { createReadKernel } from '../runtime/read/kernel'
-import { createReactions } from './reactions/Reactions'
+import { createReactions, type Reactions } from './reactions/Reactions'
 import { createCommands } from './facade/commands'
 
 export const engine = ({
@@ -32,6 +33,13 @@ export const engine = ({
     store
   })
   const readDocument = (): Document => store.get(stateAtoms.document)
+  const resetTransientState = () => {
+    const initialState = createInitialState()
+    state.batch(() => {
+      state.write('selection', initialState.selection)
+      state.write('interaction', initialState.interaction)
+    })
+  }
   const commitDocument = (nextDocument: Document) => {
     store.set(stateAtoms.document, nextDocument)
     store.set(
@@ -56,7 +64,6 @@ export const engine = ({
   })
 
   const baseInstance: WriteInstance = {
-    state,
     document: {
       get: readDocument,
       commit: commitDocument,
@@ -64,25 +71,33 @@ export const engine = ({
     },
     config,
     viewport,
-    registries: resolvedRegistries,
-    query: read.query,
-    read: read.read
+    registries: resolvedRegistries
   }
   state.write('tool', 'select')
+
+  let reactions: Reactions | undefined
   const write = createWrite({
     instance: baseInstance,
     scheduler,
-    applyInvalidation: read.applyInvalidation
+    applyInvalidation: read.applyInvalidation,
+    resetTransientState,
+    react: (invalidation) => reactions?.ingest(invalidation)
   })
 
-  const reactions = createReactions({
-    instance: baseInstance,
+  const internalInstance = {
+    state,
+    ...baseInstance,
+    read: read.read
+  }
+
+  reactions = createReactions({
+    instance: internalInstance,
     write,
     scheduler
   })
 
   const commands = createCommands({
-    instance: baseInstance,
+    instance: internalInstance,
     viewport,
     write
   })
@@ -98,7 +113,7 @@ export const engine = ({
       state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
     },
     dispose: () => {
-      reactions.dispose()
+      reactions?.dispose()
       scheduler.cancelAll()
     }
   }
@@ -106,7 +121,6 @@ export const engine = ({
   return {
     state,
     runtime,
-    query: read.query,
     read: read.read,
     commands
   }

@@ -1,4 +1,4 @@
-import type { Change } from '@engine-types/write/change'
+import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type { WriteInput } from '@engine-types/command/api'
 import type { Rebuild } from '@engine-types/read/change'
 import type { InternalInstance } from '@engine-types/instance/engine'
@@ -21,14 +21,14 @@ type LayoutSnapshot = {
   groupPadding: number
 }
 
-type PendingRebuildPlan = {
+type PendingChange = {
   rebuild: Rebuild
-  dirtyNodeIds: Set<NodeId>
+  nodeIds: Set<NodeId>
 }
 
-type RebuildPlan = {
+type RebuildChange = {
   rebuild: Rebuild
-  dirtyNodeIds: Set<NodeId>
+  nodeIds: Set<NodeId>
 }
 
 type NodeIndexes = {
@@ -94,19 +94,19 @@ const resolveGroupsToProcess = ({
   groups,
   prevNodeMap,
   nextNodeMap,
-  plan
+  change
 }: {
   groups: readonly Node[]
   prevNodeMap: ReadonlyMap<NodeId, Node> | null
   nextNodeMap: ReadonlyMap<NodeId, Node>
-  plan: RebuildPlan
+  change: RebuildChange
 }): readonly Node[] => {
-  if (plan.rebuild === 'full') {
+  if (change.rebuild === 'full') {
     return groups
   }
 
   const touchedGroups = new Set<NodeId>()
-  plan.dirtyNodeIds.forEach((id) => {
+  change.nodeIds.forEach((id) => {
     const current = nextNodeMap.get(id)
     const previous = prevNodeMap?.get(id)
     const parentIds = [current?.parentId, previous?.parentId]
@@ -162,35 +162,30 @@ const createAutoFitUpdate = ({
 }
 
 export class Autofit {
-  readonly topic = 'autofit'
-
   private readonly instance: AutofitOptions['instance']
   private prevNodeMap: ReadonlyMap<NodeId, Node> | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
-  private pending: PendingRebuildPlan = {
+  private pending: PendingChange = {
     rebuild: 'none',
-    dirtyNodeIds: new Set<NodeId>()
+    nodeIds: new Set<NodeId>()
   }
 
   constructor({ instance }: AutofitOptions) {
     this.instance = instance
   }
 
-  seed = () => {
-    this.promoteFull()
-  }
+  seed = (): boolean => this.promoteFull()
 
-  ingest = (change: Change) => {
-    const indexPlan = change.invalidation.index
-    if (indexPlan.rebuild === 'none') return
+  ingest = (invalidation: ReadInvalidation): boolean => {
+    const indexChange = invalidation.index
+    if (indexChange.rebuild === 'none') return false
 
-    if (indexPlan.rebuild === 'full' || indexPlan.dirtyNodeIds.length === 0) {
-      this.promoteFull()
-      return
+    if (indexChange.rebuild === 'full' || indexChange.nodeIds.length === 0) {
+      return this.promoteFull()
     }
 
-    this.promoteDirty(indexPlan.dirtyNodeIds)
+    return this.promoteDirty(indexChange.nodeIds)
   }
 
   flush = (): WriteInput | null => {
@@ -204,15 +199,15 @@ export class Autofit {
     const indexes = createIndexes(doc.nodes)
     const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
     const rebuild = (docChanged || layoutChanged) ? 'full' : pending.rebuild
-    const plan: RebuildPlan = {
+    const change: RebuildChange = {
       rebuild,
-      dirtyNodeIds: pending.dirtyNodeIds
+      nodeIds: pending.nodeIds
     }
     const groupsToProcess = resolveGroupsToProcess({
       groups: indexes.groups,
       prevNodeMap: this.prevNodeMap,
       nextNodeMap: indexes.nodeMap,
-      plan
+      change
     })
 
     const updates = groupsToProcess
@@ -246,26 +241,32 @@ export class Autofit {
     return true
   }
 
-  private promoteFull = () => {
+  private promoteFull = (): boolean => {
+    if (this.pending.rebuild === 'full') return false
     this.pending = {
       rebuild: 'full',
-      dirtyNodeIds: new Set<NodeId>()
+      nodeIds: new Set<NodeId>()
     }
+    return true
   }
 
-  private promoteDirty = (dirtyNodeIds: readonly NodeId[]) => {
-    if (this.pending.rebuild === 'full') return
+  private promoteDirty = (nodeIds: readonly NodeId[]): boolean => {
+    if (this.pending.rebuild === 'full') return false
+    let changed = this.pending.rebuild !== 'dirty'
     this.pending.rebuild = 'dirty'
-    dirtyNodeIds.forEach((id) => {
-      this.pending.dirtyNodeIds.add(id)
+    nodeIds.forEach((id) => {
+      if (this.pending.nodeIds.has(id)) return
+      this.pending.nodeIds.add(id)
+      changed = true
     })
+    return changed
   }
 
-  private takePending = (): PendingRebuildPlan => {
+  private takePending = (): PendingChange => {
     const pending = this.pending
     this.pending = {
       rebuild: 'none',
-      dirtyNodeIds: new Set<NodeId>()
+      nodeIds: new Set<NodeId>()
     }
     return pending
   }

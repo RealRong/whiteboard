@@ -23,7 +23,7 @@ export const EdgeEndpointHandles = () => {
         : undefined
     ),
     {
-      keys: [READ_STATE_KEYS.selection, READ_SUBSCRIPTION_KEYS.snapshot]
+      keys: [READ_STATE_KEYS.selection, READ_SUBSCRIPTION_KEYS.projection]
     }
   )
   if (!stateSelectedEdgeId || !endpoints) return null

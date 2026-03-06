@@ -103,8 +103,8 @@ export const useEdgeRoutingInteraction = () => {
       const start = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       const origin = points[index]
       if (!origin) return
@@ -132,8 +132,8 @@ export const useEdgeRoutingInteraction = () => {
     },
     [
       instance.commands.edge,
-      instance.query.viewport.clientToScreen,
-      instance.query.viewport.screenToWorld,
+      instance.read.viewport.clientToScreen,
+      instance.read.viewport.screenToWorld,
       instance,
       readEdgeById
     ]
@@ -178,8 +178,8 @@ export const useEdgeRoutingInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       const point = {
         x: active.origin.x + (world.x - active.start.x),

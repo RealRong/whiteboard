@@ -150,8 +150,8 @@ export const useSelectionBoxInteraction = (
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       const dx = Math.abs(resolved.screen.x - active.startScreen.x)
       const dy = Math.abs(resolved.screen.y - active.startScreen.y)
@@ -171,7 +171,7 @@ export const useSelectionBoxInteraction = (
       active.isSelecting = true
       selectionBoxState.setRect(instance, rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)
-      active.latestMatchedIds = instance.query.canvas.nodeIdsInRect(worldRect)
+      active.latestMatchedIds = instance.read.canvas.nodeIdsInRect(worldRect)
       scheduleFlush()
     },
     onPointerUp: (event) => {
@@ -182,11 +182,11 @@ export const useSelectionBoxInteraction = (
         const resolved = toScreenWorld(
           event.clientX,
           event.clientY,
-          instance.query.viewport.clientToScreen,
-          instance.query.viewport.screenToWorld
+          instance.read.viewport.clientToScreen,
+          instance.read.viewport.screenToWorld
         )
         const worldRect = rectFromPoints(active.startWorld, resolved.world)
-        active.latestMatchedIds = instance.query.canvas.nodeIdsInRect(worldRect)
+        active.latestMatchedIds = instance.read.canvas.nodeIdsInRect(worldRect)
         flushSelection()
       } else if (active.mode === 'replace') {
         instance.commands.selection.clear()
@@ -230,8 +230,8 @@ export const useSelectionBoxInteraction = (
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       lockTokenRef.current = lockToken
       instance.commands.edge.select(undefined)

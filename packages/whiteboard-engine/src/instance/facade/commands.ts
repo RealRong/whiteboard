@@ -2,7 +2,6 @@ import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Commands } from '@engine-types/command/api'
 import type { Write } from '@engine-types/write/runtime'
 import type { ViewportHost } from '../../runtime/Viewport'
-import { createInitialState } from '../../state/initialState'
 import {
   edge,
   interaction,
@@ -11,20 +10,11 @@ import {
   viewport as viewportCommands
 } from '../../runtime/write/api'
 import { createSelectionCommands } from './selection'
-import { createShortcutCommands } from './shortcut'
 
 type CommandDeps = {
   instance: Pick<InternalInstance, 'state' | 'document' | 'read'>
   viewport: ViewportHost
   write: Write
-}
-
-const clearTransientState = (state: InternalInstance['state']) => {
-  const initialState = createInitialState()
-  state.batch(() => {
-    state.write('selection', initialState.selection)
-    state.write('interaction', initialState.interaction)
-  })
 }
 
 export const createCommands = ({
@@ -41,8 +31,7 @@ export const createCommands = ({
     apply: write.apply
   })
   const selectionCommands = createSelectionCommands({
-    instance,
-    write
+    instance
   })
   const interactionCommands = interaction({ instance })
   const historyCommands: Commands['history'] = {
@@ -52,18 +41,11 @@ export const createCommands = ({
     redo: write.history.redo,
     clear: write.history.clear
   }
-  const applyDocument = async (
-    mode: 'load' | 'replace',
-    doc: Parameters<Commands['doc']['load']>[0]
-  ) => {
-    clearTransientState(instance.state)
-    return write[mode](doc)
-  }
 
   return {
     doc: {
-      load: async (doc) => applyDocument('load', doc),
-      replace: async (doc) => applyDocument('replace', doc)
+      load: write.load,
+      replace: write.replace
     },
     tool: {
       set: (tool) => {
@@ -77,11 +59,6 @@ export const createCommands = ({
     },
     selection: selectionCommands,
     edge: edgeCommands,
-    shortcut: createShortcutCommands({
-      state: instance.state,
-      selection: selectionCommands,
-      history: historyCommands
-    }),
     viewport: viewportCommands({
       apply: write.apply
     }),

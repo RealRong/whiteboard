@@ -13,18 +13,16 @@ export type Apply = <D extends WriteDomain>(
 
 type Failure = Extract<DispatchResult, { ok: false }>
 
-export type Draft<T = unknown> =
+export type Draft =
   | {
       ok: true
       operations: readonly Operation[]
-      value?: T
     }
   | Failure
 
-export const success = <T,>(operations: readonly Operation[], value?: T): Draft<T> => ({
+export const success = (operations: readonly Operation[]): Draft => ({
   ok: true,
-  operations,
-  value
+  operations
 })
 
 export const invalid = (message: string): Draft => ({
@@ -38,6 +36,17 @@ export const cancelled = (message?: string): Draft => ({
   reason: 'cancelled',
   message
 })
+
+export const merge = (...drafts: Draft[]): Draft => {
+  const operations: Operation[] = []
+
+  for (const draft of drafts) {
+    if (!draft.ok) return draft
+    operations.push(...draft.operations)
+  }
+
+  return success(operations)
+}
 
 type FailLike = {
   ok: false

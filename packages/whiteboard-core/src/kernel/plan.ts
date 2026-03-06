@@ -29,11 +29,10 @@ import {
   addSibling as addMindmapSibling,
   attachExternal as attachMindmapExternal,
   cloneSubtree as cloneMindmapSubtree,
-  createCreateOp,
+  createSetOp,
   createDeleteOps,
   createMindmap,
-  createReplaceOp,
-  createReplaceOps,
+  createSetOps,
   moveSubtree as moveMindmapSubtree,
   removeSubtree as removeMindmapSubtree,
   reorderChild as reorderMindmapChild,
@@ -42,6 +41,7 @@ import {
   toggleCollapse as toggleMindmapCollapse,
   type MindmapCommandResult
 } from '../mindmap'
+import { getMindmapTreeFromDocument } from '../mindmap/helpers'
 
 export type PlanPayload<T = unknown> = {
   operations: Operation[]
@@ -76,7 +76,7 @@ const fromOperations = (
 type MindmapSuccess<T> = Extract<MindmapCommandResult<T>, { ok: true }>
 
 const readMindmap = (doc: Document, id: MindmapId): MindmapTree | undefined =>
-  doc.mindmaps?.find((tree) => tree.id === id)
+  getMindmapTreeFromDocument(doc, id)
 
 const withNodeIdGenerator = <T extends object>(
   createNodeId: () => MindmapNodeId,
@@ -113,7 +113,7 @@ const runMindmapPlan = <T, V = unknown>({
   if (!next.ok) return invalid(next.message)
 
   return success(
-    createReplaceOps({
+    createSetOps({
       id,
       beforeTree,
       afterTree: next.tree,
@@ -315,7 +315,7 @@ export const corePlan = {
         }
       })
 
-      return success([createCreateOp(tree)], tree.id)
+      return success([createSetOp({ id: tree.id, tree })], tree.id)
     },
 
     replace: ({
@@ -330,7 +330,7 @@ export const corePlan = {
       const beforeTree = readMindmap(doc, id)
       if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
       if (tree.id !== id) return invalid('Mindmap id mismatch.')
-      return success([createReplaceOp({ id, beforeTree, afterTree: tree })])
+      return success([createSetOp({ id, tree, before: beforeTree })])
     },
 
     delete: ({

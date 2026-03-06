@@ -31,8 +31,7 @@ export const MindmapTreeView = ({
   const handleAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
       await instance.commands.mindmap.apply({
-        type: 'insert',
-        mode: 'placement',
+        type: 'insert.placement',
         id: mindmapNode.id,
         tree,
         targetNodeId: nodeId,

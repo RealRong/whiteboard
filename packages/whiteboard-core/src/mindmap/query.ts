@@ -6,6 +6,7 @@ import {
   type MindmapTree
 } from './types'
 import { layoutMindmap, layoutMindmapTidy } from './layout'
+import { getMindmapTreeFromNode } from './helpers'
 import type { MindmapLayoutHint, Node, Operation, Size } from '../types/core'
 
 export type MindmapViewLine = {
@@ -50,12 +51,6 @@ const cloneValue = <T,>(value: T): T => {
     return clone(value)
   }
   return JSON.parse(JSON.stringify(value)) as T
-}
-
-const isMindmapTree = (value: unknown): value is MindmapTree => {
-  if (!value || typeof value !== 'object') return false
-  const tree = value as MindmapTree
-  return typeof tree.rootId === 'string' && typeof tree.nodes === 'object' && typeof tree.children === 'object'
 }
 
 const computeConnectionLine = (
@@ -221,21 +216,7 @@ export const resolveInsertPlan = ({
   }
 }
 
-export const getMindmapTree = (node: Node | undefined): MindmapTree | undefined => {
-  if (!node || node.type !== 'mindmap') return undefined
-  const data = node.data as Record<string, unknown> | undefined
-  if (!data) return undefined
-
-  const direct = data as unknown
-  if (isMindmapTree(direct)) return direct
-
-  const nested = data.mindmap
-  if (isMindmapTree(nested)) return nested
-
-  const legacy = data.tree
-  if (isMindmapTree(legacy)) return legacy
-  return undefined
-}
+export const getMindmapTree = getMindmapTreeFromNode
 
 export const getMindmapRoots = (nodes: Node[]) =>
   nodes.filter((node) => node.type === 'mindmap')
@@ -321,24 +302,19 @@ export const resolveAnchorPatch = ({
   }
 }
 
-export const createCreateOp = (mindmap: MindmapTree): Operation => ({
-  type: 'mindmap.create',
-  mindmap: cloneValue(mindmap)
-})
-
-export const createReplaceOp = ({
+export const createSetOp = ({
   id,
-  beforeTree,
-  afterTree
+  tree,
+  before
 }: {
   id: MindmapId
-  beforeTree: MindmapTree
-  afterTree: MindmapTree
+  tree: MindmapTree
+  before?: MindmapTree
 }): Operation => ({
-  type: 'mindmap.replace',
+  type: 'mindmap.set',
   id,
-  before: cloneValue(beforeTree),
-  after: cloneValue(afterTree)
+  tree: cloneValue(tree),
+  before: before ? cloneValue(before) : undefined
 })
 
 export const createDeleteOps = (trees: MindmapTree[]): Operation[] =>
@@ -348,7 +324,7 @@ export const createDeleteOps = (trees: MindmapTree[]): Operation[] =>
     before: cloneValue(tree)
   }))
 
-export const createReplaceOps = ({
+export const createSetOps = ({
   id,
   beforeTree,
   afterTree,
@@ -361,7 +337,7 @@ export const createReplaceOps = ({
   hint?: MindmapLayoutHint
   node?: Node
 }): Operation[] => {
-  const operations: Operation[] = [createReplaceOp({ id, beforeTree, afterTree })]
+  const operations: Operation[] = [createSetOp({ id, tree: afterTree, before: beforeTree })]
 
   if (!node) return operations
   const anchorPatch = resolveAnchorPatch({

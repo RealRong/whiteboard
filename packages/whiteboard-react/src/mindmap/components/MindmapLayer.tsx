@@ -26,7 +26,7 @@ const useMindmapTree = (treeId: NodeId) => {
     () => instance.read.projection.mindmap.byId.get(treeId),
     {
       keys: [
-        READ_SUBSCRIPTION_KEYS.snapshot,
+        READ_SUBSCRIPTION_KEYS.projection,
         READ_STATE_KEYS.mindmapLayout
       ]
     }

@@ -1,4 +1,5 @@
 export {
+  buildNodeDuplicateOperations,
   createNodeDuplicateInput,
   expandNodeSelection
 } from './duplicate'
@@ -55,12 +56,6 @@ export {
   createInvalidDispatchResult
 } from './commands'
 export {
-  buildNodeHint,
-  hasNodeOperation,
-  NodeHintContext,
-  NodeHintPipeline
-} from './hint'
-export {
   applySelection,
   resolveSelectionMode
 } from './selection'
@@ -75,12 +70,6 @@ export type {
   SnapEdge,
   SnapResult
 } from './snap'
-export type {
-  NodeFullHint,
-  NodeHint,
-  NodeHintRule,
-  NodePartialHint
-} from './hint'
 export type {
   SelectionMode,
   SelectionModifiers

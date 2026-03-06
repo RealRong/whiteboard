@@ -310,7 +310,7 @@ export const useNodeDragInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.query.canvas.nodeRect(nodeId)
+      const nodeRect = instance.read.canvas.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
       const lockToken = sessionLockState.tryAcquire(instance, 'nodeDrag', event.pointerId)
       if (!lockToken) return
@@ -365,7 +365,7 @@ export const useNodeDragInteraction = ({
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
-      const zoom = Math.max(instance.query.viewport.getZoom(), ZOOM_EPSILON)
+      const zoom = Math.max(instance.read.state.viewport.zoom, ZOOM_EPSILON)
       const basePosition = {
         x: active.origin.x + (event.clientX - active.start.x) / zoom,
         y: active.origin.y + (event.clientY - active.start.y) / zoom
@@ -393,7 +393,7 @@ export const useNodeDragInteraction = ({
         const exclude = active.children?.ids.length
           ? new Set([active.nodeId, ...active.children.ids])
           : new Set([active.nodeId])
-        const candidates = instance.query.snap.candidatesInRect(queryRect)
+        const candidates = instance.read.snap.candidatesInRect(queryRect)
           .filter((candidate) => !exclude.has(candidate.id as NodeId))
         const snapResult = computeSnap(
           movingRect,

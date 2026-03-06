@@ -1,20 +1,23 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type {
-  WriteCommandMap
-} from '@engine-types/command/api'
+import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
+import {
+  buildNodeDuplicateOperations,
+  expandNodeSelection
+} from '@whiteboard/core/node'
+import {
+  corePlan
+} from '@whiteboard/core/kernel'
 import type {
   Document,
+  NodeId,
   Operation
 } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
-import { corePlan } from '@whiteboard/core/kernel'
-import { expandNodeSelection } from '@whiteboard/core/node'
-import { toUpdateOperations } from '../shared/update'
-import { buildDuplicateNodesDraft } from '../shared/duplicate'
 import { DEFAULT_TUNING } from '../../../../../config'
 
+type NodeCommand = WriteCommandMap['node']
 type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group.create' }>
 type UngroupCommand = Extract<NodeCommand, { type: 'group.ungroup' }>
@@ -22,10 +25,27 @@ type UngroupManyCommand = Extract<NodeCommand, { type: 'group.ungroupMany' }>
 type UpdateManyCommand = Extract<NodeCommand, { type: 'updateMany' }>
 type DeleteCascadeCommand = Extract<NodeCommand, { type: 'deleteCascade' }>
 type DuplicateCommand = Extract<NodeCommand, { type: 'duplicate' }>
-type NodeCommand = WriteCommandMap['node']
 
 const toInvalidMessage = (message?: string) =>
   message ?? 'Invalid node action.'
+
+const toUpdateOperations = (
+  updates: readonly UpdateManyCommand['updates'][number][]
+) => {
+  const patchById = new Map<NodeId, UpdateManyCommand['updates'][number]['patch']>()
+
+  updates.forEach(({ id, patch }) => {
+    if (!Object.keys(patch).length) return
+    const previous = patchById.get(id)
+    patchById.set(id, previous ? { ...previous, ...patch } : patch)
+  })
+
+  return Array.from(patchById.entries()).map(([id, patch]) => ({
+    type: 'node.update' as const,
+    id,
+    patch
+  }))
+}
 
 export const node = ({
   instance
@@ -37,49 +57,38 @@ export const node = ({
   const createNodeId = () => createId('node')
   const createEdgeId = () => createId('edge')
 
-  const create = (command: CreateCommand): Draft => {
-    const result = corePlan.node.create({
-      payload: command.payload,
-      doc: readDoc(),
-      registries: instance.registries,
-      createNodeId
-    })
-    return ops(result)
-  }
+  const create = (command: CreateCommand): Draft =>
+    ops(
+      corePlan.node.create({
+        payload: command.payload,
+        doc: readDoc(),
+        registries: instance.registries,
+        createNodeId
+      })
+    )
 
   const group = (command: GroupCommand): Draft => {
     if (command.ids.length < 2) {
       return cancelled('At least two nodes are required.')
     }
 
-    const planned = corePlan.node.group({
-      ids: command.ids,
-      doc: readDoc(),
-      nodeSize: instance.config.nodeSize,
-      createGroupId
-    })
-    if (!planned.ok) return invalid(toInvalidMessage(planned.message))
-
-    const groupOperation = planned.operations.find(
-      (operation): operation is Extract<Operation, { type: 'node.create' }> =>
-        operation.type === 'node.create' && operation.node.type === 'group'
+    return ops(
+      corePlan.node.group({
+        ids: command.ids,
+        doc: readDoc(),
+        nodeSize: instance.config.nodeSize,
+        createGroupId
+      })
     )
-    if (!groupOperation) {
-      return invalid('Missing group creation operation.')
-    }
-
-    return success(planned.operations, {
-      selectedNodeIds: [groupOperation.node.id]
-    })
   }
 
-  const ungroup = (command: UngroupCommand): Draft => {
-    const result = corePlan.node.ungroup({
-      id: command.id,
-      doc: readDoc()
-    })
-    return ops(result)
-  }
+  const ungroup = (command: UngroupCommand): Draft =>
+    ops(
+      corePlan.node.ungroup({
+        id: command.id,
+        doc: readDoc()
+      })
+    )
 
   const ungroupMany = (command: UngroupManyCommand): Draft => {
     if (!command.ids.length) {
@@ -105,13 +114,11 @@ export const node = ({
       operations.push(...planned.operations)
     }
 
-    return success(operations, {
-      selectedNodeIds: []
-    })
+    return success(operations)
   }
 
   const updateMany = (command: UpdateManyCommand): Draft =>
-    success(toUpdateOperations('node.update', command.updates))
+    success(toUpdateOperations(command.updates))
 
   const deleteCascade = (command: DeleteCascadeCommand): Draft => {
     if (!command.ids.length) {
@@ -133,32 +140,23 @@ export const node = ({
       )
       .map((edge) => edge.id)
 
-    const operations: Operation[] = [
-      ...edgeIds.map((id) => ({
-        type: 'edge.delete' as const,
-        id
-      })),
-      ...nodeIds.map((id) => ({
-        type: 'node.delete' as const,
-        id
-      }))
-    ]
-
-    return success(operations, {
-      selectedNodeIds: []
-    })
+    return success([
+      ...edgeIds.map((id) => ({ type: 'edge.delete' as const, id })),
+      ...nodeIds.map((id) => ({ type: 'node.delete' as const, id }))
+    ])
   }
 
-  const duplicate = (command: DuplicateCommand): Draft => {
-    return buildDuplicateNodesDraft({
-      doc: readDoc(),
-      ids: command.ids,
-      registries: instance.registries,
-      createNodeId,
-      createEdgeId,
-      offset: DEFAULT_TUNING.shortcuts.duplicateOffset
-    })
-  }
+  const duplicate = (command: DuplicateCommand): Draft =>
+    ops(
+      buildNodeDuplicateOperations({
+        doc: readDoc(),
+        ids: command.ids,
+        registries: instance.registries,
+        createNodeId,
+        createEdgeId,
+        offset: DEFAULT_TUNING.shortcuts.duplicateOffset
+      })
+    )
 
   return (command: NodeCommand): Draft => {
     switch (command.type) {

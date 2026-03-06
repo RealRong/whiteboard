@@ -26,14 +26,11 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.name = next.name
   draft.nodes = next.nodes
   draft.edges = next.edges
-  draft.mindmaps = next.mindmaps ?? []
   draft.order = next.order
   draft.background = next.background
   draft.viewport = next.viewport
   draft.meta = next.meta
 }
-
-const EMPTY_MINDMAPS: readonly unknown[] = []
 
 const isMirroredDocumentFromEngine = (
   outbound: Document,
@@ -43,7 +40,6 @@ const isMirroredDocumentFromEngine = (
   && outbound.name === inbound.name
   && outbound.nodes === inbound.nodes
   && outbound.edges === inbound.edges
-  && (outbound.mindmaps ?? EMPTY_MINDMAPS) === (inbound.mindmaps ?? EMPTY_MINDMAPS)
   && outbound.order === inbound.order
   && outbound.background === inbound.background
   && outbound.viewport === inbound.viewport

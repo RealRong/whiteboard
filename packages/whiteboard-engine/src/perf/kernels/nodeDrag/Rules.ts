@@ -1,6 +1,6 @@
 import type { PointerInput } from '@engine-types/common/input'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { Query } from '@engine-types/instance/query'
+import type { EngineRead } from '@engine-types/instance/read'
 import type { NodeDragChildren, NodeDragDraft } from '@engine-types/node/drag'
 import type { Guide } from '@engine-types/node/snap'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
@@ -18,7 +18,7 @@ type MoveOptions = {
 
 type RulesOptions = {
   config: InstanceConfig
-  query: Pick<Query, 'snap'>
+  read: Pick<EngineRead, 'snap'>
   readZoom: () => number
   readCanvasNodes: () => Node[]
 }
@@ -54,13 +54,13 @@ const expandRectByThreshold = (
 
 export class Rules {
   private readonly config: RulesOptions['config']
-  private readonly query: RulesOptions['query']
+  private readonly read: RulesOptions['read']
   private readonly readZoom: RulesOptions['readZoom']
   private readonly readCanvasNodes: RulesOptions['readCanvasNodes']
 
   constructor(options: RulesOptions) {
     this.config = options.config
-    this.query = options.query
+    this.read = options.read
     this.readZoom = options.readZoom
     this.readCanvasNodes = options.readCanvasNodes
   }
@@ -134,7 +134,7 @@ export class Rules {
       ? new Set([nodeId, ...childrenIds])
       : new Set([nodeId])
 
-    const candidates = this.query.snap.candidatesInRect(queryRect)
+    const candidates = this.read.snap.candidatesInRect(queryRect)
       .filter((candidate) => !exclude.has(candidate.id as NodeId))
 
     const snapResult = computeSnap(

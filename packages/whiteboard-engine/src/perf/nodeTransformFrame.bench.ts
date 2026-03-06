@@ -142,7 +142,7 @@ const createPointerInput = (options: {
   client: Point
 }): PointerInput => {
   const { instance, pointerId, client } = options
-  const screen = instance.query.viewport.clientToScreen(
+  const screen = instance.read.viewport.clientToScreen(
     client.x,
     client.y
   )
@@ -151,7 +151,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: instance.query.viewport.screenToWorld(screen),
+    world: instance.read.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,
@@ -184,17 +184,17 @@ const main = () => {
   })
   const transformKernel = new NodeTransformKernel({
     instance: {
-      query: instance.query,
+      read: instance.read,
       config: instance.read.config,
       viewport: {
-        getZoom: instance.query.viewport.getZoom
+        getZoom: () => instance.read.state.viewport.zoom
       },
       document: {
         get: instance.read.doc.get
       }
     } as unknown as Pick<
       InternalInstance,
-      'query' | 'config' | 'viewport' | 'document'
+      'read' | 'config' | 'viewport' | 'document'
     >
   })
   const syncDoc = (next: Document) => {
@@ -202,7 +202,7 @@ const main = () => {
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const baseNode = instance.query.canvas.nodeRect(nodeId)?.node
+  const baseNode = instance.read.canvas.nodeRect(nodeId)?.node
   if (!baseNode) {
     throw new Error(`Missing transform node: ${nodeId}`)
   }
@@ -218,7 +218,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const nodeRect = instance.query.canvas.nodeRect(nodeId)
+    const nodeRect = instance.read.canvas.nodeRect(nodeId)
     if (!nodeRect) {
       throw new Error(`Missing nodeRect for node ${nodeId} at run ${run + 1}`)
     }

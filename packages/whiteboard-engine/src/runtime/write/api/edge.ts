@@ -13,6 +13,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { Apply } from '../stages/plan/draft'
 import { createOrderCommands } from './shared/order'
+import { cancelledResult } from './shared/result'
 
 type EdgeCommand = WriteCommandMap['edge']
 
@@ -40,8 +41,10 @@ export const edge = ({
     })
 
   const updateMany = (updates: readonly EdgeBatchUpdate[]) => {
-    if (!updates.length) return
-    void run({
+    if (!updates.length) {
+      return cancelledResult('No edge updates provided.')
+    }
+    return run({
       type: 'updateMany',
       updates
     })
@@ -62,37 +65,33 @@ export const edge = ({
     })
   }
 
-  const insertAtPoint = (edgeId: EdgeId, pointWorld: Point) => {
-    void run({
+  const insertAtPoint = (edgeId: EdgeId, pointWorld: Point) =>
+    run({
       type: 'routing.insertAtPoint',
       edgeId,
       pointWorld
     })
-  }
 
-  const move = (edgeId: EdgeId, index: number, pointWorld: Point) => {
-    void run({
+  const move = (edgeId: EdgeId, index: number, pointWorld: Point) =>
+    run({
       type: 'routing.move',
       edgeId,
       index,
       pointWorld
     })
-  }
 
-  const removeAt = (edgeId: EdgeId, index: number) => {
-    void run({
+  const removeAt = (edgeId: EdgeId, index: number) =>
+    run({
       type: 'routing.remove',
       edgeId,
       index
     })
-  }
 
-  const reset = (edgeId: EdgeId) => {
-    void run({
+  const reset = (edgeId: EdgeId) =>
+    run({
       type: 'routing.reset',
       edgeId
     })
-  }
 
   const setOrder = (ids: EdgeId[]) =>
     run({ type: 'order.set', ids })

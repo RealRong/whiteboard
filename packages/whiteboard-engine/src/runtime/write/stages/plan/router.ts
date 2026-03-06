@@ -12,7 +12,7 @@ export const plan = ({
 }: {
   instance: Pick<
     InternalInstance,
-    'document' | 'config' | 'registries' | 'viewport' | 'read'
+    'document' | 'config' | 'registries' | 'viewport'
   >
 }) => {
   const node = planNode({ instance })

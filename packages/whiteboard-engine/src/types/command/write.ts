@@ -9,8 +9,7 @@ import type {
   Viewport
 } from '@whiteboard/core/types'
 import type {
-  CommandSource,
-  CommandTrace
+  CommandSource
 } from './source'
 import type { MindmapApplyCommand } from './mindmap'
 
@@ -148,6 +147,5 @@ export type WriteInput<D extends WriteDomain = WriteDomain> =
         domain: D
         command: WriteCommandMap[D]
         source?: CommandSource
-        trace?: CommandTrace
       }
     : never

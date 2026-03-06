@@ -40,7 +40,7 @@ const resolveConnectPoint = (
 ): Point | undefined => {
   if (!value) return undefined
   if (value.nodeId && value.anchor) {
-    const entry = instance.query.canvas.nodeRect(value.nodeId)
+    const entry = instance.read.canvas.nodeRect(value.nodeId)
     if (entry) {
       return getAnchorPoint(entry.rect, value.anchor, entry.rotation)
     }
@@ -55,14 +55,14 @@ export const resolveSnapTarget = (
   pointWorld: Point
 ): SnapTarget | undefined => {
   const config = instance.read.config
-  const zoom = instance.query.viewport.getZoom()
+  const zoom = instance.read.state.viewport.zoom
   const thresholdWorld =
     Math.max(
       config.edge.anchorSnapMin,
       Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
     ) / Math.max(zoom, ZOOM_EPSILON)
 
-  const nodeRects = instance.query.canvas.nodeRects()
+  const nodeRects = instance.read.canvas.nodeRects()
   let best: (SnapTarget & { distance: number }) | undefined
 
   for (let index = 0; index < nodeRects.length; index += 1) {

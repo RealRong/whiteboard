@@ -1,6 +1,3 @@
-import type { EdgeChange, IndexChange } from './change'
+import type { KernelProjectionInvalidation } from '@whiteboard/core/kernel'
 
-export type ReadInvalidation = {
-  index: IndexChange
-  edge: EdgeChange
-}
+export type ReadInvalidation = KernelProjectionInvalidation

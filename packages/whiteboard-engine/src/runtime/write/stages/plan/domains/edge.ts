@@ -1,7 +1,5 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type {
-  WriteCommandMap
-} from '@engine-types/command/api'
+import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
 import { corePlan } from '@whiteboard/core/kernel'
@@ -10,44 +8,91 @@ import {
   insertRoutingPoint as insertRoutingPointPatch,
   moveRoutingPoint as moveRoutingPointPatch,
   removeRoutingPoint as removeRoutingPointPatch,
-  resetRouting as resetRoutingPatch
+  resetRouting as resetRoutingPatch,
+  resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
+import { getNodeRect } from '@whiteboard/core/geometry'
 import { createId } from '@whiteboard/core/utils'
-import type {
-  Edge,
-  EdgeId
-} from '@whiteboard/core/types'
-import { toUpdateOperations } from '../shared/update'
+import type { Document, Edge, EdgeId } from '@whiteboard/core/types'
 
-type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
 type EdgeCommand = WriteCommandMap['edge']
+type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
+
+const toUpdateOperations = (
+  updates: readonly UpdateManyCommand['updates'][number][]
+) => {
+  const patchById = new Map<EdgeId, UpdateManyCommand['updates'][number]['patch']>()
+
+  updates.forEach(({ id, patch }) => {
+    if (!Object.keys(patch).length) return
+    const previous = patchById.get(id)
+    patchById.set(id, previous ? { ...previous, ...patch } : patch)
+  })
+
+  return Array.from(patchById.entries()).map(([id, patch]) => ({
+    type: 'edge.update' as const,
+    id,
+    patch
+  }))
+}
 
 export const edge = ({
   instance
 }: {
-  instance: Pick<InternalInstance, 'document' | 'registries' | 'read'>
+  instance: Pick<InternalInstance, 'document' | 'registries' | 'config'>
 }) => {
+  const readDoc = () => instance.document.get()
   const createEdgeId = () => createId('edge')
+
   const updateMany = (command: UpdateManyCommand): Draft =>
-    success(toUpdateOperations('edge.update', command.updates))
+    success(toUpdateOperations(command.updates))
 
-  const readEdgeById = (edgeId: EdgeId): Edge | undefined =>
-    instance.document.get().edges.find((edge) => edge.id === edgeId)
+  const readEdge = (edgeId: EdgeId): Edge | undefined =>
+    readDoc().edges.find((edge) => edge.id === edgeId)
 
-  const readEdgePathEntry = (edgeId: EdgeId) =>
-    instance.read.projection.edge.byId.get(edgeId)
+  const resolvePathPoints = (
+    doc: Document,
+    edge: Edge
+  ) => {
+    const sourceNode = doc.nodes.find((node) => node.id === edge.source.nodeId)
+    const targetNode = doc.nodes.find((node) => node.id === edge.target.nodeId)
+    if (!sourceNode || !targetNode) return undefined
+
+    return resolveEdgePathFromRects({
+      edge,
+      source: {
+        rect: getNodeRect(sourceNode, instance.config.nodeSize),
+        rotation: sourceNode.rotation
+      },
+      target: {
+        rect: getNodeRect(targetNode, instance.config.nodeSize),
+        rotation: targetNode.rotation
+      }
+    }).path.points
+  }
+
+  const updateRouting = (
+    edgeId: EdgeId,
+    buildPatch: (edge: Readonly<Edge>) => ReturnType<typeof resetRoutingPatch> | undefined
+  ): Draft => {
+    const edge = readEdge(edgeId)
+    if (!edge) return cancelled('Edge not found.')
+    const patch = buildPatch(edge)
+    if (!patch) return cancelled('No routing patch generated.')
+    return success([{ type: 'edge.update', id: edgeId, patch }])
+  }
 
   return (command: EdgeCommand): Draft => {
     switch (command.type) {
-      case 'create': {
-        const built = corePlan.edge.create({
-          payload: command.payload,
-          doc: instance.document.get(),
-          registries: instance.registries,
-          createEdgeId
-        })
-        return ops(built)
-      }
+      case 'create':
+        return ops(
+          corePlan.edge.create({
+            payload: command.payload,
+            doc: readDoc(),
+            registries: instance.registries,
+            createEdgeId
+          })
+        )
       case 'updateMany':
         return updateMany(command)
       case 'delete':
@@ -55,41 +100,31 @@ export const edge = ({
       case 'order.set':
         return success([{ type: 'edge.order.set', ids: command.ids }])
       case 'routing.insertAtPoint': {
-        const entry = readEdgePathEntry(command.edgeId)
-        if (!entry) return cancelled('Edge not found.')
-        const segmentIndex = getNearestEdgeSegment(command.pointWorld, entry.path.points)
+        const doc = readDoc()
+        const edge = doc.edges.find((item) => item.id === command.edgeId)
+        if (!edge) return cancelled('Edge not found.')
+        const pathPoints = resolvePathPoints(doc, edge)
+        if (!pathPoints?.length) return cancelled('Edge path unavailable.')
+        const segmentIndex = getNearestEdgeSegment(command.pointWorld, pathPoints)
         const patch = insertRoutingPointPatch(
-          entry.edge,
-          entry.path.points,
+          edge,
+          pathPoints,
           segmentIndex,
           command.pointWorld
         )
         if (!patch) return cancelled('No routing patch generated.')
-        return success([{ type: 'edge.update', id: command.edgeId, patch }])
+        return success([{ type: 'edge.update', id: edge.id, patch }])
       }
-      case 'routing.move': {
-        const edge = readEdgeById(command.edgeId)
-        if (!edge) return cancelled('Edge not found.')
-        const patch = moveRoutingPointPatch(edge, command.index, command.pointWorld)
-        if (!patch) return cancelled('No routing patch generated.')
-        return success([{ type: 'edge.update', id: command.edgeId, patch }])
-      }
-      case 'routing.remove': {
-        const edge = readEdgeById(command.edgeId)
-        if (!edge) return cancelled('Edge not found.')
-        const patch = removeRoutingPointPatch(edge, command.index)
-        if (!patch) return cancelled('No routing patch generated.')
-        return success([{ type: 'edge.update', id: command.edgeId, patch }])
-      }
-      case 'routing.reset': {
-        const edge = readEdgeById(command.edgeId)
-        if (!edge) return cancelled('Edge not found.')
-        return success([{
-          type: 'edge.update',
-          id: command.edgeId,
-          patch: resetRoutingPatch(edge)
-        }])
-      }
+      case 'routing.move':
+        return updateRouting(command.edgeId, (edge) =>
+          moveRoutingPointPatch(edge, command.index, command.pointWorld)
+        )
+      case 'routing.remove':
+        return updateRouting(command.edgeId, (edge) =>
+          removeRoutingPointPatch(edge, command.index)
+        )
+      case 'routing.reset':
+        return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge))
       default:
         return invalid('Unsupported edge action.')
     }

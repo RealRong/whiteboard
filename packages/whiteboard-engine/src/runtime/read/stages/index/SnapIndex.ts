@@ -118,17 +118,17 @@ export class SnapIndex {
     this.orderDirty = true
   }
 
-  applyPlan = (
-    plan: IndexChange,
+  applyChange = (
+    change: IndexChange,
     canvas: IndexCanvasSource
   ): boolean => {
-    switch (plan.rebuild) {
+    switch (change.rebuild) {
       case 'none':
         return false
       case 'full':
         return this.syncFull(canvas.all())
       case 'dirty':
-        return this.syncByNodeIds(plan.dirtyNodeIds, canvas.byId)
+        return this.syncByNodeIds(change.nodeIds, canvas.byId)
       default:
         return false
     }

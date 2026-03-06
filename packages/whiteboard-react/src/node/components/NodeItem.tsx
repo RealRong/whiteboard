@@ -188,7 +188,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   const nodeStyle = useMemo(
     () =>
       getNodeDefinitionStyle(definition, {
-        query: instance.query,
+        read: instance.read,
         commands: instance.commands,
         node,
         rect,
@@ -196,7 +196,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
         hovered,
         zoom
       }),
-    [definition, hovered, instance.commands, instance.query, node, rect, selected, zoom]
+    [definition, hovered, instance.commands, instance.read, node, rect, selected, zoom]
   )
 
   const emitMeasuredSize = useCallback(
@@ -338,7 +338,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
 
   const renderProps = useMemo<NodeRenderProps>(
     () => ({
-      query: instance.query,
+      read: instance.read,
       commands: instance.commands,
       node,
       rect,
@@ -347,7 +347,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
       zoom,
       containerProps
     }),
-    [containerProps, hovered, instance.commands, instance.query, node, rect, selected, zoom]
+    [containerProps, hovered, instance.commands, instance.read, node, rect, selected, zoom]
   )
 
   const content = useMemo(

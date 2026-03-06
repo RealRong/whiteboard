@@ -212,7 +212,7 @@ export const useNodeTransformInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.query.canvas.nodeRect(nodeId)
+      const nodeRect = instance.read.canvas.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
 
       let nextDrag: ResizeDragState | RotateDragState | undefined
@@ -235,8 +235,8 @@ export const useNodeTransformInteraction = ({
         const world = toPointerWorld(
           event.clientX,
           event.clientY,
-          instance.query.viewport.clientToScreen,
-          instance.query.viewport.screenToWorld
+          instance.read.viewport.clientToScreen,
+          instance.read.viewport.screenToWorld
         )
         const startAngle = Math.atan2(
           world.y - center.y,
@@ -272,9 +272,9 @@ export const useNodeTransformInteraction = ({
       event.stopPropagation()
     },
     [
-      instance.query.canvas,
-      instance.query.viewport.clientToScreen,
-      instance.query.viewport.screenToWorld,
+      instance.read.canvas,
+      instance.read.viewport.clientToScreen,
+      instance.read.viewport.screenToWorld,
       instance.state,
       nodeId
     ]
@@ -288,7 +288,7 @@ export const useNodeTransformInteraction = ({
 
       if (active.drag.mode === 'resize') {
         const activeTool = instance.state.read('tool')
-        const zoom = Math.max(instance.query.viewport.getZoom(), ZOOM_EPSILON)
+        const zoom = Math.max(instance.read.state.viewport.zoom, ZOOM_EPSILON)
         const resized = computeResizeRect({
           handle: active.drag.handle,
           startScreen: active.drag.startScreen,
@@ -329,7 +329,7 @@ export const useNodeTransformInteraction = ({
           const { sourceX, sourceY } = getResizeSourceEdges(active.drag.handle)
           const snapped = computeResizeSnap({
             movingRect,
-            candidates: instance.query.snap.candidatesInRect(
+            candidates: instance.read.snap.candidatesInRect(
               expandRectByThreshold(movingRect, thresholdWorld)
             ),
             threshold: thresholdWorld,
@@ -370,8 +370,8 @@ export const useNodeTransformInteraction = ({
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.query.viewport.clientToScreen,
-        instance.query.viewport.screenToWorld
+        instance.read.viewport.clientToScreen,
+        instance.read.viewport.screenToWorld
       )
       const rotation = computeNextRotation({
         center: active.drag.center,

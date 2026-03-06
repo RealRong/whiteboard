@@ -13,7 +13,6 @@ export {
 export type { Commands } from './types/command/api'
 export type {
   CommandSource,
-  CommandTrace,
   Mutation,
   ApplyMutationsApi
 } from './types/command/source'

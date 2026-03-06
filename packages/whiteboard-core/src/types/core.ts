@@ -144,7 +144,6 @@ export interface Document {
   name?: string
   nodes: Node[]
   edges: Edge[]
-  mindmaps?: MindmapTree[]
   order: {
     nodes: NodeId[]
     edges: EdgeId[]
@@ -183,11 +182,6 @@ export type MindmapCommandOptions = {
   layout?: MindmapLayoutHint
 }
 
-export type MindmapSubtree = {
-  nodes: Record<MindmapNodeId, MindmapNode>
-  children: Record<MindmapNodeId, MindmapNodeId[]>
-}
-
 // Operation is immutable once created. Any enrichment or normalization must
 // return a new operation instead of mutating an existing one.
 export type Operation =
@@ -195,43 +189,12 @@ export type Operation =
   | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch; readonly before?: Node }
   | { readonly type: 'node.delete'; readonly id: NodeId; readonly before?: Node }
   | { readonly type: 'node.order.set'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
-  | { readonly type: 'node.order.bringToFront'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
-  | { readonly type: 'node.order.sendToBack'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
-  | { readonly type: 'node.order.bringForward'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
-  | { readonly type: 'node.order.sendBackward'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
   | { readonly type: 'edge.create'; readonly edge: Edge }
   | { readonly type: 'edge.update'; readonly id: EdgeId; readonly patch: EdgePatch; readonly before?: Edge }
   | { readonly type: 'edge.delete'; readonly id: EdgeId; readonly before?: Edge }
   | { readonly type: 'edge.order.set'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'edge.order.bringToFront'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'edge.order.sendToBack'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'edge.order.bringForward'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'edge.order.sendBackward'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'mindmap.create'; readonly mindmap: MindmapTree }
-  | { readonly type: 'mindmap.replace'; readonly id: MindmapId; readonly before?: MindmapTree; readonly after: MindmapTree }
+  | { readonly type: 'mindmap.set'; readonly id: MindmapId; readonly tree: MindmapTree; readonly before?: MindmapTree }
   | { readonly type: 'mindmap.delete'; readonly id: MindmapId; readonly before?: MindmapTree }
-  | { readonly type: 'mindmap.node.create'; readonly id: MindmapId; readonly node: MindmapNode; readonly parentId: MindmapNodeId; readonly index?: number }
-  | { readonly type: 'mindmap.node.update'; readonly id: MindmapId; readonly nodeId: MindmapNodeId; readonly patch: Partial<MindmapNode>; readonly before?: MindmapNode }
-  | {
-      readonly type: 'mindmap.node.delete'
-      readonly id: MindmapId
-      readonly nodeId: MindmapNodeId
-      readonly parentId?: MindmapNodeId
-      readonly index?: number
-      readonly subtree: MindmapSubtree
-    }
-  | {
-      readonly type: 'mindmap.node.move'
-      readonly id: MindmapId
-      readonly nodeId: MindmapNodeId
-      readonly fromParentId: MindmapNodeId
-      readonly toParentId: MindmapNodeId
-      readonly fromIndex: number
-      readonly toIndex: number
-      readonly fromSide?: 'left' | 'right'
-      readonly side?: 'left' | 'right'
-    }
-  | { readonly type: 'mindmap.node.reorder'; readonly id: MindmapId; readonly parentId: MindmapNodeId; readonly fromIndex: number; readonly toIndex: number }
   | { readonly type: 'viewport.update'; readonly before?: Viewport; readonly after: Viewport }
 
 export interface ChangeSet {
@@ -300,7 +263,6 @@ export interface DispatchFailure {
 export interface DispatchSuccess {
   ok: true
   changes: ChangeSet
-  value?: unknown
 }
 
 export type DispatchResult = DispatchSuccess | DispatchFailure

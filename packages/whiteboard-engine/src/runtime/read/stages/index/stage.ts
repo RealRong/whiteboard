@@ -1,9 +1,9 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
+import type { Indexer } from '@engine-types/read/indexer'
 import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
 import { DEFAULT_TUNING } from '../../../../config'
 import { NodeRectIndex } from './NodeRectIndex'
 import { SnapIndex } from './SnapIndex'
-import type { Indexer } from '@engine-types/read/indexer'
 
 export const indexer = (
   config: InstanceConfig,
@@ -16,30 +16,28 @@ export const indexer = (
   )
   const snapIndex = new SnapIndex(cellSize)
 
-  const applyPlan: Indexer['applyPlan'] = (plan) => {
-    if (plan.rebuild === 'none') return
+  const applyChange: Indexer['applyChange'] = (change) => {
+    if (change.rebuild === 'none') return
     const snapshot = readSnapshot()
-    const changed = nodeRectIndex.applyPlan(plan, snapshot)
+    const changed = nodeRectIndex.applyChange(change, snapshot)
     if (!changed) return
-    snapIndex.applyPlan(plan, nodeRectIndex)
+    snapIndex.applyChange(change, nodeRectIndex)
   }
 
-  applyPlan({ rebuild: 'full', dirtyNodeIds: [] })
-
-  const query: Indexer['query'] = {
-    canvas: {
-      all: nodeRectIndex.all,
-      byId: nodeRectIndex.byId,
-      idsInRect: nodeRectIndex.nodeIdsInRect
-    },
-    snap: {
-      all: snapIndex.all,
-      inRect: snapIndex.queryInRect
-    }
-  }
+  applyChange({ rebuild: 'full', nodeIds: [] })
 
   return {
-    query,
-    applyPlan
+    query: {
+      canvas: {
+        all: nodeRectIndex.all,
+        byId: nodeRectIndex.byId,
+        idsInRect: nodeRectIndex.nodeIdsInRect
+      },
+      snap: {
+        all: snapIndex.all,
+        inRect: snapIndex.queryInRect
+      }
+    },
+    applyChange
   }
 }

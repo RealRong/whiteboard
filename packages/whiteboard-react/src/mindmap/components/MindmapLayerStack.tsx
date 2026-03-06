@@ -13,7 +13,7 @@ export const MindmapLayerStack = () => {
     () => [...instance.read.projection.mindmap.ids],
     {
       keys: [
-        READ_SUBSCRIPTION_KEYS.snapshot,
+        READ_SUBSCRIPTION_KEYS.projection,
         READ_STATE_KEYS.mindmapLayout
       ]
     }

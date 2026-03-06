@@ -1,8 +1,8 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import type {
-  EdgesView,
   EdgeEndpoints,
-  EdgePathEntry
+  EdgePathEntry,
+  EdgesView
 } from '../instance/read'
 import type { EdgeChange } from './change'
 
@@ -13,7 +13,7 @@ export type EdgeReadSnapshot = {
 }
 
 export type EdgeReadCache = {
-  applyPlan: (plan: EdgeChange) => void
+  applyChange: (change: EdgeChange) => void
   getSnapshot: () => EdgeReadSnapshot
 }
 
@@ -21,5 +21,5 @@ export type EdgeRead = {
   get: {
     edge: () => EdgesView
   }
-  applyPlan: (plan: EdgeChange) => void
+  applyChange: (change: EdgeChange) => void
 }

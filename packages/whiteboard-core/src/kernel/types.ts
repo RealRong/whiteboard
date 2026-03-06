@@ -2,43 +2,23 @@ import type {
   ChangeSet,
   DispatchFailure,
   Document,
-  Edge,
-  EdgeId,
-  MindmapId,
-  MindmapTree,
-  Node,
-  NodeId,
   Operation,
-  Origin,
-  Viewport
+  Origin
 } from '../types'
-
-export type KernelQuery = {
-  document: () => Document
-  node: {
-    get: (id: NodeId) => Node | undefined
-    list: () => Node[]
-  }
-  edge: {
-    get: (id: EdgeId) => Edge | undefined
-    list: () => Edge[]
-    byNode: (id: NodeId) => Edge[]
-  }
-  mindmap: {
-    get: (id: MindmapId) => MindmapTree | undefined
-    list: () => MindmapTree[]
-  }
-  viewport: () => Viewport
-}
+import type {
+  KernelProjectionInvalidation,
+  KernelRebuild
+} from './session'
 
 export type KernelContext = {
   now?: () => number
   origin?: Origin
 }
 
-export type KernelInvertResult =
-  | { ok: true; operations: readonly Operation[] }
-  | DispatchFailure
+export type {
+  KernelProjectionInvalidation,
+  KernelRebuild
+} from './session'
 
 export type KernelReduceResult =
   | {
@@ -46,5 +26,6 @@ export type KernelReduceResult =
       doc: Document
       changes: ChangeSet
       inverse: readonly Operation[]
+      invalidation: KernelProjectionInvalidation
     }
   | DispatchFailure

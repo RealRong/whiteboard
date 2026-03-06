@@ -51,18 +51,18 @@ export class NodeRectIndex {
     }
   }
 
-  applyPlan = (
-    plan: IndexChange,
+  applyChange = (
+    change: IndexChange,
     snapshot: ReadModelSnapshot
   ): boolean => {
-    switch (plan.rebuild) {
+    switch (change.rebuild) {
       case 'none':
         return false
       case 'full':
         return this.syncFull(snapshot.nodes.canvas)
       case 'dirty':
         return this.syncByNodeIds(
-          plan.dirtyNodeIds,
+          change.nodeIds,
           snapshot.indexes.canvasNodeById
         )
       default:

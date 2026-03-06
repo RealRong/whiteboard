@@ -14,12 +14,7 @@ export type CommandSource =
 
 export type Mutation = Operation
 
-export type CommandTrace = {
-  commandId?: string
-}
-
 export type ApplyMutationsApi = (
   operations: readonly Operation[],
-  source: CommandSource,
-  trace?: CommandTrace
+  source: CommandSource
 ) => Promise<DispatchResult>

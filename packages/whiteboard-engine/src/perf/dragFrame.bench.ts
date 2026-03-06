@@ -136,7 +136,7 @@ const createPointerInput = (options: {
   client: Point
 }): PointerInput => {
   const { instance, pointerId, client } = options
-  const screen = instance.query.viewport.clientToScreen(
+  const screen = instance.read.viewport.clientToScreen(
     client.x,
     client.y
   )
@@ -145,7 +145,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: instance.query.viewport.screenToWorld(screen),
+    world: instance.read.viewport.screenToWorld(screen),
     modifiers: {
       shift: false,
       alt: false,
@@ -172,17 +172,17 @@ const main = () => {
   })
   const dragKernel = new NodeDragKernel({
     instance: {
-      query: instance.query,
+      read: instance.read,
       config: instance.read.config,
       viewport: {
-        getZoom: instance.query.viewport.getZoom
+        getZoom: () => instance.read.state.viewport.zoom
       },
       document: {
         get: instance.read.doc.get
       }
     } as unknown as Pick<
       InternalInstance,
-      'query' | 'config' | 'viewport' | 'document'
+      'read' | 'config' | 'viewport' | 'document'
     >
   })
   const syncDoc = (next: Document) => {
@@ -190,7 +190,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.query.canvas.nodeRect(movingNodeId)?.node
+  const movingNode = instance.read.canvas.nodeRect(movingNodeId)?.node
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }

@@ -13,7 +13,7 @@ import { Rules } from './Rules'
 
 type KernelInstance = Pick<
   InternalInstance,
-  'query' | 'config' | 'viewport' | 'document'
+  'read' | 'config' | 'document'
 >
 
 type KernelOptions = {
@@ -54,8 +54,8 @@ export class NodeTransformKernel {
   constructor({ instance }: KernelOptions) {
     this.rules = new Rules({
       config: instance.config,
-      query: instance.query,
-      readZoom: instance.viewport.getZoom
+      read: instance.read,
+      readZoom: () => instance.read.state.viewport.zoom
     })
     this.commitCompiler = new CommitCompiler({
       readDoc: instance.document.get

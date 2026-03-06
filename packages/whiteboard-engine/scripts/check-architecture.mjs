@@ -109,5 +109,5 @@ console.error('Architecture checks failed:\n')
 for (const violation of violations) {
   console.error(`- [${violation.rule}] ${violation.file}: ${violation.message}`)
 }
-console.error('\n请将写操作收敛到 Session -> Domain -> Writer -> Mutation Pipeline。')
+console.error('\n请将写操作收敛到 Commands -> Write -> Plan -> Commit -> Read -> Reactions。')
 process.exit(1)

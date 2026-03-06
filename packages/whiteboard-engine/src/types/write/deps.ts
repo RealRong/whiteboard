@@ -4,11 +4,13 @@ import type { ReadInvalidation } from '../read/invalidation'
 
 export type WriteInstance = Pick<
   InternalInstance,
-  'state' | 'document' | 'config' | 'viewport' | 'registries' | 'query' | 'read'
+  'document' | 'config' | 'viewport' | 'registries'
 >
 
 export type Deps = {
   instance: WriteInstance
   scheduler: Scheduler
   applyInvalidation: (invalidation: ReadInvalidation) => void
+  resetTransientState: () => void
+  react: (invalidation: ReadInvalidation) => void
 }

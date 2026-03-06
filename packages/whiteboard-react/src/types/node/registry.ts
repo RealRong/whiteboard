@@ -1,6 +1,6 @@
 import type { Node, Rect } from '@whiteboard/core/types'
 import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
-import type { Commands, Instance } from '@whiteboard/engine'
+import type { Commands, EngineRead } from '@whiteboard/engine'
 
 export type NodeContainerProps = {
   rect: Rect
@@ -17,7 +17,7 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  query: Instance['query']
+  read: Pick<EngineRead, 'viewport' | 'canvas' | 'snap'>
   commands: Commands
   node: Node
   rect: Rect

@@ -5,6 +5,7 @@ import type {
   ShortcutOverrides
 } from '@whiteboard/engine'
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
+import { dispatchShortcutAction } from './shortcutDispatch'
 
 type UseShortcutDispatchOptions = {
   instance: Instance
@@ -149,7 +150,7 @@ export const useShortcutDispatch = ({
       const action = keyActionMap.get(chord)
       if (!action) return
 
-      const handled = instance.commands.shortcut.dispatch(action)
+      const handled = dispatchShortcutAction(instance, action)
       if (!handled) return
 
       event.preventDefault()

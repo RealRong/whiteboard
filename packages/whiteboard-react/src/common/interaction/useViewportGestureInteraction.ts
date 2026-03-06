@@ -85,8 +85,8 @@ export const useViewportGestureInteraction = ({
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
 
   const readCommittedViewport = useCallback(
-    () => instance.query.viewport.get(),
-    [instance.query.viewport]
+    () => instance.read.state.viewport,
+    [instance.read]
   )
 
   const readGestureViewport = useCallback(
@@ -235,14 +235,14 @@ export const useViewportGestureInteraction = ({
       )
       const appliedFactor = nextZoom / zoom
       if (appliedFactor === 1) return
-      const anchorScreen = instance.query.viewport.clientToScreen(
+      const anchorScreen = instance.read.viewport.clientToScreen(
         event.clientX,
         event.clientY
       )
       const anchor = viewportScreenToWorld(
         anchorScreen,
         viewport,
-        instance.query.viewport.getScreenCenter()
+        instance.read.viewport.getScreenCenter()
       )
       const nextViewport = zoomViewport(viewport, appliedFactor, anchor)
       viewportGestureState.setPreview(instance, nextViewport)
@@ -251,7 +251,7 @@ export const useViewportGestureInteraction = ({
       event.stopPropagation()
     },
     [
-      instance.query.viewport,
+      instance.read.viewport,
       readGestureViewport,
       scheduleWheelCommit,
       viewportPolicy.maxZoom,

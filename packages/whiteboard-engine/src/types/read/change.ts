@@ -1,14 +1,8 @@
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type {
+  KernelProjectionInvalidation,
+  KernelRebuild
+} from '@whiteboard/core/kernel'
 
-export type Rebuild = 'none' | 'dirty' | 'full'
-
-export type EdgeChange = {
-  rebuild: Rebuild
-  dirtyNodeIds: readonly NodeId[]
-  dirtyEdgeIds: readonly EdgeId[]
-}
-
-export type IndexChange = {
-  rebuild: Rebuild
-  dirtyNodeIds: readonly NodeId[]
-}
+export type Rebuild = KernelRebuild
+export type IndexChange = KernelProjectionInvalidation['index']
+export type EdgeChange = KernelProjectionInvalidation['edge']

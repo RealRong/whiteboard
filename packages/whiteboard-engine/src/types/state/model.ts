@@ -1,3 +1,4 @@
+import type { HistoryState as KernelHistoryState } from '@whiteboard/core/kernel'
 import type {
   EdgeId,
   MindmapNodeId,
@@ -43,14 +44,7 @@ export type InteractionState = {
   }
 }
 
-export type HistoryState = {
-  canUndo: boolean
-  canRedo: boolean
-  undoDepth: number
-  redoDepth: number
-  isApplying: boolean
-  lastUpdatedAt?: number
-}
+export type HistoryState = KernelHistoryState
 
 export type MindmapRootDragState = {
   kind: 'root'

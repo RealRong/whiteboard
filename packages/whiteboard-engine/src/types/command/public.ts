@@ -22,7 +22,6 @@ import type {
   NodeUpdateManyOptions
 } from './write'
 import type { MindmapApplyCommand } from './mindmap'
-import type { ShortcutAction } from '../shortcuts/types'
 
 export type MindmapCommands = {
   apply: (command: MindmapApplyCommand) => Promise<DispatchResult>
@@ -56,25 +55,18 @@ export type Commands = {
     selectAll: () => void
     clear: () => void
     getSelectedNodeIds: () => NodeId[]
-    groupSelected: () => Promise<void>
-    ungroupSelected: () => Promise<void>
-    deleteSelected: () => Promise<void>
-    duplicateSelected: () => Promise<void>
-  }
-  shortcut: {
-    dispatch: (action: ShortcutAction) => boolean
   }
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>
     update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
-    updateMany: (updates: readonly EdgeBatchUpdate[]) => void
+    updateMany: (updates: readonly EdgeBatchUpdate[]) => Promise<DispatchResult>
     delete: (ids: EdgeId[]) => Promise<DispatchResult>
     select: (id?: EdgeId) => void
     routing: {
-      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => void
-      move: (edgeId: EdgeId, index: number, pointWorld: Point) => void
-      remove: (edgeId: EdgeId, index: number) => void
-      reset: (edgeId: EdgeId) => void
+      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => Promise<DispatchResult>
+      move: (edgeId: EdgeId, index: number, pointWorld: Point) => Promise<DispatchResult>
+      remove: (edgeId: EdgeId, index: number) => Promise<DispatchResult>
+      reset: (edgeId: EdgeId) => Promise<DispatchResult>
     }
     order: {
       set: (ids: EdgeId[]) => Promise<DispatchResult>
@@ -94,12 +86,15 @@ export type Commands = {
   node: {
     create: (payload: NodeInput) => Promise<DispatchResult>
     update: (id: NodeId, patch: NodePatch) => Promise<DispatchResult>
-    updateMany: (updates: readonly NodeBatchUpdate[], options?: NodeUpdateManyOptions) => void
-    updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<DispatchResult> | undefined
+    updateMany: (updates: readonly NodeBatchUpdate[], options?: NodeUpdateManyOptions) => Promise<DispatchResult>
+    updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<DispatchResult>
     delete: (ids: NodeId[]) => Promise<DispatchResult>
+    deleteCascade: (ids: NodeId[]) => Promise<DispatchResult>
+    duplicate: (ids: NodeId[]) => Promise<DispatchResult>
     group: {
       create: (ids: NodeId[]) => Promise<DispatchResult>
       ungroup: (id: NodeId) => Promise<DispatchResult>
+      ungroupMany: (ids: NodeId[]) => Promise<DispatchResult>
     }
     order: {
       set: (ids: NodeId[]) => Promise<DispatchResult>

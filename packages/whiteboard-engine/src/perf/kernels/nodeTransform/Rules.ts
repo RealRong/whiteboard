@@ -1,7 +1,7 @@
 import type { Size } from '@engine-types/common/base'
 import type { PointerInput } from '@engine-types/common/input'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { Query } from '@engine-types/instance/query'
+import type { EngineRead } from '@engine-types/instance/read'
 import type { Guide } from '@engine-types/node/snap'
 import type {
   NodeTransformResizeConstraints,
@@ -21,7 +21,7 @@ import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 
 type RulesOptions = {
   config: InstanceConfig
-  query: Pick<Query, 'snap'>
+  read: Pick<EngineRead, 'snap'>
   readZoom: () => number
 }
 
@@ -49,12 +49,12 @@ const expandRectByThreshold = (
 
 export class Rules {
   private readonly config: RulesOptions['config']
-  private readonly query: RulesOptions['query']
+  private readonly read: RulesOptions['read']
   private readonly readZoom: RulesOptions['readZoom']
 
   constructor(options: RulesOptions) {
     this.config = options.config
-    this.query = options.query
+    this.read = options.read
     this.readZoom = options.readZoom
   }
 
@@ -151,7 +151,7 @@ export class Rules {
         width: nextSize.width,
         height: nextSize.height
       }
-      const candidates = this.query.snap.candidatesInRect(
+      const candidates = this.read.snap.candidatesInRect(
         expandRectByThreshold(movingRect, thresholdWorld)
       )
       const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)

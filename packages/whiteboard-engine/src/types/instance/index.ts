@@ -1,6 +1,5 @@
 export type * from './config'
 export type * from './engine'
-export type * from './query'
 export * from './read'
 export type * from './runtime'
 export type * from './state'
