@@ -2,23 +2,30 @@ import type {
   ChangeSet,
   DispatchFailure,
   Document,
+  EdgeId,
+  NodeId,
   Operation,
   Origin
 } from '../types'
-import type {
-  KernelProjectionInvalidation,
-  KernelRebuild
-} from './session'
 
 export type KernelContext = {
   now?: () => number
   origin?: Origin
 }
 
-export type {
-  KernelProjectionInvalidation,
-  KernelRebuild
-} from './session'
+export type KernelRebuild = 'none' | 'dirty' | 'full'
+
+export type KernelProjectionInvalidation = {
+  index: {
+    rebuild: KernelRebuild
+    nodeIds: readonly NodeId[]
+  }
+  edge: {
+    rebuild: KernelRebuild
+    nodeIds: readonly NodeId[]
+    edgeIds: readonly EdgeId[]
+  }
+}
 
 export type KernelReduceResult =
   | {

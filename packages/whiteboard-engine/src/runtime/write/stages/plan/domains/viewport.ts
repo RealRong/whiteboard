@@ -20,7 +20,6 @@ export const viewport = ({
     if (command.type === 'set') {
       return ops(
         corePlan.viewport.set({
-          before: readViewport(),
           viewport: command.viewport
         })
       )
@@ -29,7 +28,7 @@ export const viewport = ({
     if (command.type === 'panBy') {
       return ops(
         corePlan.viewport.panBy({
-          before: readViewport(),
+          current: readViewport(),
           delta: command.delta
         })
       )
@@ -38,7 +37,7 @@ export const viewport = ({
     if (command.type === 'zoomBy') {
       return ops(
         corePlan.viewport.zoomBy({
-          before: readViewport(),
+          current: readViewport(),
           factor: command.factor,
           anchor: command.anchor
         })
@@ -48,7 +47,7 @@ export const viewport = ({
     if (command.type === 'zoomTo') {
       return ops(
         corePlan.viewport.zoomTo({
-          before: readViewport(),
+          current: readViewport(),
           zoom: command.zoom,
           anchor: command.anchor
         })
@@ -57,7 +56,6 @@ export const viewport = ({
 
     return ops(
       corePlan.viewport.reset({
-        before: readViewport(),
         viewport: DEFAULT_DOCUMENT_VIEWPORT
       })
     )

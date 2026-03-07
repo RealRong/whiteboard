@@ -2,15 +2,8 @@ import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Scheduler } from '../../scheduling/Scheduler'
 import type { Write } from '@engine-types/write/runtime'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
-import type { WriteInput } from '@engine-types/command/api'
 import { MicrotaskTask } from '../../scheduling/Task'
 import { Autofit } from './Autofit'
-
-type ReactionModule = {
-  seed: () => boolean
-  ingest: (invalidation: ReadInvalidation) => boolean
-  flush: () => WriteInput | null
-}
 
 type ReactionsOptions = {
   instance: Pick<InternalInstance, 'document' | 'config'>
@@ -28,40 +21,26 @@ export const createReactions = ({
   write,
   scheduler
 }: ReactionsOptions): Reactions => {
-  const modules: readonly ReactionModule[] = [
-    new Autofit({
-      instance
-    })
-  ]
+  const autofit = new Autofit({ instance })
   let disposed = false
 
-  const flush = () => {
+  const task = new MicrotaskTask(scheduler, () => {
     if (disposed) return
-    modules.forEach((module) => {
-      const payload = module.flush()
-      if (!payload) return
-      void write.apply(payload)
-    })
-  }
-
-  const task = new MicrotaskTask(scheduler, flush)
-
-  modules.forEach((module) => {
-    if (module.seed()) {
-      task.schedule()
-    }
+    const payload = autofit.flush()
+    if (!payload) return
+    void write.apply(payload)
   })
 
-  const ingest = (invalidation: ReadInvalidation) => {
-    if (disposed) return
-    const scheduled = modules.some((module) => module.ingest(invalidation))
-    if (scheduled) {
-      task.schedule()
-    }
+  if (autofit.seed()) {
+    task.schedule()
   }
 
   return {
-    ingest,
+    ingest: (invalidation) => {
+      if (disposed) return
+      if (!autofit.ingest(invalidation)) return
+      task.schedule()
+    },
     dispose: () => {
       if (disposed) return
       disposed = true

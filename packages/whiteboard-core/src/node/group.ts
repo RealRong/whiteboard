@@ -3,7 +3,7 @@ import { enlargeBox } from '../utils/group'
 import { getNodeAABB } from '../geometry'
 
 export const getNodesBoundingRect = (
-  nodes: Node[],
+  nodes: readonly Node[],
   fallbackSize: Size
 ): Rect | undefined => {
   if (!nodes.length) return undefined
@@ -34,7 +34,7 @@ export const getNodesBoundingRect = (
   }
 }
 
-export const getGroupChildrenMap = (nodes: Node[]) => {
+export const getGroupChildrenMap = (nodes: readonly Node[]) => {
   const map = new Map<NodeId, Node[]>()
   nodes.forEach((node) => {
     if (!node.parentId) return
@@ -45,7 +45,7 @@ export const getGroupChildrenMap = (nodes: Node[]) => {
   return map
 }
 
-export const getGroupDescendants = (nodes: Node[], groupId: NodeId): Node[] => {
+export const getGroupDescendants = (nodes: readonly Node[], groupId: NodeId): Node[] => {
   const map = getGroupChildrenMap(nodes)
   const result: Node[] = []
   const stack = [...(map.get(groupId) ?? [])]
@@ -61,7 +61,7 @@ export const getGroupDescendants = (nodes: Node[], groupId: NodeId): Node[] => {
   return result
 }
 
-export const getCollapsedGroupIds = (nodes: Node[]) => {
+export const getCollapsedGroupIds = (nodes: readonly Node[]) => {
   const set = new Set<NodeId>()
   nodes.forEach((node) => {
     if (node.type !== 'group') return
@@ -78,8 +78,8 @@ export const getCollapsedGroupIds = (nodes: Node[]) => {
 
 export const isHiddenByCollapsedGroup = (
   node: Node,
-  nodeMap: Map<NodeId, Node>,
-  collapsedGroupIds: Set<NodeId>
+  nodeMap: ReadonlyMap<NodeId, Node>,
+  collapsedGroupIds: ReadonlySet<NodeId>
 ) => {
   let parentId = node.parentId
   while (parentId) {

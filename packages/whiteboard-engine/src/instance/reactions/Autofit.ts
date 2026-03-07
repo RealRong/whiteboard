@@ -2,7 +2,12 @@ import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type { WriteInput } from '@engine-types/command/api'
 import type { Rebuild } from '@engine-types/read/change'
 import type { InternalInstance } from '@engine-types/instance/engine'
-import type { Node, NodeId, NodePatch } from '@whiteboard/core/types'
+import {
+  listNodes,
+  type Node,
+  type NodeId,
+  type NodePatch
+} from '@whiteboard/core/types'
 import { getNodeAABB } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
@@ -21,17 +26,12 @@ type LayoutSnapshot = {
   groupPadding: number
 }
 
-type PendingChange = {
+type Change = {
   rebuild: Rebuild
   nodeIds: Set<NodeId>
 }
 
-type RebuildChange = {
-  rebuild: Rebuild
-  nodeIds: Set<NodeId>
-}
-
-type NodeIndexes = {
+type NodeIndex = {
   nodeMap: ReadonlyMap<NodeId, Node>
   childrenByParentId: ReadonlyMap<NodeId, readonly Node[]>
   groups: readonly Node[]
@@ -42,7 +42,7 @@ type GroupUpdate = {
   patch: NodePatch
 }
 
-const toLayoutSnapshot = (
+const createLayoutSnapshot = (
   nodeSize: { width: number; height: number },
   groupPadding: number
 ): LayoutSnapshot => ({
@@ -51,20 +51,19 @@ const toLayoutSnapshot = (
   groupPadding
 })
 
-const isLayoutChanged = (
+const hasLayoutChanged = (
   previous: LayoutSnapshot | null,
-  nodeSize: { width: number; height: number },
-  groupPadding: number
+  next: LayoutSnapshot
 ): boolean => {
   if (!previous) return false
   return (
-    previous.nodeWidth !== nodeSize.width ||
-    previous.nodeHeight !== nodeSize.height ||
-    previous.groupPadding !== groupPadding
+    previous.nodeWidth !== next.nodeWidth ||
+    previous.nodeHeight !== next.nodeHeight ||
+    previous.groupPadding !== next.groupPadding
   )
 }
 
-const createIndexes = (nodes: readonly Node[]): NodeIndexes => {
+const createNodeIndex = (nodes: readonly Node[]): NodeIndex => {
   const nodeMap = new Map<NodeId, Node>()
   const childrenByParentId = new Map<NodeId, Node[]>()
   const groups: Node[] = []
@@ -75,9 +74,9 @@ const createIndexes = (nodes: readonly Node[]): NodeIndexes => {
       groups.push(node)
     }
     if (!node.parentId) return
-    const bucket = childrenByParentId.get(node.parentId)
-    if (bucket) {
-      bucket.push(node)
+    const children = childrenByParentId.get(node.parentId)
+    if (children) {
+      children.push(node)
       return
     }
     childrenByParentId.set(node.parentId, [node])
@@ -90,66 +89,82 @@ const createIndexes = (nodes: readonly Node[]): NodeIndexes => {
   }
 }
 
-const resolveGroupsToProcess = ({
-  groups,
+const collectTouchedGroupIds = ({
+  change,
   prevNodeMap,
-  nextNodeMap,
-  change
+  nextNodeMap
 }: {
-  groups: readonly Node[]
+  change: Change
   prevNodeMap: ReadonlyMap<NodeId, Node> | null
   nextNodeMap: ReadonlyMap<NodeId, Node>
-  change: RebuildChange
-}): readonly Node[] => {
-  if (change.rebuild === 'full') {
-    return groups
-  }
+}): Set<NodeId> => {
+  const groupIds = new Set<NodeId>()
 
-  const touchedGroups = new Set<NodeId>()
   change.nodeIds.forEach((id) => {
     const current = nextNodeMap.get(id)
     const previous = prevNodeMap?.get(id)
+
+    if (current?.type === 'group') {
+      groupIds.add(current.id)
+    }
+    if (previous?.type === 'group') {
+      groupIds.add(previous.id)
+    }
+
     const parentIds = [current?.parentId, previous?.parentId]
     parentIds.forEach((parentId) => {
       if (!parentId) return
       const parent = nextNodeMap.get(parentId)
       if (parent?.type === 'group') {
-        touchedGroups.add(parent.id)
+        groupIds.add(parent.id)
       }
     })
-    if (current?.type === 'group') {
-      touchedGroups.add(current.id)
-    }
-    if (previous?.type === 'group') {
-      touchedGroups.add(previous.id)
-    }
   })
 
-  return groups.filter(group => touchedGroups.has(group.id))
+  return groupIds
 }
 
-const createAutoFitUpdate = ({
-  indexes,
+const selectGroups = ({
+  change,
+  prevNodeMap,
+  index
+}: {
+  change: Change
+  prevNodeMap: ReadonlyMap<NodeId, Node> | null
+  index: NodeIndex
+}): readonly Node[] => {
+  if (change.rebuild === 'full') {
+    return index.groups
+  }
+
+  const touchedGroupIds = collectTouchedGroupIds({
+    change,
+    prevNodeMap,
+    nextNodeMap: index.nodeMap
+  })
+
+  return index.groups.filter((group) => touchedGroupIds.has(group.id))
+}
+
+const createGroupUpdate = ({
+  index,
   group,
   nodeSize,
-  defaultPadding
+  groupPadding
 }: {
-  indexes: NodeIndexes
+  index: NodeIndex
   group: Node
   nodeSize: { width: number; height: number }
-  defaultPadding: number
+  groupPadding: number
 }): GroupUpdate | null => {
-  const padding = typeof group.groupPadding === 'number'
-    ? group.groupPadding
-    : defaultPadding
-  const children = indexes.childrenByParentId.get(group.id) ?? []
+  const children = index.childrenByParentId.get(group.id) ?? []
   if (!children.length) return null
 
   const contentRect = getNodesBoundingRect(children, nodeSize)
   if (!contentRect) return null
 
   const groupRect = getNodeAABB(group, nodeSize)
-  const expanded = expandGroupRect(groupRect, contentRect, padding)
+  const expanded = expandGroupRect(groupRect, contentRect, groupPadding)
   if (rectEquals(expanded, groupRect, DEFAULT_TUNING.group.rectEpsilon)) return null
 
   return {
@@ -161,15 +176,32 @@ const createAutoFitUpdate = ({
   }
 }
 
+const toWriteInput = (updates: readonly GroupUpdate[]): WriteInput | null => {
+  if (!updates.length) return null
+  return {
+    domain: 'node',
+    command: {
+      type: 'updateMany',
+      updates: updates.map((update) => ({
+        id: update.id,
+        patch: update.patch
+      }))
+    },
+    source: 'system'
+  }
+}
+
+const createEmptyChange = (rebuild: Rebuild = 'none'): Change => ({
+  rebuild,
+  nodeIds: new Set<NodeId>()
+})
+
 export class Autofit {
   private readonly instance: AutofitOptions['instance']
   private prevNodeMap: ReadonlyMap<NodeId, Node> | null = null
   private layoutSnapshot: LayoutSnapshot | null = null
   private lastDocId: string | undefined
-  private pending: PendingChange = {
-    rebuild: 'none',
-    nodeIds: new Set<NodeId>()
-  }
+  private pending: Change = createEmptyChange()
 
   constructor({ instance }: AutofitOptions) {
     this.instance = instance
@@ -178,61 +210,58 @@ export class Autofit {
   seed = (): boolean => this.promoteFull()
 
   ingest = (invalidation: ReadInvalidation): boolean => {
-    const indexChange = invalidation.index
-    if (indexChange.rebuild === 'none') return false
-
-    if (indexChange.rebuild === 'full' || indexChange.nodeIds.length === 0) {
+    const { rebuild, nodeIds } = invalidation.index
+    if (rebuild === 'none') return false
+    if (rebuild === 'full' || nodeIds.length === 0) {
       return this.promoteFull()
     }
-
-    return this.promoteDirty(indexChange.nodeIds)
+    return this.promoteDirty(nodeIds)
   }
 
   flush = (): WriteInput | null => {
     const pending = this.takePending()
     if (pending.rebuild === 'none') return null
+
     const doc = this.instance.document.get()
     const nodeSize = this.instance.config.nodeSize
-    const padding = this.instance.config.node.groupPadding
-
-    const docChanged = this.resetStateForDoc(doc.id)
-    const indexes = createIndexes(doc.nodes)
-    const layoutChanged = isLayoutChanged(this.layoutSnapshot, nodeSize, padding)
-    const rebuild = (docChanged || layoutChanged) ? 'full' : pending.rebuild
-    const change: RebuildChange = {
-      rebuild,
-      nodeIds: pending.nodeIds
-    }
-    const groupsToProcess = resolveGroupsToProcess({
-      groups: indexes.groups,
+    const groupPadding = this.instance.config.node.groupPadding
+    const nextLayout = createLayoutSnapshot(nodeSize, groupPadding)
+    const change = this.resolveChange(doc.id, nextLayout, pending)
+    const index = createNodeIndex(listNodes(doc))
+    const groups = selectGroups({
+      change,
       prevNodeMap: this.prevNodeMap,
-      nextNodeMap: indexes.nodeMap,
-      change
+      index
     })
+    const updates = groups
+      .map((group) => createGroupUpdate({
+        index,
+        group,
+        nodeSize,
+        groupPadding
+      }))
+      .filter((update): update is GroupUpdate => update !== null)
 
-    const updates = groupsToProcess
-      .map(group => createAutoFitUpdate({ indexes, group, nodeSize, defaultPadding: padding }))
-      .filter((u): u is GroupUpdate => u !== null)
+    this.prevNodeMap = index.nodeMap
+    this.layoutSnapshot = nextLayout
 
-    this.prevNodeMap = indexes.nodeMap
-    this.layoutSnapshot = toLayoutSnapshot(nodeSize, padding)
-
-    if (!updates.length) return null
-
-    return {
-      domain: 'node',
-      command: {
-        type: 'updateMany',
-        updates: updates.map((update) => ({
-          id: update.id,
-          patch: update.patch
-        }))
-      },
-      source: 'system'
-    }
+    return toWriteInput(updates)
   }
 
-  private resetStateForDoc = (docId: string): boolean => {
+  private resolveChange = (
+    docId: string,
+    nextLayout: LayoutSnapshot,
+    pending: Change
+  ): Change => {
+    const docChanged = this.syncDocument(docId)
+    const layoutChanged = hasLayoutChanged(this.layoutSnapshot, nextLayout)
+    if (docChanged || layoutChanged) {
+      return createEmptyChange('full')
+    }
+    return pending
+  }
+
+  private syncDocument = (docId: string): boolean => {
     const docChanged = docId !== this.lastDocId
     if (!docChanged) return false
     this.prevNodeMap = null
@@ -243,10 +272,7 @@ export class Autofit {
 
   private promoteFull = (): boolean => {
     if (this.pending.rebuild === 'full') return false
-    this.pending = {
-      rebuild: 'full',
-      nodeIds: new Set<NodeId>()
-    }
+    this.pending = createEmptyChange('full')
     return true
   }
 
@@ -262,12 +288,9 @@ export class Autofit {
     return changed
   }
 
-  private takePending = (): PendingChange => {
+  private takePending = (): Change => {
     const pending = this.pending
-    this.pending = {
-      rebuild: 'none',
-      nodeIds: new Set<NodeId>()
-    }
+    this.pending = createEmptyChange()
     return pending
   }
 }

@@ -1,4 +1,5 @@
 import type { Document, MindmapId, Node } from '../types/core'
+import { getNode } from '../types/core'
 import type { MindmapTree } from './types'
 
 const isMindmapTree = (value: unknown): value is MindmapTree => {
@@ -18,10 +19,12 @@ export const getMindmapTreeFromNode = (node: Node | undefined): MindmapTree | un
 export const getMindmapNodeById = (
   document: Pick<Document, 'nodes'>,
   id: MindmapId
-): Node | undefined => document.nodes.find((node) => node.id === id && node.type === 'mindmap')
+): Node | undefined => {
+  const node = getNode(document, id)
+  return node?.type === 'mindmap' ? node : undefined
+}
 
 export const getMindmapTreeFromDocument = (
   document: Pick<Document, 'nodes'>,
   id: MindmapId
 ): MindmapTree | undefined => getMindmapTreeFromNode(getMindmapNodeById(document, id))
-

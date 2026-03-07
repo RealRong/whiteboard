@@ -9,10 +9,12 @@ import {
 import {
   corePlan
 } from '@whiteboard/core/kernel'
-import type {
-  Document,
-  NodeId,
-  Operation
+import {
+  listEdges,
+  listNodes,
+  type Document,
+  type NodeId,
+  type Operation
 } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../../../../config'
@@ -97,7 +99,7 @@ export const node = ({
 
     const doc = readDoc()
     const selectedSet = new Set(command.ids)
-    const groups = doc.nodes.filter(
+    const groups = listNodes(doc).filter(
       (node) => node.type === 'group' && selectedSet.has(node.id)
     )
     if (!groups.length) {
@@ -126,13 +128,13 @@ export const node = ({
     }
 
     const doc = readDoc()
-    const { expandedIds } = expandNodeSelection(doc.nodes, command.ids)
+    const { expandedIds } = expandNodeSelection(listNodes(doc), command.ids)
     if (!expandedIds.size) {
       return cancelled('No nodes selected.')
     }
 
     const nodeIds = Array.from(expandedIds)
-    const edgeIds = doc.edges
+    const edgeIds = listEdges(doc)
       .filter(
         (edge) =>
           expandedIds.has(edge.source.nodeId)

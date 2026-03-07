@@ -1,4 +1,4 @@
-import type { Document, NodeId, Operation } from '@whiteboard/core/types'
+import { getNode, type Document, type NodeId, type Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { Point } from '@whiteboard/core/types'
 import { isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
@@ -24,7 +24,7 @@ export class CommitCompiler {
     update: ResizeUpdate | undefined
   ): Operation[] => {
     if (!update) return []
-    const node = this.readDoc().nodes.find((item) => item.id === nodeId)
+    const node = getNode(this.readDoc(), nodeId)
     if (!node) return []
 
     const patch: {
@@ -52,7 +52,7 @@ export class CommitCompiler {
     rotation: number | undefined
   ): Operation[] => {
     if (typeof rotation !== 'number') return []
-    const node = this.readDoc().nodes.find((item) => item.id === nodeId)
+    const node = getNode(this.readDoc(), nodeId)
     if (!node) return []
     if ((node.rotation ?? 0) === rotation) return []
     return [{

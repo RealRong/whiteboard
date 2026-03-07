@@ -3,7 +3,7 @@ import type {
   Instance
 } from '@engine-types/instance/engine'
 import type { Api as InstanceApi } from '@engine-types/instance/runtime'
-import type { Document } from '@whiteboard/core/types'
+import { assertDocument, type Document } from '@whiteboard/core/types'
 import type { WriteInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
@@ -27,7 +27,7 @@ export const engine = ({
   const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
   const resolvedRegistries = registries ?? createRegistries()
-  const initialDocument = document
+  const initialDocument = assertDocument(document)
   const { state, stateAtoms } = setupState({
     getDoc: () => initialDocument,
     store
@@ -41,12 +41,13 @@ export const engine = ({
     })
   }
   const commitDocument = (nextDocument: Document) => {
-    store.set(stateAtoms.document, nextDocument)
+    const committedDocument = assertDocument(nextDocument)
+    store.set(stateAtoms.document, committedDocument)
     store.set(
       stateAtoms.readModelRevision,
       (revision: number) => revision + 1
     )
-    viewport.setViewport(nextDocument.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
+    viewport.setViewport(committedDocument.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
   }
   const notifyDocumentChange = (nextDocument: Document) => {
     onDocumentChange?.(nextDocument)

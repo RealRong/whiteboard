@@ -139,18 +139,137 @@ export interface Edge {
   data?: Record<string, unknown>
 }
 
+export type EntityCollection<TId extends string, T extends { id: TId }> = {
+  entities: Record<TId, T>
+  order: TId[]
+}
+
 export interface Document {
   id: DocumentId
   name?: string
-  nodes: Node[]
-  edges: Edge[]
-  order: {
-    nodes: NodeId[]
-    edges: EdgeId[]
-  }
+  nodes: EntityCollection<NodeId, Node>
+  edges: EntityCollection<EdgeId, Edge>
   background?: { type: 'dot' | 'line' | 'none'; color?: string }
   viewport?: Viewport
   meta?: { createdAt?: string; updatedAt?: string }
+}
+
+const toOrderedItems = <TId extends string, T extends { id: TId }>(
+  collection: EntityCollection<TId, T>
+): T[] => {
+  if (!collection.order.length) {
+    return Object.values(collection.entities) as T[]
+  }
+
+  const ordered: T[] = []
+  const visited = new Set<TId>()
+
+  collection.order.forEach((id) => {
+    const item = collection.entities[id]
+    if (!item) return
+    ordered.push(item)
+    visited.add(id)
+  })
+
+  for (const item of Object.values(collection.entities) as T[]) {
+    if (visited.has(item.id)) continue
+    ordered.push(item)
+  }
+
+  return ordered
+}
+
+export const createDocument = (id: DocumentId): Document => ({
+  id,
+  nodes: {
+    entities: {},
+    order: []
+  },
+  edges: {
+    entities: {},
+    order: []
+  }
+})
+
+export const getNode = (
+  document: Pick<Document, 'nodes'>,
+  id: NodeId
+): Node | undefined => document.nodes.entities[id]
+
+export const getEdge = (
+  document: Pick<Document, 'edges'>,
+  id: EdgeId
+): Edge | undefined => document.edges.entities[id]
+
+export const hasNode = (
+  document: Pick<Document, 'nodes'>,
+  id: NodeId
+): boolean => Boolean(document.nodes.entities[id])
+
+export const hasEdge = (
+  document: Pick<Document, 'edges'>,
+  id: EdgeId
+): boolean => Boolean(document.edges.entities[id])
+
+export const listNodes = (
+  document: Pick<Document, 'nodes'>
+): Node[] => toOrderedItems(document.nodes)
+
+export const listEdges = (
+  document: Pick<Document, 'edges'>
+): Edge[] => toOrderedItems(document.edges)
+
+const hasOwn = (target: object, key: PropertyKey) =>
+  Object.prototype.hasOwnProperty.call(target, key)
+
+const assertEntityCollection = <TId extends string, T extends { id: TId }>(
+  name: string,
+  collection: EntityCollection<TId, T>
+) => {
+  if (!collection || typeof collection !== 'object' || Array.isArray(collection)) {
+    throw new Error(`Document ${name} must be an entity collection.`)
+  }
+
+  if (!collection.entities || typeof collection.entities !== 'object' || Array.isArray(collection.entities)) {
+    throw new Error(`Document ${name}.entities must be a record.`)
+  }
+
+  if (!Array.isArray(collection.order)) {
+    throw new Error(`Document ${name}.order must be an array.`)
+  }
+
+  for (const id of collection.order) {
+    if (typeof id !== 'string') {
+      throw new Error(`Document ${name}.order must contain string ids.`)
+    }
+    if (!hasOwn(collection.entities, id)) {
+      throw new Error(`Document ${name}.order contains missing entity ${id}.`)
+    }
+  }
+
+  for (const [id, entity] of Object.entries(collection.entities) as Array<[TId, T]>) {
+    if (!entity || typeof entity !== 'object') {
+      throw new Error(`Document ${name}.entities.${id} must be an object.`)
+    }
+    if (entity.id !== id) {
+      throw new Error(`Document ${name}.entities.${id} has mismatched entity id.`)
+    }
+  }
+}
+
+export const assertDocument = (document: Document): Document => {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) {
+    throw new Error('Document must be an object.')
+  }
+
+  if (typeof document.id !== 'string' || !document.id) {
+    throw new Error('Document id is required.')
+  }
+
+  assertEntityCollection('nodes', document.nodes)
+  assertEntityCollection('edges', document.edges)
+
+  return document
 }
 
 export interface Snapshot {

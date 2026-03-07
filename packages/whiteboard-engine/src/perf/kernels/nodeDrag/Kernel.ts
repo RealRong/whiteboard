@@ -42,11 +42,11 @@ export class NodeDragKernel {
   constructor({ instance }: KernelOptions) {
     this.nodeSize = instance.config.nodeSize
     this.readCanvasNodes = () =>
-      instance.read.canvas.nodeRects().map((entry) => entry.node)
+      instance.read.index.nodeRects().map((entry) => entry.node)
     this.rules = new Rules({
       config: instance.config,
       read: instance.read,
-      readZoom: () => instance.read.state.viewport.zoom,
+      readZoom: () => instance.read.viewport.getZoom(),
       readCanvasNodes: this.readCanvasNodes
     })
     this.commitCompiler = new CommitCompiler({

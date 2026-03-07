@@ -21,7 +21,7 @@ import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../config'
 
 type RulesOptions = {
   config: InstanceConfig
-  read: Pick<EngineRead, 'snap'>
+  read: Pick<EngineRead, 'index'>
   readZoom: () => number
 }
 
@@ -151,7 +151,7 @@ export class Rules {
         width: nextSize.width,
         height: nextSize.height
       }
-      const candidates = this.read.snap.candidatesInRect(
+      const candidates = this.read.index.snapCandidatesInRect(
         expandRectByThreshold(movingRect, thresholdWorld)
       )
       const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)

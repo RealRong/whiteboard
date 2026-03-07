@@ -92,7 +92,7 @@ export const resolveEdgePathEntryWithRoutingDraft = (
     : targetAuto.point
 
   return {
-    id: previewEdge.id,
+    ...entry,
     edge: previewEdge,
     path: getEdgePath({
       edge: previewEdge,

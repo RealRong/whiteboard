@@ -1,12 +1,13 @@
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { NodeDragDraft } from '@engine-types/node/drag'
-import type {
-  Document,
-  Node,
-  NodeId,
-  NodePatch,
-  Operation,
-  Point
+import {
+  getNode,
+  type Document,
+  type Node,
+  type NodeId,
+  type NodePatch,
+  type Operation,
+  type Point
 } from '@whiteboard/core/types'
 import { getNodeAABB, isPointEqual, isSizeEqual, rectContains } from '@whiteboard/core/geometry'
 import {
@@ -188,10 +189,9 @@ export class CommitCompiler {
     if (!patches.size) return []
 
     const doc = this.readDoc()
-    const nodeById = toNodeById(doc.nodes)
     const operations: Operation[] = []
     patches.forEach((patch, id) => {
-      const currentNode = nodeById.get(id)
+      const currentNode = getNode(doc, id)
       if (!currentNode) return
       const normalized = this.normalizePatch(currentNode, patch)
       if (!normalized) return

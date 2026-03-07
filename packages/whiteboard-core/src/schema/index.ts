@@ -8,16 +8,46 @@ import type {
   NodeTypeDefinition,
   SchemaField
 } from '../types/core'
+import { cloneValue } from '../utils'
 import { getValueByPath, hasValueByPath, setValueByPath } from '../utils/objectPath'
+
+type SchemaTarget = {
+  data?: Record<string, unknown>
+  style?: Record<string, unknown>
+  label?: Record<string, unknown>
+}
+
+
+
+const cloneTarget = <T extends SchemaTarget>(input: T): T => {
+  const next = { ...input }
+  if (input.data) {
+    next.data = cloneValue(input.data)
+  }
+  if (input.style) {
+    next.style = cloneValue(input.style)
+  }
+  if ('label' in input && input.label) {
+    next.label = cloneValue(input.label)
+  }
+  return next
+}
 
 const mergeDefaults = (target: Record<string, unknown>, defaults: Record<string, unknown>) => {
   Object.entries(defaults).forEach(([key, value]) => {
     const current = target[key]
     if (current === undefined) {
-      target[key] = value
+      target[key] = cloneValue(value)
       return
     }
-    if (current && value && typeof current === 'object' && typeof value === 'object' && !Array.isArray(value)) {
+    if (
+      current
+      && value
+      && typeof current === 'object'
+      && typeof value === 'object'
+      && !Array.isArray(current)
+      && !Array.isArray(value)
+    ) {
       mergeDefaults(current as Record<string, unknown>, value as Record<string, unknown>)
     }
   })
@@ -31,7 +61,7 @@ const resolveEdgeSchema = (registries: CoreRegistries, type: string): EdgeSchema
   return registries.schemas.getEdge(type) ?? registries.edgeTypes.get(type)?.schema
 }
 
-const applyFieldDefaults = (target: any, fields: SchemaField[]) => {
+const applyFieldDefaults = (target: SchemaTarget, fields: SchemaField[]) => {
   fields.forEach((field) => {
     if (field.defaultValue === undefined) return
     const scope = field.scope ?? 'data'
@@ -39,22 +69,20 @@ const applyFieldDefaults = (target: any, fields: SchemaField[]) => {
     if (scope === 'data') {
       target.data = target.data ?? {}
       if (!hasValueByPath(target.data, field.path)) {
-        setValueByPath(target.data, field.path, field.defaultValue)
+        setValueByPath(target.data, field.path, cloneValue(field.defaultValue))
       }
       return
     }
     if (scope === 'style') {
       target.style = target.style ?? {}
       if (!hasValueByPath(target.style, field.path)) {
-        setValueByPath(target.style, field.path, field.defaultValue)
+        setValueByPath(target.style, field.path, cloneValue(field.defaultValue))
       }
       return
     }
-    if (scope === 'label') {
-      target.label = target.label ?? {}
-      if (!hasValueByPath(target.label, field.path)) {
-        setValueByPath(target.label, field.path, field.defaultValue)
-      }
+    target.label = target.label ?? {}
+    if (!hasValueByPath(target.label, field.path)) {
+      setValueByPath(target.label, field.path, cloneValue(field.defaultValue))
     }
   })
 }
@@ -62,7 +90,7 @@ const applyFieldDefaults = (target: any, fields: SchemaField[]) => {
 export const applyNodeDefaults = (input: NodeInput, registries: CoreRegistries): NodeInput => {
   const type = input.type
   if (!type) return input
-  const next: NodeInput = { ...input }
+  const next = cloneTarget(input)
   const definition = registries.nodeTypes.get(type) as NodeTypeDefinition | undefined
   if (definition?.defaultData) {
     next.data = next.data ?? {}
@@ -77,7 +105,7 @@ export const applyNodeDefaults = (input: NodeInput, registries: CoreRegistries):
 
 export const applyEdgeDefaults = (input: EdgeInput, registries: CoreRegistries): EdgeInput => {
   const type = input.type ?? 'linear'
-  const next: EdgeInput = { ...input, type }
+  const next = cloneTarget({ ...input, type }) as EdgeInput
   const definition = registries.edgeTypes.get(type) as EdgeTypeDefinition | undefined
   if (definition?.defaultData) {
     next.data = next.data ?? {}
@@ -110,7 +138,7 @@ export const getMissingNodeFields = (input: NodeInput, registries: CoreRegistrie
       return
     }
     if (scope === 'label') {
-      if (isMissingRequired((input as any).label, field)) missing.push(field.id)
+      if (isMissingRequired((input as SchemaTarget).label, field)) missing.push(field.id)
       return
     }
     if (isMissingRequired(input.data, field)) missing.push(field.id)
@@ -138,7 +166,7 @@ export const getMissingEdgeFields = (input: EdgeInput, registries: CoreRegistrie
   return missing
 }
 
-export const getSchemaFieldValue = (target: any, field: SchemaField): unknown => {
+export const getSchemaFieldValue = (target: SchemaTarget, field: SchemaField): unknown => {
   const scope = field.scope ?? 'data'
   if (scope === 'style') return getValueByPath(target.style, field.path)
   if (scope === 'label') return getValueByPath(target.label, field.path)

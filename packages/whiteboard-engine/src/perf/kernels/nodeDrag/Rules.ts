@@ -18,7 +18,7 @@ type MoveOptions = {
 
 type RulesOptions = {
   config: InstanceConfig
-  read: Pick<EngineRead, 'snap'>
+  read: Pick<EngineRead, 'index'>
   readZoom: () => number
   readCanvasNodes: () => Node[]
 }
@@ -134,7 +134,7 @@ export class Rules {
       ? new Set([nodeId, ...childrenIds])
       : new Set([nodeId])
 
-    const candidates = this.read.snap.candidatesInRect(queryRect)
+    const candidates = this.read.index.snapCandidatesInRect(queryRect)
       .filter((candidate) => !exclude.has(candidate.id as NodeId))
 
     const snapResult = computeSnap(

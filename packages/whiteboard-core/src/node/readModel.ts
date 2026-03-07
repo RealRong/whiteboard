@@ -1,4 +1,5 @@
-import type { Edge, EdgeId, Node, NodeId } from '../types'
+import type { Edge, EdgeId, EntityCollection, Node, NodeId } from '../types'
+import { listEdges, listNodes } from '../types'
 
 const EMPTY_EDGE_IDS: EdgeId[] = []
 const EMPTY_NODES: Node[] = []
@@ -51,14 +52,15 @@ export const orderByIds = <T extends { id: string }>(
 }
 
 export const deriveVisibleEdges = (
-  edges: readonly Edge[],
+  edges: EntityCollection<EdgeId, Edge>,
   canvasNodes: readonly Node[],
-  edgeOrder?: readonly EdgeId[]
+  edgeOrder: readonly EdgeId[] = edges.order
 ): Edge[] => {
-  if (!edges.length || !canvasNodes.length) return []
+  const orderedEdges = listEdges({ edges })
+  if (!orderedEdges.length || !canvasNodes.length) return []
 
   const canvasNodeIds = new Set<NodeId>(canvasNodes.map((node) => node.id))
-  const visibleEdges = edges.filter(
+  const visibleEdges = orderedEdges.filter(
     (edge) =>
       canvasNodeIds.has(edge.source.nodeId) &&
       canvasNodeIds.has(edge.target.nodeId)
@@ -88,10 +90,10 @@ const isHiddenByCollapsedGroup = (
 }
 
 export const deriveNodeReadSlices = (
-  nodes: Node[],
-  nodeOrder?: readonly NodeId[]
+  nodes: EntityCollection<NodeId, Node>
 ): NodeReadSlices => {
-  if (!nodes.length) {
+  const ordered = listNodes({ nodes })
+  if (!ordered.length) {
     return {
       ordered: EMPTY_NODES,
       visible: EMPTY_NODES,
@@ -100,7 +102,6 @@ export const deriveNodeReadSlices = (
     }
   }
 
-  const ordered = orderByIds(nodes, nodeOrder)
   const nodeById = new Map<NodeId, Node>()
   const collapsedGroupIds = new Set<NodeId>()
 

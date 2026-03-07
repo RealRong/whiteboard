@@ -171,7 +171,7 @@ export const useSelectionBoxInteraction = (
       active.isSelecting = true
       selectionBoxState.setRect(instance, rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)
-      active.latestMatchedIds = instance.read.canvas.nodeIdsInRect(worldRect)
+      active.latestMatchedIds = instance.read.index.nodeIdsInRect(worldRect)
       scheduleFlush()
     },
     onPointerUp: (event) => {
@@ -186,7 +186,7 @@ export const useSelectionBoxInteraction = (
           instance.read.viewport.screenToWorld
         )
         const worldRect = rectFromPoints(active.startWorld, resolved.world)
-        active.latestMatchedIds = instance.read.canvas.nodeIdsInRect(worldRect)
+        active.latestMatchedIds = instance.read.index.nodeIdsInRect(worldRect)
         flushSelection()
       } else if (active.mode === 'replace') {
         instance.commands.selection.clear()

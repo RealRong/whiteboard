@@ -25,6 +25,7 @@ export type {
   EngineRead,
   EngineReadState,
   EngineReadProjection,
+  EngineReadIndex,
   ReadSubscriptionKey,
   EdgePathEntry,
   ViewportView,

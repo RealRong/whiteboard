@@ -192,8 +192,13 @@ export const useNodeDragInteraction = ({
     }
   }, [instance])
 
+  const readCanvasNodes = useCallback(
+    () => instance.read.index.nodeRects().map((entry) => entry.node),
+    [instance]
+  )
+
   const commitDrag = useCallback((draft: ActiveDrag) => {
-    const nodes = instance.read.doc.get().nodes
+    const nodes = readCanvasNodes()
     const nodeById = toNodeById(nodes)
     const currentNode = nodeById.get(draft.nodeId)
     if (!currentNode) return
@@ -302,7 +307,7 @@ export const useNodeDragInteraction = ({
     patchUpdates.forEach((update) => {
       void instance.commands.node.update(update.id, update.patch)
     })
-  }, [instance.commands.node, instance.read.config, instance.read.doc])
+  }, [instance, readCanvasNodes])
 
   const handleNodePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -310,7 +315,7 @@ export const useNodeDragInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.read.canvas.nodeRect(nodeId)
+      const nodeRect = instance.read.index.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
       const lockToken = sessionLockState.tryAcquire(instance, 'nodeDrag', event.pointerId)
       if (!lockToken) return
@@ -329,7 +334,7 @@ export const useNodeDragInteraction = ({
         height: nodeRect.rect.height
       }
       const children = nodeRect.node.type === 'group'
-        ? buildGroupChildren(instance.read.doc.get().nodes, nodeRect.node.id, origin)
+        ? buildGroupChildren(readCanvasNodes(), nodeRect.node.id, origin)
         : undefined
       const draft: ActiveDrag = {
         pointerId: event.pointerId,
@@ -356,7 +361,7 @@ export const useNodeDragInteraction = ({
       event.preventDefault()
       event.stopPropagation()
     },
-    [instance, nodeId]
+    [instance, nodeId, readCanvasNodes]
   )
 
   useWindowPointerSession({
@@ -365,7 +370,7 @@ export const useNodeDragInteraction = ({
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
-      const zoom = Math.max(instance.read.state.viewport.zoom, ZOOM_EPSILON)
+      const zoom = Math.max(instance.read.viewport.getZoom(), ZOOM_EPSILON)
       const basePosition = {
         x: active.origin.x + (event.clientX - active.start.x) / zoom,
         y: active.origin.y + (event.clientY - active.start.y) / zoom
@@ -393,7 +398,7 @@ export const useNodeDragInteraction = ({
         const exclude = active.children?.ids.length
           ? new Set([active.nodeId, ...active.children.ids])
           : new Set([active.nodeId])
-        const candidates = instance.read.snap.candidatesInRect(queryRect)
+        const candidates = instance.read.index.snapCandidatesInRect(queryRect)
           .filter((candidate) => !exclude.has(candidate.id as NodeId))
         const snapResult = computeSnap(
           movingRect,
@@ -423,7 +428,7 @@ export const useNodeDragInteraction = ({
       active.hoveredGroupId = active.children
         ? undefined
         : findSmallestGroupAtPoint(
-          instance.read.doc.get().nodes,
+          readCanvasNodes(),
           config.nodeSize,
           {
             x: position.x + active.size.width / 2,

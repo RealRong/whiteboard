@@ -12,6 +12,7 @@ import type {
   NodeInput,
   NodePatch
 } from '@whiteboard/core/types'
+import { getNode } from '@whiteboard/core/types'
 import type { Apply } from '../stages/plan/draft'
 import { createOrderCommands } from './shared/order'
 import { cancelledResult, invalidResult } from './shared/result'
@@ -56,7 +57,7 @@ export const node = ({
   }
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const current = readDoc().nodes.find((item) => item.id === id)
+    const current = getNode(readDoc(), id)
     if (!current) {
       return invalidResult(`Node ${id} not found.`)
     }
@@ -91,7 +92,7 @@ export const node = ({
 
   const order = createOrderCommands({
     set: setOrder,
-    readCurrent: () => readDoc().order.nodes
+    readCurrent: () => readDoc().nodes.order
   })
 
   return {

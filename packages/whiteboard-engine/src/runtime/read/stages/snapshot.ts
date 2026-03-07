@@ -62,9 +62,6 @@ export const snapshot = ({
   const EMPTY_NODE_MAP = new Map<NodeId, Node>()
 
   let previousNodesRef: Document['nodes'] | undefined
-  let previousNodeOrderRef: Document['order'] extends { nodes?: infer TOrder }
-    ? TOrder
-    : NodeId[] | undefined
   let visibleNodesCache: Node[] = EMPTY_NODES
   let canvasNodesCache: Node[] = EMPTY_NODES
   let canvasNodeByIdCache: Map<NodeId, Node> = EMPTY_NODE_MAP
@@ -76,9 +73,6 @@ export const snapshot = ({
 
   type EdgeVisibleCache = {
     edgesRef: Document['edges']
-    edgeOrderRef: Document['order'] extends { edges?: infer TOrder }
-      ? TOrder
-      : string[] | undefined
     canvasNodes: Node[]
     visibleEdges: Edge[]
   }
@@ -90,11 +84,9 @@ export const snapshot = ({
     const doc = get(documentAtom)
     const revision = get(revisionAtom)
     const nodes = doc.nodes
-    const nodeOrderRef = doc.order?.nodes
 
-    if (!nodes.length) {
+    if (!nodes.order.length) {
       previousNodesRef = nodes
-      previousNodeOrderRef = nodeOrderRef
       visibleNodesCache = EMPTY_NODES
       canvasNodesCache = EMPTY_NODES
       canvasNodeByIdCache = EMPTY_NODE_MAP
@@ -103,12 +95,9 @@ export const snapshot = ({
         canvasNodeById: EMPTY_NODE_MAP,
         canvasNodeIds: EMPTY_NODE_IDS
       }
-    } else if (
-      nodes !== previousNodesRef ||
-      nodeOrderRef !== previousNodeOrderRef
-    ) {
+    } else if (nodes !== previousNodesRef) {
       const previousCanvasNodesCache = canvasNodesCache
-      const next = deriveNodeReadSlices(nodes, nodeOrderRef)
+      const next = deriveNodeReadSlices(nodes)
       const normalizedVisible = next.visible.length ? next.visible : EMPTY_NODES
       const normalizedCanvas = next.canvas.length ? next.canvas : EMPTY_NODES
       const normalizedCanvasNodeById = next.canvasNodeById.size
@@ -137,41 +126,35 @@ export const snapshot = ({
       )
         ? indexesCache
         : {
-          canvasNodeById: canvasNodeByIdCache,
-          canvasNodeIds: canvasNodeIdsCache
-        }
+            canvasNodeById: canvasNodeByIdCache,
+            canvasNodeIds: canvasNodeIdsCache
+          }
 
       previousNodesRef = nodes
-      previousNodeOrderRef = nodeOrderRef
     }
 
-    const edgeOrderRef = doc.order?.edges
     let visibleEdgesCache: Edge[]
-    if (!doc.edges.length || !canvasNodesCache.length) {
+    if (!doc.edges.order.length || !canvasNodesCache.length) {
       visibleEdgesCache = EMPTY_EDGES
       edgeVisibleCache = {
         edgesRef: doc.edges,
-        edgeOrderRef,
         canvasNodes: canvasNodesCache,
         visibleEdges: visibleEdgesCache
       }
     } else if (
       edgeVisibleCache &&
       edgeVisibleCache.edgesRef === doc.edges &&
-      edgeVisibleCache.edgeOrderRef === edgeOrderRef &&
       isSameIdOrder(edgeVisibleCache.canvasNodes, canvasNodesCache)
     ) {
       visibleEdgesCache = edgeVisibleCache.visibleEdges
     } else {
       const nextVisibleEdges = deriveVisibleEdges(
         doc.edges,
-        canvasNodesCache,
-        edgeOrderRef
+        canvasNodesCache
       )
       visibleEdgesCache = nextVisibleEdges.length ? nextVisibleEdges : EMPTY_EDGES
       edgeVisibleCache = {
         edgesRef: doc.edges,
-        edgeOrderRef,
         canvasNodes: canvasNodesCache,
         visibleEdges: visibleEdgesCache
       }

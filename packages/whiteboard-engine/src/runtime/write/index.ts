@@ -3,13 +3,14 @@ import type { Deps as WriteDeps } from '@engine-types/write/deps'
 import type {
   CommandSource
 } from '@engine-types/command/source'
-import type {
-  ChangeSet,
-  DispatchFailure,
-  DispatchResult,
-  Document,
-  Operation,
-  Origin
+import {
+  assertDocument,
+  type ChangeSet,
+  type DispatchFailure,
+  type DispatchResult,
+  type Document,
+  type Operation,
+  type Origin
 } from '@whiteboard/core/types'
 import {
   createHistory,
@@ -66,7 +67,6 @@ type CommitResult =
   | DispatchFailure
 
 type CommitInput = {
-  source: CommandSource
   notify?: boolean
   history: HistoryMode
   target: CommitTarget
@@ -104,11 +104,12 @@ export const createWrite = ({
       }
     }
 
-    instance.document.commit(target.doc)
+    const committedDocument = assertDocument(target.doc)
+    instance.document.commit(committedDocument)
 
     return {
       ok: true,
-      doc: target.doc,
+      doc: committedDocument,
       changes: {
         id: createId('change'),
         timestamp: target.timestamp ?? readNow(),
@@ -120,7 +121,6 @@ export const createWrite = ({
   }
 
   const commit = ({
-    source,
     notify = true,
     history: historyMode,
     target
@@ -155,7 +155,6 @@ export const createWrite = ({
     config: DEFAULT_CONFIG.history,
     replay: (operations) =>
       commit({
-        source: 'history',
         history: 'skip',
         target: {
           operations,
@@ -167,7 +166,6 @@ export const createWrite = ({
   const replaceDocument = (doc: Document, notify: boolean) => {
     resetTransientState()
     return commit({
-      source: 'system',
       notify,
       history: 'clear',
       target: {
@@ -184,7 +182,6 @@ export const createWrite = ({
     if (!draft.ok) return draft
 
     return commit({
-      source: payload.source ?? 'ui',
       history: 'capture',
       target: {
         operations: draft.operations,

@@ -1,5 +1,6 @@
 import type {
   Document,
+  Edge,
   EdgeAnchor,
   EdgeId,
   MindmapNodeId,
@@ -12,7 +13,6 @@ import type {
 } from '@whiteboard/core/types'
 import type { MindmapLayout, MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { Size } from '../common/base'
-import type { EdgePathEntry as EdgePathEntryType } from '../edge/geometry'
 import type { MindmapLayoutConfig } from '../mindmap/layout'
 import type { SnapCandidate } from '../node/snap'
 import type {
@@ -39,7 +39,17 @@ export type EdgeEndpoints = {
   target: EdgeEndpoint
 }
 
-export type EdgePathEntry = EdgePathEntryType
+export type EdgePath = {
+  points: Point[]
+  svgPath: string
+}
+
+export type EdgePathEntry = {
+  id: EdgeId
+  edge: Edge
+  path: EdgePath
+  endpoints: EdgeEndpoints
+}
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -110,7 +120,6 @@ export type NodesView = {
 export type EdgesView = {
   ids: readonly EdgeId[]
   byId: ReadonlyMap<EdgeId, Readonly<EdgePathEntry>>
-  endpointsById: (edgeId: EdgeId) => EdgeEndpoints | undefined
 }
 
 export type MindmapView = {
@@ -119,6 +128,8 @@ export type MindmapView = {
 }
 
 export type EngineReadViewport = {
+  get: () => Readonly<Viewport>
+  getZoom: () => number
   screenToWorld: (point: Point) => Point
   worldToScreen: (point: Point) => Point
   clientToScreen: (clientX: number, clientY: number) => Point
@@ -127,15 +138,12 @@ export type EngineReadViewport = {
   getContainerSize: () => Size
 }
 
-export type EngineReadCanvas = {
+export type EngineReadIndex = {
   nodeRects: () => CanvasNodeRect[]
   nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
   nodeIdsInRect: (rect: Rect) => NodeId[]
-}
-
-export type EngineReadSnap = {
-  candidates: () => SnapCandidate[]
-  candidatesInRect: (rect: Rect) => SnapCandidate[]
+  snapCandidates: () => SnapCandidate[]
+  snapCandidatesInRect: (rect: Rect) => SnapCandidate[]
 }
 
 export const READ_STATE_KEYS = {
@@ -172,12 +180,9 @@ export type EngineReadProjection = {
 export type EngineRead = {
   state: EngineReadState
   projection: EngineReadProjection
+  index: EngineReadIndex
   viewport: EngineReadViewport
-  canvas: EngineReadCanvas
-  snap: EngineReadSnap
   config: InstanceConfig
-  doc: {
-    get: () => Readonly<Document>
-  }
+  document: Readonly<Document>
   subscribe: (keys: readonly ReadSubscriptionKey[], listener: () => void) => () => void
 }

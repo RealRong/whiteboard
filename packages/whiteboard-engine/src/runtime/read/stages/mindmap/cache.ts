@@ -10,14 +10,10 @@ import {
   buildMindmapLines,
   computeMindmapLayout,
   getMindmapLabel,
-  getMindmapTree,
-  getMindmapRoots
+  getMindmapTree
 } from '@whiteboard/core/mindmap'
 import type { ReadContext } from '@engine-types/read/context'
-import type {
-  MindmapReadCache,
-  MindmapReadSnapshot
-} from '@engine-types/read/mindmap'
+import type { MindmapReadCache } from '@engine-types/read/mindmap'
 
 type MindmapCacheInput = {
   visibleNodes: Node[]
@@ -111,22 +107,22 @@ export const cache = (context: ReadContext): MindmapReadCache => {
     visibleNodes,
     layout
   }: MindmapCacheInput): MindmapViewTree[] => {
-    const allRoots = getMindmapRoots(visibleNodes)
+    const roots = visibleNodes.filter((node) => node.type === 'mindmap')
     const nextCache = new Map<string, MindmapTreeCacheEntry>()
     const nextTrees: MindmapViewTree[] = []
-    const layoutForCacheKey: MindmapLayoutConfig = {
+    const resolvedLayout: MindmapLayoutConfig = {
       mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
       options: layout.options
     }
 
-    allRoots.forEach((root) => {
+    roots.forEach((root) => {
       const tree = getMindmapTree(root)
       if (!tree) return
 
       const cacheKey = toCacheKey({
         tree,
         root,
-        layout: layoutForCacheKey,
+        layout: resolvedLayout,
         nodeSize: config.mindmapNodeSize
       })
       const previous = treeCache.get(root.id)
@@ -162,7 +158,7 @@ export const cache = (context: ReadContext): MindmapReadCache => {
     return nextTrees
   }
 
-  const getSnapshot: MindmapReadCache['getSnapshot'] = () => {
+  const getView: MindmapReadCache['getView'] = () => {
     const nextTrees = trees({
       visibleNodes: context.snapshot().nodes.visible,
       layout: context.state.mindmapLayout()
@@ -191,6 +187,6 @@ export const cache = (context: ReadContext): MindmapReadCache => {
   }
 
   return {
-    getSnapshot
+    getView
   }
 }

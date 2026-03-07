@@ -48,7 +48,7 @@ const EdgeItemById = memo(
     if (!path) return null
     const resolvedPath = resolveEdgePathEntryWithRoutingDraft(
       path,
-      instance.read.canvas.nodeRect,
+      instance.read.index.nodeRect,
       routingDraft
     )
 

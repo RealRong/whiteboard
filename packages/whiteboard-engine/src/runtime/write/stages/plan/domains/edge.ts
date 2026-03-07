@@ -13,7 +13,13 @@ import {
 } from '@whiteboard/core/edge'
 import { getNodeRect } from '@whiteboard/core/geometry'
 import { createId } from '@whiteboard/core/utils'
-import type { Document, Edge, EdgeId } from '@whiteboard/core/types'
+import {
+  getEdge,
+  getNode,
+  type Document,
+  type Edge,
+  type EdgeId
+} from '@whiteboard/core/types'
 
 type EdgeCommand = WriteCommandMap['edge']
 type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
@@ -48,14 +54,14 @@ export const edge = ({
     success(toUpdateOperations(command.updates))
 
   const readEdge = (edgeId: EdgeId): Edge | undefined =>
-    readDoc().edges.find((edge) => edge.id === edgeId)
+    getEdge(readDoc(), edgeId)
 
   const resolvePathPoints = (
     doc: Document,
     edge: Edge
   ) => {
-    const sourceNode = doc.nodes.find((node) => node.id === edge.source.nodeId)
-    const targetNode = doc.nodes.find((node) => node.id === edge.target.nodeId)
+    const sourceNode = getNode(doc, edge.source.nodeId)
+    const targetNode = getNode(doc, edge.target.nodeId)
     if (!sourceNode || !targetNode) return undefined
 
     return resolveEdgePathFromRects({
@@ -101,7 +107,7 @@ export const edge = ({
         return success([{ type: 'edge.order.set', ids: command.ids }])
       case 'routing.insertAtPoint': {
         const doc = readDoc()
-        const edge = doc.edges.find((item) => item.id === command.edgeId)
+        const edge = getEdge(doc, command.edgeId)
         if (!edge) return cancelled('Edge not found.')
         const pathPoints = resolvePathPoints(doc, edge)
         if (!pathPoints?.length) return cancelled('Edge path unavailable.')

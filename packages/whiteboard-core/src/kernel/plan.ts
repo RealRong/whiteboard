@@ -16,6 +16,7 @@ import type {
   Size,
   Viewport
 } from '../types'
+import { getNode } from '../types'
 import {
   buildNodeCreateOperation,
   buildNodeGroupOperations,
@@ -59,6 +60,14 @@ const success = <T,>(operations: Operation[], value?: T): PlanResult<T> => ({
 const invalid = <T = unknown,>(message: string): PlanResult<T> => ({
   ok: false,
   message
+})
+
+const cloneViewport = (viewport: Viewport): Viewport => ({
+  center: {
+    x: viewport.center.x,
+    y: viewport.center.y
+  },
+  zoom: viewport.zoom
 })
 
 const fromOperation = (
@@ -118,7 +127,7 @@ const runMindmapPlan = <T, V = unknown>({
       beforeTree,
       afterTree: next.tree,
       hint: options?.layout,
-      node: doc.nodes.find((node) => node.id === id)
+      node: getNode(doc, id)
     }),
     value?.(next)
   )
@@ -200,10 +209,8 @@ export const corePlan = {
 
   viewport: {
     set: ({
-      before,
       viewport
     }: {
-      before: Viewport
       viewport: Viewport
     }): PlanResult => {
       if (!viewport.center) {
@@ -214,16 +221,15 @@ export const corePlan = {
       }
       return success([{
         type: 'viewport.update',
-        before,
-        after: viewport
+        after: cloneViewport(viewport)
       }])
     },
 
     panBy: ({
-      before,
+      current,
       delta
     }: {
-      before: Viewport
+      current: Viewport
       delta: Point
     }): PlanResult => {
       if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
@@ -231,17 +237,16 @@ export const corePlan = {
       }
       return success([{
         type: 'viewport.update',
-        before,
-        after: panViewport(before, delta)
+        after: cloneViewport(panViewport(current, delta))
       }])
     },
 
     zoomBy: ({
-      before,
+      current,
       factor,
       anchor
     }: {
-      before: Viewport
+      current: Viewport
       factor: number
       anchor?: Point
     }): PlanResult => {
@@ -250,42 +255,37 @@ export const corePlan = {
       }
       return success([{
         type: 'viewport.update',
-        before,
-        after: zoomViewport(before, factor, anchor)
+        after: cloneViewport(zoomViewport(current, factor, anchor))
       }])
     },
 
     zoomTo: ({
-      before,
+      current,
       zoom,
       anchor
     }: {
-      before: Viewport
+      current: Viewport
       zoom: number
       anchor?: Point
     }): PlanResult => {
-      const factor = before.zoom === 0 ? zoom : zoom / before.zoom
+      const factor = current.zoom === 0 ? zoom : zoom / current.zoom
       if (!Number.isFinite(factor) || factor <= 0) {
         return invalid('Invalid zoom factor.')
       }
       return success([{
         type: 'viewport.update',
-        before,
-        after: zoomViewport(before, factor, anchor)
+        after: cloneViewport(zoomViewport(current, factor, anchor))
       }])
     },
 
     reset: ({
-      before,
       viewport
     }: {
-      before: Viewport
       viewport: Viewport
     }): PlanResult =>
       success([{
         type: 'viewport.update',
-        before,
-        after: viewport
+        after: cloneViewport(viewport)
       }])
   },
 
@@ -330,7 +330,7 @@ export const corePlan = {
       const beforeTree = readMindmap(doc, id)
       if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
       if (tree.id !== id) return invalid('Mindmap id mismatch.')
-      return success([createSetOp({ id, tree, before: beforeTree })])
+      return success([createSetOp({ id, tree })])
     },
 
     delete: ({
@@ -342,14 +342,11 @@ export const corePlan = {
     }): PlanResult => {
       if (!ids.length) return invalid('No mindmap ids provided.')
 
-      const trees: MindmapTree[] = []
       for (const id of ids) {
-        const tree = readMindmap(doc, id)
-        if (!tree) return invalid(`Mindmap ${id} not found.`)
-        trees.push(tree)
+        if (!readMindmap(doc, id)) return invalid(`Mindmap ${id} not found.`)
       }
 
-      return success(createDeleteOps(trees))
+      return success(createDeleteOps(ids))
     },
 
     addChild: ({

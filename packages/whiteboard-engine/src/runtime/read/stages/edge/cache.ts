@@ -12,13 +12,11 @@ import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
   type CanvasNodeRect,
   type EdgeEndpoints,
-  type EdgePathEntry
+  type EdgePathEntry,
+  type EdgesView
 } from '@engine-types/instance/read'
 import type { ReadContext } from '@engine-types/read/context'
-import type {
-  EdgeReadCache,
-  EdgeReadSnapshot
-} from '@engine-types/read/edge'
+import type { EdgeReadCache } from '@engine-types/read/edge'
 
 type EdgeCacheEntry = {
   sourceRectRef: CanvasNodeRect
@@ -26,7 +24,6 @@ type EdgeCacheEntry = {
   sourceGeometry: NodeGeometryTuple
   targetGeometry: NodeGeometryTuple
   structure: EdgeStructureTuple
-  endpoints: EdgeEndpoints
   entry: EdgePathEntry
 }
 
@@ -157,10 +154,6 @@ const isSameEdgeStructureTuple = (
   return isSamePointArray(left.routingPointsRef, right.routingPointsRef)
 }
 
-// Invariants:
-// 1) `ids/byId` are derived only from `relations.edgeIds + cacheById`.
-// 2) `snapshot` object reference is stable and reads latest state via getters.
-// 3) cache reuse is fully data-driven (`refs + tuples`).
 export const cache = (context: ReadContext): EdgeReadCache => {
   const getNodeRect = context.indexes.canvas.byId
   const readModelSnapshot = () => context.snapshot()
@@ -168,16 +161,9 @@ export const cache = (context: ReadContext): EdgeReadCache => {
   let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
   let pendingNodeIds = new Set<NodeId>()
   let pendingEdgeIds = new Set<EdgeId>()
-
-  const snapshot: EdgeReadSnapshot = {
-    get ids() {
-      return state.ids
-    },
-    get byId() {
-      return state.byId
-    },
-    getEndpoints: (edgeId) => state.cacheById.get(edgeId)?.endpoints
-  }
+  let viewCache: EdgesView | undefined
+  let viewIdsRef: readonly EdgeId[] | undefined
+  let viewByIdRef: ReadonlyMap<EdgeId, EdgePathEntry> | undefined
 
   const toEdgeCacheMaterial = (
     edge: EdgePathEntry['edge']
@@ -233,9 +219,9 @@ export const cache = (context: ReadContext): EdgeReadCache => {
       entry: previous.entry.edge === edge
         ? previous.entry
         : {
-          ...previous.entry,
-          edge
-        }
+            ...previous.entry,
+            edge
+          }
     }
   }
 
@@ -261,11 +247,11 @@ export const cache = (context: ReadContext): EdgeReadCache => {
       sourceGeometry: material.sourceGeometry,
       targetGeometry: material.targetGeometry,
       structure: material.structure,
-      endpoints,
       entry: {
         id: edge.id,
         edge,
-        path
+        path,
+        endpoints
       }
     }
   }
@@ -383,13 +369,28 @@ export const cache = (context: ReadContext): EdgeReadCache => {
     }
   }
 
-  const getSnapshot: EdgeReadCache['getSnapshot'] = () => {
+  const getView: EdgeReadCache['getView'] = () => {
     ensureEntries()
-    return snapshot
+
+    if (
+      viewCache &&
+      viewIdsRef === state.ids &&
+      viewByIdRef === state.byId
+    ) {
+      return viewCache
+    }
+
+    viewIdsRef = state.ids
+    viewByIdRef = state.byId
+    viewCache = {
+      ids: state.ids,
+      byId: state.byId
+    }
+    return viewCache
   }
 
   return {
     applyChange,
-    getSnapshot
+    getView
   }
 }

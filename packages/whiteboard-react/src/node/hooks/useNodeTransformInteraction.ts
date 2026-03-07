@@ -171,7 +171,7 @@ export const useNodeTransformInteraction = ({
   }, [instance])
 
   const commitTransform = useCallback((active: ActiveTransform) => {
-    const node = instance.read.doc.get().nodes.find((item) => item.id === active.nodeId)
+    const node = instance.read.index.nodeRect(active.nodeId)?.node
     if (!node) return
 
     if (active.drag.mode === 'resize') {
@@ -201,7 +201,7 @@ export const useNodeTransformInteraction = ({
     void instance.commands.node.update(active.nodeId, {
       rotation: active.drag.currentRotation
     })
-  }, [instance.commands.node, instance.read.doc])
+  }, [instance.commands.node, instance.read.index])
 
   const handleTransformPointerDown = useCallback(
     (
@@ -212,7 +212,7 @@ export const useNodeTransformInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.read.canvas.nodeRect(nodeId)
+      const nodeRect = instance.read.index.nodeRect(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
 
       let nextDrag: ResizeDragState | RotateDragState | undefined
@@ -272,7 +272,7 @@ export const useNodeTransformInteraction = ({
       event.stopPropagation()
     },
     [
-      instance.read.canvas,
+      instance.read.index,
       instance.read.viewport.clientToScreen,
       instance.read.viewport.screenToWorld,
       instance.state,
@@ -288,7 +288,7 @@ export const useNodeTransformInteraction = ({
 
       if (active.drag.mode === 'resize') {
         const activeTool = instance.state.read('tool')
-        const zoom = Math.max(instance.read.state.viewport.zoom, ZOOM_EPSILON)
+        const zoom = Math.max(instance.read.viewport.getZoom(), ZOOM_EPSILON)
         const resized = computeResizeRect({
           handle: active.drag.handle,
           startScreen: active.drag.startScreen,
@@ -329,7 +329,7 @@ export const useNodeTransformInteraction = ({
           const { sourceX, sourceY } = getResizeSourceEdges(active.drag.handle)
           const snapped = computeResizeSnap({
             movingRect,
-            candidates: instance.read.snap.candidatesInRect(
+            candidates: instance.read.index.snapCandidatesInRect(
               expandRectByThreshold(movingRect, thresholdWorld)
             ),
             threshold: thresholdWorld,

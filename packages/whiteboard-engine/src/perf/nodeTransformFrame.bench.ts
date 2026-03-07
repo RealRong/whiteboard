@@ -64,6 +64,9 @@ const ensureRaf = () => {
   runtimeRef.cancelAnimationFrame = () => {}
 }
 
+const toEntities = <T extends { id: string }>(items: T[]) =>
+  Object.fromEntries(items.map((item) => [item.id, item])) as Record<string, T>
+
 const createNodes = (): Node[] => {
   const nodes: Node[] = []
   for (let index = 0; index < NODE_COUNT; index += 1) {
@@ -102,18 +105,19 @@ const createEdges = (): Edge[] => {
   return edges
 }
 
+const toCollection = <T extends { id: string }>(items: T[]) => ({
+  entities: Object.fromEntries(items.map((item) => [item.id, item])),
+  order: items.map((item) => item.id)
+})
+
 const createDocument = (): Document => {
   const nodes = createNodes()
   const edges = createEdges()
   return {
     id: 'bench-doc-transform',
     name: 'node-transform-frame-bench',
-    nodes,
-    edges,
-    order: {
-      nodes: nodes.map((node) => node.id),
-      edges: edges.map((edge) => edge.id)
-    },
+    nodes: toCollection(nodes),
+    edges: toCollection(edges),
     viewport: {
       center: { x: 0, y: 0 },
       zoom: 1
@@ -187,10 +191,10 @@ const main = () => {
       read: instance.read,
       config: instance.read.config,
       viewport: {
-        getZoom: () => instance.read.state.viewport.zoom
+        getZoom: () => instance.read.viewport.getZoom()
       },
       document: {
-        get: instance.read.doc.get
+        get: () => instance.read.document
       }
     } as unknown as Pick<
       InternalInstance,
@@ -202,7 +206,7 @@ const main = () => {
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const baseNode = instance.read.canvas.nodeRect(nodeId)?.node
+  const baseNode = instance.read.index.nodeRect(nodeId)?.node
   if (!baseNode) {
     throw new Error(`Missing transform node: ${nodeId}`)
   }
@@ -218,7 +222,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const nodeRect = instance.read.canvas.nodeRect(nodeId)
+    const nodeRect = instance.read.index.nodeRect(nodeId)
     if (!nodeRect) {
       throw new Error(`Missing nodeRect for node ${nodeId} at run ${run + 1}`)
     }
@@ -279,7 +283,7 @@ const main = () => {
     transformKernel.commit(draft)
 
     const resetDoc = cloneDoc(doc)
-    const resetNode = resetDoc.nodes.find((node) => node.id === nodeId)
+    const resetNode = resetDoc.nodes.entities[nodeId]
     if (resetNode) {
       resetNode.position = basePosition
       resetNode.size = baseSize

@@ -85,7 +85,7 @@ export const useViewportGestureInteraction = ({
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
 
   const readCommittedViewport = useCallback(
-    () => instance.read.state.viewport,
+    () => instance.read.viewport.get(),
     [instance.read]
   )
 

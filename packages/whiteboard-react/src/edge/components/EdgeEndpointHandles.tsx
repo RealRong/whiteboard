@@ -19,7 +19,7 @@ export const EdgeEndpointHandles = () => {
   const endpoints = useReadGetter(
     () => (
       stateSelectedEdgeId
-        ? instance.read.projection.edge.endpointsById(stateSelectedEdgeId)
+        ? instance.read.projection.edge.byId.get(stateSelectedEdgeId)?.endpoints
         : undefined
     ),
     {

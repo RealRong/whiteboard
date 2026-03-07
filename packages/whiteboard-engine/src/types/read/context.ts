@@ -3,7 +3,7 @@ import type {
   EngineReadState,
   ReadSubscriptionKey
 } from '../instance/read'
-import type { Indexer } from './indexer'
+import type { ReadIndexes } from './indexer'
 import type { ReadModelSnapshot } from './snapshot'
 
 export type ReadStateGetters = {
@@ -21,6 +21,6 @@ export type ReadContext = {
     keys: readonly ReadSubscriptionKey[],
     listener: () => void
   ) => () => void
-  indexes: Indexer['query']
+  indexes: ReadIndexes
   config: InstanceConfig
 }

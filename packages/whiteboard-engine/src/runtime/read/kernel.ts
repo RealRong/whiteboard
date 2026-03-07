@@ -2,21 +2,38 @@ import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS,
+  type NodeViewItem,
   type ReadSubscriptionKey,
-  type EngineRead
+  type EngineRead,
+  type ViewportTransformView
 } from '@engine-types/instance/read'
 import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type { ReadContext } from '@engine-types/read/context'
+import type { ReadIndexes } from '@engine-types/read/indexer'
 import type { Atom } from 'jotai/vanilla'
+import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
+import { DEFAULT_TUNING } from '../../config'
 import { snapshot } from './stages/snapshot'
-import { edge } from './stages/edge/stage'
-import { node } from './stages/node'
-import { mindmap } from './stages/mindmap/stage'
-import { indexer } from './stages/index/stage'
+import { cache as createEdgeCache } from './stages/edge/cache'
+import { cache as createMindmapCache } from './stages/mindmap/cache'
+import { NodeRectIndex } from './stages/index/NodeRectIndex'
+import { SnapIndex } from './stages/index/SnapIndex'
 
 export type ReadPort = {
   read: EngineRead
   applyInvalidation: (invalidation: ReadInvalidation) => void
+}
+
+const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
+  const zoom = viewport.zoom
+  return {
+    center: viewport.center,
+    zoom,
+    transform: `translate(50%, 50%) scale(${zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
+    cssVars: {
+      '--wb-zoom': `${zoom}`
+    }
+  }
 }
 
 export const createReadKernel = ({
@@ -31,7 +48,32 @@ export const createReadKernel = ({
   })
   const readDoc = () => store.get(stateAtoms.document)
   const readSnapshot = () => store.get(projectionAtom)
-  const indexes = indexer(config, readSnapshot)
+
+  const nodeRectIndex = new NodeRectIndex(config)
+  const snapIndex = new SnapIndex(
+    Math.max(
+      config.node.snapGridCellSize,
+      config.node.groupPadding * DEFAULT_TUNING.query.snapGridPaddingFactor
+    )
+  )
+  const indexes: ReadIndexes = {
+    canvas: {
+      all: nodeRectIndex.all,
+      byId: nodeRectIndex.byId,
+      idsInRect: nodeRectIndex.nodeIdsInRect
+    },
+    snap: {
+      all: snapIndex.all,
+      inRect: snapIndex.queryInRect
+    }
+  }
+  const applyIndexChange = (change: ReadInvalidation['index']) => {
+    if (change.rebuild === 'none') return
+    const changed = nodeRectIndex.applyChange(change, readSnapshot())
+    if (!changed) return
+    snapIndex.applyChange(change, nodeRectIndex)
+  }
+  applyIndexChange({ rebuild: 'full', nodeIds: [] })
 
   const state: ReadContext['state'] = {
     interaction: () => store.get(stateAtoms.interaction),
@@ -52,19 +94,111 @@ export const createReadKernel = ({
     const unsubs = keys.map((key) =>
       store.sub(subscribableAtomMap[key], listener)
     )
-    return () => unsubs.forEach(off => off())
+    return () => unsubs.forEach((off) => off())
   }
   const readContext: ReadContext = {
     state,
     snapshot: readSnapshot,
     subscribe,
-    indexes: indexes.query,
+    indexes,
     config
   }
 
-  const edgeStage = edge(readContext)
-  const nodeStage = node(readContext)
-  const mindmapStage = mindmap(readContext)
+  const edgeCache = createEdgeCache(readContext)
+  const mindmapCache = createMindmapCache(readContext)
+  const nodeItemCacheById = new Map<NodeId, NodeViewItem>()
+  let viewportRef: Viewport | undefined
+  let viewportTransformCache: ViewportTransformView | undefined
+  let nodeViewCache: EngineRead['projection']['node'] | undefined
+  let nodeViewIdsRef: readonly NodeId[] | undefined
+  let nodeViewByIdRef: ReadonlyMap<NodeId, Node> | undefined
+
+  const getViewportTransform = () => {
+    const currentViewport = state.viewport()
+    if (viewportTransformCache && viewportRef === currentViewport) {
+      return viewportTransformCache
+    }
+    viewportRef = currentViewport
+    viewportTransformCache = toViewportTransform(currentViewport)
+    return viewportTransformCache
+  }
+
+  const resolveNodeItem = (
+    nodeById: ReadonlyMap<NodeId, Node>,
+    id: NodeId
+  ): NodeViewItem | undefined => {
+    const node = nodeById.get(id)
+    if (!node) {
+      nodeItemCacheById.delete(id)
+      return undefined
+    }
+
+    const rect = indexes.canvas.byId(id)?.rect ?? {
+      x: node.position.x,
+      y: node.position.y,
+      width: node.size?.width ?? 0,
+      height: node.size?.height ?? 0
+    }
+    const rotation = typeof node.rotation === 'number' ? node.rotation : 0
+    const transformBase = `translate(${rect.x}px, ${rect.y}px)`
+    const previous = nodeItemCacheById.get(id)
+    if (
+      previous &&
+      previous.node === node &&
+      previous.rect === rect &&
+      previous.container.rotation === rotation &&
+      previous.container.transformBase === transformBase
+    ) {
+      return previous
+    }
+
+    const next: NodeViewItem = {
+      node,
+      rect,
+      container: {
+        transformBase,
+        rotation,
+        transformOrigin: 'center center'
+      }
+    }
+    nodeItemCacheById.set(id, next)
+    return next
+  }
+
+  const getNodeView = () => {
+    const snapshot = readSnapshot()
+    const ids = snapshot.indexes.canvasNodeIds
+    const nodeById = snapshot.indexes.canvasNodeById
+
+    if (
+      nodeViewCache &&
+      nodeViewIdsRef === ids &&
+      nodeViewByIdRef === nodeById
+    ) {
+      return nodeViewCache
+    }
+
+    const byId = new Map<NodeId, NodeViewItem>()
+    const seenIds = new Set<NodeId>()
+    ids.forEach((id) => {
+      seenIds.add(id)
+      const nodeItem = resolveNodeItem(nodeById, id)
+      if (!nodeItem) return
+      byId.set(id, nodeItem)
+    })
+    nodeItemCacheById.forEach((_, id) => {
+      if (seenIds.has(id)) return
+      nodeItemCacheById.delete(id)
+    })
+
+    nodeViewIdsRef = ids
+    nodeViewByIdRef = nodeById
+    nodeViewCache = {
+      ids,
+      byId
+    }
+    return nodeViewCache
+  }
 
   const read: EngineRead = {
     state: {
@@ -75,12 +209,14 @@ export const createReadKernel = ({
       get mindmapLayout() { return state.mindmapLayout() }
     },
     projection: {
-      get viewportTransform() { return nodeStage.get.viewportTransform() },
-      get node() { return nodeStage.get.node() },
-      get edge() { return edgeStage.get.edge() },
-      get mindmap() { return mindmapStage.get.mindmap() }
+      get viewportTransform() { return getViewportTransform() },
+      get node() { return getNodeView() },
+      get edge() { return edgeCache.getView() },
+      get mindmap() { return mindmapCache.getView() }
     },
     viewport: {
+      get: viewport.get,
+      getZoom: viewport.getZoom,
       screenToWorld: viewport.screenToWorld,
       worldToScreen: viewport.worldToScreen,
       clientToScreen: viewport.clientToScreen,
@@ -88,25 +224,21 @@ export const createReadKernel = ({
       getScreenCenter: viewport.getScreenCenter,
       getContainerSize: viewport.getContainerSize
     },
-    canvas: {
-      nodeRects: indexes.query.canvas.all,
-      nodeRect: indexes.query.canvas.byId,
-      nodeIdsInRect: indexes.query.canvas.idsInRect
-    },
-    snap: {
-      candidates: indexes.query.snap.all,
-      candidatesInRect: indexes.query.snap.inRect
+    index: {
+      nodeRects: indexes.canvas.all,
+      nodeRect: indexes.canvas.byId,
+      nodeIdsInRect: indexes.canvas.idsInRect,
+      snapCandidates: indexes.snap.all,
+      snapCandidatesInRect: indexes.snap.inRect
     },
     config: readContext.config,
-    doc: {
-      get: readDoc
-    },
+    get document() { return readDoc() },
     subscribe
   }
 
   const applyInvalidation = (invalidation: ReadInvalidation) => {
-    indexes.applyChange(invalidation.index)
-    edgeStage.applyChange(invalidation.edge)
+    applyIndexChange(invalidation.index)
+    edgeCache.applyChange(invalidation.edge)
   }
 
   return {

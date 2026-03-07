@@ -7,6 +7,7 @@ import {
 } from './types'
 import { layoutMindmap, layoutMindmapTidy } from './layout'
 import { getMindmapTreeFromNode } from './helpers'
+import { cloneValue } from '../utils'
 import type { MindmapLayoutHint, Node, Operation, Size } from '../types/core'
 
 export type MindmapViewLine = {
@@ -43,14 +44,6 @@ export type MindmapLayoutConfigLike = {
     vGap?: number
     side?: 'left' | 'right' | 'both'
   }
-}
-
-const cloneValue = <T,>(value: T): T => {
-  const clone = (globalThis as { structuredClone?: <V>(input: V) => V }).structuredClone
-  if (typeof clone === 'function') {
-    return clone(value)
-  }
-  return JSON.parse(JSON.stringify(value)) as T
 }
 
 const computeConnectionLine = (
@@ -92,43 +85,6 @@ const computeConnectionLine = (
     x2: child.x + child.width,
     y2: childCenterY
   }
-}
-
-export const getChildrenIds = (tree: MindmapTree, nodeId: MindmapNodeId) => tree.children[nodeId] ?? []
-
-export const getParentId = (tree: MindmapTree, nodeId: MindmapNodeId) => tree.nodes[nodeId]?.parentId
-
-export const getSiblings = (tree: MindmapTree, nodeId: MindmapNodeId) => {
-  const parentId = getParentId(tree, nodeId)
-  if (!parentId) return []
-  return (tree.children[parentId] ?? []).filter((id) => id !== nodeId)
-}
-
-export const getPathToRoot = (tree: MindmapTree, nodeId: MindmapNodeId) => {
-  const path: MindmapNodeId[] = []
-  let current: MindmapNodeId | undefined = nodeId
-  const guard = new Set<MindmapNodeId>()
-  while (current) {
-    if (guard.has(current)) break
-    guard.add(current)
-    path.push(current)
-    current = tree.nodes[current]?.parentId
-  }
-  return path
-}
-
-export const getDepth = (tree: MindmapTree, nodeId: MindmapNodeId) => {
-  const path = getPathToRoot(tree, nodeId)
-  return Math.max(0, path.length - 1)
-}
-
-export const isAncestor = (tree: MindmapTree, ancestorId: MindmapNodeId, nodeId: MindmapNodeId) => {
-  let current = tree.nodes[nodeId]?.parentId
-  while (current) {
-    if (current === ancestorId) return true
-    current = tree.nodes[current]?.parentId
-  }
-  return false
 }
 
 export const getSubtreeIds = (tree: MindmapTree, rootId: MindmapNodeId) => {
@@ -218,9 +174,6 @@ export const resolveInsertPlan = ({
 
 export const getMindmapTree = getMindmapTreeFromNode
 
-export const getMindmapRoots = (nodes: Node[]) =>
-  nodes.filter((node) => node.type === 'mindmap')
-
 export const getMindmapLabel = (node: MindmapNode | undefined) => {
   if (!node?.data || typeof node.data !== 'object' || !('kind' in node.data)) return 'mindmap'
   const data = node.data as { kind: string; text?: string; name?: string; title?: string; url?: string }
@@ -304,24 +257,20 @@ export const resolveAnchorPatch = ({
 
 export const createSetOp = ({
   id,
-  tree,
-  before
+  tree
 }: {
   id: MindmapId
   tree: MindmapTree
-  before?: MindmapTree
 }): Operation => ({
   type: 'mindmap.set',
   id,
-  tree: cloneValue(tree),
-  before: before ? cloneValue(before) : undefined
+  tree: cloneValue(tree)
 })
 
-export const createDeleteOps = (trees: MindmapTree[]): Operation[] =>
-  trees.map((tree) => ({
+export const createDeleteOps = (ids: readonly MindmapId[]): Operation[] =>
+  ids.map((id) => ({
     type: 'mindmap.delete',
-    id: tree.id,
-    before: cloneValue(tree)
+    id
   }))
 
 export const createSetOps = ({
@@ -337,7 +286,7 @@ export const createSetOps = ({
   hint?: MindmapLayoutHint
   node?: Node
 }): Operation[] => {
-  const operations: Operation[] = [createSetOp({ id, tree: afterTree, before: beforeTree })]
+  const operations: Operation[] = [createSetOp({ id, tree: afterTree })]
 
   if (!node) return operations
   const anchorPatch = resolveAnchorPatch({
@@ -353,8 +302,7 @@ export const createSetOps = ({
     {
       type: 'node.update',
       id: node.id,
-      patch: anchorPatch,
-      before: cloneValue(node)
+      patch: anchorPatch
     }
   ]
 }

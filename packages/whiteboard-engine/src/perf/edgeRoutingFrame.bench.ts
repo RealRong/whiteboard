@@ -62,6 +62,9 @@ const ensureRaf = () => {
   runtimeRef.cancelAnimationFrame = () => {}
 }
 
+const toEntities = <T extends { id: string }>(items: T[]) =>
+  Object.fromEntries(items.map((item) => [item.id, item])) as Record<string, T>
+
 const createNodes = (): Node[] => {
   const nodes: Node[] = []
   for (let index = 0; index < NODE_COUNT; index += 1) {
@@ -114,18 +117,19 @@ const createEdges = (): Edge[] => {
   return edges
 }
 
+const toCollection = <T extends { id: string }>(items: T[]) => ({
+  entities: Object.fromEntries(items.map((item) => [item.id, item])),
+  order: items.map((item) => item.id)
+})
+
 const createDocument = (): Document => {
   const nodes = createNodes()
   const edges = createEdges()
   return {
     id: 'bench-doc-routing',
     name: 'edge-routing-frame-bench',
-    nodes,
-    edges,
-    order: {
-      nodes: nodes.map((node) => node.id),
-      edges: edges.map((edge) => edge.id)
-    },
+    nodes: toCollection(nodes),
+    edges: toCollection(edges),
     viewport: {
       center: { x: 0, y: 0 },
       zoom: 1
@@ -268,7 +272,7 @@ const main = () => {
     routing.commit(draft)
 
     const resetDoc = cloneDoc(doc)
-    const resetEdge = resetDoc.edges.find((edge) => edge.id === edgeId)
+    const resetEdge = resetDoc.edges.entities[edgeId]
     if (resetEdge) {
       resetEdge.routing = {
         ...(resetEdge.routing ?? {}),

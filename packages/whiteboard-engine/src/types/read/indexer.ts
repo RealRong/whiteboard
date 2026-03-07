@@ -1,7 +1,6 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '../instance/read'
 import type { SnapCandidate } from '../node/snap'
-import type { IndexChange } from './change'
 
 export type CanvasQueryContext = {
   all: () => CanvasNodeRect[]
@@ -14,12 +13,9 @@ export type SnapQueryContext = {
   inRect: (rect: Rect) => SnapCandidate[]
 }
 
-export type IndexCanvasSource = Pick<CanvasQueryContext, 'all' | 'byId'>
-
-export type Indexer = {
-  query: {
-    canvas: CanvasQueryContext
-    snap: SnapQueryContext
-  }
-  applyChange: (change: IndexChange) => void
+export type ReadIndexes = {
+  canvas: CanvasQueryContext
+  snap: SnapQueryContext
 }
+
+export type IndexCanvasSource = Pick<CanvasQueryContext, 'all' | 'byId'>

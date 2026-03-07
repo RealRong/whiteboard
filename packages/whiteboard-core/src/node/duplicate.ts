@@ -13,6 +13,7 @@ import type {
 } from '../types'
 import { buildNodeCreateOperation } from './commands'
 import { getGroupDescendants } from './group'
+import { listEdges, listNodes } from '../types'
 
 export const createNodeDuplicateInput = (
   node: Node,
@@ -34,14 +35,14 @@ export const createNodeDuplicateInput = (
   parentId
 })
 
-export const expandNodeSelection = (nodes: Node[], selectedIds: NodeId[]) => {
+export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[]) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
   const expandedIds = new Set<NodeId>(selectedIds)
 
   selectedIds.forEach((id) => {
     const node = nodeById.get(id)
     if (node?.type !== 'group') return
-    getGroupDescendants(nodes, id).forEach((child) => {
+    getGroupDescendants(Array.from(nodes), id).forEach((child) => {
       expandedIds.add(child.id)
     })
   })
@@ -61,6 +62,68 @@ type BuildNodeDuplicateOperationsInput = {
   offset: Point
 }
 
+const withCreatedNodes = (
+  doc: Document,
+  operations: readonly Extract<Operation, { type: 'node.create' }>[],
+  operation?: Extract<Operation, { type: 'node.create' }>
+): Document => {
+  const nodes = { ...doc.nodes.entities }
+  const order = [...doc.nodes.order]
+
+  operations.forEach(({ node }) => {
+    nodes[node.id] = node
+    if (!order.includes(node.id)) {
+      order.push(node.id)
+    }
+  })
+
+  if (operation) {
+    nodes[operation.node.id] = operation.node
+    if (!order.includes(operation.node.id)) {
+      order.push(operation.node.id)
+    }
+  }
+
+  return {
+    ...doc,
+    nodes: {
+      entities: nodes,
+      order
+    }
+  }
+}
+
+const withCreatedEdges = (
+  doc: Document,
+  operations: readonly Extract<Operation, { type: 'edge.create' }>[],
+  operation?: Extract<Operation, { type: 'edge.create' }>
+): Document => {
+  const edges = { ...doc.edges.entities }
+  const order = [...doc.edges.order]
+
+  operations.forEach(({ edge }) => {
+    edges[edge.id] = edge
+    if (!order.includes(edge.id)) {
+      order.push(edge.id)
+    }
+  })
+
+  if (operation) {
+    edges[operation.edge.id] = operation.edge
+    if (!order.includes(operation.edge.id)) {
+      order.push(operation.edge.id)
+    }
+  }
+
+  return {
+    ...doc,
+    edges: {
+      entities: edges,
+      order
+    }
+  }
+}
+
 export const buildNodeDuplicateOperations = ({
   doc,
   ids,
@@ -76,7 +139,8 @@ export const buildNodeDuplicateOperations = ({
     }
   }
 
-  const { expandedIds, nodeById } = expandNodeSelection(doc.nodes, Array.from(ids))
+  const orderedNodes = listNodes(doc)
+  const { expandedIds, nodeById } = expandNodeSelection(orderedNodes, Array.from(ids))
   const selectedNodes = Array.from(expandedIds)
     .map((id) => nodeById.get(id))
     .filter((node): node is Node => Boolean(node))
@@ -116,10 +180,7 @@ export const buildNodeDuplicateOperations = ({
     }
     const planned = buildNodeCreateOperation({
       payload,
-      doc: {
-        ...doc,
-        nodes: [...doc.nodes, ...duplicatedNodeOperations.map((operation) => operation.node)]
-      },
+      doc: withCreatedNodes(doc, duplicatedNodeOperations),
       registries,
       createNodeId: () => duplicatedNodeId
     })
@@ -135,7 +196,7 @@ export const buildNodeDuplicateOperations = ({
     sourceToDuplicatedId.set(sourceNode.id, planned.operation.node.id)
   }
 
-  const selectedEdges = doc.edges.filter(
+  const selectedEdges = listEdges(doc).filter(
     (edge) =>
       expandedIds.has(edge.source.nodeId)
       && expandedIds.has(edge.target.nodeId)
@@ -153,11 +214,7 @@ export const buildNodeDuplicateOperations = ({
     }
     const planned = buildEdgeCreateOperation({
       payload,
-      doc: {
-        ...doc,
-        nodes: [...doc.nodes, ...duplicatedNodeOperations.map((operation) => operation.node)],
-        edges: [...doc.edges, ...duplicatedEdgeOperations.map((operation) => operation.edge)]
-      },
+      doc: withCreatedEdges(withCreatedNodes(doc, duplicatedNodeOperations), duplicatedEdgeOperations),
       registries,
       createEdgeId: () => duplicatedEdgeId
     })

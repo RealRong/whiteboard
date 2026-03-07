@@ -72,7 +72,7 @@ const beginFromNode = (
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
   if (instance.state.read('tool') !== 'edge') return undefined
-  const entry = instance.read.canvas.nodeRect(nodeId)
+  const entry = instance.read.index.nodeRect(nodeId)
   if (!entry) return undefined
   const resolved = resolveAnchorFromPoint(
     instance,
@@ -113,7 +113,7 @@ const beginReconnect = (
   end: 'source' | 'target',
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
-  const edge = instance.read.doc.get().edges.find((item) => item.id === edgeId)
+  const edge = instance.read.projection.edge.byId.get(edgeId)?.edge
   if (!edge) return undefined
   const endpoint = edge[end]
   return {

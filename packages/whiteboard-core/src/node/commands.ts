@@ -10,6 +10,7 @@ import type {
   Operation,
   Size
 } from '../types'
+import { getNode, hasNode, listNodes } from '../types'
 
 type NodeCreateOperationResult =
   CoreResult<{
@@ -59,7 +60,7 @@ export const buildNodeCreateOperation = ({
       message: 'Missing node position.'
     }
   }
-  if (payload.id && doc.nodes.some((node) => node.id === payload.id)) {
+  if (payload.id && hasNode(doc, payload.id)) {
     return {
       ok: false,
       message: `Node ${payload.id} already exists.`
@@ -115,7 +116,7 @@ export const buildNodeGroupOperations = ({
 
   const nodes: Node[] = []
   for (const id of uniqueIds) {
-    const node = doc.nodes.find((item) => item.id === id)
+    const node = getNode(doc, id)
     if (!node) {
       return {
         ok: false,
@@ -150,8 +151,7 @@ export const buildNodeGroupOperations = ({
       ...nodes.map((node) => ({
         type: 'node.update' as const,
         id: node.id,
-        patch: { parentId: groupId },
-        before: node
+        patch: { parentId: groupId }
       }))
     ]
   }
@@ -161,21 +161,19 @@ export const buildNodeUngroupOperations = (
   id: NodeId,
   doc: Document
 ): GroupOperationResult => {
-  const groupNode = doc.nodes.find((node) => node.id === id)
-  if (!groupNode) {
+  if (!hasNode(doc, id)) {
     return {
       ok: false,
       message: `Node ${id} not found.`
     }
   }
 
-  const childOperations = doc.nodes
+  const childOperations = listNodes(doc)
     .filter((node) => node.parentId === id)
     .map((node) => ({
       type: 'node.update' as const,
       id: node.id,
-      patch: { parentId: undefined },
-      before: node
+      patch: { parentId: undefined }
     }))
 
   return {
@@ -184,8 +182,7 @@ export const buildNodeUngroupOperations = (
       ...childOperations,
       {
         type: 'node.delete',
-        id,
-        before: groupNode
+        id
       }
     ]
   }

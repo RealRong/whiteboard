@@ -26,7 +26,6 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.name = next.name
   draft.nodes = next.nodes
   draft.edges = next.edges
-  draft.order = next.order
   draft.background = next.background
   draft.viewport = next.viewport
   draft.meta = next.meta
@@ -40,7 +39,6 @@ const isMirroredDocumentFromEngine = (
   && outbound.name === inbound.name
   && outbound.nodes === inbound.nodes
   && outbound.edges === inbound.edges
-  && outbound.order === inbound.order
   && outbound.background === inbound.background
   && outbound.viewport === inbound.viewport
   && outbound.meta === inbound.meta

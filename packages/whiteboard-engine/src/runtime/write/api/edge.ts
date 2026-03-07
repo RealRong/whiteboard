@@ -98,7 +98,7 @@ export const edge = ({
 
   const order = createOrderCommands({
     set: setOrder,
-    readCurrent: () => instance.document.get().order.edges
+    readCurrent: () => instance.document.get().edges.order
   })
 
   return {

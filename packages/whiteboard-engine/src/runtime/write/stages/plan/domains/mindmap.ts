@@ -11,8 +11,10 @@ import type { InternalInstance } from '@engine-types/instance/engine'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
 import type { Draft } from '../draft'
 import { cancelled, invalid, merge, ops, success } from '../draft'
+import { getNode } from '@whiteboard/core/types'
 import type {
   Document,
+  Operation,
   MindmapAttachPayload,
   MindmapCommandOptions,
   MindmapLayoutHint,
@@ -27,11 +29,15 @@ import { corePlan } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../../../../../config'
 
 type MindmapCommand = WriteCommandMap['mindmap']
-type PlanLike = {
-  ok: boolean
-  operations?: readonly unknown[]
-  message?: string
-}
+type PlanLike =
+  | {
+      ok: true
+      operations: readonly Operation[]
+    }
+  | {
+      ok: false
+      message?: string
+    }
 
 type AddSiblingOptions = {
   options?: MindmapCommandOptions
@@ -310,7 +316,7 @@ export const mindmap = ({
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }: MindmapMoveRootOptions): Draft => {
-    const node = readDoc().nodes.find((item) => item.id === nodeId)
+    const node = getNode(readDoc(), nodeId)
     if (!node) {
       return cancelled(`Node ${nodeId} not found.`)
     }

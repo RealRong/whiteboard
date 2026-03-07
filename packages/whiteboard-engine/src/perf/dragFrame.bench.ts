@@ -61,6 +61,9 @@ const ensureRaf = () => {
   runtime.cancelAnimationFrame = () => {}
 }
 
+const toEntities = <T extends { id: string }>(items: T[]) =>
+  Object.fromEntries(items.map((item) => [item.id, item])) as Record<string, T>
+
 const createNodes = (): Node[] => {
   const nodes: Node[] = []
   for (let index = 0; index < NODE_COUNT; index += 1) {
@@ -99,18 +102,19 @@ const createEdges = (): Edge[] => {
   return edges
 }
 
+const toCollection = <T extends { id: string }>(items: T[]) => ({
+  entities: Object.fromEntries(items.map((item) => [item.id, item])),
+  order: items.map((item) => item.id)
+})
+
 const createDocument = (): Document => {
   const nodes = createNodes()
   const edges = createEdges()
   return {
     id: 'bench-doc',
     name: 'drag-frame-bench',
-    nodes,
-    edges,
-    order: {
-      nodes: nodes.map((node) => node.id),
-      edges: edges.map((edge) => edge.id)
-    },
+    nodes: toCollection(nodes),
+    edges: toCollection(edges),
     viewport: {
       center: { x: 0, y: 0 },
       zoom: 1
@@ -175,10 +179,10 @@ const main = () => {
       read: instance.read,
       config: instance.read.config,
       viewport: {
-        getZoom: () => instance.read.state.viewport.zoom
+        getZoom: () => instance.read.viewport.getZoom()
       },
       document: {
-        get: instance.read.doc.get
+        get: () => instance.read.document
       }
     } as unknown as Pick<
       InternalInstance,
@@ -190,7 +194,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.read.canvas.nodeRect(movingNodeId)?.node
+  const movingNode = instance.read.index.nodeRect(movingNodeId)?.node
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }
@@ -254,7 +258,7 @@ const main = () => {
 
     dragKernel.commit(draft)
     const resetDoc = cloneDoc(doc)
-    const resetNode = resetDoc.nodes.find((node) => node.id === movingNodeId)
+    const resetNode = resetDoc.nodes.entities[movingNodeId]
     if (resetNode) {
       resetNode.position = basePosition
     }

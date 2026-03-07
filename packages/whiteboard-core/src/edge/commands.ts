@@ -10,6 +10,10 @@ import type {
   Operation,
   Point
 } from '../types'
+import {
+  hasEdge,
+  hasNode
+} from '../types'
 
 export type EdgeCreateOperationResult =
   CoreResult<{
@@ -56,19 +60,19 @@ export const buildEdgeCreateOperation = ({
       message: 'Missing edge type.'
     }
   }
-  if (payload.id && doc.edges.some((edge) => edge.id === payload.id)) {
+  if (payload.id && hasEdge(doc, payload.id)) {
     return {
       ok: false,
       message: `Edge ${payload.id} already exists.`
     }
   }
-  if (!doc.nodes.some((node) => node.id === payload.source.nodeId)) {
+  if (!hasNode(doc, payload.source.nodeId)) {
     return {
       ok: false,
       message: `Source node ${payload.source.nodeId} not found.`
     }
   }
-  if (!doc.nodes.some((node) => node.id === payload.target.nodeId)) {
+  if (!hasNode(doc, payload.target.nodeId)) {
     return {
       ok: false,
       message: `Target node ${payload.target.nodeId} not found.`
