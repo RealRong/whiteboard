@@ -13,17 +13,24 @@ export type KernelContext = {
   origin?: Origin
 }
 
-export type KernelRebuild = 'none' | 'dirty' | 'full'
-
-export type KernelProjectionInvalidation = {
-  index: {
-    rebuild: KernelRebuild
-    nodeIds: readonly NodeId[]
+export type KernelReadImpact = {
+  reset: boolean
+  node: {
+    ids: readonly NodeId[]
+    geometry: boolean
+    list: boolean
+    value: boolean
   }
   edge: {
-    rebuild: KernelRebuild
+    ids: readonly EdgeId[]
     nodeIds: readonly NodeId[]
-    edgeIds: readonly EdgeId[]
+    geometry: boolean
+    list: boolean
+    value: boolean
+  }
+  mindmap: {
+    ids: readonly NodeId[]
+    view: boolean
   }
 }
 
@@ -33,6 +40,6 @@ export type KernelReduceResult =
       doc: Document
       changes: ChangeSet
       inverse: readonly Operation[]
-      invalidation: KernelProjectionInvalidation
+      read: KernelReadImpact
     }
   | DispatchFailure

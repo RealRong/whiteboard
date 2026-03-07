@@ -5,8 +5,7 @@ export { corePlan } from './plan'
 
 export type {
   KernelContext,
-  KernelProjectionInvalidation,
-  KernelRebuild,
+  KernelReadImpact,
   KernelReduceResult
 } from './types'
 

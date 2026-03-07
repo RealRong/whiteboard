@@ -21,7 +21,7 @@ export const EdgeControlPointHandles = () => {
         : undefined
     ),
     {
-      keys: [READ_STATE_KEYS.selection, READ_SUBSCRIPTION_KEYS.projection]
+      keys: [READ_STATE_KEYS.selection, READ_SUBSCRIPTION_KEYS.edge]
     }
   )
   const { draft } = useEdgeRoutingPreviewState()

@@ -1,7 +1,7 @@
 import type { InternalInstance } from '@engine-types/instance/engine'
 import type { Scheduler } from '../../scheduling/Scheduler'
 import type { Write } from '@engine-types/write/runtime'
-import type { ReadInvalidation } from '@engine-types/read/invalidation'
+import type { ReadImpact } from '@engine-types/read/impact'
 import { MicrotaskTask } from '../../scheduling/Task'
 import { Autofit } from './Autofit'
 
@@ -12,7 +12,7 @@ type ReactionsOptions = {
 }
 
 export type Reactions = {
-  ingest: (invalidation: ReadInvalidation) => void
+  ingest: (impact: ReadImpact) => void
   dispose: () => void
 }
 
@@ -36,9 +36,9 @@ export const createReactions = ({
   }
 
   return {
-    ingest: (invalidation) => {
+    ingest: (impact) => {
       if (disposed) return
-      if (!autofit.ingest(invalidation)) return
+      if (!autofit.ingest(impact)) return
       task.schedule()
     },
     dispose: () => {

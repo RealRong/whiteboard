@@ -1,400 +1,380 @@
-# Engine Read Cache And Signal Global Optimal Plan
+# Engine Read Impact Global Optimal Plan
 
 ## 1. Goal
 
-把当前 engine 的 read 更新链路从单一粗语义：
+把当前 engine 的 read 更新链路，从：
 
+- `KernelProjectionInvalidation`
 - `ReadInvalidation`
 - `READ_SUBSCRIPTION_KEYS.projection`
 
-重构成两条明确分离的链路：
+重构成一个真正符合漏斗原则与数据驱动的结构：
 
-- `cache`
-  - 给 engine runtime 用
-  - 负责索引、路径、缓存失效与重建
-- `signal`
-  - 给 React / hooks / selector 用
-  - 负责按语义 topic 触发订阅通知
+`commands -> operations -> core reduce -> KernelReadImpact -> engine compilers -> read apply -> ui subscribe`
 
-长期最优目标不是“把 projection 拆成几个名字”，而是：
+长期最优目标：
 
-1. core 直接产出 read 语义更新结果
-2. engine read 直接消费 `cache`
-3. UI 订阅只消费 `signal`
-4. `projection` 不再作为订阅 topic 存在
+1. core 不直接输出 cache / signal 这类执行机制结果
+2. core 只输出稳定的读侧事实语义：`KernelReadImpact`
+3. engine 基于 impact 纯编译出：
+   - read control
+   - reaction input
+4. `projection` 不再作为统一订阅 topic 存在
+5. cache invalidation 与 UI signal 从同一份 impact 推导，而不是分别并列定义
 
 ---
 
-## 2. Current Problem
+## 2. Final Judgment
 
-当前设计把两类完全不同的职责混在了一起：
+长期全局最优不是：
 
-1. cache invalidation
-   - `index`
-   - `edge`
-2. subscription notification
-   - node 组件是否要醒来
-   - edge 组件是否要醒来
-   - mindmap 组件是否要醒来
+- `KernelProjectionInvalidation`
+- `KernelReadUpdate`
+- `operations -> projections directly`
 
-当前具体表现：
+长期全局最优是：
 
-- core 输出 `KernelProjectionInvalidation`
-- engine read 只认 `invalidation.index` 与 `invalidation.edge`
-- React 订阅统一使用 `READ_SUBSCRIPTION_KEYS.projection`
-- `projection` 统一映射到一个 `projectionAtom`
+- `KernelReadImpact`
 
-这带来三个结构性问题。
+原因：
 
-### 2.1 `projection` 是粗广播
+- `KernelProjectionInvalidation` 太偏 cache 机制
+- `KernelReadUpdate` 仍然把下游执行方式编码进 core 输出
+- `operations -> projections directly` 会让多个消费者重复解释 operation 语义，破坏漏斗收敛
 
-现在任何 node / edge / mindmap projection 变化，都会广播到同一个 `projection` topic。
+`KernelReadImpact` 的优势：
 
-结果：
-
-- edge 变化时，node 订阅者会被唤醒
-- node 变化时，mindmap 订阅者会被唤醒
-- mindmap 变化时，edge 订阅者会被唤醒
-
-即使最终 `useReadGetter` 用 equality 挡住了 rerender，也挡不住：
-
-- `useSyncExternalStore` 被唤醒
-- getter 再执行一次
-- 大量 `Map.get(...)` / `byId.get(...)` 再跑一遍
-
-所以当前问题不只是 rerender，而是整个订阅面被一个粗 topic 统一叫醒。
-
-### 2.2 当前 invalidation 不是 projection 语义
-
-core 现在输出的 `KernelProjectionInvalidation` 只有：
-
-- `index`
-- `edge`
-
-这套结构适合驱动缓存，但不适合驱动 UI 订阅。
-
-典型例子：
-
-- `node.update` 仅更新 `data/style/locked`
-- node projection 实际上已经变化
-- 但当前 invalidation 可能仍然不会标记 `index` 变化
-
-所以：
-
-- `index` 变化 != `node projection` 变化
-- `edge` 变化 != `edge subscription topic` 的完整语义
-
-这意味着不能把未来的 `node` / `edge` / `mindmap` 订阅直接硬挂到现有 `index` / `edge` invalidation 上。
-
-### 2.3 `projection` 的订阅 topic 与实际 projection 边界不一致
-
-当前 read public 面已经收口成：
-
-- `read.projection.node`
-- `read.projection.edge`
-- `read.projection.mindmap`
-- `read.projection.viewportTransform`
-
-但订阅 topic 仍然只有一个：
-
-- `projection`
-
-这和 public API 的语义边界明显不一致。
+- 它描述的是事实，不是动作
+- 它是稳定语义层，不是 runtime 执行层
+- 它能作为唯一上游真相，驱动多个下游 compiler
 
 ---
 
-## 3. Target Architecture
+## 3. Why `KernelReadUpdate` Is Not Final
 
-长期最优方案是把 core 到 engine 到 React 的链路改成：
+`KernelReadUpdate = { cache, signal }` 比旧方案更好，但不是终态。
 
-`commands -> write -> core reduce -> read update -> read cache apply -> read signal publish -> ui subscribe`
+问题在于：
 
-其中 `read update` 是唯一的 read 侧更新载体。
+1. `cache` 和 `signal` 都是消费机制，不是领域事实
+2. 它让 core 直接知道下游有哪些执行通道
+3. 它会随着消费者增加而持续膨胀
+4. 它不是单一漏斗，而是 core 直接同时产出多条并行执行计划
 
-### 3.1 Target Type
+漏斗原则下，最优结构应该是：
+
+- 上游先把 operation 收敛成单一稳定语义
+- 下游各自从这份稳定语义编译自己的执行计划
+
+这就是 `Impact` 比 `Update` 更优的根本原因。
+
+---
+
+## 4. Why Not Derive Projections Directly From Operations
+
+理论上可以从 operations 直接推 projection，但在当前架构下不是最优。
+
+### 4.1 If A Central Function Parses Operations
+
+如果 engine 中央有一个函数：
+
+- 读取 operations
+- 解析 node / edge / mindmap 影响
+- 再去驱动 cache / signals / reactions
+
+那么本质上它已经在生成 impact，只是没有显式命名。
+
+这不是真正省掉了 impact，只是把 impact 藏进流程代码里。
+
+### 4.2 If Each Consumer Parses Operations Independently
+
+如果改成：
+
+- node projection 自己解析 operations
+- edge cache 自己解析 operations
+- signal publisher 自己解析 operations
+- reactions 自己解析 operations
+
+那么会出现：
+
+- operation 语义被多处重复解释
+- cross-domain 影响到处复制
+- consumer 越多，膨胀越明显
+- 上游高熵输入被反复重新打开
+
+这违背漏斗原则。
+
+### 4.3 Current Operations Are Write-Oriented, Not Read-Semantic
+
+当前 operation 设计是典型 write 语义：
+
+- `node.update(patch)`
+- `edge.update(patch)`
+- `mindmap.set`
+
+它们适合 reducer，不适合作为多个 read consumer 的直接输入。
+
+原因：
+
+- `node.update` 还需要继续分辨 geometry / list / value
+- edge projection 还要受到 node geometry 变化影响
+- mindmap projection 并不只受 `mindmap.*` 影响
+
+这说明 operation 本身不是稳定读语义。
+
+所以，在 operation 架构不重做的前提下，必须有一个中间语义收敛层。
+
+---
+
+## 5. KernelReadImpact
+
+### 5.1 Target Shape
+
+推荐长期最优的 core 输出为：
 
 ```ts
-export type KernelReadUpdate = {
-  cache: {
-    index: {
-      rebuild: 'none' | 'dirty' | 'full'
-      nodeIds: readonly NodeId[]
-    }
-    edge: {
-      rebuild: 'none' | 'dirty' | 'full'
-      nodeIds: readonly NodeId[]
-      edgeIds: readonly EdgeId[]
-    }
+export type KernelReadImpact = {
+  reset: boolean
+
+  node: {
+    ids: readonly NodeId[]
+    geometry: boolean
+    list: boolean
+    value: boolean
   }
-  signal: {
-    node: boolean
-    edge: boolean
-    mindmap: boolean
+
+  edge: {
+    ids: readonly EdgeId[]
+    nodeIds: readonly NodeId[]
+    geometry: boolean
+    list: boolean
+    value: boolean
+  }
+
+  mindmap: {
+    ids: readonly NodeId[]
+    view: boolean
   }
 }
 ```
+
+说明：
+
+- `reset`
+  - whole document replace / load / full reset
+- `node.geometry`
+  - node rect / aabb / edge anchor 依赖发生变化
+- `node.list`
+  - canvas node 的集合、可见性或顺序发生变化
+- `node.value`
+  - node 本身的值发生变化，但不必然影响 geometry 或 list
+- `edge.geometry`
+  - edge path / endpoint 依赖发生变化
+- `edge.list`
+  - edge 集合或顺序发生变化
+- `edge.value`
+  - edge label / style / data 等值发生变化
+- `mindmap.view`
+  - mindmap projection 需要重读
+
+这是稳定语义，不包含 cache 或 signal 概念。
+
+### 5.2 Design Rules
 
 设计原则：
 
-- `cache` 只描述 runtime cache 是否要失效
-- `signal` 只描述订阅 topic 是否变化
-- 不在一个字段里混语义
-- 不再使用 `projection` 这个粗词
-
-### 3.2 Naming
-
-长期最优命名：
-
-- core
-  - `KernelReadUpdate`
-- engine
-  - `ReadUpdate`
-- read kernel method
-  - `applyReadUpdate(update)`
-- write commit result
-  - `read: ReadUpdate`
-
-不再使用：
-
-- `ProjectionInvalidation`
-- `ReadInvalidation`
-- `projection` 订阅 topic
-
-原因：
-
-- `invalid` 只表达失效，不表达通知
-- `projection` 太粗，不表达具体 topic
-- `update` 同时覆盖 cache 与 signal，更贴近实际职责
+1. 不描述怎么做，只描述发生了什么
+2. 不描述 runtime 结构，只描述读域影响
+3. `list` 表示读模型里的集合与顺序变化，不再把 `order / create / delete / visibility` 分散表达
+4. `value` 表示实体值变化，不再把 `content / style` 拆成两个 consumer 味道很重的轴
+5. `mindmap.view` 表示 mindmap 读侧需要重算，不再把 `structure / anchor` 暴露给所有消费者
+6. id 列表提供精细范围，但不强迫下游必须按 id 级别消费
 
 ---
 
-## 4. Subscription Model
+## 6. Why This Shape Fits Funnel Principle
 
-### 4.1 Remove `READ_SUBSCRIPTION_KEYS.projection`
+### 6.1 Single Funnel
 
-当前：
+链路变成：
 
-```ts
-READ_SUBSCRIPTION_KEYS = {
-  ...READ_STATE_KEYS,
-  projection: 'projection'
-}
-```
+`operations -> KernelReadImpact -> compilers`
 
-目标：
+而不是：
 
-```ts
-READ_STATE_KEYS = {
-  interaction: 'interaction',
-  tool: 'tool',
-  selection: 'selection',
-  viewport: 'viewport',
-  mindmapLayout: 'mindmapLayout'
-}
+`operations -> cache + signal`
 
-READ_SIGNAL_KEYS = {
-  node: 'node',
-  edge: 'edge',
-  mindmap: 'mindmap'
-}
-```
+前者是：
 
-然后：
+- operation 先收敛成一个统一语义层
+- 再由多个 compiler 消费
 
-```ts
-type ReadSubscriptionKey =
-  | ReadStateKey
-  | ReadSignalKey
-```
+后者是：
 
-### 4.2 Why No `viewportTransform` Signal
+- core 直接为多个下游执行机制分别出结果
 
-`viewportTransform` 不需要单独 signal。
+前者更符合漏斗原则。
+
+### 6.2 Stable Semantic Axes
+
+`node / edge / mindmap` 比 `cache / signal` 更稳定。
 
 原因：
 
-- 它完全由 `state.viewport` 派生
-- 当前 `Whiteboard.tsx` 用 `READ_STATE_KEYS.viewport` 驱动是正确的
-- render 侧订阅 viewport state 已经够精确
+- consumer 机制会变化
+- 语义域更稳定
+- 新增一个 cache 或 reaction，不应该迫使 core 输出 schema 变化
 
-所以：
+### 6.3 Facts Instead Of Plans
 
-- `viewportTransform` 继续由 `viewport` state 驱动
-- 不增加 `viewportTransform` topic
+`Impact` 是事实层，`Update` 是计划层。
 
-### 4.3 Topic Ownership
-
-最终 topic 所属关系：
-
-- `node`
-  - `read.projection.node`
-- `edge`
-  - `read.projection.edge`
-- `mindmap`
-  - `read.projection.mindmap`
-- `viewport`
-  - `read.projection.viewportTransform`
-  - `read.state.viewport`
-
-这四者边界清晰、对齐 public read API。
+长期最优应该把事实层放在 core，把计划层放在 engine。
 
 ---
 
-## 5. Signal Semantics
+## 7. Why This Shape Fits Data-Driven Design
 
-### 5.1 Node Signal
+数据驱动的关键不是“多用对象”，而是：
 
-`signal.node = true` 的条件：
+- 是否有单一稳定真相源
+- 下游是否从真相源纯编译出来
+
+`KernelReadImpact` 恰好满足：
+
+- core reducer 是唯一真相生产者
+- engine 的 cache / signal / reaction 都是 compiler
+- 不同消费者不再各自解释 operations
+
+因此它是比 `operations -> projections directly` 更标准的数据驱动方案。
+
+---
+
+## 8. Impact Semantics
+
+### 8.1 Node Impact
+
+`impact.node` 表示：`read.projection.node` 与 node index 是否受到影响。
+
+#### `geometry`
+
+以下情况为 true：
 
 - `node.create`
 - `node.delete`
-- `node.update`
-  - 无论 patch 是 geometry、order、style、data、locked
+- `node.update` 影响 `position / size / rotation`
+- create / delete / geometry change 需要重新锚定相关 edge path
+
+#### `list`
+
+以下情况为 true：
+
 - `node.order.set`
-- `mindmap.*` 产生了任何 node 侧可见结果
-  - 例如 anchor patch 引起 root node 位置变化
-- whole document replace / load
+- `node.update` 影响 `type / layer / zIndex / parentId`
+- group collapsed 状态变化导致 visible canvas node 集合变化
+- create / delete 导致 canvas node 集合变化
 
-设计原则：
+#### `value`
 
-- 只要 `read.projection.node` 可能变化，就发 `node`
-- 不把 node signal 绑定到 index cache 变化
+以下情况为 true：
 
-### 5.2 Edge Signal
+- `node.update` 影响 `data / style / locked`
+- create / delete
+- type change 需要 node consumer 重读实体值
 
-`signal.edge = true` 的条件：
+#### `ids`
 
-- `edge.create`
-- `edge.delete`
-- `edge.update`
+包含本次 node 读域受影响的 node ids。
+
+注意：
+
+- `ids` 是范围提示，不是唯一语义来源
+- `geometry / list / value` 是主语义
+
+### 8.2 Edge Impact
+
+`impact.edge` 表示：`read.projection.edge` 是否受到影响。
+
+#### `geometry`
+
+以下情况为 true：
+
+- `edge.create / edge.delete / edge.update` 影响 path / endpoints / routing
+- 任意 node geometry 变化影响 edge path
+
+#### `list`
+
+以下情况为 true：
+
 - `edge.order.set`
-- 任意影响 edge path / visible edge 的 node 变化
-  - 例如 node geometry 改变
-  - 例如 node 可见性变化
-  - 例如 node order 变化导致 canvas 可见集合变化
-- whole document replace / load
+- create / delete 改变 edge 集合或顺序
 
-设计原则：
+#### `value`
 
-- 只要 `read.projection.edge` 可能变化，就发 `edge`
-- 不是只有 edge operation 才发 edge signal
+以下情况为 true：
 
-### 5.3 Mindmap Signal
+- `edge.update` 影响 `label / style / data`
 
-`signal.mindmap = true` 的条件：
+#### `ids`
 
-- `mindmap.*`
-- `node.create/delete/update/order.set` 影响 mindmap root 可见集合
-- `node.update` 命中了 mindmap root node 本身
-- whole document replace / load
+受影响的 edge ids。
 
-设计原则：
+#### `nodeIds`
 
-- `mindmap` 不是单靠 `mindmap.*` 驱动
-- 只要 `read.projection.mindmap` 可能变化，就发 `mindmap`
+导致 edge geometry 变化的 node ids。
 
-### 5.4 No Per Item Signal In The First Step
+说明：
 
-长期最优第一阶段不做：
+- node 可见集变化不再直接污染 `impact.edge.value`
+- engine compiler 会基于 `impact.node.list` 决定是否唤醒 edge subscribers
 
-- `nodeById:<id>`
-- `edgeById:<id>`
-- `mindmapById:<id>`
+### 8.3 Mindmap Impact
 
-原因：
+`impact.mindmap` 表示：`read.projection.mindmap` 是否需要重读。
 
-- 会把订阅系统复杂度陡增
-- 现有架构下 collection topic 已经能明显收口大量无意义唤醒
-- per item signal 只有在 list 极大、单 item 订阅再成为瓶颈时才值得做
+#### `view`
 
-结论：
+以下情况为 true：
 
-- 先把 topic 从 1 个粗 topic 拆成 3 个语义 topic
-- 不把系统复杂度直接推到 entity 级事件总线
+- `mindmap.set / mindmap.delete`
+- mindmap root 的 position / size / order / type / tree 数据变化
+- create / delete / reorder 影响 mindmap root 集合
+
+#### `ids`
+
+受影响的 mindmap root ids。
 
 ---
 
-## 6. Cache Semantics
+## 9. Core Changes
 
-`cache` 继续只服务 runtime。
+### 9.1 Replace `KernelProjectionInvalidation`
 
-### 6.1 Index Cache
-
-保留：
+当前 core 输出：
 
 ```ts
-cache.index = {
-  rebuild,
-  nodeIds
-}
+KernelProjectionInvalidation
 ```
 
-职责：
-
-- 驱动 `NodeRectIndex`
-- 驱动 `SnapIndex`
-- 驱动任何以后依赖 node geometry / canvas node set 的内部缓存
-
-### 6.2 Edge Cache
-
-保留：
+目标替换为：
 
 ```ts
-cache.edge = {
-  rebuild,
-  nodeIds,
-  edgeIds
-}
+KernelReadImpact
 ```
 
-职责：
-
-- 驱动 edge path cache
-- 驱动 endpoints/path 复用
-
-### 6.3 Cache Must Not Drive UI Directly
-
-原则：
-
-- `cache` 可以比 `signal` 粗或细
-- `cache` 只决定内部重算
-- `signal` 只决定 UI 订阅通知
-- 任何 UI 订阅都不应再直接推导自 cache 字段
-
----
-
-## 7. Core Changes
-
-### 7.1 Replace `KernelProjectionInvalidation`
-
-当前 core：
+并把 reducer 结果：
 
 ```ts
-type KernelProjectionInvalidation = {
-  index: ...
-  edge: ...
-}
+{ ok, doc, changes, inverse, read }
 ```
 
-目标：
+其中：
 
-```ts
-type KernelReadUpdate = {
-  cache: {
-    index: ...
-    edge: ...
-  }
-  signal: {
-    node: boolean
-    edge: boolean
-    mindmap: boolean
-  }
-}
-```
+- `read` 即 `KernelReadImpact`
 
-### 7.2 Replace `InvalidationState`
+### 9.2 Replace `InvalidationState`
 
-当前 reducer 内部状态：
+当前 reducer 内部状态偏 cache：
 
 - `hasEdges`
 - `hasOrder`
@@ -403,334 +383,278 @@ type KernelReadUpdate = {
 - `nodeIds`
 - `edgeIds`
 
-目标内部状态应分成两部分：
+目标改成：
 
 ```ts
-type ReadUpdateState = {
-  cache: {
-    full: boolean
-    hasEdges: boolean
-    hasOrder: boolean
-    hasGeometry: boolean
-    hasMindmap: boolean
-    nodeIds: Set<NodeId>
-    edgeIds: Set<EdgeId>
+type ReadImpactState = {
+  full: boolean
+
+  node: {
+    ids: Set<NodeId>
+    geometry: boolean
+    list: boolean
+    value: boolean
   }
-  signal: {
-    node: boolean
-    edge: boolean
-    mindmap: boolean
+
+  edge: {
+    ids: Set<EdgeId>
+    nodeIds: Set<NodeId>
+    geometry: boolean
+    list: boolean
+    value: boolean
+  }
+
+  mindmap: {
+    ids: Set<NodeId>
+    view: boolean
   }
 }
 ```
 
-### 7.3 Track Signal At Operation Time
+### 9.3 Track Impact During Reduce
 
-长期最优不是在 engine 层猜，而是在 core reducer 里直接跟踪 signal。
+在 reducer 里直接基于 operation 处理前后的上下文记录 impact。
 
-规则：
+重点：
 
-- `node.create/delete/update/order.set`
-  - `signal.node = true`
-- `edge.create/delete/update/order.set`
-  - `signal.edge = true`
-- `mindmap.*`
-  - `signal.mindmap = true`
+- 不再只判断 cache invalidation
+- 改为判断每个 read 语义域受到何种类型影响
 
-此外，core reducer 在处理 operation 时，应根据 operation 影响的读域额外设置：
-
-- node geometry / visibility / order 改变
-  - `signal.edge = true`
-- node changes hit mindmap root / visible root set
-  - `signal.mindmap = true`
-
-### 7.4 Mindmap Signal Needs Node Context
-
-因为当前 mindmap projection 依赖：
-
-- visible nodes
-- root node
-- tree data
-- layout config
-
-所以 signal 追踪不能只看 operation type 名称。
-
-最佳实现方式：
-
-- reducer 在处理 operation 时可读取 before / after node
-- 对于 `node.update`：
-  - 如果 before 或 after 任一方是 `type === 'mindmap'`
-    - `signal.mindmap = true`
-- 对于 `node.create/delete/order`：
-  - 如果可能影响 visible root set
-    - `signal.mindmap = true`
-
-这样 signal 语义是精准的，而不是 engine 侧事后猜测。
+这一步完成后，core 只负责产出事实语义，不负责产出执行计划。
 
 ---
 
-## 8. Engine Changes
+## 10. Engine Compilers
 
-### 8.1 Write Runtime
+engine 不再接收 `ReadInvalidation`，而是接收 `ReadImpact`。
 
-当前 write commit：
-
-- `execute()` 返回 `invalidation`
-- `applyInvalidation(invalidation)`
-- `react(invalidation)`
-
-目标：
-
-- `execute()` 返回 `read`
-- `applyReadUpdate(read)`
-- `react(read)`
-
-即：
+### 10.1 Compile Read Control
 
 ```ts
-commit -> read.apply(update) -> react(update)
+compileReadControl(impact): ReadControl
 ```
 
-不再使用 `FULL_READ_INVALIDATION`，改成：
-
-- `FULL_READ_UPDATE`
-
-### 8.2 Read Kernel
-
-当前 read kernel 只消费：
-
-- `invalidation.index`
-- `invalidation.edge`
-
-目标：
-
-- `applyReadUpdate(update)`
-  - `applyCache(update.cache)`
-  - `publishSignals(update.signal)`
-
-结构：
+输出：
 
 ```ts
-const applyReadUpdate = (update: ReadUpdate) => {
-  applyIndexCache(update.cache.index)
-  edgeCache.applyChange(update.cache.edge)
-  publishReadSignals(update.signal)
+{
+  index: { rebuild, nodeIds },
+  edge: { rebuild, nodeIds, edgeIds },
+  signals: { node, edge, mindmap }
 }
 ```
-
-### 8.3 Introduce Signal Atoms
-
-新增 3 个 atom revision：
-
-- `readSignalAtoms.node`
-- `readSignalAtoms.edge`
-- `readSignalAtoms.mindmap`
-
-它们不存业务值，只存 revision number。
-
-例如：
-
-```ts
-node: PrimitiveAtom<number>
-edge: PrimitiveAtom<number>
-mindmap: PrimitiveAtom<number>
-```
-
-当对应 signal 为 `true` 时：
-
-- bump 对应 revision atom
-
-### 8.4 Subscription Table
-
-`subscribableAtomMap` 最终应变成：
-
-- state keys -> state atoms
-- signal keys -> signal atoms
-
-即：
-
-```ts
-[READ_STATE_KEYS.viewport]: stateAtoms.viewport
-[READ_SIGNAL_KEYS.node]: readSignalAtoms.node
-[READ_SIGNAL_KEYS.edge]: readSignalAtoms.edge
-[READ_SIGNAL_KEYS.mindmap]: readSignalAtoms.mindmap
-```
-
-不再有：
-
-- `READ_SUBSCRIPTION_KEYS.projection`
-- `projectionAtom` 作为 UI 订阅源
-
-### 8.5 `projectionAtom` Becomes Internal Only
-
-`snapshotAtom` / `projectionAtom` 仍然可以存在，但只作为 read kernel 内部输入。
 
 职责：
 
-- 为 node / edge / mindmap view 构建提供稳定 snapshot
+- 统一承载 read runtime 的控制层协议
+- 一次性把 impact 编译成 cache 与 signal 所需控制结果
+- 避免 kernel 对同一份 impact 做两次并行解释
 
-不再职责：
+### 10.2 Compile Reaction Input
 
-- 作为 React 订阅 topic
+```ts
+compileReactionInput(impact): ReactionInput
+```
 
-这一步非常关键，因为它彻底切开了：
+职责：
 
-- snapshot materialization
-- UI wakeup signaling
+- 给 Autofit 等 reaction 使用
+- 不直接依赖 UI signal
+- 默认为 runtime side effect 编译器
+
+### 10.3 Why Compiler Layer Belongs To Engine
+
+原因：
+
+- `index / edge / signals` 都是 engine runtime 控制机制
+- `reactions` 是 engine side effect 机制
+
+这些都不属于 core 事实层。
+
+所以 compiler 必须在 engine，而不是 core。
 
 ---
 
-## 9. React And Hook Changes
+## 11. Read Runtime
 
-### 9.1 Replace Projection Topic
+### 11.1 Replace `applyInvalidation`
 
-所有现有：
+当前：
 
-- `READ_SUBSCRIPTION_KEYS.projection`
+```ts
+applyInvalidation(invalidation)
+```
 
-替换成：
+目标：
 
-- node 组件 -> `READ_SIGNAL_KEYS.node`
-- edge 组件 -> `READ_SIGNAL_KEYS.edge`
-- mindmap 组件 -> `READ_SIGNAL_KEYS.mindmap`
+```ts
+read.ingest(impact)
+```
 
-### 9.2 Exact Mapping
+内部流程：
 
-#### Node
+```ts
+const ingest = (impact: ReadImpact) => {
+  const control = compileReadControl(impact)
+  applyReadControl(control)
+}
+```
+
+### 11.2 Signal Atoms
+
+新增 signal atoms：
+
+- `node`
+- `edge`
+- `mindmap`
+
+signal atoms 只存 revision number。
+
+### 11.3 Subscription Keys
+
+最终订阅 key：
+
+```ts
+READ_STATE_KEYS = {
+  interaction,
+  tool,
+  selection,
+  viewport,
+  mindmapLayout
+}
+
+READ_SIGNAL_KEYS = {
+  node,
+  edge,
+  mindmap
+}
+```
+
+删除：
+
+- `projection`
+
+### 11.4 Route A: Pure Memoized `readModel()`
+
+已选路线 A：
+
+1. engine 只接受不可变 document 输入
+2. 删除 `readModelRevision`
+3. 删除 `snapshotAtom`
+4. read kernel 内部改成纯 memoized `readModel()`
+
+它不再承担任何 atom 级 read model 协调职责。
+
+---
+## 12. React Subscription Mapping
+
+### 12.1 Node Consumers
+
+订阅：
+
+- `READ_SIGNAL_KEYS.node`
+
+适用组件：
 
 - `NodeLayer`
 - `NodeItemById`
 
-使用：
+### 12.2 Edge Consumers
 
-- `READ_SIGNAL_KEYS.node`
+订阅：
 
-#### Edge
+- `READ_SIGNAL_KEYS.edge`
+- 需要时叠加 `selection`
+
+适用组件：
 
 - `EdgeLayer`
 - `EdgeControlPointHandles`
 - `EdgeEndpointHandles`
 
-使用：
+### 12.3 Mindmap Consumers
 
-- `READ_SIGNAL_KEYS.edge`
-- 如果还依赖 selection，则同时带上 `READ_STATE_KEYS.selection`
-
-#### Mindmap
-
-- `MindmapLayerStack`
-- `MindmapLayer`
-
-使用：
+订阅：
 
 - `READ_SIGNAL_KEYS.mindmap`
 - `READ_STATE_KEYS.mindmapLayout`
 
-### 9.3 Viewport Transform
+适用组件：
 
-保持现状：
+- `MindmapLayerStack`
+- `MindmapLayer`
 
-- `Whiteboard.tsx` 继续订阅 `READ_STATE_KEYS.viewport`
-- getter 继续读 `instance.read.projection.viewportTransform`
+### 12.4 Viewport Transform
 
-不引入额外 signal。
+继续由：
 
----
+- `READ_STATE_KEYS.viewport`
 
-## 10. Reactions
-
-### 10.1 Reactions Should Not Depend On UI Signals
-
-reactions 是 engine runtime 内部 side effect，不应依赖 UI 订阅 topic。
-
-所以：
-
-- Autofit 这类 reaction 继续看 cache 层即可
-- reaction 输入应优先消费 `update.cache`
-
-### 10.2 Recommended Shape
-
-可以有两种长期设计。
-
-#### Option A
-
-```ts
-reactions.ingest(update.cache)
-```
-
-优点：
-
-- 最清晰
-- reaction 只依赖内部重算语义
-
-#### Option B
-
-```ts
-reactions.ingest(update)
-```
-
-优点：
-
-- 为未来 reaction 留余地
-- reaction 需要时可看 signal
-
-长期最优建议：
-
-- 先走 `ingest(update)`
-- 但 reaction 默认只消费 `cache`
-
-这样不会把未来反应系统锁死。
+驱动，不新增 signal。
 
 ---
 
-## 11. Migration Order
+## 13. Reactions
 
-### Phase 1. Core Type Replacement
+reactions 默认不消费 UI signals，而是消费 impact。
 
-1. 新增 `KernelReadUpdate`
-2. reducer 从 `invalidation` 改成 `read`
-3. 保持 `cache.index` / `cache.edge` 语义不变
-4. 新增 `signal.node` / `signal.edge` / `signal.mindmap`
+推荐：
 
-### Phase 2. Engine Write Replacement
+```ts
+reactions.ingest(impact)
+```
 
-1. `CommitResult.invalidation` 改成 `read`
-2. `FULL_READ_INVALIDATION` 改成 `FULL_READ_UPDATE`
-3. `createWrite` 改为：
-   - `applyReadUpdate(read)`
-   - `react(read)`
+在 reaction 内部：
 
-### Phase 3. Read Kernel Signal Layer
+- 只使用自己需要的 impact 片段
+- Autofit 默认主要关心 `reset / node.list / node.geometry / mindmap.view`
 
-1. 新增 `readSignalAtoms`
-2. 新增 `READ_SIGNAL_KEYS`
-3. `applyReadUpdate` 同时做：
-   - cache apply
-   - signal bump
-4. 删除 `READ_SUBSCRIPTION_KEYS.projection`
+这样 reaction 与 UI signal 彻底解耦。
 
-### Phase 4. React Subscription Migration
+---
+
+## 14. Migration Order
+
+### Phase 1. Core Fact Layer
+
+1. 新增 `KernelReadImpact`
+2. reducer 输出从 `invalidation` 改成 `read`
+3. reducer 内部把 patch classification 收敛到 node / edge / mindmap impact 上
+
+### Phase 2. Engine Compiler Layer
+
+1. 新增 `compileReadControl`
+2. 新增 `compileReactionInput`（可后置）
+3. 删除 engine 对 `ReadInvalidation` 的直接依赖
+4. 收敛 kernel 对 impact 的重复解释
+
+### Phase 3. Read Runtime
+
+1. `read.ingest` 内部改成 `compileReadControl -> applyReadControl`
+2. 新增 signal atoms
+3. 删除 `projection` 订阅 topic
+
+### Phase 4. React Migration
 
 1. node consumers -> `node`
 2. edge consumers -> `edge`
 3. mindmap consumers -> `mindmap`
-4. viewport transform 保持 `viewport`
+4. viewport render 仍使用 `viewport`
 
 ### Phase 5. Cleanup
 
-1. 删除 `projection` topic
-2. 删除 `ReadInvalidation`
-3. 删除 `KernelProjectionInvalidation`
-4. 清理 `invalidation.ts` 命名与导出
-5. 全链路统一改成 `read update`
+删除以下概念：
+
+- `KernelProjectionInvalidation`
+- `ReadInvalidation`
+- `READ_SUBSCRIPTION_KEYS.projection`
+- 任何“UI 订阅直接依赖 cache invalidation”的逻辑
 
 ---
 
-## 12. Validation Rules
+## 15. Validation Rules
 
-重构完成后应满足以下规则。
-
-### 12.1 Node Style Change
+### 15.1 Node Style Update
 
 场景：
 
@@ -738,12 +662,13 @@ reactions.ingest(update)
 
 期望：
 
-- `signal.node = true`
-- `signal.edge = false`
-- `signal.mindmap` 仅在该 node 是 mindmap root 时为 `true`
-- `cache.index.rebuild = 'none'`
+- `impact.node.value = true`
+- `impact.node.geometry = false`
+- `impact.node.list = false`
+- `impact.edge.* = false`
+- `impact.mindmap.view` 仅在该节点是 mindmap root 时为 true
 
-### 12.2 Node Geometry Change
+### 15.2 Node Geometry Update
 
 场景：
 
@@ -751,12 +676,25 @@ reactions.ingest(update)
 
 期望：
 
-- `signal.node = true`
-- `signal.edge = true`
-- `cache.index` dirty or full
-- `cache.edge` dirty or full
+- `impact.node.geometry = true`
+- `impact.edge.geometry = true`
+- `impact.node.list = false`
+- 若命中 mindmap root，则 `impact.mindmap.view = true`
 
-### 12.3 Edge Label Change
+### 15.3 Group Collapsed Toggle
+
+场景：
+
+- `node.update({ data: { ...collapsed } })`
+
+期望：
+
+- `impact.node.value = true`
+- `impact.node.list = true`
+- `compileReadControl(impact).signals` 会唤醒 `node` 与 `edge`
+- `Autofit` 走 full rebuild
+
+### 15.4 Edge Label Update
 
 场景：
 
@@ -764,12 +702,13 @@ reactions.ingest(update)
 
 期望：
 
-- `signal.edge = true`
-- `cache.edge.rebuild = 'none'` 或最小必要更新
-- `signal.node = false`
-- `signal.mindmap = false`
+- `impact.edge.value = true`
+- `impact.edge.geometry = false`
+- `impact.edge.list = false`
+- `impact.node.* = false`
+- `impact.mindmap.view = false`
 
-### 12.4 Mindmap Tree Change
+### 15.5 Mindmap Update
 
 场景：
 
@@ -777,88 +716,62 @@ reactions.ingest(update)
 
 期望：
 
-- `signal.mindmap = true`
-- 若伴随 root node anchor patch，则 `signal.node = true`
-- `cache.index` / `cache.edge` 依实际 geometry 影响而定
+- `impact.mindmap.view = true`
+- node / edge 不再被强行写入 consumer 导向字段
+- 由 engine compiler 与 read model 决定实际唤醒范围
 
-### 12.5 Edge Only Update Should Not Wake Node Subscribers
+### 15.6 Edge Change Must Not Wake Node Subscribers
 
 场景：
 
-- 仅 edge 更新
+- 仅 edge 内容变化
 
 期望：
 
-- `READ_SIGNAL_KEYS.edge` 被 bump
-- `READ_SIGNAL_KEYS.node` 不被 bump
-- `NodeLayer` / `NodeItemById` 不被 store 唤醒
+- `compileReadControl(impact).signals` 输出：
+  - `edge = true`
+  - `node = false`
+  - `mindmap = false`
 
-这是验证该重构是否真正解决粗广播问题的核心用例。
+## 16. Final Recommended Chain
 
----
+长期最优链路：
 
-## 13. What Should Be Deleted
+`commands -> operations -> core reduce -> KernelReadImpact -> engine compilers -> read cache apply + signal publish -> ui subscribe + reactions`
 
-完成长期方案后，应删除以下旧概念：
-
-- `READ_SUBSCRIPTION_KEYS.projection`
-- `ReadInvalidation`
-- `KernelProjectionInvalidation`
-- 任何“把 projection 当成统一订阅 topic”的代码
-- 任何“UI 订阅直接依赖 cache invalidation”的代码
-
----
-
-## 14. Final Recommended Chain
-
-最终推荐链路：
-
-`commands -> write -> core reduce -> read update -> read cache apply -> read signal publish -> ui subscribe -> reactions`
-
-更准确展开为：
+展开后：
 
 1. `commands`
 2. `write.apply`
 3. `core.reduce`
-4. `read update`
-   - `cache`
-   - `signal`
-5. `read.applyReadUpdate`
-   - apply `cache.index`
-   - apply `cache.edge`
-   - bump `signal.node`
-   - bump `signal.edge`
-   - bump `signal.mindmap`
-6. `read.subscribe`
-   - state key listeners
-   - signal key listeners
-7. `reactions.ingest`
-   - 读取 `read update`
-   - 默认只关心 `cache`
+4. `KernelReadImpact`
+5. `compileReadControl(impact)`
+6. `compileReactionInput(impact)`
+7. `read.ingest(impact)`
+9. `ui subscribe(topic)`
+10. `reactions.ingest(impact)`
 
-这条链路的核心优点：
-
-- cache 与 signal 职责完全分离
-- public read API 与 subscription topic 边界一致
-- `projection` 这个粗 topic 被完全删除
-- React 不再被无意义广播统一叫醒
-- 后续如果需要 per item topic，也能在 `signal` 层继续向下演进，而不需要再改 cache 结构
+这是当前架构下更符合漏斗原则和数据驱动的终局。
 
 ---
 
-## 15. Final Decision
+## 17. Final Decision
 
 长期全局最优决策：
 
-1. 不保留 `projection` 订阅 topic
-2. core 直接产出 `read update`
-3. `read update = cache + signal`
-4. signal topic 固定为：
-   - `node`
-   - `edge`
-   - `mindmap`
-5. viewport transform 继续由 `viewport` state 驱动
-6. cache 只给 runtime，signal 只给 UI
-7. 不在第一阶段引入 per item signal
+1. core 终态输出应为 `KernelReadImpact`
+2. 不让 core 直接输出 `cache + signal`
+3. 不让 projections / caches / reactions 各自直接解析 operations
+4. engine 负责把 impact 编译成：
+   - read control
+   - reaction input
+5. `projection` 订阅 topic 最终删除
+6. `node / edge / mindmap` 成为唯一 projection 订阅 topic
 
-这是当前架构下最清晰、最稳定、也最符合漏斗原则的长期方案。
+一句话总结：
+
+- core 只说发生了什么
+- engine 决定怎么做
+- UI 只订阅自己关心的语义 topic
+
+这才是长期全局最优。

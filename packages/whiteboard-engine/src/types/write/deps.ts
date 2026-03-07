@@ -1,6 +1,6 @@
 import type { InternalInstance } from '../instance/engine'
 import type { Scheduler } from '../../scheduling/Scheduler'
-import type { ReadInvalidation } from '../read/invalidation'
+import type { ReadImpact } from '../read/impact'
 
 export type WriteInstance = Pick<
   InternalInstance,
@@ -10,7 +10,7 @@ export type WriteInstance = Pick<
 export type Deps = {
   instance: WriteInstance
   scheduler: Scheduler
-  applyInvalidation: (invalidation: ReadInvalidation) => void
+  read: (impact: ReadImpact) => void
   resetTransientState: () => void
-  react: (invalidation: ReadInvalidation) => void
+  react: (impact: ReadImpact) => void
 }

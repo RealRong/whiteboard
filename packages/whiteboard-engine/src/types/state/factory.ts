@@ -10,5 +10,4 @@ export type Atoms = {
   mindmapLayout: PrimitiveAtom<MindmapLayoutConfig>
   viewport: PrimitiveAtom<Viewport>
   document: PrimitiveAtom<Document>
-  readModelRevision: PrimitiveAtom<number>
 }

@@ -3,7 +3,7 @@ import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
 import type { IndexChange } from '@engine-types/read/change'
-import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
+import type { ReadModel } from '@engine-types/read/model'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 import {
   isSameRectWithRotationTuple,
@@ -53,17 +53,17 @@ export class NodeRectIndex {
 
   applyChange = (
     change: IndexChange,
-    snapshot: ReadModelSnapshot
+    model: ReadModel
   ): boolean => {
     switch (change.rebuild) {
       case 'none':
         return false
       case 'full':
-        return this.syncFull(snapshot.nodes.canvas)
+        return this.syncFull(model.nodes.canvas)
       case 'dirty':
         return this.syncByNodeIds(
           change.nodeIds,
-          snapshot.indexes.canvasNodeById
+          model.indexes.canvasNodeById
         )
       default:
         return false
@@ -81,7 +81,11 @@ export class NodeRectIndex {
 
       const state = this.toStateTuple(node)
       const current = this.entriesById.get(node.id)
-      if (current && isSameRectWithRotationTuple(current.state, state)) {
+      if (
+        current &&
+        current.entry.node === node &&
+        isSameRectWithRotationTuple(current.state, state)
+      ) {
         return
       }
 
@@ -130,7 +134,11 @@ export class NodeRectIndex {
       }
 
       const state = this.toStateTuple(node)
-      if (current && isSameRectWithRotationTuple(current.state, state)) continue
+      if (
+        current &&
+        current.entry.node === node &&
+        isSameRectWithRotationTuple(current.state, state)
+      ) continue
 
       this.entriesById.set(nodeId, {
         state,

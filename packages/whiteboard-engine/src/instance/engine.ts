@@ -17,6 +17,16 @@ import { createReadKernel } from '../runtime/read/kernel'
 import { createReactions, type Reactions } from './reactions/Reactions'
 import { createCommands } from './facade/commands'
 
+const assertImmutableDocumentInput = (
+  currentDocument: Document,
+  nextDocument: Document
+) => {
+  if (currentDocument !== nextDocument) return
+  throw new Error(
+    'Whiteboard engine requires immutable document inputs. Received the same document reference.'
+  )
+}
+
 export const engine = ({
   registries,
   document,
@@ -42,11 +52,9 @@ export const engine = ({
   }
   const commitDocument = (nextDocument: Document) => {
     const committedDocument = assertDocument(nextDocument)
+    const currentDocument = readDocument()
+    assertImmutableDocumentInput(currentDocument, committedDocument)
     store.set(stateAtoms.document, committedDocument)
-    store.set(
-      stateAtoms.readModelRevision,
-      (revision: number) => revision + 1
-    )
     viewport.setViewport(committedDocument.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
   }
   const notifyDocumentChange = (nextDocument: Document) => {
@@ -80,9 +88,9 @@ export const engine = ({
   const write = createWrite({
     instance: baseInstance,
     scheduler,
-    applyInvalidation: read.applyInvalidation,
+    read: read.ingest,
     resetTransientState,
-    react: (invalidation) => reactions?.ingest(invalidation)
+    react: (impact) => reactions?.ingest(impact)
   })
 
   const internalInstance = {

@@ -26,6 +26,10 @@ export type InternalInstance = Instance & {
 
 export type CreateEngineOptions = {
   registries?: CoreRegistries
+  /**
+   * Engine treats document input as immutable data.
+   * Replacing or loading with the same document reference is unsupported.
+   */
   document: Document
   onDocumentChange?: (doc: Document) => void
   config?: Partial<InstanceConfig>

@@ -4,7 +4,7 @@ import type {
   ReadSubscriptionKey
 } from '../instance/read'
 import type { ReadIndexes } from './indexer'
-import type { ReadModelSnapshot } from './snapshot'
+import type { ReadModel } from './model'
 
 export type ReadStateGetters = {
   interaction: () => EngineReadState['interaction']
@@ -16,7 +16,7 @@ export type ReadStateGetters = {
 
 export type ReadContext = {
   state: ReadStateGetters
-  snapshot: () => ReadModelSnapshot
+  model: () => ReadModel
   subscribe: (
     keys: readonly ReadSubscriptionKey[],
     listener: () => void

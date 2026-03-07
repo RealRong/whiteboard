@@ -1,4 +1,3 @@
-import { atom, type Atom, type PrimitiveAtom } from 'jotai/vanilla'
 import {
   deriveNodeReadSlices,
   deriveVisibleEdges,
@@ -15,32 +14,26 @@ import type {
   Node,
   NodeId
 } from '@whiteboard/core/types'
-import type { ReadModelSnapshot } from '@engine-types/read/snapshot'
+import type { ReadModel } from '@engine-types/read/model'
 
-const isSameSnapshotRefs = (
-  cache: ReadModelSnapshot | undefined,
+const isSameModelRefs = (
+  cache: ReadModel | undefined,
   {
-    revision,
-    docId,
     visibleNodes,
     canvasNodes,
     visibleEdges,
     canvasNodeById,
     canvasNodeIds
   }: {
-    revision: number
-    docId: string
     visibleNodes: Node[]
     canvasNodes: Node[]
     visibleEdges: Edge[]
-    canvasNodeById: ReadModelSnapshot['indexes']['canvasNodeById']
-    canvasNodeIds: ReadModelSnapshot['indexes']['canvasNodeIds']
+    canvasNodeById: ReadModel['indexes']['canvasNodeById']
+    canvasNodeIds: ReadModel['indexes']['canvasNodeIds']
   }
-): cache is ReadModelSnapshot => {
+): cache is ReadModel => {
   if (!cache) return false
   return (
-    cache.revision === revision &&
-    cache.docId === docId &&
     cache.nodes.visible === visibleNodes &&
     cache.nodes.canvas === canvasNodes &&
     cache.edges.visible === visibleEdges &&
@@ -49,24 +42,23 @@ const isSameSnapshotRefs = (
   )
 }
 
-export const snapshot = ({
-  documentAtom,
-  revisionAtom
+export const createReadModel = ({
+  readDocument
 }: {
-  documentAtom: PrimitiveAtom<Document>
-  revisionAtom: PrimitiveAtom<number>
-}): Atom<ReadModelSnapshot> => {
+  readDocument: () => Document
+}) => {
   const EMPTY_NODES: Node[] = []
   const EMPTY_EDGES: Edge[] = []
   const EMPTY_NODE_IDS: NodeId[] = []
   const EMPTY_NODE_MAP = new Map<NodeId, Node>()
 
+  let previousDocumentRef: Document | undefined
   let previousNodesRef: Document['nodes'] | undefined
   let visibleNodesCache: Node[] = EMPTY_NODES
   let canvasNodesCache: Node[] = EMPTY_NODES
   let canvasNodeByIdCache: Map<NodeId, Node> = EMPTY_NODE_MAP
   let canvasNodeIdsCache: NodeId[] = EMPTY_NODE_IDS
-  let indexesCache: ReadModelSnapshot['indexes'] = {
+  let indexesCache: ReadModel['indexes'] = {
     canvasNodeById: EMPTY_NODE_MAP,
     canvasNodeIds: EMPTY_NODE_IDS
   }
@@ -78,11 +70,14 @@ export const snapshot = ({
   }
   let edgeVisibleCache: EdgeVisibleCache | undefined
 
-  let cache: ReadModelSnapshot | undefined
+  let cache: ReadModel | undefined
 
-  return atom((get) => {
-    const doc = get(documentAtom)
-    const revision = get(revisionAtom)
+  return (): ReadModel => {
+    const doc = readDocument()
+    if (cache && previousDocumentRef === doc) {
+      return cache
+    }
+
     const nodes = doc.nodes
 
     if (!nodes.order.length) {
@@ -160,9 +155,8 @@ export const snapshot = ({
       }
     }
 
-    if (isSameSnapshotRefs(cache, {
-      revision,
-      docId: doc.id,
+    previousDocumentRef = doc
+    if (isSameModelRefs(cache, {
       visibleNodes: visibleNodesCache,
       canvasNodes: canvasNodesCache,
       visibleEdges: visibleEdgesCache,
@@ -173,8 +167,6 @@ export const snapshot = ({
     }
 
     cache = {
-      revision,
-      docId: doc.id,
       nodes: {
         visible: visibleNodesCache,
         canvas: canvasNodesCache
@@ -185,5 +177,5 @@ export const snapshot = ({
       indexes: indexesCache
     }
     return cache
-  })
+  }
 }

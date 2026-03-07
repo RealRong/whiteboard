@@ -23,6 +23,7 @@ type MindmapCacheInput = {
 type MindmapTreeCacheKey = {
   treeId: string
   rootId: string
+  rootRef: Node
   treeNodesRef: MindmapTree['nodes']
   treeChildrenRef: MindmapTree['children']
   rootPositionX: number
@@ -50,6 +51,7 @@ type MindmapProjectionCache = {
 const MINDMAP_CACHE_SCALAR_KEYS = [
   'treeId',
   'rootId',
+  'rootRef',
   'treeNodesRef',
   'treeChildrenRef',
   'rootPositionX',
@@ -77,6 +79,7 @@ const toCacheKey = ({
 }): MindmapTreeCacheKey => ({
   treeId: tree.id,
   rootId: tree.rootId,
+  rootRef: root,
   treeNodesRef: tree.nodes,
   treeChildrenRef: tree.children,
   rootPositionX: root.position.x,
@@ -160,7 +163,7 @@ export const cache = (context: ReadContext): MindmapReadCache => {
 
   const getView: MindmapReadCache['getView'] = () => {
     const nextTrees = trees({
-      visibleNodes: context.snapshot().nodes.visible,
+      visibleNodes: context.model().nodes.visible,
       layout: context.state.mindmapLayout()
     })
 

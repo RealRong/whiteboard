@@ -37,8 +37,8 @@ export type {
   NodeViewItem
 } from './types/instance/read'
 export type {
-  ReadInvalidation
-} from './types/read/invalidation'
+  ReadImpact
+} from './types/read/impact'
 export type {
   StateKey,
   StateSnapshot

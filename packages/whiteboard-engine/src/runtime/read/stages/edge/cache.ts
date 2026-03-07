@@ -156,9 +156,9 @@ const isSameEdgeStructureTuple = (
 
 export const cache = (context: ReadContext): EdgeReadCache => {
   const getNodeRect = context.indexes.canvas.byId
-  const readModelSnapshot = () => context.snapshot()
+  const readModel = () => context.model()
   const state = emptyState()
-  let visibleEdgesRef: ReturnType<typeof readModelSnapshot>['edges']['visible'] | undefined
+  let visibleEdgesRef: ReturnType<typeof readModel>['edges']['visible'] | undefined
   let pendingNodeIds = new Set<NodeId>()
   let pendingEdgeIds = new Set<EdgeId>()
   let viewCache: EdgesView | undefined
@@ -312,7 +312,7 @@ export const cache = (context: ReadContext): EdgeReadCache => {
   }
 
   const ensureEntries = () => {
-    const visibleEdges = readModelSnapshot().edges.visible
+    const visibleEdges = readModel().edges.visible
     if (visibleEdges !== visibleEdgesRef) {
       visibleEdgesRef = visibleEdges
       pendingNodeIds = new Set<NodeId>()

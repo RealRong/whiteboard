@@ -57,8 +57,7 @@ export const state = ({ getDoc, store }: Options): Result => {
     selection: atom(initialState.selection),
     mindmapLayout: atom(initialState.mindmapLayout),
     viewport: atom(initialViewport),
-    document: atom(initialDoc),
-    readModelRevision: atom(0)
+    document: atom(initialDoc)
   }
   const writableStateAtoms: WritableStateAtomMap = {
     interaction: stateAtoms.interaction,

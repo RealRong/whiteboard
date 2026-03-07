@@ -21,19 +21,35 @@ import { getMindmapTreeFromNode } from '../mindmap/helpers'
 import { createId } from '../utils'
 import type {
   KernelContext,
-  KernelProjectionInvalidation,
-  KernelRebuild,
+  KernelReadImpact,
   KernelReduceResult
 } from './types'
 
-type InvalidationState = {
-  full: boolean
-  hasEdges: boolean
-  hasOrder: boolean
-  hasGeometry: boolean
-  hasMindmap: boolean
+type NodeImpactState = {
+  ids: Set<NodeId>
+  geometry: boolean
+  list: boolean
+  value: boolean
+}
+
+type EdgeImpactState = {
+  ids: Set<EdgeId>
   nodeIds: Set<NodeId>
-  edgeIds: Set<EdgeId>
+  geometry: boolean
+  list: boolean
+  value: boolean
+}
+
+type MindmapImpactState = {
+  ids: Set<NodeId>
+  view: boolean
+}
+
+type ReadImpactState = {
+  full: boolean
+  node: NodeImpactState
+  edge: EdgeImpactState
+  mindmap: MindmapImpactState
 }
 
 type ReduceDraft = {
@@ -43,15 +59,26 @@ type ReduceDraft = {
     edgeEntities: boolean
     meta: boolean
   }
-  invalidation: InvalidationState
+  read: ReadImpactState
   changes: Operation[]
   inverseGroups: Operation[][]
   timestamp: number
   origin?: Origin
 }
 
+type NodePatchImpact = {
+  geometry: boolean
+  list: boolean
+  value: boolean
+}
+
+type EdgePatchImpact = {
+  geometry: boolean
+  value: boolean
+}
+
 const DEFAULT_MAX_OPERATIONS = 100
-const DEFAULT_MAX_NODE_IDS = 200
+const DEFAULT_MAX_IDS = 200
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_EDGE_IDS: readonly EdgeId[] = []
 const DEFAULT_VIEWPORT: Viewport = {
@@ -60,21 +87,21 @@ const DEFAULT_VIEWPORT: Viewport = {
 }
 
 const NODE_GEOMETRY_KEYS = new Set<keyof NodePatch>([
-  'type',
   'position',
   'size',
-  'rotation',
+  'rotation'
+])
+
+const NODE_LIST_KEYS = new Set<keyof NodePatch>([
+  'type',
+  'layer',
+  'zIndex',
   'parentId'
 ])
 
-const NODE_ORDER_KEYS = new Set<keyof NodePatch>([
-  'layer',
-  'zIndex'
-])
-
-const NODE_STYLE_KEYS = new Set<keyof NodePatch>([
-  'locked',
+const NODE_VALUE_KEYS = new Set<keyof NodePatch>([
   'data',
+  'locked',
   'style'
 ])
 
@@ -85,9 +112,7 @@ const EDGE_GEOMETRY_KEYS = new Set<keyof EdgePatch>([
   'routing'
 ])
 
-const EDGE_ORDER_KEYS = new Set<keyof EdgePatch>([])
-
-const EDGE_STYLE_KEYS = new Set<keyof EdgePatch>([
+const EDGE_VALUE_KEYS = new Set<keyof EdgePatch>([
   'style',
   'label',
   'data'
@@ -98,217 +123,274 @@ const normalizeMindmapTree = (
   tree: MindmapTree
 ): MindmapTree => (tree.id === id ? tree : { ...tree, id })
 
-const classifyPatch = <TKey extends string>(
-  keys: readonly TKey[],
-  geometryKeys: ReadonlySet<TKey>,
-  orderKeys: ReadonlySet<TKey>,
-  styleKeys: ReadonlySet<TKey>
+const isMindmapNode = (node: Node | undefined) =>
+  node?.type === 'mindmap'
+
+const isCanvasNode = (node: Node | undefined) =>
+  Boolean(node && node.type !== 'mindmap')
+
+const getCollapsed = (node: Node | undefined) =>
+  Boolean(
+    node?.type === 'group' &&
+    node.data &&
+    typeof node.data.collapsed === 'boolean' &&
+    node.data.collapsed
+  )
+
+const addNodeId = (ids: Set<NodeId>, id: NodeId) => {
+  ids.add(id)
+}
+
+const addEdgeId = (ids: Set<EdgeId>, id: EdgeId) => {
+  ids.add(id)
+}
+
+const markMindmapView = (
+  state: MindmapImpactState,
+  id: NodeId
 ) => {
-  if (!keys.length) {
-    return {
-      affectsGeometry: false,
-      affectsOrder: false
-    }
-  }
-
-  let affectsGeometry = false
-  let affectsOrder = false
-  let hasUnknownField = false
-
-  for (const key of keys) {
-    if (geometryKeys.has(key)) {
-      affectsGeometry = true
-      continue
-    }
-    if (orderKeys.has(key)) {
-      affectsOrder = true
-      continue
-    }
-    if (styleKeys.has(key)) continue
-    hasUnknownField = true
-  }
-
-  if (hasUnknownField) {
-    affectsGeometry = true
-  }
-
-  return {
-    affectsGeometry,
-    affectsOrder
-  }
+  state.ids.add(id)
+  state.view = true
 }
 
-const classifyNodePatch = (patch: NodePatch) =>
-  classifyPatch(
-    Object.keys(patch) as Array<keyof NodePatch>,
-    NODE_GEOMETRY_KEYS,
-    NODE_ORDER_KEYS,
-    NODE_STYLE_KEYS
-  )
+const classifyNodePatch = (patch: NodePatch): NodePatchImpact => {
+  const impact: NodePatchImpact = {
+    geometry: false,
+    list: false,
+    value: false
+  }
 
-const classifyEdgePatch = (patch: EdgePatch) =>
-  classifyPatch(
-    Object.keys(patch) as Array<keyof EdgePatch>,
-    EDGE_GEOMETRY_KEYS,
-    EDGE_ORDER_KEYS,
-    EDGE_STYLE_KEYS
-  )
+  for (const key of Object.keys(patch) as Array<keyof NodePatch>) {
+    if (NODE_GEOMETRY_KEYS.has(key)) {
+      impact.geometry = true
+      continue
+    }
+    if (NODE_LIST_KEYS.has(key)) {
+      impact.list = true
+      continue
+    }
+    if (NODE_VALUE_KEYS.has(key)) {
+      impact.value = true
+      continue
+    }
+    impact.geometry = true
+    impact.list = true
+    impact.value = true
+  }
 
-const toRebuild = ({
-  full,
-  dirty
-}: {
-  full: boolean
-  dirty: boolean
-}): KernelRebuild => {
-  if (full) return 'full'
-  if (dirty) return 'dirty'
-  return 'none'
+  return impact
 }
 
-const createInvalidationState = (operationCount: number): InvalidationState => ({
+const classifyEdgePatch = (patch: EdgePatch): EdgePatchImpact => {
+  const impact: EdgePatchImpact = {
+    geometry: false,
+    value: false
+  }
+
+  for (const key of Object.keys(patch) as Array<keyof EdgePatch>) {
+    if (EDGE_GEOMETRY_KEYS.has(key)) {
+      impact.geometry = true
+      continue
+    }
+    if (EDGE_VALUE_KEYS.has(key)) {
+      impact.value = true
+      continue
+    }
+    impact.geometry = true
+    impact.value = true
+  }
+
+  return impact
+}
+
+const createReadImpactState = (operationCount: number): ReadImpactState => ({
   full: operationCount > DEFAULT_MAX_OPERATIONS,
-  hasEdges: false,
-  hasOrder: false,
-  hasGeometry: false,
-  hasMindmap: false,
-  nodeIds: new Set<NodeId>(),
-  edgeIds: new Set<EdgeId>()
+  node: {
+    ids: new Set<NodeId>(),
+    geometry: false,
+    list: false,
+    value: false
+  },
+  edge: {
+    ids: new Set<EdgeId>(),
+    nodeIds: new Set<NodeId>(),
+    geometry: false,
+    list: false,
+    value: false
+  },
+  mindmap: {
+    ids: new Set<NodeId>(),
+    view: false
+  }
 })
 
-const trackInvalidation = (
-  state: InvalidationState,
+const trackReadImpact = (
+  state: ReadImpactState,
   operation: Operation
 ) => {
   if (state.full) return
 
-  if (operation.type === 'node.create') {
-    state.hasOrder = true
-    state.hasGeometry = true
-    state.nodeIds.add(operation.node.id)
-    return
-  }
+  switch (operation.type) {
+    case 'node.create': {
+      if (isMindmapNode(operation.node)) {
+        markMindmapView(state.mindmap, operation.node.id)
+        return
+      }
 
-  if (operation.type === 'node.delete') {
-    state.hasOrder = true
-    state.hasGeometry = true
-    state.nodeIds.add(operation.id)
-    return
-  }
-
-  if (operation.type === 'node.update') {
-    const patchClass = classifyNodePatch(operation.patch)
-    if (patchClass.affectsOrder) {
-      state.hasOrder = true
+      const { node } = state
+      node.geometry = true
+      node.list = true
+      node.value = true
+      addNodeId(node.ids, operation.node.id)
+      return
     }
-    if (patchClass.affectsGeometry) {
-      state.hasGeometry = true
-      state.nodeIds.add(operation.id)
+    case 'node.delete': {
+      if (isMindmapNode(operation.before)) {
+        markMindmapView(state.mindmap, operation.id)
+        return
+      }
+
+      const { node } = state
+      node.geometry = true
+      node.list = true
+      node.value = true
+      addNodeId(node.ids, operation.id)
+      return
     }
-    return
-  }
+    case 'node.update': {
+      const patch = classifyNodePatch(operation.patch)
+      const before = operation.before
+      const after = before
+        ? { ...before, ...operation.patch }
+        : undefined
+      const beforeIsMindmap = isMindmapNode(before)
+      const afterIsMindmap = isMindmapNode(after)
+      const beforeIsCanvas = isCanvasNode(before)
+      const afterIsCanvas = isCanvasNode(after)
+      const collapsedChanged = getCollapsed(before) !== getCollapsed(after)
+      const nodeList = patch.list || beforeIsCanvas !== afterIsCanvas || collapsedChanged
+      const nodeChanged = patch.geometry || nodeList || patch.value
 
-  if (operation.type === 'node.order.set') {
-    state.hasOrder = true
-    return
-  }
+      if (beforeIsCanvas || afterIsCanvas) {
+        const { node } = state
+        node.geometry ||= patch.geometry
+        node.list ||= nodeList
+        node.value ||= patch.value
+        if (nodeChanged) {
+          addNodeId(node.ids, operation.id)
+        }
+      }
 
-  if (operation.type === 'edge.create') {
-    state.hasEdges = true
-    state.hasOrder = true
-    state.edgeIds.add(operation.edge.id)
-    return
-  }
+      if (beforeIsMindmap || afterIsMindmap) {
+        markMindmapView(state.mindmap, before?.id ?? operation.id)
+      }
 
-  if (operation.type === 'edge.delete') {
-    state.hasEdges = true
-    state.hasOrder = true
-    state.edgeIds.add(operation.id)
-    return
-  }
-
-  if (operation.type === 'edge.update') {
-    state.hasEdges = true
-    const patchClass = classifyEdgePatch(operation.patch)
-    if (patchClass.affectsOrder) {
-      state.hasOrder = true
+      if (patch.geometry && (beforeIsCanvas || afterIsCanvas)) {
+        state.edge.geometry = true
+        addNodeId(state.edge.nodeIds, operation.id)
+      }
+      return
     }
-    if (patchClass.affectsGeometry) {
-      state.hasGeometry = true
-      state.edgeIds.add(operation.id)
+    case 'node.order.set': {
+      state.node.list = true
+      state.mindmap.view = true
+      return
     }
-    return
-  }
-
-  if (operation.type === 'edge.order.set') {
-    state.hasEdges = true
-    state.hasOrder = true
-    return
-  }
-
-  if (operation.type === 'viewport.update') {
-    return
-  }
-
-  if (operation.type.startsWith('mindmap.')) {
-    state.hasMindmap = true
-    if ('id' in operation && typeof operation.id === 'string') {
-      state.nodeIds.add(operation.id)
+    case 'edge.create': {
+      state.edge.geometry = true
+      state.edge.list = true
+      addEdgeId(state.edge.ids, operation.edge.id)
+      return
     }
-    return
+    case 'edge.delete': {
+      state.edge.geometry = true
+      state.edge.list = true
+      addEdgeId(state.edge.ids, operation.id)
+      return
+    }
+    case 'edge.update': {
+      const patch = classifyEdgePatch(operation.patch)
+      state.edge.geometry ||= patch.geometry
+      state.edge.value ||= patch.value
+      if (patch.geometry || patch.value) {
+        addEdgeId(state.edge.ids, operation.id)
+      }
+      return
+    }
+    case 'edge.order.set': {
+      state.edge.list = true
+      return
+    }
+    case 'viewport.update': {
+      return
+    }
+    case 'mindmap.set': {
+      markMindmapView(state.mindmap, operation.id)
+      return
+    }
+    case 'mindmap.delete': {
+      markMindmapView(state.mindmap, operation.id)
+      return
+    }
+    default: {
+      state.full = true
+    }
   }
-
-  state.full = true
 }
 
-const finalizeInvalidation = (
-  state: InvalidationState
-): KernelProjectionInvalidation => {
-  if (state.full || state.nodeIds.size > DEFAULT_MAX_NODE_IDS) {
+const finalizeReadImpact = (
+  state: ReadImpactState
+): KernelReadImpact => {
+  if (
+    state.full ||
+    state.node.ids.size > DEFAULT_MAX_IDS ||
+    state.edge.ids.size > DEFAULT_MAX_IDS ||
+    state.edge.nodeIds.size > DEFAULT_MAX_IDS ||
+    state.mindmap.ids.size > DEFAULT_MAX_IDS
+  ) {
     return {
-      index: {
-        rebuild: 'full',
-        nodeIds: EMPTY_NODE_IDS
+      reset: true,
+      node: {
+        ids: EMPTY_NODE_IDS,
+        geometry: false,
+        list: false,
+        value: false
       },
       edge: {
-        rebuild: 'full',
+        ids: EMPTY_EDGE_IDS,
         nodeIds: EMPTY_NODE_IDS,
-        edgeIds: EMPTY_EDGE_IDS
+        geometry: false,
+        list: false,
+        value: false
+      },
+      mindmap: {
+        ids: EMPTY_NODE_IDS,
+        view: false
       }
     }
   }
 
-  if (state.hasMindmap) {
-    state.hasGeometry = true
-    state.hasOrder = true
-  }
-
-  const nodeIds = Array.from(state.nodeIds)
-  const edgeIds = Array.from(state.edgeIds)
-
   return {
-    index: {
-      rebuild: toRebuild({
-        full: state.hasOrder || state.hasMindmap,
-        dirty: state.hasGeometry || nodeIds.length > 0
-      }),
-      nodeIds
+    reset: false,
+    node: {
+      ids: Array.from(state.node.ids),
+      geometry: state.node.geometry,
+      list: state.node.list,
+      value: state.node.value
     },
     edge: {
-      rebuild: toRebuild({
-        full: state.hasOrder || state.hasMindmap,
-        dirty:
-          state.hasEdges
-          || state.hasGeometry
-          || nodeIds.length > 0
-          || edgeIds.length > 0
-      }),
-      nodeIds,
-      edgeIds
+      ids: Array.from(state.edge.ids),
+      nodeIds: Array.from(state.edge.nodeIds),
+      geometry: state.edge.geometry,
+      list: state.edge.list,
+      value: state.edge.value
+    },
+    mindmap: {
+      ids: Array.from(state.mindmap.ids),
+      view: state.mindmap.view
     }
   }
 }
-
 const createDispatchFailure = (
   reason: DispatchFailure['reason'],
   message?: string
@@ -721,7 +803,7 @@ export const reduceOperations = (
       edgeEntities: false,
       meta: false
     },
-    invalidation: createInvalidationState(operations.length),
+    read: createReadImpactState(operations.length),
     changes: [],
     inverseGroups: [],
     timestamp,
@@ -737,7 +819,7 @@ export const reduceOperations = (
 
     draft.changes.push(operation)
     draft.inverseGroups.push(inverseOperations)
-    trackInvalidation(draft.invalidation, operation)
+    trackReadImpact(draft.read, operation)
     applyOperation(draft, operation)
   }
 
@@ -757,6 +839,6 @@ export const reduceOperations = (
       origin: draft.origin
     }),
     inverse,
-    invalidation: finalizeInvalidation(draft.invalidation)
+    read: finalizeReadImpact(draft.read)
   }
 }

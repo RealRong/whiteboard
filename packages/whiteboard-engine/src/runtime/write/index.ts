@@ -1,8 +1,6 @@
 import type { Write } from '@engine-types/write/runtime'
 import type { Deps as WriteDeps } from '@engine-types/write/deps'
-import type {
-  CommandSource
-} from '@engine-types/command/source'
+import type { CommandSource } from '@engine-types/command/source'
 import {
   assertDocument,
   type ChangeSet,
@@ -15,15 +13,14 @@ import {
 import {
   createHistory,
   reduceOperations,
-  type KernelProjectionInvalidation
+  type KernelReadImpact
 } from '@whiteboard/core/kernel'
 import { createId } from '@whiteboard/core/utils'
-import { FULL_READ_INVALIDATION } from './invalidation'
+import { createResetReadImpact } from '../read/impact'
 import { DEFAULT_CONFIG } from '../../config'
 import { plan } from './stages/plan/router'
 import type { Apply } from './stages/plan/draft'
 
-export * from './invalidation'
 export * from './api'
 
 const resolveOrigin = (source: CommandSource): Origin => {
@@ -62,7 +59,7 @@ type CommitResult =
       doc: Document
       changes: ChangeSet
       inverse?: readonly Operation[]
-      invalidation: KernelProjectionInvalidation
+      read: KernelReadImpact
     }
   | DispatchFailure
 
@@ -73,11 +70,11 @@ type CommitInput = {
 }
 
 // Single write funnel:
-// `apply -> plan -> commit -> invalidate -> notify -> react`.
+// `apply -> plan -> commit -> read -> react`.
 export const createWrite = ({
   instance,
   scheduler,
-  applyInvalidation,
+  read,
   resetTransientState,
   react
 }: WriteDeps): Write => {
@@ -100,7 +97,7 @@ export const createWrite = ({
         doc: reduced.doc,
         changes: reduced.changes,
         inverse: reduced.inverse,
-        invalidation: reduced.invalidation
+        read: reduced.read
       }
     }
 
@@ -116,7 +113,7 @@ export const createWrite = ({
         operations: [],
         origin: target.origin
       },
-      invalidation: FULL_READ_INVALIDATION
+      read: createResetReadImpact()
     }
   }
 
@@ -138,11 +135,11 @@ export const createWrite = ({
       })
     }
 
-    applyInvalidation(committed.invalidation)
+    read(committed.read)
     if (notify) {
       instance.document.notifyChange(committed.doc)
     }
-    react(committed.invalidation)
+    react(committed.read)
 
     return {
       ok: true,

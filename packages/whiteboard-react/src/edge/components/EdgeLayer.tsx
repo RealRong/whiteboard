@@ -20,7 +20,7 @@ const useEdgePath = (edgeId: EdgeId) => {
   const instance = useInstance()
   return useReadGetter<EdgePathEntry | undefined>(
     () => instance.read.projection.edge.byId.get(edgeId),
-    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
+    { keys: [READ_SUBSCRIPTION_KEYS.edge] }
   )
 }
 
@@ -78,7 +78,7 @@ export const EdgeLayer = () => {
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
   const edgeIds = useReadGetter(
     () => instance.read.projection.edge.ids,
-    { keys: [READ_SUBSCRIPTION_KEYS.projection] }
+    { keys: [READ_SUBSCRIPTION_KEYS.edge] }
   )
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,

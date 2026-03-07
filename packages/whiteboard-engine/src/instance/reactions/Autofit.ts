@@ -1,4 +1,4 @@
-import type { ReadInvalidation } from '@engine-types/read/invalidation'
+import type { ReadImpact } from '@engine-types/read/impact'
 import type { WriteInput } from '@engine-types/command/api'
 import type { Rebuild } from '@engine-types/read/change'
 import type { InternalInstance } from '@engine-types/instance/engine'
@@ -209,13 +209,18 @@ export class Autofit {
 
   seed = (): boolean => this.promoteFull()
 
-  ingest = (invalidation: ReadInvalidation): boolean => {
-    const { rebuild, nodeIds } = invalidation.index
-    if (rebuild === 'none') return false
-    if (rebuild === 'full' || nodeIds.length === 0) {
+  ingest = (impact: ReadImpact): boolean => {
+    const needsFull = (
+      impact.reset ||
+      impact.node.list ||
+      impact.mindmap.view ||
+      (impact.node.geometry && impact.node.ids.length === 0)
+    )
+    if (needsFull) {
       return this.promoteFull()
     }
-    return this.promoteDirty(nodeIds)
+    if (!impact.node.geometry || impact.node.ids.length === 0) return false
+    return this.promoteDirty(impact.node.ids)
   }
 
   flush = (): WriteInput | null => {

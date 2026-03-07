@@ -2,18 +2,22 @@ import type { Deps as ReadDeps } from '@engine-types/read/deps'
 import {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS,
+  type EngineRead,
   type NodeViewItem,
   type ReadSubscriptionKey,
-  type EngineRead,
   type ViewportTransformView
 } from '@engine-types/instance/read'
-import type { ReadInvalidation } from '@engine-types/read/invalidation'
 import type { ReadContext } from '@engine-types/read/context'
+import type { ReadImpact } from '@engine-types/read/impact'
 import type { ReadIndexes } from '@engine-types/read/indexer'
 import type { Atom } from 'jotai/vanilla'
+import { atom } from 'jotai/vanilla'
 import type { Node, NodeId, Viewport } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
-import { snapshot } from './stages/snapshot'
+import { compileReadControl } from './control'
+import { createReadApply } from './apply'
+import { createReadSignals } from './signals'
+import { createReadModel } from './stages/model'
 import { cache as createEdgeCache } from './stages/edge/cache'
 import { cache as createMindmapCache } from './stages/mindmap/cache'
 import { NodeRectIndex } from './stages/index/NodeRectIndex'
@@ -21,7 +25,7 @@ import { SnapIndex } from './stages/index/SnapIndex'
 
 export type ReadPort = {
   read: EngineRead
-  applyInvalidation: (invalidation: ReadInvalidation) => void
+  ingest: (impact: ReadImpact) => void
 }
 
 const toViewportTransform = (viewport: Viewport): ViewportTransformView => {
@@ -42,12 +46,11 @@ export const createReadKernel = ({
   config,
   viewport
 }: ReadDeps): ReadPort => {
-  const projectionAtom = snapshot({
-    documentAtom: stateAtoms.document,
-    revisionAtom: stateAtoms.readModelRevision
-  })
-  const readDoc = () => store.get(stateAtoms.document)
-  const readSnapshot = () => store.get(projectionAtom)
+  const nodeSignalAtom = atom(0)
+  const edgeSignalAtom = atom(0)
+  const mindmapSignalAtom = atom(0)
+  const readDocument = () => store.get(stateAtoms.document)
+  const readModel = createReadModel({ readDocument })
 
   const nodeRectIndex = new NodeRectIndex(config)
   const snapIndex = new SnapIndex(
@@ -67,13 +70,6 @@ export const createReadKernel = ({
       inRect: snapIndex.queryInRect
     }
   }
-  const applyIndexChange = (change: ReadInvalidation['index']) => {
-    if (change.rebuild === 'none') return
-    const changed = nodeRectIndex.applyChange(change, readSnapshot())
-    if (!changed) return
-    snapIndex.applyChange(change, nodeRectIndex)
-  }
-  applyIndexChange({ rebuild: 'full', nodeIds: [] })
 
   const state: ReadContext['state'] = {
     interaction: () => store.get(stateAtoms.interaction),
@@ -82,23 +78,26 @@ export const createReadKernel = ({
     viewport: () => store.get(stateAtoms.viewport),
     mindmapLayout: () => store.get(stateAtoms.mindmapLayout)
   }
+
   const subscribableAtomMap = {
     [READ_STATE_KEYS.interaction]: stateAtoms.interaction,
     [READ_STATE_KEYS.tool]: stateAtoms.tool,
     [READ_STATE_KEYS.selection]: stateAtoms.selection,
     [READ_STATE_KEYS.viewport]: stateAtoms.viewport,
     [READ_STATE_KEYS.mindmapLayout]: stateAtoms.mindmapLayout,
-    [READ_SUBSCRIPTION_KEYS.projection]: projectionAtom
+    [READ_SUBSCRIPTION_KEYS.node]: nodeSignalAtom,
+    [READ_SUBSCRIPTION_KEYS.edge]: edgeSignalAtom,
+    [READ_SUBSCRIPTION_KEYS.mindmap]: mindmapSignalAtom
   } as Record<ReadSubscriptionKey, Atom<unknown>>
+
   const subscribe: ReadContext['subscribe'] = (keys, listener) => {
-    const unsubs = keys.map((key) =>
-      store.sub(subscribableAtomMap[key], listener)
-    )
+    const unsubs = keys.map((key) => store.sub(subscribableAtomMap[key], listener))
     return () => unsubs.forEach((off) => off())
   }
+
   const readContext: ReadContext = {
     state,
-    snapshot: readSnapshot,
+    model: readModel,
     subscribe,
     indexes,
     config
@@ -112,6 +111,26 @@ export const createReadKernel = ({
   let nodeViewCache: EngineRead['projection']['node'] | undefined
   let nodeViewIdsRef: readonly NodeId[] | undefined
   let nodeViewByIdRef: ReadonlyMap<NodeId, Node> | undefined
+
+  const signals = createReadSignals({
+    store,
+    atoms: {
+      node: nodeSignalAtom,
+      edge: edgeSignalAtom,
+      mindmap: mindmapSignalAtom
+    }
+  })
+
+  const apply = createReadApply({
+    readModel,
+    nodeRectIndex,
+    snapIndex,
+    edgeCache,
+    applySignals: signals.apply
+  })
+
+  nodeRectIndex.applyChange({ rebuild: 'full', nodeIds: [] }, readModel())
+  snapIndex.applyChange({ rebuild: 'full', nodeIds: [] }, nodeRectIndex)
 
   const getViewportTransform = () => {
     const currentViewport = state.viewport()
@@ -166,9 +185,9 @@ export const createReadKernel = ({
   }
 
   const getNodeView = () => {
-    const snapshot = readSnapshot()
-    const ids = snapshot.indexes.canvasNodeIds
-    const nodeById = snapshot.indexes.canvasNodeById
+    const model = readModel()
+    const ids = model.indexes.canvasNodeIds
+    const nodeById = model.indexes.canvasNodeById
 
     if (
       nodeViewCache &&
@@ -182,9 +201,9 @@ export const createReadKernel = ({
     const seenIds = new Set<NodeId>()
     ids.forEach((id) => {
       seenIds.add(id)
-      const nodeItem = resolveNodeItem(nodeById, id)
-      if (!nodeItem) return
-      byId.set(id, nodeItem)
+      const item = resolveNodeItem(nodeById, id)
+      if (!item) return
+      byId.set(id, item)
     })
     nodeItemCacheById.forEach((_, id) => {
       if (seenIds.has(id)) return
@@ -231,18 +250,17 @@ export const createReadKernel = ({
       snapCandidates: indexes.snap.all,
       snapCandidatesInRect: indexes.snap.inRect
     },
-    config: readContext.config,
-    get document() { return readDoc() },
+    config,
+    get document() { return readDocument() },
     subscribe
   }
 
-  const applyInvalidation = (invalidation: ReadInvalidation) => {
-    applyIndexChange(invalidation.index)
-    edgeCache.applyChange(invalidation.edge)
+  const ingest = (impact: ReadImpact) => {
+    apply(compileReadControl(impact))
   }
 
   return {
     read,
-    applyInvalidation
+    ingest
   }
 }

@@ -156,7 +156,9 @@ export const READ_STATE_KEYS = {
 
 export const READ_SUBSCRIPTION_KEYS = {
   ...READ_STATE_KEYS,
-  projection: 'projection'
+  node: 'node',
+  edge: 'edge',
+  mindmap: 'mindmap'
 } as const
 
 export type ReadSubscriptionKey =
