@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../../common/instance/types'
 
 export type NodePreviewUpdate = {
   id: NodeId
@@ -33,14 +33,14 @@ const EMPTY_SNAPSHOT: NodeInteractionPreviewSnapshot = {
 
 const nodeInteractionPreviewAtom = atom<NodeInteractionPreviewSnapshot>(EMPTY_SNAPSHOT)
 
-const setSnapshot = (instance: Instance, next: NodeInteractionPreviewSnapshot) => {
-  const snapshot = instance.runtime.store.get(nodeInteractionPreviewAtom)
+const setSnapshot = (instance: InternalWhiteboardInstance, next: NodeInteractionPreviewSnapshot) => {
+  const snapshot = instance.uiStore.get(nodeInteractionPreviewAtom)
   const unchanged =
     snapshot.updatesById === next.updatesById
     && snapshot.guides === next.guides
     && snapshot.hoveredGroupId === next.hoveredGroupId
   if (unchanged) return
-  instance.runtime.store.set(nodeInteractionPreviewAtom, next)
+  instance.uiStore.set(nodeInteractionPreviewAtom, next)
 }
 
 const toUpdatesById = (
@@ -61,11 +61,11 @@ type SetTransientInput = {
 }
 
 export const nodeInteractionPreviewState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(nodeInteractionPreviewAtom, listener),
-  getSnapshot: (instance: Instance) => instance.runtime.store.get(nodeInteractionPreviewAtom),
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(nodeInteractionPreviewAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(nodeInteractionPreviewAtom),
   setTransient: (
-    instance: Instance,
+    instance: InternalWhiteboardInstance,
     { updates, guides, hoveredGroupId }: SetTransientInput
   ) => {
     setSnapshot(instance, {
@@ -74,8 +74,8 @@ export const nodeInteractionPreviewState = {
       hoveredGroupId
     })
   },
-  clearTransient: (instance: Instance) => {
-    const snapshot = instance.runtime.store.get(nodeInteractionPreviewAtom)
+  clearTransient: (instance: InternalWhiteboardInstance) => {
+    const snapshot = instance.uiStore.get(nodeInteractionPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   }

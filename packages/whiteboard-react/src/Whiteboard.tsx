@@ -2,24 +2,25 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { Provider as JotaiProvider } from 'jotai'
+import { createStore } from 'jotai/vanilla'
 import { DragGuidesLayer, NodeLayer, SelectionLayer } from './node/components'
 import { EdgeLayerStack } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
 import type { WhiteboardProps } from 'types/common'
-import {
-  engine,
-  normalizeConfig,
-  toApplyConfig,
-  toInstanceConfig,
-  READ_STATE_KEYS,
-  type Instance
-} from '@whiteboard/engine'
+import { engine, type Instance as EngineInstance } from '@whiteboard/engine'
+import { normalizeConfig, toEngineInstanceConfig } from './config'
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
-import { useReadGetter } from './common/hooks'
+import { useWhiteboardSelector } from './common/hooks'
 import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
 import { useShortcutDispatch } from './common/interaction/useShortcutDispatch'
 import { useViewportGestureSelector } from './common/interaction/viewportGestureState'
+import {
+  createWhiteboardInstance,
+  type InternalWhiteboardInstance,
+  type WhiteboardInstance,
+  type WhiteboardRuntimeConfig
+} from './common/instance'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -63,7 +64,7 @@ const toViewportTransform = (viewport: {
 }
 
 type WhiteboardCanvasProps = {
-  instance: Instance
+  instance: InternalWhiteboardInstance
   registry: ReturnType<typeof createDefaultNodeRegistry>
   resolvedConfig: ReturnType<typeof normalizeConfig>
   containerRef: {
@@ -87,14 +88,12 @@ const WhiteboardCanvas = ({
   containerStyle,
   viewportPolicy
 }: WhiteboardCanvasProps) => {
-  const viewportTransform = useReadGetter(
-    () => instance.read.projection.viewportTransform,
-    { keys: [READ_STATE_KEYS.viewport] }
-  )
+  const viewport = useWhiteboardSelector('viewport')
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
+  const resolvedViewport = previewViewport ?? viewport
   const resolvedViewportTransform = useMemo(
-    () => (previewViewport ? toViewportTransform(previewViewport) : viewportTransform),
-    [previewViewport, viewportTransform]
+    () => toViewportTransform(resolvedViewport),
+    [resolvedViewport]
   )
   const transformStyle = useMemo<CSSProperties>(
     () => ({
@@ -122,65 +121,72 @@ const WhiteboardCanvas = ({
           instance={instance}
           viewportPolicy={viewportPolicy}
           getContainer={() => containerRef.current}
-          className="wb-root-viewport"
           style={transformStyle}
         >
+          <NodeLayer />
           <EdgeLayerStack />
           <MindmapLayerStack />
+          <SelectionLayer />
           <DragGuidesLayer />
-          <NodeLayer />
         </CanvasInteractionLayer>
-        <SelectionLayer />
       </div>
     </NodeRegistryProvider>
   )
 }
 
-const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function WhiteboardInner(
-  { doc, onDocChange, registries, nodeRegistry, config },
+const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
+  {
+    doc,
+    onDocChange,
+    registries,
+    nodeRegistry,
+    config
+  },
   ref
 ) {
-  const resolvedConfig = useMemo(() => normalizeConfig(config), [config])
-
-  const initialDocRef = useRef(doc)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const initialDocRef = useRef<Document>(doc)
   const onDocChangeRef = useRef(onDocChange)
-  const lastOutboundDocRef = useRef(initialDocRef.current)
-
-  onDocChangeRef.current = onDocChange
-  const registry = useMemo(() => nodeRegistry ?? createDefaultNodeRegistry(), [nodeRegistry])
-  const containerRef = useRef<HTMLDivElement>(null)
-  const instanceConfig = useMemo(
-    () => toInstanceConfig(resolvedConfig),
-    [
-      resolvedConfig.nodeSize.width,
-      resolvedConfig.nodeSize.height,
-      resolvedConfig.mindmapNodeSize.width,
-      resolvedConfig.mindmapNodeSize.height,
-      resolvedConfig.node.groupPadding,
-      resolvedConfig.node.snapThresholdScreen,
-      resolvedConfig.node.snapMaxThresholdWorld,
-      resolvedConfig.node.snapGridCellSize,
-      resolvedConfig.node.selectionMinDragDistance,
-      resolvedConfig.edge.hitTestThresholdScreen,
-      resolvedConfig.edge.anchorSnapMin,
-      resolvedConfig.edge.anchorSnapRatio,
-      resolvedConfig.viewport.wheelSensitivity
-    ]
+  const lastOutboundDocRef = useRef<Document>(doc)
+  const registry = useMemo(
+    () => nodeRegistry ?? createDefaultNodeRegistry(),
+    [nodeRegistry]
   )
-  const instance = useMemo(
-    () =>
-      engine({
-        registries,
-        document: initialDocRef.current,
-        onDocumentChange: (nextDoc) => {
-          lastOutboundDocRef.current = nextDoc
-          onDocChangeRef.current((draft) => {
-            replaceDocumentDraft(draft, nextDoc)
-          })
-        },
-        config: instanceConfig
-      }),
+  const resolvedConfig = useMemo(
+    () => normalizeConfig(config),
+    [config]
+  )
+  const instanceConfig = useMemo(
+    () => toEngineInstanceConfig(resolvedConfig),
+    [resolvedConfig]
+  )
+  const uiStore = useMemo(
+    () => createStore(),
+    []
+  )
+  onDocChangeRef.current = onDocChange
+
+  const engineInstance = useMemo<EngineInstance>(
+    () => engine({
+      registries,
+      document: initialDocRef.current,
+      onDocumentChange: (next) => {
+        lastOutboundDocRef.current = next
+        onDocChangeRef.current((draft) => {
+          replaceDocumentDraft(draft, next)
+        })
+      },
+      config: instanceConfig
+    }),
     [instanceConfig, registries]
+  )
+  const instance = useMemo<InternalWhiteboardInstance>(
+    () => createWhiteboardInstance({
+      engine: engineInstance,
+      uiStore,
+      initialTool: resolvedConfig.tool
+    }),
+    [engineInstance, uiStore]
   )
 
   useImperativeHandle(ref, () => instance, [instance])
@@ -193,22 +199,17 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     void instance.commands.doc.load(doc)
   }, [doc, instance])
 
-  const runtimeConfig = useMemo(
-    () =>
-      toApplyConfig({
-        tool: resolvedConfig.tool,
-        mindmapLayout: resolvedConfig.mindmapLayout,
-        viewport: doc.viewport,
-        history: resolvedConfig.history
-      }),
+  const runtimeConfig = useMemo<WhiteboardRuntimeConfig>(
+    () => ({
+      tool: resolvedConfig.tool,
+      mindmapLayout: resolvedConfig.mindmapLayout,
+      history: resolvedConfig.history
+    }),
     [
       resolvedConfig.history.enabled,
       resolvedConfig.history.capacity,
       resolvedConfig.history.captureSystem,
       resolvedConfig.history.captureRemote,
-      doc.viewport?.center?.x,
-      doc.viewport?.center?.y,
-      doc.viewport?.zoom,
       resolvedConfig.tool,
       resolvedConfig.mindmapLayout.mode,
       resolvedConfig.mindmapLayout.options?.hGap,
@@ -225,7 +226,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
   }, [runtime])
 
   useEffect(() => {
-    runtime.applyConfig(runtimeConfig)
+    runtime.configure(runtimeConfig)
   }, [runtime, runtimeConfig])
 
   useEffect(() => {
@@ -233,7 +234,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
     if (!container) return
 
     const emitRect = (rect: { left: number; top: number; width: number; height: number }) => {
-      instance.commands.host.containerResized(rect)
+      instance.runtime.viewport.setContainerRect(rect)
     }
 
     const initial = container.getBoundingClientRect()
@@ -285,7 +286,7 @@ const WhiteboardInner = forwardRef<Instance | null, WhiteboardProps>(function Wh
 
   return (
     <InstanceProvider value={instance}>
-      <JotaiProvider store={instance.runtime.store}>
+      <JotaiProvider store={uiStore}>
         <WhiteboardCanvas
           instance={instance}
           registry={registry}

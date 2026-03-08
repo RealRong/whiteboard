@@ -1,16 +1,16 @@
-import type { InternalInstance } from '../instance/engine'
+import type { Document } from '@whiteboard/core/types'
+import type { EngineContext } from '../instance/engine'
 import type { Scheduler } from '../../scheduling/Scheduler'
-import type { ReadImpact } from '../read/impact'
+import type { ReadImpact } from '../read/control/impact'
 
 export type WriteInstance = Pick<
-  InternalInstance,
+  EngineContext,
   'document' | 'config' | 'viewport' | 'registries'
 >
 
-export type Deps = {
+export type WriteDeps = {
   instance: WriteInstance
   scheduler: Scheduler
-  read: (impact: ReadImpact) => void
-  resetTransientState: () => void
-  react: (impact: ReadImpact) => void
+  applyReadImpact: (impact: ReadImpact) => void
+  notifyDocumentChange?: (doc: Document) => void
 }

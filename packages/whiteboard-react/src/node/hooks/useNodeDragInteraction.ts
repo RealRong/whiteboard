@@ -16,7 +16,7 @@ import {
   rectEquals
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
-import { useInstance } from '../../common/hooks'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
@@ -370,7 +370,7 @@ export const useNodeDragInteraction = ({
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
-      const zoom = Math.max(instance.read.viewport.getZoom(), ZOOM_EPSILON)
+      const zoom = Math.max(instance.runtime.viewport.getZoom(), ZOOM_EPSILON)
       const basePosition = {
         x: active.origin.x + (event.clientX - active.start.x) / zoom,
         y: active.origin.y + (event.clientY - active.start.y) / zoom

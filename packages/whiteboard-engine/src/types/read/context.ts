@@ -3,13 +3,10 @@ import type {
   EngineReadState,
   ReadSubscriptionKey
 } from '../instance/read'
-import type { ReadIndexes } from './indexer'
+import type { ReadIndexes } from './indexes/indexer'
 import type { ReadModel } from './model'
 
 export type ReadStateGetters = {
-  interaction: () => EngineReadState['interaction']
-  tool: () => EngineReadState['tool']
-  selection: () => EngineReadState['selection']
   viewport: () => EngineReadState['viewport']
   mindmapLayout: () => EngineReadState['mindmapLayout']
 }

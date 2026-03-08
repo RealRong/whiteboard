@@ -1,5 +1,6 @@
 import type { Write } from '@engine-types/write/runtime'
-import type { Deps as WriteDeps } from '@engine-types/write/deps'
+import type { WriteDeps } from '@engine-types/write/deps'
+import type { WriteDomain, WriteInput } from '@engine-types/command/api'
 import type { CommandSource } from '@engine-types/command/source'
 import {
   assertDocument,
@@ -13,15 +14,14 @@ import {
 import {
   createHistory,
   reduceOperations,
-  type KernelReadImpact
+  type KernelReadImpact,
+  type KernelReduceResult
 } from '@whiteboard/core/kernel'
+import { normalizeGroupBounds } from '@whiteboard/core/node'
 import { createId } from '@whiteboard/core/utils'
+import { DEFAULT_HISTORY_CONFIG, DEFAULT_TUNING } from '../../config'
 import { createResetReadImpact } from '../read/impact'
-import { DEFAULT_CONFIG } from '../../config'
 import { plan } from './stages/plan/router'
-import type { Apply } from './stages/plan/draft'
-
-export * from './api'
 
 const resolveOrigin = (source: CommandSource): Origin => {
   if (source === 'remote') return 'remote'
@@ -29,14 +29,6 @@ const resolveOrigin = (source: CommandSource): Origin => {
     return 'system'
   }
   return 'user'
-}
-
-const readNowFallback = () => {
-  const runtime = globalThis as { performance?: { now?: () => number } }
-  if (typeof runtime.performance?.now === 'function') {
-    return runtime.performance.now()
-  }
-  return Date.now()
 }
 
 type HistoryMode = 'capture' | 'clear' | 'skip'
@@ -53,15 +45,16 @@ type CommitTarget = {
     }
 )
 
-type CommitResult =
-  | {
-      ok: true
-      doc: Document
-      changes: ChangeSet
-      inverse?: readonly Operation[]
-      read: KernelReadImpact
-    }
-  | DispatchFailure
+type SuccessfulWrite = {
+  ok: true
+  doc: Document
+  changes: ChangeSet
+  inverse?: readonly Operation[]
+  impact: KernelReadImpact
+  notify: boolean
+}
+
+type CommittedWrite = SuccessfulWrite | DispatchFailure
 
 type CommitInput = {
   notify?: boolean
@@ -69,23 +62,78 @@ type CommitInput = {
   target: CommitTarget
 }
 
-// Single write funnel:
-// `apply -> plan -> commit -> read -> react`.
+export type WriteRuntime = Write & {
+  dispose: () => void
+}
+
 export const createWrite = ({
   instance,
   scheduler,
-  read,
-  resetTransientState,
-  react
-}: WriteDeps): Write => {
-  const readNow = scheduler.now ?? readNowFallback
+  applyReadImpact,
+  notifyDocumentChange
+}: WriteDeps): WriteRuntime => {
+  const readNow = scheduler.now
+  const planner = plan({ instance })
+  let lastHistoryCommit: CommittedWrite | null = null
 
-  const execute = (target: CommitTarget): CommitResult => {
+  const getLastHistoryCommit = (): CommittedWrite | null => lastHistoryCommit
+
+  const reduceCommitted = (
+    document: Document,
+    operations: readonly Operation[],
+    origin: Origin
+  ): KernelReduceResult => reduceOperations(document, operations, {
+    now: readNow,
+    origin
+  })
+
+  const buildNormalizeOperations = (document: Document): readonly Operation[] =>
+    normalizeGroupBounds({
+      document,
+      nodeSize: instance.config.nodeSize,
+      groupPadding: instance.config.node.groupPadding,
+      rectEpsilon: DEFAULT_TUNING.group.rectEpsilon
+    })
+
+  const normalizeDocument = (document: Document, origin: Origin): Document => {
+    const normalizeOperations = buildNormalizeOperations(document)
+    if (!normalizeOperations.length) return document
+
+    const normalized = reduceCommitted(document, normalizeOperations, origin)
+    if (normalized.ok) {
+      return normalized.doc
+    }
+
+    throw new Error(`Group normalize failed: ${normalized.message}`)
+  }
+
+  const reduceWithNormalize = (
+    document: Document,
+    operations: readonly Operation[],
+    origin: Origin
+  ): KernelReduceResult => {
+    const planned = reduceCommitted(document, operations, origin)
+    if (!planned.ok) return planned
+
+    const normalizeOperations = buildNormalizeOperations(planned.doc)
+    if (!normalizeOperations.length) {
+      return planned
+    }
+
+    return reduceCommitted(
+      document,
+      [...planned.changes.operations, ...normalizeOperations],
+      origin
+    )
+  }
+
+  const execute = (target: CommitTarget, notify: boolean): CommittedWrite => {
     if ('operations' in target) {
-      const reduced = reduceOperations(instance.document.get(), target.operations, {
-        now: readNow,
-        origin: target.origin
-      })
+      const reduced = reduceWithNormalize(
+        instance.document.get(),
+        target.operations,
+        target.origin
+      )
       if (!reduced.ok) {
         return reduced
       }
@@ -97,11 +145,15 @@ export const createWrite = ({
         doc: reduced.doc,
         changes: reduced.changes,
         inverse: reduced.inverse,
-        read: reduced.read
+        impact: reduced.read,
+        notify
       }
     }
 
-    const committedDocument = assertDocument(target.doc)
+    const committedDocument = normalizeDocument(
+      assertDocument(target.doc),
+      target.origin
+    )
     instance.document.commit(committedDocument)
 
     return {
@@ -113,33 +165,55 @@ export const createWrite = ({
         operations: [],
         origin: target.origin
       },
-      read: createResetReadImpact()
+      impact: createResetReadImpact(),
+      notify
     }
   }
+
+  const historyApi = createHistory<Operation, Origin>({
+    now: readNow,
+    config: DEFAULT_HISTORY_CONFIG,
+    replay: (operations) => {
+      lastHistoryCommit = commit({
+        history: 'skip',
+        target: {
+          operations,
+          origin: 'system'
+        }
+      })
+      return lastHistoryCommit.ok
+    }
+  })
 
   const commit = ({
     notify = true,
     history: historyMode,
     target
-  }: CommitInput): DispatchResult => {
-    const committed = execute(target)
+  }: CommitInput): CommittedWrite => {
+    const committed = execute(target, notify)
     if (!committed.ok) return committed
 
     if (historyMode === 'clear') {
-      history.clear()
+      historyApi.clear()
     } else if (historyMode === 'capture' && committed.inverse) {
-      history.capture({
+      historyApi.capture({
         forward: committed.changes.operations,
         inverse: committed.inverse,
         origin: committed.changes.origin
       })
     }
 
-    read(committed.read)
-    if (notify) {
-      instance.document.notifyChange(committed.doc)
+    return committed
+  }
+
+  const publish = (committed: CommittedWrite): DispatchResult => {
+    if (!committed.ok) return committed
+
+    applyReadImpact(committed.impact)
+
+    if (committed.notify) {
+      notifyDocumentChange?.(committed.doc)
     }
-    react(committed.read)
 
     return {
       ok: true,
@@ -147,34 +221,7 @@ export const createWrite = ({
     }
   }
 
-  const history = createHistory<Operation, Origin>({
-    now: readNow,
-    config: DEFAULT_CONFIG.history,
-    replay: (operations) =>
-      commit({
-        history: 'skip',
-        target: {
-          operations,
-          origin: 'system'
-        }
-      }).ok
-  })
-
-  const replaceDocument = (doc: Document, notify: boolean) => {
-    resetTransientState()
-    return commit({
-      notify,
-      history: 'clear',
-      target: {
-        doc,
-        origin: 'system'
-      }
-    })
-  }
-
-  const planner = plan({ instance })
-
-  const apply: Apply = async (payload) => {
+  const applyCommitted = async <D extends WriteDomain>(payload: WriteInput<D>) => {
     const draft = planner(payload)
     if (!draft.ok) return draft
 
@@ -187,16 +234,46 @@ export const createWrite = ({
     })
   }
 
+  const history = {
+    get: historyApi.get,
+    configure: historyApi.configure,
+    clear: historyApi.clear,
+    undo: () => {
+      lastHistoryCommit = null
+      historyApi.undo()
+      const committed = getLastHistoryCommit()
+      if (!committed || !committed.ok) return false
+      publish(committed)
+      return true
+    },
+    redo: () => {
+      lastHistoryCommit = null
+      historyApi.redo()
+      const committed = getLastHistoryCommit()
+      if (!committed || !committed.ok) return false
+      publish(committed)
+      return true
+    }
+  }
+
+  const replaceDocument = async (doc: Document, notify: boolean) => {
+    return publish(
+      commit({
+        notify,
+        history: 'clear',
+        target: {
+          doc,
+          origin: 'system'
+        }
+      })
+    )
+  }
+
   return {
-    apply,
+    apply: async (payload) => publish(await applyCommitted(payload)),
     load: async (doc) => replaceDocument(doc, false),
     replace: async (doc) => replaceDocument(doc, true),
-    history: {
-      get: history.get,
-      configure: history.configure,
-      undo: history.undo,
-      redo: history.redo,
-      clear: history.clear
-    }
+    history,
+    dispose: () => {}
   }
 }

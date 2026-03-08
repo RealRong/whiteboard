@@ -1,7 +1,7 @@
 import type { Viewport } from '@whiteboard/core/types'
-import type { ResolvedConfig } from '@engine-types/common/config'
 import type { Size } from '@engine-types/common/base'
 import type { InstanceConfig } from '@engine-types/instance/config'
+import type { ResolvedHistoryConfig } from '@engine-types/common/config'
 import type { MindmapLayoutMode } from '@engine-types/mindmap/layout'
 
 export const DEFAULT_NODE_SIZE: Size = {
@@ -17,6 +17,15 @@ export const DEFAULT_MINDMAP_NODE_SIZE: Size = {
 export const DEFAULT_DOCUMENT_VIEWPORT: Viewport = {
   center: { x: 0, y: 0 },
   zoom: 1
+}
+
+export const DEFAULT_MINDMAP_LAYOUT = {}
+
+export const DEFAULT_HISTORY_CONFIG: ResolvedHistoryConfig = {
+  enabled: true,
+  capacity: 100,
+  captureSystem: true,
+  captureRemote: false
 }
 
 export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
@@ -37,31 +46,6 @@ export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
   viewport: {
     wheelSensitivity: 0.001
   }
-}
-
-export const DEFAULT_CONFIG: ResolvedConfig = {
-  className: undefined,
-  style: undefined,
-  nodeSize: DEFAULT_INSTANCE_CONFIG.nodeSize,
-  mindmapNodeSize: DEFAULT_INSTANCE_CONFIG.mindmapNodeSize,
-  mindmapLayout: {},
-  viewport: {
-    minZoom: 0.1,
-    maxZoom: 4,
-    enablePan: true,
-    enableWheel: true,
-    wheelSensitivity: DEFAULT_INSTANCE_CONFIG.viewport.wheelSensitivity
-  },
-  node: DEFAULT_INSTANCE_CONFIG.node,
-  edge: DEFAULT_INSTANCE_CONFIG.edge,
-  history: {
-    enabled: true,
-    capacity: 100,
-    captureSystem: true,
-    captureRemote: false
-  },
-  tool: 'select',
-  shortcuts: undefined
 }
 
 export const DEFAULT_TUNING = {

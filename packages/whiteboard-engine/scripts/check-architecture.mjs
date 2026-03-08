@@ -48,15 +48,12 @@ const rules = [
     ]
   },
   {
-    name: 'runtime/write/api 禁止直写 mutate',
-    root: join(srcRoot, 'runtime', 'write'),
-    include: (path) =>
-      path.includes('/runtime/write/api/')
-      || path.endsWith('/runtime/write/api.ts'),
+    name: 'commands 禁止直写 mutate',
+    root: join(srcRoot, 'commands'),
     checks: [
       {
         pattern: /\binstance\.mutate\s*\(/g,
-        message: '禁止在 write api 中直接调用 instance.mutate'
+        message: '禁止在 commands 中直接调用 instance.mutate'
       }
     ]
   },

@@ -1,4 +1,4 @@
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance'
 import type { CSSProperties, ReactNode } from 'react'
 import { useSelectionBoxInteraction } from './useSelectionBoxInteraction'
 import {
@@ -7,7 +7,7 @@ import {
 } from './useViewportGestureInteraction'
 
 type CanvasInteractionLayerProps = {
-  instance: Instance
+  instance: InternalWhiteboardInstance
   viewportPolicy: ViewportPolicy
   getContainer: () => HTMLDivElement | null
   className?: string

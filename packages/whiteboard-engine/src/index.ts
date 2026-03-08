@@ -1,21 +1,11 @@
 export { engine } from './instance/engine'
 export {
   DEFAULT_DOCUMENT_VIEWPORT,
-  DEFAULT_INSTANCE_CONFIG,
-  DEFAULT_CONFIG,
-  mergeConfig,
-  normalizeConfig,
-  resolveInstanceConfig,
-  toInstanceConfig,
-  toApplyConfig
+  DEFAULT_INSTANCE_CONFIG
 } from './config'
 
 export type { Commands } from './types/command/api'
-export type {
-  CommandSource,
-  Mutation,
-  ApplyMutationsApi
-} from './types/command/source'
+export type { CommandSource } from './types/command/source'
 export type {
   CreateEngineOptions,
   Instance
@@ -27,8 +17,7 @@ export type {
   EngineReadProjection,
   EngineReadIndex,
   ReadSubscriptionKey,
-  EdgePathEntry,
-  ViewportView,
+  EdgeEntry,
   NodesView,
   EdgesView,
   MindmapView,
@@ -36,24 +25,7 @@ export type {
   MindmapViewTree,
   NodeViewItem
 } from './types/instance/read'
-export type {
-  ReadImpact
-} from './types/read/impact'
-export type {
-  StateKey,
-  StateSnapshot
-} from './types/instance/state'
 export {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS
 } from './types/instance/read'
-export type {
-  ShortcutAction,
-  ShortcutBinding,
-  ShortcutOverrides
-} from './types/shortcuts/types'
-export type {
-  EdgeConnectDraft,
-  EdgeConnectState
-} from './types/edge/state'
-export type { PointerInput, PointerModifiers } from './types/common/input'

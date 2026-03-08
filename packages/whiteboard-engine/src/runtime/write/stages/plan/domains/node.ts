@@ -1,4 +1,4 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EngineContext } from '@engine-types/instance/engine'
 import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
@@ -52,7 +52,7 @@ const toUpdateOperations = (
 export const node = ({
   instance
 }: {
-  instance: Pick<InternalInstance, 'document' | 'config' | 'registries'>
+  instance: Pick<EngineContext, 'document' | 'config' | 'registries'>
 }) => {
   const readDoc = (): Document => instance.document.get()
   const createGroupId = () => createId('group')

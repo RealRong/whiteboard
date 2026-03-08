@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
-import type { ShortcutOverrides } from '@whiteboard/engine'
 import type { NodeRegistry } from 'types/node'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
+import type { ShortcutOverrides } from './shortcut'
 
 export type HistoryConfig = Partial<KernelHistoryConfig>
 

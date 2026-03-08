@@ -1,6 +1,51 @@
 import type { EdgeAnchor, EdgeId, Node, Point, Rect } from '@whiteboard/core/types'
 import type { RefObject } from 'react'
-import type { EdgeConnectDraft, EdgeConnectState, PointerInput } from '@whiteboard/engine'
+
+export type PointerModifiers = {
+  alt: boolean
+  shift: boolean
+  ctrl: boolean
+  meta: boolean
+}
+
+export type PointerInput = {
+  pointerId: number
+  button: 0 | 1 | 2
+  client: Point
+  screen: Point
+  world: Point
+  modifiers: PointerModifiers
+}
+
+export type EdgeConnectFrom = {
+  nodeId: string
+  anchor: EdgeAnchor
+}
+
+export type EdgeConnectTo = {
+  nodeId?: string
+  anchor?: EdgeAnchor
+  pointWorld?: Point
+}
+
+export type EdgeReconnectInfo = {
+  edgeId: EdgeId
+  end: 'source' | 'target'
+}
+
+export type EdgeConnectState = {
+  from?: EdgeConnectFrom
+  to?: EdgeConnectTo
+  hover?: EdgeConnectTo
+  reconnect?: EdgeReconnectInfo
+}
+
+export type EdgeConnectDraft = {
+  pointerId: number
+  from: EdgeConnectFrom
+  to?: EdgeConnectTo
+  reconnect?: EdgeReconnectInfo
+}
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor

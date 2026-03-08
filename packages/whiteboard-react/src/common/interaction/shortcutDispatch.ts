@@ -3,10 +3,8 @@ import type {
   NodeId,
   Operation
 } from '@whiteboard/core/types'
-import type {
-  Instance,
-  ShortcutAction
-} from '@whiteboard/engine'
+import type { ShortcutAction } from '../../types/common/shortcut'
+import type { WhiteboardInstance } from '../instance'
 
 const readCreatedNodeIds = (
   result: DispatchResult,
@@ -24,10 +22,10 @@ const readCreatedNodeIds = (
 const readCreatedGroupId = (result: DispatchResult): NodeId | undefined =>
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
-const getSelectedNodeIds = (instance: Instance): NodeId[] =>
+const getSelectedNodeIds = (instance: WhiteboardInstance): NodeId[] =>
   Array.from(instance.state.read('selection').selectedNodeIds)
 
-const groupSelection = async (instance: Instance) => {
+const groupSelection = async (instance: WhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (selectedNodeIds.length < 2) return
 
@@ -37,7 +35,7 @@ const groupSelection = async (instance: Instance) => {
   instance.commands.selection.select([groupId], 'replace')
 }
 
-const ungroupSelection = async (instance: Instance) => {
+const ungroupSelection = async (instance: WhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (!selectedNodeIds.length) return
 
@@ -46,7 +44,7 @@ const ungroupSelection = async (instance: Instance) => {
   instance.commands.selection.clear()
 }
 
-const deleteSelection = async (instance: Instance) => {
+const deleteSelection = async (instance: WhiteboardInstance) => {
   const selection = instance.state.read('selection')
   const selectedEdgeId = selection.selectedEdgeId
   const selectedNodeIds = Array.from(selection.selectedNodeIds)
@@ -64,7 +62,7 @@ const deleteSelection = async (instance: Instance) => {
   instance.commands.selection.clear()
 }
 
-const duplicateSelection = async (instance: Instance) => {
+const duplicateSelection = async (instance: WhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (!selectedNodeIds.length) return
 
@@ -75,7 +73,7 @@ const duplicateSelection = async (instance: Instance) => {
 }
 
 export const canDispatchShortcutAction = (
-  instance: Instance,
+  instance: WhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
   const interaction = instance.state.read('interaction')
@@ -111,7 +109,7 @@ export const canDispatchShortcutAction = (
 }
 
 export const dispatchShortcutAction = (
-  instance: Instance,
+  instance: WhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
   if (!canDispatchShortcutAction(instance, action)) return false

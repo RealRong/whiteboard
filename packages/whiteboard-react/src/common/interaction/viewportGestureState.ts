@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
 import { isSameViewport } from '@whiteboard/core/geometry'
 import type { Viewport } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance/types'
 
 type ViewportGestureSnapshot = {
   preview?: Viewport
@@ -27,12 +27,12 @@ const copyViewport = (viewport: Viewport): Viewport => ({
   zoom: viewport.zoom
 })
 
-const readSnapshot = (instance: Instance) => instance.runtime.store.get(viewportGestureAtom)
-const writeSnapshot = (instance: Instance, next: ViewportGestureSnapshot) => {
-  instance.runtime.store.set(viewportGestureAtom, next)
+const readSnapshot = (instance: InternalWhiteboardInstance) => instance.uiStore.get(viewportGestureAtom)
+const writeSnapshot = (instance: InternalWhiteboardInstance, next: ViewportGestureSnapshot) => {
+  instance.uiStore.set(viewportGestureAtom, next)
 }
 
-const setSnapshot = (instance: Instance, next: ViewportGestureSnapshot) => {
+const setSnapshot = (instance: InternalWhiteboardInstance, next: ViewportGestureSnapshot) => {
   const snapshot = readSnapshot(instance)
   const samePreview =
     snapshot.preview === next.preview
@@ -46,11 +46,11 @@ const setSnapshot = (instance: Instance, next: ViewportGestureSnapshot) => {
 }
 
 export const viewportGestureState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(viewportGestureAtom, listener),
-  getSnapshot: (instance: Instance) => readSnapshot(instance),
-  isSpacePressed: (instance: Instance) => readSnapshot(instance).spacePressed,
-  setSpacePressed: (instance: Instance, pressed: boolean) => {
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(viewportGestureAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => readSnapshot(instance),
+  isSpacePressed: (instance: InternalWhiteboardInstance) => readSnapshot(instance).spacePressed,
+  setSpacePressed: (instance: InternalWhiteboardInstance, pressed: boolean) => {
     const snapshot = readSnapshot(instance)
     if (snapshot.spacePressed === pressed) return
     setSnapshot(
@@ -68,14 +68,14 @@ export const viewportGestureState = {
           : EMPTY_SNAPSHOT
     )
   },
-  setPreview: (instance: Instance, viewport: Viewport) => {
+  setPreview: (instance: InternalWhiteboardInstance, viewport: Viewport) => {
     const snapshot = readSnapshot(instance)
     setSnapshot(instance, {
       preview: copyViewport(viewport),
       spacePressed: snapshot.spacePressed
     })
   },
-  clearPreview: (instance: Instance) => {
+  clearPreview: (instance: InternalWhiteboardInstance) => {
     const snapshot = readSnapshot(instance)
     if (!snapshot.preview) return
     setSnapshot(
@@ -85,10 +85,10 @@ export const viewportGestureState = {
           preview: undefined,
           spacePressed: true
         }
-          : EMPTY_SNAPSHOT
+        : EMPTY_SNAPSHOT
     )
   },
-  reset: (instance: Instance) => {
+  reset: (instance: InternalWhiteboardInstance) => {
     const snapshot = readSnapshot(instance)
     if (snapshot === EMPTY_SNAPSHOT) return
     writeSnapshot(instance, EMPTY_SNAPSHOT)

@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Edge, Point } from '@whiteboard/core/types'
-import { useInstance } from '../../common/hooks'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { viewportGestureState } from '../../common/interaction/viewportGestureState'
 
 const toPointerWorld = (
@@ -25,8 +25,8 @@ export const useEdgePathInteraction = () => {
       const pointWorld = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
 
       if (event.shiftKey || event.detail >= 2) {

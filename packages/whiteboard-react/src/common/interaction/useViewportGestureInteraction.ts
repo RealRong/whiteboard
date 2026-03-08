@@ -10,7 +10,7 @@ import {
   zoomViewport
 } from '@whiteboard/core/geometry'
 import type { Viewport } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance'
 import { sessionLockState, type SessionLockToken } from './sessionLockState'
 import { useWindowPointerSession } from './useWindowPointerSession'
 import { viewportGestureState } from './viewportGestureState'
@@ -32,7 +32,7 @@ export type ViewportPolicy = {
 }
 
 type UseViewportGestureInteractionOptions = {
-  instance: Instance
+  instance: InternalWhiteboardInstance
   viewportPolicy: ViewportPolicy
   getContainer: () => HTMLDivElement | null
 }
@@ -85,13 +85,13 @@ export const useViewportGestureInteraction = ({
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
 
   const readCommittedViewport = useCallback(
-    () => instance.read.viewport.get(),
+    () => instance.read.state.viewport,
     [instance.read]
   )
 
   const readGestureViewport = useCallback(
-    () => viewportGestureState.getSnapshot(instance).preview ?? readCommittedViewport(),
-    [instance, readCommittedViewport]
+    () => instance.runtime.viewport.get(),
+    [instance.runtime.viewport]
   )
 
   const clearWheelCommit = useCallback(() => {
@@ -235,14 +235,14 @@ export const useViewportGestureInteraction = ({
       )
       const appliedFactor = nextZoom / zoom
       if (appliedFactor === 1) return
-      const anchorScreen = instance.read.viewport.clientToScreen(
+      const anchorScreen = instance.runtime.viewport.clientToScreen(
         event.clientX,
         event.clientY
       )
       const anchor = viewportScreenToWorld(
         anchorScreen,
         viewport,
-        instance.read.viewport.getScreenCenter()
+        instance.runtime.viewport.getScreenCenter()
       )
       const nextViewport = zoomViewport(viewport, appliedFactor, anchor)
       viewportGestureState.setPreview(instance, nextViewport)
@@ -251,7 +251,7 @@ export const useViewportGestureInteraction = ({
       event.stopPropagation()
     },
     [
-      instance.read.viewport,
+      instance.runtime.viewport,
       readGestureViewport,
       scheduleWheelCommit,
       viewportPolicy.maxZoom,

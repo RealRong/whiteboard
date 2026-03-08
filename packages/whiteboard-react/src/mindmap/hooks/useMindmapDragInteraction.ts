@@ -7,7 +7,7 @@ import {
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
-import { useInstance } from '../../common/hooks'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { viewportGestureState } from '../../common/interaction/viewportGestureState'
@@ -154,8 +154,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
 
       if (active.kind === 'root') {
@@ -272,8 +272,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       const baseOffset = {
         x: treeView.node.position.x,
@@ -334,8 +334,8 @@ export const useMindmapDragInteraction = () => {
       event.stopPropagation()
     },
     [
-      instance.read.viewport.clientToScreen,
-      instance.read.viewport.screenToWorld,
+      instance.runtime.viewport.clientToScreen,
+      instance.runtime.viewport.screenToWorld,
       instance,
       readTree
     ]

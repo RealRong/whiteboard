@@ -1,4 +1,4 @@
-import type { ReadImpact } from '@engine-types/read/impact'
+import type { ReadImpact } from '@engine-types/read/control/impact'
 
 export const createResetReadImpact = (): ReadImpact => ({
   reset: true,

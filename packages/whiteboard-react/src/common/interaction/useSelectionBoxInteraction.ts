@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { rectFromPoints } from '@whiteboard/core/geometry'
 import { applySelection, resolveSelectionMode, type SelectionMode } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance'
 import { sessionLockState, type SessionLockToken } from './sessionLockState'
 import { selectionBoxState } from './selectionBoxState'
 import { useWindowPointerSession } from './useWindowPointerSession'
@@ -66,7 +66,7 @@ type UseSelectionBoxInteractionResult = {
 }
 
 export const useSelectionBoxInteraction = (
-  instance: Instance
+  instance: InternalWhiteboardInstance
 ): UseSelectionBoxInteractionResult => {
   const activeRef = useRef<ActiveSelection | null>(null)
   const lockTokenRef = useRef<SessionLockToken | null>(null)
@@ -150,8 +150,8 @@ export const useSelectionBoxInteraction = (
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       const dx = Math.abs(resolved.screen.x - active.startScreen.x)
       const dy = Math.abs(resolved.screen.y - active.startScreen.y)
@@ -182,8 +182,8 @@ export const useSelectionBoxInteraction = (
         const resolved = toScreenWorld(
           event.clientX,
           event.clientY,
-          instance.read.viewport.clientToScreen,
-          instance.read.viewport.screenToWorld
+          instance.runtime.viewport.clientToScreen,
+          instance.runtime.viewport.screenToWorld
         )
         const worldRect = rectFromPoints(active.startWorld, resolved.world)
         active.latestMatchedIds = instance.read.index.nodeIdsInRect(worldRect)
@@ -230,8 +230,8 @@ export const useSelectionBoxInteraction = (
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       lockTokenRef.current = lockToken
       instance.commands.edge.select(undefined)

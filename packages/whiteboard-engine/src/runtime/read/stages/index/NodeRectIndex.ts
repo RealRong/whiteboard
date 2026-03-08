@@ -2,7 +2,6 @@ import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { InstanceConfig } from '@engine-types/instance/config'
-import type { IndexChange } from '@engine-types/read/change'
 import type { ReadModel } from '@engine-types/read/model'
 import { getNodeAABB, getNodeRect } from '@whiteboard/core/geometry'
 import {
@@ -10,6 +9,8 @@ import {
   isSameRefOrder,
   toFiniteOrUndefined
 } from '@whiteboard/core/utils'
+
+type Rebuild = 'none' | 'dirty' | 'full'
 
 type NodeRectStateTuple = {
   x?: number
@@ -52,17 +53,18 @@ export class NodeRectIndex {
   }
 
   applyChange = (
-    change: IndexChange,
+    rebuild: Rebuild,
+    nodeIds: readonly NodeId[],
     model: ReadModel
   ): boolean => {
-    switch (change.rebuild) {
+    switch (rebuild) {
       case 'none':
         return false
       case 'full':
         return this.syncFull(model.nodes.canvas)
       case 'dirty':
         return this.syncByNodeIds(
-          change.nodeIds,
+          nodeIds,
           model.indexes.canvasNodeById
         )
       default:

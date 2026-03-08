@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { EdgeConnectDraft, Instance, PointerInput } from '@whiteboard/engine'
-import { useInstance } from '../../common/hooks'
+import type { EdgeConnectDraft, PointerInput } from '../../types/edge'
+import type { InternalWhiteboardInstance } from '../../common/instance'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import {
@@ -27,7 +28,7 @@ const normalizeButton = (button: number): 0 | 1 | 2 => {
 }
 
 const toPointerInput = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   event: PointerEvent | ReactPointerEvent<HTMLElement>,
   fallbackButton?: 0 | 1 | 2
 ): PointerInput => {
@@ -36,7 +37,7 @@ const toPointerInput = (
     x: event.clientX,
     y: event.clientY
   }
-  const screen = instance.read.viewport.clientToScreen(
+  const screen = instance.runtime.viewport.clientToScreen(
     event.clientX,
     event.clientY
   )
@@ -45,7 +46,7 @@ const toPointerInput = (
     button,
     client,
     screen,
-    world: instance.read.viewport.screenToWorld(screen),
+    world: instance.runtime.viewport.screenToWorld(screen),
     modifiers: {
       shift: event.shiftKey,
       alt: event.altKey,
@@ -56,7 +57,7 @@ const toPointerInput = (
 }
 
 const syncPreview = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   draft: EdgeConnectDraft
 ) => {
   const preview = resolveConnectPreview(instance, draft)
@@ -67,7 +68,7 @@ const syncPreview = (
 }
 
 const beginFromNode = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   nodeId: NodeId,
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
@@ -108,7 +109,7 @@ const beginFromHandle = (
 })
 
 const beginReconnect = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   edgeId: EdgeId,
   end: 'source' | 'target',
   pointer: PointerInput
@@ -133,7 +134,7 @@ const beginReconnect = (
 }
 
 const updateDraft = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   draft: EdgeConnectDraft,
   pointer: PointerInput
 ) => {
@@ -154,7 +155,7 @@ const updateDraft = (
 }
 
 const commitDraft = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   draft: EdgeConnectDraft
 ) => {
   const target = draft.to

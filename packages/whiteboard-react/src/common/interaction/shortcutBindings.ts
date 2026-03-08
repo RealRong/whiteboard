@@ -1,7 +1,7 @@
 import type {
   ShortcutBinding,
   ShortcutOverrides
-} from '@whiteboard/engine'
+} from '../../types/common/shortcut'
 
 export const DEFAULT_SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
   { key: 'Mod+G', action: 'group.create' },

@@ -4,4 +4,5 @@ export { Whiteboard } from './Whiteboard'
 export { useInstance, useReadGetter, useWhiteboardSelector } from './common/hooks'
 
 export type { Config, HistoryConfig, WhiteboardProps } from './types/common'
+export type { WhiteboardInstance } from './common/instance'
 export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'

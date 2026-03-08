@@ -1,23 +1,6 @@
-import { getAutoAnchorFromRect, getEdgePath } from '@whiteboard/core/edge'
-import { getAnchorPoint, getRectCenter } from '@whiteboard/core/geometry'
 import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
-import type { EdgePathEntry } from '@whiteboard/engine'
+import type { EdgeEntry } from '@whiteboard/engine'
 import type { RoutingPreviewDraft } from './routingPreviewState'
-
-type NodeRectEntry = {
-  node: {
-    id: Edge['source']['nodeId']
-  }
-  rect: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  rotation: number
-}
-
-type NodeRectReader = (id: Edge['source']['nodeId']) => NodeRectEntry | undefined
 
 const buildRoutingPoints = (
   edgeId: EdgeId,
@@ -56,54 +39,16 @@ export const resolveRoutingPointsWithDraft = (
   draft?: RoutingPreviewDraft
 ) => buildRoutingPoints(edgeId, points, draft)
 
-export const resolveEdgePathEntryWithRoutingDraft = (
-  entry: EdgePathEntry,
-  getNodeRect: NodeRectReader,
+export const resolveEdgeEntryWithRoutingDraft = (
+  entry: EdgeEntry,
   draft?: RoutingPreviewDraft
-): EdgePathEntry => {
+): EdgeEntry => {
   if (!draft || draft.edgeId !== entry.edge.id) return entry
   const previewEdge = resolvePreviewEdge(entry.edge, draft)
   if (!previewEdge || previewEdge === entry.edge) return entry
 
-  const sourceEntry = getNodeRect(previewEdge.source.nodeId)
-  const targetEntry = getNodeRect(previewEdge.target.nodeId)
-  if (!sourceEntry || !targetEntry) return entry
-
-  const sourceCenter = getRectCenter(sourceEntry.rect)
-  const targetCenter = getRectCenter(targetEntry.rect)
-  const sourceAuto = getAutoAnchorFromRect(
-    sourceEntry.rect,
-    sourceEntry.rotation,
-    targetCenter
-  )
-  const targetAuto = getAutoAnchorFromRect(
-    targetEntry.rect,
-    targetEntry.rotation,
-    sourceCenter
-  )
-
-  const sourceAnchor = previewEdge.source.anchor ?? sourceAuto.anchor
-  const targetAnchor = previewEdge.target.anchor ?? targetAuto.anchor
-  const sourcePoint = previewEdge.source.anchor
-    ? getAnchorPoint(sourceEntry.rect, sourceAnchor, sourceEntry.rotation)
-    : sourceAuto.point
-  const targetPoint = previewEdge.target.anchor
-    ? getAnchorPoint(targetEntry.rect, targetAnchor, targetEntry.rotation)
-    : targetAuto.point
-
   return {
     ...entry,
-    edge: previewEdge,
-    path: getEdgePath({
-      edge: previewEdge,
-      source: {
-        point: sourcePoint,
-        side: sourceAnchor.side
-      },
-      target: {
-        point: targetPoint,
-        side: targetAnchor.side
-      }
-    })
+    edge: previewEdge
   }
 }

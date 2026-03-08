@@ -7,7 +7,7 @@ import type {
   MindmapMoveRootOptions,
   WriteCommandMap
 } from '@engine-types/command/api'
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EngineContext } from '@engine-types/instance/engine'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap/layout'
 import type { Draft } from '../draft'
 import { cancelled, invalid, merge, ops, success } from '../draft'
@@ -47,7 +47,7 @@ type AddSiblingOptions = {
 export const mindmap = ({
   instance
 }: {
-  instance: Pick<InternalInstance, 'document'>
+  instance: Pick<EngineContext, 'document'>
 }) => {
   const readDoc = (): Document => instance.document.get()
   const createTreeId = () => createId('mindmap')

@@ -1,13 +1,14 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance/read'
 import type { SnapCandidate } from '@engine-types/node/snap'
-import type { IndexChange } from '@engine-types/read/change'
-import type { IndexCanvasSource } from '@engine-types/read/indexer'
+import type { IndexCanvasSource } from '@engine-types/read/indexes/indexer'
 import {
   isSameRectTuple,
   isSameRefOrder,
   toFiniteOrUndefined
 } from '@whiteboard/core/utils'
+
+type Rebuild = 'none' | 'dirty' | 'full'
 
 type RectTuple = {
   x?: number
@@ -119,16 +120,17 @@ export class SnapIndex {
   }
 
   applyChange = (
-    change: IndexChange,
+    rebuild: Rebuild,
+    nodeIds: readonly NodeId[],
     canvas: IndexCanvasSource
   ): boolean => {
-    switch (change.rebuild) {
+    switch (rebuild) {
       case 'none':
         return false
       case 'full':
         return this.syncFull(canvas.all())
       case 'dirty':
-        return this.syncByNodeIds(change.nodeIds, canvas.byId)
+        return this.syncByNodeIds(nodeIds, canvas.byId)
       default:
         return false
     }

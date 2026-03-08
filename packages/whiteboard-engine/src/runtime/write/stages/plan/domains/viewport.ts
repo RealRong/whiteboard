@@ -1,4 +1,4 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EngineContext } from '@engine-types/instance/engine'
 import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { ops } from '../draft'
@@ -11,10 +11,10 @@ type ViewportCommand = WriteCommandMap['viewport']
 export const viewport = ({
   instance
 }: {
-  instance: Pick<InternalInstance, 'viewport'>
+  instance: Pick<EngineContext, 'viewport'>
 }) => {
   const readViewport = (): Viewport =>
-    instance.viewport.get() ?? DEFAULT_DOCUMENT_VIEWPORT
+    instance.viewport.get()
 
   return (command: ViewportCommand): Draft => {
     if (command.type === 'set') {

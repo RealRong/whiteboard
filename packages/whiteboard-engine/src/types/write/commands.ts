@@ -13,8 +13,6 @@ export type EdgeCommandsApi = Commands['edge']
 
 export type MindmapCommandsApi = Commands['mindmap']
 
-export type InteractionCommandsApi = Commands['interaction']
-
 export type ViewportCommandsApi = Commands['viewport']
 
 export type Apply = <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>

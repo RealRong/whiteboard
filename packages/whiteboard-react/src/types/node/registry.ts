@@ -17,7 +17,7 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  read: Pick<EngineRead, 'viewport' | 'index'>
+  read: Pick<EngineRead, 'index'>
   commands: Commands
   node: Node
   rect: Rect

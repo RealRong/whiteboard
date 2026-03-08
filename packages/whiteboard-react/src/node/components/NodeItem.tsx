@@ -135,19 +135,7 @@ export const NodeItem = ({ item }: NodeItemProps) => {
       height: previewUpdate.size?.height ?? item.rect.height
     }
   }, [item.rect, previewUpdate])
-  const container = useMemo(() => {
-    if (!previewUpdate?.position && !previewUpdate?.size && typeof previewUpdate?.rotation !== 'number') {
-      return item.container
-    }
-    return {
-      transformBase: `translate(${rect.x}px, ${rect.y}px)`,
-      rotation:
-        typeof previewUpdate?.rotation === 'number'
-          ? previewUpdate.rotation
-          : item.container.rotation,
-      transformOrigin: item.container.transformOrigin
-    }
-  }, [item.container, previewUpdate, rect.x, rect.y])
+  const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const activeTool = useWhiteboardSelector('tool')
   const selected = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedNodeIds.has(node.id),
@@ -178,12 +166,12 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     if (!selected || node.locked) return []
     return buildTransformHandles({
       rect,
-      rotation: container.rotation,
+      rotation,
       canRotate,
       rotateHandleOffset: NODE_ROTATE_HANDLE_OFFSET,
       zoom
     })
-  }, [activeTool, canRotate, container.rotation, node.locked, rect, selected, zoom])
+  }, [activeTool, canRotate, node.locked, rect, rotation, selected, zoom])
 
   const nodeStyle = useMemo(
     () =>
@@ -316,9 +304,9 @@ export const NodeItem = ({ item }: NodeItemProps) => {
       nodeId: node.id,
       selected,
       ref: setContainerRef,
-      style: buildContainerStyle(container, nodeStyle)
+      style: buildContainerStyle(rect, rotation, nodeStyle)
     }),
-    [container, node.id, nodeStyle, rect, selected, setContainerRef]
+    [node.id, nodeStyle, rect, rotation, selected, setContainerRef]
   )
 
   const containerProps = useMemo<NodeContainerProps>(
@@ -356,8 +344,8 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   )
 
   const connectHandleOverlayStyle = useMemo(
-    () => buildConnectHandleOverlayStyle(container, nodeStyle),
-    [container, nodeStyle]
+    () => buildConnectHandleOverlayStyle(rect, rotation, nodeStyle),
+    [nodeStyle, rect, rotation]
   )
   const shouldMountConnectHandles = activeTool === 'edge' && (selected || hovered)
   const shouldMountTransform = transformHandles.length > 0
@@ -403,26 +391,29 @@ export const NodeItem = ({ item }: NodeItemProps) => {
 }
 
 const buildContainerTransformStyle = (
-  container: NodeItemProps['item']['container'],
+  rect: NodeItemProps['item']['rect'],
+  rotation: number,
   nodeStyle: CSSProperties
 ) => {
   const extraTransform = nodeStyle.transform
-  const rotationTransform = container.rotation !== 0 ? `rotate(${container.rotation}deg)` : undefined
-  const transform = [container.transformBase, extraTransform, rotationTransform]
+  const baseTransform = `translate(${rect.x}px, ${rect.y}px)`
+  const rotationTransform = rotation !== 0 ? `rotate(${rotation}deg)` : undefined
+  const transform = [baseTransform, extraTransform, rotationTransform]
     .filter(Boolean)
     .join(' ')
 
   return {
     transform: transform || undefined,
-    transformOrigin: rotationTransform ? container.transformOrigin : nodeStyle.transformOrigin
+    transformOrigin: rotationTransform ? 'center center' : nodeStyle.transformOrigin
   }
 }
 
 const buildContainerStyle = (
-  container: NodeItemProps['item']['container'],
+  rect: NodeItemProps['item']['rect'],
+  rotation: number,
   nodeStyle: CSSProperties
 ): CSSProperties => {
-  const transformStyle = buildContainerTransformStyle(container, nodeStyle)
+  const transformStyle = buildContainerTransformStyle(rect, rotation, nodeStyle)
 
   return {
     ...nodeStyle,
@@ -432,10 +423,11 @@ const buildContainerStyle = (
 }
 
 const buildConnectHandleOverlayStyle = (
-  container: NodeItemProps['item']['container'],
+  rect: NodeItemProps['item']['rect'],
+  rotation: number,
   nodeStyle: CSSProperties
 ): CSSProperties => {
-  const transformStyle = buildContainerTransformStyle(container, nodeStyle)
+  const transformStyle = buildContainerTransformStyle(rect, rotation, nodeStyle)
 
   return {
     position: 'absolute',

@@ -11,7 +11,11 @@ export {
   getGroupDescendants,
   getNodesBoundingRect,
   isHiddenByCollapsedGroup,
+  normalizeGroupBounds,
   rectEquals
+} from './group'
+export type {
+  NormalizeGroupBoundsOptions
 } from './group'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
 export {

@@ -1,5 +1,8 @@
 export type {
   EdgeConnectAnchorResult,
   EdgeConnectActions,
-  EdgeConnectModel
+  EdgeConnectDraft,
+  EdgeConnectModel,
+  EdgeConnectState,
+  PointerInput
 } from './connect'

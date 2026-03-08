@@ -12,13 +12,8 @@ import type {
   Viewport
 } from '@whiteboard/core/types'
 import type { MindmapLayout, MindmapDragDropTarget } from '@whiteboard/core/mindmap'
-import type { Size } from '../common/base'
 import type { MindmapLayoutConfig } from '../mindmap/layout'
 import type { SnapCandidate } from '../node/snap'
-import type {
-  InteractionState,
-  SelectionState
-} from '../state/model'
 import type { InstanceConfig } from './config'
 
 export type CanvasNodeRect = {
@@ -39,30 +34,15 @@ export type EdgeEndpoints = {
   target: EdgeEndpoint
 }
 
-export type EdgePath = {
-  points: Point[]
-  svgPath: string
-}
-
-export type EdgePathEntry = {
+export type EdgeEntry = {
   id: EdgeId
   edge: Edge
-  path: EdgePath
   endpoints: EdgeEndpoints
 }
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
   point: Point
-}
-
-export type ViewportTransformView = {
-  center: Point
-  zoom: number
-  transform: string
-  cssVars: {
-    '--wb-zoom': string
-  }
 }
 
 export type MindmapViewTreeLine = {
@@ -101,15 +81,6 @@ export type MindmapViewTree = {
 export type NodeViewItem = {
   node: Node
   rect: Rect
-  container: {
-    transformBase: string
-    rotation: number
-    transformOrigin: 'center center'
-  }
-}
-
-export type ViewportView = {
-  transform: ViewportTransformView
 }
 
 export type NodesView = {
@@ -119,23 +90,12 @@ export type NodesView = {
 
 export type EdgesView = {
   ids: readonly EdgeId[]
-  byId: ReadonlyMap<EdgeId, Readonly<EdgePathEntry>>
+  byId: ReadonlyMap<EdgeId, Readonly<EdgeEntry>>
 }
 
 export type MindmapView = {
   ids: readonly NodeId[]
   byId: ReadonlyMap<NodeId, Readonly<MindmapViewTree>>
-}
-
-export type EngineReadViewport = {
-  get: () => Readonly<Viewport>
-  getZoom: () => number
-  screenToWorld: (point: Point) => Point
-  worldToScreen: (point: Point) => Point
-  clientToScreen: (clientX: number, clientY: number) => Point
-  clientToWorld: (clientX: number, clientY: number) => Point
-  getScreenCenter: () => Point
-  getContainerSize: () => Size
 }
 
 export type EngineReadIndex = {
@@ -147,9 +107,6 @@ export type EngineReadIndex = {
 }
 
 export const READ_STATE_KEYS = {
-  interaction: 'interaction',
-  tool: 'tool',
-  selection: 'selection',
   viewport: 'viewport',
   mindmapLayout: 'mindmapLayout'
 } as const
@@ -165,15 +122,11 @@ export type ReadSubscriptionKey =
   (typeof READ_SUBSCRIPTION_KEYS)[keyof typeof READ_SUBSCRIPTION_KEYS]
 
 export type EngineReadState = {
-  interaction: InteractionState
-  tool: 'select' | 'edge'
-  selection: SelectionState
   viewport: Viewport
   mindmapLayout: MindmapLayoutConfig
 }
 
 export type EngineReadProjection = {
-  viewportTransform: Readonly<ViewportTransformView>
   node: NodesView
   edge: EdgesView
   mindmap: MindmapView
@@ -183,7 +136,6 @@ export type EngineRead = {
   state: EngineReadState
   projection: EngineReadProjection
   index: EngineReadIndex
-  viewport: EngineReadViewport
   config: InstanceConfig
   document: Readonly<Document>
   subscribe: (keys: readonly ReadSubscriptionKey[], listener: () => void) => () => void

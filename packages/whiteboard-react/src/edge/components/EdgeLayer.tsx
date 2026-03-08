@@ -2,12 +2,12 @@ import type { EdgeId } from '@whiteboard/core/types'
 import {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS,
-  type EdgePathEntry
+  type EdgeEntry
 } from '@whiteboard/engine'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo, useCallback } from 'react'
 import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
-import { resolveEdgePathEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
+import { resolveEdgeEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
 import {
   useEdgeRoutingPreviewState,
   type RoutingPreviewDraft
@@ -16,9 +16,9 @@ import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 
-const useEdgePath = (edgeId: EdgeId) => {
+const useEdgeEntry = (edgeId: EdgeId) => {
   const instance = useInstance()
-  return useReadGetter<EdgePathEntry | undefined>(
+  return useReadGetter<EdgeEntry | undefined>(
     () => instance.read.projection.edge.byId.get(edgeId),
     { keys: [READ_SUBSCRIPTION_KEYS.edge] }
   )
@@ -31,7 +31,7 @@ type EdgeItemByIdProps = {
   routingDraft?: RoutingPreviewDraft
   onEdgePathPointerDown: (
     event: ReactPointerEvent<SVGPathElement>,
-    entry: EdgePathEntry
+    entry: EdgeEntry
   ) => void
 }
 
@@ -43,23 +43,17 @@ const EdgeItemById = memo(
     routingDraft,
     onEdgePathPointerDown
   }: EdgeItemByIdProps) => {
-    const instance = useInstance()
-    const path = useEdgePath(edgeId)
-    if (!path) return null
-    const resolvedPath = resolveEdgePathEntryWithRoutingDraft(
-      path,
-      instance.read.index.nodeRect,
-      routingDraft
-    )
+    const entry = useEdgeEntry(edgeId)
+    if (!entry) return null
+    const resolvedEntry = resolveEdgeEntryWithRoutingDraft(entry, routingDraft)
 
     return (
       <EdgeItem
-        edge={resolvedPath.edge}
-        path={resolvedPath.path}
+        entry={resolvedEntry}
         hitTestThresholdScreen={hitTestThresholdScreen}
         selected={selected}
         onPathPointerDown={(event) => {
-          onEdgePathPointerDown(event, resolvedPath)
+          onEdgePathPointerDown(event, resolvedEntry)
         }}
       />
     )
@@ -83,12 +77,12 @@ export const EdgeLayer = () => {
   const stateSelectedEdgeId = useWhiteboardSelector(
     (snapshot) => snapshot.selection.selectedEdgeId,
     {
-      keys: [READ_STATE_KEYS.selection]
+      keys: ['selection']
     }
   )
   const hitTestThresholdScreen = instance.read.config.edge.hitTestThresholdScreen
   const handleEdgePointerDown = useCallback(
-    (event: ReactPointerEvent<SVGPathElement>, entry: EdgePathEntry) => {
+    (event: ReactPointerEvent<SVGPathElement>, entry: EdgeEntry) => {
       handleEdgePathPointerDown(event, entry.edge)
     },
     [handleEdgePathPointerDown]

@@ -1,1 +1,1 @@
-export type * from './store'
+export {}

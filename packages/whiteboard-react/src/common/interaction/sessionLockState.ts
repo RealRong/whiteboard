@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance/types'
 
 export type InteractionSessionKind =
   | 'viewportGesture'
@@ -26,24 +26,24 @@ const sessionLockAtom = atom<SessionLockSnapshot>(EMPTY_SNAPSHOT)
 
 let nextTokenId = 1
 
-const readSnapshot = (instance: Instance) => instance.runtime.store.get(sessionLockAtom)
+const readSnapshot = (instance: InternalWhiteboardInstance) => instance.uiStore.get(sessionLockAtom)
 
-const writeSnapshot = (instance: Instance, next: SessionLockSnapshot) => {
-  instance.runtime.store.set(sessionLockAtom, next)
+const writeSnapshot = (instance: InternalWhiteboardInstance, next: SessionLockSnapshot) => {
+  instance.uiStore.set(sessionLockAtom, next)
 }
 
-const setSnapshot = (instance: Instance, next: SessionLockSnapshot) => {
+const setSnapshot = (instance: InternalWhiteboardInstance, next: SessionLockSnapshot) => {
   const snapshot = readSnapshot(instance)
   if (snapshot.active === next.active) return
   writeSnapshot(instance, next)
 }
 
 export const sessionLockState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(sessionLockAtom, listener),
-  getSnapshot: (instance: Instance) => readSnapshot(instance),
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(sessionLockAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => readSnapshot(instance),
   tryAcquire: (
-    instance: Instance,
+    instance: InternalWhiteboardInstance,
     kind: InteractionSessionKind,
     pointerId?: number
   ): SessionLockToken | null => {
@@ -58,13 +58,13 @@ export const sessionLockState = {
     setSnapshot(instance, { active: token })
     return token
   },
-  release: (instance: Instance, token: SessionLockToken) => {
+  release: (instance: InternalWhiteboardInstance, token: SessionLockToken) => {
     const snapshot = readSnapshot(instance)
     if (!snapshot.active) return
     if (snapshot.active.id !== token.id) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   },
-  forceReset: (instance: Instance) => {
+  forceReset: (instance: InternalWhiteboardInstance) => {
     const snapshot = readSnapshot(instance)
     if (!snapshot.active) return
     setSnapshot(instance, EMPTY_SNAPSHOT)

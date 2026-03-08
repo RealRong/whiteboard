@@ -1,4 +1,4 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EngineContext } from '@engine-types/instance/engine'
 import type { WriteCommandMap } from '@engine-types/command/api'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
@@ -45,7 +45,7 @@ const toUpdateOperations = (
 export const edge = ({
   instance
 }: {
-  instance: Pick<InternalInstance, 'document' | 'registries' | 'config'>
+  instance: Pick<EngineContext, 'document' | 'registries' | 'config'>
 }) => {
   const readDoc = () => instance.document.get()
   const createEdgeId = () => createId('edge')

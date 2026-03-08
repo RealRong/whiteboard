@@ -1,4 +1,3 @@
-import type { ReadSignals } from '@engine-types/read/change'
 import type { PrimitiveAtom, createStore } from 'jotai/vanilla'
 
 export const createReadSignals = ({
@@ -16,14 +15,14 @@ export const createReadSignals = ({
     store.set(atom, (revision: number) => revision + 1)
   }
 
-  const apply = (signals: ReadSignals) => {
-    if (signals.node) {
+  const apply = (node: boolean, edge: boolean, mindmap: boolean) => {
+    if (node) {
       bump(atoms.node)
     }
-    if (signals.edge) {
+    if (edge) {
       bump(atoms.edge)
     }
-    if (signals.mindmap) {
+    if (mindmap) {
       bump(atoms.mindmap)
     }
   }

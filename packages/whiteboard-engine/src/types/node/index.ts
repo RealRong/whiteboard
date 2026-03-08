@@ -1,8 +1,3 @@
-export type * from './components'
 export type * from './drag'
-export type * from './interaction'
-export type * from './presentation'
-export type * from './registry'
-export type * from './selection'
 export type * from './snap'
 export type * from './transform'

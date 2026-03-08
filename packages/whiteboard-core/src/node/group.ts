@@ -1,6 +1,33 @@
-import type { Node, NodeId, Point, Rect, Size } from '../types'
+import type {
+  Document,
+  Node,
+  NodeId,
+  Operation,
+  Point,
+  Rect,
+  Size
+} from '../types'
+import { listNodes } from '../types'
 import { enlargeBox } from '../utils/group'
 import { getNodeAABB } from '../geometry'
+
+export type NormalizeGroupBoundsOptions = {
+  document: Pick<Document, 'nodes'>
+  nodeSize: Size
+  groupPadding: number
+  rectEpsilon: number
+}
+
+type GroupBoundsOperation = {
+  type: 'node.update'
+  id: NodeId
+  patch: {
+    position: Point
+    size: Size
+  }
+}
+
+const EMPTY_NODE_IDS: readonly NodeId[] = []
 
 export const getNodesBoundingRect = (
   nodes: readonly Node[],
@@ -114,6 +141,143 @@ export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
   Math.abs(a.width - b.width) <= epsilon &&
   Math.abs(a.height - b.height) <= epsilon
 )
+
+const createChildIdsByParentId = (nodes: readonly Node[]) => {
+  const childIdsByParentId = new Map<NodeId, NodeId[]>()
+  nodes.forEach((node) => {
+    if (!node.parentId) return
+    const childIds = childIdsByParentId.get(node.parentId)
+    if (childIds) {
+      childIds.push(node.id)
+      return
+    }
+    childIdsByParentId.set(node.parentId, [node.id])
+  })
+  return childIdsByParentId
+}
+
+const sortGroupIdsBottomUp = ({
+  groupIds,
+  nodeById,
+  orderIndexById
+}: {
+  groupIds: readonly NodeId[]
+  nodeById: Readonly<Record<NodeId, Node>>
+  orderIndexById: ReadonlyMap<NodeId, number>
+}) => {
+  const depthById = new Map<NodeId, number>()
+
+  const resolveDepth = (nodeId: NodeId): number => {
+    const cached = depthById.get(nodeId)
+    if (cached !== undefined) return cached
+
+    const node = nodeById[nodeId]
+    const parentId = node?.parentId
+    const parent = parentId ? nodeById[parentId] : undefined
+    const depth = parent?.type === 'group' ? resolveDepth(parent.id) + 1 : 0
+    depthById.set(nodeId, depth)
+    return depth
+  }
+
+  return [...groupIds].sort((left, right) => {
+    const depthDiff = resolveDepth(right) - resolveDepth(left)
+    if (depthDiff !== 0) return depthDiff
+    return (orderIndexById.get(left) ?? 0) - (orderIndexById.get(right) ?? 0)
+  })
+}
+
+const createGroupBoundsOperation = ({
+  group,
+  children,
+  nodeSize,
+  groupPadding,
+  rectEpsilon
+}: {
+  group: Node
+  children: readonly Node[]
+  nodeSize: Size
+  groupPadding: number
+  rectEpsilon: number
+}): GroupBoundsOperation | null => {
+  if (!children.length) return null
+
+  const contentRect = getNodesBoundingRect(children, nodeSize)
+  if (!contentRect) return null
+
+  const groupRect = getNodeAABB(group, nodeSize)
+  const nextRect = expandGroupRect(groupRect, contentRect, groupPadding)
+  if (rectEquals(nextRect, groupRect, rectEpsilon)) return null
+
+  return {
+    type: 'node.update',
+    id: group.id,
+    patch: {
+      position: { x: nextRect.x, y: nextRect.y },
+      size: { width: nextRect.width, height: nextRect.height }
+    }
+  }
+}
+
+export const normalizeGroupBounds = ({
+  document,
+  nodeSize,
+  groupPadding,
+  rectEpsilon
+}: NormalizeGroupBoundsOptions): Operation[] => {
+  const orderedNodes = listNodes(document)
+  if (!orderedNodes.length) return []
+
+  const orderIndexById = new Map<NodeId, number>()
+  const groupIds: NodeId[] = []
+  orderedNodes.forEach((node, index) => {
+    orderIndexById.set(node.id, index)
+    if (node.type === 'group') {
+      groupIds.push(node.id)
+    }
+  })
+  if (!groupIds.length) return []
+
+  const childIdsByParentId = createChildIdsByParentId(orderedNodes)
+  const workingNodes: Record<NodeId, Node> = {
+    ...document.nodes.entities
+  }
+  const sortedGroupIds = sortGroupIdsBottomUp({
+    groupIds,
+    nodeById: workingNodes,
+    orderIndexById
+  })
+  const operations: Operation[] = []
+
+  sortedGroupIds.forEach((groupId) => {
+    const group = workingNodes[groupId]
+    if (!group || group.type !== 'group') return
+
+    const childIds = childIdsByParentId.get(groupId) ?? EMPTY_NODE_IDS
+    if (!childIds.length) return
+
+    const children = childIds
+      .map((childId) => workingNodes[childId])
+      .filter((node): node is Node => Boolean(node))
+
+    const operation = createGroupBoundsOperation({
+      group,
+      children,
+      nodeSize,
+      groupPadding,
+      rectEpsilon
+    })
+    if (!operation) return
+
+    operations.push(operation)
+    workingNodes[groupId] = {
+      ...group,
+      position: operation.patch.position,
+      size: operation.patch.size
+    }
+  })
+
+  return operations
+}
 
 const pointInRect = (point: Point, rect: Rect) => (
   point.x >= rect.x &&

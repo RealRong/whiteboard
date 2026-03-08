@@ -1,14 +1,11 @@
 import { useEffect, useMemo, type RefObject } from 'react'
-import type {
-  Instance,
-  ShortcutAction,
-  ShortcutOverrides
-} from '@whiteboard/engine'
+import type { ShortcutAction, ShortcutOverrides } from '../../types/common/shortcut'
+import type { WhiteboardInstance } from '../instance'
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
 import { dispatchShortcutAction } from './shortcutDispatch'
 
 type UseShortcutDispatchOptions = {
-  instance: Instance
+  instance: WhiteboardInstance
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
 }
@@ -83,43 +80,33 @@ const chordFromKeyboardEvent = (event: KeyboardEvent): string | undefined => {
     return undefined
   }
 
-  const tokens: string[] = []
-  if (event.ctrlKey) tokens.push('Ctrl')
-  if (event.altKey) tokens.push('Alt')
-  if (event.shiftKey) tokens.push('Shift')
-  if (event.metaKey) tokens.push('Meta')
-  tokens.push(normalized)
-  return tokens.join('+')
+  const parts: string[] = []
+  if (event.ctrlKey) parts.push('Ctrl')
+  if (event.altKey) parts.push('Alt')
+  if (event.shiftKey) parts.push('Shift')
+  if (event.metaKey) parts.push('Meta')
+  parts.push(normalized)
+  return parts.join('+')
 }
 
-const isTextInput = (target: EventTarget | null): boolean => {
+const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof Element)) return false
-  if (target instanceof HTMLTextAreaElement) return true
-  if (target instanceof HTMLInputElement) {
-    const type = (target.type || 'text').toLowerCase()
-    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type)
+  if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) {
+    return false
   }
-  if (target instanceof HTMLElement && target.isContentEditable) return true
-  return Boolean(target.closest('[contenteditable=""], [contenteditable="true"]'))
+  return true
 }
 
-const isInsideContainer = (target: EventTarget | null, container: HTMLDivElement): boolean => {
-  if (!(target instanceof Node)) return false
-  return container.contains(target)
-}
-
-const createKeyActionMap = (
-  shortcuts: readonly {
-    key: string
-    action: ShortcutAction
-  }[]
+const createShortcutMap = (
+  bindings: readonly { key: string; action: ShortcutAction }[],
+  platform: Platform
 ): Map<string, ShortcutAction> => {
-  const platform = detectPlatform()
   const map = new Map<string, ShortcutAction>()
-  shortcuts.forEach((item) => {
-    const chord = normalizeBindingChord(item.key, platform)
-    if (!chord) return
-    map.set(chord, item.action)
+  bindings.forEach((binding) => {
+    const normalized = normalizeBindingChord(binding.key, platform)
+    if (!normalized) return
+    map.set(normalized, binding.action)
   })
   return map
 }
@@ -129,37 +116,37 @@ export const useShortcutDispatch = ({
   containerRef,
   shortcuts
 }: UseShortcutDispatchOptions) => {
+  const platform = useMemo(() => detectPlatform(), [])
   const bindings = useMemo(
     () => resolveShortcutBindings(DEFAULT_SHORTCUT_BINDINGS, shortcuts),
     [shortcuts]
   )
-  const keyActionMap = useMemo(() => createKeyActionMap(bindings), [bindings])
+  const shortcutMap = useMemo(
+    () => createShortcutMap(bindings, platform),
+    [bindings, platform]
+  )
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
+    const container = containerRef.current
+    if (!container) return
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing) return
-      const container = containerRef.current
-      if (!container) return
-      if (!isInsideContainer(event.target, container)) return
-      if (isTextInput(event.target)) return
-
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) {
+        return
+      }
       const chord = chordFromKeyboardEvent(event)
       if (!chord) return
-      const action = keyActionMap.get(chord)
+      const action = shortcutMap.get(chord)
       if (!action) return
-
       const handled = dispatchShortcutAction(instance, action)
       if (!handled) return
-
       event.preventDefault()
       event.stopPropagation()
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    container.addEventListener('keydown', onKeyDown)
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      container.removeEventListener('keydown', onKeyDown)
     }
-  }, [instance, containerRef, keyActionMap])
+  }, [containerRef, instance, shortcutMap])
 }

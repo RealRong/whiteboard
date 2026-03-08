@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { atom, useAtomValue } from 'jotai'
 import type { Rect } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../instance/types'
 
 type SelectionBoxSnapshot = {
   rect?: Rect
@@ -14,29 +14,34 @@ const EMPTY_SNAPSHOT: SelectionBoxSnapshot = {}
 
 const selectionBoxAtom = atom<SelectionBoxSnapshot>(EMPTY_SNAPSHOT)
 
-const readSnapshot = (instance: Instance) => instance.runtime.store.get(selectionBoxAtom)
+const readSnapshot = (instance: InternalWhiteboardInstance) => instance.uiStore.get(selectionBoxAtom)
 
-const writeSnapshot = (instance: Instance, next: SelectionBoxSnapshot) => {
-  instance.runtime.store.set(selectionBoxAtom, next)
+const writeSnapshot = (instance: InternalWhiteboardInstance, next: SelectionBoxSnapshot) => {
+  instance.uiStore.set(selectionBoxAtom, next)
 }
 
-const setSnapshot = (instance: Instance, next: SelectionBoxSnapshot) => {
+const setSnapshot = (instance: InternalWhiteboardInstance, next: SelectionBoxSnapshot) => {
   const snapshot = readSnapshot(instance)
   if (snapshot.rect === next.rect) return
   writeSnapshot(instance, next)
 }
 
 export const selectionBoxState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(selectionBoxAtom, listener),
-  getSnapshot: (instance: Instance) => readSnapshot(instance),
-  setRect: (instance: Instance, rect: Rect) => {
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(selectionBoxAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => readSnapshot(instance),
+  setRect: (instance: InternalWhiteboardInstance, rect: Rect) => {
     setSnapshot(instance, { rect })
   },
-  clear: (instance: Instance) => {
+  clear: (instance: InternalWhiteboardInstance) => {
     const snapshot = readSnapshot(instance)
     if (!snapshot.rect) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
+  },
+  reset: (instance: InternalWhiteboardInstance) => {
+    const snapshot = readSnapshot(instance)
+    if (snapshot === EMPTY_SNAPSHOT) return
+    writeSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 

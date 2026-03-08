@@ -10,7 +10,7 @@ import {
 } from '@whiteboard/core/node'
 import { getRectCenter, isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeId, Point } from '@whiteboard/core/types'
-import { useInstance } from '../../common/hooks'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
@@ -235,8 +235,8 @@ export const useNodeTransformInteraction = ({
         const world = toPointerWorld(
           event.clientX,
           event.clientY,
-          instance.read.viewport.clientToScreen,
-          instance.read.viewport.screenToWorld
+          instance.runtime.viewport.clientToScreen,
+          instance.runtime.viewport.screenToWorld
         )
         const startAngle = Math.atan2(
           world.y - center.y,
@@ -273,8 +273,8 @@ export const useNodeTransformInteraction = ({
     },
     [
       instance.read.index,
-      instance.read.viewport.clientToScreen,
-      instance.read.viewport.screenToWorld,
+      instance.runtime.viewport.clientToScreen,
+      instance.runtime.viewport.screenToWorld,
       instance.state,
       nodeId
     ]
@@ -288,7 +288,7 @@ export const useNodeTransformInteraction = ({
 
       if (active.drag.mode === 'resize') {
         const activeTool = instance.state.read('tool')
-        const zoom = Math.max(instance.read.viewport.getZoom(), ZOOM_EPSILON)
+        const zoom = Math.max(instance.runtime.viewport.getZoom(), ZOOM_EPSILON)
         const resized = computeResizeRect({
           handle: active.drag.handle,
           startScreen: active.drag.startScreen,
@@ -370,8 +370,8 @@ export const useNodeTransformInteraction = ({
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       const rotation = computeNextRotation({
         center: active.drag.center,

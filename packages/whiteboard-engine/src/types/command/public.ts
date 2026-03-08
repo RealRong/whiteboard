@@ -12,9 +12,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { ResolvedHistoryConfig } from '../common/config'
 import type {
-  HistoryState,
-  InteractionState,
-  SelectionMode
+  HistoryState
 } from '../state/model'
 import type {
   EdgeBatchUpdate,
@@ -32,9 +30,6 @@ export type Commands = {
     load: (doc: Document) => Promise<DispatchResult>
     replace: (doc: Document) => Promise<DispatchResult>
   }
-  tool: {
-    set: (tool: 'select' | 'edge') => void
-  }
   history: {
     configure: (config: Partial<ResolvedHistoryConfig>) => void
     get: () => HistoryState
@@ -42,26 +37,11 @@ export type Commands = {
     redo: () => boolean
     clear: () => void
   }
-  interaction: {
-    update: (patch: Partial<InteractionState>) => void
-    clearHover: () => void
-  }
-  host: {
-    containerResized: (rect: { left: number; top: number; width: number; height: number }) => void
-  }
-  selection: {
-    select: (ids: NodeId[], mode?: SelectionMode) => void
-    toggle: (ids: NodeId[]) => void
-    selectAll: () => void
-    clear: () => void
-    getSelectedNodeIds: () => NodeId[]
-  }
   edge: {
     create: (payload: EdgeInput) => Promise<DispatchResult>
     update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
     updateMany: (updates: readonly EdgeBatchUpdate[]) => Promise<DispatchResult>
     delete: (ids: EdgeId[]) => Promise<DispatchResult>
-    select: (id?: EdgeId) => void
     routing: {
       insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => Promise<DispatchResult>
       move: (edgeId: EdgeId, index: number, pointWorld: Point) => Promise<DispatchResult>

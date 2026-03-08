@@ -2,30 +2,18 @@ import type {
   CreateEngineOptions,
   Instance
 } from '@engine-types/instance/engine'
-import type { Api as InstanceApi } from '@engine-types/instance/runtime'
-import { assertDocument, type Document } from '@whiteboard/core/types'
+import type { Config as RuntimeConfig } from '@engine-types/instance/runtime'
+import { assertDocument } from '@whiteboard/core/types'
 import type { WriteInstance } from '@engine-types/write/deps'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createStore } from 'jotai/vanilla'
+import { createCommands } from '../commands'
+import { resolveInstanceConfig } from '../config'
+import { createStoreState } from '../internal/store'
+import { createReadRuntime } from '../runtime/read/kernel'
 import { createWrite } from '../runtime/write'
-import { DEFAULT_DOCUMENT_VIEWPORT, resolveInstanceConfig } from '../config'
-import { state as setupState } from '../state/factory/state'
-import { createInitialState } from '../state/initialState'
 import { Scheduler } from '../scheduling/Scheduler'
-import { ViewportHost } from '../runtime/Viewport'
-import { createReadKernel } from '../runtime/read/kernel'
-import { createReactions, type Reactions } from './reactions/Reactions'
-import { createCommands } from './facade/commands'
-
-const assertImmutableDocumentInput = (
-  currentDocument: Document,
-  nextDocument: Document
-) => {
-  if (currentDocument !== nextDocument) return
-  throw new Error(
-    'Whiteboard engine requires immutable document inputs. Received the same document reference.'
-  )
-}
+import { createDocumentRuntime } from './document/createDocumentRuntime'
 
 export const engine = ({
   registries,
@@ -38,99 +26,59 @@ export const engine = ({
   const config = resolveInstanceConfig(overrides)
   const resolvedRegistries = registries ?? createRegistries()
   const initialDocument = assertDocument(document)
-  const { state, stateAtoms } = setupState({
-    getDoc: () => initialDocument,
-    store
+  const { stateAtoms } = createStoreState({
+    getDoc: () => initialDocument
   })
-  const readDocument = (): Document => store.get(stateAtoms.document)
-  const resetTransientState = () => {
-    const initialState = createInitialState()
-    state.batch(() => {
-      state.write('selection', initialState.selection)
-      state.write('interaction', initialState.interaction)
-    })
-  }
-  const commitDocument = (nextDocument: Document) => {
-    const committedDocument = assertDocument(nextDocument)
-    const currentDocument = readDocument()
-    assertImmutableDocumentInput(currentDocument, committedDocument)
-    store.set(stateAtoms.document, committedDocument)
-    viewport.setViewport(committedDocument.viewport ?? DEFAULT_DOCUMENT_VIEWPORT)
-  }
-  const notifyDocumentChange = (nextDocument: Document) => {
-    onDocumentChange?.(nextDocument)
-  }
-  const viewport = new ViewportHost({
+  const documentRuntime = createDocumentRuntime({
     store,
-    atom: stateAtoms.viewport
+    stateAtoms
   })
-
-  const read = createReadKernel({
+  const read = createReadRuntime({
     store,
     stateAtoms,
-    config,
-    viewport
+    config
   })
 
-  const baseInstance: WriteInstance = {
-    document: {
-      get: readDocument,
-      commit: commitDocument,
-      notifyChange: notifyDocumentChange
-    },
+  const context: WriteInstance = {
+    document: documentRuntime.document,
     config,
-    viewport,
+    viewport: documentRuntime.viewport,
     registries: resolvedRegistries
   }
-  state.write('tool', 'select')
 
-  let reactions: Reactions | undefined
   const write = createWrite({
-    instance: baseInstance,
+    instance: context,
     scheduler,
-    read: read.ingest,
-    resetTransientState,
-    react: (impact) => reactions?.ingest(impact)
-  })
-
-  const internalInstance = {
-    state,
-    ...baseInstance,
-    read: read.read
-  }
-
-  reactions = createReactions({
-    instance: internalInstance,
-    write,
-    scheduler
+    applyReadImpact: read.applyImpact,
+    notifyDocumentChange: onDocumentChange
   })
 
   const commands = createCommands({
-    instance: internalInstance,
-    viewport,
+    document: documentRuntime.document,
     write
   })
 
-  const runtime: InstanceApi = {
-    store,
-    applyConfig: (nextConfig) => {
-      if (nextConfig.history) {
-        write.history.configure(nextConfig.history)
-      }
-      state.write('tool', nextConfig.tool)
-      viewport.setViewport(nextConfig.viewport)
-      state.write('mindmapLayout', nextConfig.mindmapLayout ?? {})
-    },
-    dispose: () => {
-      reactions?.dispose()
-      scheduler.cancelAll()
+  const configure = (nextConfig: RuntimeConfig) => {
+    if (nextConfig.history) {
+      write.history.configure(nextConfig.history)
+    }
+
+    const nextMindmapLayout = nextConfig.mindmapLayout ?? {}
+    const currentMindmapLayout = store.get(stateAtoms.mindmapLayout)
+    if (!Object.is(currentMindmapLayout, nextMindmapLayout)) {
+      store.set(stateAtoms.mindmapLayout, nextMindmapLayout)
     }
   }
 
   return {
-    state,
-    runtime,
-    read: read.read,
+    runtime: {
+      configure,
+      dispose: () => {
+        write.dispose()
+        scheduler.cancelAll()
+      }
+    },
+    read: read.api,
     commands
   }
 }

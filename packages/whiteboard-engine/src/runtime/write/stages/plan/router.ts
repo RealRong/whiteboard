@@ -1,4 +1,4 @@
-import type { InternalInstance } from '@engine-types/instance/engine'
+import type { EngineContext } from '@engine-types/instance/engine'
 import type { WriteInput } from '@engine-types/command/api'
 import type { Draft } from './draft'
 import { invalid } from './draft'
@@ -11,7 +11,7 @@ export const plan = ({
   instance
 }: {
   instance: Pick<
-    InternalInstance,
+    EngineContext,
     'document' | 'config' | 'registries' | 'viewport'
   >
 }) => {

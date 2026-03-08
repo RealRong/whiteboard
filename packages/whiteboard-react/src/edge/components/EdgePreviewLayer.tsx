@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useInstance, useWhiteboardSelector } from '../../common/hooks'
+import { useInternalInstance as useInstance, useWhiteboardSelector } from '../../common/hooks'
 import { resolveSnapTarget } from '../interaction/connectMath'
 import {
   edgeConnectPreviewState,
@@ -26,11 +26,11 @@ export const EdgePreviewLayer = () => {
       if (!latestEvent) return
       if (edgeConnectPreviewState.getSnapshot(instance).activePointerId !== undefined) return
 
-      const screen = instance.read.viewport.clientToScreen(
+      const screen = instance.runtime.viewport.clientToScreen(
         latestEvent.clientX,
         latestEvent.clientY
       )
-      const world = instance.read.viewport.screenToWorld(screen)
+      const world = instance.runtime.viewport.screenToWorld(screen)
       const target = resolveSnapTarget(instance, world)
       edgeConnectPreviewState.setHoverSnap(instance, target?.pointWorld)
     }

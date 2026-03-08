@@ -1,6 +1,6 @@
 import { atom, useAtomValue } from 'jotai'
 import type { Point } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../../common/instance/types'
 
 type EdgeConnectPreviewSnapshot = {
   activePointerId?: number
@@ -25,10 +25,10 @@ const EMPTY_SNAPSHOT: EdgeConnectPreviewSnapshot = {
 const edgeConnectPreviewAtom = atom<EdgeConnectPreviewSnapshot>(EMPTY_SNAPSHOT)
 
 const setSnapshot = (
-  instance: Instance,
+  instance: InternalWhiteboardInstance,
   next: EdgeConnectPreviewSnapshot
 ) => {
-  const snapshot = instance.runtime.store.get(edgeConnectPreviewAtom)
+  const snapshot = instance.uiStore.get(edgeConnectPreviewAtom)
   const unchanged =
     snapshot.activePointerId === next.activePointerId
     && snapshot.from === next.from
@@ -36,14 +36,14 @@ const setSnapshot = (
     && snapshot.snap === next.snap
     && snapshot.showPreviewLine === next.showPreviewLine
   if (unchanged) return
-  instance.runtime.store.set(edgeConnectPreviewAtom, next)
+  instance.uiStore.set(edgeConnectPreviewAtom, next)
 }
 
 export const edgeConnectPreviewState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(edgeConnectPreviewAtom, listener),
-  getSnapshot: (instance: Instance) => instance.runtime.store.get(edgeConnectPreviewAtom),
-  setActivePreview: (instance: Instance, preview: ActivePreviewInput) => {
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(edgeConnectPreviewAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(edgeConnectPreviewAtom),
+  setActivePreview: (instance: InternalWhiteboardInstance, preview: ActivePreviewInput) => {
     setSnapshot(instance, {
       activePointerId: preview.pointerId,
       from: preview.from,
@@ -52,16 +52,16 @@ export const edgeConnectPreviewState = {
       showPreviewLine: preview.showPreviewLine
     })
   },
-  setHoverSnap: (instance: Instance, snap: Point | undefined) => {
-    const snapshot = instance.runtime.store.get(edgeConnectPreviewAtom)
+  setHoverSnap: (instance: InternalWhiteboardInstance, snap: Point | undefined) => {
+    const snapshot = instance.uiStore.get(edgeConnectPreviewAtom)
     if (snapshot.activePointerId !== undefined) return
     setSnapshot(instance, {
       ...snapshot,
       snap
     })
   },
-  clearHoverSnap: (instance: Instance) => {
-    const snapshot = instance.runtime.store.get(edgeConnectPreviewAtom)
+  clearHoverSnap: (instance: InternalWhiteboardInstance) => {
+    const snapshot = instance.uiStore.get(edgeConnectPreviewAtom)
     if (snapshot.activePointerId !== undefined) return
     if (!snapshot.snap) return
     setSnapshot(instance, {
@@ -69,8 +69,8 @@ export const edgeConnectPreviewState = {
       snap: undefined
     })
   },
-  clearActivePreview: (instance: Instance, pointerId?: number) => {
-    const snapshot = instance.runtime.store.get(edgeConnectPreviewAtom)
+  clearActivePreview: (instance: InternalWhiteboardInstance, pointerId?: number) => {
+    const snapshot = instance.uiStore.get(edgeConnectPreviewAtom)
     if (
       pointerId !== undefined
       && snapshot.activePointerId !== undefined
@@ -81,8 +81,8 @@ export const edgeConnectPreviewState = {
     if (snapshot.activePointerId === undefined) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   },
-  reset: (instance: Instance) => {
-    const snapshot = instance.runtime.store.get(edgeConnectPreviewAtom)
+  reset: (instance: InternalWhiteboardInstance) => {
+    const snapshot = instance.uiStore.get(edgeConnectPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   }

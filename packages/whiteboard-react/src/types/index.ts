@@ -10,7 +10,10 @@ export type {
   ResolvedEdgeConfig,
   ResolvedHistoryConfig,
   ResolvedNodeConfig,
-  ResolvedViewportConfig
+  ResolvedViewportConfig,
+  ShortcutAction,
+  ShortcutBinding,
+  ShortcutOverrides
 } from './common'
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 

@@ -1,6 +1,6 @@
 import { atom, useAtomValue } from 'jotai'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import type { Instance } from '@whiteboard/engine'
+import type { InternalWhiteboardInstance } from '../../common/instance/types'
 
 export type RoutingPreviewDraft = {
   edgeId: EdgeId
@@ -19,27 +19,27 @@ const EMPTY_SNAPSHOT: RoutingPreviewSnapshot = {}
 
 const routingPreviewAtom = atom<RoutingPreviewSnapshot>(EMPTY_SNAPSHOT)
 
-const setSnapshot = (instance: Instance, next: RoutingPreviewSnapshot) => {
-  const snapshot = instance.runtime.store.get(routingPreviewAtom)
+const setSnapshot = (instance: InternalWhiteboardInstance, next: RoutingPreviewSnapshot) => {
+  const snapshot = instance.uiStore.get(routingPreviewAtom)
   if (snapshot.draft === next.draft) return
-  instance.runtime.store.set(routingPreviewAtom, next)
+  instance.uiStore.set(routingPreviewAtom, next)
 }
 
 export const edgeRoutingPreviewState = {
-  subscribe: (instance: Instance, listener: () => void) =>
-    instance.runtime.store.sub(routingPreviewAtom, listener),
-  getSnapshot: (instance: Instance) => instance.runtime.store.get(routingPreviewAtom),
-  setDraft: (instance: Instance, draft: RoutingPreviewDraft) => {
+  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
+    instance.uiStore.sub(routingPreviewAtom, listener),
+  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(routingPreviewAtom),
+  setDraft: (instance: InternalWhiteboardInstance, draft: RoutingPreviewDraft) => {
     setSnapshot(instance, { draft })
   },
-  clearDraft: (instance: Instance, pointerId?: number) => {
-    const snapshot = instance.runtime.store.get(routingPreviewAtom)
+  clearDraft: (instance: InternalWhiteboardInstance, pointerId?: number) => {
+    const snapshot = instance.uiStore.get(routingPreviewAtom)
     if (!snapshot.draft) return
     if (pointerId !== undefined && snapshot.draft.pointerId !== pointerId) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   },
-  reset: (instance: Instance) => {
-    const snapshot = instance.runtime.store.get(routingPreviewAtom)
+  reset: (instance: InternalWhiteboardInstance) => {
+    const snapshot = instance.uiStore.get(routingPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
     setSnapshot(instance, EMPTY_SNAPSHOT)
   }

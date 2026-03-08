@@ -3,8 +3,9 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent
 } from 'react'
-import type { Edge, EdgeId, Point } from '@whiteboard/core/types'
-import { useInstance } from '../../common/hooks'
+import type { EdgeId, Point } from '@whiteboard/core/types'
+import type { EdgeEntry } from '@whiteboard/engine'
+import { useInternalInstance as useInstance } from '../../common/hooks'
 import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { viewportGestureState } from '../../common/interaction/viewportGestureState'
@@ -12,10 +13,6 @@ import {
   edgeRoutingPreviewState,
   type RoutingPreviewDraft
 } from '../interaction/routingPreviewState'
-
-type EdgeEntry = {
-  edge: Edge
-}
 
 const toPointerWorld = (
   clientX: number,
@@ -39,8 +36,7 @@ export const useEdgeRoutingInteraction = () => {
   const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const readEdgeById = useCallback(
-    (edgeId: EdgeId) =>
-      instance.read.projection.edge.byId.get(edgeId) as EdgeEntry | undefined,
+    (edgeId: EdgeId) => instance.read.projection.edge.byId.get(edgeId),
     [instance.read]
   )
 
@@ -103,8 +99,8 @@ export const useEdgeRoutingInteraction = () => {
       const start = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       const origin = points[index]
       if (!origin) return
@@ -132,8 +128,8 @@ export const useEdgeRoutingInteraction = () => {
     },
     [
       instance.commands.edge,
-      instance.read.viewport.clientToScreen,
-      instance.read.viewport.screenToWorld,
+      instance.runtime.viewport.clientToScreen,
+      instance.runtime.viewport.screenToWorld,
       instance,
       readEdgeById
     ]
@@ -178,8 +174,8 @@ export const useEdgeRoutingInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.read.viewport.clientToScreen,
-        instance.read.viewport.screenToWorld
+        instance.runtime.viewport.clientToScreen,
+        instance.runtime.viewport.screenToWorld
       )
       const point = {
         x: active.origin.x + (world.x - active.start.x),

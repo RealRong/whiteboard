@@ -1,12 +1,13 @@
-import type { Edge, Point } from '@whiteboard/core/types'
+import { getEdgePath } from '@whiteboard/core/edge'
+import type { Edge } from '@whiteboard/core/types'
+import type { EdgeEntry } from '@whiteboard/engine'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
 
 type EdgeItemProps = {
-  edge: Edge
-  path: { svgPath: string; points: Point[] }
+  entry: EdgeEntry
   hitTestThresholdScreen: number
   selected?: boolean
   onPathPointerDown?: (event: ReactPointerEvent<SVGPathElement>) => void
@@ -47,21 +48,33 @@ const isEdgeStyleEqual = (prevEdge: Edge, nextEdge: Edge) => {
 
 const areEdgeItemPropsEqual = (prevProps: EdgeItemProps, nextProps: EdgeItemProps) => {
   return (
-    prevProps.edge.id === nextProps.edge.id
+    prevProps.entry.edge.id === nextProps.entry.edge.id
     && prevProps.selected === nextProps.selected
     && prevProps.hitTestThresholdScreen === nextProps.hitTestThresholdScreen
-    && prevProps.path === nextProps.path
-    && isEdgeStyleEqual(prevProps.edge, nextProps.edge)
+    && prevProps.entry === nextProps.entry
+    && isEdgeStyleEqual(prevProps.entry.edge, nextProps.entry.edge)
   )
 }
 
 const EdgeItemBase = ({
-  edge,
-  path,
+  entry,
   hitTestThresholdScreen,
   selected,
   onPathPointerDown
 }: EdgeItemProps) => {
+  const edge = entry.edge
+  const svgPath = useMemo(() => getEdgePath({
+    edge,
+    source: {
+      point: entry.endpoints.source.point,
+      side: entry.endpoints.source.anchor.side
+    },
+    target: {
+      point: entry.endpoints.target.point,
+      side: entry.endpoints.target.anchor.side
+    }
+  }).svgPath, [edge, entry.endpoints])
+
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useMemo(() => {
     const baseStroke = edge.style?.stroke ?? '#2f2f33'
     const stroke = selected ? '#2563eb' : baseStroke
@@ -97,7 +110,7 @@ const EdgeItemBase = ({
       style={{ '--wb-edge-hover-stroke-width': `${hoverStrokeWidth}` } as CSSProperties}
     >
       <path
-        d={path.svgPath}
+        d={svgPath}
         fill="none"
         stroke="transparent"
         strokeWidth={hitWidth}
@@ -108,7 +121,7 @@ const EdgeItemBase = ({
         onPointerDown={onPathPointerDown}
       />
       <path
-        d={path.svgPath}
+        d={svgPath}
         fill="none"
         stroke={stroke}
         color={stroke}
