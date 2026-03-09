@@ -33,6 +33,7 @@ type SubtreeDragSession = {
   rect: Rect
   ghost: Rect
   excludeIds: MindmapNodeId[]
+  layout: MindmapViewTree['layout']
   drop?: MindmapDragDropTarget
 }
 
@@ -182,14 +183,15 @@ export const useMindmapDragInteraction = () => {
           ghost,
           dragNodeId: active.nodeId,
           dragExcludeIds: new Set(active.excludeIds),
-          layoutOptions: (instance.state.read('mindmapLayout') ?? treeView.layout).options
+          layoutOptions: treeView.layout.options
         })
       }
 
       const next: SubtreeDragSession = {
         ...active,
         ghost,
-        drop
+        drop,
+        layout: treeView?.layout ?? active.layout
       }
       activeRef.current = next
       setDrag(toDragView(next))
@@ -224,7 +226,7 @@ export const useMindmapDragInteraction = () => {
           index: active.originIndex
         },
         nodeSize: instance.read.config.mindmapNodeSize,
-        layout: instance.state.read('mindmapLayout') ?? {}
+        layout: active.layout
       })
     },
 
@@ -314,35 +316,31 @@ export const useMindmapDragInteraction = () => {
           },
           rect,
           ghost: rect,
-          excludeIds: getSubtreeIds(treeView.tree, nodeId)
+          excludeIds: getSubtreeIds(treeView.tree, nodeId),
+          layout: treeView.layout
         }
       }
       if (!nextActive) return
-      const lockToken = sessionLockState.tryAcquire(instance, 'mindmapDrag', event.pointerId)
+
+      const lockToken = sessionLockState.tryAcquire(
+        instance,
+        'mindmapDrag',
+        event.pointerId
+      )
       if (!lockToken) return
       lockTokenRef.current = lockToken
       activeRef.current = nextActive
       setActivePointerId(event.pointerId)
       setDrag(toDragView(nextActive))
-
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // Ignore capture errors, window listeners still handle session cleanup.
-      }
       event.preventDefault()
       event.stopPropagation()
     },
-    [
-      instance.runtime.viewport.clientToScreen,
-      instance.runtime.viewport.screenToWorld,
-      instance,
-      readTree
-    ]
+    [instance, readTree]
   )
 
   return {
     drag,
-    handleMindmapNodePointerDown
+    handleMindmapNodePointerDown,
+    isDragging: activePointerId !== null
   }
 }

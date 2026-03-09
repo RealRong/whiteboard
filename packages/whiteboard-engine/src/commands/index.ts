@@ -1,49 +1,37 @@
-import type { Commands } from '@engine-types/command/api'
-import type { Write } from '@engine-types/write/runtime'
+import type { Commands } from '@engine-types/command'
+import type { Write } from '@engine-types/write'
 import type { Document } from '@whiteboard/core/types'
 import { edge } from './edge'
 import { mindmap } from './mindmap'
 import { node } from './node'
-import { viewport as viewportCommands } from './viewport'
-
-type CommandDeps = {
-  document: {
-    get: () => Document
-  }
-  write: Write
-}
+import { viewport } from './viewport'
 
 export const createCommands = ({
   document,
   write
-}: CommandDeps): Commands => {
-  const nodeCommands = node({
-    document,
-    apply: write.apply
-  })
-  const edgeCommands = edge({
-    document,
-    apply: write.apply
-  })
-  const historyCommands: Commands['history'] = {
-    get: write.history.get,
-    configure: write.history.configure,
-    undo: write.history.undo,
-    redo: write.history.redo,
-    clear: write.history.clear
+}: {
+  document: {
+    get: () => Document
   }
-
+  write: Write
+}): Commands => {
   return {
     doc: {
       load: write.load,
       replace: write.replace
     },
-    history: historyCommands,
-    edge: edgeCommands,
-    viewport: viewportCommands({
+    history: write.history,
+    edge: edge({
+      document,
       apply: write.apply
     }),
-    node: nodeCommands,
+    viewport: viewport({
+      apply: write.apply
+    }),
+    node: node({
+      document,
+      apply: write.apply
+    }),
     mindmap: mindmap({
       apply: write.apply
     })

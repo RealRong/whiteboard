@@ -1,4 +1,4 @@
-import type { InstanceConfig } from '@engine-types/instance/config'
+import type { InstanceConfig } from '@engine-types/instance'
 import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_DOCUMENT_VIEWPORT,

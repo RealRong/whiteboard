@@ -20,7 +20,6 @@ export type EditorStateSnapshot = {
   selection: EditorSelectionState
   interaction: EditorInteractionState
   viewport: Viewport
-  mindmapLayout: MindmapLayoutConfig
 }
 
 export type EditorStateKey = keyof EditorStateSnapshot

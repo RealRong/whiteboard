@@ -1,5 +1,5 @@
-import type { MindmapCommandsApi } from '@engine-types/write/commands'
-import type { Apply } from '../runtime/write/stages/plan/draft'
+import type { MindmapCommandsApi } from '@engine-types/write'
+import type { Apply } from '../write/draft'
 
 export const mindmap = ({
   apply

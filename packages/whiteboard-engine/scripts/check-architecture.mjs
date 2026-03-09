@@ -58,19 +58,16 @@ const rules = [
     ]
   },
   {
-    name: 'runtime/read|view 禁止写入口',
-    root: join(srcRoot, 'runtime'),
-    include: (path) =>
-      path.includes('/runtime/read/')
-      || path.includes('/runtime/view/'),
+    name: 'read 禁止写入口',
+    root: join(srcRoot, 'read'),
     checks: [
       {
         pattern: /\bcommands\b/g,
-        message: '禁止在 read/view 中依赖 commands'
+        message: '禁止在 read 中依赖 commands'
       },
       {
         pattern: /\bmutate\b/g,
-        message: '禁止在 read/view 中依赖 mutate'
+        message: '禁止在 read 中依赖 mutate'
       }
     ]
   }

@@ -4,14 +4,11 @@ export {
   DEFAULT_INSTANCE_CONFIG
 } from './config'
 
-export type { Commands } from './types/command/api'
-export type { CommandSource } from './types/command/source'
+export type { Commands, CommandSource } from './types/command'
 export type {
   CreateEngineOptions,
-  Instance
-} from './types/instance/engine'
-export type { InstanceConfig } from './types/instance/config'
-export type {
+  Instance,
+  InstanceConfig,
   EngineRead,
   EngineReadState,
   EngineReadProjection,
@@ -24,8 +21,8 @@ export type {
   MindmapDragView,
   MindmapViewTree,
   NodeViewItem
-} from './types/instance/read'
+} from './types/instance'
 export {
   READ_STATE_KEYS,
   READ_SUBSCRIPTION_KEYS
-} from './types/instance/read'
+} from './types/instance'

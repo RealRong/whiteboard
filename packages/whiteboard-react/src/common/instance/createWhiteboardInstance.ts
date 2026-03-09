@@ -28,7 +28,7 @@ import { edgeConnectPreviewState } from '../../edge/interaction/connectPreviewSt
 import { edgeRoutingPreviewState } from '../../edge/interaction/routingPreviewState'
 import { createViewportRuntime } from './runtime/viewport'
 
-const ENGINE_STATE_KEYS = new Set<EditorStateKey>(['viewport', 'mindmapLayout'])
+const ENGINE_STATE_KEYS = new Set<EditorStateKey>(['viewport'])
 const UI_STATE_KEYS = ['tool', 'selection', 'interaction'] as const
 
 type UiStateKey = (typeof UI_STATE_KEYS)[number]
@@ -60,10 +60,7 @@ const readState = <K extends EditorStateKey>(
   if (key === 'interaction') {
     return instance.uiStore.get(interactionAtom) as EditorStateSnapshot[K]
   }
-  if (key === 'viewport') {
-    return instance.read.state.viewport as EditorStateSnapshot[K]
-  }
-  return instance.read.state.mindmapLayout as EditorStateSnapshot[K]
+  return instance.read.state.viewport as EditorStateSnapshot[K]
 }
 
 const subscribeState = (
@@ -81,11 +78,7 @@ const subscribeState = (
 
   const engineKeys = keys.filter((key) => ENGINE_STATE_KEYS.has(key))
   if (engineKeys.length) {
-    const mappedKeys = engineKeys.map((key) => {
-      if (key === 'viewport') return ENGINE_READ_STATE_KEYS.viewport
-      return ENGINE_READ_STATE_KEYS.mindmapLayout
-    })
-    unsubs.push(instance.read.subscribe(mappedKeys, listener))
+    unsubs.push(instance.read.subscribe([ENGINE_READ_STATE_KEYS.viewport], listener))
   }
 
   return () => {

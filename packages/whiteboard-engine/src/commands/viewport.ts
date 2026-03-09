@@ -1,10 +1,10 @@
 import type {
   Commands,
   WriteCommandMap
-} from '@engine-types/command/api'
-import type { ViewportCommandsApi } from '@engine-types/write/commands'
+} from '@engine-types/command'
+import type { ViewportCommandsApi } from '@engine-types/write'
 import type { Point } from '@whiteboard/core/types'
-import type { Apply } from '../runtime/write/stages/plan/draft'
+import type { Apply } from '../write/draft'
 
 type ViewportCommand = WriteCommandMap['viewport']
 

@@ -1,8 +1,0 @@
-export type * from './model'
-export type * from './deps'
-export type * from './context'
-export type * from './control/impact'
-export type * from './indexes/indexer'
-export type * from './projection/node'
-export type * from './projection/edge'
-export type * from './projection/mindmap'

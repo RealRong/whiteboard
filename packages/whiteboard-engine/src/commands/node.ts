@@ -2,9 +2,9 @@ import type {
   NodeBatchUpdate,
   NodeUpdateManyOptions,
   WriteCommandMap
-} from '@engine-types/command/api'
-import type { CommandSource } from '@engine-types/command/source'
-import type { NodeCommandsApi } from '@engine-types/write/commands'
+} from '@engine-types/command'
+import type { CommandSource } from '@engine-types/command'
+import type { NodeCommandsApi } from '@engine-types/write'
 import type {
   Document,
   NodeId,
@@ -12,9 +12,9 @@ import type {
   NodePatch
 } from '@whiteboard/core/types'
 import { getNode } from '@whiteboard/core/types'
-import type { Apply } from '../runtime/write/stages/plan/draft'
-import { createOrderCommands } from './shared/order'
-import { cancelledResult, invalidResult } from './shared/result'
+import type { Apply } from '../write/draft'
+import { createOrderCommands } from './order'
+import { cancelledResult, invalidResult } from './result'
 
 type NodeCommand = WriteCommandMap['node']
 

@@ -1,9 +1,9 @@
 import type {
   EdgeBatchUpdate,
   WriteCommandMap
-} from '@engine-types/command/api'
-import type { CommandSource } from '@engine-types/command/source'
-import type { EdgeCommandsApi } from '@engine-types/write/commands'
+} from '@engine-types/command'
+import type { CommandSource } from '@engine-types/command'
+import type { EdgeCommandsApi } from '@engine-types/write'
 import type {
   Document,
   EdgeId,
@@ -11,9 +11,9 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import type { Apply } from '../runtime/write/stages/plan/draft'
-import { createOrderCommands } from './shared/order'
-import { cancelledResult } from './shared/result'
+import type { Apply } from '../write/draft'
+import { createOrderCommands } from './order'
+import { cancelledResult } from './result'
 
 type EdgeCommand = WriteCommandMap['edge']
 
