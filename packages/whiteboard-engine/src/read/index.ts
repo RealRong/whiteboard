@@ -1,15 +1,11 @@
 import type {
-  ProjectionSubscriptionKey,
   ReadControl,
+  ReadCommit,
   ReadContext,
   ReadDeps,
   ReadIndexes
 } from '@engine-types/read'
-import {
-  READ_KEYS,
-  type EngineRead
-} from '@engine-types/instance'
-import { DEFAULT_DOCUMENT_VIEWPORT, DEFAULT_TUNING } from '../config'
+import { DEFAULT_TUNING } from '../config'
 import { createReadApply } from './apply'
 import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from './impacts'
 import { createReadModel } from './model'
@@ -20,23 +16,12 @@ import {
 } from './projection'
 import { NodeRectIndex, SnapIndex } from './indexes'
 
-const subscribeListener = (
-  listeners: Set<() => void>,
-  listener: () => void
-) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
 export const createRead = ({
   document,
   mindmapLayout,
   config
 }: ReadDeps): ReadControl => {
   const readDocument = document.get
-  const readViewport = () => readDocument().viewport ?? DEFAULT_DOCUMENT_VIEWPORT
   const readModel = createReadModel({ readDocument })
 
   const nodeRectIndex = new NodeRectIndex(config)
@@ -58,32 +43,6 @@ export const createRead = ({
     }
   }
 
-  const projectionListeners: Record<ProjectionSubscriptionKey, Set<() => void>> = {
-    [READ_KEYS.node]: new Set(),
-    [READ_KEYS.edge]: new Set(),
-    [READ_KEYS.mindmap]: new Set()
-  }
-
-  const publishProjection = (keys: readonly ProjectionSubscriptionKey[]) => {
-    const notified = new Set<() => void>()
-
-    keys.forEach((key) => {
-      projectionListeners[key].forEach((listener) => {
-        if (notified.has(listener)) return
-        notified.add(listener)
-        listener()
-      })
-    })
-  }
-
-  const subscribe: EngineRead['subscribe'] = (key, listener) => {
-    if (key === READ_KEYS.viewport) {
-      return document.subscribeViewport(listener)
-    }
-
-    return subscribeListener(projectionListeners[key], listener)
-  }
-
   const readContext: ReadContext = {
     mindmapLayout,
     model: readModel,
@@ -99,27 +58,48 @@ export const createRead = ({
     readModel,
     nodeRectIndex,
     snapIndex,
+    nodeProjection,
     edgeProjection,
-    publish: publishProjection
+    mindmapProjection
   })
 
   nodeRectIndex.applyChange('full', [], readModel())
   snapIndex.applyChange('full', [], nodeRectIndex)
+  nodeProjection.applyChange(RESET_READ_IMPACT)
+  edgeProjection.applyChange('full', [], [])
+  mindmapProjection.applyChange(RESET_READ_IMPACT)
+
+  const commit = (committed: ReadCommit) => {
+    if (committed.kind === 'replace') {
+      applyImpact(RESET_READ_IMPACT)
+    } else {
+      applyImpact(committed.impact)
+    }
+  }
 
   return {
     read: {
-      get viewport() { return readViewport() },
-      get node() { return nodeProjection.getView() },
-      get edge() { return edgeProjection.getView() },
-      get mindmap() { return mindmapProjection.getView() },
-      index: indexes,
-      get document() { return readDocument() },
-      subscribe
+      node: {
+        ids: nodeProjection.ids,
+        get: nodeProjection.get,
+        subscribe: nodeProjection.subscribe,
+        subscribeIds: nodeProjection.subscribeIds
+      },
+      edge: {
+        ids: edgeProjection.ids,
+        get: edgeProjection.get,
+        subscribe: edgeProjection.subscribe,
+        subscribeIds: edgeProjection.subscribeIds
+      },
+      mindmap: {
+        ids: mindmapProjection.ids,
+        get: mindmapProjection.get,
+        subscribe: mindmapProjection.subscribe,
+        subscribeIds: mindmapProjection.subscribeIds
+      },
+      index: indexes
     },
-    invalidate: {
-      impact: applyImpact,
-      reset: () => applyImpact(RESET_READ_IMPACT),
-      mindmap: () => applyImpact(MINDMAP_LAYOUT_READ_IMPACT)
-    }
+    commit,
+    rebuildMindmap: () => applyImpact(MINDMAP_LAYOUT_READ_IMPACT)
   }
 }

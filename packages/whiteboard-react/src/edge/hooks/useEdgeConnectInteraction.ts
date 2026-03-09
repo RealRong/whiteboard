@@ -114,7 +114,7 @@ const beginReconnect = (
   end: 'source' | 'target',
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
-  const edge = instance.read.edge.byId.get(edgeId)?.edge
+  const edge = instance.read.edge.get(edgeId)?.edge
   if (!edge) return undefined
   const endpoint = edge[end]
   return {

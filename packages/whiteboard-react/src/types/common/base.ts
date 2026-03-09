@@ -1,6 +1,9 @@
+import type { Viewport } from '@whiteboard/core/types'
+
 export type Size = { width: number; height: number }
 
 export type ViewportConfig = {
+  initial?: Viewport
   minZoom?: number
   maxZoom?: number
   enablePan?: boolean

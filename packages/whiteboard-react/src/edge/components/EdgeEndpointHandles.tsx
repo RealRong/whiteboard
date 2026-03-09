@@ -1,28 +1,12 @@
 import type { CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { READ_KEYS } from '@whiteboard/engine'
-import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
+import { useEdge, useSelectedEdgeId } from '../../common/hooks'
 import { useEdgeConnectInteraction } from '../hooks/useEdgeConnectInteraction'
 
 export const EdgeEndpointHandles = () => {
   const { handleReconnectPointerDown } = useEdgeConnectInteraction()
-  const stateSelectedEdgeId = useWhiteboardSelector(
-    (snapshot) => snapshot.selection.selectedEdgeId,
-    {
-      keys: ['selection']
-    }
-  )
-  const instance = useInstance()
-  const endpoints = useReadGetter(
-    () => (
-      stateSelectedEdgeId
-        ? instance.read.edge.byId.get(stateSelectedEdgeId)?.endpoints
-        : undefined
-    ),
-    {
-      key: READ_KEYS.edge
-    }
-  )
+  const stateSelectedEdgeId = useSelectedEdgeId()
+  const endpoints = useEdge(stateSelectedEdgeId)?.endpoints
   if (!stateSelectedEdgeId || !endpoints) return null
 
   const renderHandle = (end: 'source' | 'target', point: { x: number; y: number }) => (

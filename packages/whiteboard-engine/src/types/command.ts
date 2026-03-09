@@ -10,13 +10,28 @@ import type {
   NodeInput,
   NodePatch,
   Point,
-  Rect,
-  Viewport
+  Rect
 } from '@whiteboard/core/types'
 import type { PointerInput, Size } from './common'
-import type { MindmapApplyCommand } from './mindmap'
+import type {
+  MindmapApplyCommand,
+  MindmapCloneSubtreeOptions,
+  MindmapCreateOptions
+} from './mindmap'
 import type { ResizeDirection } from './node'
 import type { HistoryState } from './state'
+import type {
+  MindmapAttachPayload,
+  MindmapCommandOptions,
+  MindmapNodeData,
+  MindmapTree
+} from '@whiteboard/core/types'
+import type {
+  MindmapInsertNodeOptions,
+  MindmapMoveDropOptions,
+  MindmapMoveLayoutOptions,
+  MindmapMoveRootOptions
+} from './mindmap'
 
 export type CommandSource =
   | 'ui'
@@ -180,41 +195,16 @@ export type EdgeWriteCommand =
       edgeId: EdgeId
     }
 
-export type ViewportWriteCommand =
-  | {
-      type: 'set'
-      viewport: Viewport
-    }
-  | {
-      type: 'panBy'
-      delta: { x: number; y: number }
-    }
-  | {
-      type: 'zoomBy'
-      factor: number
-      anchor?: Point
-    }
-  | {
-      type: 'zoomTo'
-      zoom: number
-      anchor?: Point
-    }
-  | {
-      type: 'reset'
-    }
-
 export type MindmapWriteCommand = MindmapApplyCommand
 
 export type WriteDomain =
   | 'node'
   | 'edge'
-  | 'viewport'
   | 'mindmap'
 
 export type WriteCommandMap = {
   node: NodeWriteCommand
   edge: EdgeWriteCommand
-  viewport: ViewportWriteCommand
   mindmap: MindmapWriteCommand
 }
 
@@ -228,12 +218,69 @@ export type WriteInput<D extends WriteDomain = WriteDomain> =
     : never
 
 export type MindmapCommands = {
-  apply: (command: MindmapApplyCommand) => Promise<DispatchResult>
+  create: (payload?: MindmapCreateOptions) => Promise<DispatchResult>
+  replace: (id: MindmapId, tree: MindmapTree) => Promise<DispatchResult>
+  delete: (ids: MindmapId[]) => Promise<DispatchResult>
+  addChild: (
+    id: MindmapId,
+    parentId: MindmapNodeId,
+    payload?: MindmapNodeData | MindmapAttachPayload,
+    options?: MindmapCommandOptions
+  ) => Promise<DispatchResult>
+  addSibling: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    position: 'before' | 'after',
+    payload?: MindmapNodeData | MindmapAttachPayload,
+    options?: MindmapCommandOptions
+  ) => Promise<DispatchResult>
+  attachExternal: (
+    id: MindmapId,
+    targetId: MindmapNodeId,
+    payload: MindmapAttachPayload,
+    options?: MindmapCommandOptions
+  ) => Promise<DispatchResult>
+  insertPlacement: (options: MindmapInsertNodeOptions) => Promise<DispatchResult>
+  moveSubtree: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    newParentId: MindmapNodeId,
+    options?: MindmapCommandOptions
+  ) => Promise<DispatchResult>
+  moveLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
+  moveDrop: (options: MindmapMoveDropOptions) => Promise<DispatchResult>
+  reorderChild: (
+    id: MindmapId,
+    parentId: MindmapNodeId,
+    fromIndex: number,
+    toIndex: number
+  ) => Promise<DispatchResult>
+  moveRoot: (options: MindmapMoveRootOptions) => Promise<DispatchResult>
+  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<DispatchResult>
+  cloneSubtree: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    options?: MindmapCloneSubtreeOptions
+  ) => Promise<DispatchResult>
+  setNodeData: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    patch: Partial<MindmapNodeData>
+  ) => Promise<DispatchResult>
+  toggleCollapse: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    collapsed?: boolean
+  ) => Promise<DispatchResult>
+  setSide: (
+    id: MindmapId,
+    nodeId: MindmapNodeId,
+    side: 'left' | 'right'
+  ) => Promise<DispatchResult>
 }
 
 export type Commands = {
-  doc: {
-    load: (doc: Document) => Promise<DispatchResult>
+  document: {
     replace: (doc: Document) => Promise<DispatchResult>
   }
   history: {
@@ -260,13 +307,6 @@ export type Commands = {
       bringForward: (ids: EdgeId[]) => Promise<DispatchResult>
       sendBackward: (ids: EdgeId[]) => Promise<DispatchResult>
     }
-  }
-  viewport: {
-    set: (viewport: Viewport) => Promise<DispatchResult>
-    panBy: (delta: { x: number; y: number }) => Promise<DispatchResult>
-    zoomBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
-    zoomTo: (zoom: number, anchor?: Point) => Promise<DispatchResult>
-    reset: () => Promise<DispatchResult>
   }
   node: {
     create: (payload: NodeInput) => Promise<DispatchResult>

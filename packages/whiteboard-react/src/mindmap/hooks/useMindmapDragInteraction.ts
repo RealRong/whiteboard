@@ -143,7 +143,7 @@ export const useMindmapDragInteraction = () => {
   }, [instance])
 
   const readTree = useCallback(
-    (treeId: NodeId) => instance.read.mindmap.byId.get(treeId),
+    (treeId: NodeId) => instance.read.mindmap.get(treeId),
     [instance.read]
   )
 
@@ -203,8 +203,7 @@ export const useMindmapDragInteraction = () => {
       clearActive(active.pointerId)
 
       if (active.kind === 'root') {
-        void instance.commands.mindmap.apply({
-          type: 'move.root',
+        void instance.commands.mindmap.moveRoot({
           nodeId: active.treeId,
           position: active.position
         })
@@ -212,8 +211,7 @@ export const useMindmapDragInteraction = () => {
       }
 
       if (!active.drop) return
-      void instance.commands.mindmap.apply({
-        type: 'move.drop',
+      void instance.commands.mindmap.moveDrop({
         id: active.treeId,
         nodeId: active.nodeId,
         drop: {

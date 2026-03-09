@@ -1,9 +1,9 @@
 import { mergeValue } from '@whiteboard/core/utils'
 import {
-  DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG,
   type InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
+import { DEFAULT_VIEWPORT } from '../common/instance/runtime/viewport'
 import type { Config, ResolvedConfig } from '../types/common'
 
 const ZOOM_EPSILON = 0.0001
@@ -15,11 +15,12 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   mindmapNodeSize: DEFAULT_INSTANCE_CONFIG.mindmapNodeSize,
   mindmapLayout: {},
   viewport: {
+    initial: DEFAULT_VIEWPORT,
     minZoom: 0.1,
     maxZoom: 4,
     enablePan: true,
     enableWheel: true,
-    wheelSensitivity: DEFAULT_INSTANCE_CONFIG.viewport.wheelSensitivity
+    wheelSensitivity: 0.001
   },
   node: DEFAULT_INSTANCE_CONFIG.node,
   edge: DEFAULT_INSTANCE_CONFIG.edge,
@@ -48,6 +49,7 @@ export const normalizeConfig = (config?: Config): ResolvedConfig => {
     tool: merged.tool === 'edge' ? 'edge' : 'select',
     viewport: {
       ...merged.viewport,
+      initial: merged.viewport.initial ?? DEFAULT_VIEWPORT,
       minZoom,
       maxZoom,
       wheelSensitivity: Math.max(0, merged.viewport.wheelSensitivity)
@@ -81,10 +83,7 @@ export const toEngineInstanceConfig = (
     hitTestThresholdScreen: config.edge.hitTestThresholdScreen,
     anchorSnapMin: config.edge.anchorSnapMin,
     anchorSnapRatio: config.edge.anchorSnapRatio
-  },
-  viewport: {
-    wheelSensitivity: config.viewport.wheelSensitivity
   }
 })
 
-export { DEFAULT_CONFIG, DEFAULT_DOCUMENT_VIEWPORT }
+export { DEFAULT_CONFIG, DEFAULT_VIEWPORT }

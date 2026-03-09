@@ -5,7 +5,7 @@ import type {
   Instance as EngineInstance,
   InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
-import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
+import type { DispatchResult, EdgeId, NodeId, Point, Viewport } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
 import type {
@@ -20,7 +20,6 @@ export type EditorStateSnapshot = {
   tool: EditorTool
   selection: EditorSelectionState
   interaction: EditorInteractionState
-  viewport: Viewport
 }
 
 export type EditorStateKey = keyof EditorStateSnapshot
@@ -31,12 +30,30 @@ export type WhiteboardRuntimeConfig = {
   history?: ResolvedHistoryConfig
 }
 
+export type WhiteboardSelectionState = {
+  get: () => EditorSelectionState
+  contains: (nodeId: NodeId) => boolean
+  selectedEdgeId: () => EdgeId | undefined
+  subscribe: (listener: () => void) => () => void
+  subscribeNode: (nodeId: NodeId, listener: () => void) => () => void
+  subscribeEdge: (listener: () => void) => () => void
+}
+
 export type WhiteboardState = {
   read: <K extends EditorStateKey>(key: K) => EditorStateSnapshot[K]
   subscribe: (keys: readonly EditorStateKey[], listener: () => void) => () => void
+  selection: WhiteboardSelectionState
 }
 
-export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge'> & {
+export type WhiteboardViewportCommands = {
+  set: (viewport: Viewport) => Promise<DispatchResult>
+  panBy: (delta: { x: number; y: number }) => Promise<DispatchResult>
+  zoomBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
+  zoomTo: (zoom: number, anchor?: Point) => Promise<DispatchResult>
+  reset: () => Promise<DispatchResult>
+}
+
+export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
   tool: {
     set: (tool: EditorTool) => void
   }
@@ -54,6 +71,7 @@ export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'in
   edge: EngineCommands['edge'] & {
     select: (id?: EdgeId) => void
   }
+  viewport: WhiteboardViewportCommands
 }
 
 export type WhiteboardInstance = {

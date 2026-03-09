@@ -2,667 +2,542 @@
 
 ## 1. 结论
 
-长期最优方案不是把整个 engine read 层直接改造成全量 Jotai/Signal 图，也不是继续停留在纯 topic 级别的粗粒度通知。
+长期最优不是：
 
-最优路线是一个明确的混合模型：
+1. 继续只用 `READ_KEYS.node / edge / selection` 这种粗 topic fan-out
+2. 也不是把整个 engine/read 全量改成 Jotai 或 signal graph
 
-1. **结构层继续保留粗粒度 invalidation**
-2. **实体层引入按 id 的细粒度读源**
-3. **engine 负责产生 headless 的细粒度 invalidation 事实**
-4. **react 层负责把这些事实包装成语义 hook，必要时再包成局部 atom/signal**
+长期最优是一条明确的混合路线：
 
-对应到本次研究的三个目标：
+1. **结构层保留粗粒度**
+2. **实体层改成细粒度**
+3. **engine 输出 headless 的细粒度读接口与失效事实**
+4. **react 只负责把这些接口包装成语义 hook**
 
-1. `selection.contains(nodeId)`：在 `whiteboard-react` 层做细粒度化
-2. `read.node.byId(nodeId)`：在 `whiteboard-engine` read 层拆出实体级 node entry cache + per-node invalidation
-3. `read.edge.byId(edgeId)`：在 `whiteboard-engine` read 层拆出实体级 edge entry cache + per-edge invalidation
+对应到三个目标：
 
-不推荐的路线：
+1. `selection.contains(nodeId)` 放在 `instance.state.selection`，由 `whiteboard-react` 负责
+2. `read.node.get(nodeId)` 放在 `instance.read.node`，由 `whiteboard-engine/read` 负责
+3. `read.edge.get(edgeId)` 放在 `instance.read.edge`，由 `whiteboard-engine/read` 负责
 
-1. **不推荐**直接让 engine 内部全面变成 Jotai atom graph
-2. **不推荐**继续只保留 `READ_KEYS.node / edge / mindmap` 这种 topic 级 fan-out
-3. **不推荐**仅在 React 层把现有 topic 再包一层 `useMemo(atom(...))` 就认为已经细粒度化
+最终推荐的 headless API 不是 `byId(...)` 风格，而是统一成：
 
-原因很简单：
+```ts
+instance.state.selection.get()
+instance.state.selection.contains(nodeId)
+instance.state.selection.selectedEdgeId()
+instance.state.selection.subscribe(listener)
+instance.state.selection.subscribeNode(nodeId, listener)
+instance.state.selection.subscribeEdge(listener)
 
-1. 全量 signal 化会把 engine 从 headless read runtime 变成响应式 runtime，复杂度和耦合显著上升
-2. 纯 topic 模式在几千节点/边下会形成大规模 subscriber fan-out
-3. 仅做 React 包装而不改变底层 invalidation 粒度，本质复杂度不会下降
+instance.read.node.ids()
+instance.read.node.get(nodeId)
+instance.read.node.subscribe(nodeId, listener)
+instance.read.node.subscribeIds(listener)
 
-## 2. 当前现状
+instance.read.edge.ids()
+instance.read.edge.get(edgeId)
+instance.read.edge.subscribe(edgeId, listener)
+instance.read.edge.subscribeIds(listener)
+```
 
-### 2.1 `selection` 当前是整包状态订阅
+React 最终只暴露语义 hook：
 
-当前 `selection` 是一个普通的 UI 状态切片：
+```ts
+useSelectionContains(nodeId)
+useSelectedEdgeId()
+useNodeIds()
+useNode(nodeId)
+useEdgeIds()
+useEdge(edgeId)
+```
+
+## 2. 为什么当前方案不是长期最优
+
+## 2.1 `selection` 当前是整包订阅
+
+当前 `selection` 是 `whiteboard-react` 的 editor state：
 
 - 文件：`packages/whiteboard-react/src/common/instance/uiState.ts`
-- 结构：
+- 当前 source of truth：
   - `selectedNodeIds: Set<NodeId>`
   - `selectedEdgeId?: EdgeId`
   - `mode: SelectionMode`
 
-当前 `useWhiteboardSelector` 的 selector 模式本质仍然是：
+当前 `useWhiteboardSelector((snapshot) => snapshot.selection.selectedNodeIds.has(node.id), { keys: ['selection'] })`
+本质上仍然是：
 
-1. 订阅整个 `selection` topic
-2. `selection` 任意变化时唤醒所有订阅者
-3. 每个订阅者各自执行 selector
-4. 再用 equality 阻止真正的 React rerender
+1. 订阅整个 `selection` 域
+2. `selection` 任意变化时，所有依赖 `selection` 的 selector 全部唤醒
+3. 再靠 `Set.has(nodeId)` 的结果比较挡住真正的 rerender
 
-这意味着：
+问题不是语义不对，而是 fan-out 太大。
 
-- `selectedNodeIds.has(node.id)` 这种按节点判断选中态的组件，会在任意 selection 变化时全部被唤醒一次
-- 在几千 `NodeItem` 的场景下，这会形成明显 fan-out
+## 2.2 `read.node.byId.get(nodeId)` 仍然依赖聚合视图
 
-### 2.2 `read.node.byId` 当前仍然挂在粗粒度 `node` topic 下
+当前 node projection 文件：
 
-当前节点读取路径：
+- `packages/whiteboard-engine/src/read/projection/node.ts`
 
-1. `useReadGetter(..., { key: READ_KEYS.node })`
-2. `instance.read.subscribe(READ_KEYS.node, listener)`
-3. `read.apply()` 收到任意 node 影响后发布 `READ_KEYS.node`
+虽然内部已有：
 
-对应文件：
-
-- `packages/whiteboard-react/src/common/hooks/useReadGetter.ts`
-- `packages/whiteboard-engine/src/read/index.ts`
-- `packages/whiteboard-engine/src/read/apply.ts`
-
-节点 projection 当前虽然有 **按 id 的 entry cache**：
-
-- 文件：`packages/whiteboard-engine/src/read/projection/node.ts`
 - `nodeItemCacheById: Map<NodeId, NodeViewItem>`
 
-但它的 public 读口仍然是一个聚合视图：
+但 public 读口的本质仍然是：
 
-- `read.node.ids`
-- `read.node.byId.get(nodeId)`
+1. 先拿整个 `NodesView`
+2. 再从 `NodesView.byId` 上取 `nodeId`
 
-并且 `getView()` 在 `canvasNodeById` 或 `canvasNodeIds` 引用变化时，仍然会重新遍历全部节点来重建 `byId` 视图。
+也就是说，当前 `read.node.byId.get(nodeId)` 不是一个真正独立的实体读口，而是聚合视图上的二次查询。
 
-也就是说当前节点路径是：
+这会带来两个问题：
 
-1. topic 级通知粗
-2. first subscriber 触发一次 `O(N)` view reconcile
-3. 所有 node subscriber 都会再做一次 `Map.get(nodeId)` + 引用比较
+1. `node` topic 变化时，所有 node entity 订阅者都会被唤醒
+2. 第一批读取还会触发一次 `NodesView` 的全量 reconcile
 
-所以它的瓶颈不只是 subscriber fan-out，还是 **聚合视图重建耦合在 byId 读口上**。
+## 2.3 `read.edge.byId.get(edgeId)` 已有实体缓存，但通知仍停在 topic 级
 
-### 2.3 `read.edge.byId` 已有增量缓存，但通知粒度仍然粗
+当前 edge projection 文件：
 
-当前 edge projection 比 node projection 更接近目标形态：
+- `packages/whiteboard-engine/src/read/projection/edge.ts`
 
-- 文件：`packages/whiteboard-engine/src/read/projection/edge.ts`
-- 已经维护：
-  - `cacheById`
-  - `pendingNodeIds`
-  - `pendingEdgeIds`
-  - `relations.nodeToEdgeIds`
+它已经具备一半实体级基础设施：
 
-这说明 edge 实体级增量计算其实已经存在一半：
+1. `cacheById`
+2. `pendingNodeIds`
+3. `pendingEdgeIds`
+4. `relations.nodeToEdgeIds`
+5. `reconcileEdges(affectedEdgeIds)`
 
-1. dirty nodeIds 可以映射到受影响 edgeIds
-2. dirty edgeIds 可以直接精准增量 reconcile
-3. `reconcileEdges()` 已经只更新受影响边
+这说明 edge 的增量计算其实已经接近目标。
 
-但 React 订阅面仍然是粗粒度：
+当前真正的问题是：
 
-- `READ_KEYS.edge`
-- 所有 `edge.byId(edgeId)` 订阅者都会被唤醒
+- React 侧仍然只能订阅 `READ_KEYS.edge`
+- 所有 `edgeId` 读者仍然会一起被唤醒
 
-所以 edge 的核心问题不是 projection 计算，而是 **subscriber 通知粒度仍然停在 topic 级**。
+因此 edge 的主要瓶颈不是计算，而是 **通知粒度仍然粗**。
 
-## 3. 当前 topic 模式的真实复杂度
+## 3. 当前 topic 模式的真实成本
 
-### 3.1 现在做到的是“精确 rerender”，不是“精确通知”
-
-当前模型不是：
-
-- 只有受影响的 `nodeId/edgeId` 订阅者被通知
-
-而是：
-
-- 某个 topic 变化后，所有订阅该 topic 的订阅者都会被唤醒
-- 但每个订阅者重新读取结果后，如果引用没变，就尽量不触发真正 rerender
-
-因此当前复杂度更准确地说是：
+当前模型做到的是：
 
 1. **通知粒度粗**
-2. **结果比较粒度细**
+2. **rerender 粒度细**
 
-### 3.2 几千节点/边下会发生什么
+即：
 
-以 5000 个节点为例，若每个 `NodeItem` 都订阅：
+1. 某个 topic 变化后，所有订阅该 topic 的 subscriber 都会被唤醒
+2. 每个 subscriber 重新执行 getter
+3. 如果 getter 结果引用没变，最终 React 不 rerender
 
-- `selection.contains(nodeId)`
-- `read.node.byId(nodeId)`
+这比“所有组件都重渲染”要好，但仍然会在几千节点/边下形成可观的：
 
-那么一次 node topic 变化或 selection 变化会带来：
+1. listener callback fan-out
+2. `Map.get / Set.has / Object.is` fan-out
+3. `useSyncExternalStore` snapshot fan-out
 
-1. 大量 subscriber callback 被调度
-2. 大量 getter 被重新执行
-3. 大量 `Map.get / Set.has / Object.is` 比较
+如果更新是低频提交，这个成本通常还能接受。
 
-即使最终只有少数组件真正 rerender，前面的 fan-out 成本仍然存在。
+如果更新进入高频路径，例如：
 
-如果这些变化进入高频路径，例如：
-
-1. 每帧 pointermove 都 commit
-2. 每帧 selection 都更新
-3. 每帧 node geometry 都入 engine
+1. 每帧 selection 变化
+2. 每帧 node geometry commit
+3. 每帧 edge geometry commit
 
 那么 topic 模式会明显放大主线程压力。
 
-### 3.3 当前还没有立刻爆炸的原因
+## 4. 最优边界
 
-当前实现还没到不可接受，主要因为：
+## 4.1 `selection` 应该在 `instance.state`，不是 `engine.read`
 
-1. 很多热交互走的是 preview / transient state，而不是每帧 commit document
-2. node / edge projection 已经做了大量对象复用
-3. React 最终真正 rerender 的组件数量通常少于唤醒数量
+`selection` 的长期归属应该是：
 
-所以短期内 topic 模式仍可用。
+- `instance.state.selection`
 
-但如果目标是：
+而不是：
 
-1. 常态几千节点/边
-2. 高频局部更新
-3. 更多行为下沉到 engine
+- `instance.read.selection`
+- `instance.ui.selection`
 
-那么继续依赖 topic fan-out，不是长期最优。
+理由：
 
-## 4. 最优边界：谁应该做细粒度化
+1. `selection` 是 editor semantic state，不是 document fact
+2. 它已经由 `whiteboard-react` 维护，而不是 engine 维护
+3. 它影响交互、命令、快捷键、视觉呈现，不是纯展示局部状态
+4. 把它放在 `state`，边界最清楚
 
-### 4.1 `selection.contains(nodeId)` 应该在 `whiteboard-react` 层细粒度化
+因此：
+
+- `selection` 应该继续附加在最终 `whiteboard instance` 上
+- 它的细粒度化也应该发生在 `whiteboard-react` 的 state layer
+
+## 4.2 `node` / `edge` 应该在 `engine.read`
+
+`node` 与 `edge` 的实体读口本质是 engine read model，不应该被挪到 React 本地状态。
+
+理由：
+
+1. dirty ids 已经在 engine 中产生
+2. geometry / projection / relations 的事实都在 engine
+3. 若 React 自己重建 per-id invalidation，会复制 engine 已经掌握的知识
+4. 真正能降低复杂度的是让 engine 保留 dirty entity 到最后一层，而不是提前折叠成 topic
+
+因此：
+
+- `node` / `edge` 的细粒度实体读口必须由 `whiteboard-engine/read` 提供
+- React 只做消费与 hook 封装
+
+## 5. 最优 API
+
+## 5.1 `selection`
+
+长期最优不是只保留一个粗粒度 `selection` snapshot。
+
+推荐 headless API：
+
+```ts
+instance.state.selection.get(): EditorSelectionState
+instance.state.selection.contains(nodeId: NodeId): boolean
+instance.state.selection.selectedEdgeId(): EdgeId | undefined
+instance.state.selection.subscribe(listener: () => void): () => void
+instance.state.selection.subscribeNode(nodeId: NodeId, listener: () => void): () => void
+instance.state.selection.subscribeEdge(listener: () => void): () => void
+```
+
+语义：
+
+1. `get()`：整包 coarse snapshot
+2. `contains(nodeId)`：细粒度 membership 读取
+3. `selectedEdgeId()`：单值读取
+4. `subscribe()`：整包 selection 订阅
+5. `subscribeNode()`：某个 node 是否被选中的细粒度订阅
+6. `subscribeEdge()`：edge selection 的细粒度订阅
+
+为什么这是最优：
+
+1. coarse 与 fine-grained 同时存在，职责清晰
+2. `contains(nodeId)` 才是节点层真正需要的 API
+3. `selectedEdgeId()` 比读取整个 selection snapshot 更短、更稳定
+4. 不把 `selection` 错误地下沉到 engine
+
+## 5.2 `node`
+
+推荐 headless API：
+
+```ts
+instance.read.node.ids(): readonly NodeId[]
+instance.read.node.get(nodeId: NodeId): NodeViewItem | undefined
+instance.read.node.subscribe(nodeId: NodeId, listener: () => void): () => void
+instance.read.node.subscribeIds(listener: () => void): () => void
+```
+
+语义：
+
+1. `ids()`：结构层读取
+2. `get(nodeId)`：实体层读取
+3. `subscribe(nodeId)`：实体层订阅
+4. `subscribeIds()`：结构层订阅
+
+这里明确不推荐最终 public API 继续写成：
+
+```ts
+read.node.byId(nodeId)
+read.node.byId.get(nodeId)
+```
 
 原因：
 
-1. selection 是 editor UI state，不是 document read model
-2. 它的 source of truth 现在就在 `whiteboard-react` 的 `selectionAtom`
-3. 它天然和组件生命周期、局部视觉状态强相关
-4. 不应该为了它把 engine read runtime 变成 UI 状态运行时
+1. `byId` 更像内部数据结构，不像稳定语义动作
+2. `get(id)` 更短、更标准、更适合作为 store/cell API
+3. `ids/get/subscribe/subscribeIds` 四个能力组成了一个完整的实体读域闭包
 
-所以 selection 细粒度化的最佳位置是：
+## 5.3 `edge`
 
-- `packages/whiteboard-react/src/common/instance/` 下的 state layer
+推荐 headless API：
 
-### 4.2 `read.node.byId(nodeId)` 和 `read.edge.byId(edgeId)` 应该在 engine read 层细粒度化
+```ts
+instance.read.edge.ids(): readonly EdgeId[]
+instance.read.edge.get(edgeId: EdgeId): EdgeEntry | undefined
+instance.read.edge.subscribe(edgeId: EdgeId, listener: () => void): () => void
+instance.read.edge.subscribeIds(listener: () => void): () => void
+```
 
-原因：
+理由与 node 完全一致：
 
-1. node/edge entry 本质是 engine read model 的一部分
-2. 受写入 impact 驱动的 dirty ids 已经在 engine 内部出现
-3. 如果只在 React 层包一层 atom，而 engine 仍然只吐粗 topic，那么底层复杂度并没有降级
-4. 真正能减少 fan-out 的，是让 **dirty ids 在 engine 里就不要再折叠成单个 topic**
+1. `ids()` 是结构层
+2. `get(edgeId)` 是实体层
+3. `subscribe(edgeId)` 是实体级失效面
+4. `subscribeIds()` 是结构级失效面
 
-所以 node/edge 实体级 invalidation 的最佳位置是：
+## 5.4 为什么必须是四个能力
 
-- `packages/whiteboard-engine/src/read/`
+对实体读域来说，最小语义闭包就是四个问题：
 
-React 层只负责消费，不负责重新发明 dirty entity 识别逻辑。
+1. 当前有哪些实体：`ids()`
+2. 某个实体当前值是什么：`get(id)`
+3. 结构变化如何通知：`subscribeIds()`
+4. 某个实体变化如何通知：`subscribe(id)`
 
-## 5. 不同路线的比较
+少一个都不完整。
 
-### 路线 A：继续 topic + React 层 `useMemo(atom(...))`
+所以这不是 API 膨胀，而是最小完备集合。
 
-做法：
+## 6. 推荐内部设计
 
-1. `useRead` 内部不再暴露 `READ_KEYS`
-2. 用 `useMemo(atom(...))` 把 getter 包一层
-3. atom 再订阅 `READ_KEYS.node/edge`
+## 6.1 `selection`：diff-driven membership store
 
-优点：
+selection 最优实现不是 signal graph，而是一个 membership store。
 
-1. 改动小
-2. public API 更短
-3. React 层调用感受更好
+核心数据结构：
 
-缺点：
+1. `snapshotRef: EditorSelectionState`
+2. `listeners: Set<() => void>`
+3. `nodeListenersById: Map<NodeId, Set<() => void>>`
+4. `edgeListeners: Set<() => void>`
 
-1. 底层仍然是 topic fan-out
-2. 每个 entity 订阅者仍会在 topic 变化时被唤醒
-3. 只是把 `key` 隐藏了，没有改变复杂度阶
-
-结论：
-
-- 这条路适合作为 **短期 API 清洁手段**
-- 不适合作为本次三个目标的长期最优答案
-
-### 路线 B：engine 全量 signal/atom 化
-
-做法：
-
-1. document/read/index/projection 全部变成细粒度 signal graph
-2. `nodeId/edgeId` 派生关系由 signal 自动追踪
-3. topic invalidation 逐步消失
-
-优点：
-
-1. 理论上最细粒度
-2. public API 可做到几乎无 topic/key
-
-缺点：
-
-1. engine 从 headless read runtime 变成响应式 runtime
-2. 生命周期、回收、缓存、一致性复杂度显著上升
-3. index / projection / relations / dirty propagation 需要整体重建
-4. 会把当前清晰的 CQRS + invalidation funnel 打散
-
-结论：
-
-- 理论最强
-- 工程上不是当前体系的最优路线
-- 不推荐直接采用
-
-### 路线 C：混合模型，结构粗粒度 + 实体细粒度
-
-做法：
-
-1. 结构类读口继续保留粗粒度
-2. 按实体读取的热点读口变成 per-id subscription / cell
-3. dirty ids 在 engine 中保留到最后一层，不再提前折叠成 topic
-4. React hook 只消费这些细粒度 cell，不直接看 topic
-
-优点：
-
-1. 对性能真正有效
-2. 保留 current architecture 的清晰边界
-3. 不需要把 engine 全量 signal 化
-4. 适合逐步迁移
-
-缺点：
-
-1. 需要新增一层 entity cell / entity subscription infrastructure
-2. node 需要把聚合 view 和 byId 读口彻底拆开
-
-结论：
-
-- 这是长期最优路线
-
-## 6. 推荐目标形态
-
-## 6.1 `selection`
-
-保留：
-
-- `state.selection` 作为 coarse snapshot
-- `commands.selection.*` 作为写入口
-
-新增：
-
-- `state.selection.contains(nodeId)`
-- `state.selection.selectedEdgeId()`
-- `state.selection.subscribeNode(nodeId, listener)`
-- `state.selection.subscribeEdge(listener)`
-
-React 侧最终语义 hook：
-
-- `useSelectionContains(nodeId)`
-- `useSelectedEdgeId()`
-- 如果有需要，再补 `useIsEdgeSelected(edgeId)`
-
-### 6.2 `read.node`
-
-把当前 `read.node.ids` 与 `read.node.byId.get()` 彻底拆开：
-
-- `read.node.ids`：结构层
-- `read.node.byId(nodeId)`：实体层
-- `read.node.subscribe(nodeId, listener)`：实体级订阅
-- `read.node.subscribeIds(listener)`：结构级订阅
-
-React 侧最终语义 hook：
-
-- `useNode(nodeId)`
-- `useNodeIds()`
-
-### 6.3 `read.edge`
-
-与 node 对齐：
-
-- `read.edge.ids`
-- `read.edge.byId(edgeId)`
-- `read.edge.subscribe(edgeId, listener)`
-- `read.edge.subscribeIds(listener)`
-
-React 侧最终语义 hook：
-
-- `useEdge(edgeId)`
-- `useEdgeIds()`
-
-## 7. 推荐内部设计
-
-## 7.1 selection 设计
-
-selection 不需要 topic。
-
-它最适合做成一个 **diff-driven membership store**：
-
-- source of truth 仍然是完整 `EditorSelectionState`
-- 每次 selection 更新时，显式计算：
-  - 新增选中的 nodeIds
-  - 移除选中的 nodeIds
-  - `selectedEdgeId` 是否变化
-- 只通知真正变化的 nodeId 和 edge 订阅者
-
-### selection 的核心数据结构
-
-建议：
-
-1. `selectionSnapshotRef: EditorSelectionState`
-2. `nodeListenersById: Map<NodeId, Set<() => void>>`
-3. `edgeListeners: Set<() => void>`
-
-### selection 更新算法
-
-每次 selection 改动：
+更新算法：
 
 1. 拿到 `prev.selectedNodeIds`
 2. 拿到 `next.selectedNodeIds`
 3. 计算对称差集 `changedNodeIds`
-4. 只通知这些 nodeId 对应 listener
-5. 若 `selectedEdgeId` 变化，通知 edge listener
-6. 若 coarse `selection` snapshot 被订阅，再通知 coarse selection listener
+4. 只通知这些 `nodeId` 的 listeners
+5. 若 `selectedEdgeId` 变化，只通知 edge listeners
+6. 若有人订阅 coarse snapshot，再通知 coarse listeners
 
-复杂度：
+复杂度从：
 
-- `O(changedSelectedNodes)`
-- 不再是 `O(all selection subscribers)`
+- `O(all selection subscribers)`
 
-这就是 `selection.contains(nodeId)` 细粒度化最优解。
+下降为：
 
-## 7.2 node 设计
+- `O(changedSelectedNodes + edgeSelectionChanged)`
 
-node 的关键不是先做 React atom，而是先把 engine read 里的 **聚合视图读口** 和 **实体读口** 分开。
+这是 `selection.contains(nodeId)` 的最优内部实现。
 
-### 当前 node 的问题
+## 6.2 `node`：拆成结构 store 与实体 store
 
-当前 `read.node.byId.get(nodeId)` 事实上依赖的是整个 `NodesView`：
+当前 node 的问题是：
 
-1. `getView()` 会在 nodes 引用变化时重建 `byId` Map
-2. `byId.get(nodeId)` 只是从聚合视图上再取一次
+- `get(nodeId)` 语义还没有从聚合 `NodesView` 中独立出来
 
-这意味着 byId 读口并不是独立实体缓存。
+所以 node 的长期最优设计必须拆成两层：
 
-### 目标 node 结构
+### `NodeIdsStore`
 
-建议把 node projection 拆成两个平行缓存：
+职责：
 
-1. `NodeIdsStore`
-2. `NodeEntryStore`
+1. 维护 `ids()`
+2. 维护 `subscribeIds()`
+3. 只处理 create/delete/reorder/visible membership 变化
 
-#### `NodeIdsStore`
+### `NodeEntryStore`
 
-负责：
+职责：
 
-- `node.ids`
-- `subscribeIds()`
+1. 维护 `get(nodeId)`
+2. 维护 `subscribe(nodeId)`
+3. 按 dirty ids 增量重算 `NodeViewItem`
+4. 仅在 entry 引用真正变化时通知对应 `nodeId`
 
-只处理结构变化：
-
-- create/delete/order/layer visible membership change
-
-#### `NodeEntryStore`
-
-负责：
-
-- `node.byId(nodeId)`
-- `subscribe(nodeId)`
-
-内部维护：
+推荐内部结构：
 
 1. `entryById: Map<NodeId, NodeViewItem>`
 2. `listenersById: Map<NodeId, Set<() => void>>`
-3. `activeIds: Set<NodeId>` 或按 listenersById 是否为空判断活跃实体
+3. `activeNodeIds: Set<NodeId>` 或根据 listener 是否为空推导
 
-### node 失效算法
+失效算法：
 
-由 `KernelReadImpact.node` 驱动：
-
-#### 情况 A：dirty ids 已知
+### 情况 A：dirty ids 已知
 
 - `impact.node.ids` 有内容
-- 只重算这些 nodeId 的 `NodeViewItem`
-- 如果 entry 引用变化，只通知对应 nodeId listeners
+- 只重算这些 id 的 entry
+- entry 引用变化才通知对应 listeners
 
-#### 情况 B：结构变化
+### 情况 B：list 变化
 
-- `impact.node.list === true`
+- 更新 `NodeIdsStore`
+- 计算新增/删除/重排
+- 仅通知 ids listeners
+- 对已删除节点清理 entry cache 和 listeners
+
+### 情况 C：reset / replace / full rebuild
+
+- bump generation
 - 更新 ids store
-- 计算新增/删除 ids
-- 通知 ids listeners
-- 删除已经不存在节点的 entry cache 和 listeners 或标记为 missing
+- active node entries lazy 重算
+- 通知 ids listeners 与 active entity listeners
 
-#### 情况 C：full/reset
+## 6.3 `edge`：在现有增量 projection 上继续细粒度化
 
-- 文档整体替换
-- ids store 重建
-- active node entries 按 active ids lazy 重算
-- 通知 ids listeners + 所有 active node listeners
-
-### 为什么 node 必须在 engine 里做
-
-因为 engine 已经掌握：
-
-1. `impact.node.ids`
-2. geometry/value/list 的原因
-3. `NodeRectIndex`
-4. 当前 document read model
-
-如果把 node 细粒度 diff 放到 React 层，React 反而需要重新猜 dirty ids，重复一套 engine 已经有的信息。
-
-## 7.3 edge 设计
-
-edge 和 node 的原则相同，但实现更容易，因为当前 edge projection 已经有：
+edge 比 node 更容易落地，因为现有 projection 已经有：
 
 1. `cacheById`
 2. `pendingNodeIds`
 3. `pendingEdgeIds`
 4. `relations.nodeToEdgeIds`
 
-因此 edge 更适合在现有 projection 上直接拆出：
+因此 edge 的长期最优实现是：
 
-1. `EdgeIdsStore`
-2. `EdgeEntryStore`
+### `EdgeIdsStore`
 
-### 目标 edge 结构
+职责：
 
-- `read.edge.ids`
-- `read.edge.byId(edgeId)`
-- `read.edge.subscribe(edgeId, listener)`
-- `read.edge.subscribeIds(listener)`
+1. `ids()`
+2. `subscribeIds()`
 
-### edge 失效算法
+### `EdgeEntryStore`
 
-#### 情况 A：dirty edge ids 已知
+职责：
 
-- 仅 reconcile 这些 edgeId
-- 引用变化才通知对应 listeners
+1. `get(edgeId)`
+2. `subscribe(edgeId)`
+3. 基于 `pendingNodeIds/pendingEdgeIds` 只重算受影响 edge
 
-#### 情况 B：dirty node ids 已知
+失效算法：
 
-- 用 `relations.nodeToEdgeIds` 找出受影响 edgeIds
-- 仅 reconcile 这些 edgeId
-- 引用变化才通知对应 listeners
+### 情况 A：dirty edge ids 已知
 
-#### 情况 C：edge list/full/reset
+- 仅重算这些 edge
+- entry 引用变化才通知对应 listeners
+
+### 情况 B：dirty node ids 已知
+
+- 通过 `relations.nodeToEdgeIds` 找到受影响 edgeIds
+- 仅重算这些 edge
+- entry 引用变化才通知对应 listeners
+
+### 情况 C：edge list/reset/full
 
 - 更新 ids store
 - 通知 ids listeners
-- active edge entries lazy 重建或重算
+- active edge entries lazy 重算
 
-这条路径的复杂度会从：
+## 7. React 最优消费面
 
-- `O(all edge subscribers)`
-
-下降为：
-
-- `O(affectedEdges + subscribersOfAffectedEdges)`
-
-## 8. 是否应该直接使用 Jotai/Signal
-
-### 8.1 selection
-
-selection 在 `whiteboard-react` 层，完全可以用 Jotai 做 lifecycle-friendly 包装。
-
-但长期最优不是“把 selection 直接暴露成一堆原子给组件”，而是：
-
-1. 先有清晰的 selection membership store
-2. 再由 hook 或局部 atom 去读这个 store
-
-也就是说：
-
-- Jotai 可以是 adapter
-- 不应该成为 selection 细粒度模型本身的唯一表达
-
-### 8.2 node / edge
-
-对 node/edge，我不建议把 engine 核心直接改成 Jotai atom graph。
-
-更优的是：
-
-1. engine 暴露 headless per-id subscribe/get
-2. react 层如果想用 `useMemo(atom(...))`，只在 adapter 层包装
-
-原因：
-
-1. engine 不应该承担 React lifecycle 语义
-2. per-entity atom 回收、generation、doc replace 的复杂度不适合压进 engine 内核
-3. headless 订阅契约比 Jotai runtime 更稳、更可控、更容易 bench
-
-## 9. 推荐 public API 方向
-
-以下是长期最优 public 语义，不是短期兼容写法。
+React 不应该继续到处直接写：
 
 ```ts
-instance.state.selection.contains(nodeId)
-instance.state.selection.selectedEdgeId()
-instance.state.selection.subscribeNode(nodeId, listener)
-instance.state.selection.subscribeEdge(listener)
-
-instance.read.node.ids
-instance.read.node.byId(nodeId)
-instance.read.node.subscribe(nodeId, listener)
-instance.read.node.subscribeIds(listener)
-
-instance.read.edge.ids
-instance.read.edge.byId(edgeId)
-instance.read.edge.subscribe(edgeId, listener)
-instance.read.edge.subscribeIds(listener)
+useRead(READ_KEYS.node, () => instance.read.node.get(nodeId))
+useWhiteboardSelector((snapshot) => snapshot.selection.selectedNodeIds.has(nodeId), { keys: ['selection'] })
 ```
 
-React 侧语义 hook：
+这会把 coarse invalidation 机制直接泄漏给组件。
+
+React 长期最优消费面是语义 hook：
 
 ```ts
 useSelectionContains(nodeId)
 useSelectedEdgeId()
-useNode(nodeId)
 useNodeIds()
-useEdge(edgeId)
+useNode(nodeId)
 useEdgeIds()
+useEdge(edgeId)
 ```
 
-不再推荐让 UI 大量直接写：
+这些 hook 内部可以：
 
-```ts
-useRead(READ_KEYS.node, () => instance.read.node.byId(nodeId))
-useWhiteboardSelector((snapshot) => snapshot.selection.selectedNodeIds.has(nodeId), { keys: ['selection'] })
-```
+1. 直接使用 `useSyncExternalStore`
+2. 或在必要时用 Jotai 做 lifecycle-friendly 包装
 
-因为这些写法把 coarse invalidation 细节直接泄漏给 UI。
+但 Jotai 只能是 adapter，不应成为 engine 内核的一部分。
 
-## 10. doc replace / reset / lifecycle 处理原则
+## 8. 为什么不推荐全量 signal / atom 化
 
-这是细粒度设计里最容易做坏的地方。
+不推荐 engine 全量 signal 化的原因：
 
-### 10.1 generation 必须存在
+1. engine 会从 headless runtime 变成响应式 runtime
+2. 生命周期与回收复杂度显著上升
+3. entity cell、index、projection、relations 的一致性成本会被放大
+4. doc replace / reset / load 的 generation 管理会更复杂
+5. 当前架构已经有清晰的 CQRS + invalidation funnel，没有必要整体推翻
 
-对 node/edge/selection 细粒度实体 store，都建议引入 `generation` 概念。
+更准确地说：
 
-当发生：
+- 对外隐藏 `topic/key` 是合理的
+- 但内部仍应保留清晰的 invalidation funnel
+- 只在真正高价值的实体层上做细粒度化
 
-1. `doc.load`
-2. `doc.replace`
-3. reset/full rebuild
+## 9. `doc replace / reset` 的处理原则
 
-需要：
+无论是 selection、node 还是 edge，细粒度设计都必须明确 generation。
 
-1. bump generation
-2. 让所有 active entity subscription 知道“旧引用全部作废”
-3. 按需 lazy 重建实体 entry
+推荐原则：
 
-### 10.2 listener 生命周期必须以“活跃订阅实体”驱动
+1. `load / replace / reset` 时 bump generation
+2. 旧实体引用全部视为过期
+3. active listeners 保留，但对应实体值按新 generation lazy 重算
+4. 结构层与实体层分别发通知
 
-不要为所有 document entity 永久创建 cell。
+不能做成：
 
-应该遵守：
+1. 旧 cell 永久持有旧 document 引用
+2. list 与 entity 共用同一个聚合 view cache
+3. 为全部文档实体长期分配 cell/signal
 
-1. 有 listener 才算 active id
-2. active id 才值得维护细粒度 entry 通知
-3. listener 清空后可回收对应 cell/listener set
+必须遵守：
 
-这样可以避免：
+1. 有 listener 才算 active entity
+2. active entity 才值得维护细粒度订阅
+3. list store 与 entity store 完全分层
 
-- 文档有几万个节点时，系统永久维持几万个 signal/atom/cell
+## 10. 推荐落地顺序
 
-### 10.3 list 层和 entity 层必须分开
+### Phase 1: `selection`
 
-这一条很关键。
+先做：
 
-错误设计是：
-
-- `ids` 和 `byId` 都依赖一个统一聚合 view
-
-正确设计是：
-
-- `ids` 单独缓存与订阅
-- `byId` 单独缓存与订阅
-
-否则一旦 list 引用变化，实体层就会被迫全量重算。
-
-## 11. 推荐落地顺序
-
-### Phase 1: selection 先做
-
-优先级最高。
+- `instance.state.selection.contains(nodeId)`
+- `instance.state.selection.selectedEdgeId()`
+- `instance.state.selection.subscribeNode(nodeId, listener)`
+- `instance.state.selection.subscribeEdge(listener)`
 
 原因：
 
-1. 实现边界最清楚
+1. 边界最清楚
 2. 不需要碰 engine
-3. 对大规模 node 视觉层收益立刻可见
-4. 可以先验证细粒度 membership store 这条路线
+3. 对大规模节点 UI 收益立刻可见
 
-### Phase 2: edge.byId
+### Phase 2: `edge`
 
-第二优先级。
+再做：
 
-原因：
-
-1. edge projection 已经有一半增量基础设施
-2. 只需把 `cacheById` 的消费面从 coarse topic 切到 per-edge subscription
-3. 风险比 node 小
-
-### Phase 3: node.byId
-
-第三优先级。
+- `instance.read.edge.ids()`
+- `instance.read.edge.get(edgeId)`
+- `instance.read.edge.subscribe(edgeId, listener)`
+- `instance.read.edge.subscribeIds(listener)`
 
 原因：
 
-1. 需要拆掉当前聚合 `NodesView` 对 byId 读口的耦合
-2. 需要把 node list 和 node entry store 分层
-3. 这是三者里结构改动最大的一项
+1. edge projection 现有增量基础最好
+2. dirty edge / dirty node 到 affected edge 的路径已经存在
 
-## 12. 最终判断
+### Phase 3: `node`
 
-如果目标只是“把 API 写短”，那么 React 层包一层 Jotai 足够。
+最后做：
 
-如果目标是“在几千节点/边规模下，从长期角度把 fan-out 真正打掉”，那么最优路线是：
+- `instance.read.node.ids()`
+- `instance.read.node.get(nodeId)`
+- `instance.read.node.subscribe(nodeId, listener)`
+- `instance.read.node.subscribeIds(listener)`
 
-1. `selection.contains(nodeId)` 在 `whiteboard-react` 层做 diff-driven membership store
-2. `read.node.byId(nodeId)` 在 `whiteboard-engine` read 层拆成独立实体 store
-3. `read.edge.byId(edgeId)` 在 `whiteboard-engine` read 层拆成独立实体 store
-4. 结构层继续保留 coarse ids/list invalidation
-5. React 层通过语义 hook 消费，不再直接暴露 topic/key
+原因：
+
+1. node 需要先拆掉当前 `NodesView` 聚合耦合
+2. 结构层与实体层要彻底分离
+3. 这是三者里改动最大的一项
+
+## 11. 最终判断
+
+如果目标只是“把 API 写短”，React 层包一层 atom 就够了。
+
+如果目标是“在几千 node / edge 规模下，把 fan-out 真正打掉”，那么长期最优就是：
+
+1. `selection` 留在 `instance.state`，做 membership 细粒度化
+2. `node` / `edge` 留在 `instance.read`，做实体细粒度化
+3. API 统一成 `ids / get / subscribe / subscribeIds`
+4. React 只暴露语义 hook，不再把 `topic/key` 泄漏给组件
 
 一句话总结：
 
-**最优方案不是“全量 signal 化”，而是“结构粗粒度 + 实体细粒度 + UI 语义 hook 隐藏实现细节”。**
+**最优方案不是全量 signal 化，而是 `state.selection` 细粒度 membership store + `read.node/read.edge` 细粒度实体 store + 结构层粗粒度保留。**

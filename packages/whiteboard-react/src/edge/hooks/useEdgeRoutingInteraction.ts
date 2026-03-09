@@ -36,7 +36,7 @@ export const useEdgeRoutingInteraction = () => {
   const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const readEdgeById = useCallback(
-    (edgeId: EdgeId) => instance.read.edge.byId.get(edgeId),
+    (edgeId: EdgeId) => instance.read.edge.get(edgeId),
     [instance.read]
   )
 

@@ -150,7 +150,6 @@ export interface Document {
   nodes: EntityCollection<NodeId, Node>
   edges: EntityCollection<EdgeId, Edge>
   background?: { type: 'dot' | 'line' | 'none'; color?: string }
-  viewport?: Viewport
   meta?: { createdAt?: string; updatedAt?: string }
 }
 
@@ -314,7 +313,6 @@ export type Operation =
   | { readonly type: 'edge.order.set'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
   | { readonly type: 'mindmap.set'; readonly id: MindmapId; readonly tree: MindmapTree; readonly before?: MindmapTree }
   | { readonly type: 'mindmap.delete'; readonly id: MindmapId; readonly before?: MindmapTree }
-  | { readonly type: 'viewport.update'; readonly before?: Viewport; readonly after: Viewport }
 
 export interface ChangeSet {
   id: string

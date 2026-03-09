@@ -1,4 +1,3 @@
-import type { Viewport } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common'
 import type { InstanceConfig } from '@engine-types/instance'
 import type { ResolvedHistoryConfig } from '@engine-types/common'
@@ -12,11 +11,6 @@ export const DEFAULT_NODE_SIZE: Size = {
 export const DEFAULT_MINDMAP_NODE_SIZE: Size = {
   width: 140,
   height: 36
-}
-
-export const DEFAULT_DOCUMENT_VIEWPORT: Viewport = {
-  center: { x: 0, y: 0 },
-  zoom: 1
 }
 
 export const DEFAULT_MINDMAP_LAYOUT = {}
@@ -42,9 +36,6 @@ export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
     hitTestThresholdScreen: 10,
     anchorSnapMin: 12,
     anchorSnapRatio: 0.18
-  },
-  viewport: {
-    wheelSensitivity: 0.001
   }
 }
 

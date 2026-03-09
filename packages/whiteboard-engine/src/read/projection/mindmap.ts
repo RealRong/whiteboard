@@ -1,10 +1,7 @@
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import {
-  type MindmapView,
-  type MindmapViewTree
-} from '@engine-types/instance'
+import type { MindmapReadProjection, ReadContext, ReadImpact } from '@engine-types/read'
+import type { MindmapViewTree } from '@engine-types/instance'
 import type { MindmapTree, Node, NodeId } from '@whiteboard/core/types'
-import { isSameRefOrder } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../config'
 import {
   buildMindmapLines,
@@ -12,13 +9,6 @@ import {
   getMindmapLabel,
   getMindmapTree
 } from '@whiteboard/core/mindmap'
-import type { ReadContext } from '@engine-types/read'
-import type { MindmapReadProjection } from '@engine-types/read'
-
-type MindmapCacheInput = {
-  visibleNodes: Node[]
-  layout: MindmapLayoutConfig
-}
 
 type MindmapTreeCacheKey = {
   treeId: string
@@ -43,11 +33,6 @@ type MindmapTreeCacheEntry = {
   tree: MindmapViewTree
 }
 
-type MindmapProjectionCache = {
-  trees: MindmapViewTree[]
-  view: MindmapView
-}
-
 const MINDMAP_CACHE_SCALAR_KEYS = [
   'treeId',
   'rootId',
@@ -65,6 +50,31 @@ const MINDMAP_CACHE_SCALAR_KEYS = [
   'nodeWidth',
   'nodeHeight'
 ] as const satisfies readonly (keyof MindmapTreeCacheKey)[]
+
+const subscribeListener = (
+  listeners: Set<() => void>,
+  listener: () => void
+) => {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+const notifyListeners = (listeners: ReadonlySet<() => void>) => {
+  listeners.forEach((listener) => {
+    listener()
+  })
+}
+
+const isSameIds = (left: readonly NodeId[], right: readonly NodeId[]) => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
+}
 
 const toCacheKey = ({
   tree,
@@ -103,20 +113,65 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
 
 export const projection = (context: ReadContext): MindmapReadProjection => {
   const config = context.config
-  let treeCache = new Map<string, MindmapTreeCacheEntry>()
-  let projectionCache: MindmapProjectionCache | undefined
+  const idsListeners = new Set<() => void>()
+  const listenersById = new Map<NodeId, Set<() => void>>()
+  let treeCache = new Map<NodeId, MindmapTreeCacheEntry>()
+  let entryById = new Map<NodeId, MindmapViewTree>()
+  let idsRef: readonly NodeId[] = []
+  let visibleNodesRef: readonly Node[] | undefined
+  let layoutRef: MindmapLayoutConfig | undefined
 
-  const trees = ({
-    visibleNodes,
-    layout
-  }: MindmapCacheInput): MindmapViewTree[] => {
+  const buildTree = (
+    root: Node,
+    tree: MindmapTree,
+    layout: MindmapLayoutConfig
+  ): MindmapViewTree => {
+    const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
+    const shiftX = -computed.bbox.x
+    const shiftY = -computed.bbox.y
+    const labels = Object.fromEntries(
+      Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, getMindmapLabel(node)])
+    )
+
+    return {
+      id: root.id,
+      node: root,
+      tree,
+      layout,
+      computed,
+      shiftX,
+      shiftY,
+      lines: buildMindmapLines(tree, computed),
+      labels
+    }
+  }
+
+  const reconcile = () => {
+    const visibleNodes = context.model().nodes.visible
+    const layout = context.mindmapLayout()
+    if (visibleNodes === visibleNodesRef && layout === layoutRef) {
+      return {
+        idsChanged: false,
+        changedTreeIds: new Set<NodeId>()
+      }
+    }
+
+    visibleNodesRef = visibleNodes
+    layoutRef = layout
+
     const roots = visibleNodes.filter((node) => node.type === 'mindmap')
-    const nextCache = new Map<string, MindmapTreeCacheEntry>()
-    const nextTrees: MindmapViewTree[] = []
     const resolvedLayout: MindmapLayoutConfig = {
       mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
       options: layout.options
     }
+
+    const previousIds = idsRef
+    const previousById = entryById
+    const nextCache = new Map<NodeId, MindmapTreeCacheEntry>()
+    const nextById = new Map<NodeId, MindmapViewTree>()
+    const nextIds: NodeId[] = []
+    const changedTreeIds = new Set<NodeId>()
+    const previousTreeIds = new Set(previousIds)
 
     roots.forEach((root) => {
       const tree = getMindmapTree(root)
@@ -129,67 +184,96 @@ export const projection = (context: ReadContext): MindmapReadProjection => {
         nodeSize: config.mindmapNodeSize
       })
       const previous = treeCache.get(root.id)
-      if (previous && isSameCacheKey(previous.key, cacheKey)) {
-        nextCache.set(root.id, previous)
-        nextTrees.push(previous.tree)
-        return
+      const nextTree = previous && isSameCacheKey(previous.key, cacheKey)
+        ? previous.tree
+        : buildTree(root, tree, layout)
+      const nextCacheEntry = {
+        key: cacheKey,
+        tree: nextTree
       }
 
-      const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
-      const shiftX = -computed.bbox.x
-      const shiftY = -computed.bbox.y
-      const labels = Object.fromEntries(
-        Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, getMindmapLabel(node)])
-      )
-      const treeModel: MindmapViewTree = {
-        id: root.id,
-        node: root,
-        tree,
-        layout,
-        computed,
-        shiftX,
-        shiftY,
-        lines: buildMindmapLines(tree, computed),
-        labels
+      nextCache.set(root.id, nextCacheEntry)
+      nextById.set(root.id, nextTree)
+      nextIds.push(root.id)
+
+      if (previousById.get(root.id) !== nextTree) {
+        changedTreeIds.add(root.id)
       }
-      const cacheEntry = { key: cacheKey, tree: treeModel }
-      nextCache.set(root.id, cacheEntry)
-      nextTrees.push(treeModel)
+
+      previousTreeIds.delete(root.id)
+    })
+
+    previousTreeIds.forEach((treeId) => {
+      changedTreeIds.add(treeId)
     })
 
     treeCache = nextCache
-    return nextTrees
+    entryById = nextById
+
+    const idsChanged = !isSameIds(previousIds, nextIds)
+    idsRef = nextIds
+
+    return {
+      idsChanged,
+      changedTreeIds
+    }
   }
 
-  const getView: MindmapReadProjection['getView'] = () => {
-    const nextTrees = trees({
-      visibleNodes: context.model().nodes.visible,
-      layout: context.mindmapLayout()
+  const ensureSynced = () => {
+    reconcile()
+  }
+
+  const ids = () => {
+    ensureSynced()
+    return idsRef
+  }
+
+  const get = (treeId: NodeId) => {
+    ensureSynced()
+    return entryById.get(treeId)
+  }
+
+  const subscribe = (treeId: NodeId, listener: () => void) => {
+    const treeListeners = listenersById.get(treeId) ?? new Set<() => void>()
+    if (!listenersById.has(treeId)) {
+      listenersById.set(treeId, treeListeners)
+    }
+    treeListeners.add(listener)
+    return () => {
+      treeListeners.delete(listener)
+      if (!treeListeners.size) {
+        listenersById.delete(treeId)
+      }
+    }
+  }
+
+  const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
+
+  const notifyTree = (treeId: NodeId) => {
+    const treeListeners = listenersById.get(treeId)
+    if (!treeListeners?.size) return
+    notifyListeners(treeListeners)
+  }
+
+  const applyChange = (impact: ReadImpact) => {
+    if (!impact.reset && !impact.mindmap.view) return
+
+    const next = reconcile()
+
+    if (next.idsChanged) {
+      notifyListeners(idsListeners)
+    }
+
+    next.changedTreeIds.forEach((treeId) => {
+      notifyTree(treeId)
     })
-
-    if (projectionCache && isSameRefOrder(projectionCache.trees, nextTrees)) {
-      return projectionCache.view
-    }
-
-    const ids: NodeId[] = []
-    const byId = new Map<NodeId, MindmapViewTree>()
-    nextTrees.forEach((entry) => {
-      ids.push(entry.id)
-      byId.set(entry.id, entry)
-    })
-
-    const view: MindmapView = {
-      ids,
-      byId
-    }
-    projectionCache = {
-      trees: nextTrees,
-      view
-    }
-    return view
   }
 
   return {
-    getView
+    ids,
+    get,
+    subscribe,
+    subscribeIds,
+    applyChange
   }
 }

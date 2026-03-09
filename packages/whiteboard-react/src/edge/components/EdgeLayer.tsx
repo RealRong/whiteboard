@@ -1,11 +1,13 @@
 import type { EdgeId } from '@whiteboard/core/types'
-import {
-  READ_KEYS,
-  type EdgeEntry
-} from '@whiteboard/engine'
+import type { EdgeEntry } from '@whiteboard/engine'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo, useCallback } from 'react'
-import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
+import {
+  useEdge,
+  useEdgeIds,
+  useInstance,
+  useSelectedEdgeId
+} from '../../common/hooks'
 import { resolveEdgeEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
 import {
   useEdgeRoutingPreviewState,
@@ -15,13 +17,7 @@ import { EdgeItem } from './EdgeItem'
 import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 
-const useEdgeEntry = (edgeId: EdgeId) => {
-  const instance = useInstance()
-  return useReadGetter<EdgeEntry | undefined>(
-    () => instance.read.edge.byId.get(edgeId),
-    { key: READ_KEYS.edge }
-  )
-}
+const useEdgeEntry = (edgeId: EdgeId) => useEdge(edgeId)
 
 type EdgeItemByIdProps = {
   edgeId: EdgeId
@@ -69,16 +65,8 @@ export const EdgeLayer = () => {
   const instance = useInstance()
   const { draft } = useEdgeRoutingPreviewState()
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
-  const edgeIds = useReadGetter(
-    () => instance.read.edge.ids,
-    { key: READ_KEYS.edge }
-  )
-  const stateSelectedEdgeId = useWhiteboardSelector(
-    (snapshot) => snapshot.selection.selectedEdgeId,
-    {
-      keys: ['selection']
-    }
-  )
+  const edgeIds = useEdgeIds()
+  const stateSelectedEdgeId = useSelectedEdgeId()
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
   const handleEdgePointerDown = useCallback(
     (event: ReactPointerEvent<SVGPathElement>, entry: EdgeEntry) => {

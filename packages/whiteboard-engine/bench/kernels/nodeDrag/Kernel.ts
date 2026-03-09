@@ -8,6 +8,7 @@ import { Rules } from './Rules'
 
 type KernelInstance = {
   read: EngineContext['read']
+  viewport: EngineContext['viewport']
   config: EngineContext['config']
   document: {
     get: () => Document
@@ -49,7 +50,7 @@ export class NodeDragKernel {
     this.rules = new Rules({
       config: instance.config,
       read: instance.read,
-      readZoom: () => instance.read.viewport.zoom,
+      readZoom: () => instance.viewport.get().zoom,
       readCanvasNodes: this.readCanvasNodes
     })
     this.commitCompiler = new CommitCompiler({

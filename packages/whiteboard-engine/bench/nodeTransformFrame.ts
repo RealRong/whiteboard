@@ -3,7 +3,8 @@ import {
   type Document,
   type Edge,
   type Node,
-  type Point
+  type Point,
+  type Viewport
 } from '@whiteboard/core/types'
 import { engine } from '../src/instance/engine'
 import type { PointerInput } from '@engine-types/common/input'
@@ -35,6 +36,10 @@ const FRAME_BUDGET_MS = toNumber(
   4
 )
 const ENFORCE_THRESHOLD = env.WB_BENCH_ENFORCE === '1'
+const BENCH_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
+}
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -117,11 +122,7 @@ const createDocument = (): Document => {
     id: 'bench-doc-transform',
     name: 'node-transform-frame-bench',
     nodes: toCollection(nodes),
-    edges: toCollection(edges),
-    viewport: {
-      center: { x: 0, y: 0 },
-      zoom: 1
-    }
+    edges: toCollection(edges)
   }
 }
 
@@ -141,11 +142,11 @@ const average = (values: number[]) =>
 const format = (value: number) => `${value.toFixed(4)}ms`
 
 const createPointerInput = (options: {
-  instance: ReturnType<typeof engine>
+  viewport: Viewport
   pointerId: number
   client: Point
 }): PointerInput => {
-  const { instance, pointerId, client } = options
+  const { viewport, pointerId, client } = options
   const screen = {
     x: client.x,
     y: client.y
@@ -155,7 +156,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: viewportScreenToWorld(screen, instance.read.viewport, { x: 0, y: 0 }),
+    world: viewportScreenToWorld(screen, viewport, { x: 0, y: 0 }),
     modifiers: {
       shift: false,
       alt: false,
@@ -180,6 +181,7 @@ const main = () => {
   ensureRaf()
 
   let doc = createDocument()
+  const viewport = BENCH_VIEWPORT
   const instance = engine({
     document: doc,
     onDocumentChange: (nextDoc) => {
@@ -189,14 +191,18 @@ const main = () => {
   const transformKernel = new NodeTransformKernel({
     instance: {
       read: instance.read,
+      viewport: {
+        get: () => viewport
+      },
       config: instance.config,
       document: {
-        get: () => instance.read.document
+        get: () => doc
       }
     }
   })
   const syncDoc = (next: Document) => {
-    void instance.commands.doc.load(next)
+    doc = next
+    void instance.commands.document.replace(next)
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
@@ -227,7 +233,7 @@ const main = () => {
     const draft = transformKernel.beginResize({
       nodeId,
       pointer: createPointerInput({
-        instance,
+        viewport,
         pointerId,
         client: startClient
       }),
@@ -247,7 +253,7 @@ const main = () => {
       transformKernel.update(
         draft,
         createPointerInput({
-          instance,
+          viewport,
           pointerId,
           client
         }),
@@ -265,7 +271,7 @@ const main = () => {
       transformKernel.update(
         draft,
         createPointerInput({
-          instance,
+          viewport,
           pointerId,
           client
         }),

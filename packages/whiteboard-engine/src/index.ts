@@ -1,6 +1,5 @@
 export { engine } from './instance/engine'
 export {
-  DEFAULT_DOCUMENT_VIEWPORT,
   DEFAULT_INSTANCE_CONFIG
 } from './config'
 
@@ -12,13 +11,9 @@ export type {
   RuntimeConfig,
   EngineRead,
   EngineReadIndex,
-  ReadSubscriptionKey,
+  MindmapRead,
   EdgeEntry,
-  NodesView,
-  EdgesView,
-  MindmapView,
   MindmapDragView,
   MindmapViewTree,
   NodeViewItem
 } from './types/instance'
-export { READ_KEYS } from './types/instance'

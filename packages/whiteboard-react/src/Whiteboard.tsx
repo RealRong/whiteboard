@@ -11,7 +11,7 @@ import { engine, type Instance as EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toEngineInstanceConfig } from './config'
 import { MindmapLayerStack } from './mindmap/components'
 import { InstanceProvider } from './common/hooks/useInstance'
-import { useWhiteboardSelector } from './common/hooks'
+import { useViewport } from './common/hooks'
 import { CanvasInteractionLayer } from './common/interaction/CanvasInteractionLayer'
 import { useShortcutDispatch } from './common/interaction/useShortcutDispatch'
 import { useViewportGestureSelector } from './common/interaction/viewportGestureState'
@@ -28,7 +28,6 @@ const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.nodes = next.nodes
   draft.edges = next.edges
   draft.background = next.background
-  draft.viewport = next.viewport
   draft.meta = next.meta
 }
 
@@ -41,7 +40,6 @@ const isMirroredDocumentFromEngine = (
   && outbound.nodes === inbound.nodes
   && outbound.edges === inbound.edges
   && outbound.background === inbound.background
-  && outbound.viewport === inbound.viewport
   && outbound.meta === inbound.meta
 )
 
@@ -88,7 +86,7 @@ const WhiteboardCanvas = ({
   containerStyle,
   viewportPolicy
 }: WhiteboardCanvasProps) => {
-  const viewport = useWhiteboardSelector('viewport')
+  const viewport = useViewport()
   const previewViewport = useViewportGestureSelector((snapshot) => snapshot.preview)
   const resolvedViewport = previewViewport ?? viewport
   const resolvedViewportTransform = useMemo(
@@ -156,6 +154,8 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     () => normalizeConfig(config),
     [config]
   )
+  const initialToolRef = useRef(resolvedConfig.tool)
+  const initialViewportRef = useRef(resolvedConfig.viewport.initial)
   const instanceConfig = useMemo(
     () => toEngineInstanceConfig(resolvedConfig),
     [resolvedConfig]
@@ -184,7 +184,8 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     () => createWhiteboardInstance({
       engine: engineInstance,
       uiStore,
-      initialTool: resolvedConfig.tool
+      initialTool: initialToolRef.current,
+      initialViewport: initialViewportRef.current
     }),
     [engineInstance, uiStore]
   )
@@ -196,7 +197,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
       return
     }
     lastOutboundDocRef.current = doc
-    void instance.commands.doc.load(doc)
+    void instance.commands.document.replace(doc)
   }, [doc, instance])
 
   const runtimeConfig = useMemo<WhiteboardRuntimeConfig>(

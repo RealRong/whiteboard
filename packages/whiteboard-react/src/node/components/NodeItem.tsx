@@ -9,6 +9,8 @@ import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteractio
 import { useEdgeConnectInteraction } from '../../edge/hooks/useEdgeConnectInteraction'
 import {
   useInstance,
+  useSelectionContains,
+  useViewportZoom,
   useWhiteboardSelector
 } from '../../common/hooks'
 import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewState'
@@ -137,21 +139,11 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   }, [item.rect, previewUpdate])
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const activeTool = useWhiteboardSelector('tool')
-  const selected = useWhiteboardSelector(
-    (snapshot) => snapshot.selection.selectedNodeIds.has(node.id),
-    {
-      keys: ['selection']
-    }
-  )
+  const selected = useSelectionContains(node.id)
   const hovered = useNodeInteractionPreviewSelector(
     (snapshot) => snapshot.hoveredGroupId === node.id
   )
-  const zoom = useWhiteboardSelector(
-    (snapshot) => snapshot.viewport.zoom,
-    {
-      keys: ['viewport']
-    }
-  )
+  const zoom = useViewportZoom()
   const containerRef = useRef<HTMLDivElement>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const measureFrameRef = useRef<number | null>(null)

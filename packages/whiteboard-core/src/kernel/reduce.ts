@@ -9,8 +9,7 @@ import type {
   NodeId,
   NodePatch,
   Operation,
-  Origin,
-  Viewport
+  Origin
 } from '../types'
 import {
   getEdge,
@@ -81,10 +80,6 @@ const DEFAULT_MAX_OPERATIONS = 100
 const DEFAULT_MAX_IDS = 200
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_EDGE_IDS: readonly EdgeId[] = []
-const DEFAULT_VIEWPORT: Viewport = {
-  center: { x: 0, y: 0 },
-  zoom: 1
-}
 
 const NODE_GEOMETRY_KEYS = new Set<keyof NodePatch>([
   'position',
@@ -321,9 +316,6 @@ const trackReadImpact = (
       state.edge.list = true
       return
     }
-    case 'viewport.update': {
-      return
-    }
     case 'mindmap.set': {
       markMindmapView(state.mindmap, operation.id)
       return
@@ -553,15 +545,6 @@ const normalizeOperation = (
       }
       return operation
     }
-    case 'viewport.update': {
-      if (!operation.before) {
-        return {
-          ...operation,
-          before: document.viewport ?? DEFAULT_VIEWPORT
-        }
-      }
-      return operation
-    }
     default:
       return operation
   }
@@ -644,13 +627,6 @@ const buildInverse = (operation: Operation): Operation[] | null => {
         type: 'mindmap.set',
         id: operation.id,
         tree: operation.before
-      }]
-    }
-    case 'viewport.update': {
-      if (!operation.before) return null
-      return [{
-        type: 'viewport.update',
-        after: operation.before
       }]
     }
     default:
@@ -755,10 +731,6 @@ const applyOperation = (
       setNodeOrder(draft, removeOrderId(draft.next.nodes.order, operation.id))
       return
     }
-    case 'viewport.update': {
-      draft.next.viewport = operation.after
-      return
-    }
     default:
       return
   }
@@ -795,7 +767,6 @@ export const reduceOperations = (
       nodes: document.nodes,
       edges: document.edges,
       meta: document.meta,
-      viewport: document.viewport,
       background: document.background
     },
     copied: {

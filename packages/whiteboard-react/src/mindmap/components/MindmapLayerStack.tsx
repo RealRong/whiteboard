@@ -1,17 +1,9 @@
-import type { NodeId } from '@whiteboard/core/types'
-import { READ_KEYS } from '@whiteboard/engine'
 import { MindmapLayer } from './MindmapLayer'
-import { useInstance, useReadGetter } from '../../common/hooks'
+import { useMindmapIds } from '../../common/hooks'
 import { useMindmapDragInteraction } from '../hooks/useMindmapDragInteraction'
 
 export const MindmapLayerStack = () => {
-  const instance = useInstance()
-  const treeIds = useReadGetter<NodeId[]>(
-    () => [...instance.read.mindmap.ids],
-    {
-      key: READ_KEYS.mindmap
-    }
-  )
+  const treeIds = useMindmapIds()
   const { drag, handleMindmapNodePointerDown } = useMindmapDragInteraction()
   return (
     <MindmapLayer

@@ -1,26 +1,12 @@
 import type { CSSProperties } from 'react'
-import { READ_KEYS } from '@whiteboard/engine'
-import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
+import { useEdge, useSelectedEdgeId } from '../../common/hooks'
 import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
 import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewState'
 import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
 
 export const EdgeControlPointHandles = () => {
-  const selectedEdgeId = useWhiteboardSelector(
-    (state) => state.selection.selectedEdgeId,
-    { keys: ['selection'] }
-  )
-  const instance = useInstance()
-  const edgeEntry = useReadGetter(
-    () => (
-      selectedEdgeId
-        ? instance.read.edge.byId.get(selectedEdgeId)
-        : undefined
-    ),
-    {
-      key: READ_KEYS.edge
-    }
-  )
+  const selectedEdgeId = useSelectedEdgeId()
+  const edgeEntry = useEdge(selectedEdgeId)
   const { draft } = useEdgeRoutingPreviewState()
   const {
     handleRoutingPointerDown,

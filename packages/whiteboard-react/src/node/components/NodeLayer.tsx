@@ -1,18 +1,8 @@
 import type { NodeId } from '@whiteboard/core/types'
-import {
-  READ_KEYS,
-  type NodeViewItem
-} from '@whiteboard/engine'
-import { useInstance, useReadGetter } from '../../common/hooks'
+import { useNode, useNodeIds } from '../../common/hooks'
 import { NodeItem } from './NodeItem'
 
-const useNodeItem = (nodeId: NodeId) => {
-  const instance = useInstance()
-  return useReadGetter<NodeViewItem | undefined>(
-    () => instance.read.node.byId.get(nodeId),
-    { key: READ_KEYS.node }
-  )
-}
+const useNodeItem = (nodeId: NodeId) => useNode(nodeId)
 
 const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
   const item = useNodeItem(nodeId)
@@ -22,11 +12,7 @@ const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
 }
 
 export const NodeLayer = () => {
-  const instance = useInstance()
-  const nodeIds = useReadGetter(
-    () => instance.read.node.ids,
-    { key: READ_KEYS.node }
-  )
+  const nodeIds = useNodeIds()
 
   return (
     <div className="wb-node-layer">

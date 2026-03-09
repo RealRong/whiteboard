@@ -13,6 +13,7 @@ import { Rules } from './Rules'
 
 type KernelInstance = {
   read: EngineContext['read']
+  viewport: EngineContext['viewport']
   config: EngineContext['config']
   document: {
     get: () => Document
@@ -58,7 +59,7 @@ export class NodeTransformKernel {
     this.rules = new Rules({
       config: instance.config,
       read: instance.read,
-      readZoom: () => instance.read.viewport.zoom
+      readZoom: () => instance.viewport.get().zoom
     })
     this.commitCompiler = new CommitCompiler({
       readDoc: instance.document.get

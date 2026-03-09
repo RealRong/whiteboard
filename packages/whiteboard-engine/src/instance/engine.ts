@@ -45,21 +45,9 @@ export const engine = ({
     scheduler
   })
 
-  const publish = (
-    committed: WriteCommit,
-    notifyDocumentChange: boolean
-  ): DispatchResult => {
+  const syncRead = (committed: WriteCommit): DispatchResult => {
     if (!committed.ok) return committed
-
-    if (committed.kind === 'replace') {
-      readControl.invalidate.reset()
-    } else {
-      readControl.invalidate.impact(committed.impact)
-    }
-
-    if (notifyDocumentChange) {
-      onDocumentChange?.(committed.doc)
-    }
+    readControl.commit(committed)
 
     return {
       ok: true,
@@ -67,17 +55,24 @@ export const engine = ({
     }
   }
 
+  const publish = (committed: WriteCommit): DispatchResult => {
+    const result = syncRead(committed)
+    if (committed.ok) {
+      onDocumentChange?.(committed.doc)
+    }
+    return result
+  }
+
   const replay = (run: () => WriteCommit | false) => () => {
     const committed = run()
     if (!committed) return false
-    publish(committed, true)
+    publish(committed)
     return true
   }
 
   const write: Write = {
-    apply: async (payload) => publish(await writer.apply(payload), true),
-    load: async (doc) => publish(await writer.load(doc), false),
-    replace: async (doc) => publish(await writer.replace(doc), true),
+    apply: async (payload) => publish(await writer.apply(payload)),
+    replace: async (doc) => syncRead(await writer.replace(doc)),
     history: {
       get: writer.history.get,
       clear: writer.history.clear,
@@ -101,7 +96,7 @@ export const engine = ({
 
     if (Object.is(mindmapLayout, nextMindmapLayout)) return
     mindmapLayout = nextMindmapLayout
-    readControl.invalidate.mindmap()
+    readControl.rebuildMindmap()
   }
 
   const dispose = () => {

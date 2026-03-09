@@ -1,4 +1,5 @@
 import {
+  isSameViewport,
   viewportScreenToWorld,
   viewportWorldToScreen
 } from '@whiteboard/core/geometry'
@@ -18,6 +19,8 @@ export type ViewportSize = {
 
 export type ViewportRuntime = {
   get: () => Readonly<Viewport>
+  getCommitted: () => Readonly<Viewport>
+  subscribe: (listener: () => void) => () => void
   getZoom: () => number
   screenToWorld: (point: Point) => Point
   worldToScreen: (point: Point) => Point
@@ -26,6 +29,15 @@ export type ViewportRuntime = {
   getScreenCenter: () => Point
   getContainerSize: () => ViewportSize
   setContainerRect: (rect: ContainerRect) => void
+}
+
+export type ViewportRuntimeControl = ViewportRuntime & {
+  commit: (viewport: Viewport) => boolean
+}
+
+export const DEFAULT_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
 }
 
 const EMPTY_RECT: ContainerRect = {
@@ -52,14 +64,39 @@ const toScreenCenter = (size: ViewportSize): Point => ({
   y: size.height / 2
 })
 
+const cloneViewport = (viewport: Viewport): Viewport => ({
+  center: {
+    x: viewport.center.x,
+    y: viewport.center.y
+  },
+  zoom: viewport.zoom
+})
+
+const assertViewport = (viewport: Viewport): Viewport => {
+  if (!viewport || !viewport.center) {
+    throw new Error('Viewport center is required.')
+  }
+  if (!Number.isFinite(viewport.center.x) || !Number.isFinite(viewport.center.y)) {
+    throw new Error('Viewport center must be finite.')
+  }
+  if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
+    throw new Error('Viewport zoom must be a positive finite number.')
+  }
+  return viewport
+}
+
 export const createViewportRuntime = ({
-  readViewport
+  initialViewport = DEFAULT_VIEWPORT,
+  readEffectiveViewport
 }: {
-  readViewport: () => Viewport
-}): ViewportRuntime => {
+  initialViewport?: Viewport
+  readEffectiveViewport: () => Viewport
+}): ViewportRuntimeControl => {
   let containerRect = copyRect(EMPTY_RECT)
   let containerSize = toSize(containerRect)
   let screenCenter = toScreenCenter(containerSize)
+  let committedViewport = cloneViewport(assertViewport(initialViewport))
+  const listeners = new Set<() => void>()
 
   const setContainerRect = (nextRect: ContainerRect) => {
     if (
@@ -81,14 +118,36 @@ export const createViewportRuntime = ({
   })
 
   const screenToWorld = (point: Point): Point =>
-    viewportScreenToWorld(point, readViewport(), screenCenter)
+    viewportScreenToWorld(point, readEffectiveViewport(), screenCenter)
 
   const worldToScreen = (point: Point): Point =>
-    viewportWorldToScreen(point, readViewport(), screenCenter)
+    viewportWorldToScreen(point, readEffectiveViewport(), screenCenter)
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener)
+    return () => {
+      listeners.delete(listener)
+    }
+  }
+
+  const commit = (viewport: Viewport) => {
+    const nextViewport = cloneViewport(assertViewport(viewport))
+    if (isSameViewport(committedViewport, nextViewport)) {
+      return false
+    }
+    committedViewport = nextViewport
+    listeners.forEach((listener) => {
+      listener()
+    })
+    return true
+  }
 
   return {
-    get: () => readViewport(),
-    getZoom: () => readViewport().zoom,
+    get: () => readEffectiveViewport(),
+    getCommitted: () => committedViewport,
+    subscribe,
+    commit,
+    getZoom: () => readEffectiveViewport().zoom,
     screenToWorld,
     worldToScreen,
     clientToScreen,

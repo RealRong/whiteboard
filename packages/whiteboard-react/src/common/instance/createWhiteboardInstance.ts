@@ -1,6 +1,10 @@
-import { READ_KEYS as ENGINE_READ_KEYS } from '@whiteboard/engine'
-import type { Commands as EngineCommands, Instance as EngineInstance } from '@whiteboard/engine'
-import type { DispatchResult, EdgeId, NodeId } from '@whiteboard/core/types'
+import type { Instance as EngineInstance } from '@whiteboard/engine'
+import {
+  panViewport,
+  zoomViewport
+} from '@whiteboard/core/geometry'
+import type { DispatchFailureReason, DispatchResult, EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
+import { createId } from '@whiteboard/core/utils'
 import {
   interactionAtom,
   selectionAtom,
@@ -20,21 +24,22 @@ import type {
   WhiteboardCommands,
   WhiteboardRuntimeConfig
 } from './types'
+import { createSelectionState } from './selectionState'
 import { selectionBoxState } from '../interaction/selectionBoxState'
 import { viewportGestureState } from '../interaction/viewportGestureState'
 import { sessionLockState } from '../interaction/sessionLockState'
 import { nodeInteractionPreviewState } from '../../node/interaction/nodeInteractionPreviewState'
 import { edgeConnectPreviewState } from '../../edge/interaction/connectPreviewState'
 import { edgeRoutingPreviewState } from '../../edge/interaction/routingPreviewState'
-import { createViewportRuntime } from './runtime/viewport'
+import {
+  createViewportRuntime,
+  DEFAULT_VIEWPORT,
+  type ViewportRuntimeControl
+} from './runtime/viewport'
 
-const ENGINE_STATE_KEYS = new Set<EditorStateKey>(['viewport'])
-const UI_STATE_KEYS = ['tool', 'selection', 'interaction'] as const
-
-type UiStateKey = (typeof UI_STATE_KEYS)[number]
-
-const isUiStateKey = (key: EditorStateKey): key is UiStateKey =>
-  key === 'tool' || key === 'selection' || key === 'interaction'
+const assertNever = (value: never): never => {
+  throw new Error(`Unknown editor state key: ${String(value)}`)
+}
 
 const resetUiTransientState = (instance: InternalWhiteboardInstance) => {
   instance.uiStore.set(selectionAtom, createInitialSelectionState())
@@ -60,7 +65,7 @@ const readState = <K extends EditorStateKey>(
   if (key === 'interaction') {
     return instance.uiStore.get(interactionAtom) as EditorStateSnapshot[K]
   }
-  return instance.read.viewport as EditorStateSnapshot[K]
+  return assertNever(key)
 }
 
 const subscribeState = (
@@ -71,15 +76,8 @@ const subscribeState = (
   const unsubs: Array<() => void> = []
 
   keys.forEach((key) => {
-    if (isUiStateKey(key)) {
-      unsubs.push(instance.uiStore.sub(uiStateAtoms[key], listener))
-    }
+    unsubs.push(instance.uiStore.sub(uiStateAtoms[key], listener))
   })
-
-  const engineKeys = keys.filter((key) => ENGINE_STATE_KEYS.has(key))
-  if (engineKeys.length) {
-    unsubs.push(instance.read.subscribe(ENGINE_READ_KEYS.viewport, listener))
-  }
 
   return () => {
     unsubs.forEach((off) => off())
@@ -97,27 +95,97 @@ const withUiReset = async (
   return result
 }
 
+const failureResult = (
+  reason: DispatchFailureReason,
+  message?: string
+): Promise<DispatchResult> =>
+  Promise.resolve({
+    ok: false,
+    reason,
+    message
+  })
+
+const invalidResult = (message: string): Promise<DispatchResult> =>
+  failureResult('invalid', message)
+
+const cancelledResult = (message?: string): Promise<DispatchResult> =>
+  failureResult('cancelled', message)
+
+const successResult = (): Promise<DispatchResult> =>
+  Promise.resolve({
+    ok: true,
+    changes: {
+      id: createId('change'),
+      timestamp: Date.now(),
+      operations: [],
+      origin: 'user'
+    }
+  })
+
 export const createWhiteboardInstance = ({
   engine,
   uiStore,
-  initialTool
+  initialTool,
+  initialViewport = DEFAULT_VIEWPORT
 }: {
   engine: EngineInstance
   uiStore: InternalWhiteboardInstance['uiStore']
   initialTool: EditorTool
+  initialViewport?: Viewport
 }): InternalWhiteboardInstance => {
   let instance!: InternalWhiteboardInstance
+  let viewport!: ViewportRuntimeControl
 
   uiStore.set(toolAtom, initialTool)
   uiStore.set(selectionAtom, createInitialSelectionState())
   uiStore.set(interactionAtom, createInitialInteractionState())
+  const selectionState = createSelectionState({ uiStore })
 
-  const viewport = createViewportRuntime({
-    readViewport: () => (
+  viewport = createViewportRuntime({
+    initialViewport,
+    readEffectiveViewport: () => (
       viewportGestureState.getSnapshot(instance).preview
-      ?? engine.read.viewport
+      ?? viewport.getCommitted()
     )
   })
+
+  const applyViewport = (nextViewport: Viewport) => {
+    try {
+      if (!viewport.commit(nextViewport)) {
+        return cancelledResult()
+      }
+      return successResult()
+    } catch (error) {
+      return invalidResult(
+        error instanceof Error ? error.message : 'Invalid viewport.'
+      )
+    }
+  }
+
+  const viewportCommands: WhiteboardCommands['viewport'] = {
+    set: (nextViewport) => applyViewport(nextViewport),
+    panBy: (delta) => {
+      if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
+        return invalidResult('Invalid pan delta.')
+      }
+      return applyViewport(panViewport(viewport.getCommitted(), delta))
+    },
+    zoomBy: (factor, anchor) => {
+      if (!Number.isFinite(factor) || factor <= 0) {
+        return invalidResult('Invalid zoom factor.')
+      }
+      return applyViewport(zoomViewport(viewport.getCommitted(), factor, anchor))
+    },
+    zoomTo: (zoom, anchor) => {
+      const current = viewport.getCommitted()
+      const factor = current.zoom === 0 ? zoom : zoom / current.zoom
+      if (!Number.isFinite(factor) || factor <= 0) {
+        return invalidResult('Invalid zoom factor.')
+      }
+      return applyViewport(zoomViewport(current, factor, anchor))
+    },
+    reset: () => applyViewport(DEFAULT_VIEWPORT)
+  }
 
   const tool: WhiteboardCommands['tool'] = {
     set: (nextTool) => {
@@ -151,7 +219,7 @@ export const createWhiteboardInstance = ({
       uiStore.set(selectionAtom, applySelectionState(uiStore.get(selectionAtom), ids, 'toggle'))
     },
     selectAll: () => {
-      selection.select([...instance.read.node.ids], 'replace')
+      selection.select([...instance.read.node.ids()], 'replace')
     },
     clear: () => {
       uiStore.set(selectionAtom, {
@@ -181,16 +249,18 @@ export const createWhiteboardInstance = ({
     uiStore,
     state: {
       read: (key) => readState(instance, key),
-      subscribe: (keys, listener) => subscribeState(instance, keys, listener)
+      subscribe: (keys, listener) => subscribeState(instance, keys, listener),
+      selection: selectionState.selection
     },
     config: engine.config,
     read: engine.read,
     commands: {
       ...engine.commands,
-      doc: {
-        load: async (doc) => withUiReset(instance, engine.commands.doc.load(doc)),
-        replace: async (doc) => withUiReset(instance, engine.commands.doc.replace(doc))
+      document: {
+        replace: async (doc) =>
+          withUiReset(instance, engine.commands.document.replace(doc))
       },
+      viewport: viewportCommands,
       tool,
       interaction,
       selection,
@@ -205,6 +275,7 @@ export const createWhiteboardInstance = ({
       })
     },
     dispose: () => {
+      selectionState.dispose()
       resetUiTransientState(instance)
       engine.dispose()
     }

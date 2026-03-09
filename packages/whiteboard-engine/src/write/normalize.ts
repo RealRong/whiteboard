@@ -11,7 +11,6 @@ type Reduce = (
 ) => KernelReduceResult
 
 export type WriteNormalize = {
-  document: (document: Document, origin: Origin) => Document
   reduce: (
     document: Document,
     operations: readonly Operation[],
@@ -36,18 +35,6 @@ export const createWriteNormalize = ({
       rectEpsilon: DEFAULT_TUNING.group.rectEpsilon
     })
 
-  const normalizeDocument = (document: Document, origin: Origin): Document => {
-    const operations = buildOperations(document)
-    if (!operations.length) return document
-
-    const normalized = reduce(document, operations, origin)
-    if (normalized.ok) {
-      return normalized.doc
-    }
-
-    throw new Error(`Group normalize failed: ${normalized.message}`)
-  }
-
   const reduceWithNormalize = (
     document: Document,
     operations: readonly Operation[],
@@ -69,7 +56,6 @@ export const createWriteNormalize = ({
   }
 
   return {
-    document: normalizeDocument,
     reduce: reduceWithNormalize
   }
 }

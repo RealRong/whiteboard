@@ -3,16 +3,15 @@ import type { Edge, Node } from '@whiteboard/core/types'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
   DocumentSource,
-  EdgesView,
+  EdgeRead,
   EngineRead,
   EngineReadIndex,
   InstanceConfig,
-  MindmapView,
-  NodesView,
-  ReadSubscriptionKey
+  MindmapRead,
+  NodeRead
 } from './instance'
-import { READ_KEYS } from './instance'
 import type { MindmapLayoutConfig } from './mindmap'
+import type { WriteCommit } from './write'
 
 export type ReadModel = {
   nodes: {
@@ -48,35 +47,28 @@ export type ReadContext = {
 
 export type ReadImpact = KernelReadImpact
 
-export type ProjectionSubscriptionKey = Exclude<
-  ReadSubscriptionKey,
-  typeof READ_KEYS.viewport
->
-
-export type NodeReadProjection = {
-  getView: () => NodesView
+export type NodeReadProjection = NodeRead & {
+  applyChange: (impact: ReadImpact) => void
 }
 
-export type EdgeReadProjection = {
+export type EdgeReadProjection = EdgeRead & {
   applyChange: (
     rebuild: 'none' | 'dirty' | 'full',
     nodeIds: readonly NodeId[],
     edgeIds: readonly EdgeId[]
   ) => void
-  getView: () => EdgesView
 }
 
-export type MindmapReadProjection = {
-  getView: () => MindmapView
+export type MindmapReadProjection = MindmapRead & {
+  applyChange: (impact: ReadImpact) => void
 }
+
+export type ReadCommit = Extract<WriteCommit, { ok: true }>
 
 export type ReadControl = {
   read: EngineRead
-  invalidate: {
-    impact: (impact: ReadImpact) => void
-    reset: () => void
-    mindmap: () => void
-  }
+  commit: (committed: ReadCommit) => void
+  rebuildMindmap: () => void
 }
 
 export type ReadDeps = {

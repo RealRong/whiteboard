@@ -13,8 +13,7 @@ import type {
   NodeInput,
   Operation,
   Point,
-  Size,
-  Viewport
+  Size
 } from '../types'
 import { getNode } from '../types'
 import {
@@ -24,7 +23,6 @@ import {
 } from '../node'
 import { buildEdgeCreateOperation } from '../edge'
 import type { EdgeId, EdgeInput } from '../types'
-import { panViewport, zoomViewport } from '../geometry'
 import {
   addChild as addMindmapChild,
   addSibling as addMindmapSibling,
@@ -60,14 +58,6 @@ const success = <T,>(operations: Operation[], value?: T): PlanResult<T> => ({
 const invalid = <T = unknown,>(message: string): PlanResult<T> => ({
   ok: false,
   message
-})
-
-const cloneViewport = (viewport: Viewport): Viewport => ({
-  center: {
-    x: viewport.center.x,
-    y: viewport.center.y
-  },
-  zoom: viewport.zoom
 })
 
 const fromOperation = (
@@ -205,88 +195,6 @@ export const corePlan = {
           createEdgeId
         })
       )
-  },
-
-  viewport: {
-    set: ({
-      viewport
-    }: {
-      viewport: Viewport
-    }): PlanResult => {
-      if (!viewport.center) {
-        return invalid('Missing viewport center.')
-      }
-      if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
-        return invalid('Invalid viewport zoom.')
-      }
-      return success([{
-        type: 'viewport.update',
-        after: cloneViewport(viewport)
-      }])
-    },
-
-    panBy: ({
-      current,
-      delta
-    }: {
-      current: Viewport
-      delta: Point
-    }): PlanResult => {
-      if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
-        return invalid('Invalid pan delta.')
-      }
-      return success([{
-        type: 'viewport.update',
-        after: cloneViewport(panViewport(current, delta))
-      }])
-    },
-
-    zoomBy: ({
-      current,
-      factor,
-      anchor
-    }: {
-      current: Viewport
-      factor: number
-      anchor?: Point
-    }): PlanResult => {
-      if (!Number.isFinite(factor) || factor <= 0) {
-        return invalid('Invalid zoom factor.')
-      }
-      return success([{
-        type: 'viewport.update',
-        after: cloneViewport(zoomViewport(current, factor, anchor))
-      }])
-    },
-
-    zoomTo: ({
-      current,
-      zoom,
-      anchor
-    }: {
-      current: Viewport
-      zoom: number
-      anchor?: Point
-    }): PlanResult => {
-      const factor = current.zoom === 0 ? zoom : zoom / current.zoom
-      if (!Number.isFinite(factor) || factor <= 0) {
-        return invalid('Invalid zoom factor.')
-      }
-      return success([{
-        type: 'viewport.update',
-        after: cloneViewport(zoomViewport(current, factor, anchor))
-      }])
-    },
-
-    reset: ({
-      viewport
-    }: {
-      viewport: Viewport
-    }): PlanResult =>
-      success([{
-        type: 'viewport.update',
-        after: cloneViewport(viewport)
-      }])
   },
 
   mindmap: {

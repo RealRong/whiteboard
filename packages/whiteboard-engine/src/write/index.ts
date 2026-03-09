@@ -69,10 +69,9 @@ export const createWrite = ({
   }
 
   const replaceDocument = (
-    document: Document,
-    origin: Origin
+    document: Document
   ): WriteCommit => {
-    const committedDocument = normalize.document(assertDocument(document), origin)
+    const committedDocument = assertDocument(document)
     instance.document.commit(committedDocument)
 
     return {
@@ -83,7 +82,7 @@ export const createWrite = ({
         id: createId('change'),
         timestamp: readNow(),
         operations: [],
-        origin
+        origin: 'system'
       }
     }
   }
@@ -132,13 +131,12 @@ export const createWrite = ({
     )
   }
 
-  const replaceSystemDocument = async (document: Document) =>
-    clearHistory(replaceDocument(document, 'system'))
+  const replace = async (document: Document) =>
+    clearHistory(replaceDocument(document))
 
   return {
     apply,
-    load: replaceSystemDocument,
-    replace: replaceSystemDocument,
+    replace,
     history: {
       get: history.get,
       configure: history.configure,

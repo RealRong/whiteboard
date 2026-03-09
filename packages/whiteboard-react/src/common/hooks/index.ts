@@ -1,3 +1,7 @@
 export { useInstance, useInternalInstance } from './useInstance'
-export { useReadGetter } from './useReadGetter'
+export { useNode, useNodeIds } from './useNode'
+export { useEdge, useEdgeIds } from './useEdge'
+export { useMindmap, useMindmapIds } from './useMindmap'
+export { useSelectionContains, useSelectedEdgeId } from './useSelection'
+export { useViewport, useViewportZoom } from './useViewport'
 export { useWhiteboardSelector } from './useWhiteboardSelector'

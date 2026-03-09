@@ -11,12 +11,9 @@ import {
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
   type CanvasNodeRect,
-  type EdgeEndpoints,
-  type EdgeEntry,
-  type EdgesView
+  type EdgeEntry
 } from '@engine-types/instance'
-import type { ReadContext } from '@engine-types/read'
-import type { EdgeReadProjection } from '@engine-types/read'
+import type { EdgeReadProjection, ReadContext } from '@engine-types/read'
 
 type EdgeCacheEntry = {
   sourceRectRef: CanvasNodeRect
@@ -90,6 +87,22 @@ const emptyState = (): EdgeCacheState => ({
   byId: new Map<EdgeId, EdgeEntry>()
 })
 
+const subscribeListener = (
+  listeners: Set<() => void>,
+  listener: () => void
+) => {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+const notifyListeners = (listeners: ReadonlySet<() => void>) => {
+  listeners.forEach((listener) => {
+    listener()
+  })
+}
+
 const isSameView = (
   prevIds: readonly EdgeId[],
   prevById: ReadonlyMap<EdgeId, EdgeEntry>,
@@ -116,10 +129,11 @@ const rebuildView = (state: EdgeCacheState) => {
     nextById.set(edgeId, entry)
   })
 
-  if (isSameView(state.ids, state.byId, nextIds, nextById)) return
+  if (isSameView(state.ids, state.byId, nextIds, nextById)) return false
 
   state.ids = nextIds
   state.byId = nextById
+  return true
 }
 
 const toNodeGeometryTuple = (entry: CanvasNodeRect): NodeGeometryTuple => ({
@@ -158,12 +172,9 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
   const getNodeRect = context.indexes.node.byId
   const readModel = () => context.model()
   const state = emptyState()
+  const idsListeners = new Set<() => void>()
+  const listenersById = new Map<EdgeId, Set<() => void>>()
   let visibleEdgesRef: ReturnType<typeof readModel>['edges']['visible'] | undefined
-  let pendingNodeIds = new Set<NodeId>()
-  let pendingEdgeIds = new Set<EdgeId>()
-  let viewCache: EdgesView | undefined
-  let viewIdsRef: readonly EdgeId[] | undefined
-  let viewByIdRef: ReadonlyMap<EdgeId, EdgeEntry> | undefined
 
   const toEdgeCacheMaterial = (
     edge: EdgeEntry['edge']
@@ -189,11 +200,11 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
     if (!previous) return undefined
 
     const isSameGeometry = (
-      previous.sourceRectRef === material.sourceRectRef &&
-      previous.targetRectRef === material.targetRectRef
+      previous.sourceRectRef === material.sourceRectRef
+      && previous.targetRectRef === material.targetRectRef
     ) || (
-      isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry) &&
-      isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
+      isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry)
+      && isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
     )
     if (!isSameGeometry) return undefined
 
@@ -202,9 +213,9 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
     }
 
     if (
-      previous.entry.edge === edge &&
-      previous.sourceRectRef === material.sourceRectRef &&
-      previous.targetRectRef === material.targetRectRef
+      previous.entry.edge === edge
+      && previous.sourceRectRef === material.sourceRectRef
+      && previous.targetRectRef === material.targetRectRef
     ) {
       return previous
     }
@@ -273,20 +284,36 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
     state.relations = createEdgeRelations(edges)
 
     const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
+    const changedEdgeIds = new Set<EdgeId>()
+    const previousEdgeIds = new Set(previousCacheById.keys())
+
     state.relations.edgeIds.forEach((edgeId) => {
       const edge = state.relations.edgeById.get(edgeId)
       if (!edge) return
       const nextEntry = toCacheEntry(edge, previousCacheById.get(edgeId))
       if (!nextEntry) return
       nextCacheById.set(edgeId, nextEntry)
+      if (previousCacheById.get(edgeId) !== nextEntry) {
+        changedEdgeIds.add(edgeId)
+      }
+      previousEdgeIds.delete(edgeId)
+    })
+
+    previousEdgeIds.forEach((edgeId) => {
+      changedEdgeIds.add(edgeId)
     })
 
     state.cacheById = nextCacheById
-    rebuildView(state)
+    const idsChanged = rebuildView(state)
+    return {
+      idsChanged,
+      changedEdgeIds
+    }
   }
 
   const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
     let draftCacheById: Map<EdgeId, EdgeCacheEntry> | undefined
+    const changedEdgeIds = new Set<EdgeId>()
 
     for (const edgeId of edgeIds) {
       const edge = state.relations.edgeById.get(edgeId)
@@ -303,93 +330,109 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
       } else {
         draftCacheById.delete(edgeId)
       }
+      changedEdgeIds.add(edgeId)
     }
 
-    if (!draftCacheById) return
+    if (!draftCacheById) {
+      return {
+        idsChanged: false,
+        changedEdgeIds
+      }
+    }
+
     state.cacheById = draftCacheById
-    rebuildView(state)
+    const idsChanged = rebuildView(state)
+    return {
+      idsChanged,
+      changedEdgeIds
+    }
   }
 
-  const ensureEntries = () => {
+  const ensureSynced = () => {
     const visibleEdges = readModel().edges.visible
-    if (visibleEdges !== visibleEdgesRef) {
-      visibleEdgesRef = visibleEdges
-      pendingNodeIds = new Set<NodeId>()
-      pendingEdgeIds = new Set<EdgeId>()
-      reconcileAll(visibleEdges)
-      return
+    if (visibleEdges === visibleEdgesRef) return
+    visibleEdgesRef = visibleEdges
+    reconcileAll(visibleEdges)
+  }
+
+  const ids = () => {
+    ensureSynced()
+    return state.ids
+  }
+
+  const get = (edgeId: EdgeId) => {
+    ensureSynced()
+    return state.byId.get(edgeId)
+  }
+
+  const subscribe = (edgeId: EdgeId, listener: () => void) => {
+    const edgeListeners = listenersById.get(edgeId) ?? new Set<() => void>()
+    if (!listenersById.has(edgeId)) {
+      listenersById.set(edgeId, edgeListeners)
     }
-
-    if (!pendingNodeIds.size && !pendingEdgeIds.size) return
-
-    const nodeIds = pendingNodeIds
-    const edgeIds = pendingEdgeIds
-    pendingNodeIds = new Set<NodeId>()
-    pendingEdgeIds = new Set<EdgeId>()
-
-    const affectedEdgeIds = new Set<EdgeId>()
-    if (nodeIds.size) {
-      const fromNodes = collectRelatedEdgeIds(
-        state.relations.nodeToEdgeIds,
-        nodeIds
-      )
-      fromNodes.forEach((edgeId) => {
-        affectedEdgeIds.add(edgeId)
-      })
+    edgeListeners.add(listener)
+    return () => {
+      edgeListeners.delete(listener)
+      if (!edgeListeners.size) {
+        listenersById.delete(edgeId)
+      }
     }
-    edgeIds.forEach((edgeId) => {
-      affectedEdgeIds.add(edgeId)
-    })
-    if (!affectedEdgeIds.size) return
+  }
 
-    reconcileEdges(affectedEdgeIds)
+  const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
+
+  const notifyEdge = (edgeId: EdgeId) => {
+    const edgeListeners = listenersById.get(edgeId)
+    if (!edgeListeners?.size) return
+    notifyListeners(edgeListeners)
   }
 
   const applyChange: EdgeReadProjection['applyChange'] = (rebuild, nodeIds, edgeIds) => {
     if (rebuild === 'none') return
 
-    if (rebuild === 'full') {
-      visibleEdgesRef = undefined
-      pendingNodeIds = new Set<NodeId>()
-      pendingEdgeIds = new Set<EdgeId>()
-      return
-    }
+    const visibleEdges = readModel().edges.visible
+    const visibleEdgesChanged = visibleEdges !== visibleEdgesRef
+    let idsChanged = false
+    let changedEdgeIds = new Set<EdgeId>()
 
-    if (nodeIds.length) {
-      nodeIds.forEach((nodeId) => {
-        pendingNodeIds.add(nodeId)
-      })
-    }
-
-    if (edgeIds.length) {
+    if (rebuild === 'full' || visibleEdgesChanged) {
+      visibleEdgesRef = visibleEdges
+      const next = reconcileAll(visibleEdges)
+      idsChanged = next.idsChanged
+      changedEdgeIds = next.changedEdgeIds
+    } else {
+      const affectedEdgeIds = new Set<EdgeId>()
+      if (nodeIds.length) {
+        const fromNodes = collectRelatedEdgeIds(
+          state.relations.nodeToEdgeIds,
+          new Set(nodeIds)
+        )
+        fromNodes.forEach((edgeId) => {
+          affectedEdgeIds.add(edgeId)
+        })
+      }
       edgeIds.forEach((edgeId) => {
-        pendingEdgeIds.add(edgeId)
+        affectedEdgeIds.add(edgeId)
       })
-    }
-  }
-
-  const getView: EdgeReadProjection['getView'] = () => {
-    ensureEntries()
-
-    if (
-      viewCache &&
-      viewIdsRef === state.ids &&
-      viewByIdRef === state.byId
-    ) {
-      return viewCache
+      const next = reconcileEdges(affectedEdgeIds)
+      idsChanged = next.idsChanged
+      changedEdgeIds = next.changedEdgeIds
     }
 
-    viewIdsRef = state.ids
-    viewByIdRef = state.byId
-    viewCache = {
-      ids: state.ids,
-      byId: state.byId
+    if (idsChanged) {
+      notifyListeners(idsListeners)
     }
-    return viewCache
+
+    changedEdgeIds.forEach((edgeId) => {
+      notifyEdge(edgeId)
+    })
   }
 
   return {
-    applyChange,
-    getView
+    ids,
+    get,
+    subscribe,
+    subscribeIds,
+    applyChange
   }
 }

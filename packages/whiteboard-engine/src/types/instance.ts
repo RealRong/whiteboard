@@ -1,4 +1,4 @@
-import type { CoreRegistries, Document, Edge, EdgeAnchor, EdgeId, MindmapNodeId, MindmapTree, Node, NodeId, Point, Rect, Viewport } from '@whiteboard/core/types'
+import type { CoreRegistries, Document, Edge, EdgeAnchor, EdgeId, MindmapNodeId, MindmapTree, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget, MindmapLayout } from '@whiteboard/core/mindmap'
 import type { Commands } from './command'
 import type { ResolvedHistoryConfig, Size } from './common'
@@ -19,9 +19,6 @@ export type InstanceConfig = {
     hitTestThresholdScreen: number
     anchorSnapMin: number
     anchorSnapRatio: number
-  }
-  viewport: {
-    wheelSensitivity: number
   }
 }
 
@@ -92,21 +89,6 @@ export type NodeViewItem = {
   rect: Rect
 }
 
-export type NodesView = {
-  ids: readonly NodeId[]
-  byId: ReadonlyMap<NodeId, Readonly<NodeViewItem>>
-}
-
-export type EdgesView = {
-  ids: readonly EdgeId[]
-  byId: ReadonlyMap<EdgeId, Readonly<EdgeEntry>>
-}
-
-export type MindmapView = {
-  ids: readonly NodeId[]
-  byId: ReadonlyMap<NodeId, Readonly<MindmapViewTree>>
-}
-
 export type EngineReadIndex = {
   node: {
     all: () => CanvasNodeRect[]
@@ -119,24 +101,32 @@ export type EngineReadIndex = {
   }
 }
 
-export const READ_KEYS = {
-  viewport: 'viewport',
-  node: 'node',
-  edge: 'edge',
-  mindmap: 'mindmap'
-} as const
+export type NodeRead = {
+  ids: () => readonly NodeId[]
+  get: (nodeId: NodeId) => Readonly<NodeViewItem> | undefined
+  subscribe: (nodeId: NodeId, listener: () => void) => () => void
+  subscribeIds: (listener: () => void) => () => void
+}
 
-export type ReadSubscriptionKey =
-  (typeof READ_KEYS)[keyof typeof READ_KEYS]
+export type EdgeRead = {
+  ids: () => readonly EdgeId[]
+  get: (edgeId: EdgeId) => Readonly<EdgeEntry> | undefined
+  subscribe: (edgeId: EdgeId, listener: () => void) => () => void
+  subscribeIds: (listener: () => void) => () => void
+}
+
+export type MindmapRead = {
+  ids: () => readonly NodeId[]
+  get: (treeId: NodeId) => Readonly<MindmapViewTree> | undefined
+  subscribe: (treeId: NodeId, listener: () => void) => () => void
+  subscribeIds: (listener: () => void) => () => void
+}
 
 export type EngineRead = {
-  viewport: Viewport
-  node: NodesView
-  edge: EdgesView
-  mindmap: MindmapView
+  node: NodeRead
+  edge: EdgeRead
+  mindmap: MindmapRead
   index: EngineReadIndex
-  document: Readonly<Document>
-  subscribe: (key: ReadSubscriptionKey, listener: () => void) => () => void
 }
 
 export type RuntimeConfig = {
@@ -157,9 +147,7 @@ export type EngineDocument = {
   commit: (doc: Document) => void
 }
 
-export type DocumentSource = EngineDocument & {
-  subscribeViewport: (listener: () => void) => () => void
-}
+export type DocumentSource = EngineDocument
 
 export type CreateEngineOptions = {
   registries?: CoreRegistries
