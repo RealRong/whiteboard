@@ -36,7 +36,7 @@ export const useEdgeRoutingInteraction = () => {
   const lockTokenRef = useRef<SessionLockToken | null>(null)
 
   const readEdgeById = useCallback(
-    (edgeId: EdgeId) => instance.read.projection.edge.byId.get(edgeId),
+    (edgeId: EdgeId) => instance.read.edge.byId.get(edgeId),
     [instance.read]
   )
 
@@ -99,8 +99,8 @@ export const useEdgeRoutingInteraction = () => {
       const start = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       const origin = points[index]
       if (!origin) return
@@ -128,8 +128,8 @@ export const useEdgeRoutingInteraction = () => {
     },
     [
       instance.commands.edge,
-      instance.runtime.viewport.clientToScreen,
-      instance.runtime.viewport.screenToWorld,
+      instance.viewport.clientToScreen,
+      instance.viewport.screenToWorld,
       instance,
       readEdgeById
     ]
@@ -174,8 +174,8 @@ export const useEdgeRoutingInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       const point = {
         x: active.origin.x + (world.x - active.start.x),

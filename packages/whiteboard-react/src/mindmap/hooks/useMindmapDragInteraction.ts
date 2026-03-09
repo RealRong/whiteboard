@@ -143,7 +143,7 @@ export const useMindmapDragInteraction = () => {
   }, [instance])
 
   const readTree = useCallback(
-    (treeId: NodeId) => instance.read.projection.mindmap.byId.get(treeId),
+    (treeId: NodeId) => instance.read.mindmap.byId.get(treeId),
     [instance.read]
   )
 
@@ -155,8 +155,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
 
       if (active.kind === 'root') {
@@ -225,7 +225,7 @@ export const useMindmapDragInteraction = () => {
           parentId: active.originParentId,
           index: active.originIndex
         },
-        nodeSize: instance.read.config.mindmapNodeSize,
+        nodeSize: instance.config.mindmapNodeSize,
         layout: active.layout
       })
     },
@@ -274,8 +274,8 @@ export const useMindmapDragInteraction = () => {
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       const baseOffset = {
         x: treeView.node.position.x,

@@ -1,6 +1,6 @@
 import type { NodeId, MindmapNodeId } from '@whiteboard/core/types'
 import {
-  READ_SUBSCRIPTION_KEYS,
+  READ_KEYS,
   type MindmapDragView,
   type MindmapViewTree
 } from '@whiteboard/engine'
@@ -21,9 +21,9 @@ type MindmapLayerProps = {
 const useMindmapTree = (treeId: NodeId) => {
   const instance = useInstance()
   return useReadGetter<MindmapViewTree | undefined>(
-    () => instance.read.projection.mindmap.byId.get(treeId),
+    () => instance.read.mindmap.byId.get(treeId),
     {
-      keys: [READ_SUBSCRIPTION_KEYS.mindmap]
+      key: READ_KEYS.mindmap
     }
   )
 }

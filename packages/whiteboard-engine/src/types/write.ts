@@ -3,11 +3,13 @@ import type {
   DispatchFailure,
   DispatchResult,
   Document,
-  Operation
+  Operation,
+  CoreRegistries
 } from '@whiteboard/core/types'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Commands, WriteDomain, WriteInput } from './command'
-import type { EngineContext } from './instance'
+import type { ResolvedHistoryConfig } from './common'
+import type { EngineDocument, InstanceConfig } from './instance'
 import type { Scheduler } from '../scheduling/Scheduler'
 
 export type NodeCommandsApi = Commands['node']
@@ -31,7 +33,6 @@ type SuccessfulWriteBase = {
   ok: true
   doc: Document
   changes: ChangeSet
-  notify: boolean
 }
 
 export type WriteCommit =
@@ -50,7 +51,7 @@ export type WriteControl = {
   load: (doc: Document) => Promise<WriteCommit>
   replace: (doc: Document) => Promise<WriteCommit>
   history: {
-    configure: Commands['history']['configure']
+    configure: (config: Partial<ResolvedHistoryConfig>) => void
     get: Commands['history']['get']
     clear: Commands['history']['clear']
     undo: () => WriteCommit | false
@@ -58,10 +59,11 @@ export type WriteControl = {
   }
 }
 
-export type WriteInstance = Pick<
-  EngineContext,
-  'document' | 'config' | 'registries'
->
+export type WriteInstance = {
+  document: EngineDocument
+  config: InstanceConfig
+  registries: CoreRegistries
+}
 
 export type WriteDeps = {
   instance: WriteInstance

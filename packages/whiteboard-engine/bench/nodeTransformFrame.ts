@@ -155,7 +155,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: viewportScreenToWorld(screen, instance.read.state.viewport, { x: 0, y: 0 }),
+    world: viewportScreenToWorld(screen, instance.read.viewport, { x: 0, y: 0 }),
     modifiers: {
       shift: false,
       alt: false,
@@ -189,7 +189,7 @@ const main = () => {
   const transformKernel = new NodeTransformKernel({
     instance: {
       read: instance.read,
-      config: instance.read.config,
+      config: instance.config,
       document: {
         get: () => instance.read.document
       }
@@ -200,7 +200,7 @@ const main = () => {
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const baseNode = instance.read.index.nodeRect(nodeId)?.node
+  const baseNode = instance.read.index.node.byId(nodeId)?.node
   if (!baseNode) {
     throw new Error(`Missing transform node: ${nodeId}`)
   }
@@ -216,7 +216,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const nodeRect = instance.read.index.nodeRect(nodeId)
+    const nodeRect = instance.read.index.node.byId(nodeId)
     if (!nodeRect) {
       throw new Error(`Missing nodeRect for node ${nodeId} at run ${run + 1}`)
     }

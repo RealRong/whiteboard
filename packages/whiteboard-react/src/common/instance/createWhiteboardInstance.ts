@@ -1,4 +1,4 @@
-import { READ_STATE_KEYS as ENGINE_READ_STATE_KEYS } from '@whiteboard/engine'
+import { READ_KEYS as ENGINE_READ_KEYS } from '@whiteboard/engine'
 import type { Commands as EngineCommands, Instance as EngineInstance } from '@whiteboard/engine'
 import type { DispatchResult, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
@@ -60,7 +60,7 @@ const readState = <K extends EditorStateKey>(
   if (key === 'interaction') {
     return instance.uiStore.get(interactionAtom) as EditorStateSnapshot[K]
   }
-  return instance.read.state.viewport as EditorStateSnapshot[K]
+  return instance.read.viewport as EditorStateSnapshot[K]
 }
 
 const subscribeState = (
@@ -78,7 +78,7 @@ const subscribeState = (
 
   const engineKeys = keys.filter((key) => ENGINE_STATE_KEYS.has(key))
   if (engineKeys.length) {
-    unsubs.push(instance.read.subscribe([ENGINE_READ_STATE_KEYS.viewport], listener))
+    unsubs.push(instance.read.subscribe(ENGINE_READ_KEYS.viewport, listener))
   }
 
   return () => {
@@ -115,7 +115,7 @@ export const createWhiteboardInstance = ({
   const viewport = createViewportRuntime({
     readViewport: () => (
       viewportGestureState.getSnapshot(instance).preview
-      ?? engine.read.state.viewport
+      ?? engine.read.viewport
     )
   })
 
@@ -151,7 +151,7 @@ export const createWhiteboardInstance = ({
       uiStore.set(selectionAtom, applySelectionState(uiStore.get(selectionAtom), ids, 'toggle'))
     },
     selectAll: () => {
-      selection.select([...instance.read.projection.node.ids], 'replace')
+      selection.select([...instance.read.node.ids], 'replace')
     },
     clear: () => {
       uiStore.set(selectionAtom, {
@@ -183,6 +183,7 @@ export const createWhiteboardInstance = ({
       read: (key) => readState(instance, key),
       subscribe: (keys, listener) => subscribeState(instance, keys, listener)
     },
+    config: engine.config,
     read: engine.read,
     commands: {
       ...engine.commands,
@@ -195,19 +196,17 @@ export const createWhiteboardInstance = ({
       selection,
       edge
     } as WhiteboardCommands,
-    runtime: {
-      configure: (config: WhiteboardRuntimeConfig) => {
-        tool.set(config.tool)
-        engine.runtime.configure({
-          mindmapLayout: config.mindmapLayout,
-          history: config.history
-        })
-      },
-      viewport,
-      dispose: () => {
-        resetUiTransientState(instance)
-        engine.runtime.dispose()
-      }
+    viewport,
+    configure: (config: WhiteboardRuntimeConfig) => {
+      tool.set(config.tool)
+      engine.configure({
+        mindmapLayout: config.mindmapLayout,
+        history: config.history
+      })
+    },
+    dispose: () => {
+      resetUiTransientState(instance)
+      engine.dispose()
     }
   }
 

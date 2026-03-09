@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
 import {
-  READ_SUBSCRIPTION_KEYS,
+  READ_KEYS,
   type NodeViewItem
 } from '@whiteboard/engine'
 import { useInstance, useReadGetter } from '../../common/hooks'
@@ -9,8 +9,8 @@ import { NodeItem } from './NodeItem'
 const useNodeItem = (nodeId: NodeId) => {
   const instance = useInstance()
   return useReadGetter<NodeViewItem | undefined>(
-    () => instance.read.projection.node.byId.get(nodeId),
-    { keys: [READ_SUBSCRIPTION_KEYS.node] }
+    () => instance.read.node.byId.get(nodeId),
+    { key: READ_KEYS.node }
   )
 }
 
@@ -24,8 +24,8 @@ const NodeItemById = ({ nodeId }: { nodeId: NodeId }) => {
 export const NodeLayer = () => {
   const instance = useInstance()
   const nodeIds = useReadGetter(
-    () => instance.read.projection.node.ids,
-    { keys: [READ_SUBSCRIPTION_KEYS.node] }
+    () => instance.read.node.ids,
+    { key: READ_KEYS.node }
   )
 
   return (

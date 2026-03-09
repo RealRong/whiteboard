@@ -149,7 +149,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: viewportScreenToWorld(screen, instance.read.state.viewport, { x: 0, y: 0 }),
+    world: viewportScreenToWorld(screen, instance.read.viewport, { x: 0, y: 0 }),
     modifiers: {
       shift: false,
       alt: false,
@@ -177,7 +177,7 @@ const main = () => {
   const dragKernel = new NodeDragKernel({
     instance: {
       read: instance.read,
-      config: instance.read.config,
+      config: instance.config,
       document: {
         get: () => instance.read.document
       }
@@ -188,7 +188,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.read.index.nodeRect(movingNodeId)?.node
+  const movingNode = instance.read.index.node.byId(movingNodeId)?.node
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }

@@ -5,42 +5,18 @@ import { useInstance } from './useInstance'
 type Equality<T> = (left: T, right: T) => boolean
 
 type ReadGetterOptions<T> = {
-  keys: ReadSubscriptionKey[]
+  key: ReadSubscriptionKey
   equality?: Equality<T>
 }
 
 const defaultEquality: Equality<unknown> = Object.is
-
-const normalizeKeys = (keys: ReadSubscriptionKey[]) => Array.from(new Set(keys))
-
-const isSameKeys = (left: ReadSubscriptionKey[], right: ReadSubscriptionKey[]) => {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false
-  }
-  return true
-}
 
 export const useReadGetter = <T,>(
   getter: () => T,
   options: ReadGetterOptions<T>
 ): T => {
   const instance = useInstance()
-  if (!options.keys.length) {
-    throw new Error('useReadGetter requires explicit keys')
-  }
-
-  const computedKeys = useMemo(
-    () => normalizeKeys(options.keys),
-    [options.keys]
-  )
-
-  const keysRef = useRef<ReadSubscriptionKey[]>(computedKeys)
-  if (!isSameKeys(keysRef.current, computedKeys)) {
-    keysRef.current = computedKeys
-  }
-  const keys = keysRef.current
+  const key = options.key
 
   const getterRef = useRef(getter)
   getterRef.current = getter
@@ -52,8 +28,8 @@ export const useReadGetter = <T,>(
   })
 
   const subscribe = useMemo(
-    () => (onStoreChange: () => void) => instance.read.subscribe(keys, onStoreChange),
-    [instance, keys]
+    () => (onStoreChange: () => void) => instance.read.subscribe(key, onStoreChange),
+    [instance, key]
   )
 
   const getSnapshot = useMemo(
@@ -71,7 +47,7 @@ export const useReadGetter = <T,>(
       }
       return next
     },
-    [instance, keys]
+    [instance, key]
   )
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)

@@ -218,23 +218,22 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     ]
   )
 
-  const runtime = instance.runtime
   useEffect(() => {
     return () => {
-      runtime.dispose()
+      instance.dispose()
     }
-  }, [runtime])
+  }, [instance])
 
   useEffect(() => {
-    runtime.configure(runtimeConfig)
-  }, [runtime, runtimeConfig])
+    instance.configure(runtimeConfig)
+  }, [instance, runtimeConfig])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const emitRect = (rect: { left: number; top: number; width: number; height: number }) => {
-      instance.runtime.viewport.setContainerRect(rect)
+      instance.viewport.setContainerRect(rect)
     }
 
     const initial = container.getBoundingClientRect()

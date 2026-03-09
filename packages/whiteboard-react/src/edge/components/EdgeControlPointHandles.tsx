@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { READ_SUBSCRIPTION_KEYS } from '@whiteboard/engine'
+import { READ_KEYS } from '@whiteboard/engine'
 import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
 import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
 import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewState'
@@ -14,11 +14,11 @@ export const EdgeControlPointHandles = () => {
   const edgeEntry = useReadGetter(
     () => (
       selectedEdgeId
-        ? instance.read.projection.edge.byId.get(selectedEdgeId)
+        ? instance.read.edge.byId.get(selectedEdgeId)
         : undefined
     ),
     {
-      keys: [READ_SUBSCRIPTION_KEYS.edge]
+      key: READ_KEYS.edge
     }
   )
   const { draft } = useEdgeRoutingPreviewState()

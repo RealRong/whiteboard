@@ -26,11 +26,11 @@ export const EdgePreviewLayer = () => {
       if (!latestEvent) return
       if (edgeConnectPreviewState.getSnapshot(instance).activePointerId !== undefined) return
 
-      const screen = instance.runtime.viewport.clientToScreen(
+      const screen = instance.viewport.clientToScreen(
         latestEvent.clientX,
         latestEvent.clientY
       )
-      const world = instance.runtime.viewport.screenToWorld(screen)
+      const world = instance.viewport.screenToWorld(screen)
       const target = resolveSnapTarget(instance, world)
       edgeConnectPreviewState.setHoverSnap(instance, target?.pointWorld)
     }

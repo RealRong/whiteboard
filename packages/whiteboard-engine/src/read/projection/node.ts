@@ -22,7 +22,7 @@ export const projection = (context: ReadContext): NodeReadProjection => {
       return undefined
     }
 
-    const rect = context.indexes.canvas.byId(id)?.rect ?? {
+    const rect = context.indexes.node.byId(id)?.rect ?? {
       x: node.position.x,
       y: node.position.y,
       width: node.size?.width ?? 0,

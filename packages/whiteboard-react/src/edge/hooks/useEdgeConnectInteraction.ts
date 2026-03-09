@@ -37,7 +37,7 @@ const toPointerInput = (
     x: event.clientX,
     y: event.clientY
   }
-  const screen = instance.runtime.viewport.clientToScreen(
+  const screen = instance.viewport.clientToScreen(
     event.clientX,
     event.clientY
   )
@@ -46,7 +46,7 @@ const toPointerInput = (
     button,
     client,
     screen,
-    world: instance.runtime.viewport.screenToWorld(screen),
+    world: instance.viewport.screenToWorld(screen),
     modifiers: {
       shift: event.shiftKey,
       alt: event.altKey,
@@ -73,7 +73,7 @@ const beginFromNode = (
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
   if (instance.state.read('tool') !== 'edge') return undefined
-  const entry = instance.read.index.nodeRect(nodeId)
+  const entry = instance.read.index.node.byId(nodeId)
   if (!entry) return undefined
   const resolved = resolveAnchorFromPoint(
     instance,
@@ -114,7 +114,7 @@ const beginReconnect = (
   end: 'source' | 'target',
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
-  const edge = instance.read.projection.edge.byId.get(edgeId)?.edge
+  const edge = instance.read.edge.byId.get(edgeId)?.edge
   if (!edge) return undefined
   const endpoint = edge[end]
   return {

@@ -171,7 +171,7 @@ export const useNodeTransformInteraction = ({
   }, [instance])
 
   const commitTransform = useCallback((active: ActiveTransform) => {
-    const node = instance.read.index.nodeRect(active.nodeId)?.node
+    const node = instance.read.index.node.byId(active.nodeId)?.node
     if (!node) return
 
     if (active.drag.mode === 'resize') {
@@ -212,7 +212,7 @@ export const useNodeTransformInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.read.index.nodeRect(nodeId)
+      const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
 
       let nextDrag: ResizeDragState | RotateDragState | undefined
@@ -235,8 +235,8 @@ export const useNodeTransformInteraction = ({
         const world = toPointerWorld(
           event.clientX,
           event.clientY,
-          instance.runtime.viewport.clientToScreen,
-          instance.runtime.viewport.screenToWorld
+          instance.viewport.clientToScreen,
+          instance.viewport.screenToWorld
         )
         const startAngle = Math.atan2(
           world.y - center.y,
@@ -273,8 +273,8 @@ export const useNodeTransformInteraction = ({
     },
     [
       instance.read.index,
-      instance.runtime.viewport.clientToScreen,
-      instance.runtime.viewport.screenToWorld,
+      instance.viewport.clientToScreen,
+      instance.viewport.screenToWorld,
       instance.state,
       nodeId
     ]
@@ -288,7 +288,7 @@ export const useNodeTransformInteraction = ({
 
       if (active.drag.mode === 'resize') {
         const activeTool = instance.state.read('tool')
-        const zoom = Math.max(instance.runtime.viewport.getZoom(), ZOOM_EPSILON)
+        const zoom = Math.max(instance.viewport.getZoom(), ZOOM_EPSILON)
         const resized = computeResizeRect({
           handle: active.drag.handle,
           startScreen: active.drag.startScreen,
@@ -314,7 +314,7 @@ export const useNodeTransformInteraction = ({
         let guides: ReturnType<typeof computeResizeSnap>['guides'] = []
 
         if (activeTool === 'select' && !event.altKey && active.drag.startRotation === 0) {
-          const config = instance.read.config
+          const config = instance.config
           const thresholdWorld = resolveSnapThresholdWorld(
             config.node.snapThresholdScreen,
             config.node.snapMaxThresholdWorld,
@@ -329,7 +329,7 @@ export const useNodeTransformInteraction = ({
           const { sourceX, sourceY } = getResizeSourceEdges(active.drag.handle)
           const snapped = computeResizeSnap({
             movingRect,
-            candidates: instance.read.index.snapCandidatesInRect(
+            candidates: instance.read.index.snap.inRect(
               expandRectByThreshold(movingRect, thresholdWorld)
             ),
             threshold: thresholdWorld,
@@ -370,8 +370,8 @@ export const useNodeTransformInteraction = ({
       const world = toPointerWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       const rotation = computeNextRotation({
         center: active.drag.center,

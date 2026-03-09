@@ -9,9 +9,8 @@ export type {
   CreateEngineOptions,
   Instance,
   InstanceConfig,
+  RuntimeConfig,
   EngineRead,
-  EngineReadState,
-  EngineReadProjection,
   EngineReadIndex,
   ReadSubscriptionKey,
   EdgeEntry,
@@ -22,7 +21,4 @@ export type {
   MindmapViewTree,
   NodeViewItem
 } from './types/instance'
-export {
-  READ_STATE_KEYS,
-  READ_SUBSCRIPTION_KEYS
-} from './types/instance'
+export { READ_KEYS } from './types/instance'

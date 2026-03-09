@@ -14,7 +14,7 @@ export const resolveAnchorFromPoint = (
   rotation: number,
   pointWorld: Point
 ) => {
-  const config = instance.read.config
+  const config = instance.config
   return getAnchorFromPoint(rect, rotation, pointWorld, {
     snapMin: config.edge.anchorSnapMin,
     snapRatio: config.edge.anchorSnapRatio,
@@ -41,7 +41,7 @@ const resolveConnectPoint = (
 ): Point | undefined => {
   if (!value) return undefined
   if (value.nodeId && value.anchor) {
-    const entry = instance.read.index.nodeRect(value.nodeId)
+    const entry = instance.read.index.node.byId(value.nodeId)
     if (entry) {
       return getAnchorPoint(entry.rect, value.anchor, entry.rotation)
     }
@@ -55,15 +55,15 @@ export const resolveSnapTarget = (
   instance: WhiteboardInstance,
   pointWorld: Point
 ): SnapTarget | undefined => {
-  const config = instance.read.config
-  const zoom = instance.runtime.viewport.getZoom()
+  const config = instance.config
+  const zoom = instance.viewport.getZoom()
   const thresholdWorld =
     Math.max(
       config.edge.anchorSnapMin,
       Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
     ) / Math.max(zoom, ZOOM_EPSILON)
 
-  const nodeRects = instance.read.index.nodeRects()
+  const nodeRects = instance.read.index.node.all()
   let best: (SnapTarget & { distance: number }) | undefined
 
   for (let index = 0; index < nodeRects.length; index += 1) {

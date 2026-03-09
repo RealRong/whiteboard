@@ -193,7 +193,7 @@ export const useNodeDragInteraction = ({
   }, [instance])
 
   const readCanvasNodes = useCallback(
-    () => instance.read.index.nodeRects().map((entry) => entry.node),
+    () => instance.read.index.node.all().map((entry) => entry.node),
     [instance]
   )
 
@@ -227,7 +227,7 @@ export const useNodeDragInteraction = ({
           mergePatch(patches, draft.nodeId, {
             parentId: hoveredGroup.id
           })
-          const config = instance.read.config
+          const config = instance.config
           const groupRect = getNodeAABB(hoveredGroup, config.nodeSize)
           const children = getGroupDescendants(nodes, hoveredGroup.id)
           const virtualNode: Node = {
@@ -261,7 +261,7 @@ export const useNodeDragInteraction = ({
       } else if (!hoveredGroupId && parentId) {
         const parentNode = nodeById.get(parentId)
         if (parentNode) {
-          const parentRect = getNodeAABB(parentNode, instance.read.config.nodeSize)
+          const parentRect = getNodeAABB(parentNode, instance.config.nodeSize)
           const nodeRect = {
             x: draft.last.x,
             y: draft.last.y,
@@ -315,7 +315,7 @@ export const useNodeDragInteraction = ({
       if (activeRef.current) return
       if (instance.state.read('tool') !== 'select') return
 
-      const nodeRect = instance.read.index.nodeRect(nodeId)
+      const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
       const lockToken = sessionLockState.tryAcquire(instance, 'nodeDrag', event.pointerId)
       if (!lockToken) return
@@ -370,7 +370,7 @@ export const useNodeDragInteraction = ({
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
-      const zoom = Math.max(instance.runtime.viewport.getZoom(), ZOOM_EPSILON)
+      const zoom = Math.max(instance.viewport.getZoom(), ZOOM_EPSILON)
       const basePosition = {
         x: active.origin.x + (event.clientX - active.start.x) / zoom,
         y: active.origin.y + (event.clientY - active.start.y) / zoom
@@ -378,7 +378,7 @@ export const useNodeDragInteraction = ({
 
       const snapEnabled = instance.state.read('tool') === 'select'
       const allowCross = event.altKey
-      const config = instance.read.config
+      const config = instance.config
       let position = basePosition
       let guides: ReturnType<typeof computeSnap>['guides'] = []
 
@@ -398,7 +398,7 @@ export const useNodeDragInteraction = ({
         const exclude = active.children?.ids.length
           ? new Set([active.nodeId, ...active.children.ids])
           : new Set([active.nodeId])
-        const candidates = instance.read.index.snapCandidatesInRect(queryRect)
+        const candidates = instance.read.index.snap.inRect(queryRect)
           .filter((candidate) => !exclude.has(candidate.id as NodeId))
         const snapResult = computeSnap(
           movingRect,

@@ -1,7 +1,7 @@
 import type {
   WriteCommandMap
 } from '@engine-types/command'
-import type { EngineContext } from '@engine-types/instance'
+import type { WriteInstance } from '@engine-types/write'
 import type {
   MindmapCloneSubtreeOptions,
   MindmapCreateOptions,
@@ -49,7 +49,7 @@ type AddSiblingOptions = {
 export const mindmap = ({
   instance
 }: {
-  instance: Pick<EngineContext, 'document'>
+  instance: Pick<WriteInstance, 'document'>
 }) => {
   const readDoc = (): Document => instance.document.get()
   const createTreeId = () => createId('mindmap')

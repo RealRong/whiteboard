@@ -155,7 +155,7 @@ const isSameEdgeStructureTuple = (
 }
 
 export const projection = (context: ReadContext): EdgeReadProjection => {
-  const getNodeRect = context.indexes.canvas.byId
+  const getNodeRect = context.indexes.node.byId
   const readModel = () => context.model()
   const state = emptyState()
   let visibleEdgesRef: ReturnType<typeof readModel>['edges']['visible'] | undefined

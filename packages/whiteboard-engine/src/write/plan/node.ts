@@ -1,4 +1,4 @@
-import type { EngineContext } from '@engine-types/instance'
+import type { WriteInstance } from '@engine-types/write'
 import type { WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
@@ -52,7 +52,7 @@ const toUpdateOperations = (
 export const node = ({
   instance
 }: {
-  instance: Pick<EngineContext, 'document' | 'config' | 'registries'>
+  instance: Pick<WriteInstance, 'document' | 'config' | 'registries'>
 }) => {
   const readDoc = (): Document => instance.document.get()
   const createGroupId = () => createId('group')

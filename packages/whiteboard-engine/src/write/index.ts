@@ -25,43 +25,14 @@ const resolveOrigin = (source: CommandSource): Origin => {
   return 'user'
 }
 
-type HistoryMode = 'capture' | 'clear' | 'skip'
-
-type CommitTarget = {
-  origin: Origin
-} & (
-  | {
-      operations: readonly Operation[]
-    }
-  | {
-      doc: Document
-      timestamp?: number
-    }
-)
-
-type CommittedWrite = WriteCommit
-
-type CommitInput = {
-  notify?: boolean
-  history: HistoryMode
-  target: CommitTarget
-}
-
-export type WriteHandle = WriteControl & {
-  dispose: () => void
-}
-
 export const createWrite = ({
   instance,
   scheduler
-}: WriteDeps): WriteHandle => {
+}: WriteDeps): WriteControl => {
   const readNow = scheduler.now
   const planner = plan({ instance })
-  let lastHistoryCommit: CommittedWrite | null = null
 
-  const getLastHistoryCommit = (): CommittedWrite | null => lastHistoryCommit
-
-  const reduceCommitted = (
+  const reduce = (
     document: Document,
     operations: readonly Operation[],
     origin: Origin
@@ -71,39 +42,37 @@ export const createWrite = ({
   })
 
   const normalize = createWriteNormalize({
-    reduce: reduceCommitted,
+    reduce,
     nodeSize: instance.config.nodeSize,
     groupPadding: instance.config.node.groupPadding
   })
 
-  const execute = (target: CommitTarget, notify: boolean): CommittedWrite => {
-    if ('operations' in target) {
-      const reduced = normalize.reduce(
-        instance.document.get(),
-        target.operations,
-        target.origin
-      )
-      if (!reduced.ok) {
-        return reduced
-      }
-
-      instance.document.commit(reduced.doc)
-
-      return {
-        ok: true,
-        kind: 'operations',
-        doc: reduced.doc,
-        changes: reduced.changes,
-        inverse: reduced.inverse,
-        impact: reduced.read,
-        notify
-      }
+  const commitOperations = (
+    operations: readonly Operation[],
+    origin: Origin
+  ): WriteCommit => {
+    const reduced = normalize.reduce(instance.document.get(), operations, origin)
+    if (!reduced.ok) {
+      return reduced
     }
 
-    const committedDocument = normalize.document(
-      assertDocument(target.doc),
-      target.origin
-    )
+    instance.document.commit(reduced.doc)
+
+    return {
+      ok: true,
+      kind: 'operations',
+      doc: reduced.doc,
+      changes: reduced.changes,
+      inverse: reduced.inverse,
+      impact: reduced.read
+    }
+  }
+
+  const replaceDocument = (
+    document: Document,
+    origin: Origin
+  ): WriteCommit => {
+    const committedDocument = normalize.document(assertDocument(document), origin)
     instance.document.commit(committedDocument)
 
     return {
@@ -112,41 +81,36 @@ export const createWrite = ({
       doc: committedDocument,
       changes: {
         id: createId('change'),
-        timestamp: target.timestamp ?? readNow(),
+        timestamp: readNow(),
         operations: [],
-        origin: target.origin
-      },
-      notify
+        origin
+      }
     }
   }
 
-  const historyApi = createHistory<Operation, Origin>({
+  const history = createHistory<Operation, Origin, WriteCommit>({
     now: readNow,
     config: DEFAULT_HISTORY_CONFIG,
     replay: (operations) => {
-      lastHistoryCommit = commit({
-        history: 'skip',
-        target: {
-          operations,
-          origin: 'system'
-        }
-      })
-      return lastHistoryCommit.ok
+      const committed = commitOperations(operations, 'system')
+      return committed.ok ? committed : false
     }
   })
 
-  const commit = ({
-    notify = true,
-    history: historyMode,
-    target
-  }: CommitInput): CommittedWrite => {
-    const committed = execute(target, notify)
-    if (!committed.ok) return committed
+  const clearHistory = (committed: WriteCommit): WriteCommit => {
+    if (committed.ok) {
+      history.clear()
+    }
+    return committed
+  }
 
-    if (historyMode === 'clear') {
-      historyApi.clear()
-    } else if (historyMode === 'capture' && committed.kind === 'operations' && committed.inverse) {
-      historyApi.capture({
+  const captureHistory = (committed: WriteCommit): WriteCommit => {
+    if (
+      committed.ok
+      && committed.kind === 'operations'
+      && committed.inverse
+    ) {
+      history.capture({
         forward: committed.changes.operations,
         inverse: committed.inverse,
         origin: committed.changes.origin
@@ -156,56 +120,31 @@ export const createWrite = ({
     return committed
   }
 
-  const applyCommitted = async <D extends WriteDomain>(payload: WriteInput<D>) => {
+  const apply = async <D extends WriteDomain>(payload: WriteInput<D>) => {
     const draft = planner(payload)
     if (!draft.ok) return draft
 
-    return commit({
-      history: 'capture',
-      target: {
-        operations: draft.operations,
-        origin: resolveOrigin(payload.source ?? 'ui')
-      }
-    })
+    return captureHistory(
+      commitOperations(
+        draft.operations,
+        resolveOrigin(payload.source ?? 'ui')
+      )
+    )
   }
 
-  const history: WriteControl['history'] = {
-    get: historyApi.get,
-    configure: historyApi.configure,
-    clear: historyApi.clear,
-    undo: () => {
-      lastHistoryCommit = null
-      historyApi.undo()
-      const committed = getLastHistoryCommit()
-      if (!committed || !committed.ok) return false
-      return committed
-    },
-    redo: () => {
-      lastHistoryCommit = null
-      historyApi.redo()
-      const committed = getLastHistoryCommit()
-      if (!committed || !committed.ok) return false
-      return committed
-    }
-  }
-
-  const replaceDocument = async (doc: Document, notify: boolean) => {
-    return commit({
-      notify,
-      history: 'clear',
-      target: {
-        doc,
-        origin: 'system'
-      }
-    })
-  }
+  const replaceSystemDocument = async (document: Document) =>
+    clearHistory(replaceDocument(document, 'system'))
 
   return {
-    apply: async (payload) => applyCommitted(payload),
-    load: async (doc) => replaceDocument(doc, false),
-    replace: async (doc) => replaceDocument(doc, true),
-    history,
-    dispose: () => {
+    apply,
+    load: replaceSystemDocument,
+    replace: replaceSystemDocument,
+    history: {
+      get: history.get,
+      configure: history.configure,
+      clear: history.clear,
+      undo: history.undo,
+      redo: history.redo
     }
   }
 }

@@ -1,81 +1,53 @@
-import { READ_SUBSCRIPTION_KEYS } from '@engine-types/instance'
-import type { ReadImpact } from '@engine-types/read'
-import type { EdgeReadProjection, ReadModel } from '@engine-types/read'
+import { READ_KEYS } from '@engine-types/instance'
+import type {
+  EdgeReadProjection,
+  ProjectionSubscriptionKey,
+  ReadImpact,
+  ReadModel
+} from '@engine-types/read'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import { NodeRectIndex } from './indexes'
 import { SnapIndex } from './indexes'
 
 type Rebuild = 'none' | 'dirty' | 'full'
-type ReadTopic =
-  | typeof READ_SUBSCRIPTION_KEYS.node
-  | typeof READ_SUBSCRIPTION_KEYS.edge
-  | typeof READ_SUBSCRIPTION_KEYS.mindmap
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_EDGE_IDS: readonly EdgeId[] = []
 
-const resolveIndexRebuild = (impact: ReadImpact): Rebuild => {
-  if (
-    impact.reset
-    || impact.node.list
-    || (impact.node.geometry && impact.node.ids.length === 0)
-  ) {
+const resolveRebuild = ({
+  reset,
+  geometry,
+  full
+}: {
+  reset: boolean
+  geometry: boolean
+  full: boolean
+}): Rebuild => {
+  if (reset || full) {
     return 'full'
   }
-  if (impact.node.geometry) {
+  if (geometry) {
     return 'dirty'
   }
   return 'none'
 }
 
-const resolveEdgeRebuild = (impact: ReadImpact): Rebuild => {
-  if (
-    impact.reset
-    || (
-      impact.edge.geometry
-      && impact.edge.ids.length === 0
-      && impact.edge.nodeIds.length === 0
-    )
-  ) {
-    return 'full'
+const collectTopics = ({
+  reset,
+  node,
+  edge,
+  mindmap
+}: ReadImpact): ProjectionSubscriptionKey[] => {
+  const topics: ProjectionSubscriptionKey[] = []
+
+  if (reset || node.geometry || node.list || node.value) {
+    topics.push(READ_KEYS.node)
   }
-  if (impact.edge.geometry) {
-    return 'dirty'
+  if (reset || node.list || edge.geometry || edge.list || edge.value) {
+    topics.push(READ_KEYS.edge)
   }
-  return 'none'
-}
-
-const shouldPublishNode = (impact: ReadImpact) => (
-  impact.reset
-  || impact.node.geometry
-  || impact.node.list
-  || impact.node.value
-)
-
-const shouldPublishEdge = (impact: ReadImpact) => (
-  impact.reset
-  || impact.node.list
-  || impact.edge.geometry
-  || impact.edge.list
-  || impact.edge.value
-)
-
-const shouldPublishMindmap = (impact: ReadImpact) => (
-  impact.reset
-  || impact.mindmap.view
-)
-
-const collectTopics = (impact: ReadImpact): ReadTopic[] => {
-  const topics: ReadTopic[] = []
-
-  if (shouldPublishNode(impact)) {
-    topics.push(READ_SUBSCRIPTION_KEYS.node)
-  }
-  if (shouldPublishEdge(impact)) {
-    topics.push(READ_SUBSCRIPTION_KEYS.edge)
-  }
-  if (shouldPublishMindmap(impact)) {
-    topics.push(READ_SUBSCRIPTION_KEYS.mindmap)
+  if (reset || mindmap.view) {
+    topics.push(READ_KEYS.mindmap)
   }
 
   return topics
@@ -92,22 +64,34 @@ export const createReadApply = ({
   nodeRectIndex: NodeRectIndex
   snapIndex: SnapIndex
   edgeProjection: EdgeReadProjection
-  publish: (topics: readonly ReadTopic[]) => void
+  publish: (topics: readonly ProjectionSubscriptionKey[]) => void
 }) => (impact: ReadImpact) => {
-  const indexRebuild = resolveIndexRebuild(impact)
-  const edgeRebuild = resolveEdgeRebuild(impact)
+  const indexRebuild = resolveRebuild({
+    reset: impact.reset,
+    geometry: impact.node.geometry,
+    full: impact.node.list || (impact.node.geometry && impact.node.ids.length === 0)
+  })
+  const edgeRebuild = resolveRebuild({
+    reset: impact.reset,
+    geometry: impact.edge.geometry,
+    full: (
+      impact.edge.geometry
+      && impact.edge.ids.length === 0
+      && impact.edge.nodeIds.length === 0
+    )
+  })
   const indexNodeIds = indexRebuild === 'full' ? EMPTY_NODE_IDS : impact.node.ids
   const edgeNodeIds = edgeRebuild === 'full' ? EMPTY_NODE_IDS : impact.edge.nodeIds
   const edgeIds = edgeRebuild === 'full' ? EMPTY_EDGE_IDS : impact.edge.ids
 
   if (indexRebuild !== 'none') {
-    const changed = nodeRectIndex.applyChange(indexRebuild, indexNodeIds, readModel())
-    if (changed) {
-      snapIndex.applyChange(indexRebuild, indexNodeIds, nodeRectIndex)
-    }
+    nodeRectIndex.applyChange(indexRebuild, indexNodeIds, readModel())
+    snapIndex.applyChange(indexRebuild, indexNodeIds, nodeRectIndex)
   }
 
-  edgeProjection.applyChange(edgeRebuild, edgeNodeIds, edgeIds)
+  if (edgeRebuild !== 'none') {
+    edgeProjection.applyChange(edgeRebuild, edgeNodeIds, edgeIds)
+  }
 
   const topics = collectTopics(impact)
   if (topics.length) {

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { READ_SUBSCRIPTION_KEYS } from '@whiteboard/engine'
+import { READ_KEYS } from '@whiteboard/engine'
 import { useInstance, useReadGetter, useWhiteboardSelector } from '../../common/hooks'
 import { useEdgeConnectInteraction } from '../hooks/useEdgeConnectInteraction'
 
@@ -16,11 +16,11 @@ export const EdgeEndpointHandles = () => {
   const endpoints = useReadGetter(
     () => (
       stateSelectedEdgeId
-        ? instance.read.projection.edge.byId.get(stateSelectedEdgeId)?.endpoints
+        ? instance.read.edge.byId.get(stateSelectedEdgeId)?.endpoints
         : undefined
     ),
     {
-      keys: [READ_SUBSCRIPTION_KEYS.edge]
+      key: READ_KEYS.edge
     }
   )
   if (!stateSelectedEdgeId || !endpoints) return null

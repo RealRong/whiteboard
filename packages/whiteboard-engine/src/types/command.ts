@@ -13,7 +13,7 @@ import type {
   Rect,
   Viewport
 } from '@whiteboard/core/types'
-import type { PointerInput, ResolvedHistoryConfig, Size } from './common'
+import type { PointerInput, Size } from './common'
 import type { MindmapApplyCommand } from './mindmap'
 import type { ResizeDirection } from './node'
 import type { HistoryState } from './state'
@@ -237,7 +237,6 @@ export type Commands = {
     replace: (doc: Document) => Promise<DispatchResult>
   }
   history: {
-    configure: (config: Partial<ResolvedHistoryConfig>) => void
     get: () => HistoryState
     undo: () => boolean
     redo: () => boolean

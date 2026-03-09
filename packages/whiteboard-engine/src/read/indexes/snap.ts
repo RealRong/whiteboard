@@ -1,7 +1,7 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance'
 import type { SnapCandidate } from '@engine-types/node'
-import type { IndexCanvasSource } from '@engine-types/read'
+import type { NodeIndexSource } from '@engine-types/read'
 import {
   isSameRectTuple,
   isSameRefOrder,
@@ -122,15 +122,15 @@ export class SnapIndex {
   applyChange = (
     rebuild: Rebuild,
     nodeIds: readonly NodeId[],
-    canvas: IndexCanvasSource
+    node: NodeIndexSource
   ): boolean => {
     switch (rebuild) {
       case 'none':
         return false
       case 'full':
-        return this.syncFull(canvas.all())
+        return this.syncFull(node.all())
       case 'dirty':
-        return this.syncByNodeIds(nodeIds, canvas.byId)
+        return this.syncByNodeIds(nodeIds, node.byId)
       default:
         return false
     }

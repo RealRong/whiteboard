@@ -151,7 +151,7 @@ export class Rules {
         width: nextSize.width,
         height: nextSize.height
       }
-      const candidates = this.read.index.snapCandidatesInRect(
+      const candidates = this.read.index.snap.inRect(
         expandRectByThreshold(movingRect, thresholdWorld)
       )
       const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)

@@ -146,12 +146,12 @@ export const useSelectionBoxInteraction = (
     onPointerMove: (event) => {
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
-      const minDragDistance = instance.read.config.node.selectionMinDragDistance
+      const minDragDistance = instance.config.node.selectionMinDragDistance
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       const dx = Math.abs(resolved.screen.x - active.startScreen.x)
       const dy = Math.abs(resolved.screen.y - active.startScreen.y)
@@ -171,7 +171,7 @@ export const useSelectionBoxInteraction = (
       active.isSelecting = true
       selectionBoxState.setRect(instance, rectFromPoints(active.startScreen, resolved.screen))
       const worldRect = rectFromPoints(active.startWorld, resolved.world)
-      active.latestMatchedIds = instance.read.index.nodeIdsInRect(worldRect)
+      active.latestMatchedIds = instance.read.index.node.idsInRect(worldRect)
       scheduleFlush()
     },
     onPointerUp: (event) => {
@@ -182,11 +182,11 @@ export const useSelectionBoxInteraction = (
         const resolved = toScreenWorld(
           event.clientX,
           event.clientY,
-          instance.runtime.viewport.clientToScreen,
-          instance.runtime.viewport.screenToWorld
+          instance.viewport.clientToScreen,
+          instance.viewport.screenToWorld
         )
         const worldRect = rectFromPoints(active.startWorld, resolved.world)
-        active.latestMatchedIds = instance.read.index.nodeIdsInRect(worldRect)
+        active.latestMatchedIds = instance.read.index.node.idsInRect(worldRect)
         flushSelection()
       } else if (active.mode === 'replace') {
         instance.commands.selection.clear()
@@ -230,8 +230,8 @@ export const useSelectionBoxInteraction = (
       const resolved = toScreenWorld(
         event.clientX,
         event.clientY,
-        instance.runtime.viewport.clientToScreen,
-        instance.runtime.viewport.screenToWorld
+        instance.viewport.clientToScreen,
+        instance.viewport.screenToWorld
       )
       lockTokenRef.current = lockToken
       instance.commands.edge.select(undefined)

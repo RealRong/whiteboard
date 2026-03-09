@@ -58,7 +58,7 @@ export class NodeTransformKernel {
     this.rules = new Rules({
       config: instance.config,
       read: instance.read,
-      readZoom: () => instance.read.state.viewport.zoom
+      readZoom: () => instance.read.viewport.zoom
     })
     this.commitCompiler = new CommitCompiler({
       readDoc: instance.document.get

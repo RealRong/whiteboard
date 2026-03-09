@@ -1,4 +1,4 @@
-import type { EngineContext } from '@engine-types/instance'
+import type { WriteInstance } from '@engine-types/write'
 import type { WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { cancelled, invalid, ops, success } from '../draft'
@@ -45,7 +45,7 @@ const toUpdateOperations = (
 export const edge = ({
   instance
 }: {
-  instance: Pick<EngineContext, 'document' | 'registries' | 'config'>
+  instance: Pick<WriteInstance, 'document' | 'registries' | 'config'>
 }) => {
   const readDoc = () => instance.document.get()
   const createEdgeId = () => createId('edge')

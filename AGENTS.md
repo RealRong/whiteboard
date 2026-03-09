@@ -60,13 +60,13 @@ Always reply in Chinese.
   - Cross-module read-only runtime getters should live behind `instance.read`-facing modules in `packages/whiteboard-react/src/common/` (e.g. node geometry reads).
   - Keep `whiteboardInstance.ts` as composition-only: do not inline feature implementation there; compose submodules and only wire them.
   - Read methods should be pure/read-only and may keep internal memoization based on source atom references.
-  - Any new capability added to instance must first choose one domain: `state` / `runtime` / `read` / `commands`; do not add extra top-level namespaces.
-  - `whiteboardInstance.ts` is the final composition layer only: it wires `state` / `runtime` / `read` / `commands` and must not contain feature logic implementations.
+  - Any new capability added to instance must first choose one domain: `state` / `config` / `read` / `commands` / `viewport`; do not add extra top-level namespaces.
+  - `whiteboardInstance.ts` is the final composition layer only: it wires `state` / `config` / `read` / `commands` / `viewport` and must not contain feature logic implementations.
   - `instance.api` is forbidden; all write actions must be exposed only via `instance.commands` (single write entry).
-  - Avoid duplicate imperative geometry/state reads across modules; prefer reusing `instance.read.viewport` / `instance.read.canvas` / `instance.read.snap` as the single source for cross-module runtime reads.
+  - Avoid duplicate imperative geometry/state reads across modules; prefer reusing `instance.read.viewport` / `instance.read.index.node` / `instance.read.index.snap` as the single source for cross-module runtime reads.
   - For container-level canvas event handlers (pointer/wheel/key), prefer top-level single-point composition (`useCanvasHandlers` -> lifecycle binding) instead of prematurely mounting them onto `instance`.
   - Only elevate handlers into `instance` when there are multiple real consumers (e.g., non-React host, plugin runtime, shared imperative entry).
-  - Handler hot-path should prefer event-time reads (`instance.read.state.viewport`, `instance.read.viewport`, `instance.read.canvas`, `instance.read.snap`) and avoid atom subscriptions in handler composition hooks.
+  - Handler hot-path should prefer event-time reads (`instance.read.viewport`, `instance.read.index.node`, `instance.read.index.snap`, `instance.viewport`) and avoid atom subscriptions in handler composition hooks.
 - Naming conventions:
   - Hooks: `useXxx` (semantic responsibility).
   - Services: `xxxService` (e.g., `nodeSizeObserverService`).
@@ -76,7 +76,7 @@ Always reply in Chinese.
   - UI composition (layers/components) follows the new style: semantic hooks + thin components + Jotai state.
   - Keep the boundary explicit: runtime owns behavior; UI owns composition.
 - Viewport/zoom performance pattern (getter + CSS variables):
-  - Prefer `instance.read.state.viewport` and `instance.read.viewport` getters for hot-path interaction math (drag, hit-test, snap threshold, reconnect calculations).
+  - Prefer `instance.read.viewport` and `instance.viewport` getters for hot-path interaction math (drag, hit-test, snap threshold, reconnect calculations).
   - Do not subscribe to atom/state for zoom in hot handlers unless rerender is strictly required.
   - Use atom/state only when value changes must trigger React render/effect for UI composition.
   - Inject `--wb-zoom` at a high-level container (from viewport runtime), then consume it in visual-only elements.
@@ -84,16 +84,16 @@ Always reply in Chinese.
   - Prefer `vectorEffect="non-scaling-stroke"` for SVG lines/paths that should keep screen-space stroke width.
   - Keep zoom model single-source: document viewport in Jotai/core state, runtime geometry in instance, visual scaling in CSS vars.
   - Coordinate conversion chain for pointer events:
-    - Prefer `instance.read.viewport.clientToScreen(clientX, clientY)` as the single entry for raw DOM event coordinates.
+    - Prefer `instance.viewport.clientToScreen(clientX, clientY)` as the single entry for raw DOM event coordinates.
     - Then compose `screenToWorld(screenPoint)` when world coordinates are needed; avoid ad-hoc `getBoundingClientRect()` math in feature hooks/components.
-    - Keep conversion responsibilities in `instance.read.viewport`; keep semantic hit-test/target reads in `instance.read.canvas` / `instance.read.snap`.
+    - Keep conversion responsibilities in `instance.viewport`; keep semantic hit-test/target reads in `instance.read.index.node` / `instance.read.index.snap`.
     - `clientToWorld` may exist as a convenience shortcut, but in UI event handlers prefer explicit two-step conversion for readability and consistency.
   - Decision rule:
     - If it is interaction logic math: getter first.
     - If it is visual scale only: CSS variable first.
     - If it must drive React rendering semantics: state subscription.
 - Anti-patterns (avoid these):
-  - Do not pass `zoom` through many hooks/props only for math; read it from `instance.read.state.viewport.zoom` at use-site.
+  - Do not pass `zoom` through many hooks/props only for math; read it from `instance.read.viewport.zoom` at use-site.
   - Do not create extra zoom atoms/selectors for each feature or layer.
   - Do not use React state updates in `pointermove` for visual-only scale changes.
   - Do not recompute zoom-based inline styles in large render loops when CSS vars can express them.

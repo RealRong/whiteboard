@@ -2,7 +2,8 @@ import type { createStore } from 'jotai/vanilla'
 import type {
   Commands as EngineCommands,
   EngineRead,
-  Instance as EngineInstance
+  Instance as EngineInstance,
+  InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Viewport } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
@@ -57,13 +58,12 @@ export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'in
 
 export type WhiteboardInstance = {
   state: WhiteboardState
+  config: Readonly<EngineInstanceConfig>
   read: EngineRead
   commands: WhiteboardCommands
-  runtime: {
-    configure: (config: WhiteboardRuntimeConfig) => void
-    viewport: ViewportRuntime
-    dispose: () => void
-  }
+  viewport: ViewportRuntime
+  configure: (config: WhiteboardRuntimeConfig) => void
+  dispose: () => void
 }
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {

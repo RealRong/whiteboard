@@ -1,16 +1,18 @@
-import type { PrimitiveAtom, createStore } from 'jotai/vanilla'
-import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
-import type { Document, Edge, Node } from '@whiteboard/core/types'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type { Edge, Node } from '@whiteboard/core/types'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
-  CanvasNodeRect,
+  DocumentSource,
   EdgesView,
+  EngineRead,
+  EngineReadIndex,
   InstanceConfig,
   MindmapView,
-  NodesView
+  NodesView,
+  ReadSubscriptionKey
 } from './instance'
+import { READ_KEYS } from './instance'
 import type { MindmapLayoutConfig } from './mindmap'
-import type { SnapCandidate } from './node'
-import type { KernelReadImpact } from '@whiteboard/core/kernel'
 
 export type ReadModel = {
   nodes: {
@@ -26,23 +28,16 @@ export type ReadModel = {
   }
 }
 
-export type CanvasQueryContext = {
-  all: () => CanvasNodeRect[]
-  byId: (nodeId: NodeId) => CanvasNodeRect | undefined
-  idsInRect: (rect: Rect) => NodeId[]
-}
+export type NodeIndexQueries = EngineReadIndex['node']
 
-export type SnapQueryContext = {
-  all: () => SnapCandidate[]
-  inRect: (rect: Rect) => SnapCandidate[]
-}
+export type SnapIndexQueries = EngineReadIndex['snap']
 
 export type ReadIndexes = {
-  canvas: CanvasQueryContext
-  snap: SnapQueryContext
+  node: NodeIndexQueries
+  snap: SnapIndexQueries
 }
 
-export type IndexCanvasSource = Pick<CanvasQueryContext, 'all' | 'byId'>
+export type NodeIndexSource = Pick<NodeIndexQueries, 'all' | 'byId'>
 
 export type ReadContext = {
   mindmapLayout: () => MindmapLayoutConfig
@@ -52,6 +47,11 @@ export type ReadContext = {
 }
 
 export type ReadImpact = KernelReadImpact
+
+export type ProjectionSubscriptionKey = Exclude<
+  ReadSubscriptionKey,
+  typeof READ_KEYS.viewport
+>
 
 export type NodeReadProjection = {
   getView: () => NodesView
@@ -70,9 +70,17 @@ export type MindmapReadProjection = {
   getView: () => MindmapView
 }
 
+export type ReadControl = {
+  read: EngineRead
+  invalidate: {
+    impact: (impact: ReadImpact) => void
+    reset: () => void
+    mindmap: () => void
+  }
+}
+
 export type ReadDeps = {
-  store: ReturnType<typeof createStore>
-  documentAtom: PrimitiveAtom<Document>
-  getMindmapLayout: () => MindmapLayoutConfig
+  document: DocumentSource
+  mindmapLayout: () => MindmapLayoutConfig
   config: InstanceConfig
 }

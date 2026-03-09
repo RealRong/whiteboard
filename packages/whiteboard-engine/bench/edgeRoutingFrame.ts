@@ -168,7 +168,7 @@ const createPointerInput = (options: {
     button: 0,
     client,
     screen,
-    world: viewportScreenToWorld(screen, instance.read.state.viewport, { x: 0, y: 0 }),
+    world: viewportScreenToWorld(screen, instance.read.viewport, { x: 0, y: 0 }),
     modifiers: {
       shift: false,
       alt: false,
@@ -199,7 +199,7 @@ const main = () => {
 
   const edgeId = 'e_route'
   const routingIndex = 0
-  const baseEdge = instance.read.projection.edge.byId.get(edgeId)?.edge
+  const baseEdge = instance.read.edge.byId.get(edgeId)?.edge
   if (!baseEdge || !baseEdge.routing?.points?.length) {
     throw new Error(`Missing routing edge: ${edgeId}`)
   }

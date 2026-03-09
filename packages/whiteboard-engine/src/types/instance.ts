@@ -108,44 +108,35 @@ export type MindmapView = {
 }
 
 export type EngineReadIndex = {
-  nodeRects: () => CanvasNodeRect[]
-  nodeRect: (nodeId: NodeId) => CanvasNodeRect | undefined
-  nodeIdsInRect: (rect: Rect) => NodeId[]
-  snapCandidates: () => SnapCandidate[]
-  snapCandidatesInRect: (rect: Rect) => SnapCandidate[]
+  node: {
+    all: () => CanvasNodeRect[]
+    byId: (nodeId: NodeId) => CanvasNodeRect | undefined
+    idsInRect: (rect: Rect) => NodeId[]
+  }
+  snap: {
+    all: () => SnapCandidate[]
+    inRect: (rect: Rect) => SnapCandidate[]
+  }
 }
 
-export const READ_STATE_KEYS = {
-  viewport: 'viewport'
-} as const
-
-export const READ_SUBSCRIPTION_KEYS = {
-  ...READ_STATE_KEYS,
+export const READ_KEYS = {
+  viewport: 'viewport',
   node: 'node',
   edge: 'edge',
   mindmap: 'mindmap'
 } as const
 
 export type ReadSubscriptionKey =
-  (typeof READ_SUBSCRIPTION_KEYS)[keyof typeof READ_SUBSCRIPTION_KEYS]
+  (typeof READ_KEYS)[keyof typeof READ_KEYS]
 
-export type EngineReadState = {
+export type EngineRead = {
   viewport: Viewport
-}
-
-export type EngineReadProjection = {
   node: NodesView
   edge: EdgesView
   mindmap: MindmapView
-}
-
-export type EngineRead = {
-  state: EngineReadState
-  projection: EngineReadProjection
   index: EngineReadIndex
-  config: InstanceConfig
   document: Readonly<Document>
-  subscribe: (keys: readonly ReadSubscriptionKey[], listener: () => void) => () => void
+  subscribe: (key: ReadSubscriptionKey, listener: () => void) => () => void
 }
 
 export type RuntimeConfig = {
@@ -153,25 +144,21 @@ export type RuntimeConfig = {
   history?: ResolvedHistoryConfig
 }
 
-export type RuntimeApi = {
+export type Instance = {
+  config: Readonly<InstanceConfig>
+  read: EngineRead
+  commands: Commands
   configure: (config: RuntimeConfig) => void
   dispose: () => void
 }
 
-export type Instance = {
-  runtime: RuntimeApi
-  read: EngineRead
-  commands: Commands
+export type EngineDocument = {
+  get: () => Document
+  commit: (doc: Document) => void
 }
 
-export type EngineContext = {
-  document: {
-    get: () => Document
-    commit: (doc: Document) => void
-  }
-  config: InstanceConfig
-  registries: CoreRegistries
-  read: EngineRead
+export type DocumentSource = EngineDocument & {
+  subscribeViewport: (listener: () => void) => () => void
 }
 
 export type CreateEngineOptions = {

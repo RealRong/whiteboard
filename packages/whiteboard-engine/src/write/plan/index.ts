@@ -1,4 +1,4 @@
-import type { EngineContext } from '@engine-types/instance'
+import type { WriteInstance } from '@engine-types/write'
 import type { WriteInput } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { invalid } from '../draft'
@@ -10,10 +10,7 @@ import { mindmap as planMindmap } from './mindmap'
 export const plan = ({
   instance
 }: {
-  instance: Pick<
-    EngineContext,
-    'document' | 'config' | 'registries'
-  >
+  instance: WriteInstance
 }) => {
   const node = planNode({ instance })
   const edge = planEdge({ instance })

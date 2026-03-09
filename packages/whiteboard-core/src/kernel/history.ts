@@ -25,21 +25,23 @@ export type HistoryCapture<
   origin?: TOrigin
 }
 
-export type HistoryReplay<TOperation = Operation> = (
-  operations: readonly TOperation[]
-) => boolean
+export type HistoryReplay<
+  TOperation = Operation,
+  TReplayResult = boolean
+> = (operations: readonly TOperation[]) => TReplayResult | false
 
 export type HistoryApi<
   TOperation = Operation,
-  TOrigin extends string = Origin
+  TOrigin extends string = Origin,
+  TReplayResult = boolean
 > = {
   get: () => HistoryState
   subscribe: (listener: (state: HistoryState) => void) => () => void
   configure: (config: Partial<HistoryConfig>) => void
   clear: () => void
   capture: (entry: HistoryCapture<TOperation, TOrigin>) => void
-  undo: () => boolean
-  redo: () => boolean
+  undo: () => TReplayResult | false
+  redo: () => TReplayResult | false
 }
 
 const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
@@ -56,16 +58,17 @@ type HistoryEntry<TOperation> = {
 
 export const createHistory = <
   TOperation = Operation,
-  TOrigin extends string = Origin
+  TOrigin extends string = Origin,
+  TReplayResult = boolean
 >({
   replay,
   now,
   config
 }: {
-  replay: HistoryReplay<TOperation>
+  replay: HistoryReplay<TOperation, TReplayResult>
   now?: () => number
   config?: Partial<HistoryConfig>
-}): HistoryApi<TOperation, TOrigin> => {
+}): HistoryApi<TOperation, TOrigin, TReplayResult> => {
   const readNow = now ?? (() => Date.now())
   const currentConfig: HistoryConfig = {
     ...DEFAULT_HISTORY_CONFIG,
@@ -176,17 +179,17 @@ export const createHistory = <
       isApplying = true
       emit()
       try {
-        const ok = replay(entry.inverse)
-        if (!ok) {
+        const result = replay(entry.inverse)
+        if (result === false) {
           undoStack.push(entry)
           return false
         }
         redoStack.push(entry)
+        return result
       } finally {
         isApplying = false
         emit()
       }
-      return true
     },
     redo: () => {
       if (!redoStack.length) {
@@ -200,18 +203,18 @@ export const createHistory = <
       isApplying = true
       emit()
       try {
-        const ok = replay(entry.forward)
-        if (!ok) {
+        const result = replay(entry.forward)
+        if (result === false) {
           redoStack.push(entry)
           return false
         }
         undoStack.push(entry)
         trimUndo()
+        return result
       } finally {
         isApplying = false
         emit()
       }
-      return true
     }
   }
 }

@@ -134,7 +134,7 @@ export class Rules {
       ? new Set([nodeId, ...childrenIds])
       : new Set([nodeId])
 
-    const candidates = this.read.index.snapCandidatesInRect(queryRect)
+    const candidates = this.read.index.snap.inRect(queryRect)
       .filter((candidate) => !exclude.has(candidate.id as NodeId))
 
     const snapResult = computeSnap(
