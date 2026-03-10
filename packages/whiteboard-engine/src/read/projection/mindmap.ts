@@ -1,5 +1,6 @@
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { MindmapReadProjection, ReadContext, ReadImpact } from '@engine-types/read'
+import type { MindmapReadProjection, ReadContext } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { MindmapViewTree } from '@engine-types/instance'
 import type { MindmapTree, Node, NodeId } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
@@ -255,7 +256,7 @@ export const projection = (context: ReadContext): MindmapReadProjection => {
     notifyListeners(treeListeners)
   }
 
-  const applyChange = (impact: ReadImpact) => {
+  const applyChange = (impact: KernelReadImpact) => {
     if (!impact.reset && !impact.mindmap.view) return
 
     const next = reconcile()

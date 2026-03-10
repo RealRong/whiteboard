@@ -3,10 +3,21 @@ import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
 import type { CanvasNodeRect } from '@engine-types/instance'
 import type { InstanceConfig } from '@engine-types/instance'
 import type { ReadModel } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import { isSameRefOrder } from '@whiteboard/core/utils'
 import { NodeGeometryCache } from '../../geometry/nodeGeometry'
 
 type Rebuild = 'none' | 'dirty' | 'full'
+
+const resolveRebuild = (impact: KernelReadImpact): Rebuild => {
+  if (impact.reset || impact.node.list) {
+    return 'full'
+  }
+  if (impact.node.geometry) {
+    return impact.node.ids.length === 0 ? 'full' : 'dirty'
+  }
+  return 'none'
+}
 
 export class NodeRectIndex {
   private geometry: NodeGeometryCache
@@ -19,11 +30,8 @@ export class NodeRectIndex {
     this.geometry = new NodeGeometryCache(config.nodeSize)
   }
 
-  applyChange = (
-    rebuild: Rebuild,
-    nodeIds: readonly NodeId[],
-    model: ReadModel
-  ): boolean => {
+  applyChange = (impact: KernelReadImpact, model: ReadModel): boolean => {
+    const rebuild = resolveRebuild(impact)
     switch (rebuild) {
       case 'none':
         return false
@@ -31,7 +39,7 @@ export class NodeRectIndex {
         return this.syncFull(model.nodes.canvas)
       case 'dirty':
         return this.syncByNodeIds(
-          nodeIds,
+          impact.node.ids,
           model.indexes.canvasNodeById
         )
       default:

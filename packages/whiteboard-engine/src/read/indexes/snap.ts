@@ -2,6 +2,7 @@ import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance'
 import type { SnapCandidate } from '@engine-types/node'
 import type { NodeIndexSource } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import {
   isSameRectTuple,
   isSameRefOrder,
@@ -9,6 +10,16 @@ import {
 } from '@whiteboard/core/utils'
 
 type Rebuild = 'none' | 'dirty' | 'full'
+
+const resolveRebuild = (impact: KernelReadImpact): Rebuild => {
+  if (impact.reset || impact.node.list) {
+    return 'full'
+  }
+  if (impact.node.geometry) {
+    return impact.node.ids.length === 0 ? 'full' : 'dirty'
+  }
+  return 'none'
+}
 
 type RectTuple = {
   x?: number
@@ -120,17 +131,17 @@ export class SnapIndex {
   }
 
   applyChange = (
-    rebuild: Rebuild,
-    nodeIds: readonly NodeId[],
+    impact: KernelReadImpact,
     node: NodeIndexSource
   ): boolean => {
+    const rebuild = resolveRebuild(impact)
     switch (rebuild) {
       case 'none':
         return false
       case 'full':
         return this.syncFull(node.all())
       case 'dirty':
-        return this.syncByNodeIds(nodeIds, node.byId)
+        return this.syncByNodeIds(impact.node.ids, node.byId)
       default:
         return false
     }

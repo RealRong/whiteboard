@@ -14,6 +14,7 @@ import {
   type EdgeEntry
 } from '@engine-types/instance'
 import type { EdgeReadProjection, ReadContext } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 
 type EdgeCacheEntry = {
   sourceRectRef: CanvasNodeRect
@@ -166,6 +167,21 @@ const isSameEdgeStructureTuple = (
     if (left[key] !== right[key]) return false
   }
   return isSamePointArray(left.routingPointsRef, right.routingPointsRef)
+}
+
+const resolveRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full' => {
+  if (impact.reset || impact.node.list || impact.edge.list) {
+    return 'full'
+  }
+  if (
+    impact.edge.geometry
+    || impact.edge.value
+    || impact.edge.ids.length > 0
+    || impact.edge.nodeIds.length > 0
+  ) {
+    return 'dirty'
+  }
+  return 'none'
 }
 
 export const projection = (context: ReadContext): EdgeReadProjection => {
@@ -387,7 +403,8 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
     notifyListeners(edgeListeners)
   }
 
-  const applyChange: EdgeReadProjection['applyChange'] = (rebuild, nodeIds, edgeIds) => {
+  const applyChange: EdgeReadProjection['applyChange'] = (impact: KernelReadImpact) => {
+    const rebuild = resolveRebuild(impact)
     if (rebuild === 'none') return
 
     const visibleEdges = readModel().edges.visible
@@ -402,16 +419,16 @@ export const projection = (context: ReadContext): EdgeReadProjection => {
       changedEdgeIds = next.changedEdgeIds
     } else {
       const affectedEdgeIds = new Set<EdgeId>()
-      if (nodeIds.length) {
+      if (impact.edge.nodeIds.length) {
         const fromNodes = collectRelatedEdgeIds(
           state.relations.nodeToEdgeIds,
-          new Set(nodeIds)
+          new Set(impact.edge.nodeIds)
         )
         fromNodes.forEach((edgeId) => {
           affectedEdgeIds.add(edgeId)
         })
       }
-      edgeIds.forEach((edgeId) => {
+      impact.edge.ids.forEach((edgeId) => {
         affectedEdgeIds.add(edgeId)
       })
       const next = reconcileEdges(affectedEdgeIds)

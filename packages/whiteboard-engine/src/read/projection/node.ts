@@ -1,4 +1,5 @@
-import type { NodeReadProjection, ReadContext, ReadImpact } from '@engine-types/read'
+import type { NodeReadProjection, ReadContext } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@engine-types/instance'
 
@@ -82,7 +83,7 @@ export const projection = (context: ReadContext): NodeReadProjection => {
 
   const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
 
-  const applyChange = (impact: ReadImpact) => {
+  const applyChange = (impact: KernelReadImpact) => {
     const prevIds = idsRef
     const nextIds = context.model().indexes.canvasNodeIds as readonly NodeId[]
     const idsChanged = prevIds !== nextIds

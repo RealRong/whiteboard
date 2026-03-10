@@ -10,6 +10,7 @@ import { createRegistries } from '@whiteboard/core/kernel'
 import { createCommands } from '../commands'
 import { resolveInstanceConfig } from '../config'
 import { createRead } from '../read'
+import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from '../read/impacts'
 import { createWrite } from '../write'
 import { Scheduler } from '../scheduling/Scheduler'
 import { createDocumentSource } from './document'
@@ -47,7 +48,11 @@ export const engine = ({
 
   const syncRead = (committed: WriteCommit): DispatchResult => {
     if (!committed.ok) return committed
-    readControl.commit(committed)
+    if (committed.kind === 'replace') {
+      readControl.invalidate(RESET_READ_IMPACT)
+    } else {
+      readControl.invalidate(committed.impact)
+    }
 
     return {
       ok: true,
@@ -95,7 +100,7 @@ export const engine = ({
 
     if (Object.is(mindmapLayout, nextMindmapLayout)) return
     mindmapLayout = nextMindmapLayout
-    readControl.rebuildMindmap()
+    readControl.invalidate(MINDMAP_LAYOUT_READ_IMPACT)
   }
 
   const dispose = () => {

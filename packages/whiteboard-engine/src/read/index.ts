@@ -1,13 +1,13 @@
 import type {
   ReadControl,
-  ReadCommit,
   ReadContext,
   ReadDeps,
   ReadIndexes
 } from '@engine-types/read'
+import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../config'
 import { createReadApply } from './apply'
-import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from './impacts'
+import { RESET_READ_IMPACT } from './impacts'
 import { createReadModel } from './model'
 import {
   createEdgeProjection,
@@ -63,18 +63,15 @@ export const createRead = ({
     mindmapProjection
   })
 
-  nodeRectIndex.applyChange('full', [], readModel())
-  snapIndex.applyChange('full', [], nodeRectIndex)
+  const initialModel = readModel()
+  nodeRectIndex.applyChange(RESET_READ_IMPACT, initialModel)
+  snapIndex.applyChange(RESET_READ_IMPACT, nodeRectIndex)
   nodeProjection.applyChange(RESET_READ_IMPACT)
-  edgeProjection.applyChange('full', [], [])
+  edgeProjection.applyChange(RESET_READ_IMPACT)
   mindmapProjection.applyChange(RESET_READ_IMPACT)
 
-  const commit = (committed: ReadCommit) => {
-    if (committed.kind === 'replace') {
-      applyImpact(RESET_READ_IMPACT)
-    } else {
-      applyImpact(committed.impact)
-    }
+  const invalidate = (impact: KernelReadImpact) => {
+    applyImpact(impact)
   }
 
   return {
@@ -99,7 +96,6 @@ export const createRead = ({
       },
       index: indexes
     },
-    commit,
-    rebuildMindmap: () => applyImpact(MINDMAP_LAYOUT_READ_IMPACT)
+    invalidate
   }
 }
