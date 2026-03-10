@@ -1,15 +1,5 @@
-import type {
-  WriteDomain,
-  WriteInput
-} from '@engine-types/command'
-import type {
-  DispatchResult,
-  Operation
-} from '@whiteboard/core/types'
-
-export type Apply = <D extends WriteDomain>(
-  payload: WriteInput<D>
-) => Promise<DispatchResult>
+import type { DispatchResult, Operation } from '@whiteboard/core/types'
+import { cancelled as cancelledResult, invalid as invalidResult } from '../result'
 
 type Failure = Extract<DispatchResult, { ok: false }>
 
@@ -25,17 +15,9 @@ export const success = (operations: readonly Operation[]): Draft => ({
   operations
 })
 
-export const invalid = (message: string): Draft => ({
-  ok: false,
-  reason: 'invalid',
-  message
-})
+export const invalid = (message: string): Draft => invalidResult(message)
 
-export const cancelled = (message?: string): Draft => ({
-  ok: false,
-  reason: 'cancelled',
-  message
-})
+export const cancelled = (message?: string): Draft => cancelledResult(message)
 
 export const merge = (...drafts: Draft[]): Draft => {
   const operations: Operation[] = []

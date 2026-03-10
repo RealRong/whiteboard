@@ -375,8 +375,8 @@ export const buildNormalizeOperationsForGroups = ({
     operations.push(operation)
     workingNodes[groupId] = {
       ...group,
-      position: operation.patch.position,
-      size: operation.patch.size
+      position: operation.patch.position!,
+      size: operation.patch.size!
     }
   }
 

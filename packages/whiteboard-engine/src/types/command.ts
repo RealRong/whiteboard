@@ -34,13 +34,9 @@ import type {
 } from './mindmap'
 
 export type CommandSource =
-  | 'ui'
-  | 'shortcut'
   | 'remote'
-  | 'import'
   | 'system'
-  | 'history'
-  | 'interaction'
+  | 'user'
 
 export type MindmapStartDragOptions = {
   treeId: MindmapId

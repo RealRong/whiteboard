@@ -1,6 +1,5 @@
-import type { MindmapCommandsApi } from '@engine-types/write'
-import type { CommandSource, WriteCommandMap } from '@engine-types/command'
-import type { Apply } from '../write/draft'
+import type { Apply } from '@engine-types/write'
+import type { CommandSource, Commands, WriteCommandMap } from '@engine-types/command'
 
 type MindmapCommand = WriteCommandMap['mindmap']
 
@@ -8,10 +7,10 @@ export const mindmap = ({
   apply
 }: {
   apply: Apply
-}): MindmapCommandsApi => {
+}): Commands['mindmap'] => {
   const run = (
     command: MindmapCommand,
-    source: CommandSource = 'ui'
+    source: CommandSource = 'user'
   ) =>
     apply({
       domain: 'mindmap',

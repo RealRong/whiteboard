@@ -17,19 +17,20 @@ import { DEFAULT_HISTORY_CONFIG } from '../config'
 import { plan } from './plan'
 import { createWriteNormalize } from './normalize'
 
-const resolveOrigin = (source: CommandSource): Origin => {
-  if (source === 'remote') return 'remote'
-  if (source === 'system' || source === 'import' || source === 'history') {
-    return 'system'
+const resolveOrigin = (source: CommandSource): Origin =>
+  source === 'remote' ? 'remote' : source === 'system' ? 'system' : 'user'
+
+const now = (): number => {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now()
   }
-  return 'user'
+  return Date.now()
 }
 
 export const createWrite = ({
-  instance,
-  scheduler
+  instance
 }: WriteDeps): WriteControl => {
-  const readNow = scheduler.now
+  const readNow = now
   const planner = plan({ instance })
 
   const reduce = (
@@ -74,17 +75,17 @@ export const createWrite = ({
     const committedDocument = assertDocument(document)
     instance.document.commit(committedDocument)
 
-    return {
-      ok: true,
-      kind: 'replace',
-      doc: committedDocument,
-      changes: {
-        id: createId('change'),
-        timestamp: readNow(),
-        operations: [],
-        origin: 'system'
+      return {
+        ok: true,
+        kind: 'replace',
+        doc: committedDocument,
+        changes: {
+          id: createId('change'),
+          timestamp: readNow(),
+          operations: [],
+          origin: 'system'
+        }
       }
-    }
   }
 
   const history = createHistory<Operation, Origin, WriteCommit>({
@@ -126,7 +127,7 @@ export const createWrite = ({
     return captureHistory(
       commitOperations(
         draft.operations,
-        resolveOrigin(payload.source ?? 'ui')
+        resolveOrigin(payload.source ?? 'user')
       )
     )
   }

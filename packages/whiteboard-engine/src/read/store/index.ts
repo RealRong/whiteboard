@@ -1,9 +1,5 @@
-import type {
-  ReadControl,
-  ReadContext,
-  ReadDeps,
-  ReadIndexes
-} from '@engine-types/read'
+import type { ReadControl, ReadDeps, ReadModel } from '@engine-types/read'
+import type { EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
@@ -12,6 +8,7 @@ import { createEdgeProjection } from './edge'
 import { createReadModel } from './model'
 import { createMindmapProjection } from './mindmap'
 import { createNodeProjection } from './node'
+import type { ReadSnapshot } from './types'
 
 export const createRead = ({
   document,
@@ -28,7 +25,7 @@ export const createRead = ({
       config.node.groupPadding * DEFAULT_TUNING.query.snapGridPaddingFactor
     )
   )
-  const indexes: ReadIndexes = {
+  const indexes: EngineReadIndex = {
     node: {
       all: nodeRectIndex.all,
       byId: nodeRectIndex.byId,
@@ -40,36 +37,32 @@ export const createRead = ({
     }
   }
 
-  const readContext: ReadContext = {
-    mindmapLayout,
-    model: readModel,
-    indexes,
-    config
-  }
+  const createSnapshot = (model: ReadModel): ReadSnapshot => ({
+    model,
+    indexes
+  })
 
-  const nodeProjection = createNodeProjection(readContext)
-  const edgeProjection = createEdgeProjection(readContext)
-  const mindmapProjection = createMindmapProjection(readContext)
+  const initialModel = readModel()
+  const initialSnapshot = createSnapshot(initialModel)
+
+  const nodeProjection = createNodeProjection(initialSnapshot)
+  const edgeProjection = createEdgeProjection(initialSnapshot)
+  const mindmapProjection = createMindmapProjection(initialSnapshot, {
+    config,
+    mindmapLayout
+  })
 
   const applyImpact = (impact: KernelReadImpact) => {
     const model = readModel()
     nodeRectIndex.applyChange(impact, model)
     snapIndex.applyChange(impact, nodeRectIndex)
-    nodeProjection.applyChange(impact)
-    edgeProjection.applyChange(impact)
-    mindmapProjection.applyChange(impact)
+    const snapshot = createSnapshot(model)
+    nodeProjection.applyChange(impact, snapshot)
+    edgeProjection.applyChange(impact, snapshot)
+    mindmapProjection.applyChange(impact, snapshot)
   }
 
-  const initialModel = readModel()
-  nodeRectIndex.applyChange(RESET_READ_IMPACT, initialModel)
-  snapIndex.applyChange(RESET_READ_IMPACT, nodeRectIndex)
-  nodeProjection.applyChange(RESET_READ_IMPACT)
-  edgeProjection.applyChange(RESET_READ_IMPACT)
-  mindmapProjection.applyChange(RESET_READ_IMPACT)
-
-  const invalidate = (impact: KernelReadImpact) => {
-    applyImpact(impact)
-  }
+  applyImpact(RESET_READ_IMPACT)
 
   return {
     read: {
@@ -93,6 +86,6 @@ export const createRead = ({
       },
       index: indexes
     },
-    invalidate
+    invalidate: applyImpact
   }
 }

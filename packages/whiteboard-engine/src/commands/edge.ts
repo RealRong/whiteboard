@@ -2,16 +2,15 @@ import type {
   EdgeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource } from '@engine-types/command'
-import type { EdgeCommandsApi } from '@engine-types/write'
+import type { CommandSource, Commands } from '@engine-types/command'
+import type { Apply } from '@engine-types/write'
 import type {
   EdgeId,
   EdgeInput,
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import type { Apply } from '../write/draft'
-import { cancelledResult } from './result'
+import { cancelled as cancelledResult } from '../result'
 
 type EdgeCommand = WriteCommandMap['edge']
 
@@ -19,8 +18,8 @@ export const edge = ({
   apply
 }: {
   apply: Apply
-}): EdgeCommandsApi => {
-  const run = (command: EdgeCommand, source: CommandSource = 'ui') =>
+}): Commands['edge'] => {
+  const run = (command: EdgeCommand, source: CommandSource = 'user') =>
     apply({
       domain: 'edge',
       command,
@@ -38,7 +37,7 @@ export const edge = ({
 
   const updateMany = (updates: readonly EdgeBatchUpdate[]) => {
     if (!updates.length) {
-      return cancelledResult('No edge updates provided.')
+      return Promise.resolve(cancelledResult('No edge updates provided.'))
     }
     return run({
       type: 'updateMany',

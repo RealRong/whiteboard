@@ -12,7 +12,6 @@ import { resolveInstanceConfig } from '../config'
 import { createRead } from '../read'
 import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from '../read/impacts'
 import { createWrite } from '../write'
-import { Scheduler } from '../scheduling/Scheduler'
 import { createDocumentSource } from './document'
 
 const EMPTY_MINDMAP_LAYOUT: MindmapLayoutConfig = {}
@@ -23,7 +22,6 @@ export const engine = ({
   onDocumentChange,
   config: overrides
 }: CreateEngineOptions): Instance => {
-  const scheduler = new Scheduler()
   const config = resolveInstanceConfig(overrides)
   const resolvedRegistries = registries ?? createRegistries()
   const documentSource = createDocumentSource(document)
@@ -42,8 +40,7 @@ export const engine = ({
   })
 
   const writer = createWrite({
-    instance: writeInstance,
-    scheduler
+    instance: writeInstance
   })
 
   const syncRead = (committed: WriteCommit): DispatchResult => {
@@ -103,9 +100,7 @@ export const engine = ({
     readControl.invalidate(MINDMAP_LAYOUT_READ_IMPACT)
   }
 
-  const dispose = () => {
-    scheduler.cancelAll()
-  }
+  const dispose = () => {}
 
   return {
     config,

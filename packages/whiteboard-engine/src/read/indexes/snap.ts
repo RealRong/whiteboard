@@ -1,7 +1,7 @@
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { CanvasNodeRect } from '@engine-types/instance'
 import type { SnapCandidate } from '@engine-types/node'
-import type { NodeIndexSource } from '@engine-types/read'
+import type { EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import {
   isSameRectTuple,
@@ -132,7 +132,7 @@ export class SnapIndex {
 
   applyChange = (
     impact: KernelReadImpact,
-    node: NodeIndexSource
+    node: Pick<EngineReadIndex['node'], 'all' | 'byId'>
   ): boolean => {
     const rebuild = resolveRebuild(impact)
     switch (rebuild) {

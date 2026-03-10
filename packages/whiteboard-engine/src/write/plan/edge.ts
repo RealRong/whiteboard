@@ -165,12 +165,12 @@ export const edge = ({
               return invalid('Routing index and point required.')
             }
             return updateRouting(command.edgeId, (edge) =>
-              moveRoutingPointPatch(edge, command.index, command.pointWorld)
+              moveRoutingPointPatch(edge, command.index!, command.pointWorld!)
             )
           case 'remove':
             if (command.index === undefined) return invalid('Routing index required.')
             return updateRouting(command.edgeId, (edge) =>
-              removeRoutingPointPatch(edge, command.index)
+              removeRoutingPointPatch(edge, command.index!)
             )
           case 'reset':
             return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge))

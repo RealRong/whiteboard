@@ -3,15 +3,14 @@ import type {
   NodeUpdateManyOptions,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource } from '@engine-types/command'
-import type { NodeCommandsApi } from '@engine-types/write'
+import type { CommandSource, Commands } from '@engine-types/command'
+import type { Apply } from '@engine-types/write'
 import type {
   NodeId,
   NodeInput,
   NodePatch
 } from '@whiteboard/core/types'
-import type { Apply } from '../write/draft'
-import { cancelledResult } from './result'
+import { cancelled as cancelledResult } from '../result'
 
 type NodeCommand = WriteCommandMap['node']
 
@@ -19,8 +18,8 @@ export const node = ({
   apply
 }: {
   apply: Apply
-}): NodeCommandsApi => {
-  const run = (command: NodeCommand, source: CommandSource = 'ui') =>
+}): Commands['node'] => {
+  const run = (command: NodeCommand, source: CommandSource = 'user') =>
     apply({
       domain: 'node',
       command,
@@ -41,12 +40,12 @@ export const node = ({
     options?: NodeUpdateManyOptions
   ) => {
     if (!updates.length) {
-      return cancelledResult('No node updates provided.')
+      return Promise.resolve(cancelledResult('No node updates provided.'))
     }
     return run({
       type: 'updateMany',
       updates
-    }, options?.source ?? 'interaction')
+    }, options?.source ?? 'user')
   }
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) =>

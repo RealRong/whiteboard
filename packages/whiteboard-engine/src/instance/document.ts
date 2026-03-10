@@ -1,4 +1,4 @@
-import type { DocumentSource } from '@engine-types/instance'
+import type { EngineDocument } from '@engine-types/instance'
 import {
   assertDocument,
   type Document
@@ -14,7 +14,7 @@ const assertImmutableDocumentInput = (
   )
 }
 
-export const createDocumentSource = (document: Document): DocumentSource => {
+export const createDocumentSource = (document: Document): EngineDocument => {
   let committedDocument = assertDocument(document)
 
   const get = () => committedDocument

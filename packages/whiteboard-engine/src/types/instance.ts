@@ -147,8 +147,6 @@ export type EngineDocument = {
   commit: (doc: Document) => void
 }
 
-export type DocumentSource = EngineDocument
-
 export type CreateEngineOptions = {
   registries?: CoreRegistries
   /**

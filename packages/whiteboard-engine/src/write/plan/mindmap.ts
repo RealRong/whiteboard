@@ -43,7 +43,7 @@ import {
   toggleCollapse as toggleMindmapCollapse,
   type MindmapCommandResult
 } from '@whiteboard/core/mindmap'
-import { getMindmapTreeFromDocument } from '@whiteboard/core/mindmap/helpers'
+import { getMindmapTreeFromDocument } from '@whiteboard/core/mindmap'
 import { DEFAULT_TUNING } from '../../config'
 
 type MindmapCommand = WriteCommandMap['mindmap']

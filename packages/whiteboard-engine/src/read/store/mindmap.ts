@@ -1,8 +1,8 @@
-import type { ReadContext } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { MindmapViewTree } from '@engine-types/instance'
 import type { Node, NodeId } from '@whiteboard/core/types'
+import type { InstanceConfig } from '@engine-types/instance'
 import { DEFAULT_TUNING } from '../../config'
 import {
   buildMindmapLines,
@@ -11,6 +11,7 @@ import {
   getMindmapTree
 } from '@whiteboard/core/mindmap'
 import { notifyListeners, subscribeListener } from './subscriptions'
+import type { ReadSnapshot } from './types'
 
 type MindmapTreeCacheKey = {
   treeId: string
@@ -97,10 +98,17 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
   return true
 }
 
-export const createMindmapProjection = (context: ReadContext) => {
-  const config = context.config
+export const createMindmapProjection = (
+  initialSnapshot: ReadSnapshot,
+  deps: {
+    config: InstanceConfig
+    mindmapLayout: () => MindmapLayoutConfig
+  }
+) => {
+  const config = deps.config
   const idsListeners = new Set<() => void>()
   const listenersById = new Map<NodeId, Set<() => void>>()
+  let snapshotRef: ReadSnapshot = initialSnapshot
   let treeCache = new Map<NodeId, MindmapTreeCacheEntry>()
   let entryById = new Map<NodeId, MindmapViewTree>()
   let idsRef: readonly NodeId[] = []
@@ -133,8 +141,8 @@ export const createMindmapProjection = (context: ReadContext) => {
   }
 
   const reconcile = () => {
-    const visibleNodes = context.model().nodes.visible
-    const layout = context.mindmapLayout()
+    const visibleNodes = snapshotRef.model.nodes.visible
+    const layout = deps.mindmapLayout()
     if (visibleNodes === visibleNodesRef && layout === layoutRef) {
       return {
         idsChanged: false,
@@ -241,7 +249,8 @@ export const createMindmapProjection = (context: ReadContext) => {
     notifyListeners(treeListeners)
   }
 
-  const applyChange = (impact: KernelReadImpact) => {
+  const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
+    snapshotRef = snapshot
     if (!impact.reset && !impact.mindmap.view && !impact.node.list && !impact.node.geometry) {
       return
     }

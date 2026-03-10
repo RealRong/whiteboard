@@ -10,13 +10,6 @@ import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Commands, WriteDomain, WriteInput } from './command'
 import type { ResolvedHistoryConfig } from './common'
 import type { EngineDocument, InstanceConfig } from './instance'
-import type { Scheduler } from '../scheduling/Scheduler'
-
-export type NodeCommandsApi = Commands['node']
-
-export type EdgeCommandsApi = Commands['edge']
-
-export type MindmapCommandsApi = Commands['mindmap']
 
 export type Apply = <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>
 
@@ -63,5 +56,4 @@ export type WriteInstance = {
 
 export type WriteDeps = {
   instance: WriteInstance
-  scheduler: Scheduler
 }

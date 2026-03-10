@@ -1,27 +1,29 @@
-import type { ReadContext } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@engine-types/instance'
 import { notifyListeners, subscribeListener } from './subscriptions'
+import type { ReadSnapshot } from './types'
 
+// Defensive fallback: index should have rects after applyChange syncs.
 const readRect = (
-  context: ReadContext,
+  snapshot: ReadSnapshot,
   node: Node,
   nodeId: NodeId
-) => context.indexes.node.byId(nodeId)?.rect ?? {
+) => snapshot.indexes.node.byId(nodeId)?.rect ?? {
   x: node.position.x,
   y: node.position.y,
   width: node.size?.width ?? 0,
   height: node.size?.height ?? 0
 }
 
-export const createNodeProjection = (context: ReadContext) => {
+export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
   const entryById = new Map<NodeId, NodeViewItem>()
   const listenersById = new Map<NodeId, Set<() => void>>()
   const idsListeners = new Set<() => void>()
-  let idsRef = context.model().indexes.canvasNodeIds as readonly NodeId[]
+  let snapshotRef: ReadSnapshot = initialSnapshot
+  let idsRef = initialSnapshot.model.indexes.canvasNodeIds as readonly NodeId[]
 
-  const getNodeMap = () => context.model().indexes.canvasNodeById
+  const getNodeMap = () => snapshotRef.model.indexes.canvasNodeById
 
   const get = (nodeId: NodeId) => {
     const node = getNodeMap().get(nodeId)
@@ -30,7 +32,7 @@ export const createNodeProjection = (context: ReadContext) => {
       return undefined
     }
 
-    const rect = readRect(context, node, nodeId)
+    const rect = readRect(snapshotRef, node, nodeId)
     const previous = entryById.get(nodeId)
     if (previous && previous.node === node && previous.rect === rect) {
       return previous
@@ -68,9 +70,10 @@ export const createNodeProjection = (context: ReadContext) => {
 
   const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
 
-  const applyChange = (impact: KernelReadImpact) => {
+  const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
+    snapshotRef = snapshot
     const prevIds = idsRef
-    const nextIds = context.model().indexes.canvasNodeIds as readonly NodeId[]
+    const nextIds = snapshotRef.model.indexes.canvasNodeIds as readonly NodeId[]
     const idsChanged = prevIds !== nextIds
     idsRef = nextIds
 
@@ -96,7 +99,7 @@ export const createNodeProjection = (context: ReadContext) => {
 
     if (idsChanged) {
       prevIds.forEach((nodeId) => {
-        if (!context.model().indexes.canvasNodeById.has(nodeId)) {
+        if (!snapshotRef.model.indexes.canvasNodeById.has(nodeId)) {
           changedNodeIds.add(nodeId)
         }
       })

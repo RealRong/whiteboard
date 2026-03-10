@@ -1,4 +1,3 @@
-import type { ReadContext } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
@@ -16,6 +15,7 @@ import type {
   EdgeEntry
 } from '@engine-types/instance'
 import { notifyListeners, subscribeListener } from './subscriptions'
+import type { ReadSnapshot } from './types'
 
 type EdgeCacheEntry = {
   sourceRectRef: CanvasNodeRect
@@ -169,19 +169,20 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
   return 'none'
 }
 
-export const createEdgeProjection = (context: ReadContext) => {
-  const getNodeRect = context.indexes.node.byId
-  const readModel = () => context.model()
+export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
+  const getNodeRect = (snapshot: ReadSnapshot) => snapshot.indexes.node.byId
+  const readModel = (snapshot: ReadSnapshot) => snapshot.model
   const state = emptyState()
   const idsListeners = new Set<() => void>()
   const listenersById = new Map<EdgeId, Set<() => void>>()
-  let visibleEdgesRef: ReturnType<typeof readModel>['edges']['visible'] | undefined
+  let snapshotRef: ReadSnapshot = initialSnapshot
+  let visibleEdgesRef: ReadSnapshot['model']['edges']['visible'] | undefined
 
   const toEdgeCacheMaterial = (
     edge: EdgeEntry['edge']
   ): EdgeCacheMaterial | undefined => {
-    const sourceRectRef = getNodeRect(edge.source.nodeId)
-    const targetRectRef = getNodeRect(edge.target.nodeId)
+    const sourceRectRef = getNodeRect(snapshotRef)(edge.source.nodeId)
+    const targetRectRef = getNodeRect(snapshotRef)(edge.target.nodeId)
     if (!sourceRectRef || !targetRectRef) return undefined
 
     return {
@@ -204,9 +205,9 @@ export const createEdgeProjection = (context: ReadContext) => {
       previous.sourceRectRef === material.sourceRectRef
       && previous.targetRectRef === material.targetRectRef
     ) || (
-      isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry)
-      && isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
-    )
+        isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry)
+        && isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
+      )
     if (!isSameGeometry) return undefined
 
     if (!isSameEdgeStructureTuple(previous.structure, material.structure)) {
@@ -242,7 +243,11 @@ export const createEdgeProjection = (context: ReadContext) => {
   ): EdgeCacheEntry | undefined => {
     const sourceRectRef = material.sourceRectRef
     const targetRectRef = material.targetRectRef
-    const endpoints = resolveEdgeEndpoints(edge, sourceRectRef, targetRectRef)
+    const endpoints = resolveEdgeEndpoints({
+      edge,
+      source: sourceRectRef,
+      target: targetRectRef
+    })
     if (!endpoints) return undefined
 
     return {
@@ -349,9 +354,9 @@ export const createEdgeProjection = (context: ReadContext) => {
   }
 
   const ensureSynced = () => {
-    if (visibleEdgesRef !== readModel().edges.visible) {
-      reconcileAll(readModel().edges.visible)
-      visibleEdgesRef = readModel().edges.visible
+    if (visibleEdgesRef !== readModel(snapshotRef).edges.visible) {
+      reconcileAll(readModel(snapshotRef).edges.visible)
+      visibleEdgesRef = readModel(snapshotRef).edges.visible
     }
   }
 
@@ -387,11 +392,12 @@ export const createEdgeProjection = (context: ReadContext) => {
     notifyListeners(edgeListeners)
   }
 
-  const applyChange = (impact: KernelReadImpact) => {
+  const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
+    snapshotRef = snapshot
     const rebuild = resolveEdgeRebuild(impact)
     if (rebuild === 'none') return
 
-    const visibleEdges = readModel().edges.visible
+    const visibleEdges = readModel(snapshotRef).edges.visible
     const visibleEdgesChanged = visibleEdges !== visibleEdgesRef
     let idsChanged = false
     let changedEdgeIds = new Set<EdgeId>()
