@@ -82,7 +82,6 @@ export const engine = ({
   }
 
   const commands = createCommands({
-    document: documentSource,
     write
   })
 

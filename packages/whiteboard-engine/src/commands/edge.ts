@@ -5,27 +5,19 @@ import type {
 import type { CommandSource } from '@engine-types/command'
 import type { EdgeCommandsApi } from '@engine-types/write'
 import type {
-  Document,
   EdgeId,
   EdgeInput,
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
 import type { Apply } from '../write/draft'
-import { createOrderCommands } from './order'
 import { cancelledResult } from './result'
 
 type EdgeCommand = WriteCommandMap['edge']
 
-type EdgeDocument = {
-  get: () => Document
-}
-
 export const edge = ({
-  document,
   apply
 }: {
-  document: EdgeDocument
   apply: Apply
 }): EdgeCommandsApi => {
   const run = (command: EdgeCommand, source: CommandSource = 'ui') =>
@@ -59,14 +51,16 @@ export const edge = ({
 
   const insertAtPoint = (edgeId: EdgeId, pointWorld: Point) =>
     run({
-      type: 'routing.insertAtPoint',
+      type: 'routing',
+      mode: 'insert',
       edgeId,
       pointWorld
     })
 
   const move = (edgeId: EdgeId, index: number, pointWorld: Point) =>
     run({
-      type: 'routing.move',
+      type: 'routing',
+      mode: 'move',
       edgeId,
       index,
       pointWorld
@@ -74,24 +68,26 @@ export const edge = ({
 
   const removeAt = (edgeId: EdgeId, index: number) =>
     run({
-      type: 'routing.remove',
+      type: 'routing',
+      mode: 'remove',
       edgeId,
       index
     })
 
   const reset = (edgeId: EdgeId) =>
     run({
-      type: 'routing.reset',
+      type: 'routing',
+      mode: 'reset',
       edgeId
     })
 
-  const setOrder = (ids: EdgeId[]) =>
-    run({ type: 'order.set', ids })
-
-  const order = createOrderCommands({
-    set: setOrder,
-    readCurrent: () => document.get().edges.order
-  })
+  const order = {
+    set: (ids: EdgeId[]) => run({ type: 'order', mode: 'set', ids }),
+    bringToFront: (ids: EdgeId[]) => run({ type: 'order', mode: 'front', ids }),
+    sendToBack: (ids: EdgeId[]) => run({ type: 'order', mode: 'back', ids }),
+    bringForward: (ids: EdgeId[]) => run({ type: 'order', mode: 'forward', ids }),
+    sendBackward: (ids: EdgeId[]) => run({ type: 'order', mode: 'backward', ids })
+  }
 
   return {
     create,

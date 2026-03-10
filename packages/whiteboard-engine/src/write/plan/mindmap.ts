@@ -12,11 +12,10 @@ import type {
   MindmapMoveRootOptions
 } from '@engine-types/mindmap'
 import type { Draft } from '../draft'
-import { cancelled, invalid, merge, ops, success } from '../draft'
+import { cancelled, invalid, merge, success } from '../draft'
 import { getNode } from '@whiteboard/core/types'
 import type {
   Document,
-  Operation,
   MindmapAttachPayload,
   MindmapCommandOptions,
   MindmapLayoutHint,
@@ -26,24 +25,77 @@ import type {
   MindmapTree
 } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
-import { resolveInsertPlan } from '@whiteboard/core/mindmap'
-import { corePlan } from '@whiteboard/core/kernel'
+import {
+  addChild as addMindmapChild,
+  addSibling as addMindmapSibling,
+  attachExternal as attachMindmapExternal,
+  cloneSubtree as cloneMindmapSubtree,
+  createDeleteOps,
+  createMindmap,
+  createSetOp,
+  createSetOps,
+  moveSubtree as moveMindmapSubtree,
+  removeSubtree as removeMindmapSubtree,
+  reorderChild as reorderMindmapChild,
+  resolveInsertPlan,
+  setNodeData as setMindmapNodeData,
+  setSide as setMindmapSide,
+  toggleCollapse as toggleMindmapCollapse,
+  type MindmapCommandResult
+} from '@whiteboard/core/mindmap'
+import { getMindmapTreeFromDocument } from '@whiteboard/core/mindmap/helpers'
 import { DEFAULT_TUNING } from '../../config'
 
 type MindmapCommand = WriteCommandMap['mindmap']
-type PlanLike =
-  | {
-      ok: true
-      operations: readonly Operation[]
-    }
-  | {
-      ok: false
-      message?: string
-    }
-
 type AddSiblingOptions = {
   options?: MindmapCommandOptions
   createNodeId?: () => MindmapNodeId
+}
+
+const readMindmap = (doc: Document, id: MindmapId): MindmapTree | undefined =>
+  getMindmapTreeFromDocument(doc, id)
+
+const withNodeIdGenerator = <T extends object>(
+  createNodeId: () => MindmapNodeId,
+  options?: T
+) => ({
+  ...(options ?? {}),
+  idGenerator: {
+    nodeId: createNodeId
+  }
+})
+
+const resolveSlot = (options?: MindmapCommandOptions) => ({
+  index: options?.index,
+  side: options?.side
+})
+
+const runMindmapPlan = <T,>({
+  doc,
+  id,
+  options,
+  run
+}: {
+  doc: Document
+  id: MindmapId
+  options?: MindmapCommandOptions
+  run: (tree: MindmapTree) => MindmapCommandResult<T>
+}): Draft => {
+  const beforeTree = readMindmap(doc, id)
+  if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
+
+  const next = run(beforeTree)
+  if (!next.ok) return invalid(next.message ?? 'Invalid mindmap action.')
+
+  return success(
+    createSetOps({
+      id,
+      beforeTree,
+      afterTree: next.tree,
+      hint: options?.layout,
+      node: getNode(doc, id)
+    })
+  )
 }
 
 export const mindmap = ({
@@ -55,41 +107,41 @@ export const mindmap = ({
   const createTreeId = () => createId('mindmap')
   const createNodeId = () => createId('mnode')
 
-  const run = <T extends PlanLike>(build: (doc: Document) => T): Draft =>
-    ops(build(readDoc()))
+  const create = (payload?: MindmapCreateOptions): Draft => {
+    const doc = readDoc()
+    if (payload?.id && readMindmap(doc, payload.id)) {
+      return invalid(`Mindmap ${payload.id} already exists.`)
+    }
 
-  const withDoc = <TArgs extends { doc: Document }, TResult extends PlanLike>(
-    build: (args: TArgs) => TResult
-  ) =>
-    (args: Omit<TArgs, 'doc'>): Draft =>
-      run((doc) => build({ ...(args as object), doc } as TArgs))
-
-  const planCreate = withDoc(corePlan.mindmap.create)
-  const planReplace = withDoc(corePlan.mindmap.replace)
-  const planDelete = withDoc(corePlan.mindmap.delete)
-  const planAddChild = withDoc(corePlan.mindmap.addChild)
-  const planAddSibling = withDoc(corePlan.mindmap.addSibling)
-  const planMoveSubtree = withDoc(corePlan.mindmap.moveSubtree)
-  const planRemoveSubtree = withDoc(corePlan.mindmap.removeSubtree)
-  const planCloneSubtree = withDoc(corePlan.mindmap.cloneSubtree)
-  const planToggleCollapse = withDoc(corePlan.mindmap.toggleCollapse)
-  const planSetNodeData = withDoc(corePlan.mindmap.setNodeData)
-  const planReorderChild = withDoc(corePlan.mindmap.reorderChild)
-  const planSetSide = withDoc(corePlan.mindmap.setSide)
-  const planAttachExternal = withDoc(corePlan.mindmap.attachExternal)
-
-  const create = (payload?: MindmapCreateOptions): Draft =>
-    planCreate({
-      payload,
-      createTreeId,
-      createNodeId
+    const tree = createMindmap({
+      id: payload?.id ?? createTreeId(),
+      rootId: payload?.rootId,
+      rootData: payload?.rootData,
+      idGenerator: {
+        treeId: createTreeId,
+        nodeId: createNodeId
+      }
     })
 
-  const replace = (id: MindmapId, tree: MindmapTree): Draft =>
-    planReplace({ id, tree })
+    return success([createSetOp({ id: tree.id, tree })])
+  }
 
-  const removeMindmaps = (ids: MindmapId[]): Draft =>
-    planDelete({ ids })
+  const replace = (id: MindmapId, tree: MindmapTree): Draft => {
+    const doc = readDoc()
+    const beforeTree = readMindmap(doc, id)
+    if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
+    if (tree.id !== id) return invalid('Mindmap id mismatch.')
+    return success([createSetOp({ id, tree })])
+  }
+
+  const removeMindmaps = (ids: MindmapId[]): Draft => {
+    if (!ids.length) return invalid('No mindmap ids provided.')
+    const doc = readDoc()
+    for (const id of ids) {
+      if (!readMindmap(doc, id)) return invalid(`Mindmap ${id} not found.`)
+    }
+    return success(createDeleteOps(ids))
+  }
 
   const addChild = (
     id: MindmapId,
@@ -97,12 +149,17 @@ export const mindmap = ({
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: MindmapCommandOptions
   ): Draft =>
-    planAddChild({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      parentId,
-      payload,
       options,
-      createNodeId
+      run: (tree) =>
+        addMindmapChild(
+          tree,
+          parentId,
+          payload,
+          withNodeIdGenerator(createNodeId, resolveSlot(options))
+        )
     })
 
   const addSibling = (
@@ -112,13 +169,18 @@ export const mindmap = ({
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: AddSiblingOptions
   ): Draft =>
-    planAddSibling({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      position,
-      payload,
       options: options?.options,
-      createNodeId: options?.createNodeId ?? createNodeId
+      run: (tree) =>
+        addMindmapSibling(
+          tree,
+          nodeId,
+          position,
+          payload,
+          withNodeIdGenerator(options?.createNodeId ?? createNodeId)
+        )
     })
 
   const moveSubtree = (
@@ -127,26 +189,39 @@ export const mindmap = ({
     newParentId: MindmapNodeId,
     options?: MindmapCommandOptions
   ): Draft =>
-    planMoveSubtree({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      newParentId,
-      options
+      options,
+      run: (tree) =>
+        moveMindmapSubtree(tree, nodeId, newParentId, resolveSlot(options))
     })
 
   const removeSubtree = (id: MindmapId, nodeId: MindmapNodeId): Draft =>
-    planRemoveSubtree({ id, nodeId })
+    runMindmapPlan({
+      doc: readDoc(),
+      id,
+      run: (tree) => removeMindmapSubtree(tree, nodeId)
+    })
 
   const cloneSubtree = (
     id: MindmapId,
     nodeId: MindmapNodeId,
     options?: MindmapCloneSubtreeOptions
   ): Draft =>
-    planCloneSubtree({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      options,
-      createNodeId
+      run: (tree) =>
+        cloneMindmapSubtree(
+          tree,
+          nodeId,
+          withNodeIdGenerator(createNodeId, {
+            parentId: options?.parentId,
+            index: options?.index,
+            side: options?.side
+          })
+        )
     })
 
   const toggleCollapse = (
@@ -154,10 +229,10 @@ export const mindmap = ({
     nodeId: MindmapNodeId,
     collapsed?: boolean
   ): Draft =>
-    planToggleCollapse({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      collapsed
+      run: (tree) => toggleMindmapCollapse(tree, nodeId, collapsed)
     })
 
   const setNodeData = (
@@ -165,10 +240,10 @@ export const mindmap = ({
     nodeId: MindmapNodeId,
     patch: Partial<MindmapNodeData>
   ): Draft =>
-    planSetNodeData({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      patch
+      run: (tree) => setMindmapNodeData(tree, nodeId, patch)
     })
 
   const reorderChild = (
@@ -177,18 +252,17 @@ export const mindmap = ({
     fromIndex: number,
     toIndex: number
   ): Draft =>
-    planReorderChild({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      parentId,
-      fromIndex,
-      toIndex
+      run: (tree) => reorderMindmapChild(tree, parentId, fromIndex, toIndex)
     })
 
   const setSide = (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right'): Draft =>
-    planSetSide({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      nodeId,
-      side
+      run: (tree) => setMindmapSide(tree, nodeId, side)
     })
 
   const attachExternal = (
@@ -197,12 +271,17 @@ export const mindmap = ({
     payload: MindmapAttachPayload,
     options?: MindmapCommandOptions
   ): Draft =>
-    planAttachExternal({
+    runMindmapPlan({
+      doc: readDoc(),
       id,
-      targetId,
-      payload,
       options,
-      createNodeId
+      run: (tree) =>
+        attachMindmapExternal(
+          tree,
+          targetId,
+          payload,
+          withNodeIdGenerator(createNodeId, resolveSlot(options))
+        )
     })
 
   const layoutHint = (

@@ -120,6 +120,12 @@ export type NodeWriteCommand =
       payload: NodeInput
     }
   | {
+      type: 'data'
+      mode: 'merge' | 'replace'
+      id: NodeId
+      patch: Record<string, unknown>
+    }
+  | {
       type: 'updateMany'
       updates: readonly NodeBatchUpdate[]
     }
@@ -148,7 +154,8 @@ export type NodeWriteCommand =
       ids: NodeId[]
     }
   | {
-      type: 'order.set'
+      type: 'order'
+      mode: 'set' | 'front' | 'back' | 'forward' | 'backward'
       ids: NodeId[]
     }
 
@@ -171,28 +178,16 @@ export type EdgeWriteCommand =
       ids: EdgeId[]
     }
   | {
-      type: 'order.set'
+      type: 'order'
+      mode: 'set' | 'front' | 'back' | 'forward' | 'backward'
       ids: EdgeId[]
     }
   | {
-      type: 'routing.insertAtPoint'
+      type: 'routing'
+      mode: 'insert' | 'move' | 'remove' | 'reset'
       edgeId: EdgeId
-      pointWorld: Point
-    }
-  | {
-      type: 'routing.move'
-      edgeId: EdgeId
-      index: number
-      pointWorld: Point
-    }
-  | {
-      type: 'routing.remove'
-      edgeId: EdgeId
-      index: number
-    }
-  | {
-      type: 'routing.reset'
-      edgeId: EdgeId
+      index?: number
+      pointWorld?: Point
     }
 
 export type MindmapWriteCommand = MindmapApplyCommand

@@ -1,9 +1,9 @@
 import type { WriteInstance } from '@engine-types/write'
 import type { WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
-import { cancelled, invalid, ops, success } from '../draft'
-import { corePlan } from '@whiteboard/core/kernel'
+import { cancelled, invalid, op, success } from '../draft'
 import {
+  buildEdgeCreateOperation,
   getNearestEdgeSegment,
   insertRoutingPoint as insertRoutingPointPatch,
   moveRoutingPoint as moveRoutingPointPatch,
@@ -12,7 +12,14 @@ import {
   resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
 import { getNodeRect } from '@whiteboard/core/geometry'
-import { createId } from '@whiteboard/core/utils'
+import {
+  bringOrderForward,
+  bringOrderToFront,
+  sanitizeOrderIds,
+  sendOrderBackward,
+  sendOrderToBack,
+  createId
+} from '@whiteboard/core/utils'
 import {
   getEdge,
   getNode,
@@ -23,6 +30,7 @@ import {
 
 type EdgeCommand = WriteCommandMap['edge']
 type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
+type OrderCommand = Extract<EdgeCommand, { type: 'order' }>
 
 const toUpdateOperations = (
   updates: readonly UpdateManyCommand['updates'][number][]
@@ -88,11 +96,39 @@ export const edge = ({
     return success([{ type: 'edge.update', id: edgeId, patch }])
   }
 
+  const order = (command: OrderCommand): Draft => {
+    const doc = readDoc()
+    const current = [...doc.edges.order]
+    const target = sanitizeOrderIds(command.ids) as EdgeId[]
+    let nextOrder: EdgeId[]
+    switch (command.mode) {
+      case 'set':
+        nextOrder = target
+        break
+      case 'front':
+        nextOrder = bringOrderToFront(current, target) as EdgeId[]
+        break
+      case 'back':
+        nextOrder = sendOrderToBack(current, target) as EdgeId[]
+        break
+      case 'forward':
+        nextOrder = bringOrderForward(current, target) as EdgeId[]
+        break
+      case 'backward':
+        nextOrder = sendOrderBackward(current, target) as EdgeId[]
+        break
+      default:
+        nextOrder = target
+        break
+    }
+    return success([{ type: 'edge.order.set', ids: nextOrder }])
+  }
+
   return (command: EdgeCommand): Draft => {
     switch (command.type) {
       case 'create':
-        return ops(
-          corePlan.edge.create({
+        return op(
+          buildEdgeCreateOperation({
             payload: command.payload,
             doc: readDoc(),
             registries: instance.registries,
@@ -103,34 +139,45 @@ export const edge = ({
         return updateMany(command)
       case 'delete':
         return success(command.ids.map((id) => ({ type: 'edge.delete' as const, id })))
-      case 'order.set':
-        return success([{ type: 'edge.order.set', ids: command.ids }])
-      case 'routing.insertAtPoint': {
-        const doc = readDoc()
-        const edge = getEdge(doc, command.edgeId)
-        if (!edge) return cancelled('Edge not found.')
-        const pathPoints = resolvePathPoints(doc, edge)
-        if (!pathPoints?.length) return cancelled('Edge path unavailable.')
-        const segmentIndex = getNearestEdgeSegment(command.pointWorld, pathPoints)
-        const patch = insertRoutingPointPatch(
-          edge,
-          pathPoints,
-          segmentIndex,
-          command.pointWorld
-        )
-        if (!patch) return cancelled('No routing patch generated.')
-        return success([{ type: 'edge.update', id: edge.id, patch }])
+      case 'order':
+        return order(command)
+      case 'routing': {
+        switch (command.mode) {
+          case 'insert': {
+            if (!command.pointWorld) return invalid('Routing point required.')
+            const doc = readDoc()
+            const edge = getEdge(doc, command.edgeId)
+            if (!edge) return cancelled('Edge not found.')
+            const pathPoints = resolvePathPoints(doc, edge)
+            if (!pathPoints?.length) return cancelled('Edge path unavailable.')
+            const segmentIndex = getNearestEdgeSegment(command.pointWorld, pathPoints)
+            const patch = insertRoutingPointPatch(
+              edge,
+              pathPoints,
+              segmentIndex,
+              command.pointWorld
+            )
+            if (!patch) return cancelled('No routing patch generated.')
+            return success([{ type: 'edge.update', id: edge.id, patch }])
+          }
+          case 'move':
+            if (command.index === undefined || !command.pointWorld) {
+              return invalid('Routing index and point required.')
+            }
+            return updateRouting(command.edgeId, (edge) =>
+              moveRoutingPointPatch(edge, command.index, command.pointWorld)
+            )
+          case 'remove':
+            if (command.index === undefined) return invalid('Routing index required.')
+            return updateRouting(command.edgeId, (edge) =>
+              removeRoutingPointPatch(edge, command.index)
+            )
+          case 'reset':
+            return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge))
+          default:
+            return invalid('Unsupported routing mode.')
+        }
       }
-      case 'routing.move':
-        return updateRouting(command.edgeId, (edge) =>
-          moveRoutingPointPatch(edge, command.index, command.pointWorld)
-        )
-      case 'routing.remove':
-        return updateRouting(command.edgeId, (edge) =>
-          removeRoutingPointPatch(edge, command.index)
-        )
-      case 'routing.reset':
-        return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge))
       default:
         return invalid('Unsupported edge action.')
     }

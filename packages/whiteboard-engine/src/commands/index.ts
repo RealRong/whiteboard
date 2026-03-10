@@ -1,17 +1,12 @@
 import type { Commands } from '@engine-types/command'
 import type { Write } from '@engine-types/write'
-import type { Document } from '@whiteboard/core/types'
 import { edge } from './edge'
 import { mindmap } from './mindmap'
 import { node } from './node'
 
 export const createCommands = ({
-  document,
   write
 }: {
-  document: {
-    get: () => Document
-  }
   write: Write
 }): Commands => {
   return {
@@ -20,11 +15,9 @@ export const createCommands = ({
     },
     history: write.history,
     edge: edge({
-      document,
       apply: write.apply
     }),
     node: node({
-      document,
       apply: write.apply
     }),
     mindmap: mindmap({

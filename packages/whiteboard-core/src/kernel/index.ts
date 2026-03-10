@@ -1,7 +1,6 @@
 export { createRegistries } from './registries'
 export { reduceOperations } from './reduce'
 export { createHistory } from './history'
-export { corePlan } from './plan'
 
 export type {
   KernelContext,

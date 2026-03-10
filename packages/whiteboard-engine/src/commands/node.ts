@@ -6,30 +6,20 @@ import type {
 import type { CommandSource } from '@engine-types/command'
 import type { NodeCommandsApi } from '@engine-types/write'
 import type {
-  Document,
   NodeId,
   NodeInput,
   NodePatch
 } from '@whiteboard/core/types'
-import { getNode } from '@whiteboard/core/types'
 import type { Apply } from '../write/draft'
-import { createOrderCommands } from './order'
-import { cancelledResult, invalidResult } from './result'
+import { cancelledResult } from './result'
 
 type NodeCommand = WriteCommandMap['node']
 
-type NodeDocument = {
-  get: () => Document
-}
-
 export const node = ({
-  document,
   apply
 }: {
-  document: NodeDocument
   apply: Apply
 }): NodeCommandsApi => {
-  const readDoc = (): Document => document.get()
   const run = (command: NodeCommand, source: CommandSource = 'ui') =>
     apply({
       domain: 'node',
@@ -59,18 +49,13 @@ export const node = ({
     }, options?.source ?? 'interaction')
   }
 
-  const updateData = (id: NodeId, patch: Record<string, unknown>) => {
-    const current = getNode(readDoc(), id)
-    if (!current) {
-      return invalidResult(`Node ${id} not found.`)
-    }
-    return update(id, {
-      data: {
-        ...(current.data ?? {}),
-        ...patch
-      }
+  const updateData = (id: NodeId, patch: Record<string, unknown>) =>
+    run({
+      type: 'data',
+      mode: 'merge',
+      id,
+      patch
     })
-  }
 
   const remove = (ids: NodeId[]) =>
     run({ type: 'delete', ids })
@@ -90,13 +75,13 @@ export const node = ({
   const ungroupMany = (ids: NodeId[]) =>
     run({ type: 'group.ungroupMany', ids })
 
-  const setOrder = (ids: NodeId[]) =>
-    run({ type: 'order.set', ids })
-
-  const order = createOrderCommands({
-    set: setOrder,
-    readCurrent: () => readDoc().nodes.order
-  })
+  const order = {
+    set: (ids: NodeId[]) => run({ type: 'order', mode: 'set', ids }),
+    bringToFront: (ids: NodeId[]) => run({ type: 'order', mode: 'front', ids }),
+    sendToBack: (ids: NodeId[]) => run({ type: 'order', mode: 'back', ids }),
+    bringForward: (ids: NodeId[]) => run({ type: 'order', mode: 'forward', ids }),
+    sendBackward: (ids: NodeId[]) => run({ type: 'order', mode: 'backward', ids })
+  }
 
   return {
     create,
