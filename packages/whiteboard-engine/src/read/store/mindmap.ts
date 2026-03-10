@@ -1,8 +1,8 @@
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { MindmapReadProjection, ReadContext } from '@engine-types/read'
+import type { ReadContext } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type { MindmapLayoutConfig } from '@engine-types/mindmap'
 import type { MindmapViewTree } from '@engine-types/instance'
-import type { MindmapTree, Node, NodeId } from '@whiteboard/core/types'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
 import {
   buildMindmapLines,
@@ -10,13 +10,14 @@ import {
   getMindmapLabel,
   getMindmapTree
 } from '@whiteboard/core/mindmap'
+import { notifyListeners, subscribeListener } from './subscriptions'
 
 type MindmapTreeCacheKey = {
   treeId: string
   rootId: string
   rootRef: Node
-  treeNodesRef: MindmapTree['nodes']
-  treeChildrenRef: MindmapTree['children']
+  treeNodesRef: MindmapViewTree['tree']['nodes']
+  treeChildrenRef: MindmapViewTree['tree']['children']
   rootPositionX: number
   rootPositionY: number
   rootWidth: number | undefined
@@ -52,22 +53,6 @@ const MINDMAP_CACHE_SCALAR_KEYS = [
   'nodeHeight'
 ] as const satisfies readonly (keyof MindmapTreeCacheKey)[]
 
-const subscribeListener = (
-  listeners: Set<() => void>,
-  listener: () => void
-) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-const notifyListeners = (listeners: ReadonlySet<() => void>) => {
-  listeners.forEach((listener) => {
-    listener()
-  })
-}
-
 const isSameIds = (left: readonly NodeId[], right: readonly NodeId[]) => {
   if (left === right) return true
   if (left.length !== right.length) return false
@@ -83,7 +68,7 @@ const toCacheKey = ({
   layout,
   nodeSize
 }: {
-  tree: MindmapTree
+  tree: MindmapViewTree['tree']
   root: Node
   layout: MindmapLayoutConfig
   nodeSize: { width: number; height: number }
@@ -112,7 +97,7 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
   return true
 }
 
-export const projection = (context: ReadContext): MindmapReadProjection => {
+export const createMindmapProjection = (context: ReadContext) => {
   const config = context.config
   const idsListeners = new Set<() => void>()
   const listenersById = new Map<NodeId, Set<() => void>>()
@@ -124,7 +109,7 @@ export const projection = (context: ReadContext): MindmapReadProjection => {
 
   const buildTree = (
     root: Node,
-    tree: MindmapTree,
+    tree: MindmapViewTree['tree'],
     layout: MindmapLayoutConfig
   ): MindmapViewTree => {
     const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
@@ -257,15 +242,17 @@ export const projection = (context: ReadContext): MindmapReadProjection => {
   }
 
   const applyChange = (impact: KernelReadImpact) => {
-    if (!impact.reset && !impact.mindmap.view) return
+    if (!impact.reset && !impact.mindmap.view && !impact.node.list && !impact.node.geometry) {
+      return
+    }
 
-    const next = reconcile()
+    const { idsChanged, changedTreeIds } = reconcile()
 
-    if (next.idsChanged) {
+    if (idsChanged) {
       notifyListeners(idsListeners)
     }
 
-    next.changedTreeIds.forEach((treeId) => {
+    changedTreeIds.forEach((treeId) => {
       notifyTree(treeId)
     })
   }

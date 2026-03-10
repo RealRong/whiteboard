@@ -44,18 +44,6 @@ export type ReadContext = {
   config: InstanceConfig
 }
 
-export type NodeReadProjection = NodeRead & {
-  applyChange: (impact: KernelReadImpact) => void
-}
-
-export type EdgeReadProjection = EdgeRead & {
-  applyChange: (impact: KernelReadImpact) => void
-}
-
-export type MindmapReadProjection = MindmapRead & {
-  applyChange: (impact: KernelReadImpact) => void
-}
-
 export type ReadControl = {
   read: EngineRead
   invalidate: (impact: KernelReadImpact) => void

@@ -1,23 +1,8 @@
-import type { NodeReadProjection, ReadContext } from '@engine-types/read'
+import type { ReadContext } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@engine-types/instance'
-
-const subscribeListener = (
-  listeners: Set<() => void>,
-  listener: () => void
-) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-const notifyListeners = (listeners: ReadonlySet<() => void>) => {
-  listeners.forEach((listener) => {
-    listener()
-  })
-}
+import { notifyListeners, subscribeListener } from './subscriptions'
 
 const readRect = (
   context: ReadContext,
@@ -30,7 +15,7 @@ const readRect = (
   height: node.size?.height ?? 0
 }
 
-export const projection = (context: ReadContext): NodeReadProjection => {
+export const createNodeProjection = (context: ReadContext) => {
   const entryById = new Map<NodeId, NodeViewItem>()
   const listenersById = new Map<NodeId, Set<() => void>>()
   const idsListeners = new Set<() => void>()
