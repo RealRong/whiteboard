@@ -218,6 +218,125 @@ dirty group 的来源：
 
 不建议把这些派生数据写回 `Document`。它们是 runtime sidecar，不是持久数据。
 
+### 4.5 明确 NodeGeometryCache 和 NodeRectIndex 的分层
+
+当前 engine 已经有读侧的 `NodeRectIndex`，但它和这里设计的 `NodeGeometryCache` 不是同一个层级。
+
+`NodeRectIndex` 的职责是：
+
+- 面向 read 侧
+- 面向查询
+- 维护有序 entry 列表
+- 提供 `all()`
+- 提供 `byId()`
+- 提供 `idsInRect()`
+- 依赖 `ReadModel` 增量同步
+
+它本质上是读侧空间索引，不只是几何缓存。
+
+`NodeGeometryCache` 的职责应该更小：
+
+- 面向 write 和共享 runtime
+- 只缓存单节点几何结果
+- 只提供 `rect/aabb/rotation/size` 级别读取
+- 不维护查询顺序
+- 不提供 `idsInRect()`
+- 不依赖 `ReadModel`
+
+它本质上是基础几何层，不是读 projection 的一部分。
+
+两者的关系应该是：
+
+1. `NodeGeometryCache` 负责“算一次，缓存一次”
+2. `NodeRectIndex` 负责“在几何缓存之上提供读侧查询能力”
+
+也就是说，长期最优不是保留两套重复几何实现，而是做成两层：
+
+- 基础层：`NodeGeometryCache`
+- 读层：`NodeRectIndex`
+
+write/normalize 依赖基础层，read/index 依赖读层。
+
+这样可以避免两个问题：
+
+- write 直接耦合 read runtime
+- 几何推导在 write 和 read 中重复实现
+
+建议的长期 API 形态：
+
+```ts
+type NodeGeometryCache = {
+  replace: (document: Document) => void
+  sync: (document: Document, nodeIds: readonly NodeId[]) => void
+  rect: (nodeId: NodeId) => Rect | undefined
+  aabb: (nodeId: NodeId) => Rect | undefined
+  rotation: (nodeId: NodeId) => number | undefined
+}
+```
+
+`NodeRectIndex` 则退化为读层 facade：
+
+```ts
+type NodeRectIndex = {
+  sync: (nodeIds: readonly NodeId[] | 'full') => void
+  all: () => CanvasNodeRect[]
+  byId: (nodeId: NodeId) => CanvasNodeRect | undefined
+  idsInRect: (rect: Rect) => NodeId[]
+}
+```
+
+其中：
+
+- `NodeGeometryCache` 负责基础几何值
+- `NodeRectIndex` 负责读侧有序视图和空间查询
+
+因此，当前阶段如果要做 group normalize 优化，正确方向不是让 write 直接复用现在的 `NodeRectIndex`，而是先把几何能力下沉成一个基础缓存层。
+
+### 4.6 Dirty Group 归约策略：ancestor 索引 vs 运行时上溯
+
+dirty group 的计算有两种常见方案：
+
+方案 A：维护 `ancestorGroupsByNodeId`
+
+- 优点
+  - 一次查表即可得到所有祖先 group
+  - 适合深层 group 且高频更新
+- 缺点
+  - parent 改动时需要更新整条链
+  - 创建/删除/parent 变更都会触发祖先索引重建
+  - 复杂度和错误面都上升
+
+方案 B：只维护 `parentById`，运行时上溯
+
+- 优点
+  - 索引维护简单
+  - parent 变更只改一条关系
+  - 正确性边界清晰
+- 缺点
+  - dirty 计算时有 `O(depth)` 成本
+  - 批量操作时可能重复上溯
+
+推荐：优先用方案 B。
+
+原因很直接：
+
+- group 深度通常不大，`O(depth)` 成本可接受
+- 维护 `ancestorGroupsByNodeId` 的复杂度远高于节省的时间
+- 只要在一次 normalize 过程中做“短期 memo”，就能消除重复上溯
+
+可选优化（不建议第一阶段就做）：
+
+- 在一次 normalize 过程中维护 `ancestorCache`，对同一个 node 只上溯一次
+- 维护 `dirtyGroupSet`，防止重复加入
+
+因此推荐的策略是：
+
+- 索引只维护 `parentById`
+- dirty 计算阶段用 while 循环上溯
+- 用短期 cache 去重
+
+这条路线能把复杂度控制在“运行时线性 + 常数去重”，而不会把索引维护推到系统复杂度的另一侧。
+
 ## 5. 推荐的新链路
 
 保留双 `reduce` 的前提下，推荐链路如下：
@@ -280,6 +399,41 @@ type GroupNormalizeIndex = {
 - 高频拖拽
 - 高频 group normalize
 - 需要极低写路径几何重算开销
+
+这一定义里出现的 `nodeRectById` / `nodeAabbById`，长期不建议直接和 `GroupNormalizeIndex` 绑死。
+
+更好的组织方式是：
+
+- `GroupNormalizeIndex` 只维护关系和 group 脏区信息
+- 节点几何由独立的 `NodeGeometryCache` 提供
+
+也就是说，完整形态更适合收敛成：
+
+```ts
+type GroupNormalizeIndex = {
+  groupIds: Set<NodeId>
+  parentById: Map<NodeId, NodeId | undefined>
+  childrenByParentId: Map<NodeId, NodeId[]>
+  collapsedGroupIds: Set<NodeId>
+  orderIndexById: Map<NodeId, number>
+}
+```
+
+再额外配套：
+
+```ts
+type NodeGeometryCache = {
+  rect: (nodeId: NodeId) => Rect | undefined
+  aabb: (nodeId: NodeId) => Rect | undefined
+  rotation: (nodeId: NodeId) => number | undefined
+}
+```
+
+这样职责更清晰：
+
+- 关系归关系
+- 几何归几何
+- 读查询归读查询
 
 ### 6.3 DirtyNormalizeInput
 

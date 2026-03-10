@@ -1,8 +1,9 @@
 import type { Size } from '@engine-types/common'
 import type { KernelReduceResult } from '@whiteboard/core/kernel'
-import { normalizeGroupBounds } from '@whiteboard/core/node'
 import type { Document, Operation, Origin } from '@whiteboard/core/types'
-import { DEFAULT_TUNING } from '../config'
+import {
+  createGroupNormalizer
+} from './normalize/group'
 
 type Reduce = (
   document: Document,
@@ -27,13 +28,7 @@ export const createWriteNormalize = ({
   nodeSize: Size
   groupPadding: number
 }): WriteNormalize => {
-  const buildOperations = (document: Document): readonly Operation[] =>
-    normalizeGroupBounds({
-      document,
-      nodeSize,
-      groupPadding,
-      rectEpsilon: DEFAULT_TUNING.group.rectEpsilon
-    })
+  const normalizer = createGroupNormalizer({ nodeSize, groupPadding })
 
   const reduceWithNormalize = (
     document: Document,
@@ -43,16 +38,32 @@ export const createWriteNormalize = ({
     const planned = reduce(document, operations, origin)
     if (!planned.ok) return planned
 
-    const normalizeOperations = buildOperations(planned.doc)
+    if (!normalizer.shouldNormalize(planned.changes.operations)) {
+      return planned
+    }
+
+    normalizer.ensure(document)
+    const dirtyGroupIds = normalizer.analyze(
+      planned.doc,
+      planned.changes.operations
+    )
+    const normalizeOperations = normalizer.build(planned.doc, dirtyGroupIds)
     if (!normalizeOperations.length) {
       return planned
     }
 
-    return reduce(
+    const reduced = reduce(
       document,
       [...planned.changes.operations, ...normalizeOperations],
       origin
     )
+    if (!reduced.ok) {
+      normalizer.reset(document)
+      return reduced
+    }
+
+    normalizer.sync(reduced.doc, normalizeOperations)
+    return reduced
   }
 
   return {
