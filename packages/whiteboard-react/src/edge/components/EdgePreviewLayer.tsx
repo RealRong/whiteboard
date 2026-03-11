@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useInternalInstance as useInstance, useWhiteboardSelector } from '../../common/hooks'
+import { useInternalInstance as useInstance, useTool } from '../../common/hooks'
+import { createRafTask } from '../../common/utils/rafTask'
 import { resolveSnapTarget } from '../interaction/connectMath'
 import {
   edgeConnectPreviewState,
@@ -8,7 +9,7 @@ import {
 
 export const EdgePreviewLayer = () => {
   const instance = useInstance()
-  const tool = useWhiteboardSelector('tool')
+  const tool = useTool()
   const { activePointerId, from, to, snap, showPreviewLine } = useEdgeConnectPreviewState()
 
   useEffect(() => {
@@ -18,13 +19,11 @@ export const EdgePreviewLayer = () => {
     }
     if (typeof window === 'undefined') return
 
-    let frameId: number | null = null
     let latestEvent: PointerEvent | null = null
 
     const flush = () => {
-      frameId = null
       if (!latestEvent) return
-      if (edgeConnectPreviewState.getSnapshot(instance).activePointerId !== undefined) return
+      if (edgeConnectPreviewState.get(instance).activePointerId !== undefined) return
 
       const screen = instance.viewport.clientToScreen(
         latestEvent.clientX,
@@ -34,18 +33,15 @@ export const EdgePreviewLayer = () => {
       const target = resolveSnapTarget(instance, world)
       edgeConnectPreviewState.setHoverSnap(instance, target?.pointWorld)
     }
+    const hoverTask = createRafTask(flush)
 
     const handlePointerMove = (event: PointerEvent) => {
       latestEvent = event
-      if (frameId !== null) return
-      frameId = window.requestAnimationFrame(flush)
+      hoverTask.schedule()
     }
 
     const clearHover = () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-        frameId = null
-      }
+      hoverTask.cancel()
       edgeConnectPreviewState.clearHoverSnap(instance)
     }
 
@@ -54,9 +50,7 @@ export const EdgePreviewLayer = () => {
     return () => {
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('blur', clearHover)
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-      }
+      hoverTask.cancel()
     }
   }, [instance, tool])
 

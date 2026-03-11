@@ -6,9 +6,8 @@ import type {
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { EdgeEntry } from '@whiteboard/engine'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
+import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import { viewportGestureState } from '../../common/interaction/viewportGestureState'
 import {
   edgeRoutingPreviewState,
   type RoutingPreviewDraft
@@ -33,7 +32,7 @@ export const useEdgeRoutingInteraction = () => {
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<RoutingPreviewDraft | null>(null)
-  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const lockTokenRef = useRef<InteractionLockToken | null>(null)
 
   const readEdgeById = useCallback(
     (edgeId: EdgeId) => instance.read.edge.get(edgeId),
@@ -52,7 +51,7 @@ export const useEdgeRoutingInteraction = () => {
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockState.release(instance, lockToken)
+        interactionLock.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -68,7 +67,7 @@ export const useEdgeRoutingInteraction = () => {
         || lockToken.pointerId === active.pointerId
       )
     ) {
-      sessionLockState.release(instance, lockToken)
+      interactionLock.release(instance, lockToken)
       lockTokenRef.current = null
     }
   }, [instance])
@@ -81,7 +80,6 @@ export const useEdgeRoutingInteraction = () => {
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (viewportGestureState.isSpacePressed(instance)) return
 
       const entry = resolveEdgeEntry(edgeId, readEdgeById)
       if (!entry) return
@@ -104,7 +102,7 @@ export const useEdgeRoutingInteraction = () => {
       )
       const origin = points[index]
       if (!origin) return
-      const lockToken = sessionLockState.tryAcquire(instance, 'edgeRouting', event.pointerId)
+      const lockToken = interactionLock.tryAcquire(instance, 'edgeRouting', event.pointerId)
       if (!lockToken) return
       const draft: RoutingPreviewDraft = {
         edgeId,

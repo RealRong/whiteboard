@@ -1,13 +1,14 @@
 import type { CSSProperties } from 'react'
-import { useEdge, useSelectedEdgeId } from '../../common/hooks'
+import { useEdge } from '../../common/hooks'
+import { useSelectedEdgeId } from '../../selection'
 import { resolveRoutingPointsWithDraft } from '../interaction/routingPreviewMath'
-import { useEdgeRoutingPreviewState } from '../interaction/routingPreviewState'
+import { useEdgeRoutingDraft } from '../interaction/routingPreviewState'
 import { useEdgeRoutingInteraction } from '../hooks/useEdgeRoutingInteraction'
 
 export const EdgeControlPointHandles = () => {
   const selectedEdgeId = useSelectedEdgeId()
   const edgeEntry = useEdge(selectedEdgeId)
-  const { draft } = useEdgeRoutingPreviewState()
+  const draft = useEdgeRoutingDraft()
   const {
     handleRoutingPointerDown,
     handleRoutingKeyDown

@@ -57,7 +57,7 @@ Engine should no longer expose:
 
 - `state`
 - `runtime.store`
-- `commands.selection`
+- `state.selection`
 - `commands.tool`
 - `commands.interaction`
 

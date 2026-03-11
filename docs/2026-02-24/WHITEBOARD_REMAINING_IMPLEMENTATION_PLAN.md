@@ -33,7 +33,7 @@
 ## 2. 当前状态（已完成）
 
 1. `NodeDrag` 已迁移到新流水线。
-2. `input/sessions/NodeDrag.ts` 不再直调 `commands.selection` 和 `actors.node.drag`。
+2. `input/sessions/NodeDrag.ts` 不再直调 `state.selection` 和 `actors.node.drag`。
 3. 新增 `runtime/nodeInput` 目录，已包含：
    - `Gateway`
    - `node/Planner`

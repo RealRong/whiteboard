@@ -11,7 +11,7 @@ import {
 import { getRectCenter, isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
+import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
 
@@ -135,7 +135,7 @@ export const useNodeTransformInteraction = ({
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveTransform | null>(null)
-  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const lockTokenRef = useRef<InteractionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -149,7 +149,7 @@ export const useNodeTransformInteraction = ({
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockState.release(instance, lockToken)
+        interactionLock.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -165,7 +165,7 @@ export const useNodeTransformInteraction = ({
         || lockToken.pointerId === active.drag.pointerId
       )
     ) {
-      sessionLockState.release(instance, lockToken)
+      interactionLock.release(instance, lockToken)
       lockTokenRef.current = null
     }
   }, [instance])
@@ -210,7 +210,7 @@ export const useNodeTransformInteraction = ({
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.state.read('tool') !== 'select') return
+      if (instance.state.tool.get() !== 'select') return
 
       const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
@@ -253,7 +253,7 @@ export const useNodeTransformInteraction = ({
       }
 
       if (!nextDrag) return
-      const lockToken = sessionLockState.tryAcquire(instance, 'nodeTransform', event.pointerId)
+      const lockToken = interactionLock.tryAcquire(instance, 'nodeTransform', event.pointerId)
       if (!lockToken) return
 
       activeRef.current = {
@@ -275,7 +275,7 @@ export const useNodeTransformInteraction = ({
       instance.read.index,
       instance.viewport.clientToScreen,
       instance.viewport.screenToWorld,
-      instance.state,
+      instance.commands,
       nodeId
     ]
   )
@@ -287,8 +287,8 @@ export const useNodeTransformInteraction = ({
       if (!active || event.pointerId !== active.drag.pointerId) return
 
       if (active.drag.mode === 'resize') {
-        const activeTool = instance.state.read('tool')
-        const zoom = Math.max(instance.viewport.getZoom(), ZOOM_EPSILON)
+        const activeTool = instance.state.tool.get()
+        const zoom = Math.max(instance.viewport.get().zoom, ZOOM_EPSILON)
         const resized = computeResizeRect({
           handle: active.drag.handle,
           startScreen: active.drag.startScreen,

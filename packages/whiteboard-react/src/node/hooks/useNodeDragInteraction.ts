@@ -17,7 +17,7 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
+import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import { nodeInteractionPreviewState } from '../interaction/nodeInteractionPreviewState'
 
@@ -156,7 +156,7 @@ export const useNodeDragInteraction = ({
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveDrag | null>(null)
-  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const lockTokenRef = useRef<InteractionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -170,7 +170,7 @@ export const useNodeDragInteraction = ({
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockState.release(instance, lockToken)
+        interactionLock.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -187,7 +187,7 @@ export const useNodeDragInteraction = ({
         || lockToken.pointerId === active.pointerId
       )
     ) {
-      sessionLockState.release(instance, lockToken)
+      interactionLock.release(instance, lockToken)
       lockTokenRef.current = null
     }
   }, [instance])
@@ -313,11 +313,11 @@ export const useNodeDragInteraction = ({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.state.read('tool') !== 'select') return
+      if (instance.state.tool.get() !== 'select') return
 
       const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
-      const lockToken = sessionLockState.tryAcquire(instance, 'nodeDrag', event.pointerId)
+      const lockToken = interactionLock.tryAcquire(instance, 'nodeDrag', event.pointerId)
       if (!lockToken) return
 
       instance.commands.selection.select(
@@ -370,13 +370,13 @@ export const useNodeDragInteraction = ({
       const active = activeRef.current
       if (!active || event.pointerId !== active.pointerId) return
 
-      const zoom = Math.max(instance.viewport.getZoom(), ZOOM_EPSILON)
+      const zoom = Math.max(instance.viewport.get().zoom, ZOOM_EPSILON)
       const basePosition = {
         x: active.origin.x + (event.clientX - active.start.x) / zoom,
         y: active.origin.y + (event.clientY - active.start.y) / zoom
       }
 
-      const snapEnabled = instance.state.read('tool') === 'select'
+      const snapEnabled = instance.state.tool.get() === 'select'
       const allowCross = event.altKey
       const config = instance.config
       let position = basePosition

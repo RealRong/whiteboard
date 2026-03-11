@@ -1,1 +1,1 @@
-export { MindmapLayerStack } from './MindmapLayerStack'
+export { MindmapFeature } from './MindmapFeature'

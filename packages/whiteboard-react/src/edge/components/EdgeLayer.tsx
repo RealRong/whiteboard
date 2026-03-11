@@ -1,23 +1,20 @@
-import type { EdgeId } from '@whiteboard/core/types'
-import type { EdgeEntry } from '@whiteboard/engine'
+import type { Edge, EdgeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { memo, useCallback } from 'react'
+import { memo } from 'react'
 import {
   useEdge,
   useEdgeIds,
-  useInstance,
-  useSelectedEdgeId
+  useInstance
 } from '../../common/hooks'
+import { useSelectedEdgeId } from '../../selection'
 import { resolveEdgeEntryWithRoutingDraft } from '../interaction/routingPreviewMath'
 import {
-  useEdgeRoutingPreviewState,
+  useEdgeRoutingDraft,
   type RoutingPreviewDraft
 } from '../interaction/routingPreviewState'
 import { EdgeItem } from './EdgeItem'
-import { EdgeMarkerDefs } from './EdgeMarkerDefs'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
-
-const useEdgeEntry = (edgeId: EdgeId) => useEdge(edgeId)
+import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
 
 type EdgeItemByIdProps = {
   edgeId: EdgeId
@@ -26,7 +23,7 @@ type EdgeItemByIdProps = {
   routingDraft?: RoutingPreviewDraft
   onEdgePathPointerDown: (
     event: ReactPointerEvent<SVGPathElement>,
-    entry: EdgeEntry
+    edge: Edge
   ) => void
 }
 
@@ -38,7 +35,7 @@ const EdgeItemById = memo(
     routingDraft,
     onEdgePathPointerDown
   }: EdgeItemByIdProps) => {
-    const entry = useEdgeEntry(edgeId)
+    const entry = useEdge(edgeId)
     if (!entry) return null
     const resolvedEntry = resolveEdgeEntryWithRoutingDraft(entry, routingDraft)
 
@@ -48,7 +45,7 @@ const EdgeItemById = memo(
         hitTestThresholdScreen={hitTestThresholdScreen}
         selected={selected}
         onPathPointerDown={(event) => {
-          onEdgePathPointerDown(event, resolvedEntry)
+          onEdgePathPointerDown(event, resolvedEntry.edge)
         }}
       />
     )
@@ -63,29 +60,48 @@ const EdgeItemById = memo(
 
 export const EdgeLayer = () => {
   const instance = useInstance()
-  const { draft } = useEdgeRoutingPreviewState()
+  const draft = useEdgeRoutingDraft()
   const { handleEdgePathPointerDown } = useEdgePathInteraction()
   const edgeIds = useEdgeIds()
-  const stateSelectedEdgeId = useSelectedEdgeId()
+  const selectedEdgeId = useSelectedEdgeId()
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
-  const handleEdgePointerDown = useCallback(
-    (event: ReactPointerEvent<SVGPathElement>, entry: EdgeEntry) => {
-      handleEdgePathPointerDown(event, entry.edge)
-    },
-    [handleEdgePathPointerDown]
-  )
 
   return (
     <svg width="100%" height="100%" className="wb-edge-layer">
-      <EdgeMarkerDefs />
+      <defs>
+        <marker
+          id={EDGE_ARROW_END_ID}
+          markerWidth="10"
+          markerHeight="10"
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" stroke="currentColor" />
+        </marker>
+        <marker
+          id={EDGE_ARROW_START_ID}
+          markerWidth="10"
+          markerHeight="10"
+          viewBox="0 0 10 10"
+          refX="0"
+          refY="5"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path d="M 10 0 L 0 5 L 10 10 z" fill="currentColor" stroke="currentColor" />
+        </marker>
+      </defs>
       {edgeIds.map((edgeId) => (
         <EdgeItemById
           key={edgeId}
           edgeId={edgeId}
           hitTestThresholdScreen={hitTestThresholdScreen}
-          selected={edgeId === stateSelectedEdgeId}
+          selected={edgeId === selectedEdgeId}
           routingDraft={draft?.edgeId === edgeId ? draft : undefined}
-          onEdgePathPointerDown={handleEdgePointerDown}
+          onEdgePathPointerDown={handleEdgePathPointerDown}
         />
       ))}
     </svg>

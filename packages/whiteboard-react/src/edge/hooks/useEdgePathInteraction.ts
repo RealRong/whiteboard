@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Edge, Point } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { viewportGestureState } from '../../common/interaction/viewportGestureState'
 
 const toPointerWorld = (
   clientX: number,
@@ -20,7 +19,6 @@ export const useEdgePathInteraction = () => {
   const handleEdgePathPointerDown = useCallback(
     (event: ReactPointerEvent<SVGPathElement>, edge: Edge) => {
       if (event.button !== 0) return
-      if (viewportGestureState.isSpacePressed(instance)) return
 
       const pointWorld = toPointerWorld(
         event.clientX,
@@ -33,7 +31,7 @@ export const useEdgePathInteraction = () => {
         instance.commands.edge.routing.insertAtPoint(edge.id, pointWorld)
       }
 
-      instance.commands.edge.select(edge.id)
+      instance.commands.selection.selectEdge(edge.id)
       event.preventDefault()
       event.stopPropagation()
     },

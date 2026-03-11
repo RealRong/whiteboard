@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useEdge, useSelectedEdgeId } from '../../common/hooks'
+import { useEdge } from '../../common/hooks'
+import { useSelectedEdgeId } from '../../selection'
 import { useEdgeConnectInteraction } from '../hooks/useEdgeConnectInteraction'
 
 export const EdgeEndpointHandles = () => {

@@ -1,8 +1,10 @@
-import { useRef } from 'react'
-import { atom, useAtomValue } from 'jotai'
+import { useMemo } from 'react'
+import { atom } from 'jotai'
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../../common/instance/types'
+import { useUiAtomValue } from '../../common/hooks/useUiAtom'
+import { createRafTask } from '../../common/utils/rafTask'
 
 export type NodePreviewUpdate = {
   id: NodeId
@@ -20,9 +22,6 @@ type NodeInteractionPreviewSnapshot = {
   hoveredGroupId?: NodeId
 }
 
-type Equality<T> = (left: T, right: T) => boolean
-
-const defaultEquality: Equality<unknown> = Object.is
 const EMPTY_UPDATES = new Map<NodeId, NodePreviewUpdate>()
 const EMPTY_GUIDES: Guide[] = []
 const EMPTY_SNAPSHOT: NodeInteractionPreviewSnapshot = {
@@ -31,7 +30,11 @@ const EMPTY_SNAPSHOT: NodeInteractionPreviewSnapshot = {
   hoveredGroupId: undefined
 }
 
-const nodeInteractionPreviewAtom = atom<NodeInteractionPreviewSnapshot>(EMPTY_SNAPSHOT)
+export const nodeInteractionPreviewAtom = atom<NodeInteractionPreviewSnapshot>(EMPTY_SNAPSHOT)
+const nodeInteractionGuidesAtom = atom((get) => get(nodeInteractionPreviewAtom).guides)
+
+const pendingByInstance = new WeakMap<InternalWhiteboardInstance, NodeInteractionPreviewSnapshot>()
+const flushTaskByInstance = new WeakMap<InternalWhiteboardInstance, ReturnType<typeof createRafTask>>()
 
 const setSnapshot = (instance: InternalWhiteboardInstance, next: NodeInteractionPreviewSnapshot) => {
   const snapshot = instance.uiStore.get(nodeInteractionPreviewAtom)
@@ -41,6 +44,32 @@ const setSnapshot = (instance: InternalWhiteboardInstance, next: NodeInteraction
     && snapshot.hoveredGroupId === next.hoveredGroupId
   if (unchanged) return
   instance.uiStore.set(nodeInteractionPreviewAtom, next)
+}
+
+const flushPending = (instance: InternalWhiteboardInstance) => {
+  const pending = pendingByInstance.get(instance)
+  if (!pending) return
+  pendingByInstance.delete(instance)
+  setSnapshot(instance, pending)
+}
+
+const getFlushTask = (instance: InternalWhiteboardInstance) => {
+  let task = flushTaskByInstance.get(instance)
+  if (task) return task
+  task = createRafTask(() => flushPending(instance), { fallback: 'microtask' })
+  flushTaskByInstance.set(instance, task)
+  return task
+}
+
+const scheduleFlush = (instance: InternalWhiteboardInstance) => {
+  getFlushTask(instance).schedule()
+}
+
+const cancelFlush = (instance: InternalWhiteboardInstance) => {
+  const task = flushTaskByInstance.get(instance)
+  if (!task) return
+  task.cancel()
+  flushTaskByInstance.delete(instance)
 }
 
 const toUpdatesById = (
@@ -61,39 +90,40 @@ type SetTransientInput = {
 }
 
 export const nodeInteractionPreviewState = {
-  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
-    instance.uiStore.sub(nodeInteractionPreviewAtom, listener),
-  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(nodeInteractionPreviewAtom),
   setTransient: (
     instance: InternalWhiteboardInstance,
     { updates, guides, hoveredGroupId }: SetTransientInput
   ) => {
-    setSnapshot(instance, {
+    pendingByInstance.set(instance, {
       updatesById: toUpdatesById(updates),
       guides: guides.length ? guides : EMPTY_GUIDES,
       hoveredGroupId
     })
+    scheduleFlush(instance)
   },
   clearTransient: (instance: InternalWhiteboardInstance) => {
     const snapshot = instance.uiStore.get(nodeInteractionPreviewAtom)
     if (snapshot === EMPTY_SNAPSHOT) return
+    pendingByInstance.delete(instance)
+    cancelFlush(instance)
     setSnapshot(instance, EMPTY_SNAPSHOT)
   }
 }
 
-export const useNodeInteractionPreviewSelector = <T,>(
-  selector: (snapshot: NodeInteractionPreviewSnapshot) => T,
-  equality?: Equality<T>
-) => {
-  const snapshot = useAtomValue(nodeInteractionPreviewAtom)
-  const selectorRef = useRef(selector)
-  const equalityRef = useRef((equality ?? defaultEquality) as Equality<T>)
-  selectorRef.current = selector
-  equalityRef.current = (equality ?? defaultEquality) as Equality<T>
-  const next = selectorRef.current(snapshot)
-  const selectedRef = useRef(next)
-  if (!equalityRef.current(selectedRef.current, next)) {
-    selectedRef.current = next
-  }
-  return selectedRef.current
+export const useNodePreviewUpdate = (nodeId: NodeId) => {
+  const previewUpdateAtom = useMemo(
+    () => atom((get) => get(nodeInteractionPreviewAtom).updatesById.get(nodeId)),
+    [nodeId]
+  )
+  return useUiAtomValue(previewUpdateAtom)
 }
+
+export const useNodeHoveredGroup = (nodeId: NodeId) => {
+  const hoveredGroupAtom = useMemo(
+    () => atom((get) => get(nodeInteractionPreviewAtom).hoveredGroupId === nodeId),
+    [nodeId]
+  )
+  return useUiAtomValue(hoveredGroupAtom)
+}
+
+export const useNodeInteractionGuides = () => useUiAtomValue(nodeInteractionGuidesAtom)

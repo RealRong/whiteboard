@@ -5,24 +5,12 @@ import type {
   Instance as EngineInstance,
   InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
-import type { DispatchResult, EdgeId, NodeId, Point, Viewport } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
-import type {
-  EditorInteractionState,
-  EditorSelectionState,
-  EditorTool,
-  SelectionMode
-} from './uiState'
-import type { ViewportRuntime } from './runtime/viewport'
-
-export type EditorStateSnapshot = {
-  tool: EditorTool
-  selection: EditorSelectionState
-  interaction: EditorInteractionState
-}
-
-export type EditorStateKey = keyof EditorStateSnapshot
+import type { EditorTool } from './toolState'
+import type { WhiteboardSelectionCommands } from '../../selection/domain'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type { WhiteboardViewport } from '../../viewport'
 
 export type WhiteboardRuntimeConfig = {
   tool: EditorTool
@@ -30,61 +18,35 @@ export type WhiteboardRuntimeConfig = {
   history?: ResolvedHistoryConfig
 }
 
-export type WhiteboardSelectionState = {
-  get: () => EditorSelectionState
-  contains: (nodeId: NodeId) => boolean
-  selectedEdgeId: () => EdgeId | undefined
-  subscribe: (listener: () => void) => () => void
-  subscribeNode: (nodeId: NodeId, listener: () => void) => () => void
-  subscribeEdge: (listener: () => void) => () => void
-}
-
-export type WhiteboardState = {
-  read: <K extends EditorStateKey>(key: K) => EditorStateSnapshot[K]
-  subscribe: (keys: readonly EditorStateKey[], listener: () => void) => () => void
-  selection: WhiteboardSelectionState
-}
-
-export type WhiteboardViewportCommands = {
-  set: (viewport: Viewport) => Promise<DispatchResult>
-  panBy: (delta: { x: number; y: number }) => Promise<DispatchResult>
-  zoomBy: (factor: number, anchor?: Point) => Promise<DispatchResult>
-  zoomTo: (zoom: number, anchor?: Point) => Promise<DispatchResult>
-  reset: () => Promise<DispatchResult>
-}
-
 export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
   tool: {
     set: (tool: EditorTool) => void
   }
-  interaction: {
-    update: (patch: Partial<EditorInteractionState>) => void
-    clearHover: () => void
-  }
-  selection: {
-    select: (ids: NodeId[], mode?: SelectionMode) => void
-    toggle: (ids: NodeId[]) => void
-    selectAll: () => void
-    clear: () => void
-    getSelectedNodeIds: () => NodeId[]
-  }
-  edge: EngineCommands['edge'] & {
-    select: (id?: EdgeId) => void
-  }
-  viewport: WhiteboardViewportCommands
+  selection: WhiteboardSelectionCommands
+  edge: EngineCommands['edge']
 }
 
 export type WhiteboardInstance = {
-  state: WhiteboardState
   config: Readonly<EngineInstanceConfig>
   read: EngineRead
   commands: WhiteboardCommands
-  viewport: ViewportRuntime
+  viewport: WhiteboardViewport
   configure: (config: WhiteboardRuntimeConfig) => void
   dispose: () => void
+}
+
+export type InternalWhiteboardState = {
+  tool: {
+    get: () => EditorTool
+  }
+  selection: {
+    nodeIds: () => readonly NodeId[]
+    edgeId: () => EdgeId | undefined
+  }
 }
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {
   engine: EngineInstance
   uiStore: ReturnType<typeof createStore>
+  state: InternalWhiteboardState
 }

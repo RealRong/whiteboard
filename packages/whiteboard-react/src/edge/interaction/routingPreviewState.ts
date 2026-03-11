@@ -1,6 +1,7 @@
-import { atom, useAtomValue } from 'jotai'
+import { atom } from 'jotai/vanilla'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../../common/instance/types'
+import { useUiAtomValue } from '../../common/hooks/useUiAtom'
 
 export type RoutingPreviewDraft = {
   edgeId: EdgeId
@@ -11,38 +12,31 @@ export type RoutingPreviewDraft = {
   point: Point
 }
 
-type RoutingPreviewSnapshot = {
-  draft?: RoutingPreviewDraft
-}
+export const routingPreviewDraftAtom = atom<RoutingPreviewDraft | undefined>(undefined)
 
-const EMPTY_SNAPSHOT: RoutingPreviewSnapshot = {}
-
-const routingPreviewAtom = atom<RoutingPreviewSnapshot>(EMPTY_SNAPSHOT)
-
-const setSnapshot = (instance: InternalWhiteboardInstance, next: RoutingPreviewSnapshot) => {
-  const snapshot = instance.uiStore.get(routingPreviewAtom)
-  if (snapshot.draft === next.draft) return
-  instance.uiStore.set(routingPreviewAtom, next)
+const setDraft = (
+  instance: InternalWhiteboardInstance,
+  next: RoutingPreviewDraft | undefined
+) => {
+  const draft = instance.uiStore.get(routingPreviewDraftAtom)
+  if (draft === next) return
+  instance.uiStore.set(routingPreviewDraftAtom, next)
 }
 
 export const edgeRoutingPreviewState = {
-  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
-    instance.uiStore.sub(routingPreviewAtom, listener),
-  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(routingPreviewAtom),
   setDraft: (instance: InternalWhiteboardInstance, draft: RoutingPreviewDraft) => {
-    setSnapshot(instance, { draft })
+    setDraft(instance, draft)
   },
   clearDraft: (instance: InternalWhiteboardInstance, pointerId?: number) => {
-    const snapshot = instance.uiStore.get(routingPreviewAtom)
-    if (!snapshot.draft) return
-    if (pointerId !== undefined && snapshot.draft.pointerId !== pointerId) return
-    setSnapshot(instance, EMPTY_SNAPSHOT)
+    const draft = instance.uiStore.get(routingPreviewDraftAtom)
+    if (!draft) return
+    if (pointerId !== undefined && draft.pointerId !== pointerId) return
+    setDraft(instance, undefined)
   },
   reset: (instance: InternalWhiteboardInstance) => {
-    const snapshot = instance.uiStore.get(routingPreviewAtom)
-    if (snapshot === EMPTY_SNAPSHOT) return
-    setSnapshot(instance, EMPTY_SNAPSHOT)
+    if (instance.uiStore.get(routingPreviewDraftAtom) === undefined) return
+    setDraft(instance, undefined)
   }
 }
 
-export const useEdgeRoutingPreviewState = () => useAtomValue(routingPreviewAtom)
+export const useEdgeRoutingDraft = () => useUiAtomValue(routingPreviewDraftAtom)

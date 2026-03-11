@@ -1,1 +1,1 @@
-export { EdgeLayerStack } from './EdgeLayerStack'
+export { EdgeFeature } from './EdgeFeature'

@@ -56,7 +56,7 @@ export const resolveSnapTarget = (
   pointWorld: Point
 ): SnapTarget | undefined => {
   const config = instance.config
-  const zoom = instance.viewport.getZoom()
+  const zoom = instance.viewport.get().zoom
   const thresholdWorld =
     Math.max(
       config.edge.anchorSnapMin,

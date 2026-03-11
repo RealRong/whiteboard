@@ -8,9 +8,8 @@ import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
+import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import { viewportGestureState } from '../../common/interaction/viewportGestureState'
 
 type RootDragSession = {
   kind: 'root'
@@ -107,7 +106,7 @@ export const useMindmapDragInteraction = () => {
   const [drag, setDrag] = useState<MindmapDragView | undefined>(undefined)
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<MindmapDragSession | null>(null)
-  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const lockTokenRef = useRef<InteractionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -121,7 +120,7 @@ export const useMindmapDragInteraction = () => {
           || lockToken.pointerId === pointerId
         )
       ) {
-        sessionLockState.release(instance, lockToken)
+        interactionLock.release(instance, lockToken)
         lockTokenRef.current = null
       }
       return
@@ -137,7 +136,7 @@ export const useMindmapDragInteraction = () => {
         || lockToken.pointerId === active.pointerId
       )
     ) {
-      sessionLockState.release(instance, lockToken)
+      interactionLock.release(instance, lockToken)
       lockTokenRef.current = null
     }
   }, [instance])
@@ -259,7 +258,6 @@ export const useMindmapDragInteraction = () => {
     ) => {
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (viewportGestureState.isSpacePressed(instance)) return
       if (
         event.target instanceof Element
         && event.target.closest('[data-selection-ignore]')
@@ -320,7 +318,7 @@ export const useMindmapDragInteraction = () => {
       }
       if (!nextActive) return
 
-      const lockToken = sessionLockState.tryAcquire(
+      const lockToken = interactionLock.tryAcquire(
         instance,
         'mindmapDrag',
         event.pointerId

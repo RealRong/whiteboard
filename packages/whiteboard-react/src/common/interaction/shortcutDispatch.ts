@@ -4,7 +4,7 @@ import type {
   Operation
 } from '@whiteboard/core/types'
 import type { ShortcutAction } from '../../types/common/shortcut'
-import type { WhiteboardInstance } from '../instance'
+import type { InternalWhiteboardInstance } from '../instance'
 
 const readCreatedNodeIds = (
   result: DispatchResult,
@@ -22,10 +22,10 @@ const readCreatedNodeIds = (
 const readCreatedGroupId = (result: DispatchResult): NodeId | undefined =>
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
-const getSelectedNodeIds = (instance: WhiteboardInstance): NodeId[] =>
-  Array.from(instance.state.read('selection').selectedNodeIds)
+const getSelectedNodeIds = (instance: InternalWhiteboardInstance): NodeId[] =>
+  [...instance.state.selection.nodeIds()]
 
-const groupSelection = async (instance: WhiteboardInstance) => {
+const groupSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (selectedNodeIds.length < 2) return
 
@@ -35,7 +35,7 @@ const groupSelection = async (instance: WhiteboardInstance) => {
   instance.commands.selection.select([groupId], 'replace')
 }
 
-const ungroupSelection = async (instance: WhiteboardInstance) => {
+const ungroupSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (!selectedNodeIds.length) return
 
@@ -44,16 +44,15 @@ const ungroupSelection = async (instance: WhiteboardInstance) => {
   instance.commands.selection.clear()
 }
 
-const deleteSelection = async (instance: WhiteboardInstance) => {
-  const selection = instance.state.read('selection')
-  const selectedEdgeId = selection.selectedEdgeId
-  const selectedNodeIds = Array.from(selection.selectedNodeIds)
+const deleteSelection = async (instance: InternalWhiteboardInstance) => {
+  const selectedEdgeId = instance.state.selection.edgeId()
+  const selectedNodeIds = [...instance.state.selection.nodeIds()]
   if (!selectedEdgeId && !selectedNodeIds.length) return
 
   if (selectedEdgeId) {
     const result = await instance.commands.edge.delete([selectedEdgeId])
     if (!result.ok) return
-    instance.commands.edge.select(undefined)
+    instance.commands.selection.selectEdge(undefined)
     return
   }
 
@@ -62,7 +61,7 @@ const deleteSelection = async (instance: WhiteboardInstance) => {
   instance.commands.selection.clear()
 }
 
-const duplicateSelection = async (instance: WhiteboardInstance) => {
+const duplicateSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
   if (!selectedNodeIds.length) return
 
@@ -73,19 +72,12 @@ const duplicateSelection = async (instance: WhiteboardInstance) => {
 }
 
 export const canDispatchShortcutAction = (
-  instance: WhiteboardInstance,
+  instance: InternalWhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
-  const interaction = instance.state.read('interaction')
-  const focus = interaction.focus
-  if (focus.isEditingText || focus.isInputFocused || focus.isImeComposing) {
-    return false
-  }
-
-  const selection = instance.state.read('selection')
-  const selectedNodeCount = selection.selectedNodeIds.size
+  const selectedNodeCount = instance.state.selection.nodeIds().length
   const hasNodeSelection = selectedNodeCount > 0
-  const hasEdgeSelection = Boolean(selection.selectedEdgeId)
+  const hasEdgeSelection = Boolean(instance.state.selection.edgeId())
 
   switch (action) {
     case 'group.create':
@@ -109,7 +101,7 @@ export const canDispatchShortcutAction = (
 }
 
 export const dispatchShortcutAction = (
-  instance: WhiteboardInstance,
+  instance: InternalWhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
   if (!canDispatchShortcutAction(instance, action)) return false

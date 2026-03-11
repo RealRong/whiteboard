@@ -1,7 +1,7 @@
-import { atom } from 'jotai'
+import type { createStore } from 'jotai/vanilla'
 import type { InternalWhiteboardInstance } from '../instance/types'
 
-export type InteractionSessionKind =
+export type InteractionLockKind =
   | 'viewportGesture'
   | 'selectionBox'
   | 'nodeDrag'
@@ -10,63 +10,40 @@ export type InteractionSessionKind =
   | 'edgeConnect'
   | 'mindmapDrag'
 
-export type SessionLockToken = Readonly<{
-  id: number
-  kind: InteractionSessionKind
+export type InteractionLockToken = Readonly<{
+  kind: InteractionLockKind
   pointerId?: number
 }>
 
-type SessionLockSnapshot = {
-  active?: SessionLockToken
-}
+type InteractionLockStore = ReturnType<typeof createStore>
+type InteractionLockTarget = InternalWhiteboardInstance | InteractionLockStore
 
-const EMPTY_SNAPSHOT: SessionLockSnapshot = {}
+const activeByTarget = new WeakMap<object, InteractionLockToken>()
 
-const sessionLockAtom = atom<SessionLockSnapshot>(EMPTY_SNAPSHOT)
+const resolveTarget = (target: InteractionLockTarget): object =>
+  'uiStore' in target ? target.uiStore : target
 
-let nextTokenId = 1
-
-const readSnapshot = (instance: InternalWhiteboardInstance) => instance.uiStore.get(sessionLockAtom)
-
-const writeSnapshot = (instance: InternalWhiteboardInstance, next: SessionLockSnapshot) => {
-  instance.uiStore.set(sessionLockAtom, next)
-}
-
-const setSnapshot = (instance: InternalWhiteboardInstance, next: SessionLockSnapshot) => {
-  const snapshot = readSnapshot(instance)
-  if (snapshot.active === next.active) return
-  writeSnapshot(instance, next)
-}
-
-export const sessionLockState = {
-  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
-    instance.uiStore.sub(sessionLockAtom, listener),
-  getSnapshot: (instance: InternalWhiteboardInstance) => readSnapshot(instance),
+export const interactionLock = {
   tryAcquire: (
-    instance: InternalWhiteboardInstance,
-    kind: InteractionSessionKind,
+    target: InteractionLockTarget,
+    kind: InteractionLockKind,
     pointerId?: number
-  ): SessionLockToken | null => {
-    const snapshot = readSnapshot(instance)
-    if (snapshot.active) return null
-    const token: SessionLockToken = {
-      id: nextTokenId,
+  ): InteractionLockToken | null => {
+    const owner = resolveTarget(target)
+    if (activeByTarget.has(owner)) return null
+    const token: InteractionLockToken = {
       kind,
       pointerId
     }
-    nextTokenId += 1
-    setSnapshot(instance, { active: token })
+    activeByTarget.set(owner, token)
     return token
   },
-  release: (instance: InternalWhiteboardInstance, token: SessionLockToken) => {
-    const snapshot = readSnapshot(instance)
-    if (!snapshot.active) return
-    if (snapshot.active.id !== token.id) return
-    setSnapshot(instance, EMPTY_SNAPSHOT)
+  release: (target: InteractionLockTarget, token: InteractionLockToken) => {
+    const owner = resolveTarget(target)
+    if (activeByTarget.get(owner) !== token) return
+    activeByTarget.delete(owner)
   },
-  forceReset: (instance: InternalWhiteboardInstance) => {
-    const snapshot = readSnapshot(instance)
-    if (!snapshot.active) return
-    setSnapshot(instance, EMPTY_SNAPSHOT)
+  forceReset: (target: InteractionLockTarget) => {
+    activeByTarget.delete(resolveTarget(target))
   }
 }

@@ -81,7 +81,7 @@ React 侧需要：
 
 1. React 在背景 `pointerdown` 创建 session（记录 `pointerId/startScreen/startWorld/mode`）。
 2. `pointermove` 更新 UI `selectionRect`，并按 RAF 计算 `query.canvas.nodeIdsInRect(rectWorld)`。
-3. `pointerup` 统一提交 `commands.selection.select(...)`；`Escape/blur` 取消。
+3. `pointerup` 统一提交 `state.selection.select(...)`；`Escape/blur` 取消。
 
 engine 收敛：
 
@@ -98,7 +98,7 @@ React 侧需要：
 
 迁移方式：
 
-1. 普通点击：`commands.edge.select(edgeId)`
+1. 普通点击：`state.selection.setEdge(edgeId)`
 2. `shift` 或双击：`commands.edge.insertRoutingPoint(...)`（或实体命令封装）
 
 engine 收敛：

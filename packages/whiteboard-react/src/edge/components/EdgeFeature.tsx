@@ -3,7 +3,7 @@ import { EdgeEndpointHandles } from './EdgeEndpointHandles'
 import { EdgeLayer } from './EdgeLayer'
 import { EdgePreviewLayer } from './EdgePreviewLayer'
 
-export const EdgeLayerStack = () => {
+export const EdgeFeature = () => {
   return (
     <>
       <EdgeLayer />

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import type { ShortcutAction, ShortcutOverrides } from '../../types/common/shortcut'
-import type { WhiteboardInstance } from '../instance'
+import type { InternalWhiteboardInstance } from '../instance'
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
 import { dispatchShortcutAction } from './shortcutDispatch'
 
-type UseShortcutDispatchOptions = {
-  instance: WhiteboardInstance
+type ShortcutFeatureProps = {
+  instance: InternalWhiteboardInstance
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
 }
@@ -65,8 +65,7 @@ const normalizeBindingChord = (raw: string, platform: Platform): string | undefi
   })
 
   if (!keyToken) return undefined
-  const orderedModifiers = MODIFIER_ORDER.filter((modifier) => modifiers.has(modifier))
-  return [...orderedModifiers, keyToken].join('+')
+  return [...MODIFIER_ORDER.filter((modifier) => modifiers.has(modifier)), keyToken].join('+')
 }
 
 const chordFromKeyboardEvent = (event: KeyboardEvent): string | undefined => {
@@ -92,16 +91,15 @@ const chordFromKeyboardEvent = (event: KeyboardEvent): string | undefined => {
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof Element)) return false
   if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true
-  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) {
-    return false
-  }
-  return true
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
 }
 
 const createShortcutMap = (
   bindings: readonly { key: string; action: ShortcutAction }[],
   platform: Platform
-): Map<string, ShortcutAction> => {
+) => {
   const map = new Map<string, ShortcutAction>()
   bindings.forEach((binding) => {
     const normalized = normalizeBindingChord(binding.key, platform)
@@ -111,11 +109,11 @@ const createShortcutMap = (
   return map
 }
 
-export const useShortcutDispatch = ({
+export const ShortcutFeature = ({
   instance,
   containerRef,
   shortcuts
-}: UseShortcutDispatchOptions) => {
+}: ShortcutFeatureProps) => {
   const platform = useMemo(() => detectPlatform(), [])
   const bindings = useMemo(
     () => resolveShortcutBindings(DEFAULT_SHORTCUT_BINDINGS, shortcuts),
@@ -131,15 +129,12 @@ export const useShortcutDispatch = ({
     if (!container) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) {
-        return
-      }
+      if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) return
       const chord = chordFromKeyboardEvent(event)
       if (!chord) return
       const action = shortcutMap.get(chord)
       if (!action) return
-      const handled = dispatchShortcutAction(instance, action)
-      if (!handled) return
+      if (!dispatchShortcutAction(instance, action)) return
       event.preventDefault()
       event.stopPropagation()
     }
@@ -149,4 +144,6 @@ export const useShortcutDispatch = ({
       container.removeEventListener('keydown', onKeyDown)
     }
   }, [containerRef, instance, shortcutMap])
+
+  return null
 }

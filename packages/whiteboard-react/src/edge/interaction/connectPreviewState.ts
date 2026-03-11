@@ -1,6 +1,7 @@
-import { atom, useAtomValue } from 'jotai'
+import { atom } from 'jotai/vanilla'
 import type { Point } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../../common/instance/types'
+import { useUiAtomValue } from '../../common/hooks/useUiAtom'
 
 type EdgeConnectPreviewSnapshot = {
   activePointerId?: number
@@ -22,7 +23,7 @@ const EMPTY_SNAPSHOT: EdgeConnectPreviewSnapshot = {
   showPreviewLine: false
 }
 
-const edgeConnectPreviewAtom = atom<EdgeConnectPreviewSnapshot>(EMPTY_SNAPSHOT)
+export const edgeConnectPreviewAtom = atom<EdgeConnectPreviewSnapshot>(EMPTY_SNAPSHOT)
 
 const setSnapshot = (
   instance: InternalWhiteboardInstance,
@@ -40,9 +41,7 @@ const setSnapshot = (
 }
 
 export const edgeConnectPreviewState = {
-  subscribe: (instance: InternalWhiteboardInstance, listener: () => void) =>
-    instance.uiStore.sub(edgeConnectPreviewAtom, listener),
-  getSnapshot: (instance: InternalWhiteboardInstance) => instance.uiStore.get(edgeConnectPreviewAtom),
+  get: (instance: InternalWhiteboardInstance) => instance.uiStore.get(edgeConnectPreviewAtom),
   setActivePreview: (instance: InternalWhiteboardInstance, preview: ActivePreviewInput) => {
     setSnapshot(instance, {
       activePointerId: preview.pointerId,
@@ -88,4 +87,4 @@ export const edgeConnectPreviewState = {
   }
 }
 
-export const useEdgeConnectPreviewState = () => useAtomValue(edgeConnectPreviewAtom)
+export const useEdgeConnectPreviewState = () => useUiAtomValue(edgeConnectPreviewAtom)

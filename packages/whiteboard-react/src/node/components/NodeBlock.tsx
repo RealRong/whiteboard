@@ -10,11 +10,6 @@ type NodeBlockProps = {
   className?: string
   style?: CSSProperties
   onPointerDown?: PointerEventHandler<HTMLDivElement>
-  onPointerMove?: PointerEventHandler<HTMLDivElement>
-  onPointerUp?: PointerEventHandler<HTMLDivElement>
-  onPointerCancel?: PointerEventHandler<HTMLDivElement>
-  onPointerEnter?: PointerEventHandler<HTMLDivElement>
-  onPointerLeave?: PointerEventHandler<HTMLDivElement>
 }
 
 export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
@@ -24,12 +19,7 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   selected = false,
   className,
   style,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-  onPointerEnter,
-  onPointerLeave
+  onPointerDown
 }: NodeBlockProps, ref) => {
   const borderColor = selected ? '#3b82f6' : '#1d1d1f'
   const boxShadow = selected ? '0 0 0 2px rgba(59, 130, 246, 0.4)' : '0 6px 16px rgba(0, 0, 0, 0.08)'
@@ -39,11 +29,6 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
       className={className ? `wb-node-block ${className}` : 'wb-node-block'}
       data-node-id={nodeId}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
       style={{
         width: rect.width,
         height: rect.height,

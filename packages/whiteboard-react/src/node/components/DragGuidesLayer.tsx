@@ -1,7 +1,7 @@
-import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewState'
+import { useNodeInteractionGuides } from '../interaction/nodeInteractionPreviewState'
 
 export const DragGuidesLayer = () => {
-  const guides = useNodeInteractionPreviewSelector((snapshot) => snapshot.guides)
+  const guides = useNodeInteractionGuides()
 
   if (!guides.length) return null
 

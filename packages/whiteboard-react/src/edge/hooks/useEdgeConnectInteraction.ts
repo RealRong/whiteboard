@@ -4,7 +4,7 @@ import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import type { EdgeConnectDraft, PointerInput } from '../../types/edge'
 import type { InternalWhiteboardInstance } from '../../common/instance'
 import { useInternalInstance as useInstance } from '../../common/hooks'
-import { sessionLockState, type SessionLockToken } from '../../common/interaction/sessionLockState'
+import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
@@ -72,7 +72,7 @@ const beginFromNode = (
   nodeId: NodeId,
   pointer: PointerInput
 ): EdgeConnectDraft | undefined => {
-  if (instance.state.read('tool') !== 'edge') return undefined
+  if (instance.state.tool.get() !== 'edge') return undefined
   const entry = instance.read.index.node.byId(nodeId)
   if (!entry) return undefined
   const resolved = resolveAnchorFromPoint(
@@ -199,7 +199,7 @@ export const useEdgeConnectInteraction = () => {
   const instance = useInstance()
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveConnect | null>(null)
-  const lockTokenRef = useRef<SessionLockToken | null>(null)
+  const lockTokenRef = useRef<InteractionLockToken | null>(null)
 
   const clearActive = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -218,7 +218,7 @@ export const useEdgeConnectInteraction = () => {
     ) {
       return
     }
-    sessionLockState.release(instance, lockToken)
+    interactionLock.release(instance, lockToken)
     lockTokenRef.current = null
   }, [instance])
 
@@ -229,14 +229,14 @@ export const useEdgeConnectInteraction = () => {
     ) => {
       if (event.button !== 0) return false
       if (activeRef.current) return false
-      if (edgeConnectPreviewState.getSnapshot(instance).activePointerId !== undefined) {
+      if (edgeConnectPreviewState.get(instance).activePointerId !== undefined) {
         return false
       }
 
       const pointer = toPointerInput(instance, event)
       const draft = begin(pointer)
       if (!draft) return false
-      const lockToken = sessionLockState.tryAcquire(instance, 'edgeConnect', event.pointerId)
+      const lockToken = interactionLock.tryAcquire(instance, 'edgeConnect', event.pointerId)
       if (!lockToken) return false
       const nextActive: ActiveConnect = {
         pointerId: event.pointerId,

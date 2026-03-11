@@ -9,11 +9,15 @@ import { useNodeTransformInteraction } from '../hooks/useNodeTransformInteractio
 import { useEdgeConnectInteraction } from '../../edge/hooks/useEdgeConnectInteraction'
 import {
   useInstance,
-  useSelectionContains,
-  useViewportZoom,
-  useWhiteboardSelector
+  useTool,
+  useViewportZoom
 } from '../../common/hooks'
-import { useNodeInteractionPreviewSelector } from '../interaction/nodeInteractionPreviewState'
+import { createRafTask } from '../../common/utils/rafTask'
+import { useSelectionContains } from '../../selection'
+import {
+  useNodeHoveredGroup,
+  useNodePreviewUpdate
+} from '../interaction/nodeInteractionPreviewState'
 import { NodeBlock } from './NodeBlock'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -111,9 +115,7 @@ const NodeConnectHandles = ({
 export const NodeItem = ({ item }: NodeItemProps) => {
   const instance = useInstance()
   const registry = useNodeRegistry()
-  const previewUpdate = useNodeInteractionPreviewSelector(
-    (snapshot) => snapshot.updatesById.get(item.node.id)
-  )
+  const previewUpdate = useNodePreviewUpdate(item.node.id)
   const node = useMemo(() => {
     if (!previewUpdate) return item.node
     const next = { ...item.node }
@@ -138,15 +140,12 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     }
   }, [item.rect, previewUpdate])
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-  const activeTool = useWhiteboardSelector('tool')
+  const activeTool = useTool()
   const selected = useSelectionContains(node.id)
-  const hovered = useNodeInteractionPreviewSelector(
-    (snapshot) => snapshot.hoveredGroupId === node.id
-  )
+  const hovered = useNodeHoveredGroup(node.id)
   const zoom = useViewportZoom()
   const containerRef = useRef<HTMLDivElement>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
-  const measureFrameRef = useRef<number | null>(null)
   const pendingSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastSizeRef = useRef<{ width: number; height: number } | null>(null)
   const definition = useMemo(() => registry.get(node.type), [node.type, registry])
@@ -204,24 +203,23 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   )
 
   const flushPendingMeasure = useCallback(() => {
-    measureFrameRef.current = null
     const pending = pendingSizeRef.current
     pendingSizeRef.current = null
     if (!pending) return
     emitMeasuredSize(pending)
   }, [emitMeasuredSize])
 
+  const measureTask = useMemo(
+    () => createRafTask(flushPendingMeasure),
+    [flushPendingMeasure]
+  )
+
   const scheduleMeasure = useCallback(
     (size: { width: number; height: number }) => {
       pendingSizeRef.current = size
-      if (measureFrameRef.current !== null) return
-      if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-        flushPendingMeasure()
-        return
-      }
-      measureFrameRef.current = window.requestAnimationFrame(flushPendingMeasure)
+      measureTask.schedule()
     },
-    [flushPendingMeasure]
+    [measureTask]
   )
 
   const setContainerRef = useCallback(
@@ -256,21 +254,10 @@ export const NodeItem = ({ item }: NodeItemProps) => {
   )
 
   useEffect(() => () => {
-    if (measureFrameRef.current !== null && typeof window !== 'undefined') {
-      window.cancelAnimationFrame(measureFrameRef.current)
-      measureFrameRef.current = null
-    }
+    measureTask.cancel()
     resizeObserverRef.current?.disconnect()
     resizeObserverRef.current = null
-  }, [])
-
-  const handlePointerEnter = useCallback(() => {
-    instance.commands.interaction.update({ hover: { nodeId: node.id } })
-  }, [instance, node.id])
-
-  const handlePointerLeave = useCallback(() => {
-    instance.commands.interaction.update({ hover: { nodeId: undefined } })
-  }, [instance])
+  }, [measureTask])
 
   const { handleNodeConnectPointerDown, handleConnectHandlePointerDown } = useEdgeConnectInteraction()
   const { handleNodePointerDown } = useNodeDragInteraction({
@@ -290,29 +277,23 @@ export const NodeItem = ({ item }: NodeItemProps) => {
     [handleConnectHandlePointerDown, node.id]
   )
 
-  const baseContainerProps = useMemo<NodeContainerProps>(
+  const containerProps = useMemo<NodeContainerProps>(
     () => ({
       rect,
       nodeId: node.id,
       selected,
       ref: setContainerRef,
-      style: buildContainerStyle(rect, rotation, nodeStyle)
-    }),
-    [node.id, nodeStyle, rect, rotation, selected, setContainerRef]
-  )
-
-  const containerProps = useMemo<NodeContainerProps>(
-    () => ({
-      ...baseContainerProps,
-      onPointerDown: handleContainerPointerDown,
-      onPointerEnter: handlePointerEnter,
-      onPointerLeave: handlePointerLeave
+      style: buildContainerStyle(rect, rotation, nodeStyle),
+      onPointerDown: handleContainerPointerDown
     }),
     [
-      baseContainerProps,
       handleContainerPointerDown,
-      handlePointerEnter,
-      handlePointerLeave
+      node.id,
+      nodeStyle,
+      rect,
+      rotation,
+      selected,
+      setContainerRef
     ]
   )
 
@@ -358,8 +339,6 @@ export const NodeItem = ({ item }: NodeItemProps) => {
           ref={containerProps.ref}
           style={containerProps.style}
           onPointerDown={containerProps.onPointerDown}
-          onPointerEnter={containerProps.onPointerEnter}
-          onPointerLeave={containerProps.onPointerLeave}
         />
       )}
       {shouldMountConnectHandles ? (
