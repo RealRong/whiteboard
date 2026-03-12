@@ -8,11 +8,8 @@ import type {
 } from './types'
 import { createSelectionDomain } from '../../selection/domain'
 import { createToolDomain } from './tool'
-import { uiSignals } from './uiSignals'
+import { resetTransient } from '../hooks/useTransientReset'
 import { interactionLock } from '../interaction/interactionLock'
-import { nodeInteractionPreviewState } from '../../node/interaction/nodeInteractionPreviewState'
-import { edgeConnectPreviewState } from '../../edge/interaction/connectPreviewState'
-import { edgeRoutingPreviewState } from '../../edge/interaction/routingPreviewState'
 import type { WhiteboardViewport } from '../../viewport'
 
 export const createWhiteboardInstance = ({
@@ -34,16 +31,14 @@ export const createWhiteboardInstance = ({
 
   const state: InternalWhiteboardState = {
     tool: tool.state,
-    selection: selection.state
+    selectedNodeIds: selection.state.selectedNodeIds,
+    selectedEdgeId: selection.state.selectedEdgeId
   }
 
   const resetUiTransientState = () => {
     selection.commands.clear()
     interactionLock.forceReset(instance)
-    nodeInteractionPreviewState.clearTransient(instance)
-    edgeConnectPreviewState.reset(instance)
-    edgeRoutingPreviewState.reset(instance)
-    uiSignals.transientReset.emit(uiStore)
+    resetTransient(instance)
   }
 
   const withUiReset = async (

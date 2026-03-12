@@ -25,8 +25,8 @@ type SelectionState = {
 
 type SelectionDomain = {
   state: {
-    nodeIds: () => readonly NodeId[]
-    edgeId: () => EdgeId | undefined
+    selectedNodeIds: () => readonly NodeId[]
+    selectedEdgeId: () => EdgeId | undefined
   }
   commands: WhiteboardSelectionCommands
 }
@@ -87,8 +87,8 @@ export const createSelectionDomain = ({
 
   return {
     state: {
-      nodeIds: () => [...readSelection().selectedNodeIds],
-      edgeId: () => readSelection().selectedEdgeId
+      selectedNodeIds: () => [...readSelection().selectedNodeIds],
+      selectedEdgeId: () => readSelection().selectedEdgeId
     },
     commands: {
       select,

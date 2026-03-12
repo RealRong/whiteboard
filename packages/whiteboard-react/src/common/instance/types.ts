@@ -36,13 +36,9 @@ export type WhiteboardInstance = {
 }
 
 export type InternalWhiteboardState = {
-  tool: {
-    get: () => EditorTool
-  }
-  selection: {
-    nodeIds: () => readonly NodeId[]
-    edgeId: () => EdgeId | undefined
-  }
+  tool: () => EditorTool
+  selectedNodeIds: () => readonly NodeId[]
+  selectedEdgeId: () => EdgeId | undefined
 }
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {

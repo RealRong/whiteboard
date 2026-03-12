@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import type { Node } from '@whiteboard/core/types'
-import type { NodeDefinition, NodeRenderProps, NodeRegistry } from 'types/node'
+import type { NodeDefinition, NodeRenderProps } from 'types/node'
 import { createNodeRegistry } from './nodeRegistry'
 
 const getDataString = (node: Node, key: string) => {
@@ -23,13 +23,17 @@ const TextNodeRenderer = ({
   const [editing, setEditing] = useState(false)
   const text = getDataString(node, 'text')
   const [draft, setDraft] = useState(text)
+  const isSticky = variant === 'sticky'
+  const fontSize = isSticky ? 14 : 13
 
   useEffect(() => {
     setDraft(text)
   }, [text])
 
   const commit = () => {
-    void commands.node.updateData(node.id, { text: draft })
+    if (draft !== text) {
+      void commands.node.updateData(node.id, { text: draft })
+    }
     setEditing(false)
   }
 
@@ -42,6 +46,7 @@ const TextNodeRenderer = ({
     if (event.key === 'Escape') {
       event.preventDefault()
       cancel()
+      return
     }
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
@@ -49,32 +54,34 @@ const TextNodeRenderer = ({
     }
   }
 
-  const content = editing ? (
-    <textarea
-      data-selection-ignore
-      data-input-ignore
-      className="wb-default-text-editor"
-      value={draft}
-      autoFocus
-      onChange={(event) => setDraft(event.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={commit}
-      style={{ fontSize: variant === 'sticky' ? 14 : 13 }}
-    />
-  ) : (
+  if (editing) {
+    return (
+      <textarea
+        data-selection-ignore
+        data-input-ignore
+        className="wb-default-text-editor"
+        value={draft}
+        autoFocus
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={onKeyDown}
+        onBlur={commit}
+        style={{ fontSize }}
+      />
+    )
+  }
+
+  return (
     <div
       className="wb-default-text-display"
       onDoubleClick={() => setEditing(true)}
       style={{
-        fontSize: variant === 'sticky' ? 14 : 13,
+        fontSize,
         opacity: selected ? 1 : 0.9
       }}
     >
-      {text || (variant === 'sticky' ? 'Sticky' : 'Text')}
+      {text || (isSticky ? 'Sticky' : 'Text')}
     </div>
   )
-
-  return content
 }
 
 const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
@@ -88,7 +95,9 @@ const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
   }, [title])
 
   const commit = () => {
-    void commands.node.updateData(node.id, { title: draft })
+    if (draft !== title) {
+      void commands.node.updateData(node.id, { title: draft })
+    }
     setEditing(false)
   }
 
@@ -150,12 +159,14 @@ const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
 }
 
 const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps): CSSProperties => {
-  const background =
-    variant === 'sticky'
-      ? (props.node.data && typeof props.node.data.background === 'string' ? props.node.data.background : '#fef3c7')
-      : 'transparent'
+  const isSticky = variant === 'sticky'
+  const background = isSticky
+    ? (props.node.data && typeof props.node.data.background === 'string'
+      ? props.node.data.background
+      : '#fef3c7')
+    : 'transparent'
   const border =
-    variant === 'sticky'
+    isSticky
       ? '1px solid rgba(250, 204, 21, 0.6)'
       : props.selected
         ? '1px solid rgba(59, 130, 246, 0.6)'
@@ -163,10 +174,10 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
   return {
     background,
     border,
-    borderRadius: variant === 'sticky' ? 10 : 8,
+    borderRadius: isSticky ? 10 : 8,
     boxShadow: props.selected ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
     display: 'block',
-    padding: variant === 'sticky' ? '16px' : '12px',
+    padding: isSticky ? '16px' : '12px',
     textAlign: 'left'
   }
 }
@@ -197,7 +208,7 @@ const groupStyle = (props: NodeRenderProps): CSSProperties => {
   }
 }
 
-const createDefaultNodes = (): NodeDefinition[] => [
+const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
   {
     type: 'rect',
     label: 'Rect',
@@ -209,14 +220,16 @@ const createDefaultNodes = (): NodeDefinition[] => [
     label: 'Text',
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="text" />,
-    getStyle: createTextStyle('text')
+    getStyle: createTextStyle('text'),
+    autoMeasure: true
   },
   {
     type: 'sticky',
     label: 'Sticky',
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="sticky" />,
-    getStyle: createTextStyle('sticky')
+    getStyle: createTextStyle('sticky'),
+    autoMeasure: true
   },
   {
     type: 'group',
@@ -224,22 +237,9 @@ const createDefaultNodes = (): NodeDefinition[] => [
     defaultData: { title: '', collapsed: false, autoFit: 'expand-only', padding: 24 },
     render: (props) => <GroupNodeRenderer {...props} />,
     getStyle: groupStyle,
-    canRotate: false
+    canRotate: false,
+    autoMeasure: true
   }
 ]
 
-export const createDefaultNodeRegistry = () => {
-  const registry: NodeRegistry = createNodeRegistry()
-  createDefaultNodes().forEach((definition) => registry.register(definition))
-  return registry
-}
-
-export const getNodeDefinitionStyle = (definition: NodeDefinition | undefined, props: NodeRenderProps): CSSProperties => {
-  if (!definition?.getStyle) return {}
-  return definition.getStyle(props)
-}
-
-export const renderNodeDefinition = (definition: NodeDefinition | undefined, props: NodeRenderProps): ReactNode => {
-  if (!definition) return props.node.type
-  return definition.render(props)
-}
+export const createDefaultNodeRegistry = () => createNodeRegistry(DEFAULT_NODE_DEFINITIONS)

@@ -1,8 +1,8 @@
 import { getAnchorFromPoint } from '@whiteboard/core/edge'
 import { getAnchorPoint } from '@whiteboard/core/geometry'
 import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EdgeConnectDraft } from '../../types/edge'
-import type { WhiteboardInstance } from '../../common/instance'
+import type { EdgeConnectDraft } from '../../../types/edge'
+import type { WhiteboardInstance } from '../../../common/instance'
 
 const ZOOM_EPSILON = 0.0001
 
@@ -63,11 +63,18 @@ export const resolveSnapTarget = (
       Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
     ) / Math.max(zoom, ZOOM_EPSILON)
 
-  const nodeRects = instance.read.index.node.all()
+  const queryRect: Rect = {
+    x: pointWorld.x - thresholdWorld,
+    y: pointWorld.y - thresholdWorld,
+    width: thresholdWorld * 2,
+    height: thresholdWorld * 2
+  }
+  const nodeIds = instance.read.index.node.idsInRect(queryRect)
   let best: (SnapTarget & { distance: number }) | undefined
 
-  for (let index = 0; index < nodeRects.length; index += 1) {
-    const entry = nodeRects[index]
+  for (let index = 0; index < nodeIds.length; index += 1) {
+    const entry = instance.read.index.node.byId(nodeIds[index])
+    if (!entry) continue
     const rect = entry.aabb
     const dx = Math.max(rect.x - pointWorld.x, 0, pointWorld.x - (rect.x + rect.width))
     const dy = Math.max(rect.y - pointWorld.y, 0, pointWorld.y - (rect.y + rect.height))

@@ -1,23 +1,25 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
 import type { InternalWhiteboardInstance } from '../common/instance'
-import { uiSignals } from '../common/instance/uiSignals'
-import { useTool } from '../common/hooks/useTool'
+import { useTransientReset } from '../common/hooks'
+import { type Transient } from '../transient'
 import { useSelectionBoxInteraction } from './useSelectionBoxInteraction'
+import { useSelectionBoxView } from './useSelectionBoxView'
 
 export const SelectionFeature = ({
   instance,
-  containerRef
+  containerRef,
+  selection
 }: {
   instance: InternalWhiteboardInstance
   containerRef: RefObject<HTMLDivElement | null>
+  selection: Transient['selection']
 }) => {
-  const tool = useTool()
+  const rect = useSelectionBoxView(selection)
   const {
-    rect,
     handleContainerPointerDown,
     cancelSelectionSession
-  } = useSelectionBoxInteraction(instance)
+  } = useSelectionBoxInteraction(instance, selection)
 
   useEffect(() => {
     const container = containerRef.current
@@ -33,19 +35,9 @@ export const SelectionFeature = ({
     }
   }, [containerRef, handleContainerPointerDown])
 
-  useEffect(() => {
-    const unsubscribe = uiSignals.transientReset.subscribe(
-      instance.uiStore,
-      cancelSelectionSession
-    )
+  useTransientReset(cancelSelectionSession)
 
-    return () => {
-      unsubscribe()
-      cancelSelectionSession()
-    }
-  }, [instance.uiStore, cancelSelectionSession])
-
-  if (!rect || tool === 'edge') return null
+  if (!rect) return null
 
   return (
     <div

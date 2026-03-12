@@ -20,13 +20,8 @@ export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 export type {
   NodeContainerProps,
   NodeDefinition,
-  NodeItemProps,
   NodeRegistry,
   NodeRenderProps,
 } from './node'
 
-export type {
-  EdgeConnectAnchorResult,
-  EdgeConnectActions,
-  EdgeConnectModel
-} from './edge'
+export type { EdgeConnectDraft } from './edge'

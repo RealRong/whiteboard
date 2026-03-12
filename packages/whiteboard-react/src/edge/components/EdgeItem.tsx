@@ -1,5 +1,4 @@
 import { getEdgePath } from '@whiteboard/core/edge'
-import type { Edge } from '@whiteboard/core/types'
 import type { EdgeEntry } from '@whiteboard/engine'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
@@ -18,42 +17,6 @@ const resolveMarker = (value: string | undefined, fallbackId: string) => {
   if (value.startsWith('url(')) return value
   if (value === 'arrow') return `url(#${fallbackId})`
   return `url(#${value})`
-}
-
-const isDashEqual = (prevDash?: number[], nextDash?: number[]) => {
-  if (prevDash === nextDash) return true
-  if (!prevDash || !nextDash) return !prevDash && !nextDash
-  if (prevDash.length !== nextDash.length) return false
-  for (let index = 0; index < prevDash.length; index += 1) {
-    if (prevDash[index] !== nextDash[index]) return false
-  }
-  return true
-}
-
-const isEdgeStyleEqual = (prevEdge: Edge, nextEdge: Edge) => {
-  const prevStyle = prevEdge.style
-  const nextStyle = nextEdge.style
-  if (prevStyle === nextStyle) return true
-  if (!prevStyle || !nextStyle) return !prevStyle && !nextStyle
-  return (
-    prevStyle.stroke === nextStyle.stroke
-    && prevStyle.strokeWidth === nextStyle.strokeWidth
-    && prevStyle.animated === nextStyle.animated
-    && prevStyle.animationSpeed === nextStyle.animationSpeed
-    && prevStyle.markerStart === nextStyle.markerStart
-    && prevStyle.markerEnd === nextStyle.markerEnd
-    && isDashEqual(prevStyle.dash, nextStyle.dash)
-  )
-}
-
-const areEdgeItemPropsEqual = (prevProps: EdgeItemProps, nextProps: EdgeItemProps) => {
-  return (
-    prevProps.entry.edge.id === nextProps.entry.edge.id
-    && prevProps.selected === nextProps.selected
-    && prevProps.hitTestThresholdScreen === nextProps.hitTestThresholdScreen
-    && prevProps.entry === nextProps.entry
-    && isEdgeStyleEqual(prevProps.entry.edge, nextProps.entry.edge)
-  )
 }
 
 const EdgeItemBase = ({
@@ -138,6 +101,6 @@ const EdgeItemBase = ({
   )
 }
 
-export const EdgeItem = memo(EdgeItemBase, areEdgeItemPropsEqual)
+export const EdgeItem = memo(EdgeItemBase)
 
 EdgeItem.displayName = 'EdgeItem'

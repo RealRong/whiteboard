@@ -1,14 +1,11 @@
-import { useCallback } from 'react'
 import type { MindmapNodeId } from '@whiteboard/core/types'
-import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
-import { useInstance } from '../../common/hooks'
 import { MindmapNodeItem } from './MindmapNodeItem'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
+import type { MindmapTreeViewData } from '../hooks/useMindmapTreeView'
 
 type MindmapTreeViewProps = {
-  item: MindmapViewTree
-  drag?: MindmapDragView
+  view: MindmapTreeViewData
   onNodePointerDown: (
     event: ReactPointerEvent<HTMLDivElement>,
     treeId: NodeId,
@@ -17,39 +14,30 @@ type MindmapTreeViewProps = {
 }
 
 export const MindmapTreeView = ({
-  item,
-  drag,
+  view,
   onNodePointerDown
 }: MindmapTreeViewProps) => {
-  const { tree, node: mindmapNode, computed, shiftX, shiftY, lines, labels, layout } = item
-  const instance = useInstance()
-  const nodeSize = instance.config.mindmapNodeSize
-  const treeDrag = drag?.treeId === mindmapNode.id ? drag : undefined
-  const dragPreview = treeDrag?.preview
-  const baseOffset = treeDrag?.baseOffset ?? mindmapNode.position
-
-  const handleAddChild = useCallback(
-    async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
-      await instance.commands.mindmap.insertPlacement({
-        id: mindmapNode.id,
-        tree,
-        targetNodeId: nodeId,
-        placement,
-        nodeSize,
-        layout,
-        payload: { kind: 'text', text: '' }
-      })
-    },
-    [instance.commands.mindmap, layout, mindmapNode.id, nodeSize, tree]
-  )
+  const {
+    treeId,
+    baseOffset,
+    bbox,
+    shiftX,
+    shiftY,
+    lines,
+    nodes,
+    ghost,
+    connectionLine,
+    insertLine,
+    onAddChild
+  } = view
 
   return (
     <div
       className="wb-mindmap-tree"
-      data-mindmap-tree-id={mindmapNode.id}
+      data-mindmap-tree-id={treeId}
       style={{ transform: `translate(${baseOffset.x}px, ${baseOffset.y}px)` }}
     >
-      <svg width={computed.bbox.width} height={computed.bbox.height} className="wb-mindmap-tree-canvas">
+      <svg width={bbox.width} height={bbox.height} className="wb-mindmap-tree-canvas">
         {lines.map((line) => (
           <line
             key={line.id}
@@ -60,54 +48,49 @@ export const MindmapTreeView = ({
             stroke="#2f2f33"
             strokeWidth={2}
             vectorEffect="non-scaling-stroke"
-            style={{ transition: dragPreview ? 'none' : 'all 160ms ease' }}
+            style={{ transition: ghost ? 'none' : 'all 160ms ease' }}
           />
         ))}
       </svg>
-      {Object.entries(computed.node).map(([id, rect]) => {
-        const label = labels[id] ?? 'mindmap'
-        const dragActive = dragPreview?.nodeId === id
-        const attachTarget = dragPreview?.drop?.type === 'attach' && dragPreview.drop.targetId === id
-        return (
-          <MindmapNodeItem
-            key={id}
-            id={id}
-            rect={rect}
-            shiftX={shiftX}
-            shiftY={shiftY}
-            label={label}
-            dragActive={dragActive}
-            attachTarget={attachTarget}
-            showActions={!dragPreview}
-            dragPreviewActive={Boolean(dragPreview)}
-            onAddChild={handleAddChild}
-            onPointerDown={(event, nextNodeId) => {
-              onNodePointerDown(event, mindmapNode.id, nextNodeId)
-            }}
-          />
-        )
-      })}
-      {dragPreview && (
+      {nodes.map((node) => (
+        <MindmapNodeItem
+          key={node.id}
+          id={node.id}
+          rect={node.rect}
+          shiftX={shiftX}
+          shiftY={shiftY}
+          label={node.label}
+          dragActive={node.dragActive}
+          attachTarget={node.attachTarget}
+          showActions={node.showActions}
+          dragPreviewActive={node.dragPreviewActive}
+          onAddChild={onAddChild}
+          onPointerDown={(event) => {
+            onNodePointerDown(event, treeId, node.id)
+          }}
+        />
+      ))}
+      {ghost && (
         <>
-          <svg width={computed.bbox.width} height={computed.bbox.height} className="wb-mindmap-tree-canvas">
-            {dragPreview.drop?.connectionLine && (
+          <svg width={bbox.width} height={bbox.height} className="wb-mindmap-tree-canvas">
+            {connectionLine && (
               <line
-                x1={dragPreview.drop.connectionLine.x1 - baseOffset.x}
-                y1={dragPreview.drop.connectionLine.y1 - baseOffset.y}
-                x2={dragPreview.drop.connectionLine.x2 - baseOffset.x}
-                y2={dragPreview.drop.connectionLine.y2 - baseOffset.y}
+                x1={connectionLine.x1 - baseOffset.x}
+                y1={connectionLine.y1 - baseOffset.y}
+                x2={connectionLine.x2 - baseOffset.x}
+                y2={connectionLine.y2 - baseOffset.y}
                 stroke="#2563eb"
                 strokeWidth={2}
                 strokeDasharray="4 4"
                 vectorEffect="non-scaling-stroke"
               />
             )}
-            {dragPreview.drop?.insertLine && (
+            {insertLine && (
               <line
-                x1={dragPreview.drop.insertLine.x1 - baseOffset.x}
-                y1={dragPreview.drop.insertLine.y1 - baseOffset.y}
-                x2={dragPreview.drop.insertLine.x2 - baseOffset.x}
-                y2={dragPreview.drop.insertLine.y2 - baseOffset.y}
+                x1={insertLine.x1 - baseOffset.x}
+                y1={insertLine.y1 - baseOffset.y}
+                x2={insertLine.x2 - baseOffset.x}
+                y2={insertLine.y2 - baseOffset.y}
                 stroke="#2563eb"
                 strokeWidth={2}
                 vectorEffect="non-scaling-stroke"
@@ -117,9 +100,9 @@ export const MindmapTreeView = ({
           <div
             className="wb-mindmap-tree-ghost"
             style={{
-              width: dragPreview.ghost.width,
-              height: dragPreview.ghost.height,
-              transform: `translate(${dragPreview.ghost.x - baseOffset.x}px, ${dragPreview.ghost.y - baseOffset.y}px)`
+              width: ghost.width,
+              height: ghost.height,
+              transform: `translate(${ghost.x - baseOffset.x}px, ${ghost.y - baseOffset.y}px)`
             }}
           />
         </>

@@ -11,19 +11,22 @@
 .wb-root-viewport {
   position: absolute;
   inset: 0;
+  overflow: visible;
 }
 
 .wb-node-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 .wb-drag-guides-layer {
   position: absolute;
   inset: 0;
+  overflow: visible;
   pointer-events: none;
-  z-index: 7;
+  z-index: 6;
 }
 
 .wb-node-block {
@@ -123,7 +126,9 @@
 .wb-edge-layer {
   position: absolute;
   inset: 0;
-  pointer-events: auto;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .wb-edge-item .wb-edge-visible-path {
@@ -138,7 +143,9 @@
 .wb-edge-endpoint-layer {
   position: absolute;
   inset: 0;
+  overflow: visible;
   pointer-events: none;
+  z-index: 8;
 }
 
 .wb-edge-endpoint-handle {
@@ -163,6 +170,7 @@
 .wb-edge-control-point-layer {
   position: absolute;
   inset: 0;
+  overflow: visible;
   pointer-events: none;
   z-index: 8;
 }
@@ -200,6 +208,7 @@
 .wb-edge-preview-layer {
   position: absolute;
   inset: 0;
+  overflow: visible;
   pointer-events: none;
   z-index: 9;
 }

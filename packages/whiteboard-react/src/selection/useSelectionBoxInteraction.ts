@@ -10,6 +10,7 @@ import type { InternalWhiteboardInstance } from '../common/instance'
 import { interactionLock, type InteractionLockToken } from '../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../common/interaction/useWindowPointerSession'
 import { createRafTask } from '../common/utils/rafTask'
+import type { SelectionWriter } from '../transient'
 
 type PointerPosition = {
   screen: Point
@@ -63,11 +64,11 @@ const readPointerPosition = (
 }
 
 export const useSelectionBoxInteraction = (
-  instance: InternalWhiteboardInstance
+  instance: InternalWhiteboardInstance,
+  selection: SelectionWriter
 ) => {
   const activeRef = useRef<ActiveSelection | null>(null)
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
-  const [rect, setRect] = useState<Rect | undefined>(undefined)
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -96,10 +97,10 @@ export const useSelectionBoxInteraction = (
 
     activeRef.current = null
     setActivePointerId(null)
-    setRect(undefined)
+    selection.clear()
     if (!active) return
     interactionLock.release(instance, active.lockToken)
-  }, [flushTask, instance])
+  }, [flushTask, instance, selection])
 
   useWindowPointerSession({
     pointerId: activePointerId,
@@ -118,7 +119,7 @@ export const useSelectionBoxInteraction = (
       active.latestMatchedIds = instance.read.index.node.idsInRect(
         rectFromPoints(active.start.world, current.world)
       )
-      setRect(rectFromPoints(active.start.screen, current.screen))
+      selection.write(rectFromPoints(active.start.screen, current.screen))
       flushTask.schedule()
     },
     onPointerUp: (event) => {
@@ -156,13 +157,13 @@ export const useSelectionBoxInteraction = (
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.state.tool.get() === 'edge') return
+      if (instance.state.tool() === 'edge') return
       if (!isBackgroundPointerTarget(event.target, container)) return
 
       const lockToken = interactionLock.tryAcquire(instance, 'selectionBox', event.pointerId)
       if (!lockToken) return
 
-      const selectedNodeIds = instance.state.selection.nodeIds()
+      const selectedNodeIds = instance.state.selectedNodeIds()
       const start = readPointerPosition(instance, event)
 
       instance.commands.selection.selectEdge(undefined)
@@ -175,7 +176,7 @@ export const useSelectionBoxInteraction = (
         selectedKey: toSelectionKey(selectedNodeIds)
       }
       setActivePointerId(event.pointerId)
-      setRect(undefined)
+      selection.clear()
 
       try {
         container.setPointerCapture(event.pointerId)
@@ -186,12 +187,11 @@ export const useSelectionBoxInteraction = (
       event.preventDefault()
       event.stopPropagation()
     },
-    [instance]
+    [instance, selection]
   )
 
   return {
     cancelSelectionSession,
-    rect,
     handleContainerPointerDown
   }
 }

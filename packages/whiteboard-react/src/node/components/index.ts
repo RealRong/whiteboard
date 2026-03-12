@@ -1,2 +1,1 @@
-export { DragGuidesLayer } from './DragGuidesLayer'
-export { NodeLayer } from './NodeLayer'
+export { NodeFeature } from './NodeFeature'

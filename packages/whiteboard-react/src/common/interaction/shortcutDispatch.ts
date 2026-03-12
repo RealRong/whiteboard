@@ -23,7 +23,7 @@ const readCreatedGroupId = (result: DispatchResult): NodeId | undefined =>
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
 const getSelectedNodeIds = (instance: InternalWhiteboardInstance): NodeId[] =>
-  [...instance.state.selection.nodeIds()]
+  [...instance.state.selectedNodeIds()]
 
 const groupSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
@@ -45,8 +45,8 @@ const ungroupSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const deleteSelection = async (instance: InternalWhiteboardInstance) => {
-  const selectedEdgeId = instance.state.selection.edgeId()
-  const selectedNodeIds = [...instance.state.selection.nodeIds()]
+  const selectedEdgeId = instance.state.selectedEdgeId()
+  const selectedNodeIds = [...instance.state.selectedNodeIds()]
   if (!selectedEdgeId && !selectedNodeIds.length) return
 
   if (selectedEdgeId) {
@@ -75,9 +75,9 @@ export const canDispatchShortcutAction = (
   instance: InternalWhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
-  const selectedNodeCount = instance.state.selection.nodeIds().length
+  const selectedNodeCount = instance.state.selectedNodeIds().length
   const hasNodeSelection = selectedNodeCount > 0
-  const hasEdgeSelection = Boolean(instance.state.selection.edgeId())
+  const hasEdgeSelection = Boolean(instance.state.selectedEdgeId())
 
   switch (action) {
     case 'group.create':

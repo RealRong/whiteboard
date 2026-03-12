@@ -1,12 +1,11 @@
 import type { CSSProperties } from 'react'
 import type { MindmapNodeId, Rect } from '@whiteboard/core/types'
-import { MindmapAddButton } from './MindmapAddButton'
-import {
-  MINDMAP_NODE_ACTIVE_BORDER,
-  MINDMAP_NODE_DEFAULT_BORDER,
-  MINDMAP_NODE_TRANSITION
-} from '../constants'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+
+const MINDMAP_NODE_DEFAULT_BORDER = 1
+const MINDMAP_NODE_ACTIVE_BORDER = 2
+const MINDMAP_NODE_TRANSITION = 'transform 160ms ease, opacity 160ms ease'
+const MINDMAP_ADD_PLACEMENTS = ['up', 'down', 'left', 'right'] as const
 
 type MindmapNodeItemProps = {
   id: MindmapNodeId
@@ -19,7 +18,7 @@ type MindmapNodeItemProps = {
   showActions: boolean
   dragPreviewActive: boolean
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, nodeId: MindmapNodeId) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
 }
 
 export const MindmapNodeItem = ({
@@ -45,9 +44,7 @@ export const MindmapNodeItem = ({
       data-drag-active={dragActive ? 'true' : undefined}
       data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
       className="wb-mindmap-node-item"
-      onPointerDown={(event) => {
-        onPointerDown(event, id)
-      }}
+      onPointerDown={onPointerDown}
       style={{
         '--wb-mindmap-node-w': `${rect.width}px`,
         '--wb-mindmap-node-h': `${rect.height}px`,
@@ -63,10 +60,19 @@ export const MindmapNodeItem = ({
       <div className="wb-mindmap-node-label">{label}</div>
       {showActions && (
         <div className="wb-mindmap-node-actions" data-selection-ignore>
-          <MindmapAddButton placement="up" onClick={() => onAddChild(id, 'up')} />
-          <MindmapAddButton placement="down" onClick={() => onAddChild(id, 'down')} />
-          <MindmapAddButton placement="left" onClick={() => onAddChild(id, 'left')} />
-          <MindmapAddButton placement="right" onClick={() => onAddChild(id, 'right')} />
+          {MINDMAP_ADD_PLACEMENTS.map((placement) => (
+            <button
+              key={placement}
+              type="button"
+              className="wb-mindmap-add-button"
+              data-placement={placement}
+              data-input-ignore
+              data-selection-ignore
+              onClick={() => onAddChild(id, placement)}
+            >
+              +
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -1,11 +1,11 @@
 import type { CSSProperties, PointerEvent, PointerEventHandler, ReactNode } from 'react'
 import { forwardRef } from 'react'
-import type { Rect } from '@whiteboard/core/types'
+import type { NodeId, Rect } from '@whiteboard/core/types'
 
 type NodeBlockProps = {
   rect: Rect
   label?: ReactNode
-  nodeId?: string
+  nodeId: NodeId
   selected?: boolean
   className?: string
   style?: CSSProperties

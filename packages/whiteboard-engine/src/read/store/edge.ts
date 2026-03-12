@@ -158,14 +158,19 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
   if (impact.reset || impact.node.list || impact.edge.list) {
     return 'full'
   }
-  if (
-    impact.edge.geometry
-    || impact.edge.value
-    || impact.edge.ids.length > 0
+
+  const hasDirtyIds =
+    impact.edge.ids.length > 0
     || impact.edge.nodeIds.length > 0
-  ) {
+
+  if (hasDirtyIds) {
     return 'dirty'
   }
+
+  if (impact.node.geometry || impact.edge.geometry || impact.edge.value) {
+    return 'full'
+  }
+
   return 'none'
 }
 
@@ -266,21 +271,20 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
 
   const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
     const previous = state.cacheById
-    const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
+    const nextCacheById = new Map(previous)
     const changedEdgeIds = new Set<EdgeId>()
 
     edgeIds.forEach((edgeId) => {
       const edge = state.relations.edgeById.get(edgeId)
       if (!edge) {
-        previous.delete(edgeId)
-        state.cacheById.delete(edgeId)
+        nextCacheById.delete(edgeId)
         changedEdgeIds.add(edgeId)
         return
       }
 
       const material = toEdgeCacheMaterial(edge)
       if (!material) {
-        state.cacheById.delete(edgeId)
+        nextCacheById.delete(edgeId)
         changedEdgeIds.add(edgeId)
         return
       }
@@ -298,6 +302,8 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       const nextEntry = buildCacheEntry(edge, material)
       if (nextEntry) {
         nextCacheById.set(edgeId, nextEntry)
+      } else {
+        nextCacheById.delete(edgeId)
       }
       if (nextEntry !== previousEntry) {
         changedEdgeIds.add(edgeId)

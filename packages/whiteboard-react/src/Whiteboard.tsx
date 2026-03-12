@@ -1,9 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
-import { DragGuidesLayer, NodeLayer } from './node/components'
+import { NodeFeature } from './node/components'
 import { EdgeFeature } from './edge/components'
 import { createDefaultNodeRegistry, NodeRegistryProvider } from './node/registry'
+import type { NodeRegistry } from 'types/node'
 import type { WhiteboardProps } from 'types/common'
 import { engine, type Instance as EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toEngineInstanceConfig } from './config'
@@ -23,6 +24,7 @@ import {
   type WhiteboardInstance,
   type WhiteboardRuntimeConfig
 } from './common/instance'
+import { createTransient } from './transient'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -47,7 +49,7 @@ const isMirroredDocumentFromEngine = (
 
 type WhiteboardCanvasProps = {
   instance: InternalWhiteboardInstance
-  registry: ReturnType<typeof createDefaultNodeRegistry>
+  registry: NodeRegistry
   resolvedConfig: ReturnType<typeof normalizeConfig>
   containerRef: {
     current: HTMLDivElement | null
@@ -63,6 +65,10 @@ const WhiteboardCanvas = ({
   containerStyle
 }: WhiteboardCanvasProps) => {
   const transformStyle = useViewportTransformStyle()
+  const transient = useMemo(
+    () => createTransient(instance.uiStore),
+    [instance.uiStore]
+  )
 
   return (
     <NodeRegistryProvider registry={registry}>
@@ -78,12 +84,20 @@ const WhiteboardCanvas = ({
           shortcuts={resolvedConfig.shortcuts}
         />
         <div className="wb-root-viewport" style={transformStyle}>
-          <NodeLayer />
-          <EdgeFeature />
-          <MindmapFeature />
-          <DragGuidesLayer />
+          <NodeFeature transient={transient} />
+          <EdgeFeature
+            containerRef={containerRef}
+            node={transient.node}
+            connection={transient.connection}
+            edge={transient.edge}
+          />
+          <MindmapFeature mindmap={transient.mindmap} />
         </div>
-        <SelectionFeature instance={instance} containerRef={containerRef} />
+        <SelectionFeature
+          instance={instance}
+          containerRef={containerRef}
+          selection={transient.selection}
+        />
       </div>
     </NodeRegistryProvider>
   )

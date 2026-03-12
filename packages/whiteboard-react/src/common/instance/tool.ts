@@ -2,9 +2,7 @@ import type { createStore } from 'jotai/vanilla'
 import { toolAtom, type EditorTool } from './toolState'
 
 type ToolDomain = {
-  state: {
-    get: () => EditorTool
-  }
+  state: () => EditorTool
   commands: {
     set: (tool: EditorTool) => void
   }
@@ -29,9 +27,7 @@ export const createToolDomain = ({
 }: {
   uiStore: ToolStore
 }): ToolDomain => ({
-  state: {
-    get: () => readTool(uiStore)
-  },
+  state: () => readTool(uiStore),
   commands: {
     set: (nextTool) => {
       setTool(uiStore, nextTool)

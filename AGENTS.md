@@ -40,7 +40,6 @@ Always reply in Chinese.
 ## AI Development Guidelines (English)
 - Use Jotai for shared state; do not introduce React Providers.
 - Aggregate atoms by responsibility; avoid overly granular atoms.
-- Components may read semantic UI state via useWhiteboardSelector; do not read/write atoms directly or depend on atom implementation details.
 - Hooks are semantic and single-responsibility; avoid `useXxxState/useXxxModel` naming.
 - Prefer small composable hooks; avoid “mega hooks”.
 - Components compose multiple hooks and small components; keep props minimal when data can be read via hooks.
@@ -57,7 +56,6 @@ Always reply in Chinese.
   - Hooks that expose instance access live in `packages/whiteboard-react/src/common/hooks/`.
   - Services are pure side-effect handlers (DOM events, observers), no React rendering.
   - Instance is the integration point for services; avoid storing UI state inside instance.
-  - Cross-module read-only runtime getters should live behind `instance.read`-facing modules in `packages/whiteboard-react/src/common/` (e.g. node geometry reads).
   - Keep `whiteboardInstance.ts` as composition-only: do not inline feature implementation there; compose submodules and only wire them.
   - Read methods should be pure/read-only and may keep internal memoization based on source atom references.
   - Any new capability added to instance must first choose one domain: `state` / `config` / `read` / `commands` / `viewport`; do not add extra top-level namespaces.
