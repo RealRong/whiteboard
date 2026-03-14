@@ -1,13 +1,13 @@
 import type { MindmapNodeId, NodeId, Point } from '@whiteboard/core/types'
-import { interactionLock, type InteractionLockToken } from '../../interaction/interactionLock'
-import type { InternalWhiteboardInstance } from '../types'
+import { interactionLock, type InteractionLockToken } from './interactionLock'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
   resolveSubtreeDragSession,
   toDragView,
   type MindmapDragSession
-} from '../../../features/mindmap/hooks/drag/math'
+} from '../../features/mindmap/hooks/drag/math'
 import { createSignal } from './signal'
 import type { MindmapDragInteractionRuntime } from './types'
 

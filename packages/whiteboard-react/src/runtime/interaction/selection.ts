@@ -5,9 +5,9 @@ import {
   type SelectionMode
 } from '@whiteboard/core/node'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import { interactionLock, type InteractionLockToken } from '../../interaction/interactionLock'
-import { createRafTask } from '../../utils/rafTask'
-import type { InternalWhiteboardInstance } from '../types'
+import { interactionLock, type InteractionLockToken } from './interactionLock'
+import { createRafTask } from '../utils/rafTask'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import { createSignal } from './signal'
 import type {
   ActiveInteractionSessionKind,

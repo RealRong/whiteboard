@@ -5,14 +5,14 @@ import {
   type TransformHandle
 } from '@whiteboard/core/node'
 import type { NodeId, NodePatch, Point } from '@whiteboard/core/types'
-import { interactionLock, type InteractionLockToken } from '../../interaction/interactionLock'
-import type { InternalWhiteboardInstance } from '../types'
+import { interactionLock, type InteractionLockToken } from './interactionLock'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import {
   buildNodeDragState,
   resolveNodeDragCommit,
   resolveNodeDragPreview,
   type NodeDragRuntimeState
-} from '../../../features/node/hooks/drag/math'
+} from '../../features/node/hooks/drag/math'
 import {
   resolveGroupResizePadding,
   resolveResizeCommitPatch,
@@ -21,7 +21,7 @@ import {
   resolveRotatePreview,
   type ResizeDragState,
   type RotateDragState
-} from '../../../features/node/hooks/transform/math'
+} from '../../features/node/hooks/transform/math'
 import { createSignal } from './signal'
 import type {
   ActiveInteractionSessionKind,

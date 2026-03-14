@@ -1,14 +1,14 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
 import type { EdgeEntry } from '@whiteboard/engine'
-import type { InternalWhiteboardInstance } from '../types'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import type { KeyedView } from './types'
 import {
   applyCanvasDraft,
   applyEdgeDraft,
   type EdgeDraft,
   type NodeDraft
-} from '../../draft'
+} from '../draft'
 
 const applyNodeDraft = (
   entry: EdgeEntry,

@@ -4,7 +4,7 @@ import {
   useInternalInstance as useInstance,
   useKeyedViewArgs
 } from '../../../runtime/hooks'
-import type { NodeView } from '../../../runtime/instance/view/node'
+import type { NodeView } from '../../../runtime/view/node'
 import {
   buildNodeConnectHandleOverlayStyle
 } from '../components/styles'

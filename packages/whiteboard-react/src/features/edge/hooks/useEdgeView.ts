@@ -1,6 +1,6 @@
 import { useKeyedView } from '../../../runtime/hooks'
 import type { EdgeId } from '@whiteboard/core/types'
-import type { EdgeView } from '../../../runtime/instance/view/edge'
+import type { EdgeView } from '../../../runtime/view/edge'
 import { useInternalInstance as useInstance } from '../../../runtime/hooks'
 
 export const useEdgeView = (

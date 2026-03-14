@@ -1,13 +1,13 @@
 import type { NodeId } from '@whiteboard/core/types'
-import { contextMenuStateAtom, type ContextMenuState } from '../../../ui/chrome/context-menu/domain'
-import { readContextMenuView } from '../../../ui/chrome/context-menu/view'
-import type { ContextMenuSection, ContextMenuView } from '../../../ui/chrome/context-menu/types'
-import { selectionAtom, type Selection } from '../../state/selection'
-import type { NodeToolbarItem } from '../../../ui/chrome/toolbar/model'
-import { readNodeToolbarView } from '../../../ui/chrome/toolbar/view'
-import type { NodeToolbarView } from '../../../ui/chrome/toolbar/view'
-import { nodeToolbarMenuStateAtom } from '../../../ui/chrome/toolbar/domain'
-import type { InternalWhiteboardInstance } from '../types'
+import { contextMenuStateAtom, type ContextMenuState } from '../../ui/chrome/context-menu/domain'
+import { readContextMenuView } from '../../ui/chrome/context-menu/view'
+import type { ContextMenuSection, ContextMenuView } from '../../ui/chrome/context-menu/types'
+import { selectionAtom, type Selection } from '../state/selection'
+import type { NodeToolbarItem } from '../../ui/chrome/toolbar/model'
+import { readNodeToolbarView } from '../../ui/chrome/toolbar/view'
+import type { NodeToolbarView } from '../../ui/chrome/toolbar/view'
+import { nodeToolbarMenuStateAtom } from '../../ui/chrome/toolbar/domain'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import type {
   ParameterizedView,
   SurfaceView

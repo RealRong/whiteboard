@@ -3,7 +3,7 @@ import type {
   KeyedView,
   ParameterizedView,
   ValueView
-} from '../instance/view'
+} from '../view'
 
 export const useView = <T,>(
   view: ValueView<T>

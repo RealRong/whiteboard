@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { ContextMenuSectionView } from '../../chrome/context-menu/sections/ContextMenuSectionView'
 import type { ContextMenuItem } from '../../chrome/context-menu/types'
-import type { SurfaceView } from '../../../runtime/instance/view'
+import type { SurfaceView } from '../../../runtime/view'
 
 export const ContextMenuSurface = ({
   view

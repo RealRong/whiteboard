@@ -1,5 +1,5 @@
 import { useInternalInstance, useViewArgs } from '../../../runtime/hooks'
-import type { SurfaceView } from '../../../runtime/instance/view'
+import type { SurfaceView } from '../../../runtime/view'
 
 export const useSurfaceView = ({
   containerWidth,

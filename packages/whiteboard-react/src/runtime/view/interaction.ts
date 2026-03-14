@@ -1,7 +1,7 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../instance'
 import { useInternalInstance, useView } from '../hooks'
-import type { InteractionSession } from '../instance/interaction/types'
+import type { InteractionSession } from '../interaction/types'
 import type { EditorTool } from '../instance/toolState'
 import type { Selection } from '../state/selection'
 

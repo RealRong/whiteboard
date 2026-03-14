@@ -4,15 +4,15 @@ import type {
   ContextMenuResolvedTarget,
   ContextMenuTarget,
   ContextMenuView
-} from '../../../ui/chrome/context-menu/types'
-import type { ContextMenuOpenResult } from '../../../ui/chrome/context-menu/view'
-import type { ScopeView } from '../../view/container'
+} from '../../ui/chrome/context-menu/types'
+import type { ContextMenuOpenResult } from '../../ui/chrome/context-menu/view'
+import type { ScopeView } from './container'
 import type { EdgeView } from './edge'
-import type { InteractionView } from '../../view/interaction'
+import type { InteractionView } from './interaction'
 import type { NodeView } from './node'
-import type { SelectionState } from '../../view/selection'
-import type { NodeToolbarView } from '../../../ui/chrome/toolbar/view'
-import type { NodeToolbarMenuKey } from '../../../ui/chrome/toolbar/model'
+import type { SelectionState } from './selection'
+import type { NodeToolbarView } from '../../ui/chrome/toolbar/view'
+import type { NodeToolbarMenuKey } from '../../ui/chrome/toolbar/model'
 
 export type ValueView<T> = {
   get: () => T

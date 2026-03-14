@@ -1,6 +1,6 @@
 import type { Node, NodeId, Point } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../../../runtime/instance'
-import { readNodeView } from '../../../runtime/instance/view/node'
+import { readNodeView } from '../../../runtime/view/node'
 import { readSelectionState } from '../../../runtime/view/selection'
 import {
   resolveNodeToolbarItems,

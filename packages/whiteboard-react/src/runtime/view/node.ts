@@ -1,16 +1,16 @@
 import type { CSSProperties } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
-import type { NodeDefinition, NodeRenderProps } from '../../../types/node'
-import type { InternalWhiteboardInstance } from '../types'
+import type { NodeDefinition, NodeRenderProps } from '../../types/node'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import type { KeyedView } from './types'
 import {
   applyNodeDraft,
   type NodeDraft
-} from '../../draft'
+} from '../draft'
 import {
   buildNodeTransformStyle
-} from '../../../features/node/components/styles'
+} from '../../features/node/components/styles'
 
 export type NodeView = {
   nodeId: NodeId

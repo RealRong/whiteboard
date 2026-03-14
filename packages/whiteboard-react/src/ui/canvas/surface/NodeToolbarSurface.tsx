@@ -17,7 +17,7 @@ import { GroupMenu } from '../../chrome/toolbar/menus/GroupMenu'
 import { MoreMenu } from '../../chrome/toolbar/menus/MoreMenu'
 import { StrokeMenu } from '../../chrome/toolbar/menus/StrokeMenu'
 import { TextMenu } from '../../chrome/toolbar/menus/TextMenu'
-import type { SurfaceView } from '../../../runtime/instance/view'
+import type { SurfaceView } from '../../../runtime/view'
 
 type MenuAnchor = {
   top: number

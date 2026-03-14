@@ -1,8 +1,8 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { interactionLock, type InteractionLockToken } from '../../interaction/interactionLock'
-import type { InternalWhiteboardInstance } from '../types'
+import { interactionLock, type InteractionLockToken } from './interactionLock'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import { createSignal } from './signal'
 import type {
   ActiveInteractionSessionKind,

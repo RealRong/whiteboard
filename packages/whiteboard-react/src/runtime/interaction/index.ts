@@ -1,4 +1,4 @@
-import type { InternalWhiteboardInstance } from '../types'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import { createEdgeConnectInteractionRuntime } from './edgeConnect'
 import { createEdgeRoutingInteractionRuntime } from './edgeRouting'
 import { createMindmapDragInteractionRuntime } from './mindmapDrag'

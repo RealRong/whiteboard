@@ -1,14 +1,14 @@
 import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { EdgeConnectDraft } from '../../../types/edge'
-import { interactionLock, type InteractionLockToken } from '../../interaction/interactionLock'
-import { createRafTask } from '../../utils/rafTask'
-import type { InternalWhiteboardInstance } from '../types'
+import type { EdgeConnectDraft } from '../../types/edge'
+import { interactionLock, type InteractionLockToken } from './interactionLock'
+import { createRafTask } from '../utils/rafTask'
+import type { InternalWhiteboardInstance } from '../instance/types'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,
   resolveConnectPreview,
   resolveSnapTarget
-} from '../../../features/edge/hooks/connect/math'
+} from '../../features/edge/hooks/connect/math'
 import { createSignal } from './signal'
 import type {
   ActiveInteractionSessionKind,
