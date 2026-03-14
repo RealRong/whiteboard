@@ -1,32 +1,31 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
-import { createDefaultNodeRegistry } from './node/registry'
+import { createDefaultNodeRegistry } from './features/node/registry'
 import type { WhiteboardProps } from 'types/common'
 import { engine, type Instance as EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toEngineInstanceConfig } from './config'
-import { InstanceProvider } from './common/hooks/useInstance'
-import { useTransientReset } from './common/hooks'
+import { InstanceProvider } from './runtime/hooks/useInstance'
 import {
   DEFAULT_VIEWPORT,
   useViewportController,
   useViewportTransformStyle
-} from './viewport'
-import { InputFeature } from './input/InputFeature'
-import { SceneFeature } from './scene/SceneFeature'
-import { ViewportOverlayFeature } from './overlay/ViewportOverlayFeature'
-import { RootOverlayFeature } from './overlay/RootOverlayFeature'
-import { SurfaceFeature } from './surface/SurfaceFeature'
-import { useNodeInteractions } from './node/hooks/useNodeInteractions'
-import { useNodeSizeObserver } from './node/hooks/useNodeSizeObserver'
-import { useMindmapDrag } from './mindmap/hooks/drag/useMindmapDrag'
+} from './runtime/viewport'
+import { InputFeature } from './ui/canvas/input/InputFeature'
+import { SceneFeature } from './ui/canvas/scene/SceneFeature'
+import { ViewportOverlayFeature } from './ui/canvas/overlay/ViewportOverlayFeature'
+import { RootOverlayFeature } from './ui/canvas/overlay/RootOverlayFeature'
+import { SurfaceFeature } from './ui/canvas/surface/SurfaceFeature'
+import { useNodeInteractions } from './features/node/hooks/useNodeInteractions'
+import { useNodeSizeObserver } from './features/node/hooks/useNodeSizeObserver'
+import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
 import {
   createWhiteboardUiStore,
   createWhiteboardInstance,
   type InternalWhiteboardInstance,
   type WhiteboardInstance,
   type WhiteboardRuntimeConfig
-} from './common/instance'
+} from './runtime/instance'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -65,18 +64,13 @@ const WhiteboardCanvas = ({
   const transformStyle = useViewportTransformStyle()
   const registerMeasuredElement = useNodeSizeObserver()
   const {
-    cancelNodeInteractionSession,
     handleNodeDoubleClick,
     handleNodePointerDown,
     handleTransformPointerDown
   } = useNodeInteractions()
   const {
-    cancelMindmapDragSession,
     handleMindmapNodePointerDown
   } = useMindmapDrag()
-
-  useTransientReset(cancelNodeInteractionSession)
-  useTransientReset(cancelMindmapDragSession)
 
   return (
     <div

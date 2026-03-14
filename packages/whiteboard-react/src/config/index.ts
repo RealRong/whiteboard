@@ -3,7 +3,7 @@ import {
   DEFAULT_INSTANCE_CONFIG,
   type InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
-import { DEFAULT_VIEWPORT } from '../viewport'
+import { DEFAULT_VIEWPORT } from '../runtime/viewport'
 import type { Config, ResolvedConfig } from '../types/common'
 
 const ZOOM_EPSILON = 0.0001

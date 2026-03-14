@@ -4,7 +4,7 @@ export { Whiteboard } from './Whiteboard'
 export {
   useSelectedEdgeId,
   useSelectionContains
-} from './selection'
+} from './runtime/state/selectionHooks'
 export {
   useEdge,
   useEdgeIds,
@@ -17,8 +17,8 @@ export {
   useViewport,
   useViewportTransformStyle,
   useViewportZoom
-} from './common/hooks'
+} from './runtime/hooks'
 
 export type { Config, HistoryConfig, WhiteboardProps } from './types/common'
-export type { WhiteboardInstance } from './common/instance'
+export type { WhiteboardInstance } from './runtime/instance'
 export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'
