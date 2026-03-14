@@ -36,6 +36,20 @@ type MindmapTreeCacheEntry = {
   tree: MindmapViewTree
 }
 
+type MindmapProjectionState = {
+  treeCache: Map<NodeId, MindmapTreeCacheEntry>
+  entryById: Map<NodeId, MindmapViewTree>
+  ids: readonly NodeId[]
+  visibleNodesRef?: readonly Node[]
+  layoutRef?: MindmapLayoutConfig
+}
+
+type MindmapProjectionUpdate = {
+  nextState: MindmapProjectionState
+  idsChanged: boolean
+  changedTreeIds: Set<NodeId>
+}
+
 const MINDMAP_CACHE_SCALAR_KEYS = [
   'treeId',
   'rootId',
@@ -109,11 +123,11 @@ export const createMindmapProjection = (
   const idsListeners = new Set<() => void>()
   const listenersById = new Map<NodeId, Set<() => void>>()
   let snapshotRef: ReadSnapshot = initialSnapshot
-  let treeCache = new Map<NodeId, MindmapTreeCacheEntry>()
-  let entryById = new Map<NodeId, MindmapViewTree>()
-  let idsRef: readonly NodeId[] = []
-  let visibleNodesRef: readonly Node[] | undefined
-  let layoutRef: MindmapLayoutConfig | undefined
+  let state: MindmapProjectionState = {
+    treeCache: new Map<NodeId, MindmapTreeCacheEntry>(),
+    entryById: new Map<NodeId, MindmapViewTree>(),
+    ids: []
+  }
 
   const buildTree = (
     root: Node,
@@ -140,18 +154,22 @@ export const createMindmapProjection = (
     }
   }
 
-  const reconcile = () => {
+  const commitState = (nextState: MindmapProjectionState) => {
+    state = nextState
+  }
+
+  const reconcile = (
+    current: MindmapProjectionState
+  ): MindmapProjectionUpdate => {
     const visibleNodes = snapshotRef.model.nodes.visible
     const layout = deps.mindmapLayout()
-    if (visibleNodes === visibleNodesRef && layout === layoutRef) {
+    if (visibleNodes === current.visibleNodesRef && layout === current.layoutRef) {
       return {
+        nextState: current,
         idsChanged: false,
         changedTreeIds: new Set<NodeId>()
       }
     }
-
-    visibleNodesRef = visibleNodes
-    layoutRef = layout
 
     const roots = visibleNodes.filter((node) => node.type === 'mindmap')
     const resolvedLayout: MindmapLayoutConfig = {
@@ -159,8 +177,8 @@ export const createMindmapProjection = (
       options: layout.options
     }
 
-    const previousIds = idsRef
-    const previousById = entryById
+    const previousIds = current.ids
+    const previousById = current.entryById
     const nextCache = new Map<NodeId, MindmapTreeCacheEntry>()
     const nextById = new Map<NodeId, MindmapViewTree>()
     const nextIds: NodeId[] = []
@@ -177,7 +195,7 @@ export const createMindmapProjection = (
         layout: resolvedLayout,
         nodeSize: config.mindmapNodeSize
       })
-      const previous = treeCache.get(root.id)
+      const previous = current.treeCache.get(root.id)
       const nextTree = previous && isSameCacheKey(previous.key, cacheKey)
         ? previous.tree
         : buildTree(root, tree, layout)
@@ -201,30 +219,36 @@ export const createMindmapProjection = (
       changedTreeIds.add(treeId)
     })
 
-    treeCache = nextCache
-    entryById = nextById
-
     const idsChanged = !isSameIds(previousIds, nextIds)
-    idsRef = nextIds
 
     return {
+      nextState: {
+        treeCache: nextCache,
+        entryById: nextById,
+        ids: idsChanged ? nextIds : previousIds,
+        visibleNodesRef: visibleNodes,
+        layoutRef: layout
+      },
       idsChanged,
       changedTreeIds
     }
   }
 
   const ensureSynced = () => {
-    reconcile()
+    const next = reconcile(state)
+    if (next.nextState !== state) {
+      commitState(next.nextState)
+    }
   }
 
   const ids = () => {
     ensureSynced()
-    return idsRef
+    return state.ids
   }
 
   const get = (treeId: NodeId) => {
     ensureSynced()
-    return entryById.get(treeId)
+    return state.entryById.get(treeId)
   }
 
   const subscribe = (treeId: NodeId, listener: () => void) => {
@@ -255,13 +279,14 @@ export const createMindmapProjection = (
       return
     }
 
-    const { idsChanged, changedTreeIds } = reconcile()
+    const next = reconcile(state)
+    commitState(next.nextState)
 
-    if (idsChanged) {
+    if (next.idsChanged) {
       notifyListeners(idsListeners)
     }
 
-    changedTreeIds.forEach((treeId) => {
+    next.changedTreeIds.forEach((treeId) => {
       notifyTree(treeId)
     })
   }

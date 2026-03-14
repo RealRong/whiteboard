@@ -1,9 +1,9 @@
 import {
   computeSnap,
-  expandGroupRect,
+  expandContainerRect,
   expandRectByThreshold,
-  findSmallestGroupAtPoint,
-  getGroupDescendants,
+  findSmallestContainerAtPoint,
+  getContainerDescendants,
   getNodesBoundingRect,
   rectEquals,
   resolveSnapThresholdWorld,
@@ -20,14 +20,15 @@ import {
 import type { InstanceConfig } from '@whiteboard/engine'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 
-export type GroupChildren = {
-  ids: NodeId[]
-  offsets: Map<NodeId, Point>
+export type DragMember = {
+  id: NodeId
+  offset: Point
 }
 
 export type NodeDragRuntimeState = {
-  nodeId: NodeId
-  nodeType: Node['type']
+  anchorId: NodeId
+  anchorType: Node['type']
+  members: DragMember[]
   start: Point
   origin: Point
   last: Point
@@ -35,8 +36,7 @@ export type NodeDragRuntimeState = {
     width: number
     height: number
   }
-  children?: GroupChildren
-  hoveredGroupId?: NodeId
+  hoveredContainerId?: NodeId
 }
 
 export type NodeDragPositionUpdate = {
@@ -47,7 +47,7 @@ export type NodeDragPositionUpdate = {
 export type NodeDragPreviewResult = {
   position: Point
   guides: readonly Guide[]
-  hoveredGroupId?: NodeId
+  hoveredContainerId?: NodeId
   patches: NodeDragPositionUpdate[]
 }
 
@@ -56,6 +56,57 @@ const GROUP_RECT_EPSILON = 0.5
 
 const toNodeById = (nodes: readonly Node[]) =>
   new Map(nodes.map((node) => [node.id, node]))
+
+const hasSelectedAncestor = (
+  node: Node,
+  selectedNodeIds: ReadonlySet<NodeId>,
+  nodeById: ReadonlyMap<NodeId, Node>
+) => {
+  let parentId = node.parentId
+  while (parentId) {
+    if (selectedNodeIds.has(parentId)) {
+      return true
+    }
+    parentId = nodeById.get(parentId)?.parentId
+  }
+  return false
+}
+
+const getDragRootIds = (
+  nodes: readonly Node[],
+  anchorId: NodeId,
+  selectedNodeIds: readonly NodeId[]
+) => {
+  const nodeById = toNodeById(nodes)
+  const effectiveSelectedNodeIds = selectedNodeIds.includes(anchorId)
+    ? selectedNodeIds
+    : [anchorId]
+  const selectedSet = new Set(effectiveSelectedNodeIds)
+
+  return effectiveSelectedNodeIds.filter((nodeId) => {
+    const node = nodeById.get(nodeId)
+    if (!node) return false
+    return !hasSelectedAncestor(node, selectedSet, nodeById)
+  })
+}
+
+const appendDragMembers = (
+  members: DragMember[],
+  memberIds: Set<NodeId>,
+  anchor: Point,
+  node: Node
+) => {
+  if (memberIds.has(node.id)) return
+
+  memberIds.add(node.id)
+  members.push({
+    id: node.id,
+    offset: {
+      x: node.position.x - anchor.x,
+      y: node.position.y - anchor.y
+    }
+  })
+}
 
 const hasParentIdPatch = (
   patch: NodePatch
@@ -91,54 +142,65 @@ const normalizePatch = (
   return Object.keys(normalized).length ? normalized : undefined
 }
 
-export const buildGroupChildren = (
+export const buildNodeDragState = (options: {
   nodes: readonly Node[],
-  nodeId: NodeId,
+  anchorId: NodeId
+  anchorType: Node['type']
+  start: Point
   origin: Point
-): GroupChildren | undefined => {
-  const ids = getGroupDescendants(nodes, nodeId).map((child) => child.id)
-  if (!ids.length) return undefined
-
+  size: {
+    width: number
+    height: number
+  }
+  selectedNodeIds: readonly NodeId[]
+}): NodeDragRuntimeState => {
+  const {
+    nodes,
+    anchorId,
+    anchorType,
+    start,
+    origin,
+    size,
+    selectedNodeIds
+  } = options
   const nodeById = toNodeById(nodes)
-  const offsets = new Map<NodeId, Point>()
-  ids.forEach((childId) => {
-    const childNode = nodeById.get(childId)
-    if (!childNode) return
-    offsets.set(childId, {
-      x: childNode.position.x - origin.x,
-      y: childNode.position.y - origin.y
+  const rootIds = getDragRootIds(nodes, anchorId, selectedNodeIds)
+  const members: DragMember[] = []
+  const memberIds = new Set<NodeId>()
+
+  rootIds.forEach((rootId) => {
+    const root = nodeById.get(rootId)
+    if (!root) return
+    appendDragMembers(members, memberIds, origin, root)
+    if (root.type !== 'group') return
+    getContainerDescendants(nodes, root.id).forEach((child) => {
+      appendDragMembers(members, memberIds, origin, child)
     })
   })
 
   return {
-    ids,
-    offsets
+    anchorId,
+    anchorType,
+    members,
+    start,
+    origin,
+    last: origin,
+    size
   }
 }
 
-export const buildGroupUpdates = (
-  draft: Pick<NodeDragRuntimeState, 'children' | 'nodeId'>,
-  position: Point
-): NodeDragPositionUpdate[] => {
-  const updates: NodeDragPositionUpdate[] = [{
-    id: draft.nodeId,
-    position
-  }]
-
-  draft.children?.ids.forEach((childId) => {
-    const offset = draft.children?.offsets.get(childId)
-    if (!offset) return
-    updates.push({
-      id: childId,
-      position: {
-        x: position.x + offset.x,
-        y: position.y + offset.y
-      }
-    })
-  })
-
-  return updates
-}
+const buildPositionUpdates = (
+  members: readonly DragMember[],
+  anchorPosition: Point
+): NodeDragPositionUpdate[] => (
+  members.map((member) => ({
+    id: member.id,
+    position: {
+      x: anchorPosition.x + member.offset.x,
+      y: anchorPosition.y + member.offset.y
+    }
+  }))
+)
 
 export const resolveNodeDragPreview = (options: {
   active: NodeDragRuntimeState
@@ -178,16 +240,14 @@ export const resolveNodeDragPreview = (options: {
       height: active.size.height
     }
     const queryRect = expandRectByThreshold(movingRect, thresholdWorld)
-    const exclude = active.children?.ids.length
-      ? new Set([active.nodeId, ...active.children.ids])
-      : new Set([active.nodeId])
+    const exclude = new Set(active.members.map((member) => member.id))
     const candidates = readSnapCandidatesInRect(queryRect)
       .filter((candidate) => !exclude.has(candidate.id as NodeId))
     const snapResult = computeSnap(
       movingRect,
       candidates,
       thresholdWorld,
-      active.nodeId,
+      active.anchorId,
       {
         allowCross,
         crossThreshold: thresholdWorld * SNAP_CROSS_THRESHOLD_RATIO
@@ -206,28 +266,24 @@ export const resolveNodeDragPreview = (options: {
     }
   }
 
-  const hoveredGroupId = active.children
-    ? undefined
-    : findSmallestGroupAtPoint(
-      [...nodes],
-      config.nodeSize,
-      {
-        x: position.x + active.size.width / 2,
-        y: position.y + active.size.height / 2
-      },
-      active.nodeId
-    )?.id
+  const hoveredContainerId =
+    active.members.length === 1 && active.anchorType !== 'group'
+      ? findSmallestContainerAtPoint(
+        [...nodes],
+        config.nodeSize,
+        {
+          x: position.x + active.size.width / 2,
+          y: position.y + active.size.height / 2
+        },
+        active.anchorId
+      )?.id
+      : undefined
 
   return {
     position,
     guides,
-    hoveredGroupId,
-    patches: active.children
-      ? buildGroupUpdates(active, position)
-      : [{
-        id: active.nodeId,
-        position
-      }]
+    hoveredContainerId,
+    patches: buildPositionUpdates(active.members, position)
   }
 }
 
@@ -238,15 +294,10 @@ export const resolveNodeDragCommit = (options: {
 }): Array<{ id: NodeId; patch: NodePatch }> => {
   const { draft, nodes, config } = options
   const nodeById = toNodeById(nodes)
-  const currentNode = nodeById.get(draft.nodeId)
+  const currentNode = nodeById.get(draft.anchorId)
   if (!currentNode) return []
 
-  const updates = draft.children
-    ? buildGroupUpdates(draft, draft.last)
-    : [{
-      id: draft.nodeId,
-      position: draft.last
-    }]
+  const updates = buildPositionUpdates(draft.members, draft.last)
 
   const patches = new Map<NodeId, NodePatch>()
   updates.forEach((update) => {
@@ -255,18 +306,18 @@ export const resolveNodeDragCommit = (options: {
     })
   })
 
-  if (!draft.children && draft.nodeType !== 'group') {
+  if (draft.members.length === 1 && draft.anchorType !== 'group') {
     const parentId = currentNode.parentId
-    const hoveredGroupId = draft.hoveredGroupId
+    const hoveredContainerId = draft.hoveredContainerId
 
-    if (hoveredGroupId && hoveredGroupId !== parentId) {
-      const hoveredGroup = nodeById.get(hoveredGroupId)
+    if (hoveredContainerId && hoveredContainerId !== parentId) {
+      const hoveredGroup = nodeById.get(hoveredContainerId)
       if (hoveredGroup) {
-        mergePatch(patches, draft.nodeId, {
+        mergePatch(patches, draft.anchorId, {
           parentId: hoveredGroup.id
         })
         const groupRect = getNodeAABB(hoveredGroup, config.nodeSize)
-        const children = getGroupDescendants(nodes, hoveredGroup.id)
+        const children = getContainerDescendants(nodes, hoveredGroup.id)
         const virtualNode: Node = {
           ...currentNode,
           position: draft.last
@@ -280,7 +331,7 @@ export const resolveNodeDragCommit = (options: {
             hoveredGroup.data && typeof hoveredGroup.data.padding === 'number'
               ? hoveredGroup.data.padding
               : config.node.groupPadding
-          const expanded = expandGroupRect(groupRect, contentRect, padding)
+          const expanded = expandContainerRect(groupRect, contentRect, padding)
           if (!rectEquals(expanded, groupRect, GROUP_RECT_EPSILON)) {
             mergePatch(patches, hoveredGroup.id, {
               position: {
@@ -295,7 +346,7 @@ export const resolveNodeDragCommit = (options: {
           }
         }
       }
-    } else if (!hoveredGroupId && parentId) {
+    } else if (!hoveredContainerId && parentId) {
       const parentNode = nodeById.get(parentId)
       if (parentNode) {
         const parentRect = getNodeAABB(parentNode, config.nodeSize)
@@ -306,7 +357,7 @@ export const resolveNodeDragCommit = (options: {
           height: draft.size.height
         }
         if (!rectContains(parentRect, nodeRect)) {
-          mergePatch(patches, draft.nodeId, {
+          mergePatch(patches, draft.anchorId, {
             parentId: undefined
           })
         }

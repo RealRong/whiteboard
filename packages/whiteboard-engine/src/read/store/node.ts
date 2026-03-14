@@ -25,22 +25,31 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
 
   const getNodeMap = () => snapshotRef.model.indexes.canvasNodeById
 
-  const get = (nodeId: NodeId) => {
+  const readEntry = (
+    nodeId: NodeId,
+    previous?: NodeViewItem
+  ) => {
     const node = getNodeMap().get(nodeId)
     if (!node) {
-      entryById.delete(nodeId)
       return undefined
     }
 
     const rect = readRect(snapshotRef, node, nodeId)
-    const previous = entryById.get(nodeId)
     if (previous && previous.node === node && previous.rect === rect) {
       return previous
     }
 
-    const next: NodeViewItem = {
+    return {
       node,
       rect
+    } satisfies NodeViewItem
+  }
+
+  const get = (nodeId: NodeId) => {
+    const next = readEntry(nodeId, entryById.get(nodeId))
+    if (!next) {
+      entryById.delete(nodeId)
+      return undefined
     }
     entryById.set(nodeId, next)
     return next
@@ -105,9 +114,23 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
       })
     }
 
+    const prevEntries = new Map<NodeId, NodeViewItem | undefined>()
+    const nextEntries = new Map<NodeId, NodeViewItem | undefined>()
+
     changedNodeIds.forEach((nodeId) => {
       const prevEntry = entryById.get(nodeId)
-      const nextEntry = get(nodeId)
+      prevEntries.set(nodeId, prevEntry)
+      nextEntries.set(nodeId, readEntry(nodeId, prevEntry))
+    })
+
+    changedNodeIds.forEach((nodeId) => {
+      const prevEntry = prevEntries.get(nodeId)
+      const nextEntry = nextEntries.get(nodeId)
+      if (nextEntry) {
+        entryById.set(nodeId, nextEntry)
+      } else {
+        entryById.delete(nodeId)
+      }
       if (prevEntry === nextEntry) return
       notifyNode(nodeId)
     })

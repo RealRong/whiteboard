@@ -12,7 +12,7 @@ import type {
   EdgeId
 } from '../types'
 import { buildNodeCreateOperation } from './commands'
-import { getGroupDescendants } from './group'
+import { getContainerDescendants } from './group'
 import { listEdges, listNodes } from '../types'
 
 export const createNodeDuplicateInput = (
@@ -42,7 +42,7 @@ export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[
   selectedIds.forEach((id) => {
     const node = nodeById.get(id)
     if (node?.type !== 'group') return
-    getGroupDescendants(Array.from(nodes), id).forEach((child) => {
+    getContainerDescendants(Array.from(nodes), id).forEach((child) => {
       expandedIds.add(child.id)
     })
   })

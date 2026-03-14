@@ -1,11 +1,7 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useMindmapIds, useTransientReset } from '../../common/hooks'
-import {
-  useTransientMindmap,
-  type Transient
-} from '../../transient'
-import { useMindmapDrag } from '../hooks/drag/useMindmapDrag'
+import { useInternalInstance, useMindmapIds } from '../../common/hooks'
+import { useTransientMindmap } from '../../transient'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'
 
@@ -26,6 +22,7 @@ const MindmapTreeById = ({
     treeId,
     drag?.treeId === treeId ? drag : undefined
   )
+
   if (!view) return null
 
   return (
@@ -36,19 +33,18 @@ const MindmapTreeById = ({
   )
 }
 
-export const MindmapFeature = ({
-  mindmap
+export const MindmapSceneLayer = ({
+  onNodePointerDown
 }: {
-  mindmap: Transient['mindmap']
+  onNodePointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    treeId: NodeId,
+    nodeId: MindmapNodeId
+  ) => void
 }) => {
+  const instance = useInternalInstance()
   const treeIds = useMindmapIds()
-  const drag = useTransientMindmap(mindmap)
-  const {
-    cancelMindmapDragSession,
-    handleMindmapNodePointerDown
-  } = useMindmapDrag(mindmap)
-
-  useTransientReset(cancelMindmapDragSession)
+  const drag = useTransientMindmap(instance.draft.mindmap)
 
   if (!treeIds.length) return null
 
@@ -59,7 +55,7 @@ export const MindmapFeature = ({
           key={treeId}
           treeId={treeId}
           drag={drag}
-          onNodePointerDown={handleMindmapNodePointerDown}
+          onNodePointerDown={onNodePointerDown}
         />
       ))}
     </>

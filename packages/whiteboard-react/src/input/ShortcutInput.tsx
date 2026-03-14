@@ -1,14 +1,8 @@
 import { useEffect, useMemo, type RefObject } from 'react'
-import type { ShortcutAction, ShortcutOverrides } from '../../types/common/shortcut'
-import type { InternalWhiteboardInstance } from '../instance'
-import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
-import { dispatchShortcutAction } from './shortcutDispatch'
-
-type ShortcutFeatureProps = {
-  instance: InternalWhiteboardInstance
-  containerRef: RefObject<HTMLDivElement | null>
-  shortcuts?: ShortcutOverrides
-}
+import type { ShortcutAction, ShortcutOverrides } from '../types/common/shortcut'
+import { useInternalInstance } from '../common/hooks'
+import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from '../common/interaction/shortcutBindings'
+import { dispatchShortcutAction } from '../common/interaction/shortcutDispatch'
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
@@ -109,11 +103,14 @@ const createShortcutMap = (
   return map
 }
 
-export const ShortcutFeature = ({
-  instance,
+export const ShortcutInput = ({
   containerRef,
   shortcuts
-}: ShortcutFeatureProps) => {
+}: {
+  containerRef: RefObject<HTMLDivElement | null>
+  shortcuts?: ShortcutOverrides
+}) => {
+  const instance = useInternalInstance()
   const platform = useMemo(() => detectPlatform(), [])
   const bindings = useMemo(
     () => resolveShortcutBindings(DEFAULT_SHORTCUT_BINDINGS, shortcuts),

@@ -26,7 +26,7 @@ export type NodeDraft = {
 
 export type NodeWriteInput = {
   patches: readonly NodePatchInput[]
-  hoveredGroupId?: NodeId
+  hoveredContainerId?: NodeId
 }
 
 export type TransientNode = {
@@ -51,9 +51,9 @@ const EMPTY_NODE_MAP: NodeDraftMap =
 
 const toNodeDraftMap = ({
   patches,
-  hoveredGroupId
+  hoveredContainerId
 }: NodeWriteInput): NodeDraftMap => {
-  if (!patches.length && hoveredGroupId === undefined) {
+  if (!patches.length && hoveredContainerId === undefined) {
     return EMPTY_NODE_MAP
   }
 
@@ -66,12 +66,12 @@ const toNodeDraftMap = ({
         size: patch.size,
         rotation: patch.rotation
       },
-      hovered: hoveredGroupId === patch.id
+      hovered: hoveredContainerId === patch.id
     })
   })
 
-  if (hoveredGroupId !== undefined && !next.has(hoveredGroupId)) {
-    next.set(hoveredGroupId, {
+  if (hoveredContainerId !== undefined && !next.has(hoveredContainerId)) {
+    next.set(hoveredContainerId, {
       hovered: true
     })
   }

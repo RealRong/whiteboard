@@ -61,7 +61,7 @@ export const getNodesBoundingRect = (
   }
 }
 
-export const getGroupChildrenMap = (nodes: readonly Node[]) => {
+export const getContainerChildrenMap = (nodes: readonly Node[]) => {
   const map = new Map<NodeId, Node[]>()
   nodes.forEach((node) => {
     if (!node.parentId) return
@@ -72,10 +72,10 @@ export const getGroupChildrenMap = (nodes: readonly Node[]) => {
   return map
 }
 
-export const getGroupDescendants = (nodes: readonly Node[], groupId: NodeId): Node[] => {
-  const map = getGroupChildrenMap(nodes)
+export const getContainerDescendants = (nodes: readonly Node[], containerId: NodeId): Node[] => {
+  const map = getContainerChildrenMap(nodes)
   const result: Node[] = []
-  const stack = [...(map.get(groupId) ?? [])]
+  const stack = [...(map.get(containerId) ?? [])]
   while (stack.length) {
     const node = stack.pop()
     if (!node) continue
@@ -117,16 +117,16 @@ export const isHiddenByCollapsedGroup = (
   return false
 }
 
-export const expandGroupRect = (
-  groupRect: Rect,
+export const expandContainerRect = (
+  containerRect: Rect,
   contentRect: Rect,
   padding: number
 ): Rect => {
   const padded = enlargeBox(contentRect, padding)
-  const left = Math.min(groupRect.x, padded.x)
-  const top = Math.min(groupRect.y, padded.y)
-  const right = Math.max(groupRect.x + groupRect.width, padded.x + padded.width)
-  const bottom = Math.max(groupRect.y + groupRect.height, padded.y + padded.height)
+  const left = Math.min(containerRect.x, padded.x)
+  const top = Math.min(containerRect.y, padded.y)
+  const right = Math.max(containerRect.x + containerRect.width, padded.x + padded.width)
+  const bottom = Math.max(containerRect.y + containerRect.height, padded.y + padded.height)
   return {
     x: left,
     y: top,
@@ -200,12 +200,17 @@ const createGroupBoundsOperation = ({
   rectEpsilon: number
 }): GroupBoundsOperation | null => {
   if (!children.length) return null
+  if (group.data && group.data.autoFit === 'manual') return null
 
   const contentRect = getNodesBoundingRect(children, nodeSize)
   if (!contentRect) return null
 
   const groupRect = getNodeAABB(group, nodeSize)
-  const nextRect = expandGroupRect(groupRect, contentRect, groupPadding)
+  const padding =
+    group.data && typeof group.data.padding === 'number'
+      ? group.data.padding
+      : groupPadding
+  const nextRect = expandContainerRect(groupRect, contentRect, padding)
   if (rectEquals(nextRect, groupRect, rectEpsilon)) return null
 
   return {
@@ -286,7 +291,7 @@ const pointInRect = (point: Point, rect: Rect) => (
   point.y <= rect.y + rect.height
 )
 
-export const findSmallestGroupAtPoint = (
+export const findSmallestContainerAtPoint = (
   nodes: Node[],
   fallbackSize: Size,
   point: Point,

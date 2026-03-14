@@ -4,11 +4,11 @@ export {
   expandNodeSelection
 } from './duplicate'
 export {
-  expandGroupRect,
-  findSmallestGroupAtPoint,
+  expandContainerRect,
+  findSmallestContainerAtPoint,
   getCollapsedGroupIds,
-  getGroupChildrenMap,
-  getGroupDescendants,
+  getContainerChildrenMap,
+  getContainerDescendants,
   getNodesBoundingRect,
   isHiddenByCollapsedGroup,
   normalizeGroupBounds,

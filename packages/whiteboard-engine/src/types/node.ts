@@ -15,7 +15,7 @@ export type NodeDragDraft = {
   last: Point
   size: Size
   children?: NodeDragChildren
-  hoveredGroupId?: NodeId
+  hoveredContainerId?: NodeId
 }
 
 export type NodeDragUpdateConstraints = {

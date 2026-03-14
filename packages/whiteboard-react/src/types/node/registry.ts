@@ -1,5 +1,11 @@
-import type { Node, NodeId, Rect } from '@whiteboard/core/types'
-import type { CSSProperties, PointerEventHandler, ReactNode, Ref } from 'react'
+import type { Node, NodeId, NodeSchema, Rect } from '@whiteboard/core/types'
+import type {
+  CSSProperties,
+  MouseEventHandler,
+  PointerEventHandler,
+  ReactNode,
+  Ref
+} from 'react'
 import type { Commands, EngineRead } from '@whiteboard/engine'
 
 export type NodeContainerProps = {
@@ -9,6 +15,7 @@ export type NodeContainerProps = {
   style?: CSSProperties
   ref?: Ref<HTMLDivElement>
   onPointerDown?: PointerEventHandler<HTMLDivElement>
+  onDoubleClick?: MouseEventHandler<HTMLDivElement>
 }
 
 export type NodeRenderProps = {
@@ -24,6 +31,7 @@ export type NodeRenderProps = {
 export type NodeDefinition = {
   type: string
   label?: string
+  schema?: NodeSchema
   defaultData?: Record<string, unknown>
   render: (props: NodeRenderProps) => ReactNode
   renderContainer?: (props: NodeRenderProps, children: ReactNode) => ReactNode

@@ -6,7 +6,6 @@ import { useInternalInstance as useInstance, useTool } from '../../../common/hoo
 import { interactionLock, type InteractionLockToken } from '../../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../common/interaction/useWindowPointerSession'
 import { createRafTask } from '../../../common/utils/rafTask'
-import type { ConnectionWriter } from '../../../transient'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,
@@ -180,13 +179,12 @@ const commitDraft = (
 }
 
 export const useEdgeConnect = ({
-  containerRef,
-  connection
+  containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
-  connection: ConnectionWriter
 }) => {
   const instance = useInstance()
+  const { connection } = instance.draft
   const tool = useTool()
   const hoverEventRef = useRef<PointerEvent | null>(null)
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
@@ -215,7 +213,7 @@ export const useEdgeConnect = ({
   const hoverTask = useMemo(
     () => createRafTask(() => {
       const event = hoverEventRef.current
-      if (!event || activeRef.current || instance.state.tool() !== 'edge') return
+      if (!event || activeRef.current || instance.state.tool.get() !== 'edge') return
       const pointer = readPointer(instance, event)
       const target = resolveSnapTarget(instance, pointer.world)
       setHoverPreview(target?.pointWorld)
@@ -231,6 +229,7 @@ export const useEdgeConnect = ({
     activeRef.current = null
     setActivePointerId(null)
     connection.clear()
+    instance.commands.session.end()
     if (!active) return
     interactionLock.release(instance, active.lockToken)
   }, [connection, hoverTask, instance])
@@ -244,6 +243,7 @@ export const useEdgeConnect = ({
       draft
     }
     setActivePointerId(event.pointerId)
+    instance.commands.session.beginEdgeConnect()
     setDraftPreview(draft)
 
     try {
@@ -264,7 +264,7 @@ export const useEdgeConnect = ({
     if (event.defaultPrevented) return
     if (event.button !== 0) return
     if (activeRef.current) return
-    if (instance.state.tool() !== 'edge') return
+    if (instance.state.tool.get() !== 'edge') return
     if (!(event.target instanceof Element)) return
 
     const pointer = readPointer(instance, event)

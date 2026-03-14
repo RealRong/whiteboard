@@ -14,6 +14,7 @@ export {
   applyCanvasDraft,
   applyNodeDraft,
   useTransientNode,
+  type NodeDraft,
   type NodeReader,
   type NodeWriter
 } from './node'
@@ -32,6 +33,7 @@ export {
 export {
   applyEdgeDraft,
   useTransientEdge,
+  type EdgeDraft,
   type EdgeReader,
   type EdgeWriter,
   type TransientEdge

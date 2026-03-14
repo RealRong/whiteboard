@@ -18,9 +18,16 @@ export type WhiteboardSelectionCommands = {
 
 type SelectionStore = ReturnType<typeof createStore>
 
-type SelectionState = {
-  selectedNodeIds: Set<NodeId>
-  selectedEdgeId?: EdgeId
+export type Selection = {
+  nodeIds: readonly NodeId[]
+  nodeIdSet: ReadonlySet<NodeId>
+  edgeId?: EdgeId
+}
+
+type StoredSelection = {
+  nodeIds: readonly NodeId[]
+  nodeIdSet: Set<NodeId>
+  edgeId?: EdgeId
 }
 
 type SelectionDomain = {
@@ -31,16 +38,54 @@ type SelectionDomain = {
   commands: WhiteboardSelectionCommands
 }
 
-const createEmptySelectionState = (): SelectionState => ({
-  selectedNodeIds: new Set<NodeId>()
-})
+const EMPTY_SELECTED_NODE_IDS: readonly NodeId[] = []
+const EMPTY_SELECTED_NODE_SET = new Set<NodeId>()
+const EMPTY_SELECTION: StoredSelection = {
+  nodeIds: EMPTY_SELECTED_NODE_IDS,
+  nodeIdSet: EMPTY_SELECTED_NODE_SET,
+  edgeId: undefined
+}
 
-const selectionAtom = vanillaAtom<SelectionState>(createEmptySelectionState())
+const isSameNodeIdSet = (
+  prev: ReadonlySet<NodeId>,
+  next: ReadonlySet<NodeId>
+) => {
+  if (prev === next) return true
+  if (prev.size !== next.size) return false
 
-export const selectedEdgeIdAtom = atom((get) => get(selectionAtom).selectedEdgeId)
+  for (const nodeId of prev) {
+    if (!next.has(nodeId)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const createSelectionState = (
+  nodeIdSet: Set<NodeId>,
+  edgeId?: EdgeId
+): StoredSelection => {
+  if (nodeIdSet.size === 0 && edgeId === undefined) {
+    return EMPTY_SELECTION
+  }
+
+  return {
+    nodeIds: nodeIdSet.size === 0 ? EMPTY_SELECTED_NODE_IDS : [...nodeIdSet],
+    nodeIdSet,
+    edgeId
+  }
+}
+
+const selectionStateAtom = vanillaAtom<StoredSelection>(EMPTY_SELECTION)
+
+export const selectionAtom = atom((get): Selection => get(selectionStateAtom))
+
+export const selectedNodeIdsAtom = atom((get) => get(selectionAtom).nodeIds)
+export const selectedEdgeIdAtom = atom((get) => get(selectionAtom).edgeId)
 
 export const createSelectionContainsAtom = (nodeId: NodeId): Atom<boolean> =>
-  atom((get) => get(selectionAtom).selectedNodeIds.has(nodeId))
+  atom((get) => get(selectionStateAtom).nodeIdSet.has(nodeId))
 
 export const createSelectionDomain = ({
   uiStore,
@@ -49,46 +94,54 @@ export const createSelectionDomain = ({
   uiStore: SelectionStore
   readAllNodeIds?: () => readonly NodeId[]
 }): SelectionDomain => {
-  const readSelection = () => uiStore.get(selectionAtom)
-  const writeSelection = (next: SelectionState) => {
-    uiStore.set(selectionAtom, next)
+  const readSelection = () => uiStore.get(selectionStateAtom)
+  const writeSelection = (next: StoredSelection) => {
+    uiStore.set(selectionStateAtom, next)
   }
   const select = (
     nodeIds: readonly NodeId[],
     mode: SelectionMode = 'replace'
   ) => {
     const current = readSelection()
-    writeSelection({
-      selectedNodeIds: applySelection(current.selectedNodeIds, [...nodeIds], mode),
-      selectedEdgeId: undefined
-    })
+    const nextNodeIdSet = applySelection(
+      current.nodeIdSet,
+      [...nodeIds],
+      mode
+    )
+
+    if (
+      current.edgeId === undefined
+      && isSameNodeIdSet(current.nodeIdSet, nextNodeIdSet)
+    ) {
+      return
+    }
+
+    writeSelection(createSelectionState(nextNodeIdSet, undefined))
   }
   const selectEdge = (edgeId?: EdgeId) => {
     const current = readSelection()
 
     if (edgeId === undefined) {
-      if (current.selectedEdgeId === undefined) return
-      writeSelection({
-        ...current,
-        selectedEdgeId: undefined
-      })
+      if (current.edgeId === undefined) return
+      writeSelection(createSelectionState(current.nodeIdSet, undefined))
       return
     }
 
-    if (current.selectedEdgeId === edgeId && current.selectedNodeIds.size === 0) return
-    writeSelection({
-      selectedNodeIds: new Set<NodeId>(),
-      selectedEdgeId: edgeId
-    })
+    if (current.edgeId === edgeId && current.nodeIdSet.size === 0) return
+    writeSelection(createSelectionState(new Set<NodeId>(), edgeId))
   }
   const clear = () => {
-    writeSelection(createEmptySelectionState())
+    const current = readSelection()
+    if (current.nodeIdSet.size === 0 && current.edgeId === undefined) {
+      return
+    }
+    writeSelection(EMPTY_SELECTION)
   }
 
   return {
     state: {
-      selectedNodeIds: () => [...readSelection().selectedNodeIds],
-      selectedEdgeId: () => readSelection().selectedEdgeId
+      selectedNodeIds: () => readSelection().nodeIds,
+      selectedEdgeId: () => readSelection().edgeId
     },
     commands: {
       select,

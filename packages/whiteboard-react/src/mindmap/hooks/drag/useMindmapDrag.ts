@@ -4,7 +4,6 @@ import type { MindmapNodeId, NodeId, Point } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../../common/hooks'
 import { interactionLock, type InteractionLockToken } from '../../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../common/interaction/useWindowPointerSession'
-import type { MindmapWriter } from '../../../transient'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
@@ -25,10 +24,9 @@ const readPointerWorld = (
   return instance.viewport.screenToWorld(screen)
 }
 
-export const useMindmapDrag = (
-  mindmap: MindmapWriter
-) => {
+export const useMindmapDrag = () => {
   const instance = useInstance()
+  const { mindmap } = instance.draft
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
 

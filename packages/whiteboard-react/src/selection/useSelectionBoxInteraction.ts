@@ -6,11 +6,11 @@ import {
   type SelectionMode
 } from '@whiteboard/core/node'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../common/instance'
+import { useInternalInstance } from '../common/hooks'
 import { interactionLock, type InteractionLockToken } from '../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../common/interaction/useWindowPointerSession'
 import { createRafTask } from '../common/utils/rafTask'
-import type { SelectionWriter } from '../transient'
+import { useInteractionView } from '../interaction/view'
 
 type PointerPosition = {
   screen: Point
@@ -23,16 +23,15 @@ type ActiveSelection = {
   mode: SelectionMode
   start: PointerPosition
   baseSelectedNodeIds: Set<NodeId>
+  scopeNodeIds?: ReadonlySet<NodeId>
   latestMatchedIds?: NodeId[]
   selectedKey: string
 }
 
-const BACKGROUND_IGNORE_SELECTOR = [
+const BACKGROUND_CONTENT_IGNORE_SELECTOR = [
   '[data-selection-ignore]',
   '[data-input-ignore]',
   '[data-input-role]',
-  '[data-node-id]',
-  '[data-edge-id]',
   'input',
   'textarea',
   'select',
@@ -41,19 +40,32 @@ const BACKGROUND_IGNORE_SELECTOR = [
   '[contenteditable]:not([contenteditable="false"])'
 ].join(', ')
 
+const BACKGROUND_ENTITY_SELECTOR = [
+  '[data-node-id]',
+  '[data-edge-id]'
+].join(', ')
+
 const toSelectionKey = (nodeIds: Iterable<NodeId>) => [...nodeIds].sort().join('|')
 
 const isBackgroundPointerTarget = (
   target: EventTarget | null,
-  currentTarget: EventTarget & HTMLDivElement
+  currentTarget: EventTarget & HTMLDivElement,
+  activeContainerId?: NodeId
 ) => (
   target instanceof Element
   && currentTarget.contains(target)
-  && !target.closest(BACKGROUND_IGNORE_SELECTOR)
+  && !target.closest(BACKGROUND_CONTENT_IGNORE_SELECTOR)
+  && (() => {
+    const entity = target.closest(BACKGROUND_ENTITY_SELECTOR)
+    if (!entity) return true
+    if (entity.hasAttribute('data-edge-id')) return false
+    return activeContainerId !== undefined
+      && entity.getAttribute('data-node-id') === activeContainerId
+  })()
 )
 
 const readPointerPosition = (
-  instance: InternalWhiteboardInstance,
+  instance: ReturnType<typeof useInternalInstance>,
   event: Pick<PointerEvent, 'clientX' | 'clientY'>
 ): PointerPosition => {
   const screen = instance.viewport.clientToScreen(event.clientX, event.clientY)
@@ -63,12 +75,25 @@ const readPointerPosition = (
   }
 }
 
-export const useSelectionBoxInteraction = (
-  instance: InternalWhiteboardInstance,
-  selection: SelectionWriter
-) => {
+const isPointInRect = (point: Point, rect: Rect) => (
+  point.x >= rect.x
+  && point.x <= rect.x + rect.width
+  && point.y >= rect.y
+  && point.y <= rect.y + rect.height
+)
+
+export const useSelectionBoxInteraction = () => {
+  const instance = useInternalInstance()
+  const selection = instance.draft.selection
+  const interaction = useInteractionView()
   const activeRef = useRef<ActiveSelection | null>(null)
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
+  const readMatchedNodeIds = useCallback((rect: Rect, scopeNodeIds?: ReadonlySet<NodeId>) => {
+    const matchedNodeIds = instance.read.index.node.idsInRect(rect)
+    return scopeNodeIds
+      ? matchedNodeIds.filter((nodeId) => scopeNodeIds.has(nodeId))
+      : matchedNodeIds
+  }, [instance])
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -98,6 +123,7 @@ export const useSelectionBoxInteraction = (
     activeRef.current = null
     setActivePointerId(null)
     selection.clear()
+    instance.commands.session.end()
     if (!active) return
     interactionLock.release(instance, active.lockToken)
   }, [flushTask, instance, selection])
@@ -116,8 +142,9 @@ export const useSelectionBoxInteraction = (
         return
       }
 
-      active.latestMatchedIds = instance.read.index.node.idsInRect(
-        rectFromPoints(active.start.world, current.world)
+      active.latestMatchedIds = readMatchedNodeIds(
+        rectFromPoints(active.start.world, current.world),
+        active.scopeNodeIds
       )
       selection.write(rectFromPoints(active.start.screen, current.screen))
       flushTask.schedule()
@@ -128,8 +155,9 @@ export const useSelectionBoxInteraction = (
 
       if (active.latestMatchedIds !== undefined) {
         const current = readPointerPosition(instance, event)
-        active.latestMatchedIds = instance.read.index.node.idsInRect(
-          rectFromPoints(active.start.world, current.world)
+        active.latestMatchedIds = readMatchedNodeIds(
+          rectFromPoints(active.start.world, current.world),
+          active.scopeNodeIds
         )
         flushSelection()
       } else if (active.mode === 'replace') {
@@ -157,14 +185,39 @@ export const useSelectionBoxInteraction = (
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.state.tool() === 'edge') return
-      if (!isBackgroundPointerTarget(event.target, container)) return
+      if (!interaction.canCanvasSelect) return
+      if (instance.state.tool.get() === 'edge') return
+
+      const start = readPointerPosition(instance, event)
+      let activeContainerId = instance.read.container.activeId()
+      if (activeContainerId) {
+        const activeRect = instance.read.container.activeRect()
+        const insideActiveContainer = Boolean(
+          activeRect && isPointInRect(start.world, activeRect)
+        )
+
+        if (!insideActiveContainer) {
+          instance.commands.selection.clear()
+          instance.commands.container.exit()
+          activeContainerId = undefined
+        }
+      }
+
+      if (!isBackgroundPointerTarget(
+        event.target,
+        container,
+        activeContainerId
+      )) return
 
       const lockToken = interactionLock.tryAcquire(instance, 'selectionBox', event.pointerId)
       if (!lockToken) return
 
-      const selectedNodeIds = instance.state.selectedNodeIds()
-      const start = readPointerPosition(instance, event)
+      const selectedNodeIds = instance.read.container.filterNodeIds(
+        instance.state.selection.getNodeIds()
+      )
+      const scopeNodeIds = activeContainerId
+        ? new Set(instance.read.container.nodeIds())
+        : undefined
 
       instance.commands.selection.selectEdge(undefined)
       activeRef.current = {
@@ -173,9 +226,11 @@ export const useSelectionBoxInteraction = (
         mode: resolveSelectionMode(event),
         start,
         baseSelectedNodeIds: new Set(selectedNodeIds),
+        scopeNodeIds,
         selectedKey: toSelectionKey(selectedNodeIds)
       }
       setActivePointerId(event.pointerId)
+      instance.commands.session.beginSelectionBox()
       selection.clear()
 
       try {
@@ -187,7 +242,7 @@ export const useSelectionBoxInteraction = (
       event.preventDefault()
       event.stopPropagation()
     },
-    [instance, selection]
+    [instance, interaction, selection]
   )
 
   return {

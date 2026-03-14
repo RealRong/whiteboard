@@ -34,6 +34,7 @@ export type Transient = {
   edge: TransientEdge
   selection: TransientSelection
   mindmap: TransientMindmap
+  clear: () => void
 }
 
 export const createTransient = (
@@ -73,6 +74,15 @@ export const createTransient = (
     connection,
     edge,
     selection,
-    mindmap
+    mindmap,
+    clear: () => {
+      task.cancel()
+      node.clear()
+      guides.clear()
+      connection.clear()
+      edge.clear()
+      selection.clear()
+      mindmap.clear()
+    }
   }
 }

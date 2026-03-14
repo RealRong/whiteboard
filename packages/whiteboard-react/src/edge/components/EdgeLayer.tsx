@@ -5,10 +5,6 @@ import {
   useEdgeIds,
   useInstance
 } from '../../common/hooks'
-import type {
-  EdgeReader,
-  NodeReader
-} from '../../transient'
 import { useSelectedEdgeId } from '../../selection'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
@@ -16,8 +12,6 @@ import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
 
 type EdgeItemByIdProps = {
   edgeId: EdgeId
-  edge: EdgeReader
-  node: NodeReader
   hitTestThresholdScreen: number
   selected: boolean
   handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
@@ -26,13 +20,11 @@ type EdgeItemByIdProps = {
 const EdgeItemById = memo(
   ({
     edgeId,
-    edge,
-    node,
     hitTestThresholdScreen,
     selected,
     handleEdgePathPointerDown
   }: EdgeItemByIdProps) => {
-    const entry = useEdgeView(edgeId, node, edge)
+    const entry = useEdgeView(edgeId)
     if (!entry) return null
 
     return (
@@ -47,12 +39,8 @@ const EdgeItemById = memo(
 )
 
 export const EdgeLayer = ({
-  edge,
-  node,
   handleEdgePathPointerDown
 }: {
-  edge: EdgeReader
-  node: NodeReader
   handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
 }) => {
   const instance = useInstance()
@@ -97,8 +85,6 @@ export const EdgeLayer = ({
         <EdgeItemById
           key={edgeId}
           edgeId={edgeId}
-          edge={edge}
-          node={node}
           hitTestThresholdScreen={hitTestThresholdScreen}
           selected={edgeId === selectedEdgeId}
           handleEdgePathPointerDown={handleEdgePathPointerDown}

@@ -1,10 +1,7 @@
 import { useMemo } from 'react'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import {
-  useTransientEdge,
-  type EdgeReader,
-  type NodeReader
-} from '../../transient'
+import { useInternalInstance } from '../../common/hooks'
+import { useTransientEdge } from '../../transient'
 import { useSelectedEdgeId } from '../../selection'
 import { useEdgeView } from './useEdgeView'
 
@@ -22,13 +19,11 @@ export type SelectedEdgeView = {
   routingHandles: readonly SelectedEdgeRoutingHandleView[]
 }
 
-export const useSelectedEdgeView = (
-  node: NodeReader,
-  edge: EdgeReader
-): SelectedEdgeView | undefined => {
+export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
+  const instance = useInternalInstance()
   const edgeId = useSelectedEdgeId()
-  const entry = useEdgeView(edgeId, node, edge)
-  const draft = useTransientEdge(edge, edgeId)
+  const entry = useEdgeView(edgeId)
+  const draft = useTransientEdge(instance.draft.edge, edgeId)
 
   return useMemo(() => {
     if (!edgeId || !entry) return undefined

@@ -1,17 +1,63 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { produce } from 'immer'
 import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
-import type { Document } from '@whiteboard/core/types'
+import type { Document, NodeInput } from '@whiteboard/core/types'
+import { createId } from '@whiteboard/core/utils'
 import { scenarios } from './scenarios'
 
 const resolveScenario = (id: string) =>
   scenarios.find((item) => item.id === id) ?? scenarios[0]
+
+const INSERTABLE_NODES: Array<{
+  type: NodeInput['type']
+  label: string
+  size: NonNullable<NodeInput['size']>
+  data?: Record<string, unknown>
+}> = [
+  {
+    type: 'ellipse',
+    label: '椭圆',
+    size: { width: 200, height: 130 },
+    data: { title: 'Ellipse' }
+  },
+  {
+    type: 'diamond',
+    label: '菱形',
+    size: { width: 180, height: 180 },
+    data: { title: 'Decision' }
+  },
+  {
+    type: 'triangle',
+    label: '三角形',
+    size: { width: 190, height: 160 },
+    data: { title: 'Triangle' }
+  },
+  {
+    type: 'arrow-sticker',
+    label: '箭头',
+    size: { width: 220, height: 120 },
+    data: { title: 'Arrow' }
+  },
+  {
+    type: 'callout',
+    label: '气泡',
+    size: { width: 280, height: 160 },
+    data: { text: 'Callout' }
+  },
+  {
+    type: 'highlight',
+    label: '高亮',
+    size: { width: 240, height: 110 },
+    data: { text: 'Highlight' }
+  }
+]
 
 export const App = () => {
   const [activeId, setActiveId] = useState(scenarios[0].id)
   const [doc, setDoc] = useState<Document>(() => resolveScenario(activeId).create())
   const instanceRef = useRef<WhiteboardInstance | null>(null)
   const panRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null)
+  const insertCountRef = useRef(0)
 
   const onDocChange = useCallback((recipe: (draft: Document) => void) => {
     setDoc((prev) => produce(prev, (draft) => recipe(draft)))
@@ -27,6 +73,7 @@ export const App = () => {
   useEffect(() => {
     const instance = instanceRef.current
     if (!instance) return
+    insertCountRef.current = 0
     instance.viewport.reset()
     instance.commands.selection.clear()
   }, [activeId])
@@ -95,6 +142,40 @@ export const App = () => {
     event.preventDefault()
   }, [])
 
+  const handleInsertNode = useCallback(async (
+    template: typeof INSERTABLE_NODES[number]
+  ) => {
+    const instance = instanceRef.current
+    if (!instance) return
+
+    const index = insertCountRef.current
+    insertCountRef.current += 1
+
+    const column = index % 3
+    const row = Math.floor(index / 3) % 3
+    const offsetX = (column - 1) * 42
+    const offsetY = (row - 1) * 34
+    const center = instance.viewport.get().center
+    const parentId = instance.read.container.activeId()
+    const id = createId('demo-node')
+    const payload: NodeInput = {
+      id,
+      type: template.type,
+      position: {
+        x: center.x - template.size.width / 2 + offsetX,
+        y: center.y - template.size.height / 2 + offsetY
+      },
+      size: template.size,
+      data: template.data,
+      parentId
+    }
+
+    const result = await instance.commands.node.create(payload)
+    if (!result.ok) return
+
+    instance.commands.selection.select([id])
+  }, [])
+
   return (
     <div className="demo-root">
       <aside className="demo-menu">
@@ -116,6 +197,22 @@ export const App = () => {
               </button>
             )
           })}
+        </div>
+        <div className="demo-insert-panel">
+          <div className="demo-insert-title">插入图形</div>
+          <div className="demo-insert-grid">
+            {INSERTABLE_NODES.map((item) => (
+              <button
+                key={item.type}
+                className="demo-insert-item"
+                onClick={() => {
+                  void handleInsertNode(item)
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="demo-menu-footer">
           <div>节点: {stats.nodeCount}</div>

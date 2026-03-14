@@ -55,5 +55,9 @@ export const createTransientGuides = (
   }
 }
 
+export const readTransientGuides = (
+  instance: Pick<InternalWhiteboardInstance, 'uiStore'>
+): readonly Guide[] => instance.uiStore.get(guidesAtom)
+
 export const useTransientGuides = (): readonly Guide[] =>
   useUiAtomValue(guidesAtom)

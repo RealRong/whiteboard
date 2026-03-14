@@ -1,5 +1,5 @@
 import {
-  expandGroupRect,
+  expandContainerRect,
   rectEquals
 } from '@whiteboard/core/node'
 import type { Document, Node, NodeId, Operation } from '@whiteboard/core/types'
@@ -9,6 +9,18 @@ import type { Size } from '@engine-types/common'
 
 const hasOwn = (target: object, key: string) =>
   Object.prototype.hasOwnProperty.call(target, key)
+
+const readGroupPadding = (
+  group: Pick<Node, 'data'>,
+  defaultPadding: number
+) => {
+  const value = group.data?.padding
+  return typeof value === 'number' ? value : defaultPadding
+}
+
+const isManualGroup = (
+  group: Pick<Node, 'data'>
+) => group.data?.autoFit === 'manual'
 
 export const shouldNormalizeOperations = (operations: readonly Operation[]): boolean => {
   for (const operation of operations) {
@@ -322,6 +334,7 @@ export const buildNormalizeOperationsForGroups = ({
     if (!index.groupIds.has(groupId)) continue
     const group = workingNodes[groupId]
     if (!group || group.type !== 'group') continue
+    if (isManualGroup(group)) continue
 
     const childIds = index.childrenByParentId.get(groupId)
     if (!childIds || childIds.size === 0) continue
@@ -361,7 +374,11 @@ export const buildNormalizeOperationsForGroups = ({
     const groupEntry = geometry.get(group.id) ?? (geometry.update(group) ? geometry.get(group.id) : undefined)
     const groupRect = groupEntry?.aabb
     if (!groupRect) continue
-    const nextRect = expandGroupRect(groupRect, contentRect, groupPadding)
+    const nextRect = expandContainerRect(
+      groupRect,
+      contentRect,
+      readGroupPadding(group, groupPadding)
+    )
     if (rectEquals(nextRect, groupRect, rectEpsilon)) continue
 
     const operation: Operation = {

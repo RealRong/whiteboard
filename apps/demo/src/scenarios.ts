@@ -171,6 +171,88 @@ const createMindmapDocument = (): Document => {
   return createBaseDocument('demo-mindmap', nodes, [])
 }
 
+const createShapesDocument = (): Document => {
+  const nodes: Node[] = [
+    {
+      id: 'shape-ellipse',
+      type: 'ellipse',
+      position: { x: -420, y: -140 },
+      size: { width: 200, height: 130 },
+      data: { title: 'Entry' }
+    },
+    {
+      id: 'shape-diamond',
+      type: 'diamond',
+      position: { x: -110, y: -150 },
+      size: { width: 180, height: 180 },
+      data: { title: 'Decision' }
+    },
+    {
+      id: 'shape-triangle',
+      type: 'triangle',
+      position: { x: 170, y: -130 },
+      size: { width: 190, height: 160 },
+      data: { title: 'Alert' }
+    },
+    {
+      id: 'shape-arrow',
+      type: 'arrow-sticker',
+      position: { x: 450, y: -120 },
+      size: { width: 220, height: 120 },
+      data: { title: 'Ship it' }
+    },
+    {
+      id: 'shape-callout',
+      type: 'callout',
+      position: { x: -260, y: 120 },
+      size: { width: 280, height: 160 },
+      data: { text: '新节点已经接入默认 registry，可直接拖拽、缩放、旋转、连线。' }
+    },
+    {
+      id: 'shape-highlight',
+      type: 'highlight',
+      position: { x: 120, y: 170 },
+      size: { width: 240, height: 110 },
+      data: { text: 'Highlight' }
+    }
+  ]
+
+  const edges: Edge[] = [
+    {
+      id: 'shape-edge-1',
+      type: 'linear',
+      source: { nodeId: 'shape-ellipse' },
+      target: { nodeId: 'shape-diamond' }
+    },
+    {
+      id: 'shape-edge-2',
+      type: 'linear',
+      source: { nodeId: 'shape-diamond' },
+      target: { nodeId: 'shape-triangle' }
+    },
+    {
+      id: 'shape-edge-3',
+      type: 'linear',
+      source: { nodeId: 'shape-triangle' },
+      target: { nodeId: 'shape-arrow' }
+    },
+    {
+      id: 'shape-edge-4',
+      type: 'linear',
+      source: { nodeId: 'shape-callout' },
+      target: { nodeId: 'shape-diamond' }
+    },
+    {
+      id: 'shape-edge-5',
+      type: 'linear',
+      source: { nodeId: 'shape-highlight' },
+      target: { nodeId: 'shape-arrow' }
+    }
+  ]
+
+  return createBaseDocument('demo-shapes', nodes, edges)
+}
+
 export const scenarios: Scenario[] = [
   {
     id: 'basic',
@@ -189,6 +271,12 @@ export const scenarios: Scenario[] = [
     label: '思维导图',
     description: '内置 Mindmap 树与交互',
     create: createMindmapDocument
+  },
+  {
+    id: 'shapes',
+    label: '图形节点',
+    description: '第一批 shape / sticker 节点',
+    create: createShapesDocument
   }
 ]
 

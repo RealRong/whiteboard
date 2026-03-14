@@ -1,22 +1,26 @@
 import { useCallback, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent
+} from 'react'
 import { getRectCenter } from '@whiteboard/core/geometry'
-import { resolveSelectionMode, type TransformHandle } from '@whiteboard/core/node'
-import type { NodeId, Point } from '@whiteboard/core/types'
+import {
+  applySelection,
+  resolveSelectionMode,
+  type TransformHandle
+} from '@whiteboard/core/node'
+import type { NodeId, NodePatch, Point } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../common/hooks'
 import { interactionLock, type InteractionLockToken } from '../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../common/interaction/useWindowPointerSession'
-import type {
-  GuidesWriter,
-  NodeWriter,
-} from '../../transient'
 import {
-  buildGroupChildren,
+  buildNodeDragState,
   resolveNodeDragCommit,
   resolveNodeDragPreview,
   type NodeDragRuntimeState
 } from './drag/math'
 import {
+  resolveGroupResizePadding,
   resolveResizeCommitPatch,
   resolveResizeDrag,
   resolveResizePreview,
@@ -24,6 +28,18 @@ import {
   type ResizeDragState,
   type RotateDragState
 } from './transform/math'
+
+const DOUBLE_CLICK_IGNORE_SELECTOR = [
+  '[data-selection-ignore]',
+  '[data-input-ignore]',
+  '[data-input-role]',
+  'input',
+  'textarea',
+  'select',
+  'button',
+  'a[href]',
+  '[contenteditable]:not([contenteditable="false"])'
+].join(', ')
 
 type ActiveDrag = NodeDragRuntimeState & {
   kind: 'drag'
@@ -48,11 +64,9 @@ const readPointerWorld = (
   return instance.viewport.screenToWorld(screen)
 }
 
-export const useNodeInteractions = (
-  node: NodeWriter,
-  guides: GuidesWriter
-) => {
+export const useNodeInteractions = () => {
   const instance = useInstance()
+  const { node, guides } = instance.draft
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveInteraction | null>(null)
 
@@ -72,6 +86,7 @@ export const useNodeInteractions = (
 
     activeRef.current = null
     setActivePointerId(null)
+    instance.commands.session.end()
     node.clear()
     guides.clear()
     if (!active) return
@@ -95,7 +110,27 @@ export const useNodeInteractions = (
     if (active.drag.mode === 'resize') {
       const update = active.drag.lastUpdate
       if (!update) return
-      const patch = resolveResizeCommitPatch(node, update)
+      let patch: NodePatch | undefined = resolveResizeCommitPatch(node, update)
+      const padding = resolveGroupResizePadding({
+        group: node,
+        update,
+        nodes: readCanvasNodes(),
+        nodeSize: instance.config.nodeSize
+      })
+      if (padding !== undefined) {
+        patch ??= {}
+        patch.data = {
+          ...(node.data ?? {}),
+          autoFit: 'manual',
+          padding
+        }
+      } else if (node.type === 'group') {
+        patch ??= {}
+        patch.data = {
+          ...(node.data ?? {}),
+          autoFit: 'manual'
+        }
+      }
       if (!patch) return
       void instance.commands.node.update(active.nodeId, patch)
       return
@@ -115,47 +150,84 @@ export const useNodeInteractions = (
   ) => {
     if (event.button !== 0) return
     if (activeRef.current) return
-    if (instance.state.tool() !== 'select') return
+    if (instance.state.tool.get() !== 'select') return
 
     const nodeRect = instance.read.index.node.byId(nodeId)
-    if (!nodeRect || nodeRect.node.locked) return
+    if (!nodeRect) return
+
+    if (!instance.read.container.hasNode(nodeId)) {
+      instance.commands.selection.clear()
+      instance.commands.container.exit()
+    }
+
+    const currentSelectedNodeIds = instance.read.container.filterNodeIds(
+      instance.state.selection.getNodeIds()
+    )
+    const nextSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
+      ? currentSelectedNodeIds
+      : [...applySelection(
+        new Set(currentSelectedNodeIds),
+        [nodeId],
+        resolveSelectionMode(event)
+      )]
+
+    if (!nextSelectedNodeIds.includes(nodeId)) {
+      instance.commands.selection.select(nextSelectedNodeIds, 'replace')
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    if (nodeRect.node.locked) {
+      if (
+        nextSelectedNodeIds.length !== currentSelectedNodeIds.length
+        || nextSelectedNodeIds.some((selectedNodeId, index) => selectedNodeId !== currentSelectedNodeIds[index])
+      ) {
+        instance.commands.selection.select(nextSelectedNodeIds, 'replace')
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    const drag = buildNodeDragState({
+      nodes: readCanvasNodes(),
+      anchorId: nodeRect.node.id,
+      anchorType: nodeRect.node.type,
+      start: {
+        x: event.clientX,
+        y: event.clientY
+      },
+      origin: {
+        x: nodeRect.node.position.x,
+        y: nodeRect.node.position.y
+      },
+      size: {
+        width: nodeRect.rect.width,
+        height: nodeRect.rect.height
+      },
+      selectedNodeIds: nextSelectedNodeIds
+    })
+    if (!drag.members.length) return
 
     const lockToken = interactionLock.tryAcquire(instance, 'nodeDrag', event.pointerId)
     if (!lockToken) return
 
-    instance.commands.selection.select(
-      [nodeId],
-      resolveSelectionMode(event)
-    )
-
-    const origin = {
-      x: nodeRect.node.position.x,
-      y: nodeRect.node.position.y
+    if (
+      nextSelectedNodeIds.length !== currentSelectedNodeIds.length
+      || nextSelectedNodeIds.some((selectedNodeId, index) => selectedNodeId !== currentSelectedNodeIds[index])
+    ) {
+      instance.commands.selection.select(nextSelectedNodeIds, 'replace')
     }
-    const size = {
-      width: nodeRect.rect.width,
-      height: nodeRect.rect.height
-    }
-    const children = nodeRect.node.type === 'group'
-      ? buildGroupChildren(readCanvasNodes(), nodeRect.node.id, origin)
-      : undefined
 
     activeRef.current = {
       kind: 'drag',
       lockToken,
       pointerId: event.pointerId,
-      nodeId: nodeRect.node.id,
-      nodeType: nodeRect.node.type,
-      start: {
-        x: event.clientX,
-        y: event.clientY
-      },
-      origin,
-      last: origin,
-      size,
-      children
+      ...drag
     }
     setActivePointerId(event.pointerId)
+    instance.commands.session.beginNodeDrag()
     node.clear()
     guides.clear()
 
@@ -168,6 +240,25 @@ export const useNodeInteractions = (
     event.stopPropagation()
   }, [guides, instance, node])
 
+  const handleNodeDoubleClick = useCallback((
+    nodeId: NodeId,
+    event: ReactMouseEvent<HTMLDivElement>
+  ) => {
+    if (instance.state.tool.get() !== 'select') return
+    const target = event.target
+    if (target instanceof Element && target.closest(DOUBLE_CLICK_IGNORE_SELECTOR)) {
+      return
+    }
+
+    const nodeEntry = instance.read.index.node.byId(nodeId)
+    if (!nodeEntry || nodeEntry.node.type !== 'group') return
+
+    instance.commands.selection.clear()
+    instance.commands.container.enter(nodeId)
+    event.preventDefault()
+    event.stopPropagation()
+  }, [instance])
+
   const handleTransformPointerDown = useCallback((
     nodeId: NodeId,
     handle: TransformHandle,
@@ -175,7 +266,7 @@ export const useNodeInteractions = (
   ) => {
     if (event.button !== 0) return
     if (activeRef.current) return
-    if (instance.state.tool() !== 'select') return
+    if (instance.state.tool.get() !== 'select') return
 
     const nodeRect = instance.read.index.node.byId(nodeId)
     if (!nodeRect || nodeRect.node.locked) return
@@ -219,6 +310,7 @@ export const useNodeInteractions = (
       drag
     }
     setActivePointerId(event.pointerId)
+    instance.commands.session.beginNodeTransform()
     node.clear()
     guides.clear()
 
@@ -247,7 +339,7 @@ export const useNodeInteractions = (
             y: event.clientY
           },
           zoom: instance.viewport.get().zoom,
-          snapEnabled: instance.state.tool() === 'select',
+          snapEnabled: instance.state.tool.get() === 'select',
           allowCross: event.altKey,
           nodes: readCanvasNodes(),
           config: instance.config,
@@ -255,11 +347,11 @@ export const useNodeInteractions = (
         })
 
         active.last = preview.position
-        active.hoveredGroupId = preview.hoveredGroupId
+        active.hoveredContainerId = preview.hoveredContainerId
 
         node.write({
           patches: preview.patches,
-          hoveredGroupId: preview.hoveredGroupId
+          hoveredContainerId: preview.hoveredContainerId
         })
         guides.write(preview.guides)
         return
@@ -269,7 +361,7 @@ export const useNodeInteractions = (
 
       if (active.drag.mode === 'resize') {
         const preview = resolveResizePreview({
-          activeTool: instance.state.tool(),
+          activeTool: instance.state.tool.get(),
           drag: active.drag,
           currentScreen: {
             x: event.clientX,
@@ -351,6 +443,7 @@ export const useNodeInteractions = (
 
   return {
     cancelNodeInteractionSession: clearActive,
+    handleNodeDoubleClick,
     handleNodePointerDown,
     handleTransformPointerDown
   }

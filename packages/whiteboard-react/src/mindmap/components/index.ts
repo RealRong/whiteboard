@@ -1,1 +1,0 @@
-export { MindmapFeature } from './MindmapFeature'

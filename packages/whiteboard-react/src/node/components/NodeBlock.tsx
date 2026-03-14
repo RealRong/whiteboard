@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEvent, PointerEventHandler, ReactNode } from 'react'
+import type { CSSProperties, MouseEventHandler, PointerEventHandler, ReactNode } from 'react'
 import { forwardRef } from 'react'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 
@@ -10,6 +10,7 @@ type NodeBlockProps = {
   className?: string
   style?: CSSProperties
   onPointerDown?: PointerEventHandler<HTMLDivElement>
+  onDoubleClick?: MouseEventHandler<HTMLDivElement>
 }
 
 export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
@@ -19,7 +20,8 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
   selected = false,
   className,
   style,
-  onPointerDown
+  onPointerDown,
+  onDoubleClick
 }: NodeBlockProps, ref) => {
   const borderColor = selected ? '#3b82f6' : '#1d1d1f'
   const boxShadow = selected ? '0 0 0 2px rgba(59, 130, 246, 0.4)' : '0 6px 16px rgba(0, 0, 0, 0.08)'
@@ -29,6 +31,7 @@ export const NodeBlock = forwardRef<HTMLDivElement, NodeBlockProps>(({
       className={className ? `wb-node-block ${className}` : 'wb-node-block'}
       data-node-id={nodeId}
       onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
       style={{
         width: rect.width,
         height: rect.height,

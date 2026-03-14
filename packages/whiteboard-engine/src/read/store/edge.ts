@@ -33,6 +33,12 @@ type EdgeCacheState = {
   byId: Map<EdgeId, EdgeEntry>
 }
 
+type EdgeProjectionUpdate = {
+  nextState: EdgeCacheState
+  idsChanged: boolean
+  changedEdgeIds: Set<EdgeId>
+}
+
 type NodeGeometryTuple = {
   x: number
   y: number
@@ -104,22 +110,34 @@ const isSameView = (
   return true
 }
 
-const rebuildView = (state: EdgeCacheState) => {
+const buildView = ({
+  relations,
+  cacheById,
+  prevIds,
+  prevById
+}: {
+  relations: EdgeRelations
+  cacheById: ReadonlyMap<EdgeId, EdgeCacheEntry>
+  prevIds: readonly EdgeId[]
+  prevById: ReadonlyMap<EdgeId, EdgeEntry>
+}) => {
   const nextIds: EdgeId[] = []
   const nextById = new Map<EdgeId, EdgeEntry>()
 
-  state.relations.edgeIds.forEach((edgeId) => {
-    const entry = state.cacheById.get(edgeId)?.entry
+  relations.edgeIds.forEach((edgeId) => {
+    const entry = cacheById.get(edgeId)?.entry
     if (!entry) return
     nextIds.push(edgeId)
     nextById.set(edgeId, entry)
   })
 
-  if (isSameView(state.ids, state.byId, nextIds, nextById)) return false
+  const idsChanged = !isSameView(prevIds, prevById, nextIds, nextById)
 
-  state.ids = nextIds
-  state.byId = nextById
-  return true
+  return {
+    ids: idsChanged ? nextIds : prevIds as EdgeId[],
+    byId: idsChanged ? nextById : prevById as Map<EdgeId, EdgeEntry>,
+    idsChanged
+  }
 }
 
 const toNodeGeometryTuple = (entry: CanvasNodeRect): NodeGeometryTuple => ({
@@ -269,13 +287,23 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     }
   }
 
-  const reconcileEdges = (edgeIds: ReadonlySet<EdgeId>) => {
-    const previous = state.cacheById
+  const commitState = (nextState: EdgeCacheState) => {
+    state.relations = nextState.relations
+    state.cacheById = nextState.cacheById
+    state.ids = nextState.ids
+    state.byId = nextState.byId
+  }
+
+  const reconcileEdges = (
+    current: EdgeCacheState,
+    edgeIds: ReadonlySet<EdgeId>
+  ): EdgeProjectionUpdate => {
+    const previous = current.cacheById
     const nextCacheById = new Map(previous)
     const changedEdgeIds = new Set<EdgeId>()
 
     edgeIds.forEach((edgeId) => {
-      const edge = state.relations.edgeById.get(edgeId)
+      const edge = current.relations.edgeById.get(edgeId)
       if (!edge) {
         nextCacheById.delete(edgeId)
         changedEdgeIds.add(edgeId)
@@ -310,28 +338,41 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       }
     })
 
-    state.cacheById = nextCacheById
-    const idsChanged = rebuildView(state)
+    const nextView = buildView({
+      relations: current.relations,
+      cacheById: nextCacheById,
+      prevIds: current.ids,
+      prevById: current.byId
+    })
 
     return {
-      idsChanged,
+      nextState: {
+        relations: current.relations,
+        cacheById: nextCacheById,
+        ids: nextView.ids,
+        byId: nextView.byId
+      },
+      idsChanged: nextView.idsChanged,
       changedEdgeIds
     }
   }
 
-  const reconcileAll = (edges: readonly Edge[]) => {
-    state.relations = createEdgeRelations(edges)
+  const reconcileAll = (
+    current: EdgeCacheState,
+    edges: readonly Edge[]
+  ): EdgeProjectionUpdate => {
+    const relations = createEdgeRelations(edges)
     const changedEdgeIds = new Set<EdgeId>()
 
     const nextCacheById = new Map<EdgeId, EdgeCacheEntry>()
-    state.relations.edgeIds.forEach((edgeId) => {
-      const edge = state.relations.edgeById.get(edgeId)
+    relations.edgeIds.forEach((edgeId) => {
+      const edge = relations.edgeById.get(edgeId)
       if (!edge) return
 
       const material = toEdgeCacheMaterial(edge)
       if (!material) return
 
-      const previousEntry = state.cacheById.get(edgeId)
+      const previousEntry = current.cacheById.get(edgeId)
       const reused = reuseCacheEntryByData(edge, material, previousEntry)
       if (reused) {
         nextCacheById.set(edgeId, reused)
@@ -350,19 +391,37 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       }
     })
 
-    state.cacheById = nextCacheById
-    const idsChanged = rebuildView(state)
+    current.ids.forEach((edgeId) => {
+      if (!nextCacheById.has(edgeId)) {
+        changedEdgeIds.add(edgeId)
+      }
+    })
+
+    const nextView = buildView({
+      relations,
+      cacheById: nextCacheById,
+      prevIds: current.ids,
+      prevById: current.byId
+    })
 
     return {
-      idsChanged,
+      nextState: {
+        relations,
+        cacheById: nextCacheById,
+        ids: nextView.ids,
+        byId: nextView.byId
+      },
+      idsChanged: nextView.idsChanged,
       changedEdgeIds
     }
   }
 
   const ensureSynced = () => {
     if (visibleEdgesRef !== readModel(snapshotRef).edges.visible) {
-      reconcileAll(readModel(snapshotRef).edges.visible)
-      visibleEdgesRef = readModel(snapshotRef).edges.visible
+      const visibleEdges = readModel(snapshotRef).edges.visible
+      const next = reconcileAll(state, visibleEdges)
+      commitState(next.nextState)
+      visibleEdgesRef = visibleEdges
     }
   }
 
@@ -409,8 +468,9 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     let changedEdgeIds = new Set<EdgeId>()
 
     if (rebuild === 'full' || visibleEdgesChanged) {
+      const next = reconcileAll(state, visibleEdges)
+      commitState(next.nextState)
       visibleEdgesRef = visibleEdges
-      const next = reconcileAll(visibleEdges)
       idsChanged = next.idsChanged
       changedEdgeIds = next.changedEdgeIds
     } else {
@@ -427,7 +487,8 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       impact.edge.ids.forEach((edgeId) => {
         affectedEdgeIds.add(edgeId)
       })
-      const next = reconcileEdges(affectedEdgeIds)
+      const next = reconcileEdges(state, affectedEdgeIds)
+      commitState(next.nextState)
       idsChanged = next.idsChanged
       changedEdgeIds = next.changedEdgeIds
     }

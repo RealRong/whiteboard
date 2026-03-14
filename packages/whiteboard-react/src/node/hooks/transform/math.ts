@@ -10,9 +10,14 @@ import {
   type ResizeDirection,
   type SnapCandidate
 } from '@whiteboard/core/node'
-import { getRectCenter, isPointEqual, isSizeEqual } from '@whiteboard/core/geometry'
+import {
+  getNodeAABB,
+  getRectCenter,
+  isPointEqual,
+  isSizeEqual
+} from '@whiteboard/core/geometry'
 import type { InstanceConfig } from '@whiteboard/engine'
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeId, Point, Rect, Size } from '@whiteboard/core/types'
 
 export type ResizeUpdate = {
   position: Point
@@ -59,6 +64,49 @@ const RESIZE_MIN_SIZE = {
 }
 
 const ZOOM_EPSILON = 0.0001
+
+const readGroupPadding = (
+  group: Pick<Node, 'data'>
+) => {
+  const value = group.data?.padding
+  return typeof value === 'number' ? value : undefined
+}
+
+const getDirectChildBounds = (
+  nodes: readonly Node[],
+  groupId: NodeId,
+  nodeSize: Size
+): Rect | undefined => {
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  nodes.forEach((node) => {
+    if (node.parentId !== groupId) return
+    const rect = getNodeAABB(node, nodeSize)
+    minX = Math.min(minX, rect.x)
+    minY = Math.min(minY, rect.y)
+    maxX = Math.max(maxX, rect.x + rect.width)
+    maxY = Math.max(maxY, rect.y + rect.height)
+  })
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  ) {
+    return undefined
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0, maxX - minX),
+    height: Math.max(0, maxY - minY)
+  }
+}
 
 export const resolveResizeDrag = (options: {
   pointerId: number
@@ -116,6 +164,37 @@ export const resolveResizeCommitPatch = (
   }
   if (!patch.position && !patch.size) return
   return patch
+}
+
+export const resolveGroupResizePadding = (options: {
+  group: Node
+  update: ResizeUpdate
+  nodes: readonly Node[]
+  nodeSize: Size
+}) => {
+  const { group, update, nodes, nodeSize } = options
+  if (group.type !== 'group') return
+
+  const contentRect = getDirectChildBounds(nodes, group.id, nodeSize)
+  if (!contentRect) return
+
+  const left = contentRect.x - update.position.x
+  const top = contentRect.y - update.position.y
+  const right =
+    update.position.x + update.size.width - (contentRect.x + contentRect.width)
+  const bottom =
+    update.position.y + update.size.height - (contentRect.y + contentRect.height)
+  const padding = Math.max(0, Math.min(left, top, right, bottom))
+  const currentPadding = readGroupPadding(group)
+
+  if (
+    currentPadding !== undefined
+    && Math.abs(currentPadding - padding) < 0.5
+  ) {
+    return
+  }
+
+  return padding
 }
 
 export const resolveResizePreview = (options: {

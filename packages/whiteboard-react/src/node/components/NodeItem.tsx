@@ -1,12 +1,11 @@
 import { memo, useCallback } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { TransformHandle } from '@whiteboard/core/node'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent
+} from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeContainerProps, NodeRenderProps } from 'types/node'
-import type { NodeReader } from '../../transient'
 import { NodeBlock } from './NodeBlock'
-import { NodeConnectHandles } from './NodeConnectHandles'
-import { NodeTransformHandles } from './NodeTransformHandles'
 import {
   buildNodeContainerStyle
 } from './styles'
@@ -19,41 +18,33 @@ type NodeItemProps = {
     element: HTMLDivElement | null,
     enabled: boolean
   ) => void
-  node: NodeReader
+  selected: boolean
   onNodePointerDown: (
     nodeId: NodeId,
     event: ReactPointerEvent<HTMLDivElement>
   ) => void
-  onTransformPointerDown: (
+  onNodeDoubleClick: (
     nodeId: NodeId,
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
+    event: ReactMouseEvent<HTMLDivElement>
   ) => void
 }
 export const NodeItem = memo(({
   nodeId,
   registerMeasuredElement,
-  node,
+  selected,
   onNodePointerDown,
-  onTransformPointerDown
+  onNodeDoubleClick,
 }: NodeItemProps) => {
-  const view = useNodeView(nodeId, node)
+  const view = useNodeView(nodeId, { selected })
 
   if (!view) return null
 
   const {
     node: resolvedNode,
     rect,
-    hovered,
-    selected,
-    rotation,
     shouldAutoMeasure,
-    canRotate,
-    shouldMountTransform,
-    shouldMountConnectHandles,
     nodeStyle,
     transformStyle,
-    connectHandleOverlayStyle,
     renderProps: baseRenderProps,
     definition
   } = view
@@ -70,6 +61,9 @@ export const NodeItem = memo(({
     style: buildNodeContainerStyle(nodeStyle, transformStyle),
     onPointerDown: (event) => {
       onNodePointerDown(nodeId, event)
+    },
+    onDoubleClick: (event) => {
+      onNodeDoubleClick(nodeId, event)
     }
   }
   const renderProps: NodeRenderProps = {
@@ -79,37 +73,20 @@ export const NodeItem = memo(({
   const content = definition ? definition.render(renderProps) : resolvedNode.type
 
   return (
-    <>
-      {definition?.renderContainer ? (
-        definition.renderContainer(renderProps, content)
-      ) : (
-        <NodeBlock
-          rect={rect}
-          label={content}
-          nodeId={nodeId}
-          selected={selected}
-          ref={containerProps.ref}
-          style={containerProps.style}
-          onPointerDown={containerProps.onPointerDown}
-        />
-      )}
-      {shouldMountConnectHandles ? (
-        <NodeConnectHandles
-          node={resolvedNode}
-          rect={rect}
-          style={connectHandleOverlayStyle}
-        />
-      ) : null}
-      {shouldMountTransform ? (
-        <NodeTransformHandles
-          node={resolvedNode}
-          rect={rect}
-          rotation={rotation}
-          canRotate={canRotate}
-          onTransformPointerDown={onTransformPointerDown}
-        />
-      ) : null}
-    </>
+    definition?.renderContainer ? (
+      definition.renderContainer(renderProps, content)
+    ) : (
+      <NodeBlock
+        rect={rect}
+        label={content}
+        nodeId={nodeId}
+        selected={selected}
+        ref={containerProps.ref}
+        style={containerProps.style}
+        onPointerDown={containerProps.onPointerDown}
+        onDoubleClick={containerProps.onDoubleClick}
+      />
+    )
   )
 })
 

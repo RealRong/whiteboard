@@ -8,7 +8,6 @@ import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useInternalInstance as useInstance } from '../../../common/hooks'
 import { interactionLock, type InteractionLockToken } from '../../../common/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../common/interaction/useWindowPointerSession'
-import type { EdgeWriter } from '../../../transient'
 
 type ActiveRouting = {
   edgeId: EdgeId
@@ -37,10 +36,9 @@ const readRoutingEntry = (
   return entry
 }
 
-export const useEdgeRouting = (
-  edge: EdgeWriter
-) => {
+export const useEdgeRouting = () => {
   const instance = useInstance()
+  const { edge } = instance.draft
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const activeRef = useRef<ActiveRouting | null>(null)
 
@@ -65,6 +63,7 @@ export const useEdgeRouting = (
     activeRef.current = null
     setActivePointerId(null)
     edge.clear()
+    instance.commands.session.end()
     if (!active) return
     interactionLock.release(instance, active.lockToken)
   }, [edge, instance])
@@ -106,6 +105,7 @@ export const useEdgeRouting = (
       lockToken
     }
     setActivePointerId(event.pointerId)
+    instance.commands.session.beginEdgeRouting()
     writePreview(edgeId, index, points)
 
     try {
