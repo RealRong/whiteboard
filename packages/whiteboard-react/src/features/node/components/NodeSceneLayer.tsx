@@ -4,7 +4,7 @@ import type {
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import { useNodeIds } from '../../../runtime/hooks'
-import { useSelection } from '../../../runtime/state/selectionHooks'
+import { useSelectionState } from '../../../runtime/view/selection'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = ({
@@ -27,7 +27,7 @@ export const NodeSceneLayer = ({
   ) => void
 }) => {
   const nodeIds = useNodeIds()
-  const selection = useSelection()
+  const selection = useSelectionState()
   const selectedSet = selection.nodeIdSet
 
   return (

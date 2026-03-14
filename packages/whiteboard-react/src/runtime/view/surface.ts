@@ -1,15 +1,24 @@
-import type { NodeId } from '@whiteboard/core/types'
 import { contextMenuStateAtom, type ContextMenuState } from '../../ui/chrome/context-menu/domain'
 import { readContextMenuView } from '../../ui/chrome/context-menu/view'
 import type { ContextMenuSection, ContextMenuView } from '../../ui/chrome/context-menu/types'
 import { selectionAtom, type Selection } from '../state/selection'
 import type { NodeToolbarItem } from '../../ui/chrome/toolbar/model'
 import { readNodeToolbarView } from '../../ui/chrome/toolbar/view'
-import type { NodeToolbarView } from '../../ui/chrome/toolbar/view'
 import { nodeToolbarMenuStateAtom } from '../../ui/chrome/toolbar/domain'
 import type { InternalWhiteboardInstance } from '../instance/types'
+import {
+  isOptionalEqual,
+  isOrderedArrayEqual
+} from '../utils/equality'
+import {
+  combineUnsubscribers,
+  EMPTY_UNSUBSCRIBE,
+  subscribeNodeIds,
+  subscribeOptionalNode
+} from './shared'
 import type {
   ParameterizedView,
+  SurfaceToolbarView,
   SurfaceView
 } from './types'
 
@@ -29,8 +38,8 @@ export const readSurfaceView = ({
   return {
     toolbar: toolbar
       ? {
-          value: toolbar,
-          menuKey: toolbarMenu.open ? toolbarMenu.key : undefined
+          ...toolbar,
+          activeMenuKey: toolbarMenu.open ? toolbarMenu.key : undefined
         }
       : undefined,
     contextMenu: readContextMenuView({
@@ -42,119 +51,67 @@ export const readSurfaceView = ({
   }
 }
 
-const isSameNodeIds = (
-  left: readonly NodeId[],
-  right: readonly NodeId[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((nodeId, index) => nodeId === right[index])
-  )
-)
-
-const isSameNodes = (
-  left: NodeToolbarView['nodes'],
-  right: NodeToolbarView['nodes']
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((node, index) => node === right[index])
-  )
-)
-
 const isSameToolbarItems = (
   left: readonly NodeToolbarItem[],
   right: readonly NodeToolbarItem[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((item, index) => (
-      item.key === right[index]?.key
-      && item.label === right[index]?.label
-      && item.active === right[index]?.active
-      && item.menuKey === right[index]?.menuKey
-      && item.run === right[index]?.run
-      && item.icon === right[index]?.icon
-    ))
-  )
-)
+) => isOrderedArrayEqual(left, right, (item, next) => (
+  item.key === next.key
+  && item.label === next.label
+  && item.active === next.active
+  && item.menuKey === next.menuKey
+  && item.run === next.run
+  && item.icon === next.icon
+))
 
 const isSameToolbarView = (
-  left: NodeToolbarView | undefined,
-  right: NodeToolbarView | undefined
-) => {
-  if (left === right) return true
-  if (!left || !right) return false
-
-  return (
-    left.mode === right.mode
-    && left.primaryNode === right.primaryNode
-    && left.primarySchema === right.primarySchema
-    && left.placement === right.placement
-    && left.anchor.x === right.anchor.x
-    && left.anchor.y === right.anchor.y
-    && isSameNodeIds(left.nodeIds, right.nodeIds)
-    && isSameNodes(left.nodes, right.nodes)
-    && isSameToolbarItems(left.items, right.items)
-  )
-}
+  left: SurfaceToolbarView | undefined,
+  right: SurfaceToolbarView | undefined
+) => isOptionalEqual(left, right, (leftView, rightView) => (
+  leftView.activeMenuKey === rightView.activeMenuKey
+  && leftView.primaryNode === rightView.primaryNode
+  && leftView.primarySchema === rightView.primarySchema
+  && leftView.placement === rightView.placement
+  && leftView.anchor.x === rightView.anchor.x
+  && leftView.anchor.y === rightView.anchor.y
+  && isOrderedArrayEqual(leftView.nodes, rightView.nodes)
+  && isSameToolbarItems(leftView.items, rightView.items)
+))
 
 const isSameContextMenuItems = (
   left: ContextMenuSection['items'],
   right: ContextMenuSection['items']
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((item, index) => (
-      item.key === right[index]?.key
-      && item.label === right[index]?.label
-      && item.disabled === right[index]?.disabled
-      && item.tone === right[index]?.tone
-      && item.run === right[index]?.run
-    ))
-  )
-)
+) => isOrderedArrayEqual(left, right, (item, next) => (
+  item.key === next.key
+  && item.label === next.label
+  && item.disabled === next.disabled
+  && item.tone === next.tone
+  && item.run === next.run
+))
 
 const isSameContextMenuSections = (
   left: readonly ContextMenuSection[],
   right: readonly ContextMenuSection[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((section, index) => (
-      section.key === right[index]?.key
-      && section.title === right[index]?.title
-      && isSameContextMenuItems(section.items, right[index]?.items ?? [])
-    ))
-  )
-)
+) => isOrderedArrayEqual(left, right, (section, next) => (
+  section.key === next.key
+  && section.title === next.title
+  && isSameContextMenuItems(section.items, next.items)
+))
 
 const isSameContextMenuView = (
   left: ContextMenuView | undefined,
   right: ContextMenuView | undefined
-) => {
-  if (left === right) return true
-  if (!left || !right) return false
-
-  return (
-    left.placement.left === right.placement.left
-    && left.placement.top === right.placement.top
-    && left.placement.transform === right.placement.transform
-    && isSameContextMenuSections(left.sections, right.sections)
-  )
-}
+) => isOptionalEqual(left, right, (leftView, rightView) => (
+  leftView.placement.left === rightView.placement.left
+  && leftView.placement.top === rightView.placement.top
+  && leftView.placement.transform === rightView.placement.transform
+  && isSameContextMenuSections(leftView.sections, rightView.sections)
+))
 
 export const isSurfaceViewEqual = (
   left: SurfaceView,
   right: SurfaceView
 ) => (
-  left.toolbar?.menuKey === right.toolbar?.menuKey
-  && isSameToolbarView(left.toolbar?.value, right.toolbar?.value)
+  isSameToolbarView(left.toolbar, right.toolbar)
   && isSameContextMenuView(left.contextMenu, right.contextMenu)
 )
 
@@ -174,45 +131,37 @@ export const createSurfaceView = (
     const { uiStore } = instance
     let selection = uiStore.get(selectionAtom)
     let contextMenu = uiStore.get(contextMenuStateAtom)
-    let unsubscribeSelectionNodes = () => {}
-    let unsubscribeContextTarget = () => {}
+    let unsubscribeSelectionNodes = EMPTY_UNSUBSCRIBE
+    let unsubscribeContextTarget = EMPTY_UNSUBSCRIBE
 
     const subscribeSelectionNodes = (nextSelection: Selection) => {
-      const unsubscribers = nextSelection.nodeIds.map((nodeId) =>
-        instance.read.node.subscribe(nodeId, listener)
-      )
+      const unsubscribeNodes = subscribeNodeIds(instance, nextSelection.nodeIds, listener)
 
-      if (nextSelection.nodeIds.length === 1) {
-        unsubscribers.push(
-          instance.draft.node.subscribe(nextSelection.nodeIds[0], listener)
-        )
+      const nodeId = nextSelection.nodeIds[0]
+      if (nextSelection.nodeIds.length !== 1 || !nodeId) {
+        return unsubscribeNodes
       }
 
-      return () => {
-        unsubscribers.forEach((unsubscribe) => unsubscribe())
-      }
+      return combineUnsubscribers([
+        unsubscribeNodes,
+        instance.draft.node.subscribe(nodeId, listener)
+      ])
     }
 
     const subscribeContextTarget = (state: ContextMenuState) => {
       if (!state.open) {
-        return () => {}
+        return EMPTY_UNSUBSCRIBE
       }
 
       switch (state.target.kind) {
         case 'node':
-          return instance.read.node.subscribe(state.target.nodeId, listener)
-        case 'nodes': {
-          const unsubscribers = state.target.nodeIds.map((nodeId) =>
-            instance.read.node.subscribe(nodeId, listener)
-          )
-          return () => {
-            unsubscribers.forEach((unsubscribe) => unsubscribe())
-          }
-        }
+          return subscribeOptionalNode(instance, state.target.nodeId, listener)
+        case 'nodes':
+          return subscribeNodeIds(instance, state.target.nodeIds, listener)
         case 'edge':
           return instance.read.edge.subscribe(state.target.edgeId, listener)
         case 'canvas':
-          return () => {}
+          return EMPTY_UNSUBSCRIBE
       }
     }
 
@@ -233,17 +182,16 @@ export const createSurfaceView = (
       listener()
     }
 
-    const unsubscribers = [
+    const unsubscribeStatic = combineUnsubscribers([
       instance.viewport.subscribe(listener),
       uiStore.sub(selectionAtom, handleSelectionChange),
       uiStore.sub(nodeToolbarMenuStateAtom, listener),
       uiStore.sub(contextMenuStateAtom, handleContextMenuChange)
-    ]
-
+    ])
     return () => {
       unsubscribeSelectionNodes()
       unsubscribeContextTarget()
-      unsubscribers.forEach((unsubscribe) => unsubscribe())
+      unsubscribeStatic()
     }
   },
   isEqual: isSurfaceViewEqual

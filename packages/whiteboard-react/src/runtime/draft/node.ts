@@ -1,8 +1,7 @@
-import { useMemo, useSyncExternalStore } from 'react'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
+import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
 
-type NodeListener = () => void
 type NodeDraftMap = ReadonlyMap<NodeId, NodeDraft>
 
 export type NodePatch = {
@@ -82,79 +81,20 @@ const toNodeDraftMap = ({
 export const createTransientNode = (
   schedule: () => void
 ) => {
-  let current = EMPTY_NODE_MAP
-  let pending: NodeWriteInput | undefined
-  const listenersById = new Map<NodeId, Set<NodeListener>>()
-
-  const commit = (next: NodeDraftMap) => {
-    const prev = current
-    if (prev === next) return
-
-    current = next
-
-    const changedNodeIds = new Set<NodeId>()
-    prev.forEach((_, nodeId) => {
-      changedNodeIds.add(nodeId)
-    })
-    next.forEach((_, nodeId) => {
-      changedNodeIds.add(nodeId)
-    })
-
-    changedNodeIds.forEach((nodeId) => {
-      const prevDraft = prev.get(nodeId) ?? EMPTY_NODE_DRAFT
-      const nextDraft = next.get(nodeId) ?? EMPTY_NODE_DRAFT
-      if (
-        prevDraft.patch === nextDraft.patch
-        && prevDraft.hovered === nextDraft.hovered
-      ) {
-        return
-      }
-      const listeners = listenersById.get(nodeId)
-      if (!listeners?.size) return
-      listeners.forEach((listener) => {
-        listener()
-      })
-    })
-  }
-
-  const node: TransientNode = {
-    get: (nodeId) => current.get(nodeId) ?? EMPTY_NODE_DRAFT,
-    subscribe: (nodeId, listener) => {
-      let listeners = listenersById.get(nodeId)
-      if (!listeners) {
-        listeners = new Set<NodeListener>()
-        listenersById.set(nodeId, listeners)
-      }
-      listeners.add(listener)
-
-      return () => {
-        const currentListeners = listenersById.get(nodeId)
-        if (!currentListeners) return
-        currentListeners.delete(listener)
-        if (!currentListeners.size) {
-          listenersById.delete(nodeId)
-        }
-      }
-    },
-    write: (next) => {
-      pending = next
-      schedule()
-    },
-    clear: () => {
-      pending = undefined
-      if (current === EMPTY_NODE_MAP) return
-      commit(EMPTY_NODE_MAP)
-    }
-  }
+  const { flush, ...node } = createKeyedDraftStore({
+    schedule,
+    emptyState: EMPTY_NODE_MAP,
+    emptyValue: EMPTY_NODE_DRAFT,
+    build: toNodeDraftMap,
+    isEqual: (left, right) => (
+      left.patch === right.patch
+      && left.hovered === right.hovered
+    )
+  })
 
   return {
     node,
-    flush: () => {
-      if (pending === undefined) return
-      const next = pending
-      pending = undefined
-      commit(toNodeDraftMap(next))
-    }
+    flush
   }
 }
 
@@ -184,6 +124,29 @@ export const applyRotationDraft = (
     : rotation ?? 0
 )
 
+const applyNodePatch = (
+  node: NodeViewItem['node'],
+  patch: NodePatch | undefined
+): NodeViewItem['node'] => {
+  if (!patch) {
+    return node
+  }
+
+  const position = patch.position ?? node.position
+  const size = patch.size ?? node.size
+  const rotation =
+    typeof patch.rotation === 'number'
+      ? patch.rotation
+      : node.rotation
+
+  return {
+    ...node,
+    position,
+    size,
+    rotation
+  }
+}
+
 export const applyNodeDraft = (
   item: NodeViewItem,
   draft: NodeDraft
@@ -192,22 +155,16 @@ export const applyNodeDraft = (
   rect: NodeViewItem['rect']
   hovered: boolean
   hasResizePreview: boolean
-} => ({
-  node: draft.patch
-    ? {
-      ...item.node,
-      position: draft.patch.position ?? item.node.position,
-      size: draft.patch.size ?? item.node.size,
-      rotation:
-        typeof draft.patch.rotation === 'number'
-          ? draft.patch.rotation
-          : item.node.rotation
-    }
-    : item.node,
-  rect: applyRectDraft(item.rect, draft),
-  hovered: draft.hovered,
-  hasResizePreview: Boolean(draft.patch?.size)
-})
+} => {
+  const patch = draft.patch
+
+  return {
+    node: applyNodePatch(item.node, patch),
+    rect: applyRectDraft(item.rect, draft),
+    hovered: draft.hovered,
+    hasResizePreview: Boolean(patch?.size)
+  }
+}
 
 export const applyCanvasDraft = (
   entry: {
@@ -223,25 +180,4 @@ export const applyCanvasDraft = (
 export const useTransientNode = (
   node: NodeReader,
   nodeId: NodeId | undefined
-) => {
-  const subscribe = useMemo(
-    () => (listener: () => void) => {
-      if (!nodeId) return () => {}
-      return node.subscribe(nodeId, listener)
-    },
-    [node, nodeId]
-  )
-  const getSnapshot = useMemo(
-    () => () => {
-      if (!nodeId) return EMPTY_NODE_DRAFT
-      return node.get(nodeId)
-    },
-    [node, nodeId]
-  )
-
-  return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    () => EMPTY_NODE_DRAFT
-  )
-}
+) => useKeyedDraft(node, nodeId, EMPTY_NODE_DRAFT)

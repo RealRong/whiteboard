@@ -1,4 +1,4 @@
-import { atom, type Atom } from 'jotai'
+import { atom } from 'jotai'
 import { atom as vanillaAtom } from 'jotai/vanilla'
 import type { createStore } from 'jotai/vanilla'
 import {
@@ -34,6 +34,10 @@ type SelectionDomain = {
   state: {
     selectedNodeIds: () => readonly NodeId[]
     selectedEdgeId: () => EdgeId | undefined
+    contains: (nodeId: NodeId) => boolean
+    subscribe: (listener: () => void) => () => void
+    subscribeNode: (nodeId: NodeId, listener: () => void) => () => void
+    subscribeEdge: (listener: () => void) => () => void
   }
   commands: WhiteboardSelectionCommands
 }
@@ -81,12 +85,6 @@ const selectionStateAtom = vanillaAtom<StoredSelection>(EMPTY_SELECTION)
 
 export const selectionAtom = atom((get): Selection => get(selectionStateAtom))
 
-export const selectedNodeIdsAtom = atom((get) => get(selectionAtom).nodeIds)
-export const selectedEdgeIdAtom = atom((get) => get(selectionAtom).edgeId)
-
-export const createSelectionContainsAtom = (nodeId: NodeId): Atom<boolean> =>
-  atom((get) => get(selectionStateAtom).nodeIdSet.has(nodeId))
-
 export const createSelectionDomain = ({
   uiStore,
   readAllNodeIds = () => []
@@ -94,9 +92,42 @@ export const createSelectionDomain = ({
   uiStore: SelectionStore
   readAllNodeIds?: () => readonly NodeId[]
 }): SelectionDomain => {
+  const nodeListeners = new Map<NodeId, Set<() => void>>()
+  const edgeListeners = new Set<() => void>()
   const readSelection = () => uiStore.get(selectionStateAtom)
+  const notifyNode = (nodeId: NodeId) => {
+    const listeners = nodeListeners.get(nodeId)
+    if (!listeners) return
+    listeners.forEach((listener) => {
+      listener()
+    })
+  }
+  const notifyEdge = () => {
+    edgeListeners.forEach((listener) => {
+      listener()
+    })
+  }
   const writeSelection = (next: StoredSelection) => {
+    const prev = readSelection()
+    if (prev === next) return
     uiStore.set(selectionStateAtom, next)
+    if (prev.edgeId !== next.edgeId) {
+      notifyEdge()
+    }
+
+    const visited = new Set<NodeId>()
+    prev.nodeIdSet.forEach((nodeId) => {
+      visited.add(nodeId)
+      if (!next.nodeIdSet.has(nodeId)) {
+        notifyNode(nodeId)
+      }
+    })
+    next.nodeIdSet.forEach((nodeId) => {
+      if (visited.has(nodeId)) return
+      if (!prev.nodeIdSet.has(nodeId)) {
+        notifyNode(nodeId)
+      }
+    })
   }
   const select = (
     nodeIds: readonly NodeId[],
@@ -141,7 +172,31 @@ export const createSelectionDomain = ({
   return {
     state: {
       selectedNodeIds: () => readSelection().nodeIds,
-      selectedEdgeId: () => readSelection().edgeId
+      selectedEdgeId: () => readSelection().edgeId,
+      contains: (nodeId) => readSelection().nodeIdSet.has(nodeId),
+      subscribe: (listener) => uiStore.sub(selectionStateAtom, listener),
+      subscribeNode: (nodeId, listener) => {
+        let listeners = nodeListeners.get(nodeId)
+        if (!listeners) {
+          listeners = new Set()
+          nodeListeners.set(nodeId, listeners)
+        }
+        listeners.add(listener)
+        return () => {
+          const current = nodeListeners.get(nodeId)
+          if (!current) return
+          current.delete(listener)
+          if (current.size === 0) {
+            nodeListeners.delete(nodeId)
+          }
+        }
+      },
+      subscribeEdge: (listener) => {
+        edgeListeners.add(listener)
+        return () => {
+          edgeListeners.delete(listener)
+        }
+      }
     },
     commands: {
       select,

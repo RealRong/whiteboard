@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
-import type { NodeDefinition, NodeRenderProps } from '../../types/node'
+import type { NodeDefinition } from '../../types/node'
 import type { InternalWhiteboardInstance } from '../instance/types'
+import { combineUnsubscribers } from './shared'
 import type { KeyedView } from './types'
 import {
   applyNodeDraft,
@@ -14,16 +15,14 @@ import {
 
 export type NodeView = {
   nodeId: NodeId
-  node: NodeRenderProps['node']
-  rect: NodeRenderProps['rect']
+  node: NodeViewItem['node']
+  rect: NodeViewItem['rect']
   hovered: boolean
   rotation: number
   hasResizePreview: boolean
-  shouldAutoMeasure: boolean
   canRotate: boolean
   nodeStyle: CSSProperties
   transformStyle: CSSProperties
-  renderProps: NodeRenderProps
   definition?: NodeDefinition
 }
 
@@ -47,19 +46,17 @@ const resolveNodeViewState = (
   } = applyNodeDraft(item, draft)
   const rotation = typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0
   const definition = instance.registry.get(resolvedNode.type)
-  const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
   const canRotate =
     typeof definition?.canRotate === 'boolean' ? definition.canRotate : resolvedNode.type !== 'group'
-  const renderProps: NodeRenderProps = {
-    read: instance.read,
-    commands: instance.commands,
-    node: resolvedNode,
-    rect,
-    selected,
-    hovered
-  }
   const nodeStyle = definition?.getStyle
-    ? definition.getStyle(renderProps)
+    ? definition.getStyle({
+      read: instance.read,
+      commands: instance.commands,
+      node: resolvedNode,
+      rect,
+      selected,
+      hovered
+    })
     : {}
   const transformStyle = buildNodeTransformStyle(rect, rotation, nodeStyle)
 
@@ -70,11 +67,9 @@ const resolveNodeViewState = (
     hovered,
     rotation,
     hasResizePreview,
-    shouldAutoMeasure,
     canRotate,
     nodeStyle,
     transformStyle,
-    renderProps,
     definition
   }
 }
@@ -93,25 +88,10 @@ export const readNodeView = (
   const item = instance.read.node.get(nodeId)
   if (!item) return undefined
 
-  const view = resolveNodeViewState(instance, nodeId, {
+  return resolveNodeViewState(instance, nodeId, {
     item,
     draft: instance.draft.node.get(nodeId)
   }, selected)
-
-  return {
-    nodeId: view.nodeId,
-    node: view.node,
-    rect: view.rect,
-    hovered: view.hovered,
-    rotation: view.rotation,
-    hasResizePreview: view.hasResizePreview,
-    shouldAutoMeasure: view.shouldAutoMeasure,
-    canRotate: view.canRotate,
-    nodeStyle: view.nodeStyle,
-    transformStyle: view.transformStyle,
-    renderProps: view.renderProps,
-    definition: view.definition
-  }
 }
 
 export const createNodeView = (
@@ -165,14 +145,10 @@ export const createNodeView = (
       const instance = getInstance()
       if (!nodeId) return () => {}
 
-      const unsubscribers = [
+      return combineUnsubscribers([
         instance.read.node.subscribe(nodeId, listener),
         instance.draft.node.subscribe(nodeId, listener)
-      ]
-
-      return () => {
-        unsubscribers.forEach((unsubscribe) => unsubscribe())
-      }
+      ])
     }
   }
 }

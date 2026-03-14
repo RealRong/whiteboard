@@ -1,7 +1,7 @@
 import type { Node, NodeSchema } from '@whiteboard/core/types'
 import type { ReactNode } from 'react'
 import type { InternalWhiteboardInstance } from '../../../runtime/instance'
-import { resolveNodeActions } from '../../../runtime/view/selection'
+import { resolveNodeActions } from '../../../features/node/nodeActions'
 import { setNodesLocked } from '../../../features/node/actions'
 
 export type NodeToolbarItemKey =
@@ -29,7 +29,7 @@ export type NodeToolbarActionContext = {
   close: () => void
 }
 
-export type NodeToolbarItemDefinition = {
+type NodeToolbarItemDefinition = {
   key: NodeToolbarItemKey
   label: string
   icon: ReactNode
@@ -54,6 +54,8 @@ export type NodeToolbarSource = {
 }
 
 type ToolbarCapabilityKey = 'fill' | 'stroke' | 'text' | 'group'
+type ToolbarCapabilities = Record<ToolbarCapabilityKey, boolean>
+type ToolbarMode = 'single' | 'multi'
 
 const SCHEMA_FIELDS_BY_CAPABILITY: Record<
   ToolbarCapabilityKey,
@@ -177,7 +179,7 @@ const hasCapabilitySchemaField = (
 const readToolbarCapabilities = ({
   node,
   schema
-}: NodeToolbarSource): Record<ToolbarCapabilityKey, boolean> => ({
+}: NodeToolbarSource): ToolbarCapabilities => ({
   fill:
     hasCapabilitySchemaField(schema, 'fill')
     || NODE_TYPES_BY_CAPABILITY.fill.has(node.type),
@@ -193,13 +195,62 @@ const readToolbarCapabilities = ({
     || NODE_TYPES_BY_CAPABILITY.group.has(node.type)
 })
 
+const resolveSharedCapabilities = (
+  capabilities: readonly ToolbarCapabilities[]
+): ToolbarCapabilities => ({
+  fill: capabilities.every((capability) => capability.fill),
+  stroke: capabilities.every((capability) => capability.stroke),
+  text: false,
+  group: false
+})
+
+const resolveCapabilityOrder = (
+  mode: ToolbarMode
+): readonly ToolbarCapabilityKey[] => (
+  mode === 'single'
+    ? SINGLE_CAPABILITY_ORDER
+    : MULTI_CAPABILITY_ORDER
+)
+
 const resolveToolbarKeys = (
-  capabilities: Record<ToolbarCapabilityKey, boolean>,
-  capabilityOrder: readonly ToolbarCapabilityKey[]
+  capabilities: ToolbarCapabilities,
+  mode: ToolbarMode
 ): NodeToolbarItemKey[] => [
-  ...capabilityOrder.filter((key) => capabilities[key]),
+  ...resolveCapabilityOrder(mode).filter((key) => capabilities[key]),
   ...STATIC_ITEM_KEYS
 ]
+
+const resolveToolbarItemKeys = (
+  sources: readonly NodeToolbarSource[]
+): NodeToolbarItemKey[] => {
+  const capabilities = sources.map(readToolbarCapabilities)
+  if (!capabilities.length) {
+    return []
+  }
+
+  return resolveToolbarKeys(
+    capabilities.length === 1
+      ? capabilities[0]
+      : resolveSharedCapabilities(capabilities),
+    capabilities.length === 1 ? 'single' : 'multi'
+  )
+}
+
+const buildToolbarItem = (
+  definition: NodeToolbarItemDefinition,
+  actions: ReturnType<typeof resolveNodeActions>
+): NodeToolbarItem => (
+  definition.key === 'lock'
+    ? {
+        ...definition,
+        label: actions.lockLabel,
+        active: actions.allLocked
+      }
+    : {
+        ...definition,
+        active: false
+      }
+)
 
 const SvgIcon = ({
   children,
@@ -258,7 +309,7 @@ const icons = {
   )
 }
 
-const itemDefinitions: Record<NodeToolbarItemKey, NodeToolbarItemDefinition> = {
+const ITEM_DEFINITIONS: Record<NodeToolbarItemKey, NodeToolbarItemDefinition> = {
   fill: {
     key: 'fill',
     label: 'Fill',
@@ -306,22 +357,6 @@ const itemDefinitions: Record<NodeToolbarItemKey, NodeToolbarItemDefinition> = {
   }
 }
 
-const resolveItem = (
-  definition: NodeToolbarItemDefinition,
-  actions: ReturnType<typeof resolveNodeActions>
-): NodeToolbarItem => (
-  definition.key === 'lock'
-    ? {
-        ...definition,
-        label: actions.lockLabel,
-        active: actions.allLocked
-      }
-    : {
-        ...definition,
-        active: false
-      }
-)
-
 export const resolveNodeToolbarItems = ({
   sources,
   nodes
@@ -331,16 +366,8 @@ export const resolveNodeToolbarItems = ({
 }): NodeToolbarItem[] => {
   if (!sources.length || !nodes.length) return []
 
-  const capabilities = sources.map(readToolbarCapabilities)
-  const keys = sources.length === 1
-    ? resolveToolbarKeys(capabilities[0], SINGLE_CAPABILITY_ORDER)
-    : resolveToolbarKeys({
-        fill: capabilities.every((capability) => capability.fill),
-        stroke: capabilities.every((capability) => capability.stroke),
-        text: false,
-        group: false
-      }, MULTI_CAPABILITY_ORDER)
+  const keys = resolveToolbarItemKeys(sources)
   const actions = resolveNodeActions(nodes)
 
-  return keys.map((key) => resolveItem(itemDefinitions[key], actions))
+  return keys.map((key) => buildToolbarItem(ITEM_DEFINITIONS[key], actions))
 }

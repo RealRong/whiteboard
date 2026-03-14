@@ -33,7 +33,7 @@ const readElementEdgeId = (
     ?? undefined
 )
 
-export const resolveContextMenuTarget = (
+const resolveContextMenuTarget = (
   instance: InternalWhiteboardInstance,
   target: ContextMenuTarget
 ): ContextMenuResolvedTarget | undefined => {

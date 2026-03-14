@@ -2,22 +2,14 @@ import { useInternalInstance, useView } from '../hooks'
 import type { EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
 import type { InternalWhiteboardInstance } from '../instance'
+import type { NodeActions } from '../../features/node/nodeActions'
+import { resolveNodeActions } from '../../features/node/nodeActions'
+import {
+  isOrderedArrayEqual,
+  isRectEqual
+} from '../utils/equality'
 
 export type SelectionKind = 'none' | 'node' | 'nodes' | 'edge'
-
-export type NodeActions = {
-  nodeIds: readonly NodeId[]
-  nodeCount: number
-  hasGroup: boolean
-  allLocked: boolean
-  canDelete: boolean
-  canDuplicate: boolean
-  canGroup: boolean
-  canUngroup: boolean
-  canLock: boolean
-  canUnlock: boolean
-  lockLabel: string
-}
 
 export type SelectionState = NodeActions & {
   kind: SelectionKind
@@ -26,11 +18,6 @@ export type SelectionState = NodeActions & {
   nodes: readonly Node[]
   primaryNode?: Node
   rect?: Rect
-  hasNodeSelection: boolean
-  hasEdgeSelection: boolean
-  hasSelection: boolean
-  activeScopeId?: NodeId
-  hasActiveScope: boolean
   canSelectAll: boolean
   canClear: boolean
 }
@@ -39,40 +26,7 @@ const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_NODE_SET = new Set<NodeId>()
 const EMPTY_NODES: readonly Node[] = []
 
-const isSameNodeIds = (
-  left: readonly NodeId[],
-  right: readonly NodeId[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((nodeId, index) => nodeId === right[index])
-  )
-)
-
-const isSameNodes = (
-  left: readonly Node[],
-  right: readonly Node[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((node, index) => node === right[index])
-  )
-)
-
-export const isRectEqual = (
-  left: Rect | undefined,
-  right: Rect | undefined
-) => (
-  left === right
-  || (
-    left?.x === right?.x
-    && left?.y === right?.y
-    && left?.width === right?.width
-    && left?.height === right?.height
-  )
-)
+export { isRectEqual }
 
 const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
   if (!rects.length) return undefined
@@ -113,33 +67,7 @@ const readNodeItems = (
   .map((nodeId) => instance.read.node.get(nodeId))
   .filter((item): item is NodeViewItem => Boolean(item))
 
-export const resolveNodeActions = (
-  nodes: readonly Node[]
-): NodeActions => {
-  const nodeIds = nodes.length > 0 ? nodes.map((node) => node.id) : EMPTY_NODE_IDS
-  const nodeCount = nodeIds.length
-  const hasGroup = nodes.some((node) => node.type === 'group')
-  const allLocked = nodeCount > 0 && nodes.every((node) => Boolean(node.locked))
-  const multiple = nodeCount > 1
-
-  return {
-    nodeIds,
-    nodeCount,
-    hasGroup,
-    allLocked,
-    canDelete: nodeCount > 0,
-    canDuplicate: nodeCount > 0,
-    canGroup: nodeCount >= 2,
-    canUngroup: hasGroup,
-    canLock: nodeCount > 0 && !allLocked,
-    canUnlock: allLocked,
-    lockLabel: allLocked
-      ? (multiple ? 'Unlock selected' : 'Unlock')
-      : (multiple ? 'Lock selected' : 'Lock')
-  }
-}
-
-export const resolveSelectionState = ({
+const resolveSelectionState = ({
   nodeIds,
   nodeIdSet,
   edgeId,
@@ -175,11 +103,6 @@ export const resolveSelectionState = ({
     nodes,
     primaryNode: nodes[0],
     rect,
-    hasNodeSelection,
-    hasEdgeSelection,
-    hasSelection,
-    activeScopeId,
-    hasActiveScope,
     canDelete: hasSelection,
     canDuplicate: hasNodeSelection,
     canSelectAll: true,
@@ -212,11 +135,6 @@ export const isSelectionStateEqual = (
   left.kind === right.kind
   && left.edgeId === right.edgeId
   && left.primaryNode === right.primaryNode
-  && left.activeScopeId === right.activeScopeId
-  && left.hasNodeSelection === right.hasNodeSelection
-  && left.hasEdgeSelection === right.hasEdgeSelection
-  && left.hasSelection === right.hasSelection
-  && left.hasActiveScope === right.hasActiveScope
   && left.canDelete === right.canDelete
   && left.canDuplicate === right.canDuplicate
   && left.canGroup === right.canGroup
@@ -229,7 +147,7 @@ export const isSelectionStateEqual = (
   && left.hasGroup === right.hasGroup
   && left.allLocked === right.allLocked
   && left.lockLabel === right.lockLabel
-  && isSameNodeIds(left.nodeIds, right.nodeIds)
-  && isSameNodes(left.nodes, right.nodes)
+  && isOrderedArrayEqual(left.nodeIds, right.nodeIds)
+  && isOrderedArrayEqual(left.nodes, right.nodes)
   && isRectEqual(left.rect, right.rect)
 )

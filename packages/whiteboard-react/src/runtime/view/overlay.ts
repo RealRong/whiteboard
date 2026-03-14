@@ -1,16 +1,19 @@
 import type { NodeId } from '@whiteboard/core/types'
 import { activeContainerIdAtom } from '../state/container'
-import { contextMenuStateAtom } from '../../ui/chrome/context-menu/domain'
-import { readInteractionView } from './interaction'
 import { readScopeView } from './container'
-import { isRectEqual } from './selection'
-import { selectionAtom } from '../state/selection'
 import { readTransientGuides } from '../draft/guides'
 import { guidesAtom } from '../draft/guides'
-import { nodeToolbarMenuStateAtom } from '../../ui/chrome/toolbar/domain'
-import { toolAtom } from '../instance/toolState'
 import type { InternalWhiteboardInstance } from '../instance/types'
 import { readNodeView } from './node'
+import {
+  isOptionalEqual,
+  isRectEqual
+} from '../utils/equality'
+import {
+  combineUnsubscribers,
+  EMPTY_UNSUBSCRIBE,
+  subscribeOptionalNode
+} from './shared'
 import type {
   OverlayView,
   ValueView
@@ -19,16 +22,13 @@ import type {
 export const readOverlayView = (
   instance: InternalWhiteboardInstance
 ): OverlayView => {
-  const interaction = readInteractionView(instance)
   const scope = readScopeView(instance)
   const activeScopeView = scope.activeId
     ? readNodeView(instance, scope.activeId)
     : undefined
 
   return {
-    selectionBox: interaction.showSelectionBox
-      ? instance.draft.selection.get()
-      : undefined,
+    selectionBox: instance.draft.selection.get(),
     guides: readTransientGuides(instance),
     activeScope:
       scope.activeId && scope.activeTitle && activeScopeView
@@ -37,23 +37,9 @@ export const readOverlayView = (
             title: scope.activeTitle,
             rect: activeScopeView.rect
           }
-        : undefined,
-    nodeHandleNodeIds: interaction.nodeHandleNodeIds,
-    showNodeConnectHandles: interaction.showNodeConnectHandles,
-    showEdgeControls: interaction.showEdgeControls
+        : undefined
   }
 }
-
-const isSameNodeIds = (
-  left: readonly NodeId[],
-  right: readonly NodeId[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((nodeId, index) => nodeId === right[index])
-  )
-)
 
 export const isOverlayViewEqual = (
   left: OverlayView,
@@ -61,12 +47,11 @@ export const isOverlayViewEqual = (
 ) => (
   isRectEqual(left.selectionBox, right.selectionBox)
   && left.guides === right.guides
-  && left.activeScope?.nodeId === right.activeScope?.nodeId
-  && left.activeScope?.title === right.activeScope?.title
-  && isRectEqual(left.activeScope?.rect, right.activeScope?.rect)
-  && isSameNodeIds(left.nodeHandleNodeIds, right.nodeHandleNodeIds)
-  && left.showNodeConnectHandles === right.showNodeConnectHandles
-  && left.showEdgeControls === right.showEdgeControls
+  && isOptionalEqual(left.activeScope, right.activeScope, (leftScope, rightScope) => (
+    leftScope.nodeId === rightScope.nodeId
+    && leftScope.title === rightScope.title
+    && isRectEqual(leftScope.rect, rightScope.rect)
+  ))
 )
 
 export const createOverlayView = (
@@ -77,21 +62,17 @@ export const createOverlayView = (
     const instance = getInstance()
     const { uiStore } = instance
     let activeScopeNodeId = uiStore.get(activeContainerIdAtom)
-    let unsubscribeScopeNode = () => {}
+    let unsubscribeScopeNode = EMPTY_UNSUBSCRIBE
 
     const subscribeScopeNode = (nodeId: NodeId | undefined) => {
       if (!nodeId) {
-        return () => {}
+        return EMPTY_UNSUBSCRIBE
       }
 
-      const unsubscribers = [
-        instance.read.node.subscribe(nodeId, listener),
+      return combineUnsubscribers([
+        subscribeOptionalNode(instance, nodeId, listener),
         instance.draft.node.subscribe(nodeId, listener)
-      ]
-
-      return () => {
-        unsubscribers.forEach((unsubscribe) => unsubscribe())
-      }
+      ])
     }
 
     unsubscribeScopeNode = subscribeScopeNode(activeScopeNodeId)
@@ -106,20 +87,14 @@ export const createOverlayView = (
       listener()
     }
 
-    const unsubscribers = [
-      uiStore.sub(toolAtom, listener),
-      uiStore.sub(selectionAtom, listener),
+    const unsubscribeStatic = combineUnsubscribers([
       uiStore.sub(activeContainerIdAtom, handleScopeChange),
-      uiStore.sub(contextMenuStateAtom, listener),
-      uiStore.sub(nodeToolbarMenuStateAtom, listener),
-      instance.interaction.session.subscribe(listener),
       uiStore.sub(guidesAtom, listener),
       instance.draft.selection.subscribe(listener)
-    ]
-
+    ])
     return () => {
       unsubscribeScopeNode()
-      unsubscribers.forEach((unsubscribe) => unsubscribe())
+      unsubscribeStatic()
     }
   },
   isEqual: isOverlayViewEqual

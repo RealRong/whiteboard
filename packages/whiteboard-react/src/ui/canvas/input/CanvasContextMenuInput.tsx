@@ -2,15 +2,6 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { useInteractionView } from '../../../runtime/view/interaction'
 
-const readPointer = (
-  instance: ReturnType<typeof useInternalInstance>,
-  event: Pick<MouseEvent, 'clientX' | 'clientY'>
-) => {
-  const screen = instance.viewport.clientToScreen(event.clientX, event.clientY)
-  const world = instance.viewport.screenToWorld(screen)
-  return { screen, world }
-}
-
 const isContextMenuIgnored = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest('[data-context-menu-ignore]'))
 
@@ -46,11 +37,11 @@ export const CanvasContextMenuInput = ({
       event: Pick<MouseEvent | PointerEvent, 'clientX' | 'clientY'>,
       targetElement: Element | null
     ) => {
-      const { screen, world } = readPointer(instance, event)
-      const result = instance.view.contextMenuOpenResult({
+      const pointer = instance.viewport.pointer(event)
+      const result = instance.read.contextMenu.openResult({
         targetElement,
-        screen,
-        world
+        screen: pointer.screen,
+        world: pointer.world
       })
       if (!result) return
 

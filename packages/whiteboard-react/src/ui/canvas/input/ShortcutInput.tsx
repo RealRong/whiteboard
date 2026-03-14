@@ -1,8 +1,8 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import type { ShortcutAction, ShortcutOverrides } from '../../../types/common/shortcut'
 import { useInternalInstance } from '../../../runtime/hooks'
-import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from '../../../runtime/interaction/shortcutBindings'
-import { dispatchShortcutAction } from '../../../runtime/interaction/shortcutDispatch'
+import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
+import { dispatchShortcutAction } from './shortcutDispatch'
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 

@@ -131,8 +131,8 @@ export const NodeToolbarSurface = ({
   const closeMenu = useCallback(() => {
     instance.commands.surface.closeToolbarMenu()
   }, [instance])
-  const toolbar = view?.value
-  const activeMenuKey = view?.menuKey ?? null
+  const toolbar = view
+  const activeMenuKey = view?.activeMenuKey ?? null
 
   useEffect(() => {
     closeMenu()
@@ -141,7 +141,7 @@ export const NodeToolbarSurface = ({
     toolbar?.placement,
     toolbar?.anchor.x,
     toolbar?.anchor.y,
-    toolbar?.nodeIds
+    toolbar?.nodes
   ])
 
   useEffect(() => {

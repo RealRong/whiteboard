@@ -6,7 +6,6 @@ export {
   type TransientConnection
 } from './connection'
 export {
-  useTransientGuides,
   type GuidesWriter,
   type TransientGuides
 } from './guides'

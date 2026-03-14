@@ -1,22 +1,21 @@
-import { useMemo } from 'react'
+import { useSyncExternalStore } from 'react'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import { useUiAtomValue } from '../hooks/useUiAtom'
-import {
-  createSelectionContainsAtom,
-  selectionAtom,
-  selectedNodeIdsAtom,
-  selectedEdgeIdAtom
-} from './selection'
-import type { Selection } from './selection'
+import { useInternalInstance } from '../hooks'
 
 export const useSelectionContains = (nodeId: NodeId): boolean => {
-  const targetAtom = useMemo(
-    () => createSelectionContainsAtom(nodeId),
-    [nodeId]
+  const instance = useInternalInstance()
+  return useSyncExternalStore(
+    (listener) => instance.state.selection.subscribeNode(nodeId, listener),
+    () => instance.state.selection.contains(nodeId),
+    () => instance.state.selection.contains(nodeId)
   )
-  return useUiAtomValue(targetAtom)
 }
 
-export const useSelection = (): Selection => useUiAtomValue(selectionAtom)
-export const useSelectedNodeIds = (): readonly NodeId[] => useUiAtomValue(selectedNodeIdsAtom)
-export const useSelectedEdgeId = (): EdgeId | undefined => useUiAtomValue(selectedEdgeIdAtom)
+export const useSelectedEdgeId = (): EdgeId | undefined => {
+  const instance = useInternalInstance()
+  return useSyncExternalStore(
+    instance.state.selection.subscribeEdge,
+    instance.state.selection.getEdgeId,
+    instance.state.selection.getEdgeId
+  )
+}

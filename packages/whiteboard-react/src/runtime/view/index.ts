@@ -1,7 +1,3 @@
-import {
-  readContextMenuOpenResult,
-  resolveContextMenuTarget
-} from '../../ui/chrome/context-menu/view'
 import { activeContainerIdAtom } from '../state/container'
 import { isScopeViewEqual, readScopeView } from './container'
 import { contextMenuStateAtom } from '../../ui/chrome/context-menu/domain'
@@ -15,6 +11,12 @@ import { createEdgeView } from './edge'
 import { createNodeView } from './node'
 import { createOverlayView } from './overlay'
 import { createSurfaceView } from './surface'
+import {
+  combineUnsubscribers,
+  EMPTY_UNSUBSCRIBE,
+  subscribeNodeIds,
+  subscribeOptionalNode
+} from './shared'
 import type { ValueView, WhiteboardView } from './types'
 
 export type {
@@ -28,8 +30,6 @@ export type {
 export type { EdgeView } from './edge'
 export type { NodeView } from './node'
 
-const EMPTY_UNSUBSCRIBE = () => {}
-
 const createSelectionView = (
   getInstance: () => InternalWhiteboardInstance
 ): ValueView<ReturnType<typeof readSelectionState>> => ({
@@ -42,24 +42,11 @@ const createSelectionView = (
     let unsubscribeSelectedNodes = EMPTY_UNSUBSCRIBE
     let unsubscribeActiveContainer = EMPTY_UNSUBSCRIBE
 
-    const subscribeSelectedNodes = () => {
-      if (!selectedNodeIds.length) {
-        return EMPTY_UNSUBSCRIBE
-      }
-      const unsubscribers = selectedNodeIds.map((nodeId) =>
-        instance.read.node.subscribe(nodeId, listener)
-      )
-      return () => {
-        unsubscribers.forEach((unsubscribe) => unsubscribe())
-      }
-    }
+    const subscribeSelectedNodes = () =>
+      subscribeNodeIds(instance, selectedNodeIds, listener)
 
-    const subscribeActiveContainer = () => {
-      if (!activeContainerId) {
-        return EMPTY_UNSUBSCRIBE
-      }
-      return instance.read.node.subscribe(activeContainerId, listener)
-    }
+    const subscribeActiveContainer = () =>
+      subscribeOptionalNode(instance, activeContainerId, listener)
 
     unsubscribeSelectedNodes = subscribeSelectedNodes()
     unsubscribeActiveContainer = subscribeActiveContainer()
@@ -78,15 +65,14 @@ const createSelectionView = (
       listener()
     }
 
-    const unsubscribers = [
+    const unsubscribeStore = combineUnsubscribers([
       uiStore.sub(selectionAtom, handleSelectionChange),
       uiStore.sub(activeContainerIdAtom, handleScopeChange)
-    ]
-
+    ])
     return () => {
       unsubscribeSelectedNodes()
       unsubscribeActiveContainer()
-      unsubscribers.forEach((unsubscribe) => unsubscribe())
+      unsubscribeStore()
     }
   },
   isEqual: isSelectionStateEqual
@@ -102,12 +88,8 @@ const createScopeView = (
     let activeContainerId = uiStore.get(activeContainerIdAtom)
     let unsubscribeActiveContainer = EMPTY_UNSUBSCRIBE
 
-    const subscribeActiveContainer = () => {
-      if (!activeContainerId) {
-        return EMPTY_UNSUBSCRIBE
-      }
-      return instance.read.node.subscribe(activeContainerId, listener)
-    }
+    const subscribeActiveContainer = () =>
+      subscribeOptionalNode(instance, activeContainerId, listener)
 
     unsubscribeActiveContainer = subscribeActiveContainer()
 
@@ -118,10 +100,10 @@ const createScopeView = (
       listener()
     })
 
-    return () => {
-      unsubscribeActiveContainer()
-      unsubscribeScope()
-    }
+    return combineUnsubscribers([
+      unsubscribeActiveContainer,
+      unsubscribeScope
+    ])
   },
   isEqual: isScopeViewEqual
 })
@@ -133,17 +115,13 @@ const createInteractionView = (
   subscribe: (listener) => {
     const instance = getInstance()
     const { uiStore } = instance
-    const unsubscribers = [
+    return combineUnsubscribers([
       uiStore.sub(toolAtom, listener),
       uiStore.sub(selectionAtom, listener),
       uiStore.sub(contextMenuStateAtom, listener),
       uiStore.sub(nodeToolbarMenuStateAtom, listener),
       instance.interaction.session.subscribe(listener)
-    ]
-
-    return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe())
-    }
+    ])
   },
   isEqual: isInteractionViewEqual
 })
@@ -157,12 +135,5 @@ export const createWhiteboardView = (
   overlay: createOverlayView(getInstance),
   surface: createSurfaceView(getInstance),
   node: createNodeView(getInstance),
-  edge: createEdgeView(getInstance),
-  contextMenuTarget: (target) => resolveContextMenuTarget(getInstance(), target),
-  contextMenuOpenResult: ({ targetElement, screen, world }) => readContextMenuOpenResult({
-    instance: getInstance(),
-    targetElement,
-    screen,
-    world
-  })
+  edge: createEdgeView(getInstance)
 })

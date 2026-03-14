@@ -27,8 +27,18 @@ export type WhiteboardViewport = {
   zoomTo: (zoom: number, anchor?: Point) => void
   reset: () => void
   clientToScreen: (clientX: number, clientY: number) => Point
+  pointer: (event: {
+    clientX: number
+    clientY: number
+  }) => ViewportPointer
   screenToWorld: (point: Point) => Point
   worldToScreen: (point: Point) => Point
+}
+
+export type ViewportPointer = {
+  client: Point
+  screen: Point
+  world: Point
 }
 
 export type ViewportCore = {
@@ -78,6 +88,19 @@ export const createViewportCore = ({
       },
       clientToScreen: (clientX, clientY) =>
         clientToScreenPoint(clientX, clientY, rect),
+      pointer: (event) => {
+        const client = {
+          x: event.clientX,
+          y: event.clientY
+        }
+        const screen = clientToScreenPoint(client.x, client.y, rect)
+
+        return {
+          client,
+          screen,
+          world: screenToWorldPoint(screen, store.get(viewportAtom), rect)
+        }
+      },
       screenToWorld: (point) =>
         screenToWorldPoint(point, store.get(viewportAtom), rect),
       worldToScreen: (point) =>

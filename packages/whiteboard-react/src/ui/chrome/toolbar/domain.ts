@@ -1,6 +1,5 @@
 import { atom } from 'jotai'
 import { atom as vanillaAtom } from 'jotai/vanilla'
-import { useUiAtomValue } from '../../../runtime/hooks/useUiAtom'
 import type { InternalWhiteboardInstance } from '../../../runtime/instance'
 import type { NodeToolbarMenuKey } from './model'
 
@@ -57,6 +56,3 @@ export const createNodeToolbarMenuDomain = ({
     }
   }
 })
-
-export const useNodeToolbarMenuState = (): NodeToolbarMenuState =>
-  useUiAtomValue(nodeToolbarMenuStateAtom)

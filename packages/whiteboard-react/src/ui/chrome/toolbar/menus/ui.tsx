@@ -1,22 +1,17 @@
 import type { Node } from '@whiteboard/core/types'
 import type { ReactNode } from 'react'
 import type { NodeToolbarMenuProps } from '../model'
+import { mergeRecordPatch } from '../../../../runtime/utils/recordPatch'
 
 export const mergeStyle = (
   current: Record<string, string | number> | undefined,
   patch: Record<string, string | number>
-) => ({
-  ...(current ?? {}),
-  ...patch
-})
+) => mergeRecordPatch(current, patch)
 
 export const mergeData = (
   current: Record<string, unknown> | undefined,
   patch: Record<string, unknown>
-) => ({
-  ...(current ?? {}),
-  ...patch
-})
+) => mergeRecordPatch(current, patch)
 
 export const updateNodesStyle = (
   instance: NodeToolbarMenuProps['instance'],

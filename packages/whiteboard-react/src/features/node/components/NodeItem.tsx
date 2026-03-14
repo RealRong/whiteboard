@@ -5,6 +5,7 @@ import type {
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeContainerProps, NodeRenderProps } from 'types/node'
+import { useInternalInstance } from '../../../runtime/hooks'
 import { NodeBlock } from './NodeBlock'
 import {
   buildNodeContainerStyle
@@ -35,6 +36,7 @@ export const NodeItem = memo(({
   onNodePointerDown,
   onNodeDoubleClick,
 }: NodeItemProps) => {
+  const instance = useInternalInstance()
   const view = useNodeView(nodeId, { selected })
 
   if (!view) return null
@@ -42,12 +44,13 @@ export const NodeItem = memo(({
   const {
     node: resolvedNode,
     rect,
-    shouldAutoMeasure,
+    hovered,
+    hasResizePreview,
     nodeStyle,
     transformStyle,
-    renderProps: baseRenderProps,
     definition
   } = view
+  const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
   const setMeasuredElement = useCallback((element: HTMLDivElement | null) => {
     registerMeasuredElement(nodeId, element, shouldAutoMeasure)
   }, [nodeId, registerMeasuredElement, shouldAutoMeasure])
@@ -67,7 +70,12 @@ export const NodeItem = memo(({
     }
   }
   const renderProps: NodeRenderProps = {
-    ...baseRenderProps,
+    read: instance.read,
+    commands: instance.commands,
+    node: resolvedNode,
+    rect,
+    selected,
+    hovered,
     containerProps
   }
   const content = definition ? definition.render(renderProps) : resolvedNode.type

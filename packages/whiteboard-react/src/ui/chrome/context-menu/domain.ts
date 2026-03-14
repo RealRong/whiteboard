@@ -1,7 +1,6 @@
 import { atom } from 'jotai'
 import { atom as vanillaAtom } from 'jotai/vanilla'
 import type { Point } from '@whiteboard/core/types'
-import { useUiAtomValue } from '../../../runtime/hooks/useUiAtom'
 import type { InternalWhiteboardInstance } from '../../../runtime/instance'
 import type { Selection } from '../../../runtime/state/selection'
 import type { ContextMenuTarget } from './types'
@@ -76,6 +75,3 @@ export const createContextMenuDomain = ({
     }
   }
 })
-
-export const useContextMenuState = (): ContextMenuState =>
-  useUiAtomValue(contextMenuStateAtom)

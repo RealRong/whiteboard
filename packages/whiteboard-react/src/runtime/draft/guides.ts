@@ -1,6 +1,5 @@
 import { atom } from 'jotai/vanilla'
 import type { Guide } from '@whiteboard/core/node'
-import { useUiAtomValue } from '../hooks/useUiAtom'
 import type { InternalWhiteboardInstance } from '../instance/types'
 
 export const EMPTY_GUIDES: readonly Guide[] = []
@@ -58,6 +57,3 @@ export const createTransientGuides = (
 export const readTransientGuides = (
   instance: Pick<InternalWhiteboardInstance, 'uiStore'>
 ): readonly Guide[] => instance.uiStore.get(guidesAtom)
-
-export const useTransientGuides = (): readonly Guide[] =>
-  useUiAtomValue(guidesAtom)

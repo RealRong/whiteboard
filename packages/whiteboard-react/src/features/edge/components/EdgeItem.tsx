@@ -1,12 +1,12 @@
 import { getEdgePath } from '@whiteboard/core/edge'
-import type { EdgeEntry } from '@whiteboard/engine'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
+import type { EdgeView } from '../../../runtime/view/edge'
 
 type EdgeItemProps = {
-  entry: EdgeEntry
+  entry: EdgeView
   hitTestThresholdScreen: number
   selected?: boolean
   onPathPointerDown?: (event: ReactPointerEvent<SVGPathElement>) => void

@@ -143,8 +143,8 @@ export const buildCanvasSections = (
         const input = preset.input(world)
         closeAfterDispatch(
           instance.commands.node.create(
-            scope.createParentId
-              ? { ...input, parentId: scope.createParentId }
+            scope.activeId
+              ? { ...input, parentId: scope.activeId }
               : input
           ),
           close,

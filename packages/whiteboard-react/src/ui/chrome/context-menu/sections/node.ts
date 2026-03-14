@@ -1,5 +1,5 @@
 import type { Node, NodeId } from '@whiteboard/core/types'
-import { resolveNodeActions, type NodeActions } from '../../../../runtime/view/selection'
+import { resolveNodeActions, type NodeActions } from '../../../../features/node/nodeActions'
 import {
   deleteNodes,
   duplicateNodes,

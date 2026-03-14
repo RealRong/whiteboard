@@ -12,16 +12,17 @@ import type { Selection } from '../state/selection'
 import type { WhiteboardSelectionCommands } from '../state/selection'
 import type { WhiteboardContainerCommands } from '../state/container'
 import type { WhiteboardContainerRead } from '../state/containerRead'
-import type { NodeId } from '@whiteboard/core/types'
+import type { NodeId, Point } from '@whiteboard/core/types'
 import type { WhiteboardViewport } from '../viewport'
 import type { Transient } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
 import type { WhiteboardView } from '../view'
-import type { WhiteboardInteractionRuntime } from '../interaction/types'
+import type { InteractionCoordinator } from '../interaction/types'
 import type { ContextMenuState } from '../../ui/chrome/context-menu/domain'
 import type { NodeToolbarMenuState } from '../../ui/chrome/toolbar/domain'
 import type { ContextMenuOpenPayload } from '../../ui/chrome/context-menu/types'
 import type { NodeToolbarMenuKey } from '../../ui/chrome/toolbar/model'
+import type { ContextMenuOpenResult } from '../../ui/chrome/context-menu/view'
 
 export type WhiteboardRuntimeConfig = {
   tool: EditorTool
@@ -47,6 +48,13 @@ export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'in
 
 export type WhiteboardRead = EngineRead & {
   container: WhiteboardContainerRead
+  contextMenu: {
+    openResult: (args: {
+      targetElement: Element | null
+      screen: Point
+      world: Point
+    }) => ContextMenuOpenResult | undefined
+  }
 }
 
 export type WhiteboardInstance = {
@@ -67,6 +75,10 @@ export type InternalWhiteboardState = {
     get: () => Selection
     getNodeIds: () => readonly NodeId[]
     getEdgeId: () => Selection['edgeId']
+    contains: (nodeId: NodeId) => boolean
+    subscribe: (listener: () => void) => () => void
+    subscribeNode: (nodeId: NodeId, listener: () => void) => () => void
+    subscribeEdge: (listener: () => void) => () => void
   }
   scope: {
     getContainerId: () => NodeId | undefined
@@ -82,6 +94,6 @@ export type InternalWhiteboardInstance = WhiteboardInstance & {
   uiStore: ReturnType<typeof createStore>
   state: InternalWhiteboardState
   draft: Transient
-  interaction: WhiteboardInteractionRuntime
+  interaction: InteractionCoordinator
   registry: NodeRegistry
 }

@@ -1,10 +1,12 @@
-import { useInternalInstance as useInstance } from '../../../runtime/hooks'
 import { EdgeLayer } from './EdgeLayer'
+import { useEdgeRouting } from '../hooks/routing/useEdgeRouting'
 
 export const EdgeSceneLayer = () => {
-  const instance = useInstance()
+  const {
+    handleEdgePathPointerDown
+  } = useEdgeRouting()
 
   return (
-    <EdgeLayer handleEdgePathPointerDown={instance.interaction.edgeRouting.handleEdgePathPointerDown} />
+    <EdgeLayer handleEdgePathPointerDown={handleEdgePathPointerDown} />
   )
 }

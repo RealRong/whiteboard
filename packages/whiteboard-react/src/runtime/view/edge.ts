@@ -2,6 +2,7 @@ import type { EdgeId } from '@whiteboard/core/types'
 import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
 import type { EdgeEntry } from '@whiteboard/engine'
 import type { InternalWhiteboardInstance } from '../instance/types'
+import { combineUnsubscribers } from './shared'
 import type { KeyedView } from './types'
 import {
   applyCanvasDraft,
@@ -10,12 +11,12 @@ import {
   type NodeDraft
 } from '../draft'
 
-const applyNodeDraft = (
+const applyEndpointDrafts = (
   entry: EdgeEntry,
   instance: Pick<InternalWhiteboardInstance, 'read'>,
   sourceDraft: NodeDraft,
   targetDraft: NodeDraft
-) => {
+) : EdgeEntry => {
   if (!sourceDraft.patch && !targetDraft.patch) {
     return entry
   }
@@ -34,13 +35,40 @@ const applyNodeDraft = (
     target
   })
 
+  if (endpoints === entry.endpoints) {
+    return entry
+  }
+
   return {
     ...entry,
     endpoints
   }
 }
 
-export type EdgeView = EdgeEntry
+const resolveEdgeView = (
+  instance: InternalWhiteboardInstance,
+  entry: EdgeEntry,
+  sourceDraft: NodeDraft,
+  targetDraft: NodeDraft,
+  edgeDraft: EdgeDraft
+): EdgeView => {
+  const resolved = applyEdgeDraft(applyEndpointDrafts(
+    entry,
+    instance,
+    sourceDraft,
+    targetDraft
+  ), edgeDraft)
+
+  return {
+    edge: resolved.edge,
+    endpoints: resolved.endpoints
+  }
+}
+
+export type EdgeView = {
+  edge: EdgeEntry['edge']
+  endpoints: EdgeEntry['endpoints']
+}
 
 export const readEdgeView = (
   instance: InternalWhiteboardInstance,
@@ -51,13 +79,11 @@ export const readEdgeView = (
   const entry = instance.read.edge.get(edgeId)
   if (!entry) return undefined
 
-  return applyEdgeDraft(
-    applyNodeDraft(
-      entry,
-      instance,
-      instance.draft.node.get(entry.edge.source.nodeId),
-      instance.draft.node.get(entry.edge.target.nodeId)
-    ),
+  return resolveEdgeView(
+    instance,
+    entry,
+    instance.draft.node.get(entry.edge.source.nodeId),
+    instance.draft.node.get(entry.edge.target.nodeId),
     instance.draft.edge.get(edgeId)
   )
 }
@@ -99,11 +125,13 @@ export const createEdgeView = (
         return cached.view
       }
 
-      const view = readEdgeView(instance, edgeId)
-      if (!view) {
-        cacheByEdgeId.delete(edgeId)
-        return undefined
-      }
+      const view = resolveEdgeView(
+        instance,
+        entry,
+        sourceDraft,
+        targetDraft,
+        edgeDraft
+      )
 
       cacheByEdgeId.set(edgeId, {
         entry,
@@ -123,16 +151,12 @@ export const createEdgeView = (
         return instance.read.edge.subscribe(edgeId, listener)
       }
 
-      const unsubscribers = [
+      return combineUnsubscribers([
         instance.read.edge.subscribe(edgeId, listener),
         instance.draft.edge.subscribe(edgeId, listener),
         instance.draft.node.subscribe(entry.edge.source.nodeId, listener),
         instance.draft.node.subscribe(entry.edge.target.nodeId, listener)
-      ]
-
-      return () => {
-        unsubscribers.forEach((unsubscribe) => unsubscribe())
-      }
+      ])
     }
   }
 }

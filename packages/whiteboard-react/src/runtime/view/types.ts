@@ -1,11 +1,8 @@
 import type { Guide } from '@whiteboard/core/node'
-import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import type {
-  ContextMenuResolvedTarget,
-  ContextMenuTarget,
   ContextMenuView
 } from '../../ui/chrome/context-menu/types'
-import type { ContextMenuOpenResult } from '../../ui/chrome/context-menu/view'
 import type { ScopeView } from './container'
 import type { EdgeView } from './edge'
 import type { InteractionView } from './interaction'
@@ -40,16 +37,15 @@ export type OverlayView = {
     title: string
     rect: Rect
   }
-  nodeHandleNodeIds: readonly NodeId[]
-  showNodeConnectHandles: boolean
-  showEdgeControls: boolean
 }
 
-export type SurfaceView = {
-  toolbar?: {
-    menuKey?: NodeToolbarMenuKey
-    value: NodeToolbarView
+export type SurfaceToolbarView =
+  NodeToolbarView & {
+    activeMenuKey?: NodeToolbarMenuKey
   }
+
+export type SurfaceView = {
+  toolbar?: SurfaceToolbarView
   contextMenu?: ContextMenuView
 }
 
@@ -64,10 +60,4 @@ export type WhiteboardView = {
   }, SurfaceView>
   node: KeyedView<NodeId | undefined, NodeView | undefined, { selected?: boolean }>
   edge: KeyedView<EdgeId | undefined, EdgeView | undefined>
-  contextMenuTarget: (target: ContextMenuTarget) => ContextMenuResolvedTarget | undefined
-  contextMenuOpenResult: (args: {
-    targetElement: Element | null
-    screen: Point
-    world: Point
-  }) => ContextMenuOpenResult | undefined
 }

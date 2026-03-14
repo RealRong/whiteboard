@@ -5,7 +5,8 @@ import {
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useNodeIds } from '../../../runtime/hooks'
-import { useSelection } from '../../../runtime/state/selectionHooks'
+import { useInteractionView } from '../../../runtime/view/interaction'
+import { useSelectionState } from '../../../runtime/view/selection'
 import { useOverlayView } from '../../../ui/canvas/overlay/view'
 import { useNodeOverlayView } from '../hooks/useNodeView'
 import { NodeConnectHandles } from './NodeConnectHandles'
@@ -124,8 +125,9 @@ export const NodeOverlayLayer = ({
   ) => void
 }) => {
   const nodeIds = useNodeIds()
+  const interaction = useInteractionView()
   const overlay = useOverlayView()
-  const selection = useSelection()
+  const selection = useSelectionState()
   const selectedSet = selection.nodeIdSet
 
   return (
@@ -137,14 +139,14 @@ export const NodeOverlayLayer = ({
             title={overlay.activeScope.title}
           />
         ) : null}
-        {overlay.nodeHandleNodeIds.map((nodeId: NodeId) => (
+        {interaction.nodeHandleNodeIds.map((nodeId: NodeId) => (
           <NodeTransformOverlayItem
             key={`transform:${nodeId}`}
             nodeId={nodeId}
             onTransformPointerDown={onTransformPointerDown}
           />
         ))}
-        {overlay.showNodeConnectHandles && nodeIds.map((nodeId) => (
+        {interaction.showNodeConnectHandles && nodeIds.map((nodeId) => (
           <NodeConnectOverlayItem
             key={`connect:${nodeId}`}
             nodeId={nodeId}

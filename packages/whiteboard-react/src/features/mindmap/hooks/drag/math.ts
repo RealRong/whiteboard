@@ -141,6 +141,31 @@ export const resolveSubtreeDragSession = (options: {
   }
 }
 
+const resolveRootDragPosition = (
+  active: RootDragSession,
+  world: Point
+): Point => ({
+  x: active.origin.x + (world.x - active.start.x),
+  y: active.origin.y + (world.y - active.start.y)
+})
+
+const resolveSubtreeDropTarget = (
+  active: SubtreeDragSession,
+  treeView: MindmapViewTree | undefined,
+  ghost: Rect
+) => (
+  treeView
+    ? computeSubtreeDropTarget({
+      tree: treeView.tree,
+      nodeRects: buildNodeRectMap(treeView, active.baseOffset),
+      ghost,
+      dragNodeId: active.nodeId,
+      dragExcludeIds: new Set(active.excludeIds),
+      layoutOptions: treeView.layout.options
+    })
+    : active.drop
+)
+
 export const resolveNextMindmapDragSession = (options: {
   active: MindmapDragSession
   world: Point
@@ -155,24 +180,12 @@ export const resolveNextMindmapDragSession = (options: {
   if (active.kind === 'root') {
     return {
       ...active,
-      position: {
-        x: active.origin.x + (world.x - active.start.x),
-        y: active.origin.y + (world.y - active.start.y)
-      }
+      position: resolveRootDragPosition(active, world)
     }
   }
 
   const ghost = buildGhostRect(world, active.offset, active.rect)
-  const drop = treeView
-    ? computeSubtreeDropTarget({
-      tree: treeView.tree,
-      nodeRects: buildNodeRectMap(treeView, active.baseOffset),
-      ghost,
-      dragNodeId: active.nodeId,
-      dragExcludeIds: new Set(active.excludeIds),
-      layoutOptions: treeView.layout.options
-    })
-    : active.drop
+  const drop = resolveSubtreeDropTarget(active, treeView, ghost)
 
   return {
     ...active,

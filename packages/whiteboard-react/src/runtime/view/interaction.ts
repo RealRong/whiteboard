@@ -4,6 +4,7 @@ import { useInternalInstance, useView } from '../hooks'
 import type { InteractionSession } from '../interaction/types'
 import type { EditorTool } from '../instance/toolState'
 import type { Selection } from '../state/selection'
+import { isOrderedArrayEqual } from '../utils/equality'
 
 export type InteractionMode =
   | 'idle'
@@ -11,12 +12,13 @@ export type InteractionMode =
   | 'toolbar-menu'
   | 'selection-box'
   | 'node-drag'
+  | 'mindmap-drag'
   | 'node-transform'
   | 'edge-connect'
   | 'edge-routing'
 
 export type InteractionView = {
-  showSelectionBox: boolean
+  mode: InteractionMode
   canCanvasSelect: boolean
   canOpenContextMenu: boolean
   canOpenToolbarMenu: boolean
@@ -27,17 +29,6 @@ export type InteractionView = {
 }
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
-
-const isSameNodeIds = (
-  left: readonly NodeId[],
-  right: readonly NodeId[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((nodeId, index) => nodeId === right[index])
-  )
-)
 
 const resolveInteractionMode = ({
   contextMenuOpen,
@@ -53,6 +44,7 @@ const resolveInteractionMode = ({
   if (session.kind === 'edge-routing') return 'edge-routing'
   if (session.kind === 'selection-box') return 'selection-box'
   if (session.kind === 'node-transform') return 'node-transform'
+  if (session.kind === 'mindmap-drag') return 'mindmap-drag'
   if (session.kind === 'node-drag') return 'node-drag'
   if (toolbarMenuOpen) return 'toolbar-menu'
   return 'idle'
@@ -60,6 +52,18 @@ const resolveInteractionMode = ({
 
 const isChromeVisible = (mode: InteractionMode) =>
   mode === 'idle' || mode === 'toolbar-menu'
+
+const canCanvasSelect = (mode: InteractionMode) =>
+  mode === 'idle'
+
+const canOpenContextMenu = (mode: InteractionMode) =>
+  mode === 'idle'
+  || mode === 'toolbar-menu'
+  || mode === 'context-menu'
+
+const canOpenToolbarMenu = (mode: InteractionMode) =>
+  mode === 'idle'
+  || mode === 'toolbar-menu'
 
 const resolveInteractionView = ({
   contextMenuOpen,
@@ -90,15 +94,10 @@ const resolveInteractionView = ({
     && (mode === 'node-transform' || chromeVisible)
 
   return {
-    showSelectionBox: mode === 'selection-box',
-    canCanvasSelect: mode === 'idle',
-    canOpenContextMenu:
-      mode === 'idle'
-      || mode === 'toolbar-menu'
-      || mode === 'context-menu',
-    canOpenToolbarMenu:
-      mode === 'idle'
-      || mode === 'toolbar-menu',
+    mode,
+    canCanvasSelect: canCanvasSelect(mode),
+    canOpenContextMenu: canOpenContextMenu(mode),
+    canOpenToolbarMenu: canOpenToolbarMenu(mode),
     nodeHandleNodeIds: showNodeHandles ? nodeIds : EMPTY_NODE_IDS,
     showNodeConnectHandles: tool === 'edge' && chromeVisible,
     showNodeToolbar:
@@ -130,12 +129,12 @@ export const isInteractionViewEqual = (
   left: InteractionView,
   right: InteractionView
 ) => (
-  left.showSelectionBox === right.showSelectionBox
+  left.mode === right.mode
   && left.canCanvasSelect === right.canCanvasSelect
   && left.canOpenContextMenu === right.canOpenContextMenu
   && left.canOpenToolbarMenu === right.canOpenToolbarMenu
   && left.showNodeConnectHandles === right.showNodeConnectHandles
   && left.showNodeToolbar === right.showNodeToolbar
   && left.showEdgeControls === right.showEdgeControls
-  && isSameNodeIds(left.nodeHandleNodeIds, right.nodeHandleNodeIds)
+  && isOrderedArrayEqual(left.nodeHandleNodeIds, right.nodeHandleNodeIds)
 )

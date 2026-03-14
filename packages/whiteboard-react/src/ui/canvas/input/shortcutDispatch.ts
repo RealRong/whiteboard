@@ -3,12 +3,12 @@ import type {
   NodeId,
   Operation
 } from '@whiteboard/core/types'
-import type { ShortcutAction } from '../../types/common/shortcut'
-import type { InternalWhiteboardInstance } from '../instance'
+import type { ShortcutAction } from '../../../types/common/shortcut'
+import type { InternalWhiteboardInstance } from '../../../runtime/instance'
 import {
   deleteNodes,
   duplicateNodes
-} from '../../features/node/actions'
+} from '../../../features/node/actions'
 
 const readCreatedNodeIds = (
   result: DispatchResult,

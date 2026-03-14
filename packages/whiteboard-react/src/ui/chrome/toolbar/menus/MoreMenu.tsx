@@ -1,5 +1,5 @@
 import type { NodeToolbarMenuProps } from '../model'
-import { resolveNodeActions } from '../../../../runtime/view/selection'
+import { resolveNodeActions } from '../../../../features/node/nodeActions'
 import {
   deleteNodes,
   duplicateNodes

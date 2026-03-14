@@ -14,10 +14,11 @@ import { interactionLock } from '../interaction/interactionLock'
 import type { WhiteboardViewport } from '../viewport'
 import { createTransient } from '../draft'
 import type { NodeRegistry } from '../../types/node'
-import { createWhiteboardInteractionRuntime } from '../interaction'
+import { createInteractionCoordinator } from '../interaction'
 import { createWhiteboardView } from '../view'
 import { createContextMenuDomain } from '../../ui/chrome/context-menu/domain'
 import { createNodeToolbarMenuDomain } from '../../ui/chrome/toolbar/domain'
+import { readContextMenuOpenResult } from '../../ui/chrome/context-menu/view'
 
 export const createWhiteboardInstance = ({
   engine,
@@ -55,7 +56,7 @@ export const createWhiteboardInstance = ({
     }
   })
   const toolbarMenu = createNodeToolbarMenuDomain({ uiStore })
-  const interaction = createWhiteboardInteractionRuntime(() => instance)
+  const interaction = createInteractionCoordinator()
 
   const state: InternalWhiteboardState = {
     tool: {
@@ -71,7 +72,11 @@ export const createWhiteboardInstance = ({
         }
       },
       getNodeIds: selection.state.selectedNodeIds,
-      getEdgeId: selection.state.selectedEdgeId
+      getEdgeId: selection.state.selectedEdgeId,
+      contains: selection.state.contains,
+      subscribe: selection.state.subscribe,
+      subscribeNode: selection.state.subscribeNode,
+      subscribeEdge: selection.state.subscribeEdge
     },
     scope: {
       getContainerId: () => {
@@ -110,7 +115,19 @@ export const createWhiteboardInstance = ({
     container: createContainerRead({
       read: engine.read,
       activeContainerId: state.scope.getContainerId
-    })
+    }),
+    contextMenu: {
+      openResult: ({
+        targetElement,
+        screen,
+        world
+      }: Parameters<InternalWhiteboardInstance['read']['contextMenu']['openResult']>[0]) => readContextMenuOpenResult({
+        instance,
+        targetElement,
+        screen,
+        world
+      })
+    }
   }
   const view = createWhiteboardView(() => instance)
 

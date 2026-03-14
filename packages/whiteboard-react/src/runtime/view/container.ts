@@ -5,11 +5,11 @@ import type {
 } from '@whiteboard/core/types'
 import { useInternalInstance, useView } from '../hooks'
 import type { InternalWhiteboardInstance } from '../instance'
+import { isOrderedArrayEqual } from '../utils/equality'
 
 export type ScopeView = {
   activeId?: NodeId
   activeTitle?: string
-  createParentId?: NodeId
   nodeIds: readonly NodeId[]
   hasNode: (nodeId: NodeId) => boolean
   hasEdge: (edge: EdgeId | Pick<Edge, 'source' | 'target'>) => boolean
@@ -17,18 +17,7 @@ export type ScopeView = {
 
 const EMPTY_SCOPE_NODE_IDS: readonly NodeId[] = []
 
-const isSameNodeIds = (
-  left: readonly NodeId[],
-  right: readonly NodeId[]
-) => (
-  left === right
-  || (
-    left.length === right.length
-    && left.every((nodeId, index) => nodeId === right[index])
-  )
-)
-
-export const resolveScopeTitle = (
+const resolveScopeTitle = (
   node: {
     type: string
     data?: Record<string, unknown>
@@ -52,7 +41,6 @@ export const readScopeView = (
   return {
     activeId,
     activeTitle: activeNode ? resolveScopeTitle(activeNode) : undefined,
-    createParentId: activeId,
     nodeIds: activeId
       ? instance.read.container.nodeIds()
       : EMPTY_SCOPE_NODE_IDS,
@@ -72,6 +60,5 @@ export const isScopeViewEqual = (
 ) => (
   left.activeId === right.activeId
   && left.activeTitle === right.activeTitle
-  && left.createParentId === right.createParentId
-  && isSameNodeIds(left.nodeIds, right.nodeIds)
+  && isOrderedArrayEqual(left.nodeIds, right.nodeIds)
 )

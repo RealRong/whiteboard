@@ -19,6 +19,7 @@ import {
 } from '@whiteboard/core/geometry'
 import type { InstanceConfig } from '@whiteboard/engine'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
+import { mergeObjectPatch } from '../../../../runtime/utils/recordPatch'
 
 export type DragMember = {
   id: NodeId
@@ -120,7 +121,7 @@ const mergePatch = (
 ) => {
   if (!Object.keys(patch).length) return
   const prev = patches.get(id)
-  patches.set(id, prev ? { ...prev, ...patch } : { ...patch })
+  patches.set(id, mergeObjectPatch(prev, patch))
 }
 
 const normalizePatch = (

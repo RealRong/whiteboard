@@ -10,6 +10,7 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import type { Node } from '@whiteboard/core/types'
+import { isOrderedArrayEqual } from '../utils/equality'
 
 export type WhiteboardContainerRead = {
   activeId: () => NodeId | undefined
@@ -35,10 +36,7 @@ const EMPTY_NODES: readonly Node[] = []
 const isSameNodeRefs = (
   left: readonly Node[],
   right: readonly Node[]
-) => (
-  left.length === right.length
-  && left.every((node, index) => node === right[index])
-)
+) => isOrderedArrayEqual(left, right)
 
 const toNodeSet = (
   nodes: readonly Node[],

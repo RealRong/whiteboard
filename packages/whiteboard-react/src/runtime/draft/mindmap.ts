@@ -1,5 +1,5 @@
-import { useMemo, useSyncExternalStore } from 'react'
 import type { MindmapDragView } from '@whiteboard/engine'
+import { createValueDraftStore, useValueDraft } from './shared/valueStore'
 
 export type TransientMindmap = {
   get: () => MindmapDragView | undefined
@@ -16,66 +16,19 @@ export type MindmapWriter =
 
 export const useTransientMindmap = (
   mindmap: MindmapReader
-) => {
-  const subscribe = useMemo(
-    () => mindmap.subscribe,
-    [mindmap]
-  )
-  const getSnapshot = useMemo(
-    () => mindmap.get,
-    [mindmap]
-  )
-
-  return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    () => undefined
-  )
-}
+) => useValueDraft(mindmap, () => undefined)
 
 export const createTransientMindmap = (
   schedule: () => void
 ) => {
-  let current: MindmapDragView | undefined
-  let pending: MindmapDragView | undefined | null = null
-  const listeners = new Set<() => void>()
-
-  const notify = () => {
-    listeners.forEach((listener) => {
-      listener()
-    })
-  }
-
-  const mindmap: TransientMindmap = {
-    get: () => current,
-    subscribe: (listener) => {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
-    },
-    write: (next) => {
-      pending = next
-      schedule()
-    },
-    clear: () => {
-      pending = null
-      if (current === undefined) return
-      current = undefined
-      notify()
-    }
-  }
+  const { flush, ...mindmap } = createValueDraftStore({
+    schedule,
+    initialValue: undefined as MindmapDragView | undefined,
+    isEqual: (left, right) => left === right
+  })
 
   return {
     mindmap,
-    flush: () => {
-      if (pending === null || current === pending) {
-        pending = null
-        return
-      }
-      current = pending ?? undefined
-      pending = null
-      notify()
-    }
+    flush
   }
 }
