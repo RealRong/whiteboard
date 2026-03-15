@@ -1,4 +1,5 @@
 import type { Instance as EngineInstance } from '@whiteboard/engine'
+import type { ValueStore } from '@whiteboard/core/runtime'
 import type { DispatchResult } from '@whiteboard/core/types'
 import type {
   InternalWhiteboardInstance,
@@ -8,7 +9,7 @@ import type {
 import { createContainerDomain } from '../state/container'
 import { createScopeRead } from '../scope/read'
 import { createSelectionDomain } from '../state/selection'
-import { toolAtom } from './toolState'
+import type { EditorTool } from './toolState'
 import { interactionLock } from '../interaction/interactionLock'
 import type { WhiteboardViewport } from '../viewport'
 import { createTransient } from '../draft'
@@ -18,23 +19,24 @@ import { createWhiteboardView } from '../view'
 
 export const createWhiteboardInstance = ({
   engine,
-  uiStore,
+  toolState,
   viewport,
-  registry
+  registry,
+  lockOwner
 }: {
   engine: EngineInstance
-  uiStore: InternalWhiteboardInstance['uiStore']
+  toolState: ValueStore<EditorTool>
   viewport: WhiteboardViewport
   registry: NodeRegistry
+  lockOwner: object
 }): InternalWhiteboardInstance => {
   let instance!: InternalWhiteboardInstance
   const draft = createTransient()
 
   const selection = createSelectionDomain({
-    uiStore,
     readAllNodeIds: () => instance.read.node.ids()
   })
-  const container = createContainerDomain({ uiStore })
+  const container = createContainerDomain()
   const interaction = createInteractionCoordinator()
 
   const resetUiTransientState = () => {
@@ -61,40 +63,53 @@ export const createWhiteboardInstance = ({
     selection: selection.read,
     scope: createScopeRead({
       read: engine.read,
-      activeContainerId: container.read.activeId
+      activeId: container.store
     })
   }
-  const view = createWhiteboardView(() => instance)
+  const commands: WhiteboardCommands = {
+    ...engine.commands,
+    document: {
+      replace: async (doc) =>
+        withUiReset(engine.commands.document.replace(doc))
+    },
+    tool: {
+      set: (nextTool) => {
+        if (toolState.get() === nextTool) return
+        toolState.set(nextTool)
+      }
+    },
+    selection: selection.commands,
+    container: container.commands,
+    edge
+  }
+  const view = createWhiteboardView({
+    tool: toolState,
+    scope: container.store,
+    selection: selection.store,
+    read,
+    commands,
+    draft,
+    registry,
+    interaction
+  })
 
   instance = {
     engine,
-    uiStore,
+    lockOwner,
+    toolState,
+    scopeState: container.store,
+    selectionState: selection.store,
     draft,
     interaction,
     registry,
     config: engine.config,
     read,
     view,
-    commands: {
-      ...engine.commands,
-      document: {
-        replace: async (doc) =>
-          withUiReset(engine.commands.document.replace(doc))
-      },
-      tool: {
-        set: (nextTool) => {
-          if (uiStore.get(toolAtom) === nextTool) return
-          uiStore.set(toolAtom, nextTool)
-        }
-      },
-      selection: selection.commands,
-      container: container.commands,
-      edge
-    },
+    commands,
     viewport,
     configure: (config: WhiteboardRuntimeConfig) => {
-      if (uiStore.get(toolAtom) !== config.tool) {
-        uiStore.set(toolAtom, config.tool)
+      if (toolState.get() !== config.tool) {
+        toolState.set(config.tool)
       }
       engine.configure({
         mindmapLayout: config.mindmapLayout,

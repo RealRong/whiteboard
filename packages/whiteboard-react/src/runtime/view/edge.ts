@@ -1,7 +1,7 @@
-import type { EdgeId } from '@whiteboard/core/types'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
 import type { EdgeEntry } from '@whiteboard/engine'
-import type { InternalWhiteboardInstance } from '../instance/types'
+import type { WhiteboardRead } from '../instance/types'
 import { combineUnsubscribers } from './shared'
 import type { KeyedView } from './types'
 import {
@@ -11,9 +11,23 @@ import {
   type NodeDraft
 } from '../draft'
 
+type EdgeViewContext = {
+  read: WhiteboardRead
+  draft: {
+    edge: {
+      get: (edgeId: EdgeId) => EdgeDraft
+      subscribe: (edgeId: EdgeId, listener: () => void) => () => void
+    }
+    node: {
+      get: (nodeId: NodeId) => NodeDraft
+      subscribe: (nodeId: NodeId, listener: () => void) => () => void
+    }
+  }
+}
+
 const applyEndpointDrafts = (
   entry: EdgeEntry,
-  instance: Pick<InternalWhiteboardInstance, 'read'>,
+  instance: Pick<EdgeViewContext, 'read'>,
   sourceDraft: NodeDraft,
   targetDraft: NodeDraft
 ) : EdgeEntry => {
@@ -46,7 +60,7 @@ const applyEndpointDrafts = (
 }
 
 const resolveEdgeView = (
-  instance: InternalWhiteboardInstance,
+  instance: EdgeViewContext,
   entry: EdgeEntry,
   sourceDraft: NodeDraft,
   targetDraft: NodeDraft,
@@ -71,7 +85,7 @@ export type EdgeView = {
 }
 
 export const readEdgeView = (
-  instance: InternalWhiteboardInstance,
+  instance: EdgeViewContext,
   edgeId: EdgeId | undefined
 ): EdgeView | undefined => {
   if (!edgeId) return undefined
@@ -89,7 +103,7 @@ export const readEdgeView = (
 }
 
 export const createEdgeView = (
-  getInstance: () => InternalWhiteboardInstance
+  instance: EdgeViewContext
 ): KeyedView<EdgeId | undefined, EdgeView | undefined> => {
   const cacheByEdgeId = new Map<EdgeId, {
     entry: EdgeEntry
@@ -101,7 +115,6 @@ export const createEdgeView = (
 
   return {
     get: (edgeId) => {
-      const instance = getInstance()
       if (!edgeId) return undefined
 
       const entry = instance.read.edge.get(edgeId)
@@ -143,7 +156,6 @@ export const createEdgeView = (
       return view
     },
     subscribe: (edgeId, listener) => {
-      const instance = getInstance()
       if (!edgeId) return () => {}
 
       const entry = instance.read.edge.get(edgeId)

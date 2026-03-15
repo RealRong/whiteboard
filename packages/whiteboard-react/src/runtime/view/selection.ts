@@ -1,13 +1,12 @@
 import type { EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
-import type { InternalWhiteboardInstance } from '../instance'
-import { selectionAtom } from '../state/selection'
 import type { NodeActions } from '../../features/node/nodeActions'
 import { resolveNodeActions } from '../../features/node/nodeActions'
 import {
   isOrderedArrayEqual,
   isRectEqual
 } from '../utils/equality'
+import type { StoredSelection } from '../state/selection'
 
 export type SelectionKind = 'none' | 'node' | 'nodes' | 'edge'
 
@@ -61,10 +60,10 @@ const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
 }
 
 const readNodeItems = (
-  instance: InternalWhiteboardInstance,
+  readNode: (nodeId: NodeId) => NodeViewItem | undefined,
   nodeIds: readonly NodeId[]
 ): readonly NodeViewItem[] => nodeIds
-  .map((nodeId) => instance.read.node.get(nodeId))
+  .map((nodeId) => readNode(nodeId))
   .filter((item): item is NodeViewItem => Boolean(item))
 
 const resolveSelectionState = ({
@@ -110,20 +109,6 @@ const resolveSelectionState = ({
   }
 }
 
-export const readSelectionState = (
-  instance: InternalWhiteboardInstance
-): SelectionState => {
-  const selection = instance.uiStore.get(selectionAtom)
-  const nodeIds = instance.read.selection.nodeIds()
-  return resolveSelectionState({
-    nodeIds,
-    nodeIdSet: selection.nodeIdSet,
-    edgeId: instance.read.selection.edgeId(),
-    items: readNodeItems(instance, nodeIds),
-    activeScopeId: instance.read.scope.activeId()
-  })
-}
-
 export const isSelectionStateEqual = (
   left: SelectionState,
   right: SelectionState
@@ -147,3 +132,23 @@ export const isSelectionStateEqual = (
   && isOrderedArrayEqual(left.nodes, right.nodes)
   && isRectEqual(left.rect, right.rect)
 )
+
+export const resolveSelectionView = ({
+  selection,
+  activeScopeId,
+  readNode
+}: {
+  selection: StoredSelection
+  activeScopeId?: NodeId
+  readNode: (nodeId: NodeId) => NodeViewItem | undefined
+}): SelectionState => {
+  const nodeIds = selection.nodeIds
+
+  return resolveSelectionState({
+    nodeIds,
+    nodeIdSet: selection.nodeIdSet,
+    edgeId: selection.edgeId,
+    items: readNodeItems(readNode, nodeIds),
+    activeScopeId
+  })
+}

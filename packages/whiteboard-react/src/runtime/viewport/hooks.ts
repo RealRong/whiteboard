@@ -1,21 +1,11 @@
-import { useMemo, useSyncExternalStore, type CSSProperties } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type { Viewport } from '@whiteboard/core/types'
 import { useInternalInstance } from '../hooks/useInstance'
+import { useStoreValue } from '../hooks/useStoreValue'
 
 const useViewportSnapshot = () => {
   const instance = useInternalInstance()
-
-  const subscribe = useMemo(
-    () => (listener: () => void) => instance.viewport.subscribe(listener),
-    [instance]
-  )
-
-  const getSnapshot = useMemo(
-    () => () => instance.viewport.get(),
-    [instance]
-  )
-
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return useStoreValue(instance.viewport)
 }
 
 export const useViewport = (): Readonly<Viewport> => useViewportSnapshot()

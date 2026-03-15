@@ -1,5 +1,6 @@
 import type { CoreRegistries, Document, Edge, EdgeAnchor, EdgeId, MindmapNodeId, MindmapTree, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { MindmapDragDropTarget, MindmapLayout } from '@whiteboard/core/mindmap'
+import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { Commands } from './command'
 import type { ResolvedHistoryConfig, Size } from './common'
 import type { MindmapLayoutConfig } from './mindmap'
@@ -105,30 +106,23 @@ export type EngineReadIndex = {
   }
 }
 
-export type NodeRead = {
+export type NodeRead = KeyedReadStore<NodeId, Readonly<NodeViewItem> | undefined> & {
   ids: () => readonly NodeId[]
-  get: (nodeId: NodeId) => Readonly<NodeViewItem> | undefined
-  subscribe: (nodeId: NodeId, listener: () => void) => () => void
   subscribeIds: (listener: () => void) => () => void
 }
 
-export type EdgeRead = {
+export type EdgeRead = KeyedReadStore<EdgeId, Readonly<EdgeEntry> | undefined> & {
   ids: () => readonly EdgeId[]
-  get: (edgeId: EdgeId) => Readonly<EdgeEntry> | undefined
-  subscribe: (edgeId: EdgeId, listener: () => void) => () => void
   subscribeIds: (listener: () => void) => () => void
 }
 
-export type MindmapRead = {
+export type MindmapRead = KeyedReadStore<NodeId, Readonly<MindmapViewTree> | undefined> & {
   ids: () => readonly NodeId[]
-  get: (treeId: NodeId) => Readonly<MindmapViewTree> | undefined
-  subscribe: (treeId: NodeId, listener: () => void) => () => void
   subscribeIds: (listener: () => void) => () => void
 }
 
-export type TreeRead = {
+export type TreeRead = KeyedReadStore<NodeId, readonly NodeId[]> & {
   ids: (nodeId: NodeId) => readonly NodeId[]
-  subscribe: (nodeId: NodeId, listener: () => void) => () => void
 }
 
 export type EngineRead = {

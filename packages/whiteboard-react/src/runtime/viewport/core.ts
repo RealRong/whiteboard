@@ -1,5 +1,5 @@
-import type { createStore } from 'jotai/vanilla'
 import { isSameViewport, panViewport, zoomViewport } from '@whiteboard/core/geometry'
+import type { ValueStore } from '@whiteboard/core/runtime'
 import type { Point, Viewport } from '@whiteboard/core/types'
 import {
   clientToScreenPoint,
@@ -12,11 +12,12 @@ import {
   type ViewportLimits,
   worldToScreenPoint
 } from './logic'
-import {
-  DEFAULT_VIEWPORT,
-  viewportAtom
-} from './atoms'
 import type { ContainerRect } from './logic'
+
+export const DEFAULT_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
+}
 
 export type WhiteboardViewport = {
   get: () => Readonly<Viewport>
@@ -48,37 +49,37 @@ export type ViewportCore = {
 }
 
 export const createViewportCore = ({
-  store
+  state
 }: {
-  store: ReturnType<typeof createStore>
+  state: ValueStore<Viewport>
 }): ViewportCore => {
   let rect = EMPTY_CONTAINER_RECT
   let limits = DEFAULT_VIEWPORT_LIMITS
-  const initial = normalizeViewport(copyViewport(store.get(viewportAtom) ?? DEFAULT_VIEWPORT), limits)
+  const initial = normalizeViewport(copyViewport(state.get() ?? DEFAULT_VIEWPORT), limits)
 
   const setViewport = (next: Viewport) => {
     const normalized = normalizeViewport(next, limits)
-    const current = store.get(viewportAtom)
+    const current = state.get()
     if (isSameViewport(current, normalized)) return
-    store.set(viewportAtom, normalized)
+    state.set(normalized)
   }
 
   return {
     viewport: {
-      get: () => store.get(viewportAtom),
-      subscribe: (listener) => store.sub(viewportAtom, listener),
+      get: () => state.get(),
+      subscribe: (listener) => state.subscribe(listener),
       set: setViewport,
       panBy: (delta) => {
         if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) return
-        setViewport(panViewport(store.get(viewportAtom), delta))
+        setViewport(panViewport(state.get(), delta))
       },
       zoomBy: (factor, anchor) => {
         if (!Number.isFinite(factor) || factor <= 0) return
-        setViewport(zoomViewport(store.get(viewportAtom), factor, anchor))
+        setViewport(zoomViewport(state.get(), factor, anchor))
       },
       zoomTo: (zoom, anchor) => {
         if (!Number.isFinite(zoom) || zoom <= 0) return
-        const current = store.get(viewportAtom)
+        const current = state.get()
         const factor = current.zoom === 0 ? zoom : zoom / current.zoom
         if (!Number.isFinite(factor) || factor <= 0) return
         setViewport(zoomViewport(current, factor, anchor))
@@ -98,13 +99,13 @@ export const createViewportCore = ({
         return {
           client,
           screen,
-          world: screenToWorldPoint(screen, store.get(viewportAtom), rect)
+          world: screenToWorldPoint(screen, state.get(), rect)
         }
       },
       screenToWorld: (point) =>
-        screenToWorldPoint(point, store.get(viewportAtom), rect),
+        screenToWorldPoint(point, state.get(), rect),
       worldToScreen: (point) =>
-        worldToScreenPoint(point, store.get(viewportAtom), rect)
+        worldToScreenPoint(point, state.get(), rect)
     },
     setRect: (next) => {
       if (
@@ -126,10 +127,9 @@ export const createViewportCore = ({
         return
       }
       limits = normalized
-      setViewport(store.get(viewportAtom))
+      setViewport(state.get())
     }
   }
 }
 
 export type { ContainerRect } from './logic'
-export { DEFAULT_VIEWPORT } from './atoms'

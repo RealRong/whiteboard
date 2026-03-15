@@ -1,4 +1,3 @@
-import type { createStore } from 'jotai/vanilla'
 import type { InternalWhiteboardInstance } from '../instance/types'
 
 export type InteractionLockKind =
@@ -15,13 +14,12 @@ export type InteractionLockToken = Readonly<{
   pointerId?: number
 }>
 
-type InteractionLockStore = ReturnType<typeof createStore>
-type InteractionLockTarget = InternalWhiteboardInstance | InteractionLockStore
+type InteractionLockTarget = InternalWhiteboardInstance | object
 
 const activeByTarget = new WeakMap<object, InteractionLockToken>()
 
 const resolveTarget = (target: InteractionLockTarget): object =>
-  'uiStore' in target ? target.uiStore : target
+  'lockOwner' in target ? target.lockOwner : target
 
 export const interactionLock = {
   tryAcquire: (

@@ -1,27 +1,8 @@
-import type { ValueView } from '../view'
+import {
+  createValueStore,
+  type ValueStore
+} from '@whiteboard/core/runtime'
 
-type Signal<T> = ValueView<T> & {
-  set: (next: T) => void
-}
+type Signal<T> = ValueStore<T>
 
-export const createSignal = <T,>(initial: T): Signal<T> => {
-  let value = initial
-  const listeners = new Set<() => void>()
-
-  return {
-    get: () => value,
-    subscribe: (listener) => {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
-    },
-    set: (next) => {
-      if (Object.is(value, next)) return
-      value = next
-      listeners.forEach((listener) => {
-        listener()
-      })
-    }
-  }
-}
+export const createSignal = <T,>(initial: T): Signal<T> => createValueStore(initial)

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
 import type { NodeDefinition } from '../../types/node'
-import type { InternalWhiteboardInstance } from '../instance/types'
+import type { WhiteboardCommands, WhiteboardRead } from '../instance/types'
 import { combineUnsubscribers } from './shared'
 import type { KeyedView } from './types'
 import {
@@ -31,8 +31,22 @@ type NodeViewState = {
   draft: NodeDraft
 }
 
+type NodeViewContext = {
+  read: WhiteboardRead
+  commands: WhiteboardCommands
+  registry: {
+    get: (type: string) => NodeDefinition | undefined
+  }
+  draft: {
+    node: {
+      get: (nodeId: NodeId) => NodeDraft
+      subscribe: (nodeId: NodeId, listener: () => void) => () => void
+    }
+  }
+}
+
 const resolveNodeViewState = (
-  instance: Pick<InternalWhiteboardInstance, 'read' | 'commands' | 'registry'>,
+  instance: Pick<NodeViewContext, 'read' | 'commands' | 'registry'>,
   nodeId: NodeId,
   state: NodeViewState,
   selected: boolean
@@ -75,7 +89,7 @@ const resolveNodeViewState = (
 }
 
 export const readNodeView = (
-  instance: InternalWhiteboardInstance,
+  instance: NodeViewContext,
   nodeId: NodeId | undefined,
   {
     selected = false
@@ -95,7 +109,7 @@ export const readNodeView = (
 }
 
 export const createNodeView = (
-  getInstance: () => InternalWhiteboardInstance
+  instance: NodeViewContext
 ): KeyedView<NodeId | undefined, NodeView | undefined, { selected?: boolean }> => {
   const cacheByNodeId = new Map<NodeId, {
     item: NodeViewItem
@@ -106,7 +120,6 @@ export const createNodeView = (
 
   return {
     get: (nodeId, options) => {
-      const instance = getInstance()
       if (!nodeId) return undefined
 
       const item = instance.read.node.get(nodeId)
@@ -142,7 +155,6 @@ export const createNodeView = (
       return view
     },
     subscribe: (nodeId, listener) => {
-      const instance = getInstance()
       if (!nodeId) return () => {}
 
       return combineUnsubscribers([

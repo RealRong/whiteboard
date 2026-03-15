@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { createValueStore } from '@whiteboard/core/runtime'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
@@ -21,12 +22,12 @@ import { useNodeInteractions } from './features/node/hooks/useNodeInteractions'
 import { useNodeSizeObserver } from './features/node/hooks/useNodeSizeObserver'
 import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
 import {
-  createWhiteboardUiStore,
   createWhiteboardInstance,
   type InternalWhiteboardInstance,
   type WhiteboardInstance,
   type WhiteboardRuntimeConfig
 } from './runtime/instance'
+import { createToolState } from './runtime/instance/toolState'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -130,6 +131,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     [config]
   )
   const initialViewportRef = useRef(resolvedConfig.viewport.initial ?? DEFAULT_VIEWPORT)
+  const initialToolRef = useRef(resolvedConfig.tool)
   const viewportPolicy = useMemo(
     () => ({
       panEnabled: resolvedConfig.viewport.enablePan,
@@ -150,12 +152,21 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     () => toEngineInstanceConfig(resolvedConfig),
     [resolvedConfig]
   )
-  const uiStore = useMemo(
-    () => createWhiteboardUiStore({ initialViewport: initialViewportRef.current }),
+  const viewportState = useMemo(
+    () => createValueStore(initialViewportRef.current),
+    []
+  )
+  const toolState = useMemo(
+    () => createToolState(initialToolRef.current),
+    []
+  )
+  const lockOwner = useMemo(
+    () => ({}),
     []
   )
   const viewport = useViewportController({
-    uiStore,
+    viewportState,
+    lockOwner,
     containerRef,
     options: viewportPolicy
   })
@@ -181,9 +192,10 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   if (!instanceRef.current) {
     instanceRef.current = createWhiteboardInstance({
       engine: engineInstance,
-      uiStore,
+      toolState,
       viewport,
-      registry
+      registry,
+      lockOwner
     })
   }
   const instance = instanceRef.current!

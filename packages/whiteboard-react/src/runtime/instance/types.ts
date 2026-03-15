@@ -1,14 +1,16 @@
-import type { createStore } from 'jotai/vanilla'
 import type {
   Commands as EngineCommands,
   EngineRead,
   Instance as EngineInstance,
   InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
+import type { ValueStore } from '@whiteboard/core/runtime'
+import type { NodeId } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
 import type { EditorTool } from './toolState'
 import type {
+  StoredSelection,
   WhiteboardSelectionCommands,
   WhiteboardSelectionRead
 } from '../state/selection'
@@ -52,7 +54,10 @@ export type WhiteboardInstance = {
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {
   engine: EngineInstance
-  uiStore: ReturnType<typeof createStore>
+  lockOwner: object
+  toolState: ValueStore<EditorTool>
+  scopeState: ValueStore<NodeId | undefined>
+  selectionState: ValueStore<StoredSelection>
   draft: Transient
   interaction: InteractionCoordinator
   registry: NodeRegistry

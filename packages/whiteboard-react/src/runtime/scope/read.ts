@@ -8,6 +8,7 @@ import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
+import type { ReadStore } from '@whiteboard/core/runtime'
 
 export type WhiteboardScopeRead = {
   activeId: () => NodeId | undefined
@@ -51,15 +52,15 @@ const resolveEdge = (
 
 export const createScopeRead = ({
   read,
-  activeContainerId
+  activeId
 }: {
   read: EngineRead
-  activeContainerId: () => NodeId | undefined
+  activeId: ReadStore<NodeId | undefined>
 }): WhiteboardScopeRead => {
   const readActiveId = (): NodeId | undefined => {
-    const activeId = activeContainerId()
-    if (!activeId) return undefined
-    return read.index.node.byId(activeId)?.node ? activeId : undefined
+    const current = activeId.get()
+    if (!current) return undefined
+    return read.index.node.byId(current)?.node ? current : undefined
   }
 
   const readNodeIds = (): readonly NodeId[] => {

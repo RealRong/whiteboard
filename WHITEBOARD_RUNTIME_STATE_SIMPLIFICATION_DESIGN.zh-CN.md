@@ -1,5 +1,18 @@
 # Whiteboard Runtime Store 统一模型设计
 
+## 当前状态
+
+本文方案已经完成落地，不再是过渡提案。
+
+当前实现状态如下：
+
+1. `runtime store primitive` 已下沉到 `packages/whiteboard-core/src/runtime/`，并通过 `@whiteboard/core/runtime` 对外导出。
+2. `whiteboard-engine` 的 `NodeRead / EdgeRead / MindmapRead / TreeRead` 已正式对齐 `KeyedReadStore` 协议，而不是仅在语义上“看起来像”。
+3. `whiteboard-react` 已移除 `Jotai`、`uiStore`、`toolAtom`、`selectionAtom`、`viewportAtom`。
+4. `tool / scope / selection / viewport` 均已切换为 source store。
+5. `view.selection / view.scope / view.interaction` 已切换为 `createDerivedStore({ get(read) => ... })` 驱动。
+6. React 侧只保留 `useStoreValue` 这类 React 绑定；store 协议与实现不再停留在 react 包内。
+
 ## 背景
 
 当前 `packages/whiteboard-react` 和 `packages/whiteboard-engine` 在“状态”和“派生”上，实际上存在两套不同的模型。
@@ -741,81 +754,17 @@ uiStore.set('selection', next)
 
 ---
 
-## 推荐迁移顺序
+## 落地结果
 
-建议按以下顺序落地。
+原迁移顺序中的所有阶段都已完成，最终结果如下：
 
-## 阶段 1：定义统一 store 协议
-
-新增：
-
-- `ValueStore<T>`
-- `ReadStore<T>`
-- `KeyedReadStore<K, T>`
-- `createValueStore`
-- `createDerivedStore`
-- `useStoreValue`
-
-此阶段先不大面积替换，只把最小原语定下来。
-
-## 阶段 2：让 engine read projection 正式对齐协议
-
-目标：
-
-- 明确把 engine `read.node / read.edge / read.tree / read.mindmap` 视为 keyed stores
-- 统一对应的类型语义
-
-这一步其实改动不会太大，因为 engine 侧已经很接近目标。
-
-## 阶段 3：迁 viewport
-
-viewport 是最机械的一块，适合先验证 `createValueStore`。
-
-目标：
-
-- 去掉 `viewportAtom`
-- 引入 `viewportState`
-- `createViewportCore` 接 `ValueStore<Viewport>`
-
-## 阶段 4：迁 tool 与 scope
-
-目标：
-
-- 去掉 `toolAtom`
-- 去掉 `activeContainerIdAtom`
-- 引入 `toolState / scopeState`
-
-这两者最简单，适合早迁。
-
-## 阶段 5：迁 selection
-
-目标：
-
-- 去掉 `selectionStateAtom / selectionAtom`
-- 用 `selectionState: ValueStore<StoredSelection>` 承接原始 selection 值
-- 保留 selection domain 的业务逻辑封装
-
-## 阶段 6：view 层正式改为 `createDerivedStore`
-
-重点：
-
-- `view.tool`
-- `view.scope`
-- `view.selection`
-
-原则：
-
-- 不再使用 `readSomething(instance)`
-- 改为 `get(read)` 显式依赖 store
-
-## 阶段 7：删除 `uiStore`
-
-最后再做：
-
-- 删除 `createWhiteboardUiStore.ts`
-- `createWhiteboardInstance()` 不再接收 `uiStore`
-- `Whiteboard.tsx` 不再创建 `uiStore`
-- `interactionLock` 不再以 `uiStore` 作为 identity host
+1. `ValueStore<T>`、`ReadStore<T>`、`KeyedReadStore<K, T>`、`createValueStore`、`createDerivedStore` 已落在 `@whiteboard/core/runtime`。
+2. engine 读层已经正式声明为 core runtime store 协议的一部分，而不是 react 侧的特殊对象。
+3. viewport 已切换到 `viewportState: ValueStore<Viewport>`。
+4. tool 与 scope 已切换到独立 source store。
+5. selection 已切换到 `selectionState: ValueStore<StoredSelection>`。
+6. `view.selection / view.scope / view.interaction` 已改为 `createDerivedStore({ get(read) => ... })`。
+7. `uiStore` 及其相关 atom 已完全删除，`interactionLock` 也已脱离 `uiStore` identity。
 
 ---
 

@@ -43,6 +43,11 @@
       "import": "./dist/kernel/index.js",
       "require": "./dist/kernel/index.cjs"
     },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js",
+      "require": "./dist/runtime/index.cjs"
+    },
     "./perf": {
       "types": "./dist/perf/index.d.ts",
       "import": "./dist/perf/index.js",

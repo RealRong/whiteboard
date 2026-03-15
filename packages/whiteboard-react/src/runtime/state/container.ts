@@ -1,6 +1,8 @@
-import { atom } from 'jotai/vanilla'
-import type { createStore } from 'jotai/vanilla'
 import type { NodeId } from '@whiteboard/core/types'
+import {
+  createValueStore,
+  type ValueStore
+} from '@whiteboard/core/runtime'
 
 export type WhiteboardContainerCommands = {
   enter: (nodeId: NodeId) => void
@@ -9,24 +11,20 @@ export type WhiteboardContainerCommands = {
 }
 
 type ContainerDomain = {
+  store: ValueStore<NodeId | undefined>
   read: {
     activeId: () => NodeId | undefined
   }
   commands: WhiteboardContainerCommands
 }
 
-export const activeContainerIdAtom = atom<NodeId | undefined>(undefined)
-
-export const createContainerDomain = ({
-  uiStore
-}: {
-  uiStore: ReturnType<typeof createStore>
-}): ContainerDomain => {
-  const readActiveContainerId = () => uiStore.get(activeContainerIdAtom)
+export const createContainerDomain = (): ContainerDomain => {
+  const store = createValueStore<NodeId | undefined>(undefined)
+  const readActiveContainerId = () => store.get()
 
   const writeActiveContainerId = (nodeId?: NodeId) => {
     if (readActiveContainerId() === nodeId) return
-    uiStore.set(activeContainerIdAtom, nodeId)
+    store.set(nodeId)
   }
 
   const clear = () => {
@@ -34,6 +32,7 @@ export const createContainerDomain = ({
   }
 
   return {
+    store,
     read: {
       activeId: readActiveContainerId
     },

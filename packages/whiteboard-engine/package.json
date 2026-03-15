@@ -16,8 +16,7 @@
     "dist"
   ],
   "dependencies": {
-    "@whiteboard/core": "workspace:*",
-    "jotai": "^2.7.1"
+    "@whiteboard/core": "workspace:*"
   },
   "scripts": {
     "build": "tsup",

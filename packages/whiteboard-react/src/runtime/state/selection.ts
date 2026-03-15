@@ -1,11 +1,12 @@
-import { atom } from 'jotai'
-import { atom as vanillaAtom } from 'jotai/vanilla'
-import type { createStore } from 'jotai/vanilla'
 import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import {
+  createValueStore,
+  type ValueStore
+} from '@whiteboard/core/runtime'
 
 export type { SelectionMode } from '@whiteboard/core/node'
 
@@ -21,21 +22,14 @@ export type WhiteboardSelectionRead = {
   edgeId: () => EdgeId | undefined
 }
 
-type SelectionStore = ReturnType<typeof createStore>
-
-export type Selection = {
-  nodeIds: readonly NodeId[]
-  nodeIdSet: ReadonlySet<NodeId>
-  edgeId?: EdgeId
-}
-
-type StoredSelection = {
+export type StoredSelection = {
   nodeIds: readonly NodeId[]
   nodeIdSet: Set<NodeId>
   edgeId?: EdgeId
 }
 
 type SelectionDomain = {
+  store: ValueStore<StoredSelection>
   read: WhiteboardSelectionRead
   commands: WhiteboardSelectionCommands
 }
@@ -79,22 +73,16 @@ const createSelectionState = (
   }
 }
 
-const selectionStateAtom = vanillaAtom<StoredSelection>(EMPTY_SELECTION)
-
-export const selectionAtom = atom((get): Selection => get(selectionStateAtom))
-
 export const createSelectionDomain = ({
-  uiStore,
   readAllNodeIds = () => []
 }: {
-  uiStore: SelectionStore
   readAllNodeIds?: () => readonly NodeId[]
 }): SelectionDomain => {
-  const readSelection = () => uiStore.get(selectionStateAtom)
+  const store = createValueStore<StoredSelection>(EMPTY_SELECTION)
+  const readSelection = () => store.get()
   const writeSelection = (next: StoredSelection) => {
-    const prev = readSelection()
-    if (prev === next) return
-    uiStore.set(selectionStateAtom, next)
+    if (readSelection() === next) return
+    store.set(next)
   }
   const select = (
     nodeIds: readonly NodeId[],
@@ -137,6 +125,7 @@ export const createSelectionDomain = ({
   }
 
   return {
+    store,
     read: {
       nodeIds: () => readSelection().nodeIds,
       edgeId: () => readSelection().edgeId

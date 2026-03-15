@@ -94,6 +94,7 @@ export const createRead = ({
         subscribeIds: mindmapProjection.subscribeIds
       },
       tree: {
+        get: treeProjection.get,
         ids: treeProjection.ids,
         subscribe: treeProjection.subscribe
       },

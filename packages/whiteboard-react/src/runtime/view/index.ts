@@ -1,20 +1,31 @@
-import { activeContainerIdAtom } from '../state/container'
-import { isScopeViewEqual, readScopeView } from './scope'
+import {
+  isScopeViewEqual,
+  resolveScopeView,
+  type ScopeView
+} from './scope'
 import { isInteractionViewEqual, readInteractionView } from './interaction'
-import { isSelectionStateEqual, readSelectionState } from './selection'
-import { selectionAtom } from '../state/selection'
-import { toolAtom, type EditorTool } from '../instance/toolState'
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../instance/types'
+import {
+  isSelectionStateEqual,
+  resolveSelectionView,
+  type SelectionState
+} from './selection'
+import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
+import type {
+  WhiteboardCommands,
+  WhiteboardRead
+} from '../instance/types'
+import type { EditorTool } from '../instance/toolState'
 import { createEdgeView } from './edge'
 import { createMindmapView } from './mindmap'
 import { createNodeView } from './node'
+import type { StoredSelection } from '../state/selection'
+import type { Transient } from '../draft/runtime'
+import type { NodeRegistry } from '../../types/node'
+import type { InteractionCoordinator } from '../interaction/types'
 import {
-  combineUnsubscribers,
-  EMPTY_UNSUBSCRIBE,
-  subscribeNodeIds,
-  subscribeOptionalNode
-} from './shared'
+  createDerivedStore,
+  type ValueStore
+} from '@whiteboard/core/runtime'
 import type { ValueView, WhiteboardView } from './types'
 
 export type {
@@ -27,145 +38,144 @@ export type { MindmapViewTree as MindmapView } from '@whiteboard/engine'
 export type { NodeView } from './node'
 export type { EditorTool as ToolView } from '../instance/toolState'
 
-const createToolView = (
-  getInstance: () => InternalWhiteboardInstance
-): ValueView<EditorTool> => ({
-  get: () => getInstance().uiStore.get(toolAtom),
-  subscribe: (listener) => getInstance().uiStore.sub(toolAtom, listener)
-})
+const EMPTY_NODE_IDS: readonly NodeId[] = []
 
 const createNodeIdsView = (
-  getInstance: () => InternalWhiteboardInstance
+  read: WhiteboardRead
 ): ValueView<readonly NodeId[]> => ({
-  get: () => getInstance().read.node.ids(),
-  subscribe: (listener) => getInstance().read.node.subscribeIds(listener)
+  get: () => read.node.ids(),
+  subscribe: (listener) => read.node.subscribeIds(listener)
 })
 
 const createEdgeIdsView = (
-  getInstance: () => InternalWhiteboardInstance
+  read: WhiteboardRead
 ): ValueView<readonly EdgeId[]> => ({
-  get: () => getInstance().read.edge.ids(),
-  subscribe: (listener) => getInstance().read.edge.subscribeIds(listener)
+  get: () => read.edge.ids(),
+  subscribe: (listener) => read.edge.subscribeIds(listener)
 })
 
 const createMindmapIdsView = (
-  getInstance: () => InternalWhiteboardInstance
+  read: WhiteboardRead
 ): ValueView<readonly NodeId[]> => ({
-  get: () => getInstance().read.mindmap.ids(),
-  subscribe: (listener) => getInstance().read.mindmap.subscribeIds(listener)
+  get: () => read.mindmap.ids(),
+  subscribe: (listener) => read.mindmap.subscribeIds(listener)
 })
 
 const createSelectionView = (
-  getInstance: () => InternalWhiteboardInstance
-): ValueView<ReturnType<typeof readSelectionState>> => ({
-  get: () => readSelectionState(getInstance()),
-  subscribe: (listener) => {
-    const instance = getInstance()
-    const { uiStore } = instance
-    let selectedNodeIds = uiStore.get(selectionAtom).nodeIds
-    let activeContainerId = uiStore.get(activeContainerIdAtom)
-    let unsubscribeSelectedNodes = EMPTY_UNSUBSCRIBE
-    let unsubscribeActiveContainer = EMPTY_UNSUBSCRIBE
+  selection: ValueStore<StoredSelection>,
+  scope: ValueStore<NodeId | undefined>,
+  read: WhiteboardRead
+): ValueView<SelectionState> => createDerivedStore({
+  get: (readStore) => {
+    const current = readStore(selection)
+    const scopeId = readStore(scope)
+    const activeScopeId = scopeId && readStore(read.node, scopeId)?.node
+      ? scopeId
+      : undefined
 
-    const subscribeSelectedNodes = () =>
-      subscribeNodeIds(instance, selectedNodeIds, listener)
-
-    const subscribeActiveContainer = () =>
-      subscribeOptionalNode(instance, activeContainerId, listener)
-
-    unsubscribeSelectedNodes = subscribeSelectedNodes()
-    unsubscribeActiveContainer = subscribeActiveContainer()
-
-    const handleSelectionChange = () => {
-      unsubscribeSelectedNodes()
-      selectedNodeIds = uiStore.get(selectionAtom).nodeIds
-      unsubscribeSelectedNodes = subscribeSelectedNodes()
-      listener()
-    }
-
-    const handleScopeChange = () => {
-      unsubscribeActiveContainer()
-      activeContainerId = uiStore.get(activeContainerIdAtom)
-      unsubscribeActiveContainer = subscribeActiveContainer()
-      listener()
-    }
-
-    const unsubscribeStore = combineUnsubscribers([
-      uiStore.sub(selectionAtom, handleSelectionChange),
-      uiStore.sub(activeContainerIdAtom, handleScopeChange)
-    ])
-    return () => {
-      unsubscribeSelectedNodes()
-      unsubscribeActiveContainer()
-      unsubscribeStore()
-    }
+    return resolveSelectionView({
+      selection: current,
+      activeScopeId,
+      readNode: (nodeId) => readStore(read.node, nodeId)
+    })
   },
   isEqual: isSelectionStateEqual
 })
 
 const createScopeView = (
-  getInstance: () => InternalWhiteboardInstance
-): ValueView<ReturnType<typeof readScopeView>> => ({
-  get: () => readScopeView(getInstance()),
-  subscribe: (listener) => {
-    const instance = getInstance()
-    const { uiStore } = instance
-    let activeContainerId = uiStore.get(activeContainerIdAtom)
-    let unsubscribeActiveContainer = EMPTY_UNSUBSCRIBE
-    let unsubscribeTree = EMPTY_UNSUBSCRIBE
-
-    const subscribeActiveContainer = () =>
-      subscribeOptionalNode(instance, activeContainerId, listener)
-
-    const subscribeTree = () => (
-      activeContainerId
-        ? instance.read.tree.subscribe(activeContainerId, listener)
-        : EMPTY_UNSUBSCRIBE
+  scope: ValueStore<NodeId | undefined>,
+  read: WhiteboardRead
+): ValueView<ScopeView> => {
+  return createDerivedStore({
+  get: (readStore) => {
+    const scopeId = readStore(scope)
+    const activeEntry = scopeId
+      ? readStore(read.node, scopeId)
+      : undefined
+    const activeId = activeEntry?.node ? scopeId : undefined
+    const nodeIds = activeId
+      ? readStore(read.tree, activeId)
+      : EMPTY_NODE_IDS
+    const nodeIdSet = activeId
+      ? new Set(nodeIds)
+      : null
+    const hasNode = (nodeId: NodeId) => (
+      nodeIdSet ? nodeIdSet.has(nodeId) : true
     )
+    const hasEdge = (value: EdgeId | Pick<Edge, 'source' | 'target'>) => {
+      const edge = typeof value === 'string'
+        ? read.edge.get(value)?.edge
+        : value
 
-    unsubscribeActiveContainer = subscribeActiveContainer()
-    unsubscribeTree = subscribeTree()
+      if (!edge) {
+        return false
+      }
 
-    const unsubscribeScope = uiStore.sub(activeContainerIdAtom, () => {
-      unsubscribeActiveContainer()
-      unsubscribeTree()
-      activeContainerId = uiStore.get(activeContainerIdAtom)
-      unsubscribeActiveContainer = subscribeActiveContainer()
-      unsubscribeTree = subscribeTree()
-      listener()
+      return hasNode(edge.source.nodeId) && hasNode(edge.target.nodeId)
+    }
+
+    return resolveScopeView({
+      activeId,
+      activeNode: activeEntry?.node,
+      nodeIds,
+      hasNode,
+      hasEdge
     })
-
-    return combineUnsubscribers([
-      unsubscribeTree,
-      unsubscribeActiveContainer,
-      unsubscribeScope
-    ])
   },
   isEqual: isScopeViewEqual
-})
+  })
+}
 
 const createInteractionView = (
-  getInstance: () => InternalWhiteboardInstance
-): ValueView<ReturnType<typeof readInteractionView>> => ({
-  get: () => readInteractionView(getInstance()),
-  subscribe: (listener) => {
-    const instance = getInstance()
-    return instance.interaction.session.subscribe(listener)
-  },
+  interaction: InteractionCoordinator
+): ValueView<ReturnType<typeof readInteractionView>> => createDerivedStore({
+  get: (readStore) => readInteractionView({
+    interaction: {
+      session: {
+        get: () => readStore(interaction.session)
+      }
+    }
+  }),
   isEqual: isInteractionViewEqual
 })
 
 export const createWhiteboardView = (
-  getInstance: () => InternalWhiteboardInstance
+  {
+    tool,
+    scope,
+    selection,
+    read,
+    commands,
+    draft,
+    registry,
+    interaction
+  }: {
+    tool: ValueStore<EditorTool>
+    scope: ValueStore<NodeId | undefined>
+    selection: ValueStore<StoredSelection>
+    read: WhiteboardRead
+    commands: WhiteboardCommands
+    draft: Transient
+    registry: NodeRegistry
+    interaction: InteractionCoordinator
+  }
 ): WhiteboardView => ({
-  tool: createToolView(getInstance),
-  nodeIds: createNodeIdsView(getInstance),
-  edgeIds: createEdgeIdsView(getInstance),
-  mindmapIds: createMindmapIdsView(getInstance),
-  selection: createSelectionView(getInstance),
-  scope: createScopeView(getInstance),
-  interaction: createInteractionView(getInstance),
-  node: createNodeView(getInstance),
-  edge: createEdgeView(getInstance),
-  mindmap: createMindmapView(getInstance)
+  tool,
+  nodeIds: createNodeIdsView(read),
+  edgeIds: createEdgeIdsView(read),
+  mindmapIds: createMindmapIdsView(read),
+  selection: createSelectionView(selection, scope, read),
+  scope: createScopeView(scope, read),
+  interaction: createInteractionView(interaction),
+  node: createNodeView({
+    read,
+    commands,
+    draft,
+    registry
+  }),
+  edge: createEdgeView({
+    read,
+    draft
+  }),
+  mindmap: createMindmapView(read)
 })

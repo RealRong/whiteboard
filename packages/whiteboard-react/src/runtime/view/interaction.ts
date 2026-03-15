@@ -1,4 +1,3 @@
-import type { InternalWhiteboardInstance } from '../instance'
 import type { InteractionSession } from '../interaction/types'
 
 export type InteractionMode =
@@ -41,7 +40,13 @@ const resolveInteractionView = ({
 }
 
 export const readInteractionView = (
-  instance: Pick<InternalWhiteboardInstance, 'interaction'>
+  instance: {
+    interaction: {
+      session: {
+        get: () => InteractionSession
+      }
+    }
+  }
 ): InteractionView => resolveInteractionView({
   session: instance.interaction.session.get()
 })

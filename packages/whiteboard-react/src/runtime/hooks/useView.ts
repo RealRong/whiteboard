@@ -3,36 +3,11 @@ import type {
   KeyedView,
   ValueView
 } from '../view'
+import { useStoreValue } from './useStoreValue'
 
 export const useView = <T,>(
   view: ValueView<T>
-): T => {
-  const snapshotRef = useRef<T | undefined>(undefined)
-
-  const getSnapshot = useMemo(
-    () => () => {
-      const next = view.get()
-      const cached = snapshotRef.current
-
-      if (
-        cached !== undefined
-        && (view.isEqual ? view.isEqual(cached, next) : Object.is(cached, next))
-      ) {
-        return cached
-      }
-
-      snapshotRef.current = next
-      return next
-    },
-    [view]
-  )
-
-  return useSyncExternalStore(
-    view.subscribe,
-    getSnapshot,
-    getSnapshot
-  )
-}
+): T => useStoreValue(view)
 
 export const useKeyedView = <Key, T, Args = undefined>(
   view: KeyedView<Key, T, Args>,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import type { createStore } from 'jotai/vanilla'
+import type { ValueStore } from '@whiteboard/core/runtime'
 import type { Viewport } from '@whiteboard/core/types'
 import { interactionLock, type InteractionLockToken } from '../interaction/interactionLock'
 import { createRafTask } from '../utils/rafTask'
@@ -84,18 +84,20 @@ const normalizeBindingOptions = (
 }
 
 export const useViewportController = ({
-  uiStore,
+  viewportState,
+  lockOwner,
   containerRef,
   options
 }: {
-  uiStore: ReturnType<typeof createStore>
+  viewportState: ValueStore<Viewport>
+  lockOwner: object
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportBindingOptions
 }): WhiteboardViewport => {
   const coreRef = useRef<ViewportCore | null>(null)
   if (!coreRef.current) {
     coreRef.current = createViewportCore({
-      store: uiStore
+      state: viewportState
     })
   }
   const core = coreRef.current
@@ -135,7 +137,7 @@ export const useViewportController = ({
     const clearPan = (pointerId?: number) => {
       if (!pan) {
         if (lockToken) {
-          interactionLock.release(uiStore, lockToken)
+          interactionLock.release(lockOwner, lockToken)
           lockToken = null
         }
         return
@@ -151,7 +153,7 @@ export const useViewportController = ({
       }
       pan = null
       if (lockToken) {
-        interactionLock.release(uiStore, lockToken)
+        interactionLock.release(lockOwner, lockToken)
         lockToken = null
       }
     }
@@ -251,7 +253,7 @@ export const useViewportController = ({
       const leftDrag = (event.button === 0 || (event.buttons & 1) === 1) && spacePressed
       if (!middleDrag && !leftDrag) return
 
-      const nextLock = interactionLock.tryAcquire(uiStore, 'viewportGesture', event.pointerId)
+      const nextLock = interactionLock.tryAcquire(lockOwner, 'viewportGesture', event.pointerId)
       if (!nextLock) return
       lockToken = nextLock
 
@@ -333,7 +335,7 @@ export const useViewportController = ({
       clearWheelFrame()
       spacePressed = false
     }
-  }, [containerRef, core, options, uiStore])
+  }, [containerRef, core, lockOwner, options])
 
   return core.viewport
 }

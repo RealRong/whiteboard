@@ -72,6 +72,7 @@ export const createTreeProjection = (initialSnapshot: ReadSnapshot) => {
   }
 
   return {
+    get: ids,
     ids,
     subscribe,
     applyChange

@@ -1,4 +1,4 @@
-import type { ValueView } from '../view'
+import type { ReadStore } from '@whiteboard/core/runtime'
 
 export type InteractionSession =
   | { kind: 'idle' }
@@ -19,7 +19,7 @@ export type InteractionToken = Readonly<{
 }>
 
 export type InteractionCoordinator = {
-  session: ValueView<InteractionSession>
+  session: ReadStore<InteractionSession>
   tryStart: (
     kind: ActiveInteractionSessionKind,
     cancel: () => void

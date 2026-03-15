@@ -3,7 +3,6 @@ import type {
   EdgeId,
   NodeId
 } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../instance'
 import { isOrderedArrayEqual } from '../utils/equality'
 
 export type ScopeView = {
@@ -27,20 +26,28 @@ const resolveScopeTitle = (
   return node.type === 'group' ? 'Group' : node.type
 }
 
-export const readScopeView = (
-  instance: InternalWhiteboardInstance
-): ScopeView => {
-  const activeId = instance.read.scope.activeId()
-  const activeNode = activeId
-    ? instance.read.node.get(activeId)?.node
-    : undefined
-
+export const resolveScopeView = ({
+  activeId,
+  activeNode,
+  nodeIds,
+  hasNode,
+  hasEdge
+}: {
+  activeId?: NodeId
+  activeNode?: {
+    type: string
+    data?: Record<string, unknown>
+  }
+  nodeIds: readonly NodeId[]
+  hasNode: (nodeId: NodeId) => boolean
+  hasEdge: (edge: EdgeId | Pick<Edge, 'source' | 'target'>) => boolean
+}): ScopeView => {
   return {
     activeId,
     activeTitle: activeNode ? resolveScopeTitle(activeNode) : undefined,
-    nodeIds: instance.read.scope.nodeIds(),
-    hasNode: (nodeId) => instance.read.scope.hasNode(nodeId),
-    hasEdge: (edge) => instance.read.scope.hasEdge(edge)
+    nodeIds,
+    hasNode,
+    hasEdge
   }
 }
 
