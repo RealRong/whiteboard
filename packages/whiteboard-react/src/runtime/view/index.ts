@@ -1,16 +1,13 @@
 import { activeContainerIdAtom } from '../state/container'
 import { isScopeViewEqual, readScopeView } from './container'
-import { contextMenuStateAtom } from '../../ui/chrome/context-menu/domain'
 import { isInteractionViewEqual, readInteractionView } from './interaction'
 import { isSelectionStateEqual, readSelectionState } from './selection'
 import { selectionAtom } from '../state/selection'
-import { nodeToolbarMenuStateAtom } from '../../ui/chrome/toolbar/domain'
 import { toolAtom } from '../instance/toolState'
 import type { InternalWhiteboardInstance } from '../instance/types'
 import { createEdgeView } from './edge'
 import { createNodeView } from './node'
-import { createOverlayView } from './overlay'
-import { createSurfaceView } from './surface'
+import { readToolView } from './tool'
 import {
   combineUnsubscribers,
   EMPTY_UNSUBSCRIBE,
@@ -21,14 +18,19 @@ import type { ValueView, WhiteboardView } from './types'
 
 export type {
   KeyedView,
-  ParameterizedView,
-  OverlayView,
-  SurfaceView,
   ValueView,
   WhiteboardView
 } from './types'
 export type { EdgeView } from './edge'
 export type { NodeView } from './node'
+export type { EditorTool as ToolView } from '../instance/toolState'
+
+const createToolView = (
+  getInstance: () => InternalWhiteboardInstance
+): ValueView<ReturnType<typeof readToolView>> => ({
+  get: () => readToolView(getInstance()),
+  subscribe: (listener) => getInstance().uiStore.sub(toolAtom, listener)
+})
 
 const createSelectionView = (
   getInstance: () => InternalWhiteboardInstance
@@ -114,14 +116,7 @@ const createInteractionView = (
   get: () => readInteractionView(getInstance()),
   subscribe: (listener) => {
     const instance = getInstance()
-    const { uiStore } = instance
-    return combineUnsubscribers([
-      uiStore.sub(toolAtom, listener),
-      uiStore.sub(selectionAtom, listener),
-      uiStore.sub(contextMenuStateAtom, listener),
-      uiStore.sub(nodeToolbarMenuStateAtom, listener),
-      instance.interaction.session.subscribe(listener)
-    ])
+    return instance.interaction.session.subscribe(listener)
   },
   isEqual: isInteractionViewEqual
 })
@@ -129,11 +124,10 @@ const createInteractionView = (
 export const createWhiteboardView = (
   getInstance: () => InternalWhiteboardInstance
 ): WhiteboardView => ({
+  tool: createToolView(getInstance),
   selection: createSelectionView(getInstance),
   scope: createScopeView(getInstance),
   interaction: createInteractionView(getInstance),
-  overlay: createOverlayView(getInstance),
-  surface: createSurfaceView(getInstance),
   node: createNodeView(getInstance),
   edge: createEdgeView(getInstance)
 })

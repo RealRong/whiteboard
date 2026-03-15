@@ -5,8 +5,7 @@ export { useMindmap, useMindmapIds } from './useMindmap'
 export {
   useKeyedView,
   useKeyedViewArgs,
-  useView,
-  useViewArgs
+  useView
 } from './useView'
 export { useTool } from './useTool'
 export { useViewport, useViewportTransformStyle, useViewportZoom } from '../viewport'

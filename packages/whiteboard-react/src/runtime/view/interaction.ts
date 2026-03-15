@@ -1,15 +1,9 @@
-import type { NodeId } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../instance'
 import { useInternalInstance, useView } from '../hooks'
 import type { InteractionSession } from '../interaction/types'
-import type { EditorTool } from '../instance/toolState'
-import type { Selection } from '../state/selection'
-import { isOrderedArrayEqual } from '../utils/equality'
 
 export type InteractionMode =
   | 'idle'
-  | 'context-menu'
-  | 'toolbar-menu'
   | 'selection-box'
   | 'node-drag'
   | 'mindmap-drag'
@@ -19,93 +13,31 @@ export type InteractionMode =
 
 export type InteractionView = {
   mode: InteractionMode
-  canCanvasSelect: boolean
-  canOpenContextMenu: boolean
-  canOpenToolbarMenu: boolean
-  nodeHandleNodeIds: readonly NodeId[]
-  showNodeConnectHandles: boolean
-  showNodeToolbar: boolean
-  showEdgeControls: boolean
 }
 
-const EMPTY_NODE_IDS: readonly NodeId[] = []
-
 const resolveInteractionMode = ({
-  contextMenuOpen,
-  toolbarMenuOpen,
   session
 }: {
-  contextMenuOpen: boolean
-  toolbarMenuOpen: boolean
   session: InteractionSession
 }): InteractionMode => {
-  if (contextMenuOpen) return 'context-menu'
   if (session.kind === 'edge-connect') return 'edge-connect'
   if (session.kind === 'edge-routing') return 'edge-routing'
   if (session.kind === 'selection-box') return 'selection-box'
   if (session.kind === 'node-transform') return 'node-transform'
   if (session.kind === 'mindmap-drag') return 'mindmap-drag'
   if (session.kind === 'node-drag') return 'node-drag'
-  if (toolbarMenuOpen) return 'toolbar-menu'
   return 'idle'
 }
 
-const isChromeVisible = (mode: InteractionMode) =>
-  mode === 'idle' || mode === 'toolbar-menu'
-
-const canCanvasSelect = (mode: InteractionMode) =>
-  mode === 'idle'
-
-const canOpenContextMenu = (mode: InteractionMode) =>
-  mode === 'idle'
-  || mode === 'toolbar-menu'
-  || mode === 'context-menu'
-
-const canOpenToolbarMenu = (mode: InteractionMode) =>
-  mode === 'idle'
-  || mode === 'toolbar-menu'
-
 const resolveInteractionView = ({
-  contextMenuOpen,
-  toolbarMenuOpen,
-  tool,
-  nodeIds,
-  edgeId,
   session
 }: {
-  contextMenuOpen: boolean
-  toolbarMenuOpen: boolean
-  tool: EditorTool
-  nodeIds: readonly NodeId[]
-  edgeId: Selection['edgeId']
   session: InteractionSession
 }): InteractionView => {
-  const hasNodeSelection = nodeIds.length > 0
-  const hasEdgeSelection = edgeId !== undefined
-  const mode = resolveInteractionMode({
-    contextMenuOpen,
-    toolbarMenuOpen,
-    session
-  })
-  const chromeVisible = isChromeVisible(mode)
-  const showNodeHandles =
-    tool === 'select'
-    && !hasEdgeSelection
-    && (mode === 'node-transform' || chromeVisible)
+  const mode = resolveInteractionMode({ session })
 
   return {
-    mode,
-    canCanvasSelect: canCanvasSelect(mode),
-    canOpenContextMenu: canOpenContextMenu(mode),
-    canOpenToolbarMenu: canOpenToolbarMenu(mode),
-    nodeHandleNodeIds: showNodeHandles ? nodeIds : EMPTY_NODE_IDS,
-    showNodeConnectHandles: tool === 'edge' && chromeVisible,
-    showNodeToolbar:
-      tool === 'select'
-      && chromeVisible
-      && !hasEdgeSelection
-      && hasNodeSelection,
-    showEdgeControls: chromeVisible && hasEdgeSelection
+    mode
   }
 }
 
@@ -115,13 +47,8 @@ export const useInteractionView = (): InteractionView => {
 }
 
 export const readInteractionView = (
-  instance: Pick<InternalWhiteboardInstance, 'state' | 'interaction'>
+  instance: Pick<InternalWhiteboardInstance, 'interaction'>
 ): InteractionView => resolveInteractionView({
-  contextMenuOpen: instance.state.surface.getContextMenu().open,
-  toolbarMenuOpen: instance.state.surface.getToolbarMenu().open,
-  tool: instance.state.tool.get(),
-  nodeIds: instance.state.selection.getNodeIds(),
-  edgeId: instance.state.selection.getEdgeId(),
   session: instance.interaction.session.get()
 })
 
@@ -130,11 +57,4 @@ export const isInteractionViewEqual = (
   right: InteractionView
 ) => (
   left.mode === right.mode
-  && left.canCanvasSelect === right.canCanvasSelect
-  && left.canOpenContextMenu === right.canOpenContextMenu
-  && left.canOpenToolbarMenu === right.canOpenToolbarMenu
-  && left.showNodeConnectHandles === right.showNodeConnectHandles
-  && left.showNodeToolbar === right.showNodeToolbar
-  && left.showEdgeControls === right.showEdgeControls
-  && isOrderedArrayEqual(left.nodeHandleNodeIds, right.nodeHandleNodeIds)
 )

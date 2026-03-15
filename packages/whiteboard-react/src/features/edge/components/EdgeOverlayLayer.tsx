@@ -11,10 +11,13 @@ export const EdgeOverlayLayer = () => {
     handleRoutingPointerDown,
     handleRoutingKeyDown
   } = useEdgeRouting()
+  const showEdgeControls =
+    selectedEdgeView !== undefined
+    && interaction.mode === 'idle'
 
   return (
     <>
-      {interaction.showEdgeControls && selectedEdgeView ? (
+      {showEdgeControls && selectedEdgeView ? (
         <EdgeSelectedControls
           view={selectedEdgeView}
           onRoutingPointerDown={handleRoutingPointerDown}

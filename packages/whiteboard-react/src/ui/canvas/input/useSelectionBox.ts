@@ -206,8 +206,8 @@ export const useSelectionBox = ({
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (pointerRef.current.get() !== null) return
-      if (!instance.view.interaction.get().canCanvasSelect) return
-      if (instance.state.tool.get() === 'edge') return
+      if (instance.view.interaction.get().mode !== 'idle') return
+      if (instance.view.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)
       let activeContainerId = instance.read.container.activeId()

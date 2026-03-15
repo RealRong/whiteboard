@@ -1,16 +1,19 @@
 import type { RefObject } from 'react'
 import type { ShortcutOverrides } from '../../../types/common/shortcut'
+import type { ContextMenuOpenResult } from '../../context-menu/model'
 import { ShortcutInput } from './ShortcutInput'
-import { CanvasContextMenuInput } from './CanvasContextMenuInput'
+import { ContextMenuInput } from './ContextMenuInput'
 import { useEdgeConnect } from '../../../features/edge/hooks/connect/useEdgeConnect'
 import { useSelectionBox } from './useSelectionBox'
 
 export const InputFeature = ({
   containerRef,
-  shortcuts
+  shortcuts,
+  onOpenContextMenu
 }: {
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
+  onOpenContextMenu: (result: ContextMenuOpenResult) => void
 }) => {
   useSelectionBox({
     containerRef
@@ -25,7 +28,10 @@ export const InputFeature = ({
         containerRef={containerRef}
         shortcuts={shortcuts}
       />
-      <CanvasContextMenuInput containerRef={containerRef} />
+      <ContextMenuInput
+        containerRef={containerRef}
+        onOpenContextMenu={onOpenContextMenu}
+      />
     </>
   )
 }

@@ -77,7 +77,7 @@ export const createNodeDragSession = (
     ) => {
       if (event.button !== 0) return
       if (active) return
-      if (instance.state.tool.get() !== 'select') return
+      if (instance.view.tool.get() !== 'select') return
 
       const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect) return
@@ -183,7 +183,7 @@ export const createNodeDragSession = (
           y: event.clientY
         },
         zoom: instance.viewport.get().zoom,
-        snapEnabled: instance.state.tool.get() === 'select',
+        snapEnabled: instance.view.tool.get() === 'select',
         allowCross: event.altKey,
         nodes: readCanvasNodes(),
         config: instance.config,

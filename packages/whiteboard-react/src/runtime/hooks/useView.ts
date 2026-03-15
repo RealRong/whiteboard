@@ -1,7 +1,6 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react'
 import type {
   KeyedView,
-  ParameterizedView,
   ValueView
 } from '../view'
 
@@ -26,37 +25,6 @@ export const useView = <T,>(
       return next
     },
     [view]
-  )
-
-  return useSyncExternalStore(
-    view.subscribe,
-    getSnapshot,
-    getSnapshot
-  )
-}
-
-export const useViewArgs = <Args, T>(
-  view: ParameterizedView<Args, T>,
-  args: Args
-): T => {
-  const snapshotRef = useRef<T | undefined>(undefined)
-
-  const getSnapshot = useMemo(
-    () => () => {
-      const next = view.get(args)
-      const cached = snapshotRef.current
-
-      if (
-        cached !== undefined
-        && (view.isEqual ? view.isEqual(cached, next) : Object.is(cached, next))
-      ) {
-        return cached
-      }
-
-      snapshotRef.current = next
-      return next
-    },
-    [args, view]
   )
 
   return useSyncExternalStore(

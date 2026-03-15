@@ -1,17 +1,19 @@
-import { useOverlayView } from './view'
+import { useInternalInstance } from '../../../runtime/hooks'
+import { useTransientSelection } from '../../../runtime/draft'
 
 export const SelectionBoxOverlay = () => {
-  const overlay = useOverlayView()
+  const instance = useInternalInstance()
+  const selectionBox = useTransientSelection(instance.draft.selection)
 
-  if (!overlay.selectionBox) return null
+  if (!selectionBox) return null
 
   return (
     <div
       className="wb-selection-layer"
       style={{
-        transform: `translate(${overlay.selectionBox.x}px, ${overlay.selectionBox.y}px)`,
-        width: overlay.selectionBox.width,
-        height: overlay.selectionBox.height
+        transform: `translate(${selectionBox.x}px, ${selectionBox.y}px)`,
+        width: selectionBox.width,
+        height: selectionBox.height
       }}
     />
   )

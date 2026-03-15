@@ -16,9 +16,6 @@ import { createTransient } from '../draft'
 import type { NodeRegistry } from '../../types/node'
 import { createInteractionCoordinator } from '../interaction'
 import { createWhiteboardView } from '../view'
-import { createContextMenuDomain } from '../../ui/chrome/context-menu/domain'
-import { createNodeToolbarMenuDomain } from '../../ui/chrome/toolbar/domain'
-import { readContextMenuOpenResult } from '../../ui/chrome/context-menu/view'
 
 export const createWhiteboardInstance = ({
   engine,
@@ -32,7 +29,7 @@ export const createWhiteboardInstance = ({
   registry: NodeRegistry
 }): InternalWhiteboardInstance => {
   let instance!: InternalWhiteboardInstance
-  const draft = createTransient(uiStore)
+  const draft = createTransient()
 
   const selection = createSelectionDomain({
     uiStore,
@@ -40,28 +37,9 @@ export const createWhiteboardInstance = ({
   })
   const container = createContainerDomain({ uiStore })
   const tool = createToolDomain({ uiStore })
-  const contextMenu = createContextMenuDomain({
-    uiStore,
-    readSelection: () => instance.view.selection.get(),
-    restoreSelection: (value) => {
-      if (value.edgeId !== undefined) {
-        instance.commands.selection.selectEdge(value.edgeId)
-        return
-      }
-      if (value.nodeIds.length > 0) {
-        instance.commands.selection.select(value.nodeIds, 'replace')
-        return
-      }
-      instance.commands.selection.clear()
-    }
-  })
-  const toolbarMenu = createNodeToolbarMenuDomain({ uiStore })
   const interaction = createInteractionCoordinator()
 
   const state: InternalWhiteboardState = {
-    tool: {
-      get: tool.state
-    },
     selection: {
       get: () => {
         const nodeIds = selection.state.selectedNodeIds()
@@ -84,10 +62,6 @@ export const createWhiteboardInstance = ({
         if (!containerId) return undefined
         return instance.read.index.node.byId(containerId)?.node ? containerId : undefined
       }
-    },
-    surface: {
-      getContextMenu: contextMenu.state.get,
-      getToolbarMenu: toolbarMenu.state.get
     }
   }
 
@@ -115,19 +89,7 @@ export const createWhiteboardInstance = ({
     container: createContainerRead({
       read: engine.read,
       activeContainerId: state.scope.getContainerId
-    }),
-    contextMenu: {
-      openResult: ({
-        targetElement,
-        screen,
-        world
-      }: Parameters<InternalWhiteboardInstance['read']['contextMenu']['openResult']>[0]) => readContextMenuOpenResult({
-        instance,
-        targetElement,
-        screen,
-        world
-      })
-    }
+    })
   }
   const view = createWhiteboardView(() => instance)
 
@@ -150,19 +112,6 @@ export const createWhiteboardInstance = ({
       tool: tool.commands,
       selection: selection.commands,
       container: container.commands,
-      surface: {
-        openContextMenu: contextMenu.commands.open,
-        closeContextMenu: (mode) => {
-          if (mode === 'dismiss') {
-            contextMenu.commands.closeDismiss()
-            return
-          }
-          contextMenu.commands.closeAction()
-        },
-        openToolbarMenu: toolbarMenu.commands.open,
-        toggleToolbarMenu: toolbarMenu.commands.toggle,
-        closeToolbarMenu: toolbarMenu.commands.close
-      },
       edge
     },
     viewport,

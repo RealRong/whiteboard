@@ -1,4 +1,3 @@
-import type { InternalWhiteboardInstance } from '../instance/types'
 import { createRafTask, type RafTask } from '../utils/rafTask'
 import {
   createTransientConnection,
@@ -25,8 +24,6 @@ import {
   type TransientSelection
 } from './selection'
 
-type UiStore = InternalWhiteboardInstance['uiStore']
-
 export type Transient = {
   node: TransientNode
   guides: TransientGuides
@@ -37,9 +34,7 @@ export type Transient = {
   clear: () => void
 }
 
-export const createTransient = (
-  uiStore: UiStore
-): Transient => {
+export const createTransient = (): Transient => {
   const flushAll: Array<() => void> = []
   let task!: RafTask
   const schedule = () => {
@@ -47,7 +42,7 @@ export const createTransient = (
   }
 
   const { node, flush: flushNode } = createTransientNode(schedule)
-  const { guides, flush: flushGuides } = createTransientGuides(uiStore, schedule)
+  const { guides, flush: flushGuides } = createTransientGuides(schedule)
   const { connection, flush: flushConnection } = createTransientConnection(schedule)
   const { edge, flush: flushEdge } = createTransientEdge(schedule)
   const { selection, flush: flushSelection } = createTransientSelection(schedule)

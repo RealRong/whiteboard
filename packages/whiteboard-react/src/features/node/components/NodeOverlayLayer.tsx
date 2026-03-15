@@ -4,11 +4,12 @@ import {
 } from 'react'
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useNodeIds } from '../../../runtime/hooks'
+import { useTransientGuides } from '../../../runtime/draft'
+import { useInternalInstance, useNodeIds, useTool } from '../../../runtime/hooks'
+import { useScopeView } from '../../../runtime/view/container'
 import { useInteractionView } from '../../../runtime/view/interaction'
 import { useSelectionState } from '../../../runtime/view/selection'
-import { useOverlayView } from '../../../ui/canvas/overlay/view'
-import { useNodeOverlayView } from '../hooks/useNodeView'
+import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import { NodeTransformHandles } from './NodeTransformHandles'
 
@@ -96,6 +97,8 @@ const NodeConnectOverlayItem = memo(({
 
 NodeConnectOverlayItem.displayName = 'NodeConnectOverlayItem'
 
+const EMPTY_NODE_IDS: readonly NodeId[] = []
+
 const ActiveContainerOverlay = ({
   rect,
   title
@@ -124,29 +127,49 @@ export const NodeOverlayLayer = ({
     event: ReactPointerEvent<HTMLDivElement>
   ) => void
 }) => {
+  const instance = useInternalInstance()
   const nodeIds = useNodeIds()
+  const tool = useTool()
+  const scope = useScopeView()
   const interaction = useInteractionView()
-  const overlay = useOverlayView()
+  const guides = useTransientGuides(instance.draft.guides)
   const selection = useSelectionState()
+  const activeScopeNode = useNodeView(scope.activeId)
   const selectedSet = selection.nodeIdSet
+  const chromeVisible = interaction.mode === 'idle'
+  const activeScope =
+    scope.activeId && scope.activeTitle && activeScopeNode
+      ? {
+          rect: activeScopeNode.rect,
+          title: scope.activeTitle
+        }
+      : undefined
+  const showNodeHandles =
+    tool === 'select'
+    && selection.edgeId === undefined
+    && (interaction.mode === 'node-transform' || chromeVisible)
+  const nodeHandleNodeIds = showNodeHandles ? selection.nodeIds : EMPTY_NODE_IDS
+  const showNodeConnectHandles =
+    tool === 'edge'
+    && chromeVisible
 
   return (
     <>
       <div className="wb-node-layer">
-        {overlay.activeScope ? (
+        {activeScope ? (
           <ActiveContainerOverlay
-            rect={overlay.activeScope.rect}
-            title={overlay.activeScope.title}
+            rect={activeScope.rect}
+            title={activeScope.title}
           />
         ) : null}
-        {interaction.nodeHandleNodeIds.map((nodeId: NodeId) => (
+        {nodeHandleNodeIds.map((nodeId: NodeId) => (
           <NodeTransformOverlayItem
             key={`transform:${nodeId}`}
             nodeId={nodeId}
             onTransformPointerDown={onTransformPointerDown}
           />
         ))}
-        {interaction.showNodeConnectHandles && nodeIds.map((nodeId) => (
+        {showNodeConnectHandles && nodeIds.map((nodeId) => (
           <NodeConnectOverlayItem
             key={`connect:${nodeId}`}
             nodeId={nodeId}
@@ -154,7 +177,7 @@ export const NodeOverlayLayer = ({
           />
         ))}
       </div>
-      <NodeInteractionGuidesLayer guides={overlay.guides} />
+      <NodeInteractionGuidesLayer guides={guides} />
     </>
   )
 }

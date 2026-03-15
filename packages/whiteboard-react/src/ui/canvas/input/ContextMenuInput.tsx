@@ -1,6 +1,10 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { useInteractionView } from '../../../runtime/view/interaction'
+import {
+  readContextMenuOpenResult,
+  type ContextMenuOpenResult
+} from '../../context-menu/model'
 
 const isContextMenuIgnored = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest('[data-context-menu-ignore]'))
@@ -20,14 +24,17 @@ const isDuplicateOpen = (
   )
 }
 
-export const CanvasContextMenuInput = ({
-  containerRef
+export const ContextMenuInput = ({
+  containerRef,
+  onOpenContextMenu
 }: {
   containerRef: RefObject<HTMLDivElement | null>
+  onOpenContextMenu: (result: ContextMenuOpenResult) => void
 }) => {
   const instance = useInternalInstance()
   const interaction = useInteractionView()
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const gestureIdle = interaction.mode === 'idle'
 
   useEffect(() => {
     const container = containerRef.current
@@ -38,7 +45,8 @@ export const CanvasContextMenuInput = ({
       targetElement: Element | null
     ) => {
       const pointer = instance.viewport.pointer(event)
-      const result = instance.read.contextMenu.openResult({
+      const result = readContextMenuOpenResult({
+        instance,
         targetElement,
         screen: pointer.screen,
         world: pointer.world
@@ -51,17 +59,12 @@ export const CanvasContextMenuInput = ({
         time: Date.now()
       }
 
-      if (result.leaveScope) {
-        instance.commands.selection.clear()
-        instance.commands.container.exit()
-      }
-
-      instance.commands.surface.openContextMenu(result.payload)
+      onOpenContextMenu(result)
     }
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (!interaction.canOpenContextMenu) return
+      if (!gestureIdle) return
       if (isContextMenuIgnored(event.target)) return
       const targetElement = event.target instanceof Element ? event.target : null
       event.preventDefault()
@@ -70,7 +73,7 @@ export const CanvasContextMenuInput = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (!interaction.canOpenContextMenu) return
+      if (!gestureIdle) return
       if (isContextMenuIgnored(event.target)) return
       event.preventDefault()
       event.stopPropagation()
@@ -91,7 +94,7 @@ export const CanvasContextMenuInput = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [containerRef, instance, interaction.canOpenContextMenu])
+  }, [containerRef, gestureIdle, instance, onOpenContextMenu])
 
   return null
 }

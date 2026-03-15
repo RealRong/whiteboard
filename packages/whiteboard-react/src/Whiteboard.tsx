@@ -13,9 +13,10 @@ import {
 } from './runtime/viewport'
 import { InputFeature } from './ui/canvas/input/InputFeature'
 import { SceneFeature } from './ui/canvas/scene/SceneFeature'
-import { ViewportOverlayFeature } from './ui/canvas/overlay/ViewportOverlayFeature'
-import { RootOverlayFeature } from './ui/canvas/overlay/RootOverlayFeature'
-import { SurfaceFeature } from './ui/canvas/surface/SurfaceFeature'
+import { ViewportOverlays } from './ui/canvas/overlay/ViewportOverlays'
+import { SelectionBoxOverlay } from './ui/canvas/overlay/SelectionBoxOverlay'
+import { CanvasChrome } from './ui/canvas/chrome/CanvasChrome'
+import { useContextMenuSession } from './ui/context-menu/useContextMenuSession'
 import { useNodeInteractions } from './features/node/hooks/useNodeInteractions'
 import { useNodeSizeObserver } from './features/node/hooks/useNodeSizeObserver'
 import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
@@ -71,6 +72,7 @@ const WhiteboardCanvas = ({
   const {
     handleMindmapNodePointerDown
   } = useMindmapDrag()
+  const contextMenu = useContextMenuSession()
 
   return (
     <div
@@ -82,6 +84,7 @@ const WhiteboardCanvas = ({
       <InputFeature
         containerRef={containerRef}
         shortcuts={resolvedConfig.shortcuts}
+        onOpenContextMenu={contextMenu.open}
       />
       <div className="wb-root-viewport" style={transformStyle}>
         <SceneFeature
@@ -90,12 +93,16 @@ const WhiteboardCanvas = ({
           onNodeDoubleClick={handleNodeDoubleClick}
           onMindmapNodePointerDown={handleMindmapNodePointerDown}
         />
-        <ViewportOverlayFeature
+        <ViewportOverlays
           onTransformPointerDown={handleTransformPointerDown}
         />
       </div>
-      <RootOverlayFeature />
-      <SurfaceFeature containerRef={containerRef} />
+      <SelectionBoxOverlay />
+      <CanvasChrome
+        containerRef={containerRef}
+        contextMenuSession={contextMenu.session}
+        closeContextMenu={contextMenu.close}
+      />
     </div>
   )
 }
