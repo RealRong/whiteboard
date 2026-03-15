@@ -2,17 +2,11 @@ import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
 export {
-  useSelectedEdgeId,
-  useSelectionContains
-} from './runtime/state/selectionHooks'
-export {
-  useEdge,
-  useEdgeIds,
+  useInteraction,
   useInstance,
   useMindmap,
-  useMindmapIds,
-  useNode,
-  useNodeIds,
+  useScope,
+  useSelection,
   useTool,
   useViewport,
   useViewportTransformStyle,

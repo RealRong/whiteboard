@@ -2,10 +2,10 @@ import type { EdgeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo } from 'react'
 import {
-  useEdgeIds,
-  useInstance
+  useInstance,
+  useSelection,
+  useView
 } from '../../../runtime/hooks'
-import { useSelectedEdgeId } from '../../../runtime/state/selectionHooks'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -44,8 +44,8 @@ export const EdgeLayer = ({
   handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
 }) => {
   const instance = useInstance()
-  const edgeIds = useEdgeIds()
-  const selectedEdgeId = useSelectedEdgeId()
+  const edgeIds = useView(instance.view.edgeIds)
+  const selectedEdgeId = useSelection().edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
 
   return (

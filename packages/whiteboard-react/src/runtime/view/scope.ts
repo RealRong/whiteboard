@@ -3,7 +3,6 @@ import type {
   EdgeId,
   NodeId
 } from '@whiteboard/core/types'
-import { useInternalInstance, useView } from '../hooks'
 import type { InternalWhiteboardInstance } from '../instance'
 import { isOrderedArrayEqual } from '../utils/equality'
 
@@ -14,8 +13,6 @@ export type ScopeView = {
   hasNode: (nodeId: NodeId) => boolean
   hasEdge: (edge: EdgeId | Pick<Edge, 'source' | 'target'>) => boolean
 }
-
-const EMPTY_SCOPE_NODE_IDS: readonly NodeId[] = []
 
 const resolveScopeTitle = (
   node: {
@@ -33,7 +30,7 @@ const resolveScopeTitle = (
 export const readScopeView = (
   instance: InternalWhiteboardInstance
 ): ScopeView => {
-  const activeId = instance.read.container.activeId()
+  const activeId = instance.read.scope.activeId()
   const activeNode = activeId
     ? instance.read.node.get(activeId)?.node
     : undefined
@@ -41,17 +38,10 @@ export const readScopeView = (
   return {
     activeId,
     activeTitle: activeNode ? resolveScopeTitle(activeNode) : undefined,
-    nodeIds: activeId
-      ? instance.read.container.nodeIds()
-      : EMPTY_SCOPE_NODE_IDS,
-    hasNode: (nodeId) => instance.read.container.hasNode(nodeId),
-    hasEdge: (edge) => instance.read.container.hasEdge(edge)
+    nodeIds: instance.read.scope.nodeIds(),
+    hasNode: (nodeId) => instance.read.scope.hasNode(nodeId),
+    hasEdge: (edge) => instance.read.scope.hasEdge(edge)
   }
-}
-
-export const useScopeView = (): ScopeView => {
-  const instance = useInternalInstance()
-  return useView(instance.view.scope)
 }
 
 export const isScopeViewEqual = (

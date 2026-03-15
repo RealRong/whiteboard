@@ -42,7 +42,7 @@ export const deleteNodes = async (
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  const selectedNodeIds = instance.state.selection.getNodeIds()
+  const selectedNodeIds = instance.read.selection.nodeIds()
   const result = await instance.commands.node.deleteCascade([...nodeIds])
   if (!result.ok) return
   if (nodeIds.some((nodeId) => selectedNodeIds.includes(nodeId))) {

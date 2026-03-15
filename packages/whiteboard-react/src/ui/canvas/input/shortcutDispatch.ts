@@ -27,7 +27,7 @@ const readCreatedGroupId = (result: DispatchResult): NodeId | undefined =>
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
 const getSelectedNodeIds = (instance: InternalWhiteboardInstance): NodeId[] =>
-  [...instance.state.selection.getNodeIds()]
+  [...instance.read.selection.nodeIds()]
 
 const groupSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
@@ -49,8 +49,8 @@ const ungroupSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const deleteSelection = async (instance: InternalWhiteboardInstance) => {
-  const selectedEdgeId = instance.state.selection.getEdgeId()
-  const selectedNodeIds = [...instance.state.selection.getNodeIds()]
+  const selectedEdgeId = instance.read.selection.edgeId()
+  const selectedNodeIds = [...instance.read.selection.nodeIds()]
   if (!selectedEdgeId && !selectedNodeIds.length) return
 
   if (selectedEdgeId) {
@@ -71,12 +71,12 @@ const duplicateSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const selectAll = (instance: InternalWhiteboardInstance) => {
-  if (!instance.read.container.activeId()) {
+  if (!instance.read.scope.activeId()) {
     instance.commands.selection.selectAll()
     return
   }
   instance.commands.selection.select(
-    [...instance.read.container.nodeIds()],
+    [...instance.read.scope.nodeIds()],
     'replace'
   )
 }
@@ -120,7 +120,7 @@ export const dispatchShortcutAction = (
       return true
     case 'selection.clear':
       instance.commands.selection.clear()
-      if (instance.read.container.activeId()) {
+      if (instance.read.scope.activeId()) {
         instance.commands.container.exit()
       }
       return true

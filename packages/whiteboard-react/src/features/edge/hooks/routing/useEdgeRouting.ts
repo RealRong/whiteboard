@@ -166,7 +166,7 @@ export const useEdgeRouting = () => {
         return
       }
 
-      if (!instance.read.container.hasEdge(entry.edge)) {
+      if (!instance.read.scope.hasEdge(entry.edge)) {
         instance.commands.selection.clear()
         instance.commands.container.exit()
       }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance } from '../../../runtime/hooks'
-import { useInteractionView } from '../../../runtime/view/interaction'
+import { useInteraction, useInternalInstance } from '../../../runtime/hooks'
 import {
   readContextMenuOpenResult,
   type ContextMenuOpenResult
@@ -32,7 +31,7 @@ export const ContextMenuInput = ({
   onOpenContextMenu: (result: ContextMenuOpenResult) => void
 }) => {
   const instance = useInternalInstance()
-  const interaction = useInteractionView()
+  const interaction = useInteraction()
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const gestureIdle = interaction.mode === 'idle'
 

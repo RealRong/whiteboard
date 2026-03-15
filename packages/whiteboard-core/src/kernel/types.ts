@@ -32,6 +32,11 @@ export type KernelReadImpact = {
     ids: readonly NodeId[]
     view: boolean
   }
+  tree: {
+    ids: readonly NodeId[]
+    relation: boolean
+    order: boolean
+  }
 }
 
 export type KernelReduceResult =

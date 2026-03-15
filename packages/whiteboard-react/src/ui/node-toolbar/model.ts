@@ -1,6 +1,5 @@
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
-import { useInternalInstance } from '../../runtime/hooks'
-import { useSelectionState } from '../../runtime/view/selection'
+import { useInternalInstance, useSelection } from '../../runtime/hooks'
 import { useViewport } from '../../runtime/viewport'
 import { resolveNodeActions } from '../../features/node/nodeActions'
 import type {
@@ -265,7 +264,7 @@ const resolvePlacement = ({
 
 export const useNodeToolbar = (): NodeToolbarModel | undefined => {
   const instance = useInternalInstance()
-  const selection = useSelectionState()
+  const selection = useSelection()
   useViewport()
 
   const rect = selection.rect

@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useInternalInstance, useSelection } from '../../../runtime/hooks'
 import { useTransientEdge } from '../../../runtime/draft'
-import { useSelectedEdgeId } from '../../../runtime/state/selectionHooks'
 import { useEdgeView } from './useEdgeView'
 
 export type SelectedEdgeRoutingHandleView = {
@@ -21,7 +20,7 @@ export type SelectedEdgeView = {
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInternalInstance()
-  const edgeId = useSelectedEdgeId()
+  const edgeId = useSelection().edgeId
   const entry = useEdgeView(edgeId)
   const draft = useTransientEdge(instance.draft.edge, edgeId)
 

@@ -11,6 +11,7 @@ export type {
   RuntimeConfig,
   EngineRead,
   EngineReadIndex,
+  TreeRead,
   MindmapRead,
   EdgeEntry,
   MindmapDragView,

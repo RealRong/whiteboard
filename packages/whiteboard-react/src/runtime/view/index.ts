@@ -1,13 +1,14 @@
 import { activeContainerIdAtom } from '../state/container'
-import { isScopeViewEqual, readScopeView } from './container'
+import { isScopeViewEqual, readScopeView } from './scope'
 import { isInteractionViewEqual, readInteractionView } from './interaction'
 import { isSelectionStateEqual, readSelectionState } from './selection'
 import { selectionAtom } from '../state/selection'
-import { toolAtom } from '../instance/toolState'
+import { toolAtom, type EditorTool } from '../instance/toolState'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../instance/types'
 import { createEdgeView } from './edge'
+import { createMindmapView } from './mindmap'
 import { createNodeView } from './node'
-import { readToolView } from './tool'
 import {
   combineUnsubscribers,
   EMPTY_UNSUBSCRIBE,
@@ -22,14 +23,36 @@ export type {
   WhiteboardView
 } from './types'
 export type { EdgeView } from './edge'
+export type { MindmapViewTree as MindmapView } from '@whiteboard/engine'
 export type { NodeView } from './node'
 export type { EditorTool as ToolView } from '../instance/toolState'
 
 const createToolView = (
   getInstance: () => InternalWhiteboardInstance
-): ValueView<ReturnType<typeof readToolView>> => ({
-  get: () => readToolView(getInstance()),
+): ValueView<EditorTool> => ({
+  get: () => getInstance().uiStore.get(toolAtom),
   subscribe: (listener) => getInstance().uiStore.sub(toolAtom, listener)
+})
+
+const createNodeIdsView = (
+  getInstance: () => InternalWhiteboardInstance
+): ValueView<readonly NodeId[]> => ({
+  get: () => getInstance().read.node.ids(),
+  subscribe: (listener) => getInstance().read.node.subscribeIds(listener)
+})
+
+const createEdgeIdsView = (
+  getInstance: () => InternalWhiteboardInstance
+): ValueView<readonly EdgeId[]> => ({
+  get: () => getInstance().read.edge.ids(),
+  subscribe: (listener) => getInstance().read.edge.subscribeIds(listener)
+})
+
+const createMindmapIdsView = (
+  getInstance: () => InternalWhiteboardInstance
+): ValueView<readonly NodeId[]> => ({
+  get: () => getInstance().read.mindmap.ids(),
+  subscribe: (listener) => getInstance().read.mindmap.subscribeIds(listener)
 })
 
 const createSelectionView = (
@@ -89,20 +112,31 @@ const createScopeView = (
     const { uiStore } = instance
     let activeContainerId = uiStore.get(activeContainerIdAtom)
     let unsubscribeActiveContainer = EMPTY_UNSUBSCRIBE
+    let unsubscribeTree = EMPTY_UNSUBSCRIBE
 
     const subscribeActiveContainer = () =>
       subscribeOptionalNode(instance, activeContainerId, listener)
 
+    const subscribeTree = () => (
+      activeContainerId
+        ? instance.read.tree.subscribe(activeContainerId, listener)
+        : EMPTY_UNSUBSCRIBE
+    )
+
     unsubscribeActiveContainer = subscribeActiveContainer()
+    unsubscribeTree = subscribeTree()
 
     const unsubscribeScope = uiStore.sub(activeContainerIdAtom, () => {
       unsubscribeActiveContainer()
+      unsubscribeTree()
       activeContainerId = uiStore.get(activeContainerIdAtom)
       unsubscribeActiveContainer = subscribeActiveContainer()
+      unsubscribeTree = subscribeTree()
       listener()
     })
 
     return combineUnsubscribers([
+      unsubscribeTree,
       unsubscribeActiveContainer,
       unsubscribeScope
     ])
@@ -125,9 +159,13 @@ export const createWhiteboardView = (
   getInstance: () => InternalWhiteboardInstance
 ): WhiteboardView => ({
   tool: createToolView(getInstance),
+  nodeIds: createNodeIdsView(getInstance),
+  edgeIds: createEdgeIdsView(getInstance),
+  mindmapIds: createMindmapIdsView(getInstance),
   selection: createSelectionView(getInstance),
   scope: createScopeView(getInstance),
   interaction: createInteractionView(getInstance),
   node: createNodeView(getInstance),
-  edge: createEdgeView(getInstance)
+  edge: createEdgeView(getInstance),
+  mindmap: createMindmapView(getInstance)
 })

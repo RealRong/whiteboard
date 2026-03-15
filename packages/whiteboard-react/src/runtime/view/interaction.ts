@@ -1,5 +1,4 @@
 import type { InternalWhiteboardInstance } from '../instance'
-import { useInternalInstance, useView } from '../hooks'
 import type { InteractionSession } from '../interaction/types'
 
 export type InteractionMode =
@@ -39,11 +38,6 @@ const resolveInteractionView = ({
   return {
     mode
   }
-}
-
-export const useInteractionView = (): InteractionView => {
-  const instance = useInternalInstance()
-  return useView(instance.view.interaction)
 }
 
 export const readInteractionView = (

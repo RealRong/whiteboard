@@ -3,11 +3,12 @@ import type { EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
-import { NodeRectIndex, SnapIndex } from '../indexes'
+import { NodeRectIndex, SnapIndex, TreeIndex } from '../indexes'
 import { createEdgeProjection } from './edge'
 import { createReadModel } from './model'
 import { createMindmapProjection } from './mindmap'
 import { createNodeProjection } from './node'
+import { createTreeProjection } from './tree'
 import type { ReadSnapshot } from './types'
 
 export const createRead = ({
@@ -25,6 +26,7 @@ export const createRead = ({
       config.node.groupPadding * DEFAULT_TUNING.query.snapGridPaddingFactor
     )
   )
+  const treeIndex = new TreeIndex()
   const indexes: EngineReadIndex = {
     node: {
       all: nodeRectIndex.all,
@@ -34,6 +36,10 @@ export const createRead = ({
     snap: {
       all: snapIndex.all,
       inRect: snapIndex.queryInRect
+    },
+    tree: {
+      ids: treeIndex.ids,
+      has: treeIndex.has
     }
   }
 
@@ -51,15 +57,18 @@ export const createRead = ({
     config,
     mindmapLayout
   })
+  const treeProjection = createTreeProjection(initialSnapshot)
 
   const applyImpact = (impact: KernelReadImpact) => {
     const model = readModel()
     nodeRectIndex.applyChange(impact, model)
     snapIndex.applyChange(impact, nodeRectIndex)
+    treeIndex.applyChange(model)
     const snapshot = createSnapshot(model)
     nodeProjection.applyChange(impact, snapshot)
     edgeProjection.applyChange(impact, snapshot)
     mindmapProjection.applyChange(impact, snapshot)
+    treeProjection.applyChange(impact, snapshot)
   }
 
   applyImpact(RESET_READ_IMPACT)
@@ -83,6 +92,10 @@ export const createRead = ({
         get: mindmapProjection.get,
         subscribe: mindmapProjection.subscribe,
         subscribeIds: mindmapProjection.subscribeIds
+      },
+      tree: {
+        ids: treeProjection.ids,
+        subscribe: treeProjection.subscribe
       },
       index: indexes
     },

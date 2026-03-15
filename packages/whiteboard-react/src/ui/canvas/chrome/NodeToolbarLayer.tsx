@@ -4,9 +4,7 @@ import {
   useState,
   type RefObject
 } from 'react'
-import { useInternalInstance, useTool } from '../../../runtime/hooks'
-import { useInteractionView } from '../../../runtime/view/interaction'
-import { useSelectionState } from '../../../runtime/view/selection'
+import { useInteraction, useInternalInstance, useSelection, useTool } from '../../../runtime/hooks'
 import { buildToolbarMenuStyle, buildToolbarStyle } from '../../node-toolbar/layout'
 import { toolbarItemDefinitions } from '../../node-toolbar/items'
 import { useNodeToolbar } from '../../node-toolbar/model'
@@ -45,8 +43,8 @@ export const NodeToolbarLayer = ({
 }) => {
   const instance = useInternalInstance()
   const tool = useTool()
-  const interaction = useInteractionView()
-  const selection = useSelectionState()
+  const interaction = useInteraction()
+  const selection = useSelection()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const buttonRefByKey = useRef<Partial<Record<NodeToolbarMenuKey, HTMLButtonElement | null>>>({})
   const [activeMenuKey, setActiveMenuKey] = useState<NodeToolbarMenuKey | null>(null)

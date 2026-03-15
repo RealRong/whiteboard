@@ -99,6 +99,10 @@ export type EngineReadIndex = {
     all: () => SnapCandidate[]
     inRect: (rect: Rect) => SnapCandidate[]
   }
+  tree: {
+    ids: (nodeId: NodeId) => readonly NodeId[]
+    has: (rootId: NodeId, nodeId: NodeId) => boolean
+  }
 }
 
 export type NodeRead = {
@@ -122,10 +126,16 @@ export type MindmapRead = {
   subscribeIds: (listener: () => void) => () => void
 }
 
+export type TreeRead = {
+  ids: (nodeId: NodeId) => readonly NodeId[]
+  subscribe: (nodeId: NodeId, listener: () => void) => () => void
+}
+
 export type EngineRead = {
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead
+  tree: TreeRead
   index: EngineReadIndex
 }
 

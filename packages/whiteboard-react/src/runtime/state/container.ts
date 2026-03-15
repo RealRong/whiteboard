@@ -9,8 +9,8 @@ export type WhiteboardContainerCommands = {
 }
 
 type ContainerDomain = {
-  state: {
-    activeContainerId: () => NodeId | undefined
+  read: {
+    activeId: () => NodeId | undefined
   }
   commands: WhiteboardContainerCommands
 }
@@ -34,8 +34,8 @@ export const createContainerDomain = ({
   }
 
   return {
-    state: {
-      activeContainerId: readActiveContainerId
+    read: {
+      activeId: readActiveContainerId
     },
     commands: {
       enter: writeActiveContainerId,

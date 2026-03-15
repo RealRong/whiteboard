@@ -210,9 +210,9 @@ export const useSelectionBox = ({
       if (instance.view.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)
-      let activeContainerId = instance.read.container.activeId()
+      let activeContainerId = instance.read.scope.activeId()
       if (activeContainerId) {
-        const activeRect = instance.read.container.activeRect()
+        const activeRect = instance.read.scope.activeRect()
         const insideActiveContainer = Boolean(
           activeRect && isPointInRect(start.world, activeRect)
         )
@@ -239,11 +239,11 @@ export const useSelectionBox = ({
         return
       }
 
-      const selectedNodeIds = instance.read.container.filterNodeIds(
-        instance.state.selection.getNodeIds()
+      const selectedNodeIds = instance.read.scope.filterNodeIds(
+        instance.read.selection.nodeIds()
       )
       const scopeNodeIds = activeContainerId
-        ? new Set<NodeId>(instance.read.container.nodeIds())
+        ? new Set<NodeId>(instance.read.scope.nodeIds())
         : undefined
 
       instance.commands.selection.selectEdge(undefined)

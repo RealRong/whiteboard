@@ -5,10 +5,14 @@ import {
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useTransientGuides } from '../../../runtime/draft'
-import { useInternalInstance, useNodeIds, useTool } from '../../../runtime/hooks'
-import { useScopeView } from '../../../runtime/view/container'
-import { useInteractionView } from '../../../runtime/view/interaction'
-import { useSelectionState } from '../../../runtime/view/selection'
+import {
+  useInternalInstance,
+  useInteraction,
+  useScope,
+  useSelection,
+  useTool,
+  useView
+} from '../../../runtime/hooks'
 import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import { NodeTransformHandles } from './NodeTransformHandles'
@@ -128,12 +132,12 @@ export const NodeOverlayLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const nodeIds = useNodeIds()
+  const nodeIds = useView(instance.view.nodeIds)
   const tool = useTool()
-  const scope = useScopeView()
-  const interaction = useInteractionView()
+  const scope = useScope()
+  const interaction = useInteraction()
   const guides = useTransientGuides(instance.draft.guides)
-  const selection = useSelectionState()
+  const selection = useSelection()
   const activeScopeNode = useNodeView(scope.activeId)
   const selectedSet = selection.nodeIdSet
   const chromeVisible = interaction.mode === 'idle'

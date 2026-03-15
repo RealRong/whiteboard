@@ -1,7 +1,7 @@
-import { useInternalInstance, useView } from '../hooks'
 import type { EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { NodeViewItem } from '@whiteboard/engine'
 import type { InternalWhiteboardInstance } from '../instance'
+import { selectionAtom } from '../state/selection'
 import type { NodeActions } from '../../features/node/nodeActions'
 import { resolveNodeActions } from '../../features/node/nodeActions'
 import {
@@ -113,19 +113,15 @@ const resolveSelectionState = ({
 export const readSelectionState = (
   instance: InternalWhiteboardInstance
 ): SelectionState => {
-  const nodeIds = instance.state.selection.getNodeIds()
+  const selection = instance.uiStore.get(selectionAtom)
+  const nodeIds = instance.read.selection.nodeIds()
   return resolveSelectionState({
     nodeIds,
-    nodeIdSet: new Set(nodeIds),
-    edgeId: instance.state.selection.getEdgeId(),
+    nodeIdSet: selection.nodeIdSet,
+    edgeId: instance.read.selection.edgeId(),
     items: readNodeItems(instance, nodeIds),
-    activeScopeId: instance.state.scope.getContainerId()
+    activeScopeId: instance.read.scope.activeId()
   })
-}
-
-export const useSelectionState = (): SelectionState => {
-  const instance = useInternalInstance()
-  return useView(instance.view.selection)
 }
 
 export const isSelectionStateEqual = (

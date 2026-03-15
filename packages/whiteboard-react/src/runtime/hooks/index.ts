@@ -1,7 +1,8 @@
 export { useInstance, useInternalInstance } from './useInstance'
-export { useNode, useNodeIds } from './useNode'
-export { useEdge, useEdgeIds } from './useEdge'
-export { useMindmap, useMindmapIds } from './useMindmap'
+export { useMindmap } from './useMindmap'
+export { useSelection } from './useSelection'
+export { useScope } from './useScope'
+export { useInteraction } from './useInteraction'
 export {
   useKeyedView,
   useKeyedViewArgs,

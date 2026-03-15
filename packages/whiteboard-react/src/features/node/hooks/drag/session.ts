@@ -82,13 +82,13 @@ export const createNodeDragSession = (
       const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect) return
 
-      if (!instance.read.container.hasNode(nodeId)) {
+      if (!instance.read.scope.hasNode(nodeId)) {
         instance.commands.selection.clear()
         instance.commands.container.exit()
       }
 
-      const currentSelectedNodeIds = instance.read.container.filterNodeIds(
-        instance.state.selection.getNodeIds()
+      const currentSelectedNodeIds = instance.read.scope.filterNodeIds(
+        instance.read.selection.nodeIds()
       )
       const nextSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
         ? currentSelectedNodeIds

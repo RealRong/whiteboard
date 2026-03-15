@@ -8,11 +8,12 @@ import type {
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
 import type { EditorTool } from './toolState'
-import type { Selection } from '../state/selection'
-import type { WhiteboardSelectionCommands } from '../state/selection'
+import type {
+  WhiteboardSelectionCommands,
+  WhiteboardSelectionRead
+} from '../state/selection'
 import type { WhiteboardContainerCommands } from '../state/container'
-import type { WhiteboardContainerRead } from '../state/containerRead'
-import type { NodeId } from '@whiteboard/core/types'
+import type { WhiteboardScopeRead } from '../scope/read'
 import type { WhiteboardViewport } from '../viewport'
 import type { Transient } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
@@ -35,7 +36,8 @@ export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'in
 }
 
 export type WhiteboardRead = EngineRead & {
-  container: WhiteboardContainerRead
+  scope: WhiteboardScopeRead
+  selection: WhiteboardSelectionRead
 }
 
 export type WhiteboardInstance = {
@@ -48,25 +50,9 @@ export type WhiteboardInstance = {
   dispose: () => void
 }
 
-export type InternalWhiteboardState = {
-  selection: {
-    get: () => Selection
-    getNodeIds: () => readonly NodeId[]
-    getEdgeId: () => Selection['edgeId']
-    contains: (nodeId: NodeId) => boolean
-    subscribe: (listener: () => void) => () => void
-    subscribeNode: (nodeId: NodeId, listener: () => void) => () => void
-    subscribeEdge: (listener: () => void) => () => void
-  }
-  scope: {
-    getContainerId: () => NodeId | undefined
-  }
-}
-
 export type InternalWhiteboardInstance = WhiteboardInstance & {
   engine: EngineInstance
   uiStore: ReturnType<typeof createStore>
-  state: InternalWhiteboardState
   draft: Transient
   interaction: InteractionCoordinator
   registry: NodeRegistry
