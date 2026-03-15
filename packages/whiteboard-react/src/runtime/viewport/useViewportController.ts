@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import type { ValueStore } from '@whiteboard/core/runtime'
+import { createValueStore } from '@whiteboard/core/runtime'
 import type { Viewport } from '@whiteboard/core/types'
-import { interactionLock, type InteractionLockToken } from '../interaction/interactionLock'
+import type { InteractionCoordinator, InteractionToken } from '../interaction'
 import { createRafTask } from '../utils/rafTask'
 import {
   applyScreenPan,
@@ -84,20 +84,20 @@ const normalizeBindingOptions = (
 }
 
 export const useViewportController = ({
-  viewportState,
-  lockOwner,
+  initialViewport,
+  interaction,
   containerRef,
   options
 }: {
-  viewportState: ValueStore<Viewport>
-  lockOwner: object
+  initialViewport: Viewport
+  interaction: InteractionCoordinator
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportBindingOptions
 }): WhiteboardViewport => {
   const coreRef = useRef<ViewportCore | null>(null)
   if (!coreRef.current) {
     coreRef.current = createViewportCore({
-      state: viewportState
+      state: createValueStore(initialViewport)
     })
   }
   const core = coreRef.current
@@ -118,7 +118,7 @@ export const useViewportController = ({
 
     let containerRect = copyContainerRect(EMPTY_CONTAINER_RECT)
     let pan: PanState | null = null
-    let lockToken: InteractionLockToken | null = null
+    let token: InteractionToken | null = null
     let pendingWheelInput: WheelInput | null = null
     let spacePressed = false
 
@@ -135,15 +135,10 @@ export const useViewportController = ({
     refreshContainerRect()
 
     const clearPan = (pointerId?: number) => {
-      if (!pan) {
-        if (lockToken) {
-          interactionLock.release(lockOwner, lockToken)
-          lockToken = null
-        }
-        return
-      }
+      if (!pan) return
       if (pointerId !== undefined && pan.pointerId !== pointerId) return
       const captureTarget = pan.captureTarget
+      const previousToken = token
       if (captureTarget) {
         try {
           captureTarget.releasePointerCapture(pan.pointerId)
@@ -152,9 +147,9 @@ export const useViewportController = ({
         }
       }
       pan = null
-      if (lockToken) {
-        interactionLock.release(lockOwner, lockToken)
-        lockToken = null
+      token = null
+      if (previousToken) {
+        interaction.finish(previousToken)
       }
     }
 
@@ -253,12 +248,16 @@ export const useViewportController = ({
       const leftDrag = (event.button === 0 || (event.buttons & 1) === 1) && spacePressed
       if (!middleDrag && !leftDrag) return
 
-      const nextLock = interactionLock.tryAcquire(lockOwner, 'viewportGesture', event.pointerId)
-      if (!nextLock) return
-      lockToken = nextLock
+      const nextToken = interaction.tryStart({
+        mode: 'viewport-gesture',
+        cancel: () => clearPan(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!nextToken) return
 
       refreshContainerRect()
       clearWheelFrame()
+      token = nextToken
       pan = {
         pointerId: event.pointerId,
         lastX: event.clientX,
@@ -335,7 +334,7 @@ export const useViewportController = ({
       clearWheelFrame()
       spacePressed = false
     }
-  }, [containerRef, core, lockOwner, options])
+  }, [containerRef, core, interaction, options])
 
   return core.viewport
 }

@@ -8,14 +8,11 @@ import {
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance, useView } from '../../../runtime/hooks'
-import { interactionLock } from '../../../runtime/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../runtime/interaction/useWindowPointerSession'
 import { createRafTask } from '../../../runtime/utils/rafTask'
-import type { InteractionLockToken } from '../../../runtime/interaction/interactionLock'
 import type { ViewportPointer } from '../../../runtime/viewport'
 
 type ActiveSelection = {
-  lockToken: InteractionLockToken
   pointerId: number
   mode: SelectionMode
   start: ViewportPointer
@@ -116,16 +113,11 @@ export const useSelectionBox = ({
     }
 
     const token = tokenRef.current
-    const previous = activeRef.current
     activeRef.current = null
     tokenRef.current = null
     flushTaskRef.current.cancel()
     pointerRef.current.set(null)
     instance.draft.selection.clear()
-
-    if (previous) {
-      interactionLock.release(instance, previous.lockToken)
-    }
 
     if (token) {
       instance.interaction.finish(token)
@@ -228,16 +220,12 @@ export const useSelectionBox = ({
         return
       }
 
-      const lockToken = interactionLock.tryAcquire(instance, 'selectionBox', event.pointerId)
-      if (!lockToken) {
-        return
-      }
-
-      const token = instance.interaction.tryStart('selection-box', () => cancel(event.pointerId))
-      if (!token) {
-        interactionLock.release(instance, lockToken)
-        return
-      }
+      const token = instance.interaction.tryStart({
+        mode: 'selection-box',
+        cancel: () => cancel(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!token) return
 
       const selectedNodeIds = instance.read.scope.filterNodeIds(
         instance.read.selection.nodeIds()
@@ -248,7 +236,6 @@ export const useSelectionBox = ({
 
       instance.commands.selection.selectEdge(undefined)
       activeRef.current = {
-        lockToken,
         pointerId: event.pointerId,
         mode: resolveSelectionMode(event),
         start,

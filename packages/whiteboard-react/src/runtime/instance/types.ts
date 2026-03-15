@@ -4,13 +4,9 @@ import type {
   Instance as EngineInstance,
   InstanceConfig as EngineInstanceConfig
 } from '@whiteboard/engine'
-import type { ValueStore } from '@whiteboard/core/runtime'
-import type { NodeId } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
-import type { EditorTool } from './toolState'
 import type {
-  StoredSelection,
   WhiteboardSelectionCommands,
   WhiteboardSelectionRead
 } from '../state/selection'
@@ -21,6 +17,8 @@ import type { Transient } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
 import type { WhiteboardView } from '../view'
 import type { InteractionCoordinator } from '../interaction/types'
+
+export type EditorTool = 'select' | 'edge'
 
 export type WhiteboardRuntimeConfig = {
   tool: EditorTool
@@ -54,10 +52,6 @@ export type WhiteboardInstance = {
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {
   engine: EngineInstance
-  lockOwner: object
-  toolState: ValueStore<EditorTool>
-  scopeState: ValueStore<NodeId | undefined>
-  selectionState: ValueStore<StoredSelection>
   draft: Transient
   interaction: InteractionCoordinator
   registry: NodeRegistry

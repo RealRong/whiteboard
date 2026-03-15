@@ -3,7 +3,6 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
-import { interactionLock } from '../../../../runtime/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
 import {
   resolveNextMindmapDragSession,
@@ -19,7 +18,6 @@ export const useMindmapDrag = () => {
   const instance = useInstance()
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const lockTokenRef = useRef<ReturnType<typeof interactionLock.tryAcquire> | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
 
   const cancel = useCallback((pointerId?: number) => {
@@ -33,16 +31,10 @@ export const useMindmapDrag = () => {
     }
 
     const token = tokenRef.current
-    const lockToken = lockTokenRef.current
     activeRef.current = null
     tokenRef.current = null
-    lockTokenRef.current = null
     pointerRef.current.set(null)
     instance.draft.mindmap.clear()
-
-    if (lockToken) {
-      interactionLock.release(instance, lockToken)
-    }
 
     if (token) {
       instance.interaction.finish(token)
@@ -157,16 +149,12 @@ export const useMindmapDrag = () => {
         return
       }
 
-      const lockToken = interactionLock.tryAcquire(instance, 'mindmapDrag', event.pointerId)
-      if (!lockToken) {
-        return
-      }
-
-      const token = instance.interaction.tryStart('mindmap-drag', () => cancel(event.pointerId))
-      if (!token) {
-        interactionLock.release(instance, lockToken)
-        return
-      }
+      const token = instance.interaction.tryStart({
+        mode: 'mindmap-drag',
+        cancel: () => cancel(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!token) return
 
       const { world } = instance.viewport.pointer(event)
       const baseOffset = {
@@ -193,13 +181,11 @@ export const useMindmapDrag = () => {
 
       if (!next) {
         instance.interaction.finish(token)
-        interactionLock.release(instance, lockToken)
         return
       }
 
       activeRef.current = next
       tokenRef.current = token
-      lockTokenRef.current = lockToken
       pointerRef.current.set(event.pointerId)
       instance.draft.mindmap.write(toDragView(next))
       event.preventDefault()

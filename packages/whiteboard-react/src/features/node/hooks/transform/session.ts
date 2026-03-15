@@ -4,7 +4,6 @@ import type { TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, NodePatch } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
-import { interactionLock } from '../../../../runtime/interaction/interactionLock'
 import {
   resolveGroupResizePadding,
   resolveResizeCommitPatch,
@@ -25,7 +24,6 @@ export const createNodeTransformSession = (
 ) => {
   let active: ActiveTransform | null = null
   let interactionToken: ReturnType<typeof instance.interaction.tryStart> | null = null
-  let lockToken: ReturnType<typeof interactionLock.tryAcquire> | null = null
   const pointer = createValueStore<number | null>(null)
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
@@ -39,18 +37,12 @@ export const createNodeTransformSession = (
       return
     }
 
-    const previousLockToken = lockToken
     const previousInteractionToken = interactionToken
     active = null
     interactionToken = null
-    lockToken = null
     pointer.set(null)
     instance.draft.node.clear()
     instance.draft.guides.clear()
-
-    if (previousLockToken) {
-      interactionLock.release(instance, previousLockToken)
-    }
 
     if (previousInteractionToken) {
       instance.interaction.finish(previousInteractionToken)
@@ -158,21 +150,18 @@ export const createNodeTransformSession = (
         return
       }
 
-      const nextLockToken = interactionLock.tryAcquire(instance, 'nodeTransform', event.pointerId)
-      if (!nextLockToken) return
-
-      const nextInteractionToken = instance.interaction.tryStart('node-transform', () => clear(event.pointerId))
-      if (!nextInteractionToken) {
-        interactionLock.release(instance, nextLockToken)
-        return
-      }
+      const nextInteractionToken = instance.interaction.tryStart({
+        mode: 'node-transform',
+        cancel: () => clear(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!nextInteractionToken) return
 
       active = {
         nodeId,
         drag
       }
       interactionToken = nextInteractionToken
-      lockToken = nextLockToken
       pointer.set(event.pointerId)
       instance.draft.node.clear()
       instance.draft.guides.clear()

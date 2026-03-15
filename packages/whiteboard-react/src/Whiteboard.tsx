@@ -1,5 +1,4 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
-import { createValueStore } from '@whiteboard/core/runtime'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
@@ -21,13 +20,13 @@ import { useContextMenuSession } from './ui/context-menu/useContextMenuSession'
 import { useNodeInteractions } from './features/node/hooks/useNodeInteractions'
 import { useNodeSizeObserver } from './features/node/hooks/useNodeSizeObserver'
 import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
+import { createInteractionCoordinator } from './runtime/interaction'
 import {
   createWhiteboardInstance,
   type InternalWhiteboardInstance,
   type WhiteboardInstance,
   type WhiteboardRuntimeConfig
 } from './runtime/instance'
-import { createToolState } from './runtime/instance/toolState'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
   draft.id = next.id
@@ -55,7 +54,7 @@ type WhiteboardCanvasProps = {
   containerRef: {
     current: HTMLDivElement | null
   }
-  containerStyle: CSSProperties
+  containerStyle?: CSSProperties
 }
 
 const WhiteboardCanvas = ({
@@ -119,19 +118,13 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const initialDocRef = useRef<Document>(doc)
   const onDocChangeRef = useRef(onDocChange)
   const lastOutboundDocRef = useRef<Document>(doc)
-  const registry = useMemo(
-    () => nodeRegistry ?? createDefaultNodeRegistry(),
-    [nodeRegistry]
-  )
+  const interactionRef = useRef(createInteractionCoordinator())
   const resolvedConfig = useMemo(
     () => normalizeConfig(config),
     [config]
   )
-  const initialViewportRef = useRef(resolvedConfig.viewport.initial ?? DEFAULT_VIEWPORT)
-  const initialToolRef = useRef(resolvedConfig.tool)
   const viewportPolicy = useMemo(
     () => ({
       panEnabled: resolvedConfig.viewport.enablePan,
@@ -148,25 +141,9 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
       resolvedConfig.viewport.wheelSensitivity
     ]
   )
-  const instanceConfig = useMemo(
-    () => toEngineInstanceConfig(resolvedConfig),
-    [resolvedConfig]
-  )
-  const viewportState = useMemo(
-    () => createValueStore(initialViewportRef.current),
-    []
-  )
-  const toolState = useMemo(
-    () => createToolState(initialToolRef.current),
-    []
-  )
-  const lockOwner = useMemo(
-    () => ({}),
-    []
-  )
   const viewport = useViewportController({
-    viewportState,
-    lockOwner,
+    initialViewport: resolvedConfig.viewport.initial ?? DEFAULT_VIEWPORT,
+    interaction: interactionRef.current,
     containerRef,
     options: viewportPolicy
   })
@@ -176,14 +153,14 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   if (!engineInstanceRef.current) {
     engineInstanceRef.current = engine({
       registries,
-      document: initialDocRef.current,
+      document: doc,
       onDocumentChange: (next) => {
         lastOutboundDocRef.current = next
         onDocChangeRef.current((draft) => {
           replaceDocumentDraft(draft, next)
         })
       },
-      config: instanceConfig
+      config: toEngineInstanceConfig(resolvedConfig)
     })
   }
   const engineInstance = engineInstanceRef.current!
@@ -192,10 +169,10 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   if (!instanceRef.current) {
     instanceRef.current = createWhiteboardInstance({
       engine: engineInstance,
-      toolState,
+      initialTool: resolvedConfig.tool,
       viewport,
-      registry,
-      lockOwner
+      registry: nodeRegistry ?? createDefaultNodeRegistry(),
+      interaction: interactionRef.current
     })
   }
   const instance = instanceRef.current!
@@ -239,12 +216,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     instance.configure(runtimeConfig)
   }, [instance, runtimeConfig])
 
-  const containerStyle = useMemo<CSSProperties>(
-    () => ({
-      ...(resolvedConfig.style as CSSProperties | undefined)
-    }),
-    [resolvedConfig.style]
-  )
+  const containerStyle = resolvedConfig.style as CSSProperties | undefined
 
   return (
     <InstanceProvider value={instance}>

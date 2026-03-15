@@ -10,9 +10,9 @@ import {
 } from './selection'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
+  EditorTool,
   WhiteboardRead
 } from '../instance/types'
-import type { EditorTool } from '../instance/toolState'
 import type { StoredSelection } from '../state/selection'
 import {
   createDerivedStore,
@@ -24,7 +24,7 @@ export type {
   ValueView,
   WhiteboardView
 } from './types'
-export type { EditorTool as ToolView } from '../instance/toolState'
+export type { EditorTool as ToolView } from '../instance/types'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 

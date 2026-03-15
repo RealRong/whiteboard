@@ -1,4 +1,4 @@
-import type { EditorTool } from '../instance/toolState'
+import type { EditorTool } from '../instance/types'
 import { useInternalInstance } from './useInstance'
 import { useView } from './useView'
 

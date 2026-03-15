@@ -3,7 +3,6 @@ import type { EdgeId, Point } from '@whiteboard/core/types'
 import { createValueStore } from '@whiteboard/core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
-import { interactionLock } from '../../../../runtime/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -23,7 +22,6 @@ export const useEdgeRouting = () => {
   const instance = useInstance()
   const activeRef = useRef<ActiveRouting | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const lockTokenRef = useRef<ReturnType<typeof interactionLock.tryAcquire> | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
 
   const readRoutingEntry = useCallback((edgeId: EdgeId) => {
@@ -56,16 +54,10 @@ export const useEdgeRouting = () => {
     }
 
     const token = tokenRef.current
-    const lockToken = lockTokenRef.current
     activeRef.current = null
     tokenRef.current = null
-    lockTokenRef.current = null
     pointerRef.current.set(null)
     instance.draft.edge.clear()
-
-    if (lockToken) {
-      interactionLock.release(instance, lockToken)
-    }
 
     if (token) {
       instance.interaction.finish(token)
@@ -211,16 +203,12 @@ export const useEdgeRouting = () => {
         return
       }
 
-      const lockToken = interactionLock.tryAcquire(instance, 'edgeRouting', event.pointerId)
-      if (!lockToken) {
-        return
-      }
-
-      const token = instance.interaction.tryStart('edge-routing', () => cancel(event.pointerId))
-      if (!token) {
-        interactionLock.release(instance, lockToken)
-        return
-      }
+      const token = instance.interaction.tryStart({
+        mode: 'edge-routing',
+        cancel: () => cancel(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!token) return
 
       activeRef.current = {
         edgeId,
@@ -231,7 +219,6 @@ export const useEdgeRouting = () => {
         point: origin
       }
       tokenRef.current = token
-      lockTokenRef.current = lockToken
       pointerRef.current.set(event.pointerId)
       writePreview(edgeId, index, points)
 

@@ -3,7 +3,6 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { EdgeConnectDraft } from '../../../../types/edge'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance as useInstance, useTool, useView } from '../../../../runtime/hooks'
-import { interactionLock } from '../../../../runtime/interaction/interactionLock'
 import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
@@ -48,7 +47,6 @@ export const useEdgeConnect = ({
   const tool = useTool()
   const activeRef = useRef<ActiveConnect | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const lockTokenRef = useRef<ReturnType<typeof interactionLock.tryAcquire> | null>(null)
   const hoverEventRef = useRef<PointerEvent | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
 
@@ -227,18 +225,12 @@ export const useEdgeConnect = ({
     }
 
     const token = tokenRef.current
-    const lockToken = lockTokenRef.current
     activeRef.current = null
     tokenRef.current = null
-    lockTokenRef.current = null
     hoverTaskRef.current.cancel()
     hoverEventRef.current = null
     pointerRef.current.set(null)
     instance.draft.connection.clear()
-
-    if (lockToken) {
-      interactionLock.release(instance, lockToken)
-    }
 
     if (token) {
       instance.interaction.finish(token)
@@ -249,22 +241,17 @@ export const useEdgeConnect = ({
     event: PointerEvent,
     draft: EdgeConnectDraft
   ) => {
-    const lockToken = interactionLock.tryAcquire(instance, 'edgeConnect', event.pointerId)
-    if (!lockToken) {
-      return
-    }
-
-    const token = instance.interaction.tryStart('edge-connect', () => cancel(event.pointerId))
-    if (!token) {
-      interactionLock.release(instance, lockToken)
-      return
-    }
+    const token = instance.interaction.tryStart({
+      mode: 'edge-connect',
+      cancel: () => cancel(event.pointerId),
+      pointerId: event.pointerId
+    })
+    if (!token) return
 
     activeRef.current = {
       draft
     }
     tokenRef.current = token
-    lockTokenRef.current = lockToken
     pointerRef.current.set(event.pointerId)
     setDraftPreview(draft)
 

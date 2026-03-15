@@ -6,7 +6,6 @@ import {
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
-import { interactionLock } from '../../../../runtime/interaction/interactionLock'
 import {
   buildNodeDragState,
   resolveNodeDragCommit,
@@ -23,7 +22,6 @@ export const createNodeDragSession = (
 ) => {
   let active: ActiveDrag | null = null
   let interactionToken: ReturnType<typeof instance.interaction.tryStart> | null = null
-  let lockToken: ReturnType<typeof interactionLock.tryAcquire> | null = null
   const pointer = createValueStore<number | null>(null)
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
@@ -37,18 +35,12 @@ export const createNodeDragSession = (
       return
     }
 
-    const previousLockToken = lockToken
     const previousInteractionToken = interactionToken
     active = null
     interactionToken = null
-    lockToken = null
     pointer.set(null)
     instance.draft.node.clear()
     instance.draft.guides.clear()
-
-    if (previousLockToken) {
-      interactionLock.release(instance, previousLockToken)
-    }
 
     if (previousInteractionToken) {
       instance.interaction.finish(previousInteractionToken)
@@ -137,14 +129,12 @@ export const createNodeDragSession = (
       })
       if (!drag.members.length) return
 
-      const nextLockToken = interactionLock.tryAcquire(instance, 'nodeDrag', event.pointerId)
-      if (!nextLockToken) return
-
-      const nextInteractionToken = instance.interaction.tryStart('node-drag', () => clear(event.pointerId))
-      if (!nextInteractionToken) {
-        interactionLock.release(instance, nextLockToken)
-        return
-      }
+      const nextInteractionToken = instance.interaction.tryStart({
+        mode: 'node-drag',
+        cancel: () => clear(event.pointerId),
+        pointerId: event.pointerId
+      })
+      if (!nextInteractionToken) return
 
       if (
         nextSelectedNodeIds.length !== currentSelectedNodeIds.length
@@ -158,7 +148,6 @@ export const createNodeDragSession = (
         ...drag
       }
       interactionToken = nextInteractionToken
-      lockToken = nextLockToken
       pointer.set(event.pointerId)
       instance.draft.node.clear()
       instance.draft.guides.clear()
