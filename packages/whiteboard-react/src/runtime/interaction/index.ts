@@ -1,7 +1,6 @@
 export { createInteractionCoordinator } from './coordinator'
 export type {
-  ActiveInteractionSessionKind,
   InteractionCoordinator,
-  InteractionSession,
+  InteractionMode,
   InteractionToken
 } from './types'

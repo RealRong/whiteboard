@@ -1,9 +1,9 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
+import { createValueStore } from '@whiteboard/core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
 import { interactionLock } from '../../../../runtime/interaction/interactionLock'
-import { createSignal } from '../../../../runtime/interaction/signal'
 import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -24,10 +24,10 @@ export const useEdgeRouting = () => {
   const activeRef = useRef<ActiveRouting | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const lockTokenRef = useRef<ReturnType<typeof interactionLock.tryAcquire> | null>(null)
-  const pointerRef = useRef(createSignal<number | null>(null))
+  const pointerRef = useRef(createValueStore<number | null>(null))
 
   const readRoutingEntry = useCallback((edgeId: EdgeId) => {
-    const entry = instance.read.edge.get(edgeId)
+    const entry = instance.read.edge.byId.get(edgeId)
     if (!entry || entry.edge.type === 'bezier' || entry.edge.type === 'curve') {
       return undefined
     }
@@ -161,7 +161,7 @@ export const useEdgeRouting = () => {
         return
       }
 
-      const entry = instance.read.edge.get(edgeId)
+      const entry = instance.read.edge.byId.get(edgeId)
       if (!entry) {
         return
       }

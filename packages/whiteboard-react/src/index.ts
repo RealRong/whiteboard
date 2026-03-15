@@ -4,7 +4,6 @@ export { Whiteboard } from './Whiteboard'
 export {
   useInteraction,
   useInstance,
-  useMindmap,
   useScope,
   useSelection,
   useTool,

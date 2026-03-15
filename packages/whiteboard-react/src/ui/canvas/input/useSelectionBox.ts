@@ -1,4 +1,5 @@
 import { rectFromPoints } from '@whiteboard/core/geometry'
+import { createValueStore } from '@whiteboard/core/runtime'
 import {
   applySelection,
   resolveSelectionMode,
@@ -8,7 +9,6 @@ import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance, useView } from '../../../runtime/hooks'
 import { interactionLock } from '../../../runtime/interaction/interactionLock'
-import { createSignal } from '../../../runtime/interaction/signal'
 import { useWindowPointerSession } from '../../../runtime/interaction/useWindowPointerSession'
 import { createRafTask } from '../../../runtime/utils/rafTask'
 import type { InteractionLockToken } from '../../../runtime/interaction/interactionLock'
@@ -76,7 +76,7 @@ export const useSelectionBox = ({
   const instance = useInternalInstance()
   const activeRef = useRef<ActiveSelection | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const pointerRef = useRef(createSignal<number | null>(null))
+  const pointerRef = useRef(createValueStore<number | null>(null))
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -206,7 +206,7 @@ export const useSelectionBox = ({
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (pointerRef.current.get() !== null) return
-      if (instance.view.interaction.get().mode !== 'idle') return
+      if (instance.interaction.mode.get() !== 'idle') return
       if (instance.view.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)

@@ -1,5 +1,5 @@
 import { useInteraction } from '../../../runtime/hooks'
-import { useSelectedEdgeView } from '../hooks/useSelectedEdgeView'
+import { useSelectedEdgeView } from '../hooks/useEdgeView'
 import { useEdgeRouting } from '../hooks/routing/useEdgeRouting'
 import { EdgePreview } from './EdgePreview'
 import { EdgeSelectedControls } from './EdgeSelectedControls'
@@ -13,7 +13,7 @@ export const EdgeOverlayLayer = () => {
   } = useEdgeRouting()
   const showEdgeControls =
     selectedEdgeView !== undefined
-    && interaction.mode === 'idle'
+    && interaction === 'idle'
 
   return (
     <>

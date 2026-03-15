@@ -1,3 +1,4 @@
+import { createValueStore } from '@whiteboard/core/runtime'
 import {
   applySelection,
   resolveSelectionMode
@@ -6,7 +7,6 @@ import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
 import { interactionLock } from '../../../../runtime/interaction/interactionLock'
-import { createSignal } from '../../../../runtime/interaction/signal'
 import {
   buildNodeDragState,
   resolveNodeDragCommit,
@@ -24,7 +24,7 @@ export const createNodeDragSession = (
   let active: ActiveDrag | null = null
   let interactionToken: ReturnType<typeof instance.interaction.tryStart> | null = null
   let lockToken: ReturnType<typeof interactionLock.tryAcquire> | null = null
-  const pointer = createSignal<number | null>(null)
+  const pointer = createValueStore<number | null>(null)
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
 

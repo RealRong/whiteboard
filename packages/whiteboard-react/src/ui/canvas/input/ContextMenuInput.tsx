@@ -33,7 +33,7 @@ export const ContextMenuInput = ({
   const instance = useInternalInstance()
   const interaction = useInteraction()
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const gestureIdle = interaction.mode === 'idle'
+  const gestureIdle = interaction === 'idle'
 
   useEffect(() => {
     const container = containerRef.current

@@ -1,4 +1,4 @@
-tool# Whiteboard Write 管线文件排布重构方案（One-Shot / No-Compatibility）
+toolcreateNodeView# Whiteboard Write 管线文件排布重构方案（One-Shot / No-Compatibility）
 
 更新时间：2026-02-28
 

@@ -7,11 +7,17 @@
 当前实现状态如下：
 
 1. `runtime store primitive` 已下沉到 `packages/whiteboard-core/src/runtime/`，并通过 `@whiteboard/core/runtime` 对外导出。
-2. `whiteboard-engine` 的 `NodeRead / EdgeRead / MindmapRead / TreeRead` 已正式对齐 `KeyedReadStore` 协议，而不是仅在语义上“看起来像”。
+2. `whiteboard-engine` 的读层已收敛为纯 store 结构：
+   `read.node = { ids: ReadStore, byId: KeyedReadStore }`
+   `read.edge = { ids: ReadStore, byId: KeyedReadStore }`
+   `read.mindmap = { ids: ReadStore, byId: KeyedReadStore }`
+   `read.tree = KeyedReadStore`
 3. `whiteboard-react` 已移除 `Jotai`、`uiStore`、`toolAtom`、`selectionAtom`、`viewportAtom`。
 4. `tool / scope / selection / viewport` 均已切换为 source store。
 5. `view.selection / view.scope / view.interaction` 已切换为 `createDerivedStore({ get(read) => ... })` 驱动。
-6. React 侧只保留 `useStoreValue` 这类 React 绑定；store 协议与实现不再停留在 react 包内。
+6. `runtime/view` 已收缩为共享 store 视图层，不再承载 `node / edge / mindmap` 这类实体级参数化展示查询。
+7. 节点、边、脑图的实体展示逻辑已回到各自 feature hook，避免在 runtime 层继续堆积 feature-specific presentation。
+8. React 侧只保留 `useStoreValue` 这类 React 绑定；store 协议与实现不再停留在 react 包内。
 
 ## 背景
 

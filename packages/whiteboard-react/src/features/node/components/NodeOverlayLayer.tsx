@@ -140,7 +140,7 @@ export const NodeOverlayLayer = ({
   const selection = useSelection()
   const activeScopeNode = useNodeView(scope.activeId)
   const selectedSet = selection.nodeIdSet
-  const chromeVisible = interaction.mode === 'idle'
+  const chromeVisible = interaction === 'idle'
   const activeScope =
     scope.activeId && scope.activeTitle && activeScopeNode
       ? {
@@ -151,7 +151,7 @@ export const NodeOverlayLayer = ({
   const showNodeHandles =
     tool === 'select'
     && selection.edgeId === undefined
-    && (interaction.mode === 'node-transform' || chromeVisible)
+    && (interaction === 'node-transform' || chromeVisible)
   const nodeHandleNodeIds = showNodeHandles ? selection.nodeIds : EMPTY_NODE_IDS
   const showNodeConnectHandles =
     tool === 'edge'

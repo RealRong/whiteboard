@@ -34,7 +34,7 @@ export const createWhiteboardInstance = ({
   const draft = createTransient()
 
   const selection = createSelectionDomain({
-    readAllNodeIds: () => instance.read.node.ids()
+    readAllNodeIds: () => instance.read.node.ids.get()
   })
   const container = createContainerDomain()
   const interaction = createInteractionCoordinator()
@@ -86,11 +86,7 @@ export const createWhiteboardInstance = ({
     tool: toolState,
     scope: container.store,
     selection: selection.store,
-    read,
-    commands,
-    draft,
-    registry,
-    interaction
+    read
   })
 
   instance = {

@@ -1,9 +1,9 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
+import { createValueStore } from '@whiteboard/core/runtime'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
 import { interactionLock } from '../../../../runtime/interaction/interactionLock'
-import { createSignal } from '../../../../runtime/interaction/signal'
 import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
 import {
   resolveNextMindmapDragSession,
@@ -20,7 +20,7 @@ export const useMindmapDrag = () => {
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const lockTokenRef = useRef<ReturnType<typeof interactionLock.tryAcquire> | null>(null)
-  const pointerRef = useRef(createSignal<number | null>(null))
+  const pointerRef = useRef(createValueStore<number | null>(null))
 
   const cancel = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -65,7 +65,7 @@ export const useMindmapDrag = () => {
         world,
         treeView:
           active.kind === 'subtree'
-            ? instance.read.mindmap.get(active.treeId)
+            ? instance.read.mindmap.byId.get(active.treeId)
             : undefined
       })
       activeRef.current = next
@@ -152,7 +152,7 @@ export const useMindmapDrag = () => {
         return
       }
 
-      const treeView = instance.read.mindmap.get(treeId)
+      const treeView = instance.read.mindmap.byId.get(treeId)
       if (!treeView) {
         return
       }

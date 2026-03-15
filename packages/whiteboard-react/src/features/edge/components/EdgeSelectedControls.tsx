@@ -3,7 +3,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent
 } from 'react'
-import type { SelectedEdgeView } from '../hooks/useSelectedEdgeView'
+import type { SelectedEdgeView } from '../hooks/useEdgeView'
 
 export const EdgeSelectedControls = ({
   view,

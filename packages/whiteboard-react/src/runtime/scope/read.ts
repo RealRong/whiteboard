@@ -44,7 +44,7 @@ const resolveEdge = (
   value: EdgeId | Pick<Edge, 'source' | 'target'>
 ): Pick<Edge, 'source' | 'target'> | undefined => {
   if (typeof value === 'string') {
-    const entry: Readonly<EdgeEntry> | undefined = read.edge.get(value)
+    const entry: Readonly<EdgeEntry> | undefined = read.edge.byId.get(value)
     return entry?.edge
   }
   return value

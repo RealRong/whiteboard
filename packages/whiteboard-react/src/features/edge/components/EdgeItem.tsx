@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
-import type { EdgeView } from '../../../runtime/view/edge'
+import type { EdgeView } from '../hooks/useEdgeView'
 
 type EdgeItemProps = {
   entry: EdgeView

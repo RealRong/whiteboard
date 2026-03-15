@@ -1,8 +1,8 @@
-import type { InteractionView } from '../view/interaction'
+import type { InteractionMode } from '../interaction'
 import { useInternalInstance } from './useInstance'
 import { useView } from './useView'
 
-export const useInteraction = (): InteractionView => {
+export const useInteraction = (): InteractionMode => {
   const instance = useInternalInstance()
-  return useView(instance.view.interaction)
+  return useView(instance.interaction.mode)
 }

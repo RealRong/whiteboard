@@ -76,26 +76,37 @@ export const createRead = ({
   return {
     read: {
       node: {
-        ids: nodeProjection.ids,
-        get: nodeProjection.get,
-        subscribe: nodeProjection.subscribe,
-        subscribeIds: nodeProjection.subscribeIds
+        ids: {
+          get: nodeProjection.ids,
+          subscribe: nodeProjection.subscribeIds
+        },
+        byId: {
+          get: nodeProjection.get,
+          subscribe: nodeProjection.subscribe
+        }
       },
       edge: {
-        ids: edgeProjection.ids,
-        get: edgeProjection.get,
-        subscribe: edgeProjection.subscribe,
-        subscribeIds: edgeProjection.subscribeIds
+        ids: {
+          get: edgeProjection.ids,
+          subscribe: edgeProjection.subscribeIds
+        },
+        byId: {
+          get: edgeProjection.get,
+          subscribe: edgeProjection.subscribe
+        }
       },
       mindmap: {
-        ids: mindmapProjection.ids,
-        get: mindmapProjection.get,
-        subscribe: mindmapProjection.subscribe,
-        subscribeIds: mindmapProjection.subscribeIds
+        ids: {
+          get: mindmapProjection.ids,
+          subscribe: mindmapProjection.subscribeIds
+        },
+        byId: {
+          get: mindmapProjection.get,
+          subscribe: mindmapProjection.subscribe
+        }
       },
       tree: {
         get: treeProjection.get,
-        ids: treeProjection.ids,
         subscribe: treeProjection.subscribe
       },
       index: indexes

@@ -54,7 +54,7 @@ export const NodeToolbarLayer = ({
   const toolbar = useNodeToolbar()
   const showNodeToolbar =
     tool === 'select'
-    && interaction.mode === 'idle'
+    && interaction === 'idle'
     && selection.edgeId === undefined
     && selection.nodeCount > 0
 

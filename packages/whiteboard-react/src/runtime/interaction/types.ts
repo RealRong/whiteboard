@@ -1,27 +1,22 @@
 import type { ReadStore } from '@whiteboard/core/runtime'
 
-export type InteractionSession =
-  | { kind: 'idle' }
-  | { kind: 'selection-box' }
-  | { kind: 'node-drag' }
-  | { kind: 'mindmap-drag' }
-  | { kind: 'node-transform' }
-  | { kind: 'edge-connect' }
-  | { kind: 'edge-routing' }
-
-export type ActiveInteractionSessionKind = Exclude<
-  InteractionSession['kind'],
-  'idle'
->
+export type InteractionMode =
+  | 'idle'
+  | 'selection-box'
+  | 'node-drag'
+  | 'mindmap-drag'
+  | 'node-transform'
+  | 'edge-connect'
+  | 'edge-routing'
 
 export type InteractionToken = Readonly<{
-  kind: ActiveInteractionSessionKind
+  kind: Exclude<InteractionMode, 'idle'>
 }>
 
 export type InteractionCoordinator = {
-  session: ReadStore<InteractionSession>
+  mode: ReadStore<InteractionMode>
   tryStart: (
-    kind: ActiveInteractionSessionKind,
+    kind: Exclude<InteractionMode, 'idle'>,
     cancel: () => void
   ) => InteractionToken | null
   finish: (token: InteractionToken) => void

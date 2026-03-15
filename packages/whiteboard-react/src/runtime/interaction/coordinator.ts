@@ -1,21 +1,19 @@
-import { createSignal } from './signal'
+import { createValueStore } from '@whiteboard/core/runtime'
 import type {
-  ActiveInteractionSessionKind,
   InteractionCoordinator,
+  InteractionMode,
   InteractionToken
 } from './types'
 
 export const createInteractionCoordinator = (): InteractionCoordinator => {
-  const session = createSignal<{ kind: 'idle' | ActiveInteractionSessionKind }>({
-    kind: 'idle'
-  })
+  const mode = createValueStore<InteractionMode>('idle')
   let active: {
     token: InteractionToken
     cancel: () => void
   } | null = null
 
   return {
-    session,
+    mode,
     tryStart: (kind, cancel) => {
       if (active) {
         return null
@@ -26,7 +24,7 @@ export const createInteractionCoordinator = (): InteractionCoordinator => {
         token,
         cancel
       }
-      session.set({ kind })
+      mode.set(kind)
       return token
     },
     finish: (token) => {
@@ -35,7 +33,7 @@ export const createInteractionCoordinator = (): InteractionCoordinator => {
       }
 
       active = null
-      session.set({ kind: 'idle' })
+      mode.set('idle')
     },
     clear: () => {
       active?.cancel()
