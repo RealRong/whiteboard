@@ -12,9 +12,6 @@ export type WhiteboardContainerCommands = {
 
 type ContainerDomain = {
   store: ValueStore<NodeId | undefined>
-  read: {
-    activeId: () => NodeId | undefined
-  }
   commands: WhiteboardContainerCommands
 }
 
@@ -33,9 +30,6 @@ export const createContainerDomain = (): ContainerDomain => {
 
   return {
     store,
-    read: {
-      activeId: readActiveContainerId
-    },
     commands: {
       enter: writeActiveContainerId,
       exit: clear,

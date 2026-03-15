@@ -8,7 +8,7 @@ import { useTransientGuides } from '../../../runtime/draft'
 import {
   useInternalInstance,
   useInteraction,
-  useScope,
+  useContainer,
   useSelection,
   useTool,
   useView
@@ -134,18 +134,18 @@ export const NodeOverlayLayer = ({
   const instance = useInternalInstance()
   const nodeIds = useView(instance.view.nodeIds)
   const tool = useTool()
-  const scope = useScope()
+  const container = useContainer()
   const interaction = useInteraction()
   const guides = useTransientGuides(instance.draft.guides)
   const selection = useSelection()
-  const activeScopeNode = useNodeView(scope.activeId)
+  const activeContainerNode = useNodeView(container.activeId)
   const selectedSet = selection.nodeIdSet
   const chromeVisible = interaction === 'idle'
-  const activeScope =
-    scope.activeId && scope.activeTitle && activeScopeNode
+  const activeContainer =
+    container.activeId && container.activeTitle && activeContainerNode
       ? {
-          rect: activeScopeNode.rect,
-          title: scope.activeTitle
+          rect: activeContainerNode.rect,
+          title: container.activeTitle
         }
       : undefined
   const showNodeHandles =
@@ -160,10 +160,10 @@ export const NodeOverlayLayer = ({
   return (
     <>
       <div className="wb-node-layer">
-        {activeScope ? (
+        {activeContainer ? (
           <ActiveContainerOverlay
-            rect={activeScope.rect}
-            title={activeScope.title}
+            rect={activeContainer.rect}
+            title={activeContainer.title}
           />
         ) : null}
         {nodeHandleNodeIds.map((nodeId: NodeId) => (

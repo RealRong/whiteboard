@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import type { MindmapDragView } from '@whiteboard/engine'
 import { useInstance } from '../../../runtime/hooks'
+import type { MindmapDragView } from '../../../runtime/draft'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type MindmapLineView = {

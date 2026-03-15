@@ -1,5 +1,5 @@
+import type { CanvasNodeRect } from '@whiteboard/core/read'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import type { CanvasNodeRect } from '@engine-types/instance'
 import type { SnapCandidate } from '@engine-types/node'
 import type { EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'

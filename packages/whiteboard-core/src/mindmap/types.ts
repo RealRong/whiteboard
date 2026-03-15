@@ -42,6 +42,13 @@ export interface MindmapLayoutOptions {
   side?: 'left' | 'right' | 'both'
 }
 
+export type MindmapLayoutMode = 'simple' | 'tidy'
+
+export type MindmapLayoutConfig = {
+  mode?: MindmapLayoutMode
+  options?: MindmapLayoutOptions
+}
+
 export type GetNodeSize = (id: MindmapNodeId) => { width: number; height: number }
 
 export interface MindmapSizeAdapter {

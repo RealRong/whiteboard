@@ -3,7 +3,10 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { EdgeConnectDraft } from '../../../../types/edge'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance as useInstance, useTool, useView } from '../../../../runtime/hooks'
-import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
+import {
+  createPanDriver,
+  useWindowPointerSession
+} from '../../../../runtime/interaction'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
 import {
@@ -49,6 +52,7 @@ export const useEdgeConnect = ({
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const hoverEventRef = useRef<PointerEvent | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
+  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
 
   const readPointer = useCallback((
     event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
@@ -188,6 +192,28 @@ export const useEdgeConnect = ({
     })
   }, [instance])
 
+  if (!panRef.current) {
+    panRef.current = createPanDriver({
+      viewport: instance.viewport,
+      enabled: () => instance.interaction.current()?.mode === 'edge-connect',
+      onFrame: (pointer) => {
+        const active = activeRef.current
+        if (!active) {
+          return
+        }
+
+        if (!updateDraft(active.draft, readPointer({
+          pointerId: active.draft.pointerId,
+          ...pointer
+        }))) {
+          return
+        }
+
+        setDraftPreview(active.draft)
+      }
+    })
+  }
+
   const setDraftPreview = useCallback((draft: EdgeConnectDraft) => {
     instance.draft.connection.write({
       activePointerId: draft.pointerId,
@@ -227,6 +253,7 @@ export const useEdgeConnect = ({
     const token = tokenRef.current
     activeRef.current = null
     tokenRef.current = null
+    panRef.current?.stop()
     hoverTaskRef.current.cancel()
     hoverEventRef.current = null
     pointerRef.current.set(null)
@@ -384,6 +411,7 @@ export const useEdgeConnect = ({
         return
       }
 
+      panRef.current?.update(event)
       setDraftPreview(active.draft)
     },
     onPointerUp: (event) => {

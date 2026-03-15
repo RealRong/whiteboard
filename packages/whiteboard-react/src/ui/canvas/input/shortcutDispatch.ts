@@ -71,12 +71,12 @@ const duplicateSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const selectAll = (instance: InternalWhiteboardInstance) => {
-  if (!instance.read.scope.activeId()) {
+  if (!instance.read.container.activeId()) {
     instance.commands.selection.selectAll()
     return
   }
   instance.commands.selection.select(
-    [...instance.read.scope.nodeIds()],
+    [...instance.read.container.nodeIds()],
     'replace'
   )
 }
@@ -120,7 +120,7 @@ export const dispatchShortcutAction = (
       return true
     case 'selection.clear':
       instance.commands.selection.clear()
-      if (instance.read.scope.activeId()) {
+      if (instance.read.container.activeId()) {
         instance.commands.container.exit()
       }
       return true

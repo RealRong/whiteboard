@@ -3,7 +3,10 @@ import type { EdgeId, Point } from '@whiteboard/core/types'
 import { createValueStore } from '@whiteboard/core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
-import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
+import {
+  createPanDriver,
+  useWindowPointerSession
+} from '../../../../runtime/interaction'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent
@@ -23,6 +26,7 @@ export const useEdgeRouting = () => {
   const activeRef = useRef<ActiveRouting | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
+  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
 
   const readRoutingEntry = useCallback((edgeId: EdgeId) => {
     const entry = instance.read.edge.byId.get(edgeId)
@@ -56,6 +60,7 @@ export const useEdgeRouting = () => {
     const token = tokenRef.current
     activeRef.current = null
     tokenRef.current = null
+    panRef.current?.stop()
     pointerRef.current.set(null)
     instance.draft.edge.clear()
 
@@ -63,6 +68,56 @@ export const useEdgeRouting = () => {
       instance.interaction.finish(token)
     }
   }, [instance])
+
+  const updatePreview = useCallback((
+    input: {
+      clientX: number
+      clientY: number
+    }
+  ) => {
+    const active = activeRef.current
+    if (!active) {
+      return
+    }
+
+    const entry = readRoutingEntry(active.edgeId)
+    if (!entry) {
+      cancel(active.pointerId)
+      return
+    }
+
+    const points = entry.edge.routing?.points ?? []
+    if (active.index < 0 || active.index >= points.length) {
+      cancel(active.pointerId)
+      return
+    }
+
+    const { world } = instance.viewport.pointer(input)
+    const point = {
+      x: active.origin.x + (world.x - active.start.x),
+      y: active.origin.y + (world.y - active.start.y)
+    }
+    if (isPointEqual(point, active.point)) {
+      return
+    }
+
+    active.point = point
+    writePreview(
+      active.edgeId,
+      active.index,
+      points.map((entryPoint, pointIndex) => (
+        pointIndex === active.index ? point : entryPoint
+      ))
+    )
+  }, [cancel, instance, readRoutingEntry, writePreview])
+
+  if (!panRef.current) {
+    panRef.current = createPanDriver({
+      viewport: instance.viewport,
+      enabled: () => instance.interaction.current()?.mode === 'edge-routing',
+      onFrame: updatePreview
+    })
+  }
 
   const pointerId = useView(pointerRef.current)
 
@@ -74,35 +129,8 @@ export const useEdgeRouting = () => {
         return
       }
 
-      const entry = readRoutingEntry(active.edgeId)
-      if (!entry) {
-        cancel(active.pointerId)
-        return
-      }
-
-      const points = entry.edge.routing?.points ?? []
-      if (active.index < 0 || active.index >= points.length) {
-        cancel(active.pointerId)
-        return
-      }
-
-      const { world } = instance.viewport.pointer(event)
-      const point = {
-        x: active.origin.x + (world.x - active.start.x),
-        y: active.origin.y + (world.y - active.start.y)
-      }
-      if (isPointEqual(point, active.point)) {
-        return
-      }
-
-      active.point = point
-      writePreview(
-        active.edgeId,
-        active.index,
-        points.map((entryPoint, pointIndex) => (
-          pointIndex === active.index ? point : entryPoint
-        ))
-      )
+      panRef.current?.update(event)
+      updatePreview(event)
     },
     onPointerUp: (event) => {
       const active = activeRef.current
@@ -143,35 +171,6 @@ export const useEdgeRouting = () => {
   }, [cancel])
 
   return {
-    handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => {
-      if (event.button !== 0) {
-        return
-      }
-
-      const edgeId = event.currentTarget.closest('[data-edge-id]')?.getAttribute('data-edge-id') as EdgeId | null
-      if (!edgeId) {
-        return
-      }
-
-      const entry = instance.read.edge.byId.get(edgeId)
-      if (!entry) {
-        return
-      }
-
-      if (!instance.read.scope.hasEdge(entry.edge)) {
-        instance.commands.selection.clear()
-        instance.commands.container.exit()
-      }
-
-      if (event.shiftKey || event.detail >= 2) {
-        const point = instance.viewport.pointer(event).world
-        instance.commands.edge.routing.insertAtPoint(edgeId, point)
-      }
-
-      instance.commands.selection.selectEdge(edgeId)
-      event.preventDefault()
-      event.stopPropagation()
-    },
     handleRoutingPointerDown: (
       event: ReactPointerEvent<HTMLDivElement>,
       edgeId: EdgeId,

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { NodeViewItem } from '@whiteboard/engine'
+import type { NodeViewItem } from '@whiteboard/core/read'
 
 type NodeViewNode = NodeViewItem['node']
 type NodeViewRect = NodeViewItem['rect']

@@ -28,10 +28,12 @@ export type StoredSelection = {
   edgeId?: EdgeId
 }
 
+type SelectionStateCommands = Omit<WhiteboardSelectionCommands, 'selectAll'>
+
 type SelectionDomain = {
   store: ValueStore<StoredSelection>
   read: WhiteboardSelectionRead
-  commands: WhiteboardSelectionCommands
+  commands: SelectionStateCommands
 }
 
 const EMPTY_SELECTED_NODE_IDS: readonly NodeId[] = []
@@ -73,11 +75,7 @@ const createSelectionState = (
   }
 }
 
-export const createSelectionDomain = ({
-  readAllNodeIds = () => []
-}: {
-  readAllNodeIds?: () => readonly NodeId[]
-}): SelectionDomain => {
+export const createSelectionDomain = (): SelectionDomain => {
   const store = createValueStore<StoredSelection>(EMPTY_SELECTION)
   const readSelection = () => store.get()
   const writeSelection = (next: StoredSelection) => {
@@ -133,7 +131,6 @@ export const createSelectionDomain = ({
     commands: {
       select,
       selectEdge,
-      selectAll: () => select(readAllNodeIds()),
       clear
     }
   }

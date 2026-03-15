@@ -2,9 +2,9 @@ import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
 export {
+  useContainer,
   useInteraction,
   useInstance,
-  useScope,
   useSelection,
   useTool,
   useViewport,

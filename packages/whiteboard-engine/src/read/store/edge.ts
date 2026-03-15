@@ -1,4 +1,8 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type {
+  CanvasNodeRect,
+  EdgeEntry
+} from '@whiteboard/core/read'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
   collectRelatedEdgeIds,
@@ -10,10 +14,6 @@ import {
   isSamePointArray,
   isSameRectWithRotationTuple
 } from '@whiteboard/core/utils'
-import type {
-  CanvasNodeRect,
-  EdgeEntry
-} from '@engine-types/instance'
 import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
 

@@ -1,8 +1,6 @@
+import type { InstanceConfig as EngineInstanceConfig } from '@whiteboard/core/config'
 import type {
-  Commands as EngineCommands,
-  EngineRead,
-  Instance as EngineInstance,
-  InstanceConfig as EngineInstanceConfig
+  Instance as EngineInstance
 } from '@whiteboard/engine'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
@@ -10,8 +8,8 @@ import type {
   WhiteboardSelectionCommands,
   WhiteboardSelectionRead
 } from '../state/selection'
-import type { WhiteboardContainerCommands } from '../state/container'
-import type { WhiteboardScopeRead } from '../scope/read'
+import type { WhiteboardContainerCommands } from '../container/state'
+import type { WhiteboardContainerRead } from '../container/read'
 import type { WhiteboardViewport } from '../viewport'
 import type { Transient } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
@@ -26,6 +24,9 @@ export type WhiteboardRuntimeConfig = {
   history?: ResolvedHistoryConfig
 }
 
+type EngineCommands = EngineInstance['commands']
+type EngineRead = EngineInstance['read']
+
 export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
   tool: {
     set: (tool: EditorTool) => void
@@ -36,7 +37,7 @@ export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'in
 }
 
 export type WhiteboardRead = EngineRead & {
-  scope: WhiteboardScopeRead
+  container: WhiteboardContainerRead
   selection: WhiteboardSelectionRead
 }
 

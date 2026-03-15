@@ -6,7 +6,10 @@ import type {
   ReactNode,
   Ref
 } from 'react'
-import type { Commands, EngineRead } from '@whiteboard/engine'
+import type {
+  WhiteboardCommands,
+  WhiteboardRead
+} from '../../runtime/instance/types'
 
 export type NodeContainerProps = {
   rect: Rect
@@ -19,8 +22,8 @@ export type NodeContainerProps = {
 }
 
 export type NodeRenderProps = {
-  read: Pick<EngineRead, 'index'>
-  commands: Commands
+  read: Pick<WhiteboardRead, 'index'>
+  commands: WhiteboardCommands
   node: Node
   rect: Rect
   selected: boolean

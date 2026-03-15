@@ -1,8 +1,8 @@
 import {
-  isScopeViewEqual,
-  resolveScopeView,
-  type ScopeView
-} from './scope'
+  isContainerViewEqual,
+  resolveContainerView,
+  type ContainerView
+} from './container'
 import {
   isSelectionStateEqual,
   resolveSelectionView,
@@ -42,36 +42,37 @@ const createMindmapIdsView = (
 
 const createSelectionView = (
   selection: ValueStore<StoredSelection>,
-  scope: ValueStore<NodeId | undefined>,
+  container: ValueStore<NodeId | undefined>,
   read: WhiteboardRead
 ): ValueView<SelectionState> => createDerivedStore({
   get: (readStore) => {
     const current = readStore(selection)
-    const scopeId = readStore(scope)
-    const activeScopeId = scopeId && readStore(read.node.byId, scopeId)?.node
-      ? scopeId
+    const containerId = readStore(container)
+    const activeContainerId =
+      containerId && readStore(read.node.byId, containerId)?.node
+        ? containerId
       : undefined
 
     return resolveSelectionView({
       selection: current,
-      activeScopeId,
+      activeContainerId,
       readNode: (nodeId) => readStore(read.node.byId, nodeId)
     })
   },
   isEqual: isSelectionStateEqual
 })
 
-const createScopeView = (
-  scope: ValueStore<NodeId | undefined>,
+const createContainerView = (
+  container: ValueStore<NodeId | undefined>,
   read: WhiteboardRead
-): ValueView<ScopeView> => {
+): ValueView<ContainerView> => {
   return createDerivedStore({
     get: (readStore) => {
-      const scopeId = readStore(scope)
-      const activeEntry = scopeId
-        ? readStore(read.node.byId, scopeId)
+      const containerId = readStore(container)
+      const activeEntry = containerId
+        ? readStore(read.node.byId, containerId)
         : undefined
-      const activeId = activeEntry?.node ? scopeId : undefined
+      const activeId = activeEntry?.node ? containerId : undefined
       const nodeIds = activeId
         ? readStore(read.tree, activeId)
         : EMPTY_NODE_IDS
@@ -93,7 +94,7 @@ const createScopeView = (
         return hasNode(edge.source.nodeId) && hasNode(edge.target.nodeId)
       }
 
-      return resolveScopeView({
+      return resolveContainerView({
         activeId,
         activeNode: activeEntry?.node,
         nodeIds,
@@ -101,19 +102,19 @@ const createScopeView = (
         hasEdge
       })
     },
-    isEqual: isScopeViewEqual
+    isEqual: isContainerViewEqual
   })
 }
 
 export const createWhiteboardView = (
   {
     tool,
-    scope,
+    container,
     selection,
     read
   }: {
     tool: ValueStore<EditorTool>
-    scope: ValueStore<NodeId | undefined>
+    container: ValueStore<NodeId | undefined>
     selection: ValueStore<StoredSelection>
     read: WhiteboardRead
   }
@@ -122,6 +123,6 @@ export const createWhiteboardView = (
   nodeIds: createNodeIdsView(read),
   edgeIds: createEdgeIdsView(read),
   mindmapIds: createMindmapIdsView(read),
-  selection: createSelectionView(selection, scope, read),
-  scope: createScopeView(scope, read)
+  selection: createSelectionView(selection, container, read),
+  container: createContainerView(container, read)
 })

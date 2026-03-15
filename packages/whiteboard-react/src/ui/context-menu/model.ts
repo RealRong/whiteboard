@@ -14,7 +14,7 @@ import type {
 
 export type ContextMenuOpenResult = {
   payload: ContextMenuOpenPayload
-  leaveScope: boolean
+  leaveContainer: boolean
 }
 
 type ContextMenuResolvedTarget =
@@ -91,12 +91,12 @@ const readSections = (
 ) => {
   switch (target.kind) {
     case 'canvas': {
-      const scope = instance.view.scope.get()
+      const container = instance.view.container.get()
       return buildCanvasSections({
         world: target.world,
-        activeContainerId: scope.activeId,
-        scopeNodeIds: scope.activeId
-          ? scope.nodeIds
+        activeContainerId: container.activeId,
+        containerNodeIds: container.activeId
+          ? container.nodeIds
           : undefined
       })
     }
@@ -148,7 +148,7 @@ export const readContextMenuOpenResult = ({
   screen: Point
   world: Point
 }): ContextMenuOpenResult | undefined => {
-  const scope = instance.view.scope.get()
+  const container = instance.view.container.get()
   const selection = instance.view.selection.get()
   const nodeId = readElementNodeId(targetElement)
 
@@ -168,7 +168,7 @@ export const readContextMenuOpenResult = ({
               world
             }
       },
-      leaveScope: !scope.hasNode(nodeId)
+      leaveContainer: !container.hasNode(nodeId)
     }
   }
 
@@ -186,7 +186,7 @@ export const readContextMenuOpenResult = ({
           world
         }
       },
-      leaveScope: !scope.hasEdge(entry.edge)
+      leaveContainer: !container.hasEdge(entry.edge)
     }
   }
 
@@ -198,7 +198,7 @@ export const readContextMenuOpenResult = ({
         world
       }
     },
-    leaveScope: Boolean(scope.activeId)
+    leaveContainer: Boolean(container.activeId)
   }
 }
 

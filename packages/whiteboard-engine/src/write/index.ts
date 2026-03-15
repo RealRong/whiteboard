@@ -16,7 +16,6 @@ import { createId } from '@whiteboard/core/utils'
 import { DEFAULT_HISTORY_CONFIG } from '../config'
 import { plan } from './plan'
 import { createWriteNormalize } from './normalize'
-import { collectTreeImpact } from './treeImpact'
 
 const resolveOrigin = (source: CommandSource): Origin =>
   source === 'remote' ? 'remote' : source === 'system' ? 'system' : 'user'
@@ -67,14 +66,7 @@ export const createWrite = ({
       doc: reduced.doc,
       changes: reduced.changes,
       inverse: reduced.inverse,
-      impact: {
-        ...reduced.read,
-        tree: collectTreeImpact({
-          before: currentDocument,
-          after: reduced.doc,
-          operations: reduced.changes.operations
-        })
-      }
+      impact: reduced.read
     }
   }
 

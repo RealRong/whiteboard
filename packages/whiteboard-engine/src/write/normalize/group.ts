@@ -349,7 +349,8 @@ export const buildNormalizeOperationsForGroups = ({
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     children.forEach((child) => {
-      const entry = geometry.get(child.id) ?? (geometry.update(child) ? geometry.get(child.id) : undefined)
+      geometry.update(child)
+      const entry = geometry.get(child.id)
       const rect = entry?.aabb
       if (!rect) return
       minX = Math.min(minX, rect.x)
@@ -371,7 +372,8 @@ export const buildNormalizeOperationsForGroups = ({
       width: Math.max(0, maxX - minX),
       height: Math.max(0, maxY - minY)
     }
-    const groupEntry = geometry.get(group.id) ?? (geometry.update(group) ? geometry.get(group.id) : undefined)
+    geometry.update(group)
+    const groupEntry = geometry.get(group.id)
     const groupRect = groupEntry?.aabb
     if (!groupRect) continue
     const nextRect = expandContainerRect(
@@ -395,6 +397,7 @@ export const buildNormalizeOperationsForGroups = ({
       position: operation.patch.position!,
       size: operation.patch.size!
     }
+    geometry.update(workingNodes[groupId])
   }
 
   return operations

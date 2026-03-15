@@ -2,7 +2,7 @@ import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_INSTANCE_CONFIG,
   type InstanceConfig as EngineInstanceConfig
-} from '@whiteboard/engine'
+} from '@whiteboard/core/config'
 import { DEFAULT_VIEWPORT } from '../runtime/viewport'
 import type { Config, ResolvedConfig } from '../types/common'
 

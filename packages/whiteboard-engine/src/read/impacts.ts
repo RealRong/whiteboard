@@ -20,18 +20,11 @@ const EMPTY_MINDMAP_IMPACT = {
   view: false
 } as const
 
-const EMPTY_TREE_IMPACT = {
-  ids: [],
-  relation: false,
-  order: false
-} as const
-
 export const RESET_READ_IMPACT: KernelReadImpact = {
   reset: true,
   node: EMPTY_NODE_IMPACT,
   edge: EMPTY_EDGE_IMPACT,
-  mindmap: EMPTY_MINDMAP_IMPACT,
-  tree: EMPTY_TREE_IMPACT
+  mindmap: EMPTY_MINDMAP_IMPACT
 }
 
 export const MINDMAP_LAYOUT_READ_IMPACT: KernelReadImpact = {
@@ -41,6 +34,5 @@ export const MINDMAP_LAYOUT_READ_IMPACT: KernelReadImpact = {
   mindmap: {
     ids: [],
     view: true
-  },
-  tree: EMPTY_TREE_IMPACT
+  }
 }

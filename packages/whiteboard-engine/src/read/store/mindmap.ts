@@ -1,6 +1,6 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
-import type { MindmapViewTree } from '@engine-types/instance'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import type { MindmapViewTree } from '@whiteboard/core/read'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { InstanceConfig } from '@engine-types/instance'
 import { DEFAULT_TUNING } from '../../config'

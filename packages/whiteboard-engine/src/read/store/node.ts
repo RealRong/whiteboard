@@ -1,6 +1,6 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type { NodeViewItem } from '@whiteboard/core/read'
 import type { Node, NodeId } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@engine-types/instance'
 import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
 

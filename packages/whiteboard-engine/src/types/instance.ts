@@ -1,98 +1,25 @@
-import type { CoreRegistries, Document, Edge, EdgeAnchor, EdgeId, MindmapNodeId, MindmapTree, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { MindmapDragDropTarget, MindmapLayout } from '@whiteboard/core/mindmap'
+import type { InstanceConfig } from '@whiteboard/core/config'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import type {
+  CanvasNodeRect,
+  EdgeEntry,
+  MindmapViewTree,
+  NodeViewItem
+} from '@whiteboard/core/read'
+import type { CoreRegistries, Document, EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
   ReadStore
 } from '@whiteboard/core/runtime'
 import type { Commands } from './command'
 import type { ResolvedHistoryConfig, Size } from './common'
-import type { MindmapLayoutConfig } from './mindmap'
 import type { SnapCandidate } from './node'
-
-export type InstanceConfig = {
-  nodeSize: Size
-  mindmapNodeSize: Size
-  node: {
-    groupPadding: number
-    snapThresholdScreen: number
-    snapMaxThresholdWorld: number
-    snapGridCellSize: number
-    selectionMinDragDistance: number
-  }
-  edge: {
-    hitTestThresholdScreen: number
-    anchorSnapMin: number
-    anchorSnapRatio: number
-  }
-}
-
-export type CanvasNodeRect = {
-  node: Node
-  rect: { x: number; y: number; width: number; height: number }
-  aabb: { x: number; y: number; width: number; height: number }
-  rotation: number
-}
-
-export type EdgeEndpoint = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
-  point: Point
-}
-
-export type EdgeEndpoints = {
-  source: EdgeEndpoint
-  target: EdgeEndpoint
-}
-
-export type EdgeEntry = {
-  id: EdgeId
-  edge: Edge
-  endpoints: EdgeEndpoints
-}
+export type { InstanceConfig } from '@whiteboard/core/config'
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
   point: Point
 }
-
-export type MindmapViewTreeLine = {
-  id: string
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-}
-
-export type MindmapDragPreview = {
-  nodeId: MindmapNodeId
-  ghost: Rect
-  drop?: MindmapDragDropTarget
-}
-
-export type MindmapDragView = {
-  treeId: NodeId
-  kind: 'root' | 'subtree'
-  baseOffset: Point
-  preview?: MindmapDragPreview
-}
-
-export type MindmapViewTree = {
-  id: NodeId
-  node: Node
-  tree: MindmapTree
-  layout: MindmapLayoutConfig
-  computed: MindmapLayout
-  shiftX: number
-  shiftY: number
-  lines: MindmapViewTreeLine[]
-  labels: Record<MindmapNodeId, string>
-}
-
-export type NodeViewItem = {
-  node: Node
-  rect: Rect
-}
-
 export type EngineReadIndex = {
   node: {
     all: () => CanvasNodeRect[]

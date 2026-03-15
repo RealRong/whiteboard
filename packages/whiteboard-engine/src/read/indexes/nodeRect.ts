@@ -1,6 +1,6 @@
+import type { CanvasNodeRect } from '@whiteboard/core/read'
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
-import type { CanvasNodeRect } from '@engine-types/instance'
 import type { InstanceConfig } from '@engine-types/instance'
 import type { ReadModel } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'

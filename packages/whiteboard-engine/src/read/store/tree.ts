@@ -49,6 +49,10 @@ export const createTreeProjection = (initialSnapshot: ReadSnapshot) => {
   const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
     snapshotRef = snapshot
 
+    if (!listenersByRootId.size) {
+      return
+    }
+
     if (impact.reset) {
       listenersByRootId.forEach((_, rootId) => {
         const prev = idsByRootId.get(rootId)
@@ -61,7 +65,7 @@ export const createTreeProjection = (initialSnapshot: ReadSnapshot) => {
       return
     }
 
-    impact.tree.ids.forEach((rootId) => {
+    listenersByRootId.forEach((_, rootId) => {
       const prev = idsByRootId.get(rootId)
       const next = readIds(rootId, prev)
       idsByRootId.set(rootId, next)

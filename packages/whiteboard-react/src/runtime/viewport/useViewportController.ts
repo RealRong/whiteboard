@@ -122,6 +122,9 @@ export const useViewportController = ({
     let pendingWheelInput: WheelInput | null = null
     let spacePressed = false
 
+    const isViewportInputBlocked = () =>
+      interaction.current()?.spec.viewport === 'block'
+
     const updateContainerRect = (rect: ContainerRect) => {
       if (isSameContainerRect(containerRect, rect)) return
       containerRect = copyContainerRect(rect)
@@ -163,6 +166,7 @@ export const useViewportController = ({
       if (!input) return
       pendingWheelInput = null
       if (!policy.wheelEnabled) return
+      if (isViewportInputBlocked()) return
       refreshContainerRect()
       core.viewport.set(
         applyWheelInput({
@@ -197,6 +201,14 @@ export const useViewportController = ({
     const onWheel = (event: WheelEvent) => {
       if (!policy.wheelEnabled) return
       if (isTextInputElement(event.target)) return
+      if (isViewportInputBlocked()) {
+        clearWheelFrame()
+        if (event.cancelable) {
+          event.preventDefault()
+        }
+        event.stopPropagation()
+        return
+      }
       refreshContainerRect()
       scheduleWheel({
         deltaX: event.deltaX,

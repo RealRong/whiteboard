@@ -1,17 +1,16 @@
+import {
+  DEFAULT_INSTANCE_CONFIG,
+  DEFAULT_MINDMAP_NODE_SIZE,
+  DEFAULT_NODE_SIZE
+} from '@whiteboard/core/config'
 import type { Size } from '@engine-types/common'
-import type { InstanceConfig } from '@engine-types/instance'
 import type { ResolvedHistoryConfig } from '@engine-types/common'
-import type { MindmapLayoutMode } from '@engine-types/mindmap'
-
-export const DEFAULT_NODE_SIZE: Size = {
-  width: 120,
-  height: 72
-}
-
-export const DEFAULT_MINDMAP_NODE_SIZE: Size = {
-  width: 140,
-  height: 36
-}
+import type { MindmapLayoutMode } from '@whiteboard/core/mindmap'
+export {
+  DEFAULT_INSTANCE_CONFIG,
+  DEFAULT_MINDMAP_NODE_SIZE,
+  DEFAULT_NODE_SIZE
+} from '@whiteboard/core/config'
 
 export const DEFAULT_MINDMAP_LAYOUT = {}
 
@@ -20,23 +19,6 @@ export const DEFAULT_HISTORY_CONFIG: ResolvedHistoryConfig = {
   capacity: 100,
   captureSystem: true,
   captureRemote: false
-}
-
-export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
-  nodeSize: DEFAULT_NODE_SIZE,
-  mindmapNodeSize: DEFAULT_MINDMAP_NODE_SIZE,
-  node: {
-    groupPadding: 24,
-    snapThresholdScreen: 8,
-    snapMaxThresholdWorld: 24,
-    snapGridCellSize: 240,
-    selectionMinDragDistance: 3
-  },
-  edge: {
-    hitTestThresholdScreen: 10,
-    anchorSnapMin: 12,
-    anchorSnapRatio: 0.18
-  }
 }
 
 export const DEFAULT_TUNING = {

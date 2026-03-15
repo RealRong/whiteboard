@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useRef, useSyncExternalStore } from 'react'
+import type { NodeViewItem } from '@whiteboard/core/read'
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/engine'
 import {
   applyNodeDraft,
   type NodeDraft

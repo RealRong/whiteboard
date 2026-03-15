@@ -1,4 +1,4 @@
-import type { InstanceConfig } from '@engine-types/instance'
+import type { InstanceConfig } from '@whiteboard/core/config'
 import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_HISTORY_CONFIG,

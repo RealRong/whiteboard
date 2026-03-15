@@ -142,11 +142,11 @@ const readCreatedNodeIds = (
 export const buildCanvasSections = ({
   world,
   activeContainerId,
-  scopeNodeIds
+  containerNodeIds
 }: {
   world: Point
   activeContainerId?: NodeId
-  scopeNodeIds?: readonly NodeId[]
+  containerNodeIds?: readonly NodeId[]
 }): readonly ContextMenuSection[] => [
   {
     key: 'create',
@@ -203,7 +203,7 @@ export const buildCanvasSections = ({
         label: 'Select all',
         run: ({ instance, close }) => {
           if (activeContainerId) {
-            selectNodeIds(instance, scopeNodeIds ?? [])
+            selectNodeIds(instance, containerNodeIds ?? [])
           } else {
             instance.commands.selection.selectAll()
           }

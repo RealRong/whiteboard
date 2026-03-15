@@ -5,6 +5,7 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { createPanDriver } from '../../../../runtime/interaction'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
 import {
   buildNodeDragState,
@@ -15,6 +16,7 @@ import {
 
 type ActiveDrag = NodeDragRuntimeState & {
   pointerId: number
+  allowCross: boolean
 }
 
 export const createNodeDragSession = (
@@ -23,6 +25,13 @@ export const createNodeDragSession = (
   let active: ActiveDrag | null = null
   let interactionToken: ReturnType<typeof instance.interaction.tryStart> | null = null
   const pointer = createValueStore<number | null>(null)
+  const pan = createPanDriver({
+    viewport: instance.viewport,
+    enabled: () => instance.interaction.current()?.mode === 'node-drag',
+    onFrame: (input) => {
+      updatePreview(input)
+    }
+  })
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
 
@@ -38,6 +47,7 @@ export const createNodeDragSession = (
     const previousInteractionToken = interactionToken
     active = null
     interactionToken = null
+    pan.stop()
     pointer.set(null)
     instance.draft.node.clear()
     instance.draft.guides.clear()
@@ -60,6 +70,35 @@ export const createNodeDragSession = (
     void instance.commands.node.updateMany(updates)
   }
 
+  const updatePreview = (input: {
+    clientX: number
+    clientY: number
+  }) => {
+    if (!active) {
+      return
+    }
+
+    const preview = resolveNodeDragPreview({
+      active,
+      world: instance.viewport.pointer(input).world,
+      zoom: instance.viewport.get().zoom,
+      snapEnabled: instance.view.tool.get() === 'select',
+      allowCross: active.allowCross,
+      nodes: readCanvasNodes(),
+      config: instance.config,
+      readSnapCandidatesInRect: (rect) => instance.read.index.snap.inRect(rect)
+    })
+
+    active.last = preview.position
+    active.hoveredContainerId = preview.hoveredContainerId
+
+    instance.draft.node.write({
+      patches: preview.patches,
+      hoveredContainerId: preview.hoveredContainerId
+    })
+    instance.draft.guides.write(preview.guides)
+  }
+
   return {
     pointer,
     cancel: clear,
@@ -74,12 +113,12 @@ export const createNodeDragSession = (
       const nodeRect = instance.read.index.node.byId(nodeId)
       if (!nodeRect) return
 
-      if (!instance.read.scope.hasNode(nodeId)) {
+      if (!instance.read.container.hasNode(nodeId)) {
         instance.commands.selection.clear()
         instance.commands.container.exit()
       }
 
-      const currentSelectedNodeIds = instance.read.scope.filterNodeIds(
+      const currentSelectedNodeIds = instance.read.container.filterNodeIds(
         instance.read.selection.nodeIds()
       )
       const nextSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
@@ -113,10 +152,7 @@ export const createNodeDragSession = (
         nodes: readCanvasNodes(),
         anchorId: nodeRect.node.id,
         anchorType: nodeRect.node.type,
-        start: {
-          x: event.clientX,
-          y: event.clientY
-        },
+        startWorld: instance.viewport.pointer(event).world,
         origin: {
           x: nodeRect.node.position.x,
           y: nodeRect.node.position.y
@@ -145,6 +181,7 @@ export const createNodeDragSession = (
 
       active = {
         pointerId: event.pointerId,
+        allowCross: event.altKey,
         ...drag
       }
       interactionToken = nextInteractionToken
@@ -165,28 +202,9 @@ export const createNodeDragSession = (
         return
       }
 
-      const preview = resolveNodeDragPreview({
-        active,
-        client: {
-          x: event.clientX,
-          y: event.clientY
-        },
-        zoom: instance.viewport.get().zoom,
-        snapEnabled: instance.view.tool.get() === 'select',
-        allowCross: event.altKey,
-        nodes: readCanvasNodes(),
-        config: instance.config,
-        readSnapCandidatesInRect: (rect) => instance.read.index.snap.inRect(rect)
-      })
-
-      active.last = preview.position
-      active.hoveredContainerId = preview.hoveredContainerId
-
-      instance.draft.node.write({
-        patches: preview.patches,
-        hoveredContainerId: preview.hoveredContainerId
-      })
-      instance.draft.guides.write(preview.guides)
+      active.allowCross = event.altKey
+      pan.update(event)
+      updatePreview(event)
     },
     onWindowPointerUp: (event: PointerEvent) => {
       if (!active || event.pointerId !== active.pointerId) {

@@ -4,7 +4,7 @@ import type {
 } from 'react'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import { NodeSceneLayer } from '../../../features/node/components/NodeSceneLayer'
-import { EdgeSceneLayer } from '../../../features/edge/components/EdgeSceneLayer'
+import { EdgeLayer } from '../../../features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from '../../../features/mindmap/components/MindmapSceneLayer'
 
 export const SceneFeature = ({
@@ -38,7 +38,7 @@ export const SceneFeature = ({
       onNodePointerDown={onNodePointerDown}
       onNodeDoubleClick={onNodeDoubleClick}
     />
-    <EdgeSceneLayer />
+    <EdgeLayer />
     <MindmapSceneLayer onNodePointerDown={onMindmapNodePointerDown} />
   </>
 )

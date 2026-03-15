@@ -1,8 +1,8 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { Edge, Node } from '@whiteboard/core/types'
 import type { NodeId } from '@whiteboard/core/types'
 import type { EngineDocument, EngineRead, InstanceConfig } from './instance'
-import type { MindmapLayoutConfig } from './mindmap'
 
 export type ReadModel = {
   nodes: {

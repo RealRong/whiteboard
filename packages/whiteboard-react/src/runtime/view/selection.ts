@@ -1,5 +1,5 @@
 import type { EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/engine'
+import type { NodeViewItem } from '@whiteboard/core/read'
 import type { NodeActions } from '../../features/node/nodeActions'
 import { resolveNodeActions } from '../../features/node/nodeActions'
 import {
@@ -71,13 +71,13 @@ const resolveSelectionState = ({
   nodeIdSet,
   edgeId,
   items,
-  activeScopeId
+  activeContainerId
 }: {
   nodeIds: readonly NodeId[]
   nodeIdSet: ReadonlySet<NodeId>
   edgeId?: EdgeId
   items: readonly NodeViewItem[]
-  activeScopeId?: NodeId
+  activeContainerId?: NodeId
 }): SelectionState => {
   const nodes = items.length > 0 ? items.map((item) => item.node) : EMPTY_NODES
   const rect = items.length > 0 ? getBoundingRect(items.map((item) => item.rect)) : undefined
@@ -85,7 +85,7 @@ const resolveSelectionState = ({
   const hasNodeSelection = node.nodeCount > 0
   const hasEdgeSelection = edgeId !== undefined
   const hasSelection = hasNodeSelection || hasEdgeSelection
-  const hasActiveScope = activeScopeId !== undefined
+  const hasActiveContainer = activeContainerId !== undefined
 
   return {
     kind: edgeId !== undefined
@@ -105,7 +105,7 @@ const resolveSelectionState = ({
     canDelete: hasSelection,
     canDuplicate: hasNodeSelection,
     canSelectAll: true,
-    canClear: hasSelection || hasActiveScope
+    canClear: hasSelection || hasActiveContainer
   }
 }
 
@@ -135,11 +135,11 @@ export const isSelectionStateEqual = (
 
 export const resolveSelectionView = ({
   selection,
-  activeScopeId,
+  activeContainerId,
   readNode
 }: {
   selection: StoredSelection
-  activeScopeId?: NodeId
+  activeContainerId?: NodeId
   readNode: (nodeId: NodeId) => NodeViewItem | undefined
 }): SelectionState => {
   const nodeIds = selection.nodeIds
@@ -149,6 +149,6 @@ export const resolveSelectionView = ({
     nodeIdSet: selection.nodeIdSet,
     edgeId: selection.edgeId,
     items: readNodeItems(readNode, nodeIds),
-    activeScopeId
+    activeContainerId
   })
 }

@@ -3,7 +3,10 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
-import { useWindowPointerSession } from '../../../../runtime/interaction/useWindowPointerSession'
+import {
+  createPanDriver,
+  useWindowPointerSession
+} from '../../../../runtime/interaction'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
@@ -19,6 +22,7 @@ export const useMindmapDrag = () => {
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
+  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
 
   const cancel = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -33,6 +37,7 @@ export const useMindmapDrag = () => {
     const token = tokenRef.current
     activeRef.current = null
     tokenRef.current = null
+    panRef.current?.stop()
     pointerRef.current.set(null)
     instance.draft.mindmap.clear()
 
@@ -40,6 +45,38 @@ export const useMindmapDrag = () => {
       instance.interaction.finish(token)
     }
   }, [instance])
+
+  const updatePreview = useCallback((
+    input: {
+      clientX: number
+      clientY: number
+    }
+  ) => {
+    const active = activeRef.current
+    if (!active) {
+      return
+    }
+
+    const { world } = instance.viewport.pointer(input)
+    const next = resolveNextMindmapDragSession({
+      active,
+      world,
+      treeView:
+        active.kind === 'subtree'
+          ? instance.read.mindmap.byId.get(active.treeId)
+          : undefined
+    })
+    activeRef.current = next
+    instance.draft.mindmap.write(toDragView(next))
+  }, [instance])
+
+  if (!panRef.current) {
+    panRef.current = createPanDriver({
+      viewport: instance.viewport,
+      enabled: () => instance.interaction.current()?.mode === 'mindmap-drag',
+      onFrame: updatePreview
+    })
+  }
 
   const pointerId = useView(pointerRef.current)
 
@@ -51,17 +88,8 @@ export const useMindmapDrag = () => {
         return
       }
 
-      const { world } = instance.viewport.pointer(event)
-      const next = resolveNextMindmapDragSession({
-        active,
-        world,
-        treeView:
-          active.kind === 'subtree'
-            ? instance.read.mindmap.byId.get(active.treeId)
-            : undefined
-      })
-      activeRef.current = next
-      instance.draft.mindmap.write(toDragView(next))
+      panRef.current?.update(event)
+      updatePreview(event)
     },
     onPointerUp: (event) => {
       const active = activeRef.current

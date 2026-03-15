@@ -3,8 +3,9 @@ import {
   getSubtreeIds,
   type MindmapDragDropTarget
 } from '@whiteboard/core/mindmap'
+import type { MindmapViewTree } from '@whiteboard/core/read'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { MindmapDragView, MindmapViewTree } from '@whiteboard/engine'
+import type { MindmapDragView } from '../../../../runtime/draft'
 
 export type RootDragSession = {
   kind: 'root'

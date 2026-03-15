@@ -1,5 +1,5 @@
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import type { EdgeEntry } from '@whiteboard/engine'
+import type { EdgeEntry } from '@whiteboard/core/read'
 import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
 
 type EdgeDraftMap = ReadonlyMap<EdgeId, EdgeDraft>

@@ -5,7 +5,7 @@ import type {
 } from '@whiteboard/core/types'
 import { isOrderedArrayEqual } from '../utils/equality'
 
-export type ScopeView = {
+export type ContainerView = {
   activeId?: NodeId
   activeTitle?: string
   nodeIds: readonly NodeId[]
@@ -13,7 +13,7 @@ export type ScopeView = {
   hasEdge: (edge: EdgeId | Pick<Edge, 'source' | 'target'>) => boolean
 }
 
-const resolveScopeTitle = (
+const resolveContainerTitle = (
   node: {
     type: string
     data?: Record<string, unknown>
@@ -26,7 +26,7 @@ const resolveScopeTitle = (
   return node.type === 'group' ? 'Group' : node.type
 }
 
-export const resolveScopeView = ({
+export const resolveContainerView = ({
   activeId,
   activeNode,
   nodeIds,
@@ -41,19 +41,19 @@ export const resolveScopeView = ({
   nodeIds: readonly NodeId[]
   hasNode: (nodeId: NodeId) => boolean
   hasEdge: (edge: EdgeId | Pick<Edge, 'source' | 'target'>) => boolean
-}): ScopeView => {
+}): ContainerView => {
   return {
     activeId,
-    activeTitle: activeNode ? resolveScopeTitle(activeNode) : undefined,
+    activeTitle: activeNode ? resolveContainerTitle(activeNode) : undefined,
     nodeIds,
     hasNode,
     hasEdge
   }
 }
 
-export const isScopeViewEqual = (
-  left: ScopeView,
-  right: ScopeView
+export const isContainerViewEqual = (
+  left: ContainerView,
+  right: ContainerView
 ) => (
   left.activeId === right.activeId
   && left.activeTitle === right.activeTitle

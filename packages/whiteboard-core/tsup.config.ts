@@ -11,6 +11,8 @@ export default defineConfig({
     'schema/index': 'src/schema/index.ts',
     'kernel/index': 'src/kernel/index.ts',
     'runtime/index': 'src/runtime/index.ts',
+    'config/index': 'src/config/index.ts',
+    'read/index': 'src/read/index.ts',
     'perf/index': 'src/perf/index.ts'
   },
   format: ['esm', 'cjs'],

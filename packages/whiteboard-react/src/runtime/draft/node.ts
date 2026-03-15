@@ -1,5 +1,5 @@
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/engine'
+import type { NodeViewItem } from '@whiteboard/core/read'
 import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
 
 type NodeDraftMap = ReadonlyMap<NodeId, NodeDraft>

@@ -2,21 +2,16 @@ import type {
   MindmapAttachPayload,
   MindmapCommandOptions,
   MindmapId,
-  MindmapLayoutOptions,
   MindmapNodeData,
   MindmapNodeId,
   MindmapTree,
   NodeId,
   Point
 } from '@whiteboard/core/types'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { Size } from './common'
 
-export type MindmapLayoutMode = 'simple' | 'tidy'
-
-export type MindmapLayoutConfig = {
-  mode?: MindmapLayoutMode
-  options?: MindmapLayoutOptions
-}
+export type { MindmapLayoutConfig, MindmapLayoutMode } from '@whiteboard/core/mindmap'
 
 export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
 

@@ -1,8 +1,8 @@
-import type { ScopeView } from '../view/scope'
+import type { ContainerView } from '../view/container'
 import { useInternalInstance } from './useInstance'
 import { useView } from './useView'
 
-export const useScope = (): ScopeView => {
+export const useContainer = (): ContainerView => {
   const instance = useInternalInstance()
-  return useView(instance.view.scope)
+  return useView(instance.view.container)
 }

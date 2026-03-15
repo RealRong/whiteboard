@@ -3,7 +3,7 @@ import type {
   Instance,
   RuntimeConfig
 } from '@engine-types/instance'
-import type { MindmapLayoutConfig } from '@engine-types/mindmap'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { Write, WriteCommit, WriteInstance } from '@engine-types/write'
 import type { DispatchResult } from '@whiteboard/core/types'
 import { createRegistries } from '@whiteboard/core/kernel'

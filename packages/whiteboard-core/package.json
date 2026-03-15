@@ -48,6 +48,16 @@
       "import": "./dist/runtime/index.js",
       "require": "./dist/runtime/index.cjs"
     },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js",
+      "require": "./dist/config/index.cjs"
+    },
+    "./read": {
+      "types": "./dist/read/index.d.ts",
+      "import": "./dist/read/index.js",
+      "require": "./dist/read/index.cjs"
+    },
     "./perf": {
       "types": "./dist/perf/index.d.ts",
       "import": "./dist/perf/index.js",

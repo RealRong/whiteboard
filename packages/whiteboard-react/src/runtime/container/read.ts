@@ -1,7 +1,4 @@
-import type {
-  EdgeEntry,
-  EngineRead
-} from '@whiteboard/engine'
+import type { EdgeEntry } from '@whiteboard/core/read'
 import type {
   Edge,
   EdgeId,
@@ -10,7 +7,27 @@ import type {
 } from '@whiteboard/core/types'
 import type { ReadStore } from '@whiteboard/core/runtime'
 
-export type WhiteboardScopeRead = {
+type ContainerEngineRead = {
+  edge: {
+    byId: {
+      get: (edgeId: EdgeId) => Readonly<EdgeEntry> | undefined
+    }
+  }
+  index: {
+    node: {
+      byId: (nodeId: NodeId) => {
+        node?: unknown
+        rect: Rect
+      } | undefined
+    }
+    tree: {
+      ids: (nodeId: NodeId) => readonly NodeId[]
+      has: (rootId: NodeId, nodeId: NodeId) => boolean
+    }
+  }
+}
+
+export type WhiteboardContainerRead = {
   activeId: () => NodeId | undefined
   activeRect: () => Rect | undefined
   nodeIds: () => readonly NodeId[]
@@ -40,7 +57,7 @@ const hasEdge = (
 )
 
 const resolveEdge = (
-  read: EngineRead,
+  read: ContainerEngineRead,
   value: EdgeId | Pick<Edge, 'source' | 'target'>
 ): Pick<Edge, 'source' | 'target'> | undefined => {
   if (typeof value === 'string') {
@@ -50,13 +67,13 @@ const resolveEdge = (
   return value
 }
 
-export const createScopeRead = ({
+export const createContainerRead = ({
   read,
   activeId
 }: {
-  read: EngineRead
+  read: ContainerEngineRead
   activeId: ReadStore<NodeId | undefined>
-}): WhiteboardScopeRead => {
+}): WhiteboardContainerRead => {
   const readActiveId = (): NodeId | undefined => {
     const current = activeId.get()
     if (!current) return undefined

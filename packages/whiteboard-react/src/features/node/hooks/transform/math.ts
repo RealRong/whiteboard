@@ -1,3 +1,4 @@
+import type { InstanceConfig } from '@whiteboard/core/config'
 import {
   computeNextRotation,
   computeResizeRect,
@@ -16,7 +17,6 @@ import {
   isPointEqual,
   isSizeEqual
 } from '@whiteboard/core/geometry'
-import type { InstanceConfig } from '@whiteboard/engine'
 import type { Node, NodeId, Point, Rect, Size } from '@whiteboard/core/types'
 
 export type ResizeUpdate = {

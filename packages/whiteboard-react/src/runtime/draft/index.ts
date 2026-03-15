@@ -27,6 +27,8 @@ export {
 } from './selection'
 export {
   useTransientMindmap,
+  type MindmapDragPreview,
+  type MindmapDragView,
   type MindmapReader,
   type MindmapWriter,
   type TransientMindmap

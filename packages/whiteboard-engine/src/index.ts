@@ -12,9 +12,5 @@ export type {
   EngineRead,
   EngineReadIndex,
   TreeRead,
-  MindmapRead,
-  EdgeEntry,
-  MindmapDragView,
-  MindmapViewTree,
-  NodeViewItem
+  MindmapRead
 } from './types/instance'

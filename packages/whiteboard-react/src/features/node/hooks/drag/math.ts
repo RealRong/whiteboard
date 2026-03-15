@@ -1,3 +1,4 @@
+import type { InstanceConfig } from '@whiteboard/core/config'
 import {
   computeSnap,
   expandContainerRect,
@@ -17,7 +18,6 @@ import {
   isSizeEqual,
   rectContains
 } from '@whiteboard/core/geometry'
-import type { InstanceConfig } from '@whiteboard/engine'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { mergeObjectPatch } from '../../../../runtime/utils/recordPatch'
 
@@ -30,7 +30,7 @@ export type NodeDragRuntimeState = {
   anchorId: NodeId
   anchorType: Node['type']
   members: DragMember[]
-  start: Point
+  startWorld: Point
   origin: Point
   last: Point
   size: {
@@ -147,7 +147,7 @@ export const buildNodeDragState = (options: {
   nodes: readonly Node[],
   anchorId: NodeId
   anchorType: Node['type']
-  start: Point
+  startWorld: Point
   origin: Point
   size: {
     width: number
@@ -159,7 +159,7 @@ export const buildNodeDragState = (options: {
     nodes,
     anchorId,
     anchorType,
-    start,
+    startWorld,
     origin,
     size,
     selectedNodeIds
@@ -183,7 +183,7 @@ export const buildNodeDragState = (options: {
     anchorId,
     anchorType,
     members,
-    start,
+    startWorld,
     origin,
     last: origin,
     size
@@ -205,7 +205,7 @@ const buildPositionUpdates = (
 
 export const resolveNodeDragPreview = (options: {
   active: NodeDragRuntimeState
-  client: Point
+  world: Point
   zoom: number
   snapEnabled: boolean
   allowCross: boolean
@@ -215,7 +215,7 @@ export const resolveNodeDragPreview = (options: {
 }): NodeDragPreviewResult => {
   const {
     active,
-    client,
+    world,
     zoom,
     snapEnabled,
     allowCross,
@@ -225,8 +225,8 @@ export const resolveNodeDragPreview = (options: {
   } = options
   const safeZoom = resolveInteractionZoom(zoom)
   const basePosition = {
-    x: active.origin.x + (client.x - active.start.x) / safeZoom,
-    y: active.origin.y + (client.y - active.start.y) / safeZoom
+    x: active.origin.x + (world.x - active.startWorld.x),
+    y: active.origin.y + (world.y - active.startWorld.y)
   }
 
   let position = basePosition

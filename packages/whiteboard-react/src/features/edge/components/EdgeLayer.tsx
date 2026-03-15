@@ -6,6 +6,7 @@ import {
   useSelection,
   useView
 } from '../../../runtime/hooks'
+import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -38,15 +39,12 @@ const EdgeItemById = memo(
   }
 )
 
-export const EdgeLayer = ({
-  handleEdgePathPointerDown
-}: {
-  handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
-}) => {
+export const EdgeLayer = () => {
   const instance = useInstance()
   const edgeIds = useView(instance.view.edgeIds)
   const selectedEdgeId = useSelection().edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
+  const handleEdgePathPointerDown = useEdgePathInteraction()
 
   return (
     <svg

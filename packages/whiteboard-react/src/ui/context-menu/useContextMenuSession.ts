@@ -34,7 +34,7 @@ export const useContextMenuSession = () => {
   const [session, setSession] = useState<ContextMenuSession>(null)
 
   const open = useCallback((result: ContextMenuOpenResult) => {
-    if (result.leaveScope) {
+    if (result.leaveContainer) {
       instance.commands.selection.clear()
       instance.commands.container.exit()
     }

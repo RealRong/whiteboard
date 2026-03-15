@@ -1,5 +1,19 @@
-import type { MindmapDragView } from '@whiteboard/engine'
+import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
+import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { createValueDraftStore, useValueDraft } from './shared/valueStore'
+
+export type MindmapDragPreview = {
+  nodeId: MindmapNodeId
+  ghost: Rect
+  drop?: MindmapDragDropTarget
+}
+
+export type MindmapDragView = {
+  treeId: NodeId
+  kind: 'root' | 'subtree'
+  baseOffset: Point
+  preview?: MindmapDragPreview
+}
 
 export type TransientMindmap = {
   get: () => MindmapDragView | undefined

@@ -358,11 +358,6 @@ const finalizeReadImpact = (
       mindmap: {
         ids: EMPTY_NODE_IDS,
         view: false
-      },
-      tree: {
-        ids: EMPTY_NODE_IDS,
-        relation: false,
-        order: false
       }
     }
   }
@@ -385,11 +380,6 @@ const finalizeReadImpact = (
     mindmap: {
       ids: Array.from(state.mindmap.ids),
       view: state.mindmap.view
-    },
-    tree: {
-      ids: EMPTY_NODE_IDS,
-      relation: false,
-      order: false
     }
   }
 }

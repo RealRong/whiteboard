@@ -1,6 +1,6 @@
 import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
+import type { EdgeEntry } from '@whiteboard/core/read'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { EdgeEntry } from '@whiteboard/engine'
 import { useMemo, useRef, useSyncExternalStore } from 'react'
 import {
   applyCanvasDraft,

@@ -8,7 +8,10 @@ import {
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance, useView } from '../../../runtime/hooks'
-import { useWindowPointerSession } from '../../../runtime/interaction/useWindowPointerSession'
+import {
+  createPanDriver,
+  useWindowPointerSession
+} from '../../../runtime/interaction'
 import { createRafTask } from '../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../runtime/viewport'
 
@@ -17,7 +20,7 @@ type ActiveSelection = {
   mode: SelectionMode
   start: ViewportPointer
   baseSelectedNodeIds: Set<NodeId>
-  scopeNodeIds?: ReadonlySet<NodeId>
+  containerNodeIds?: ReadonlySet<NodeId>
   latestMatchedIds?: NodeId[]
   selectedKey: string
 }
@@ -74,6 +77,30 @@ export const useSelectionBox = ({
   const activeRef = useRef<ActiveSelection | null>(null)
   const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
   const pointerRef = useRef(createValueStore<number | null>(null))
+  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
+
+  if (!panRef.current) {
+    panRef.current = createPanDriver({
+      viewport: instance.viewport,
+      enabled: () => instance.interaction.current()?.mode === 'selection-box',
+      onFrame: (pointer) => {
+        const active = activeRef.current
+        if (!active || active.latestMatchedIds === undefined) {
+          return
+        }
+
+        const current = instance.viewport.pointer(pointer)
+        active.latestMatchedIds = readMatchedNodeIds(
+          rectFromPoints(active.start.world, current.world),
+          active.containerNodeIds
+        )
+        instance.draft.selection.write(
+          rectFromPoints(active.start.screen, current.screen)
+        )
+        flushTaskRef.current.schedule()
+      }
+    })
+  }
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -98,13 +125,44 @@ export const useSelectionBox = ({
   const flushTaskRef = useRef(createRafTask(flushSelection))
   const readMatchedNodeIds = useCallback((
     rect: Rect,
-    scopeNodeIds?: ReadonlySet<NodeId>
+    containerNodeIds?: ReadonlySet<NodeId>
   ) => {
     const matchedNodeIds = instance.read.index.node.idsInRect(rect)
-    return scopeNodeIds
-      ? matchedNodeIds.filter((nodeId) => scopeNodeIds.has(nodeId))
+    return containerNodeIds
+      ? matchedNodeIds.filter((nodeId) => containerNodeIds.has(nodeId))
       : matchedNodeIds
   }, [instance])
+  const updateSelection = useCallback((
+    input: {
+      clientX: number
+      clientY: number
+    }
+  ) => {
+    const active = activeRef.current
+    if (!active) {
+      return false
+    }
+
+    const minDragDistance = instance.config.node.selectionMinDragDistance
+    const current = instance.viewport.pointer(input)
+    const dx = Math.abs(current.screen.x - active.start.screen.x)
+    const dy = Math.abs(current.screen.y - active.start.screen.y)
+    if (
+      active.latestMatchedIds === undefined
+      && dx < minDragDistance
+      && dy < minDragDistance
+    ) {
+      return false
+    }
+
+    active.latestMatchedIds = readMatchedNodeIds(
+      rectFromPoints(active.start.world, current.world),
+      active.containerNodeIds
+    )
+    instance.draft.selection.write(rectFromPoints(active.start.screen, current.screen))
+    flushTaskRef.current.schedule()
+    return true
+  }, [instance, readMatchedNodeIds])
 
   const cancel = useCallback((pointerId?: number) => {
     const active = activeRef.current
@@ -115,6 +173,7 @@ export const useSelectionBox = ({
     const token = tokenRef.current
     activeRef.current = null
     tokenRef.current = null
+    panRef.current?.stop()
     flushTaskRef.current.cancel()
     pointerRef.current.set(null)
     instance.draft.selection.clear()
@@ -134,20 +193,9 @@ export const useSelectionBox = ({
         return
       }
 
-      const minDragDistance = instance.config.node.selectionMinDragDistance
-      const current = instance.viewport.pointer(event)
-      const dx = Math.abs(current.screen.x - active.start.screen.x)
-      const dy = Math.abs(current.screen.y - active.start.screen.y)
-      if (active.latestMatchedIds === undefined && dx < minDragDistance && dy < minDragDistance) {
-        return
+      if (updateSelection(event)) {
+        panRef.current?.update(event)
       }
-
-      active.latestMatchedIds = readMatchedNodeIds(
-        rectFromPoints(active.start.world, current.world),
-        active.scopeNodeIds
-      )
-      instance.draft.selection.write(rectFromPoints(active.start.screen, current.screen))
-      flushTaskRef.current.schedule()
     },
     onPointerUp: (event) => {
       const active = activeRef.current
@@ -159,7 +207,7 @@ export const useSelectionBox = ({
         const current = instance.viewport.pointer(event)
         active.latestMatchedIds = readMatchedNodeIds(
           rectFromPoints(active.start.world, current.world),
-          active.scopeNodeIds
+          active.containerNodeIds
         )
         flushSelection()
       } else if (active.mode === 'replace') {
@@ -202,9 +250,9 @@ export const useSelectionBox = ({
       if (instance.view.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)
-      let activeContainerId = instance.read.scope.activeId()
+      let activeContainerId = instance.read.container.activeId()
       if (activeContainerId) {
-        const activeRect = instance.read.scope.activeRect()
+        const activeRect = instance.read.container.activeRect()
         const insideActiveContainer = Boolean(
           activeRect && isPointInRect(start.world, activeRect)
         )
@@ -227,11 +275,11 @@ export const useSelectionBox = ({
       })
       if (!token) return
 
-      const selectedNodeIds = instance.read.scope.filterNodeIds(
+      const selectedNodeIds = instance.read.container.filterNodeIds(
         instance.read.selection.nodeIds()
       )
-      const scopeNodeIds = activeContainerId
-        ? new Set<NodeId>(instance.read.scope.nodeIds())
+      const containerNodeIds = activeContainerId
+        ? new Set<NodeId>(instance.read.container.nodeIds())
         : undefined
 
       instance.commands.selection.selectEdge(undefined)
@@ -240,7 +288,7 @@ export const useSelectionBox = ({
         mode: resolveSelectionMode(event),
         start,
         baseSelectedNodeIds: new Set(selectedNodeIds),
-        scopeNodeIds,
+        containerNodeIds,
         selectedKey: toSelectionKey(selectedNodeIds)
       }
       tokenRef.current = token

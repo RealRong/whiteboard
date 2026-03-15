@@ -1,6 +1,6 @@
 export { useInstance, useInternalInstance } from './useInstance'
 export { useSelection } from './useSelection'
-export { useScope } from './useScope'
+export { useContainer } from './useContainer'
 export { useInteraction } from './useInteraction'
 export { useView } from './useView'
 export { useTool } from './useTool'
