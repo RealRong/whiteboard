@@ -2,24 +2,28 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
-import type { WhiteboardProps } from 'types/common'
+import type { WhiteboardProps } from './types/common'
 import { createEngine, type EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useInstance'
 import {
   DEFAULT_VIEWPORT,
+  type WhiteboardViewport,
   useViewportController,
   useViewportTransformStyle
 } from './runtime/viewport'
-import { InputFeature } from './ui/canvas/input/InputFeature'
-import { SceneFeature } from './ui/canvas/scene/SceneFeature'
-import { ViewportOverlays } from './ui/canvas/overlay/ViewportOverlays'
-import { SelectionBoxOverlay } from './ui/canvas/overlay/SelectionBoxOverlay'
+import { SelectionBoxOverlay } from './ui/canvas/selection/SelectionBoxOverlay'
 import { CanvasChrome } from './ui/canvas/chrome/CanvasChrome'
 import { useContextMenuSession } from './ui/context-menu/useContextMenuSession'
-import { useNodeInteractions } from './features/node/hooks/useNodeInteractions'
-import { useNodeSizeObserver } from './features/node/hooks/useNodeSizeObserver'
-import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
+import { ShortcutInput } from './ui/canvas/input/ShortcutInput'
+import { ContextMenuInput } from './ui/canvas/input/ContextMenuInput'
+import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
+import { useSelectionBox } from './ui/canvas/selection/useSelectionBox'
+import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
+import { EdgeLayer } from './features/edge/components/EdgeLayer'
+import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
+import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
+import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
 import { createInteractionCoordinator } from './runtime/interaction'
 import {
   createWhiteboardInstance,
@@ -27,15 +31,6 @@ import {
   type WhiteboardInstance,
   type WhiteboardRuntimeOptions
 } from './runtime/instance'
-
-const replaceDocumentDraft = (draft: Document, next: Document) => {
-  draft.id = next.id
-  draft.name = next.name
-  draft.nodes = next.nodes
-  draft.edges = next.edges
-  draft.background = next.background
-  draft.meta = next.meta
-}
 
 const isMirroredDocumentFromEngine = (
   outbound: Document,
@@ -63,16 +58,14 @@ const WhiteboardCanvas = ({
   containerStyle
 }: WhiteboardCanvasProps) => {
   const transformStyle = useViewportTransformStyle()
-  const registerMeasuredElement = useNodeSizeObserver()
-  const {
-    handleNodeDoubleClick,
-    handleNodePointerDown,
-    handleTransformPointerDown
-  } = useNodeInteractions()
-  const {
-    handleMindmapNodePointerDown
-  } = useMindmapDrag()
   const contextMenu = useContextMenuSession()
+
+  useSelectionBox({
+    containerRef
+  })
+  useEdgeConnect({
+    containerRef
+  })
 
   return (
     <div
@@ -81,21 +74,20 @@ const WhiteboardCanvas = ({
       style={containerStyle}
       tabIndex={0}
     >
-      <InputFeature
+      <ShortcutInput
         containerRef={containerRef}
         shortcuts={resolvedConfig.shortcuts}
+      />
+      <ContextMenuInput
+        containerRef={containerRef}
         onOpenContextMenu={contextMenu.open}
       />
       <div className="wb-root-viewport" style={transformStyle}>
-        <SceneFeature
-          registerMeasuredElement={registerMeasuredElement}
-          onNodePointerDown={handleNodePointerDown}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          onMindmapNodePointerDown={handleMindmapNodePointerDown}
-        />
-        <ViewportOverlays
-          onTransformPointerDown={handleTransformPointerDown}
-        />
+        <NodeSceneLayer />
+        <EdgeLayer />
+        <MindmapSceneLayer />
+        <NodeOverlayLayer />
+        <EdgeOverlayLayer />
       </div>
       <SelectionBoxOverlay />
       <CanvasChrome
@@ -110,7 +102,7 @@ const WhiteboardCanvas = ({
 const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
   {
     doc,
-    onDocChange,
+    onDocumentChange,
     registries,
     nodeRegistry,
     config
@@ -118,9 +110,12 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const onDocChangeRef = useRef(onDocChange)
+  const viewportRef = useRef<WhiteboardViewport | null>(null)
+  const onDocumentChangeRef = useRef(onDocumentChange)
   const lastOutboundDocRef = useRef<Document>(doc)
-  const interactionRef = useRef(createInteractionCoordinator())
+  const interactionRef = useRef(createInteractionCoordinator({
+    getViewport: () => viewportRef.current
+  }))
   const resolvedConfig = useMemo(
     () => normalizeConfig(config),
     [config]
@@ -147,7 +142,8 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     containerRef,
     options: viewportPolicy
   })
-  onDocChangeRef.current = onDocChange
+  viewportRef.current = viewport
+  onDocumentChangeRef.current = onDocumentChange
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
   if (!engineInstanceRef.current) {
@@ -156,9 +152,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
       document: doc,
       onDocumentChange: (next) => {
         lastOutboundDocRef.current = next
-        onDocChangeRef.current((draft) => {
-          replaceDocumentDraft(draft, next)
-        })
+        onDocumentChangeRef.current(next)
       },
       config: toBoardConfig(resolvedConfig)
     })

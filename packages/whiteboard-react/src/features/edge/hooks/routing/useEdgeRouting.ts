@@ -1,12 +1,7 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import { createValueStore } from '@whiteboard/core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance, useStoreValue } from '../../../../runtime/hooks'
-import {
-  createPanDriver,
-  useWindowPointerSession
-} from '../../../../runtime/interaction'
+import { useInternalInstance as useInstance } from '../../../../runtime/hooks'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent
@@ -24,9 +19,7 @@ type ActiveRouting = {
 export const useEdgeRouting = () => {
   const instance = useInstance()
   const activeRef = useRef<ActiveRouting | null>(null)
-  const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const pointerRef = useRef(createValueStore<number | null>(null))
-  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
+  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 
   const readRoutingEntry = useCallback((edgeId: EdgeId) => {
     const entry = instance.read.edge.item.get(edgeId)
@@ -42,7 +35,7 @@ export const useEdgeRouting = () => {
     index: number,
     points: readonly Point[]
   ) => {
-    instance.draft.edge.write({
+    instance.internals.edge.routing.write({
       patches: [{
         id: edgeId,
         routingPoints: points,
@@ -51,23 +44,19 @@ export const useEdgeRouting = () => {
     })
   }, [instance])
 
-  const cancel = useCallback((pointerId?: number) => {
-    const active = activeRef.current
-    if (pointerId !== undefined && active && active.pointerId !== pointerId) {
+  const clear = useCallback(() => {
+    activeRef.current = null
+    sessionRef.current = null
+    instance.internals.edge.routing.clear()
+  }, [instance])
+
+  const cancel = useCallback(() => {
+    if (sessionRef.current) {
+      sessionRef.current.cancel()
       return
     }
-
-    const token = tokenRef.current
-    activeRef.current = null
-    tokenRef.current = null
-    panRef.current?.stop()
-    pointerRef.current.set(null)
-    instance.draft.edge.clear()
-
-    if (token) {
-      instance.interaction.finish(token)
-    }
-  }, [instance])
+    clear()
+  }, [clear])
 
   const updatePreview = useCallback((
     input: {
@@ -82,13 +71,13 @@ export const useEdgeRouting = () => {
 
     const entry = readRoutingEntry(active.edgeId)
     if (!entry) {
-      cancel(active.pointerId)
+      cancel()
       return
     }
 
     const points = entry.edge.routing?.points ?? []
     if (active.index < 0 || active.index >= points.length) {
-      cancel(active.pointerId)
+      cancel()
       return
     }
 
@@ -110,61 +99,6 @@ export const useEdgeRouting = () => {
       ))
     )
   }, [cancel, instance, readRoutingEntry, writePreview])
-
-  if (!panRef.current) {
-    panRef.current = createPanDriver({
-      viewport: instance.viewport,
-      enabled: () => instance.interaction.current()?.mode === 'edge-routing',
-      onFrame: updatePreview
-    })
-  }
-
-  const pointerId = useStoreValue(pointerRef.current)
-
-  useWindowPointerSession({
-    pointerId,
-    onPointerMove: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      panRef.current?.update(event)
-      updatePreview(event)
-    },
-    onPointerUp: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      if (
-        readRoutingEntry(active.edgeId)
-        && !isPointEqual(active.point, active.origin)
-      ) {
-        instance.commands.edge.routing.move(active.edgeId, active.index, active.point)
-      }
-      cancel(active.pointerId)
-    },
-    onPointerCancel: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      cancel(active.pointerId)
-    },
-    onBlur: () => {
-      cancel()
-    },
-    onKeyDown: (event) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      cancel()
-    }
-  })
 
   useEffect(() => () => {
     cancel()
@@ -202,12 +136,40 @@ export const useEdgeRouting = () => {
         return
       }
 
-      const token = instance.interaction.tryStart({
+      const nextSession = instance.interaction.start({
         mode: 'edge-routing',
-        cancel: () => cancel(event.pointerId),
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        capture: event.currentTarget,
+        pan: {
+          frame: (pointer) => {
+            updatePreview(pointer)
+          }
+        },
+        cleanup: clear,
+        move: (event, session) => {
+          if (!activeRef.current) {
+            return
+          }
+
+          session.pan(event)
+          updatePreview(event)
+        },
+        up: (_event, session) => {
+          const active = activeRef.current
+          if (!active) {
+            return
+          }
+
+          if (
+            readRoutingEntry(active.edgeId)
+            && !isPointEqual(active.point, active.origin)
+          ) {
+            instance.commands.edge.routing.move(active.edgeId, active.index, active.point)
+          }
+          session.finish()
+        }
       })
-      if (!token) return
+      if (!nextSession) return
 
       activeRef.current = {
         edgeId,
@@ -217,15 +179,8 @@ export const useEdgeRouting = () => {
         origin,
         point: origin
       }
-      tokenRef.current = token
-      pointerRef.current.set(event.pointerId)
+      sessionRef.current = nextSession
       writePreview(edgeId, index, points)
-
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // Ignore capture errors, window listeners still handle session cleanup.
-      }
 
       event.preventDefault()
       event.stopPropagation()

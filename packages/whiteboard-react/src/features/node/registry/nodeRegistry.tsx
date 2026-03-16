@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
-import type { NodeDefinition, NodeRegistry } from 'types/node'
+import type { NodeDefinition, NodeRegistry } from '../../../types/node'
 
 export const createNodeRegistry = (definitions: NodeDefinition[] = []): NodeRegistry => {
   const map = new Map(definitions.map((definition) => [definition.type, definition]))

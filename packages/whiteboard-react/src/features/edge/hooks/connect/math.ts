@@ -1,7 +1,7 @@
 import { getAnchorFromPoint } from '@whiteboard/core/edge'
 import { getAnchorPoint } from '@whiteboard/core/geometry'
 import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EdgeConnectDraft } from '../../../../types/edge'
+import type { EdgeConnectState } from '../../../../types/edge'
 import type { WhiteboardInstance } from '../../../../runtime/instance'
 
 const ZOOM_EPSILON = 0.0001
@@ -29,9 +29,9 @@ export type SnapTarget = {
 }
 
 type ConnectPointInput = {
-  nodeId?: EdgeConnectDraft['from']['nodeId']
-  anchor?: EdgeConnectDraft['from']['anchor']
-  pointWorld?: NonNullable<EdgeConnectDraft['to']>['pointWorld']
+  nodeId?: EdgeConnectState['from']['nodeId']
+  anchor?: EdgeConnectState['from']['anchor']
+  pointWorld?: NonNullable<EdgeConnectState['to']>['pointWorld']
 }
 
 const resolveConnectPoint = (
@@ -117,19 +117,19 @@ export type ConnectPreviewModel = {
 
 export const resolveConnectPreview = (
   instance: WhiteboardInstance,
-  draft: EdgeConnectDraft
+  state: EdgeConnectState
 ): ConnectPreviewModel => {
-  const from = resolveConnectPoint(instance, draft.from, false)
-  const to = resolveConnectPoint(instance, draft.to, true)
+  const from = resolveConnectPoint(instance, state.from, false)
+  const to = resolveConnectPoint(instance, state.to, true)
   const snap =
-    draft.to?.nodeId && draft.to.anchor
-      ? resolveConnectPoint(instance, draft.to, true)
+    state.to?.nodeId && state.to.anchor
+      ? resolveConnectPoint(instance, state.to, true)
       : undefined
 
   return {
     from,
     to,
     snap,
-    showPreviewLine: Boolean(!draft.reconnect && from && to)
+    showPreviewLine: Boolean(!state.reconnect && from && to)
   }
 }

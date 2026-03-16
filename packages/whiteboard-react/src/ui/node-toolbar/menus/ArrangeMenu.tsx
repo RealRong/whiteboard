@@ -1,9 +1,9 @@
 import type { NodeToolbarActionContext } from '../types'
 import {
-  runAndClose,
   ToolbarChip,
   ToolbarChipColumn
-} from './ui'
+} from './controls'
+import { runAndClose } from './actions'
 
 export const ArrangeMenu = ({
   instance,

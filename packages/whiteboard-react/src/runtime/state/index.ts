@@ -3,8 +3,6 @@ export {
   filterContainerNodeIds,
   hasContainerEdge,
   hasContainerNode,
-  readContainerRect,
-  resolveContainerEdge,
   type Container,
   type ContainerStore,
   type WhiteboardContainerCommands

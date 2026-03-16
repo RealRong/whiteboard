@@ -1,15 +1,12 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, type CSSProperties } from 'react'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeContainerProps, NodeRenderProps } from 'types/node'
+import type { NodeContainerProps, NodeRenderProps } from '../../../types/node'
 import { useInstance } from '../../../runtime/hooks'
 import { NodeBlock } from './NodeBlock'
-import {
-  buildNodeContainerStyle
-} from './styles'
 import { useNodeView } from '../hooks/useNodeView'
 
 type NodeItemProps = {
@@ -56,12 +53,17 @@ export const NodeItem = memo(({
   }, [nodeId, registerMeasuredElement, shouldAutoMeasure])
   const measuredElementRef = definition?.autoMeasure ? setMeasuredElement : undefined
 
+  const containerStyle: CSSProperties = {
+    ...nodeStyle,
+    pointerEvents: 'auto',
+    ...transformStyle
+  }
   const containerProps: NodeContainerProps = {
     rect,
     nodeId,
     selected,
     ref: measuredElementRef,
-    style: buildNodeContainerStyle(nodeStyle, transformStyle),
+    style: containerStyle,
     onPointerDown: (event) => {
       onNodePointerDown(nodeId, event)
     },
@@ -90,7 +92,7 @@ export const NodeItem = memo(({
         nodeId={nodeId}
         selected={selected}
         ref={containerProps.ref}
-        style={containerProps.style}
+        style={containerStyle}
         onPointerDown={containerProps.onPointerDown}
         onDoubleClick={containerProps.onDoubleClick}
       />

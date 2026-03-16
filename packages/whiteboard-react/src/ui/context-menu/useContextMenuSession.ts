@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from '../../runtime/instance'
 import { useInstance } from '../../runtime/hooks'
-import type { ContextMenuOpenResult } from './model'
+import type { ContextMenuOpenResult } from './read'
 import type { ContextMenuSession, ContextMenuSelectionSnapshot } from './types'
 
 const snapshotSelection = (

@@ -1,11 +1,9 @@
-import { createValueStore } from '@whiteboard/core/runtime'
 import {
   applySelection,
   resolveSelectionMode
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { createPanDriver } from '../../../../runtime/interaction'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
 import {
   filterContainerNodeIds,
@@ -27,38 +25,15 @@ export const createNodeDragSession = (
   instance: InternalWhiteboardInstance
 ) => {
   let active: ActiveDrag | null = null
-  let interactionToken: ReturnType<typeof instance.interaction.tryStart> | null = null
-  const pointer = createValueStore<number | null>(null)
-  const pan = createPanDriver({
-    viewport: instance.viewport,
-    enabled: () => instance.interaction.current()?.mode === 'node-drag',
-    onFrame: (input) => {
-      updatePreview(input)
-    }
-  })
+  let session: ReturnType<typeof instance.interaction.start> = null
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
 
-  const clear = (pointerId?: number) => {
-    if (
-      pointerId !== undefined
-      && active
-      && active.pointerId !== pointerId
-    ) {
-      return
-    }
-
-    const previousInteractionToken = interactionToken
+  const clear = () => {
     active = null
-    interactionToken = null
-    pan.stop()
-    pointer.set(null)
-    instance.draft.node.clear()
-    instance.draft.guides.clear()
-
-    if (previousInteractionToken) {
-      instance.interaction.finish(previousInteractionToken)
-    }
+    session = null
+    instance.internals.node.session.clear()
+    instance.internals.node.guides.clear()
   }
 
   const commit = (draft: ActiveDrag) => {
@@ -96,16 +71,21 @@ export const createNodeDragSession = (
     active.last = preview.position
     active.hoveredContainerId = preview.hoveredContainerId
 
-    instance.draft.node.write({
+    instance.internals.node.session.write({
       patches: preview.patches,
       hoveredContainerId: preview.hoveredContainerId
     })
-    instance.draft.guides.write(preview.guides)
+    instance.internals.node.guides.write(preview.guides)
   }
 
   return {
-    pointer,
-    cancel: clear,
+    cancel: () => {
+      if (session) {
+        session.cancel()
+        return
+      }
+      clear()
+    },
     handleNodePointerDown: (
       nodeId: NodeId,
       event: ReactPointerEvent<HTMLDivElement>
@@ -172,12 +152,35 @@ export const createNodeDragSession = (
       })
       if (!drag.members.length) return
 
-      const nextInteractionToken = instance.interaction.tryStart({
+      const nextSession = instance.interaction.start({
         mode: 'node-drag',
-        cancel: () => clear(event.pointerId),
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        capture: event.currentTarget,
+        pan: {
+          frame: (pointer) => {
+            updatePreview(pointer)
+          }
+        },
+        cleanup: clear,
+        move: (event, session) => {
+          if (!active) {
+            return
+          }
+
+          active.allowCross = event.altKey
+          session.pan(event)
+          updatePreview(event)
+        },
+        up: (_event, session) => {
+          if (!active) {
+            return
+          }
+
+          commit(active)
+          session.finish()
+        }
       })
-      if (!nextInteractionToken) return
+      if (!nextSession) return
 
       if (
         nextSelectedNodeIds.length !== currentSelectedNodeIds.length
@@ -191,52 +194,12 @@ export const createNodeDragSession = (
         allowCross: event.altKey,
         ...drag
       }
-      interactionToken = nextInteractionToken
-      pointer.set(event.pointerId)
-      instance.draft.node.clear()
-      instance.draft.guides.clear()
+      session = nextSession
+      instance.internals.node.session.clear()
+      instance.internals.node.guides.clear()
 
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // Ignore capture errors, window listeners still handle session cleanup.
-      }
       event.preventDefault()
       event.stopPropagation()
-    },
-    onWindowPointerMove: (event: PointerEvent) => {
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      active.allowCross = event.altKey
-      pan.update(event)
-      updatePreview(event)
-    },
-    onWindowPointerUp: (event: PointerEvent) => {
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      commit(active)
-      clear(active.pointerId)
-    },
-    onWindowPointerCancel: (event: PointerEvent) => {
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      clear(event.pointerId)
-    },
-    onWindowBlur: () => {
-      clear()
-    },
-    onWindowKeyDown: (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      clear()
     }
   }
 }

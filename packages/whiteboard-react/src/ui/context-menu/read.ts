@@ -1,7 +1,5 @@
-import { useMemo } from 'react'
 import type { EdgeId, Node, NodeId, Point } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from '../../runtime/instance'
-import { useInstance } from '../../runtime/hooks'
 import {
   hasContainerEdge,
   hasContainerNode
@@ -210,7 +208,7 @@ export const readContextMenuOpenResult = ({
   }
 }
 
-const readContextMenu = ({
+export const readContextMenu = ({
   instance,
   session,
   containerWidth,
@@ -234,26 +232,4 @@ const readContextMenu = ({
     }),
     sections: readSections(instance, target)
   }
-}
-
-export const useContextMenu = ({
-  session,
-  containerWidth,
-  containerHeight
-}: {
-  session: ContextMenuSession
-  containerWidth: number
-  containerHeight: number
-}): ContextMenuModel | undefined => {
-  const instance = useInstance()
-
-  return useMemo(
-    () => readContextMenu({
-      instance,
-      session,
-      containerWidth,
-      containerHeight
-    }),
-    [containerHeight, containerWidth, instance, session]
-  )
 }

@@ -1,26 +1,26 @@
 import type { NodeToolbarActionContext } from '../types'
-import { resolveNodeActions } from '../../../features/node/nodeActions'
+import { resolveNodeCaps } from '../../../runtime/nodeCaps'
 import {
   deleteNodes,
   duplicateNodes
-} from '../../../features/node/actions'
+} from '../../../features/node/commands'
 import {
   ToolbarChip,
   ToolbarChipColumn
-} from './ui'
+} from './controls'
 
 export const MoreMenu = ({
   instance,
   nodes,
   close
 }: NodeToolbarActionContext) => {
-  const actions = resolveNodeActions(nodes)
-  const nodeIds = nodes.map((node) => node.id)
+  const caps = resolveNodeCaps(nodes)
+  const nodeIds = caps.nodeIds
 
   return (
     <ToolbarChipColumn>
       <ToolbarChip
-        disabled={!actions.canDuplicate}
+        disabled={!caps.canDuplicate}
         onClick={() => {
           void duplicateNodes(instance, nodeIds).finally(close)
         }}
@@ -28,7 +28,7 @@ export const MoreMenu = ({
         Duplicate
       </ToolbarChip>
       <ToolbarChip
-        disabled={!actions.canDelete}
+        disabled={!caps.canDelete}
         onClick={() => {
           void deleteNodes(instance, nodeIds).finally(close)
         }}

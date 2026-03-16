@@ -1,12 +1,12 @@
 import {
   hasSchemaField
-} from '../model'
+} from '../schema'
 import type { NodeToolbarActionContext } from '../types'
 import {
   ToolbarChip,
   ToolbarChipRow,
   ToolbarMenuSection
-} from './ui'
+} from './controls'
 
 export const GroupMenu = ({
   instance,

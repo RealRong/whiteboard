@@ -24,4 +24,4 @@ export type {
   NodeRenderProps,
 } from './node'
 
-export type { EdgeConnectDraft } from './edge'
+export type { EdgeConnectState } from './edge'

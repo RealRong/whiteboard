@@ -1,7 +1,8 @@
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import { useInternalInstance, useSelection } from '../../runtime/hooks'
 import { useViewport } from '../../runtime/viewport'
-import { resolveNodeActions } from '../../features/node/nodeActions'
+import { resolveNodeCaps } from '../../runtime/nodeCaps'
+import { hasSchemaField } from './schema'
 import type {
   NodeToolbarItem,
   NodeToolbarItemKey
@@ -105,37 +106,6 @@ const STATIC_ITEM_KEYS: readonly NodeToolbarItemKey[] = [
   'more'
 ]
 
-export const hasSchemaField = (
-  schema: NodeSchema | undefined,
-  scope: 'data' | 'style',
-  path: string
-) => schema?.fields.some((field) => field.scope === scope && field.path === path) ?? false
-
-export const readTextFieldKey = (
-  node: Node,
-  schema?: NodeSchema
-): 'title' | 'text' => {
-  const schemaField = schema?.fields.find((field) =>
-    field.scope === 'data' && (field.path === 'text' || field.path === 'title')
-  )
-
-  if (schemaField?.path === 'text' || schemaField?.path === 'title') {
-    return schemaField.path
-  }
-
-  if (typeof node.data?.text === 'string') return 'text'
-  return 'title'
-}
-
-export const readTextValue = (
-  node: Node,
-  schema?: NodeSchema
-) => {
-  const key = readTextFieldKey(node, schema)
-  const value = node.data?.[key]
-  return typeof value === 'string' ? value : ''
-}
-
 const hasTextValue = (node: Node) => {
   const title = node.data?.title
   const text = node.data?.text
@@ -207,13 +177,13 @@ const resolveItemKeys = (
 
 const buildToolbarItem = (
   key: NodeToolbarItemKey,
-  actions: ReturnType<typeof resolveNodeActions>
+  caps: ReturnType<typeof resolveNodeCaps>
 ): NodeToolbarItem => (
   key === 'lock'
     ? {
         key,
-        label: actions.lockLabel,
-        active: actions.allLocked
+        label: caps.lockLabel,
+        active: caps.allLocked
       }
     : {
         key,
@@ -279,8 +249,8 @@ export const useNodeToolbar = (): NodeToolbarModel | undefined => {
     node,
     schema: instance.registry.get(node.type)?.schema
   }))
-  const actions = resolveNodeActions(nodes)
-  const items = resolveItemKeys(sources).map((key) => buildToolbarItem(key, actions))
+  const caps = resolveNodeCaps(nodes)
+  const items = resolveItemKeys(sources).map((key) => buildToolbarItem(key, caps))
   if (!items.length) {
     return undefined
   }

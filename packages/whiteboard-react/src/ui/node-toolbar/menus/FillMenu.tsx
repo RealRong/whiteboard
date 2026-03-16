@@ -1,14 +1,14 @@
 import {
   COLORS,
-} from './ui'
-import { hasSchemaField } from '../model'
+  ColorSwatch,
+  ToolbarMenuSection
+} from './controls'
+import { hasSchemaField } from '../schema'
 import type { NodeToolbarActionContext } from '../types'
 import {
-  ColorSwatch,
   mergeData,
-  ToolbarMenuSection,
   updateNodesStyle
-} from './ui'
+} from './actions'
 
 export const FillMenu = ({
   instance,

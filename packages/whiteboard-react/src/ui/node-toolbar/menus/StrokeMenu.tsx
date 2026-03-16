@@ -1,16 +1,16 @@
 import {
   COLORS,
-  STROKE_WIDTHS
-} from './ui'
-import { hasSchemaField } from '../model'
-import type { NodeToolbarActionContext } from '../types'
-import {
+  STROKE_WIDTHS,
   ColorSwatch,
   ToolbarChip,
   ToolbarChipRow,
-  ToolbarMenuSection,
+  ToolbarMenuSection
+} from './controls'
+import { hasSchemaField } from '../schema'
+import type { NodeToolbarActionContext } from '../types'
+import {
   updateNodesStyle
-} from './ui'
+} from './actions'
 
 export const StrokeMenu = ({
   instance,

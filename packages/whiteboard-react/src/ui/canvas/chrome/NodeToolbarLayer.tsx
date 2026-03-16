@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -48,9 +49,9 @@ export const NodeToolbarLayer = ({
   const rootRef = useRef<HTMLDivElement | null>(null)
   const buttonRefByKey = useRef<Partial<Record<NodeToolbarMenuKey, HTMLButtonElement | null>>>({})
   const [activeMenuKey, setActiveMenuKey] = useState<NodeToolbarMenuKey | null>(null)
-  const closeMenu = () => {
+  const closeMenu = useCallback(() => {
     setActiveMenuKey(null)
-  }
+  }, [])
   const toolbar = useNodeToolbar()
   const showNodeToolbar =
     tool === 'select'
@@ -72,7 +73,7 @@ export const NodeToolbarLayer = ({
     if (!showNodeToolbar) {
       closeMenu()
     }
-  }, [showNodeToolbar])
+  }, [closeMenu, showNodeToolbar])
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {

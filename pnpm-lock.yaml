@@ -32,9 +32,6 @@ importers:
       '@whiteboard/react':
         specifier: workspace:*
         version: link:../../packages/whiteboard-react
-      immer:
-        specifier: ^10.1.3
-        version: 10.2.0
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -65,9 +62,6 @@ importers:
       '@whiteboard/core':
         specifier: workspace:*
         version: link:../whiteboard-core
-      jotai:
-        specifier: ^2.7.1
-        version: 2.17.0(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.10)(react@19.2.4)
 
   packages/whiteboard-plugins: {}
 
@@ -79,12 +73,6 @@ importers:
       '@whiteboard/engine':
         specifier: workspace:*
         version: link:../whiteboard-engine
-      immer:
-        specifier: ^10.1.3
-        version: 10.2.0
-      jotai:
-        specifier: ^2.7.1
-        version: 2.17.0(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.10)(react@19.2.4)
       react:
         specifier: '>=18'
         version: 19.2.4
@@ -741,27 +729,6 @@ packages:
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
-
-  immer@10.2.0:
-    resolution: {integrity: sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw==}
-
-  jotai@2.17.0:
-    resolution: {integrity: sha512-DBPT7Vx7E7R/ZJL7Uq7yUA9+LLR0IRiRM+Bw5ugVwv8L8++RjlXVXZ2//ccucypc5lcyuHOW09rYcW77RurduQ==}
-    engines: {node: '>=12.20.0'}
-    peerDependencies:
-      '@babel/core': '>=7.0.0'
-      '@babel/template': '>=7.0.0'
-      '@types/react': '>=17.0.0'
-      react: '>=17.0.0'
-    peerDependenciesMeta:
-      '@babel/core':
-        optional: true
-      '@babel/template':
-        optional: true
-      '@types/react':
-        optional: true
-      react:
-        optional: true
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -1512,15 +1479,6 @@ snapshots:
     optional: true
 
   gensync@1.0.0-beta.2: {}
-
-  immer@10.2.0: {}
-
-  jotai@2.17.0(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.10)(react@19.2.4):
-    optionalDependencies:
-      '@babel/core': 7.28.6
-      '@babel/template': 7.28.6
-      '@types/react': 19.2.10
-      react: 19.2.4
 
   joycon@3.1.1: {}
 

@@ -1,6 +1,6 @@
 import type { Node, NodeId } from '@whiteboard/core/types'
 
-export type NodeActions = {
+export type NodeCaps = {
   nodeIds: readonly NodeId[]
   nodeCount: number
   hasGroup: boolean
@@ -16,9 +16,9 @@ export type NodeActions = {
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 
-export const resolveNodeActions = (
+export const resolveNodeCaps = (
   nodes: readonly Node[]
-): NodeActions => {
+): NodeCaps => {
   const nodeIds = nodes.length > 0 ? nodes.map((node) => node.id) : EMPTY_NODE_IDS
   const nodeCount = nodeIds.length
   const hasGroup = nodes.some((node) => node.type === 'group')

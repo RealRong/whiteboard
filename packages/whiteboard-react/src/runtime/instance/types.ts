@@ -12,12 +12,15 @@ import type {
   WhiteboardSelectionCommands
 } from '../state'
 import type { WhiteboardViewport } from '../viewport'
-import type { Drafts } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
 import type {
   InteractionCoordinator,
   InteractionMode
 } from '../interaction/types'
+import type { NodeFeatureRuntime } from '../../features/node/session'
+import type { EdgeFeatureRuntime } from '../../features/edge/session'
+import type { MindmapFeatureRuntime } from '../../features/mindmap/session'
+import type { SelectionBoxStore } from '../session/selectionBox'
 
 export type Tool = 'select' | 'edge'
 
@@ -60,7 +63,12 @@ export type WhiteboardInstance = {
 
 export type InternalWhiteboardInstance = WhiteboardInstance & {
   engine: EngineInstance
-  draft: Drafts
   interaction: InteractionCoordinator
   registry: NodeRegistry
+  internals: {
+    node: NodeFeatureRuntime
+    edge: EdgeFeatureRuntime
+    mindmap: MindmapFeatureRuntime
+    selectionBox: SelectionBoxStore
+  }
 }

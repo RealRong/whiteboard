@@ -1,1 +1,1 @@
-export type { EdgeConnectDraft } from './connect'
+export type { EdgeConnectState } from './connect'

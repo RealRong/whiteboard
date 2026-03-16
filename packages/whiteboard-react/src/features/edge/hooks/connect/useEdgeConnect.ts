@@ -1,12 +1,7 @@
 import type { EdgeAnchor, EdgeId, NodeId } from '@whiteboard/core/types'
-import { createValueStore } from '@whiteboard/core/runtime'
-import type { EdgeConnectDraft } from '../../../../types/edge'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance as useInstance, useTool, useStoreValue } from '../../../../runtime/hooks'
-import {
-  createPanDriver,
-  useWindowPointerSession
-} from '../../../../runtime/interaction'
+import type { EdgeConnectState } from '../../../../types/edge'
+import { useInternalInstance as useInstance, useTool } from '../../../../runtime/hooks'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
 import {
@@ -23,7 +18,7 @@ type ConnectPointer = ViewportPointer & {
 }
 
 type ActiveConnect = {
-  draft: EdgeConnectDraft
+  state: EdgeConnectState
 }
 
 const NODE_CONNECT_HANDLE_SELECTOR = '[data-input-role="node-edge-handle"]'
@@ -49,10 +44,8 @@ export const useEdgeConnect = ({
   const instance = useInstance()
   const tool = useTool()
   const activeRef = useRef<ActiveConnect | null>(null)
-  const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
+  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
   const hoverEventRef = useRef<PointerEvent | null>(null)
-  const pointerRef = useRef(createValueStore<number | null>(null))
-  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
 
   const readPointer = useCallback((
     event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
@@ -64,7 +57,7 @@ export const useEdgeConnect = ({
   const beginFromNode = useCallback((
     nodeId: NodeId,
     pointer: ConnectPointer
-  ): EdgeConnectDraft | undefined => {
+  ): EdgeConnectState | undefined => {
     const entry = instance.read.index.node.get(nodeId)
     if (!entry) {
       return undefined
@@ -76,6 +69,7 @@ export const useEdgeConnect = ({
       entry.rotation,
       pointer.world
     )
+
     return {
       pointerId: pointer.pointerId,
       from: {
@@ -92,7 +86,7 @@ export const useEdgeConnect = ({
     nodeId: NodeId,
     side: ConnectHandleSide,
     pointer: ConnectPointer
-  ): EdgeConnectDraft => ({
+  ): EdgeConnectState => ({
     pointerId: pointer.pointerId,
     from: {
       nodeId,
@@ -107,7 +101,7 @@ export const useEdgeConnect = ({
     edgeId: EdgeId,
     end: 'source' | 'target',
     pointer: ConnectPointer
-  ): EdgeConnectDraft | undefined => {
+  ): EdgeConnectState | undefined => {
     const edge = instance.read.edge.item.get(edgeId)?.edge
     if (!edge) {
       return undefined
@@ -130,39 +124,39 @@ export const useEdgeConnect = ({
     }
   }, [instance])
 
-  const updateDraft = useCallback((
-    draft: EdgeConnectDraft,
+  const updateState = useCallback((
+    state: EdgeConnectState,
     pointer: ConnectPointer
   ) => {
-    if (pointer.pointerId !== draft.pointerId) {
+    if (pointer.pointerId !== state.pointerId) {
       return false
     }
 
     const snap = resolveSnapTarget(instance, pointer.world)
     if (snap) {
-      draft.to = {
+      state.to = {
         nodeId: snap.nodeId,
         anchor: snap.anchor,
         pointWorld: snap.pointWorld
       }
     } else {
-      draft.to = {
+      state.to = {
         pointWorld: pointer.world
       }
     }
     return true
   }, [instance])
 
-  const commitDraft = useCallback((draft: EdgeConnectDraft) => {
-    const target = draft.to
+  const commitState = useCallback((state: EdgeConnectState) => {
+    const target = state.to
     if (!target?.nodeId || !target.anchor) {
       return
     }
 
-    if (draft.reconnect) {
+    if (state.reconnect) {
       void instance.commands.edge.update(
-        draft.reconnect.edgeId,
-        draft.reconnect.end === 'source'
+        state.reconnect.edgeId,
+        state.reconnect.end === 'source'
           ? {
             source: {
               nodeId: target.nodeId,
@@ -181,8 +175,8 @@ export const useEdgeConnect = ({
 
     void instance.commands.edge.create({
       source: {
-        nodeId: draft.from.nodeId,
-        anchor: draft.from.anchor
+        nodeId: state.from.nodeId,
+        anchor: state.from.anchor
       },
       target: {
         nodeId: target.nodeId,
@@ -192,37 +186,15 @@ export const useEdgeConnect = ({
     })
   }, [instance])
 
-  if (!panRef.current) {
-    panRef.current = createPanDriver({
-      viewport: instance.viewport,
-      enabled: () => instance.interaction.current()?.mode === 'edge-connect',
-      onFrame: (pointer) => {
-        const active = activeRef.current
-        if (!active) {
-          return
-        }
-
-        if (!updateDraft(active.draft, readPointer({
-          pointerId: active.draft.pointerId,
-          ...pointer
-        }))) {
-          return
-        }
-
-        setDraftPreview(active.draft)
-      }
-    })
-  }
-
-  const setDraftPreview = useCallback((draft: EdgeConnectDraft) => {
-    instance.draft.connection.write({
-      activePointerId: draft.pointerId,
-      ...resolveConnectPreview(instance, draft)
+  const writePreview = useCallback((state: EdgeConnectState) => {
+    instance.internals.edge.connection.write({
+      activePointerId: state.pointerId,
+      ...resolveConnectPreview(instance, state)
     })
   }, [instance])
 
   const setHoverPreview = useCallback((snap?: { x: number; y: number }) => {
-    instance.draft.connection.write(
+    instance.internals.edge.connection.write(
       snap
         ? {
           showPreviewLine: false,
@@ -244,57 +216,82 @@ export const useEdgeConnect = ({
     setHoverPreview(target?.pointWorld)
   }))
 
-  const cancel = useCallback((pointerId?: number) => {
-    const active = activeRef.current
-    if (pointerId !== undefined && active && active.draft.pointerId !== pointerId) {
-      return
-    }
-
-    const token = tokenRef.current
+  const clear = useCallback(() => {
     activeRef.current = null
-    tokenRef.current = null
-    panRef.current?.stop()
+    sessionRef.current = null
     hoverTaskRef.current.cancel()
     hoverEventRef.current = null
-    pointerRef.current.set(null)
-    instance.draft.connection.clear()
-
-    if (token) {
-      instance.interaction.finish(token)
-    }
+    instance.internals.edge.connection.clear()
   }, [instance])
+
+  const cancel = useCallback(() => {
+    if (sessionRef.current) {
+      sessionRef.current.cancel()
+      return
+    }
+    clear()
+  }, [clear])
 
   const startConnectSession = useCallback((
     event: PointerEvent,
-    draft: EdgeConnectDraft
+    state: EdgeConnectState
   ) => {
-    const token = instance.interaction.tryStart({
+    const nextSession = instance.interaction.start({
       mode: 'edge-connect',
-      cancel: () => cancel(event.pointerId),
-      pointerId: event.pointerId
+      pointerId: event.pointerId,
+      capture: event.target instanceof Element ? event.target : null,
+      pan: {
+        frame: (pointer) => {
+          const active = activeRef.current
+          if (!active) {
+            return
+          }
+
+          if (!updateState(active.state, readPointer({
+            pointerId: active.state.pointerId,
+            ...pointer
+          }))) {
+            return
+          }
+
+          writePreview(active.state)
+        }
+      },
+      cleanup: clear,
+      move: (event, session) => {
+        const active = activeRef.current
+        if (!active) {
+          return
+        }
+
+        if (!updateState(active.state, readPointer(event))) {
+          return
+        }
+
+        session.pan(event)
+        writePreview(active.state)
+      },
+      up: (_event, session) => {
+        const active = activeRef.current
+        if (!active) {
+          return
+        }
+
+        commitState(active.state)
+        session.finish()
+      }
     })
-    if (!token) return
+    if (!nextSession) return
 
     activeRef.current = {
-      draft
+      state
     }
-    tokenRef.current = token
-    pointerRef.current.set(event.pointerId)
-    setDraftPreview(draft)
-
-    try {
-      if (event.target instanceof Element) {
-        event.target.setPointerCapture?.(event.pointerId)
-      }
-    } catch {
-      // Ignore capture errors, window listeners still handle session cleanup.
-    }
+    sessionRef.current = nextSession
+    writePreview(state)
 
     event.preventDefault()
     event.stopPropagation()
-  }, [cancel, instance, setDraftPreview])
-
-  const pointerId = useStoreValue(pointerRef.current)
+  }, [clear, commitState, instance, readPointer, updateState, writePreview])
 
   useEffect(() => {
     const container = containerRef.current
@@ -318,12 +315,12 @@ export const useEdgeConnect = ({
           return
         }
 
-        const draft = beginReconnect(edgeId, end, pointerState)
-        if (!draft) {
+        const state = beginReconnect(edgeId, end, pointerState)
+        if (!state) {
           return
         }
 
-        startConnectSession(event, draft)
+        startConnectSession(event, state)
         return
       }
 
@@ -351,12 +348,12 @@ export const useEdgeConnect = ({
         return
       }
 
-      const draft = beginFromNode(nodeId, pointerState)
-      if (!draft) {
+      const state = beginFromNode(nodeId, pointerState)
+      if (!state) {
         return
       }
 
-      startConnectSession(event, draft)
+      startConnectSession(event, state)
     }
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -398,50 +395,6 @@ export const useEdgeConnect = ({
       cancel()
     }
   }, [cancel, tool])
-
-  useWindowPointerSession({
-    pointerId,
-    onPointerMove: (event) => {
-      const active = activeRef.current
-      if (!active) {
-        return
-      }
-
-      if (!updateDraft(active.draft, readPointer(event))) {
-        return
-      }
-
-      panRef.current?.update(event)
-      setDraftPreview(active.draft)
-    },
-    onPointerUp: (event) => {
-      const active = activeRef.current
-      if (!active || active.draft.pointerId !== event.pointerId) {
-        return
-      }
-
-      commitDraft(active.draft)
-      cancel(active.draft.pointerId)
-    },
-    onPointerCancel: (event) => {
-      const active = activeRef.current
-      if (!active || active.draft.pointerId !== event.pointerId) {
-        return
-      }
-
-      cancel(active.draft.pointerId)
-    },
-    onBlur: () => {
-      cancel()
-    },
-    onKeyDown: (event) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      cancel()
-    }
-  })
 
   useEffect(() => () => {
     cancel()

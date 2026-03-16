@@ -196,3 +196,180 @@ export const createDerivedStore = <T,>({
     }
   }
 }
+
+type KeyedEntry<Key, T> = {
+  key: Key
+  value: T | undefined
+  hasValue: boolean
+  computing: boolean
+  tracking: boolean
+  dependencies: Dependency[]
+  unsubscribeDependencies: () => void
+  listeners: Set<() => void>
+}
+
+export const createKeyedDerivedStore = <Key, T,>({
+  get,
+  isEqual = isSameValue
+}: {
+  get: (read: ReadFn, key: Key) => T
+  isEqual?: (prev: T, next: T) => boolean
+}): KeyedReadStore<Key, T> => {
+  const entries = new Map<Key, KeyedEntry<Key, T>>()
+
+  const getEntry = (key: Key): KeyedEntry<Key, T> => {
+    const current = entries.get(key)
+    if (current) {
+      return current
+    }
+
+    const next: KeyedEntry<Key, T> = {
+      key,
+      value: undefined,
+      hasValue: false,
+      computing: false,
+      tracking: false,
+      dependencies: [],
+      unsubscribeDependencies: () => {},
+      listeners: new Set()
+    }
+    entries.set(key, next)
+    return next
+  }
+
+  const compute = (entry: KeyedEntry<Key, T>) => {
+    if (entry.computing) {
+      throw new Error('Circular keyed derived store dependency detected.')
+    }
+
+    entry.computing = true
+    const nextDependencies: Dependency[] = []
+
+    const read = ((store: ReadStore<unknown> | KeyedReadStore<unknown, unknown>, key?: unknown) => {
+      if (key === undefined) {
+        const dependency: Dependency = {
+          kind: 'store',
+          store: store as ReadStore<unknown>
+        }
+        addDependency(nextDependencies, dependency)
+        return dependency.store.get()
+      }
+
+      const dependency: Dependency = {
+        kind: 'keyed',
+        store: store as KeyedReadStore<unknown, unknown>,
+        key
+      }
+      addDependency(nextDependencies, dependency)
+      return dependency.store.get(key)
+    }) as ReadFn
+
+    try {
+      return {
+        value: get(read, entry.key),
+        dependencies: nextDependencies
+      }
+    } finally {
+      entry.computing = false
+    }
+  }
+
+  const bindDependencies = (
+    entry: KeyedEntry<Key, T>,
+    nextDependencies: readonly Dependency[]
+  ) => {
+    entry.unsubscribeDependencies()
+    entry.unsubscribeDependencies = () => {}
+    entry.dependencies = [...nextDependencies]
+
+    if (!entry.tracking || nextDependencies.length === 0) {
+      return
+    }
+
+    const handleDependencyChange = () => {
+      const next = compute(entry)
+      const shouldRebind = !areDependenciesEqual(entry.dependencies, next.dependencies)
+      const changed = !entry.hasValue || !isEqual(entry.value as T, next.value)
+
+      if (shouldRebind) {
+        bindDependencies(entry, next.dependencies)
+      }
+
+      if (!changed) {
+        return
+      }
+
+      entry.value = next.value
+      entry.hasValue = true
+      Array.from(entry.listeners).forEach((listener) => {
+        listener()
+      })
+    }
+
+    const unsubscribers = nextDependencies.map((dependency) => (
+      dependency.kind === 'store'
+        ? dependency.store.subscribe(handleDependencyChange)
+        : dependency.store.subscribe(dependency.key, handleDependencyChange)
+    ))
+
+    entry.unsubscribeDependencies = () => {
+      unsubscribers.forEach((unsubscribe) => {
+        unsubscribe()
+      })
+    }
+  }
+
+  const refresh = (entry: KeyedEntry<Key, T>) => {
+    const next = compute(entry)
+    const shouldRebind = !areDependenciesEqual(entry.dependencies, next.dependencies)
+
+    if (shouldRebind) {
+      bindDependencies(entry, next.dependencies)
+    }
+
+    entry.value = next.value
+    entry.hasValue = true
+  }
+
+  return {
+    get: (key) => {
+      const entry = getEntry(key)
+
+      if (!entry.tracking) {
+        entry.value = compute(entry).value
+        entry.hasValue = true
+        return entry.value
+      }
+
+      if (!entry.hasValue) {
+        refresh(entry)
+      }
+
+      return entry.value as T
+    },
+    subscribe: (key, listener) => {
+      const entry = getEntry(key)
+      entry.listeners.add(listener)
+
+      if (!entry.tracking) {
+        entry.tracking = true
+        const next = compute(entry)
+        bindDependencies(entry, next.dependencies)
+        entry.value = next.value
+        entry.hasValue = true
+      }
+
+      return () => {
+        entry.listeners.delete(listener)
+        if (entry.listeners.size > 0) {
+          return
+        }
+
+        entry.tracking = false
+        entry.unsubscribeDependencies()
+        entry.unsubscribeDependencies = () => {}
+        entry.dependencies = []
+      }
+    }
+  }
+}

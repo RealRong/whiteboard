@@ -7,7 +7,7 @@ export type {
   ValueStore
 } from './types'
 export { createValueStore } from './value'
-export { createDerivedStore } from './derived'
+export { createDerivedStore, createKeyedDerivedStore } from './derived'
 export {
   createStagedKeyedStore,
   createStagedValueStore

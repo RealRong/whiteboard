@@ -1,10 +1,11 @@
 import {
   memo,
+  useEffect,
+  useRef,
   type PointerEvent as ReactPointerEvent
 } from 'react'
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useGuidesDraft } from '../../../runtime/draft'
 import {
   useInternalInstance,
   useInteraction,
@@ -13,7 +14,9 @@ import {
   useTool,
   useStoreValue
 } from '../../../runtime/hooks'
+import { useGuidesSession } from '../session'
 import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
+import { createNodeTransformSession } from '../hooks/transform/session'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import { NodeTransformHandles } from './NodeTransformHandles'
 
@@ -135,25 +138,29 @@ const ActiveContainerOverlay = ({
   </div>
 )
 
-export const NodeOverlayLayer = ({
-  onTransformPointerDown
-}: {
-  onTransformPointerDown: (
-    nodeId: NodeId,
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
-}) => {
+export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const tool = useTool()
   const container = useContainer()
   const interaction = useInteraction()
-  const guides = useGuidesDraft(instance.draft.guides)
+  const guides = useGuidesSession(instance.internals.node.guides)
   const selection = useSelection()
   const activeContainerNode = useNodeView(container.id)
+  const transformSessionRef = useRef<ReturnType<typeof createNodeTransformSession> | null>(null)
   const selectedSet = selection.target.nodeSet
   const chromeVisible = interaction === 'idle'
+
+  if (!transformSessionRef.current) {
+    transformSessionRef.current = createNodeTransformSession(instance)
+  }
+
+  const transformSession = transformSessionRef.current!
+
+  useEffect(() => () => {
+    transformSession.cancel()
+  }, [transformSession])
+
   const activeContainer =
     container.id && activeContainerNode
       ? {
@@ -183,7 +190,7 @@ export const NodeOverlayLayer = ({
           <NodeTransformOverlayItem
             key={`transform:${nodeId}`}
             nodeId={nodeId}
-            onTransformPointerDown={onTransformPointerDown}
+            onTransformPointerDown={transformSession.handleTransformPointerDown}
           />
         ))}
         {showNodeConnectHandles && nodeIds.map((nodeId) => (

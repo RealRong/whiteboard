@@ -1,8 +1,10 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  CSSProperties,
+  PointerEvent as ReactPointerEvent
+} from 'react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/core/read'
 import { useViewportZoom } from '../../../runtime/hooks'
-import { buildNodeTransformHandleStyle } from './styles'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
@@ -21,6 +23,25 @@ type NodeTransformHandlesProps = {
 
 const NODE_TRANSFORM_HANDLE_SIZE = 10
 const NODE_ROTATE_HANDLE_OFFSET = 24
+
+const buildNodeTransformHandleStyle = ({
+  handle,
+  zoom,
+  size
+}: {
+  handle: TransformHandle
+  zoom: number
+  size: number
+}): CSSProperties => {
+  const half = size / Math.max(zoom, 0.0001) / 2
+
+  return {
+    '--wb-node-handle-size': `${size}px`,
+    '--wb-node-handle-x': `${handle.position.x - half}px`,
+    '--wb-node-handle-y': `${handle.position.y - half}px`,
+    cursor: handle.cursor
+  } as CSSProperties
+}
 
 export const NodeTransformHandles = ({
   node,

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { produce } from 'immer'
 import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
 import type { Document, NodeInput } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
@@ -59,8 +58,8 @@ export const App = () => {
   const panRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null)
   const insertCountRef = useRef(0)
 
-  const onDocChange = useCallback((recipe: (draft: Document) => void) => {
-    setDoc((prev) => produce(prev, (draft) => recipe(draft)))
+  const onDocumentChange = useCallback((next: Document) => {
+    setDoc(next)
   }, [])
 
   const stats = useMemo(() => {
@@ -232,7 +231,7 @@ export const App = () => {
         <Whiteboard
           ref={instanceRef}
           doc={doc}
-          onDocChange={onDocChange}
+          onDocumentChange={onDocumentChange}
           config={{
             style: { width: '100%', height: '100%' },
             tool: 'select',

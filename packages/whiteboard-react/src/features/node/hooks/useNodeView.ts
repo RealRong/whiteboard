@@ -1,20 +1,45 @@
 import type { CSSProperties } from 'react'
-import { useMemo, useRef, useSyncExternalStore } from 'react'
+import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/core/read'
 import type { NodeId } from '@whiteboard/core/types'
-import {
-  applyNodeDraft,
-  type NodeDraft
-} from '../../../runtime/draft'
 import type { InternalWhiteboardInstance } from '../../../runtime/instance'
 import {
-  useInternalInstance as useInstance
+  useInternalInstance as useInstance,
+  useOptionalKeyedStoreValue
 } from '../../../runtime/hooks'
 import type { NodeDefinition } from '../../../types/node'
 import {
-  buildNodeConnectHandleOverlayStyle,
-  buildNodeTransformStyle
-} from '../components/styles'
+  useNodeSession,
+  type NodeSession
+} from '../session'
+
+const buildNodeTransformStyle = (
+  rect: NodeItem['rect'],
+  rotation: number,
+  nodeStyle: CSSProperties
+): CSSProperties => {
+  const extraTransform = nodeStyle.transform
+  const baseTransform = `translate(${rect.x}px, ${rect.y}px)`
+  const rotationTransform = rotation !== 0 ? `rotate(${rotation}deg)` : undefined
+  const transform = [baseTransform, extraTransform, rotationTransform]
+    .filter(Boolean)
+    .join(' ')
+
+  return {
+    transform: transform || undefined,
+    transformOrigin: rotationTransform ? 'center center' : nodeStyle.transformOrigin
+  }
+}
+
+const buildNodeConnectHandleOverlayStyle = (
+  transformStyle: CSSProperties
+): CSSProperties => ({
+  position: 'absolute',
+  left: 0,
+  top: 0,
+  pointerEvents: 'none',
+  ...transformStyle
+})
 
 export type NodeView = {
   nodeId: NodeId
@@ -39,34 +64,17 @@ export type NodeOverlayView = {
   connectHandleOverlayStyle: CSSProperties
 }
 
-type NodeViewState = {
-  item: NodeItem
-  draft: NodeDraft
-}
-
-type NodeViewCacheEntry = {
-  nodeId: NodeId
-  item: NodeItem
-  draft: NodeDraft
-  selected: boolean
-  view: NodeView
-}
-
-const EMPTY_UNSUBSCRIBE = () => {}
-
 const resolveNodeViewState = (
   instance: Pick<InternalWhiteboardInstance, 'read' | 'commands' | 'registry'>,
   nodeId: NodeId,
-  state: NodeViewState,
+  item: NodeItem,
+  session: NodeSession,
   selected: boolean
 ): NodeView => {
-  const { item, draft } = state
-  const {
-    node: resolvedNode,
-    rect,
-    hovered,
-    hasResizePreview
-  } = applyNodeDraft(item, draft)
+  const resolvedNode = item.node
+  const rect = item.rect
+  const hovered = session.hovered
+  const hasResizePreview = Boolean(session.patch?.size)
   const rotation = typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0
   const definition = instance.registry.get(resolvedNode.type)
   const canRotate =
@@ -106,75 +114,22 @@ export const useNodeView = (
   } = {}
 ): NodeView | undefined => {
   const instance = useInstance()
-  const cacheRef = useRef<NodeViewCacheEntry | null>(null)
+  const item = useOptionalKeyedStoreValue(
+    instance.read.node.item,
+    nodeId,
+    undefined
+  )
+  const session = useNodeSession(instance.internals.node.session, nodeId)
 
-  const subscribe = useMemo(
+  return useMemo(
     () => {
-      if (!nodeId) {
-        return () => EMPTY_UNSUBSCRIBE
-      }
-
-      return (listener: () => void) => {
-        const unsubscribeNode = instance.read.node.item.subscribe(nodeId, listener)
-        const unsubscribeDraft = instance.draft.node.subscribe(nodeId, listener)
-
-        return () => {
-          unsubscribeNode()
-          unsubscribeDraft()
-        }
-      }
-    },
-    [instance, nodeId]
-  )
-
-  const getSnapshot = useMemo(
-    () => () => {
-      if (!nodeId) {
-        cacheRef.current = null
+      if (!nodeId || !item) {
         return undefined
       }
 
-      const item = instance.read.node.item.get(nodeId)
-      if (!item) {
-        cacheRef.current = null
-        return undefined
-      }
-
-      const draft = instance.draft.node.get(nodeId)
-      const cached = cacheRef.current
-
-      if (
-        cached
-        && cached.nodeId === nodeId
-        && cached.item === item
-        && cached.draft === draft
-        && cached.selected === selected
-      ) {
-        return cached.view
-      }
-
-      const view = resolveNodeViewState(instance, nodeId, {
-        item,
-        draft
-      }, selected)
-
-      cacheRef.current = {
-        nodeId,
-        item,
-        draft,
-        selected,
-        view
-      }
-
-      return view
+      return resolveNodeViewState(instance, nodeId, item, session, selected)
     },
-    [instance, nodeId, selected]
-  )
-
-  return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getSnapshot
+    [instance, item, nodeId, selected, session]
   )
 }
 
@@ -187,15 +142,23 @@ export const useNodeOverlayView = (
   }
 ): NodeOverlayView | undefined => {
   const view = useNodeView(nodeId, { selected })
-  if (!view) return undefined
 
-  return {
-    nodeId: view.nodeId,
-    node: view.node,
-    rect: view.rect,
-    hovered: view.hovered,
-    rotation: view.rotation,
-    canRotate: view.canRotate,
-    connectHandleOverlayStyle: buildNodeConnectHandleOverlayStyle(view.transformStyle)
-  }
+  return useMemo(
+    () => {
+      if (!view) {
+        return undefined
+      }
+
+      return {
+        nodeId: view.nodeId,
+        node: view.node,
+        rect: view.rect,
+        hovered: view.hovered,
+        rotation: view.rotation,
+        canRotate: view.canRotate,
+        connectHandleOverlayStyle: buildNodeConnectHandleOverlayStyle(view.transformStyle)
+      }
+    },
+    [view]
+  )
 }

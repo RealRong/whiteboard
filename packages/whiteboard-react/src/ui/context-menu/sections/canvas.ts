@@ -6,7 +6,7 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import type { DispatchResult } from '@whiteboard/core/types'
-import { selectNodeIds } from '../../../features/node/actions'
+import { selectNodeIds } from '../../../features/node/commands'
 
 type CreateNodePreset = {
   key: string

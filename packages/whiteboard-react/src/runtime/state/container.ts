@@ -130,29 +130,10 @@ export const filterContainerNodeIds = (
     : nodeIds
 )
 
-export const resolveContainerEdge = (
-  read: Pick<ContainerReadDeps, 'edge'>,
-  value: EdgeId | Pick<Edge, 'source' | 'target'>
-): Pick<Edge, 'source' | 'target'> | undefined => {
-  if (typeof value === 'string') {
-    return read.edge.item.get(value)?.edge
-  }
-  return value
-}
-
 export const hasContainerEdge = (
   container: Container,
   edge: Pick<Edge, 'source' | 'target'>
 ): boolean => (
   hasContainerNode(container, edge.source.nodeId)
   && hasContainerNode(container, edge.target.nodeId)
-)
-
-export const readContainerRect = (
-  read: Pick<ContainerReadDeps, 'index'>,
-  container: Container
-): Rect | undefined => (
-  container.id
-    ? read.index.node.get(container.id)?.rect
-    : undefined
 )

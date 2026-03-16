@@ -1,17 +1,12 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import { createValueStore } from '@whiteboard/core/runtime'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance, useStoreValue } from '../../../../runtime/hooks'
-import {
-  createPanDriver,
-  useWindowPointerSession
-} from '../../../../runtime/interaction'
+import { useInternalInstance as useInstance } from '../../../../runtime/hooks'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
   resolveSubtreeDragSession,
-  toDragDraft,
+  toMindmapDragState,
   type MindmapDragSession
 } from './math'
 
@@ -20,31 +15,21 @@ type ActiveMindmapDragSession = MindmapDragSession
 export const useMindmapDrag = () => {
   const instance = useInstance()
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
-  const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const pointerRef = useRef(createValueStore<number | null>(null))
-  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
+  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 
-  const cancel = useCallback((pointerId?: number) => {
-    const active = activeRef.current
-    if (!active) {
-      return
-    }
-
-    if (pointerId !== undefined && active.pointerId !== pointerId) {
-      return
-    }
-
-    const token = tokenRef.current
+  const clear = useCallback(() => {
     activeRef.current = null
-    tokenRef.current = null
-    panRef.current?.stop()
-    pointerRef.current.set(null)
-    instance.draft.mindmap.clear()
-
-    if (token) {
-      instance.interaction.finish(token)
-    }
+    sessionRef.current = null
+    instance.internals.mindmap.drag.clear()
   }, [instance])
+
+  const cancel = useCallback(() => {
+    if (sessionRef.current) {
+      sessionRef.current.cancel()
+      return
+    }
+    clear()
+  }, [clear])
 
   const updatePreview = useCallback((
     input: {
@@ -66,86 +51,11 @@ export const useMindmapDrag = () => {
           ? instance.read.mindmap.item.get(active.treeId)
           : undefined
     })
-    activeRef.current = next
-    instance.draft.mindmap.write(toDragDraft(next))
-  }, [instance])
-
-  if (!panRef.current) {
-    panRef.current = createPanDriver({
-      viewport: instance.viewport,
-      enabled: () => instance.interaction.current()?.mode === 'mindmap-drag',
-      onFrame: updatePreview
-    })
-  }
-
-  const pointerId = useStoreValue(pointerRef.current)
-
-  useWindowPointerSession({
-    pointerId,
-    onPointerMove: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      panRef.current?.update(event)
-      updatePreview(event)
-    },
-    onPointerUp: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      cancel(active.pointerId)
-
-      if (active.kind === 'root') {
-        void instance.commands.mindmap.moveRoot({
-          nodeId: active.treeId,
-          position: active.position
-        })
-        return
-      }
-
-      if (!active.drop) {
-        return
-      }
-
-      void instance.commands.mindmap.moveDrop({
-        id: active.treeId,
-        nodeId: active.nodeId,
-        drop: {
-          parentId: active.drop.parentId,
-          index: active.drop.index,
-          side: active.drop.side
-        },
-        origin: {
-          parentId: active.originParentId,
-          index: active.originIndex
-        },
-        nodeSize: instance.config.mindmapNodeSize,
-        layout: active.layout
-      })
-    },
-    onPointerCancel: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      cancel(active.pointerId)
-    },
-    onBlur: () => {
-      cancel()
-    },
-    onKeyDown: (event) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      cancel()
+    activeRef.current = {
+      ...next
     }
-  })
+    instance.internals.mindmap.drag.write(toMindmapDragState(next))
+  }, [instance])
 
   useEffect(() => () => {
     cancel()
@@ -177,12 +87,61 @@ export const useMindmapDrag = () => {
         return
       }
 
-      const token = instance.interaction.tryStart({
+      const nextSession = instance.interaction.start({
         mode: 'mindmap-drag',
-        cancel: () => cancel(event.pointerId),
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        capture: event.currentTarget,
+        pan: {
+          frame: (pointer) => {
+            updatePreview(pointer)
+          }
+        },
+        cleanup: clear,
+        move: (event, session) => {
+          if (!activeRef.current) {
+            return
+          }
+
+          session.pan(event)
+          updatePreview(event)
+        },
+        up: (_event, session) => {
+          const active = activeRef.current
+          if (!active) {
+            return
+          }
+
+          if (active.kind === 'root') {
+            void instance.commands.mindmap.moveRoot({
+              nodeId: active.treeId,
+              position: active.position
+            })
+            session.finish()
+            return
+          }
+
+          if (active.drop) {
+            void instance.commands.mindmap.moveDrop({
+              id: active.treeId,
+              nodeId: active.nodeId,
+              drop: {
+                parentId: active.drop.parentId,
+                index: active.drop.index,
+                side: active.drop.side
+              },
+              origin: {
+                parentId: active.originParentId,
+                index: active.originIndex
+              },
+              nodeSize: instance.config.mindmapNodeSize,
+              layout: active.layout
+            })
+          }
+
+          session.finish()
+        }
       })
-      if (!token) return
+      if (!nextSession) return
 
       const { world } = instance.viewport.pointer(event)
       const baseOffset = {
@@ -208,14 +167,15 @@ export const useMindmapDrag = () => {
           })
 
       if (!next) {
-        instance.interaction.finish(token)
+        nextSession.cancel()
         return
       }
 
-      activeRef.current = next
-      tokenRef.current = token
-      pointerRef.current.set(event.pointerId)
-      instance.draft.mindmap.write(toDragDraft(next))
+      activeRef.current = {
+        ...next
+      }
+      sessionRef.current = nextSession
+      instance.internals.mindmap.drag.write(toMindmapDragState(next))
       event.preventDefault()
       event.stopPropagation()
     }

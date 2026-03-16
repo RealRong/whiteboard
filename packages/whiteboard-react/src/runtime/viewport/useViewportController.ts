@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { Viewport } from '@whiteboard/core/types'
-import type { InteractionCoordinator, InteractionToken } from '../interaction'
+import type { InteractionCoordinator } from '../interaction'
 import { createRafTask } from '../utils/rafTask'
 import {
   applyScreenPan,
@@ -28,11 +28,9 @@ export type ViewportBindingOptions = {
 }
 
 type PanState = {
-  pointerId: number
   lastX: number
   lastY: number
   viewport: Viewport
-  captureTarget: HTMLDivElement | null
 }
 
 const DEFAULT_OPTIONS: ViewportBindingOptions = {
@@ -118,12 +116,11 @@ export const useViewportController = ({
 
     let containerRect = copyContainerRect(EMPTY_CONTAINER_RECT)
     let pan: PanState | null = null
-    let token: InteractionToken | null = null
+    let panSession: ReturnType<typeof interaction.start> = null
     let pendingWheelInput: WheelInput | null = null
     let spacePressed = false
 
-    const isViewportInputBlocked = () =>
-      interaction.current()?.policy.viewport === 'block'
+    const isViewportInputBlocked = () => interaction.mode.get() !== 'idle'
 
     const updateContainerRect = (rect: ContainerRect) => {
       if (isSameContainerRect(containerRect, rect)) return
@@ -137,23 +134,9 @@ export const useViewportController = ({
 
     refreshContainerRect()
 
-    const clearPan = (pointerId?: number) => {
-      if (!pan) return
-      if (pointerId !== undefined && pan.pointerId !== pointerId) return
-      const captureTarget = pan.captureTarget
-      const previousToken = token
-      if (captureTarget) {
-        try {
-          captureTarget.releasePointerCapture(pan.pointerId)
-        } catch {
-          // Ignore pointer release failures.
-        }
-      }
+    const clearPan = () => {
       pan = null
-      token = null
-      if (previousToken) {
-        interaction.finish(previousToken)
-      }
+      panSession = null
     }
 
     const clearWheelFrame = () => {
@@ -224,63 +207,53 @@ export const useViewportController = ({
       event.stopPropagation()
     }
 
-    const onPointerMove = (event: PointerEvent) => {
-      if (!pan || event.pointerId !== pan.pointerId) return
-      const deltaX = event.clientX - pan.lastX
-      const deltaY = event.clientY - pan.lastY
-      if (deltaX === 0 && deltaY === 0) return
-      pan.lastX = event.clientX
-      pan.lastY = event.clientY
-      pan.viewport = applyScreenPan(pan.viewport, {
-        x: -deltaX,
-        y: -deltaY
-      })
-      core.viewport.set(pan.viewport)
-      if (event.cancelable) {
-        event.preventDefault()
-      }
-    }
-
-    const onPointerUp = (event: PointerEvent) => {
-      if (!pan || event.pointerId !== pan.pointerId) return
-      clearPan(pan.pointerId)
-      if (event.cancelable) {
-        event.preventDefault()
-      }
-    }
-
-    const onPointerCancel = (event: PointerEvent) => {
-      if (!pan || event.pointerId !== pan.pointerId) return
-      clearPan(pan.pointerId)
-    }
-
     const onPointerDown = (event: PointerEvent) => {
       if (!policy.panEnabled) return
       const middleDrag = event.button === 1 || (event.buttons & 4) === 4
       const leftDrag = (event.button === 0 || (event.buttons & 1) === 1) && spacePressed
       if (!middleDrag && !leftDrag) return
 
-      const nextToken = interaction.tryStart({
-        mode: 'viewport-gesture',
-        cancel: () => clearPan(event.pointerId),
-        pointerId: event.pointerId
+      const nextSession = interaction.start({
+        mode: 'viewport-pan',
+        pointerId: event.pointerId,
+        capture: element,
+        cleanup: clearPan,
+        move: (event) => {
+          if (!pan) return
+          const deltaX = event.clientX - pan.lastX
+          const deltaY = event.clientY - pan.lastY
+          if (deltaX === 0 && deltaY === 0) return
+          pan.lastX = event.clientX
+          pan.lastY = event.clientY
+          pan.viewport = applyScreenPan(pan.viewport, {
+            x: -deltaX,
+            y: -deltaY
+          })
+          core.viewport.set(pan.viewport)
+          if (event.cancelable) {
+            event.preventDefault()
+          }
+        },
+        up: (event, session) => {
+          if (!pan) {
+            return
+          }
+
+          session.finish()
+          if (event.cancelable) {
+            event.preventDefault()
+          }
+        }
       })
-      if (!nextToken) return
+      if (!nextSession) return
 
       refreshContainerRect()
       clearWheelFrame()
-      token = nextToken
+      panSession = nextSession
       pan = {
-        pointerId: event.pointerId,
         lastX: event.clientX,
         lastY: event.clientY,
-        viewport: core.viewport.get() as Viewport,
-        captureTarget: element
-      }
-      try {
-        element.setPointerCapture(event.pointerId)
-      } catch {
-        // Ignore pointer capture failures.
+        viewport: core.viewport.get() as Viewport
       }
       if (event.cancelable) {
         event.preventDefault()
@@ -290,7 +263,6 @@ export const useViewportController = ({
 
     const onBlur = () => {
       spacePressed = false
-      clearPan()
       clearWheelFrame()
     }
 
@@ -322,9 +294,6 @@ export const useViewportController = ({
     element.addEventListener('wheel', onWheel, { passive: false })
     element.addEventListener('pointerdown', onPointerDown, { capture: true })
     if (typeof window !== 'undefined') {
-      window.addEventListener('pointermove', onPointerMove)
-      window.addEventListener('pointerup', onPointerUp)
-      window.addEventListener('pointercancel', onPointerCancel)
       window.addEventListener('blur', onBlur)
       window.addEventListener('keydown', onKeyDown)
       window.addEventListener('keyup', onKeyUp)
@@ -334,15 +303,12 @@ export const useViewportController = ({
       element.removeEventListener('wheel', onWheel)
       element.removeEventListener('pointerdown', onPointerDown, { capture: true })
       if (typeof window !== 'undefined') {
-        window.removeEventListener('pointermove', onPointerMove)
-        window.removeEventListener('pointerup', onPointerUp)
-        window.removeEventListener('pointercancel', onPointerCancel)
         window.removeEventListener('blur', onBlur)
         window.removeEventListener('keydown', onKeyDown)
         window.removeEventListener('keyup', onKeyUp)
       }
       observer?.disconnect()
-      clearPan()
+      panSession?.cancel()
       clearWheelFrame()
       spacePressed = false
     }

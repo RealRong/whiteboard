@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { setNodesLocked } from '../../features/node/actions'
+import { setNodesLocked } from '../../features/node/commands'
 import { ArrangeMenu } from './menus/ArrangeMenu'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type {
   ContextMenuItem,
   ContextMenuSession
 } from '../../context-menu/types'
-import { useContextMenu } from '../../context-menu/model'
+import { readContextMenu } from '../../context-menu/read'
 import { useInstance } from '../../../runtime/hooks'
 
 export const ContextMenuLayer = ({
@@ -19,11 +19,15 @@ export const ContextMenuLayer = ({
 }) => {
   const instance = useInstance()
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const view = useContextMenu({
-    session,
-    containerWidth,
-    containerHeight
-  })
+  const view = useMemo(
+    () => readContextMenu({
+      instance,
+      session,
+      containerWidth,
+      containerHeight
+    }),
+    [containerHeight, containerWidth, instance, session]
+  )
 
   useEffect(() => {
     if (!view) return

@@ -1,50 +1,39 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
-import { useMindmapDraft } from '../../../runtime/draft'
+import { useMindmapDrag } from '../hooks/drag/useMindmapDrag'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'
 
 const MindmapTreeById = ({
   treeId,
-  drag,
-  onNodePointerDown
+  handleNodePointerDown
 }: {
   treeId: NodeId
-  drag: ReturnType<typeof useMindmapDraft>
-  onNodePointerDown: (
+  handleNodePointerDown: (
     event: ReactPointerEvent<HTMLDivElement>,
     treeId: NodeId,
     nodeId: MindmapNodeId
   ) => void
 }) => {
-  const view = useMindmapTreeView(
-    treeId,
-    drag?.treeId === treeId ? drag : undefined
-  )
+  const view = useMindmapTreeView(treeId)
 
   if (!view) return null
 
   return (
     <MindmapTreeView
       view={view}
-      onNodePointerDown={onNodePointerDown}
+      onNodePointerDown={handleNodePointerDown}
     />
   )
 }
 
-export const MindmapSceneLayer = ({
-  onNodePointerDown
-}: {
-  onNodePointerDown: (
-    event: ReactPointerEvent<HTMLDivElement>,
-    treeId: NodeId,
-    nodeId: MindmapNodeId
-  ) => void
-}) => {
+export const MindmapSceneLayer = () => {
   const instance = useInternalInstance()
   const treeIds = useStoreValue(instance.read.mindmap.list)
-  const drag = useMindmapDraft(instance.draft.mindmap)
+  const {
+    handleMindmapNodePointerDown
+  } = useMindmapDrag()
 
   if (!treeIds.length) return null
 
@@ -54,8 +43,7 @@ export const MindmapSceneLayer = ({
         <MindmapTreeById
           key={treeId}
           treeId={treeId}
-          drag={drag}
-          onNodePointerDown={onNodePointerDown}
+          handleNodePointerDown={handleMindmapNodePointerDown}
         />
       ))}
     </>

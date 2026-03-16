@@ -3,7 +3,7 @@ import { useInstance, useInteraction } from '../../../runtime/hooks'
 import {
   readContextMenuOpenResult,
   type ContextMenuOpenResult
-} from '../../context-menu/model'
+} from '../../context-menu/read'
 
 const isContextMenuIgnored = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest('[data-context-menu-ignore]'))

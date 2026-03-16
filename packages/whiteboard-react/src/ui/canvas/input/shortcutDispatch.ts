@@ -8,7 +8,7 @@ import type { WhiteboardInstance } from '../../../runtime/instance'
 import {
   deleteNodes,
   duplicateNodes
-} from '../../../features/node/actions'
+} from '../../../features/node/commands'
 
 type ShortcutInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
 

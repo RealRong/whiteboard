@@ -1,34 +1,68 @@
 import type {
-  MouseEvent as ReactMouseEvent,
-  PointerEvent as ReactPointerEvent
+  MouseEvent as ReactMouseEvent
 } from 'react'
+import { useEffect, useRef } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import { useInstance, useSelection, useStoreValue } from '../../../runtime/hooks'
+import {
+  useInternalInstance,
+  useSelection,
+  useStoreValue
+} from '../../../runtime/hooks'
+import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
+import { createNodeDragSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'
 
-export const NodeSceneLayer = ({
-  registerMeasuredElement,
-  onNodePointerDown,
-  onNodeDoubleClick
-}: {
-  registerMeasuredElement: (
-    nodeId: NodeId,
-    element: HTMLDivElement | null,
-    enabled: boolean
-  ) => void
-  onNodePointerDown: (
-    nodeId: NodeId,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
-  onNodeDoubleClick: (
-    nodeId: NodeId,
-    event: ReactMouseEvent<HTMLDivElement>
-  ) => void
-}) => {
-  const instance = useInstance()
+const DOUBLE_CLICK_IGNORE_SELECTOR = [
+  '[data-selection-ignore]',
+  '[data-input-ignore]',
+  '[data-input-role]',
+  'input',
+  'textarea',
+  'select',
+  'button',
+  'a[href]',
+  '[contenteditable]:not([contenteditable="false"])'
+].join(', ')
+
+export const NodeSceneLayer = () => {
+  const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
+  const registerMeasuredElement = useNodeSizeObserver()
+  const dragSessionRef = useRef<ReturnType<typeof createNodeDragSession> | null>(null)
+
+  if (!dragSessionRef.current) {
+    dragSessionRef.current = createNodeDragSession(instance)
+  }
+
+  const dragSession = dragSessionRef.current!
+
+  useEffect(() => () => {
+    dragSession.cancel()
+  }, [dragSession])
+
+  const handleNodeDoubleClick = (
+    nodeId: NodeId,
+    event: ReactMouseEvent<HTMLDivElement>
+  ) => {
+    if (instance.state.tool.get() !== 'select') return
+
+    const target = event.target
+    if (target instanceof Element && target.closest(DOUBLE_CLICK_IGNORE_SELECTOR)) {
+      return
+    }
+
+    const nodeEntry = instance.read.index.node.get(nodeId)
+    if (!nodeEntry || nodeEntry.node.type !== 'group') {
+      return
+    }
+
+    instance.commands.selection.clear()
+    instance.commands.container.enter(nodeId)
+    event.preventDefault()
+    event.stopPropagation()
+  }
 
   return (
     <div className="wb-node-layer">
@@ -38,8 +72,8 @@ export const NodeSceneLayer = ({
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
           selected={selectedSet.has(nodeId)}
-          onNodePointerDown={onNodePointerDown}
-          onNodeDoubleClick={onNodeDoubleClick}
+          onNodePointerDown={dragSession.handleNodePointerDown}
+          onNodeDoubleClick={handleNodeDoubleClick}
         />
       ))}
     </div>

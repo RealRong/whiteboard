@@ -1,5 +1,5 @@
 import type { Node, NodeId } from '@whiteboard/core/types'
-import { resolveNodeActions, type NodeActions } from '../../../features/node/nodeActions'
+import { resolveNodeCaps, type NodeCaps } from '../../../runtime/nodeCaps'
 import {
   deleteNodes,
   duplicateNodes,
@@ -7,7 +7,7 @@ import {
   selectNodeIds,
   setNodesLocked,
   ungroupNodes
-} from '../../../features/node/actions'
+} from '../../../features/node/commands'
 import type { ContextMenuItem, ContextMenuSection } from '../types'
 
 const closeAfter = (
@@ -57,15 +57,15 @@ const buildDeleteItem = ({
 const buildLockItem = ({
   key,
   nodeIds,
-  actions
+  caps
 }: {
   key: string
   nodeIds: readonly NodeId[]
-  actions: NodeActions
+  caps: NodeCaps
 }): ContextMenuItem => ({
   key,
-  label: actions.lockLabel,
-  disabled: !actions.canLock && !actions.canUnlock,
+  label: caps.lockLabel,
+  disabled: !caps.canLock && !caps.canUnlock,
   run: ({ instance, close }) => {
     const nodes = nodeIds
       .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
@@ -74,7 +74,7 @@ const buildLockItem = ({
       close()
       return
     }
-    closeAfter(setNodesLocked(instance, nodes, !actions.allLocked), close)
+    closeAfter(setNodesLocked(instance, nodes, !caps.allLocked), close)
   }
 })
 
@@ -198,8 +198,8 @@ const buildGroupSection = (
 export const buildNodeSections = (
   node: Node
 ): readonly ContextMenuSection[] => {
-  const actions = resolveNodeActions([node])
-  const nodeIds = actions.nodeIds
+  const caps = resolveNodeCaps([node])
+  const nodeIds = caps.nodeIds
   const sections: ContextMenuSection[] = [
     {
       key: 'node.actions',
@@ -207,17 +207,17 @@ export const buildNodeSections = (
         buildDuplicateItem({
           key: 'node.duplicate',
           nodeIds,
-          disabled: !actions.canDuplicate
+          disabled: !caps.canDuplicate
         }),
         buildDeleteItem({
           key: 'node.delete',
           nodeIds,
-          disabled: !actions.canDelete
+          disabled: !caps.canDelete
         }),
         buildLockItem({
           key: 'node.lock',
           nodeIds,
-          actions
+          caps
         })
       ]
     },
@@ -234,8 +234,8 @@ export const buildNodeSections = (
 export const buildNodesSections = (
   nodes: readonly Node[]
 ): readonly ContextMenuSection[] => {
-  const actions = resolveNodeActions(nodes)
-  const nodeIds = actions.nodeIds
+  const caps = resolveNodeCaps(nodes)
+  const nodeIds = caps.nodeIds
 
   return [
     {
@@ -244,33 +244,33 @@ export const buildNodesSections = (
         buildDuplicateItem({
           key: 'nodes.duplicate',
           nodeIds,
-          disabled: !actions.canDuplicate
+          disabled: !caps.canDuplicate
         }),
         buildDeleteItem({
           key: 'nodes.delete',
           nodeIds,
-          disabled: !actions.canDelete
+          disabled: !caps.canDelete
         }),
         buildLockItem({
           key: 'nodes.lock',
           nodeIds,
-          actions
+          caps
         }),
         {
           key: 'nodes.group',
           label: 'Group',
-          disabled: !actions.canGroup,
+          disabled: !caps.canGroup,
           run: ({ instance, close }) => {
-            if (!actions.canGroup) return
+            if (!caps.canGroup) return
             closeAfter(groupNodes(instance, nodeIds), close)
           }
         },
         {
           key: 'nodes.ungroup',
           label: 'Ungroup',
-          disabled: !actions.canUngroup,
+          disabled: !caps.canUngroup,
           run: ({ instance, close }) => {
-            if (!actions.canUngroup) return
+            if (!caps.canUngroup) return
             closeAfter(ungroupNodes(instance, nodeIds), close)
           }
         }

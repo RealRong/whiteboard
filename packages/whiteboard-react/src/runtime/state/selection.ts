@@ -16,7 +16,7 @@ import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
-import { resolveNodeActions } from '../../features/node/nodeActions'
+import { resolveNodeCaps } from '../nodeCaps'
 import {
   isOrderedArrayEqual,
   isRectEqual
@@ -197,17 +197,17 @@ const resolveSelection = ({
   const box = items.length > 0
     ? getBoundingRect(items.map((item) => item.rect))
     : undefined
-  const actions = resolveNodeActions(nodes)
-  const hasNodeSelection = actions.nodeCount > 0
+  const caps = resolveNodeCaps(nodes)
+  const hasNodeSelection = caps.nodeCount > 0
   const hasEdgeSelection = selection.edgeId !== undefined
   const hasSelection = hasNodeSelection || hasEdgeSelection
 
   return {
     kind: selection.edgeId !== undefined
       ? 'edge'
-      : actions.nodeCount === 1
+      : caps.nodeCount === 1
         ? 'node'
-        : actions.nodeCount > 1
+        : caps.nodeCount > 1
           ? 'nodes'
           : 'none',
     target: {
@@ -218,19 +218,19 @@ const resolveSelection = ({
     items: {
       nodes,
       primary: nodes[0],
-      count: actions.nodeCount
+      count: caps.nodeCount
     },
     box,
     caps: {
       delete: hasSelection,
       duplicate: hasNodeSelection,
-      group: actions.canGroup,
-      ungroup: actions.canUngroup,
-      lock: actions.canLock,
-      unlock: actions.canUnlock,
+      group: caps.canGroup,
+      ungroup: caps.canUngroup,
+      lock: caps.canLock,
+      unlock: caps.canUnlock,
       selectAll: true,
       clear: hasSelection || container.id !== undefined,
-      lockLabel: actions.lockLabel
+      lockLabel: caps.lockLabel
     }
   }
 }

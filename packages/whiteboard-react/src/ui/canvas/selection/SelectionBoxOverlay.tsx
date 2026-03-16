@@ -1,9 +1,8 @@
-import { useInternalInstance } from '../../../runtime/hooks'
-import { useSelectionDraft } from '../../../runtime/draft'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 
 export const SelectionBoxOverlay = () => {
   const instance = useInternalInstance()
-  const selectionBox = useSelectionDraft(instance.draft.selection)
+  const selectionBox = useStoreValue(instance.internals.selectionBox)
 
   if (!selectionBox) return null
 

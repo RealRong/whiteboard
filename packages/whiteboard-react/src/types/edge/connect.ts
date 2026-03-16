@@ -1,12 +1,12 @@
-import type { EdgeAnchor, EdgeId, Point } from '@whiteboard/core/types'
+import type { EdgeAnchor, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 
 type EdgeConnectFrom = {
-  nodeId: string
+  nodeId: NodeId
   anchor: EdgeAnchor
 }
 
 type EdgeConnectTo = {
-  nodeId?: string
+  nodeId?: NodeId
   anchor?: EdgeAnchor
   pointWorld?: Point
 }
@@ -16,7 +16,7 @@ type EdgeReconnectInfo = {
   end: 'source' | 'target'
 }
 
-export type EdgeConnectDraft = {
+export type EdgeConnectState = {
   pointerId: number
   from: EdgeConnectFrom
   to?: EdgeConnectTo

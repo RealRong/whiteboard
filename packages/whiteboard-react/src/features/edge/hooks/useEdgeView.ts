@@ -1,19 +1,12 @@
-import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
 import type { EdgeItem } from '@whiteboard/core/read'
-import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import { useMemo, useRef, useSyncExternalStore } from 'react'
-import {
-  applyCanvasDraft,
-  applyEdgeDraft,
-  useEdgeDraft,
-  type EdgeDraft,
-  type NodeDraft
-} from '../../../runtime/draft'
-import type { InternalWhiteboardInstance } from '../../../runtime/instance'
+import type { EdgeId, Point } from '@whiteboard/core/types'
+import { useMemo } from 'react'
 import {
   useInternalInstance as useInstance,
+  useOptionalKeyedStoreValue,
   useSelection
 } from '../../../runtime/hooks'
+import { useEdgeRoutingSession } from '../session'
 
 export type EdgeView = {
   edge: EdgeItem['edge']
@@ -34,160 +27,28 @@ export type SelectedEdgeView = {
   routingHandles: readonly SelectedEdgeRoutingHandleView[]
 }
 
-type EdgeViewCacheEntry = {
-  edgeId: EdgeId
-  entry: EdgeItem
-  sourceDraft: NodeDraft
-  targetDraft: NodeDraft
-  edgeDraft: EdgeDraft
-  view: EdgeView
-}
-
-const EMPTY_UNSUBSCRIBE = () => {}
-
-const applyEndpointDrafts = (
-  entry: EdgeItem,
-  instance: Pick<InternalWhiteboardInstance, 'read'>,
-  sourceDraft: NodeDraft,
-  targetDraft: NodeDraft
-) : EdgeItem => {
-  if (!sourceDraft.patch && !targetDraft.patch) {
-    return entry
-  }
-
-  const sourceEntry = instance.read.index.node.get(entry.edge.source.nodeId)
-  const targetEntry = instance.read.index.node.get(entry.edge.target.nodeId)
-  if (!sourceEntry || !targetEntry) {
-    return entry
-  }
-
-  const source = applyCanvasDraft(sourceEntry, sourceDraft)
-  const target = applyCanvasDraft(targetEntry, targetDraft)
-  const endpoints = resolveEdgeEndpoints({
-    edge: entry.edge,
-    source,
-    target
-  })
-
-  if (endpoints === entry.endpoints) {
-    return entry
-  }
-
-  return {
-    ...entry,
-    endpoints
-  }
-}
-
-const resolveEdgeView = (
-  instance: Pick<InternalWhiteboardInstance, 'read'>,
-  entry: EdgeItem,
-  sourceDraft: NodeDraft,
-  targetDraft: NodeDraft,
-  edgeDraft: EdgeDraft
-): EdgeView => {
-  const resolved = applyEdgeDraft(applyEndpointDrafts(
-    entry,
-    instance,
-    sourceDraft,
-    targetDraft
-  ), edgeDraft)
-
-  return {
-    edge: resolved.edge,
-    endpoints: resolved.endpoints
-  }
-}
-
 export const useEdgeView = (
   edgeId: EdgeId | undefined
-) => {
+): EdgeView | undefined => {
   const instance = useInstance()
-  const cacheRef = useRef<EdgeViewCacheEntry | null>(null)
+  const entry = useOptionalKeyedStoreValue(
+    instance.read.edge.item,
+    edgeId,
+    undefined
+  )
 
-  const subscribe = useMemo(
+  return useMemo(
     () => {
-      if (!edgeId) {
-        return () => EMPTY_UNSUBSCRIBE
-      }
-
-      return (listener: () => void) => {
-        const entry = instance.read.edge.item.get(edgeId)
-        if (!entry) {
-          return instance.read.edge.item.subscribe(edgeId, listener)
-        }
-
-        const unsubscribeEdge = instance.read.edge.item.subscribe(edgeId, listener)
-        const unsubscribeEdgeDraft = instance.draft.edge.subscribe(edgeId, listener)
-        const unsubscribeSourceDraft = instance.draft.node.subscribe(entry.edge.source.nodeId, listener)
-        const unsubscribeTargetDraft = instance.draft.node.subscribe(entry.edge.target.nodeId, listener)
-
-        return () => {
-          unsubscribeEdge()
-          unsubscribeEdgeDraft()
-          unsubscribeSourceDraft()
-          unsubscribeTargetDraft()
-        }
-      }
-    },
-    [edgeId, instance]
-  )
-
-  const getSnapshot = useMemo(
-    () => () => {
-      if (!edgeId) {
-        cacheRef.current = null
-        return undefined
-      }
-
-      const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
-        cacheRef.current = null
         return undefined
       }
 
-      const sourceDraft = instance.draft.node.get(entry.edge.source.nodeId)
-      const targetDraft = instance.draft.node.get(entry.edge.target.nodeId)
-      const edgeDraft = instance.draft.edge.get(edgeId)
-      const cached = cacheRef.current
-
-      if (
-        cached
-        && cached.edgeId === edgeId
-        && cached.entry === entry
-        && cached.sourceDraft === sourceDraft
-        && cached.targetDraft === targetDraft
-        && cached.edgeDraft === edgeDraft
-      ) {
-        return cached.view
+      return {
+        edge: entry.edge,
+        endpoints: entry.endpoints
       }
-
-      const view = resolveEdgeView(
-        instance,
-        entry,
-        sourceDraft,
-        targetDraft,
-        edgeDraft
-      )
-
-      cacheRef.current = {
-        edgeId,
-        entry,
-        sourceDraft,
-        targetDraft,
-        edgeDraft,
-        view
-      }
-
-      return view
     },
-    [edgeId, instance]
-  )
-
-  return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getSnapshot
+    [entry]
   )
 }
 
@@ -195,10 +56,13 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInstance()
   const edgeId = useSelection().target.edgeId
   const entry = useEdgeView(edgeId)
-  const draft = useEdgeDraft(instance.draft.edge, edgeId)
+  const routing = useEdgeRoutingSession(instance.internals.edge.routing, edgeId)
 
   return useMemo(() => {
-    if (!edgeId || !entry) return undefined
+    if (!edgeId || !entry) {
+      return undefined
+    }
+
     const edge = entry.edge
     const points = edge.routing?.points ?? []
     const routingHandles =
@@ -209,7 +73,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
             edgeId: edge.id,
             index,
             point,
-            active: draft.activeRoutingIndex === index
+            active: routing.activeRoutingIndex === index
           }))
 
     return {
@@ -217,5 +81,5 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
       endpoints: entry.endpoints,
       routingHandles
     }
-  }, [draft.activeRoutingIndex, edgeId, entry])
+  }, [routing.activeRoutingIndex, edgeId, entry])
 }

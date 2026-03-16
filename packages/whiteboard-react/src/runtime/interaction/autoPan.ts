@@ -1,17 +1,19 @@
 import type { Point } from '@whiteboard/core/types'
 import type { WhiteboardViewport } from '../viewport'
-
-export type PanPointer = Readonly<{
-  clientX: number
-  clientY: number
-}>
-
-export type PanDriver = Readonly<{
-  update: (pointer: PanPointer) => void
-  stop: () => void
-}>
+import type {
+  AutoPanOptions,
+  AutoPanPointer,
+  InteractionSession
+} from './types'
 
 type PanVector = Point
+
+type ActiveAutoPan = {
+  pointer: AutoPanPointer | null
+  frame?: (pointer: AutoPanPointer) => void
+  threshold?: number
+  maxSpeed?: number
+}
 
 const DEFAULT_THRESHOLD = 96
 const DEFAULT_MAX_SPEED = 1200
@@ -55,7 +57,7 @@ const resolveAxisSpeed = (
   return 0
 }
 
-export const resolvePanVector = ({
+const resolvePanVector = ({
   point,
   size,
   threshold,
@@ -78,24 +80,26 @@ export const resolvePanVector = ({
   }
 }
 
-export const createPanDriver = ({
-  viewport,
-  enabled,
-  onFrame,
-  threshold,
-  maxSpeed
+type AutoPan = Readonly<{
+  start: (
+    options?: AutoPanOptions,
+    session?: InteractionSession
+  ) => void
+  update: (pointer: AutoPanPointer) => void
+  stop: () => void
+  clear: () => void
+}>
+
+export const createAutoPan = ({
+  getViewport
 }: {
-  viewport: Pick<WhiteboardViewport, 'clientToScreen' | 'get' | 'panBy' | 'size'>
-  enabled?: () => boolean
-  onFrame?: (pointer: PanPointer) => void
-  threshold?: number
-  maxSpeed?: number
-}): PanDriver => {
+  getViewport: () => Pick<WhiteboardViewport, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
+}): AutoPan => {
   let frameId: number | null = null
   let lastFrameTime = 0
-  let pointer: PanPointer | null = null
+  let active: ActiveAutoPan | null = null
 
-  const stop = () => {
+  const stopFrame = () => {
     if (
       frameId !== null
       && typeof window !== 'undefined'
@@ -103,10 +107,13 @@ export const createPanDriver = ({
     ) {
       window.cancelAnimationFrame(frameId)
     }
-
     frameId = null
+  }
+
+  const clear = () => {
+    stopFrame()
     lastFrameTime = 0
-    pointer = null
+    active = null
   }
 
   const schedule = () => {
@@ -121,17 +128,27 @@ export const createPanDriver = ({
     frameId = window.requestAnimationFrame((timestamp) => {
       frameId = null
 
-      if (!pointer || (enabled && !enabled())) {
+      const session = active
+      if (!session || !session.pointer) {
         lastFrameTime = 0
         return
       }
 
-      const screen = viewport.clientToScreen(pointer.clientX, pointer.clientY)
+      const viewport = getViewport()
+      if (!viewport) {
+        lastFrameTime = 0
+        return
+      }
+
+      const screen = viewport.clientToScreen(
+        session.pointer.clientX,
+        session.pointer.clientY
+      )
       const vector = resolvePanVector({
         point: screen,
         size: viewport.size(),
-        threshold,
-        maxSpeed
+        threshold: session.threshold,
+        maxSpeed: session.maxSpeed
       })
       if (vector.x === 0 && vector.y === 0) {
         lastFrameTime = 0
@@ -150,40 +167,71 @@ export const createPanDriver = ({
         x: (vector.x * deltaSeconds) / zoom,
         y: (vector.y * deltaSeconds) / zoom
       })
-      onFrame?.(pointer)
+      session.frame?.(session.pointer)
       schedule()
     })
   }
 
+  const update = (pointer: AutoPanPointer) => {
+    const session = active
+    if (!session) {
+      return
+    }
+
+    const viewport = getViewport()
+    if (!viewport) {
+      return
+    }
+
+    session.pointer = {
+      clientX: pointer.clientX,
+      clientY: pointer.clientY
+    }
+
+    const screen = viewport.clientToScreen(pointer.clientX, pointer.clientY)
+    const vector = resolvePanVector({
+      point: screen,
+      size: viewport.size(),
+      threshold: session.threshold,
+      maxSpeed: session.maxSpeed
+    })
+
+    if (vector.x === 0 && vector.y === 0) {
+      if (frameId === null) {
+        lastFrameTime = 0
+      }
+      return
+    }
+
+    schedule()
+  }
+
+  const stop = () => {
+    if (!active) {
+      return
+    }
+    clear()
+  }
+
   return {
-    update: (nextPointer) => {
-      pointer = {
-        clientX: nextPointer.clientX,
-        clientY: nextPointer.clientY
+    start: (options, session) => {
+      clear()
+      active = {
+        pointer: null,
+        frame: options?.frame
+          ? (pointer) => {
+            if (!session) {
+              return
+            }
+            options.frame?.(pointer, session)
+          }
+          : undefined,
+        threshold: options?.threshold,
+        maxSpeed: options?.maxSpeed
       }
-
-      if (enabled && !enabled()) {
-        stop()
-        return
-      }
-
-      const screen = viewport.clientToScreen(pointer.clientX, pointer.clientY)
-      const vector = resolvePanVector({
-        point: screen,
-        size: viewport.size(),
-        threshold,
-        maxSpeed
-      })
-
-      if (vector.x === 0 && vector.y === 0) {
-        if (frameId === null) {
-          lastFrameTime = 0
-        }
-        return
-      }
-
-      schedule()
     },
-    stop
+    update,
+    stop,
+    clear
   }
 }

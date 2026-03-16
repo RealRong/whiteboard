@@ -1,5 +1,4 @@
 import { rectFromPoints } from '@whiteboard/core/geometry'
-import { createValueStore } from '@whiteboard/core/runtime'
 import {
   applySelection,
   resolveSelectionMode,
@@ -7,15 +6,8 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
-import {
-  createPanDriver,
-  useWindowPointerSession
-} from '../../../runtime/interaction'
-import {
-  filterContainerNodeIds,
-  readContainerRect
-} from '../../../runtime/state'
+import { useInternalInstance } from '../../../runtime/hooks'
+import { filterContainerNodeIds } from '../../../runtime/state/container'
 import { createRafTask } from '../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../runtime/viewport'
 
@@ -79,32 +71,7 @@ export const useSelectionBox = ({
 }) => {
   const instance = useInternalInstance()
   const activeRef = useRef<ActiveSelection | null>(null)
-  const tokenRef = useRef<ReturnType<typeof instance.interaction.tryStart> | null>(null)
-  const pointerRef = useRef(createValueStore<number | null>(null))
-  const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
-
-  if (!panRef.current) {
-    panRef.current = createPanDriver({
-      viewport: instance.viewport,
-      enabled: () => instance.interaction.current()?.mode === 'selection-box',
-      onFrame: (pointer) => {
-        const active = activeRef.current
-        if (!active || active.latestMatchedIds === undefined) {
-          return
-        }
-
-        const current = instance.viewport.pointer(pointer)
-        active.latestMatchedIds = readMatchedNodeIds(
-          rectFromPoints(active.start.world, current.world),
-          active.containerNodeIds
-        )
-        instance.draft.selection.write(
-          rectFromPoints(active.start.screen, current.screen)
-        )
-        flushTaskRef.current.schedule()
-      }
-    })
-  }
+  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -136,6 +103,7 @@ export const useSelectionBox = ({
       ? matchedNodeIds.filter((nodeId) => containerNodeIds.has(nodeId))
       : matchedNodeIds
   }, [instance])
+
   const updateSelection = useCallback((
     input: {
       clientX: number
@@ -163,82 +131,27 @@ export const useSelectionBox = ({
       rectFromPoints(active.start.world, current.world),
       active.containerNodeIds
     )
-    instance.draft.selection.write(rectFromPoints(active.start.screen, current.screen))
+    instance.internals.selectionBox.write(
+      rectFromPoints(active.start.screen, current.screen)
+    )
     flushTaskRef.current.schedule()
     return true
   }, [instance, readMatchedNodeIds])
 
-  const cancel = useCallback((pointerId?: number) => {
-    const active = activeRef.current
-    if (pointerId !== undefined && active && active.pointerId !== pointerId) {
-      return
-    }
-
-    const token = tokenRef.current
+  const clear = useCallback(() => {
     activeRef.current = null
-    tokenRef.current = null
-    panRef.current?.stop()
+    sessionRef.current = null
     flushTaskRef.current.cancel()
-    pointerRef.current.set(null)
-    instance.draft.selection.clear()
-
-    if (token) {
-      instance.interaction.finish(token)
-    }
+    instance.internals.selectionBox.clear()
   }, [instance])
 
-  const pointerId = useStoreValue(pointerRef.current)
-
-  useWindowPointerSession({
-    pointerId,
-    onPointerMove: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      if (updateSelection(event)) {
-        panRef.current?.update(event)
-      }
-    },
-    onPointerUp: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      if (active.latestMatchedIds !== undefined) {
-        const current = instance.viewport.pointer(event)
-        active.latestMatchedIds = readMatchedNodeIds(
-          rectFromPoints(active.start.world, current.world),
-          active.containerNodeIds
-        )
-        flushSelection()
-      } else if (active.mode === 'replace') {
-        instance.commands.selection.clear()
-      }
-
-      cancel(active.pointerId)
-    },
-    onPointerCancel: (event) => {
-      const active = activeRef.current
-      if (!active || event.pointerId !== active.pointerId) {
-        return
-      }
-
-      cancel(active.pointerId)
-    },
-    onBlur: () => {
-      cancel()
-    },
-    onKeyDown: (event) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      cancel()
+  const cancel = useCallback(() => {
+    if (sessionRef.current) {
+      sessionRef.current.cancel()
+      return
     }
-  })
+    clear()
+  }, [clear])
 
   useEffect(() => {
     const container = containerRef.current
@@ -249,14 +162,14 @@ export const useSelectionBox = ({
     const onPointerDown = (event: PointerEvent) => {
       if (event.defaultPrevented) return
       if (event.button !== 0) return
-      if (pointerRef.current.get() !== null) return
+      if (activeRef.current) return
       if (instance.interaction.mode.get() !== 'idle') return
       if (instance.state.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)
       let activeContainer = instance.state.container.get()
       if (activeContainer.id) {
-        const activeRect = readContainerRect(instance.read, activeContainer)
+        const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
         const insideActiveContainer = Boolean(
           activeRect && isPointInRect(start.world, activeRect)
         )
@@ -272,12 +185,55 @@ export const useSelectionBox = ({
         return
       }
 
-      const token = instance.interaction.tryStart({
+      const nextSession = instance.interaction.start({
         mode: 'selection-box',
-        cancel: () => cancel(event.pointerId),
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        capture: container,
+        pan: {
+          frame: (pointer) => {
+            const active = activeRef.current
+            if (!active || active.latestMatchedIds === undefined) {
+              return
+            }
+
+            const current = instance.viewport.pointer(pointer)
+            active.latestMatchedIds = readMatchedNodeIds(
+              rectFromPoints(active.start.world, current.world),
+              active.containerNodeIds
+            )
+            instance.internals.selectionBox.write(
+              rectFromPoints(active.start.screen, current.screen)
+            )
+            flushTaskRef.current.schedule()
+          }
+        },
+        cleanup: clear,
+        move: (event, session) => {
+          if (updateSelection(event)) {
+            session.pan(event)
+          }
+        },
+        up: (event, session) => {
+          const active = activeRef.current
+          if (!active) {
+            return
+          }
+
+          if (active.latestMatchedIds !== undefined) {
+            const current = instance.viewport.pointer(event)
+            active.latestMatchedIds = readMatchedNodeIds(
+              rectFromPoints(active.start.world, current.world),
+              active.containerNodeIds
+            )
+            flushSelection()
+          } else if (active.mode === 'replace') {
+            instance.commands.selection.clear()
+          }
+
+          session.finish()
+        }
       })
-      if (!token) return
+      if (!nextSession) return
 
       const selectedNodeIds = filterContainerNodeIds(
         activeContainer,
@@ -296,15 +252,8 @@ export const useSelectionBox = ({
         containerNodeIds,
         selectedKey: toSelectionKey(selectedNodeIds)
       }
-      tokenRef.current = token
-      pointerRef.current.set(event.pointerId)
-      instance.draft.selection.clear()
-
-      try {
-        container.setPointerCapture(event.pointerId)
-      } catch {
-        // Ignore capture errors, window listeners still handle session cleanup.
-      }
+      sessionRef.current = nextSession
+      instance.internals.selectionBox.clear()
 
       event.preventDefault()
       event.stopPropagation()
@@ -314,10 +263,16 @@ export const useSelectionBox = ({
     return () => {
       container.removeEventListener('pointerdown', onPointerDown)
     }
-  }, [cancel, containerRef, instance])
+  }, [
+    clear,
+    containerRef,
+    flushSelection,
+    instance,
+    readMatchedNodeIds,
+    updateSelection
+  ])
 
   useEffect(() => () => {
-    const active = activeRef.current
-    cancel(active?.pointerId)
+    cancel()
   }, [cancel])
 }

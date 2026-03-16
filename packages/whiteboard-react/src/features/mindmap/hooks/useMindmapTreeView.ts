@@ -1,8 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import { useInstance } from '../../../runtime/hooks'
-import type { MindmapDragDraft } from '../../../runtime/draft'
-import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import {
+  useInternalInstance as useInstance,
+  useKeyedStoreValue
+} from '../../../runtime/hooks'
+import { useMindmapDragSession } from '../session'
 
 type MindmapLineView = {
   id: string
@@ -61,11 +63,11 @@ export type MindmapTreeViewData = {
 }
 
 export const useMindmapTreeView = (
-  treeId: NodeId,
-  drag?: MindmapDragDraft
+  treeId: NodeId
 ): MindmapTreeViewData | undefined => {
   const instance = useInstance()
   const treeView = useKeyedStoreValue(instance.read.mindmap.item, treeId)
+  const drag = useMindmapDragSession(instance.internals.mindmap.drag)
   const tree = treeView?.tree
   const root = treeView?.node
   const layout = treeView?.layout
@@ -73,7 +75,10 @@ export const useMindmapTreeView = (
 
   const onAddChild = useCallback(
     async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
-      if (!tree || !root || !layout) return
+      if (!tree || !root || !layout) {
+        return
+      }
+
       await instance.commands.mindmap.insertPlacement({
         id: root.id,
         tree,
@@ -87,33 +92,40 @@ export const useMindmapTreeView = (
     [instance.commands.mindmap, layout, nodeSize, root?.id, tree]
   )
 
-  if (!treeView || !root) return undefined
+  return useMemo(
+    () => {
+      if (!treeView || !root) {
+        return undefined
+      }
 
-  const { computed, shiftX, shiftY, lines, labels } = treeView
-  const dragPreview = drag?.treeId === treeId ? drag.preview : undefined
-  const baseOffset = drag?.treeId === treeId ? drag.baseOffset : root.position
+      const { computed, shiftX, shiftY, lines, labels } = treeView
+      const dragPreview = drag?.treeId === treeId ? drag.preview : undefined
+      const baseOffset = drag?.treeId === treeId ? drag.baseOffset : root.position
 
-  const nodes = Object.entries(computed.node).map(([id, rect]) => ({
-    id,
-    rect,
-    label: labels[id] ?? 'mindmap',
-    dragActive: dragPreview?.nodeId === id,
-    attachTarget: dragPreview?.drop?.type === 'attach' && dragPreview.drop.targetId === id,
-    showActions: !dragPreview,
-    dragPreviewActive: Boolean(dragPreview)
-  }))
+      const nodes = Object.entries(computed.node).map(([id, rect]) => ({
+        id,
+        rect,
+        label: labels[id] ?? 'mindmap',
+        dragActive: dragPreview?.nodeId === id,
+        attachTarget: dragPreview?.drop?.type === 'attach' && dragPreview.drop.targetId === id,
+        showActions: !dragPreview,
+        dragPreviewActive: Boolean(dragPreview)
+      }))
 
-  return {
-    treeId,
-    baseOffset,
-    bbox: computed.bbox,
-    shiftX,
-    shiftY,
-    lines,
-    nodes,
-    ghost: dragPreview?.ghost,
-    connectionLine: dragPreview?.drop?.connectionLine,
-    insertLine: dragPreview?.drop?.insertLine,
-    onAddChild
-  }
+      return {
+        treeId,
+        baseOffset,
+        bbox: computed.bbox,
+        shiftX,
+        shiftY,
+        lines,
+        nodes,
+        ghost: dragPreview?.ghost,
+        connectionLine: dragPreview?.drop?.connectionLine,
+        insertLine: dragPreview?.drop?.insertLine,
+        onAddChild
+      }
+    },
+    [drag, onAddChild, root, treeId, treeView]
+  )
 }

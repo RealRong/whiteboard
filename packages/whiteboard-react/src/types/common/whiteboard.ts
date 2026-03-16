@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
-import type { NodeRegistry } from 'types/node'
+import type { NodeRegistry } from '../node'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 import type { ShortcutOverrides } from './shortcut'
@@ -44,7 +44,7 @@ export type ResolvedWhiteboardConfig = Omit<
 
 export type WhiteboardProps = {
   doc: Document
-  onDocChange: (recipe: (draft: Document) => void) => void
+  onDocumentChange: (document: Document) => void
   registries?: CoreRegistries
   nodeRegistry?: NodeRegistry
   config?: WhiteboardConfig

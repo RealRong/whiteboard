@@ -5,7 +5,7 @@ import {
 } from '@whiteboard/core/mindmap'
 import type { MindmapItem } from '@whiteboard/core/read'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { MindmapDragDraft } from '../../../../runtime/draft'
+import type { MindmapDragState } from '../../session'
 
 export type RootDragSession = {
   kind: 'root'
@@ -34,7 +34,7 @@ export type SubtreeDragSession = {
 
 export type MindmapDragSession = RootDragSession | SubtreeDragSession
 
-export const toDragDraft = (session: MindmapDragSession): MindmapDragDraft => {
+export const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
   if (session.kind === 'root') {
     return {
       treeId: session.treeId,

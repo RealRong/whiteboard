@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import type { Node, NodeSchema, SchemaField } from '@whiteboard/core/types'
-import type { NodeDefinition, NodeRenderProps } from 'types/node'
+import type { NodeDefinition, NodeRenderProps } from '../../../types/node'
 import { createNodeRegistry } from './nodeRegistry'
 
 const getDataString = (node: Node, key: string) => {

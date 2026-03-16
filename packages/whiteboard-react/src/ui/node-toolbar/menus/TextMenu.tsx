@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react'
 import {
   COLORS,
-  FONT_SIZES
-} from './ui'
+  FONT_SIZES,
+  ColorSwatch,
+  ToolbarChip,
+  ToolbarChipRow,
+  ToolbarMenuSection
+} from './controls'
 import {
   hasSchemaField,
   readTextFieldKey,
   readTextValue
-} from '../model'
+} from '../schema'
 import type { NodeToolbarActionContext } from '../types'
 import {
-  ColorSwatch,
-  ToolbarChip,
-  ToolbarChipRow,
-  ToolbarMenuSection,
   updateNodeStyle
-} from './ui'
+} from './actions'
 
 export const TextMenu = ({
   instance,
