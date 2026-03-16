@@ -26,9 +26,9 @@ export const NodeSceneLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.view.nodeIds)
+  const nodeIds = useStoreValue(instance.read.node.list)
   const selection = useSelection()
-  const selectedSet = selection.nodeIdSet
+  const selectedSet = selection.target.nodeSet
 
   return (
     <div className="wb-node-layer">

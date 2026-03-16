@@ -39,11 +39,14 @@ export const useContextMenuSession = () => {
       instance.commands.container.exit()
     }
 
-    const selection = instance.view.selection.get()
+    const selection = instance.state.selection.get()
     setSession({
       screen: result.payload.screen,
       target: result.payload.target,
-      selection: snapshotSelection(selection.nodeIds, selection.edgeId)
+      selection: snapshotSelection(
+        selection.target.nodeIds,
+        selection.target.edgeId
+      )
     })
   }, [instance])
 

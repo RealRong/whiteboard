@@ -2,66 +2,79 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { DispatchResult } from '@whiteboard/core/types'
 import type {
-  EditorTool,
   InternalWhiteboardInstance,
-  WhiteboardRead,
   WhiteboardCommands,
+  WhiteboardState,
+  Tool,
   WhiteboardRuntimeOptions
 } from './types'
-import { createContainerStore } from '../container/state'
-import { createContainerRead } from '../container/read'
-import { createSelectionStore } from '../state/selection'
+import {
+  createContainerStore,
+  createSelectionStore,
+  type WhiteboardSelectionCommands
+} from '../state'
 import type { WhiteboardViewport } from '../viewport'
 import { createDrafts } from '../draft'
 import type { NodeRegistry } from '../../types/node'
 import type { InteractionCoordinator } from '../interaction'
-import { createWhiteboardView } from '../view'
-import type { WhiteboardContainerRead } from '../container/read'
-import type { WhiteboardSelectionCommands } from '../state/selection'
 
-type InstanceState = {
-  tool: ReturnType<typeof createValueStore<EditorTool>>
+type InstanceStores = {
+  tool: ReturnType<typeof createValueStore<Tool>>
   container: ReturnType<typeof createContainerStore>
   selection: ReturnType<typeof createSelectionStore>
-  draft: ReturnType<typeof createDrafts>
 }
 
-const createInstanceState = (
-  initialTool: EditorTool
-): InstanceState => ({
-  tool: createValueStore<EditorTool>(initialTool),
-  container: createContainerStore(),
-  selection: createSelectionStore(),
-  draft: createDrafts()
-})
-
-const createRead = ({
+const createInstanceStores = ({
   engine,
-  selection,
-  container
+  initialTool,
+  interaction
 }: {
   engine: EngineInstance
-  selection: ReturnType<typeof createSelectionStore>
-  container: WhiteboardContainerRead
-}): WhiteboardRead => ({
-  ...engine.read,
-  selection: selection.read,
-  container
-})
+  initialTool: Tool
+  interaction: InteractionCoordinator
+}): {
+  stores: InstanceStores
+  state: WhiteboardState
+  draft: ReturnType<typeof createDrafts>
+} => {
+  const tool = createValueStore<Tool>(initialTool)
+  const container = createContainerStore(engine.read)
+  const selection = createSelectionStore({
+    read: engine.read,
+    container: container.store
+  })
+  const draft = createDrafts()
+
+  return {
+    stores: {
+      tool,
+      container,
+      selection
+    },
+    state: {
+      tool,
+      selection: selection.store,
+      container: container.store,
+      interaction: interaction.mode
+    },
+    draft
+  }
+}
 
 const createSelectionCommands = ({
   engine,
   selection,
-  container
+  readContainer
 }: {
   engine: EngineInstance
   selection: ReturnType<typeof createSelectionStore>
-  container: WhiteboardContainerRead
+  readContainer: WhiteboardState['container']['get']
 }): WhiteboardSelectionCommands => ({
   ...selection.commands,
   selectAll: () => {
-    const nodeIds = container.activeId()
-      ? container.nodeIds()
+    const container = readContainer()
+    const nodeIds = container.id
+      ? container.ids
       : engine.read.node.list.get()
     selection.commands.select(nodeIds)
   }
@@ -75,7 +88,7 @@ const createCommands = ({
   withUiReset
 }: {
   engine: EngineInstance
-  tool: ReturnType<typeof createValueStore<EditorTool>>
+  tool: ReturnType<typeof createValueStore<Tool>>
   selection: WhiteboardSelectionCommands
   container: ReturnType<typeof createContainerStore>
   withUiReset: (effect: Promise<DispatchResult>) => Promise<DispatchResult>
@@ -104,22 +117,26 @@ export const createWhiteboardInstance = ({
   interaction
 }: {
   engine: EngineInstance
-  initialTool: EditorTool
+  initialTool: Tool
   viewport: WhiteboardViewport
   registry: NodeRegistry
   interaction: InteractionCoordinator
 }): InternalWhiteboardInstance => {
-  const state = createInstanceState(initialTool)
-  const containerRead = createContainerRead({
-    read: engine.read,
-    activeId: state.container.store
+  const {
+    stores,
+    state,
+    draft
+  } = createInstanceStores({
+    engine,
+    initialTool,
+    interaction
   })
 
   const resetUiDraftState = () => {
     interaction.cancel()
-    state.selection.commands.clear()
-    state.container.commands.clear()
-    state.draft.clear()
+    stores.selection.commands.clear()
+    stores.container.commands.clear()
+    draft.clear()
   }
 
   const withUiReset = async (
@@ -132,43 +149,32 @@ export const createWhiteboardInstance = ({
     return result
   }
 
-  const read = createRead({
-    engine,
-    selection: state.selection,
-    container: containerRead
-  })
   const selectionCommands = createSelectionCommands({
     engine,
-    selection: state.selection,
-    container: containerRead
+    selection: stores.selection,
+    readContainer: state.container.get
   })
   const commands = createCommands({
     engine,
-    tool: state.tool,
+    tool: stores.tool,
     selection: selectionCommands,
-    container: state.container,
+    container: stores.container,
     withUiReset
-  })
-  const view = createWhiteboardView({
-    tool: state.tool,
-    container: state.container.store,
-    selection: state.selection.store,
-    read
   })
 
   return {
     engine,
-    draft: state.draft,
+    draft,
     interaction,
     registry,
     config: engine.config,
-    read,
-    view,
+    read: engine.read,
+    state,
     commands,
     viewport,
     configure: (config: WhiteboardRuntimeOptions) => {
-      if (state.tool.get() !== config.tool) {
-        state.tool.set(config.tool)
+      if (stores.tool.get() !== config.tool) {
+        stores.tool.set(config.tool)
       }
       engine.configure({
         mindmapLayout: config.mindmapLayout,

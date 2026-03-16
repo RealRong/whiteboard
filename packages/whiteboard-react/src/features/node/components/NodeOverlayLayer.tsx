@@ -103,6 +103,19 @@ NodeConnectOverlayItem.displayName = 'NodeConnectOverlayItem'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 
+const resolveContainerTitle = (
+  node: {
+    type: string
+    data?: Record<string, unknown>
+  }
+) => {
+  const title = node.data?.title
+  if (typeof title === 'string' && title.trim()) {
+    return title.trim()
+  }
+  return node.type === 'group' ? 'Group' : node.type
+}
+
 const ActiveContainerOverlay = ({
   rect,
   title
@@ -132,27 +145,27 @@ export const NodeOverlayLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.view.nodeIds)
+  const nodeIds = useStoreValue(instance.read.node.list)
   const tool = useTool()
   const container = useContainer()
   const interaction = useInteraction()
   const guides = useGuidesDraft(instance.draft.guides)
   const selection = useSelection()
-  const activeContainerNode = useNodeView(container.activeId)
-  const selectedSet = selection.nodeIdSet
+  const activeContainerNode = useNodeView(container.id)
+  const selectedSet = selection.target.nodeSet
   const chromeVisible = interaction === 'idle'
   const activeContainer =
-    container.activeId && container.activeTitle && activeContainerNode
+    container.id && activeContainerNode
       ? {
           rect: activeContainerNode.rect,
-          title: container.activeTitle
+          title: resolveContainerTitle(activeContainerNode.node)
         }
       : undefined
   const showNodeHandles =
     tool === 'select'
-    && selection.edgeId === undefined
+    && selection.target.edgeId === undefined
     && (interaction === 'node-transform' || chromeVisible)
-  const nodeHandleNodeIds = showNodeHandles ? selection.nodeIds : EMPTY_NODE_IDS
+  const nodeHandleNodeIds = showNodeHandles ? selection.target.nodeIds : EMPTY_NODE_IDS
   const showNodeConnectHandles =
     tool === 'edge'
     && chromeVisible

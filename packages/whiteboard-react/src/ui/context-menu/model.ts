@@ -2,6 +2,10 @@ import { useMemo } from 'react'
 import type { EdgeId, Node, NodeId, Point } from '@whiteboard/core/types'
 import type { InternalWhiteboardInstance } from '../../runtime/instance'
 import { useInternalInstance } from '../../runtime/hooks'
+import {
+  hasContainerEdge,
+  hasContainerNode
+} from '../../runtime/state'
 import { buildCanvasSections } from './sections/canvas'
 import { buildEdgeSections } from './sections/edge'
 import { buildNodeSections, buildNodesSections } from './sections/node'
@@ -91,12 +95,12 @@ const readSections = (
 ) => {
   switch (target.kind) {
     case 'canvas': {
-      const container = instance.view.container.get()
+      const container = instance.state.container.get()
       return buildCanvasSections({
         world: target.world,
-        activeContainerId: container.activeId,
-        containerNodeIds: container.activeId
-          ? container.nodeIds
+        activeContainerId: container.id,
+        containerNodeIds: container.id
+          ? container.ids
           : undefined
       })
     }
@@ -148,18 +152,18 @@ export const readContextMenuOpenResult = ({
   screen: Point
   world: Point
 }): ContextMenuOpenResult | undefined => {
-  const container = instance.view.container.get()
-  const selection = instance.view.selection.get()
+  const container = instance.state.container.get()
+  const selection = instance.state.selection.get()
   const nodeId = readElementNodeId(targetElement)
 
   if (nodeId) {
     return {
       payload: {
         screen,
-        target: selection.nodeIdSet.has(nodeId) && selection.nodeCount > 1
+        target: selection.target.nodeSet.has(nodeId) && selection.items.count > 1
           ? {
               kind: 'nodes',
-              nodeIds: selection.nodeIds,
+              nodeIds: selection.target.nodeIds,
               world
             }
           : {
@@ -168,7 +172,7 @@ export const readContextMenuOpenResult = ({
               world
             }
       },
-      leaveContainer: !container.hasNode(nodeId)
+      leaveContainer: !hasContainerNode(container, nodeId)
     }
   }
 
@@ -186,7 +190,7 @@ export const readContextMenuOpenResult = ({
           world
         }
       },
-      leaveContainer: !container.hasEdge(entry.edge)
+      leaveContainer: !hasContainerEdge(container, entry.edge)
     }
   }
 
@@ -198,7 +202,7 @@ export const readContextMenuOpenResult = ({
         world
       }
     },
-    leaveContainer: Boolean(container.activeId)
+    leaveContainer: Boolean(container.id)
   }
 }
 

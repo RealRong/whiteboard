@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { EdgeId } from '@whiteboard/core/types'
 import { useCallback } from 'react'
 import { useInternalInstance as useInstance } from '../../../runtime/hooks'
+import { hasContainerEdge } from '../../../runtime/state'
 
 export const useEdgePathInteraction = () => {
   const instance = useInstance()
@@ -23,7 +24,7 @@ export const useEdgePathInteraction = () => {
       return
     }
 
-    if (!instance.read.container.hasEdge(entry.edge)) {
+    if (!hasContainerEdge(instance.state.container.get(), entry.edge)) {
       instance.commands.selection.clear()
       instance.commands.container.exit()
     }

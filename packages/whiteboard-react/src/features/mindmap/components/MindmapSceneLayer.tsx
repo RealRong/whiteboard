@@ -43,7 +43,7 @@ export const MindmapSceneLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const treeIds = useStoreValue(instance.view.mindmapIds)
+  const treeIds = useStoreValue(instance.read.mindmap.list)
   const drag = useMindmapDraft(instance.draft.mindmap)
 
   if (!treeIds.length) return null

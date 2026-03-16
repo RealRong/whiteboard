@@ -1,8 +1,8 @@
-import type { EditorTool } from '../instance/types'
-import { useInternalInstance } from './useInstance'
+import type { Tool } from '../instance/types'
+import { useInstance } from './useInstance'
 import { useStoreValue } from './useStoreValue'
 
-export const useTool = (): EditorTool => {
-  const instance = useInternalInstance()
-  return useStoreValue(instance.view.tool)
+export const useTool = (): Tool => {
+  const instance = useInstance()
+  return useStoreValue(instance.state.tool)
 }

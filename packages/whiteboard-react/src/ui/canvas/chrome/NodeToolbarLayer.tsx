@@ -55,8 +55,8 @@ export const NodeToolbarLayer = ({
   const showNodeToolbar =
     tool === 'select'
     && interaction === 'idle'
-    && selection.edgeId === undefined
-    && selection.nodeCount > 0
+    && selection.target.edgeId === undefined
+    && selection.items.count > 0
 
   useEffect(() => {
     closeMenu()

@@ -2,11 +2,26 @@ import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import {
+  createDerivedStore,
   createValueStore,
+  type KeyedReadStore,
+  type ReadStore,
   type ValueStore
 } from '@whiteboard/core/runtime'
+import type { NodeItem } from '@whiteboard/core/read'
+import type {
+  EdgeId,
+  Node,
+  NodeId,
+  Rect
+} from '@whiteboard/core/types'
+import { resolveNodeActions } from '../../features/node/nodeActions'
+import {
+  isOrderedArrayEqual,
+  isRectEqual
+} from '../utils/equality'
+import type { Container } from './container'
 
 export type { SelectionMode } from '@whiteboard/core/node'
 
@@ -17,32 +32,60 @@ export type WhiteboardSelectionCommands = {
   clear: () => void
 }
 
-export type WhiteboardSelectionRead = {
-  nodeIds: () => readonly NodeId[]
-  edgeId: () => EdgeId | undefined
-}
-
-export type StoredSelection = {
+type StoredSelection = {
   nodeIds: readonly NodeId[]
-  nodeIdSet: Set<NodeId>
+  nodeSet: Set<NodeId>
   edgeId?: EdgeId
 }
 
-type SelectionStateCommands = Omit<WhiteboardSelectionCommands, 'selectAll'>
+type SelectionCommands = Omit<WhiteboardSelectionCommands, 'selectAll'>
 
 export type SelectionStore = {
-  store: ValueStore<StoredSelection>
-  read: WhiteboardSelectionRead
-  commands: SelectionStateCommands
+  source: ValueStore<StoredSelection>
+  store: ReadStore<Selection>
+  commands: SelectionCommands
+}
+
+type SelectionReadDeps = {
+  node: {
+    item: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
+  }
+}
+
+export type Selection = {
+  kind: 'none' | 'node' | 'nodes' | 'edge'
+  target: {
+    nodeIds: readonly NodeId[]
+    nodeSet: ReadonlySet<NodeId>
+    edgeId?: EdgeId
+  }
+  items: {
+    nodes: readonly Node[]
+    primary?: Node
+    count: number
+  }
+  box?: Rect
+  caps: {
+    delete: boolean
+    duplicate: boolean
+    group: boolean
+    ungroup: boolean
+    lock: boolean
+    unlock: boolean
+    selectAll: boolean
+    clear: boolean
+    lockLabel: string
+  }
 }
 
 const EMPTY_SELECTED_NODE_IDS: readonly NodeId[] = []
 const EMPTY_SELECTED_NODE_SET = new Set<NodeId>()
 const EMPTY_SELECTION: StoredSelection = {
   nodeIds: EMPTY_SELECTED_NODE_IDS,
-  nodeIdSet: EMPTY_SELECTED_NODE_SET,
+  nodeSet: EMPTY_SELECTED_NODE_SET,
   edgeId: undefined
 }
+const EMPTY_NODES: readonly Node[] = []
 
 const isSameNodeIdSet = (
   prev: ReadonlySet<NodeId>,
@@ -60,74 +103,206 @@ const isSameNodeIdSet = (
   return true
 }
 
-const createSelectionState = (
-  nodeIdSet: Set<NodeId>,
+const createSelectionSource = (
+  nodeSet: Set<NodeId>,
   edgeId?: EdgeId
 ): StoredSelection => {
-  if (nodeIdSet.size === 0 && edgeId === undefined) {
+  if (nodeSet.size === 0 && edgeId === undefined) {
     return EMPTY_SELECTION
   }
 
   return {
-    nodeIds: nodeIdSet.size === 0 ? EMPTY_SELECTED_NODE_IDS : [...nodeIdSet],
-    nodeIdSet,
+    nodeIds: nodeSet.size === 0 ? EMPTY_SELECTED_NODE_IDS : [...nodeSet],
+    nodeSet,
     edgeId
   }
 }
 
-export const createSelectionStore = (): SelectionStore => {
-  const store = createValueStore<StoredSelection>(EMPTY_SELECTION)
-  const readSelection = () => store.get()
+const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
+  if (!rects.length) {
+    return undefined
+  }
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  rects.forEach((rect) => {
+    minX = Math.min(minX, rect.x)
+    minY = Math.min(minY, rect.y)
+    maxX = Math.max(maxX, rect.x + rect.width)
+    maxY = Math.max(maxY, rect.y + rect.height)
+  })
+
+  if (
+    !Number.isFinite(minX)
+    || !Number.isFinite(minY)
+    || !Number.isFinite(maxX)
+    || !Number.isFinite(maxY)
+  ) {
+    return undefined
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0, maxX - minX),
+    height: Math.max(0, maxY - minY)
+  }
+}
+
+const readNodeItems = (
+  readNode: (nodeId: NodeId) => NodeItem | undefined,
+  nodeIds: readonly NodeId[]
+): readonly NodeItem[] => nodeIds
+  .map((nodeId) => readNode(nodeId))
+  .filter((item): item is NodeItem => Boolean(item))
+
+const isSelectionEqual = (
+  left: Selection,
+  right: Selection
+) => (
+  left.kind === right.kind
+  && left.target.edgeId === right.target.edgeId
+  && left.items.primary === right.items.primary
+  && left.items.count === right.items.count
+  && left.caps.delete === right.caps.delete
+  && left.caps.duplicate === right.caps.duplicate
+  && left.caps.group === right.caps.group
+  && left.caps.ungroup === right.caps.ungroup
+  && left.caps.lock === right.caps.lock
+  && left.caps.unlock === right.caps.unlock
+  && left.caps.selectAll === right.caps.selectAll
+  && left.caps.clear === right.caps.clear
+  && left.caps.lockLabel === right.caps.lockLabel
+  && isOrderedArrayEqual(left.target.nodeIds, right.target.nodeIds)
+  && isOrderedArrayEqual(left.items.nodes, right.items.nodes)
+  && isRectEqual(left.box, right.box)
+)
+
+const resolveSelection = ({
+  selection,
+  container,
+  readNode
+}: {
+  selection: StoredSelection
+  container: Container
+  readNode: (nodeId: NodeId) => NodeItem | undefined
+}): Selection => {
+  const items = readNodeItems(readNode, selection.nodeIds)
+  const nodes = items.length > 0
+    ? items.map((item) => item.node)
+    : EMPTY_NODES
+  const box = items.length > 0
+    ? getBoundingRect(items.map((item) => item.rect))
+    : undefined
+  const actions = resolveNodeActions(nodes)
+  const hasNodeSelection = actions.nodeCount > 0
+  const hasEdgeSelection = selection.edgeId !== undefined
+  const hasSelection = hasNodeSelection || hasEdgeSelection
+
+  return {
+    kind: selection.edgeId !== undefined
+      ? 'edge'
+      : actions.nodeCount === 1
+        ? 'node'
+        : actions.nodeCount > 1
+          ? 'nodes'
+          : 'none',
+    target: {
+      nodeIds: hasNodeSelection ? selection.nodeIds : EMPTY_SELECTED_NODE_IDS,
+      nodeSet: hasNodeSelection ? selection.nodeSet : EMPTY_SELECTED_NODE_SET,
+      edgeId: selection.edgeId
+    },
+    items: {
+      nodes,
+      primary: nodes[0],
+      count: actions.nodeCount
+    },
+    box,
+    caps: {
+      delete: hasSelection,
+      duplicate: hasNodeSelection,
+      group: actions.canGroup,
+      ungroup: actions.canUngroup,
+      lock: actions.canLock,
+      unlock: actions.canUnlock,
+      selectAll: true,
+      clear: hasSelection || container.id !== undefined,
+      lockLabel: actions.lockLabel
+    }
+  }
+}
+
+export const createSelectionStore = ({
+  read,
+  container
+}: {
+  read: SelectionReadDeps
+  container: ReadStore<Container>
+}): SelectionStore => {
+  const source = createValueStore<StoredSelection>(EMPTY_SELECTION)
+  const readSelection = () => source.get()
   const writeSelection = (next: StoredSelection) => {
     if (readSelection() === next) return
-    store.set(next)
+    source.set(next)
   }
+
+  const store = createDerivedStore<Selection>({
+    get: (readStore) => resolveSelection({
+      selection: readStore(source),
+      container: readStore(container),
+      readNode: (nodeId) => readStore(read.node.item, nodeId)
+    }),
+    isEqual: isSelectionEqual
+  })
+
   const select = (
     nodeIds: readonly NodeId[],
     mode: SelectionMode = 'replace'
   ) => {
     const current = readSelection()
-    const nextNodeIdSet = applySelection(
-      current.nodeIdSet,
+    const nextNodeSet = applySelection(
+      current.nodeSet,
       [...nodeIds],
       mode
     )
 
     if (
       current.edgeId === undefined
-      && isSameNodeIdSet(current.nodeIdSet, nextNodeIdSet)
+      && isSameNodeIdSet(current.nodeSet, nextNodeSet)
     ) {
       return
     }
 
-    writeSelection(createSelectionState(nextNodeIdSet, undefined))
+    writeSelection(createSelectionSource(nextNodeSet, undefined))
   }
+
   const selectEdge = (edgeId?: EdgeId) => {
     const current = readSelection()
 
     if (edgeId === undefined) {
       if (current.edgeId === undefined) return
-      writeSelection(createSelectionState(current.nodeIdSet, undefined))
+      writeSelection(createSelectionSource(current.nodeSet, undefined))
       return
     }
 
-    if (current.edgeId === edgeId && current.nodeIdSet.size === 0) return
-    writeSelection(createSelectionState(new Set<NodeId>(), edgeId))
+    if (current.edgeId === edgeId && current.nodeSet.size === 0) return
+    writeSelection(createSelectionSource(new Set<NodeId>(), edgeId))
   }
+
   const clear = () => {
     const current = readSelection()
-    if (current.nodeIdSet.size === 0 && current.edgeId === undefined) {
+    if (current.nodeSet.size === 0 && current.edgeId === undefined) {
       return
     }
     writeSelection(EMPTY_SELECTION)
   }
 
   return {
+    source,
     store,
-    read: {
-      nodeIds: () => readSelection().nodeIds,
-      edgeId: () => readSelection().edgeId
-    },
     commands: {
       select,
       selectEdge,

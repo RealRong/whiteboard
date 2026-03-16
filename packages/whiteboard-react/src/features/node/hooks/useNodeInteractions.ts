@@ -62,7 +62,7 @@ export const useNodeInteractions = () => {
       nodeId: NodeId,
       event: React.MouseEvent<HTMLDivElement>
     ) => {
-      if (instance.view.tool.get() !== 'select') return
+      if (instance.state.tool.get() !== 'select') return
 
       const target = event.target
       if (target instanceof Element && target.closest(DOUBLE_CLICK_IGNORE_SELECTOR)) {

@@ -267,9 +267,9 @@ export const useNodeToolbar = (): NodeToolbarModel | undefined => {
   const selection = useSelection()
   useViewport()
 
-  const rect = selection.rect
-  const nodes = selection.nodes
-  const primaryNode = selection.primaryNode
+  const rect = selection.box
+  const nodes = selection.items.nodes
+  const primaryNode = selection.items.primary
 
   if (!rect || !primaryNode || !nodes.length) {
     return undefined

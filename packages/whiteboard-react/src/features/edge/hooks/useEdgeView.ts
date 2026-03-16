@@ -193,7 +193,7 @@ export const useEdgeView = (
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInstance()
-  const edgeId = useSelection().edgeId
+  const edgeId = useSelection().target.edgeId
   const entry = useEdgeView(edgeId)
   const draft = useEdgeDraft(instance.draft.edge, edgeId)
 

@@ -1,25 +1,28 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
+import type { ReadStore } from '@whiteboard/core/runtime'
 import type {
   EngineInstance
 } from '@whiteboard/engine'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { ResolvedHistoryConfig } from '../../types/common'
 import type {
-  WhiteboardSelectionCommands,
-  WhiteboardSelectionRead
-} from '../state/selection'
-import type { WhiteboardContainerCommands } from '../container/state'
-import type { WhiteboardContainerRead } from '../container/read'
+  Container,
+  Selection,
+  WhiteboardContainerCommands,
+  WhiteboardSelectionCommands
+} from '../state'
 import type { WhiteboardViewport } from '../viewport'
 import type { Drafts } from '../draft/runtime'
 import type { NodeRegistry } from '../../types/node'
-import type { WhiteboardView } from '../view'
-import type { InteractionCoordinator } from '../interaction/types'
+import type {
+  InteractionCoordinator,
+  InteractionMode
+} from '../interaction/types'
 
-export type EditorTool = 'select' | 'edge'
+export type Tool = 'select' | 'edge'
 
 export type WhiteboardRuntimeOptions = {
-  tool: EditorTool
+  tool: Tool
   mindmapLayout: MindmapLayoutConfig
   history?: ResolvedHistoryConfig
 }
@@ -29,22 +32,26 @@ type EngineRead = EngineInstance['read']
 
 export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
   tool: {
-    set: (tool: EditorTool) => void
+    set: (tool: Tool) => void
   }
   selection: WhiteboardSelectionCommands
   container: WhiteboardContainerCommands
   edge: EngineCommands['edge']
 }
 
-export type WhiteboardRead = EngineRead & {
-  container: WhiteboardContainerRead
-  selection: WhiteboardSelectionRead
+export type WhiteboardRead = EngineRead
+
+export type WhiteboardState = {
+  tool: ReadStore<Tool>
+  selection: ReadStore<Selection>
+  container: ReadStore<Container>
+  interaction: ReadStore<InteractionMode>
 }
 
 export type WhiteboardInstance = {
   config: Readonly<EngineBoardConfig>
   read: WhiteboardRead
-  view: WhiteboardView
+  state: WhiteboardState
   commands: WhiteboardCommands
   viewport: WhiteboardViewport
   configure: (config: WhiteboardRuntimeOptions) => void

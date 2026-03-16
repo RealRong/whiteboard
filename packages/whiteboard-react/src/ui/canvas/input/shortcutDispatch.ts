@@ -27,7 +27,7 @@ const readCreatedGroupId = (result: DispatchResult): NodeId | undefined =>
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
 const getSelectedNodeIds = (instance: InternalWhiteboardInstance): NodeId[] =>
-  [...instance.read.selection.nodeIds()]
+  [...instance.state.selection.get().target.nodeIds]
 
 const groupSelection = async (instance: InternalWhiteboardInstance) => {
   const selectedNodeIds = getSelectedNodeIds(instance)
@@ -49,8 +49,9 @@ const ungroupSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const deleteSelection = async (instance: InternalWhiteboardInstance) => {
-  const selectedEdgeId = instance.read.selection.edgeId()
-  const selectedNodeIds = [...instance.read.selection.nodeIds()]
+  const selection = instance.state.selection.get()
+  const selectedEdgeId = selection.target.edgeId
+  const selectedNodeIds = [...selection.target.nodeIds]
   if (!selectedEdgeId && !selectedNodeIds.length) return
 
   if (selectedEdgeId) {
@@ -71,12 +72,13 @@ const duplicateSelection = async (instance: InternalWhiteboardInstance) => {
 }
 
 const selectAll = (instance: InternalWhiteboardInstance) => {
-  if (!instance.read.container.activeId()) {
+  const container = instance.state.container.get()
+  if (!container.id) {
     instance.commands.selection.selectAll()
     return
   }
   instance.commands.selection.select(
-    [...instance.read.container.nodeIds()],
+    [...container.ids],
     'replace'
   )
 }
@@ -85,21 +87,21 @@ export const canDispatchShortcutAction = (
   instance: InternalWhiteboardInstance,
   action: ShortcutAction
 ): boolean => {
-  const selection = instance.view.selection.get()
+  const selection = instance.state.selection.get()
 
   switch (action) {
     case 'group.create':
-      return selection.canGroup
+      return selection.caps.group
     case 'group.ungroup':
-      return selection.canUngroup
+      return selection.caps.ungroup
     case 'selection.selectAll':
-      return selection.canSelectAll
+      return selection.caps.selectAll
     case 'selection.clear':
-      return selection.canClear
+      return selection.caps.clear
     case 'selection.delete':
-      return selection.canDelete
+      return selection.caps.delete
     case 'selection.duplicate':
-      return selection.canDuplicate
+      return selection.caps.duplicate
     case 'history.undo':
     case 'history.redo':
       return true
@@ -120,7 +122,7 @@ export const dispatchShortcutAction = (
       return true
     case 'selection.clear':
       instance.commands.selection.clear()
-      if (instance.read.container.activeId()) {
+      if (instance.state.container.get().id) {
         instance.commands.container.exit()
       }
       return true

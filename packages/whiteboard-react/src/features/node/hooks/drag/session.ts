@@ -8,6 +8,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { createPanDriver } from '../../../../runtime/interaction'
 import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
 import {
+  filterContainerNodeIds,
+  hasContainerNode
+} from '../../../../runtime/state'
+import {
   buildNodeDragState,
   resolveNodeDragCommit,
   resolveNodeDragPreview,
@@ -82,7 +86,7 @@ export const createNodeDragSession = (
       active,
       world: instance.viewport.pointer(input).world,
       zoom: instance.viewport.get().zoom,
-      snapEnabled: instance.view.tool.get() === 'select',
+      snapEnabled: instance.state.tool.get() === 'select',
       allowCross: active.allowCross,
       nodes: readCanvasNodes(),
       config: instance.config,
@@ -108,18 +112,21 @@ export const createNodeDragSession = (
     ) => {
       if (event.button !== 0) return
       if (active) return
-      if (instance.view.tool.get() !== 'select') return
+      if (instance.state.tool.get() !== 'select') return
 
       const nodeRect = instance.read.index.node.get(nodeId)
       if (!nodeRect) return
 
-      if (!instance.read.container.hasNode(nodeId)) {
+      let container = instance.state.container.get()
+      if (!hasContainerNode(container, nodeId)) {
         instance.commands.selection.clear()
         instance.commands.container.exit()
+        container = instance.state.container.get()
       }
 
-      const currentSelectedNodeIds = instance.read.container.filterNodeIds(
-        instance.read.selection.nodeIds()
+      const currentSelectedNodeIds = filterContainerNodeIds(
+        container,
+        instance.state.selection.get().target.nodeIds
       )
       const nextSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
         ? currentSelectedNodeIds

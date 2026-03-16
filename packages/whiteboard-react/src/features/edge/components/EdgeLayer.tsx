@@ -41,8 +41,8 @@ const EdgeItemById = memo(
 
 export const EdgeLayer = () => {
   const instance = useInstance()
-  const edgeIds = useStoreValue(instance.view.edgeIds)
-  const selectedEdgeId = useSelection().edgeId
+  const edgeIds = useStoreValue(instance.read.edge.list)
+  const selectedEdgeId = useSelection().target.edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
   const handleEdgePathPointerDown = useEdgePathInteraction()
 

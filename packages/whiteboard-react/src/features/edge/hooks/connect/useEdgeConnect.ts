@@ -236,7 +236,7 @@ export const useEdgeConnect = ({
 
   const hoverTaskRef = useRef(createRafTask(() => {
     const hoverEvent = hoverEventRef.current
-    if (!hoverEvent || activeRef.current || instance.view.tool.get() !== 'edge') {
+    if (!hoverEvent || activeRef.current || instance.state.tool.get() !== 'edge') {
       return
     }
 
@@ -306,7 +306,7 @@ export const useEdgeConnect = ({
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.view.tool.get() !== 'edge') return
+      if (instance.state.tool.get() !== 'edge') return
       if (!(event.target instanceof Element)) return
 
       const pointerState = readPointer(event)

@@ -12,6 +12,10 @@ import {
   createPanDriver,
   useWindowPointerSession
 } from '../../../runtime/interaction'
+import {
+  filterContainerNodeIds,
+  readContainerRect
+} from '../../../runtime/state'
 import { createRafTask } from '../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../runtime/viewport'
 
@@ -247,12 +251,12 @@ export const useSelectionBox = ({
       if (event.button !== 0) return
       if (pointerRef.current.get() !== null) return
       if (instance.interaction.mode.get() !== 'idle') return
-      if (instance.view.tool.get() === 'edge') return
+      if (instance.state.tool.get() === 'edge') return
 
       const start = instance.viewport.pointer(event)
-      let activeContainerId = instance.read.container.activeId()
-      if (activeContainerId) {
-        const activeRect = instance.read.container.activeRect()
+      let activeContainer = instance.state.container.get()
+      if (activeContainer.id) {
+        const activeRect = readContainerRect(instance.read, activeContainer)
         const insideActiveContainer = Boolean(
           activeRect && isPointInRect(start.world, activeRect)
         )
@@ -260,11 +264,11 @@ export const useSelectionBox = ({
         if (!insideActiveContainer) {
           instance.commands.selection.clear()
           instance.commands.container.exit()
-          activeContainerId = undefined
+          activeContainer = instance.state.container.get()
         }
       }
 
-      if (!isBackgroundPointerTarget(event.target, container, activeContainerId)) {
+      if (!isBackgroundPointerTarget(event.target, container, activeContainer.id)) {
         return
       }
 
@@ -275,11 +279,12 @@ export const useSelectionBox = ({
       })
       if (!token) return
 
-      const selectedNodeIds = instance.read.container.filterNodeIds(
-        instance.read.selection.nodeIds()
+      const selectedNodeIds = filterContainerNodeIds(
+        activeContainer,
+        instance.state.selection.get().target.nodeIds
       )
-      const containerNodeIds = activeContainerId
-        ? new Set<NodeId>(instance.read.container.nodeIds())
+      const containerNodeIds = activeContainer.id
+        ? new Set<NodeId>(activeContainer.ids)
         : undefined
 
       instance.commands.selection.selectEdge(undefined)

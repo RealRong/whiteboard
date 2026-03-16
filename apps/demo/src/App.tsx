@@ -156,7 +156,7 @@ export const App = () => {
     const offsetX = (column - 1) * 42
     const offsetY = (row - 1) * 34
     const center = instance.viewport.get().center
-    const parentId = instance.read.container.activeId()
+    const parentId = instance.state.container.get().id
     const id = createId('demo-node')
     const payload: NodeInput = {
       id,

@@ -1,9 +1,9 @@
 export { createWhiteboardInstance } from './createWhiteboardInstance'
-export type { WhiteboardView } from '../view'
 export type {
-  EditorTool,
+  Tool,
   WhiteboardCommands,
   WhiteboardInstance,
+  WhiteboardState,
   WhiteboardRuntimeOptions,
   InternalWhiteboardInstance
 } from './types'
