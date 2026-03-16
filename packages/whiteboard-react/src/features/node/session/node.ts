@@ -4,7 +4,7 @@ import {
 } from '@whiteboard/core/runtime'
 import type { NodeItem } from '@whiteboard/core/read'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import { useOptionalKeyedStoreValue } from '../../../runtime/hooks'
+import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type NodeSessionMap = ReadonlyMap<NodeId, NodeSession>
 
@@ -38,10 +38,7 @@ export type NodeSessionStore =
 export type NodeSessionReader =
   Pick<NodeSessionStore, 'get' | 'subscribe'>
 
-export type NodeSessionWriter =
-  Pick<NodeSessionStore, 'write' | 'clear'>
-
-export const EMPTY_NODE_SESSION: NodeSession = {
+const EMPTY_NODE_SESSION: NodeSession = {
   hovered: false
 }
 

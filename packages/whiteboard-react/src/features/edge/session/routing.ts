@@ -4,7 +4,7 @@ import {
 } from '@whiteboard/core/runtime'
 import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import { useOptionalKeyedStoreValue } from '../../../runtime/hooks'
+import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type EdgeRoutingSessionMap = ReadonlyMap<EdgeId, EdgeRoutingSession>
 
@@ -22,7 +22,7 @@ type EdgeRoutingSessionWrite = {
   patches: readonly EdgeRoutingSessionWritePatch[]
 }
 
-export type EdgeRoutingSession = {
+type EdgeRoutingSession = {
   patch?: EdgeRoutingPatch
   activeRoutingIndex?: number
 }
@@ -33,10 +33,7 @@ export type EdgeRoutingSessionStore =
 export type EdgeRoutingSessionReader =
   Pick<EdgeRoutingSessionStore, 'get' | 'subscribe'>
 
-export type EdgeRoutingSessionWriter =
-  Pick<EdgeRoutingSessionStore, 'write' | 'clear'>
-
-export const EMPTY_EDGE_ROUTING_SESSION: EdgeRoutingSession = {}
+const EMPTY_EDGE_ROUTING_SESSION: EdgeRoutingSession = {}
 
 const EMPTY_EDGE_MAP: EdgeRoutingSessionMap =
   new Map<EdgeId, EdgeRoutingSession>()

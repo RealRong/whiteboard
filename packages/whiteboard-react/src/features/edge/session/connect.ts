@@ -6,7 +6,7 @@ import {
 import type { Point } from '@whiteboard/core/types'
 import { useStoreValue } from '../../../runtime/hooks'
 
-export type EdgeConnectPreview = {
+type EdgeConnectPreview = {
   activePointerId?: number
   from?: Point
   to?: Point

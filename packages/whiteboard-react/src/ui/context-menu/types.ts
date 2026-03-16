@@ -3,9 +3,9 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { BoardInstance } from '../../runtime/instance'
 
-type ContextMenuInstance = Pick<WhiteboardInstance, 'commands' | 'read' | 'state'>
+type ContextMenuInstance = Pick<BoardInstance, 'commands' | 'read' | 'state'>
 
 export type ContextMenuItemTone = 'default' | 'danger'
 
@@ -49,12 +49,3 @@ export type ContextMenuSession = {
   target: ContextMenuTarget
   selection: ContextMenuSelectionSnapshot
 } | null
-
-export type ContextMenuModel = {
-  placement: {
-    left: number
-    top: number
-    transform?: string
-  }
-  sections: readonly ContextMenuSection[]
-}

@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
-import type { InternalWhiteboardInstance, WhiteboardInstance } from '../instance/types'
+import type { BoardInstance, InternalInstance } from '../instance/types'
 
-const InstanceContext = createContext<InternalWhiteboardInstance | null>(null)
+const InstanceContext = createContext<InternalInstance | null>(null)
 
 export const InstanceProvider = InstanceContext.Provider
 
@@ -13,4 +13,4 @@ export const useInternalInstance = () => {
   return instance
 }
 
-export const useInstance = (): WhiteboardInstance => useInternalInstance()
+export const useInstance = (): BoardInstance => useInternalInstance()

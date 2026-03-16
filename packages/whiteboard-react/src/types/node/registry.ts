@@ -1,34 +1,13 @@
-import type { Node, NodeId, NodeSchema, Rect } from '@whiteboard/core/types'
-import type {
-  CSSProperties,
-  MouseEventHandler,
-  PointerEventHandler,
-  ReactNode,
-  Ref
-} from 'react'
-import type {
-  WhiteboardCommands,
-  WhiteboardRead
-} from '../../runtime/instance/types'
-
-export type NodeContainerProps = {
-  rect: Rect
-  nodeId: NodeId
-  selected: boolean
-  style?: CSSProperties
-  ref?: Ref<HTMLDivElement>
-  onPointerDown?: PointerEventHandler<HTMLDivElement>
-  onDoubleClick?: MouseEventHandler<HTMLDivElement>
-}
+import type { Node, NodePatch, NodeSchema, Rect } from '@whiteboard/core/types'
+import type { CSSProperties, ReactNode } from 'react'
 
 export type NodeRenderProps = {
-  read: Pick<WhiteboardRead, 'index'>
-  commands: WhiteboardCommands
   node: Node
   rect: Rect
   selected: boolean
   hovered: boolean
-  containerProps?: NodeContainerProps
+  update: (patch: NodePatch) => Promise<void>
+  updateData: (patch: Record<string, unknown>) => Promise<void>
 }
 
 export type NodeDefinition = {
@@ -37,8 +16,7 @@ export type NodeDefinition = {
   schema?: NodeSchema
   defaultData?: Record<string, unknown>
   render: (props: NodeRenderProps) => ReactNode
-  renderContainer?: (props: NodeRenderProps, children: ReactNode) => ReactNode
-  getStyle?: (props: NodeRenderProps) => CSSProperties
+  style?: (props: NodeRenderProps) => CSSProperties
   canRotate?: boolean
   autoMeasure?: boolean
 }

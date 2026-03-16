@@ -4,13 +4,13 @@ import type {
   Operation
 } from '@whiteboard/core/types'
 import type { ShortcutAction } from '../../../types/common/shortcut'
-import type { WhiteboardInstance } from '../../../runtime/instance'
+import type { BoardInstance } from '../../../runtime/instance'
 import {
   deleteNodes,
   duplicateNodes
 } from '../../../features/node/commands'
 
-type ShortcutInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
+type ShortcutInstance = Pick<BoardInstance, 'commands' | 'state'>
 
 const readCreatedNodeIds = (
   result: DispatchResult,

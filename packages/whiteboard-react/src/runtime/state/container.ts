@@ -31,7 +31,7 @@ type ContainerReadDeps = {
   }
 }
 
-export type WhiteboardContainerCommands = {
+export type ContainerCommands = {
   enter: (nodeId: NodeId) => void
   exit: () => void
   clear: () => void
@@ -43,10 +43,10 @@ export type Container = {
   set?: ReadonlySet<NodeId>
 }
 
-export type ContainerStore = {
+type ContainerStore = {
   source: ValueStore<NodeId | undefined>
   store: ReadStore<Container>
-  commands: WhiteboardContainerCommands
+  commands: ContainerCommands
 }
 
 const EMPTY_IDS: readonly NodeId[] = []

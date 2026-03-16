@@ -6,7 +6,7 @@ import type { EngineRead } from '@whiteboard/engine'
 import {
   projectNodeItem,
   type NodeSessionReader
-} from '../../features/node/session'
+} from '../../features/node/session/node'
 
 const isNodeItemEqual = (
   left: NodeItem | undefined,

@@ -1,10 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import {
-  useInternalInstance as useInstance,
-  useKeyedStoreValue
-} from '../../../runtime/hooks'
-import { useMindmapDragSession } from '../session'
+import { useInternalInstance as useInstance } from '../../../runtime/hooks'
+import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useMindmapDragSession } from '../session/drag'
 
 type MindmapLineView = {
   id: string

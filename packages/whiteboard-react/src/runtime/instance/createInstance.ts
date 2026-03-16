@@ -2,25 +2,21 @@ import { createValueStore } from '@whiteboard/core/runtime'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { DispatchResult } from '@whiteboard/core/types'
 import type {
-  InternalWhiteboardInstance,
-  WhiteboardRead,
-  WhiteboardCommands,
-  WhiteboardState,
+  BoardInstance,
+  InternalInstance,
   Tool,
-  WhiteboardRuntimeOptions
 } from './types'
+import { createContainerStore } from '../state/container'
 import {
-  createContainerStore,
   createSelectionStore,
-  type WhiteboardSelectionCommands
-} from '../state'
-import type { WhiteboardViewport } from '../viewport'
+  type SelectionCommands
+} from '../state/selection'
+import type { ViewportController } from '../viewport'
 import type { NodeRegistry } from '../../types/node'
 import type { InteractionCoordinator } from '../interaction'
-import { createNodeFeatureRuntime } from '../../features/node/session'
-import { createEdgeFeatureRuntime } from '../../features/edge/session'
-import { createMindmapFeatureRuntime } from '../../features/mindmap/session'
-import { createSelectionBoxStore } from '../session/selectionBox'
+import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
+import { createEdgeFeatureRuntime } from '../../features/edge/session/runtime'
+import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import { createRuntimeRead } from '../read'
 
 type InstanceStores = {
@@ -33,7 +29,6 @@ type InstanceInternals = {
   node: ReturnType<typeof createNodeFeatureRuntime>
   edge: ReturnType<typeof createEdgeFeatureRuntime>
   mindmap: ReturnType<typeof createMindmapFeatureRuntime>
-  selectionBox: ReturnType<typeof createSelectionBoxStore>
 }
 
 const createInstanceStores = ({
@@ -46,8 +41,8 @@ const createInstanceStores = ({
   interaction: InteractionCoordinator
 }): {
   stores: InstanceStores
-  state: WhiteboardState
-  read: WhiteboardRead
+  state: BoardInstance['state']
+  read: BoardInstance['read']
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
@@ -59,7 +54,6 @@ const createInstanceStores = ({
   const node = createNodeFeatureRuntime()
   const edge = createEdgeFeatureRuntime()
   const mindmap = createMindmapFeatureRuntime()
-  const selectionBox = createSelectionBoxStore()
   const read = createRuntimeRead({
     engineRead: engine.read,
     node,
@@ -83,8 +77,7 @@ const createInstanceStores = ({
     internals: {
       node,
       edge,
-      mindmap,
-      selectionBox
+      mindmap
     }
   }
 }
@@ -96,8 +89,8 @@ const createSelectionCommands = ({
 }: {
   engine: EngineInstance
   selection: ReturnType<typeof createSelectionStore>
-  readContainer: WhiteboardState['container']['get']
-}): WhiteboardSelectionCommands => ({
+  readContainer: BoardInstance['state']['container']['get']
+}): SelectionCommands => ({
   ...selection.commands,
   selectAll: () => {
     const container = readContainer()
@@ -117,10 +110,10 @@ const createCommands = ({
 }: {
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<Tool>>
-  selection: WhiteboardSelectionCommands
+  selection: SelectionCommands
   container: ReturnType<typeof createContainerStore>
   withUiReset: (effect: Promise<DispatchResult>) => Promise<DispatchResult>
-}): WhiteboardCommands => ({
+}): BoardInstance['commands'] => ({
   ...engine.commands,
   document: {
     replace: async (doc) =>
@@ -137,7 +130,7 @@ const createCommands = ({
   edge: engine.commands.edge
 })
 
-export const createWhiteboardInstance = ({
+export const createInstance = ({
   engine,
   initialTool,
   viewport,
@@ -146,10 +139,10 @@ export const createWhiteboardInstance = ({
 }: {
   engine: EngineInstance
   initialTool: Tool
-  viewport: WhiteboardViewport
+  viewport: ViewportController
   registry: NodeRegistry
   interaction: InteractionCoordinator
-}): InternalWhiteboardInstance => {
+}): InternalInstance => {
   const {
     stores,
     state,
@@ -168,7 +161,6 @@ export const createWhiteboardInstance = ({
     internals.node.clear()
     internals.edge.clear()
     internals.mindmap.clear()
-    internals.selectionBox.clear()
   }
 
   const withUiReset = async (
@@ -204,7 +196,7 @@ export const createWhiteboardInstance = ({
     state,
     commands,
     viewport,
-    configure: (config: WhiteboardRuntimeOptions) => {
+    configure: (config) => {
       if (stores.tool.get() !== config.tool) {
         stores.tool.set(config.tool)
       }

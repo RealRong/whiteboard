@@ -115,7 +115,7 @@ const groupSchema: NodeSchema = {
 }
 
 const TextNodeRenderer = ({
-  commands,
+  updateData,
   node,
   selected,
   variant
@@ -133,7 +133,7 @@ const TextNodeRenderer = ({
 
   const commit = () => {
     if (draft !== text) {
-      void commands.node.updateData(node.id, { text: draft })
+      void updateData({ text: draft })
     }
     setEditing(false)
   }
@@ -186,7 +186,7 @@ const TextNodeRenderer = ({
   )
 }
 
-const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
+const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
   const title = getDataString(node, 'title')
   const collapsed = getDataBool(node, 'collapsed')
   const [editing, setEditing] = useState(false)
@@ -199,13 +199,13 @@ const GroupNodeRenderer = ({ commands, node }: NodeRenderProps) => {
 
   const commit = () => {
     if (draft !== title) {
-      void commands.node.updateData(node.id, { title: draft })
+      void updateData({ title: draft })
     }
     setEditing(false)
   }
 
   const toggleCollapse = () => {
-    void commands.node.updateData(node.id, { collapsed: !collapsed })
+    void updateData({ collapsed: !collapsed })
   }
 
   return (
@@ -418,29 +418,14 @@ const renderShapeGraphic = (
   }
 }
 
-const ShapeNodeRenderer = ({
+const ShapeNode = ({
   node,
-  variant
-}: NodeRenderProps & { variant: ShapeVariant }) => (
-  getNodeLabel(node, variant)
-)
-
-const ShapeNodeContainer = ({
-  children,
-  node,
-  rect,
   selected,
   hovered,
-  containerProps,
   variant
 }: NodeRenderProps & {
-  children: ReactNode
   variant: ShapeVariant
 }) => {
-  if (!containerProps) {
-    return children
-  }
-
   const { fill, stroke, text, strokeWidth } = getShapeColors(
     variant,
     node,
@@ -479,15 +464,7 @@ const ShapeNodeContainer = ({
 
   return (
     <div
-      ref={containerProps.ref}
       className={`wb-shape-node wb-shape-node-${variant}`}
-      data-node-id={containerProps.nodeId}
-      onPointerDown={containerProps.onPointerDown}
-      style={{
-        ...containerProps.style,
-        width: rect.width,
-        height: rect.height
-      }}
     >
       <svg
         className="wb-shape-node-svg"
@@ -499,7 +476,7 @@ const ShapeNodeContainer = ({
         {renderShapeGraphic(variant, fill, stroke, strokeWidth)}
       </svg>
       <div className="wb-shape-node-label" style={labelStyle}>
-        {children}
+        {getNodeLabel(node, variant)}
       </div>
     </div>
   )
@@ -513,7 +490,7 @@ const createShapeDefinition = (
   type,
   label,
   defaultData,
-  render: (props) => <ShapeNodeRenderer {...props} variant={type} />,
+  render: (props) => <ShapeNode {...props} variant={type} />,
   schema: {
     type,
     label,
@@ -525,11 +502,12 @@ const createShapeDefinition = (
       styleField('color', 'Text color', 'color')
     ]
   },
-  renderContainer: (props, children) => (
-    <ShapeNodeContainer {...props} variant={type}>
-      {children}
-    </ShapeNodeContainer>
-  )
+  style: () => ({
+    border: 'none',
+    boxShadow: 'none',
+    background: 'transparent',
+    borderRadius: 0
+  })
 })
 
 const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps): CSSProperties => {
@@ -620,7 +598,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     label: 'Rect',
     schema: rectSchema,
     render: ({ node }) => getDataString(node, 'title') || node.type,
-    getStyle: rectStyle
+    style: rectStyle
   },
   {
     type: 'text',
@@ -628,7 +606,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     schema: textSchema,
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="text" />,
-    getStyle: createTextStyle('text'),
+    style: createTextStyle('text'),
     autoMeasure: true
   },
   {
@@ -637,7 +615,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     schema: stickySchema,
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="sticky" />,
-    getStyle: createTextStyle('sticky'),
+    style: createTextStyle('sticky'),
     autoMeasure: true
   },
   createShapeDefinition('ellipse', 'Ellipse', { title: 'Ellipse' }),
@@ -652,7 +630,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     schema: groupSchema,
     defaultData: { title: '', collapsed: false, autoFit: 'expand-only', padding: 24 },
     render: (props) => <GroupNodeRenderer {...props} />,
-    getStyle: groupStyle,
+    style: groupStyle,
     canRotate: false
   }
 ]

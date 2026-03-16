@@ -1,5 +1,5 @@
 import type { Point } from '@whiteboard/core/types'
-import type { WhiteboardViewport } from '../viewport'
+import type { ViewportController } from '../viewport'
 import type {
   AutoPanOptions,
   AutoPanPointer,
@@ -93,7 +93,7 @@ type AutoPan = Readonly<{
 export const createAutoPan = ({
   getViewport
 }: {
-  getViewport: () => Pick<WhiteboardViewport, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
+  getViewport: () => Pick<ViewportController, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
 }): AutoPan => {
   let frameId: number | null = null
   let lastFrameTime = 0

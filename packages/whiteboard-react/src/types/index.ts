@@ -1,16 +1,11 @@
 export type {
-  ResolvedWhiteboardConfig,
   Size,
   ViewportConfig,
-  WhiteboardConfig,
+  BoardOptions,
   EdgeConfig,
-  HistoryConfig,
+  HistoryOptions,
   NodeConfig,
-  WhiteboardProps,
-  ResolvedEdgeConfig,
-  ResolvedHistoryConfig,
-  ResolvedNodeConfig,
-  ResolvedViewportConfig,
+  BoardProps,
   ShortcutAction,
   ShortcutBinding,
   ShortcutOverrides
@@ -18,7 +13,6 @@ export type {
 export type { MindmapLayoutConfig, MindmapLayoutMode } from './mindmap'
 
 export type {
-  NodeContainerProps,
   NodeDefinition,
   NodeRegistry,
   NodeRenderProps,

@@ -11,9 +11,6 @@ export type GuidesSessionStore =
 export type GuidesSessionReader =
   Pick<GuidesSessionStore, 'get' | 'subscribe'>
 
-export type GuidesSessionWriter =
-  Pick<GuidesSessionStore, 'write' | 'clear'>
-
 const EMPTY_GUIDES: readonly Guide[] = []
 
 const normalizeGuides = (

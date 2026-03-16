@@ -1,8 +1,14 @@
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import type { RefObject } from 'react'
+import { useSelectionBox } from './useSelectionBox'
 
-export const SelectionBoxOverlay = () => {
-  const instance = useInternalInstance()
-  const selectionBox = useStoreValue(instance.internals.selectionBox)
+export const SelectionBoxOverlay = ({
+  containerRef
+}: {
+  containerRef: RefObject<HTMLDivElement | null>
+}) => {
+  const selectionBox = useSelectionBox({
+    containerRef
+  })
 
   if (!selectionBox) return null
 

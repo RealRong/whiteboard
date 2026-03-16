@@ -5,7 +5,7 @@ import {
   type SelectionMode
 } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useCallback, useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { filterContainerNodeIds } from '../../../runtime/state/container'
 import { createRafTask } from '../../../runtime/utils/rafTask'
@@ -72,6 +72,15 @@ export const useSelectionBox = ({
   const instance = useInternalInstance()
   const activeRef = useRef<ActiveSelection | null>(null)
   const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
+  const mountedRef = useRef(true)
+  const [selectionBox, setSelectionBox] = useState<Rect | undefined>(undefined)
+
+  const writeSelectionBox = useCallback((next: Rect | undefined) => {
+    if (!mountedRef.current) {
+      return
+    }
+    setSelectionBox(next)
+  }, [])
 
   const flushSelection = useCallback(() => {
     const active = activeRef.current
@@ -131,19 +140,19 @@ export const useSelectionBox = ({
       rectFromPoints(active.start.world, current.world),
       active.containerNodeIds
     )
-    instance.internals.selectionBox.write(
+    writeSelectionBox(
       rectFromPoints(active.start.screen, current.screen)
     )
     flushTaskRef.current.schedule()
     return true
-  }, [instance, readMatchedNodeIds])
+  }, [instance, readMatchedNodeIds, writeSelectionBox])
 
   const clear = useCallback(() => {
     activeRef.current = null
     sessionRef.current = null
     flushTaskRef.current.cancel()
-    instance.internals.selectionBox.clear()
-  }, [instance])
+    writeSelectionBox(undefined)
+  }, [writeSelectionBox])
 
   const cancel = useCallback(() => {
     if (sessionRef.current) {
@@ -201,7 +210,7 @@ export const useSelectionBox = ({
               rectFromPoints(active.start.world, current.world),
               active.containerNodeIds
             )
-            instance.internals.selectionBox.write(
+            writeSelectionBox(
               rectFromPoints(active.start.screen, current.screen)
             )
             flushTaskRef.current.schedule()
@@ -253,7 +262,7 @@ export const useSelectionBox = ({
         selectedKey: toSelectionKey(selectedNodeIds)
       }
       sessionRef.current = nextSession
-      instance.internals.selectionBox.clear()
+      writeSelectionBox(undefined)
 
       event.preventDefault()
       event.stopPropagation()
@@ -269,10 +278,18 @@ export const useSelectionBox = ({
     flushSelection,
     instance,
     readMatchedNodeIds,
-    updateSelection
+    updateSelection,
+    writeSelectionBox
   ])
 
-  useEffect(() => () => {
-    cancel()
+  useEffect(() => {
+    mountedRef.current = true
+
+    return () => {
+      mountedRef.current = false
+      cancel()
+    }
   }, [cancel])
+
+  return selectionBox
 }

@@ -14,7 +14,7 @@ import {
   useTool,
   useStoreValue
 } from '../../../runtime/hooks'
-import { useGuidesSession } from '../session'
+import { useGuidesSession } from '../session/guides'
 import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
 import { createNodeTransformSession } from '../hooks/transform/session'
 import { NodeConnectHandles } from './NodeConnectHandles'

@@ -3,7 +3,7 @@ import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { MindmapItem } from '@whiteboard/core/read'
 import type { NodeId } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
-import type { MindmapDragSessionReader } from '../../features/mindmap/session'
+import type { MindmapDragSessionReader } from '../../features/mindmap/session/drag'
 
 const isMindmapItemEqual = (
   left: MindmapItem | undefined,

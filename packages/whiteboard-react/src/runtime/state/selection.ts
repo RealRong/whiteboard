@@ -25,7 +25,7 @@ import type { Container } from './container'
 
 export type { SelectionMode } from '@whiteboard/core/node'
 
-export type WhiteboardSelectionCommands = {
+export type SelectionCommands = {
   select: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
   selectEdge: (edgeId?: EdgeId) => void
   selectAll: () => void
@@ -38,12 +38,12 @@ type StoredSelection = {
   edgeId?: EdgeId
 }
 
-type SelectionCommands = Omit<WhiteboardSelectionCommands, 'selectAll'>
+type StoreSelectionCommands = Omit<SelectionCommands, 'selectAll'>
 
-export type SelectionStore = {
+type SelectionStore = {
   source: ValueStore<StoredSelection>
   store: ReadStore<Selection>
-  commands: SelectionCommands
+  commands: StoreSelectionCommands
 }
 
 type SelectionReadDeps = {

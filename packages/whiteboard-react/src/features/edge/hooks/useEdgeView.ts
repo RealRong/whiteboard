@@ -3,10 +3,10 @@ import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useMemo } from 'react'
 import {
   useInternalInstance as useInstance,
-  useOptionalKeyedStoreValue,
   useSelection
 } from '../../../runtime/hooks'
-import { useEdgeRoutingSession } from '../session'
+import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useEdgeRoutingSession } from '../session/routing'
 
 export type EdgeView = {
   edge: EdgeItem['edge']

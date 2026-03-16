@@ -8,7 +8,7 @@ import type { EngineRead } from '@whiteboard/engine'
 import {
   projectEdgeItem,
   type EdgeRoutingSessionReader
-} from '../../features/edge/session'
+} from '../../features/edge/session/routing'
 
 const toNodeCanvas = (item: NodeItem) => ({
   rect: item.rect,

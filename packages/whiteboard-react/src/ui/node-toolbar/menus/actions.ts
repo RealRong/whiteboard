@@ -1,8 +1,8 @@
 import type { Node } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../../runtime/instance'
+import type { BoardInstance } from '../../../runtime/instance'
 import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
 
-type ToolbarMenuInstance = Pick<WhiteboardInstance, 'commands'>
+type ToolbarMenuInstance = Pick<BoardInstance, 'commands'>
 
 const mergeStyle = (
   current: Record<string, string | number> | undefined,

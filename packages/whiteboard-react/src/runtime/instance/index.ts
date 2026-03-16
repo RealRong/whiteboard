@@ -1,10 +1,6 @@
-export { createWhiteboardInstance } from './createWhiteboardInstance'
+export { createInstance } from './createInstance'
 export type {
   Tool,
-  WhiteboardCommands,
-  WhiteboardRead,
-  WhiteboardInstance,
-  WhiteboardState,
-  WhiteboardRuntimeOptions,
-  InternalWhiteboardInstance
+  BoardInstance,
+  InternalInstance
 } from './types'

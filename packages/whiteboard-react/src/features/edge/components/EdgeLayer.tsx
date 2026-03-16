@@ -1,12 +1,12 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import {
   useInstance,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
+import { hasContainerEdge } from '../../../runtime/state'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -44,7 +44,37 @@ export const EdgeLayer = () => {
   const edgeIds = useStoreValue(instance.read.edge.list)
   const selectedEdgeId = useSelection().target.edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
-  const handleEdgePathPointerDown = useEdgePathInteraction()
+  const handleEdgePathPointerDown = useCallback((event: ReactPointerEvent<SVGPathElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    const edgeId = event.currentTarget
+      .closest('[data-edge-id]')
+      ?.getAttribute('data-edge-id') as EdgeId | null
+    if (!edgeId) {
+      return
+    }
+
+    const entry = instance.read.edge.item.get(edgeId)
+    if (!entry) {
+      return
+    }
+
+    if (!hasContainerEdge(instance.state.container.get(), entry.edge)) {
+      instance.commands.selection.clear()
+      instance.commands.container.exit()
+    }
+
+    if (event.shiftKey || event.detail >= 2) {
+      const point = instance.viewport.pointer(event).world
+      instance.commands.edge.routing.insertAtPoint(edgeId, point)
+    }
+
+    instance.commands.selection.selectEdge(edgeId)
+    event.preventDefault()
+    event.stopPropagation()
+  }, [instance])
 
   return (
     <svg

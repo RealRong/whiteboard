@@ -5,7 +5,7 @@ import {
 } from '@whiteboard/core/mindmap'
 import type { MindmapItem } from '@whiteboard/core/read'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { MindmapDragState } from '../../session'
+import type { MindmapDragState } from '../../session/drag'
 
 export type RootDragSession = {
   kind: 'root'

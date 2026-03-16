@@ -19,7 +19,7 @@ export const DEFAULT_VIEWPORT: Viewport = {
   zoom: 1
 }
 
-export type WhiteboardViewport = {
+export type ViewportController = {
   get: () => Readonly<Viewport>
   subscribe: (listener: () => void) => () => void
   set: (viewport: Viewport) => void
@@ -46,17 +46,17 @@ export type ViewportPointer = {
   world: Point
 }
 
-export type ViewportCore = {
-  viewport: WhiteboardViewport
+export type ViewportRuntime = {
+  viewport: ViewportController
   setRect: (rect: ContainerRect) => void
   setLimits: (limits: ViewportLimits) => void
 }
 
-export const createViewportCore = ({
+export const createViewportRuntime = ({
   state
 }: {
   state: ValueStore<Viewport>
-}): ViewportCore => {
+}): ViewportRuntime => {
   let rect = EMPTY_CONTAINER_RECT
   let limits = DEFAULT_VIEWPORT_LIMITS
   const initial = normalizeViewport(copyViewport(state.get() ?? DEFAULT_VIEWPORT), limits)

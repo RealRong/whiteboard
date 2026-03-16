@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { BoardInstance } from '../../runtime/instance'
 import { useInstance } from '../../runtime/hooks'
 import type { ContextMenuOpenResult } from './read'
 import type { ContextMenuSession, ContextMenuSelectionSnapshot } from './types'
@@ -14,7 +14,7 @@ const snapshotSelection = (
 })
 
 const restoreSelection = (
-  instance: Pick<WhiteboardInstance, 'commands'>,
+  instance: Pick<BoardInstance, 'commands'>,
   selection: ContextMenuSelectionSnapshot
 ) => {
   if (selection.edgeId !== undefined) {

@@ -1,1 +1,1 @@
-export type { NodeContainerProps, NodeDefinition, NodeRegistry, NodeRenderProps } from './registry'
+export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './registry'

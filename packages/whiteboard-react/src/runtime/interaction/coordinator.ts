@@ -8,7 +8,7 @@ import type {
   InteractionSession,
   InteractionStartInput
 } from './types'
-import type { WhiteboardViewport } from '../viewport'
+import type { ViewportController } from '../viewport'
 import { createAutoPan } from './autoPan'
 
 type ActiveInteraction = Readonly<{
@@ -20,7 +20,7 @@ type ActiveInteraction = Readonly<{
 export const createInteractionCoordinator = ({
   getViewport
 }: {
-  getViewport: () => Pick<WhiteboardViewport, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
+  getViewport: () => Pick<ViewportController, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
 }): InteractionCoordinator => {
   const active = createValueStore<ActiveInteraction | null>(null)
   const mode = createDerivedStore({

@@ -4,14 +4,12 @@ import {
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
 import { DEFAULT_VIEWPORT } from '../runtime/viewport'
-import type {
-  ResolvedWhiteboardConfig,
-  WhiteboardConfig
-} from '../types/common'
+import type { BoardOptions } from '../types/common'
+import type { ResolvedConfig } from './types'
 
 const ZOOM_EPSILON = 0.0001
 
-const DEFAULT_CONFIG: ResolvedWhiteboardConfig = {
+const DEFAULT_CONFIG: ResolvedConfig = {
   className: undefined,
   style: undefined,
   nodeSize: DEFAULT_BOARD_CONFIG.nodeSize,
@@ -38,13 +36,13 @@ const DEFAULT_CONFIG: ResolvedWhiteboardConfig = {
 }
 
 const mergeConfig = (
-  defaults: ResolvedWhiteboardConfig,
-  overrides?: WhiteboardConfig
-): ResolvedWhiteboardConfig => mergeValue(defaults, overrides)
+  defaults: ResolvedConfig,
+  overrides?: BoardOptions
+): ResolvedConfig => mergeValue(defaults, overrides)
 
 export const normalizeConfig = (
-  config?: WhiteboardConfig
-): ResolvedWhiteboardConfig => {
+  config?: BoardOptions
+): ResolvedConfig => {
   const merged = mergeConfig(DEFAULT_CONFIG, config)
   const minZoom = Math.max(ZOOM_EPSILON, merged.viewport.minZoom)
   const maxZoom = Math.max(minZoom, merged.viewport.maxZoom)
@@ -67,7 +65,7 @@ export const normalizeConfig = (
 }
 
 export const toBoardConfig = (
-  config: ResolvedWhiteboardConfig
+  config: ResolvedConfig
 ): EngineBoardConfig => ({
   nodeSize: {
     width: config.nodeSize.width,

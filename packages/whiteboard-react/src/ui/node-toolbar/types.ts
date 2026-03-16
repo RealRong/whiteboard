@@ -1,7 +1,7 @@
 import type { Node, NodeSchema } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { BoardInstance } from '../../runtime/instance'
 
-type NodeToolbarInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
+type NodeToolbarInstance = Pick<BoardInstance, 'commands' | 'state'>
 
 export type NodeToolbarItemKey =
   | 'fill'
@@ -20,10 +20,4 @@ export type NodeToolbarActionContext = {
   primaryNode: Node
   primarySchema?: NodeSchema
   close: () => void
-}
-
-export type NodeToolbarItem = {
-  key: NodeToolbarItemKey
-  label: string
-  active: boolean
 }

@@ -1,67 +1,66 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
+import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
+import type { SelectionMode } from '@whiteboard/core/node'
 import type { ReadStore } from '@whiteboard/core/runtime'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
   EngineInstance
 } from '@whiteboard/engine'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
-import type { ResolvedHistoryConfig } from '../../types/common'
 import type {
   Container,
-  Selection,
-  WhiteboardContainerCommands,
-  WhiteboardSelectionCommands
+  Selection
 } from '../state'
-import type { WhiteboardViewport } from '../viewport'
+import type { ViewportController } from '../viewport'
 import type { NodeRegistry } from '../../types/node'
 import type {
   InteractionCoordinator,
   InteractionMode
 } from '../interaction/types'
-import type { NodeFeatureRuntime } from '../../features/node/session'
-import type { EdgeFeatureRuntime } from '../../features/edge/session'
-import type { MindmapFeatureRuntime } from '../../features/mindmap/session'
-import type { SelectionBoxStore } from '../session/selectionBox'
+import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
+import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
+import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 
 export type Tool = 'select' | 'edge'
 
-export type WhiteboardRuntimeOptions = {
-  tool: Tool
-  mindmapLayout: MindmapLayoutConfig
-  history?: ResolvedHistoryConfig
-}
-
 type EngineCommands = EngineInstance['commands']
-type EngineRead = EngineInstance['read']
 
-export type WhiteboardCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
-  tool: {
-    set: (tool: Tool) => void
-  }
-  selection: WhiteboardSelectionCommands
-  container: WhiteboardContainerCommands
-  edge: EngineCommands['edge']
-}
-
-export type WhiteboardRead = EngineRead
-
-export type WhiteboardState = {
-  tool: ReadStore<Tool>
-  selection: ReadStore<Selection>
-  container: ReadStore<Container>
-  interaction: ReadStore<InteractionMode>
-}
-
-export type WhiteboardInstance = {
+export type BoardInstance = {
   config: Readonly<EngineBoardConfig>
-  read: WhiteboardRead
-  state: WhiteboardState
-  commands: WhiteboardCommands
-  viewport: WhiteboardViewport
-  configure: (config: WhiteboardRuntimeOptions) => void
+  read: EngineInstance['read']
+  state: {
+    tool: ReadStore<Tool>
+    selection: ReadStore<Selection>
+    container: ReadStore<Container>
+    interaction: ReadStore<InteractionMode>
+  }
+  commands: Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
+    tool: {
+      set: (tool: Tool) => void
+    }
+    selection: {
+      select: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
+      selectEdge: (edgeId?: EdgeId) => void
+      selectAll: () => void
+      clear: () => void
+    }
+    container: {
+      enter: (nodeId: NodeId) => void
+      exit: () => void
+      clear: () => void
+    }
+    edge: EngineCommands['edge']
+  }
+  viewport: ViewportController
+  configure: (config: {
+    tool: Tool
+    mindmapLayout: MindmapLayoutConfig
+    history?: KernelHistoryConfig
+  }) => void
   dispose: () => void
 }
 
-export type InternalWhiteboardInstance = WhiteboardInstance & {
+export type InternalInstance = BoardInstance & {
   engine: EngineInstance
   interaction: InteractionCoordinator
   registry: NodeRegistry
@@ -69,6 +68,5 @@ export type InternalWhiteboardInstance = WhiteboardInstance & {
     node: NodeFeatureRuntime
     edge: EdgeFeatureRuntime
     mindmap: MindmapFeatureRuntime
-    selectionBox: SelectionBoxStore
   }
 }

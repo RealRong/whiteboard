@@ -6,7 +6,7 @@ import {
 } from '@whiteboard/core/runtime'
 import { useStoreValue } from '../../../runtime/hooks'
 
-export type MindmapDragPreview = {
+type MindmapDragPreview = {
   nodeId: MindmapNodeId
   ghost: Rect
   drop?: MindmapDragDropTarget
@@ -24,9 +24,6 @@ export type MindmapDragSessionStore =
 
 export type MindmapDragSessionReader =
   Pick<MindmapDragSessionStore, 'get' | 'subscribe'>
-
-export type MindmapDragSessionWriter =
-  Pick<MindmapDragSessionStore, 'write' | 'clear'>
 
 export const createMindmapDragSessionStore = (
   schedule: () => void

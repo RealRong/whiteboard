@@ -5,11 +5,11 @@ import type {
   NodeId,
   Operation
 } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { BoardInstance } from '../../runtime/instance'
 
-type NodeCommandsInstance = Pick<WhiteboardInstance, 'commands'>
-type NodeReadInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
-type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
+type NodeCommandsInstance = Pick<BoardInstance, 'commands'>
+type NodeReadInstance = Pick<BoardInstance, 'commands' | 'read'>
+type NodeStateInstance = Pick<BoardInstance, 'commands' | 'state'>
 
 const readCreatedNodeIds = (
   result: DispatchResult,

@@ -2,13 +2,13 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
-import type { WhiteboardProps } from './types/common'
+import type { BoardProps } from './types/common'
 import { createEngine, type EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useInstance'
 import {
   DEFAULT_VIEWPORT,
-  type WhiteboardViewport,
+  type ViewportController,
   useViewportController,
   useViewportTransformStyle
 } from './runtime/viewport'
@@ -18,7 +18,6 @@ import { useContextMenuSession } from './ui/context-menu/useContextMenuSession'
 import { ShortcutInput } from './ui/canvas/input/ShortcutInput'
 import { ContextMenuInput } from './ui/canvas/input/ContextMenuInput'
 import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
-import { useSelectionBox } from './ui/canvas/selection/useSelectionBox'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
@@ -26,10 +25,9 @@ import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
 import { createInteractionCoordinator } from './runtime/interaction'
 import {
-  createWhiteboardInstance,
-  type InternalWhiteboardInstance,
-  type WhiteboardInstance,
-  type WhiteboardRuntimeOptions
+  createInstance,
+  type BoardInstance,
+  type InternalInstance
 } from './runtime/instance'
 
 const isMirroredDocumentFromEngine = (
@@ -44,7 +42,7 @@ const isMirroredDocumentFromEngine = (
   && outbound.meta === inbound.meta
 )
 
-type WhiteboardCanvasProps = {
+type CanvasProps = {
   resolvedConfig: ReturnType<typeof normalizeConfig>
   containerRef: {
     current: HTMLDivElement | null
@@ -56,13 +54,10 @@ const WhiteboardCanvas = ({
   resolvedConfig,
   containerRef,
   containerStyle
-}: WhiteboardCanvasProps) => {
+}: CanvasProps) => {
   const transformStyle = useViewportTransformStyle()
   const contextMenu = useContextMenuSession()
 
-  useSelectionBox({
-    containerRef
-  })
   useEdgeConnect({
     containerRef
   })
@@ -89,7 +84,7 @@ const WhiteboardCanvas = ({
         <NodeOverlayLayer />
         <EdgeOverlayLayer />
       </div>
-      <SelectionBoxOverlay />
+      <SelectionBoxOverlay containerRef={containerRef} />
       <CanvasChrome
         containerRef={containerRef}
         contextMenuSession={contextMenu.session}
@@ -99,7 +94,7 @@ const WhiteboardCanvas = ({
   )
 }
 
-const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
+const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function WhiteboardInner(
   {
     doc,
     onDocumentChange,
@@ -110,7 +105,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const viewportRef = useRef<WhiteboardViewport | null>(null)
+  const viewportRef = useRef<ViewportController | null>(null)
   const onDocumentChangeRef = useRef(onDocumentChange)
   const lastOutboundDocRef = useRef<Document>(doc)
   const interactionRef = useRef(createInteractionCoordinator({
@@ -159,9 +154,9 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   }
   const engineInstance = engineInstanceRef.current!
 
-  const instanceRef = useRef<InternalWhiteboardInstance | null>(null)
+  const instanceRef = useRef<InternalInstance | null>(null)
   if (!instanceRef.current) {
-    instanceRef.current = createWhiteboardInstance({
+    instanceRef.current = createInstance({
       engine: engineInstance,
       initialTool: resolvedConfig.tool,
       viewport,
@@ -181,7 +176,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     void instance.commands.document.replace(doc)
   }, [doc, instance])
 
-  const runtimeConfig = useMemo<WhiteboardRuntimeOptions>(
+  const runtimeConfig = useMemo(
     () => ({
       tool: resolvedConfig.tool,
       mindmapLayout: resolvedConfig.mindmapLayout,

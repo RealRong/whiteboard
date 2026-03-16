@@ -1,4 +1,4 @@
-import type { Tool } from '../instance/types'
+import type { Tool } from '../instance'
 import { useInstance } from './useInstance'
 import { useStoreValue } from './useStoreValue'
 

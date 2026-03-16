@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
+import { Whiteboard, type BoardInstance } from '@whiteboard/react'
 import type { Document, NodeInput } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
 import { scenarios } from './scenarios'
@@ -54,7 +54,7 @@ const INSERTABLE_NODES: Array<{
 export const App = () => {
   const [activeId, setActiveId] = useState(scenarios[0].id)
   const [doc, setDoc] = useState<Document>(() => resolveScenario(activeId).create())
-  const instanceRef = useRef<WhiteboardInstance | null>(null)
+  const instanceRef = useRef<BoardInstance | null>(null)
   const panRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null)
   const insertCountRef = useRef(0)
 

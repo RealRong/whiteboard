@@ -4,7 +4,7 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
+import type { InternalInstance } from '../../../../runtime/instance'
 import {
   filterContainerNodeIds,
   hasContainerNode
@@ -22,7 +22,7 @@ type ActiveDrag = NodeDragRuntimeState & {
 }
 
 export const createNodeDragSession = (
-  instance: InternalWhiteboardInstance
+  instance: InternalInstance
 ) => {
   let active: ActiveDrag | null = null
   let session: ReturnType<typeof instance.interaction.start> = null

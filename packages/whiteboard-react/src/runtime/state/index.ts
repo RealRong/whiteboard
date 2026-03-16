@@ -3,14 +3,10 @@ export {
   filterContainerNodeIds,
   hasContainerEdge,
   hasContainerNode,
-  type Container,
-  type ContainerStore,
-  type WhiteboardContainerCommands
+  type Container
 } from './container'
 export {
   createSelectionStore,
   type Selection,
-  type SelectionStore,
-  type WhiteboardSelectionCommands,
   type SelectionMode
 } from './selection'

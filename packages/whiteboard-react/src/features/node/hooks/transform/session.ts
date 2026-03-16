@@ -2,7 +2,7 @@ import { getRectCenter } from '@whiteboard/core/geometry'
 import type { TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, NodePatch } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { InternalWhiteboardInstance } from '../../../../runtime/instance/types'
+import type { InternalInstance } from '../../../../runtime/instance'
 import {
   resolveGroupResizePadding,
   resolveResizeCommitPatch,
@@ -19,7 +19,7 @@ type ActiveTransform = {
 }
 
 export const createNodeTransformSession = (
-  instance: InternalWhiteboardInstance
+  instance: InternalInstance
 ) => {
   let active: ActiveTransform | null = null
   let session: ReturnType<typeof instance.interaction.start> = null

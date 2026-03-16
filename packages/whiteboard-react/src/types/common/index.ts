@@ -5,12 +5,7 @@ export type {
   ShortcutOverrides
 } from './shortcut'
 export type {
-  ResolvedWhiteboardConfig,
-  WhiteboardConfig,
-  HistoryConfig,
-  WhiteboardProps,
-  ResolvedEdgeConfig,
-  ResolvedHistoryConfig,
-  ResolvedNodeConfig,
-  ResolvedViewportConfig
-} from './whiteboard'
+  BoardOptions,
+  HistoryOptions,
+  BoardProps
+} from './board'

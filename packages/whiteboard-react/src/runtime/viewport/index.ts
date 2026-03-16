@@ -1,14 +1,13 @@
 export {
   DEFAULT_VIEWPORT
-} from './core'
+} from './controller'
 export type {
   ViewportPointer,
-  WhiteboardViewport
-} from './core'
+  ViewportController
+} from './controller'
 export {
   useViewport,
   useViewportTransformStyle,
   useViewportZoom
 } from './hooks'
 export { useViewportController } from './useViewportController'
-export type { ViewportBindingOptions } from './useViewportController'

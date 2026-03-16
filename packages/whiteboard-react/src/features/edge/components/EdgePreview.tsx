@@ -1,5 +1,5 @@
 import { useInternalInstance } from '../../../runtime/hooks'
-import { useEdgeConnectSession } from '../session'
+import { useEdgeConnectSession } from '../session/connect'
 
 export const EdgePreview = () => {
   const instance = useInternalInstance()

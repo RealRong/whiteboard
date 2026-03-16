@@ -4,9 +4,7 @@ import type {
   PointerEvent as ReactPointerEvent
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeContainerProps, NodeRenderProps } from '../../../types/node'
-import { useInstance } from '../../../runtime/hooks'
-import { NodeBlock } from './NodeBlock'
+import type { NodeRenderProps } from '../../../types/node'
 import { useNodeView } from '../hooks/useNodeView'
 
 type NodeItemProps = {
@@ -33,7 +31,6 @@ export const NodeItem = memo(({
   onNodePointerDown,
   onNodeDoubleClick,
 }: NodeItemProps) => {
-  const instance = useInstance()
   const view = useNodeView(nodeId, { selected })
 
   if (!view) return null
@@ -45,7 +42,9 @@ export const NodeItem = memo(({
     hasResizePreview,
     nodeStyle,
     transformStyle,
-    definition
+    definition,
+    update,
+    updateData
   } = view
   const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
   const setMeasuredElement = useCallback((element: HTMLDivElement | null) => {
@@ -53,50 +52,44 @@ export const NodeItem = memo(({
   }, [nodeId, registerMeasuredElement, shouldAutoMeasure])
   const measuredElementRef = definition?.autoMeasure ? setMeasuredElement : undefined
 
-  const containerStyle: CSSProperties = {
+  const rootStyle: CSSProperties = {
     ...nodeStyle,
     pointerEvents: 'auto',
     ...transformStyle
   }
-  const containerProps: NodeContainerProps = {
-    rect,
-    nodeId,
-    selected,
-    ref: measuredElementRef,
-    style: containerStyle,
-    onPointerDown: (event) => {
-      onNodePointerDown(nodeId, event)
-    },
-    onDoubleClick: (event) => {
-      onNodeDoubleClick(nodeId, event)
-    }
-  }
   const renderProps: NodeRenderProps = {
-    read: instance.read,
-    commands: instance.commands,
     node: resolvedNode,
     rect,
     selected,
     hovered,
-    containerProps
+    update,
+    updateData
   }
   const content = definition ? definition.render(renderProps) : resolvedNode.type
 
   return (
-    definition?.renderContainer ? (
-      definition.renderContainer(renderProps, content)
-    ) : (
-      <NodeBlock
-        rect={rect}
-        label={content}
-        nodeId={nodeId}
-        selected={selected}
-        ref={containerProps.ref}
-        style={containerStyle}
-        onPointerDown={containerProps.onPointerDown}
-        onDoubleClick={containerProps.onDoubleClick}
-      />
-    )
+    <div
+      ref={measuredElementRef}
+      className="wb-node-block"
+      data-node-id={nodeId}
+      onPointerDown={(event) => {
+        onNodePointerDown(nodeId, event)
+      }}
+      onDoubleClick={(event) => {
+        onNodeDoubleClick(nodeId, event)
+      }}
+      style={{
+        width: rect.width,
+        height: rect.height,
+        border: `1px solid ${selected ? '#3b82f6' : '#1d1d1f'}`,
+        boxShadow: selected
+          ? '0 0 0 2px rgba(59, 130, 246, 0.4)'
+          : '0 6px 16px rgba(0, 0, 0, 0.08)',
+        ...rootStyle
+      }}
+    >
+      {content}
+    </div>
   )
 })
 

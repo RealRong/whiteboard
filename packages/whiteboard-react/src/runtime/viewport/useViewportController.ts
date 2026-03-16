@@ -14,12 +14,12 @@ import {
   type WheelInput
 } from './logic'
 import {
-  createViewportCore,
-  type ViewportCore,
-  type WhiteboardViewport
-} from './core'
+  createViewportRuntime,
+  type ViewportRuntime,
+  type ViewportController
+} from './controller'
 
-export type ViewportBindingOptions = {
+type ViewportBindingOptions = {
   panEnabled: boolean
   wheelEnabled: boolean
   minZoom: number
@@ -91,10 +91,10 @@ export const useViewportController = ({
   interaction: InteractionCoordinator
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportBindingOptions
-}): WhiteboardViewport => {
-  const coreRef = useRef<ViewportCore | null>(null)
+}): ViewportController => {
+  const coreRef = useRef<ViewportRuntime | null>(null)
   if (!coreRef.current) {
-    coreRef.current = createViewportCore({
+    coreRef.current = createViewportRuntime({
       state: createValueStore(initialViewport)
     })
   }
