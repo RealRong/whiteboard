@@ -1,5 +1,5 @@
 import type { EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 import type { NodeActions } from '../../features/node/nodeActions'
 import { resolveNodeActions } from '../../features/node/nodeActions'
 import {
@@ -60,11 +60,11 @@ const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
 }
 
 const readNodeItems = (
-  readNode: (nodeId: NodeId) => NodeViewItem | undefined,
+  readNode: (nodeId: NodeId) => NodeItem | undefined,
   nodeIds: readonly NodeId[]
-): readonly NodeViewItem[] => nodeIds
+): readonly NodeItem[] => nodeIds
   .map((nodeId) => readNode(nodeId))
-  .filter((item): item is NodeViewItem => Boolean(item))
+  .filter((item): item is NodeItem => Boolean(item))
 
 const resolveSelectionState = ({
   nodeIds,
@@ -76,7 +76,7 @@ const resolveSelectionState = ({
   nodeIds: readonly NodeId[]
   nodeIdSet: ReadonlySet<NodeId>
   edgeId?: EdgeId
-  items: readonly NodeViewItem[]
+  items: readonly NodeItem[]
   activeContainerId?: NodeId
 }): SelectionState => {
   const nodes = items.length > 0 ? items.map((item) => item.node) : EMPTY_NODES
@@ -140,7 +140,7 @@ export const resolveSelectionView = ({
 }: {
   selection: StoredSelection
   activeContainerId?: NodeId
-  readNode: (nodeId: NodeId) => NodeViewItem | undefined
+  readNode: (nodeId: NodeId) => NodeItem | undefined
 }): SelectionState => {
   const nodeIds = selection.nodeIds
 

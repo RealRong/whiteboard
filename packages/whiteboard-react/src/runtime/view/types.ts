@@ -4,13 +4,11 @@ import type { ContainerView } from './container'
 import type { SelectionState } from './selection'
 import type { EditorTool } from '../instance/types'
 
-export type ValueView<T> = ReadStore<T>
-
 export type WhiteboardView = {
-  tool: ValueView<EditorTool>
-  nodeIds: ValueView<readonly NodeId[]>
-  edgeIds: ValueView<readonly EdgeId[]>
-  mindmapIds: ValueView<readonly NodeId[]>
-  selection: ValueView<SelectionState>
-  container: ValueView<ContainerView>
+  tool: ReadStore<EditorTool>
+  nodeIds: ReadStore<readonly NodeId[]>
+  edgeIds: ReadStore<readonly EdgeId[]>
+  mindmapIds: ReadStore<readonly NodeId[]>
+  selection: ReadStore<SelectionState>
+  container: ReadStore<ContainerView>
 }

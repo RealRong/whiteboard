@@ -1,5 +1,5 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
@@ -9,7 +9,7 @@ const readRect = (
   snapshot: ReadSnapshot,
   node: Node,
   nodeId: NodeId
-) => snapshot.indexes.node.byId(nodeId)?.rect ?? {
+) => snapshot.indexes.node.get(nodeId)?.rect ?? {
   x: node.position.x,
   y: node.position.y,
   width: node.size?.width ?? 0,
@@ -17,7 +17,7 @@ const readRect = (
 }
 
 export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
-  const entryById = new Map<NodeId, NodeViewItem>()
+  const entryById = new Map<NodeId, NodeItem>()
   const listenersById = new Map<NodeId, Set<() => void>>()
   const idsListeners = new Set<() => void>()
   let snapshotRef: ReadSnapshot = initialSnapshot
@@ -27,7 +27,7 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
 
   const readEntry = (
     nodeId: NodeId,
-    previous?: NodeViewItem
+    previous?: NodeItem
   ) => {
     const node = getNodeMap().get(nodeId)
     if (!node) {
@@ -42,7 +42,7 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
     return {
       node,
       rect
-    } satisfies NodeViewItem
+    } satisfies NodeItem
   }
 
   const get = (nodeId: NodeId) => {
@@ -114,8 +114,8 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
       })
     }
 
-    const prevEntries = new Map<NodeId, NodeViewItem | undefined>()
-    const nextEntries = new Map<NodeId, NodeViewItem | undefined>()
+    const prevEntries = new Map<NodeId, NodeItem | undefined>()
+    const nextEntries = new Map<NodeId, NodeItem | undefined>()
 
     changedNodeIds.forEach((nodeId) => {
       const prevEntry = entryById.get(nodeId)

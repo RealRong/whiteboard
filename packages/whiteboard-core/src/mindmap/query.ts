@@ -1,4 +1,5 @@
 import {
+  type MindmapLayoutConfig,
   type MindmapLayout,
   type MindmapId,
   type MindmapNode,
@@ -10,7 +11,7 @@ import { getMindmapTreeFromNode } from './helpers'
 import { cloneValue } from '../utils'
 import type { MindmapLayoutHint, Node, Operation, Size } from '../types/core'
 
-export type MindmapViewLine = {
+export type MindmapLine = {
   id: string
   x1: number
   y1: number
@@ -36,15 +37,6 @@ export type MindmapInsertPlan =
       mode: 'towardRoot'
       nodeId: MindmapNodeId
     }
-
-export type MindmapLayoutConfigLike = {
-  mode?: 'simple' | 'tidy'
-  options?: {
-    hGap?: number
-    vGap?: number
-    side?: 'left' | 'right' | 'both'
-  }
-}
 
 const computeConnectionLine = (
   parent: { x: number; y: number; width: number; height: number },
@@ -194,7 +186,7 @@ export const getMindmapLabel = (node: MindmapNode | undefined) => {
 export const computeMindmapLayout = (
   tree: MindmapTree,
   nodeSize: Size,
-  layout: MindmapLayoutConfigLike
+  layout: MindmapLayoutConfig
 ): MindmapLayout => {
   const mode = layout.mode === 'tidy' ? 'tidy' : 'simple'
   const getNodeSize = () => nodeSize
@@ -310,8 +302,8 @@ export const createSetOps = ({
 export const buildMindmapLines = (
   tree: MindmapTree,
   computed: MindmapLayout
-): MindmapViewLine[] => {
-  const result: MindmapViewLine[] = []
+): MindmapLine[] => {
+  const result: MindmapLine[] = []
   Object.entries(tree.children).forEach(([parentId, childIds]) => {
     const parent = computed.node[parentId]
     if (!parent) return

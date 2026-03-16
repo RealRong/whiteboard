@@ -3,7 +3,7 @@ import { createValueDraftStore, useValueDraft } from './shared/valueStore'
 
 export const EMPTY_GUIDES: readonly Guide[] = []
 
-export type TransientGuides = {
+export type GuidesDraftStore = {
   get: () => readonly Guide[]
   subscribe: (listener: () => void) => () => void
   write: (guides: readonly Guide[]) => void
@@ -11,12 +11,12 @@ export type TransientGuides = {
 }
 
 export type GuidesReader =
-  Pick<TransientGuides, 'get' | 'subscribe'>
+  Pick<GuidesDraftStore, 'get' | 'subscribe'>
 
 export type GuidesWriter =
-  Pick<TransientGuides, 'write' | 'clear'>
+  Pick<GuidesDraftStore, 'write' | 'clear'>
 
-export const useTransientGuides = (
+export const useGuidesDraft = (
   guides: GuidesReader
 ) => useValueDraft(guides, () => EMPTY_GUIDES)
 
@@ -24,7 +24,7 @@ export const normalizeGuides = (
   guides: readonly Guide[]
 ): readonly Guide[] => guides.length ? guides : EMPTY_GUIDES
 
-export const createTransientGuides = (
+export const createGuidesDraftStore = (
   schedule: () => void
 ) => {
   const store = createValueDraftStore({

@@ -3,8 +3,8 @@ import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
 import type { WhiteboardProps } from 'types/common'
-import { engine, type Instance as EngineInstance } from '@whiteboard/engine'
-import { normalizeConfig, toEngineInstanceConfig } from './config'
+import { createEngine, type EngineInstance } from '@whiteboard/engine'
+import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useInstance'
 import {
   DEFAULT_VIEWPORT,
@@ -25,7 +25,7 @@ import {
   createWhiteboardInstance,
   type InternalWhiteboardInstance,
   type WhiteboardInstance,
-  type WhiteboardRuntimeConfig
+  type WhiteboardRuntimeOptions
 } from './runtime/instance'
 
 const replaceDocumentDraft = (draft: Document, next: Document) => {
@@ -151,7 +151,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
   if (!engineInstanceRef.current) {
-    engineInstanceRef.current = engine({
+    engineInstanceRef.current = createEngine({
       registries,
       document: doc,
       onDocumentChange: (next) => {
@@ -160,7 +160,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
           replaceDocumentDraft(draft, next)
         })
       },
-      config: toEngineInstanceConfig(resolvedConfig)
+      config: toBoardConfig(resolvedConfig)
     })
   }
   const engineInstance = engineInstanceRef.current!
@@ -187,7 +187,7 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     void instance.commands.document.replace(doc)
   }, [doc, instance])
 
-  const runtimeConfig = useMemo<WhiteboardRuntimeConfig>(
+  const runtimeConfig = useMemo<WhiteboardRuntimeOptions>(
     () => ({
       tool: resolvedConfig.tool,
       mindmapLayout: resolvedConfig.mindmapLayout,

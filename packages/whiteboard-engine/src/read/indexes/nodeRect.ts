@@ -1,7 +1,7 @@
-import type { CanvasNodeRect } from '@whiteboard/core/read'
+import type { CanvasNode } from '@whiteboard/core/read'
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
-import type { InstanceConfig } from '@engine-types/instance'
+import type { BoardConfig } from '@engine-types/instance'
 import type { ReadModel } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import { isSameRefOrder } from '@whiteboard/core/utils'
@@ -23,10 +23,10 @@ export class NodeRectIndex {
   private geometry: NodeGeometryCache
   private orderedIds: NodeId[] = []
   private orderedIdSet = new Set<NodeId>()
-  private orderedEntries: CanvasNodeRect[] = []
+  private orderedEntries: CanvasNode[] = []
   private orderDirty = true
 
-  constructor(config: InstanceConfig) {
+  constructor(config: BoardConfig) {
     this.geometry = new NodeGeometryCache(config.nodeSize)
   }
 
@@ -113,11 +113,11 @@ export class NodeRectIndex {
     return changed
   }
 
-  all = (): CanvasNodeRect[] => {
+  all = (): CanvasNode[] => {
     if (!this.orderDirty) return this.orderedEntries
     this.orderedEntries = this.orderedIds
       .map((id) => this.geometry.get(id))
-      .filter((entry): entry is CanvasNodeRect => Boolean(entry))
+      .filter((entry): entry is CanvasNode => Boolean(entry))
     this.orderDirty = false
     return this.orderedEntries
   }
@@ -125,6 +125,6 @@ export class NodeRectIndex {
   nodeIdsInRect = (rect: Rect): NodeId[] =>
     getNodeIdsInRectRaw(rect, this.all())
 
-  byId = (nodeId: NodeId): CanvasNodeRect | undefined =>
+  byId = (nodeId: NodeId): CanvasNode | undefined =>
     this.geometry.get(nodeId)
 }

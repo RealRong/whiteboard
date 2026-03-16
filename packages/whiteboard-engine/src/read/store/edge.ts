@@ -1,7 +1,7 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type {
-  CanvasNodeRect,
-  EdgeEntry
+  CanvasNode,
+  EdgeItem
 } from '@whiteboard/core/read'
 import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
 import {
@@ -18,19 +18,19 @@ import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
 
 type EdgeCacheEntry = {
-  sourceRectRef: CanvasNodeRect
-  targetRectRef: CanvasNodeRect
+  sourceRectRef: CanvasNode
+  targetRectRef: CanvasNode
   sourceGeometry: NodeGeometryTuple
   targetGeometry: NodeGeometryTuple
   structure: EdgeStructureTuple
-  entry: EdgeEntry
+  entry: EdgeItem
 }
 
 type EdgeCacheState = {
   relations: EdgeRelations
   cacheById: Map<EdgeId, EdgeCacheEntry>
   ids: EdgeId[]
-  byId: Map<EdgeId, EdgeEntry>
+  byId: Map<EdgeId, EdgeItem>
 }
 
 type EdgeProjectionUpdate = {
@@ -62,8 +62,8 @@ type EdgeStructureTuple = {
 }
 
 type EdgeCacheMaterial = {
-  sourceRectRef: CanvasNodeRect
-  targetRectRef: CanvasNodeRect
+  sourceRectRef: CanvasNode
+  targetRectRef: CanvasNode
   sourceGeometry: NodeGeometryTuple
   targetGeometry: NodeGeometryTuple
   structure: EdgeStructureTuple
@@ -92,14 +92,14 @@ const emptyState = (): EdgeCacheState => ({
   relations: emptyRelations(),
   cacheById: new Map<EdgeId, EdgeCacheEntry>(),
   ids: [],
-  byId: new Map<EdgeId, EdgeEntry>()
+  byId: new Map<EdgeId, EdgeItem>()
 })
 
 const isSameView = (
   prevIds: readonly EdgeId[],
-  prevById: ReadonlyMap<EdgeId, EdgeEntry>,
+  prevById: ReadonlyMap<EdgeId, EdgeItem>,
   nextIds: readonly EdgeId[],
-  nextById: ReadonlyMap<EdgeId, EdgeEntry>
+  nextById: ReadonlyMap<EdgeId, EdgeItem>
 ) => {
   if (prevIds.length !== nextIds.length) return false
   for (let index = 0; index < prevIds.length; index += 1) {
@@ -119,10 +119,10 @@ const buildView = ({
   relations: EdgeRelations
   cacheById: ReadonlyMap<EdgeId, EdgeCacheEntry>
   prevIds: readonly EdgeId[]
-  prevById: ReadonlyMap<EdgeId, EdgeEntry>
+  prevById: ReadonlyMap<EdgeId, EdgeItem>
 }) => {
   const nextIds: EdgeId[] = []
-  const nextById = new Map<EdgeId, EdgeEntry>()
+  const nextById = new Map<EdgeId, EdgeItem>()
 
   relations.edgeIds.forEach((edgeId) => {
     const entry = cacheById.get(edgeId)?.entry
@@ -135,12 +135,12 @@ const buildView = ({
 
   return {
     ids: idsChanged ? nextIds : prevIds as EdgeId[],
-    byId: idsChanged ? nextById : prevById as Map<EdgeId, EdgeEntry>,
+    byId: idsChanged ? nextById : prevById as Map<EdgeId, EdgeItem>,
     idsChanged
   }
 }
 
-const toNodeGeometryTuple = (entry: CanvasNodeRect): NodeGeometryTuple => ({
+const toNodeGeometryTuple = (entry: CanvasNode): NodeGeometryTuple => ({
   x: entry.rect.x,
   y: entry.rect.y,
   width: entry.rect.width,
@@ -148,7 +148,7 @@ const toNodeGeometryTuple = (entry: CanvasNodeRect): NodeGeometryTuple => ({
   rotation: entry.rotation
 })
 
-const toEdgeStructureTuple = (edge: EdgeEntry['edge']): EdgeStructureTuple => ({
+const toEdgeStructureTuple = (edge: EdgeItem['edge']): EdgeStructureTuple => ({
   type: edge.type,
   sourceNodeId: edge.source.nodeId,
   targetNodeId: edge.target.nodeId,
@@ -193,7 +193,7 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
 }
 
 export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
-  const getNodeRect = (snapshot: ReadSnapshot) => snapshot.indexes.node.byId
+  const getNodeRect = (snapshot: ReadSnapshot) => snapshot.indexes.node.get
   const readModel = (snapshot: ReadSnapshot) => snapshot.model
   const state = emptyState()
   const idsListeners = new Set<() => void>()
@@ -202,7 +202,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   let visibleEdgesRef: ReadSnapshot['model']['edges']['visible'] | undefined
 
   const toEdgeCacheMaterial = (
-    edge: EdgeEntry['edge']
+    edge: EdgeItem['edge']
   ): EdgeCacheMaterial | undefined => {
     const sourceRectRef = getNodeRect(snapshotRef)(edge.source.nodeId)
     const targetRectRef = getNodeRect(snapshotRef)(edge.target.nodeId)
@@ -218,7 +218,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   }
 
   const reuseCacheEntryByData = (
-    edge: EdgeEntry['edge'],
+    edge: EdgeItem['edge'],
     material: EdgeCacheMaterial,
     previous?: EdgeCacheEntry
   ): EdgeCacheEntry | undefined => {
@@ -245,7 +245,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       return previous
     }
 
-    const nextEntry: EdgeEntry = {
+    const nextEntry: EdgeItem = {
       id: edge.id,
       edge,
       endpoints: previous.entry.endpoints
@@ -261,7 +261,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   }
 
   const buildCacheEntry = (
-    edge: EdgeEntry['edge'],
+    edge: EdgeItem['edge'],
     material: EdgeCacheMaterial
   ): EdgeCacheEntry | undefined => {
     const sourceRectRef = material.sourceRectRef

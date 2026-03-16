@@ -4,14 +4,14 @@ import {
 } from 'react'
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useTransientGuides } from '../../../runtime/draft'
+import { useGuidesDraft } from '../../../runtime/draft'
 import {
   useInternalInstance,
   useInteraction,
   useContainer,
   useSelection,
   useTool,
-  useView
+  useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
 import { NodeConnectHandles } from './NodeConnectHandles'
@@ -132,11 +132,11 @@ export const NodeOverlayLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const nodeIds = useView(instance.view.nodeIds)
+  const nodeIds = useStoreValue(instance.view.nodeIds)
   const tool = useTool()
   const container = useContainer()
   const interaction = useInteraction()
-  const guides = useTransientGuides(instance.draft.guides)
+  const guides = useGuidesDraft(instance.draft.guides)
   const selection = useSelection()
   const activeContainerNode = useNodeView(container.activeId)
   const selectedSet = selection.nodeIdSet

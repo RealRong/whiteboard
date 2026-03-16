@@ -3,9 +3,9 @@ import {
   getSubtreeIds,
   type MindmapDragDropTarget
 } from '@whiteboard/core/mindmap'
-import type { MindmapViewTree } from '@whiteboard/core/read'
+import type { MindmapItem } from '@whiteboard/core/read'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { MindmapDragView } from '../../../../runtime/draft'
+import type { MindmapDragDraft } from '../../../../runtime/draft'
 
 export type RootDragSession = {
   kind: 'root'
@@ -28,13 +28,13 @@ export type SubtreeDragSession = {
   rect: Rect
   ghost: Rect
   excludeIds: MindmapNodeId[]
-  layout: MindmapViewTree['layout']
+  layout: MindmapItem['layout']
   drop?: MindmapDragDropTarget
 }
 
 export type MindmapDragSession = RootDragSession | SubtreeDragSession
 
-export const toDragView = (session: MindmapDragSession): MindmapDragView => {
+export const toDragDraft = (session: MindmapDragSession): MindmapDragDraft => {
   if (session.kind === 'root') {
     return {
       treeId: session.treeId,
@@ -56,7 +56,7 @@ export const toDragView = (session: MindmapDragSession): MindmapDragView => {
 }
 
 export const buildNodeRectMap = (
-  item: MindmapViewTree,
+  item: MindmapItem,
   baseOffset: Point
 ) => {
   const rectMap = new Map<MindmapNodeId, Rect>()
@@ -99,7 +99,7 @@ export const resolveRootDragSession = (options: {
 
 export const resolveSubtreeDragSession = (options: {
   treeId: NodeId
-  treeView: MindmapViewTree
+  treeView: MindmapItem
   nodeId: MindmapNodeId
   pointerId: number
   world: Point
@@ -152,7 +152,7 @@ const resolveRootDragPosition = (
 
 const resolveSubtreeDropTarget = (
   active: SubtreeDragSession,
-  treeView: MindmapViewTree | undefined,
+  treeView: MindmapItem | undefined,
   ghost: Rect
 ) => (
   treeView
@@ -170,7 +170,7 @@ const resolveSubtreeDropTarget = (
 export const resolveNextMindmapDragSession = (options: {
   active: MindmapDragSession
   world: Point
-  treeView?: MindmapViewTree
+  treeView?: MindmapItem
 }): MindmapDragSession => {
   const {
     active,

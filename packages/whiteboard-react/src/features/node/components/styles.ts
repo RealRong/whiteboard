@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { TransformHandle } from '@whiteboard/core/node'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 
-type NodeViewRect = NodeViewItem['rect']
+type NodeViewRect = NodeItem['rect']
 
 export const buildNodeTransformHandleStyle = ({
   handle,

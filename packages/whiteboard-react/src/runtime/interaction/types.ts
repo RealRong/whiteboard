@@ -12,7 +12,7 @@ export type InteractionMode =
 
 export type ActiveInteractionMode = Exclude<InteractionMode, 'idle'>
 
-export type InteractionSpec = Readonly<{
+export type InteractionPolicy = Readonly<{
   menu: 'allow' | 'block'
   viewport: 'allow' | 'block'
   pan: 'none' | 'viewport'
@@ -27,7 +27,7 @@ export type ActiveInteraction = Readonly<{
   mode: ActiveInteractionMode
   cancel: () => void
   pointerId?: number
-  spec: InteractionSpec
+  policy: InteractionPolicy
 }>
 
 export type InteractionCoordinator = {

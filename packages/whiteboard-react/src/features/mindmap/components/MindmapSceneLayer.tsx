@@ -1,7 +1,7 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useInternalInstance, useView } from '../../../runtime/hooks'
-import { useTransientMindmap } from '../../../runtime/draft'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import { useMindmapDraft } from '../../../runtime/draft'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'
 
@@ -11,7 +11,7 @@ const MindmapTreeById = ({
   onNodePointerDown
 }: {
   treeId: NodeId
-  drag: ReturnType<typeof useTransientMindmap>
+  drag: ReturnType<typeof useMindmapDraft>
   onNodePointerDown: (
     event: ReactPointerEvent<HTMLDivElement>,
     treeId: NodeId,
@@ -43,8 +43,8 @@ export const MindmapSceneLayer = ({
   ) => void
 }) => {
   const instance = useInternalInstance()
-  const treeIds = useView(instance.view.mindmapIds)
-  const drag = useTransientMindmap(instance.draft.mindmap)
+  const treeIds = useStoreValue(instance.view.mindmapIds)
+  const drag = useMindmapDraft(instance.draft.mindmap)
 
   if (!treeIds.length) return null
 

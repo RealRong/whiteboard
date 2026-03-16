@@ -16,47 +16,45 @@ import type {
 import type { StoredSelection } from '../state/selection'
 import {
   createDerivedStore,
+  type ReadStore,
   type ValueStore
 } from '@whiteboard/core/runtime'
-import type { ValueView, WhiteboardView } from './types'
+import type { WhiteboardView } from './types'
 
-export type {
-  ValueView,
-  WhiteboardView
-} from './types'
+export type { WhiteboardView } from './types'
 export type { EditorTool as ToolView } from '../instance/types'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 
 const createNodeIdsView = (
   read: WhiteboardRead
-): ValueView<readonly NodeId[]> => read.node.ids
+): ReadStore<readonly NodeId[]> => read.node.list
 
 const createEdgeIdsView = (
   read: WhiteboardRead
-): ValueView<readonly EdgeId[]> => read.edge.ids
+): ReadStore<readonly EdgeId[]> => read.edge.list
 
 const createMindmapIdsView = (
   read: WhiteboardRead
-): ValueView<readonly NodeId[]> => read.mindmap.ids
+): ReadStore<readonly NodeId[]> => read.mindmap.list
 
 const createSelectionView = (
   selection: ValueStore<StoredSelection>,
   container: ValueStore<NodeId | undefined>,
   read: WhiteboardRead
-): ValueView<SelectionState> => createDerivedStore({
+): ReadStore<SelectionState> => createDerivedStore({
   get: (readStore) => {
     const current = readStore(selection)
     const containerId = readStore(container)
     const activeContainerId =
-      containerId && readStore(read.node.byId, containerId)?.node
+      containerId && readStore(read.node.item, containerId)?.node
         ? containerId
-      : undefined
+        : undefined
 
     return resolveSelectionView({
       selection: current,
       activeContainerId,
-      readNode: (nodeId) => readStore(read.node.byId, nodeId)
+      readNode: (nodeId) => readStore(read.node.item, nodeId)
     })
   },
   isEqual: isSelectionStateEqual
@@ -65,12 +63,12 @@ const createSelectionView = (
 const createContainerView = (
   container: ValueStore<NodeId | undefined>,
   read: WhiteboardRead
-): ValueView<ContainerView> => {
+): ReadStore<ContainerView> => {
   return createDerivedStore({
     get: (readStore) => {
       const containerId = readStore(container)
       const activeEntry = containerId
-        ? readStore(read.node.byId, containerId)
+        ? readStore(read.node.item, containerId)
         : undefined
       const activeId = activeEntry?.node ? containerId : undefined
       const nodeIds = activeId
@@ -84,7 +82,7 @@ const createContainerView = (
       )
       const hasEdge = (value: EdgeId | Pick<Edge, 'source' | 'target'>) => {
         const edge = typeof value === 'string'
-          ? read.edge.byId.get(value)?.edge
+          ? read.edge.item.get(value)?.edge
           : value
 
         if (!edge) {

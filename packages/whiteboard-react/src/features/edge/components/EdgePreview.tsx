@@ -1,9 +1,9 @@
 import { useInternalInstance } from '../../../runtime/hooks'
-import { useTransientConnection } from '../../../runtime/draft'
+import { useConnectionDraft } from '../../../runtime/draft'
 
 export const EdgePreview = () => {
   const instance = useInternalInstance()
-  const preview = useTransientConnection(instance.draft.connection)
+  const preview = useConnectionDraft(instance.draft.connection)
   const { activePointerId, from, to, snap, showPreviewLine } = preview
 
   if (!from && !to && !snap) return null

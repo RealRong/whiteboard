@@ -4,6 +4,6 @@ export type {
   EditorTool,
   WhiteboardCommands,
   WhiteboardInstance,
-  WhiteboardRuntimeConfig,
+  WhiteboardRuntimeOptions,
   InternalWhiteboardInstance
 } from './types'

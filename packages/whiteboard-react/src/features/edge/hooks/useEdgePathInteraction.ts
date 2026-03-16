@@ -18,7 +18,7 @@ export const useEdgePathInteraction = () => {
       return
     }
 
-    const entry = instance.read.edge.byId.get(edgeId)
+    const entry = instance.read.edge.item.get(edgeId)
     if (!entry) {
       return
     }

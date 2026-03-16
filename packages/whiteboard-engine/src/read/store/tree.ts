@@ -13,7 +13,7 @@ export const createTreeProjection = (initialSnapshot: ReadSnapshot) => {
     rootId: NodeId,
     previous?: readonly NodeId[]
   ): readonly NodeId[] => {
-    const next = snapshotRef.indexes.tree.ids(rootId)
+    const next = snapshotRef.indexes.tree.list(rootId)
     return previous && isSameRefOrder(previous, next)
       ? previous
       : next

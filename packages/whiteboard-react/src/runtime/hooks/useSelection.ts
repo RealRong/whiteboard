@@ -1,8 +1,8 @@
 import type { SelectionState } from '../view/selection'
 import { useInternalInstance } from './useInstance'
-import { useView } from './useView'
+import { useStoreValue } from './useStoreValue'
 
 export const useSelection = (): SelectionState => {
   const instance = useInternalInstance()
-  return useView(instance.view.selection)
+  return useStoreValue(instance.view.selection)
 }

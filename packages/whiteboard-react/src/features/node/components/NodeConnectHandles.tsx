@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 
-type NodeViewNode = NodeViewItem['node']
-type NodeViewRect = NodeViewItem['rect']
+type NodeViewNode = NodeItem['node']
+type NodeViewRect = NodeItem['rect']
 
 type NodeConnectHandlesProps = {
   node: NodeViewNode

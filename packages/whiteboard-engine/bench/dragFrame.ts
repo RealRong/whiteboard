@@ -6,7 +6,7 @@ import {
   type Point,
   type Viewport
 } from '@whiteboard/core/types'
-import { engine } from '../src/instance/engine'
+import { createEngine } from '../src/instance/engine'
 import type { PointerInput } from '@engine-types/common/input'
 import type { NodeDragUpdateConstraints } from '@engine-types/node/drag'
 import { NodeDragKernel } from './kernels/nodeDrag/Kernel'
@@ -170,7 +170,7 @@ const main = () => {
 
   let doc = createDocument()
   const viewport = BENCH_VIEWPORT
-  const instance = engine({
+  const instance = createEngine({
     document: doc,
     onDocumentChange: (nextDoc) => {
       doc = nextDoc
@@ -194,7 +194,7 @@ const main = () => {
   }
 
   const movingNodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const movingNode = instance.read.index.node.byId(movingNodeId)?.node
+  const movingNode = instance.read.index.node.get(movingNodeId)?.node
   if (!movingNode) {
     throw new Error(`Missing moving node: ${movingNodeId}`)
   }

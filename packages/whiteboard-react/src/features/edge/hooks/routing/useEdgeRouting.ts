@@ -2,7 +2,7 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { createValueStore } from '@whiteboard/core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
+import { useInternalInstance as useInstance, useStoreValue } from '../../../../runtime/hooks'
 import {
   createPanDriver,
   useWindowPointerSession
@@ -29,7 +29,7 @@ export const useEdgeRouting = () => {
   const panRef = useRef<ReturnType<typeof createPanDriver> | null>(null)
 
   const readRoutingEntry = useCallback((edgeId: EdgeId) => {
-    const entry = instance.read.edge.byId.get(edgeId)
+    const entry = instance.read.edge.item.get(edgeId)
     if (!entry || entry.edge.type === 'bezier' || entry.edge.type === 'curve') {
       return undefined
     }
@@ -119,7 +119,7 @@ export const useEdgeRouting = () => {
     })
   }
 
-  const pointerId = useView(pointerRef.current)
+  const pointerId = useStoreValue(pointerRef.current)
 
   useWindowPointerSession({
     pointerId,

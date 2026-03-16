@@ -1,52 +1,52 @@
 import { createRafTask, type RafTask } from '../utils/rafTask'
 import {
-  createTransientConnection,
-  type TransientConnection,
+  createConnectionDraftStore,
+  type ConnectionDraftStore,
 } from './connection'
 import {
-  createTransientEdge,
-  type TransientEdge
+  createEdgeDraftStore,
+  type EdgeDraftStore
 } from './edge'
 import {
-  createTransientGuides,
-  type TransientGuides
+  createGuidesDraftStore,
+  type GuidesDraftStore
 } from './guides'
 import {
-  createTransientNode,
-  type TransientNode,
+  createNodeDraftStore,
+  type NodeDraftStore,
 } from './node'
 import {
-  createTransientMindmap,
-  type TransientMindmap
+  createMindmapDraftStore,
+  type MindmapDraftStore
 } from './mindmap'
 import {
-  createTransientSelection,
-  type TransientSelection
+  createSelectionDraftStore,
+  type SelectionDraftStore
 } from './selection'
 
-export type Transient = {
-  node: TransientNode
-  guides: TransientGuides
-  connection: TransientConnection
-  edge: TransientEdge
-  selection: TransientSelection
-  mindmap: TransientMindmap
+export type Drafts = {
+  node: NodeDraftStore
+  guides: GuidesDraftStore
+  connection: ConnectionDraftStore
+  edge: EdgeDraftStore
+  selection: SelectionDraftStore
+  mindmap: MindmapDraftStore
   clear: () => void
 }
 
-export const createTransient = (): Transient => {
+export const createDrafts = (): Drafts => {
   const flushAll: Array<() => void> = []
   let task!: RafTask
   const schedule = () => {
     task.schedule()
   }
 
-  const { node, flush: flushNode } = createTransientNode(schedule)
-  const { guides, flush: flushGuides } = createTransientGuides(schedule)
-  const { connection, flush: flushConnection } = createTransientConnection(schedule)
-  const { edge, flush: flushEdge } = createTransientEdge(schedule)
-  const { selection, flush: flushSelection } = createTransientSelection(schedule)
-  const { mindmap, flush: flushMindmap } = createTransientMindmap(schedule)
+  const { node, flush: flushNode } = createNodeDraftStore(schedule)
+  const { guides, flush: flushGuides } = createGuidesDraftStore(schedule)
+  const { connection, flush: flushConnection } = createConnectionDraftStore(schedule)
+  const { edge, flush: flushEdge } = createEdgeDraftStore(schedule)
+  const { selection, flush: flushSelection } = createSelectionDraftStore(schedule)
+  const { mindmap, flush: flushMindmap } = createMindmapDraftStore(schedule)
 
   flushAll.push(
     flushGuides,

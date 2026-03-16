@@ -1,7 +1,7 @@
 import type { MindmapLayout, MindmapLayoutConfig, MindmapNodeId, MindmapTree } from '../mindmap'
 import type { Edge, EdgeAnchor, EdgeId, Node, NodeId, Point, Rect } from '../types'
 
-export type CanvasNodeRect = {
+export type CanvasNode = {
   node: Node
   rect: { x: number; y: number; width: number; height: number }
   aabb: { x: number; y: number; width: number; height: number }
@@ -19,13 +19,13 @@ export type EdgeEndpoints = {
   target: EdgeEndpoint
 }
 
-export type EdgeEntry = {
+export type EdgeItem = {
   id: EdgeId
   edge: Edge
   endpoints: EdgeEndpoints
 }
 
-export type MindmapViewTreeLine = {
+export type MindmapLine = {
   id: string
   x1: number
   y1: number
@@ -33,7 +33,7 @@ export type MindmapViewTreeLine = {
   y2: number
 }
 
-export type MindmapViewTree = {
+export type MindmapItem = {
   id: NodeId
   node: Node
   tree: MindmapTree
@@ -41,11 +41,11 @@ export type MindmapViewTree = {
   computed: MindmapLayout
   shiftX: number
   shiftY: number
-  lines: MindmapViewTreeLine[]
+  lines: MindmapLine[]
   labels: Record<MindmapNodeId, string>
 }
 
-export type NodeViewItem = {
+export type NodeItem = {
   node: Node
   rect: Rect
 }

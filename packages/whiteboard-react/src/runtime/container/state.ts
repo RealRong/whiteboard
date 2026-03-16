@@ -10,12 +10,12 @@ export type WhiteboardContainerCommands = {
   clear: () => void
 }
 
-type ContainerDomain = {
+export type ContainerStore = {
   store: ValueStore<NodeId | undefined>
   commands: WhiteboardContainerCommands
 }
 
-export const createContainerDomain = (): ContainerDomain => {
+export const createContainerStore = (): ContainerStore => {
   const store = createValueStore<NodeId | undefined>(undefined)
   const readActiveContainerId = () => store.get()
 

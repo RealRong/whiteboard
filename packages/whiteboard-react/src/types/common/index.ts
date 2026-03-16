@@ -5,8 +5,8 @@ export type {
   ShortcutOverrides
 } from './shortcut'
 export type {
-  ResolvedConfig,
-  Config,
+  ResolvedWhiteboardConfig,
+  WhiteboardConfig,
   HistoryConfig,
   WhiteboardProps,
   ResolvedEdgeConfig,

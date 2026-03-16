@@ -1,8 +1,8 @@
 import type { ContainerView } from '../view/container'
 import { useInternalInstance } from './useInstance'
-import { useView } from './useView'
+import { useStoreValue } from './useStoreValue'
 
 export const useContainer = (): ContainerView => {
   const instance = useInternalInstance()
-  return useView(instance.view.container)
+  return useStoreValue(instance.view.container)
 }

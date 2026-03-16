@@ -1,8 +1,8 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { MindmapViewTree } from '@whiteboard/core/read'
+import type { MindmapItem } from '@whiteboard/core/read'
 import type { Node, NodeId } from '@whiteboard/core/types'
-import type { InstanceConfig } from '@engine-types/instance'
+import type { BoardConfig } from '@engine-types/instance'
 import { DEFAULT_TUNING } from '../../config'
 import {
   buildMindmapLines,
@@ -17,8 +17,8 @@ type MindmapTreeCacheKey = {
   treeId: string
   rootId: string
   rootRef: Node
-  treeNodesRef: MindmapViewTree['tree']['nodes']
-  treeChildrenRef: MindmapViewTree['tree']['children']
+  treeNodesRef: MindmapItem['tree']['nodes']
+  treeChildrenRef: MindmapItem['tree']['children']
   rootPositionX: number
   rootPositionY: number
   rootWidth: number | undefined
@@ -33,12 +33,12 @@ type MindmapTreeCacheKey = {
 
 type MindmapTreeCacheEntry = {
   key: MindmapTreeCacheKey
-  tree: MindmapViewTree
+  tree: MindmapItem
 }
 
 type MindmapProjectionState = {
   treeCache: Map<NodeId, MindmapTreeCacheEntry>
-  entryById: Map<NodeId, MindmapViewTree>
+  entryById: Map<NodeId, MindmapItem>
   ids: readonly NodeId[]
   visibleNodesRef?: readonly Node[]
   layoutRef?: MindmapLayoutConfig
@@ -83,7 +83,7 @@ const toCacheKey = ({
   layout,
   nodeSize
 }: {
-  tree: MindmapViewTree['tree']
+  tree: MindmapItem['tree']
   root: Node
   layout: MindmapLayoutConfig
   nodeSize: { width: number; height: number }
@@ -115,7 +115,7 @@ const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) =
 export const createMindmapProjection = (
   initialSnapshot: ReadSnapshot,
   deps: {
-    config: InstanceConfig
+    config: BoardConfig
     mindmapLayout: () => MindmapLayoutConfig
   }
 ) => {
@@ -125,15 +125,15 @@ export const createMindmapProjection = (
   let snapshotRef: ReadSnapshot = initialSnapshot
   let state: MindmapProjectionState = {
     treeCache: new Map<NodeId, MindmapTreeCacheEntry>(),
-    entryById: new Map<NodeId, MindmapViewTree>(),
+    entryById: new Map<NodeId, MindmapItem>(),
     ids: []
   }
 
   const buildTree = (
     root: Node,
-    tree: MindmapViewTree['tree'],
+    tree: MindmapItem['tree'],
     layout: MindmapLayoutConfig
-  ): MindmapViewTree => {
+  ): MindmapItem => {
     const computed = computeMindmapLayout(tree, config.mindmapNodeSize, layout)
     const shiftX = -computed.bbox.x
     const shiftY = -computed.bbox.y
@@ -180,7 +180,7 @@ export const createMindmapProjection = (
     const previousIds = current.ids
     const previousById = current.entryById
     const nextCache = new Map<NodeId, MindmapTreeCacheEntry>()
-    const nextById = new Map<NodeId, MindmapViewTree>()
+    const nextById = new Map<NodeId, MindmapItem>()
     const nextIds: NodeId[] = []
     const changedTreeIds = new Set<NodeId>()
     const previousTreeIds = new Set(previousIds)

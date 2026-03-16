@@ -1,5 +1,5 @@
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
 
 type NodeDraftMap = ReadonlyMap<NodeId, NodeDraft>
@@ -28,7 +28,7 @@ export type NodeWriteInput = {
   hoveredContainerId?: NodeId
 }
 
-export type TransientNode = {
+export type NodeDraftStore = {
   get: (nodeId: NodeId) => NodeDraft
   subscribe: (nodeId: NodeId, listener: () => void) => () => void
   write: (next: NodeWriteInput) => void
@@ -36,10 +36,10 @@ export type TransientNode = {
 }
 
 export type NodeReader =
-  Pick<TransientNode, 'get' | 'subscribe'>
+  Pick<NodeDraftStore, 'get' | 'subscribe'>
 
 export type NodeWriter =
-  Pick<TransientNode, 'write' | 'clear'>
+  Pick<NodeDraftStore, 'write' | 'clear'>
 
 export const EMPTY_NODE_DRAFT: NodeDraft = {
   hovered: false
@@ -78,7 +78,7 @@ const toNodeDraftMap = ({
   return next
 }
 
-export const createTransientNode = (
+export const createNodeDraftStore = (
   schedule: () => void
 ) => {
   const { flush, ...node } = createKeyedDraftStore({
@@ -125,9 +125,9 @@ export const applyRotationDraft = (
 )
 
 const applyNodePatch = (
-  node: NodeViewItem['node'],
+  node: NodeItem['node'],
   patch: NodePatch | undefined
-): NodeViewItem['node'] => {
+): NodeItem['node'] => {
   if (!patch) {
     return node
   }
@@ -148,11 +148,11 @@ const applyNodePatch = (
 }
 
 export const applyNodeDraft = (
-  item: NodeViewItem,
+  item: NodeItem,
   draft: NodeDraft
 ): {
-  node: NodeViewItem['node']
-  rect: NodeViewItem['rect']
+  node: NodeItem['node']
+  rect: NodeItem['rect']
   hovered: boolean
   hasResizePreview: boolean
 } => {
@@ -177,7 +177,7 @@ export const applyCanvasDraft = (
   rotation: applyRotationDraft(entry.rotation, draft)
 })
 
-export const useTransientNode = (
+export const useNodeDraft = (
   node: NodeReader,
   nodeId: NodeId | undefined
 ) => useKeyedDraft(node, nodeId, EMPTY_NODE_DRAFT)

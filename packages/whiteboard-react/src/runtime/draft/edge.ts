@@ -1,5 +1,5 @@
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import type { EdgeEntry } from '@whiteboard/core/read'
+import type { EdgeItem } from '@whiteboard/core/read'
 import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
 
 type EdgeDraftMap = ReadonlyMap<EdgeId, EdgeDraft>
@@ -23,7 +23,7 @@ export type EdgeWriteInput = {
   patches: readonly EdgePatchInput[]
 }
 
-export type TransientEdge = {
+export type EdgeDraftStore = {
   get: (edgeId: EdgeId) => EdgeDraft
   subscribe: (edgeId: EdgeId, listener: () => void) => () => void
   write: (next: EdgeWriteInput) => void
@@ -31,10 +31,10 @@ export type TransientEdge = {
 }
 
 export type EdgeReader =
-  Pick<TransientEdge, 'get' | 'subscribe'>
+  Pick<EdgeDraftStore, 'get' | 'subscribe'>
 
 export type EdgeWriter =
-  Pick<TransientEdge, 'write' | 'clear'>
+  Pick<EdgeDraftStore, 'write' | 'clear'>
 
 export const EMPTY_EDGE_DRAFT: EdgeDraft = {}
 
@@ -63,9 +63,9 @@ const toEdgeDraftMap = ({
 }
 
 const applyRoutingDraft = (
-  edge: EdgeEntry['edge'],
+  edge: EdgeItem['edge'],
   routingPoints: readonly Point[] | undefined
-): EdgeEntry['edge'] => {
+): EdgeItem['edge'] => {
   if (!routingPoints || edge.type === 'bezier' || edge.type === 'curve') {
     return edge
   }
@@ -87,9 +87,9 @@ const applyRoutingDraft = (
 }
 
 export const applyEdgeDraft = (
-  entry: EdgeEntry,
+  entry: EdgeItem,
   draft: EdgeDraft
-): EdgeEntry => {
+): EdgeItem => {
   const edge = applyRoutingDraft(entry.edge, draft.patch?.routingPoints)
   if (edge === entry.edge) {
     return entry
@@ -101,7 +101,7 @@ export const applyEdgeDraft = (
   }
 }
 
-export const createTransientEdge = (
+export const createEdgeDraftStore = (
   schedule: () => void
 ) => {
   const { flush, ...edge } = createKeyedDraftStore({
@@ -121,7 +121,7 @@ export const createTransientEdge = (
   }
 }
 
-export const useTransientEdge = (
+export const useEdgeDraft = (
   edge: EdgeReader,
   edgeId: EdgeId | undefined
 ) => useKeyedDraft(edge, edgeId, EMPTY_EDGE_DRAFT)

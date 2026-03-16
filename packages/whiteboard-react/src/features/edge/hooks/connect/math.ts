@@ -41,7 +41,7 @@ const resolveConnectPoint = (
 ): Point | undefined => {
   if (!value) return undefined
   if (value.nodeId && value.anchor) {
-    const entry = instance.read.index.node.byId(value.nodeId)
+    const entry = instance.read.index.node.get(value.nodeId)
     if (entry) {
       return getAnchorPoint(entry.rect, value.anchor, entry.rotation)
     }
@@ -73,7 +73,7 @@ export const resolveSnapTarget = (
   let best: (SnapTarget & { distance: number }) | undefined
 
   for (let index = 0; index < nodeIds.length; index += 1) {
-    const entry = instance.read.index.node.byId(nodeIds[index])
+    const entry = instance.read.index.node.get(nodeIds[index])
     if (!entry) continue
     const rect = entry.aabb
     const dx = Math.max(rect.x - pointWorld.x, 0, pointWorld.x - (rect.x + rect.width))

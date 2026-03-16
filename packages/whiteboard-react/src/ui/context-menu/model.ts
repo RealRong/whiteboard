@@ -52,7 +52,7 @@ const resolveContextMenuTarget = (
     case 'canvas':
       return target
     case 'node': {
-      const entry = instance.read.node.byId.get(target.nodeId)
+      const entry = instance.read.node.item.get(target.nodeId)
       if (!entry) return undefined
       return {
         kind: 'node',
@@ -62,7 +62,7 @@ const resolveContextMenuTarget = (
     }
     case 'nodes': {
       const nodes = target.nodeIds
-        .map((nodeId) => instance.read.node.byId.get(nodeId)?.node)
+        .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
         .filter((node): node is NonNullable<typeof node> => Boolean(node))
 
       if (!nodes.length) return undefined
@@ -74,7 +74,7 @@ const resolveContextMenuTarget = (
       }
     }
     case 'edge': {
-      const entry = instance.read.edge.byId.get(target.edgeId)
+      const entry = instance.read.edge.item.get(target.edgeId)
       if (!entry) return undefined
       return {
         kind: 'edge',
@@ -174,7 +174,7 @@ export const readContextMenuOpenResult = ({
 
   const edgeId = readElementEdgeId(targetElement)
   if (edgeId) {
-    const entry = instance.read.edge.byId.get(edgeId)
+    const entry = instance.read.edge.item.get(edgeId)
     if (!entry) return undefined
 
     return {

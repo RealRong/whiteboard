@@ -12,6 +12,6 @@ export {
   useViewportZoom
 } from './runtime/hooks'
 
-export type { Config, HistoryConfig, WhiteboardProps } from './types/common'
+export type { WhiteboardConfig, HistoryConfig, WhiteboardProps } from './types/common'
 export type { WhiteboardInstance } from './runtime/instance'
 export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'

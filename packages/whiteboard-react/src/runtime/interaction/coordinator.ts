@@ -4,37 +4,37 @@ import type {
   ActiveInteractionMode,
   InteractionCoordinator,
   InteractionMode,
-  InteractionSpec,
+  InteractionPolicy,
   InteractionToken
 } from './types'
 
-const DEFAULT_SPEC: InteractionSpec = {
+const DEFAULT_POLICY: InteractionPolicy = {
   menu: 'block',
   viewport: 'block',
   pan: 'none'
 }
 
-const specByMode: Record<ActiveInteractionMode, InteractionSpec> = {
-  'viewport-gesture': DEFAULT_SPEC,
+const policyByMode: Record<ActiveInteractionMode, InteractionPolicy> = {
+  'viewport-gesture': DEFAULT_POLICY,
   'selection-box': {
-    ...DEFAULT_SPEC,
+    ...DEFAULT_POLICY,
     pan: 'viewport'
   },
   'node-drag': {
-    ...DEFAULT_SPEC,
+    ...DEFAULT_POLICY,
     pan: 'viewport'
   },
   'mindmap-drag': {
-    ...DEFAULT_SPEC,
+    ...DEFAULT_POLICY,
     pan: 'viewport'
   },
-  'node-transform': DEFAULT_SPEC,
+  'node-transform': DEFAULT_POLICY,
   'edge-connect': {
-    ...DEFAULT_SPEC,
+    ...DEFAULT_POLICY,
     pan: 'viewport'
   },
   'edge-routing': {
-    ...DEFAULT_SPEC,
+    ...DEFAULT_POLICY,
     pan: 'viewport'
   }
 }
@@ -60,7 +60,7 @@ export const createInteractionCoordinator = (): InteractionCoordinator => {
         mode: nextMode,
         cancel,
         pointerId,
-        spec: specByMode[nextMode]
+        policy: policyByMode[nextMode]
       }
       mode.set(nextMode)
       return token

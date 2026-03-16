@@ -1,20 +1,20 @@
-import type { InstanceConfig } from '@whiteboard/core/config'
+import type { BoardConfig } from '@whiteboard/core/config'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type {
-  CanvasNodeRect,
-  EdgeEntry,
-  MindmapViewTree,
-  NodeViewItem
+  CanvasNode,
+  EdgeItem,
+  MindmapItem,
+  NodeItem
 } from '@whiteboard/core/read'
 import type { CoreRegistries, Document, EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
   ReadStore
 } from '@whiteboard/core/runtime'
-import type { Commands } from './command'
+import type { EngineCommands } from './command'
 import type { ResolvedHistoryConfig, Size } from './common'
 import type { SnapCandidate } from './node'
-export type { InstanceConfig } from '@whiteboard/core/config'
+export type { BoardConfig } from '@whiteboard/core/config'
 
 export type EdgeConnectAnchorResult = {
   anchor: EdgeAnchor
@@ -22,8 +22,8 @@ export type EdgeConnectAnchorResult = {
 }
 export type EngineReadIndex = {
   node: {
-    all: () => CanvasNodeRect[]
-    byId: (nodeId: NodeId) => CanvasNodeRect | undefined
+    all: () => CanvasNode[]
+    get: (nodeId: NodeId) => CanvasNode | undefined
     idsInRect: (rect: Rect) => NodeId[]
   }
   snap: {
@@ -31,24 +31,24 @@ export type EngineReadIndex = {
     inRect: (rect: Rect) => SnapCandidate[]
   }
   tree: {
-    ids: (nodeId: NodeId) => readonly NodeId[]
+    list: (nodeId: NodeId) => readonly NodeId[]
     has: (rootId: NodeId, nodeId: NodeId) => boolean
   }
 }
 
 export type NodeRead = {
-  ids: ReadStore<readonly NodeId[]>
-  byId: KeyedReadStore<NodeId, Readonly<NodeViewItem> | undefined>
+  list: ReadStore<readonly NodeId[]>
+  item: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
 }
 
 export type EdgeRead = {
-  ids: ReadStore<readonly EdgeId[]>
-  byId: KeyedReadStore<EdgeId, Readonly<EdgeEntry> | undefined>
+  list: ReadStore<readonly EdgeId[]>
+  item: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
 }
 
 export type MindmapRead = {
-  ids: ReadStore<readonly NodeId[]>
-  byId: KeyedReadStore<NodeId, Readonly<MindmapViewTree> | undefined>
+  list: ReadStore<readonly NodeId[]>
+  item: KeyedReadStore<NodeId, Readonly<MindmapItem> | undefined>
 }
 
 export type TreeRead = KeyedReadStore<NodeId, readonly NodeId[]>
@@ -61,16 +61,16 @@ export type EngineRead = {
   index: EngineReadIndex
 }
 
-export type RuntimeConfig = {
+export type EngineRuntimeOptions = {
   mindmapLayout: MindmapLayoutConfig
   history?: ResolvedHistoryConfig
 }
 
-export type Instance = {
-  config: Readonly<InstanceConfig>
+export type EngineInstance = {
+  config: Readonly<BoardConfig>
   read: EngineRead
-  commands: Commands
-  configure: (config: RuntimeConfig) => void
+  commands: EngineCommands
+  configure: (config: EngineRuntimeOptions) => void
   dispose: () => void
 }
 
@@ -87,5 +87,5 @@ export type CreateEngineOptions = {
    */
   document: Document
   onDocumentChange?: (doc: Document) => void
-  config?: Partial<InstanceConfig>
+  config?: Partial<BoardConfig>
 }

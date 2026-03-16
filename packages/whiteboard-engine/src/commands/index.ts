@@ -1,4 +1,4 @@
-import type { Commands } from '@engine-types/command'
+import type { EngineCommands } from '@engine-types/command'
 import type { Write } from '@engine-types/write'
 import { edge } from './edge'
 import { mindmap } from './mindmap'
@@ -8,7 +8,7 @@ export const createCommands = ({
   write
 }: {
   write: Write
-}): Commands => {
+}): EngineCommands => {
   return {
     document: {
       replace: write.replace

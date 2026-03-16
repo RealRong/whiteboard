@@ -1,6 +1,6 @@
 import type { Size } from '../types'
 
-export type InstanceConfig = {
+export type BoardConfig = {
   nodeSize: Size
   mindmapNodeSize: Size
   node: {
@@ -27,7 +27,7 @@ export const DEFAULT_MINDMAP_NODE_SIZE: Size = {
   height: 36
 }
 
-export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
+export const DEFAULT_BOARD_CONFIG: BoardConfig = {
   nodeSize: DEFAULT_NODE_SIZE,
   mindmapNodeSize: DEFAULT_MINDMAP_NODE_SIZE,
   node: {

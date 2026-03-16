@@ -68,7 +68,7 @@ const buildLockItem = ({
   disabled: !actions.canLock && !actions.canUnlock,
   run: ({ instance, close }) => {
     const nodes = nodeIds
-      .map((nodeId) => instance.read.node.byId.get(nodeId)?.node)
+      .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
       .filter((node): node is NonNullable<typeof node> => Boolean(node))
     if (!nodes.length) {
       close()

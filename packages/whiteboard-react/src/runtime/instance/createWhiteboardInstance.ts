@@ -1,18 +1,18 @@
 import { createValueStore } from '@whiteboard/core/runtime'
-import type { Instance as EngineInstance } from '@whiteboard/engine'
+import type { EngineInstance } from '@whiteboard/engine'
 import type { DispatchResult } from '@whiteboard/core/types'
 import type {
   EditorTool,
   InternalWhiteboardInstance,
   WhiteboardRead,
   WhiteboardCommands,
-  WhiteboardRuntimeConfig
+  WhiteboardRuntimeOptions
 } from './types'
-import { createContainerDomain } from '../container/state'
+import { createContainerStore } from '../container/state'
 import { createContainerRead } from '../container/read'
-import { createSelectionDomain } from '../state/selection'
+import { createSelectionStore } from '../state/selection'
 import type { WhiteboardViewport } from '../viewport'
-import { createTransient } from '../draft'
+import { createDrafts } from '../draft'
 import type { NodeRegistry } from '../../types/node'
 import type { InteractionCoordinator } from '../interaction'
 import { createWhiteboardView } from '../view'
@@ -21,18 +21,18 @@ import type { WhiteboardSelectionCommands } from '../state/selection'
 
 type InstanceState = {
   tool: ReturnType<typeof createValueStore<EditorTool>>
-  container: ReturnType<typeof createContainerDomain>
-  selection: ReturnType<typeof createSelectionDomain>
-  draft: ReturnType<typeof createTransient>
+  container: ReturnType<typeof createContainerStore>
+  selection: ReturnType<typeof createSelectionStore>
+  draft: ReturnType<typeof createDrafts>
 }
 
 const createInstanceState = (
   initialTool: EditorTool
 ): InstanceState => ({
   tool: createValueStore<EditorTool>(initialTool),
-  container: createContainerDomain(),
-  selection: createSelectionDomain(),
-  draft: createTransient()
+  container: createContainerStore(),
+  selection: createSelectionStore(),
+  draft: createDrafts()
 })
 
 const createRead = ({
@@ -41,7 +41,7 @@ const createRead = ({
   container
 }: {
   engine: EngineInstance
-  selection: ReturnType<typeof createSelectionDomain>
+  selection: ReturnType<typeof createSelectionStore>
   container: WhiteboardContainerRead
 }): WhiteboardRead => ({
   ...engine.read,
@@ -55,14 +55,14 @@ const createSelectionCommands = ({
   container
 }: {
   engine: EngineInstance
-  selection: ReturnType<typeof createSelectionDomain>
+  selection: ReturnType<typeof createSelectionStore>
   container: WhiteboardContainerRead
 }): WhiteboardSelectionCommands => ({
   ...selection.commands,
   selectAll: () => {
     const nodeIds = container.activeId()
       ? container.nodeIds()
-      : engine.read.node.ids.get()
+      : engine.read.node.list.get()
     selection.commands.select(nodeIds)
   }
 })
@@ -77,7 +77,7 @@ const createCommands = ({
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<EditorTool>>
   selection: WhiteboardSelectionCommands
-  container: ReturnType<typeof createContainerDomain>
+  container: ReturnType<typeof createContainerStore>
   withUiReset: (effect: Promise<DispatchResult>) => Promise<DispatchResult>
 }): WhiteboardCommands => ({
   ...engine.commands,
@@ -115,7 +115,7 @@ export const createWhiteboardInstance = ({
     activeId: state.container.store
   })
 
-  const resetUiTransientState = () => {
+  const resetUiDraftState = () => {
     interaction.cancel()
     state.selection.commands.clear()
     state.container.commands.clear()
@@ -127,7 +127,7 @@ export const createWhiteboardInstance = ({
   ) => {
     const result = await effect
     if (result.ok) {
-      resetUiTransientState()
+      resetUiDraftState()
     }
     return result
   }
@@ -166,7 +166,7 @@ export const createWhiteboardInstance = ({
     view,
     commands,
     viewport,
-    configure: (config: WhiteboardRuntimeConfig) => {
+    configure: (config: WhiteboardRuntimeOptions) => {
       if (state.tool.get() !== config.tool) {
         state.tool.set(config.tool)
       }
@@ -176,7 +176,7 @@ export const createWhiteboardInstance = ({
       })
     },
     dispose: () => {
-      resetUiTransientState()
+      resetUiDraftState()
       engine.dispose()
     }
   }

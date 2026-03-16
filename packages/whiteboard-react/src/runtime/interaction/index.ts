@@ -6,7 +6,7 @@ export type {
   ActiveInteractionMode,
   InteractionCoordinator,
   InteractionMode,
-  InteractionSpec,
+  InteractionPolicy,
   InteractionToken
 } from './types'
 export type { PanDriver, PanPointer } from './pan'

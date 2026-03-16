@@ -4,7 +4,7 @@ import { memo } from 'react'
 import {
   useInstance,
   useSelection,
-  useView
+  useStoreValue
 } from '../../../runtime/hooks'
 import { useEdgePathInteraction } from '../hooks/useEdgePathInteraction'
 import { useEdgeView } from '../hooks/useEdgeView'
@@ -41,7 +41,7 @@ const EdgeItemById = memo(
 
 export const EdgeLayer = () => {
   const instance = useInstance()
-  const edgeIds = useView(instance.view.edgeIds)
+  const edgeIds = useStoreValue(instance.view.edgeIds)
   const selectedEdgeId = useSelection().edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
   const handleEdgePathPointerDown = useEdgePathInteraction()

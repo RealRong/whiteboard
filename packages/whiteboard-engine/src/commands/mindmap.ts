@@ -1,5 +1,5 @@
 import type { Apply } from '@engine-types/write'
-import type { CommandSource, Commands, WriteCommandMap } from '@engine-types/command'
+import type { CommandSource, EngineCommands, WriteCommandMap } from '@engine-types/command'
 
 type MindmapCommand = WriteCommandMap['mindmap']
 
@@ -7,7 +7,7 @@ export const mindmap = ({
   apply
 }: {
   apply: Apply
-}): Commands['mindmap'] => {
+}): EngineCommands['mindmap'] => {
   const run = (
     command: MindmapCommand,
     source: CommandSource = 'user'

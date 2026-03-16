@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useRef, useSyncExternalStore } from 'react'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 import type { NodeId } from '@whiteboard/core/types'
 import {
   applyNodeDraft,
@@ -18,8 +18,8 @@ import {
 
 export type NodeView = {
   nodeId: NodeId
-  node: NodeViewItem['node']
-  rect: NodeViewItem['rect']
+  node: NodeItem['node']
+  rect: NodeItem['rect']
   hovered: boolean
   rotation: number
   hasResizePreview: boolean
@@ -40,13 +40,13 @@ export type NodeOverlayView = {
 }
 
 type NodeViewState = {
-  item: NodeViewItem
+  item: NodeItem
   draft: NodeDraft
 }
 
 type NodeViewCacheEntry = {
   nodeId: NodeId
-  item: NodeViewItem
+  item: NodeItem
   draft: NodeDraft
   selected: boolean
   view: NodeView
@@ -115,7 +115,7 @@ export const useNodeView = (
       }
 
       return (listener: () => void) => {
-        const unsubscribeNode = instance.read.node.byId.subscribe(nodeId, listener)
+        const unsubscribeNode = instance.read.node.item.subscribe(nodeId, listener)
         const unsubscribeDraft = instance.draft.node.subscribe(nodeId, listener)
 
         return () => {
@@ -134,7 +134,7 @@ export const useNodeView = (
         return undefined
       }
 
-      const item = instance.read.node.byId.get(nodeId)
+      const item = instance.read.node.item.get(nodeId)
       if (!item) {
         cacheRef.current = null
         return undefined

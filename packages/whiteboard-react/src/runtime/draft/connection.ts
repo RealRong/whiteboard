@@ -10,7 +10,7 @@ export type ConnectionPreview = {
   showPreviewLine: boolean
 }
 
-export type TransientConnection = {
+export type ConnectionDraftStore = {
   get: () => ConnectionPreview
   subscribe: (listener: () => void) => () => void
   write: (preview: ConnectionPreview) => void
@@ -18,10 +18,10 @@ export type TransientConnection = {
 }
 
 export type ConnectionReader =
-  Pick<TransientConnection, 'get' | 'subscribe'>
+  Pick<ConnectionDraftStore, 'get' | 'subscribe'>
 
 export type ConnectionWriter =
-  Pick<TransientConnection, 'write' | 'clear'>
+  Pick<ConnectionDraftStore, 'write' | 'clear'>
 
 export const EMPTY_CONNECTION: ConnectionPreview = {
   showPreviewLine: false
@@ -38,11 +38,11 @@ export const isConnectionPreviewEqual = (
   && isPointEqual(left.snap, right.snap)
 )
 
-export const useTransientConnection = (
+export const useConnectionDraft = (
   connection: ConnectionReader
 ) => useValueDraft(connection, () => EMPTY_CONNECTION)
 
-export const createTransientConnection = (
+export const createConnectionDraftStore = (
   schedule: () => void
 ) => {
   const { flush, ...connection } = createValueDraftStore({

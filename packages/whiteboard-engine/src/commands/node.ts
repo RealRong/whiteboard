@@ -3,7 +3,7 @@ import type {
   NodeUpdateManyOptions,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource, Commands } from '@engine-types/command'
+import type { CommandSource, EngineCommands } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   NodeId,
@@ -18,7 +18,7 @@ export const node = ({
   apply
 }: {
   apply: Apply
-}): Commands['node'] => {
+}): EngineCommands['node'] => {
   const run = (command: NodeCommand, source: CommandSource = 'user') =>
     apply({
       domain: 'node',

@@ -1,18 +1,21 @@
 import { mergeValue } from '@whiteboard/core/utils'
 import {
-  DEFAULT_INSTANCE_CONFIG,
-  type InstanceConfig as EngineInstanceConfig
+  DEFAULT_BOARD_CONFIG,
+  type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
 import { DEFAULT_VIEWPORT } from '../runtime/viewport'
-import type { Config, ResolvedConfig } from '../types/common'
+import type {
+  ResolvedWhiteboardConfig,
+  WhiteboardConfig
+} from '../types/common'
 
 const ZOOM_EPSILON = 0.0001
 
-const DEFAULT_CONFIG: ResolvedConfig = {
+const DEFAULT_CONFIG: ResolvedWhiteboardConfig = {
   className: undefined,
   style: undefined,
-  nodeSize: DEFAULT_INSTANCE_CONFIG.nodeSize,
-  mindmapNodeSize: DEFAULT_INSTANCE_CONFIG.mindmapNodeSize,
+  nodeSize: DEFAULT_BOARD_CONFIG.nodeSize,
+  mindmapNodeSize: DEFAULT_BOARD_CONFIG.mindmapNodeSize,
   mindmapLayout: {},
   viewport: {
     initial: DEFAULT_VIEWPORT,
@@ -22,8 +25,8 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     enableWheel: true,
     wheelSensitivity: 0.001
   },
-  node: DEFAULT_INSTANCE_CONFIG.node,
-  edge: DEFAULT_INSTANCE_CONFIG.edge,
+  node: DEFAULT_BOARD_CONFIG.node,
+  edge: DEFAULT_BOARD_CONFIG.edge,
   history: {
     enabled: true,
     capacity: 100,
@@ -35,11 +38,13 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 }
 
 export const mergeConfig = (
-  defaults: ResolvedConfig,
-  overrides?: Config
-): ResolvedConfig => mergeValue(defaults, overrides)
+  defaults: ResolvedWhiteboardConfig,
+  overrides?: WhiteboardConfig
+): ResolvedWhiteboardConfig => mergeValue(defaults, overrides)
 
-export const normalizeConfig = (config?: Config): ResolvedConfig => {
+export const normalizeConfig = (
+  config?: WhiteboardConfig
+): ResolvedWhiteboardConfig => {
   const merged = mergeConfig(DEFAULT_CONFIG, config)
   const minZoom = Math.max(ZOOM_EPSILON, merged.viewport.minZoom)
   const maxZoom = Math.max(minZoom, merged.viewport.maxZoom)
@@ -61,9 +66,9 @@ export const normalizeConfig = (config?: Config): ResolvedConfig => {
   }
 }
 
-export const toEngineInstanceConfig = (
-  config: ResolvedConfig
-): EngineInstanceConfig => ({
+export const toBoardConfig = (
+  config: ResolvedWhiteboardConfig
+): EngineBoardConfig => ({
   nodeSize: {
     width: config.nodeSize.width,
     height: config.nodeSize.height

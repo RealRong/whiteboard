@@ -1,11 +1,11 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
-import type { NodeViewItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/core/read'
 import { useViewportZoom } from '../../../runtime/hooks'
 import { buildNodeTransformHandleStyle } from './styles'
 
-type NodeViewNode = NodeViewItem['node']
-type NodeViewRect = NodeViewItem['rect']
+type NodeViewNode = NodeItem['node']
+type NodeViewRect = NodeItem['rect']
 
 type NodeTransformHandlesProps = {
   node: NodeViewNode

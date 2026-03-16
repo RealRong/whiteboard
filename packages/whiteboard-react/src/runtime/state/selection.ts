@@ -30,7 +30,7 @@ export type StoredSelection = {
 
 type SelectionStateCommands = Omit<WhiteboardSelectionCommands, 'selectAll'>
 
-type SelectionDomain = {
+export type SelectionStore = {
   store: ValueStore<StoredSelection>
   read: WhiteboardSelectionRead
   commands: SelectionStateCommands
@@ -75,7 +75,7 @@ const createSelectionState = (
   }
 }
 
-export const createSelectionDomain = (): SelectionDomain => {
+export const createSelectionStore = (): SelectionStore => {
   const store = createValueStore<StoredSelection>(EMPTY_SELECTION)
   const readSelection = () => store.get()
   const writeSelection = (next: StoredSelection) => {

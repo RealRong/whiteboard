@@ -1,4 +1,4 @@
-import type { EdgeEntry } from '@whiteboard/core/read'
+import type { EdgeItem } from '@whiteboard/core/read'
 import type {
   Edge,
   EdgeId,
@@ -9,19 +9,19 @@ import type { ReadStore } from '@whiteboard/core/runtime'
 
 type ContainerEngineRead = {
   edge: {
-    byId: {
-      get: (edgeId: EdgeId) => Readonly<EdgeEntry> | undefined
+    item: {
+      get: (edgeId: EdgeId) => Readonly<EdgeItem> | undefined
     }
   }
   index: {
     node: {
-      byId: (nodeId: NodeId) => {
+      get: (nodeId: NodeId) => {
         node?: unknown
         rect: Rect
       } | undefined
     }
     tree: {
-      ids: (nodeId: NodeId) => readonly NodeId[]
+      list: (nodeId: NodeId) => readonly NodeId[]
       has: (rootId: NodeId, nodeId: NodeId) => boolean
     }
   }
@@ -61,7 +61,7 @@ const resolveEdge = (
   value: EdgeId | Pick<Edge, 'source' | 'target'>
 ): Pick<Edge, 'source' | 'target'> | undefined => {
   if (typeof value === 'string') {
-    const entry: Readonly<EdgeEntry> | undefined = read.edge.byId.get(value)
+    const entry: Readonly<EdgeItem> | undefined = read.edge.item.get(value)
     return entry?.edge
   }
   return value
@@ -77,13 +77,13 @@ export const createContainerRead = ({
   const readActiveId = (): NodeId | undefined => {
     const current = activeId.get()
     if (!current) return undefined
-    return read.index.node.byId(current)?.node ? current : undefined
+    return read.index.node.get(current)?.node ? current : undefined
   }
 
   const readNodeIds = (): readonly NodeId[] => {
     const activeId = readActiveId()
     return activeId
-      ? read.index.tree.ids(activeId)
+      ? read.index.tree.list(activeId)
       : EMPTY_NODE_IDS
   }
 
@@ -99,7 +99,7 @@ export const createContainerRead = ({
     activeRect: () => {
       const activeId = readActiveId()
       return activeId
-        ? read.index.node.byId(activeId)?.rect
+        ? read.index.node.get(activeId)?.rect
         : undefined
     },
     nodeIds: readNodeIds,

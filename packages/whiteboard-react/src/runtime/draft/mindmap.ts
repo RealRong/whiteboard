@@ -8,36 +8,36 @@ export type MindmapDragPreview = {
   drop?: MindmapDragDropTarget
 }
 
-export type MindmapDragView = {
+export type MindmapDragDraft = {
   treeId: NodeId
   kind: 'root' | 'subtree'
   baseOffset: Point
   preview?: MindmapDragPreview
 }
 
-export type TransientMindmap = {
-  get: () => MindmapDragView | undefined
+export type MindmapDraftStore = {
+  get: () => MindmapDragDraft | undefined
   subscribe: (listener: () => void) => () => void
-  write: (drag: MindmapDragView | undefined) => void
+  write: (drag: MindmapDragDraft | undefined) => void
   clear: () => void
 }
 
 export type MindmapReader =
-  Pick<TransientMindmap, 'get' | 'subscribe'>
+  Pick<MindmapDraftStore, 'get' | 'subscribe'>
 
 export type MindmapWriter =
-  Pick<TransientMindmap, 'write' | 'clear'>
+  Pick<MindmapDraftStore, 'write' | 'clear'>
 
-export const useTransientMindmap = (
+export const useMindmapDraft = (
   mindmap: MindmapReader
 ) => useValueDraft(mindmap, () => undefined)
 
-export const createTransientMindmap = (
+export const createMindmapDraftStore = (
   schedule: () => void
 ) => {
   const { flush, ...mindmap } = createValueDraftStore({
     schedule,
-    initialValue: undefined as MindmapDragView | undefined,
+    initialValue: undefined as MindmapDragDraft | undefined,
     isEqual: (left, right) => left === right
   })
 

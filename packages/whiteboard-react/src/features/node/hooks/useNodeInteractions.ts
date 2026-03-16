@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
 import { useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance, useView } from '../../../runtime/hooks'
+import { useInternalInstance as useInstance, useStoreValue } from '../../../runtime/hooks'
 import { useWindowPointerSession } from '../../../runtime/interaction/useWindowPointerSession'
 import { createNodeDragSession } from './drag/session'
 import { createNodeTransformSession } from './transform/session'
@@ -31,8 +31,8 @@ export const useNodeInteractions = () => {
 
   const dragSession = dragSessionRef.current
   const transformSession = transformSessionRef.current
-  const dragPointerId = useView(dragSession.pointer)
-  const transformPointerId = useView(transformSession.pointer)
+  const dragPointerId = useStoreValue(dragSession.pointer)
+  const transformPointerId = useStoreValue(transformSession.pointer)
 
   useWindowPointerSession({
     pointerId: dragPointerId,
@@ -69,7 +69,7 @@ export const useNodeInteractions = () => {
         return
       }
 
-      const nodeEntry = instance.read.index.node.byId(nodeId)
+      const nodeEntry = instance.read.index.node.get(nodeId)
       if (!nodeEntry || nodeEntry.node.type !== 'group') {
         return
       }

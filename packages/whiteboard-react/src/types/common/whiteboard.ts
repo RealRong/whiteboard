@@ -14,7 +14,7 @@ export type ResolvedViewportConfig = Required<ViewportConfig>
 export type ResolvedNodeConfig = Required<NodeConfig>
 export type ResolvedEdgeConfig = Required<EdgeConfig>
 
-export type Config = {
+export type WhiteboardConfig = {
   className?: string
   style?: CSSProperties
   nodeSize?: Size
@@ -28,8 +28,8 @@ export type Config = {
   shortcuts?: ShortcutOverrides
 }
 
-export type ResolvedConfig = Omit<
-  Config,
+export type ResolvedWhiteboardConfig = Omit<
+  WhiteboardConfig,
   'nodeSize' | 'mindmapNodeSize' | 'mindmapLayout' | 'viewport' | 'node' | 'edge' | 'history' | 'tool'
 > & {
   nodeSize: Size
@@ -47,5 +47,5 @@ export type WhiteboardProps = {
   onDocChange: (recipe: (draft: Document) => void) => void
   registries?: CoreRegistries
   nodeRegistry?: NodeRegistry
-  config?: Config
+  config?: WhiteboardConfig
 }

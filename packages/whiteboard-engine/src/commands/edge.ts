@@ -2,7 +2,7 @@ import type {
   EdgeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource, Commands } from '@engine-types/command'
+import type { CommandSource, EngineCommands } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   EdgeId,
@@ -18,7 +18,7 @@ export const edge = ({
   apply
 }: {
   apply: Apply
-}): Commands['edge'] => {
+}): EngineCommands['edge'] => {
   const run = (command: EdgeCommand, source: CommandSource = 'user') =>
     apply({
       domain: 'edge',

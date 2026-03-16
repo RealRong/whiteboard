@@ -71,7 +71,7 @@ export const useNodeSizeObserver = () => {
       const updates: Array<{ id: NodeId; patch: { size: Size } }> = []
 
       nextState.pendingSizeById.forEach((size, nodeId) => {
-        const current = instance.read.index.node.byId(nodeId)
+        const current = instance.read.index.node.get(nodeId)
         if (!current || !isValidSize(size)) return
 
         const committedSize = {

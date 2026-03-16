@@ -1,4 +1,4 @@
-import type { InstanceConfig } from '@engine-types/instance/config'
+import type { BoardConfig } from '@engine-types/instance/config'
 import type { NodeDragDraft } from '@engine-types/node/drag'
 import {
   getNode,
@@ -21,7 +21,7 @@ import { DEFAULT_TUNING } from '../../../src/config'
 type CompilerOptions = {
   readDoc: () => Document
   readCanvasNodes: () => Node[]
-  config: Pick<InstanceConfig, 'node' | 'nodeSize'>
+  config: Pick<BoardConfig, 'node' | 'nodeSize'>
 }
 
 type NodePreviewUpdate = {

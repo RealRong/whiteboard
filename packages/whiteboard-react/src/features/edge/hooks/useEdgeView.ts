@@ -1,11 +1,11 @@
 import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
-import type { EdgeEntry } from '@whiteboard/core/read'
+import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import { useMemo, useRef, useSyncExternalStore } from 'react'
 import {
   applyCanvasDraft,
   applyEdgeDraft,
-  useTransientEdge,
+  useEdgeDraft,
   type EdgeDraft,
   type NodeDraft
 } from '../../../runtime/draft'
@@ -16,8 +16,8 @@ import {
 } from '../../../runtime/hooks'
 
 export type EdgeView = {
-  edge: EdgeEntry['edge']
-  endpoints: EdgeEntry['endpoints']
+  edge: EdgeItem['edge']
+  endpoints: EdgeItem['endpoints']
 }
 
 export type SelectedEdgeRoutingHandleView = {
@@ -36,7 +36,7 @@ export type SelectedEdgeView = {
 
 type EdgeViewCacheEntry = {
   edgeId: EdgeId
-  entry: EdgeEntry
+  entry: EdgeItem
   sourceDraft: NodeDraft
   targetDraft: NodeDraft
   edgeDraft: EdgeDraft
@@ -46,17 +46,17 @@ type EdgeViewCacheEntry = {
 const EMPTY_UNSUBSCRIBE = () => {}
 
 const applyEndpointDrafts = (
-  entry: EdgeEntry,
+  entry: EdgeItem,
   instance: Pick<InternalWhiteboardInstance, 'read'>,
   sourceDraft: NodeDraft,
   targetDraft: NodeDraft
-) : EdgeEntry => {
+) : EdgeItem => {
   if (!sourceDraft.patch && !targetDraft.patch) {
     return entry
   }
 
-  const sourceEntry = instance.read.index.node.byId(entry.edge.source.nodeId)
-  const targetEntry = instance.read.index.node.byId(entry.edge.target.nodeId)
+  const sourceEntry = instance.read.index.node.get(entry.edge.source.nodeId)
+  const targetEntry = instance.read.index.node.get(entry.edge.target.nodeId)
   if (!sourceEntry || !targetEntry) {
     return entry
   }
@@ -81,7 +81,7 @@ const applyEndpointDrafts = (
 
 const resolveEdgeView = (
   instance: Pick<InternalWhiteboardInstance, 'read'>,
-  entry: EdgeEntry,
+  entry: EdgeItem,
   sourceDraft: NodeDraft,
   targetDraft: NodeDraft,
   edgeDraft: EdgeDraft
@@ -112,12 +112,12 @@ export const useEdgeView = (
       }
 
       return (listener: () => void) => {
-        const entry = instance.read.edge.byId.get(edgeId)
+        const entry = instance.read.edge.item.get(edgeId)
         if (!entry) {
-          return instance.read.edge.byId.subscribe(edgeId, listener)
+          return instance.read.edge.item.subscribe(edgeId, listener)
         }
 
-        const unsubscribeEdge = instance.read.edge.byId.subscribe(edgeId, listener)
+        const unsubscribeEdge = instance.read.edge.item.subscribe(edgeId, listener)
         const unsubscribeEdgeDraft = instance.draft.edge.subscribe(edgeId, listener)
         const unsubscribeSourceDraft = instance.draft.node.subscribe(entry.edge.source.nodeId, listener)
         const unsubscribeTargetDraft = instance.draft.node.subscribe(entry.edge.target.nodeId, listener)
@@ -140,7 +140,7 @@ export const useEdgeView = (
         return undefined
       }
 
-      const entry = instance.read.edge.byId.get(edgeId)
+      const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
         cacheRef.current = null
         return undefined
@@ -195,7 +195,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInstance()
   const edgeId = useSelection().edgeId
   const entry = useEdgeView(edgeId)
-  const draft = useTransientEdge(instance.draft.edge, edgeId)
+  const draft = useEdgeDraft(instance.draft.edge, edgeId)
 
   return useMemo(() => {
     if (!edgeId || !entry) return undefined

@@ -110,7 +110,7 @@ export const createNodeDragSession = (
       if (active) return
       if (instance.view.tool.get() !== 'select') return
 
-      const nodeRect = instance.read.index.node.byId(nodeId)
+      const nodeRect = instance.read.index.node.get(nodeId)
       if (!nodeRect) return
 
       if (!instance.read.container.hasNode(nodeId)) {

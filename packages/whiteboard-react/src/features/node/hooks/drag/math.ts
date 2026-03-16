@@ -1,4 +1,4 @@
-import type { InstanceConfig } from '@whiteboard/core/config'
+import type { BoardConfig } from '@whiteboard/core/config'
 import {
   computeSnap,
   expandContainerRect,
@@ -210,7 +210,7 @@ export const resolveNodeDragPreview = (options: {
   snapEnabled: boolean
   allowCross: boolean
   nodes: readonly Node[]
-  config: Pick<InstanceConfig, 'node' | 'nodeSize'>
+  config: Pick<BoardConfig, 'node' | 'nodeSize'>
   readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
 }): NodeDragPreviewResult => {
   const {
@@ -291,7 +291,7 @@ export const resolveNodeDragPreview = (options: {
 export const resolveNodeDragCommit = (options: {
   draft: NodeDragRuntimeState
   nodes: readonly Node[]
-  config: Pick<InstanceConfig, 'node' | 'nodeSize'>
+  config: Pick<BoardConfig, 'node' | 'nodeSize'>
 }): Array<{ id: NodeId; patch: NodePatch }> => {
   const { draft, nodes, config } = options
   const nodeById = toNodeById(nodes)

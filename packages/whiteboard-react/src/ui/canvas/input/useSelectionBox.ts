@@ -7,7 +7,7 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance, useView } from '../../../runtime/hooks'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 import {
   createPanDriver,
   useWindowPointerSession
@@ -183,7 +183,7 @@ export const useSelectionBox = ({
     }
   }, [instance])
 
-  const pointerId = useView(pointerRef.current)
+  const pointerId = useStoreValue(pointerRef.current)
 
   useWindowPointerSession({
     pointerId,

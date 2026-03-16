@@ -2,7 +2,7 @@ import type { EdgeAnchor, EdgeId, NodeId } from '@whiteboard/core/types'
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { EdgeConnectDraft } from '../../../../types/edge'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance as useInstance, useTool, useView } from '../../../../runtime/hooks'
+import { useInternalInstance as useInstance, useTool, useStoreValue } from '../../../../runtime/hooks'
 import {
   createPanDriver,
   useWindowPointerSession
@@ -65,7 +65,7 @@ export const useEdgeConnect = ({
     nodeId: NodeId,
     pointer: ConnectPointer
   ): EdgeConnectDraft | undefined => {
-    const entry = instance.read.index.node.byId(nodeId)
+    const entry = instance.read.index.node.get(nodeId)
     if (!entry) {
       return undefined
     }
@@ -108,7 +108,7 @@ export const useEdgeConnect = ({
     end: 'source' | 'target',
     pointer: ConnectPointer
   ): EdgeConnectDraft | undefined => {
-    const edge = instance.read.edge.byId.get(edgeId)?.edge
+    const edge = instance.read.edge.item.get(edgeId)?.edge
     if (!edge) {
       return undefined
     }
@@ -294,7 +294,7 @@ export const useEdgeConnect = ({
     event.stopPropagation()
   }, [cancel, instance, setDraftPreview])
 
-  const pointerId = useView(pointerRef.current)
+  const pointerId = useStoreValue(pointerRef.current)
 
   useEffect(() => {
     const container = containerRef.current

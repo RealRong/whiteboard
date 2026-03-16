@@ -1,14 +1,14 @@
-export { engine } from './instance/engine'
+export { createEngine } from './instance/engine'
 export {
-  DEFAULT_INSTANCE_CONFIG
+  DEFAULT_BOARD_CONFIG
 } from './config'
 
-export type { Commands, CommandSource } from './types/command'
+export type { EngineCommands, CommandSource } from './types/command'
 export type {
   CreateEngineOptions,
-  Instance,
-  InstanceConfig,
-  RuntimeConfig,
+  EngineInstance,
+  BoardConfig,
+  EngineRuntimeOptions,
   EngineRead,
   EngineReadIndex,
   TreeRead,

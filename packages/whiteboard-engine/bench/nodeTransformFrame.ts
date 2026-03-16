@@ -6,7 +6,7 @@ import {
   type Point,
   type Viewport
 } from '@whiteboard/core/types'
-import { engine } from '../src/instance/engine'
+import { createEngine } from '../src/instance/engine'
 import type { PointerInput } from '@engine-types/common/input'
 import type { NodeTransformUpdateConstraints } from '@engine-types/node/transform'
 import { NodeTransformKernel } from './kernels/nodeTransform/Kernel'
@@ -182,7 +182,7 @@ const main = () => {
 
   let doc = createDocument()
   const viewport = BENCH_VIEWPORT
-  const instance = engine({
+  const instance = createEngine({
     document: doc,
     onDocumentChange: (nextDoc) => {
       doc = nextDoc
@@ -206,7 +206,7 @@ const main = () => {
   }
 
   const nodeId = `n_${Math.floor(NODE_COUNT / 2)}`
-  const baseNode = instance.read.index.node.byId(nodeId)?.node
+  const baseNode = instance.read.index.node.get(nodeId)?.node
   if (!baseNode) {
     throw new Error(`Missing transform node: ${nodeId}`)
   }
@@ -222,7 +222,7 @@ const main = () => {
   const runSamples: number[][] = []
   for (let run = 0; run < RUNS; run += 1) {
     const pointerId = run + 1
-    const nodeRect = instance.read.index.node.byId(nodeId)
+    const nodeRect = instance.read.index.node.get(nodeId)
     if (!nodeRect) {
       throw new Error(`Missing nodeRect for node ${nodeId} at run ${run + 1}`)
     }

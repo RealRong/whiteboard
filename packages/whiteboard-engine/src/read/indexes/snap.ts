@@ -1,4 +1,4 @@
-import type { CanvasNodeRect } from '@whiteboard/core/read'
+import type { CanvasNode } from '@whiteboard/core/read'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { SnapCandidate } from '@engine-types/node'
 import type { EngineReadIndex } from '@engine-types/instance'
@@ -132,7 +132,7 @@ export class SnapIndex {
 
   applyChange = (
     impact: KernelReadImpact,
-    node: Pick<EngineReadIndex['node'], 'all' | 'byId'>
+    node: Pick<EngineReadIndex['node'], 'all' | 'get'>
   ): boolean => {
     const rebuild = resolveRebuild(impact)
     switch (rebuild) {
@@ -141,13 +141,13 @@ export class SnapIndex {
       case 'full':
         return this.syncFull(node.all())
       case 'dirty':
-        return this.syncByNodeIds(impact.node.ids, node.byId)
+        return this.syncByNodeIds(impact.node.ids, node.get)
       default:
         return false
     }
   }
 
-  private syncFull = (entries: CanvasNodeRect[]): boolean => {
+  private syncFull = (entries: CanvasNode[]): boolean => {
     const seen = new Set<NodeId>()
     const nextOrderedIds: NodeId[] = []
     let changed = false
@@ -187,7 +187,7 @@ export class SnapIndex {
 
   private syncByNodeIds = (
     nodeIds: Iterable<NodeId>,
-    getEntry: (nodeId: NodeId) => CanvasNodeRect | undefined
+    getEntry: (nodeId: NodeId) => CanvasNode | undefined
   ): boolean => {
     const removed = new Set<NodeId>()
     let changed = false

@@ -1,4 +1,4 @@
-import type { InstanceConfig } from '@whiteboard/core/config'
+import type { BoardConfig } from '@whiteboard/core/config'
 import {
   computeNextRotation,
   computeResizeRect,
@@ -205,7 +205,7 @@ export const resolveResizePreview = (options: {
   altKey: boolean
   shiftKey: boolean
   nodeId: NodeId
-  config: Pick<InstanceConfig, 'node'>
+  config: Pick<BoardConfig, 'node'>
   readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
 }): ResizePreviewResult => {
   const {

@@ -1,5 +1,5 @@
 import {
-  DEFAULT_INSTANCE_CONFIG,
+  DEFAULT_BOARD_CONFIG,
   DEFAULT_MINDMAP_NODE_SIZE,
   DEFAULT_NODE_SIZE
 } from '@whiteboard/core/config'
@@ -7,7 +7,7 @@ import type { Size } from '@engine-types/common'
 import type { ResolvedHistoryConfig } from '@engine-types/common'
 import type { MindmapLayoutMode } from '@whiteboard/core/mindmap'
 export {
-  DEFAULT_INSTANCE_CONFIG,
+  DEFAULT_BOARD_CONFIG,
   DEFAULT_MINDMAP_NODE_SIZE,
   DEFAULT_NODE_SIZE
 } from '@whiteboard/core/config'

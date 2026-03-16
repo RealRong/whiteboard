@@ -30,7 +30,7 @@ export const createRead = ({
   const indexes: EngineReadIndex = {
     node: {
       all: nodeRectIndex.all,
-      byId: nodeRectIndex.byId,
+      get: nodeRectIndex.byId,
       idsInRect: nodeRectIndex.nodeIdsInRect
     },
     snap: {
@@ -38,7 +38,7 @@ export const createRead = ({
       inRect: snapIndex.queryInRect
     },
     tree: {
-      ids: treeIndex.ids,
+      list: treeIndex.ids,
       has: treeIndex.has
     }
   }
@@ -62,7 +62,10 @@ export const createRead = ({
   const applyImpact = (impact: KernelReadImpact) => {
     const model = readModel()
     nodeRectIndex.applyChange(impact, model)
-    snapIndex.applyChange(impact, nodeRectIndex)
+    snapIndex.applyChange(impact, {
+      all: nodeRectIndex.all,
+      get: nodeRectIndex.byId
+    })
     treeIndex.applyChange(model)
     const snapshot = createSnapshot(model)
     nodeProjection.applyChange(impact, snapshot)
@@ -76,31 +79,31 @@ export const createRead = ({
   return {
     read: {
       node: {
-        ids: {
+        list: {
           get: nodeProjection.ids,
           subscribe: nodeProjection.subscribeIds
         },
-        byId: {
+        item: {
           get: nodeProjection.get,
           subscribe: nodeProjection.subscribe
         }
       },
       edge: {
-        ids: {
+        list: {
           get: edgeProjection.ids,
           subscribe: edgeProjection.subscribeIds
         },
-        byId: {
+        item: {
           get: edgeProjection.get,
           subscribe: edgeProjection.subscribe
         }
       },
       mindmap: {
-        ids: {
+        list: {
           get: mindmapProjection.ids,
           subscribe: mindmapProjection.subscribeIds
         },
-        byId: {
+        item: {
           get: mindmapProjection.get,
           subscribe: mindmapProjection.subscribe
         }

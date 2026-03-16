@@ -50,7 +50,7 @@ export const createNodeTransformSession = (
   }
 
   const commit = (next: ActiveTransform) => {
-    const node = instance.read.index.node.byId(next.nodeId)?.node
+    const node = instance.read.index.node.get(next.nodeId)?.node
     if (!node) {
       return
     }
@@ -118,7 +118,7 @@ export const createNodeTransformSession = (
       if (active) return
       if (instance.view.tool.get() !== 'select') return
 
-      const nodeRect = instance.read.index.node.byId(nodeId)
+      const nodeRect = instance.read.index.node.get(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
 
       let drag: ResizeDragState | RotateDragState

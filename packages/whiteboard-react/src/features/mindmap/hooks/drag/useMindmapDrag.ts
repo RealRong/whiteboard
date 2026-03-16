@@ -2,7 +2,7 @@ import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance, useView } from '../../../../runtime/hooks'
+import { useInternalInstance as useInstance, useStoreValue } from '../../../../runtime/hooks'
 import {
   createPanDriver,
   useWindowPointerSession
@@ -11,7 +11,7 @@ import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
   resolveSubtreeDragSession,
-  toDragView,
+  toDragDraft,
   type MindmapDragSession
 } from './math'
 
@@ -63,11 +63,11 @@ export const useMindmapDrag = () => {
       world,
       treeView:
         active.kind === 'subtree'
-          ? instance.read.mindmap.byId.get(active.treeId)
+          ? instance.read.mindmap.item.get(active.treeId)
           : undefined
     })
     activeRef.current = next
-    instance.draft.mindmap.write(toDragView(next))
+    instance.draft.mindmap.write(toDragDraft(next))
   }, [instance])
 
   if (!panRef.current) {
@@ -78,7 +78,7 @@ export const useMindmapDrag = () => {
     })
   }
 
-  const pointerId = useView(pointerRef.current)
+  const pointerId = useStoreValue(pointerRef.current)
 
   useWindowPointerSession({
     pointerId,
@@ -172,7 +172,7 @@ export const useMindmapDrag = () => {
         return
       }
 
-      const treeView = instance.read.mindmap.byId.get(treeId)
+      const treeView = instance.read.mindmap.item.get(treeId)
       if (!treeView) {
         return
       }
@@ -215,7 +215,7 @@ export const useMindmapDrag = () => {
       activeRef.current = next
       tokenRef.current = token
       pointerRef.current.set(event.pointerId)
-      instance.draft.mindmap.write(toDragView(next))
+      instance.draft.mindmap.write(toDragDraft(next))
       event.preventDefault()
       event.stopPropagation()
     }

@@ -1,8 +1,8 @@
 export type {
-  ResolvedConfig,
+  ResolvedWhiteboardConfig,
   Size,
   ViewportConfig,
-  Config,
+  WhiteboardConfig,
   EdgeConfig,
   HistoryConfig,
   NodeConfig,

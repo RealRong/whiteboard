@@ -123,7 +123,7 @@ export const useViewportController = ({
     let spacePressed = false
 
     const isViewportInputBlocked = () =>
-      interaction.current()?.spec.viewport === 'block'
+      interaction.current()?.policy.viewport === 'block'
 
     const updateContainerRect = (rect: ContainerRect) => {
       if (isSameContainerRect(containerRect, rect)) return

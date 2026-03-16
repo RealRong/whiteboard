@@ -1,14 +1,14 @@
 import type {
   CreateEngineOptions,
-  Instance,
-  RuntimeConfig
+  EngineInstance,
+  EngineRuntimeOptions
 } from '@engine-types/instance'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { Write, WriteCommit, WriteInstance } from '@engine-types/write'
 import type { DispatchResult } from '@whiteboard/core/types'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createCommands } from '../commands'
-import { resolveInstanceConfig } from '../config'
+import { resolveBoardConfig } from '../config'
 import { createRead } from '../read'
 import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from '../read/impacts'
 import { createWrite } from '../write'
@@ -16,13 +16,13 @@ import { createDocumentSource } from './document'
 
 const EMPTY_MINDMAP_LAYOUT: MindmapLayoutConfig = {}
 
-export const engine = ({
+export const createEngine = ({
   registries,
   document,
   onDocumentChange,
   config: overrides
-}: CreateEngineOptions): Instance => {
-  const config = resolveInstanceConfig(overrides)
+}: CreateEngineOptions): EngineInstance => {
+  const config = resolveBoardConfig(overrides)
   const resolvedRegistries = registries ?? createRegistries()
   const documentSource = createDocumentSource(document)
   let mindmapLayout = EMPTY_MINDMAP_LAYOUT
@@ -90,7 +90,7 @@ export const engine = ({
   const configure = ({
     history,
     mindmapLayout: nextMindmapLayout = EMPTY_MINDMAP_LAYOUT
-  }: RuntimeConfig) => {
+  }: EngineRuntimeOptions) => {
     if (history) {
       writer.history.configure(history)
     }

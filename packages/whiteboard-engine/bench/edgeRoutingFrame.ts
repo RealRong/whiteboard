@@ -6,7 +6,7 @@ import {
   type Point,
   type Viewport
 } from '@whiteboard/core/types'
-import { engine } from '../src/instance/engine'
+import { createEngine } from '../src/instance/engine'
 import type { PointerInput } from '@engine-types/common/input'
 import { Routing } from './kernels/edgeRouting/Routing'
 
@@ -184,7 +184,7 @@ const main = () => {
 
   let doc = createDocument()
   const viewport = BENCH_VIEWPORT
-  const instance = engine({
+  const instance = createEngine({
     document: doc,
     onDocumentChange: (nextDoc) => {
       doc = nextDoc

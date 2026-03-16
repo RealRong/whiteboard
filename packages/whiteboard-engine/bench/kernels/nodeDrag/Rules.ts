@@ -1,5 +1,5 @@
 import type { PointerInput } from '@engine-types/common/input'
-import type { InstanceConfig } from '@engine-types/instance/config'
+import type { BoardConfig } from '@engine-types/instance/config'
 import type { EngineRead } from '@engine-types/instance/read'
 import type { NodeDragChildren, NodeDragDraft } from '@engine-types/node/drag'
 import type { Guide } from '@engine-types/node/snap'
@@ -17,7 +17,7 @@ type MoveOptions = {
 }
 
 type RulesOptions = {
-  config: InstanceConfig
+  config: BoardConfig
   read: Pick<EngineRead, 'index'>
   readZoom: () => number
   readCanvasNodes: () => Node[]
@@ -34,7 +34,7 @@ const resolveInteractionZoom = (zoom: number) =>
   Math.max(zoom, DEFAULT_INTERNALS.zoomEpsilon)
 
 const resolveSnapThresholdWorld = (
-  config: InstanceConfig['node'],
+  config: BoardConfig['node'],
   zoom: number
 ) =>
   Math.min(

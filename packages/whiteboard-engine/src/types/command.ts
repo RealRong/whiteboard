@@ -270,7 +270,7 @@ export type MindmapCommands = {
   ) => Promise<DispatchResult>
 }
 
-export type Commands = {
+export type EngineCommands = {
   document: {
     replace: (doc: Document) => Promise<DispatchResult>
   }
