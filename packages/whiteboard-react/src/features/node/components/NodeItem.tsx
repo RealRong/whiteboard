@@ -5,7 +5,7 @@ import type {
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeContainerProps, NodeRenderProps } from 'types/node'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useInstance } from '../../../runtime/hooks'
 import { NodeBlock } from './NodeBlock'
 import {
   buildNodeContainerStyle
@@ -36,7 +36,7 @@ export const NodeItem = memo(({
   onNodePointerDown,
   onNodeDoubleClick,
 }: NodeItemProps) => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const view = useNodeView(nodeId, { selected })
 
   if (!view) return null

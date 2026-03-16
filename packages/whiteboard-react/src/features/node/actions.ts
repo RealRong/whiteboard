@@ -5,7 +5,11 @@ import type {
   NodeId,
   Operation
 } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../../runtime/instance'
+import type { WhiteboardInstance } from '../../runtime/instance'
+
+type NodeCommandsInstance = Pick<WhiteboardInstance, 'commands'>
+type NodeReadInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
+type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
 
 const readCreatedNodeIds = (
   result: DispatchResult,
@@ -27,7 +31,7 @@ const readCreatedGroupId = (
   readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
 
 export const selectNodeIds = (
-  instance: InternalWhiteboardInstance,
+  instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (nodeIds.length > 0) {
@@ -38,7 +42,7 @@ export const selectNodeIds = (
 }
 
 export const deleteNodes = async (
-  instance: InternalWhiteboardInstance,
+  instance: NodeStateInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
@@ -51,7 +55,7 @@ export const deleteNodes = async (
 }
 
 export const duplicateNodes = async (
-  instance: InternalWhiteboardInstance,
+  instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
@@ -62,7 +66,7 @@ export const duplicateNodes = async (
 }
 
 export const setNodesLocked = async (
-  instance: InternalWhiteboardInstance,
+  instance: NodeCommandsInstance,
   nodes: readonly Node[],
   locked: boolean
 ) => {
@@ -76,7 +80,7 @@ export const setNodesLocked = async (
 }
 
 export const groupNodes = async (
-  instance: InternalWhiteboardInstance,
+  instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (nodeIds.length < 2) return
@@ -87,7 +91,7 @@ export const groupNodes = async (
 }
 
 export const ungroupNodes = async (
-  instance: InternalWhiteboardInstance,
+  instance: NodeReadInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return

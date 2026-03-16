@@ -1,8 +1,12 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
+import {
+  createStagedValueStore,
+  type StagedValueStore
+} from '@whiteboard/core/runtime'
 import type { Point } from '@whiteboard/core/types'
-import { createValueDraftStore, useValueDraft } from './shared/valueStore'
+import { useStoreValue } from '../hooks'
 
-export type ConnectionPreview = {
+type ConnectionPreview = {
   activePointerId?: number
   from?: Point
   to?: Point
@@ -10,12 +14,8 @@ export type ConnectionPreview = {
   showPreviewLine: boolean
 }
 
-export type ConnectionDraftStore = {
-  get: () => ConnectionPreview
-  subscribe: (listener: () => void) => () => void
-  write: (preview: ConnectionPreview) => void
-  clear: () => void
-}
+export type ConnectionDraftStore =
+  Pick<StagedValueStore<ConnectionPreview>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type ConnectionReader =
   Pick<ConnectionDraftStore, 'get' | 'subscribe'>
@@ -23,11 +23,11 @@ export type ConnectionReader =
 export type ConnectionWriter =
   Pick<ConnectionDraftStore, 'write' | 'clear'>
 
-export const EMPTY_CONNECTION: ConnectionPreview = {
+const EMPTY_CONNECTION: ConnectionPreview = {
   showPreviewLine: false
 }
 
-export const isConnectionPreviewEqual = (
+const isConnectionPreviewEqual = (
   left: ConnectionPreview,
   right: ConnectionPreview
 ) => (
@@ -40,14 +40,14 @@ export const isConnectionPreviewEqual = (
 
 export const useConnectionDraft = (
   connection: ConnectionReader
-) => useValueDraft(connection, () => EMPTY_CONNECTION)
+) => useStoreValue(connection)
 
 export const createConnectionDraftStore = (
   schedule: () => void
 ) => {
-  const { flush, ...connection } = createValueDraftStore({
+  const { flush, ...connection } = createStagedValueStore({
     schedule,
-    initialValue: EMPTY_CONNECTION,
+    initial: EMPTY_CONNECTION,
     isEqual: isConnectionPreviewEqual
   })
 

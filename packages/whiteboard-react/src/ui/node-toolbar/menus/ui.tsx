@@ -1,7 +1,9 @@
 import type { Node } from '@whiteboard/core/types'
 import type { ReactNode } from 'react'
-import type { InternalWhiteboardInstance } from '../../../runtime/instance'
+import type { WhiteboardInstance } from '../../../runtime/instance'
 import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
+
+type ToolbarMenuInstance = Pick<WhiteboardInstance, 'commands'>
 
 export const COLORS = [
   '#111827',
@@ -24,7 +26,7 @@ export const COLORS = [
 export const STROKE_WIDTHS = [1, 2, 4, 6] as const
 export const FONT_SIZES = [12, 14, 16, 20, 24] as const
 
-export const mergeStyle = (
+const mergeStyle = (
   current: Record<string, string | number> | undefined,
   patch: Record<string, string | number>
 ) => mergeRecordPatch(current, patch)
@@ -35,7 +37,7 @@ export const mergeData = (
 ) => mergeRecordPatch(current, patch)
 
 export const updateNodesStyle = (
-  instance: InternalWhiteboardInstance,
+  instance: ToolbarMenuInstance,
   nodes: readonly Node[],
   patch: Record<string, string | number>
 ) => instance.commands.node.updateMany(nodes.map((node) => ({
@@ -46,7 +48,7 @@ export const updateNodesStyle = (
 })))
 
 export const updateNodeStyle = (
-  instance: InternalWhiteboardInstance,
+  instance: ToolbarMenuInstance,
   node: Node,
   patch: Record<string, string | number>
 ) => instance.commands.node.update(node.id, {

@@ -219,7 +219,7 @@ const resolveAnchorWorld = ({
   }
 }
 
-export const resolveAnchorPatch = ({
+const resolveAnchorPatch = ({
   beforeTree,
   afterTree,
   hint,

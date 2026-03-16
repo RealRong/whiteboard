@@ -37,7 +37,7 @@ const DEFAULT_CONFIG: ResolvedWhiteboardConfig = {
   shortcuts: undefined
 }
 
-export const mergeConfig = (
+const mergeConfig = (
   defaults: ResolvedWhiteboardConfig,
   overrides?: WhiteboardConfig
 ): ResolvedWhiteboardConfig => mergeValue(defaults, overrides)

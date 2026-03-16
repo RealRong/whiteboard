@@ -17,8 +17,6 @@ type SchemaTarget = {
   label?: Record<string, unknown>
 }
 
-
-
 const cloneTarget = <T extends SchemaTarget>(input: T): T => {
   const next = { ...input }
   if (input.data) {
@@ -166,7 +164,7 @@ export const getMissingEdgeFields = (input: EdgeInput, registries: CoreRegistrie
   return missing
 }
 
-export const getSchemaFieldValue = (target: SchemaTarget, field: SchemaField): unknown => {
+const getSchemaFieldValue = (target: SchemaTarget, field: SchemaField): unknown => {
   const scope = field.scope ?? 'data'
   if (scope === 'style') return getValueByPath(target.style, field.path)
   if (scope === 'label') return getValueByPath(target.label, field.path)

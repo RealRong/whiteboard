@@ -1,6 +1,10 @@
+import {
+  createStagedKeyedStore,
+  type StagedKeyedStore
+} from '@whiteboard/core/runtime'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { NodeItem } from '@whiteboard/core/read'
-import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
+import { useOptionalKeyedStoreValue } from '../hooks'
 
 type NodeDraftMap = ReadonlyMap<NodeId, NodeDraft>
 
@@ -13,7 +17,7 @@ export type NodePatch = {
   rotation?: number
 }
 
-export type NodePatchInput =
+type NodePatchInput =
   NodePatch & {
     id: NodeId
   }
@@ -23,17 +27,13 @@ export type NodeDraft = {
   hovered: boolean
 }
 
-export type NodeWriteInput = {
+type NodeWriteInput = {
   patches: readonly NodePatchInput[]
   hoveredContainerId?: NodeId
 }
 
-export type NodeDraftStore = {
-  get: (nodeId: NodeId) => NodeDraft
-  subscribe: (nodeId: NodeId, listener: () => void) => () => void
-  write: (next: NodeWriteInput) => void
-  clear: () => void
-}
+export type NodeDraftStore =
+  Pick<StagedKeyedStore<NodeId, NodeDraft, NodeWriteInput>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type NodeReader =
   Pick<NodeDraftStore, 'get' | 'subscribe'>
@@ -41,7 +41,7 @@ export type NodeReader =
 export type NodeWriter =
   Pick<NodeDraftStore, 'write' | 'clear'>
 
-export const EMPTY_NODE_DRAFT: NodeDraft = {
+const EMPTY_NODE_DRAFT: NodeDraft = {
   hovered: false
 }
 
@@ -81,7 +81,7 @@ const toNodeDraftMap = ({
 export const createNodeDraftStore = (
   schedule: () => void
 ) => {
-  const { flush, ...node } = createKeyedDraftStore({
+  const { flush, ...node } = createStagedKeyedStore({
     schedule,
     emptyState: EMPTY_NODE_MAP,
     emptyValue: EMPTY_NODE_DRAFT,
@@ -98,7 +98,7 @@ export const createNodeDraftStore = (
   }
 }
 
-export const applyRectDraft = (
+const applyRectDraft = (
   rect: Rect,
   draft: NodeDraft
 ): Rect => {
@@ -115,7 +115,7 @@ export const applyRectDraft = (
   }
 }
 
-export const applyRotationDraft = (
+const applyRotationDraft = (
   rotation: number | undefined,
   draft: NodeDraft
 ): number => (
@@ -180,4 +180,4 @@ export const applyCanvasDraft = (
 export const useNodeDraft = (
   node: NodeReader,
   nodeId: NodeId | undefined
-) => useKeyedDraft(node, nodeId, EMPTY_NODE_DRAFT)
+) => useOptionalKeyedStoreValue(node, nodeId, EMPTY_NODE_DRAFT)

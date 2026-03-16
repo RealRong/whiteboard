@@ -22,7 +22,7 @@ const isManualGroup = (
   group: Pick<Node, 'data'>
 ) => group.data?.autoFit === 'manual'
 
-export const shouldNormalizeOperations = (operations: readonly Operation[]): boolean => {
+const shouldNormalizeOperations = (operations: readonly Operation[]): boolean => {
   for (const operation of operations) {
     switch (operation.type) {
       case 'node.create': {
@@ -69,7 +69,7 @@ export const shouldNormalizeOperations = (operations: readonly Operation[]): boo
   return false
 }
 
-export type GroupNormalizeIndex = {
+type GroupNormalizeIndex = {
   docRef?: Document
   groupIds: Set<NodeId>
   parentById: Map<NodeId, NodeId | undefined>
@@ -77,7 +77,7 @@ export type GroupNormalizeIndex = {
   orderIndexById: Map<NodeId, number>
 }
 
-export const createGroupNormalizeIndex = (document: Document): GroupNormalizeIndex => {
+const createGroupNormalizeIndex = (document: Document): GroupNormalizeIndex => {
   const index: GroupNormalizeIndex = {
     docRef: undefined,
     groupIds: new Set(),
@@ -89,7 +89,7 @@ export const createGroupNormalizeIndex = (document: Document): GroupNormalizeInd
   return index
 }
 
-export const rebuildGroupNormalizeIndex = (index: GroupNormalizeIndex, document: Document) => {
+const rebuildGroupNormalizeIndex = (index: GroupNormalizeIndex, document: Document) => {
   index.groupIds.clear()
   index.parentById.clear()
   index.childrenByParentId.clear()
@@ -143,7 +143,7 @@ const addChild = (
   index.childrenByParentId.set(parentId, children)
 }
 
-export const applyGroupNormalizeIndex = (
+const applyGroupNormalizeIndex = (
   index: GroupNormalizeIndex,
   operations: readonly Operation[],
   document: Document
@@ -212,7 +212,7 @@ export const applyGroupNormalizeIndex = (
   index.docRef = document
 }
 
-export const collectDirtyGroups = (
+const collectDirtyGroups = (
   operations: readonly Operation[],
   index: GroupNormalizeIndex,
   dirtyNodes?: Set<NodeId>
@@ -308,7 +308,7 @@ const sortDirtyGroupsBottomUp = (
   })
 }
 
-export const buildNormalizeOperationsForGroups = ({
+const buildNormalizeOperationsForGroups = ({
   document,
   index,
   dirtyGroupIds,
@@ -403,7 +403,7 @@ export const buildNormalizeOperationsForGroups = ({
   return operations
 }
 
-export type GroupNormalizer = {
+type GroupNormalizer = {
   shouldNormalize: (operations: readonly Operation[]) => boolean
   ensure: (document: Document) => void
   analyze: (document: Document, operations: readonly Operation[]) => Set<NodeId>

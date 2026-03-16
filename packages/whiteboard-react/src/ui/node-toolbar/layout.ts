@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { NodeToolbarPlacement } from './model'
 
-export type ToolbarMenuAnchor = {
+type ToolbarMenuAnchor = {
   top: number
   bottom: number
   centerX: number

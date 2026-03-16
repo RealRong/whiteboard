@@ -92,7 +92,7 @@ export const normalizeViewport = (
   return next
 }
 
-export const getScreenCenter = (rect: ContainerRect): Point => ({
+const getScreenCenter = (rect: ContainerRect): Point => ({
   x: rect.width / 2,
   y: rect.height / 2
 })

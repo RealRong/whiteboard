@@ -55,7 +55,7 @@ export const toDragDraft = (session: MindmapDragSession): MindmapDragDraft => {
   }
 }
 
-export const buildNodeRectMap = (
+const buildNodeRectMap = (
   item: MindmapItem,
   baseOffset: Point
 ) => {
@@ -72,7 +72,7 @@ export const buildNodeRectMap = (
   return rectMap
 }
 
-export const buildGhostRect = (
+const buildGhostRect = (
   pointerWorld: Point,
   pointerOffset: Point,
   nodeRect: Rect

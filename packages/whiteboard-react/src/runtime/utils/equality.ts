@@ -19,7 +19,7 @@ export const isOrderedArrayEqual = <T>(
   )
 )
 
-export const isOptionalEqual = <T>(
+const isOptionalEqual = <T>(
   left: T | undefined,
   right: T | undefined,
   isEqual: Equal<T>

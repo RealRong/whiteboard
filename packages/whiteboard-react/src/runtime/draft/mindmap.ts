@@ -1,6 +1,10 @@
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import { createValueDraftStore, useValueDraft } from './shared/valueStore'
+import {
+  createStagedValueStore,
+  type StagedValueStore
+} from '@whiteboard/core/runtime'
+import { useStoreValue } from '../hooks'
 
 export type MindmapDragPreview = {
   nodeId: MindmapNodeId
@@ -15,12 +19,8 @@ export type MindmapDragDraft = {
   preview?: MindmapDragPreview
 }
 
-export type MindmapDraftStore = {
-  get: () => MindmapDragDraft | undefined
-  subscribe: (listener: () => void) => () => void
-  write: (drag: MindmapDragDraft | undefined) => void
-  clear: () => void
-}
+export type MindmapDraftStore =
+  Pick<StagedValueStore<MindmapDragDraft | undefined>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type MindmapReader =
   Pick<MindmapDraftStore, 'get' | 'subscribe'>
@@ -30,14 +30,14 @@ export type MindmapWriter =
 
 export const useMindmapDraft = (
   mindmap: MindmapReader
-) => useValueDraft(mindmap, () => undefined)
+) => useStoreValue(mindmap)
 
 export const createMindmapDraftStore = (
   schedule: () => void
 ) => {
-  const { flush, ...mindmap } = createValueDraftStore({
+  const { flush, ...mindmap } = createStagedValueStore({
     schedule,
-    initialValue: undefined as MindmapDragDraft | undefined,
+    initial: undefined as MindmapDragDraft | undefined,
     isEqual: (left, right) => left === right
   })
 

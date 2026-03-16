@@ -16,7 +16,7 @@ export const getMindmapTreeFromNode = (node: Node | undefined): MindmapTree | un
   return isMindmapTree(tree) ? tree : undefined
 }
 
-export const getMindmapNodeById = (
+const getMindmapNodeById = (
   document: Pick<Document, 'nodes'>,
   id: MindmapId
 ): Node | undefined => {

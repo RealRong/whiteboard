@@ -1,6 +1,6 @@
 import type { DispatchFailure, DispatchFailureReason } from '@whiteboard/core/types'
 
-export const failure = (
+const failure = (
   reason: DispatchFailureReason,
   message?: string
 ): DispatchFailure => ({

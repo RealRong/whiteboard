@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { EdgeId, Node, NodeId, Point } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../../runtime/instance'
-import { useInternalInstance } from '../../runtime/hooks'
+import type { WhiteboardInstance } from '../../runtime/instance'
+import { useInstance } from '../../runtime/hooks'
 import {
   hasContainerEdge,
   hasContainerNode
@@ -27,6 +27,10 @@ type ContextMenuResolvedTarget =
   | { kind: 'nodes'; nodes: readonly Node[]; world: Point }
   | { kind: 'edge'; edgeId: EdgeId; world: Point }
 
+type ContextMenuTargetInstance = Pick<WhiteboardInstance, 'read'>
+type ContextMenuSectionInstance = Pick<WhiteboardInstance, 'state'>
+type ContextMenuOpenInstance = Pick<WhiteboardInstance, 'read' | 'state'>
+
 const MENU_WIDTH = 220
 const MENU_SAFE_MARGIN = 12
 
@@ -49,7 +53,7 @@ const readElementEdgeId = (
 )
 
 const resolveContextMenuTarget = (
-  instance: InternalWhiteboardInstance,
+  instance: ContextMenuTargetInstance,
   target: ContextMenuTarget
 ): ContextMenuResolvedTarget | undefined => {
   switch (target.kind) {
@@ -90,7 +94,7 @@ const resolveContextMenuTarget = (
 }
 
 const readSections = (
-  instance: InternalWhiteboardInstance,
+  instance: ContextMenuSectionInstance,
   target: ContextMenuResolvedTarget
 ) => {
   switch (target.kind) {
@@ -147,7 +151,7 @@ export const readContextMenuOpenResult = ({
   screen,
   world
 }: {
-  instance: InternalWhiteboardInstance
+  instance: ContextMenuOpenInstance
   targetElement: Element | null
   screen: Point
   world: Point
@@ -212,7 +216,7 @@ const readContextMenu = ({
   containerWidth,
   containerHeight
 }: {
-  instance: InternalWhiteboardInstance
+  instance: ContextMenuOpenInstance
   session: ContextMenuSession
   containerWidth: number
   containerHeight: number
@@ -241,7 +245,7 @@ export const useContextMenu = ({
   containerWidth: number
   containerHeight: number
 }): ContextMenuModel | undefined => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
 
   return useMemo(
     () => readContextMenu({

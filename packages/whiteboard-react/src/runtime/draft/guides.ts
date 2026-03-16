@@ -1,14 +1,14 @@
 import type { Guide } from '@whiteboard/core/node'
-import { createValueDraftStore, useValueDraft } from './shared/valueStore'
+import {
+  createStagedValueStore,
+  type StagedValueStore
+} from '@whiteboard/core/runtime'
+import { useStoreValue } from '../hooks'
 
-export const EMPTY_GUIDES: readonly Guide[] = []
+const EMPTY_GUIDES: readonly Guide[] = []
 
-export type GuidesDraftStore = {
-  get: () => readonly Guide[]
-  subscribe: (listener: () => void) => () => void
-  write: (guides: readonly Guide[]) => void
-  clear: () => void
-}
+export type GuidesDraftStore =
+  Pick<StagedValueStore<readonly Guide[]>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type GuidesReader =
   Pick<GuidesDraftStore, 'get' | 'subscribe'>
@@ -18,18 +18,18 @@ export type GuidesWriter =
 
 export const useGuidesDraft = (
   guides: GuidesReader
-) => useValueDraft(guides, () => EMPTY_GUIDES)
+) => useStoreValue(guides)
 
-export const normalizeGuides = (
+const normalizeGuides = (
   guides: readonly Guide[]
 ): readonly Guide[] => guides.length ? guides : EMPTY_GUIDES
 
 export const createGuidesDraftStore = (
   schedule: () => void
 ) => {
-  const store = createValueDraftStore({
+  const store = createStagedValueStore({
     schedule,
-    initialValue: EMPTY_GUIDES,
+    initial: EMPTY_GUIDES,
     isEqual: (left, right) => left === right
   })
 

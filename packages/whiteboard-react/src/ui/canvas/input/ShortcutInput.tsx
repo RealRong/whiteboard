@@ -1,6 +1,6 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import type { ShortcutAction, ShortcutOverrides } from '../../../types/common/shortcut'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useInstance } from '../../../runtime/hooks'
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from './shortcutBindings'
 import { dispatchShortcutAction } from './shortcutDispatch'
 
@@ -110,7 +110,7 @@ export const ShortcutInput = ({
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
 }) => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const platform = useMemo(() => detectPlatform(), [])
   const bindings = useMemo(
     () => resolveShortcutBindings(DEFAULT_SHORTCUT_BINDINGS, shortcuts),

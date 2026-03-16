@@ -4,7 +4,7 @@ import {
   useState,
   type RefObject
 } from 'react'
-import { useInteraction, useInternalInstance, useSelection, useTool } from '../../../runtime/hooks'
+import { useInstance, useInteraction, useSelection, useTool } from '../../../runtime/hooks'
 import { buildToolbarMenuStyle, buildToolbarStyle } from '../../node-toolbar/layout'
 import { toolbarItemDefinitions } from '../../node-toolbar/items'
 import { useNodeToolbar } from '../../node-toolbar/model'
@@ -41,7 +41,7 @@ export const NodeToolbarLayer = ({
   containerWidth: number
   containerHeight: number
 }) => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const tool = useTool()
   const interaction = useInteraction()
   const selection = useSelection()

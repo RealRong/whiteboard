@@ -4,7 +4,7 @@ import type {
   ContextMenuSession
 } from '../../context-menu/types'
 import { useContextMenu } from '../../context-menu/model'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useInstance } from '../../../runtime/hooks'
 
 export const ContextMenuLayer = ({
   session,
@@ -17,7 +17,7 @@ export const ContextMenuLayer = ({
   containerWidth: number
   containerHeight: number
 }) => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const view = useContextMenu({
     session,

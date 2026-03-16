@@ -13,6 +13,18 @@ export type ValueStore<T> = ReadStore<T> & {
   update: (recipe: (prev: T) => T) => void
 }
 
+export type StagedValueStore<T> = ReadStore<T> & {
+  write: (next: T) => void
+  clear: () => void
+  flush: () => void
+}
+
+export type StagedKeyedStore<Key, T, Input> = KeyedReadStore<Key, T> & {
+  write: (next: Input) => void
+  clear: () => void
+  flush: () => void
+}
+
 export type ReadFn = {
   <T>(store: ReadStore<T>): T
   <Key, T>(store: KeyedReadStore<Key, T>, key: Key): T

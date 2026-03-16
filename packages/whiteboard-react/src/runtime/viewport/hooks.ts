@@ -1,10 +1,10 @@
 import { useMemo, type CSSProperties } from 'react'
 import type { Viewport } from '@whiteboard/core/types'
-import { useInternalInstance } from '../hooks/useInstance'
+import { useInstance } from '../hooks/useInstance'
 import { useStoreValue } from '../hooks/useStoreValue'
 
 const useViewportSnapshot = () => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   return useStoreValue(instance.viewport)
 }
 

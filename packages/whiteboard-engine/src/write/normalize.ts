@@ -11,7 +11,7 @@ type Reduce = (
   origin: Origin
 ) => KernelReduceResult
 
-export type WriteNormalize = {
+type WriteNormalize = {
   reduce: (
     document: Document,
     operations: readonly Operation[],

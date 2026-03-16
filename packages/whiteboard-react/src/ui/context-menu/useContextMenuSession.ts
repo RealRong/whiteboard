@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import { useInternalInstance } from '../../runtime/hooks'
+import type { WhiteboardInstance } from '../../runtime/instance'
+import { useInstance } from '../../runtime/hooks'
 import type { ContextMenuOpenResult } from './model'
 import type { ContextMenuSession, ContextMenuSelectionSnapshot } from './types'
 
@@ -13,7 +14,7 @@ const snapshotSelection = (
 })
 
 const restoreSelection = (
-  instance: ReturnType<typeof useInternalInstance>,
+  instance: Pick<WhiteboardInstance, 'commands'>,
   selection: ContextMenuSelectionSnapshot
 ) => {
   if (selection.edgeId !== undefined) {
@@ -30,7 +31,7 @@ const restoreSelection = (
 }
 
 export const useContextMenuSession = () => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const [session, setSession] = useState<ContextMenuSession>(null)
 
   const open = useCallback((result: ContextMenuOpenResult) => {

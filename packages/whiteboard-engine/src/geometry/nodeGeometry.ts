@@ -15,7 +15,7 @@ type NodeGeometryCacheEntry = {
   entry: NodeGeometryEntry
 }
 
-export type NodeGeometryEntry = {
+type NodeGeometryEntry = {
   node: Node
   rect: Rect
   aabb: Rect

@@ -1,13 +1,13 @@
 import type { Rect } from '@whiteboard/core/types'
-import { createValueDraftStore, useValueDraft } from './shared/valueStore'
+import {
+  createStagedValueStore,
+  type StagedValueStore
+} from '@whiteboard/core/runtime'
 import { isRectEqual } from '../utils/equality'
+import { useStoreValue } from '../hooks'
 
-export type SelectionDraftStore = {
-  get: () => Rect | undefined
-  subscribe: (listener: () => void) => () => void
-  write: (rect: Rect | undefined) => void
-  clear: () => void
-}
+export type SelectionDraftStore =
+  Pick<StagedValueStore<Rect | undefined>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type SelectionReader =
   Pick<SelectionDraftStore, 'get' | 'subscribe'>
@@ -17,16 +17,16 @@ export type SelectionWriter =
 
 export const useSelectionDraft = (
   selection: SelectionReader
-) => useValueDraft(selection, () => undefined)
+) => useStoreValue(selection)
 
 export { isRectEqual as isSelectionRectEqual }
 
 export const createSelectionDraftStore = (
   schedule: () => void
 ) => {
-  const { flush, ...selection } = createValueDraftStore({
+  const { flush, ...selection } = createStagedValueStore({
     schedule,
-    initialValue: undefined as Rect | undefined,
+    initial: undefined as Rect | undefined,
     isEqual: isRectEqual
   })
 

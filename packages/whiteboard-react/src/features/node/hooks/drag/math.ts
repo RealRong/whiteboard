@@ -21,7 +21,7 @@ import {
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { mergeObjectPatch } from '../../../../runtime/utils/recordPatch'
 
-export type DragMember = {
+type DragMember = {
   id: NodeId
   offset: Point
 }
@@ -40,12 +40,12 @@ export type NodeDragRuntimeState = {
   hoveredContainerId?: NodeId
 }
 
-export type NodeDragPositionUpdate = {
+type NodeDragPositionUpdate = {
   id: NodeId
   position: Point
 }
 
-export type NodeDragPreviewResult = {
+type NodeDragPreviewResult = {
   position: Point
   guides: readonly Guide[]
   hoveredContainerId?: NodeId

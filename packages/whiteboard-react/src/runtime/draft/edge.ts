@@ -1,14 +1,18 @@
+import {
+  createStagedKeyedStore,
+  type StagedKeyedStore
+} from '@whiteboard/core/runtime'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import type { EdgeItem } from '@whiteboard/core/read'
-import { createKeyedDraftStore, useKeyedDraft } from './shared/keyedStore'
+import { useOptionalKeyedStoreValue } from '../hooks'
 
 type EdgeDraftMap = ReadonlyMap<EdgeId, EdgeDraft>
 
-export type EdgePatch = {
+type EdgePatch = {
   routingPoints?: readonly Point[]
 }
 
-export type EdgePatchInput =
+type EdgePatchInput =
   EdgePatch & {
     id: EdgeId
     activeRoutingIndex?: number
@@ -19,16 +23,12 @@ export type EdgeDraft = {
   activeRoutingIndex?: number
 }
 
-export type EdgeWriteInput = {
+type EdgeWriteInput = {
   patches: readonly EdgePatchInput[]
 }
 
-export type EdgeDraftStore = {
-  get: (edgeId: EdgeId) => EdgeDraft
-  subscribe: (edgeId: EdgeId, listener: () => void) => () => void
-  write: (next: EdgeWriteInput) => void
-  clear: () => void
-}
+export type EdgeDraftStore =
+  Pick<StagedKeyedStore<EdgeId, EdgeDraft, EdgeWriteInput>, 'get' | 'subscribe' | 'write' | 'clear'>
 
 export type EdgeReader =
   Pick<EdgeDraftStore, 'get' | 'subscribe'>
@@ -36,7 +36,7 @@ export type EdgeReader =
 export type EdgeWriter =
   Pick<EdgeDraftStore, 'write' | 'clear'>
 
-export const EMPTY_EDGE_DRAFT: EdgeDraft = {}
+const EMPTY_EDGE_DRAFT: EdgeDraft = {}
 
 const EMPTY_EDGE_MAP: EdgeDraftMap =
   new Map<EdgeId, EdgeDraft>()
@@ -104,7 +104,7 @@ export const applyEdgeDraft = (
 export const createEdgeDraftStore = (
   schedule: () => void
 ) => {
-  const { flush, ...edge } = createKeyedDraftStore({
+  const { flush, ...edge } = createStagedKeyedStore({
     schedule,
     emptyState: EMPTY_EDGE_MAP,
     emptyValue: EMPTY_EDGE_DRAFT,
@@ -124,4 +124,4 @@ export const createEdgeDraftStore = (
 export const useEdgeDraft = (
   edge: EdgeReader,
   edgeId: EdgeId | undefined
-) => useKeyedDraft(edge, edgeId, EMPTY_EDGE_DRAFT)
+) => useOptionalKeyedStoreValue(edge, edgeId, EMPTY_EDGE_DRAFT)

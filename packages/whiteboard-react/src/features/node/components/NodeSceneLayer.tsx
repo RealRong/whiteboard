@@ -3,7 +3,7 @@ import type {
   PointerEvent as ReactPointerEvent
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import { useInternalInstance, useSelection, useStoreValue } from '../../../runtime/hooks'
+import { useInstance, useSelection, useStoreValue } from '../../../runtime/hooks'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = ({
@@ -25,7 +25,7 @@ export const NodeSceneLayer = ({
     event: ReactMouseEvent<HTMLDivElement>
   ) => void
 }) => {
-  const instance = useInternalInstance()
+  const instance = useInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet

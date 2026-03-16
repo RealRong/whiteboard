@@ -3,12 +3,14 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../../runtime/instance'
+import type { WhiteboardInstance } from '../../runtime/instance'
+
+type ContextMenuInstance = Pick<WhiteboardInstance, 'commands' | 'read' | 'state'>
 
 export type ContextMenuItemTone = 'default' | 'danger'
 
 export type ContextMenuActionContext = {
-  instance: InternalWhiteboardInstance
+  instance: ContextMenuInstance
   close: () => void
 }
 

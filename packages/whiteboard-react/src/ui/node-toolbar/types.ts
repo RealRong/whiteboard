@@ -1,5 +1,7 @@
 import type { Node, NodeSchema } from '@whiteboard/core/types'
-import type { InternalWhiteboardInstance } from '../../runtime/instance'
+import type { WhiteboardInstance } from '../../runtime/instance'
+
+type NodeToolbarInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
 
 export type NodeToolbarItemKey =
   | 'fill'
@@ -13,7 +15,7 @@ export type NodeToolbarItemKey =
 export type NodeToolbarMenuKey = Exclude<NodeToolbarItemKey, 'lock'>
 
 export type NodeToolbarActionContext = {
-  instance: InternalWhiteboardInstance
+  instance: NodeToolbarInstance
   nodes: readonly Node[]
   primaryNode: Node
   primarySchema?: NodeSchema
