@@ -5,6 +5,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { ShortcutAction } from '../../../types/common/shortcut'
 import type { BoardInstance } from '../../../runtime/instance'
+import { summarizeNodes } from '../../../features/node/summary'
 import {
   deleteNodes,
   duplicateNodes
@@ -90,20 +91,24 @@ const canDispatchShortcutAction = (
   action: ShortcutAction
 ): boolean => {
   const selection = instance.state.selection.get()
+  const summary = summarizeNodes(selection.items.nodes)
+  const hasSelection =
+    summary.count > 0
+    || selection.target.edgeId !== undefined
 
   switch (action) {
     case 'group.create':
-      return selection.caps.group
+      return summary.count >= 2
     case 'group.ungroup':
-      return selection.caps.ungroup
+      return summary.hasGroup
     case 'selection.selectAll':
-      return selection.caps.selectAll
+      return true
     case 'selection.clear':
-      return selection.caps.clear
+      return hasSelection || instance.state.container.get().id !== undefined
     case 'selection.delete':
-      return selection.caps.delete
+      return hasSelection
     case 'selection.duplicate':
-      return selection.caps.duplicate
+      return summary.count > 0
     case 'history.undo':
     case 'history.redo':
       return true

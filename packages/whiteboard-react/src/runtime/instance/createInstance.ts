@@ -48,8 +48,7 @@ const createInstanceStores = ({
   const tool = createValueStore<Tool>(initialTool)
   const container = createContainerStore(engine.read)
   const selection = createSelectionStore({
-    read: engine.read,
-    container: container.store
+    read: engine.read
   })
   const node = createNodeFeatureRuntime()
   const edge = createEdgeFeatureRuntime()

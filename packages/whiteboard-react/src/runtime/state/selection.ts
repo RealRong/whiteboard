@@ -16,12 +16,10 @@ import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
-import { resolveNodeCaps } from '../nodeCaps'
 import {
   isOrderedArrayEqual,
   isRectEqual
 } from '../utils/equality'
-import type { Container } from './container'
 
 export type { SelectionMode } from '@whiteboard/core/node'
 
@@ -65,17 +63,6 @@ export type Selection = {
     count: number
   }
   box?: Rect
-  caps: {
-    delete: boolean
-    duplicate: boolean
-    group: boolean
-    ungroup: boolean
-    lock: boolean
-    unlock: boolean
-    selectAll: boolean
-    clear: boolean
-    lockLabel: string
-  }
 }
 
 const EMPTY_SELECTED_NODE_IDS: readonly NodeId[] = []
@@ -167,15 +154,6 @@ const isSelectionEqual = (
   && left.target.edgeId === right.target.edgeId
   && left.items.primary === right.items.primary
   && left.items.count === right.items.count
-  && left.caps.delete === right.caps.delete
-  && left.caps.duplicate === right.caps.duplicate
-  && left.caps.group === right.caps.group
-  && left.caps.ungroup === right.caps.ungroup
-  && left.caps.lock === right.caps.lock
-  && left.caps.unlock === right.caps.unlock
-  && left.caps.selectAll === right.caps.selectAll
-  && left.caps.clear === right.caps.clear
-  && left.caps.lockLabel === right.caps.lockLabel
   && isOrderedArrayEqual(left.target.nodeIds, right.target.nodeIds)
   && isOrderedArrayEqual(left.items.nodes, right.items.nodes)
   && isRectEqual(left.box, right.box)
@@ -183,11 +161,9 @@ const isSelectionEqual = (
 
 const resolveSelection = ({
   selection,
-  container,
   readNode
 }: {
   selection: StoredSelection
-  container: Container
   readNode: (nodeId: NodeId) => NodeItem | undefined
 }): Selection => {
   const items = readNodeItems(readNode, selection.nodeIds)
@@ -197,50 +173,34 @@ const resolveSelection = ({
   const box = items.length > 0
     ? getBoundingRect(items.map((item) => item.rect))
     : undefined
-  const caps = resolveNodeCaps(nodes)
-  const hasNodeSelection = caps.nodeCount > 0
-  const hasEdgeSelection = selection.edgeId !== undefined
-  const hasSelection = hasNodeSelection || hasEdgeSelection
+  const count = nodes.length
 
   return {
     kind: selection.edgeId !== undefined
       ? 'edge'
-      : caps.nodeCount === 1
+      : count === 1
         ? 'node'
-        : caps.nodeCount > 1
+        : count > 1
           ? 'nodes'
           : 'none',
     target: {
-      nodeIds: hasNodeSelection ? selection.nodeIds : EMPTY_SELECTED_NODE_IDS,
-      nodeSet: hasNodeSelection ? selection.nodeSet : EMPTY_SELECTED_NODE_SET,
+      nodeIds: count > 0 ? selection.nodeIds : EMPTY_SELECTED_NODE_IDS,
+      nodeSet: count > 0 ? selection.nodeSet : EMPTY_SELECTED_NODE_SET,
       edgeId: selection.edgeId
     },
     items: {
       nodes,
       primary: nodes[0],
-      count: caps.nodeCount
+      count
     },
-    box,
-    caps: {
-      delete: hasSelection,
-      duplicate: hasNodeSelection,
-      group: caps.canGroup,
-      ungroup: caps.canUngroup,
-      lock: caps.canLock,
-      unlock: caps.canUnlock,
-      selectAll: true,
-      clear: hasSelection || container.id !== undefined,
-      lockLabel: caps.lockLabel
-    }
+    box
   }
 }
 
 export const createSelectionStore = ({
-  read,
-  container
+  read
 }: {
   read: SelectionReadDeps
-  container: ReadStore<Container>
 }): SelectionStore => {
   const source = createValueStore<StoredSelection>(EMPTY_SELECTION)
   const readSelection = () => source.get()
@@ -252,7 +212,6 @@ export const createSelectionStore = ({
   const store = createDerivedStore<Selection>({
     get: (readStore) => resolveSelection({
       selection: readStore(source),
-      container: readStore(container),
       readNode: (nodeId) => readStore(read.node.item, nodeId)
     }),
     isEqual: isSelectionEqual

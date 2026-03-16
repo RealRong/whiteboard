@@ -15,8 +15,11 @@ import {
   useTool,
   useViewport
 } from '../../../runtime/hooks'
+import {
+  summarizeNodes,
+  type NodeSummary
+} from '../../../features/node/summary'
 import { setNodesLocked } from '../../../features/node/commands'
-import { resolveNodeCaps } from '../../../runtime/nodeCaps'
 import { ArrangeMenu } from '../../node-toolbar/menus/ArrangeMenu'
 import { FillMenu } from '../../node-toolbar/menus/FillMenu'
 import { GroupMenu } from '../../node-toolbar/menus/GroupMenu'
@@ -231,13 +234,15 @@ const resolveItemKeys = (
 
 const buildToolbarItem = (
   key: NodeToolbarItemKey,
-  caps: ReturnType<typeof resolveNodeCaps>
+  summary: NodeSummary
 ): NodeToolbarItem => (
   key === 'lock'
     ? {
         key,
-        label: caps.lockLabel,
-        active: caps.allLocked
+        label: summary.lock === 'all'
+          ? (summary.count > 1 ? 'Unlock selected' : 'Unlock')
+          : (summary.count > 1 ? 'Lock selected' : 'Lock'),
+        active: summary.lock === 'all'
       }
     : {
         key,
@@ -473,8 +478,8 @@ export const NodeToolbarLayer = ({
       node,
       schema: instance.registry.get(node.type)?.schema
     }))
-    const caps = resolveNodeCaps(nodes)
-    const items = resolveItemKeys(sources).map((key) => buildToolbarItem(key, caps))
+    const summary = summarizeNodes(nodes)
+    const items = resolveItemKeys(sources).map((key) => buildToolbarItem(key, summary))
 
     if (items.length) {
       const { placement, anchor } = resolveToolbarPlacement({

@@ -7,12 +7,15 @@ import type {
   Operation,
   Point
 } from '@whiteboard/core/types'
-import { resolveNodeCaps, type NodeCaps } from '../../runtime/nodeCaps'
 import type { BoardInstance } from '../../runtime/instance'
 import {
   hasContainerEdge,
   hasContainerNode
 } from '../../runtime/state'
+import {
+  summarizeNodes,
+  type NodeSummary
+} from '../../features/node/summary'
 import {
   deleteNodes,
   duplicateNodes,
@@ -367,25 +370,24 @@ const buildDeleteItem = ({
 
 const buildLockItem = ({
   key,
-  nodeIds,
-  caps
+  nodes,
+  summary
 }: {
   key: string
-  nodeIds: readonly NodeId[]
-  caps: NodeCaps
+  nodes: readonly Node[]
+  summary: NodeSummary
 }): ContextMenuItem => ({
   key,
-  label: caps.lockLabel,
-  disabled: !caps.canLock && !caps.canUnlock,
+  label: summary.lock === 'all'
+    ? (summary.count > 1 ? 'Unlock selected' : 'Unlock')
+    : (summary.count > 1 ? 'Lock selected' : 'Lock'),
+  disabled: summary.count === 0,
   run: ({ instance, close }) => {
-    const nodes = nodeIds
-      .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
-      .filter((node): node is NonNullable<typeof node> => Boolean(node))
     if (!nodes.length) {
       close()
       return
     }
-    closeAfter(setNodesLocked(instance, nodes, !caps.allLocked), close)
+    closeAfter(setNodesLocked(instance, nodes, summary.lock !== 'all'), close)
   }
 })
 
@@ -509,8 +511,9 @@ const buildGroupSection = (
 const buildNodeSections = (
   node: Node
 ): readonly ContextMenuSection[] => {
-  const caps = resolveNodeCaps([node])
-  const nodeIds = caps.nodeIds
+  const nodes = [node]
+  const summary = summarizeNodes(nodes)
+  const nodeIds = summary.ids
   const sections: ContextMenuSection[] = [
     {
       key: 'node.actions',
@@ -518,17 +521,17 @@ const buildNodeSections = (
         buildDuplicateItem({
           key: 'node.duplicate',
           nodeIds,
-          disabled: !caps.canDuplicate
+          disabled: summary.count === 0
         }),
         buildDeleteItem({
           key: 'node.delete',
           nodeIds,
-          disabled: !caps.canDelete
+          disabled: summary.count === 0
         }),
         buildLockItem({
           key: 'node.lock',
-          nodeIds,
-          caps
+          nodes,
+          summary
         })
       ]
     },
@@ -545,8 +548,8 @@ const buildNodeSections = (
 const buildNodesSections = (
   nodes: readonly Node[]
 ): readonly ContextMenuSection[] => {
-  const caps = resolveNodeCaps(nodes)
-  const nodeIds = caps.nodeIds
+  const summary = summarizeNodes(nodes)
+  const nodeIds = summary.ids
 
   return [
     {
@@ -555,33 +558,33 @@ const buildNodesSections = (
         buildDuplicateItem({
           key: 'nodes.duplicate',
           nodeIds,
-          disabled: !caps.canDuplicate
+          disabled: summary.count === 0
         }),
         buildDeleteItem({
           key: 'nodes.delete',
           nodeIds,
-          disabled: !caps.canDelete
+          disabled: summary.count === 0
         }),
         buildLockItem({
           key: 'nodes.lock',
-          nodeIds,
-          caps
+          nodes,
+          summary
         }),
         {
           key: 'nodes.group',
           label: 'Group',
-          disabled: !caps.canGroup,
+          disabled: summary.count < 2,
           run: ({ instance, close }) => {
-            if (!caps.canGroup) return
+            if (summary.count < 2) return
             closeAfter(groupNodes(instance, nodeIds), close)
           }
         },
         {
           key: 'nodes.ungroup',
           label: 'Ungroup',
-          disabled: !caps.canUngroup,
+          disabled: !summary.hasGroup,
           run: ({ instance, close }) => {
-            if (!caps.canUngroup) return
+            if (!summary.hasGroup) return
             closeAfter(ungroupNodes(instance, nodeIds), close)
           }
         }

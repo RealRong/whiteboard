@@ -1,5 +1,5 @@
 import type { NodeToolbarActionContext } from '../types'
-import { resolveNodeCaps } from '../../../runtime/nodeCaps'
+import { summarizeNodes } from '../../../features/node/summary'
 import {
   deleteNodes,
   duplicateNodes
@@ -14,13 +14,13 @@ export const MoreMenu = ({
   nodes,
   close
 }: NodeToolbarActionContext) => {
-  const caps = resolveNodeCaps(nodes)
-  const nodeIds = caps.nodeIds
+  const summary = summarizeNodes(nodes)
+  const nodeIds = summary.ids
 
   return (
     <ToolbarChipColumn>
       <ToolbarChip
-        disabled={!caps.canDuplicate}
+        disabled={summary.count === 0}
         onClick={() => {
           void duplicateNodes(instance, nodeIds).finally(close)
         }}
@@ -28,7 +28,7 @@ export const MoreMenu = ({
         Duplicate
       </ToolbarChip>
       <ToolbarChip
-        disabled={!caps.canDelete}
+        disabled={summary.count === 0}
         onClick={() => {
           void deleteNodes(instance, nodeIds).finally(close)
         }}
