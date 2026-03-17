@@ -1,5 +1,5 @@
 import type { Point } from '@whiteboard/core/types'
-import type { ViewportController } from '../viewport'
+import type { ViewportInputRuntime } from '../viewport'
 import type {
   AutoPanOptions,
   AutoPanPointer,
@@ -18,7 +18,6 @@ type ActiveAutoPan = {
 const DEFAULT_THRESHOLD = 96
 const DEFAULT_MAX_SPEED = 1200
 const MAX_FRAME_SECONDS = 1 / 20
-const MIN_ZOOM = 0.0001
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -93,7 +92,7 @@ type AutoPan = Readonly<{
 export const createAutoPan = ({
   getViewport
 }: {
-  getViewport: () => Pick<ViewportController, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
+  getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
 }): AutoPan => {
   let frameId: number | null = null
   let lastFrameTime = 0
@@ -140,7 +139,7 @@ export const createAutoPan = ({
         return
       }
 
-      const screen = viewport.clientToScreen(
+      const screen = viewport.screenPoint(
         session.pointer.clientX,
         session.pointer.clientY
       )
@@ -162,10 +161,9 @@ export const createAutoPan = ({
       )
       lastFrameTime = timestamp
 
-      const zoom = Math.max(viewport.get().zoom, MIN_ZOOM)
-      viewport.panBy({
-        x: (vector.x * deltaSeconds) / zoom,
-        y: (vector.y * deltaSeconds) / zoom
+      viewport.panScreenBy({
+        x: vector.x * deltaSeconds,
+        y: vector.y * deltaSeconds
       })
       session.frame?.(session.pointer)
       schedule()
@@ -188,7 +186,7 @@ export const createAutoPan = ({
       clientY: pointer.clientY
     }
 
-    const screen = viewport.clientToScreen(pointer.clientX, pointer.clientY)
+    const screen = viewport.screenPoint(pointer.clientX, pointer.clientY)
     const vector = resolvePanVector({
       point: screen,
       size: viewport.size(),

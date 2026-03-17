@@ -71,7 +71,7 @@ export const EdgeLayer = () => {
       instance.commands.edge.routing.insertAtPoint(edgeId, point)
     }
 
-    instance.commands.selection.selectEdge(edgeId)
+    instance.commands.selection.edge(edgeId)
     event.preventDefault()
     event.stopPropagation()
   }, [instance])

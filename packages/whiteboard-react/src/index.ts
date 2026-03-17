@@ -6,10 +6,7 @@ export {
   useInteraction,
   useInstance,
   useSelection,
-  useTool,
-  useViewport,
-  useViewportTransformStyle,
-  useViewportZoom
+  useTool
 } from './runtime/hooks'
 
 export type { BoardOptions, HistoryOptions, BoardProps } from './types/common'

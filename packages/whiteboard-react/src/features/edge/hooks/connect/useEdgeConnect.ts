@@ -4,6 +4,7 @@ import type { EdgeConnectState } from '../../../../types/edge'
 import { useInternalInstance as useInstance, useTool } from '../../../../runtime/hooks'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
+import { CanvasContentIgnoreSelector } from '../../../../canvas/CanvasTargeting'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,
@@ -24,17 +25,7 @@ type ActiveConnect = {
 const NODE_CONNECT_HANDLE_SELECTOR = '[data-input-role="node-edge-handle"]'
 const EDGE_ENDPOINT_HANDLE_SELECTOR = '[data-input-role="edge-endpoint-handle"]'
 const NODE_SELECTOR = '[data-node-id]'
-const CONNECT_IGNORE_SELECTOR = [
-  '[data-selection-ignore]',
-  '[data-input-ignore]',
-  '[data-input-role]',
-  'input',
-  'textarea',
-  'select',
-  'button',
-  'a[href]',
-  '[contenteditable]:not([contenteditable="false"])'
-].join(', ')
+const CONNECT_IGNORE_SELECTOR = CanvasContentIgnoreSelector
 
 export const useEdgeConnect = ({
   containerRef

@@ -4,6 +4,7 @@ export {
 } from './config'
 
 export type { EngineCommands, CommandSource } from './types/command'
+export type { Commit, CommitResult } from './types/commit'
 export type {
   CreateEngineOptions,
   EngineInstance,

@@ -1,0 +1,195 @@
+import { isSameViewport, panViewport, zoomViewport } from '@whiteboard/core/geometry'
+import {
+  createValueStore,
+  type ReadStore
+} from '@whiteboard/core/runtime'
+import type { Point, Viewport } from '@whiteboard/core/types'
+import {
+  applyScreenPan,
+  applyWheelInput,
+  clientToScreenPoint,
+  DEFAULT_VIEWPORT_LIMITS,
+  EMPTY_CONTAINER_RECT,
+  normalizeViewport,
+  normalizeViewportLimits,
+  screenToWorldPoint,
+  type ContainerRect,
+  type ViewportLimits,
+  type WheelInput,
+  worldToScreenPoint
+} from './logic'
+
+export const DEFAULT_VIEWPORT: Viewport = {
+  center: { x: 0, y: 0 },
+  zoom: 1
+}
+
+export type ViewportPointer = {
+  screen: Point
+  world: Point
+}
+
+export type ViewportRead = ReadStore<Viewport> & {
+  pointer: (input: {
+    clientX: number
+    clientY: number
+  }) => ViewportPointer
+  worldToScreen: (point: Point) => Point
+}
+
+export type ViewportCommands = {
+  panBy: (delta: Point) => void
+  zoomTo: (zoom: number, anchor?: Point) => void
+  reset: () => void
+}
+
+export type ViewportInputRuntime = {
+  screenPoint: (clientX: number, clientY: number) => Point
+  size: () => {
+    width: number
+    height: number
+  }
+  panScreenBy: (deltaScreen: Point) => void
+  wheel: (
+    input: WheelInput,
+    wheelSensitivity: number
+  ) => void
+}
+
+export type ViewportRuntime = {
+  read: ViewportRead
+  commands: ViewportCommands
+  input: ViewportInputRuntime
+  setRect: (rect: ContainerRect) => void
+  setLimits: (limits: ViewportLimits) => void
+}
+
+const isSameRect = (
+  left: ContainerRect,
+  right: ContainerRect
+) => (
+  left.left === right.left
+  && left.top === right.top
+  && left.width === right.width
+  && left.height === right.height
+)
+
+const copyRect = (
+  rect: ContainerRect
+): ContainerRect => ({
+  left: rect.left,
+  top: rect.top,
+  width: rect.width,
+  height: rect.height
+})
+
+export const createViewport = ({
+  initialViewport,
+  limits: nextLimits = DEFAULT_VIEWPORT_LIMITS
+}: {
+  initialViewport: Viewport
+  limits?: ViewportLimits
+}): ViewportRuntime => {
+  const initialLimits = normalizeViewportLimits(nextLimits)
+  const state = createValueStore(
+    normalizeViewport(initialViewport, initialLimits)
+  )
+  let rect = EMPTY_CONTAINER_RECT
+  let limits = initialLimits
+  const initial = normalizeViewport(initialViewport, initialLimits)
+
+  const setViewport = (next: Viewport) => {
+    const normalized = normalizeViewport(next, limits)
+    const current = state.get()
+    if (isSameViewport(current, normalized)) {
+      return
+    }
+    state.set(normalized)
+  }
+
+  return {
+    read: {
+      get: () => state.get(),
+      subscribe: (listener) => state.subscribe(listener),
+      pointer: (input) => {
+        const screen = clientToScreenPoint(
+          input.clientX,
+          input.clientY,
+          rect
+        )
+        return {
+          screen,
+          world: screenToWorldPoint(screen, state.get(), rect)
+        }
+      },
+      worldToScreen: (point) =>
+        worldToScreenPoint(point, state.get(), rect)
+    },
+    commands: {
+      panBy: (delta) => {
+        if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
+          return
+        }
+        setViewport(panViewport(state.get(), delta))
+      },
+      zoomTo: (zoom, anchor) => {
+        if (!Number.isFinite(zoom) || zoom <= 0) {
+          return
+        }
+
+        const current = state.get()
+        const factor = current.zoom === 0 ? zoom : zoom / current.zoom
+        if (!Number.isFinite(factor) || factor <= 0) {
+          return
+        }
+
+        setViewport(zoomViewport(current, factor, anchor))
+      },
+      reset: () => {
+        setViewport(initial)
+      }
+    },
+    input: {
+      screenPoint: (clientX, clientY) =>
+        clientToScreenPoint(clientX, clientY, rect),
+      size: () => ({
+        width: rect.width,
+        height: rect.height
+      }),
+      panScreenBy: (deltaScreen) => {
+        if (!Number.isFinite(deltaScreen.x) || !Number.isFinite(deltaScreen.y)) {
+          return
+        }
+        setViewport(applyScreenPan(state.get(), deltaScreen))
+      },
+      wheel: (input, wheelSensitivity) => {
+        setViewport(
+          applyWheelInput({
+            viewport: state.get(),
+            input,
+            rect,
+            limits,
+            wheelSensitivity: Math.max(0, wheelSensitivity)
+          })
+        )
+      }
+    },
+    setRect: (next) => {
+      if (isSameRect(rect, next)) {
+        return
+      }
+      rect = copyRect(next)
+    },
+    setLimits: (next) => {
+      const normalized = normalizeViewportLimits(next)
+      if (
+        limits.minZoom === normalized.minZoom
+        && limits.maxZoom === normalized.maxZoom
+      ) {
+        return
+      }
+      limits = normalized
+      setViewport(state.get())
+    }
+  }
+}

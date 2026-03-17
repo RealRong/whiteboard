@@ -4,7 +4,7 @@ import type {
 } from 'react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/core/read'
-import { useViewportZoom } from '../../../runtime/hooks'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
@@ -50,7 +50,8 @@ export const NodeTransformHandles = ({
   canRotate,
   onTransformPointerDown
 }: NodeTransformHandlesProps) => {
-  const zoom = useViewportZoom()
+  const instance = useInternalInstance()
+  const zoom = useStoreValue(instance.viewport).zoom
 
   const handles = buildTransformHandles({
     rect,

@@ -8,21 +8,10 @@ import {
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
+import { isCanvasContentIgnoredTarget } from '../../../canvas/CanvasTargeting'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import { createNodeDragSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'
-
-const DOUBLE_CLICK_IGNORE_SELECTOR = [
-  '[data-selection-ignore]',
-  '[data-input-ignore]',
-  '[data-input-role]',
-  'input',
-  'textarea',
-  'select',
-  'button',
-  'a[href]',
-  '[contenteditable]:not([contenteditable="false"])'
-].join(', ')
 
 export const NodeSceneLayer = () => {
   const instance = useInternalInstance()
@@ -48,8 +37,7 @@ export const NodeSceneLayer = () => {
   ) => {
     if (instance.state.tool.get() !== 'select') return
 
-    const target = event.target
-    if (target instanceof Element && target.closest(DOUBLE_CLICK_IGNORE_SELECTOR)) {
+    if (isCanvasContentIgnoredTarget(event.target)) {
       return
     }
 

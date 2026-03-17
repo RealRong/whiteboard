@@ -1,7 +1,6 @@
 import type {
   ChangeSet,
   DispatchFailure,
-  DispatchResult,
   Document,
   Operation,
   CoreRegistries
@@ -10,8 +9,9 @@ import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { EngineCommands, WriteDomain, WriteInput } from './command'
 import type { ResolvedHistoryConfig } from './common'
 import type { BoardConfig, EngineDocument } from './instance'
+import type { CommitResult } from './commit'
 
-export type Apply = <D extends WriteDomain>(input: WriteInput<D>) => Promise<DispatchResult>
+export type Apply = <D extends WriteDomain>(input: WriteInput<D>) => Promise<CommitResult>
 
 export type Write = {
   apply: Apply

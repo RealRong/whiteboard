@@ -73,7 +73,7 @@ export const App = () => {
     const instance = instanceRef.current
     if (!instance) return
     insertCountRef.current = 0
-    instance.viewport.reset()
+    instance.commands.viewport.reset()
     instance.commands.selection.clear()
   }, [activeId])
 
@@ -116,7 +116,7 @@ export const App = () => {
       pan.lastY = event.clientY
       const zoom = instance.viewport.get().zoom
       if (!Number.isFinite(zoom) || zoom <= 0) return
-      instance.viewport.panBy({
+      instance.commands.viewport.panBy({
         x: -deltaX / zoom,
         y: -deltaY / zoom
       })

@@ -14,6 +14,7 @@ import type {
 import type { EngineCommands } from './command'
 import type { ResolvedHistoryConfig, Size } from './common'
 import type { SnapCandidate } from './node'
+import type { Commit } from './commit'
 export type { BoardConfig } from '@whiteboard/core/config'
 
 export type EdgeConnectAnchorResult = {
@@ -69,6 +70,7 @@ export type EngineRuntimeOptions = {
 export type EngineInstance = {
   config: Readonly<BoardConfig>
   read: EngineRead
+  commit: ReadStore<Commit | null>
   commands: EngineCommands
   configure: (config: EngineRuntimeOptions) => void
   dispose: () => void

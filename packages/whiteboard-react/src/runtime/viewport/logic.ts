@@ -50,19 +50,6 @@ export const copyViewport = (viewport: Viewport): Viewport => ({
   zoom: viewport.zoom
 })
 
-export const copyContainerRect = (rect: ContainerRect): ContainerRect => ({
-  left: rect.left,
-  top: rect.top,
-  width: rect.width,
-  height: rect.height
-})
-
-export const isSameContainerRect = (left: ContainerRect, right: ContainerRect) =>
-  left.left === right.left
-  && left.top === right.top
-  && left.width === right.width
-  && left.height === right.height
-
 const assertViewport = (viewport: Viewport): Viewport => {
   if (!viewport || !viewport.center) {
     throw new Error('Viewport center is required.')

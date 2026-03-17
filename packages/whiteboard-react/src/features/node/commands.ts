@@ -9,7 +9,6 @@ import type { BoardInstance } from '../../runtime/instance'
 
 type NodeCommandsInstance = Pick<BoardInstance, 'commands'>
 type NodeReadInstance = Pick<BoardInstance, 'commands' | 'read'>
-type NodeStateInstance = Pick<BoardInstance, 'commands' | 'state'>
 
 const readCreatedNodeIds = (
   result: DispatchResult,
@@ -35,23 +34,18 @@ export const selectNodeIds = (
   nodeIds: readonly NodeId[]
 ) => {
   if (nodeIds.length > 0) {
-    instance.commands.selection.select(nodeIds, 'replace')
+    instance.commands.selection.nodes(nodeIds, 'replace')
     return
   }
   instance.commands.selection.clear()
 }
 
 export const deleteNodes = async (
-  instance: NodeStateInstance,
+  instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  const selectedNodeIds = instance.state.selection.get().target.nodeIds
-  const result = await instance.commands.node.deleteCascade([...nodeIds])
-  if (!result.ok) return
-  if (nodeIds.some((nodeId) => selectedNodeIds.includes(nodeId))) {
-    instance.commands.selection.clear()
-  }
+  await instance.commands.node.deleteCascade([...nodeIds])
 }
 
 export const duplicateNodes = async (
@@ -62,7 +56,7 @@ export const duplicateNodes = async (
   const result = await instance.commands.node.duplicate([...nodeIds])
   const nextNodeIds = readCreatedNodeIds(result)
   if (!nextNodeIds.length) return
-  instance.commands.selection.select(nextNodeIds, 'replace')
+  instance.commands.selection.nodes(nextNodeIds, 'replace')
 }
 
 export const setNodesLocked = async (
@@ -76,7 +70,6 @@ export const setNodesLocked = async (
     patch: { locked }
   })))
   if (!result.ok) return
-  selectNodeIds(instance, nodes.map((node) => node.id))
 }
 
 export const groupNodes = async (
@@ -87,7 +80,7 @@ export const groupNodes = async (
   const result = await instance.commands.node.group.create([...nodeIds])
   const groupId = readCreatedGroupId(result)
   if (!groupId) return
-  instance.commands.selection.select([groupId], 'replace')
+  instance.commands.selection.nodes([groupId], 'replace')
 }
 
 export const ungroupNodes = async (

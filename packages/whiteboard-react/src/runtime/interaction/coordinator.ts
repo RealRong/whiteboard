@@ -8,7 +8,7 @@ import type {
   InteractionSession,
   InteractionStartInput
 } from './types'
-import type { ViewportController } from '../viewport'
+import type { ViewportInputRuntime } from '../viewport'
 import { createAutoPan } from './autoPan'
 
 type ActiveInteraction = Readonly<{
@@ -20,15 +20,18 @@ type ActiveInteraction = Readonly<{
 export const createInteractionCoordinator = ({
   getViewport
 }: {
-  getViewport: () => Pick<ViewportController, 'clientToScreen' | 'get' | 'panBy' | 'size'> | null
+  getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
 }): InteractionCoordinator => {
   const active = createValueStore<ActiveInteraction | null>(null)
+  const space = createValueStore(false)
   const mode = createDerivedStore({
     get: (read) => read(active)?.mode ?? 'idle'
   })
   let nextId = 1
   let releaseWindow = () => {}
   let endCurrent: (() => void) | null = null
+  let currentInput: InteractionStartInput | null = null
+  let currentSession: InteractionSession | null = null
   const autoPan = createAutoPan({
     getViewport
   })
@@ -103,11 +106,79 @@ export const createInteractionCoordinator = ({
     releaseCapture(input.capture, current.pointerId)
     active.set(null)
     endCurrent = null
+    currentInput = null
+    currentSession = null
     cleanup?.()
+  }
+
+  const handleBlur = () => {
+    if (space.get()) {
+      space.set(false)
+    }
+
+    const input = currentInput
+    const session = currentSession
+    if (!input || !session) {
+      return
+    }
+
+    if (input.blur) {
+      input.blur(session)
+      return
+    }
+
+    session.cancel()
+  }
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    let handled = false
+
+    if (event.code === 'Space') {
+      if (!space.get()) {
+        space.set(true)
+      }
+      handled = true
+    }
+
+    const input = currentInput
+    const session = currentSession
+    if (!input || !session) {
+      return handled
+    }
+
+    handled = true
+    input.keydown?.(event, session)
+
+    if (active.get() && event.key === 'Escape') {
+      session.cancel()
+    }
+
+    return true
+  }
+
+  const handleKeyUp = (event: KeyboardEvent) => {
+    let handled = false
+
+    if (event.code === 'Space') {
+      if (space.get()) {
+        space.set(false)
+      }
+      handled = true
+    }
+
+    const input = currentInput
+    const session = currentSession
+    if (!input || !session) {
+      return handled
+    }
+
+    input.keyup?.(event, session)
+    return true
   }
 
   return {
     mode,
+    space,
     start: (input) => {
       if (active.get()) {
         return null
@@ -157,45 +228,22 @@ export const createInteractionCoordinator = ({
         session.cancel()
       }
 
-      const onBlur = () => {
-        if (input.blur) {
-          input.blur(session)
-          return
-        }
-        session.cancel()
-      }
-
-      const onKeyDown = (event: KeyboardEvent) => {
-        input.keydown?.(event, session)
-        if (!done && event.key === 'Escape') {
-          session.cancel()
-        }
-      }
-
-      const onKeyUp = (event: KeyboardEvent) => {
-        input.keyup?.(event, session)
-      }
-
       if (typeof window !== 'undefined') {
         window.addEventListener('pointermove', onPointerMove)
         window.addEventListener('pointerup', onPointerUp)
         window.addEventListener('pointercancel', onPointerCancel)
-        window.addEventListener('blur', onBlur)
-        window.addEventListener('keydown', onKeyDown)
-        window.addEventListener('keyup', onKeyUp)
 
         releaseWindow = () => {
           window.removeEventListener('pointermove', onPointerMove)
           window.removeEventListener('pointerup', onPointerUp)
           window.removeEventListener('pointercancel', onPointerCancel)
-          window.removeEventListener('blur', onBlur)
-          window.removeEventListener('keydown', onKeyDown)
-          window.removeEventListener('keyup', onKeyUp)
         }
       }
 
       active.set(current)
       endCurrent = end
+      currentInput = input
+      currentSession = session
       capturePointer(input.capture, input.pointerId)
 
       if (input.pan) {
@@ -206,6 +254,9 @@ export const createInteractionCoordinator = ({
     },
     cancel: () => {
       endCurrent?.()
-    }
+    },
+    handleKeyDown,
+    handleKeyUp,
+    handleBlur
   }
 }

@@ -2,6 +2,7 @@ import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance as useInstance } from '../../../../runtime/hooks'
+import { isSelectionIgnoredTarget } from '../../../../canvas/CanvasTargeting'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
@@ -75,10 +76,7 @@ export const useMindmapDrag = () => {
         return
       }
 
-      if (
-        event.target instanceof Element
-        && event.target.closest('[data-selection-ignore]')
-      ) {
+      if (isSelectionIgnoredTarget(event.target)) {
         return
       }
 

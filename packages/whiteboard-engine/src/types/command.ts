@@ -1,6 +1,5 @@
 import type {
   Document,
-  DispatchResult,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -32,6 +31,7 @@ import type {
   MindmapMoveLayoutOptions,
   MindmapMoveRootOptions
 } from './mindmap'
+import type { CommitResult } from './commit'
 
 export type CommandSource =
   | 'remote'
@@ -209,118 +209,118 @@ export type WriteInput<D extends WriteDomain = WriteDomain> =
     : never
 
 export type MindmapCommands = {
-  create: (payload?: MindmapCreateOptions) => Promise<DispatchResult>
-  replace: (id: MindmapId, tree: MindmapTree) => Promise<DispatchResult>
-  delete: (ids: MindmapId[]) => Promise<DispatchResult>
+  create: (payload?: MindmapCreateOptions) => Promise<CommitResult>
+  replace: (id: MindmapId, tree: MindmapTree) => Promise<CommitResult>
+  delete: (ids: MindmapId[]) => Promise<CommitResult>
   addChild: (
     id: MindmapId,
     parentId: MindmapNodeId,
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
   addSibling: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     position: 'before' | 'after',
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
   attachExternal: (
     id: MindmapId,
     targetId: MindmapNodeId,
     payload: MindmapAttachPayload,
     options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
-  insertPlacement: (options: MindmapInsertNodeOptions) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
+  insertPlacement: (options: MindmapInsertNodeOptions) => Promise<CommitResult>
   moveSubtree: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     newParentId: MindmapNodeId,
     options?: MindmapCommandOptions
-  ) => Promise<DispatchResult>
-  moveLayout: (options: MindmapMoveLayoutOptions) => Promise<DispatchResult>
-  moveDrop: (options: MindmapMoveDropOptions) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
+  moveLayout: (options: MindmapMoveLayoutOptions) => Promise<CommitResult>
+  moveDrop: (options: MindmapMoveDropOptions) => Promise<CommitResult>
   reorderChild: (
     id: MindmapId,
     parentId: MindmapNodeId,
     fromIndex: number,
     toIndex: number
-  ) => Promise<DispatchResult>
-  moveRoot: (options: MindmapMoveRootOptions) => Promise<DispatchResult>
-  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
+  moveRoot: (options: MindmapMoveRootOptions) => Promise<CommitResult>
+  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => Promise<CommitResult>
   cloneSubtree: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     options?: MindmapCloneSubtreeOptions
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
   setNodeData: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     patch: Partial<MindmapNodeData>
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
   toggleCollapse: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     collapsed?: boolean
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
   setSide: (
     id: MindmapId,
     nodeId: MindmapNodeId,
     side: 'left' | 'right'
-  ) => Promise<DispatchResult>
+  ) => Promise<CommitResult>
 }
 
 export type EngineCommands = {
   document: {
-    replace: (doc: Document) => Promise<DispatchResult>
+    replace: (doc: Document) => Promise<CommitResult>
   }
   history: {
     get: () => HistoryState
-    undo: () => boolean
-    redo: () => boolean
+    undo: () => CommitResult
+    redo: () => CommitResult
     clear: () => void
   }
   edge: {
-    create: (payload: EdgeInput) => Promise<DispatchResult>
-    update: (id: EdgeId, patch: EdgePatch) => Promise<DispatchResult>
-    updateMany: (updates: readonly EdgeBatchUpdate[]) => Promise<DispatchResult>
-    delete: (ids: EdgeId[]) => Promise<DispatchResult>
+    create: (payload: EdgeInput) => Promise<CommitResult>
+    update: (id: EdgeId, patch: EdgePatch) => Promise<CommitResult>
+    updateMany: (updates: readonly EdgeBatchUpdate[]) => Promise<CommitResult>
+    delete: (ids: EdgeId[]) => Promise<CommitResult>
     routing: {
-      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => Promise<DispatchResult>
-      move: (edgeId: EdgeId, index: number, pointWorld: Point) => Promise<DispatchResult>
-      remove: (edgeId: EdgeId, index: number) => Promise<DispatchResult>
-      reset: (edgeId: EdgeId) => Promise<DispatchResult>
+      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => Promise<CommitResult>
+      move: (edgeId: EdgeId, index: number, pointWorld: Point) => Promise<CommitResult>
+      remove: (edgeId: EdgeId, index: number) => Promise<CommitResult>
+      reset: (edgeId: EdgeId) => Promise<CommitResult>
     }
     order: {
-      set: (ids: EdgeId[]) => Promise<DispatchResult>
-      bringToFront: (ids: EdgeId[]) => Promise<DispatchResult>
-      sendToBack: (ids: EdgeId[]) => Promise<DispatchResult>
-      bringForward: (ids: EdgeId[]) => Promise<DispatchResult>
-      sendBackward: (ids: EdgeId[]) => Promise<DispatchResult>
+      set: (ids: EdgeId[]) => Promise<CommitResult>
+      bringToFront: (ids: EdgeId[]) => Promise<CommitResult>
+      sendToBack: (ids: EdgeId[]) => Promise<CommitResult>
+      bringForward: (ids: EdgeId[]) => Promise<CommitResult>
+      sendBackward: (ids: EdgeId[]) => Promise<CommitResult>
     }
   }
   node: {
-    create: (payload: NodeInput) => Promise<DispatchResult>
-    update: (id: NodeId, patch: NodePatch) => Promise<DispatchResult>
+    create: (payload: NodeInput) => Promise<CommitResult>
+    update: (id: NodeId, patch: NodePatch) => Promise<CommitResult>
     updateMany: (
       updates: readonly NodeBatchUpdate[],
       options?: NodeUpdateManyOptions
-    ) => Promise<DispatchResult>
-    updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<DispatchResult>
-    delete: (ids: NodeId[]) => Promise<DispatchResult>
-    deleteCascade: (ids: NodeId[]) => Promise<DispatchResult>
-    duplicate: (ids: NodeId[]) => Promise<DispatchResult>
+    ) => Promise<CommitResult>
+    updateData: (id: NodeId, patch: Record<string, unknown>) => Promise<CommitResult>
+    delete: (ids: NodeId[]) => Promise<CommitResult>
+    deleteCascade: (ids: NodeId[]) => Promise<CommitResult>
+    duplicate: (ids: NodeId[]) => Promise<CommitResult>
     group: {
-      create: (ids: NodeId[]) => Promise<DispatchResult>
-      ungroup: (id: NodeId) => Promise<DispatchResult>
-      ungroupMany: (ids: NodeId[]) => Promise<DispatchResult>
+      create: (ids: NodeId[]) => Promise<CommitResult>
+      ungroup: (id: NodeId) => Promise<CommitResult>
+      ungroupMany: (ids: NodeId[]) => Promise<CommitResult>
     }
     order: {
-      set: (ids: NodeId[]) => Promise<DispatchResult>
-      bringToFront: (ids: NodeId[]) => Promise<DispatchResult>
-      sendToBack: (ids: NodeId[]) => Promise<DispatchResult>
-      bringForward: (ids: NodeId[]) => Promise<DispatchResult>
-      sendBackward: (ids: NodeId[]) => Promise<DispatchResult>
+      set: (ids: NodeId[]) => Promise<CommitResult>
+      bringToFront: (ids: NodeId[]) => Promise<CommitResult>
+      sendToBack: (ids: NodeId[]) => Promise<CommitResult>
+      bringForward: (ids: NodeId[]) => Promise<CommitResult>
+      sendBackward: (ids: NodeId[]) => Promise<CommitResult>
     }
   }
   mindmap: MindmapCommands

@@ -6,24 +6,17 @@ import type { BoardProps } from './types/common'
 import { createEngine, type EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useInstance'
+import { useInternalInstance, useStoreValue } from './runtime/hooks'
 import {
-  DEFAULT_VIEWPORT,
-  type ViewportController,
-  useViewportController,
-  useViewportTransformStyle
+  useBindViewportInput
 } from './runtime/viewport'
-import { SelectionBoxOverlay } from './ui/canvas/selection/SelectionBoxOverlay'
-import { CanvasChrome } from './ui/canvas/chrome/CanvasChrome'
-import { useContextMenuSession } from './ui/context-menu/useContextMenuSession'
-import { ShortcutInput } from './ui/canvas/input/ShortcutInput'
-import { ContextMenuInput } from './ui/canvas/input/ContextMenuInput'
+import { CanvasChrome } from './canvas/CanvasChrome'
 import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
-import { createInteractionCoordinator } from './runtime/interaction'
 import {
   createInstance,
   type BoardInstance,
@@ -55,9 +48,34 @@ const WhiteboardCanvas = ({
   containerRef,
   containerStyle
 }: CanvasProps) => {
-  const transformStyle = useViewportTransformStyle()
-  const contextMenu = useContextMenuSession()
+  const instance = useInternalInstance()
+  const viewport = useStoreValue(instance.viewport)
+  const inputPolicy = useMemo(
+    () => ({
+      panEnabled: resolvedConfig.viewport.enablePan,
+      wheelEnabled: resolvedConfig.viewport.enableWheel,
+      wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
+    }),
+    [
+      resolvedConfig.viewport.enablePan,
+      resolvedConfig.viewport.enableWheel,
+      resolvedConfig.viewport.wheelSensitivity
+    ]
+  )
+  const transformStyle = useMemo(
+    () => ({
+      transform: `translate(50%, 50%) scale(${viewport.zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
+      transformOrigin: '0 0',
+      '--wb-zoom': `${viewport.zoom}`
+    } as CSSProperties),
+    [viewport]
+  )
 
+  useBindViewportInput({
+    instance,
+    containerRef,
+    options: inputPolicy
+  })
   useEdgeConnect({
     containerRef
   })
@@ -69,14 +87,6 @@ const WhiteboardCanvas = ({
       style={containerStyle}
       tabIndex={0}
     >
-      <ShortcutInput
-        containerRef={containerRef}
-        shortcuts={resolvedConfig.shortcuts}
-      />
-      <ContextMenuInput
-        containerRef={containerRef}
-        onOpenContextMenu={contextMenu.open}
-      />
       <div className="wb-root-viewport" style={transformStyle}>
         <NodeSceneLayer />
         <EdgeLayer />
@@ -84,11 +94,9 @@ const WhiteboardCanvas = ({
         <NodeOverlayLayer />
         <EdgeOverlayLayer />
       </div>
-      <SelectionBoxOverlay containerRef={containerRef} />
       <CanvasChrome
         containerRef={containerRef}
-        contextMenuSession={contextMenu.session}
-        closeContextMenu={contextMenu.close}
+        shortcuts={resolvedConfig.shortcuts}
       />
     </div>
   )
@@ -105,39 +113,12 @@ const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function Wh
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const viewportRef = useRef<ViewportController | null>(null)
   const onDocumentChangeRef = useRef(onDocumentChange)
   const lastOutboundDocRef = useRef<Document>(doc)
-  const interactionRef = useRef(createInteractionCoordinator({
-    getViewport: () => viewportRef.current
-  }))
   const resolvedConfig = useMemo(
     () => normalizeConfig(config),
     [config]
   )
-  const viewportPolicy = useMemo(
-    () => ({
-      panEnabled: resolvedConfig.viewport.enablePan,
-      wheelEnabled: resolvedConfig.viewport.enableWheel,
-      minZoom: resolvedConfig.viewport.minZoom,
-      maxZoom: resolvedConfig.viewport.maxZoom,
-      wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
-    }),
-    [
-      resolvedConfig.viewport.enablePan,
-      resolvedConfig.viewport.enableWheel,
-      resolvedConfig.viewport.minZoom,
-      resolvedConfig.viewport.maxZoom,
-      resolvedConfig.viewport.wheelSensitivity
-    ]
-  )
-  const viewport = useViewportController({
-    initialViewport: resolvedConfig.viewport.initial ?? DEFAULT_VIEWPORT,
-    interaction: interactionRef.current,
-    containerRef,
-    options: viewportPolicy
-  })
-  viewportRef.current = viewport
   onDocumentChangeRef.current = onDocumentChange
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
@@ -159,9 +140,12 @@ const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function Wh
     instanceRef.current = createInstance({
       engine: engineInstance,
       initialTool: resolvedConfig.tool,
-      viewport,
+      initialViewport: resolvedConfig.viewport.initial,
+      viewportLimits: {
+        minZoom: resolvedConfig.viewport.minZoom,
+        maxZoom: resolvedConfig.viewport.maxZoom
+      },
       registry: nodeRegistry ?? createDefaultNodeRegistry(),
-      interaction: interactionRef.current
     })
   }
   const instance = instanceRef.current!
@@ -179,6 +163,10 @@ const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function Wh
   const runtimeConfig = useMemo(
     () => ({
       tool: resolvedConfig.tool,
+      viewport: {
+        minZoom: resolvedConfig.viewport.minZoom,
+        maxZoom: resolvedConfig.viewport.maxZoom
+      },
       mindmapLayout: resolvedConfig.mindmapLayout,
       history: resolvedConfig.history
     }),
@@ -188,6 +176,8 @@ const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function Wh
       resolvedConfig.history.captureSystem,
       resolvedConfig.history.captureRemote,
       resolvedConfig.tool,
+      resolvedConfig.viewport.minZoom,
+      resolvedConfig.viewport.maxZoom,
       resolvedConfig.mindmapLayout.mode,
       resolvedConfig.mindmapLayout.options?.hGap,
       resolvedConfig.mindmapLayout.options?.vGap,

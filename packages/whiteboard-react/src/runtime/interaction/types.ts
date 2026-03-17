@@ -59,6 +59,10 @@ export type InteractionStartInput = Readonly<{
 
 export type InteractionCoordinator = {
   mode: ReadStore<InteractionMode>
+  space: ReadStore<boolean>
   start: (input: InteractionStartInput) => InteractionSession | null
   cancel: () => void
+  handleKeyDown: (event: KeyboardEvent) => boolean
+  handleKeyUp: (event: KeyboardEvent) => boolean
+  handleBlur: () => void
 }

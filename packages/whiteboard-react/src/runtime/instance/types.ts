@@ -8,10 +8,14 @@ import type {
 } from '@whiteboard/engine'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type {
-  Container,
-  Selection
+  Container
 } from '../state'
-import type { ViewportController } from '../viewport'
+import type { View as SelectionView } from '../selection'
+import type {
+  ViewportCommands,
+  ViewportRead
+} from '../viewport'
+import type { ViewportRuntime } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
 import type {
   InteractionCoordinator,
@@ -30,7 +34,7 @@ export type BoardInstance = {
   read: EngineInstance['read']
   state: {
     tool: ReadStore<Tool>
-    selection: ReadStore<Selection>
+    selection: ReadStore<SelectionView>
     container: ReadStore<Container>
     interaction: ReadStore<InteractionMode>
   }
@@ -39,9 +43,8 @@ export type BoardInstance = {
       set: (tool: Tool) => void
     }
     selection: {
-      select: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
-      selectEdge: (edgeId?: EdgeId) => void
-      selectAll: () => void
+      nodes: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
+      edge: (edgeId?: EdgeId) => void
       clear: () => void
     }
     container: {
@@ -49,11 +52,16 @@ export type BoardInstance = {
       exit: () => void
       clear: () => void
     }
+    viewport: ViewportCommands
     edge: EngineCommands['edge']
   }
-  viewport: ViewportController
+  viewport: ViewportRead
   configure: (config: {
     tool: Tool
+    viewport: {
+      minZoom: number
+      maxZoom: number
+    }
     mindmapLayout: MindmapLayoutConfig
     history?: KernelHistoryConfig
   }) => void
@@ -65,6 +73,7 @@ export type InternalInstance = BoardInstance & {
   interaction: InteractionCoordinator
   registry: NodeRegistry
   internals: {
+    viewport: ViewportRuntime
     node: NodeFeatureRuntime
     edge: EdgeFeatureRuntime
     mindmap: MindmapFeatureRuntime
