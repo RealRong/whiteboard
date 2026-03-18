@@ -1,8 +1,8 @@
 import type { InteractionMode } from '../interaction'
-import { useInstance } from './useInstance'
+import { useWhiteboard } from './useWhiteboard'
 import { useStoreValue } from './useStoreValue'
 
 export const useInteraction = (): InteractionMode => {
-  const instance = useInstance()
+  const instance = useWhiteboard()
   return useStoreValue(instance.state.interaction)
 }

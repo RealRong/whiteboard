@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import { useInstance } from '../../../runtime/hooks'
+import { useWhiteboard } from '../../../runtime/hooks'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 
 type Size = {
@@ -54,7 +54,7 @@ const readEntrySize = (entry: ResizeObserverEntry): Size => {
 }
 
 export const useNodeSizeObserver = () => {
-  const instance = useInstance()
+  const instance = useWhiteboard()
 
   const state = useMemo(() => {
     let nextState!: NodeSizeObserverState
@@ -97,7 +97,7 @@ export const useNodeSizeObserver = () => {
       nextState.pendingSizeById.clear()
 
       if (!updates.length) return
-      void instance.commands.node.updateMany(updates, { source: 'system' })
+      instance.commands.node.updateMany(updates, { source: 'system' })
     }
 
     nextState = {

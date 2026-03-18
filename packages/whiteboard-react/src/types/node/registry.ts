@@ -6,8 +6,8 @@ export type NodeRenderProps = {
   rect: Rect
   selected: boolean
   hovered: boolean
-  update: (patch: NodePatch) => Promise<void>
-  updateData: (patch: Record<string, unknown>) => Promise<void>
+  update: (patch: NodePatch) => void
+  updateData: (patch: Record<string, unknown>) => void
 }
 
 export type NodeDefinition = {

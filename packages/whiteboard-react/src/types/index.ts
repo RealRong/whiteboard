@@ -1,11 +1,11 @@
 export type {
   Size,
   ViewportConfig,
-  BoardOptions,
+  WhiteboardOptions,
   EdgeConfig,
   HistoryOptions,
   NodeConfig,
-  BoardProps,
+  WhiteboardProps,
   ShortcutAction,
   ShortcutBinding,
   ShortcutOverrides

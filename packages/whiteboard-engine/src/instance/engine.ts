@@ -3,8 +3,14 @@ import type {
   EngineInstance,
   EngineRuntimeOptions
 } from '@engine-types/instance'
+import type {
+  WriteCommandMap,
+  WriteDomain,
+  WriteInput,
+  WriteOutput
+} from '@engine-types/command'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { Write, WriteCommit, WriteInstance } from '@engine-types/write'
+import type { Write, WriteInstance, WriteResult } from '@engine-types/write'
 import { createValueStore } from '@whiteboard/core/runtime'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createCommands } from '../commands'
@@ -13,7 +19,9 @@ import { createRead } from '../read'
 import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from '../read/impacts'
 import { createWrite } from '../write'
 import { createDocumentSource } from './document'
-import type { Commit, CommitResult } from '@engine-types/commit'
+import type { Commit } from '@engine-types/commit'
+import type { CommandResult } from '@engine-types/result'
+import { cancelled, success } from '../result'
 
 const EMPTY_MINDMAP_LAYOUT: MindmapLayoutConfig = {}
 
@@ -46,29 +54,27 @@ export const createEngine = ({
   })
 
   const toCommit = (
-    committed: Extract<WriteCommit, { ok: true }>,
+    committed: Extract<WriteResult<unknown>, { ok: true }>,
     kind: Commit['kind']
   ): Commit => (
     committed.kind === 'operations'
       ? {
-          ok: true,
           kind,
-          doc: committed.doc,
+          document: committed.doc,
           changes: committed.changes,
           impact: committed.impact
         }
       : {
-          ok: true,
           kind,
-          doc: committed.doc,
+          document: committed.doc,
           changes: committed.changes
         }
   )
 
-  const publish = (
-    committed: WriteCommit,
+  const publish = <T>(
+    committed: WriteResult<T>,
     kind: Commit['kind']
-  ): CommitResult => {
+  ): CommandResult<T> => {
     if (!committed.ok) return committed
 
     if (committed.kind === 'replace') {
@@ -80,27 +86,29 @@ export const createEngine = ({
     const nextCommit = toCommit(committed, kind)
     commit.set(nextCommit)
     onDocumentChange?.(committed.doc)
-    return nextCommit
+    return success(nextCommit, committed.data)
   }
 
   const replay = (
-    run: () => WriteCommit | false,
+    run: () => WriteResult<void> | false,
     kind: Extract<Commit['kind'], 'undo' | 'redo'>
-  ) => () => {
+  ): (() => CommandResult) => () => {
     const committed = run()
     if (!committed) {
-      return {
-        ok: false,
-        reason: 'cancelled',
-        message: kind === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.'
-      } as const
+      return cancelled(
+        kind === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.'
+      )
     }
     return publish(committed, kind)
   }
 
   const write: Write = {
-    apply: async (payload) => publish(await writer.apply(payload), 'apply'),
-    replace: async (doc) => publish(await writer.replace(doc), 'replace'),
+    apply: <
+      D extends WriteDomain,
+      C extends WriteCommandMap[D]
+    >(payload: WriteInput<D, C>): CommandResult<WriteOutput<D, C>> =>
+      publish(writer.apply(payload), 'apply'),
+    replace: (document) => publish(writer.replace(document), 'replace'),
     history: {
       get: writer.history.get,
       clear: writer.history.clear,

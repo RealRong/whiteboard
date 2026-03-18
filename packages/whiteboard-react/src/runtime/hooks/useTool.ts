@@ -1,8 +1,8 @@
 import type { Tool } from '../instance'
-import { useInstance } from './useInstance'
+import { useWhiteboard } from './useWhiteboard'
 import { useStoreValue } from './useStoreValue'
 
 export const useTool = (): Tool => {
-  const instance = useInstance()
+  const instance = useWhiteboard()
   return useStoreValue(instance.state.tool)
 }

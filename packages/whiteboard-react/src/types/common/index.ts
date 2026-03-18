@@ -5,7 +5,7 @@ export type {
   ShortcutOverrides
 } from './shortcut'
 export type {
-  BoardOptions,
+  WhiteboardOptions,
   HistoryOptions,
-  BoardProps
+  WhiteboardProps
 } from './board'

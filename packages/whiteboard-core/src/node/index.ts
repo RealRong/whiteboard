@@ -57,7 +57,7 @@ export {
   buildNodeCreateOperation,
   buildNodeGroupOperations,
   buildNodeUngroupOperations,
-  createInvalidDispatchResult
+  buildNodeUngroupManyOperations
 } from './commands'
 export {
   applySelection,

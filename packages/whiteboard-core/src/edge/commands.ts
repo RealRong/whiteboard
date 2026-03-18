@@ -1,6 +1,6 @@
 import { applyEdgeDefaults, getMissingEdgeFields } from '../schema'
+import { err, ok } from '../types'
 import type {
-  CoreResult,
   CoreRegistries,
   Document,
   Edge,
@@ -8,7 +8,8 @@ import type {
   EdgeInput,
   EdgePatch,
   Operation,
-  Point
+  Point,
+  Result
 } from '../types'
 import {
   hasEdge,
@@ -16,9 +17,16 @@ import {
 } from '../types'
 
 export type EdgeCreateOperationResult =
-  CoreResult<{
+  Result<{
     operation: Extract<Operation, { type: 'edge.create' }>
-  }>
+    edgeId: EdgeId
+  }, 'invalid'>
+
+export type InsertRoutingPointResult =
+  Result<{
+    patch: EdgePatch
+    index: number
+  }, 'invalid'>
 
 type BuildEdgeCreateOperationInput = {
   payload: EdgeInput
@@ -49,57 +57,36 @@ export const buildEdgeCreateOperation = ({
   createEdgeId
 }: BuildEdgeCreateOperationInput): EdgeCreateOperationResult => {
   if (!payload.source?.nodeId || !payload.target?.nodeId) {
-    return {
-      ok: false,
-      message: 'Missing edge endpoints.'
-    }
+    return err('invalid', 'Missing edge endpoints.')
   }
   if (!payload.type) {
-    return {
-      ok: false,
-      message: 'Missing edge type.'
-    }
+    return err('invalid', 'Missing edge type.')
   }
   if (payload.id && hasEdge(doc, payload.id)) {
-    return {
-      ok: false,
-      message: `Edge ${payload.id} already exists.`
-    }
+    return err('invalid', `Edge ${payload.id} already exists.`)
   }
   if (!hasNode(doc, payload.source.nodeId)) {
-    return {
-      ok: false,
-      message: `Source node ${payload.source.nodeId} not found.`
-    }
+    return err('invalid', `Source node ${payload.source.nodeId} not found.`)
   }
   if (!hasNode(doc, payload.target.nodeId)) {
-    return {
-      ok: false,
-      message: `Target node ${payload.target.nodeId} not found.`
-    }
+    return err('invalid', `Target node ${payload.target.nodeId} not found.`)
   }
 
   const typeDef = registries.edgeTypes.get(payload.type)
   if (typeDef?.validate && !typeDef.validate(payload.data)) {
-    return {
-      ok: false,
-      message: `Edge ${payload.type} validation failed.`
-    }
+    return err('invalid', `Edge ${payload.type} validation failed.`)
   }
 
   const missing = getMissingEdgeFields(payload, registries)
   if (missing.length > 0) {
-    return {
-      ok: false,
-      message: `Missing required fields: ${missing.join(', ')}.`
-    }
+    return err('invalid', `Missing required fields: ${missing.join(', ')}.`)
   }
 
   const normalized = applyEdgeDefaults(payload, registries)
   const id = normalized.id ?? createEdgeId()
 
-  return {
-    ok: true,
+  return ok({
+    edgeId: id,
     operation: {
       type: 'edge.create',
       edge: {
@@ -108,7 +95,7 @@ export const buildEdgeCreateOperation = ({
         type: normalized.type ?? 'linear'
       }
     }
-  }
+  })
 }
 
 export const insertRoutingPoint = (
@@ -116,15 +103,20 @@ export const insertRoutingPoint = (
   pathPoints: Point[],
   segmentIndex: number,
   pointWorld: Point
-): EdgePatch | undefined => {
-  if (isManualRoutingUnsupported(edge)) return undefined
+): InsertRoutingPointResult => {
+  if (isManualRoutingUnsupported(edge)) {
+    return err('invalid', 'Manual routing is unsupported for this edge type.')
+  }
   const basePoints = edge.routing?.points?.length
     ? edge.routing.points
     : pathPoints.slice(1, -1)
   const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
   const nextPoints = [...basePoints]
   nextPoints.splice(insertIndex, 0, pointWorld)
-  return createRoutingPatch(edge, 'manual', nextPoints)
+  return ok({
+    index: insertIndex,
+    patch: createRoutingPatch(edge, 'manual', nextPoints)
+  })
 }
 
 export const moveRoutingPoint = (

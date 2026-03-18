@@ -1,7 +1,7 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance } from '../../../../runtime/hooks'
+import { useInternalInstance } from '../../../../runtime/hooks'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent
@@ -17,7 +17,7 @@ type ActiveRouting = {
 }
 
 export const useEdgeRouting = () => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const activeRef = useRef<ActiveRouting | null>(null)
   const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 

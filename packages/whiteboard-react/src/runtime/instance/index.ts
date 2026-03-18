@@ -1,6 +1,6 @@
 export { createInstance } from './createInstance'
 export type {
   Tool,
-  BoardInstance,
+  WhiteboardInstance,
   InternalInstance
 } from './types'

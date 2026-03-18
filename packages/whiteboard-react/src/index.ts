@@ -1,14 +1,9 @@
 import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
-export {
-  useContainer,
-  useInteraction,
-  useInstance,
-  useSelection,
-  useTool
-} from './runtime/hooks'
+export { useWhiteboard, useSelection } from './runtime/hooks'
+export { createNodeRegistry, createDefaultNodeRegistry } from './features/node/registry'
 
-export type { BoardOptions, HistoryOptions, BoardProps } from './types/common'
-export type { BoardInstance } from './runtime/instance'
+export type { WhiteboardOptions, HistoryOptions, WhiteboardProps } from './types/common'
+export type { WhiteboardInstance } from './runtime/instance'
 export type { NodeDefinition, NodeRegistry, NodeRenderProps } from './types/node'

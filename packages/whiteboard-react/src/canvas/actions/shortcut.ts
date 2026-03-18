@@ -4,7 +4,7 @@ import type {
   ShortcutOverrides
 } from '../../types/common/shortcut'
 import { leave } from '../../runtime/container'
-import type { BoardInstance } from '../../runtime/instance'
+import type { WhiteboardInstance } from '../../runtime/instance'
 import {
   deleteNodes,
   duplicateNodes,
@@ -15,7 +15,7 @@ import {
   summarizeNodes
 } from '../../features/node/summary'
 
-type ReadInstance = Pick<BoardInstance, 'commands' | 'state' | 'read'>
+type ReadInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
 
 const getSelectedNodeIds = (instance: ReadInstance) =>
   [...instance.state.selection.get().target.nodeIds]
@@ -23,32 +23,32 @@ const getSelectedNodeIds = (instance: ReadInstance) =>
 export const selectAllInScope = (instance: ReadInstance) => {
   const container = instance.state.container.get()
   if (container.id) {
-    instance.commands.selection.nodes([...container.ids], 'replace')
+    instance.commands.selection.replace([...container.ids])
     return
   }
 
-  instance.commands.selection.nodes([...instance.read.node.list.get()], 'replace')
+  instance.commands.selection.replace([...instance.read.node.list.get()])
 }
 
-const deleteCurrent = async (
+const deleteCurrent = (
   instance: ReadInstance
 ) => {
   const selection = instance.state.selection.get()
   if (selection.target.edgeId !== undefined) {
-    const result = await instance.commands.edge.delete([selection.target.edgeId])
+    const result = instance.commands.edge.delete([selection.target.edgeId])
     if (!result.ok) return
     return
   }
 
-  await deleteNodes(instance, selection.target.nodeIds)
+  deleteNodes(instance, selection.target.nodeIds)
 }
 
-const duplicateCurrent = async (
+const duplicateCurrent = (
   instance: ReadInstance
 ) => {
   const nodeIds = getSelectedNodeIds(instance)
   if (!nodeIds.length) return
-  await duplicateNodes(instance, nodeIds)
+  duplicateNodes(instance, nodeIds)
 }
 
 export const DEFAULT_SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
@@ -115,16 +115,16 @@ export const dispatchCanvasShortcutAction = (
       leave(instance)
       return true
     case 'selection.delete':
-      void deleteCurrent(instance)
+      deleteCurrent(instance)
       return true
     case 'selection.duplicate':
-      void duplicateCurrent(instance)
+      duplicateCurrent(instance)
       return true
     case 'group.create':
-      void groupSelection(instance)
+      groupSelection(instance)
       return true
     case 'group.ungroup':
-      void ungroupSelection(instance)
+      ungroupSelection(instance)
       return true
     case 'history.undo':
       return instance.commands.history.undo().ok

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Whiteboard, type BoardInstance } from '@whiteboard/react'
+import { Whiteboard, type WhiteboardInstance } from '@whiteboard/react'
 import type { Document, NodeInput } from '@whiteboard/core/types'
 import { createId } from '@whiteboard/core/utils'
 import { scenarios } from './scenarios'
@@ -54,7 +54,7 @@ const INSERTABLE_NODES: Array<{
 export const App = () => {
   const [activeId, setActiveId] = useState(scenarios[0].id)
   const [doc, setDoc] = useState<Document>(() => resolveScenario(activeId).create())
-  const instanceRef = useRef<BoardInstance | null>(null)
+  const instanceRef = useRef<WhiteboardInstance | null>(null)
   const panRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null)
   const insertCountRef = useRef(0)
 
@@ -141,7 +141,7 @@ export const App = () => {
     event.preventDefault()
   }, [])
 
-  const handleInsertNode = useCallback(async (
+  const handleInsertNode = useCallback((
     template: typeof INSERTABLE_NODES[number]
   ) => {
     const instance = instanceRef.current
@@ -169,10 +169,10 @@ export const App = () => {
       parentId
     }
 
-    const result = await instance.commands.node.create(payload)
+    const result = instance.commands.node.create(payload)
     if (!result.ok) return
 
-    instance.commands.selection.select([id])
+    instance.commands.selection.replace([id])
   }, [])
 
   return (
@@ -205,7 +205,7 @@ export const App = () => {
                 key={item.type}
                 className="demo-insert-item"
                 onClick={() => {
-                  void handleInsertNode(item)
+                  handleInsertNode(item)
                 }}
               >
                 {item.label}
@@ -230,9 +230,9 @@ export const App = () => {
       >
         <Whiteboard
           ref={instanceRef}
-          doc={doc}
+          document={doc}
           onDocumentChange={onDocumentChange}
-          config={{
+          options={{
             style: { width: '100%', height: '100%' },
             tool: 'select',
             mindmapLayout: { mode: 'simple' }

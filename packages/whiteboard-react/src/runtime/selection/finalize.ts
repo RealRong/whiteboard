@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { BoardInstance } from '../instance'
+import type { WhiteboardInstance } from '../instance'
 import {
   createState as createContainerState,
   hasEdge
@@ -34,7 +34,7 @@ export const finalize = ({
   container,
   selection
 }: {
-  read: Pick<BoardInstance['read'], 'node' | 'edge'>
+  read: Pick<WhiteboardInstance['read'], 'node' | 'edge'>
   container: ReturnType<typeof createContainerState>
   selection: Store
 }) => {
@@ -72,7 +72,7 @@ export const finalize = ({
   }
 
   if (nextNodeIds.length > 0) {
-    selection.commands.nodes(nextNodeIds, 'replace')
+    selection.commands.replace(nextNodeIds)
     return
   }
 

@@ -1,11 +1,7 @@
 import type { NodeId, NodeInput, Point } from '@whiteboard/core/types'
-import type { BoardInstance } from '../../runtime/instance'
-import {
-  created,
-  set
-} from '../../runtime/selection'
+import type { WhiteboardInstance } from '../../runtime/instance'
 
-type CommandsInstance = Pick<BoardInstance, 'commands'>
+type CommandsInstance = Pick<WhiteboardInstance, 'commands'>
 
 export type CreateNodePreset = {
   key: string
@@ -113,18 +109,16 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   }
 ]
 
-export const createNodeFromPreset = async (
+export const createNodeFromPreset = (
   instance: CommandsInstance,
   preset: CreateNodePreset,
   world: Point,
   parentId?: NodeId
 ) => {
   const input = preset.input(world)
-  const result = await instance.commands.node.create(
+  const result = instance.commands.node.create(
     parentId ? { ...input, parentId } : input
   )
-  const nodeIds = created(result)
-  if (nodeIds.length > 0) {
-    set(instance, nodeIds)
-  }
+  if (!result.ok) return
+  instance.commands.selection.replace([result.data.nodeId])
 }

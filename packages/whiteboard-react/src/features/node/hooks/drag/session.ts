@@ -47,7 +47,7 @@ export const createNodeDragSession = (
       return
     }
 
-    void instance.commands.node.updateMany(updates)
+    instance.commands.node.updateMany(updates)
   }
 
   const updatePreview = (input: {
@@ -117,7 +117,7 @@ export const createNodeDragSession = (
         )]
 
       if (!nextSelectedNodeIds.includes(nodeId)) {
-        instance.commands.selection.nodes(nextSelectedNodeIds, 'replace')
+        instance.commands.selection.replace(nextSelectedNodeIds)
         event.preventDefault()
         event.stopPropagation()
         return
@@ -128,7 +128,7 @@ export const createNodeDragSession = (
           nextSelectedNodeIds.length !== currentSelectedNodeIds.length
           || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
         ) {
-          instance.commands.selection.nodes(nextSelectedNodeIds, 'replace')
+          instance.commands.selection.replace(nextSelectedNodeIds)
         }
         event.preventDefault()
         event.stopPropagation()
@@ -186,7 +186,7 @@ export const createNodeDragSession = (
         nextSelectedNodeIds.length !== currentSelectedNodeIds.length
         || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
       ) {
-        instance.commands.selection.nodes(nextSelectedNodeIds, 'replace')
+        instance.commands.selection.replace(nextSelectedNodeIds)
       }
 
       active = {

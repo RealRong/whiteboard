@@ -2,14 +2,14 @@ import { getAnchorFromPoint } from '@whiteboard/core/edge'
 import { getAnchorPoint } from '@whiteboard/core/geometry'
 import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EdgeConnectState } from '../../../../types/edge'
-import type { BoardInstance } from '../../../../runtime/instance'
+import type { InternalInstance } from '../../../../runtime/instance'
 
 const ZOOM_EPSILON = 0.0001
 
 export const DEFAULT_EDGE_ANCHOR_OFFSET = 0.5
 
 export const resolveAnchorFromPoint = (
-  instance: BoardInstance,
+  instance: Pick<InternalInstance, 'config'>,
   rect: Rect,
   rotation: number,
   pointWorld: Point
@@ -35,7 +35,7 @@ type ConnectPointInput = {
 }
 
 const resolveConnectPoint = (
-  instance: BoardInstance,
+  instance: Pick<InternalInstance, 'read'>,
   value: ConnectPointInput | undefined,
   allowPointWorld: boolean
 ): Point | undefined => {
@@ -52,7 +52,7 @@ const resolveConnectPoint = (
 }
 
 export const resolveSnapTarget = (
-  instance: BoardInstance,
+  instance: Pick<InternalInstance, 'config' | 'read' | 'viewport'>,
   pointWorld: Point
 ): SnapTarget | undefined => {
   const config = instance.config
@@ -116,7 +116,7 @@ export type ConnectPreviewModel = {
 }
 
 export const resolveConnectPreview = (
-  instance: BoardInstance,
+  instance: Pick<InternalInstance, 'config' | 'read' | 'viewport'>,
   state: EdgeConnectState
 ): ConnectPreviewModel => {
   const from = resolveConnectPoint(instance, state.from, false)

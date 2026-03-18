@@ -1,26 +1,39 @@
 import { applyNodeDefaults, getMissingNodeFields } from '../schema'
+import { err, ok } from '../types'
 import type {
-  CoreResult,
   CoreRegistries,
-  DispatchResult,
   Document,
   Node,
   NodeId,
   NodeInput,
   Operation,
+  Result,
   Size
 } from '../types'
 import { getNode, hasNode, listNodes } from '../types'
 
 type NodeCreateOperationResult =
-  CoreResult<{
+  Result<{
     operation: Extract<Operation, { type: 'node.create' }>
-  }>
+    nodeId: NodeId
+  }, 'invalid'>
 
 type GroupOperationResult =
-  CoreResult<{
+  Result<{
     operations: Operation[]
-  }>
+  }, 'invalid'>
+
+type NodeGroupOperationResult =
+  Result<{
+    operations: Operation[]
+    groupId: NodeId
+  }, 'invalid'>
+
+type NodeUngroupOperationResult =
+  Result<{
+    operations: Operation[]
+    nodeIds: NodeId[]
+  }, 'invalid'>
 
 type BuildNodeCreateOperationInput = {
   payload: NodeInput
@@ -36,12 +49,6 @@ type BuildNodeGroupOperationsInput = {
   createGroupId: () => NodeId
 }
 
-export const createInvalidDispatchResult = (message: string): DispatchResult => ({
-  ok: false,
-  reason: 'invalid',
-  message
-})
-
 export const buildNodeCreateOperation = ({
   payload,
   doc,
@@ -49,38 +56,23 @@ export const buildNodeCreateOperation = ({
   createNodeId
 }: BuildNodeCreateOperationInput): NodeCreateOperationResult => {
   if (!payload.type) {
-    return {
-      ok: false,
-      message: 'Missing node type.'
-    }
+    return err('invalid', 'Missing node type.')
   }
   if (!payload.position) {
-    return {
-      ok: false,
-      message: 'Missing node position.'
-    }
+    return err('invalid', 'Missing node position.')
   }
   if (payload.id && hasNode(doc, payload.id)) {
-    return {
-      ok: false,
-      message: `Node ${payload.id} already exists.`
-    }
+    return err('invalid', `Node ${payload.id} already exists.`)
   }
 
   const typeDef = registries.nodeTypes.get(payload.type)
   if (typeDef?.validate && !typeDef.validate(payload.data)) {
-    return {
-      ok: false,
-      message: `Node ${payload.type} validation failed.`
-    }
+    return err('invalid', `Node ${payload.type} validation failed.`)
   }
 
   const missing = getMissingNodeFields(payload, registries)
   if (missing.length > 0) {
-    return {
-      ok: false,
-      message: `Missing required fields: ${missing.join(', ')}.`
-    }
+    return err('invalid', `Missing required fields: ${missing.join(', ')}.`)
   }
 
   const normalized = applyNodeDefaults(payload, registries)
@@ -91,13 +83,13 @@ export const buildNodeCreateOperation = ({
     layer: normalized.type === 'group' ? (normalized.layer ?? 'background') : normalized.layer
   }
 
-  return {
-    ok: true,
+  return ok({
+    nodeId: id,
     operation: {
       type: 'node.create',
       node
     }
-  }
+  })
 }
 
 export const buildNodeGroupOperations = ({
@@ -105,23 +97,17 @@ export const buildNodeGroupOperations = ({
   doc,
   nodeSize,
   createGroupId
-}: BuildNodeGroupOperationsInput): GroupOperationResult => {
+}: BuildNodeGroupOperationsInput): NodeGroupOperationResult => {
   const uniqueIds = Array.from(new Set(ids))
   if (!uniqueIds.length) {
-    return {
-      ok: false,
-      message: 'No node ids provided.'
-    }
+    return err('invalid', 'No node ids provided.')
   }
 
   const nodes: Node[] = []
   for (const id of uniqueIds) {
     const node = getNode(doc, id)
     if (!node) {
-      return {
-        ok: false,
-        message: `Node ${id} not found.`
-      }
+      return err('invalid', `Node ${id} not found.`)
     }
     nodes.push(node)
   }
@@ -132,8 +118,8 @@ export const buildNodeGroupOperations = ({
   const maxY = Math.max(...nodes.map((node) => node.position.y + (node.size?.height ?? nodeSize.height)))
   const groupId = createGroupId()
 
-  return {
-    ok: true,
+  return ok({
+    groupId,
     operations: [
       {
         type: 'node.create',
@@ -154,36 +140,81 @@ export const buildNodeGroupOperations = ({
         patch: { parentId: groupId }
       }))
     ]
-  }
+  })
 }
 
 export const buildNodeUngroupOperations = (
   id: NodeId,
   doc: Document
-): GroupOperationResult => {
-  if (!hasNode(doc, id)) {
-    return {
-      ok: false,
-      message: `Node ${id} not found.`
+): NodeUngroupOperationResult => {
+  return buildNodeUngroupManyOperations([id], doc)
+}
+
+export const buildNodeUngroupManyOperations = (
+  ids: readonly NodeId[],
+  doc: Document
+): NodeUngroupOperationResult => {
+  const uniqueIds = Array.from(new Set(ids))
+  if (!uniqueIds.length) {
+    return err('invalid', 'No group ids provided.')
+  }
+
+  const selectedSet = new Set(uniqueIds)
+  const groups: Node[] = []
+
+  for (const id of uniqueIds) {
+    const group = getNode(doc, id)
+    if (!group) {
+      return err('invalid', `Node ${id} not found.`)
     }
+    if (group.type !== 'group') {
+      return err('invalid', `Node ${id} is not a group.`)
+    }
+    groups.push(group)
   }
 
-  const childOperations = listNodes(doc)
-    .filter((node) => node.parentId === id)
-    .map((node) => ({
-      type: 'node.update' as const,
-      id: node.id,
-      patch: { parentId: undefined }
-    }))
+  const childrenByParent = new Map<NodeId, Node[]>()
+  listNodes(doc).forEach((node) => {
+    if (!node.parentId) return
+    const siblings = childrenByParent.get(node.parentId)
+    if (siblings) {
+      siblings.push(node)
+      return
+    }
+    childrenByParent.set(node.parentId, [node])
+  })
 
-  return {
-    ok: true,
-    operations: [
-      ...childOperations,
+  const operations: Operation[] = []
+  const nodeIds: NodeId[] = []
+  const selectedNodeIds = new Set<NodeId>()
+
+  for (const group of groups) {
+    const children = childrenByParent.get(group.id) ?? []
+
+    operations.push(
+      ...children.map((node) => ({
+        type: 'node.update' as const,
+        id: node.id,
+        patch: { parentId: undefined }
+      })),
       {
-        type: 'node.delete',
-        id
+        type: 'node.delete' as const,
+        id: group.id
       }
-    ]
+    )
+
+    children.forEach((child) => {
+      const willBeDeleted = child.type === 'group' && selectedSet.has(child.id)
+      if (willBeDeleted || selectedNodeIds.has(child.id)) {
+        return
+      }
+      selectedNodeIds.add(child.id)
+      nodeIds.push(child.id)
+    })
   }
+
+  return ok({
+    nodeIds,
+    operations
+  })
 }

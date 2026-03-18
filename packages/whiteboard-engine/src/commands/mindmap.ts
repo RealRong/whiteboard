@@ -8,8 +8,8 @@ export const mindmap = ({
 }: {
   apply: Apply
 }): EngineCommands['mindmap'] => {
-  const run = (
-    command: MindmapCommand,
+  const run = <C extends MindmapCommand>(
+    command: C,
     source: CommandSource = 'user'
   ) =>
     apply({

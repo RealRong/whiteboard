@@ -1,7 +1,7 @@
 import type { NodeId } from '@whiteboard/core/types'
-import type { BoardInstance } from '../instance'
+import type { WhiteboardInstance } from '../instance'
 
-type Instance = Pick<BoardInstance, 'commands' | 'state'>
+type Instance = Pick<WhiteboardInstance, 'commands' | 'state'>
 
 export const enter = (
   instance: Instance,

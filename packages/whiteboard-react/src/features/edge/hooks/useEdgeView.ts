@@ -2,7 +2,7 @@ import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useMemo } from 'react'
 import {
-  useInternalInstance as useInstance,
+  useInternalInstance,
   useSelection
 } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
@@ -30,7 +30,7 @@ export type SelectedEdgeView = {
 export const useEdgeView = (
   edgeId: EdgeId | undefined
 ): EdgeView | undefined => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const entry = useOptionalKeyedStoreValue(
     instance.read.edge.item,
     edgeId,
@@ -53,7 +53,7 @@ export const useEdgeView = (
 }
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const edgeId = useSelection().target.edgeId
   const entry = useEdgeView(edgeId)
   const routing = useEdgeRoutingSession(instance.internals.edge.routing, edgeId)

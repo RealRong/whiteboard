@@ -1,5 +1,5 @@
 import type { EngineRead } from '@whiteboard/engine'
-import type { BoardInstance } from '../instance'
+import type { WhiteboardInstance } from '../instance'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
@@ -17,7 +17,7 @@ export const createRuntimeRead = ({
   node: Pick<NodeFeatureRuntime, 'session'>
   edge: Pick<EdgeFeatureRuntime, 'routing'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
-}): BoardInstance['read'] => {
+}): WhiteboardInstance['read'] => {
   const nodeRead = createNodeRead({
     read: engineRead,
     session: node.session

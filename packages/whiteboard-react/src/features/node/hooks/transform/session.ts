@@ -72,7 +72,7 @@ export const createNodeTransformSession = (
         return
       }
 
-      void instance.commands.node.update(next.nodeId, patch)
+      instance.commands.node.update(next.nodeId, patch)
       return
     }
 
@@ -85,7 +85,7 @@ export const createNodeTransformSession = (
       return
     }
 
-    void instance.commands.node.update(next.nodeId, {
+    instance.commands.node.update(next.nodeId, {
       rotation: next.drag.currentRotation
     })
   }

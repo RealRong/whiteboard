@@ -101,12 +101,12 @@ const restoreSelection = (
   selection: ContextMenuSelectionSnapshot
 ) => {
   if (selection.edgeId !== undefined) {
-    instance.commands.selection.edge(selection.edgeId)
+    instance.commands.selection.selectEdge(selection.edgeId)
     return
   }
 
   if (selection.nodeIds.length > 0) {
-    instance.commands.selection.nodes(selection.nodeIds, 'replace')
+    instance.commands.selection.replace(selection.nodeIds)
     return
   }
 

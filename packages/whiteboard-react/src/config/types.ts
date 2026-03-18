@@ -6,7 +6,7 @@ import type {
   EdgeConfig,
   NodeConfig
 } from '../types/common'
-import type { BoardOptions } from '../types/common'
+import type { WhiteboardOptions } from '../types/common'
 
 export type ResolvedHistoryConfig = KernelHistoryConfig
 export type ResolvedViewportConfig = Required<ViewportConfig>
@@ -14,7 +14,7 @@ export type ResolvedNodeConfig = Required<NodeConfig>
 export type ResolvedEdgeConfig = Required<EdgeConfig>
 
 export type ResolvedConfig = Omit<
-  BoardOptions,
+  WhiteboardOptions,
   'nodeSize' | 'mindmapNodeSize' | 'mindmapLayout' | 'viewport' | 'node' | 'edge' | 'history' | 'tool'
 > & {
   nodeSize: Size

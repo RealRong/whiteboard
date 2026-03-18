@@ -1,4 +1,4 @@
-import type { CoreResult } from '../types/result'
+import type { Result } from '../types/result'
 
 export type MindmapId = string
 export type MindmapNodeId = string
@@ -80,10 +80,9 @@ export type MindmapDragDropTarget = {
   insertLine?: MindmapDragDropLine
 }
 
-export type MindmapCommandResult<T = void> = CoreResult<{
+export type MindmapCommandResult<T extends object = {}> = Result<{
   tree: MindmapTree
-  value?: T
-}>
+} & T, 'invalid'>
 
 export type MindmapAttachPayload = {
   kind: 'file' | 'text' | 'link' | 'ref' | 'custom'

@@ -1,6 +1,5 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
-import type { SelectionMode } from '@whiteboard/core/node'
 import type { ReadStore } from '@whiteboard/core/runtime'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
@@ -29,8 +28,7 @@ export type Tool = 'select' | 'edge'
 
 type EngineCommands = EngineInstance['commands']
 
-export type BoardInstance = {
-  config: Readonly<EngineBoardConfig>
+export type WhiteboardInstance = {
   read: EngineInstance['read']
   state: {
     tool: ReadStore<Tool>
@@ -43,8 +41,11 @@ export type BoardInstance = {
       set: (tool: Tool) => void
     }
     selection: {
-      nodes: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
-      edge: (edgeId?: EdgeId) => void
+      replace: (nodeIds: readonly NodeId[]) => void
+      add: (nodeIds: readonly NodeId[]) => void
+      remove: (nodeIds: readonly NodeId[]) => void
+      toggle: (nodeIds: readonly NodeId[]) => void
+      selectEdge: (edgeId: EdgeId) => void
       clear: () => void
     }
     container: {
@@ -56,6 +57,10 @@ export type BoardInstance = {
     edge: EngineCommands['edge']
   }
   viewport: ViewportRead
+}
+
+export type InternalInstance = WhiteboardInstance & {
+  config: Readonly<EngineBoardConfig>
   configure: (config: {
     tool: Tool
     viewport: {
@@ -66,9 +71,6 @@ export type BoardInstance = {
     history?: KernelHistoryConfig
   }) => void
   dispose: () => void
-}
-
-export type InternalInstance = BoardInstance & {
   engine: EngineInstance
   interaction: InteractionCoordinator
   registry: NodeRegistry

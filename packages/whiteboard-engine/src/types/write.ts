@@ -1,17 +1,25 @@
 import type {
   ChangeSet,
-  DispatchFailure,
   Document,
   Operation,
   CoreRegistries
 } from '@whiteboard/core/types'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
-import type { EngineCommands, WriteDomain, WriteInput } from './command'
+import type {
+  EngineCommands,
+  WriteCommandMap,
+  WriteDomain,
+  WriteInput,
+  WriteOutput
+} from './command'
 import type { ResolvedHistoryConfig } from './common'
 import type { BoardConfig, EngineDocument } from './instance'
-import type { CommitResult } from './commit'
+import type { CommandFailure, CommandResult } from './result'
 
-export type Apply = <D extends WriteDomain>(input: WriteInput<D>) => Promise<CommitResult>
+export type Apply = <
+  D extends WriteDomain,
+  C extends WriteCommandMap[D]
+>(input: WriteInput<D, C>) => CommandResult<WriteOutput<D, C>>
 
 export type Write = {
   apply: Apply
@@ -21,30 +29,36 @@ export type Write = {
 
 type SuccessfulWriteBase = {
   ok: true
+  data: unknown
   doc: Document
   changes: ChangeSet
 }
 
-export type WriteCommit =
-  | DispatchFailure
+export type WriteResult<T = void> =
+  | CommandFailure
   | (SuccessfulWriteBase & {
+      data: T
       kind: 'operations'
       inverse?: readonly Operation[]
       impact: KernelReadImpact
     })
   | (SuccessfulWriteBase & {
+      data: T
       kind: 'replace'
     })
 
 export type WriteControl = {
-  apply: <D extends WriteDomain>(input: WriteInput<D>) => Promise<WriteCommit>
-  replace: (doc: Document) => Promise<WriteCommit>
+  apply: <
+    D extends WriteDomain,
+    C extends WriteCommandMap[D]
+  >(input: WriteInput<D, C>) => WriteResult<WriteOutput<D, C>>
+  replace: (document: Document) => WriteResult
   history: {
     configure: (config: Partial<ResolvedHistoryConfig>) => void
     get: EngineCommands['history']['get']
     clear: EngineCommands['history']['clear']
-    undo: () => WriteCommit | false
-    redo: () => WriteCommit | false
+    undo: () => WriteResult | false
+    redo: () => WriteResult | false
   }
 }
 

@@ -8,7 +8,7 @@ import type { ShortcutOverrides } from './shortcut'
 
 export type HistoryOptions = Partial<KernelHistoryConfig>
 
-export type BoardOptions = {
+export type WhiteboardOptions = {
   className?: string
   style?: CSSProperties
   nodeSize?: Size
@@ -22,10 +22,10 @@ export type BoardOptions = {
   shortcuts?: ShortcutOverrides
 }
 
-export type BoardProps = {
-  doc: Document
+export type WhiteboardProps = {
+  document: Document
   onDocumentChange: (document: Document) => void
-  registries?: CoreRegistries
+  coreRegistries?: CoreRegistries
   nodeRegistry?: NodeRegistry
-  config?: BoardOptions
+  options?: WhiteboardOptions
 }

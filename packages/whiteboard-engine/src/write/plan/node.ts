@@ -1,11 +1,12 @@
 import type { WriteInstance } from '@engine-types/write'
-import type { WriteCommandMap } from '@engine-types/command'
+import type { NodeWriteOutput, WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { cancelled, invalid, op, ops, success } from '../draft'
 import {
   buildNodeCreateOperation,
   buildNodeDuplicateOperations,
   buildNodeGroupOperations,
+  buildNodeUngroupManyOperations,
   buildNodeUngroupOperations,
   expandNodeSelection
 } from '@whiteboard/core/node'
@@ -14,6 +15,7 @@ import {
   listNodes,
   getNode,
   type Document,
+  type EdgeId,
   type NodeId,
   type Operation
 } from '@whiteboard/core/types'
@@ -37,9 +39,6 @@ type DeleteCascadeCommand = Extract<NodeCommand, { type: 'deleteCascade' }>
 type DuplicateCommand = Extract<NodeCommand, { type: 'duplicate' }>
 type DataCommand = Extract<NodeCommand, { type: 'data' }>
 type OrderCommand = Extract<NodeCommand, { type: 'order' }>
-
-const toInvalidMessage = (message?: string) =>
-  message ?? 'Invalid node action.'
 
 const toUpdateOperations = (
   updates: readonly UpdateManyCommand['updates'][number][]
@@ -69,17 +68,18 @@ export const node = ({
   const createNodeId = () => createId('node')
   const createEdgeId = () => createId('edge')
 
-  const create = (command: CreateCommand): Draft =>
+  const create = (command: CreateCommand): Draft<{ nodeId: NodeId }> =>
     op(
       buildNodeCreateOperation({
         payload: command.payload,
         doc: readDoc(),
         registries: instance.registries,
         createNodeId
-      })
+      }),
+      ({ nodeId }) => ({ nodeId })
     )
 
-  const group = (command: GroupCommand): Draft => {
+  const group = (command: GroupCommand): Draft<{ groupId: NodeId }> => {
     if (command.ids.length < 2) {
       return cancelled('At least two nodes are required.')
     }
@@ -90,35 +90,26 @@ export const node = ({
         doc: readDoc(),
         nodeSize: instance.config.nodeSize,
         createGroupId
-      })
+      }),
+      ({ groupId }) => ({ groupId })
     )
   }
 
-  const ungroup = (command: UngroupCommand): Draft =>
-    ops(buildNodeUngroupOperations(command.id, readDoc()))
+  const ungroup = (command: UngroupCommand): Draft<{ nodeIds: NodeId[] }> =>
+    ops(
+      buildNodeUngroupOperations(command.id, readDoc()),
+      ({ nodeIds }) => ({ nodeIds })
+    )
 
-  const ungroupMany = (command: UngroupManyCommand): Draft => {
+  const ungroupMany = (command: UngroupManyCommand): Draft<{ nodeIds: NodeId[] }> => {
     if (!command.ids.length) {
       return cancelled('No groups selected.')
     }
 
-    const doc = readDoc()
-    const selectedSet = new Set(command.ids)
-    const groups = listNodes(doc).filter(
-      (node) => node.type === 'group' && selectedSet.has(node.id)
+    return ops(
+      buildNodeUngroupManyOperations(command.ids, readDoc()),
+      ({ nodeIds }) => ({ nodeIds })
     )
-    if (!groups.length) {
-      return cancelled('No groups selected.')
-    }
-
-    const operations: Operation[] = []
-    for (const groupNode of groups) {
-      const planned = buildNodeUngroupOperations(groupNode.id, doc)
-      if (!planned.ok) return invalid(toInvalidMessage(planned.message))
-      operations.push(...planned.operations)
-    }
-
-    return success(operations)
   }
 
   const updateMany = (command: UpdateManyCommand): Draft =>
@@ -196,7 +187,9 @@ export const node = ({
     ])
   }
 
-  const duplicate = (command: DuplicateCommand): Draft =>
+  const duplicate = (
+    command: DuplicateCommand
+  ): Draft<{ nodeIds: NodeId[]; edgeIds: EdgeId[] }> =>
     ops(
       buildNodeDuplicateOperations({
         doc: readDoc(),
@@ -205,33 +198,34 @@ export const node = ({
         createNodeId,
         createEdgeId,
         offset: DEFAULT_TUNING.shortcuts.duplicateOffset
-      })
+      }),
+      ({ nodeIds, edgeIds }) => ({ nodeIds, edgeIds })
     )
 
-  return (command: NodeCommand): Draft => {
+  return <C extends NodeCommand>(command: C): Draft<NodeWriteOutput<C>> => {
     switch (command.type) {
       case 'create':
-        return create(command)
+        return create(command) as Draft<NodeWriteOutput<C>>
       case 'updateMany':
-        return updateMany(command)
+        return updateMany(command) as Draft<NodeWriteOutput<C>>
       case 'data':
-        return updateData(command)
+        return updateData(command) as Draft<NodeWriteOutput<C>>
       case 'delete':
-        return success(command.ids.map((id) => ({ type: 'node.delete' as const, id })))
+        return success(command.ids.map((id) => ({ type: 'node.delete' as const, id }))) as Draft<NodeWriteOutput<C>>
       case 'deleteCascade':
-        return deleteCascade(command)
+        return deleteCascade(command) as Draft<NodeWriteOutput<C>>
       case 'duplicate':
-        return duplicate(command)
+        return duplicate(command) as Draft<NodeWriteOutput<C>>
       case 'group.create':
-        return group(command)
+        return group(command) as Draft<NodeWriteOutput<C>>
       case 'group.ungroup':
-        return ungroup(command)
+        return ungroup(command) as Draft<NodeWriteOutput<C>>
       case 'group.ungroupMany':
-        return ungroupMany(command)
+        return ungroupMany(command) as Draft<NodeWriteOutput<C>>
       case 'order':
-        return order(command)
+        return order(command) as Draft<NodeWriteOutput<C>>
       default:
-        return invalid('Unsupported node action.')
+        return invalid('Unsupported node action.') as Draft<NodeWriteOutput<C>>
     }
   }
 }

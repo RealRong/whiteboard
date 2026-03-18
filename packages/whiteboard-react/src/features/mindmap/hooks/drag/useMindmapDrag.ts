@@ -1,7 +1,7 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance as useInstance } from '../../../../runtime/hooks'
+import { useInternalInstance } from '../../../../runtime/hooks'
 import { isSelectionIgnoredTarget } from '../../../../canvas/CanvasTargeting'
 import {
   resolveNextMindmapDragSession,
@@ -14,7 +14,7 @@ import {
 type ActiveMindmapDragSession = MindmapDragSession
 
 export const useMindmapDrag = () => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const activeRef = useRef<ActiveMindmapDragSession | null>(null)
   const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 
@@ -110,7 +110,7 @@ export const useMindmapDrag = () => {
           }
 
           if (active.kind === 'root') {
-            void instance.commands.mindmap.moveRoot({
+            instance.commands.mindmap.moveRoot({
               nodeId: active.treeId,
               position: active.position
             })
@@ -119,7 +119,7 @@ export const useMindmapDrag = () => {
           }
 
           if (active.drop) {
-            void instance.commands.mindmap.moveDrop({
+            instance.commands.mindmap.moveDrop({
               id: active.treeId,
               nodeId: active.nodeId,
               drop: {

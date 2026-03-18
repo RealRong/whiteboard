@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import { useInternalInstance as useInstance } from '../../../runtime/hooks'
+import { useInternalInstance } from '../../../runtime/hooks'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useMindmapDragSession } from '../session/drag'
 
@@ -57,13 +57,13 @@ export type MindmapTreeViewData = {
   onAddChild: (
     nodeId: MindmapNodeId,
     placement: 'left' | 'right' | 'up' | 'down'
-  ) => Promise<void>
+  ) => void
 }
 
 export const useMindmapTreeView = (
   treeId: NodeId
 ): MindmapTreeViewData | undefined => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const treeView = useKeyedStoreValue(instance.read.mindmap.item, treeId)
   const drag = useMindmapDragSession(instance.internals.mindmap.drag)
   const tree = treeView?.tree
@@ -72,12 +72,12 @@ export const useMindmapTreeView = (
   const nodeSize = instance.config.mindmapNodeSize
 
   const onAddChild = useCallback(
-    async (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
+    (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
       if (!tree || !root || !layout) {
         return
       }
 
-      await instance.commands.mindmap.insertPlacement({
+      instance.commands.mindmap.insertPlacement({
         id: root.id,
         tree,
         targetNodeId: nodeId,

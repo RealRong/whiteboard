@@ -2,10 +2,10 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
-import type { BoardProps } from './types/common'
+import type { WhiteboardProps } from './types/common'
 import { createEngine, type EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
-import { InstanceProvider } from './runtime/hooks/useInstance'
+import { InstanceProvider } from './runtime/hooks/useWhiteboard'
 import { useInternalInstance, useStoreValue } from './runtime/hooks'
 import {
   useBindViewportInput
@@ -19,7 +19,7 @@ import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
 import {
   createInstance,
-  type BoardInstance,
+  type WhiteboardInstance,
   type InternalInstance
 } from './runtime/instance'
 
@@ -102,33 +102,33 @@ const WhiteboardCanvas = ({
   )
 }
 
-const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function WhiteboardInner(
+const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
   {
-    doc,
+    document,
     onDocumentChange,
-    registries,
+    coreRegistries,
     nodeRegistry,
-    config
+    options
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onDocumentChangeRef = useRef(onDocumentChange)
-  const lastOutboundDocRef = useRef<Document>(doc)
+  const lastOutboundDocumentRef = useRef<Document>(document)
   const resolvedConfig = useMemo(
-    () => normalizeConfig(config),
-    [config]
+    () => normalizeConfig(options),
+    [options]
   )
   onDocumentChangeRef.current = onDocumentChange
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
   if (!engineInstanceRef.current) {
     engineInstanceRef.current = createEngine({
-      registries,
-      document: doc,
-      onDocumentChange: (next) => {
-        lastOutboundDocRef.current = next
-        onDocumentChangeRef.current(next)
+      registries: coreRegistries,
+      document,
+      onDocumentChange: (nextDocument) => {
+        lastOutboundDocumentRef.current = nextDocument
+        onDocumentChangeRef.current(nextDocument)
       },
       config: toBoardConfig(resolvedConfig)
     })
@@ -153,12 +153,12 @@ const WhiteboardInner = forwardRef<BoardInstance | null, BoardProps>(function Wh
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
-    if (isMirroredDocumentFromEngine(lastOutboundDocRef.current, doc)) {
+    if (isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, document)) {
       return
     }
-    lastOutboundDocRef.current = doc
-    void instance.commands.document.replace(doc)
-  }, [doc, instance])
+    lastOutboundDocumentRef.current = document
+    instance.commands.document.replace(document)
+  }, [document, instance])
 
   const runtimeConfig = useMemo(
     () => ({

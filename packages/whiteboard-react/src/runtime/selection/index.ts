@@ -3,8 +3,6 @@ export {
   type Commands,
   type Source,
   type Store,
-  type View,
-  type Mode
+  type View
 } from './state'
 export { finalize } from './finalize'
-export { created, createdGroup, set, ungroupChildren } from './policy'

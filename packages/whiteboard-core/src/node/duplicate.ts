@@ -1,15 +1,16 @@
 import { buildEdgeCreateOperation } from '../edge/commands'
 import { createEdgeDuplicateInput } from '../edge/duplicate'
+import { err, ok } from '../types'
 import type {
   CoreRegistries,
-  CoreResult,
   Document,
   Node,
   NodeId,
   NodeInput,
   Operation,
   Point,
-  EdgeId
+  EdgeId,
+  Result
 } from '../types'
 import { buildNodeCreateOperation } from './commands'
 import { getContainerDescendants } from './group'
@@ -131,12 +132,13 @@ export const buildNodeDuplicateOperations = ({
   createNodeId,
   createEdgeId,
   offset
-}: BuildNodeDuplicateOperationsInput): CoreResult<{ operations: Operation[] }> => {
+}: BuildNodeDuplicateOperationsInput): Result<{
+  operations: Operation[]
+  nodeIds: NodeId[]
+  edgeIds: EdgeId[]
+}, 'invalid'> => {
   if (!ids.length) {
-    return {
-      ok: false,
-      message: 'No nodes selected.'
-    }
+    return err('invalid', 'No nodes selected.')
   }
 
   const orderedNodes = listNodes(doc)
@@ -145,10 +147,7 @@ export const buildNodeDuplicateOperations = ({
     .map((id) => nodeById.get(id))
     .filter((node): node is Node => Boolean(node))
   if (!selectedNodes.length) {
-    return {
-      ok: false,
-      message: 'No nodes selected.'
-    }
+    return err('invalid', 'No nodes selected.')
   }
 
   const depthCache = new Map<NodeId, number>()
@@ -164,6 +163,8 @@ export const buildNodeDuplicateOperations = ({
   selectedNodes.sort((left, right) => getDepth(left) - getDepth(right))
 
   const operations: Operation[] = []
+  const nodeIds: NodeId[] = []
+  const edgeIds: EdgeId[] = []
   const sourceToDuplicatedId = new Map<NodeId, NodeId>()
   const duplicatedNodeOperations: Extract<Operation, { type: 'node.create' }>[] = []
   const duplicatedEdgeOperations: Extract<Operation, { type: 'edge.create' }>[] = []
@@ -185,15 +186,13 @@ export const buildNodeDuplicateOperations = ({
       createNodeId: () => duplicatedNodeId
     })
     if (!planned.ok) {
-      return {
-        ok: false,
-        message: planned.message ?? 'Invalid node duplicate command.'
-      }
+      return err('invalid', planned.error.message)
     }
 
-    duplicatedNodeOperations.push(planned.operation)
-    operations.push(planned.operation)
-    sourceToDuplicatedId.set(sourceNode.id, planned.operation.node.id)
+    duplicatedNodeOperations.push(planned.data.operation)
+    operations.push(planned.data.operation)
+    nodeIds.push(planned.data.nodeId)
+    sourceToDuplicatedId.set(sourceNode.id, planned.data.nodeId)
   }
 
   const selectedEdges = listEdges(doc).filter(
@@ -219,18 +218,17 @@ export const buildNodeDuplicateOperations = ({
       createEdgeId: () => duplicatedEdgeId
     })
     if (!planned.ok) {
-      return {
-        ok: false,
-        message: planned.message ?? 'Invalid node duplicate command.'
-      }
+      return err('invalid', planned.error.message)
     }
 
-    duplicatedEdgeOperations.push(planned.operation)
-    operations.push(planned.operation)
+    duplicatedEdgeOperations.push(planned.data.operation)
+    operations.push(planned.data.operation)
+    edgeIds.push(planned.data.edgeId)
   }
 
-  return {
-    ok: true,
-    operations
-  }
+  return ok({
+    operations,
+    nodeIds,
+    edgeIds
+  })
 }

@@ -1,7 +1,7 @@
 import type { EdgeAnchor, EdgeId, NodeId } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { EdgeConnectState } from '../../../../types/edge'
-import { useInternalInstance as useInstance, useTool } from '../../../../runtime/hooks'
+import { useInternalInstance, useTool } from '../../../../runtime/hooks'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
 import { CanvasContentIgnoreSelector } from '../../../../canvas/CanvasTargeting'
@@ -32,7 +32,7 @@ export const useEdgeConnect = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const tool = useTool()
   const activeRef = useRef<ActiveConnect | null>(null)
   const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
@@ -145,7 +145,7 @@ export const useEdgeConnect = ({
     }
 
     if (state.reconnect) {
-      void instance.commands.edge.update(
+      instance.commands.edge.update(
         state.reconnect.edgeId,
         state.reconnect.end === 'source'
           ? {
@@ -164,7 +164,7 @@ export const useEdgeConnect = ({
       return
     }
 
-    void instance.commands.edge.create({
+    instance.commands.edge.create({
       source: {
         nodeId: state.from.nodeId,
         anchor: state.from.anchor

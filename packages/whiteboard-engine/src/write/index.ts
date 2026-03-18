@@ -1,5 +1,5 @@
-import type { WriteCommit, WriteControl, WriteDeps } from '@engine-types/write'
-import type { WriteDomain, WriteInput } from '@engine-types/command'
+import type { WriteControl, WriteDeps, WriteResult } from '@engine-types/write'
+import type { WriteCommandMap, WriteDomain, WriteInput, WriteOutput } from '@engine-types/command'
 import type { CommandSource } from '@engine-types/command'
 import {
   assertDocument,
@@ -48,10 +48,11 @@ export const createWrite = ({
     groupPadding: instance.config.node.groupPadding
   })
 
-  const commitOperations = (
+  const commitOperations = <T>(
     operations: readonly Operation[],
-    origin: Origin
-  ): WriteCommit => {
+    origin: Origin,
+    data: T
+  ): WriteResult<T> => {
     const currentDocument = instance.document.get()
     const reduced = normalize.reduce(currentDocument, operations, origin)
     if (!reduced.ok) {
@@ -62,6 +63,7 @@ export const createWrite = ({
 
     return {
       ok: true,
+      data,
       kind: 'operations',
       doc: reduced.doc,
       changes: reduced.changes,
@@ -72,40 +74,41 @@ export const createWrite = ({
 
   const replaceDocument = (
     document: Document
-  ): WriteCommit => {
+  ): WriteResult => {
     const committedDocument = assertDocument(document)
     instance.document.commit(committedDocument)
 
-      return {
-        ok: true,
-        kind: 'replace',
-        doc: committedDocument,
-        changes: {
-          id: createId('change'),
-          timestamp: readNow(),
-          operations: [],
-          origin: 'system'
-        }
+    return {
+      ok: true,
+      data: undefined,
+      kind: 'replace',
+      doc: committedDocument,
+      changes: {
+        id: createId('change'),
+        timestamp: readNow(),
+        operations: [],
+        origin: 'system'
       }
+    }
   }
 
-  const history = createHistory<Operation, Origin, WriteCommit>({
+  const history = createHistory<Operation, Origin, WriteResult>({
     now: readNow,
     config: DEFAULT_HISTORY_CONFIG,
     replay: (operations) => {
-      const committed = commitOperations(operations, 'system')
+      const committed = commitOperations(operations, 'system', undefined)
       return committed.ok ? committed : false
     }
   })
 
-  const clearHistory = (committed: WriteCommit): WriteCommit => {
+  const clearHistory = <T>(committed: WriteResult<T>): WriteResult<T> => {
     if (committed.ok) {
       history.clear()
     }
     return committed
   }
 
-  const captureHistory = (committed: WriteCommit): WriteCommit => {
+  const captureHistory = <T>(committed: WriteResult<T>): WriteResult<T> => {
     if (
       committed.ok
       && committed.kind === 'operations'
@@ -121,19 +124,23 @@ export const createWrite = ({
     return committed
   }
 
-  const apply = async <D extends WriteDomain>(payload: WriteInput<D>) => {
+  const apply = <
+    D extends WriteDomain,
+    C extends WriteCommandMap[D]
+  >(payload: WriteInput<D, C>): WriteResult<WriteOutput<D, C>> => {
     const draft = planner(payload)
     if (!draft.ok) return draft
 
     return captureHistory(
       commitOperations(
-        draft.operations,
-        resolveOrigin(payload.source ?? 'user')
+        draft.data.operations,
+        resolveOrigin(payload.source ?? 'user'),
+        draft.data.output
       )
     )
   }
 
-  const replace = async (document: Document) =>
+  const replace = (document: Document) =>
     clearHistory(replaceDocument(document))
 
   return {

@@ -21,16 +21,17 @@ import {
   isRectEqual
 } from '../utils/equality'
 
-export type { SelectionMode as Mode } from '@whiteboard/core/node'
-
 export type Source =
   | { kind: 'none' }
   | { kind: 'nodes'; nodeIds: readonly NodeId[] }
   | { kind: 'edge'; edgeId: EdgeId }
 
 export type Commands = {
-  nodes: (nodeIds: readonly NodeId[], mode?: SelectionMode) => void
-  edge: (edgeId?: EdgeId) => void
+  replace: (nodeIds: readonly NodeId[]) => void
+  add: (nodeIds: readonly NodeId[]) => void
+  remove: (nodeIds: readonly NodeId[]) => void
+  toggle: (nodeIds: readonly NodeId[]) => void
+  selectEdge: (edgeId: EdgeId) => void
   clear: () => void
 }
 
@@ -259,7 +260,7 @@ export const createState = ({
     isEqual: isViewEqual
   })
 
-  const nodes = (
+  const writeNodes = (
     nodeIds: readonly NodeId[],
     mode: SelectionMode = 'replace'
   ) => {
@@ -275,16 +276,30 @@ export const createState = ({
     writeSource(toSource(nextNodeIds))
   }
 
-  const edge = (edgeId?: EdgeId) => {
-    const current = readSource()
-    if (edgeId === undefined) {
-      if (current.kind !== 'edge') {
-        return
-      }
+  const replace = (nodeIds: readonly NodeId[]) => {
+    if (!nodeIds.length) {
       writeSource(EMPTY_SOURCE)
       return
     }
+    writeNodes(nodeIds, 'replace')
+  }
 
+  const add = (nodeIds: readonly NodeId[]) => {
+    if (!nodeIds.length) return
+    writeNodes(nodeIds, 'add')
+  }
+
+  const remove = (nodeIds: readonly NodeId[]) => {
+    if (!nodeIds.length) return
+    writeNodes(nodeIds, 'subtract')
+  }
+
+  const toggle = (nodeIds: readonly NodeId[]) => {
+    if (!nodeIds.length) return
+    writeNodes(nodeIds, 'toggle')
+  }
+
+  const selectEdge = (edgeId: EdgeId) => {
     writeSource({
       kind: 'edge',
       edgeId
@@ -299,8 +314,11 @@ export const createState = ({
     source,
     store,
     commands: {
-      nodes,
-      edge,
+      replace,
+      add,
+      remove,
+      toggle,
+      selectEdge,
       clear
     }
   }

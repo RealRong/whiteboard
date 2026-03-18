@@ -4,7 +4,7 @@ import {
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
 import { DEFAULT_VIEWPORT } from '../runtime/viewport'
-import type { BoardOptions } from '../types/common'
+import type { WhiteboardOptions } from '../types/common'
 import type { ResolvedConfig } from './types'
 
 const ZOOM_EPSILON = 0.0001
@@ -37,13 +37,13 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 
 const mergeConfig = (
   defaults: ResolvedConfig,
-  overrides?: BoardOptions
+  overrides?: WhiteboardOptions
 ): ResolvedConfig => mergeValue(defaults, overrides)
 
 export const normalizeConfig = (
-  config?: BoardOptions
+  options?: WhiteboardOptions
 ): ResolvedConfig => {
-  const merged = mergeConfig(DEFAULT_CONFIG, config)
+  const merged = mergeConfig(DEFAULT_CONFIG, options)
   const minZoom = Math.max(ZOOM_EPSILON, merged.viewport.minZoom)
   const maxZoom = Math.max(minZoom, merged.viewport.maxZoom)
 

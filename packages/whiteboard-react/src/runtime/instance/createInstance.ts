@@ -1,7 +1,7 @@
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { EngineInstance } from '@whiteboard/engine'
 import type {
-  BoardInstance,
+  WhiteboardInstance,
   InternalInstance,
   Tool,
 } from './types'
@@ -48,8 +48,8 @@ const createInstanceStores = ({
   interaction: InteractionCoordinator
 }): {
   stores: InstanceStores
-  state: BoardInstance['state']
-  read: BoardInstance['read']
+  state: WhiteboardInstance['state']
+  read: WhiteboardInstance['read']
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
@@ -100,7 +100,7 @@ const createCommands = ({
   selection: SelectionCommands
   container: ReturnType<typeof createContainerState>
   viewport: ViewportCommands
-}): BoardInstance['commands'] => ({
+}): WhiteboardInstance['commands'] => ({
   ...engine.commands,
   tool: {
     set: (nextTool) => {

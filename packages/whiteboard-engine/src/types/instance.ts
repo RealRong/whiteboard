@@ -78,7 +78,7 @@ export type EngineInstance = {
 
 export type EngineDocument = {
   get: () => Document
-  commit: (doc: Document) => void
+  commit: (document: Document) => void
 }
 
 export type CreateEngineOptions = {
@@ -88,6 +88,6 @@ export type CreateEngineOptions = {
    * Replacing or loading with the same document reference is unsupported.
    */
   document: Document
-  onDocumentChange?: (doc: Document) => void
+  onDocumentChange?: (document: Document) => void
   config?: Partial<BoardConfig>
 }

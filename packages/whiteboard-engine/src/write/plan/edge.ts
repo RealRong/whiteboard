@@ -1,5 +1,5 @@
 import type { WriteInstance } from '@engine-types/write'
-import type { WriteCommandMap } from '@engine-types/command'
+import type { EdgeWriteOutput, WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { cancelled, invalid, op, success } from '../draft'
 import {
@@ -124,7 +124,7 @@ export const edge = ({
     return success([{ type: 'edge.order.set', ids: nextOrder }])
   }
 
-  return (command: EdgeCommand): Draft => {
+  return <C extends EdgeCommand>(command: C): Draft<EdgeWriteOutput<C>> => {
     switch (command.type) {
       case 'create':
         return op(
@@ -133,14 +133,15 @@ export const edge = ({
             doc: readDoc(),
             registries: instance.registries,
             createEdgeId
-          })
-        )
+          }),
+          ({ edgeId }) => ({ edgeId })
+        ) as Draft<EdgeWriteOutput<C>>
       case 'updateMany':
-        return updateMany(command)
+        return updateMany(command) as Draft<EdgeWriteOutput<C>>
       case 'delete':
-        return success(command.ids.map((id) => ({ type: 'edge.delete' as const, id })))
+        return success(command.ids.map((id) => ({ type: 'edge.delete' as const, id }))) as Draft<EdgeWriteOutput<C>>
       case 'order':
-        return order(command)
+        return order(command) as Draft<EdgeWriteOutput<C>>
       case 'routing': {
         switch (command.mode) {
           case 'insert': {
@@ -157,8 +158,11 @@ export const edge = ({
               segmentIndex,
               command.pointWorld
             )
-            if (!patch) return cancelled('No routing patch generated.')
-            return success([{ type: 'edge.update', id: edge.id, patch }])
+            if (!patch.ok) return invalid(patch.error.message, patch.error.details)
+            return success(
+              [{ type: 'edge.update', id: edge.id, patch: patch.data.patch }],
+              { index: patch.data.index }
+            ) as Draft<EdgeWriteOutput<C>>
           }
           case 'move':
             if (command.index === undefined || !command.pointWorld) {
@@ -166,20 +170,20 @@ export const edge = ({
             }
             return updateRouting(command.edgeId, (edge) =>
               moveRoutingPointPatch(edge, command.index!, command.pointWorld!)
-            )
+            ) as Draft<EdgeWriteOutput<C>>
           case 'remove':
             if (command.index === undefined) return invalid('Routing index required.')
             return updateRouting(command.edgeId, (edge) =>
               removeRoutingPointPatch(edge, command.index!)
-            )
+            ) as Draft<EdgeWriteOutput<C>>
           case 'reset':
-            return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge))
+            return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge)) as Draft<EdgeWriteOutput<C>>
           default:
-            return invalid('Unsupported routing mode.')
+            return invalid('Unsupported routing mode.') as Draft<EdgeWriteOutput<C>>
         }
       }
       default:
-        return invalid('Unsupported edge action.')
+        return invalid('Unsupported edge action.') as Draft<EdgeWriteOutput<C>>
     }
   }
 }

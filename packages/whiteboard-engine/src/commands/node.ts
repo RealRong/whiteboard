@@ -19,7 +19,10 @@ export const node = ({
 }: {
   apply: Apply
 }): EngineCommands['node'] => {
-  const run = (command: NodeCommand, source: CommandSource = 'user') =>
+  const run = <C extends NodeCommand>(
+    command: C,
+    source: CommandSource = 'user'
+  ) =>
     apply({
       domain: 'node',
       command,
@@ -40,7 +43,7 @@ export const node = ({
     options?: NodeUpdateManyOptions
   ) => {
     if (!updates.length) {
-      return Promise.resolve(cancelledResult('No node updates provided.'))
+      return cancelledResult('No node updates provided.')
     }
     return run({
       type: 'updateMany',

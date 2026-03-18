@@ -1,8 +1,8 @@
 import type { View } from '../selection'
-import { useInstance } from './useInstance'
+import { useWhiteboard } from './useWhiteboard'
 import { useStoreValue } from './useStoreValue'
 
 export const useSelection = (): View => {
-  const instance = useInstance()
+  const instance = useWhiteboard()
   return useStoreValue(instance.state.selection)
 }

@@ -1,3 +1,4 @@
+import { err, ok } from '../types/result'
 import type {
   MindmapAttachPayload,
   MindmapCommandResult,
@@ -11,7 +12,7 @@ import { createId } from '../utils/id'
 
 type TreeDraft = MindmapTree
 
-const createFailure = (message: string) => ({ ok: false as const, message })
+const createFailure = (message: string) => err('invalid', message)
 
 const getDefaultNodeId = () => createId('mnode')
 const getDefaultTreeId = () => createId('mindmap')
@@ -114,7 +115,7 @@ export const addChild = (
   parentId: MindmapNodeId,
   payload?: MindmapNodeData | MindmapAttachPayload,
   options?: { index?: number; side?: 'left' | 'right'; idGenerator?: MindmapIdGenerator }
-): MindmapCommandResult<{ id: MindmapNodeId }> => {
+): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   if (!ensureNode(tree, parentId)) {
     return createFailure(`Parent node ${parentId} not found.`)
   }
@@ -143,7 +144,7 @@ export const addChild = (
     children.splice(index, 0, nodeId)
   }
   updateMeta(draft)
-  return { ok: true, tree: draft, value: { id: nodeId } }
+  return ok({ tree: draft, nodeId })
 }
 
 export const addSibling = (
@@ -152,7 +153,7 @@ export const addSibling = (
   position: 'before' | 'after',
   payload?: MindmapNodeData | MindmapAttachPayload,
   options?: { idGenerator?: MindmapIdGenerator }
-): MindmapCommandResult<{ id: MindmapNodeId }> => {
+): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   const node = ensureNode(tree, nodeId)
   if (!node) return createFailure(`Node ${nodeId} not found.`)
   if (!node.parentId) return createFailure('Root node has no siblings.')
@@ -207,7 +208,7 @@ export const moveSubtree = (
   }
   draft.nodes[nodeId] = nextNode
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const removeSubtree = (tree: MindmapTree, nodeId: MindmapNodeId): MindmapCommandResult => {
@@ -227,14 +228,14 @@ export const removeSubtree = (tree: MindmapTree, nodeId: MindmapNodeId): Mindmap
     delete draft.children[id]
   })
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const cloneSubtree = (
   tree: MindmapTree,
   nodeId: MindmapNodeId,
   options?: { parentId?: MindmapNodeId; index?: number; side?: 'left' | 'right'; idGenerator?: MindmapIdGenerator }
-): MindmapCommandResult<{ id: MindmapNodeId; map: Record<MindmapNodeId, MindmapNodeId> }> => {
+): MindmapCommandResult<{ nodeId: MindmapNodeId; map: Record<MindmapNodeId, MindmapNodeId> }> => {
   const node = ensureNode(tree, nodeId)
   if (!node) return createFailure(`Node ${nodeId} not found.`)
   const parentId = options?.parentId ?? node.parentId
@@ -283,7 +284,7 @@ export const cloneSubtree = (
   }
 
   updateMeta(draft)
-  return { ok: true, tree: draft, value: { id: rootCloneId, map: idMap } }
+  return ok({ tree: draft, nodeId: rootCloneId, map: idMap })
 }
 
 export const toggleCollapse = (
@@ -299,7 +300,7 @@ export const toggleCollapse = (
     collapsed: collapsed ?? !draft.nodes[nodeId].collapsed
   }
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const setNodeData = (
@@ -317,7 +318,7 @@ export const setNodeData = (
     data: nextData
   }
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const reorderChild = (
@@ -335,7 +336,7 @@ export const reorderChild = (
   const [moved] = nextChildren.splice(fromIndex, 1)
   nextChildren.splice(toIndex, 0, moved)
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const setSide = (
@@ -352,7 +353,7 @@ export const setSide = (
     side
   }
   updateMeta(draft)
-  return { ok: true, tree: draft }
+  return ok({ tree: draft })
 }
 
 export const attachExternal = (
@@ -360,6 +361,6 @@ export const attachExternal = (
   targetId: MindmapNodeId,
   payload: MindmapAttachPayload,
   options?: { index?: number; side?: 'left' | 'right'; idGenerator?: MindmapIdGenerator }
-): MindmapCommandResult<{ id: MindmapNodeId }> => {
+): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   return addChild(tree, targetId, payload, options)
 }

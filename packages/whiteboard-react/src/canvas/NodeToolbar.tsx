@@ -659,12 +659,12 @@ export const NodeToolbar = ({
           <FillMenu
             value={fillValue}
             onChange={(value) => {
-              void updateNodesStyle(instance, toolbar.nodes, { fill: value })
+              updateNodesStyle(instance, toolbar.nodes, { fill: value })
               const stickyNodes = toolbar.nodes.filter((node) => node.type === 'sticky')
               if (!stickyNodes.length) {
                 return
               }
-              void instance.commands.node.updateMany(stickyNodes.map((node) => ({
+              instance.commands.node.updateMany(stickyNodes.map((node) => ({
                 id: node.id,
                 patch: {
                   data: mergeData(node.data, { background: value })
@@ -679,10 +679,10 @@ export const NodeToolbar = ({
             stroke={strokeValue}
             strokeWidth={strokeWidthValue}
             onStrokeChange={(value) => {
-              void updateNodesStyle(instance, toolbar.nodes, { stroke: value })
+              updateNodesStyle(instance, toolbar.nodes, { stroke: value })
             }}
             onStrokeWidthChange={(value) => {
-              void updateNodesStyle(instance, toolbar.nodes, { strokeWidth: value })
+              updateNodesStyle(instance, toolbar.nodes, { strokeWidth: value })
             }}
           />
         )
@@ -696,13 +696,13 @@ export const NodeToolbar = ({
             showColor={showTextColorSection}
             showFontSize={showTextFontSizeSection}
             onTextCommit={showTextSection ? (value) => {
-              void instance.commands.node.updateData(toolbar.primaryNode.id, { [textFieldKey]: value })
+              instance.commands.node.updateData(toolbar.primaryNode.id, { [textFieldKey]: value })
             } : undefined}
             onColorChange={showTextColorSection ? (value) => {
-              void updateNodeStyle(instance, toolbar.primaryNode, { color: value })
+              updateNodeStyle(instance, toolbar.primaryNode, { color: value })
             } : undefined}
             onFontSizeChange={showTextFontSizeSection ? (value) => {
-              void updateNodeStyle(instance, toolbar.primaryNode, { fontSize: value })
+              updateNodeStyle(instance, toolbar.primaryNode, { fontSize: value })
             } : undefined}
           />
         )

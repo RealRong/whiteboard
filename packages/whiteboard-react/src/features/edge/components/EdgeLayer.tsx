@@ -2,7 +2,7 @@ import type { EdgeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo, useCallback } from 'react'
 import {
-  useInstance,
+  useInternalInstance,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
@@ -43,7 +43,7 @@ const EdgeItemById = memo(
 )
 
 export const EdgeLayer = () => {
-  const instance = useInstance()
+  const instance = useInternalInstance()
   const edgeIds = useStoreValue(instance.read.edge.list)
   const selectedEdgeId = useSelection().target.edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
@@ -73,7 +73,7 @@ export const EdgeLayer = () => {
       instance.commands.edge.routing.insertAtPoint(edgeId, point)
     }
 
-    instance.commands.selection.edge(edgeId)
+    instance.commands.selection.selectEdge(edgeId)
     event.preventDefault()
     event.stopPropagation()
   }, [instance])

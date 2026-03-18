@@ -19,7 +19,10 @@ export const edge = ({
 }: {
   apply: Apply
 }): EngineCommands['edge'] => {
-  const run = (command: EdgeCommand, source: CommandSource = 'user') =>
+  const run = <C extends EdgeCommand>(
+    command: C,
+    source: CommandSource = 'user'
+  ) =>
     apply({
       domain: 'edge',
       command,
@@ -37,7 +40,7 @@ export const edge = ({
 
   const updateMany = (updates: readonly EdgeBatchUpdate[]) => {
     if (!updates.length) {
-      return Promise.resolve(cancelledResult('No edge updates provided.'))
+      return cancelledResult('No edge updates provided.')
     }
     return run({
       type: 'updateMany',

@@ -77,7 +77,7 @@ export const SelectionBox = ({
       }
 
       active.selectedKey = nextSelectedKey
-      instance.commands.selection.nodes([...nextSelectedNodeIds], 'replace')
+      instance.commands.selection.replace([...nextSelectedNodeIds])
     }
 
     const flushTask = createRafTask(flushSelection)
@@ -198,7 +198,9 @@ export const SelectionBox = ({
         ? new Set<NodeId>(activeContainer.ids)
         : undefined
 
-      instance.commands.selection.edge(undefined)
+      if (instance.state.selection.get().target.edgeId !== undefined) {
+        instance.commands.selection.clear()
+      }
       active = {
         pointerId: event.pointerId,
         mode: resolveSelectionMode(event),

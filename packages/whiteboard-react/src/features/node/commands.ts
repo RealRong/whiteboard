@@ -1,17 +1,11 @@
 import type { Node, NodeId } from '@whiteboard/core/types'
-import type { BoardInstance } from '../../runtime/instance'
-import {
-  created,
-  createdGroup,
-  set,
-  ungroupChildren
-} from '../../runtime/selection'
+import type { WhiteboardInstance } from '../../runtime/instance'
 import type { NodeSummary } from './summary'
 
-type NodeCommandsInstance = Pick<BoardInstance, 'commands'>
-type NodeStateInstance = Pick<BoardInstance, 'commands' | 'state'>
-type NodeReadInstance = Pick<BoardInstance, 'commands' | 'read'>
-type NodeSelectionInstance = Pick<BoardInstance, 'commands' | 'state' | 'read'>
+type NodeCommandsInstance = Pick<WhiteboardInstance, 'commands'>
+type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
+type NodeReadInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
+type NodeSelectionInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
 
 export type ArrangeMode = 'front' | 'forward' | 'backward' | 'back'
 export type GroupAutoFitMode = 'expand-only' | 'manual'
@@ -19,79 +13,76 @@ export type GroupAutoFitMode = 'expand-only' | 'manual'
 const getSelectedNodeIds = (instance: NodeStateInstance): NodeId[] =>
   [...instance.state.selection.get().target.nodeIds]
 
-export const deleteNodes = async (
+export const deleteNodes = (
   instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  await instance.commands.node.deleteCascade([...nodeIds])
+  instance.commands.node.deleteCascade([...nodeIds])
 }
 
-export const duplicateNodes = async (
+export const duplicateNodes = (
   instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  const result = await instance.commands.node.duplicate([...nodeIds])
-  const nextNodeIds = created(result)
-  if (nextNodeIds.length > 0) {
-    set(instance, nextNodeIds)
+  const result = instance.commands.node.duplicate([...nodeIds])
+  if (!result.ok) return
+  if (result.data.nodeIds.length > 0) {
+    instance.commands.selection.replace(result.data.nodeIds)
   }
 }
 
-export const setNodesLocked = async (
+export const setNodesLocked = (
   instance: NodeCommandsInstance,
   nodes: readonly Node[],
   locked: boolean
 ) => {
   if (!nodes.length) return
-  const result = await instance.commands.node.updateMany(nodes.map((node) => ({
+  const result = instance.commands.node.updateMany(nodes.map((node) => ({
     id: node.id,
     patch: { locked }
   })))
   if (!result.ok) return
 }
 
-export const groupNodes = async (
+export const groupNodes = (
   instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (nodeIds.length < 2) return
-  const result = await instance.commands.node.group.create([...nodeIds])
-  const groupId = createdGroup(result)
-  if (groupId) {
-    set(instance, [groupId])
-  }
+  const result = instance.commands.node.group.create([...nodeIds])
+  if (!result.ok) return
+  instance.commands.selection.replace([result.data.groupId])
 }
 
-export const groupSelection = async (
+export const groupSelection = (
   instance: NodeStateInstance
 ) => {
   const nodeIds = getSelectedNodeIds(instance)
   if (nodeIds.length < 2) return
-  await groupNodes(instance, nodeIds)
+  groupNodes(instance, nodeIds)
 }
 
-export const ungroupNodes = async (
-  instance: NodeReadInstance,
+export const ungroupNodes = (
+  instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  const nextSelectedNodeIds = ungroupChildren(instance, nodeIds)
-  const result = await instance.commands.node.group.ungroupMany([...nodeIds])
+  const result = instance.commands.node.group.ungroupMany([...nodeIds])
   if (!result.ok) return
-  set(instance, nextSelectedNodeIds)
+  instance.commands.selection.replace(result.data.nodeIds)
 }
 
-export const ungroupSelection = async (
+export const ungroupSelection = (
   instance: NodeSelectionInstance
 ) => {
   const nodeIds = getSelectedNodeIds(instance)
   if (!nodeIds.length) return
-  await ungroupNodes(instance, nodeIds)
+  ungroupNodes(instance, nodeIds)
 }
 
-export const arrangeNodes = async (
+export const arrangeNodes = (
   instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[],
   mode: ArrangeMode
@@ -107,11 +98,11 @@ export const arrangeNodes = async (
           ? instance.commands.node.order.sendBackward([...nodeIds])
           : instance.commands.node.order.sendToBack([...nodeIds])
 
-  const result = await effect
+  const result = effect
   if (!result.ok) return
 }
 
-export const updateGroupNode = async (
+export const updateGroupNode = (
   instance: NodeCommandsInstance,
   nodeId: NodeId,
   patch: {
@@ -119,14 +110,14 @@ export const updateGroupNode = async (
     autoFit?: GroupAutoFitMode
   }
 ) => {
-  const result = await instance.commands.node.updateData(nodeId, patch)
+  const result = instance.commands.node.updateData(nodeId, patch)
   if (!result.ok) return
 }
 
-export const toggleNodesLock = async (
+export const toggleNodesLock = (
   instance: NodeCommandsInstance,
   nodes: readonly Node[],
   summary: NodeSummary
 ) => {
-  await setNodesLocked(instance, nodes, summary.lock !== 'all')
+  setNodesLocked(instance, nodes, summary.lock !== 'all')
 }
