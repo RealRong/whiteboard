@@ -3,20 +3,53 @@ import type {
   ShortcutBinding,
   ShortcutOverrides
 } from '../../types/common/shortcut'
+import { leave } from '../../runtime/container'
 import type { BoardInstance } from '../../runtime/instance'
-import { summarizeNodes } from '../../features/node/summary'
 import {
-  clearSelectionAndExitContainer,
-  deleteCurrentSelection,
-  duplicateCurrentSelection,
-  selectAllInScope
-} from './selection'
+  deleteNodes,
+  duplicateNodes,
+  groupSelection,
+  ungroupSelection
+} from '../../features/node/commands'
 import {
-  groupCurrentSelection,
-  ungroupCurrentSelection
-} from './node'
+  summarizeNodes
+} from '../../features/node/summary'
 
 type ReadInstance = Pick<BoardInstance, 'commands' | 'state' | 'read'>
+
+const getSelectedNodeIds = (instance: ReadInstance) =>
+  [...instance.state.selection.get().target.nodeIds]
+
+export const selectAllInScope = (instance: ReadInstance) => {
+  const container = instance.state.container.get()
+  if (container.id) {
+    instance.commands.selection.nodes([...container.ids], 'replace')
+    return
+  }
+
+  instance.commands.selection.nodes([...instance.read.node.list.get()], 'replace')
+}
+
+const deleteCurrent = async (
+  instance: ReadInstance
+) => {
+  const selection = instance.state.selection.get()
+  if (selection.target.edgeId !== undefined) {
+    const result = await instance.commands.edge.delete([selection.target.edgeId])
+    if (!result.ok) return
+    return
+  }
+
+  await deleteNodes(instance, selection.target.nodeIds)
+}
+
+const duplicateCurrent = async (
+  instance: ReadInstance
+) => {
+  const nodeIds = getSelectedNodeIds(instance)
+  if (!nodeIds.length) return
+  await duplicateNodes(instance, nodeIds)
+}
 
 export const DEFAULT_SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
   { key: 'Mod+G', action: 'group.create' },
@@ -79,19 +112,19 @@ export const dispatchCanvasShortcutAction = (
       selectAllInScope(instance)
       return true
     case 'selection.clear':
-      clearSelectionAndExitContainer(instance)
+      leave(instance)
       return true
     case 'selection.delete':
-      void deleteCurrentSelection(instance)
+      void deleteCurrent(instance)
       return true
     case 'selection.duplicate':
-      void duplicateCurrentSelection(instance)
+      void duplicateCurrent(instance)
       return true
     case 'group.create':
-      void groupCurrentSelection(instance)
+      void groupSelection(instance)
       return true
     case 'group.ungroup':
-      void ungroupCurrentSelection(instance)
+      void ungroupSelection(instance)
       return true
     case 'history.undo':
       return instance.commands.history.undo().ok

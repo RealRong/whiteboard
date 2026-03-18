@@ -1,4 +1,4 @@
-import type { GroupAutoFitMode } from '../actions'
+import type { GroupAutoFitMode } from '../../features/node/commands'
 import {
   Chip,
   ChipRow,

@@ -6,9 +6,10 @@ import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { InternalInstance } from '../../../../runtime/instance'
 import {
-  filterContainerNodeIds,
-  hasContainerNode
-} from '../../../../runtime/state'
+  filterNodeIds,
+  hasNode,
+  leave
+} from '../../../../runtime/container'
 import {
   buildNodeDragState,
   resolveNodeDragCommit,
@@ -98,13 +99,12 @@ export const createNodeDragSession = (
       if (!nodeRect) return
 
       let container = instance.state.container.get()
-      if (!hasContainerNode(container, nodeId)) {
-        instance.commands.selection.clear()
-        instance.commands.container.exit()
+      if (!hasNode(container, nodeId)) {
+        leave(instance)
         container = instance.state.container.get()
       }
 
-      const currentSelectedNodeIds = filterContainerNodeIds(
+      const currentSelectedNodeIds = filterNodeIds(
         container,
         instance.state.selection.get().target.nodeIds
       )

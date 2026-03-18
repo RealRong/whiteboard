@@ -14,7 +14,7 @@ import type {
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
 import { isOrderedArrayEqual } from '../utils/equality'
 
-type ContainerReadDeps = {
+type ReadDeps = {
   node: {
     item: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
   }
@@ -31,7 +31,7 @@ type ContainerReadDeps = {
   }
 }
 
-export type ContainerCommands = {
+export type Commands = {
   enter: (nodeId: NodeId) => void
   exit: () => void
   clear: () => void
@@ -43,19 +43,19 @@ export type Container = {
   set?: ReadonlySet<NodeId>
 }
 
-type ContainerStore = {
+type Store = {
   source: ValueStore<NodeId | undefined>
   store: ReadStore<Container>
-  commands: ContainerCommands
+  commands: Commands
 }
 
 const EMPTY_IDS: readonly NodeId[] = []
 const EMPTY_SET: ReadonlySet<NodeId> = new Set<NodeId>()
-const ROOT_CONTAINER: Container = {
+const ROOT: Container = {
   ids: EMPTY_IDS
 }
 
-const isContainerEqual = (
+const isEqual = (
   left: Container,
   right: Container
 ) => (
@@ -63,21 +63,21 @@ const isContainerEqual = (
   && isOrderedArrayEqual(left.ids, right.ids)
 )
 
-export const createContainerStore = (
-  read: ContainerReadDeps
-): ContainerStore => {
+export const createState = (
+  read: ReadDeps
+): Store => {
   const source = createValueStore<NodeId | undefined>(undefined)
 
   const store = createDerivedStore<Container>({
     get: (readStore) => {
       const current = readStore(source)
       if (!current) {
-        return ROOT_CONTAINER
+        return ROOT
       }
 
       const entry = readStore(read.node.item, current)
       if (!entry?.node) {
-        return ROOT_CONTAINER
+        return ROOT
       }
 
       const ids = readStore(read.tree, current)
@@ -87,7 +87,7 @@ export const createContainerStore = (
         set: ids.length > 0 ? new Set(ids) : EMPTY_SET
       }
     },
-    isEqual: isContainerEqual
+    isEqual
   })
 
   const write = (next?: NodeId) => {
@@ -112,7 +112,7 @@ export const createContainerStore = (
   }
 }
 
-export const hasContainerNode = (
+export const hasNode = (
   container: Container,
   nodeId: NodeId
 ): boolean => (
@@ -121,19 +121,19 @@ export const hasContainerNode = (
     : true
 )
 
-export const filterContainerNodeIds = (
+export const filterNodeIds = (
   container: Container,
   nodeIds: readonly NodeId[]
 ): readonly NodeId[] => (
   container.id
-    ? nodeIds.filter((nodeId) => hasContainerNode(container, nodeId))
+    ? nodeIds.filter((nodeId) => hasNode(container, nodeId))
     : nodeIds
 )
 
-export const hasContainerEdge = (
+export const hasEdge = (
   container: Container,
   edge: Pick<Edge, 'source' | 'target'>
 ): boolean => (
-  hasContainerNode(container, edge.source.nodeId)
-  && hasContainerNode(container, edge.target.nodeId)
+  hasNode(container, edge.source.nodeId)
+  && hasNode(container, edge.target.nodeId)
 )

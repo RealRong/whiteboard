@@ -5,9 +5,9 @@ import type {
   InternalInstance,
   Tool,
 } from './types'
-import { createContainerStore } from '../state/container'
+import { createState as createContainerState } from '../container'
 import {
-  createState,
+  createState as createSelectionState,
   type Commands as SelectionCommands
 } from '../selection'
 import type {
@@ -28,8 +28,8 @@ import { finalize } from '../selection/finalize'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
-  container: ReturnType<typeof createContainerStore>
-  selection: ReturnType<typeof createState>
+  container: ReturnType<typeof createContainerState>
+  selection: ReturnType<typeof createSelectionState>
 }
 
 type InstanceInternals = {
@@ -53,8 +53,8 @@ const createInstanceStores = ({
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
-  const container = createContainerStore(engine.read)
-  const selection = createState({
+  const container = createContainerState(engine.read)
+  const selection = createSelectionState({
     read: engine.read
   })
   const node = createNodeFeatureRuntime()
@@ -98,7 +98,7 @@ const createCommands = ({
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<Tool>>
   selection: SelectionCommands
-  container: ReturnType<typeof createContainerStore>
+  container: ReturnType<typeof createContainerState>
   viewport: ViewportCommands
 }): BoardInstance['commands'] => ({
   ...engine.commands,

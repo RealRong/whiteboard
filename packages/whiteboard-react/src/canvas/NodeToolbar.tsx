@@ -16,19 +16,22 @@ import {
   useTool
 } from '../runtime/hooks'
 import { mergeRecordPatch } from '../runtime/utils/recordPatch'
-import { summarizeNodes, type NodeSummary } from '../features/node/summary'
-import {
-  deleteNodes,
-  duplicateNodes
-} from '../features/node/commands'
 import {
   arrangeNodes,
-  closeAfter,
-  readLockLabel,
-  type GroupAutoFitMode,
+  deleteNodes,
+  duplicateNodes,
   toggleNodesLock,
+  type GroupAutoFitMode,
   updateGroupNode
+} from '../features/node/commands'
+import {
+  closeAfter
 } from './actions'
+import {
+  readLockLabel,
+  summarizeNodes,
+  type NodeSummary
+} from '../features/node/summary'
 import { ArrangeMenu } from './menus/ArrangeMenu'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'

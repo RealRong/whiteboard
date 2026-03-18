@@ -7,3 +7,4 @@ export {
   type Mode
 } from './state'
 export { finalize } from './finalize'
+export { created, createdGroup, set, ungroupChildren } from './policy'

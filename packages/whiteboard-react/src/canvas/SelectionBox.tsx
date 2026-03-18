@@ -7,7 +7,10 @@ import {
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import { useEffect, useState, type RefObject } from 'react'
 import { useInternalInstance } from '../runtime/hooks'
-import { filterContainerNodeIds } from '../runtime/state/container'
+import {
+  filterNodeIds,
+  leave
+} from '../runtime/container'
 import { createRafTask } from '../runtime/utils/rafTask'
 import type { ViewportPointer } from '../runtime/viewport'
 import { isBackgroundPointerTarget } from './CanvasTargeting'
@@ -134,8 +137,7 @@ export const SelectionBox = ({
         )
 
         if (!insideActiveContainer) {
-          instance.commands.selection.clear()
-          instance.commands.container.exit()
+          leave(instance)
           activeContainer = instance.state.container.get()
         }
       }
@@ -188,7 +190,7 @@ export const SelectionBox = ({
       })
       if (!nextSession) return
 
-      const selectedNodeIds = filterContainerNodeIds(
+      const selectedNodeIds = filterNodeIds(
         activeContainer,
         instance.state.selection.get().target.nodeIds
       )

@@ -8,6 +8,4 @@ export const closeAfter = (
 }
 
 export * from './create'
-export * from './node'
-export * from './selection'
 export * from './shortcut'

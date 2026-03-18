@@ -34,3 +34,11 @@ export const summarizeNodes = (
             : 'mixed'
   }
 }
+
+export const readLockLabel = (
+  summary: NodeSummary
+) => (
+  summary.lock === 'all'
+    ? (summary.count > 1 ? 'Unlock selected' : 'Unlock')
+    : (summary.count > 1 ? 'Lock selected' : 'Lock')
+)

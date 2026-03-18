@@ -1,4 +1,4 @@
-import type { Container } from '../state'
+import type { Container } from '../container'
 import { useInstance } from './useInstance'
 import { useStoreValue } from './useStoreValue'
 

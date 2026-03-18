@@ -6,7 +6,10 @@ import {
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import { hasContainerEdge } from '../../../runtime/state'
+import {
+  hasEdge,
+  leave
+} from '../../../runtime/container'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -61,9 +64,8 @@ export const EdgeLayer = () => {
       return
     }
 
-    if (!hasContainerEdge(instance.state.container.get(), entry.edge)) {
-      instance.commands.selection.clear()
-      instance.commands.container.exit()
+    if (!hasEdge(instance.state.container.get(), entry.edge)) {
+      leave(instance)
     }
 
     if (event.shiftKey || event.detail >= 2) {

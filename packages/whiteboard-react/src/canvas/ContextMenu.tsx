@@ -9,27 +9,29 @@ import {
   useInternalInstance
 } from '../runtime/hooks'
 import {
-  hasContainerEdge,
-  hasContainerNode
-} from '../runtime/state'
-import { summarizeNodes } from '../features/node/summary'
+  leave,
+  hasEdge,
+  hasNode
+} from '../runtime/container'
 import {
+  arrangeNodes,
   deleteNodes,
   duplicateNodes,
   groupNodes,
-  ungroupNodes
-} from '../features/node/commands'
-import {
-  CREATE_NODE_PRESETS,
-  arrangeNodes,
-  closeAfter,
-  createNodeFromPreset,
-  deleteEdgeById,
-  readLockLabel,
-  selectAllInScope,
   toggleNodesLock,
   type GroupAutoFitMode,
+  ungroupNodes,
   updateGroupNode
+} from '../features/node/commands'
+import {
+  readLockLabel,
+  summarizeNodes
+} from '../features/node/summary'
+import {
+  CREATE_NODE_PRESETS,
+  closeAfter,
+  createNodeFromPreset,
+  selectAllInScope
 } from './actions'
 import {
   isContextMenuIgnoredTarget,
@@ -223,7 +225,7 @@ const readContextMenuOpenResult = ({
             nodeId,
             world
           },
-      leaveContainer: !hasContainerNode(container, nodeId)
+      leaveContainer: !hasNode(container, nodeId)
     }
   }
 
@@ -238,7 +240,7 @@ const readContextMenuOpenResult = ({
         edgeId,
         world
       },
-      leaveContainer: !hasContainerEdge(container, entry.edge)
+      leaveContainer: !hasEdge(container, entry.edge)
     }
   }
 
@@ -282,8 +284,7 @@ export const ContextMenu = ({
     screen: Point
   }) => {
     if (result.leaveContainer) {
-      instance.commands.selection.clear()
-      instance.commands.container.exit()
+      leave(instance)
     }
 
     const selection = instance.state.selection.get()
@@ -604,7 +605,7 @@ export const ContextMenu = ({
                   label: 'Delete',
                   tone: 'danger',
                   onClick: () => {
-                    closeAfter(deleteEdgeById(instance, target.edgeId), dismissAction)
+                    closeAfter(instance.commands.edge.delete([target.edgeId]), dismissAction)
                   }
                 }
               ]

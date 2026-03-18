@@ -1,8 +1,10 @@
 import type { NodeId } from '@whiteboard/core/types'
 import type { BoardInstance } from '../instance'
+import {
+  createState as createContainerState,
+  hasEdge
+} from '../container'
 import type { Store } from './state'
-import { hasContainerEdge } from '../state/container'
-import { createContainerStore } from '../state/container'
 
 const uniqueNodeIds = (nodeIds: readonly NodeId[]) => {
   const seen = new Set<NodeId>()
@@ -33,7 +35,7 @@ export const finalize = ({
   selection
 }: {
   read: Pick<BoardInstance['read'], 'node' | 'edge'>
-  container: ReturnType<typeof createContainerStore>
+  container: ReturnType<typeof createContainerState>
   selection: Store
 }) => {
   const activeContainerId = container.source.get()
@@ -46,7 +48,7 @@ export const finalize = ({
 
   if (current.kind === 'edge') {
     const edge = read.edge.item.get(current.edgeId)?.edge
-    if (!edge || (activeContainer.id && !hasContainerEdge(activeContainer, edge))) {
+    if (!edge || (activeContainer.id && !hasEdge(activeContainer, edge))) {
       selection.commands.clear()
     }
     return

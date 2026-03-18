@@ -8,6 +8,7 @@ import {
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
+import { enter } from '../../../runtime/container'
 import { isCanvasContentIgnoredTarget } from '../../../canvas/CanvasTargeting'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import { createNodeDragSession } from '../hooks/drag/session'
@@ -46,8 +47,7 @@ export const NodeSceneLayer = () => {
       return
     }
 
-    instance.commands.selection.clear()
-    instance.commands.container.enter(nodeId)
+    enter(instance, nodeId)
     event.preventDefault()
     event.stopPropagation()
   }

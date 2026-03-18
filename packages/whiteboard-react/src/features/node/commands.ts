@@ -1,44 +1,23 @@
-import { getContainerDescendants } from '@whiteboard/core/node'
-import type {
-  DispatchResult,
-  Node,
-  NodeId,
-  Operation
-} from '@whiteboard/core/types'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import type { BoardInstance } from '../../runtime/instance'
+import {
+  created,
+  createdGroup,
+  set,
+  ungroupChildren
+} from '../../runtime/selection'
+import type { NodeSummary } from './summary'
 
 type NodeCommandsInstance = Pick<BoardInstance, 'commands'>
+type NodeStateInstance = Pick<BoardInstance, 'commands' | 'state'>
 type NodeReadInstance = Pick<BoardInstance, 'commands' | 'read'>
+type NodeSelectionInstance = Pick<BoardInstance, 'commands' | 'state' | 'read'>
 
-const readCreatedNodeIds = (
-  result: DispatchResult,
-  predicate?: (operation: Extract<Operation, { type: 'node.create' }>) => boolean
-): NodeId[] => {
-  if (!result.ok) return []
+export type ArrangeMode = 'front' | 'forward' | 'backward' | 'back'
+export type GroupAutoFitMode = 'expand-only' | 'manual'
 
-  return result.changes.operations
-    .filter((operation): operation is Extract<Operation, { type: 'node.create' }> =>
-      operation.type === 'node.create'
-    )
-    .filter((operation) => predicate ? predicate(operation) : true)
-    .map((operation) => operation.node.id)
-}
-
-const readCreatedGroupId = (
-  result: DispatchResult
-): NodeId | undefined =>
-  readCreatedNodeIds(result, (operation) => operation.node.type === 'group')[0]
-
-export const selectNodeIds = (
-  instance: NodeCommandsInstance,
-  nodeIds: readonly NodeId[]
-) => {
-  if (nodeIds.length > 0) {
-    instance.commands.selection.nodes(nodeIds, 'replace')
-    return
-  }
-  instance.commands.selection.clear()
-}
+const getSelectedNodeIds = (instance: NodeStateInstance): NodeId[] =>
+  [...instance.state.selection.get().target.nodeIds]
 
 export const deleteNodes = async (
   instance: NodeCommandsInstance,
@@ -54,9 +33,10 @@ export const duplicateNodes = async (
 ) => {
   if (!nodeIds.length) return
   const result = await instance.commands.node.duplicate([...nodeIds])
-  const nextNodeIds = readCreatedNodeIds(result)
-  if (!nextNodeIds.length) return
-  instance.commands.selection.nodes(nextNodeIds, 'replace')
+  const nextNodeIds = created(result)
+  if (nextNodeIds.length > 0) {
+    set(instance, nextNodeIds)
+  }
 }
 
 export const setNodesLocked = async (
@@ -78,9 +58,18 @@ export const groupNodes = async (
 ) => {
   if (nodeIds.length < 2) return
   const result = await instance.commands.node.group.create([...nodeIds])
-  const groupId = readCreatedGroupId(result)
-  if (!groupId) return
-  instance.commands.selection.nodes([groupId], 'replace')
+  const groupId = createdGroup(result)
+  if (groupId) {
+    set(instance, [groupId])
+  }
+}
+
+export const groupSelection = async (
+  instance: NodeStateInstance
+) => {
+  const nodeIds = getSelectedNodeIds(instance)
+  if (nodeIds.length < 2) return
+  await groupNodes(instance, nodeIds)
 }
 
 export const ungroupNodes = async (
@@ -88,11 +77,56 @@ export const ungroupNodes = async (
   nodeIds: readonly NodeId[]
 ) => {
   if (!nodeIds.length) return
-  const nodes = instance.read.index.node.all().map((entry) => entry.node)
-  const nextSelectedNodeIds = nodeIds.flatMap((nodeId) =>
-    getContainerDescendants(nodes, nodeId).map((node) => node.id)
-  )
+  const nextSelectedNodeIds = ungroupChildren(instance, nodeIds)
   const result = await instance.commands.node.group.ungroupMany([...nodeIds])
   if (!result.ok) return
-  selectNodeIds(instance, nextSelectedNodeIds)
+  set(instance, nextSelectedNodeIds)
+}
+
+export const ungroupSelection = async (
+  instance: NodeSelectionInstance
+) => {
+  const nodeIds = getSelectedNodeIds(instance)
+  if (!nodeIds.length) return
+  await ungroupNodes(instance, nodeIds)
+}
+
+export const arrangeNodes = async (
+  instance: NodeCommandsInstance,
+  nodeIds: readonly NodeId[],
+  mode: ArrangeMode
+) => {
+  if (!nodeIds.length) return
+
+  const effect =
+    mode === 'front'
+      ? instance.commands.node.order.bringToFront([...nodeIds])
+      : mode === 'forward'
+        ? instance.commands.node.order.bringForward([...nodeIds])
+        : mode === 'backward'
+          ? instance.commands.node.order.sendBackward([...nodeIds])
+          : instance.commands.node.order.sendToBack([...nodeIds])
+
+  const result = await effect
+  if (!result.ok) return
+}
+
+export const updateGroupNode = async (
+  instance: NodeCommandsInstance,
+  nodeId: NodeId,
+  patch: {
+    collapsed?: boolean
+    autoFit?: GroupAutoFitMode
+  }
+) => {
+  const result = await instance.commands.node.updateData(nodeId, patch)
+  if (!result.ok) return
+}
+
+export const toggleNodesLock = async (
+  instance: NodeCommandsInstance,
+  nodes: readonly Node[],
+  summary: NodeSummary
+) => {
+  await setNodesLocked(instance, nodes, summary.lock !== 'all')
 }

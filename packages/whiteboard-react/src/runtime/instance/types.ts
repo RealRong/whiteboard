@@ -9,7 +9,7 @@ import type {
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type {
   Container
-} from '../state'
+} from '../container'
 import type { View as SelectionView } from '../selection'
 import type {
   ViewportCommands,

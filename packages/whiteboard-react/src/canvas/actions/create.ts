@@ -1,11 +1,9 @@
-import type {
-  DispatchResult,
-  NodeId,
-  NodeInput,
-  Operation,
-  Point
-} from '@whiteboard/core/types'
+import type { NodeId, NodeInput, Point } from '@whiteboard/core/types'
 import type { BoardInstance } from '../../runtime/instance'
+import {
+  created,
+  set
+} from '../../runtime/selection'
 
 type CommandsInstance = Pick<BoardInstance, 'commands'>
 
@@ -115,19 +113,6 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   }
 ]
 
-const readCreatedNodeIds = (
-  result: DispatchResult,
-  predicate?: (operation: Extract<Operation, { type: 'node.create' }>) => boolean
-): NodeId[] => {
-  if (!result.ok) return []
-  return result.changes.operations
-    .filter((operation): operation is Extract<Operation, { type: 'node.create' }> =>
-      operation.type === 'node.create'
-    )
-    .filter((operation) => predicate ? predicate(operation) : true)
-    .map((operation) => operation.node.id)
-}
-
 export const createNodeFromPreset = async (
   instance: CommandsInstance,
   preset: CreateNodePreset,
@@ -138,8 +123,8 @@ export const createNodeFromPreset = async (
   const result = await instance.commands.node.create(
     parentId ? { ...input, parentId } : input
   )
-  const createdNodeIds = readCreatedNodeIds(result)
-  if (createdNodeIds.length > 0) {
-    instance.commands.selection.nodes(createdNodeIds, 'replace')
+  const nodeIds = created(result)
+  if (nodeIds.length > 0) {
+    set(instance, nodeIds)
   }
 }
