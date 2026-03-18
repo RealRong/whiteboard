@@ -198,7 +198,7 @@ export const resolveGroupResizePadding = (options: {
 }
 
 export const resolveResizePreview = (options: {
-  activeTool: string
+  snapEnabled: boolean
   drag: ResizeDragState
   currentScreen: Point
   zoom: number
@@ -209,7 +209,7 @@ export const resolveResizePreview = (options: {
   readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
 }): ResizePreviewResult => {
   const {
-    activeTool,
+    snapEnabled,
     drag,
     currentScreen,
     zoom,
@@ -242,7 +242,7 @@ export const resolveResizePreview = (options: {
   }
   let guides: readonly Guide[] = []
 
-  if (activeTool === 'select' && !altKey && drag.startRotation === 0) {
+  if (snapEnabled && !altKey && drag.startRotation === 0) {
     const thresholdWorld = resolveSnapThresholdWorld(
       config.node,
       safeZoom

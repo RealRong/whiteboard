@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import type { Node, NodeSchema, SchemaField } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps } from '../../../types/node'
+import type { View as SelectionView } from '../../../runtime/selection'
+import {
+  useEdit,
+  useInternalInstance,
+  useSelection
+} from '../../../runtime/hooks'
 import { createNodeRegistry } from './nodeRegistry'
 
 const getDataString = (node: Node, key: string) => {
@@ -58,6 +64,38 @@ const styleField = (
 
 const createTextField = (path: 'title' | 'text') =>
   dataField(path, path === 'title' ? 'Title' : 'Text', path === 'title' ? 'string' : 'text')
+
+const isSingleSelectedNode = (
+  selection: SelectionView,
+  nodeId: Node['id']
+) => (
+  selection.target.edgeId === undefined
+  && selection.items.count === 1
+  && selection.target.nodeIds[0] === nodeId
+)
+
+const activateEditableField = ({
+  nodeId,
+  field,
+  selection,
+  instance
+}: {
+  nodeId: Node['id']
+  field: 'text' | 'title'
+  selection: SelectionView
+  instance: ReturnType<typeof useInternalInstance>
+}) => {
+  if (!instance.read.tool.is('select')) {
+    return
+  }
+
+  if (isSingleSelectedNode(selection, nodeId)) {
+    instance.commands.edit.start(nodeId, field)
+    return
+  }
+
+  instance.commands.selection.replace([nodeId])
+}
 
 const rectSchema: NodeSchema = {
   type: 'rect',
@@ -120,7 +158,10 @@ const TextNodeRenderer = ({
   selected,
   variant
 }: NodeRenderProps & { variant: 'text' | 'sticky' }) => {
-  const [editing, setEditing] = useState(false)
+  const instance = useInternalInstance()
+  const selection = useSelection()
+  const edit = useEdit()
+  const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = getDataString(node, 'text')
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
@@ -135,12 +176,12 @@ const TextNodeRenderer = ({
     if (draft !== text) {
       void updateData({ text: draft })
     }
-    setEditing(false)
+    instance.commands.edit.clear()
   }
 
   const cancel = () => {
     setDraft(text)
-    setEditing(false)
+    instance.commands.edit.clear()
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -163,6 +204,9 @@ const TextNodeRenderer = ({
         className="wb-default-text-editor"
         value={draft}
         autoFocus
+        onPointerDown={(event) => {
+          event.stopPropagation()
+        }}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={onKeyDown}
         onBlur={commit}
@@ -174,7 +218,18 @@ const TextNodeRenderer = ({
   return (
     <div
       className="wb-default-text-display"
-      onDoubleClick={() => setEditing(true)}
+      data-node-editable-field="text"
+      onPointerDown={(event) => {
+        event.stopPropagation()
+      }}
+      onClick={() => {
+        activateEditableField({
+          instance,
+          selection,
+          nodeId: node.id,
+          field: 'text'
+        })
+      }}
       style={{
         fontSize,
         color,
@@ -187,9 +242,12 @@ const TextNodeRenderer = ({
 }
 
 const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
+  const instance = useInternalInstance()
+  const selection = useSelection()
+  const edit = useEdit()
   const title = getDataString(node, 'title')
   const collapsed = getDataBool(node, 'collapsed')
-  const [editing, setEditing] = useState(false)
+  const editing = edit?.nodeId === node.id && edit.field === 'title'
   const [draft, setDraft] = useState(title)
   const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
 
@@ -201,7 +259,7 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
     if (draft !== title) {
       void updateData({ title: draft })
     }
-    setEditing(false)
+    instance.commands.edit.clear()
   }
 
   const toggleCollapse = () => {
@@ -210,14 +268,14 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
 
   return (
     <div className="wb-default-group">
-      <div
-        data-selection-ignore
-        className="wb-default-group-header"
-      >
+      <div className="wb-default-group-header">
         <div
           className="wb-default-group-toggle"
           data-input-ignore
           data-selection-ignore
+          onPointerDown={(event) => {
+            event.stopPropagation()
+          }}
           onClick={toggleCollapse}
         >
           {collapsed ? '+' : '-'}
@@ -228,6 +286,9 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
             data-input-ignore
             value={draft}
             autoFocus
+            onPointerDown={(event) => {
+              event.stopPropagation()
+            }}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commit}
             onKeyDown={(event) => {
@@ -238,7 +299,7 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
               if (event.key === 'Escape') {
                 event.preventDefault()
                 setDraft(title)
-                setEditing(false)
+                instance.commands.edit.clear()
               }
             }}
             className="wb-default-group-input"
@@ -247,8 +308,19 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
         ) : (
           <div
             className="wb-default-group-title"
+            data-node-editable-field="title"
+            onPointerDown={(event) => {
+              event.stopPropagation()
+            }}
+            onClick={() => {
+              activateEditableField({
+                instance,
+                selection,
+                nodeId: node.id,
+                field: 'title'
+              })
+            }}
             style={{ color }}
-            onDoubleClick={() => setEditing(true)}
           >
             {title || 'Group'}
           </div>
@@ -280,34 +352,34 @@ const SHAPE_DEFAULTS: Record<
   }
 > = {
   ellipse: {
-    fill: '#ecfeff',
-    stroke: '#0891b2',
-    text: '#164e63'
+    fill: 'hsl(var(--tag-blue-background, 206.1 79.3% 94.3%))',
+    stroke: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))',
+    text: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))'
   },
   diamond: {
-    fill: '#fef3c7',
-    stroke: '#d97706',
-    text: '#78350f'
+    fill: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))',
+    stroke: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%))',
+    text: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%))'
   },
   triangle: {
-    fill: '#fee2e2',
-    stroke: '#dc2626',
-    text: '#7f1d1d'
+    fill: 'hsl(var(--tag-red-background, 5.7 77.8% 94.7%))',
+    stroke: 'hsl(var(--tag-red-foreground, 4 58.4% 54.7%))',
+    text: 'hsl(var(--tag-red-foreground, 4 58.4% 54.7%))'
   },
   'arrow-sticker': {
-    fill: '#dbeafe',
-    stroke: '#2563eb',
-    text: '#1e3a8a'
+    fill: 'hsl(var(--tag-blue-background, 206.1 79.3% 94.3%))',
+    stroke: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))',
+    text: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))'
   },
   callout: {
-    fill: '#ffffff',
-    stroke: '#334155',
-    text: '#0f172a'
+    fill: 'hsl(var(--ui-surface, 0 0% 100%))',
+    stroke: 'hsl(var(--ui-text-secondary, 37.5 3.3% 47.5%))',
+    text: 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   },
   highlight: {
-    fill: 'rgba(251, 191, 36, 0.32)',
-    stroke: '#f59e0b',
-    text: '#78350f'
+    fill: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%) / 0.9)',
+    stroke: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%) / 0.6)',
+    text: 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   }
 }
 

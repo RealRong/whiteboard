@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import {
+  useEdit,
   useInternalInstance,
   useInteraction,
   useSelection,
@@ -510,6 +511,7 @@ export const NodeToolbar = ({
   const instance = useInternalInstance()
   const viewport = useStoreValue(instance.viewport)
   const tool = useTool()
+  const edit = useEdit()
   const interaction = useInteraction()
   const selection = useSelection()
   const worldToScreen = useCallback(
@@ -553,7 +555,8 @@ export const NodeToolbar = ({
   }
 
   const showNodeToolbar =
-    tool === 'select'
+    tool.type === 'select'
+    && edit === null
     && interaction === 'idle'
     && selection.target.edgeId === undefined
     && selection.items.count > 0

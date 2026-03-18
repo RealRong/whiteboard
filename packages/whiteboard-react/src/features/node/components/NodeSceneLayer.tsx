@@ -36,7 +36,7 @@ export const NodeSceneLayer = () => {
     nodeId: NodeId,
     event: ReactMouseEvent<HTMLDivElement>
   ) => {
-    if (instance.state.tool.get() !== 'select') return
+    if (!instance.read.tool.is('select')) return
 
     if (isCanvasContentIgnoredTarget(event.target)) {
       return

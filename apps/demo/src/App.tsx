@@ -177,49 +177,6 @@ export const App = () => {
 
   return (
     <div className="demo-root">
-      <aside className="demo-menu">
-        <div className="demo-menu-header">
-          <div className="demo-title">Whiteboard Demo</div>
-          <div className="demo-subtitle">左上角切换场景</div>
-        </div>
-        <div className="demo-menu-list">
-          {scenarios.map((scenario) => {
-            const active = scenario.id === activeId
-            return (
-              <button
-                key={scenario.id}
-                className={active ? 'demo-menu-item active' : 'demo-menu-item'}
-                onClick={() => handleSelect(scenario.id)}
-              >
-                <div className="demo-menu-item-title">{scenario.label}</div>
-                <div className="demo-menu-item-desc">{scenario.description}</div>
-              </button>
-            )
-          })}
-        </div>
-        <div className="demo-insert-panel">
-          <div className="demo-insert-title">插入图形</div>
-          <div className="demo-insert-grid">
-            {INSERTABLE_NODES.map((item) => (
-              <button
-                key={item.type}
-                className="demo-insert-item"
-                onClick={() => {
-                  handleInsertNode(item)
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="demo-menu-footer">
-          <div>节点: {stats.nodeCount}</div>
-          <div>连线: {stats.edgeCount}</div>
-          <div>思维导图: {stats.mindmapCount}</div>
-          <div className="demo-menu-hint">触控板两指平移 / 捏合缩放，右键拖拽平移</div>
-        </div>
-      </aside>
       <div
         className="demo-board"
         onPointerDownCapture={handleBoardPointerDownCapture}
@@ -235,7 +192,7 @@ export const App = () => {
           options={{
             className: 'wb-theme-notion',
             style: { width: '100%', height: '100%' },
-            tool: 'select',
+            tool: { type: 'select' },
             mindmapLayout: { mode: 'simple' }
           }}
         />

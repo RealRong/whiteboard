@@ -70,6 +70,17 @@
   overflow: visible;
 }
 
+.wb-root-container[data-tool='hand'] .wb-root-viewport,
+.wb-root-container[data-tool='hand'] .wb-node-block,
+.wb-root-container[data-tool='hand'] .wb-edge-item {
+  cursor: grab;
+}
+
+.wb-root-container[data-tool='insert'] .wb-root-viewport,
+.wb-root-container[data-tool='connector'] .wb-root-viewport {
+  cursor: crosshair;
+}
+
 .wb-node-layer {
   position: absolute;
   inset: 0;
@@ -147,6 +158,187 @@
   overflow: visible;
   pointer-events: none;
   z-index: var(--wb-z-toolbar);
+}
+
+.wb-left-toolbar-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: var(--wb-z-toolbar);
+}
+
+.wb-left-toolbar {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--wb-surface-elevated);
+  border: 1px solid hsl(var(--wb-ui-border-subtle) / 0.4);
+  box-shadow: var(--wb-panel-shadow);
+  pointer-events: auto;
+}
+
+.wb-left-toolbar-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wb-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  appearance: none;
+}
+
+.wb-left-toolbar-button:hover,
+.wb-left-toolbar-button:focus-visible {
+  background: var(--wb-button-hover);
+  color: var(--wb-text-primary);
+}
+
+.wb-left-toolbar-button[data-active='true'] {
+  background: hsl(var(--wb-ui-surface-hover) / 0.82);
+  color: var(--wb-text-primary);
+}
+
+.wb-left-toolbar-button:disabled {
+  opacity: 0.36;
+  cursor: default;
+}
+
+.wb-left-toolbar-divider {
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+  background: hsl(var(--wb-ui-border-subtle) / 0.4);
+}
+
+.wb-left-toolbar-menu {
+  position: absolute;
+  min-width: 220px;
+  max-width: min(260px, calc(100% - 24px));
+  max-height: calc(100% - 32px);
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--wb-surface-overlay);
+  border: 1px solid hsl(var(--wb-ui-border-subtle) / 0.45);
+  box-shadow: var(--wb-panel-shadow);
+  pointer-events: auto;
+  overflow: auto;
+  font-size: 14px;
+}
+
+.wb-left-toolbar-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.wb-left-toolbar-note-option {
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wb-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.wb-left-toolbar-note-option:hover,
+.wb-left-toolbar-note-option:focus-visible,
+.wb-left-toolbar-note-option[data-active='true'] {
+  background: var(--wb-button-hover);
+}
+
+.wb-left-toolbar-note-preview {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--wb-ui-text-primary) / 0.08);
+}
+
+.wb-left-toolbar-note-label {
+  color: var(--wb-text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.wb-left-toolbar-template {
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wb-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.wb-left-toolbar-template:hover,
+.wb-left-toolbar-template:focus-visible,
+.wb-left-toolbar-template[data-active='true'] {
+  background: var(--wb-button-hover);
+}
+
+.wb-left-toolbar-template-title {
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--wb-text-primary);
+}
+
+.wb-left-toolbar-template-desc {
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--wb-text-secondary);
+}
+
+.wb-left-toolbar-hint {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: hsl(var(--wb-ui-surface) / 0.9);
+  border: 1px solid hsl(var(--wb-ui-border-subtle) / 0.4);
+  box-shadow: var(--wb-panel-shadow);
+  color: var(--wb-text-secondary);
+  font-size: 13px;
+}
+
+.wb-left-toolbar-hint-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wb-text-secondary);
+}
+
+.wb-left-toolbar-hint-text {
+  white-space: nowrap;
 }
 
 .wb-node-toolbar {
@@ -681,6 +873,7 @@
   font-size: 14px;
   line-height: 1.4;
   color: var(--wb-text-primary);
+  cursor: text;
 }
 
 .wb-shape-node {

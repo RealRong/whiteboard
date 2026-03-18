@@ -6,11 +6,12 @@ import type { WhiteboardProps } from './types/common'
 import { createEngine, type EngineInstance } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useWhiteboard'
-import { useInternalInstance, useStoreValue } from './runtime/hooks'
+import { useInternalInstance, useStoreValue, useTool } from './runtime/hooks'
 import {
   useBindViewportInput
 } from './runtime/viewport'
 import { CanvasChrome } from './canvas/CanvasChrome'
+import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
 import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import { EdgeLayer } from './features/edge/components/EdgeLayer'
@@ -50,6 +51,7 @@ const WhiteboardCanvas = ({
 }: CanvasProps) => {
   const instance = useInternalInstance()
   const viewport = useStoreValue(instance.viewport)
+  const tool = useTool()
   const inputPolicy = useMemo(
     () => ({
       panEnabled: resolvedConfig.viewport.enablePan,
@@ -71,6 +73,9 @@ const WhiteboardCanvas = ({
     [viewport]
   )
 
+  useCanvasInsert({
+    containerRef
+  })
   useBindViewportInput({
     instance,
     containerRef,
@@ -84,6 +89,8 @@ const WhiteboardCanvas = ({
     <div
       ref={containerRef}
       className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
+      data-tool={tool.type}
+      data-tool-preset={tool.type === 'insert' || tool.type === 'draw' ? tool.preset : undefined}
       style={containerStyle}
       tabIndex={0}
     >

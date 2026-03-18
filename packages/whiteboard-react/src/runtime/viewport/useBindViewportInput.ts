@@ -37,6 +37,9 @@ const isTextInputElement = (target: EventTarget | null) => {
   )
 }
 
+const isIgnoredPointerTarget = (target: EventTarget | null) =>
+  target instanceof Element && Boolean(target.closest('[data-input-ignore]'))
+
 const readContainerRect = (
   element: HTMLDivElement
 ): ContainerRect => {
@@ -153,11 +156,12 @@ export const useBindViewportInput = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (!options.panEnabled) return
+      if (isIgnoredPointerTarget(event.target)) return
 
       const middleDrag = event.button === 1 || (event.buttons & 4) === 4
       const leftDrag =
         (event.button === 0 || (event.buttons & 1) === 1)
-        && interaction.space.get()
+        && (interaction.space.get() || instance.read.tool.is('hand'))
       if (!middleDrag && !leftDrag) return
 
       const nextSession = interaction.start({

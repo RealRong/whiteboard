@@ -126,7 +126,7 @@ export const SelectionBox = ({
       if (event.button !== 0) return
       if (active) return
       if (instance.interaction.mode.get() !== 'idle') return
-      if (instance.state.tool.get() === 'edge') return
+      if (!instance.read.tool.is('select')) return
 
       const start = instance.viewport.pointer(event)
       let activeContainer = instance.state.container.get()

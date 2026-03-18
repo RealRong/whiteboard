@@ -7,6 +7,7 @@ import {
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import {
+  useEdit,
   useInternalInstance,
   useInteraction,
   useContainer,
@@ -143,6 +144,7 @@ export const NodeOverlayLayer = () => {
   const nodeIds = useStoreValue(instance.read.node.list)
   const tool = useTool()
   const container = useContainer()
+  const edit = useEdit()
   const interaction = useInteraction()
   const guides = useGuidesSession(instance.internals.node.guides)
   const selection = useSelection()
@@ -150,6 +152,7 @@ export const NodeOverlayLayer = () => {
   const transformSessionRef = useRef<ReturnType<typeof createNodeTransformSession> | null>(null)
   const selectedSet = selection.target.nodeSet
   const chromeVisible = interaction === 'idle'
+  const editing = edit !== null
 
   if (!transformSessionRef.current) {
     transformSessionRef.current = createNodeTransformSession(instance)
@@ -169,12 +172,14 @@ export const NodeOverlayLayer = () => {
         }
       : undefined
   const showNodeHandles =
-    tool === 'select'
+    tool.type === 'select'
+    && !editing
     && selection.target.edgeId === undefined
     && (interaction === 'node-transform' || chromeVisible)
   const nodeHandleNodeIds = showNodeHandles ? selection.target.nodeIds : EMPTY_NODE_IDS
   const showNodeConnectHandles =
-    tool === 'edge'
+    tool.type === 'connector'
+    && !editing
     && chromeVisible
 
   return (

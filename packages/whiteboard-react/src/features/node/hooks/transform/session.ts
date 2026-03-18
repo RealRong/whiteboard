@@ -105,7 +105,7 @@ export const createNodeTransformSession = (
     ) => {
       if (event.button !== 0) return
       if (active) return
-      if (instance.state.tool.get() !== 'select') return
+      if (!instance.read.tool.is('select')) return
 
       const nodeRect = instance.read.index.node.get(nodeId)
       if (!nodeRect || nodeRect.node.locked) return
@@ -151,7 +151,7 @@ export const createNodeTransformSession = (
 
           if (active.drag.mode === 'resize') {
             const preview = resolveResizePreview({
-              activeTool: instance.state.tool.get(),
+              snapEnabled: instance.read.tool.is('select'),
               drag: active.drag,
               currentScreen: {
                 x: event.clientX,

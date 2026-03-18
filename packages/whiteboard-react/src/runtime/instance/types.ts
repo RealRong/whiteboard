@@ -6,6 +6,7 @@ import type {
   EngineInstance
 } from '@whiteboard/engine'
 import type { MindmapLayoutConfig } from '../../types/mindmap'
+import type { RuntimeRead } from '../read'
 import type {
   Container
 } from '../container'
@@ -23,15 +24,16 @@ import type {
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
-
-export type Tool = 'select' | 'edge'
+import type { Tool } from '../tool'
+import type { EditField, EditTarget } from '../edit'
 
 type EngineCommands = EngineInstance['commands']
 
 export type WhiteboardInstance = {
-  read: EngineInstance['read']
+  read: RuntimeRead
   state: {
     tool: ReadStore<Tool>
+    edit: ReadStore<EditTarget>
     selection: ReadStore<SelectionView>
     container: ReadStore<Container>
     interaction: ReadStore<InteractionMode>
@@ -39,6 +41,15 @@ export type WhiteboardInstance = {
   commands: Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
     tool: {
       set: (tool: Tool) => void
+      select: () => void
+      hand: () => void
+      connector: () => void
+      insert: (preset: string) => void
+      draw: (preset?: string) => void
+    }
+    edit: {
+      start: (nodeId: NodeId, field: EditField) => void
+      clear: () => void
     }
     selection: {
       replace: (nodeIds: readonly NodeId[]) => void

@@ -3,6 +3,7 @@ import type { ShortcutOverrides } from '../types/common/shortcut'
 import { ContextMenu } from './ContextMenu'
 import { NodeToolbar } from './NodeToolbar'
 import { SelectionBox } from './SelectionBox'
+import { LeftToolbar } from './toolbar/LeftToolbar'
 import { useCanvasKeyboard } from './useCanvasKeyboard'
 
 type CanvasSurface = {
@@ -75,6 +76,7 @@ export const CanvasChrome = ({
 
   return (
     <>
+      <LeftToolbar surface={surface} />
       <SelectionBox containerRef={containerRef} />
       <NodeToolbar
         containerRef={containerRef}

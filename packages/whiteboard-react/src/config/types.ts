@@ -1,5 +1,6 @@
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '../types/mindmap'
+import type { Tool } from '../runtime/tool'
 import type {
   Size,
   ViewportConfig,
@@ -24,5 +25,5 @@ export type ResolvedConfig = Omit<
   node: ResolvedNodeConfig
   edge: ResolvedEdgeConfig
   history: ResolvedHistoryConfig
-  tool: 'select' | 'edge'
+  tool: Tool
 }

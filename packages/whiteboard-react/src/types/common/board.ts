@@ -3,6 +3,7 @@ import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kern
 import type { CoreRegistries, Document } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../node'
 import type { MindmapLayoutConfig } from '../mindmap'
+import type { Tool } from '../../runtime/tool'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
 import type { ShortcutOverrides } from './shortcut'
 
@@ -18,7 +19,7 @@ export type WhiteboardOptions = {
   node?: NodeConfig
   edge?: EdgeConfig
   history?: HistoryOptions
-  tool?: 'select' | 'edge'
+  tool?: Tool
   shortcuts?: ShortcutOverrides
 }
 

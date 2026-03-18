@@ -199,7 +199,7 @@ export const useEdgeConnect = ({
 
   const hoverTaskRef = useRef(createRafTask(() => {
     const hoverEvent = hoverEventRef.current
-    if (!hoverEvent || activeRef.current || instance.state.tool.get() !== 'edge') {
+    if (!hoverEvent || activeRef.current || !instance.read.tool.is('connector')) {
       return
     }
 
@@ -294,7 +294,7 @@ export const useEdgeConnect = ({
       if (event.defaultPrevented) return
       if (event.button !== 0) return
       if (activeRef.current) return
-      if (instance.state.tool.get() !== 'edge') return
+      if (!instance.read.tool.is('connector')) return
       if (!(event.target instanceof Element)) return
 
       const pointerState = readPointer(event)
@@ -382,7 +382,7 @@ export const useEdgeConnect = ({
   ])
 
   useEffect(() => {
-    if (tool !== 'edge') {
+    if (tool.type !== 'connector') {
       cancel()
     }
   }, [cancel, tool])

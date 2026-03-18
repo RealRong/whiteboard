@@ -137,8 +137,8 @@ export const applyWheelInput = ({
     if (input.deltaX === 0 && input.deltaY === 0) return viewport
     return normalizeViewport(
       applyScreenPan(viewport, {
-        x: -input.deltaX,
-        y: -input.deltaY
+        x: input.deltaX,
+        y: input.deltaY
       }),
       limits
     )

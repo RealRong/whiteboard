@@ -1,4 +1,5 @@
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type { EditField } from '../runtime/edit'
 
 export const CanvasContentIgnoreSelector = [
   '[data-selection-ignore]',
@@ -35,6 +36,20 @@ export const readElementEdgeId = (
     ?? undefined
 )
 
+export const readEditableFieldTarget = (
+  target: EventTarget | null
+): EditField | undefined => {
+  if (!(target instanceof Element)) return undefined
+
+  const value = target
+    .closest('[data-node-editable-field]')
+    ?.getAttribute('data-node-editable-field')
+
+  return value === 'text' || value === 'title'
+    ? value
+    : undefined
+}
+
 export const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof Element)) return false
   if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true
@@ -54,6 +69,9 @@ export const isContextMenuIgnoredTarget = (target: EventTarget | null) =>
 
 export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))
+
+export const isNodeEditableDisplayTarget = (target: EventTarget | null) =>
+  readEditableFieldTarget(target) !== undefined
 
 export const isBackgroundPointerTarget = ({
   target,

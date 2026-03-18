@@ -4,6 +4,10 @@ import {
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
 import { DEFAULT_VIEWPORT } from '../runtime/viewport'
+import {
+  SelectTool,
+  normalizeTool
+} from '../runtime/tool'
 import type { WhiteboardOptions } from '../types/common'
 import type { ResolvedConfig } from './types'
 
@@ -21,7 +25,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     maxZoom: 4,
     enablePan: true,
     enableWheel: true,
-    wheelSensitivity: 0.001
+    wheelSensitivity: 0.005
   },
   node: DEFAULT_BOARD_CONFIG.node,
   edge: DEFAULT_BOARD_CONFIG.edge,
@@ -31,7 +35,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     captureSystem: true,
     captureRemote: false
   },
-  tool: 'select',
+  tool: SelectTool,
   shortcuts: undefined
 }
 
@@ -49,7 +53,7 @@ export const normalizeConfig = (
 
   return {
     ...merged,
-    tool: merged.tool === 'edge' ? 'edge' : 'select',
+    tool: normalizeTool(merged.tool),
     viewport: {
       ...merged.viewport,
       initial: merged.viewport.initial ?? DEFAULT_VIEWPORT,

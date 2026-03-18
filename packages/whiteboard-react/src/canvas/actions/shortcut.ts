@@ -88,7 +88,11 @@ const canDispatchShortcutAction = (
     case 'selection.selectAll':
       return true
     case 'selection.clear':
-      return hasSelection || instance.state.container.get().id !== undefined
+      return (
+        hasSelection
+        || instance.state.container.get().id !== undefined
+        || !instance.read.tool.is('select')
+      )
     case 'selection.delete':
       return hasSelection
     case 'selection.duplicate':
@@ -112,6 +116,9 @@ export const dispatchCanvasShortcutAction = (
       selectAllInScope(instance)
       return true
     case 'selection.clear':
+      if (!instance.read.tool.is('select')) {
+        instance.commands.tool.select()
+      }
       leave(instance)
       return true
     case 'selection.delete':

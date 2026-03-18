@@ -4,6 +4,12 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import {
+  isEditableTarget,
+  isInputIgnoredTarget,
+  isNodeEditableDisplayTarget,
+  isSelectionIgnoredTarget
+} from '../../../../canvas/target'
 import type { InternalInstance } from '../../../../runtime/instance'
 import {
   filterNodeIds,
@@ -22,15 +28,45 @@ type ActiveDrag = NodeDragRuntimeState & {
   allowCross: boolean
 }
 
+type PendingDrag = {
+  pointerId: number
+  capture: HTMLDivElement
+  nodeRect: NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>
+  startClientX: number
+  startClientY: number
+  startWorld: {
+    x: number
+    y: number
+  }
+  nextSelectedNodeIds: readonly NodeId[]
+}
+
 export const createNodeDragSession = (
   instance: InternalInstance
 ) => {
   let active: ActiveDrag | null = null
+  let pending: PendingDrag | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
+  let releasePending = () => {}
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
 
+  const hasSelectionChanged = (
+    currentSelectedNodeIds: readonly NodeId[],
+    nextSelectedNodeIds: readonly NodeId[]
+  ) => (
+    nextSelectedNodeIds.length !== currentSelectedNodeIds.length
+    || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
+  )
+
+  const clearPending = () => {
+    releasePending()
+    releasePending = () => {}
+    pending = null
+  }
+
   const clear = () => {
+    clearPending()
     active = null
     session = null
     instance.internals.node.session.clear()
@@ -62,7 +98,7 @@ export const createNodeDragSession = (
       active,
       world: instance.viewport.pointer(input).world,
       zoom: instance.viewport.get().zoom,
-      snapEnabled: instance.state.tool.get() === 'select',
+      snapEnabled: instance.read.tool.is('select'),
       allowCross: active.allowCross,
       nodes: readCanvasNodes(),
       config: instance.config,
@@ -79,6 +115,135 @@ export const createNodeDragSession = (
     instance.internals.node.guides.write(preview.guides)
   }
 
+  const startDrag = (
+    moveEvent: PointerEvent
+  ) => {
+    if (!pending) {
+      return
+    }
+
+    const drag = buildNodeDragState({
+      nodes: readCanvasNodes(),
+      anchorId: pending.nodeRect.node.id,
+      anchorType: pending.nodeRect.node.type,
+      startWorld: pending.startWorld,
+      origin: {
+        x: pending.nodeRect.node.position.x,
+        y: pending.nodeRect.node.position.y
+      },
+      size: {
+        width: pending.nodeRect.rect.width,
+        height: pending.nodeRect.rect.height
+      },
+      selectedNodeIds: pending.nextSelectedNodeIds
+    })
+    if (!drag.members.length) {
+      clearPending()
+      return
+    }
+
+    const nextSession = instance.interaction.start({
+      mode: 'node-drag',
+      pointerId: pending.pointerId,
+      capture: pending.capture,
+      pan: {
+        frame: (pointer) => {
+          updatePreview(pointer)
+        }
+      },
+      cleanup: clear,
+      move: (event, session) => {
+        if (!active) {
+          return
+        }
+
+        active.allowCross = event.altKey
+        session.pan(event)
+        updatePreview(event)
+      },
+      up: (_event, session) => {
+        if (!active) {
+          return
+        }
+
+        commit(active)
+        session.finish()
+      }
+    })
+    if (!nextSession) {
+      clearPending()
+      return
+    }
+
+    active = {
+      pointerId: pending.pointerId,
+      allowCross: moveEvent.altKey,
+      ...drag
+    }
+    session = nextSession
+    clearPending()
+    instance.internals.node.session.clear()
+    instance.internals.node.guides.clear()
+    nextSession.pan(moveEvent)
+    updatePreview(moveEvent)
+
+    if (moveEvent.cancelable) {
+      moveEvent.preventDefault()
+    }
+  }
+
+  const bindPending = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      if (!pending || moveEvent.pointerId !== pending.pointerId) {
+        return
+      }
+
+      if (instance.interaction.mode.get() !== 'idle') {
+        clearPending()
+        return
+      }
+
+      const minDragDistance = instance.config.node.selectionMinDragDistance
+      const dx = Math.abs(moveEvent.clientX - pending.startClientX)
+      const dy = Math.abs(moveEvent.clientY - pending.startClientY)
+      if (dx < minDragDistance && dy < minDragDistance) {
+        return
+      }
+
+      startDrag(moveEvent)
+    }
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      if (!pending || upEvent.pointerId !== pending.pointerId) {
+        return
+      }
+
+      clearPending()
+    }
+
+    const onPointerCancel = (cancelEvent: PointerEvent) => {
+      if (!pending || cancelEvent.pointerId !== pending.pointerId) {
+        return
+      }
+
+      clearPending()
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
+
+    releasePending = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
+    }
+  }
+
   return {
     cancel: () => {
       if (session) {
@@ -92,8 +257,18 @@ export const createNodeDragSession = (
       event: ReactPointerEvent<HTMLDivElement>
     ) => {
       if (event.button !== 0) return
+      if (pending) return
       if (active) return
-      if (instance.state.tool.get() !== 'select') return
+      if (instance.interaction.mode.get() !== 'idle') return
+      if (!instance.read.tool.is('select')) return
+      if (
+        isEditableTarget(event.target)
+        || isInputIgnoredTarget(event.target)
+        || isSelectionIgnoredTarget(event.target)
+        || isNodeEditableDisplayTarget(event.target)
+      ) {
+        return
+      }
 
       const nodeRect = instance.read.index.node.get(nodeId)
       if (!nodeRect) return
@@ -118,87 +293,32 @@ export const createNodeDragSession = (
 
       if (!nextSelectedNodeIds.includes(nodeId)) {
         instance.commands.selection.replace(nextSelectedNodeIds)
-        event.preventDefault()
         event.stopPropagation()
         return
       }
 
       if (nodeRect.node.locked) {
-        if (
-          nextSelectedNodeIds.length !== currentSelectedNodeIds.length
-          || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
-        ) {
+        if (hasSelectionChanged(currentSelectedNodeIds, nextSelectedNodeIds)) {
           instance.commands.selection.replace(nextSelectedNodeIds)
         }
-        event.preventDefault()
         event.stopPropagation()
         return
       }
 
-      const drag = buildNodeDragState({
-        nodes: readCanvasNodes(),
-        anchorId: nodeRect.node.id,
-        anchorType: nodeRect.node.type,
-        startWorld: instance.viewport.pointer(event).world,
-        origin: {
-          x: nodeRect.node.position.x,
-          y: nodeRect.node.position.y
-        },
-        size: {
-          width: nodeRect.rect.width,
-          height: nodeRect.rect.height
-        },
-        selectedNodeIds: nextSelectedNodeIds
-      })
-      if (!drag.members.length) return
-
-      const nextSession = instance.interaction.start({
-        mode: 'node-drag',
-        pointerId: event.pointerId,
-        capture: event.currentTarget,
-        pan: {
-          frame: (pointer) => {
-            updatePreview(pointer)
-          }
-        },
-        cleanup: clear,
-        move: (event, session) => {
-          if (!active) {
-            return
-          }
-
-          active.allowCross = event.altKey
-          session.pan(event)
-          updatePreview(event)
-        },
-        up: (_event, session) => {
-          if (!active) {
-            return
-          }
-
-          commit(active)
-          session.finish()
-        }
-      })
-      if (!nextSession) return
-
-      if (
-        nextSelectedNodeIds.length !== currentSelectedNodeIds.length
-        || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
-      ) {
+      if (hasSelectionChanged(currentSelectedNodeIds, nextSelectedNodeIds)) {
         instance.commands.selection.replace(nextSelectedNodeIds)
       }
 
-      active = {
+      pending = {
         pointerId: event.pointerId,
-        allowCross: event.altKey,
-        ...drag
+        capture: event.currentTarget,
+        nodeRect,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startWorld: instance.viewport.pointer(event).world,
+        nextSelectedNodeIds
       }
-      session = nextSession
-      instance.internals.node.session.clear()
-      instance.internals.node.guides.clear()
-
-      event.preventDefault()
+      bindPending()
       event.stopPropagation()
     }
   }

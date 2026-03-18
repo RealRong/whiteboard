@@ -3,9 +3,21 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type {
   WhiteboardInstance,
   InternalInstance,
-  Tool,
 } from './types'
+import type { Tool } from '../tool'
+import {
+  ConnectorTool,
+  HandTool,
+  SelectTool,
+  isSameTool,
+  normalizeTool
+} from '../tool'
 import { createState as createContainerState } from '../container'
+import {
+  createState as createEditState,
+  finalize as finalizeEdit,
+  type Commands as EditCommands
+} from '../edit'
 import {
   createState as createSelectionState,
   type Commands as SelectionCommands
@@ -28,6 +40,7 @@ import { finalize } from '../selection/finalize'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
+  edit: ReturnType<typeof createEditState>
   container: ReturnType<typeof createContainerState>
   selection: ReturnType<typeof createSelectionState>
 }
@@ -53,6 +66,7 @@ const createInstanceStores = ({
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
+  const edit = createEditState()
   const container = createContainerState(engine.read)
   const selection = createSelectionState({
     read: engine.read
@@ -62,6 +76,8 @@ const createInstanceStores = ({
   const mindmap = createMindmapFeatureRuntime()
   const read = createRuntimeRead({
     engineRead: engine.read,
+    tool,
+    edit: edit.store,
     node,
     edge,
     mindmap
@@ -70,11 +86,13 @@ const createInstanceStores = ({
   return {
     stores: {
       tool,
+      edit,
       container,
       selection
     },
     state: {
       tool,
+      edit: edit.store,
       selection: selection.store,
       container: container.store,
       interaction: interaction.mode
@@ -91,28 +109,82 @@ const createInstanceStores = ({
 const createCommands = ({
   engine,
   tool,
+  edit,
   selection,
   container,
   viewport
 }: {
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<Tool>>
+  edit: EditCommands
   selection: SelectionCommands
   container: ReturnType<typeof createContainerState>
   viewport: ViewportCommands
-}): WhiteboardInstance['commands'] => ({
-  ...engine.commands,
-  tool: {
-    set: (nextTool) => {
-      if (tool.get() === nextTool) return
-      tool.set(nextTool)
-    }
-  },
-  selection,
-  container: container.commands,
-  viewport,
-  edge: engine.commands.edge
-})
+}): WhiteboardInstance['commands'] => {
+  const setTool = (nextTool: Tool) => {
+    const normalized = normalizeTool(nextTool)
+    if (isSameTool(tool.get(), normalized)) return
+    tool.set(normalized)
+  }
+
+  return {
+    ...engine.commands,
+    tool: {
+      set: setTool,
+      select: () => {
+        setTool(SelectTool)
+      },
+      hand: () => {
+        setTool(HandTool)
+      },
+      connector: () => {
+        setTool(ConnectorTool)
+      },
+      insert: (preset) => {
+        setTool({
+          type: 'insert',
+          preset
+        })
+      },
+      draw: (preset = 'free') => {
+        setTool({
+          type: 'draw',
+          preset
+        })
+      }
+    },
+    edit,
+    selection: {
+      replace: (nodeIds) => {
+        edit.clear()
+        selection.replace(nodeIds)
+      },
+      add: (nodeIds) => {
+        edit.clear()
+        selection.add(nodeIds)
+      },
+      remove: (nodeIds) => {
+        edit.clear()
+        selection.remove(nodeIds)
+      },
+      toggle: (nodeIds) => {
+        edit.clear()
+        selection.toggle(nodeIds)
+      },
+      selectEdge: (edgeId) => {
+        edit.clear()
+        selection.selectEdge(edgeId)
+      },
+      clear: () => {
+        edit.clear()
+        selection.clear()
+      }
+    },
+    container: container.commands,
+    viewport,
+    edge: engine.commands.edge
+  }
+}
 
 export const createInstance = ({
   engine,
@@ -150,6 +222,7 @@ export const createInstance = ({
 
   const resetUiSessionState = () => {
     interaction.cancel()
+    stores.edit.commands.clear()
     stores.selection.commands.clear()
     stores.container.commands.clear()
     internals.node.clear()
@@ -172,11 +245,17 @@ export const createInstance = ({
       container: stores.container,
       selection: stores.selection
     })
+    finalizeEdit({
+      read,
+      container: stores.container,
+      edit: stores.edit
+    })
   })
 
   const commands = createCommands({
     engine,
     tool: stores.tool,
+    edit: stores.edit.commands,
     selection: stores.selection.commands,
     container: stores.container,
     viewport: viewport.commands
@@ -196,8 +275,9 @@ export const createInstance = ({
     commands,
     viewport: viewport.read,
     configure: (config) => {
-      if (stores.tool.get() !== config.tool) {
-        stores.tool.set(config.tool)
+      const nextTool = normalizeTool(config.tool)
+      if (!isSameTool(stores.tool.get(), nextTool)) {
+        stores.tool.set(nextTool)
       }
       viewport.setLimits(config.viewport)
       engine.configure({

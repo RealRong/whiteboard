@@ -1,4 +1,5 @@
 export { useWhiteboard, useInternalInstance } from './useWhiteboard'
+export { useEdit } from './useEdit'
 export { useSelection } from './useSelection'
 export { useContainer } from './useContainer'
 export { useInteraction } from './useInteraction'

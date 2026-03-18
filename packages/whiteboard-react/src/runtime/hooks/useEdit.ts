@@ -1,8 +1,8 @@
-import type { Tool } from '../tool'
+import type { EditTarget } from '../edit'
 import { useWhiteboard } from './useWhiteboard'
 import { useStoreValue } from './useStoreValue'
 
-export const useTool = (): Tool => {
+export const useEdit = (): EditTarget => {
   const instance = useWhiteboard()
-  return useStoreValue(instance.state.tool)
+  return useStoreValue(instance.state.edit)
 }
