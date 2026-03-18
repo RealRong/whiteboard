@@ -41,7 +41,7 @@ const NodeInteractionGuidesLayer = ({
           y1={guide.axis === 'x' ? guide.from : guide.value}
           x2={guide.axis === 'x' ? guide.value : guide.to}
           y2={guide.axis === 'x' ? guide.to : guide.value}
-          stroke="rgba(59,130,246,0.9)"
+          stroke="var(--wb-selection-border)"
           strokeWidth={1}
           strokeDasharray="4 4"
         />

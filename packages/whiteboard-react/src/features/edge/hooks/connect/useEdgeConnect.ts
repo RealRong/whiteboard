@@ -4,7 +4,7 @@ import type { EdgeConnectState } from '../../../../types/edge'
 import { useInternalInstance, useTool } from '../../../../runtime/hooks'
 import { createRafTask } from '../../../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../../../runtime/viewport'
-import { CanvasContentIgnoreSelector } from '../../../../canvas/CanvasTargeting'
+import { CanvasContentIgnoreSelector } from '../../../../canvas/target'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,

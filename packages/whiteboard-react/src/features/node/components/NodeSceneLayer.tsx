@@ -9,7 +9,7 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { enter } from '../../../runtime/container'
-import { isCanvasContentIgnoredTarget } from '../../../canvas/CanvasTargeting'
+import { isCanvasContentIgnoredTarget } from '../../../canvas/target'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import { createNodeDragSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'

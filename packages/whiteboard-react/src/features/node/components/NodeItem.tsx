@@ -81,10 +81,10 @@ export const NodeItem = memo(({
       style={{
         width: rect.width,
         height: rect.height,
-        border: `1px solid ${selected ? '#3b82f6' : '#1d1d1f'}`,
+        border: `1px solid ${selected ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))' : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'}`,
         boxShadow: selected
-          ? '0 0 0 2px rgba(59, 130, 246, 0.4)'
-          : '0 6px 16px rgba(0, 0, 0, 0.08)',
+          ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.4)'
+          : '0 6px 16px hsl(var(--ui-text-primary, 40 2.1% 28%) / 0.08)',
         ...rootStyle
       }}
     >

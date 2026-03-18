@@ -22,13 +22,13 @@ export const EdgePreview = () => {
             y1={from.y}
             x2={to.x}
             y2={to.y}
-            stroke="rgba(17,24,39,0.7)"
+            stroke="var(--wb-preview-line)"
             strokeWidth={2}
             strokeDasharray="6 4"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={from.x} cy={from.y} r={4} fill="#111827" className="wb-edge-preview-point" />
-          <circle cx={to.x} cy={to.y} r={4} fill="#111827" className="wb-edge-preview-point" />
+          <circle cx={from.x} cy={from.y} r={4} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
+          <circle cx={to.x} cy={to.y} r={4} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
         </>
       )}
       {snap && (
@@ -36,8 +36,8 @@ export const EdgePreview = () => {
           cx={snap.x}
           cy={snap.y}
           r={6}
-          fill="rgba(59,130,246,0.2)"
-          stroke="#2563eb"
+          fill="var(--wb-selection-fill)"
+          stroke="var(--wb-accent)"
           strokeWidth={2}
           vectorEffect="non-scaling-stroke"
           className="wb-edge-preview-point"

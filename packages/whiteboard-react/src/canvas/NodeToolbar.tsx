@@ -293,52 +293,62 @@ const SvgIcon = ({
   children: ReactNode
   viewBox?: string
 }) => (
-  <svg viewBox={viewBox} aria-hidden="true" className="wb-node-toolbar-icon">
+  <svg
+    viewBox={viewBox}
+    aria-hidden="true"
+    className="wb-node-toolbar-icon"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     {children}
   </svg>
 )
 
+const IconStrokeWidth = 1
+
 const ToolbarIcons: Record<ToolbarItemKey, ReactNode> = {
   fill: (
     <SvgIcon>
-      <path d="M6 4h8l4 4v1l-7 7-6-6 7-6Z" fill="currentColor" opacity="0.9" />
-      <path d="M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 5.5h6l3.5 3.5v1L11 17.5 6.5 13l7-7.5Z" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <path d="M5 19.5h14" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   stroke: (
     <SvgIcon>
-      <circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M4 20h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="11" r="5.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <path d="M4.5 19.5h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   text: (
     <SvgIcon>
-      <path d="M6 6h12M12 6v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M7 6.5h10" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <path d="M12 6.5v11" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   group: (
     <SvgIcon>
-      <rect x="4" y="6" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="13" y="11" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="4.5" y="6.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <rect x="12.5" y="10.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   arrange: (
     <SvgIcon>
-      <rect x="5" y="5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="10" y="10" width="9" height="9" rx="1.5" fill="currentColor" opacity="0.25" />
+      <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <rect x="10" y="10" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   lock: (
     <SvgIcon>
-      <path d="M8 11V8.5a4 4 0 1 1 8 0V11" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="6" y="11" width="12" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.5 10.5V8.75a3.5 3.5 0 1 1 7 0v1.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <rect x="7" y="10.5" width="10" height="8.5" rx="2" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   more: (
     <SvgIcon>
-      <circle cx="6.5" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="17.5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="7" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="12" r="1.15" fill="currentColor" stroke="none" />
     </SvgIcon>
   )
 }
@@ -621,7 +631,7 @@ export const NodeToolbar = ({
       : undefined
   const strokeValue = typeof toolbar.primaryNode.style?.stroke === 'string'
     ? toolbar.primaryNode.style.stroke
-    : '#1d1d1f'
+    : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   const strokeWidthValue = typeof toolbar.primaryNode.style?.strokeWidth === 'number'
     ? toolbar.primaryNode.style.strokeWidth
     : 1
@@ -629,7 +639,7 @@ export const NodeToolbar = ({
   const textFieldKey = readTextFieldKey(toolbar.primaryNode, primarySchema)
   const textColor = typeof toolbar.primaryNode.style?.color === 'string'
     ? toolbar.primaryNode.style.color
-    : '#111827'
+    : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   const textFontSize = typeof toolbar.primaryNode.style?.fontSize === 'number'
     ? toolbar.primaryNode.style.fontSize
     : 14

@@ -2,7 +2,7 @@ import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from '../../../../runtime/hooks'
-import { isSelectionIgnoredTarget } from '../../../../canvas/CanvasTargeting'
+import { isSelectionIgnoredTarget } from '../../../../canvas/target'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,

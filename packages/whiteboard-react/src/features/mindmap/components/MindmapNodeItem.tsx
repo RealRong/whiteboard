@@ -53,7 +53,9 @@ export const MindmapNodeItem = ({
         '--wb-mindmap-node-transition': transition,
         '--wb-mindmap-node-tx': `${rect.x + shiftX}px`,
         '--wb-mindmap-node-ty': `${rect.y + shiftY}px`,
-        '--wb-mindmap-node-border-color': attachTarget ? '#2563eb' : '#111'
+        '--wb-mindmap-node-border-color': attachTarget
+          ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
+          : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
       } as CSSProperties}
       data-attach-target={attachTarget ? 'true' : undefined}
     >

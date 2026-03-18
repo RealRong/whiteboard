@@ -37,7 +37,7 @@ import {
   isContextMenuIgnoredTarget,
   readElementEdgeId,
   readElementNodeId
-} from './CanvasTargeting'
+} from './target'
 
 type Surface = {
   width: number
@@ -216,15 +216,15 @@ const readContextMenuOpenResult = ({
     return {
       target: selection.target.nodeSet.has(nodeId) && selection.items.count > 1
         ? {
-            kind: 'nodes',
-            nodeIds: selection.target.nodeIds,
-            world
-          }
+          kind: 'nodes',
+          nodeIds: selection.target.nodeIds,
+          world
+        }
         : {
-            kind: 'node',
-            nodeId,
-            world
-          },
+          kind: 'node',
+          nodeId,
+          world
+        },
       leaveContainer: !hasNode(container, nodeId)
     }
   }

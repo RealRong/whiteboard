@@ -12,7 +12,7 @@ import {
 import {
   isEditableTarget,
   isInputIgnoredTarget
-} from './CanvasTargeting'
+} from './target'
 
 const ModifierOrder = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 

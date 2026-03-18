@@ -13,7 +13,7 @@ import {
 } from '../runtime/container'
 import { createRafTask } from '../runtime/utils/rafTask'
 import type { ViewportPointer } from '../runtime/viewport'
-import { isBackgroundPointerTarget } from './CanvasTargeting'
+import { isBackgroundPointerTarget } from './target'
 
 type ActiveSelection = {
   pointerId: number

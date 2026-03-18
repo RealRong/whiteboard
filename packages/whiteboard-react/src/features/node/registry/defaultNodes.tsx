@@ -125,7 +125,7 @@ const TextNodeRenderer = ({
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
   const fontSize = getStyleNumber(node, 'fontSize') ?? (isSticky ? 14 : 13)
-  const color = getStyleString(node, 'color') ?? '#111827'
+  const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
 
   useEffect(() => {
     setDraft(text)
@@ -191,7 +191,7 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
   const collapsed = getDataBool(node, 'collapsed')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
-  const color = getStyleString(node, 'color') ?? '#0f172a'
+  const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
 
   useEffect(() => {
     setDraft(title)
@@ -319,7 +319,7 @@ const getShapeColors = (
 ) => {
   const defaults = SHAPE_DEFAULTS[variant]
   const stroke = selected
-    ? '#2563eb'
+    ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
     : (getStyleString(node, 'stroke') ?? defaults.stroke)
   const fill = getStyleString(node, 'fill') ?? defaults.fill
   const text = getStyleString(node, 'color') ?? defaults.text
@@ -519,14 +519,14 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
         : (
           props.node.data && typeof props.node.data.background === 'string'
             ? props.node.data.background
-            : '#fef3c7'
+            : 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
         )
-    )
+        )
     : 'transparent'
   const stroke = typeof props.node.style?.stroke === 'string'
     ? props.node.style.stroke
     : isSticky
-      ? 'rgba(250, 204, 21, 0.6)'
+      ? 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%) / 0.6)'
       : undefined
   const strokeWidth = typeof props.node.style?.strokeWidth === 'number'
     ? props.node.style.strokeWidth
@@ -535,15 +535,15 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
     stroke
       ? `${strokeWidth}px solid ${stroke}`
       : isSticky
-        ? '1px solid rgba(250, 204, 21, 0.6)'
+        ? '1px solid hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%) / 0.6)'
       : props.selected
-        ? '1px solid rgba(59, 130, 246, 0.6)'
-        : '1px solid rgba(148, 163, 184, 0.4)'
+        ? '1px solid hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.6)'
+        : '1px solid hsl(var(--ui-border-subtle, 40 5.7% 89.6%) / 0.7)'
   return {
     background,
     border,
     borderRadius: isSticky ? 10 : 8,
-    boxShadow: props.selected ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+    boxShadow: props.selected ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2)' : 'none',
     display: 'block',
     padding: isSticky ? '16px' : '12px',
     textAlign: 'left'
@@ -551,13 +551,13 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
 }
 
 const rectStyle = (props: NodeRenderProps): CSSProperties => {
-  const fill = typeof props.node.style?.fill === 'string' ? props.node.style.fill : '#ffffff'
-  const stroke = typeof props.node.style?.stroke === 'string' ? props.node.style.stroke : '#1d1d1f'
+  const fill = typeof props.node.style?.fill === 'string' ? props.node.style.fill : 'hsl(var(--ui-surface, 0 0% 100%))'
+  const stroke = typeof props.node.style?.stroke === 'string' ? props.node.style.stroke : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   const width = typeof props.node.style?.strokeWidth === 'number' ? props.node.style.strokeWidth : 1
   return {
     background: fill,
     border: `${width}px solid ${stroke}`,
-    color: getStyleString(props.node, 'color') ?? '#111827'
+    color: getStyleString(props.node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   }
 }
 
@@ -567,23 +567,23 @@ const groupStyle = (props: NodeRenderProps): CSSProperties => {
   const borderColor = typeof props.node.style?.stroke === 'string'
     ? props.node.style.stroke
     : hovered
-      ? '#2563eb'
+      ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
       : props.selected
-        ? '#3b82f6'
-        : '#94a3b8'
+        ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
+        : 'hsl(var(--ui-border-strong, 40 9.1% 93.5%))'
   const borderWidth = typeof props.node.style?.strokeWidth === 'number'
     ? props.node.style.strokeWidth
     : 1
   const fill = typeof props.node.style?.fill === 'string'
     ? props.node.style.fill
     : collapsed
-      ? 'rgba(148, 163, 184, 0.08)'
-      : 'rgba(148, 163, 184, 0.06)'
+      ? 'hsl(var(--ui-surface-strong, 40 5.7% 89.6%) / 0.45)'
+      : 'hsl(var(--ui-surface-muted, 40 9.1% 93.5%) / 0.45)'
   return {
     background: fill,
     border: `${borderWidth}px dashed ${borderColor}`,
-    boxShadow: props.selected ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
-    color: getStyleString(props.node, 'color') ?? '#0f172a',
+    boxShadow: props.selected ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2)' : 'none',
+    color: getStyleString(props.node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
     display: 'block',
     paddingTop: 28,
     paddingLeft: 8,

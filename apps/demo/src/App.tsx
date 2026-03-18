@@ -233,6 +233,7 @@ export const App = () => {
           document={doc}
           onDocumentChange={onDocumentChange}
           options={{
+            className: 'wb-theme-notion',
             style: { width: '100%', height: '100%' },
             tool: 'select',
             mindmapLayout: { mode: 'simple' }
