@@ -2,7 +2,10 @@ import { useEffect, useState, type RefObject } from 'react'
 import type { ShortcutOverrides } from '../types/common/shortcut'
 import { ContextMenu } from './ContextMenu'
 import { NodeToolbar } from './NodeToolbar'
-import { SelectionBox } from './SelectionBox'
+import {
+  Marquee,
+  type MarqueeSession
+} from './Marquee'
 import { LeftToolbar } from './toolbar/LeftToolbar'
 import { useCanvasKeyboard } from './useCanvasKeyboard'
 
@@ -62,10 +65,12 @@ const useCanvasSurface = (
 
 export const CanvasChrome = ({
   containerRef,
-  shortcuts
+  shortcuts,
+  marquee
 }: {
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
+  marquee: MarqueeSession
 }) => {
   const surface = useCanvasSurface(containerRef)
 
@@ -77,7 +82,10 @@ export const CanvasChrome = ({
   return (
     <>
       <LeftToolbar surface={surface} />
-      <SelectionBox containerRef={containerRef} />
+      <Marquee
+        containerRef={containerRef}
+        marquee={marquee}
+      />
       <NodeToolbar
         containerRef={containerRef}
         surface={surface}

@@ -1,56 +1,37 @@
-import type {
-  MouseEvent as ReactMouseEvent
-} from 'react'
 import { useEffect, useRef } from 'react'
-import type { NodeId } from '@whiteboard/core/types'
 import {
   useInternalInstance,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import { enter } from '../../../runtime/container'
-import { isCanvasContentIgnoredTarget } from '../../../canvas/target'
+import type { MarqueeSession } from '../../../canvas/Marquee'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
-import { createNodeDragSession } from '../hooks/drag/session'
+import { createNodePressSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'
 
-export const NodeSceneLayer = () => {
+export const NodeSceneLayer = ({
+  marquee
+}: {
+  marquee: MarqueeSession
+}) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
+  const press = useStoreValue(instance.internals.node.press)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
-  const dragSessionRef = useRef<ReturnType<typeof createNodeDragSession> | null>(null)
+  const pressSessionRef = useRef<ReturnType<typeof createNodePressSession> | null>(null)
 
-  if (!dragSessionRef.current) {
-    dragSessionRef.current = createNodeDragSession(instance)
+  if (!pressSessionRef.current) {
+    pressSessionRef.current = createNodePressSession(instance, marquee)
   }
 
-  const dragSession = dragSessionRef.current!
+  const pressSession = pressSessionRef.current!
 
   useEffect(() => () => {
-    dragSession.cancel()
-  }, [dragSession])
-
-  const handleNodeDoubleClick = (
-    nodeId: NodeId,
-    event: ReactMouseEvent<HTMLDivElement>
-  ) => {
-    if (!instance.read.tool.is('select')) return
-
-    if (isCanvasContentIgnoredTarget(event.target)) {
-      return
-    }
-
-    const nodeEntry = instance.read.index.node.get(nodeId)
-    if (!nodeEntry || nodeEntry.node.type !== 'group') {
-      return
-    }
-
-    enter(instance, nodeId)
-    event.preventDefault()
-    event.stopPropagation()
-  }
+    pressSession.cancel()
+  }, [pressSession])
+  const showsNodeSelection = press === null || press === 'repeat'
 
   return (
     <div className="wb-node-layer">
@@ -59,9 +40,9 @@ export const NodeSceneLayer = () => {
           key={nodeId}
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
-          selected={selectedSet.has(nodeId)}
-          onNodePointerDown={dragSession.handleNodePointerDown}
-          onNodeDoubleClick={handleNodeDoubleClick}
+          selected={selectedSet.has(nodeId) && showsNodeSelection}
+          onNodePointerDown={pressSession.handleNodePointerDown}
+          onNodeDoubleClick={pressSession.handleNodeDoubleClick}
         />
       ))}
     </div>

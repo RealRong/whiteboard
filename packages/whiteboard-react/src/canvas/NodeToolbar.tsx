@@ -478,6 +478,21 @@ const mergeData = (
   patch: Record<string, unknown>
 ) => mergeRecordPatch(current, patch)
 
+const removeStyleKey = (
+  current: Record<string, string | number> | undefined,
+  key: string
+) => {
+  if (!current || !(key in current)) {
+    return current
+  }
+
+  const next = {
+    ...current
+  }
+  delete next[key]
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
 const updateNodesStyle = (
   instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
   nodes: readonly Node[],
@@ -497,6 +512,14 @@ const updateNodeStyle = (
   style: mergeStyle(node.style, patch)
 })
 
+const removeNodeStyle = (
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
+  node: Node,
+  key: string
+) => instance.commands.node.update(node.id, {
+  style: removeStyleKey(node.style, key)
+})
+
 const isToolbarMenuKey = (
   key: ToolbarItemKey
 ): key is ToolbarMenuKey => key !== 'lock'
@@ -513,6 +536,7 @@ export const NodeToolbar = ({
   const tool = useTool()
   const edit = useEdit()
   const interaction = useInteraction()
+  const press = useStoreValue(instance.internals.node.press)
   const selection = useSelection()
   const worldToScreen = useCallback(
     (point: Point) => instance.viewport.worldToScreen(point),
@@ -554,10 +578,11 @@ export const NodeToolbar = ({
     }
   }
 
-  const showNodeToolbar =
+  const showsNodeToolbar =
     tool.type === 'select'
     && edit === null
     && interaction === 'idle'
+    && (press === null || press === 'repeat')
     && selection.target.edgeId === undefined
     && selection.items.count > 0
 
@@ -572,10 +597,10 @@ export const NodeToolbar = ({
   ])
 
   useEffect(() => {
-    if (!showNodeToolbar) {
+    if (!showsNodeToolbar) {
       closeMenu()
     }
-  }, [closeMenu, showNodeToolbar])
+  }, [closeMenu, showsNodeToolbar])
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -600,7 +625,7 @@ export const NodeToolbar = ({
     }
   }, [closeMenu])
 
-  if (!showNodeToolbar || !toolbar) return null
+  if (!showsNodeToolbar || !toolbar) return null
 
   const toolbarStyle = buildToolbarStyle({
     placement: toolbar.placement,
@@ -645,7 +670,7 @@ export const NodeToolbar = ({
     : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
   const textFontSize = typeof toolbar.primaryNode.style?.fontSize === 'number'
     ? toolbar.primaryNode.style.fontSize
-    : 14
+    : undefined
   const showTextSection = !primarySchema
     || hasSchemaField(primarySchema, 'data', 'text')
     || hasSchemaField(primarySchema, 'data', 'title')
@@ -715,6 +740,10 @@ export const NodeToolbar = ({
               updateNodeStyle(instance, toolbar.primaryNode, { color: value })
             } : undefined}
             onFontSizeChange={showTextFontSizeSection ? (value) => {
+              if (value === undefined) {
+                removeNodeStyle(instance, toolbar.primaryNode, 'fontSize')
+                return
+              }
               updateNodeStyle(instance, toolbar.primaryNode, { fontSize: value })
             } : undefined}
           />

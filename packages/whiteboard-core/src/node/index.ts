@@ -51,7 +51,11 @@ export {
   resolveInteractionZoom,
   resolveSnapThresholdWorld
 } from './snapRuntime'
-export { getNodeIdsInRect, type NodeRectHitEntry } from './hitTest'
+export {
+  getNodeIdsInRect,
+  type NodeRectHitEntry,
+  type NodeRectHitOptions
+} from './hitTest'
 export { toLayerOrderedCanvasNodes, toLayerOrderedCanvasNodeIds } from './layer'
 export {
   buildNodeCreateOperation,

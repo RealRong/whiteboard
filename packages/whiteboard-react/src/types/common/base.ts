@@ -16,7 +16,6 @@ export type NodeConfig = {
   snapThresholdScreen?: number
   snapMaxThresholdWorld?: number
   snapGridCellSize?: number
-  selectionMinDragDistance?: number
 }
 
 export type EdgeConfig = {

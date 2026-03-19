@@ -3,7 +3,7 @@ import type { ReadStore } from '@whiteboard/core/runtime'
 export type InteractionMode =
   | 'idle'
   | 'viewport-pan'
-  | 'selection-box'
+  | 'marquee'
   | 'node-drag'
   | 'mindmap-drag'
   | 'node-transform'

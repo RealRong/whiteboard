@@ -8,7 +8,6 @@ export type BoardConfig = {
     snapThresholdScreen: number
     snapMaxThresholdWorld: number
     snapGridCellSize: number
-    selectionMinDragDistance: number
   }
   edge: {
     hitTestThresholdScreen: number
@@ -34,8 +33,7 @@ export const DEFAULT_BOARD_CONFIG: BoardConfig = {
     groupPadding: 24,
     snapThresholdScreen: 8,
     snapMaxThresholdWorld: 24,
-    snapGridCellSize: 240,
-    selectionMinDragDistance: 3
+    snapGridCellSize: 240
   },
   edge: {
     hitTestThresholdScreen: 10,

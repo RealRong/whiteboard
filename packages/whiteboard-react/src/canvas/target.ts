@@ -19,22 +19,30 @@ const CanvasEntitySelector = [
 ].join(', ')
 
 export const readElementNodeId = (
-  targetElement: Element | null
-): NodeId | undefined => (
-  targetElement
-    ?.closest('[data-node-id]')
+  target: EventTarget | null
+): NodeId | undefined => {
+  if (!(target instanceof Element)) {
+    return undefined
+  }
+
+  return target
+    .closest('[data-node-id]')
     ?.getAttribute('data-node-id')
     ?? undefined
-)
+}
 
 export const readElementEdgeId = (
-  targetElement: Element | null
-): EdgeId | undefined => (
-  targetElement
-    ?.closest('[data-edge-id]')
+  target: EventTarget | null
+): EdgeId | undefined => {
+  if (!(target instanceof Element)) {
+    return undefined
+  }
+
+  return target
+    .closest('[data-edge-id]')
     ?.getAttribute('data-edge-id')
     ?? undefined
-)
+}
 
 export const readEditableFieldTarget = (
   target: EventTarget | null
@@ -69,9 +77,6 @@ export const isContextMenuIgnoredTarget = (target: EventTarget | null) =>
 
 export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))
-
-export const isNodeEditableDisplayTarget = (target: EventTarget | null) =>
-  readEditableFieldTarget(target) !== undefined
 
 export const isBackgroundPointerTarget = ({
   target,

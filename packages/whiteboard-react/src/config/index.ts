@@ -83,8 +83,7 @@ export const toBoardConfig = (
     groupPadding: config.node.groupPadding,
     snapThresholdScreen: config.node.snapThresholdScreen,
     snapMaxThresholdWorld: config.node.snapMaxThresholdWorld,
-    snapGridCellSize: config.node.snapGridCellSize,
-    selectionMinDragDistance: config.node.selectionMinDragDistance
+    snapGridCellSize: config.node.snapGridCellSize
   },
   edge: {
     hitTestThresholdScreen: config.edge.hitTestThresholdScreen,

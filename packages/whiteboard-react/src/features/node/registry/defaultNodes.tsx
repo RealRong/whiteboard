@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import type { Node, NodeSchema, SchemaField } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps } from '../../../types/node'
-import type { View as SelectionView } from '../../../runtime/selection'
 import {
   useEdit,
-  useInternalInstance,
-  useSelection
+  useInternalInstance
 } from '../../../runtime/hooks'
+import { useAutoFontSize } from '../hooks/useAutoFontSize'
 import { createNodeRegistry } from './nodeRegistry'
 
 const getDataString = (node: Node, key: string) => {
@@ -65,36 +64,28 @@ const styleField = (
 const createTextField = (path: 'title' | 'text') =>
   dataField(path, path === 'title' ? 'Title' : 'Text', path === 'title' ? 'string' : 'text')
 
-const isSingleSelectedNode = (
-  selection: SelectionView,
-  nodeId: Node['id']
-) => (
-  selection.target.edgeId === undefined
-  && selection.items.count === 1
-  && selection.target.nodeIds[0] === nodeId
-)
+const readEditableText = (
+  element: HTMLDivElement
+) => {
+  const value = element.innerText.replace(/\r/g, '')
+  return value === '\n' ? '' : value
+}
 
-const activateEditableField = ({
-  nodeId,
-  field,
-  selection,
-  instance
-}: {
-  nodeId: Node['id']
-  field: 'text' | 'title'
-  selection: SelectionView
-  instance: ReturnType<typeof useInternalInstance>
-}) => {
-  if (!instance.read.tool.is('select')) {
+const focusEditableEnd = (
+  element: HTMLDivElement
+) => {
+  element.focus()
+
+  const selection = window.getSelection()
+  if (!selection) {
     return
   }
 
-  if (isSingleSelectedNode(selection, nodeId)) {
-    instance.commands.edit.start(nodeId, field)
-    return
-  }
-
-  instance.commands.selection.replace([nodeId])
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  range.collapse(false)
+  selection.removeAllRanges()
+  selection.addRange(range)
 }
 
 const rectSchema: NodeSchema = {
@@ -155,26 +146,76 @@ const groupSchema: NodeSchema = {
 const TextNodeRenderer = ({
   updateData,
   node,
+  rect,
   selected,
   variant
 }: NodeRenderProps & { variant: 'text' | 'sticky' }) => {
   const instance = useInternalInstance()
-  const selection = useSelection()
   const edit = useEdit()
   const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = getDataString(node, 'text')
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
-  const fontSize = getStyleNumber(node, 'fontSize') ?? (isSticky ? 14 : 13)
+  const sourceRef = useRef<HTMLTextAreaElement | HTMLDivElement | null>(null)
+  const setSourceRef = (element: HTMLTextAreaElement | HTMLDivElement | null) => {
+    sourceRef.current = element
+  }
+  const manualFontSize = getStyleNumber(node, 'fontSize')
+  const placeholder = isSticky ? 'Sticky' : 'Text'
+  const displayFontSize = useAutoFontSize({
+    text,
+    placeholder,
+    rect,
+    variant,
+    manualFontSize,
+    sourceRef
+  })
+  const [editingFontSize, setEditingFontSize] = useState<number | null>(null)
+  const fontSize = editing
+    ? (editingFontSize ?? displayFontSize)
+    : displayFontSize
   const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
 
   useEffect(() => {
     setDraft(text)
   }, [text])
 
-  const commit = () => {
-    if (draft !== text) {
-      void updateData({ text: draft })
+  useEffect(() => {
+    if (!editing) {
+      setEditingFontSize(null)
+      return
+    }
+
+    setEditingFontSize((current) => current ?? displayFontSize)
+  }, [displayFontSize, editing])
+
+  useEffect(() => {
+    if (!editing) {
+      return
+    }
+
+    const element = sourceRef.current
+    if (!(element instanceof HTMLDivElement)) {
+      return
+    }
+
+    const next = draft
+    if (readEditableText(element) !== next) {
+      element.textContent = next
+    }
+
+    const frame = requestAnimationFrame(() => {
+      focusEditableEnd(element)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [editing, text])
+
+  const commit = (nextDraft = draft) => {
+    if (nextDraft !== text) {
+      void updateData({ text: nextDraft })
     }
     instance.commands.edit.clear()
   }
@@ -184,7 +225,7 @@ const TextNodeRenderer = ({
     instance.commands.edit.clear()
   }
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
       cancel()
@@ -192,24 +233,32 @@ const TextNodeRenderer = ({
     }
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
-      commit()
+      commit(readEditableText(event.currentTarget))
     }
   }
 
   if (editing) {
     return (
-      <textarea
+      <div
         data-selection-ignore
         data-input-ignore
-        className="wb-default-text-editor"
-        value={draft}
-        autoFocus
+        className="wb-default-text-display wb-default-text-editor"
+        contentEditable="plaintext-only"
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        spellCheck={false}
+        ref={setSourceRef}
         onPointerDown={(event) => {
           event.stopPropagation()
         }}
-        onChange={(event) => setDraft(event.target.value)}
+        onInput={(event) => {
+          setDraft(readEditableText(event.currentTarget))
+        }}
         onKeyDown={onKeyDown}
-        onBlur={commit}
+        onBlur={(event) => {
+          commit(readEditableText(event.currentTarget))
+        }}
         style={{ fontSize, color }}
       />
     )
@@ -219,17 +268,7 @@ const TextNodeRenderer = ({
     <div
       className="wb-default-text-display"
       data-node-editable-field="text"
-      onPointerDown={(event) => {
-        event.stopPropagation()
-      }}
-      onClick={() => {
-        activateEditableField({
-          instance,
-          selection,
-          nodeId: node.id,
-          field: 'text'
-        })
-      }}
+      ref={setSourceRef}
       style={{
         fontSize,
         color,
@@ -243,7 +282,6 @@ const TextNodeRenderer = ({
 
 const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
   const instance = useInternalInstance()
-  const selection = useSelection()
   const edit = useEdit()
   const title = getDataString(node, 'title')
   const collapsed = getDataBool(node, 'collapsed')
@@ -309,17 +347,6 @@ const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
           <div
             className="wb-default-group-title"
             data-node-editable-field="title"
-            onPointerDown={(event) => {
-              event.stopPropagation()
-            }}
-            onClick={() => {
-              activateEditableField({
-                instance,
-                selection,
-                nodeId: node.id,
-                field: 'title'
-              })
-            }}
             style={{ color }}
           >
             {title || 'Group'}
@@ -614,9 +641,11 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
   return {
     background,
     border,
+    boxSizing: 'border-box',
     borderRadius: isSticky ? 10 : 8,
     boxShadow: props.selected ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2)' : 'none',
     display: 'block',
+    overflow: 'hidden',
     padding: isSticky ? '16px' : '12px',
     textAlign: 'left'
   }
@@ -678,8 +707,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     schema: textSchema,
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="text" />,
-    style: createTextStyle('text'),
-    autoMeasure: true
+    style: createTextStyle('text')
   },
   {
     type: 'sticky',
@@ -687,8 +715,7 @@ const DEFAULT_NODE_DEFINITIONS: NodeDefinition[] = [
     schema: stickySchema,
     defaultData: { text: '' },
     render: (props) => <TextNodeRenderer {...props} variant="sticky" />,
-    style: createTextStyle('sticky'),
-    autoMeasure: true
+    style: createTextStyle('sticky')
   },
   createShapeDefinition('ellipse', 'Ellipse', { title: 'Ellipse' }),
   createShapeDefinition('diamond', 'Diamond', { title: 'Decision' }),

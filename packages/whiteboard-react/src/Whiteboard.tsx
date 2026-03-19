@@ -11,6 +11,7 @@ import {
   useBindViewportInput
 } from './runtime/viewport'
 import { CanvasChrome } from './canvas/CanvasChrome'
+import { createMarqueeSession } from './canvas/Marquee'
 import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
 import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
@@ -50,6 +51,7 @@ const WhiteboardCanvas = ({
   containerStyle
 }: CanvasProps) => {
   const instance = useInternalInstance()
+  const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
   const viewport = useStoreValue(instance.viewport)
   const tool = useTool()
   const inputPolicy = useMemo(
@@ -73,6 +75,16 @@ const WhiteboardCanvas = ({
     [viewport]
   )
 
+  if (!marqueeRef.current) {
+    marqueeRef.current = createMarqueeSession(instance)
+  }
+
+  const marquee = marqueeRef.current!
+
+  useEffect(() => () => {
+    marquee.cancel()
+  }, [marquee])
+
   useCanvasInsert({
     containerRef
   })
@@ -95,7 +107,7 @@ const WhiteboardCanvas = ({
       tabIndex={0}
     >
       <div className="wb-root-viewport" style={transformStyle}>
-        <NodeSceneLayer />
+        <NodeSceneLayer marquee={marquee} />
         <EdgeLayer />
         <MindmapSceneLayer />
         <NodeOverlayLayer />
@@ -103,6 +115,7 @@ const WhiteboardCanvas = ({
       </div>
       <CanvasChrome
         containerRef={containerRef}
+        marquee={marquee}
         shortcuts={resolvedConfig.shortcuts}
       />
     </div>

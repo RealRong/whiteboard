@@ -1,17 +1,27 @@
 import {
   applySelection,
-  resolveSelectionMode
+  resolveSelectionMode,
+  type SelectionMode
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent
+} from 'react'
+import type { MarqueeSession } from '../../../../canvas/Marquee'
 import {
+  isCanvasContentIgnoredTarget,
   isEditableTarget,
   isInputIgnoredTarget,
-  isNodeEditableDisplayTarget,
-  isSelectionIgnoredTarget
+  isSelectionIgnoredTarget,
+  readEditableFieldTarget,
+  readElementNodeId
 } from '../../../../canvas/target'
+import type { EditField } from '../../../../runtime/edit'
 import type { InternalInstance } from '../../../../runtime/instance'
+import type { NodePressPhase } from '../../session/runtime'
 import {
+  enter,
   filterNodeIds,
   hasNode,
   leave
@@ -22,30 +32,53 @@ import {
   resolveNodeDragPreview,
   type NodeDragRuntimeState
 } from './math'
+import { GestureTuning } from '../../../../runtime/interaction'
 
 type ActiveDrag = NodeDragRuntimeState & {
   pointerId: number
   allowCross: boolean
 }
 
-type PendingDrag = {
+type PendingPress = {
   pointerId: number
   capture: HTMLDivElement
   nodeRect: NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>
-  startClientX: number
-  startClientY: number
-  startWorld: {
-    x: number
-    y: number
+  start: {
+    clientX: number
+    clientY: number
+    world: {
+      x: number
+      y: number
+    }
   }
-  nextSelectedNodeIds: readonly NodeId[]
+  currentSelectedNodeIds: readonly NodeId[]
+  clickSelectedNodeIds: readonly NodeId[]
+  dragSelectedNodeIds: readonly NodeId[]
+  containerNodeIds?: ReadonlySet<NodeId>
+  selectionMode: SelectionMode
+  phase: Exclude<NodePressPhase, 'hold'>
+  holdElapsed: boolean
+  holdTimer?: number
+  locked: boolean
+  field?: EditField
 }
 
-export const createNodeDragSession = (
-  instance: InternalInstance
+const isSingleSelectedNode = (
+  instance: InternalInstance,
+  nodeId: NodeId,
+  currentSelectedNodeIds: readonly NodeId[]
+) => (
+  instance.state.selection.get().target.edgeId === undefined
+  && currentSelectedNodeIds.length === 1
+  && currentSelectedNodeIds[0] === nodeId
+)
+
+export const createNodePressSession = (
+  instance: InternalInstance,
+  marquee: MarqueeSession
 ) => {
   let active: ActiveDrag | null = null
-  let pending: PendingDrag | null = null
+  let pending: PendingPress | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
   let releasePending = () => {}
 
@@ -56,12 +89,18 @@ export const createNodeDragSession = (
     nextSelectedNodeIds: readonly NodeId[]
   ) => (
     nextSelectedNodeIds.length !== currentSelectedNodeIds.length
-    || nextSelectedNodeIds.some((selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index])
+    || nextSelectedNodeIds.some(
+      (selectedNodeId: NodeId, index: number) => selectedNodeId !== currentSelectedNodeIds[index]
+    )
   )
 
   const clearPending = () => {
     releasePending()
     releasePending = () => {}
+    if (pending?.holdTimer !== undefined && typeof window !== 'undefined') {
+      window.clearTimeout(pending.holdTimer)
+    }
+    instance.internals.node.press.set(null)
     pending = null
   }
 
@@ -115,6 +154,33 @@ export const createNodeDragSession = (
     instance.internals.node.guides.write(preview.guides)
   }
 
+  const finalizeClick = () => {
+    const current = pending
+    if (!current) {
+      return
+    }
+
+    clearPending()
+
+    if (current.locked) {
+      if (hasSelectionChanged(current.currentSelectedNodeIds, current.clickSelectedNodeIds)) {
+        instance.commands.selection.replace(current.clickSelectedNodeIds)
+      }
+      return
+    }
+
+    if (current.phase === 'retarget') {
+      if (hasSelectionChanged(current.currentSelectedNodeIds, current.clickSelectedNodeIds)) {
+        instance.commands.selection.replace(current.clickSelectedNodeIds)
+      }
+      return
+    }
+
+    if (current.field) {
+      instance.commands.edit.start(current.nodeRect.node.id, current.field)
+    }
+  }
+
   const startDrag = (
     moveEvent: PointerEvent
   ) => {
@@ -122,11 +188,20 @@ export const createNodeDragSession = (
       return
     }
 
+    if (pending.locked) {
+      clearPending()
+      return
+    }
+
+    if (hasSelectionChanged(pending.currentSelectedNodeIds, pending.dragSelectedNodeIds)) {
+      instance.commands.selection.replace(pending.dragSelectedNodeIds)
+    }
+
     const drag = buildNodeDragState({
       nodes: readCanvasNodes(),
       anchorId: pending.nodeRect.node.id,
       anchorType: pending.nodeRect.node.type,
-      startWorld: pending.startWorld,
+      startWorld: pending.start.world,
       origin: {
         x: pending.nodeRect.node.position.x,
         y: pending.nodeRect.node.position.y
@@ -135,7 +210,7 @@ export const createNodeDragSession = (
         width: pending.nodeRect.rect.width,
         height: pending.nodeRect.rect.height
       },
-      selectedNodeIds: pending.nextSelectedNodeIds
+      selectedNodeIds: pending.dragSelectedNodeIds
     })
     if (!drag.members.length) {
       clearPending()
@@ -152,22 +227,22 @@ export const createNodeDragSession = (
         }
       },
       cleanup: clear,
-      move: (event, session) => {
+      move: (event, currentSession) => {
         if (!active) {
           return
         }
 
         active.allowCross = event.altKey
-        session.pan(event)
+        currentSession.pan(event)
         updatePreview(event)
       },
-      up: (_event, session) => {
+      up: (_event, currentSession) => {
         if (!active) {
           return
         }
 
         commit(active)
-        session.finish()
+        currentSession.finish()
       }
     })
     if (!nextSession) {
@@ -192,10 +267,44 @@ export const createNodeDragSession = (
     }
   }
 
+  const startMarquee = (
+    moveEvent: PointerEvent
+  ) => {
+    if (!pending) {
+      return
+    }
+
+    const started = marquee.start({
+      pointerId: pending.pointerId,
+      capture: pending.capture,
+      start: instance.viewport.pointer({
+        clientX: pending.start.clientX,
+        clientY: pending.start.clientY
+      }),
+      mode: pending.selectionMode,
+      baseSelectedNodeIds: pending.currentSelectedNodeIds,
+      containerNodeIds: pending.containerNodeIds,
+      policy: {
+        match: 'contain',
+        exclude: [pending.nodeRect.node.id]
+      }
+    })
+    clearPending()
+    if (!started) {
+      return
+    }
+
+    if (moveEvent.cancelable) {
+      moveEvent.preventDefault()
+    }
+  }
+
   const bindPending = () => {
     if (typeof window === 'undefined') {
       return
     }
+
+    const minDragDistance = GestureTuning.dragMinDistance
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       if (!pending || moveEvent.pointerId !== pending.pointerId) {
@@ -207,10 +316,14 @@ export const createNodeDragSession = (
         return
       }
 
-      const minDragDistance = instance.config.node.selectionMinDragDistance
-      const dx = Math.abs(moveEvent.clientX - pending.startClientX)
-      const dy = Math.abs(moveEvent.clientY - pending.startClientY)
+      const dx = Math.abs(moveEvent.clientX - pending.start.clientX)
+      const dy = Math.abs(moveEvent.clientY - pending.start.clientY)
       if (dx < minDragDistance && dy < minDragDistance) {
+        return
+      }
+
+      if (pending.holdElapsed) {
+        startMarquee(moveEvent)
         return
       }
 
@@ -219,6 +332,16 @@ export const createNodeDragSession = (
 
     const onPointerUp = (upEvent: PointerEvent) => {
       if (!pending || upEvent.pointerId !== pending.pointerId) {
+        return
+      }
+
+      if (pending.holdElapsed) {
+        clearPending()
+        return
+      }
+
+      if (readElementNodeId(upEvent.target) === pending.nodeRect.node.id) {
+        finalizeClick()
         return
       }
 
@@ -265,7 +388,6 @@ export const createNodeDragSession = (
         isEditableTarget(event.target)
         || isInputIgnoredTarget(event.target)
         || isSelectionIgnoredTarget(event.target)
-        || isNodeEditableDisplayTarget(event.target)
       ) {
         return
       }
@@ -283,42 +405,86 @@ export const createNodeDragSession = (
         container,
         instance.state.selection.get().target.nodeIds
       )
-      const nextSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
-        ? currentSelectedNodeIds
-        : [...applySelection(
+      const selectionMode = resolveSelectionMode(event)
+      const phase: Exclude<NodePressPhase, 'hold'> =
+        selectionMode === 'replace' && isSingleSelectedNode(instance, nodeId, currentSelectedNodeIds)
+          ? 'repeat'
+          : 'retarget'
+      const clickSelectedNodeIds = [
+        ...applySelection(
           new Set(currentSelectedNodeIds),
           [nodeId],
-          resolveSelectionMode(event)
-        )]
-
-      if (!nextSelectedNodeIds.includes(nodeId)) {
-        instance.commands.selection.replace(nextSelectedNodeIds)
-        event.stopPropagation()
-        return
-      }
-
-      if (nodeRect.node.locked) {
-        if (hasSelectionChanged(currentSelectedNodeIds, nextSelectedNodeIds)) {
-          instance.commands.selection.replace(nextSelectedNodeIds)
-        }
-        event.stopPropagation()
-        return
-      }
-
-      if (hasSelectionChanged(currentSelectedNodeIds, nextSelectedNodeIds)) {
-        instance.commands.selection.replace(nextSelectedNodeIds)
-      }
+          selectionMode
+        )
+      ]
+      const dragSelectedNodeIds = currentSelectedNodeIds.includes(nodeId)
+        ? currentSelectedNodeIds
+        : clickSelectedNodeIds
 
       pending = {
         pointerId: event.pointerId,
         capture: event.currentTarget,
         nodeRect,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startWorld: instance.viewport.pointer(event).world,
-        nextSelectedNodeIds
+        start: {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          world: instance.viewport.pointer(event).world
+        },
+        currentSelectedNodeIds,
+        clickSelectedNodeIds,
+        dragSelectedNodeIds,
+        containerNodeIds: container.id
+          ? new Set<NodeId>(container.ids)
+          : undefined,
+        selectionMode,
+        phase,
+        holdElapsed: false,
+        locked: Boolean(nodeRect.node.locked),
+        field: readEditableFieldTarget(event.target)
       }
+
+      if (typeof window !== 'undefined') {
+        pending.holdTimer = window.setTimeout(() => {
+          if (!pending || pending.pointerId !== event.pointerId) {
+            return
+          }
+          pending.holdElapsed = true
+          if (pending.selectionMode === 'replace') {
+            instance.commands.selection.clear()
+          }
+          instance.internals.node.press.set('hold')
+        }, GestureTuning.holdDelay)
+      }
+
+      instance.internals.node.press.set(phase)
       bindPending()
+
+      if (event.cancelable) {
+        event.preventDefault()
+      }
+      event.stopPropagation()
+    },
+    handleNodeDoubleClick: (
+      nodeId: NodeId,
+      event: ReactMouseEvent<HTMLDivElement>
+    ) => {
+      if (!instance.read.tool.is('select')) return
+
+      if (isCanvasContentIgnoredTarget(event.target)) {
+        return
+      }
+
+      if (readEditableFieldTarget(event.target)) {
+        return
+      }
+
+      const nodeEntry = instance.read.index.node.get(nodeId)
+      if (!nodeEntry || nodeEntry.node.type !== 'group') {
+        return
+      }
+
+      enter(instance, nodeId)
+      event.preventDefault()
       event.stopPropagation()
     }
   }

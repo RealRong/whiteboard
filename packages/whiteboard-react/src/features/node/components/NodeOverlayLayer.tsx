@@ -147,11 +147,13 @@ export const NodeOverlayLayer = () => {
   const edit = useEdit()
   const interaction = useInteraction()
   const guides = useGuidesSession(instance.internals.node.guides)
+  const press = useStoreValue(instance.internals.node.press)
   const selection = useSelection()
   const activeContainerNode = useNodeView(container.id)
   const transformSessionRef = useRef<ReturnType<typeof createNodeTransformSession> | null>(null)
   const selectedSet = selection.target.nodeSet
-  const chromeVisible = interaction === 'idle'
+  const showsNodeChrome = press === null || press === 'repeat'
+  const chromeVisible = interaction === 'idle' && showsNodeChrome
   const editing = edit !== null
 
   if (!transformSessionRef.current) {

@@ -1,6 +1,9 @@
 import type { CanvasNode } from '@whiteboard/core/read'
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
-import { getNodeIdsInRect as getNodeIdsInRectRaw } from '@whiteboard/core/node'
+import {
+  getNodeIdsInRect as getNodeIdsInRectRaw,
+  type NodeRectHitOptions
+} from '@whiteboard/core/node'
 import type { BoardConfig } from '@engine-types/instance'
 import type { ReadModel } from '@engine-types/read'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
@@ -122,8 +125,10 @@ export class NodeRectIndex {
     return this.orderedEntries
   }
 
-  nodeIdsInRect = (rect: Rect): NodeId[] =>
-    getNodeIdsInRectRaw(rect, this.all())
+  nodeIdsInRect = (
+    rect: Rect,
+    options?: NodeRectHitOptions
+  ): NodeId[] => getNodeIdsInRectRaw(rect, this.all(), options)
 
   byId = (nodeId: NodeId): CanvasNode | undefined =>
     this.geometry.get(nodeId)

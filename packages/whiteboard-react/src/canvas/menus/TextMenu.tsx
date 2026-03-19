@@ -27,7 +27,7 @@ export const TextMenu = ({
   showFontSize?: boolean
   onTextCommit?: (value: string) => void
   onColorChange?: (value: string) => void
-  onFontSizeChange?: (value: number) => void
+  onFontSizeChange?: (value: number | undefined) => void
 }) => {
   const [draft, setDraft] = useState(value)
 
@@ -87,6 +87,14 @@ export const TextMenu = ({
       {showFontSize && onFontSizeChange ? (
         <MenuSection title="Size">
           <ChipRow>
+            <Chip
+              active={fontSize === undefined}
+              onClick={() => {
+                onFontSizeChange(undefined)
+              }}
+            >
+              Auto
+            </Chip>
             {FONT_SIZES.map((size) => (
               <Chip
                 key={size}

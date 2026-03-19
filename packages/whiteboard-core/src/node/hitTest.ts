@@ -13,12 +13,30 @@ export type NodeRectHitEntry = {
   rotation: number
 }
 
-export const getNodeIdsInRect = (rect: Rect, entries: NodeRectHitEntry[]): NodeId[] =>
-  entries
+export type NodeRectHitOptions = {
+  match?: 'touch' | 'contain'
+  exclude?: readonly NodeId[]
+}
+
+export const getNodeIdsInRect = (
+  rect: Rect,
+  entries: NodeRectHitEntry[],
+  options?: NodeRectHitOptions
+): NodeId[] => {
+  const match = options?.match ?? 'touch'
+  const exclude = options?.exclude?.length
+    ? new Set(options.exclude)
+    : undefined
+
+  return entries
     .filter((entry) => {
-      if (entry.node.type === 'group') {
-        return rectContainsRotatedRect(rect, entry.rect, entry.rotation)
+      if (exclude?.has(entry.node.id)) {
+        return false
       }
-      return rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
+
+      return match === 'contain'
+        ? rectContainsRotatedRect(rect, entry.rect, entry.rotation)
+        : rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
     })
     .map((entry) => entry.node.id)
+}

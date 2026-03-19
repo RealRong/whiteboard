@@ -6,6 +6,7 @@ import type {
   MindmapItem,
   NodeItem
 } from '@whiteboard/core/read'
+import type { NodeRectHitOptions } from '@whiteboard/core/node'
 import type { CoreRegistries, Document, EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
@@ -25,7 +26,7 @@ export type EngineReadIndex = {
   node: {
     all: () => CanvasNode[]
     get: (nodeId: NodeId) => CanvasNode | undefined
-    idsInRect: (rect: Rect) => NodeId[]
+    idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
   }
   snap: {
     all: () => SnapCandidate[]
