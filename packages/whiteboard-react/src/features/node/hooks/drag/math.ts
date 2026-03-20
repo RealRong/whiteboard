@@ -18,7 +18,9 @@ import {
   isSizeEqual,
   rectContains
 } from '@whiteboard/core/geometry'
-import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
+import { moveEdgePath } from '@whiteboard/core/edge'
+import type { EdgeItem } from '@whiteboard/core/read'
+import type { EdgeId, EdgePatch, Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import { mergeObjectPatch } from '../../../../runtime/utils/recordPatch'
 
 type DragMember = {
@@ -202,6 +204,72 @@ const buildPositionUpdates = (
     }
   }))
 )
+
+export const resolveNodeDragPositions = (
+  active: NodeDragRuntimeState,
+  anchorPosition: Point
+) => buildPositionUpdates(active.members, anchorPosition)
+
+export const resolveNodeDragFollowEdges = (options: {
+  active: NodeDragRuntimeState
+  positions: readonly NodeDragPositionUpdate[]
+  edgeIds: readonly EdgeId[]
+  readEdge: (edgeId: EdgeId) => Readonly<EdgeItem> | undefined
+}): Array<{ id: EdgeId; patch: EdgePatch }> => {
+  const { active, positions, edgeIds, readEdge } = options
+  const memberById = new Map(active.members.map((member) => [member.id, member]))
+  const deltaById = new Map<NodeId, Point>()
+
+  positions.forEach((position) => {
+    const member = memberById.get(position.id)
+    if (!member) {
+      return
+    }
+
+    const delta = {
+      x: position.position.x - (active.origin.x + member.offset.x),
+      y: position.position.y - (active.origin.y + member.offset.y)
+    }
+    if (delta.x === 0 && delta.y === 0) {
+      return
+    }
+
+    deltaById.set(position.id, delta)
+  })
+
+  if (!deltaById.size) {
+    return []
+  }
+
+  const updates: Array<{ id: EdgeId; patch: EdgePatch }> = []
+  edgeIds.forEach((edgeId) => {
+    const edge = readEdge(edgeId)?.edge
+    if (!edge) {
+      return
+    }
+    if (edge.source.kind !== 'node' || edge.target.kind !== 'node') {
+      return
+    }
+
+    const sourceDelta = deltaById.get(edge.source.nodeId)
+    const targetDelta = deltaById.get(edge.target.nodeId)
+    if (!sourceDelta || !targetDelta || !isPointEqual(sourceDelta, targetDelta)) {
+      return
+    }
+
+    const patch = moveEdgePath(edge, sourceDelta)
+    if (!patch) {
+      return
+    }
+
+    updates.push({
+      id: edge.id,
+      patch
+    })
+  })
+
+  return updates
+}
 
 export const resolveNodeDragPreview = (options: {
   active: NodeDragRuntimeState

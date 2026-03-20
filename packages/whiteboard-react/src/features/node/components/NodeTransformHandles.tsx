@@ -2,6 +2,7 @@ import type {
   CSSProperties,
   PointerEvent as ReactPointerEvent
 } from 'react'
+import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/core/read'
 import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
@@ -22,7 +23,9 @@ type NodeTransformHandlesProps = {
 }
 
 const NODE_TRANSFORM_HANDLE_SIZE = 10
-const NODE_ROTATE_HANDLE_OFFSET = 24
+const NODE_ROTATE_HANDLE_SIZE = 22
+const NODE_ROTATE_ICON_SIZE = 18
+const NODE_ROTATE_HANDLE_OFFSET = 28
 
 const buildNodeTransformHandleStyle = ({
   handle,
@@ -69,6 +72,7 @@ export const NodeTransformHandles = ({
           data-selection-ignore
           data-input-role="node-transform-handle"
           data-node-id={node.id}
+          data-kind={handle.kind}
           data-transform-kind={handle.kind}
           data-resize-direction={handle.direction}
           className="wb-node-transform-handle"
@@ -78,9 +82,20 @@ export const NodeTransformHandles = ({
           style={buildNodeTransformHandleStyle({
             handle,
             zoom,
-            size: NODE_TRANSFORM_HANDLE_SIZE
+            size: handle.kind === 'rotate'
+              ? NODE_ROTATE_HANDLE_SIZE
+              : NODE_TRANSFORM_HANDLE_SIZE
           })}
-        />
+        >
+          {handle.kind === 'rotate' ? (
+            <RotateCw
+              className="wb-node-transform-handle-icon"
+              size={NODE_ROTATE_ICON_SIZE / Math.max(zoom, 0.0001)}
+              strokeWidth={1}
+              absoluteStrokeWidth
+            />
+          ) : null}
+        </div>
       ))}
     </>
   )

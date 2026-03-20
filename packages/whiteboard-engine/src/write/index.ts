@@ -14,6 +14,7 @@ import {
 } from '@whiteboard/core/kernel'
 import { createId } from '@whiteboard/core/utils'
 import { DEFAULT_HISTORY_CONFIG } from '../config'
+import { cancelled } from '../result'
 import { plan } from './plan'
 import { createWriteNormalize } from './normalize'
 
@@ -140,11 +141,29 @@ export const createWrite = ({
     )
   }
 
+  const applyOperations = (
+    operations: readonly Operation[],
+    source: CommandSource = 'user'
+  ): WriteResult => {
+    if (!operations.length) {
+      return cancelled('No operations provided.')
+    }
+
+    return captureHistory(
+      commitOperations(
+        operations,
+        resolveOrigin(source),
+        undefined
+      )
+    )
+  }
+
   const replace = (document: Document) =>
     clearHistory(replaceDocument(document))
 
   return {
     apply,
+    applyOperations,
     replace,
     history: {
       get: history.get,

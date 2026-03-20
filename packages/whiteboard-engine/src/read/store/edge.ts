@@ -462,6 +462,11 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     return state.ids
   }
 
+  const related = (nodeIds: Iterable<NodeId>) => {
+    ensureSynced()
+    return Array.from(collectRelatedEdgeIds(state.relations.nodeToEdgeIds, nodeIds))
+  }
+
   const get = (edgeId: EdgeId) => {
     ensureSynced()
     return state.byId.get(edgeId)
@@ -536,6 +541,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
 
   return {
     ids,
+    related,
     get,
     subscribe,
     subscribeIds,

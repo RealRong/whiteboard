@@ -108,6 +108,8 @@ export const createEngine = ({
       C extends WriteCommandMap[D]
     >(payload: WriteInput<D, C>): CommandResult<WriteOutput<D, C>> =>
       publish(writer.apply(payload), 'apply'),
+    applyOperations: (operations, source) =>
+      publish(writer.applyOperations(operations, source), 'apply'),
     replace: (document) => publish(writer.replace(document), 'replace'),
     history: {
       get: writer.history.get,

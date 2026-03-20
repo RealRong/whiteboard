@@ -46,6 +46,7 @@ export type NodeRead = {
 export type EdgeRead = {
   list: ReadStore<readonly EdgeId[]>
   item: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
+  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
 }
 
 export type MindmapRead = {

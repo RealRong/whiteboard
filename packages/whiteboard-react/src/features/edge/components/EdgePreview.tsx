@@ -5,6 +5,10 @@ export const EdgePreview = () => {
   const instance = useInternalInstance()
   const preview = useEdgeConnectSession(instance.internals.edge.connection)
   const { activePointerId, from, to, snap, showPreviewLine } = preview
+  const zoom = instance.viewport.get().zoom
+  const pointRadius = 4 / Math.max(zoom, 0.0001)
+  const snapRadius = 6 / Math.max(zoom, 0.0001)
+  const strokeWidth = 2 / Math.max(zoom, 0.0001)
 
   if (!from && !to && !snap) return null
 
@@ -23,22 +27,22 @@ export const EdgePreview = () => {
             x2={to.x}
             y2={to.y}
             stroke="var(--wb-preview-line)"
-            strokeWidth={2}
+            strokeWidth={strokeWidth}
             strokeDasharray="6 4"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={from.x} cy={from.y} r={4} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
-          <circle cx={to.x} cy={to.y} r={4} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
+          <circle cx={from.x} cy={from.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
+          <circle cx={to.x} cy={to.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
         </>
       )}
       {snap && (
         <circle
           cx={snap.x}
           cy={snap.y}
-          r={6}
+          r={snapRadius}
           fill="var(--wb-selection-fill)"
           stroke="var(--wb-accent)"
-          strokeWidth={2}
+          strokeWidth={strokeWidth}
           vectorEffect="non-scaling-stroke"
           className="wb-edge-preview-point"
           data-active={activePointerId !== undefined ? 'true' : 'false'}

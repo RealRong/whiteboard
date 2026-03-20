@@ -11,6 +11,7 @@ export const createCommands = ({
 }): EngineCommands => {
   return {
     document: {
+      apply: write.applyOperations,
       replace: write.replace
     },
     history: write.history,

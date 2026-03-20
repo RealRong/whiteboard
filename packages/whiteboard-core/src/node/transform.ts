@@ -87,14 +87,20 @@ export const buildTransformHandles = (options: {
   if (!canRotate) return resizeHandles
 
   const offsetWorld = rotateHandleOffset / Math.max(zoom, zoomEpsilon)
-  const normal = rotateVector({ x: 0, y: -1 }, rotation)
-  const topMid = positions.n
+  const diagonal = rotateVector(
+    { x: -Math.SQRT1_2, y: Math.SQRT1_2 },
+    rotation
+  )
+  const bottomLeft = positions.sw
   return [
     ...resizeHandles,
     {
       id: 'rotate',
       kind: 'rotate',
-      position: { x: topMid.x + normal.x * offsetWorld, y: topMid.y + normal.y * offsetWorld },
+      position: {
+        x: bottomLeft.x + diagonal.x * offsetWorld,
+        y: bottomLeft.y + diagonal.y * offsetWorld
+      },
       cursor: 'grab'
     }
   ]

@@ -157,6 +157,26 @@ export const removePathPoint = (
 export const clearPath = (edge: Edge): EdgePatch =>
   createPathPatch(edge, undefined)
 
+export const moveEdgePath = (
+  edge: Edge,
+  delta: Point
+): EdgePatch | undefined => {
+  if (delta.x === 0 && delta.y === 0) {
+    return undefined
+  }
+
+  const pathPoints = edge.path?.points?.map((point) => ({
+    x: point.x + delta.x,
+    y: point.y + delta.y
+  }))
+
+  if (!pathPoints?.length) {
+    return undefined
+  }
+
+  return createPathPatch(edge, pathPoints)
+}
+
 export const moveEdge = (
   edge: Edge,
   delta: Point
@@ -193,11 +213,8 @@ export const moveEdge = (
     changed = true
   }
 
-  const pathPoints = edge.path?.points?.map((point) => ({
-    x: point.x + delta.x,
-    y: point.y + delta.y
-  }))
-  if (pathPoints?.length) {
+  const pathPatch = moveEdgePath(edge, delta)
+  if (pathPatch) {
     changed = true
   }
 
@@ -208,6 +225,6 @@ export const moveEdge = (
   return {
     ...(source !== edge.source ? { source } : {}),
     ...(target !== edge.target ? { target } : {}),
-    ...(pathPoints ? createPathPatch(edge, pathPoints) : {})
+    ...(pathPatch ?? {})
   }
 }

@@ -160,7 +160,7 @@ export const NodeOverlayLayer = () => {
 
   return (
     <>
-      <div className="wb-node-layer">
+      <div className="wb-node-overlay-layer">
         {activeContainer ? (
           <ActiveContainerOverlay
             rect={activeContainer.rect}

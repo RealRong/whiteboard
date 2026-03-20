@@ -8,6 +8,7 @@ import type {
   NodeId,
   NodeInput,
   NodePatch,
+  Operation,
   Point,
   Rect
 } from '@whiteboard/core/types'
@@ -336,6 +337,10 @@ export type MindmapCommands = {
 
 export type EngineCommands = {
   document: {
+    apply: (
+      operations: readonly Operation[],
+      source?: CommandSource
+    ) => CommandResult
     replace: (document: Document) => CommandResult
   }
   history: {

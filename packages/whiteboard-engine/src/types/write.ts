@@ -15,6 +15,7 @@ import type {
 import type { ResolvedHistoryConfig } from './common'
 import type { BoardConfig, EngineDocument } from './instance'
 import type { CommandFailure, CommandResult } from './result'
+import type { CommandSource } from './command'
 
 export type Apply = <
   D extends WriteDomain,
@@ -23,6 +24,10 @@ export type Apply = <
 
 export type Write = {
   apply: Apply
+  applyOperations: (
+    operations: readonly Operation[],
+    source?: CommandSource
+  ) => CommandResult
   replace: EngineCommands['document']['replace']
   history: EngineCommands['history']
 }
@@ -52,6 +57,10 @@ export type WriteControl = {
     D extends WriteDomain,
     C extends WriteCommandMap[D]
   >(input: WriteInput<D, C>) => WriteResult<WriteOutput<D, C>>
+  applyOperations: (
+    operations: readonly Operation[],
+    source?: CommandSource
+  ) => WriteResult
   replace: (document: Document) => WriteResult
   history: {
     configure: (config: Partial<ResolvedHistoryConfig>) => void

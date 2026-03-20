@@ -3,7 +3,7 @@ import { resolveEdgeEnds } from '@whiteboard/core/edge'
 import { createKeyedDerivedStore } from '@whiteboard/core/runtime'
 import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
-import type { EdgeId } from '@whiteboard/core/types'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import {
   projectEdgeItem,
@@ -44,8 +44,10 @@ export const createEdgeRead = ({
 }): {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
+  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
 } => ({
   list: read.edge.list,
+  related: read.edge.related,
   item: createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
       const entry = readStore(read.edge.item, edgeId)

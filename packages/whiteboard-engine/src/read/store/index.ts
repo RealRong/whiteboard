@@ -96,7 +96,8 @@ export const createRead = ({
         item: {
           get: edgeProjection.get,
           subscribe: edgeProjection.subscribe
-        }
+        },
+        related: edgeProjection.related
       },
       mindmap: {
         list: {

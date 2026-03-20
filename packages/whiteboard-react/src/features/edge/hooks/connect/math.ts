@@ -7,16 +7,30 @@ const ZOOM_EPSILON = 0.0001
 
 export const DEFAULT_EDGE_ANCHOR_OFFSET = 0.5
 
+const readAnchorSnapMinWorld = (
+  instance: Pick<InternalInstance, 'config' | 'viewport'>
+) => (
+  instance.config.edge.anchorSnapMin
+  / Math.max(instance.viewport.get().zoom, ZOOM_EPSILON)
+)
+
+const resolveAnchorThresholdWorld = (
+  instance: Pick<InternalInstance, 'config' | 'viewport'>,
+  rect: Pick<Rect, 'width' | 'height'>
+) => Math.max(
+  readAnchorSnapMinWorld(instance),
+  Math.min(rect.width, rect.height) * instance.config.edge.anchorSnapRatio
+)
+
 export const resolveAnchorFromPoint = (
-  instance: Pick<InternalInstance, 'config'>,
+  instance: Pick<InternalInstance, 'config' | 'viewport'>,
   rect: Rect,
   rotation: number,
   pointWorld: Point
 ) => {
-  const config = instance.config
   return getAnchorFromPoint(rect, rotation, pointWorld, {
-    snapMin: config.edge.anchorSnapMin,
-    snapRatio: config.edge.anchorSnapRatio,
+    snapMin: readAnchorSnapMinWorld(instance),
+    snapRatio: instance.config.edge.anchorSnapRatio,
     anchorOffset: DEFAULT_EDGE_ANCHOR_OFFSET
   })
 }
@@ -39,13 +53,7 @@ export const resolveSnapTarget = (
   instance: Pick<InternalInstance, 'config' | 'read' | 'viewport'>,
   pointWorld: Point
 ): SnapTarget | undefined => {
-  const config = instance.config
-  const zoom = instance.viewport.get().zoom
-  const thresholdWorld =
-    Math.max(
-      config.edge.anchorSnapMin,
-      Math.min(config.nodeSize.width, config.nodeSize.height) * config.edge.anchorSnapRatio
-    ) / Math.max(zoom, ZOOM_EPSILON)
+  const thresholdWorld = resolveAnchorThresholdWorld(instance, instance.config.nodeSize)
 
   const queryRect: Rect = {
     x: pointWorld.x - thresholdWorld,
@@ -59,10 +67,11 @@ export const resolveSnapTarget = (
   for (let index = 0; index < nodeIds.length; index += 1) {
     const entry = instance.read.index.node.get(nodeIds[index])
     if (!entry) continue
+    const candidateThresholdWorld = resolveAnchorThresholdWorld(instance, entry.rect)
     const rect = entry.aabb
     const dx = Math.max(rect.x - pointWorld.x, 0, pointWorld.x - (rect.x + rect.width))
     const dy = Math.max(rect.y - pointWorld.y, 0, pointWorld.y - (rect.y + rect.height))
-    if (Math.hypot(dx, dy) > thresholdWorld) continue
+    if (Math.hypot(dx, dy) > candidateThresholdWorld) continue
 
     const resolved = resolveAnchorFromPoint(
       instance,

@@ -3,7 +3,7 @@ import {
   resolveSelectionMode,
   type SelectionMode
 } from '@whiteboard/core/node'
-import type { NodeId } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Operation } from '@whiteboard/core/types'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
@@ -28,7 +28,9 @@ import {
 } from '../../../../runtime/container'
 import {
   buildNodeDragState,
+  resolveNodeDragFollowEdges,
   resolveNodeDragCommit,
+  resolveNodeDragPositions,
   resolveNodeDragPreview,
   type NodeDragRuntimeState
 } from './math'
@@ -38,6 +40,7 @@ import { getNodeScene } from '../../scene'
 type ActiveDrag = NodeDragRuntimeState & {
   pointerId: number
   allowCross: boolean
+  relatedEdgeIds: readonly EdgeId[]
 }
 
 type PendingPress = {
@@ -141,19 +144,38 @@ export const createNodePressSession = (
     session = null
     instance.internals.node.session.clear()
     instance.internals.node.guides.clear()
+    instance.internals.edge.path.clear()
   }
 
   const commit = (draft: ActiveDrag) => {
-    const updates = resolveNodeDragCommit({
+    const nodeUpdates = resolveNodeDragCommit({
       draft,
       nodes: readCanvasNodes(),
       config: instance.config
     })
-    if (!updates.length) {
+    const edgeUpdates = resolveNodeDragFollowEdges({
+      active: draft,
+      positions: resolveNodeDragPositions(draft, draft.last),
+      edgeIds: draft.relatedEdgeIds,
+      readEdge: (edgeId) => instance.engine.read.edge.item.get(edgeId)
+    })
+    const operations: Operation[] = [
+      ...nodeUpdates.map(({ id, patch }) => ({
+        type: 'node.update' as const,
+        id,
+        patch
+      })),
+      ...edgeUpdates.map(({ id, patch }) => ({
+        type: 'edge.update' as const,
+        id,
+        patch
+      }))
+    ]
+    if (!operations.length) {
       return
     }
 
-    instance.commands.node.updateMany(updates)
+    instance.commands.document.apply(operations)
   }
 
   const updatePreview = (input: {
@@ -177,12 +199,24 @@ export const createNodePressSession = (
 
     active.last = preview.position
     active.hoveredContainerId = preview.hoveredContainerId
+    const edgeUpdates = resolveNodeDragFollowEdges({
+      active,
+      positions: preview.patches,
+      edgeIds: active.relatedEdgeIds,
+      readEdge: (edgeId) => instance.engine.read.edge.item.get(edgeId)
+    })
 
     instance.internals.node.session.write({
       patches: preview.patches,
       hoveredContainerId: preview.hoveredContainerId
     })
     instance.internals.node.guides.write(preview.guides)
+    instance.internals.edge.path.write({
+      patches: edgeUpdates.map(({ id, patch }) => ({
+        id,
+        pathPoints: patch.path?.points
+      }))
+    })
   }
 
   const finalizeClick = () => {
@@ -284,6 +318,7 @@ export const createNodePressSession = (
     active = {
       pointerId: pending.pointerId,
       allowCross: moveEvent.altKey,
+      relatedEdgeIds: instance.read.edge.related(drag.members.map((member) => member.id)),
       ...drag
     }
     session = nextSession
