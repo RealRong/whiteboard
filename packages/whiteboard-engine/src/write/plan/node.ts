@@ -3,7 +3,9 @@ import type { NodeWriteOutput, WriteCommandMap } from '@engine-types/command'
 import type { Draft } from '../draft'
 import { cancelled, invalid, op, ops, success } from '../draft'
 import {
+  buildNodeAlignOperations,
   buildNodeCreateOperation,
+  buildNodeDistributeOperations,
   buildNodeDuplicateOperations,
   buildNodeGroupOperations,
   buildNodeUngroupManyOperations,
@@ -40,6 +42,8 @@ type DeleteCascadeCommand = Extract<NodeCommand, { type: 'deleteCascade' }>
 type DuplicateCommand = Extract<NodeCommand, { type: 'duplicate' }>
 type DataCommand = Extract<NodeCommand, { type: 'data' }>
 type OrderCommand = Extract<NodeCommand, { type: 'order' }>
+type AlignCommand = Extract<NodeCommand, { type: 'align' }>
+type DistributeCommand = Extract<NodeCommand, { type: 'distribute' }>
 
 const toUpdateOperations = (
   updates: readonly UpdateManyCommand['updates'][number][]
@@ -115,6 +119,46 @@ export const node = ({
 
   const updateMany = (command: UpdateManyCommand): Draft =>
     success(toUpdateOperations(command.updates))
+
+  const align = (command: AlignCommand): Draft => {
+    if (command.ids.length < 2) {
+      return cancelled('At least two nodes are required.')
+    }
+
+    const result = buildNodeAlignOperations({
+      ids: command.ids,
+      doc: readDoc(),
+      nodeSize: instance.config.nodeSize,
+      mode: command.mode
+    })
+    if (!result.ok) {
+      return ops(result)
+    }
+    if (!result.data.operations.length) {
+      return cancelled('Nodes are already aligned.')
+    }
+    return ops(result)
+  }
+
+  const distribute = (command: DistributeCommand): Draft => {
+    if (command.ids.length < 3) {
+      return cancelled('At least three nodes are required.')
+    }
+
+    const result = buildNodeDistributeOperations({
+      ids: command.ids,
+      doc: readDoc(),
+      nodeSize: instance.config.nodeSize,
+      mode: command.mode
+    })
+    if (!result.ok) {
+      return ops(result)
+    }
+    if (!result.data.operations.length) {
+      return cancelled('Nodes are already distributed.')
+    }
+    return ops(result)
+  }
 
   const updateData = (command: DataCommand): Draft => {
     const doc = readDoc()
@@ -209,6 +253,10 @@ export const node = ({
         return create(command) as Draft<NodeWriteOutput<C>>
       case 'updateMany':
         return updateMany(command) as Draft<NodeWriteOutput<C>>
+      case 'align':
+        return align(command) as Draft<NodeWriteOutput<C>>
+      case 'distribute':
+        return distribute(command) as Draft<NodeWriteOutput<C>>
       case 'data':
         return updateData(command) as Draft<NodeWriteOutput<C>>
       case 'delete':

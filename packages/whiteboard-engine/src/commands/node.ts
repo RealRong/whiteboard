@@ -6,6 +6,10 @@ import type {
 import type { CommandSource, EngineCommands } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
+  NodeAlignMode,
+  NodeDistributeMode
+} from '@whiteboard/core/node'
+import type {
   NodeId,
   NodeInput,
   NodePatch
@@ -51,6 +55,34 @@ export const node = ({
     }, options?.source ?? 'user')
   }
 
+  const align = (
+    ids: readonly NodeId[],
+    mode: NodeAlignMode
+  ) => {
+    if (ids.length < 2) {
+      return cancelledResult('At least two nodes are required.')
+    }
+    return run({
+      type: 'align',
+      ids,
+      mode
+    })
+  }
+
+  const distribute = (
+    ids: readonly NodeId[],
+    mode: NodeDistributeMode
+  ) => {
+    if (ids.length < 3) {
+      return cancelledResult('At least three nodes are required.')
+    }
+    return run({
+      type: 'distribute',
+      ids,
+      mode
+    })
+  }
+
   const updateData = (id: NodeId, patch: Record<string, unknown>) =>
     run({
       type: 'data',
@@ -89,6 +121,8 @@ export const node = ({
     create,
     update,
     updateMany,
+    align,
+    distribute,
     updateData,
     delete: remove,
     deleteCascade,

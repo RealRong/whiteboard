@@ -1,4 +1,5 @@
 import { applyNodeDefaults, getMissingNodeFields } from '../schema'
+import { getNodeAABB } from '../geometry'
 import { err, ok } from '../types'
 import type {
   CoreRegistries,
@@ -11,6 +12,13 @@ import type {
   Size
 } from '../types'
 import { getNode, hasNode, listNodes } from '../types'
+import {
+  alignNodes,
+  distributeNodes,
+  type NodeAlignMode,
+  type NodeDistributeMode,
+  type NodeLayoutEntry
+} from './layout'
 
 type NodeCreateOperationResult =
   Result<{
@@ -18,7 +26,7 @@ type NodeCreateOperationResult =
     nodeId: NodeId
   }, 'invalid'>
 
-type GroupOperationResult =
+type NodeOperationsResult =
   Result<{
     operations: Operation[]
   }, 'invalid'>
@@ -47,6 +55,43 @@ type BuildNodeGroupOperationsInput = {
   doc: Document
   nodeSize: Size
   createGroupId: () => NodeId
+}
+
+type BuildNodeLayoutOperationsInput = {
+  ids: readonly NodeId[]
+  doc: Document
+  nodeSize: Size
+}
+
+const readLayoutEntries = ({
+  ids,
+  doc,
+  nodeSize
+}: BuildNodeLayoutOperationsInput): Result<{
+  entries: NodeLayoutEntry[]
+}, 'invalid'> => {
+  const uniqueIds = Array.from(new Set(ids))
+  if (!uniqueIds.length) {
+    return err('invalid', 'No node ids provided.')
+  }
+
+  const entries: NodeLayoutEntry[] = []
+  for (const id of uniqueIds) {
+    const node = getNode(doc, id)
+    if (!node) {
+      return err('invalid', `Node ${id} not found.`)
+    }
+
+    entries.push({
+      id: node.id,
+      position: node.position,
+      bounds: getNodeAABB(node, nodeSize)
+    })
+  }
+
+  return ok({
+    entries
+  })
 }
 
 export const buildNodeCreateOperation = ({
@@ -140,6 +185,64 @@ export const buildNodeGroupOperations = ({
         patch: { parentId: groupId }
       }))
     ]
+  })
+}
+
+export const buildNodeAlignOperations = ({
+  ids,
+  doc,
+  nodeSize,
+  mode
+}: BuildNodeLayoutOperationsInput & {
+  mode: NodeAlignMode
+}): NodeOperationsResult => {
+  const entriesResult = readLayoutEntries({
+    ids,
+    doc,
+    nodeSize
+  })
+  if (!entriesResult.ok) {
+    return entriesResult
+  }
+
+  const updates = alignNodes(entriesResult.data.entries, mode)
+  return ok({
+    operations: updates.map((update) => ({
+      type: 'node.update' as const,
+      id: update.id,
+      patch: {
+        position: update.position
+      }
+    }))
+  })
+}
+
+export const buildNodeDistributeOperations = ({
+  ids,
+  doc,
+  nodeSize,
+  mode
+}: BuildNodeLayoutOperationsInput & {
+  mode: NodeDistributeMode
+}): NodeOperationsResult => {
+  const entriesResult = readLayoutEntries({
+    ids,
+    doc,
+    nodeSize
+  })
+  if (!entriesResult.ok) {
+    return entriesResult
+  }
+
+  const updates = distributeNodes(entriesResult.data.entries, mode)
+  return ok({
+    operations: updates.map((update) => ({
+      type: 'node.update' as const,
+      id: update.id,
+      patch: {
+        position: update.position
+      }
+    }))
   })
 }
 

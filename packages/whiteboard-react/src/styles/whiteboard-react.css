@@ -684,6 +684,57 @@
   cursor: default;
 }
 
+.wb-node-toolbar-layout-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.wb-node-toolbar-layout-align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.wb-node-toolbar-layout-distribute-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wb-node-toolbar-layout-divider {
+  width: 1px;
+  background: hsl(var(--wb-ui-border-subtle) / 0.4);
+  align-self: stretch;
+}
+
+.wb-node-toolbar-icon-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wb-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  appearance: none;
+}
+
+.wb-node-toolbar-icon-button:hover,
+.wb-node-toolbar-icon-button:focus-visible {
+  background: var(--wb-button-hover);
+  color: var(--wb-button-active-text);
+}
+
+.wb-node-toolbar-icon-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 .wb-node-toolbar-textarea {
   width: 100%;
   min-height: 72px;

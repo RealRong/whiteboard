@@ -1,3 +1,7 @@
+import type {
+  NodeAlignMode,
+  NodeDistributeMode
+} from '@whiteboard/core/node'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from '../../runtime/instance'
 import type { NodeSummary } from './summary'
@@ -99,6 +103,26 @@ export const arrangeNodes = (
           : instance.commands.node.order.sendToBack([...nodeIds])
 
   const result = effect
+  if (!result.ok) return
+}
+
+export const alignNodes = (
+  instance: NodeCommandsInstance,
+  nodeIds: readonly NodeId[],
+  mode: NodeAlignMode
+) => {
+  if (nodeIds.length < 2) return
+  const result = instance.commands.node.align([...nodeIds], mode)
+  if (!result.ok) return
+}
+
+export const distributeNodes = (
+  instance: NodeCommandsInstance,
+  nodeIds: readonly NodeId[],
+  mode: NodeDistributeMode
+) => {
+  if (nodeIds.length < 3) return
+  const result = instance.commands.node.distribute([...nodeIds], mode)
   if (!result.ok) return
 }
 

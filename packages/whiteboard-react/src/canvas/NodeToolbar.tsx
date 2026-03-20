@@ -15,8 +15,10 @@ import {
 } from '../runtime/hooks'
 import { mergeRecordPatch } from '../runtime/utils/recordPatch'
 import {
+  alignNodes,
   arrangeNodes,
   deleteNodes,
+  distributeNodes,
   duplicateNodes,
   toggleNodesLock,
   type GroupAutoFitMode,
@@ -896,17 +898,16 @@ export const NodeToolbar = ({
       case 'arrange':
         return (
           <ArrangeMenu
-            onBringToFront={() => {
-              closeAfter(arrangeNodes(instance, nodeIds, 'front'), closeMenu)
+            canAlign={summary.count >= 2}
+            canDistribute={summary.count >= 3}
+            onOrder={(mode) => {
+              closeAfter(arrangeNodes(instance, nodeIds, mode), closeMenu)
             }}
-            onBringForward={() => {
-              closeAfter(arrangeNodes(instance, nodeIds, 'forward'), closeMenu)
+            onAlign={(mode) => {
+              closeAfter(alignNodes(instance, nodeIds, mode), closeMenu)
             }}
-            onSendBackward={() => {
-              closeAfter(arrangeNodes(instance, nodeIds, 'backward'), closeMenu)
-            }}
-            onSendToBack={() => {
-              closeAfter(arrangeNodes(instance, nodeIds, 'back'), closeMenu)
+            onDistribute={(mode) => {
+              closeAfter(distributeNodes(instance, nodeIds, mode), closeMenu)
             }}
           />
         )

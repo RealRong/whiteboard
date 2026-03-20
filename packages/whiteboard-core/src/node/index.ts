@@ -59,14 +59,26 @@ export {
 export { toLayerOrderedCanvasNodes, toLayerOrderedCanvasNodeIds } from './layer'
 export {
   buildNodeCreateOperation,
+  buildNodeAlignOperations,
+  buildNodeDistributeOperations,
   buildNodeGroupOperations,
   buildNodeUngroupOperations,
   buildNodeUngroupManyOperations
 } from './commands'
 export {
+  alignNodes,
+  distributeNodes
+} from './layout'
+export {
   applySelection,
   resolveSelectionMode
 } from './selection'
+export type {
+  NodeAlignMode,
+  NodeDistributeMode,
+  NodeLayoutEntry,
+  NodeLayoutUpdate
+} from './layout'
 export type {
   SnapThresholdConfig
 } from './snapRuntime'

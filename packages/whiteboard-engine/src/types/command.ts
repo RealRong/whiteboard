@@ -12,6 +12,10 @@ import type {
   Point,
   Rect
 } from '@whiteboard/core/types'
+import type {
+  NodeAlignMode,
+  NodeDistributeMode
+} from '@whiteboard/core/node'
 import type { PointerInput, Size } from './common'
 import type {
   MindmapApplyCommand,
@@ -125,6 +129,16 @@ export type NodeWriteCommand =
   | {
       type: 'updateMany'
       updates: readonly NodeBatchUpdate[]
+    }
+  | {
+      type: 'align'
+      ids: readonly NodeId[]
+      mode: NodeAlignMode
+    }
+  | {
+      type: 'distribute'
+      ids: readonly NodeId[]
+      mode: NodeDistributeMode
     }
   | {
       type: 'delete'
@@ -375,6 +389,14 @@ export type EngineCommands = {
     updateMany: (
       updates: readonly NodeBatchUpdate[],
       options?: NodeUpdateManyOptions
+    ) => CommandResult
+    align: (
+      ids: readonly NodeId[],
+      mode: NodeAlignMode
+    ) => CommandResult
+    distribute: (
+      ids: readonly NodeId[],
+      mode: NodeDistributeMode
     ) => CommandResult
     updateData: (id: NodeId, patch: Record<string, unknown>) => CommandResult
     delete: (ids: NodeId[]) => CommandResult

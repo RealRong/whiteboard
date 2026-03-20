@@ -56,6 +56,7 @@ type NodeDragPreviewResult = {
 
 const SNAP_CROSS_THRESHOLD_RATIO = 0.6
 const GROUP_RECT_EPSILON = 0.5
+const EDGE_FOLLOW_DELTA_EPSILON = 0.001
 
 const toNodeById = (nodes: readonly Node[]) =>
   new Map(nodes.map((node) => [node.id, node]))
@@ -192,6 +193,15 @@ export const buildNodeDragState = (options: {
   }
 }
 
+const isSameDelta = (
+  left: Point,
+  right: Point,
+  epsilon = EDGE_FOLLOW_DELTA_EPSILON
+) => (
+  Math.abs(left.x - right.x) <= epsilon
+  && Math.abs(left.y - right.y) <= epsilon
+)
+
 const buildPositionUpdates = (
   members: readonly DragMember[],
   anchorPosition: Point
@@ -253,7 +263,7 @@ export const resolveNodeDragFollowEdges = (options: {
 
     const sourceDelta = deltaById.get(edge.source.nodeId)
     const targetDelta = deltaById.get(edge.target.nodeId)
-    if (!sourceDelta || !targetDelta || !isPointEqual(sourceDelta, targetDelta)) {
+    if (!sourceDelta || !targetDelta || !isSameDelta(sourceDelta, targetDelta)) {
       return
     }
 

@@ -14,8 +14,10 @@ import {
   hasNode
 } from '../runtime/container'
 import {
+  alignNodes,
   arrangeNodes,
   deleteNodes,
+  distributeNodes,
   duplicateNodes,
   groupNodes,
   toggleNodesLock,
@@ -451,6 +453,80 @@ export const ContextMenu = ({
       ]
     })
 
+    const buildAlignSection = (
+      nodeIds: readonly NodeId[]
+    ): ContextMenuSection => ({
+      key: 'align',
+      title: 'Align',
+      items: [
+        {
+          key: 'align.top',
+          label: 'Align top',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'top'), dismissAction)
+          }
+        },
+        {
+          key: 'align.left',
+          label: 'Align left',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'left'), dismissAction)
+          }
+        },
+        {
+          key: 'align.right',
+          label: 'Align right',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'right'), dismissAction)
+          }
+        },
+        {
+          key: 'align.bottom',
+          label: 'Align bottom',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'bottom'), dismissAction)
+          }
+        },
+        {
+          key: 'align.horizontal',
+          label: 'Align horizontal center',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'horizontal'), dismissAction)
+          }
+        },
+        {
+          key: 'align.vertical',
+          label: 'Align vertical center',
+          onClick: () => {
+            closeAfter(alignNodes(instance, nodeIds, 'vertical'), dismissAction)
+          }
+        }
+      ]
+    })
+
+    const buildDistributeSection = (
+      nodeIds: readonly NodeId[]
+    ): ContextMenuSection => ({
+      key: 'distribute',
+      title: 'Distribute',
+      items: [
+        {
+          key: 'distribute.horizontal',
+          label: 'Distribute horizontally',
+          onClick: () => {
+            closeAfter(distributeNodes(instance, nodeIds, 'horizontal'), dismissAction)
+          }
+        },
+        {
+          key: 'distribute.vertical',
+          label: 'Distribute vertically',
+          onClick: () => {
+            closeAfter(distributeNodes(instance, nodeIds, 'vertical'), dismissAction)
+          }
+        }
+      ]
+    })
+
     const buildNodeActionItems = (
       nodes: readonly WhiteboardNode[]
     ): ContextMenuSection => {
@@ -610,7 +686,7 @@ export const ContextMenu = ({
         }
         case 'nodes': {
           const summary = summarizeNodes(target.nodes)
-          return [
+          const sections: ContextMenuSection[] = [
             {
               ...buildNodeActionItems(target.nodes),
               items: [
@@ -637,6 +713,13 @@ export const ContextMenu = ({
             },
             buildArrangeSection(summary.ids)
           ]
+          if (summary.count >= 2) {
+            sections.push(buildAlignSection(summary.ids))
+          }
+          if (summary.count >= 3) {
+            sections.push(buildDistributeSection(summary.ids))
+          }
+          return sections
         }
         case 'edge':
           return [
