@@ -104,7 +104,7 @@ const EDGE_GEOMETRY_KEYS = new Set<keyof EdgePatch>([
   'source',
   'target',
   'type',
-  'routing'
+  'path'
 ])
 
 const EDGE_VALUE_KEYS = new Set<keyof EdgePatch>([

@@ -166,6 +166,11 @@ export type EdgeWriteCommand =
       payload: EdgeInput
     }
   | {
+      type: 'move'
+      edgeId: EdgeId
+      delta: Point
+    }
+  | {
       type: 'updateMany'
       updates: readonly EdgeBatchUpdate[]
     }
@@ -179,11 +184,11 @@ export type EdgeWriteCommand =
       ids: EdgeId[]
     }
   | {
-      type: 'routing'
-      mode: 'insert' | 'move' | 'remove' | 'reset'
+      type: 'path'
+      mode: 'insert' | 'move' | 'remove' | 'clear'
       edgeId: EdgeId
       index?: number
-      pointWorld?: Point
+      point?: Point
     }
 
 export type MindmapWriteCommand = MindmapApplyCommand
@@ -225,7 +230,7 @@ export type NodeWriteOutput<C extends NodeWriteCommand = NodeWriteCommand> =
 export type EdgeWriteOutput<C extends EdgeWriteCommand = EdgeWriteCommand> =
   C extends { type: 'create' }
     ? { edgeId: EdgeId }
-    : C extends { type: 'routing'; mode: 'insert' }
+    : C extends { type: 'path'; mode: 'insert' }
       ? { index: number }
       : void
 
@@ -341,14 +346,15 @@ export type EngineCommands = {
   }
   edge: {
     create: (payload: EdgeInput) => CommandResult<{ edgeId: EdgeId }>
+    move: (edgeId: EdgeId, delta: Point) => CommandResult
     update: (id: EdgeId, patch: EdgePatch) => CommandResult
     updateMany: (updates: readonly EdgeBatchUpdate[]) => CommandResult
     delete: (ids: EdgeId[]) => CommandResult
-    routing: {
-      insertAtPoint: (edgeId: EdgeId, pointWorld: Point) => CommandResult<{ index: number }>
-      move: (edgeId: EdgeId, index: number, pointWorld: Point) => CommandResult
+    path: {
+      insert: (edgeId: EdgeId, point: Point) => CommandResult<{ index: number }>
+      move: (edgeId: EdgeId, index: number, point: Point) => CommandResult
       remove: (edgeId: EdgeId, index: number) => CommandResult
-      reset: (edgeId: EdgeId) => CommandResult
+      clear: (edgeId: EdgeId) => CommandResult
     }
     order: {
       set: (ids: EdgeId[]) => CommandResult

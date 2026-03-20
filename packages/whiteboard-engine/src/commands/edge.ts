@@ -32,6 +32,13 @@ export const edge = ({
   const create = (payload: EdgeInput) =>
     run({ type: 'create', payload })
 
+  const move = (edgeId: EdgeId, delta: Point) =>
+    run({
+      type: 'move',
+      edgeId,
+      delta
+    })
+
   const update = (id: EdgeId, patch: EdgePatch) =>
     run({
       type: 'updateMany',
@@ -51,35 +58,35 @@ export const edge = ({
   const remove = (ids: EdgeId[]) =>
     run({ type: 'delete', ids })
 
-  const insertAtPoint = (edgeId: EdgeId, pointWorld: Point) =>
+  const insert = (edgeId: EdgeId, point: Point) =>
     run({
-      type: 'routing',
+      type: 'path',
       mode: 'insert',
       edgeId,
-      pointWorld
+      point
     })
 
-  const move = (edgeId: EdgeId, index: number, pointWorld: Point) =>
+  const movePath = (edgeId: EdgeId, index: number, point: Point) =>
     run({
-      type: 'routing',
+      type: 'path',
       mode: 'move',
       edgeId,
       index,
-      pointWorld
+      point
     })
 
   const removeAt = (edgeId: EdgeId, index: number) =>
     run({
-      type: 'routing',
+      type: 'path',
       mode: 'remove',
       edgeId,
       index
     })
 
-  const reset = (edgeId: EdgeId) =>
+  const clear = (edgeId: EdgeId) =>
     run({
-      type: 'routing',
-      mode: 'reset',
+      type: 'path',
+      mode: 'clear',
       edgeId
     })
 
@@ -93,14 +100,15 @@ export const edge = ({
 
   return {
     create,
+    move,
     update,
     updateMany,
     delete: remove,
-    routing: {
-      insertAtPoint,
-      move,
+    path: {
+      insert,
+      move: movePath,
       remove: removeAt,
-      reset
+      clear
     },
     order
   }

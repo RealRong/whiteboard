@@ -1,71 +1,114 @@
 import { getAnchorPoint, getRectCenter } from '../geometry'
-import type { Edge, EdgeAnchor, NodeId, Point, Rect } from '../types/core'
+import type { Edge, EdgeAnchor, EdgeEnd, Point, Rect } from '../types/core'
+import { isNodeEdgeEnd } from '../types/core'
 import { getAutoAnchorFromRect } from './anchor'
 
-export type ResolvedEdgeEndpoint = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
+export type ResolvedEdgeEnd = {
+  end: EdgeEnd
   point: Point
+  anchor?: EdgeAnchor
 }
 
-export type ResolvedEdgeEndpoints = {
-  source: ResolvedEdgeEndpoint
-  target: ResolvedEdgeEndpoint
+export type ResolvedEdgeEnds = {
+  source: ResolvedEdgeEnd
+  target: ResolvedEdgeEnd
 }
 
-export type ResolveEdgeEndpointsInput = {
+type ResolveNodeEndInput = {
+  end: Extract<EdgeEnd, { kind: 'node' }>
+  node: {
+    rect: Rect
+    rotation?: number
+  }
+  otherPoint: Point
+}
+
+const resolveNodeEnd = ({
+  end,
+  node,
+  otherPoint
+}: ResolveNodeEndInput): ResolvedEdgeEnd => {
+  const rotation = node.rotation ?? 0
+  const auto = getAutoAnchorFromRect(
+    node.rect,
+    rotation,
+    otherPoint
+  )
+  const anchor = end.anchor ?? auto.anchor
+  const point = end.anchor
+    ? getAnchorPoint(node.rect, anchor, rotation)
+    : auto.point
+
+  return {
+    end,
+    point,
+    anchor
+  }
+}
+
+const resolvePointEnd = (
+  end: Extract<EdgeEnd, { kind: 'point' }>
+): ResolvedEdgeEnd => ({
+  end,
+  point: end.point
+})
+
+export type ResolveEdgeEndsInput = {
   edge: Edge
-  source: {
+  source?: {
     rect: Rect
     rotation?: number
   }
-  target: {
+  target?: {
     rect: Rect
     rotation?: number
   }
 }
 
-export const resolveEdgeEndpoints = ({
+export const resolveEdgeEnds = ({
   edge,
   source,
   target
-}: ResolveEdgeEndpointsInput): ResolvedEdgeEndpoints => {
-  const sourceRotation = source.rotation ?? 0
-  const targetRotation = target.rotation ?? 0
-  const sourceCenter = getRectCenter(source.rect)
-  const targetCenter = getRectCenter(target.rect)
+}: ResolveEdgeEndsInput): ResolvedEdgeEnds | undefined => {
+  const sourceRefPoint =
+    isNodeEdgeEnd(edge.target)
+      ? (target ? getRectCenter(target.rect) : undefined)
+      : edge.target.point
+  const targetRefPoint =
+    isNodeEdgeEnd(edge.source)
+      ? (source ? getRectCenter(source.rect) : undefined)
+      : edge.source.point
 
-  const sourceAuto = getAutoAnchorFromRect(
-    source.rect,
-    sourceRotation,
-    targetCenter
-  )
-  const targetAuto = getAutoAnchorFromRect(
-    target.rect,
-    targetRotation,
-    sourceCenter
-  )
+  let resolvedSource: ResolvedEdgeEnd | undefined
+  if (isNodeEdgeEnd(edge.source)) {
+    if (!source || !sourceRefPoint) {
+      return undefined
+    }
+    resolvedSource = resolveNodeEnd({
+      end: edge.source,
+      node: source,
+      otherPoint: sourceRefPoint
+    })
+  } else {
+    resolvedSource = resolvePointEnd(edge.source)
+  }
 
-  const sourceAnchor = edge.source.anchor ?? sourceAuto.anchor
-  const targetAnchor = edge.target.anchor ?? targetAuto.anchor
-
-  const sourcePoint = edge.source.anchor
-    ? getAnchorPoint(source.rect, sourceAnchor, sourceRotation)
-    : sourceAuto.point
-  const targetPoint = edge.target.anchor
-    ? getAnchorPoint(target.rect, targetAnchor, targetRotation)
-    : targetAuto.point
+  let resolvedTarget: ResolvedEdgeEnd | undefined
+  if (isNodeEdgeEnd(edge.target)) {
+    if (!target || !targetRefPoint) {
+      return undefined
+    }
+    resolvedTarget = resolveNodeEnd({
+      end: edge.target,
+      node: target,
+      otherPoint: targetRefPoint
+    })
+  } else {
+    resolvedTarget = resolvePointEnd(edge.target)
+  }
 
   return {
-    source: {
-      nodeId: edge.source.nodeId,
-      anchor: sourceAnchor,
-      point: sourcePoint
-    },
-    target: {
-      nodeId: edge.target.nodeId,
-      anchor: targetAnchor,
-      point: targetPoint
-    }
+    source: resolvedSource,
+    target: resolvedTarget
   }
 }

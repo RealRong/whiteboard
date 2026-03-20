@@ -2,12 +2,9 @@ import {
   GitBranch,
   Hand,
   MousePointer2,
-  PencilLine,
   Shapes,
-  SquareMousePointer,
   StickyNote,
-  Type,
-  Waypoints
+  Type
 } from 'lucide-react'
 import {
   useEffect,
@@ -15,12 +12,12 @@ import {
   useRef,
   useState
 } from 'react'
+import { useInternalInstance, useTool } from '../../runtime/hooks'
 import {
-  useInternalInstance,
-  useTool
-} from '../../runtime/hooks'
-import type { Tool } from '../../runtime/tool'
-import { ToolMenu, type ToolMenuValue } from './menus/ToolMenu'
+  DEFAULT_EDGE_PRESET_KEY,
+  type EdgePresetKey
+} from '../../runtime/tool'
+import { EdgeMenu, EdgePresetGlyph } from './menus/EdgeMenu'
 import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
@@ -30,6 +27,7 @@ import {
   DEFAULT_SHAPE_PRESET_KEY,
   DEFAULT_STICKY_PRESET_KEY,
   TEXT_INSERT_PRESET,
+  readStickyInsertTone,
   readInsertPresetGroup
 } from './presets'
 
@@ -39,7 +37,7 @@ type Surface = {
 }
 
 type MenuKey =
-  | 'tool'
+  | 'edge'
   | 'sticky'
   | 'shape'
   | 'mindmap'
@@ -50,30 +48,10 @@ const MenuOffset = 10
 const MenuWidth = 240
 
 const MenuApproxHeight: Record<MenuKey, number> = {
-  tool: 144,
-  sticky: 220,
-  shape: 256,
-  mindmap: 236
-}
-
-const resolveToolMenuValue = (tool: Tool): ToolMenuValue => {
-  if (tool.type === 'hand') {
-    return 'hand'
-  }
-  if (tool.type === 'connector') {
-    return 'connector'
-  }
-  return 'select'
-}
-
-const resolveToolIcon = (tool: Tool) => {
-  if (tool.type === 'hand') {
-    return Hand
-  }
-  if (tool.type === 'connector') {
-    return Waypoints
-  }
-  return MousePointer2
+  edge: 164,
+  sticky: 164,
+  shape: 252,
+  mindmap: 248
 }
 
 export const LeftToolbar = ({
@@ -84,11 +62,26 @@ export const LeftToolbar = ({
   const instance = useInternalInstance()
   const tool = useTool()
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
   const buttonRefByKey = useRef<Partial<Record<MenuKey, HTMLButtonElement | null>>>({})
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const insertGroup = tool.type === 'insert'
     ? readInsertPresetGroup(tool.preset)
     : undefined
+  const stickyTone = readStickyInsertTone(
+    tool.type === 'insert' && insertGroup === 'sticky'
+      ? tool.preset
+      : DEFAULT_STICKY_PRESET_KEY
+  )
+  const edgePreset = tool.type === 'edge'
+    ? tool.preset
+    : edgePresetRef.current
+
+  useEffect(() => {
+    if (tool.type === 'edge') {
+      edgePresetRef.current = tool.preset
+    }
+  }, [tool])
 
   const menuStyle = useMemo(() => {
     if (!openMenu) {
@@ -148,7 +141,7 @@ export const LeftToolbar = ({
     }
   }, [surface.height, surface.width])
 
-  const toolIcon = resolveToolIcon(tool)
+  const toolIcon = tool.type === 'hand' ? Hand : MousePointer2
 
   return (
     <div
@@ -159,22 +152,52 @@ export const LeftToolbar = ({
     >
       <div className="wb-left-toolbar">
         <button
-          ref={(element) => {
-            buttonRefByKey.current.tool = element
+          type="button"
+          className="wb-left-toolbar-button"
+          data-active={tool.type === 'select' || tool.type === 'hand' ? 'true' : undefined}
+          onClick={() => {
+            closeMenu()
+            if (tool.type === 'hand') {
+              instance.commands.tool.select()
+              return
+            }
+            if (tool.type !== 'select') {
+              instance.commands.tool.select()
+              return
+            }
+            instance.commands.tool.hand()
           }}
-        type="button"
-        className="wb-left-toolbar-button"
-        data-active={tool.type === 'select' || tool.type === 'hand' || tool.type === 'connector' ? 'true' : undefined}
-        onClick={() => {
-          setOpenMenu((current) => current === 'tool' ? null : 'tool')
-        }}
           data-selection-ignore
           data-input-ignore
-          title="Tool"
+          title={tool.type === 'hand' ? 'Hand' : 'Select'}
         >
           <ToolbarIcon icon={toolIcon} />
         </button>
         <div className="wb-left-toolbar-divider" />
+        <button
+          ref={(element) => {
+            buttonRefByKey.current.edge = element
+          }}
+          type="button"
+          className="wb-left-toolbar-button"
+          data-active={tool.type === 'edge' ? 'true' : undefined}
+          onClick={() => {
+            if (tool.type !== 'edge') {
+              instance.commands.tool.edge(edgePreset)
+              setOpenMenu('edge')
+              return
+            }
+
+            setOpenMenu((current) => current === 'edge' ? null : 'edge')
+          }}
+          data-selection-ignore
+          data-input-ignore
+          title="Edge"
+        >
+          <span className="wb-left-toolbar-button-edge-preview">
+            <EdgePresetGlyph preset={edgePreset} />
+          </span>
+        </button>
         <button
           ref={(element) => {
             buttonRefByKey.current.sticky = element
@@ -189,6 +212,12 @@ export const LeftToolbar = ({
           data-input-ignore
           title="Sticky note"
         >
+          <span
+            className="wb-left-toolbar-button-tint"
+            style={{
+              background: stickyTone?.fill
+            }}
+          />
           <ToolbarIcon icon={StickyNote} />
         </button>
         <button
@@ -237,22 +266,6 @@ export const LeftToolbar = ({
         >
           <ToolbarIcon icon={GitBranch} />
         </button>
-        <div className="wb-left-toolbar-divider" />
-        <button
-          type="button"
-          className="wb-left-toolbar-button"
-          data-active={tool.type === 'draw' ? 'true' : undefined}
-          disabled
-          onClick={() => {
-            closeMenu()
-            instance.commands.tool.draw('free')
-          }}
-          data-selection-ignore
-          data-input-ignore
-          title="Freedraw"
-        >
-          <ToolbarIcon icon={PencilLine} />
-        </button>
       </div>
       {openMenu && menuStyle ? (
         <div
@@ -266,20 +279,13 @@ export const LeftToolbar = ({
           data-selection-ignore
           data-input-ignore
         >
-          {openMenu === 'tool' ? (
-            <ToolMenu
-              value={resolveToolMenuValue(tool)}
+          {openMenu === 'edge' ? (
+            <EdgeMenu
+              value={edgePreset}
               onChange={(value) => {
                 closeMenu()
-                if (value === 'hand') {
-                  instance.commands.tool.hand()
-                  return
-                }
-                if (value === 'connector') {
-                  instance.commands.tool.connector()
-                  return
-                }
-                instance.commands.tool.select()
+                edgePresetRef.current = value
+                instance.commands.tool.edge(value)
               }}
             />
           ) : null}
@@ -310,16 +316,6 @@ export const LeftToolbar = ({
               }}
             />
           ) : null}
-        </div>
-      ) : null}
-      {tool.type === 'insert' || tool.type === 'draw' ? (
-        <div className="wb-left-toolbar-hint" data-selection-ignore data-input-ignore>
-          <div className="wb-left-toolbar-hint-icon">
-            <ToolbarIcon icon={SquareMousePointer} />
-          </div>
-          <div className="wb-left-toolbar-hint-text">
-            点击画布放置
-          </div>
         </div>
       ) : null}
     </div>

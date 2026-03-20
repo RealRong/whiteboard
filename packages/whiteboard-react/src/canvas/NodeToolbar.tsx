@@ -9,12 +9,9 @@ import {
 } from 'react'
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import {
-  useEdit,
   useInternalInstance,
-  useInteraction,
   useSelection,
-  useStoreValue,
-  useTool
+  useStoreValue
 } from '../runtime/hooks'
 import { mergeRecordPatch } from '../runtime/utils/recordPatch'
 import {
@@ -28,6 +25,7 @@ import {
 import {
   closeAfter
 } from './actions'
+import { measureTextSizeFromSource } from '../features/node/registry/default/shared'
 import {
   readLockLabel,
   summarizeNodes,
@@ -520,6 +518,135 @@ const removeNodeStyle = (
   style: removeStyleKey(node.style, key)
 })
 
+const queryNodeTextSource = ({
+  container,
+  nodeId,
+  field
+}: {
+  container: HTMLDivElement | null
+  nodeId: string
+  field: 'title' | 'text'
+}) => {
+  if (!container) {
+    return undefined
+  }
+
+  const element = container.querySelector(
+    `[data-node-id="${nodeId}"] [data-node-editable-field="${field}"]`
+  )
+
+  return element instanceof HTMLElement
+    ? element
+    : undefined
+}
+
+const updateToolbarTextNode = ({
+  instance,
+  container,
+  node,
+  field,
+  value
+}: {
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands' | 'engine'>
+  container: HTMLDivElement | null
+  node: Node
+  field: 'title' | 'text'
+  value: string
+}) => {
+  if (node.type !== 'text') {
+    instance.commands.node.updateData(node.id, { [field]: value })
+    return
+  }
+
+  const patch: Record<string, unknown> = {
+    data: mergeData(node.data, { [field]: value })
+  }
+  const source = queryNodeTextSource({
+    container,
+    nodeId: node.id,
+    field
+  })
+  const committedRect = instance.engine.read.node.item.get(node.id)?.rect
+  const size = source && committedRect
+    ? measureTextSizeFromSource({
+        content: value,
+        placeholder: 'Text',
+        source,
+        minWidth: 24,
+        maxWidth: Math.max(640, committedRect.width)
+      })
+    : undefined
+
+  if (
+    size
+    && committedRect
+    && (size.width !== committedRect.width || size.height !== committedRect.height)
+  ) {
+    patch.size = size
+  }
+
+  instance.commands.node.update(node.id, patch)
+}
+
+const updateToolbarTextFontSize = ({
+  instance,
+  container,
+  node,
+  field,
+  value
+}: {
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands' | 'engine'>
+  container: HTMLDivElement | null
+  node: Node
+  field: 'title' | 'text'
+  value: number | undefined
+}) => {
+  if (node.type !== 'text') {
+    if (value === undefined) {
+      removeNodeStyle(instance, node, 'fontSize')
+      return
+    }
+    updateNodeStyle(instance, node, { fontSize: value })
+    return
+  }
+
+  const nextStyle = value === undefined
+    ? removeStyleKey(node.style, 'fontSize')
+    : mergeStyle(node.style, { fontSize: value })
+  const patch: Record<string, unknown> = {
+    style: nextStyle
+  }
+  const source = queryNodeTextSource({
+    container,
+    nodeId: node.id,
+    field
+  })
+  const committedRect = instance.engine.read.node.item.get(node.id)?.rect
+  const textValue = typeof node.data?.[field] === 'string'
+    ? node.data[field] as string
+    : ''
+  const size = source && committedRect
+    ? measureTextSizeFromSource({
+        content: textValue,
+        placeholder: 'Text',
+        source,
+        minWidth: 24,
+        maxWidth: Math.max(640, committedRect.width),
+        fontSize: value
+      })
+    : undefined
+
+  if (
+    size
+    && committedRect
+    && (size.width !== committedRect.width || size.height !== committedRect.height)
+  ) {
+    patch.size = size
+  }
+
+  instance.commands.node.update(node.id, patch)
+}
+
 const isToolbarMenuKey = (
   key: ToolbarItemKey
 ): key is ToolbarMenuKey => key !== 'lock'
@@ -533,10 +660,7 @@ export const NodeToolbar = ({
 }) => {
   const instance = useInternalInstance()
   const viewport = useStoreValue(instance.viewport)
-  const tool = useTool()
-  const edit = useEdit()
-  const interaction = useInteraction()
-  const press = useStoreValue(instance.internals.node.press)
+  const chrome = useStoreValue(instance.read.node.chrome)
   const selection = useSelection()
   const worldToScreen = useCallback(
     (point: Point) => instance.viewport.worldToScreen(point),
@@ -578,13 +702,7 @@ export const NodeToolbar = ({
     }
   }
 
-  const showsNodeToolbar =
-    tool.type === 'select'
-    && edit === null
-    && interaction === 'idle'
-    && (press === null || press === 'repeat')
-    && selection.target.edgeId === undefined
-    && selection.items.count > 0
+  const showsNodeToolbar = chrome.toolbar
 
   useEffect(() => {
     closeMenu()
@@ -734,17 +852,25 @@ export const NodeToolbar = ({
             showColor={showTextColorSection}
             showFontSize={showTextFontSizeSection}
             onTextCommit={showTextSection ? (value) => {
-              instance.commands.node.updateData(toolbar.primaryNode.id, { [textFieldKey]: value })
+              updateToolbarTextNode({
+                instance,
+                container: containerRef.current,
+                node: toolbar.primaryNode,
+                field: textFieldKey,
+                value
+              })
             } : undefined}
             onColorChange={showTextColorSection ? (value) => {
               updateNodeStyle(instance, toolbar.primaryNode, { color: value })
             } : undefined}
             onFontSizeChange={showTextFontSizeSection ? (value) => {
-              if (value === undefined) {
-                removeNodeStyle(instance, toolbar.primaryNode, 'fontSize')
-                return
-              }
-              updateNodeStyle(instance, toolbar.primaryNode, { fontSize: value })
+              updateToolbarTextFontSize({
+                instance,
+                container: containerRef.current,
+                node: toolbar.primaryNode,
+                field: textFieldKey,
+                value
+              })
             } : undefined}
           />
         )

@@ -4,12 +4,12 @@ import {
   type EdgeConnectSessionStore
 } from './connect'
 import {
-  createEdgeRoutingSessionStore,
-  type EdgeRoutingSessionStore
-} from './routing'
+  createEdgePathSessionStore,
+  type EdgePathSessionStore
+} from './path'
 
 export type EdgeFeatureRuntime = {
-  routing: EdgeRoutingSessionStore
+  path: EdgePathSessionStore
   connection: EdgeConnectSessionStore
   clear: () => void
 }
@@ -21,10 +21,10 @@ export const createEdgeFeatureRuntime = (): EdgeFeatureRuntime => {
     task.schedule()
   }
 
-  const routing = createEdgeRoutingSessionStore(schedule)
+  const path = createEdgePathSessionStore(schedule)
   const connection = createEdgeConnectSessionStore(schedule)
 
-  flushAll.push(routing.flush, connection.flush)
+  flushAll.push(path.flush, connection.flush)
 
   task = createRafTask(() => {
     flushAll.forEach((flush) => {
@@ -33,11 +33,11 @@ export const createEdgeFeatureRuntime = (): EdgeFeatureRuntime => {
   }, { fallback: 'microtask' })
 
   return {
-    routing,
+    path,
     connection,
     clear: () => {
       task.cancel()
-      routing.clear()
+      path.clear()
       connection.clear()
     }
   }

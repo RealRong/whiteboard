@@ -1,7 +1,6 @@
 import { getAnchorFromPoint } from '@whiteboard/core/edge'
-import { getAnchorPoint } from '@whiteboard/core/geometry'
 import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EdgeConnectState } from '../../../../types/edge'
+import type { EdgeConnectState, EdgeDraftEnd } from '../../../../types/edge'
 import type { InternalInstance } from '../../../../runtime/instance'
 
 const ZOOM_EPSILON = 0.0001
@@ -28,27 +27,12 @@ export type SnapTarget = {
   pointWorld: Point
 }
 
-type ConnectPointInput = {
-  nodeId?: EdgeConnectState['from']['nodeId']
-  anchor?: EdgeConnectState['from']['anchor']
-  pointWorld?: NonNullable<EdgeConnectState['to']>['pointWorld']
-}
-
 const resolveConnectPoint = (
-  instance: Pick<InternalInstance, 'read'>,
-  value: ConnectPointInput | undefined,
-  allowPointWorld: boolean
+  _instance: Pick<InternalInstance, 'read'>,
+  value: EdgeDraftEnd | undefined
 ): Point | undefined => {
   if (!value) return undefined
-  if (value.nodeId && value.anchor) {
-    const entry = instance.read.index.node.get(value.nodeId)
-    if (entry) {
-      return getAnchorPoint(entry.rect, value.anchor, entry.rotation)
-    }
-    if (!allowPointWorld) return undefined
-  }
-  if (!allowPointWorld) return undefined
-  return value.pointWorld
+  return value.point
 }
 
 export const resolveSnapTarget = (
@@ -119,17 +103,17 @@ export const resolveConnectPreview = (
   instance: Pick<InternalInstance, 'config' | 'read' | 'viewport'>,
   state: EdgeConnectState
 ): ConnectPreviewModel => {
-  const from = resolveConnectPoint(instance, state.from, false)
-  const to = resolveConnectPoint(instance, state.to, true)
+  const from = resolveConnectPoint(instance, state.from)
+  const to = resolveConnectPoint(instance, state.to)
   const snap =
-    state.to?.nodeId && state.to.anchor
-      ? resolveConnectPoint(instance, state.to, true)
+    state.to?.kind === 'node'
+      ? resolveConnectPoint(instance, state.to)
       : undefined
 
   return {
     from,
     to,
     snap,
-    showPreviewLine: Boolean(!state.reconnect && from && to)
+    showPreviewLine: Boolean(state.kind === 'create' && from && to)
   }
 }

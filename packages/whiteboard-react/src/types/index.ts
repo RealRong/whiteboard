@@ -16,6 +16,7 @@ export type {
   NodeDefinition,
   NodeRegistry,
   NodeRenderProps,
+  NodeScene,
 } from './node'
 
 export type { EdgeConnectState } from './edge'

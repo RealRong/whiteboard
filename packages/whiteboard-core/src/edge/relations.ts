@@ -1,4 +1,5 @@
 import type { Edge, EdgeId, NodeId } from '../types/core'
+import { isNodeEdgeEnd } from '../types/core'
 
 export type EdgeRelations = {
   edgeById: Map<EdgeId, Edge>
@@ -24,8 +25,12 @@ export const createEdgeRelations = (edges: readonly Edge[]): EdgeRelations => {
   edges.forEach((edge) => {
     edgeById.set(edge.id, edge)
     edgeIds.push(edge.id)
-    linkNodeEdge(nodeToEdgeIds, edge.source.nodeId, edge.id)
-    linkNodeEdge(nodeToEdgeIds, edge.target.nodeId, edge.id)
+    if (isNodeEdgeEnd(edge.source)) {
+      linkNodeEdge(nodeToEdgeIds, edge.source.nodeId, edge.id)
+    }
+    if (isNodeEdgeEnd(edge.target)) {
+      linkNodeEdge(nodeToEdgeIds, edge.target.nodeId, edge.id)
+    }
   })
 
   return {

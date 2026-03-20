@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react'
 import type { NodeItem } from '@whiteboard/core/read'
 
 type NodeViewNode = NodeItem['node']
@@ -7,7 +6,7 @@ type NodeViewRect = NodeItem['rect']
 type NodeConnectHandlesProps = {
   node: NodeViewNode
   rect: NodeViewRect
-  style: CSSProperties
+  rotation: number
 }
 
 const NODE_CONNECT_SIDES = ['top', 'right', 'bottom', 'left'] as const
@@ -15,15 +14,27 @@ const NODE_CONNECT_SIDES = ['top', 'right', 'bottom', 'left'] as const
 export const NodeConnectHandles = ({
   node,
   rect,
-  style
+  rotation
 }: NodeConnectHandlesProps) => {
+  const transform = [
+    `translate(${rect.x}px, ${rect.y}px)`,
+    rotation !== 0 ? `rotate(${rotation}deg)` : undefined
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div
       className="wb-node-connect-handle-layer"
       style={{
-        ...style,
+        position: 'absolute',
+        left: 0,
+        top: 0,
         width: rect.width,
-        height: rect.height
+        height: rect.height,
+        pointerEvents: 'none',
+        transform: transform || undefined,
+        transformOrigin: rotation !== 0 ? 'center center' : undefined
       }}
     >
       {NODE_CONNECT_SIDES.map((side) => (

@@ -9,19 +9,24 @@ export type CreateNodePreset = {
   input: (world: Point) => NodeInput
 }
 
-const centerNodeInput = (
+type CreateNodePlacement = 'center' | 'point'
+
+const placeNodeInput = (
   world: Point,
-  input: Omit<NodeInput, 'position'>
+  input: Omit<NodeInput, 'position'>,
+  placement: CreateNodePlacement = 'center'
 ): NodeInput => {
   const width = input.size?.width ?? 160
   const height = input.size?.height ?? 80
 
   return {
     ...input,
-    position: {
-      x: world.x - width / 2,
-      y: world.y - height / 2
-    }
+    position: placement === 'point'
+      ? world
+      : {
+          x: world.x - width / 2,
+          y: world.y - height / 2
+        }
   }
 }
 
@@ -29,16 +34,16 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.text',
     label: 'Add text',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'text',
-      size: { width: 180, height: 44 },
+      size: { width: 48, height: 24 },
       data: { text: '' }
-    })
+    }, 'point')
   },
   {
     key: 'create.sticky',
     label: 'Add sticky',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'sticky',
       size: { width: 180, height: 140 },
       data: { text: '' }
@@ -47,7 +52,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.rect',
     label: 'Add rectangle',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'rect',
       size: { width: 180, height: 100 },
       data: { title: 'Rectangle' }
@@ -56,7 +61,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.ellipse',
     label: 'Add ellipse',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'ellipse',
       size: { width: 180, height: 100 },
       data: { title: 'Ellipse' }
@@ -65,7 +70,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.diamond',
     label: 'Add diamond',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'diamond',
       size: { width: 180, height: 120 },
       data: { title: 'Decision' }
@@ -74,7 +79,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.triangle',
     label: 'Add triangle',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'triangle',
       size: { width: 180, height: 130 },
       data: { title: 'Triangle' }
@@ -83,7 +88,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.callout',
     label: 'Add callout',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'callout',
       size: { width: 220, height: 130 },
       data: { text: 'Callout' }
@@ -92,7 +97,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.arrow-sticker',
     label: 'Add arrow sticker',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'arrow-sticker',
       size: { width: 220, height: 110 },
       data: { title: 'Arrow' }
@@ -101,7 +106,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
   {
     key: 'create.highlight',
     label: 'Add highlight',
-    input: (world) => centerNodeInput(world, {
+    input: (world) => placeNodeInput(world, {
       type: 'highlight',
       size: { width: 220, height: 90 },
       data: { text: 'Highlight' }

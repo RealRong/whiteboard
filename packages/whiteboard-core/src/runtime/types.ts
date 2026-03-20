@@ -20,6 +20,7 @@ export type StagedValueStore<T> = ReadStore<T> & {
 }
 
 export type StagedKeyedStore<Key, T, Input> = KeyedReadStore<Key, T> & {
+  all: () => ReadonlyMap<Key, T>
   write: (next: Input) => void
   clear: () => void
   flush: () => void

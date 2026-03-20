@@ -1,19 +1,35 @@
 import type { Point } from '../types'
 import { distancePointToSegment } from '../geometry'
+import type { EdgePathSegment } from './types'
 
-export const getNearestEdgeSegment = (pointWorld: Point, pathPoints: Point[]) => {
-  if (pathPoints.length < 2) return 0
+export const getNearestEdgeInsertIndex = (
+  pointWorld: Point,
+  segments: readonly EdgePathSegment[]
+) => {
+  if (!segments.length) return 0
 
   let minDistance = Number.POSITIVE_INFINITY
-  let minIndex = Math.max(0, pathPoints.length - 2)
+  let minIndex = Math.max(0, segments.length - 1)
 
-  for (let index = 0; index < pathPoints.length - 1; index += 1) {
-    const distance = distancePointToSegment(pointWorld, pathPoints[index], pathPoints[index + 1])
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index]
+    const hitPoints = segment.hitPoints
+    const distance = hitPoints && hitPoints.length >= 2
+      ? hitPoints.reduce((minDistance, point, pointIndex) => {
+          if (pointIndex === 0) {
+            return minDistance
+          }
+          return Math.min(
+            minDistance,
+            distancePointToSegment(pointWorld, hitPoints[pointIndex - 1], point)
+          )
+        }, Number.POSITIVE_INFINITY)
+      : distancePointToSegment(pointWorld, segment.from, segment.to)
     if (distance < minDistance) {
       minDistance = distance
       minIndex = index
     }
   }
 
-  return minIndex
+  return segments[minIndex]?.insertIndex ?? 0
 }

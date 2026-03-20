@@ -2,105 +2,152 @@ import {
   createStagedKeyedStore,
   type StagedKeyedStore
 } from '@whiteboard/core/runtime'
+import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeItem } from '@whiteboard/core/read'
-import type { EdgeId, Point } from '@whiteboard/core/types'
+import type { EdgeEnd, EdgeId, Point } from '@whiteboard/core/types'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
-type EdgeRoutingSessionMap = ReadonlyMap<EdgeId, EdgeRoutingSession>
+type EdgePathSessionMap = ReadonlyMap<EdgeId, EdgePathSession>
 
-type EdgeRoutingPatch = {
-  routingPoints?: readonly Point[]
+type EdgePathPatch = {
+  source?: EdgeItem['edge']['source']
+  target?: EdgeItem['edge']['target']
+  pathPoints?: readonly Point[]
 }
 
-type EdgeRoutingSessionWritePatch =
-  EdgeRoutingPatch & {
+type EdgePathSessionWritePatch =
+  EdgePathPatch & {
     id: EdgeId
-    activeRoutingIndex?: number
+    activePathIndex?: number
   }
 
-type EdgeRoutingSessionWrite = {
-  patches: readonly EdgeRoutingSessionWritePatch[]
+type EdgePathSessionWrite = {
+  patches: readonly EdgePathSessionWritePatch[]
 }
 
-type EdgeRoutingSession = {
-  patch?: EdgeRoutingPatch
-  activeRoutingIndex?: number
+type EdgePathSession = {
+  patch?: EdgePathPatch
+  activePathIndex?: number
 }
 
-export type EdgeRoutingSessionStore =
-  Pick<StagedKeyedStore<EdgeId, EdgeRoutingSession, EdgeRoutingSessionWrite>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+export type EdgePathSessionStore =
+  Pick<StagedKeyedStore<EdgeId, EdgePathSession, EdgePathSessionWrite>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
 
-export type EdgeRoutingSessionReader =
-  Pick<EdgeRoutingSessionStore, 'get' | 'subscribe'>
+export type EdgePathSessionReader =
+  Pick<EdgePathSessionStore, 'get' | 'subscribe'>
 
-const EMPTY_EDGE_ROUTING_SESSION: EdgeRoutingSession = {}
+const EMPTY_EDGE_PATH_SESSION: EdgePathSession = {}
 
-const EMPTY_EDGE_MAP: EdgeRoutingSessionMap =
-  new Map<EdgeId, EdgeRoutingSession>()
+const EMPTY_EDGE_MAP: EdgePathSessionMap =
+  new Map<EdgeId, EdgePathSession>()
 
-const toEdgeRoutingSessionMap = ({
+const toEdgePathSessionMap = ({
   patches
-}: EdgeRoutingSessionWrite): EdgeRoutingSessionMap => {
+}: EdgePathSessionWrite): EdgePathSessionMap => {
   if (!patches.length) {
     return EMPTY_EDGE_MAP
   }
 
-  const next = new Map<EdgeId, EdgeRoutingSession>()
+  const next = new Map<EdgeId, EdgePathSession>()
   patches.forEach((patch) => {
     next.set(patch.id, {
-      patch: patch.routingPoints
+      patch: patch.source || patch.target || patch.pathPoints
         ? {
-            routingPoints: patch.routingPoints
+            source: patch.source,
+            target: patch.target,
+            pathPoints: patch.pathPoints
           }
         : undefined,
-      activeRoutingIndex: patch.activeRoutingIndex
+      activePathIndex: patch.activePathIndex
     })
   })
   return next
 }
 
-export const createEdgeRoutingSessionStore = (
+const isEdgeEndPatchEqual = (
+  left: EdgeEnd | undefined,
+  right: EdgeEnd | undefined
+) => {
+  if (left === right) {
+    return true
+  }
+  if (!left || !right) {
+    return left === right
+  }
+  if (left.kind !== right.kind) {
+    return false
+  }
+  if (left.kind === 'point' && right.kind === 'point') {
+    return isPointEqual(left.point, right.point)
+  }
+  if (left.kind === 'node' && right.kind === 'node') {
+    return left.nodeId === right.nodeId
+      && left.anchor?.side === right.anchor?.side
+      && left.anchor?.offset === right.anchor?.offset
+  }
+  return false
+}
+
+export const createEdgePathSessionStore = (
   schedule: () => void
 ) => createStagedKeyedStore({
   schedule,
   emptyState: EMPTY_EDGE_MAP,
-  emptyValue: EMPTY_EDGE_ROUTING_SESSION,
-  build: toEdgeRoutingSessionMap,
+  emptyValue: EMPTY_EDGE_PATH_SESSION,
+  build: toEdgePathSessionMap,
   isEqual: (left, right) => (
-    left.patch?.routingPoints === right.patch?.routingPoints
-    && left.activeRoutingIndex === right.activeRoutingIndex
+    isEdgeEndPatchEqual(left.patch?.source, right.patch?.source)
+    && isEdgeEndPatchEqual(left.patch?.target, right.patch?.target)
+    && left.patch?.pathPoints === right.patch?.pathPoints
+    && left.activePathIndex === right.activePathIndex
   )
 })
 
-const applyRoutingPatch = (
+const applyPathPatch = (
   edge: EdgeItem['edge'],
-  routingPoints: readonly Point[] | undefined
+  patch: EdgePathPatch | undefined
 ): EdgeItem['edge'] => {
-  if (!routingPoints || edge.type === 'bezier' || edge.type === 'curve') {
+  if (!patch) {
     return edge
   }
 
-  const routing = edge.routing
-  const points = routing?.points ?? []
-  if (routingPoints === points) {
-    return edge
-  }
+  let next = edge
 
-  return {
-    ...edge,
-    routing: {
-      ...(routing ?? {}),
-      mode: routing?.mode ?? 'manual',
-      points: [...routingPoints]
+  if (patch.source && patch.source !== next.source) {
+    next = {
+      ...next,
+      source: patch.source
     }
   }
+
+  if (patch.target && patch.target !== next.target) {
+    next = {
+      ...next,
+      target: patch.target
+    }
+  }
+
+  if (patch.pathPoints) {
+    const points = next.path?.points ?? []
+    if (patch.pathPoints !== points) {
+      next = {
+        ...next,
+        path: {
+          ...(next.path ?? {}),
+          points: [...patch.pathPoints]
+        }
+      }
+    }
+  }
+
+  return next
 }
 
 export const projectEdgeItem = (
   item: EdgeItem,
-  session: EdgeRoutingSession
+  session: EdgePathSession
 ): EdgeItem => {
-  const edge = applyRoutingPatch(item.edge, session.patch?.routingPoints)
+  const edge = applyPathPatch(item.edge, session.patch)
   if (edge === item.edge) {
     return item
   }
@@ -111,7 +158,7 @@ export const projectEdgeItem = (
   }
 }
 
-export const useEdgeRoutingSession = (
-  store: EdgeRoutingSessionReader,
+export const useEdgePathSession = (
+  store: EdgePathSessionReader,
   edgeId: EdgeId | undefined
-) => useOptionalKeyedStoreValue(store, edgeId, EMPTY_EDGE_ROUTING_SESSION)
+) => useOptionalKeyedStoreValue(store, edgeId, EMPTY_EDGE_PATH_SESSION)

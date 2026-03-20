@@ -13,8 +13,13 @@ import {
 import { CanvasChrome } from './canvas/CanvasChrome'
 import { createMarqueeSession } from './canvas/Marquee'
 import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
-import { useEdgeConnect } from './features/edge/hooks/connect/useEdgeConnect'
+import { useEdgeInput } from './features/edge/hooks/useEdgeInput'
+import { createNodePressSession } from './features/node/hooks/drag/session'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
+import {
+  ContainerChromeLayer,
+  ContainerLayer
+} from './features/node/components/ContainerLayer'
 import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
@@ -52,6 +57,7 @@ const WhiteboardCanvas = ({
 }: CanvasProps) => {
   const instance = useInternalInstance()
   const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
+  const pressSessionRef = useRef<ReturnType<typeof createNodePressSession> | null>(null)
   const viewport = useStoreValue(instance.viewport)
   const tool = useTool()
   const inputPolicy = useMemo(
@@ -76,14 +82,25 @@ const WhiteboardCanvas = ({
   )
 
   if (!marqueeRef.current) {
-    marqueeRef.current = createMarqueeSession(instance)
+    marqueeRef.current = createMarqueeSession(instance, {
+      getContainerBodyPress: () => (
+        pressSessionRef.current?.handleContainerBodyPointerDown ?? null
+      )
+    })
   }
 
   const marquee = marqueeRef.current!
 
+  if (!pressSessionRef.current) {
+    pressSessionRef.current = createNodePressSession(instance, marquee)
+  }
+
+  const pressSession = pressSessionRef.current!
+
   useEffect(() => () => {
     marquee.cancel()
-  }, [marquee])
+    pressSession.cancel()
+  }, [marquee, pressSession])
 
   useCanvasInsert({
     containerRef
@@ -93,7 +110,7 @@ const WhiteboardCanvas = ({
     containerRef,
     options: inputPolicy
   })
-  useEdgeConnect({
+  const edgeInput = useEdgeInput({
     containerRef
   })
 
@@ -102,16 +119,22 @@ const WhiteboardCanvas = ({
       ref={containerRef}
       className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
       data-tool={tool.type}
-      data-tool-preset={tool.type === 'insert' || tool.type === 'draw' ? tool.preset : undefined}
+      data-tool-preset={tool.type === 'edge' || tool.type === 'insert' || tool.type === 'draw' ? tool.preset : undefined}
       style={containerStyle}
       tabIndex={0}
     >
       <div className="wb-root-viewport" style={transformStyle}>
-        <NodeSceneLayer marquee={marquee} />
-        <EdgeLayer />
+        <ContainerLayer />
+        <EdgeLayer onEdgePointerDown={edgeInput.handleEdgePointerDown} />
+        <NodeSceneLayer pressSession={pressSession} />
         <MindmapSceneLayer />
+        <ContainerChromeLayer pressSession={pressSession} />
         <NodeOverlayLayer />
-        <EdgeOverlayLayer />
+        <EdgeOverlayLayer
+          onEndpointPointerDown={edgeInput.handleEndpointPointerDown}
+          onPathPointPointerDown={edgeInput.handlePathPointPointerDown}
+          onPathPointKeyDown={edgeInput.handlePathPointKeyDown}
+        />
       </div>
       <CanvasChrome
         containerRef={containerRef}

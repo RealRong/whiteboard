@@ -1,25 +1,25 @@
 import type { Edge, Rect } from '../types/core'
 import { getEdgePath } from './path'
 import {
-  resolveEdgeEndpoints,
-  type ResolvedEdgeEndpoints
+  resolveEdgeEnds,
+  type ResolvedEdgeEnds
 } from './endpoints'
 import type { EdgePathResult } from './types'
 
 export type ResolveEdgePathFromRectsInput = {
   edge: Edge
-  source: {
+  source?: {
     rect: Rect
     rotation?: number
   }
-  target: {
+  target?: {
     rect: Rect
     rotation?: number
   }
 }
 
 export type ResolvedEdgePathFromRects = {
-  endpoints: ResolvedEdgeEndpoints
+  ends: ResolvedEdgeEnds
   path: EdgePathResult
 }
 
@@ -28,24 +28,27 @@ export const resolveEdgePathFromRects = ({
   source,
   target
 }: ResolveEdgePathFromRectsInput): ResolvedEdgePathFromRects => {
-  const endpoints = resolveEdgeEndpoints({
+  const ends = resolveEdgeEnds({
     edge,
     source,
     target
   })
+  if (!ends) {
+    throw new Error(`Unable to resolve edge path for ${edge.id}.`)
+  }
   const path = getEdgePath({
     edge,
     source: {
-      point: endpoints.source.point,
-      side: endpoints.source.anchor.side
+      point: ends.source.point,
+      side: ends.source.anchor?.side
     },
     target: {
-      point: endpoints.target.point,
-      side: endpoints.target.anchor.side
+      point: ends.target.point,
+      side: ends.target.anchor?.side
     }
   })
   return {
-    endpoints,
+    ends,
     path
   }
 }

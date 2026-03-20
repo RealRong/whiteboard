@@ -3,11 +3,11 @@ import type {
   CanvasNode,
   EdgeItem
 } from '@whiteboard/core/read'
-import type { Edge, EdgeId, NodeId } from '@whiteboard/core/types'
+import type { Edge, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import {
   collectRelatedEdgeIds,
   createEdgeRelations,
-  resolveEdgeEndpoints,
+  resolveEdgeEnds,
   type EdgeRelations
 } from '@whiteboard/core/edge'
 import {
@@ -18,10 +18,10 @@ import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
 
 type EdgeCacheEntry = {
-  sourceRectRef: CanvasNode
-  targetRectRef: CanvasNode
-  sourceGeometry: NodeGeometryTuple
-  targetGeometry: NodeGeometryTuple
+  sourceRectRef?: CanvasNode
+  targetRectRef?: CanvasNode
+  sourceGeometry?: NodeGeometryTuple
+  targetGeometry?: NodeGeometryTuple
   structure: EdgeStructureTuple
   entry: EdgeItem
 }
@@ -49,38 +49,40 @@ type NodeGeometryTuple = {
 
 type EdgeStructureTuple = {
   type: string
-  sourceNodeId: NodeId
-  targetNodeId: NodeId
+  sourceKind: Edge['source']['kind']
+  targetKind: Edge['target']['kind']
+  sourceNodeId?: NodeId
+  targetNodeId?: NodeId
+  sourcePoint?: Point
+  targetPoint?: Point
   sourceAnchorSide?: string
   sourceAnchorOffset?: number
   targetAnchorSide?: string
   targetAnchorOffset?: number
-  routingMode?: string
-  routingOrthoOffset?: number
-  routingOrthoRadius?: number
-  routingPointsRef?: readonly { x: number; y: number }[]
+  pathPointsRef?: readonly { x: number; y: number }[]
 }
 
 type EdgeCacheMaterial = {
-  sourceRectRef: CanvasNode
-  targetRectRef: CanvasNode
-  sourceGeometry: NodeGeometryTuple
-  targetGeometry: NodeGeometryTuple
+  sourceRectRef?: CanvasNode
+  targetRectRef?: CanvasNode
+  sourceGeometry?: NodeGeometryTuple
+  targetGeometry?: NodeGeometryTuple
   structure: EdgeStructureTuple
 }
 
 const EDGE_STRUCTURE_SCALAR_KEYS = [
   'type',
+  'sourceKind',
+  'targetKind',
   'sourceNodeId',
   'targetNodeId',
+  'sourcePoint',
+  'targetPoint',
   'sourceAnchorSide',
   'sourceAnchorOffset',
   'targetAnchorSide',
-  'targetAnchorOffset',
-  'routingMode',
-  'routingOrthoOffset',
-  'routingOrthoRadius'
-] as const satisfies readonly (Exclude<keyof EdgeStructureTuple, 'routingPointsRef'>)[]
+  'targetAnchorOffset'
+] as const satisfies readonly (Exclude<keyof EdgeStructureTuple, 'pathPointsRef'>)[]
 
 const emptyRelations = (): EdgeRelations => ({
   edgeById: new Map<EdgeId, Edge>(),
@@ -150,16 +152,17 @@ const toNodeGeometryTuple = (entry: CanvasNode): NodeGeometryTuple => ({
 
 const toEdgeStructureTuple = (edge: EdgeItem['edge']): EdgeStructureTuple => ({
   type: edge.type,
-  sourceNodeId: edge.source.nodeId,
-  targetNodeId: edge.target.nodeId,
-  sourceAnchorSide: edge.source.anchor?.side,
-  sourceAnchorOffset: edge.source.anchor?.offset,
-  targetAnchorSide: edge.target.anchor?.side,
-  targetAnchorOffset: edge.target.anchor?.offset,
-  routingMode: edge.routing?.mode,
-  routingOrthoOffset: edge.routing?.ortho?.offset,
-  routingOrthoRadius: edge.routing?.ortho?.radius,
-  routingPointsRef: edge.routing?.points
+  sourceKind: edge.source.kind,
+  targetKind: edge.target.kind,
+  sourceNodeId: edge.source.kind === 'node' ? edge.source.nodeId : undefined,
+  targetNodeId: edge.target.kind === 'node' ? edge.target.nodeId : undefined,
+  sourcePoint: edge.source.kind === 'point' ? edge.source.point : undefined,
+  targetPoint: edge.target.kind === 'point' ? edge.target.point : undefined,
+  sourceAnchorSide: edge.source.kind === 'node' ? edge.source.anchor?.side : undefined,
+  sourceAnchorOffset: edge.source.kind === 'node' ? edge.source.anchor?.offset : undefined,
+  targetAnchorSide: edge.target.kind === 'node' ? edge.target.anchor?.side : undefined,
+  targetAnchorOffset: edge.target.kind === 'node' ? edge.target.anchor?.offset : undefined,
+  pathPointsRef: edge.path?.points
 })
 
 const isSameEdgeStructureTuple = (
@@ -167,9 +170,21 @@ const isSameEdgeStructureTuple = (
   right: EdgeStructureTuple
 ) => {
   for (const key of EDGE_STRUCTURE_SCALAR_KEYS) {
+    if (key === 'sourcePoint' || key === 'targetPoint') {
+      const leftPoint = left[key]
+      const rightPoint = right[key]
+      if (
+        leftPoint?.x !== rightPoint?.x
+        || leftPoint?.y !== rightPoint?.y
+      ) {
+        return false
+      }
+      continue
+    }
+
     if (left[key] !== right[key]) return false
   }
-  return isSamePointArray(left.routingPointsRef, right.routingPointsRef)
+  return isSamePointArray(left.pathPointsRef, right.pathPointsRef)
 }
 
 const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full' => {
@@ -204,15 +219,22 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   const toEdgeCacheMaterial = (
     edge: EdgeItem['edge']
   ): EdgeCacheMaterial | undefined => {
-    const sourceRectRef = getNodeRect(snapshotRef)(edge.source.nodeId)
-    const targetRectRef = getNodeRect(snapshotRef)(edge.target.nodeId)
-    if (!sourceRectRef || !targetRectRef) return undefined
+    const sourceRectRef =
+      edge.source.kind === 'node'
+        ? getNodeRect(snapshotRef)(edge.source.nodeId)
+        : undefined
+    const targetRectRef =
+      edge.target.kind === 'node'
+        ? getNodeRect(snapshotRef)(edge.target.nodeId)
+        : undefined
+    if (edge.source.kind === 'node' && !sourceRectRef) return undefined
+    if (edge.target.kind === 'node' && !targetRectRef) return undefined
 
     return {
       sourceRectRef,
       targetRectRef,
-      sourceGeometry: toNodeGeometryTuple(sourceRectRef),
-      targetGeometry: toNodeGeometryTuple(targetRectRef),
+      sourceGeometry: sourceRectRef ? toNodeGeometryTuple(sourceRectRef) : undefined,
+      targetGeometry: targetRectRef ? toNodeGeometryTuple(targetRectRef) : undefined,
       structure: toEdgeStructureTuple(edge)
     }
   }
@@ -228,8 +250,18 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       previous.sourceRectRef === material.sourceRectRef
       && previous.targetRectRef === material.targetRectRef
     ) || (
-        isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry)
-        && isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
+        (
+          previous.sourceGeometry === undefined
+          ? material.sourceGeometry === undefined
+          : material.sourceGeometry !== undefined
+            && isSameRectWithRotationTuple(previous.sourceGeometry, material.sourceGeometry)
+        )
+        && (
+          previous.targetGeometry === undefined
+          ? material.targetGeometry === undefined
+          : material.targetGeometry !== undefined
+            && isSameRectWithRotationTuple(previous.targetGeometry, material.targetGeometry)
+        )
       )
     if (!isSameGeometry) return undefined
 
@@ -248,7 +280,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     const nextEntry: EdgeItem = {
       id: edge.id,
       edge,
-      endpoints: previous.entry.endpoints
+      ends: previous.entry.ends
     }
     return {
       sourceRectRef: material.sourceRectRef,
@@ -266,12 +298,12 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   ): EdgeCacheEntry | undefined => {
     const sourceRectRef = material.sourceRectRef
     const targetRectRef = material.targetRectRef
-    const endpoints = resolveEdgeEndpoints({
+    const ends = resolveEdgeEnds({
       edge,
       source: sourceRectRef,
       target: targetRectRef
     })
-    if (!endpoints) return undefined
+    if (!ends) return undefined
 
     return {
       sourceRectRef,
@@ -282,7 +314,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
       entry: {
         id: edge.id,
         edge,
-        endpoints
+        ends
       }
     }
   }

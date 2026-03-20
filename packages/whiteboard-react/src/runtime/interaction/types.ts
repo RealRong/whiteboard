@@ -7,8 +7,9 @@ export type InteractionMode =
   | 'node-drag'
   | 'mindmap-drag'
   | 'node-transform'
+  | 'edge-drag'
   | 'edge-connect'
-  | 'edge-routing'
+  | 'edge-path'
 
 export type ActiveInteractionMode = Exclude<InteractionMode, 'idle'>
 

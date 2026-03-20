@@ -336,9 +336,14 @@ export const createKeyedDerivedStore = <Key, T,>({
       const entry = getEntry(key)
 
       if (!entry.tracking) {
-        entry.value = compute(entry).value
+        const nextValue = compute(entry).value
+        if (entry.hasValue && isEqual(entry.value as T, nextValue)) {
+          return entry.value as T
+        }
+
+        entry.value = nextValue
         entry.hasValue = true
-        return entry.value
+        return nextValue
       }
 
       if (!entry.hasValue) {

@@ -14,7 +14,7 @@ import type {
 } from '../types'
 import { buildNodeCreateOperation } from './commands'
 import { getContainerDescendants } from './group'
-import { listEdges, listNodes } from '../types'
+import { isNodeEdgeEnd, listEdges, listNodes } from '../types'
 
 export const createNodeDuplicateInput = (
   node: Node,
@@ -197,11 +197,17 @@ export const buildNodeDuplicateOperations = ({
 
   const selectedEdges = listEdges(doc).filter(
     (edge) =>
-      expandedIds.has(edge.source.nodeId)
+      isNodeEdgeEnd(edge.source)
+      && isNodeEdgeEnd(edge.target)
+      && expandedIds.has(edge.source.nodeId)
       && expandedIds.has(edge.target.nodeId)
   )
 
   for (const sourceEdge of selectedEdges) {
+    if (!isNodeEdgeEnd(sourceEdge.source) || !isNodeEdgeEnd(sourceEdge.target)) {
+      continue
+    }
+
     const sourceNodeId = sourceToDuplicatedId.get(sourceEdge.source.nodeId)
     const targetNodeId = sourceToDuplicatedId.get(sourceEdge.target.nodeId)
     if (!sourceNodeId || !targetNodeId) continue

@@ -1,46 +1,38 @@
-import { useEffect, useRef } from 'react'
+import { useMemo } from 'react'
 import {
   useInternalInstance,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import type { MarqueeSession } from '../../../canvas/Marquee'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
-import { createNodePressSession } from '../hooks/drag/session'
+import type { NodePressSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'
+import { filterNodeIdsByScene } from '../scene'
 
 export const NodeSceneLayer = ({
-  marquee
+  pressSession
 }: {
-  marquee: MarqueeSession
+  pressSession: NodePressSession
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
-  const press = useStoreValue(instance.internals.node.press)
+  const chrome = useStoreValue(instance.read.node.chrome)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
-  const pressSessionRef = useRef<ReturnType<typeof createNodePressSession> | null>(null)
-
-  if (!pressSessionRef.current) {
-    pressSessionRef.current = createNodePressSession(instance, marquee)
-  }
-
-  const pressSession = pressSessionRef.current!
-
-  useEffect(() => () => {
-    pressSession.cancel()
-  }, [pressSession])
-  const showsNodeSelection = press === null || press === 'repeat'
+  const contentNodeIds = useMemo(
+    () => filterNodeIdsByScene(instance, nodeIds, 'content'),
+    [instance, nodeIds]
+  )
 
   return (
     <div className="wb-node-layer">
-      {nodeIds.map((nodeId) => (
+      {contentNodeIds.map((nodeId) => (
         <NodeItem
           key={nodeId}
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
-          selected={selectedSet.has(nodeId) && showsNodeSelection}
+          selected={selectedSet.has(nodeId) && chrome.selection}
           onNodePointerDown={pressSession.handleNodePointerDown}
           onNodeDoubleClick={pressSession.handleNodeDoubleClick}
         />

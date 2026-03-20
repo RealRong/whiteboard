@@ -1,5 +1,5 @@
 import type { Edge, EdgeId, EntityCollection, Node, NodeId } from '../types'
-import { listEdges, listNodes } from '../types'
+import { isNodeEdgeEnd, listEdges, listNodes } from '../types'
 
 const EMPTY_EDGE_IDS: EdgeId[] = []
 const EMPTY_NODES: Node[] = []
@@ -57,13 +57,13 @@ export const deriveVisibleEdges = (
   edgeOrder: readonly EdgeId[] = edges.order
 ): Edge[] => {
   const orderedEdges = listEdges({ edges })
-  if (!orderedEdges.length || !canvasNodes.length) return []
+  if (!orderedEdges.length) return []
 
   const canvasNodeIds = new Set<NodeId>(canvasNodes.map((node) => node.id))
   const visibleEdges = orderedEdges.filter(
     (edge) =>
-      canvasNodeIds.has(edge.source.nodeId) &&
-      canvasNodeIds.has(edge.target.nodeId)
+      (!isNodeEdgeEnd(edge.source) || canvasNodeIds.has(edge.source.nodeId))
+      && (!isNodeEdgeEnd(edge.target) || canvasNodeIds.has(edge.target.nodeId))
   )
 
   return orderByIds(visibleEdges, edgeOrder ?? EMPTY_EDGE_IDS)

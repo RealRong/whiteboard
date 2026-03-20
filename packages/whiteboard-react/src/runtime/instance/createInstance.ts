@@ -6,9 +6,10 @@ import type {
 } from './types'
 import type { Tool } from '../tool'
 import {
-  ConnectorTool,
+  DEFAULT_EDGE_PRESET_KEY,
   HandTool,
   SelectTool,
+  createEdgeTool,
   isSameTool,
   normalizeTool
 } from '../tool'
@@ -78,6 +79,8 @@ const createInstanceStores = ({
     engineRead: engine.read,
     tool,
     edit: edit.store,
+    selection: selection.store,
+    interaction: interaction.mode,
     node,
     edge,
     mindmap
@@ -137,8 +140,8 @@ const createCommands = ({
       hand: () => {
         setTool(HandTool)
       },
-      connector: () => {
-        setTool(ConnectorTool)
+      edge: (preset = DEFAULT_EDGE_PRESET_KEY) => {
+        setTool(createEdgeTool(preset))
       },
       insert: (preset) => {
         setTool({

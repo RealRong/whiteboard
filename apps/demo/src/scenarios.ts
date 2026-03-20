@@ -13,6 +13,11 @@ const toCollection = <T extends { id: string }>(items: T[]) => ({
   order: items.map((item) => item.id)
 })
 
+const toNodeEnd = (nodeId: string) => ({
+  kind: 'node' as const,
+  nodeId
+})
+
 const createBaseDocument = (id: string, nodes: Node[], edges: Edge[]): Document => ({
   ...createDocument(id),
   nodes: toCollection(nodes),
@@ -66,14 +71,14 @@ const createBasicDocument = (): Document => {
     {
       id: 'edge-1',
       type: 'linear',
-      source: { nodeId: 'node-1' },
-      target: { nodeId: 'node-2' }
+      source: toNodeEnd('node-1'),
+      target: toNodeEnd('node-2')
     },
     {
       id: 'edge-2',
       type: 'linear',
-      source: { nodeId: 'node-2' },
-      target: { nodeId: 'node-3' }
+      source: toNodeEnd('node-2'),
+      target: toNodeEnd('node-3')
     }
   ]
 
@@ -115,8 +120,8 @@ const createDenseDocument = (): Document => {
       edges.push({
         id: `edge-${row}-${col}`,
         type: 'linear',
-        source: { nodeId: sourceId },
-        target: { nodeId: `grid-${row}-${targetCol}` }
+        source: toNodeEnd(sourceId),
+        target: toNodeEnd(`grid-${row}-${targetCol}`)
       })
     }
   }
@@ -221,32 +226,32 @@ const createShapesDocument = (): Document => {
     {
       id: 'shape-edge-1',
       type: 'linear',
-      source: { nodeId: 'shape-ellipse' },
-      target: { nodeId: 'shape-diamond' }
+      source: toNodeEnd('shape-ellipse'),
+      target: toNodeEnd('shape-diamond')
     },
     {
       id: 'shape-edge-2',
       type: 'linear',
-      source: { nodeId: 'shape-diamond' },
-      target: { nodeId: 'shape-triangle' }
+      source: toNodeEnd('shape-diamond'),
+      target: toNodeEnd('shape-triangle')
     },
     {
       id: 'shape-edge-3',
       type: 'linear',
-      source: { nodeId: 'shape-triangle' },
-      target: { nodeId: 'shape-arrow' }
+      source: toNodeEnd('shape-triangle'),
+      target: toNodeEnd('shape-arrow')
     },
     {
       id: 'shape-edge-4',
       type: 'linear',
-      source: { nodeId: 'shape-callout' },
-      target: { nodeId: 'shape-diamond' }
+      source: toNodeEnd('shape-callout'),
+      target: toNodeEnd('shape-diamond')
     },
     {
       id: 'shape-edge-5',
       type: 'linear',
-      source: { nodeId: 'shape-highlight' },
-      target: { nodeId: 'shape-arrow' }
+      source: toNodeEnd('shape-highlight'),
+      target: toNodeEnd('shape-arrow')
     }
   ]
 

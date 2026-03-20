@@ -3,13 +3,9 @@ import {
   createStagedValueStore,
   type StagedValueStore
 } from '@whiteboard/core/runtime'
-import { useStoreValue } from '../../../runtime/hooks'
 
 export type GuidesSessionStore =
   Pick<StagedValueStore<readonly Guide[]>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
-
-export type GuidesSessionReader =
-  Pick<GuidesSessionStore, 'get' | 'subscribe'>
 
 const EMPTY_GUIDES: readonly Guide[] = []
 
@@ -36,7 +32,3 @@ export const createGuidesSessionStore = (
     flush: store.flush
   }
 }
-
-export const useGuidesSession = (
-  store: GuidesSessionReader
-) => useStoreValue(store)

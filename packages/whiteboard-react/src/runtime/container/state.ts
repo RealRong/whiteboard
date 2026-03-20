@@ -11,6 +11,7 @@ import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
+import { isNodeEdgeEnd } from '@whiteboard/core/types'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
 import { isOrderedArrayEqual } from '../utils/equality'
 
@@ -133,7 +134,21 @@ export const filterNodeIds = (
 export const hasEdge = (
   container: Container,
   edge: Pick<Edge, 'source' | 'target'>
-): boolean => (
-  hasNode(container, edge.source.nodeId)
-  && hasNode(container, edge.target.nodeId)
-)
+): boolean => {
+  if (!container.id) {
+    return true
+  }
+
+  const hasNodeEnd =
+    isNodeEdgeEnd(edge.source)
+    || isNodeEdgeEnd(edge.target)
+
+  if (!hasNodeEnd) {
+    return false
+  }
+
+  return (
+    (!isNodeEdgeEnd(edge.source) || hasNode(container, edge.source.nodeId))
+    && (!isNodeEdgeEnd(edge.target) || hasNode(container, edge.target.nodeId))
+  )
+}

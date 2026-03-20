@@ -7,16 +7,12 @@ import {
 import type { Guide, TransformHandle } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import {
-  useEdit,
   useInternalInstance,
-  useInteraction,
   useContainer,
   useSelection,
-  useTool,
   useStoreValue
 } from '../../../runtime/hooks'
-import { useGuidesSession } from '../session/guides'
-import { useNodeOverlayView, useNodeView } from '../hooks/useNodeView'
+import { useNodeOverlayView } from '../hooks/useNodeView'
 import { createNodeTransformSession } from '../hooks/transform/session'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import { NodeTransformHandles } from './NodeTransformHandles'
@@ -62,9 +58,7 @@ const NodeTransformOverlayItem = memo(({
     event: ReactPointerEvent<HTMLDivElement>
   ) => void
 }) => {
-  const view = useNodeOverlayView(nodeId, {
-    selected: true
-  })
+  const view = useNodeOverlayView(nodeId)
 
   if (!view || view.node.locked) return null
 
@@ -82,23 +76,19 @@ const NodeTransformOverlayItem = memo(({
 NodeTransformOverlayItem.displayName = 'NodeTransformOverlayItem'
 
 const NodeConnectOverlayItem = memo(({
-  nodeId,
-  selected
+  nodeId
 }: {
   nodeId: NodeId
-  selected: boolean
 }) => {
-  const view = useNodeOverlayView(nodeId, {
-    selected
-  })
+  const view = useNodeOverlayView(nodeId)
 
-  if (!view || (!selected && !view.hovered)) return null
+  if (!view) return null
 
   return (
     <NodeConnectHandles
       node={view.node}
       rect={view.rect}
-      style={view.connectHandleOverlayStyle}
+      rotation={view.rotation}
     />
   )
 })
@@ -141,20 +131,12 @@ const ActiveContainerOverlay = ({
 
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.read.node.list)
-  const tool = useTool()
+  const chrome = useStoreValue(instance.read.node.chrome)
   const container = useContainer()
-  const edit = useEdit()
-  const interaction = useInteraction()
-  const guides = useGuidesSession(instance.internals.node.guides)
-  const press = useStoreValue(instance.internals.node.press)
+  const guides = useStoreValue(instance.internals.node.guides)
   const selection = useSelection()
-  const activeContainerNode = useNodeView(container.id)
+  const activeContainerNode = useNodeOverlayView(container.id)
   const transformSessionRef = useRef<ReturnType<typeof createNodeTransformSession> | null>(null)
-  const selectedSet = selection.target.nodeSet
-  const showsNodeChrome = press === null || press === 'repeat'
-  const chromeVisible = interaction === 'idle' && showsNodeChrome
-  const editing = edit !== null
 
   if (!transformSessionRef.current) {
     transformSessionRef.current = createNodeTransformSession(instance)
@@ -173,16 +155,8 @@ export const NodeOverlayLayer = () => {
           title: resolveContainerTitle(activeContainerNode.node)
         }
       : undefined
-  const showNodeHandles =
-    tool.type === 'select'
-    && !editing
-    && selection.target.edgeId === undefined
-    && (interaction === 'node-transform' || chromeVisible)
-  const nodeHandleNodeIds = showNodeHandles ? selection.target.nodeIds : EMPTY_NODE_IDS
-  const showNodeConnectHandles =
-    tool.type === 'connector'
-    && !editing
-    && chromeVisible
+  const nodeHandleNodeIds = chrome.transform ? selection.target.nodeIds : EMPTY_NODE_IDS
+  const connectNodeIds = chrome.connect ? selection.target.nodeIds : EMPTY_NODE_IDS
 
   return (
     <>
@@ -200,11 +174,10 @@ export const NodeOverlayLayer = () => {
             onTransformPointerDown={transformSession.handleTransformPointerDown}
           />
         ))}
-        {showNodeConnectHandles && nodeIds.map((nodeId) => (
+        {connectNodeIds.map((nodeId) => (
           <NodeConnectOverlayItem
             key={`connect:${nodeId}`}
             nodeId={nodeId}
-            selected={selectedSet.has(nodeId)}
           />
         ))}
       </div>

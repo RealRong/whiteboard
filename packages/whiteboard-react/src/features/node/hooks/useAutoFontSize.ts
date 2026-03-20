@@ -54,6 +54,7 @@ const MEASURE_QUEUE: QueueTask[] = []
 const MAX_TASKS_PER_FRAME = 8
 const FIT_EPSILON = 0
 const FIT_SAFE_VERTICAL_MARGIN = 2
+const DEFAULT_TEXT_FONT_SIZE = 14
 
 let measureElements: MeasureElements | null = null
 
@@ -150,7 +151,7 @@ const clampBoxSize = (
 const getDefaultFrameInset = (
   variant: AutoFontVariant
 ) => ({
-  padding: variant === 'sticky' ? 16 : 12,
+  padding: variant === 'sticky' ? 16 : 0,
   border: 1
 })
 
@@ -382,7 +383,9 @@ export const useAutoFontSize = ({
     [rect, variant]
   )
   const initialAutoFontSize = useMemo(
-    () => estimateInitialFontSize(variant, approximateContentBox),
+    () => variant === 'sticky'
+      ? estimateInitialFontSize(variant, approximateContentBox)
+      : DEFAULT_TEXT_FONT_SIZE,
     [approximateContentBox, variant]
   )
   const [resolved, setResolved] = useState<number>(
@@ -392,6 +395,11 @@ export const useAutoFontSize = ({
   useEffect(() => {
     if (manualFontSize !== undefined) {
       setResolved(manualFontSize)
+      return
+    }
+
+    if (variant === 'text') {
+      setResolved(DEFAULT_TEXT_FONT_SIZE)
       return
     }
 

@@ -38,6 +38,7 @@ import {
   readElementEdgeId,
   readElementNodeId
 } from './target'
+import { readContainerBodyTarget } from '../features/node/scene'
 
 type Surface = {
   width: number
@@ -166,6 +167,21 @@ const resolveContextMenuTarget = (
   }
 }
 
+const isPointInRect = (
+  point: Point,
+  rect: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+) => (
+  point.x >= rect.x
+  && point.x <= rect.x + rect.width
+  && point.y >= rect.y
+  && point.y <= rect.y + rect.height
+)
+
 const readPlacement = ({
   screen,
   containerWidth,
@@ -200,7 +216,7 @@ const readContextMenuOpenResult = ({
   screen,
   world
 }: {
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'read' | 'state'>
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'read' | 'state' | 'registry'>
   targetElement: Element | null
   screen: Point
   world: Point
@@ -241,6 +257,33 @@ const readContextMenuOpenResult = ({
         world
       },
       leaveContainer: !hasEdge(container, entry.edge)
+    }
+  }
+
+  const activeRect = container.id
+    ? instance.read.index.node.get(container.id)?.rect
+    : undefined
+  const insideActiveContainer = Boolean(
+    activeRect && isPointInRect(world, activeRect)
+  )
+
+  if (!insideActiveContainer) {
+    const containerNodeId = readContainerBodyTarget(instance, world)
+    if (containerNodeId) {
+      return {
+        target: selection.target.nodeSet.has(containerNodeId) && selection.items.count > 1
+          ? {
+            kind: 'nodes',
+            nodeIds: selection.target.nodeIds,
+            world
+          }
+          : {
+            kind: 'node',
+            nodeId: containerNodeId,
+            world
+          },
+        leaveContainer: !hasNode(container, containerNodeId)
+      }
     }
   }
 

@@ -17,6 +17,7 @@ import {
   filterNodeIds,
   leave
 } from '../runtime/container'
+import { readContainerBodyTarget } from '../features/node/scene'
 import { createRafTask } from '../runtime/utils/rafTask'
 import type { ViewportPointer } from '../runtime/viewport'
 import { isBackgroundPointerTarget } from './target'
@@ -30,7 +31,7 @@ export type MarqueePolicy = {
 
 export type MarqueeStartInput = {
   pointerId: number
-  capture: HTMLDivElement
+  capture: Element
   start: ViewportPointer
   mode: SelectionMode
   baseSelectedNodeIds: readonly NodeId[]
@@ -61,6 +62,12 @@ export type MarqueeSession = {
   cancel: () => void
 }
 
+type ContainerBodyPressHandler = (
+  nodeId: NodeId,
+  container: HTMLDivElement,
+  event: PointerEvent
+) => boolean
+
 const toSelectionKey = (nodeIds: Iterable<NodeId>) => [...nodeIds].sort().join('|')
 
 const isPointInRect = (point: { x: number; y: number }, rect: Rect) => (
@@ -71,7 +78,12 @@ const isPointInRect = (point: { x: number; y: number }, rect: Rect) => (
 )
 
 export const createMarqueeSession = (
-  instance: InternalInstance
+  instance: InternalInstance,
+  {
+    getContainerBodyPress
+  }: {
+    getContainerBodyPress?: () => ContainerBodyPressHandler | null
+  } = {}
 ): MarqueeSession => {
   const rect = createValueStore<Rect | undefined>(undefined)
   let active: ActiveMarquee | null = null
@@ -250,6 +262,27 @@ export const createMarqueeSession = (
       activeContainerId: activeContainer.id
     })) {
       return
+    }
+
+    if (!activeContainer.id) {
+      const containerNodeId = readContainerBodyTarget(instance, startPointer.world)
+      if (containerNodeId) {
+        if (getContainerBodyPress?.()?.(containerNodeId, container, event)) {
+          return
+        }
+        const currentSelectedNodeIds = instance.state.selection.get().target.nodeIds
+        const nextSelectedNodeIds = [
+          ...applySelection(
+            new Set(currentSelectedNodeIds),
+            [containerNodeId],
+            resolveSelectionMode(event)
+          )
+        ]
+        instance.commands.selection.replace(nextSelectedNodeIds)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
     }
 
     const selectedNodeIds = filterNodeIds(

@@ -24,7 +24,7 @@ import type {
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
-import type { Tool } from '../tool'
+import type { EdgePresetKey, Tool } from '../tool'
 import type { EditField, EditTarget } from '../edit'
 
 type EngineCommands = EngineInstance['commands']
@@ -43,7 +43,7 @@ export type WhiteboardInstance = {
       set: (tool: Tool) => void
       select: () => void
       hand: () => void
-      connector: () => void
+      edge: (preset?: EdgePresetKey) => void
       insert: (preset: string) => void
       draw: (preset?: string) => void
     }

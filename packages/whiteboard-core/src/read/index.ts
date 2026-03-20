@@ -1,5 +1,5 @@
 import type { MindmapLayout, MindmapLayoutConfig, MindmapNodeId, MindmapTree } from '../mindmap'
-import type { Edge, EdgeAnchor, EdgeId, Node, NodeId, Point, Rect } from '../types'
+import type { Edge, EdgeAnchor, EdgeEnd, EdgeId, Node, NodeId, Point, Rect } from '../types'
 
 export type CanvasNode = {
   node: Node
@@ -8,21 +8,21 @@ export type CanvasNode = {
   rotation: number
 }
 
-export type EdgeEndpoint = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
+export type ResolvedEdgeEnd = {
+  end: EdgeEnd
   point: Point
+  anchor?: EdgeAnchor
 }
 
-export type EdgeEndpoints = {
-  source: EdgeEndpoint
-  target: EdgeEndpoint
+export type EdgeEnds = {
+  source: ResolvedEdgeEnd
+  target: ResolvedEdgeEnd
 }
 
 export type EdgeItem = {
   id: EdgeId
   edge: Edge
-  endpoints: EdgeEndpoints
+  ends: EdgeEnds
 }
 
 export type MindmapLine = {

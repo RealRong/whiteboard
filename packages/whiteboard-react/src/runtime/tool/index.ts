@@ -1,3 +1,10 @@
+import type { EdgeType } from '@whiteboard/core/types'
+
+export type EdgePresetKey =
+  | 'edge.straight'
+  | 'edge.elbow'
+  | 'edge.curve'
+
 export type InsertPresetKey = string
 export type DrawPresetKey = string
 
@@ -9,8 +16,9 @@ export type HandTool = {
   type: 'hand'
 }
 
-export type ConnectorTool = {
-  type: 'connector'
+export type EdgeTool = {
+  type: 'edge'
+  preset: EdgePresetKey
 }
 
 export type InsertTool = {
@@ -26,9 +34,17 @@ export type DrawTool = {
 export type Tool =
   | SelectTool
   | HandTool
-  | ConnectorTool
+  | EdgeTool
   | InsertTool
   | DrawTool
+
+const EDGE_PRESET_TO_TYPE = {
+  'edge.straight': 'linear',
+  'edge.elbow': 'step',
+  'edge.curve': 'curve'
+} as const satisfies Record<EdgePresetKey, EdgeType>
+
+export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
 
 export const SelectTool: SelectTool = {
   type: 'select'
@@ -38,9 +54,20 @@ export const HandTool: HandTool = {
   type: 'hand'
 }
 
-export const ConnectorTool: ConnectorTool = {
-  type: 'connector'
-}
+export const createEdgeTool = (
+  preset: EdgePresetKey = DEFAULT_EDGE_PRESET_KEY
+): EdgeTool => ({
+  type: 'edge',
+  preset
+})
+
+const isEdgePresetKey = (
+  value: string
+): value is EdgePresetKey => value in EDGE_PRESET_TO_TYPE
+
+export const readEdgeType = (
+  preset: EdgePresetKey
+): EdgeType => EDGE_PRESET_TO_TYPE[preset]
 
 export const matchTool = (
   tool: Tool,
@@ -63,6 +90,8 @@ export const isSameTool = (
   }
 
   switch (left.type) {
+    case 'edge':
+      return right.type === 'edge' && left.preset === right.preset
     case 'insert':
       return right.type === 'insert' && left.preset === right.preset
     case 'draw':
@@ -79,8 +108,8 @@ export const normalizeTool = (
     return HandTool
   }
 
-  if (value === 'connector' || value === 'edge') {
-    return ConnectorTool
+  if (value === 'edge') {
+    return createEdgeTool()
   }
 
   if (value === 'select') {
@@ -99,8 +128,12 @@ export const normalizeTool = (
   switch (tool.type) {
     case 'hand':
       return HandTool
-    case 'connector':
-      return ConnectorTool
+    case 'edge':
+      return createEdgeTool(
+        typeof tool.preset === 'string' && isEdgePresetKey(tool.preset)
+          ? tool.preset
+          : DEFAULT_EDGE_PRESET_KEY
+      )
     case 'insert':
       return {
         type: 'insert',

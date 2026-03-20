@@ -14,6 +14,7 @@ import {
   listEdges,
   listNodes,
   getNode,
+  isNodeEdgeEnd,
   type Document,
   type EdgeId,
   type NodeId,
@@ -176,8 +177,8 @@ export const node = ({
     const edgeIds = listEdges(doc)
       .filter(
         (edge) =>
-          expandedIds.has(edge.source.nodeId)
-          || expandedIds.has(edge.target.nodeId)
+          (isNodeEdgeEnd(edge.source) && expandedIds.has(edge.source.nodeId))
+          || (isNodeEdgeEnd(edge.target) && expandedIds.has(edge.target.nodeId))
       )
       .map((edge) => edge.id)
 

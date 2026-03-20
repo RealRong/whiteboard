@@ -12,26 +12,27 @@ export const StickyMenu = ({
   onChange: (value: string) => void
 }) => (
   <MenuSection title="Sticky notes">
-    <div className="wb-left-toolbar-note-grid">
+    <div className="wb-left-toolbar-sticky-grid">
       {STICKY_INSERT_PRESETS.map((preset, index) => {
         const option = STICKY_INSERT_OPTIONS[index]
         return (
           <button
             key={preset.key}
             type="button"
-            className="wb-left-toolbar-note-option"
+            className="wb-left-toolbar-sticky-option"
             data-active={value === preset.key ? 'true' : undefined}
             onClick={() => onChange(preset.key)}
             data-selection-ignore
             data-input-ignore
+            aria-label={preset.label}
+            title={preset.label}
           >
             <span
-              className="wb-left-toolbar-note-preview"
+              className="wb-left-toolbar-sticky-preview"
               style={{
                 background: option.fill
               }}
             />
-            <span className="wb-left-toolbar-note-label">{preset.label}</span>
           </button>
         )
       })}

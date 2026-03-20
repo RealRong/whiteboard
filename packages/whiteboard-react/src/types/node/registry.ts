@@ -1,6 +1,8 @@
 import type { Node, NodePatch, NodeSchema, Rect } from '@whiteboard/core/types'
 import type { CSSProperties, ReactNode } from 'react'
 
+export type NodeScene = 'content' | 'container'
+
 export type NodeRenderProps = {
   node: Node
   rect: Rect
@@ -13,6 +15,7 @@ export type NodeRenderProps = {
 export type NodeDefinition = {
   type: string
   label?: string
+  scene?: NodeScene
   schema?: NodeSchema
   defaultData?: Record<string, unknown>
   render: (props: NodeRenderProps) => ReactNode

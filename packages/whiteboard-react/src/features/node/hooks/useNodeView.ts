@@ -10,6 +10,7 @@ import {
   useNodeSession,
   type NodeSession
 } from '../session/node'
+import { getNodeScene } from '../scene'
 
 const buildNodeTransformStyle = (
   rect: NodeItem['rect'],
@@ -28,16 +29,6 @@ const buildNodeTransformStyle = (
     transformOrigin: rotationTransform ? 'center center' : nodeStyle.transformOrigin
   }
 }
-
-const buildNodeConnectHandleOverlayStyle = (
-  transformStyle: CSSProperties
-): CSSProperties => ({
-  position: 'absolute',
-  left: 0,
-  top: 0,
-  pointerEvents: 'none',
-  ...transformStyle
-})
 
 export type NodeView = {
   nodeId: NodeId
@@ -58,10 +49,29 @@ export type NodeOverlayView = {
   nodeId: NodeView['nodeId']
   node: NodeView['node']
   rect: NodeView['rect']
-  hovered: NodeView['hovered']
   rotation: NodeView['rotation']
   canRotate: NodeView['canRotate']
-  connectHandleOverlayStyle: CSSProperties
+}
+
+const resolveNodeOverlayViewState = (
+  instance: Pick<InternalInstance, 'registry'>,
+  nodeId: NodeId,
+  item: NodeItem
+): NodeOverlayView => {
+  const node = item.node
+  const rect = item.rect
+  const rotation = typeof node.rotation === 'number' ? node.rotation : 0
+  const definition = instance.registry.get(node.type)
+  const canRotate =
+    typeof definition?.canRotate === 'boolean' ? definition.canRotate : getNodeScene(definition) !== 'container'
+
+  return {
+    nodeId,
+    node,
+    rect,
+    rotation,
+    canRotate
+  }
 }
 
 const resolveNodeViewState = (
@@ -92,7 +102,7 @@ const resolveNodeViewState = (
     updateData
   }
   const canRotate =
-    typeof definition?.canRotate === 'boolean' ? definition.canRotate : resolvedNode.type !== 'group'
+    typeof definition?.canRotate === 'boolean' ? definition.canRotate : getNodeScene(definition) !== 'container'
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}
@@ -143,31 +153,23 @@ export const useNodeView = (
 }
 
 export const useNodeOverlayView = (
-  nodeId: NodeId,
-  {
-    selected
-  }: {
-    selected: boolean
-  }
+  nodeId: NodeId | undefined
 ): NodeOverlayView | undefined => {
-  const view = useNodeView(nodeId, { selected })
+  const instance = useInternalInstance()
+  const item = useOptionalKeyedStoreValue(
+    instance.read.node.item,
+    nodeId,
+    undefined
+  )
 
   return useMemo(
     () => {
-      if (!view) {
+      if (!nodeId || !item) {
         return undefined
       }
 
-      return {
-        nodeId: view.nodeId,
-        node: view.node,
-        rect: view.rect,
-        hovered: view.hovered,
-        rotation: view.rotation,
-        canRotate: view.canRotate,
-        connectHandleOverlayStyle: buildNodeConnectHandleOverlayStyle(view.transformStyle)
-      }
+      return resolveNodeOverlayViewState(instance, nodeId, item)
     },
-    [view]
+    [instance, item, nodeId]
   )
 }

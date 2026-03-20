@@ -33,7 +33,7 @@ export type NodeSession = {
 }
 
 export type NodeSessionStore =
-  Pick<StagedKeyedStore<NodeId, NodeSession, NodeSessionWrite>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+  Pick<StagedKeyedStore<NodeId, NodeSession, NodeSessionWrite>, 'get' | 'all' | 'subscribe' | 'write' | 'clear' | 'flush'>
 
 export type NodeSessionReader =
   Pick<NodeSessionStore, 'get' | 'subscribe'>
@@ -75,6 +75,30 @@ const toNodeSessionMap = ({
   return next
 }
 
+const toNodeSessionWrite = (
+  sessions: ReadonlyMap<NodeId, NodeSession>
+): NodeSessionWrite => {
+  const patches: NodeSessionWritePatch[] = []
+  let hoveredContainerId: NodeId | undefined
+
+  sessions.forEach((session, nodeId) => {
+    if (session.patch) {
+      patches.push({
+        id: nodeId,
+        ...session.patch
+      })
+    }
+    if (session.hovered) {
+      hoveredContainerId = nodeId
+    }
+  })
+
+  return {
+    patches,
+    hoveredContainerId
+  }
+}
+
 export const createNodeSessionStore = (
   schedule: () => void
 ) => createStagedKeyedStore({
@@ -87,6 +111,37 @@ export const createNodeSessionStore = (
     && left.hovered === right.hovered
   )
 })
+
+export const writeNodeSessionPatch = (
+  store: NodeSessionStore,
+  nodeId: NodeId,
+  patch: NodePatch | undefined
+) => {
+  const next = new Map(store.all())
+  const current = next.get(nodeId)
+
+  if (patch) {
+    next.set(nodeId, {
+      hovered: current?.hovered ?? false,
+      patch
+    })
+  } else if (current?.hovered) {
+    next.set(nodeId, {
+      hovered: true
+    })
+  } else {
+    next.delete(nodeId)
+  }
+
+  store.write(toNodeSessionWrite(next))
+}
+
+export const clearNodeSessionPatch = (
+  store: NodeSessionStore,
+  nodeId: NodeId
+) => {
+  writeNodeSessionPatch(store, nodeId, undefined)
+}
 
 const applyRectPatch = (
   rect: Rect,

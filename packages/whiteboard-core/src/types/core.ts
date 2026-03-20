@@ -48,7 +48,7 @@ export type EdgeAnchor = {
   offset: number
 }
 
-export type EdgeBaseType = 'linear' | 'step' | 'polyline' | 'bezier' | 'curve' | 'custom'
+export type EdgeBaseType = 'linear' | 'step' | 'curve' | 'custom'
 export type EdgeType = EdgeBaseType | (string & {})
 
 export type SchemaFieldType = 'string' | 'number' | 'boolean' | 'color' | 'enum' | 'text'
@@ -94,22 +94,31 @@ export type EdgeSchema = {
   fields: SchemaField[]
 }
 
-export type EdgeRouteMode = 'auto' | 'manual'
+export type NodeEdgeEnd = {
+  kind: 'node'
+  nodeId: NodeId
+  anchor?: EdgeAnchor
+}
 
-export type EdgeRouting = {
-  mode?: EdgeRouteMode
+export type PointEdgeEnd = {
+  kind: 'point'
+  point: Point
+}
+
+export type EdgeEnd =
+  | NodeEdgeEnd
+  | PointEdgeEnd
+
+export const isNodeEdgeEnd = (
+  value: EdgeEnd
+): value is NodeEdgeEnd => value.kind === 'node'
+
+export const isPointEdgeEnd = (
+  value: EdgeEnd
+): value is PointEdgeEnd => value.kind === 'point'
+
+export type EdgePath = {
   points?: Point[]
-  locked?: boolean[]
-  avoid?: {
-    enabled?: boolean
-    padding?: number
-    maxTurns?: number
-    strategy?: 'simple' | 'grid' | 'visibility'
-  }
-  ortho?: {
-    offset?: number
-    radius?: number
-  }
 }
 
 export type EdgeStyle = {
@@ -130,10 +139,10 @@ export type EdgeLabel = {
 
 export interface Edge {
   id: EdgeId
-  source: { nodeId: NodeId; anchor?: EdgeAnchor }
-  target: { nodeId: NodeId; anchor?: EdgeAnchor }
+  source: EdgeEnd
+  target: EdgeEnd
   type: EdgeType
-  routing?: EdgeRouting
+  path?: EdgePath
   style?: EdgeStyle
   label?: EdgeLabel
   data?: Record<string, unknown>

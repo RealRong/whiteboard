@@ -1,5 +1,5 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
-import { resolveEdgeEndpoints } from '@whiteboard/core/edge'
+import { resolveEdgeEnds } from '@whiteboard/core/edge'
 import { createKeyedDerivedStore } from '@whiteboard/core/runtime'
 import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
@@ -7,8 +7,8 @@ import type { EdgeId } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import {
   projectEdgeItem,
-  type EdgeRoutingSessionReader
-} from '../../features/edge/session/routing'
+  type EdgePathSessionReader
+} from '../../features/edge/session/path'
 
 const toNodeCanvas = (item: NodeItem) => ({
   rect: item.rect,
@@ -22,14 +22,14 @@ const isEdgeItemEqual = (
   left === right
   || (
     left?.edge === right?.edge
-    && left?.endpoints.source.nodeId === right?.endpoints.source.nodeId
-    && left?.endpoints.target.nodeId === right?.endpoints.target.nodeId
-    && left?.endpoints.source.anchor.side === right?.endpoints.source.anchor.side
-    && left?.endpoints.target.anchor.side === right?.endpoints.target.anchor.side
-    && left?.endpoints.source.anchor.offset === right?.endpoints.source.anchor.offset
-    && left?.endpoints.target.anchor.offset === right?.endpoints.target.anchor.offset
-    && isPointEqual(left?.endpoints.source.point, right?.endpoints.source.point)
-    && isPointEqual(left?.endpoints.target.point, right?.endpoints.target.point)
+    && left?.ends.source.end.kind === right?.ends.source.end.kind
+    && left?.ends.target.end.kind === right?.ends.target.end.kind
+    && left?.ends.source.anchor?.side === right?.ends.source.anchor?.side
+    && left?.ends.target.anchor?.side === right?.ends.target.anchor?.side
+    && left?.ends.source.anchor?.offset === right?.ends.source.anchor?.offset
+    && left?.ends.target.anchor?.offset === right?.ends.target.anchor?.offset
+    && isPointEqual(left?.ends.source.point, right?.ends.source.point)
+    && isPointEqual(left?.ends.target.point, right?.ends.target.point)
   )
 )
 
@@ -40,7 +40,7 @@ export const createEdgeRead = ({
 }: {
   read: Pick<EngineRead, 'edge'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  session: EdgeRoutingSessionReader
+  session: EdgePathSessionReader
 }): {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
@@ -54,21 +54,33 @@ export const createEdgeRead = ({
       }
 
       const nextEntry = projectEdgeItem(entry, readStore(session, edgeId))
-      const source = readStore(nodeItem, nextEntry.edge.source.nodeId)
-      const target = readStore(nodeItem, nextEntry.edge.target.nodeId)
-      if (!source || !target) {
+      const source =
+        nextEntry.edge.source.kind === 'node'
+          ? readStore(nodeItem, nextEntry.edge.source.nodeId)
+          : undefined
+      const target =
+        nextEntry.edge.target.kind === 'node'
+          ? readStore(nodeItem, nextEntry.edge.target.nodeId)
+          : undefined
+      if (
+        (nextEntry.edge.source.kind === 'node' && !source)
+        || (nextEntry.edge.target.kind === 'node' && !target)
+      ) {
         return nextEntry
       }
 
-      const endpoints = resolveEdgeEndpoints({
+      const ends = resolveEdgeEnds({
         edge: nextEntry.edge,
-        source: toNodeCanvas(source),
-        target: toNodeCanvas(target)
+        source: source ? toNodeCanvas(source) : undefined,
+        target: target ? toNodeCanvas(target) : undefined
       })
+      if (!ends) {
+        return nextEntry
+      }
 
       return {
         ...nextEntry,
-        endpoints
+        ends
       }
     },
     isEqual: isEdgeItemEqual

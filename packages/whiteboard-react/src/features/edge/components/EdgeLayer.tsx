@@ -1,15 +1,11 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { memo, useCallback } from 'react'
+import { memo } from 'react'
 import {
   useInternalInstance,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import {
-  hasEdge,
-  leave
-} from '../../../runtime/container'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -42,41 +38,15 @@ const EdgeItemById = memo(
   }
 )
 
-export const EdgeLayer = () => {
+export const EdgeLayer = ({
+  onEdgePointerDown
+}: {
+  onEdgePointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
+}) => {
   const instance = useInternalInstance()
   const edgeIds = useStoreValue(instance.read.edge.list)
   const selectedEdgeId = useSelection().target.edgeId
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
-  const handleEdgePathPointerDown = useCallback((event: ReactPointerEvent<SVGPathElement>) => {
-    if (event.button !== 0) {
-      return
-    }
-
-    const edgeId = event.currentTarget
-      .closest('[data-edge-id]')
-      ?.getAttribute('data-edge-id') as EdgeId | null
-    if (!edgeId) {
-      return
-    }
-
-    const entry = instance.read.edge.item.get(edgeId)
-    if (!entry) {
-      return
-    }
-
-    if (!hasEdge(instance.state.container.get(), entry.edge)) {
-      leave(instance)
-    }
-
-    if (event.shiftKey || event.detail >= 2) {
-      const point = instance.viewport.pointer(event).world
-      instance.commands.edge.routing.insertAtPoint(edgeId, point)
-    }
-
-    instance.commands.selection.selectEdge(edgeId)
-    event.preventDefault()
-    event.stopPropagation()
-  }, [instance])
 
   return (
     <svg
@@ -117,7 +87,7 @@ export const EdgeLayer = () => {
           edgeId={edgeId}
           hitTestThresholdScreen={hitTestThresholdScreen}
           selected={edgeId === selectedEdgeId}
-          handleEdgePathPointerDown={handleEdgePathPointerDown}
+          handleEdgePathPointerDown={onEdgePointerDown}
         />
       ))}
     </svg>

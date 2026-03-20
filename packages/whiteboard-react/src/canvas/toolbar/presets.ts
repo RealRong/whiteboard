@@ -34,13 +34,13 @@ export type InsertPreset = {
   }) => InsertPresetResult | undefined
 }
 
-type StickyTone = {
+export type StickyTone = {
   key: string
   label: string
   fill: string
 }
 
-type MindmapTemplate = {
+export type MindmapTemplate = {
   key: string
   label: string
   description: string
@@ -96,7 +96,7 @@ const STICKY_TONES: readonly StickyTone[] = [
 
 export const STICKY_INSERT_OPTIONS = STICKY_TONES
 
-const MINDMAP_TEMPLATES: readonly MindmapTemplate[] = [
+export const MINDMAP_INSERT_TEMPLATES: readonly MindmapTemplate[] = [
   {
     key: 'mindmap.blank',
     label: 'Blank map',
@@ -153,19 +153,24 @@ const MINDMAP_TEMPLATES: readonly MindmapTemplate[] = [
   }
 ] as const
 
-const centerNodeInput = (
+type InsertPlacement = 'center' | 'point'
+
+const placeNodeInput = (
   world: Point,
-  input: Omit<NodeInput, 'position'>
+  input: Omit<NodeInput, 'position'>,
+  placement: InsertPlacement = 'center'
 ): NodeInput => {
   const width = input.size?.width ?? 160
   const height = input.size?.height ?? 80
 
   return {
     ...input,
-    position: {
-      x: world.x - width / 2,
-      y: world.y - height / 2
-    }
+    position: placement === 'point'
+      ? world
+      : {
+          x: world.x - width / 2,
+          y: world.y - height / 2
+        }
   }
 }
 
@@ -175,6 +180,7 @@ const createNodePreset = ({
   label,
   description,
   focus,
+  placement,
   input
 }: {
   key: string
@@ -182,6 +188,7 @@ const createNodePreset = ({
   label: string
   description?: string
   focus?: EditField
+  placement?: InsertPlacement
   input: (world: Point) => Omit<NodeInput, 'position'>
 }): InsertPreset => ({
   key,
@@ -190,10 +197,10 @@ const createNodePreset = ({
   description,
   create: ({ instance, world, parentId }) => {
     const result = instance.commands.node.create(
-      centerNodeInput(world, {
+      placeNodeInput(world, {
         ...input(world),
         parentId
-      })
+      }, placement)
     )
     if (!result.ok) {
       return
@@ -262,9 +269,10 @@ export const TEXT_INSERT_PRESET = createNodePreset({
   label: 'Text',
   description: 'Empty text block',
   focus: 'text',
+  placement: 'point',
   input: () => ({
     type: 'text',
-    size: { width: 220, height: 44 },
+    size: { width: 48, height: 24 },
     data: { text: '' }
   })
 })
@@ -407,7 +415,7 @@ export const SHAPE_INSERT_PRESETS: readonly InsertPreset[] = [
   })
 ] as const
 
-export const MINDMAP_INSERT_PRESETS: readonly InsertPreset[] = MINDMAP_TEMPLATES.map(createMindmapPreset)
+export const MINDMAP_INSERT_PRESETS: readonly InsertPreset[] = MINDMAP_INSERT_TEMPLATES.map(createMindmapPreset)
 
 export const INSERT_PRESETS: readonly InsertPreset[] = [
   TEXT_INSERT_PRESET,
@@ -420,6 +428,10 @@ const INSERT_PRESET_INDEX = new Map(
   INSERT_PRESETS.map((preset) => [preset.key, preset] as const)
 )
 
+const STICKY_TONE_INDEX = new Map(
+  STICKY_TONES.map((tone) => [tone.key, tone] as const)
+)
+
 export const DEFAULT_STICKY_PRESET_KEY = STICKY_INSERT_PRESETS[0].key
 export const DEFAULT_SHAPE_PRESET_KEY = SHAPE_INSERT_PRESETS[0].key
 export const DEFAULT_MINDMAP_PRESET_KEY = MINDMAP_INSERT_PRESETS[0].key
@@ -427,6 +439,12 @@ export const DEFAULT_MINDMAP_PRESET_KEY = MINDMAP_INSERT_PRESETS[0].key
 export const getInsertPreset = (
   key: string
 ) => INSERT_PRESET_INDEX.get(key)
+
+export const readStickyInsertTone = (
+  key: string | undefined
+) => key
+  ? STICKY_TONE_INDEX.get(key)
+  : undefined
 
 export const readInsertPresetGroup = (
   key: string | undefined

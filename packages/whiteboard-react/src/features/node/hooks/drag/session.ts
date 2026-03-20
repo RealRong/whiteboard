@@ -33,6 +33,7 @@ import {
   type NodeDragRuntimeState
 } from './math'
 import { GestureTuning } from '../../../../runtime/interaction'
+import { getNodeScene } from '../../scene'
 
 type ActiveDrag = NodeDragRuntimeState & {
   pointerId: number
@@ -41,7 +42,7 @@ type ActiveDrag = NodeDragRuntimeState & {
 
 type PendingPress = {
   pointerId: number
-  capture: HTMLDivElement
+  capture: Element
   nodeRect: NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>
   start: {
     clientX: number
@@ -60,6 +61,7 @@ type PendingPress = {
   holdElapsed: boolean
   holdTimer?: number
   locked: boolean
+  zone: 'node' | 'body'
   field?: EditField
 }
 
@@ -73,6 +75,15 @@ const isSingleSelectedNode = (
   && currentSelectedNodeIds[0] === nodeId
 )
 
+const isSelectedNode = (
+  instance: InternalInstance,
+  nodeId: NodeId,
+  currentSelectedNodeIds: readonly NodeId[]
+) => (
+  instance.state.selection.get().target.edgeId === undefined
+  && currentSelectedNodeIds.includes(nodeId)
+)
+
 export const createNodePressSession = (
   instance: InternalInstance,
   marquee: MarqueeSession
@@ -83,6 +94,26 @@ export const createNodePressSession = (
   let releasePending = () => {}
 
   const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
+
+  const readMarqueeScope = (
+    nodeId: NodeId,
+    container: ReturnType<InternalInstance['state']['container']['get']>
+  ): ReadonlySet<NodeId> | undefined => {
+    const entry = instance.read.index.node.get(nodeId)
+    if (!entry) {
+      return container.id
+        ? new Set<NodeId>(container.ids)
+        : undefined
+    }
+
+    if (getNodeScene(instance.registry.get(entry.node.type)) === 'container') {
+      return new Set<NodeId>(instance.read.tree.get(nodeId))
+    }
+
+    return container.id
+      ? new Set<NodeId>(container.ids)
+      : undefined
+  }
 
   const hasSelectionChanged = (
     currentSelectedNodeIds: readonly NodeId[],
@@ -274,6 +305,16 @@ export const createNodePressSession = (
       return
     }
 
+    const policy =
+      pending.zone === 'body' && pending.phase === 'retarget'
+        ? {
+            match: 'touch' as const
+          }
+        : {
+            match: 'contain' as const,
+            exclude: [pending.nodeRect.node.id]
+          }
+
     const started = marquee.start({
       pointerId: pending.pointerId,
       capture: pending.capture,
@@ -284,10 +325,7 @@ export const createNodePressSession = (
       mode: pending.selectionMode,
       baseSelectedNodeIds: pending.currentSelectedNodeIds,
       containerNodeIds: pending.containerNodeIds,
-      policy: {
-        match: 'contain',
-        exclude: [pending.nodeRect.node.id]
-      }
+      policy
     })
     clearPending()
     if (!started) {
@@ -327,6 +365,11 @@ export const createNodePressSession = (
         return
       }
 
+      if (pending.zone === 'body' && pending.phase === 'retarget') {
+        startMarquee(moveEvent)
+        return
+      }
+
       startDrag(moveEvent)
     }
 
@@ -340,7 +383,10 @@ export const createNodePressSession = (
         return
       }
 
-      if (readElementNodeId(upEvent.target) === pending.nodeRect.node.id) {
+      if (
+        pending.zone === 'body'
+        || readElementNodeId(upEvent.target) === pending.nodeRect.node.id
+      ) {
         finalizeClick()
         return
       }
@@ -433,13 +479,12 @@ export const createNodePressSession = (
         currentSelectedNodeIds,
         clickSelectedNodeIds,
         dragSelectedNodeIds,
-        containerNodeIds: container.id
-          ? new Set<NodeId>(container.ids)
-          : undefined,
+        containerNodeIds: readMarqueeScope(nodeRect.node.id, container),
         selectionMode,
         phase,
         holdElapsed: false,
         locked: Boolean(nodeRect.node.locked),
+        zone: 'node',
         field: readEditableFieldTarget(event.target)
       }
 
@@ -464,6 +509,80 @@ export const createNodePressSession = (
       }
       event.stopPropagation()
     },
+    handleContainerBodyPointerDown: (
+      nodeId: NodeId,
+      capture: HTMLDivElement,
+      event: PointerEvent
+    ) => {
+      if (event.button !== 0) return false
+      if (pending) return false
+      if (active) return false
+      if (instance.interaction.mode.get() !== 'idle') return false
+      if (!instance.read.tool.is('select')) return false
+
+      const nodeRect = instance.read.index.node.get(nodeId)
+      if (!nodeRect) return false
+
+      const container = instance.state.container.get()
+      const currentSelectedNodeIds = filterNodeIds(
+        container,
+        instance.state.selection.get().target.nodeIds
+      )
+      const selectionMode = resolveSelectionMode(event)
+      const phase: Exclude<NodePressPhase, 'hold'> =
+        selectionMode === 'replace' && isSelectedNode(instance, nodeId, currentSelectedNodeIds)
+          ? 'repeat'
+          : 'retarget'
+      const clickSelectedNodeIds = [
+        ...applySelection(
+          new Set(currentSelectedNodeIds),
+          [nodeId],
+          selectionMode
+        )
+      ]
+
+      pending = {
+        pointerId: event.pointerId,
+        capture,
+        nodeRect,
+        start: {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          world: instance.viewport.pointer(event).world
+        },
+        currentSelectedNodeIds,
+        clickSelectedNodeIds,
+        dragSelectedNodeIds: phase === 'repeat'
+          ? currentSelectedNodeIds
+          : clickSelectedNodeIds,
+        containerNodeIds: readMarqueeScope(nodeRect.node.id, container),
+        selectionMode,
+        phase,
+        holdElapsed: false,
+        locked: Boolean(nodeRect.node.locked),
+        zone: 'body'
+      }
+
+      if (phase === 'repeat' && typeof window !== 'undefined') {
+        pending.holdTimer = window.setTimeout(() => {
+          if (!pending || pending.pointerId !== event.pointerId) {
+            return
+          }
+          pending.holdElapsed = true
+          instance.commands.selection.clear()
+          instance.internals.node.press.set('hold')
+        }, GestureTuning.holdDelay)
+      }
+
+      instance.internals.node.press.set(phase)
+      bindPending()
+
+      if (event.cancelable) {
+        event.preventDefault()
+      }
+      event.stopPropagation()
+      return true
+    },
     handleNodeDoubleClick: (
       nodeId: NodeId,
       event: ReactMouseEvent<HTMLDivElement>
@@ -479,7 +598,10 @@ export const createNodePressSession = (
       }
 
       const nodeEntry = instance.read.index.node.get(nodeId)
-      if (!nodeEntry || nodeEntry.node.type !== 'group') {
+      if (
+        !nodeEntry
+        || getNodeScene(instance.registry.get(nodeEntry.node.type)) !== 'container'
+      ) {
         return
       }
 
@@ -489,3 +611,5 @@ export const createNodePressSession = (
     }
   }
 }
+
+export type NodePressSession = ReturnType<typeof createNodePressSession>

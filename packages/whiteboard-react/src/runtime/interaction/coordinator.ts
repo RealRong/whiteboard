@@ -29,6 +29,7 @@ export const createInteractionCoordinator = ({
   })
   let nextId = 1
   let releaseWindow = () => {}
+  let releaseDocumentSelection = () => {}
   let endCurrent: (() => void) | null = null
   let currentInput: InteractionStartInput | null = null
   let currentSession: InteractionSession | null = null
@@ -39,6 +40,11 @@ export const createInteractionCoordinator = ({
   const clearWindow = () => {
     releaseWindow()
     releaseWindow = () => {}
+  }
+
+  const clearDocumentSelection = () => {
+    releaseDocumentSelection()
+    releaseDocumentSelection = () => {}
   }
 
   const releaseCapture = (
@@ -87,6 +93,43 @@ export const createInteractionCoordinator = ({
     }
   }
 
+  const lockDocumentSelection = () => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const root = document.documentElement
+    const body = document.body
+    const previousRootUserSelect = root.style.userSelect
+    const previousBodyUserSelect = body?.style.userSelect ?? ''
+    const previousRootWebkitUserSelect = root.style.webkitUserSelect
+    const previousBodyWebkitUserSelect = body?.style.webkitUserSelect ?? ''
+    const preventDefault = (event: Event) => {
+      event.preventDefault()
+    }
+
+    root.style.userSelect = 'none'
+    root.style.webkitUserSelect = 'none'
+    if (body) {
+      body.style.userSelect = 'none'
+      body.style.webkitUserSelect = 'none'
+    }
+
+    document.addEventListener('selectstart', preventDefault, true)
+    document.addEventListener('dragstart', preventDefault, true)
+
+    releaseDocumentSelection = () => {
+      document.removeEventListener('selectstart', preventDefault, true)
+      document.removeEventListener('dragstart', preventDefault, true)
+      root.style.userSelect = previousRootUserSelect
+      root.style.webkitUserSelect = previousRootWebkitUserSelect
+      if (body) {
+        body.style.userSelect = previousBodyUserSelect
+        body.style.webkitUserSelect = previousBodyWebkitUserSelect
+      }
+    }
+  }
+
   const matchesPointer = (
     input: InteractionStartInput,
     event: PointerEvent
@@ -103,6 +146,7 @@ export const createInteractionCoordinator = ({
 
     autoPan.stop()
     clearWindow()
+    clearDocumentSelection()
     releaseCapture(input.capture, current.pointerId)
     active.set(null)
     endCurrent = null
@@ -244,6 +288,7 @@ export const createInteractionCoordinator = ({
       endCurrent = end
       currentInput = input
       currentSession = session
+      lockDocumentSelection()
       capturePointer(input.capture, input.pointerId)
 
       if (input.pan) {

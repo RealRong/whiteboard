@@ -3,15 +3,21 @@ import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { ReadStore } from '@whiteboard/core/runtime'
+import type { View as SelectionView } from '../selection'
 import type { Tool } from '../tool'
 import type { EditTarget } from '../edit'
-import { createNodeRead } from './node'
+import type { InteractionMode } from '../interaction'
+import {
+  createNodeRead,
+  type NodeRead
+} from './node'
 import { createEdgeRead } from './edge'
 import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
 import { createEditRead, type EditRead } from './edit'
 
-export type RuntimeRead = EngineRead & {
+export type RuntimeRead = Omit<EngineRead, 'node'> & {
+  node: NodeRead
   tool: ToolRead
   edit: EditRead
 }
@@ -20,6 +26,8 @@ export const createRuntimeRead = ({
   engineRead,
   tool,
   edit,
+  selection,
+  interaction,
   node,
   edge,
   mindmap
@@ -27,18 +35,25 @@ export const createRuntimeRead = ({
   engineRead: EngineRead
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
-  node: Pick<NodeFeatureRuntime, 'session'>
-  edge: Pick<EdgeFeatureRuntime, 'routing'>
+  selection: ReadStore<SelectionView>
+  interaction: ReadStore<InteractionMode>
+  node: Pick<NodeFeatureRuntime, 'session' | 'press'>
+  edge: Pick<EdgeFeatureRuntime, 'path'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
 }): RuntimeRead => {
   const nodeRead = createNodeRead({
     read: engineRead,
-    session: node.session
+    session: node.session,
+    tool,
+    edit,
+    selection,
+    interaction,
+    press: node.press
   })
   const edgeRead = createEdgeRead({
     read: engineRead,
     nodeItem: nodeRead.item,
-    session: edge.routing
+    session: edge.path
   })
   const mindmapRead = createMindmapRead({
     read: engineRead,

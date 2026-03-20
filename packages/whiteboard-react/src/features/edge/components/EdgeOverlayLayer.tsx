@@ -1,27 +1,44 @@
-import { useInteraction } from '../../../runtime/hooks'
+import { useInteraction, useTool } from '../../../runtime/hooks'
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
-import { useEdgeRouting } from '../hooks/routing/useEdgeRouting'
 import { EdgePreview } from './EdgePreview'
 import { EdgeSelectedControls } from './EdgeSelectedControls'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent
+} from 'react'
+import type { SelectedEdgePathPointView } from '../hooks/useEdgeView'
 
-export const EdgeOverlayLayer = () => {
+export const EdgeOverlayLayer = ({
+  onEndpointPointerDown,
+  onPathPointPointerDown,
+  onPathPointKeyDown
+}: {
+  onEndpointPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPathPointPointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    point: SelectedEdgePathPointView
+  ) => void
+  onPathPointKeyDown: (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    point: Extract<SelectedEdgePathPointView, { kind: 'anchor' }>
+  ) => void
+}) => {
   const interaction = useInteraction()
+  const tool = useTool()
   const selectedEdgeView = useSelectedEdgeView()
-  const {
-    handleRoutingPointerDown,
-    handleRoutingKeyDown
-  } = useEdgeRouting()
   const showEdgeControls =
     selectedEdgeView !== undefined
     && interaction === 'idle'
+    && tool.type !== 'hand'
 
   return (
     <>
       {showEdgeControls && selectedEdgeView ? (
         <EdgeSelectedControls
           view={selectedEdgeView}
-          onRoutingPointerDown={handleRoutingPointerDown}
-          onRoutingKeyDown={handleRoutingKeyDown}
+          onEndpointPointerDown={onEndpointPointerDown}
+          onPathPointPointerDown={onPathPointPointerDown}
+          onPathPointKeyDown={onPathPointKeyDown}
         />
       ) : null}
       <EdgePreview />

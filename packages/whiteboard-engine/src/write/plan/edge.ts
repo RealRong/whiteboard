@@ -4,11 +4,12 @@ import type { Draft } from '../draft'
 import { cancelled, invalid, op, success } from '../draft'
 import {
   buildEdgeCreateOperation,
-  getNearestEdgeSegment,
-  insertRoutingPoint as insertRoutingPointPatch,
-  moveRoutingPoint as moveRoutingPointPatch,
-  removeRoutingPoint as removeRoutingPointPatch,
-  resetRouting as resetRoutingPatch,
+  getNearestEdgeInsertIndex,
+  insertPathPoint as insertPathPointPatch,
+  moveEdge as moveEdgePatch,
+  movePathPoint as movePathPointPatch,
+  removePathPoint as removePathPointPatch,
+  clearPath as clearPathPatch,
   resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
 import { getNodeRect } from '@whiteboard/core/geometry'
@@ -23,6 +24,7 @@ import {
 import {
   getEdge,
   getNode,
+  isNodeEdgeEnd,
   type Document,
   type Edge,
   type EdgeId
@@ -64,35 +66,46 @@ export const edge = ({
   const readEdge = (edgeId: EdgeId): Edge | undefined =>
     getEdge(readDoc(), edgeId)
 
-  const resolvePathPoints = (
+  const resolvePath = (
     doc: Document,
     edge: Edge
   ) => {
-    const sourceNode = getNode(doc, edge.source.nodeId)
-    const targetNode = getNode(doc, edge.target.nodeId)
-    if (!sourceNode || !targetNode) return undefined
+    const sourceNode =
+      isNodeEdgeEnd(edge.source)
+        ? getNode(doc, edge.source.nodeId)
+        : undefined
+    const targetNode =
+      isNodeEdgeEnd(edge.target)
+        ? getNode(doc, edge.target.nodeId)
+        : undefined
+    if (isNodeEdgeEnd(edge.source) && !sourceNode) return undefined
+    if (isNodeEdgeEnd(edge.target) && !targetNode) return undefined
 
     return resolveEdgePathFromRects({
       edge,
-      source: {
-        rect: getNodeRect(sourceNode, instance.config.nodeSize),
-        rotation: sourceNode.rotation
-      },
-      target: {
-        rect: getNodeRect(targetNode, instance.config.nodeSize),
-        rotation: targetNode.rotation
-      }
-    }).path.points
+      source: sourceNode
+        ? {
+            rect: getNodeRect(sourceNode, instance.config.nodeSize),
+            rotation: sourceNode.rotation
+          }
+        : undefined,
+      target: targetNode
+        ? {
+            rect: getNodeRect(targetNode, instance.config.nodeSize),
+            rotation: targetNode.rotation
+          }
+        : undefined
+    }).path
   }
 
-  const updateRouting = (
+  const updatePath = (
     edgeId: EdgeId,
-    buildPatch: (edge: Readonly<Edge>) => ReturnType<typeof resetRoutingPatch> | undefined
+    buildPatch: (edge: Readonly<Edge>) => ReturnType<typeof clearPathPatch> | undefined
   ): Draft => {
     const edge = readEdge(edgeId)
     if (!edge) return cancelled('Edge not found.')
     const patch = buildPatch(edge)
-    if (!patch) return cancelled('No routing patch generated.')
+    if (!patch) return cancelled('No path patch generated.')
     return success([{ type: 'edge.update', id: edgeId, patch }])
   }
 
@@ -136,27 +149,32 @@ export const edge = ({
           }),
           ({ edgeId }) => ({ edgeId })
         ) as Draft<EdgeWriteOutput<C>>
+      case 'move':
+        return updatePath(command.edgeId, (edge) =>
+          moveEdgePatch(edge, command.delta)
+        ) as Draft<EdgeWriteOutput<C>>
       case 'updateMany':
         return updateMany(command) as Draft<EdgeWriteOutput<C>>
       case 'delete':
         return success(command.ids.map((id) => ({ type: 'edge.delete' as const, id }))) as Draft<EdgeWriteOutput<C>>
       case 'order':
         return order(command) as Draft<EdgeWriteOutput<C>>
-      case 'routing': {
+      case 'path': {
         switch (command.mode) {
           case 'insert': {
-            if (!command.pointWorld) return invalid('Routing point required.')
+            if (!command.point) return invalid('Path point required.')
             const doc = readDoc()
             const edge = getEdge(doc, command.edgeId)
             if (!edge) return cancelled('Edge not found.')
-            const pathPoints = resolvePathPoints(doc, edge)
-            if (!pathPoints?.length) return cancelled('Edge path unavailable.')
-            const segmentIndex = getNearestEdgeSegment(command.pointWorld, pathPoints)
-            const patch = insertRoutingPointPatch(
+            const path = resolvePath(doc, edge)
+            if (!path || !path.points.length || !path.segments.length) {
+              return cancelled('Edge path unavailable.')
+            }
+            const insertIndex = getNearestEdgeInsertIndex(command.point, path.segments)
+            const patch = insertPathPointPatch(
               edge,
-              pathPoints,
-              segmentIndex,
-              command.pointWorld
+              insertIndex,
+              command.point
             )
             if (!patch.ok) return invalid(patch.error.message, patch.error.details)
             return success(
@@ -165,21 +183,21 @@ export const edge = ({
             ) as Draft<EdgeWriteOutput<C>>
           }
           case 'move':
-            if (command.index === undefined || !command.pointWorld) {
-              return invalid('Routing index and point required.')
+            if (command.index === undefined || !command.point) {
+              return invalid('Path index and point required.')
             }
-            return updateRouting(command.edgeId, (edge) =>
-              moveRoutingPointPatch(edge, command.index!, command.pointWorld!)
+            return updatePath(command.edgeId, (edge) =>
+              movePathPointPatch(edge, command.index!, command.point!)
             ) as Draft<EdgeWriteOutput<C>>
           case 'remove':
-            if (command.index === undefined) return invalid('Routing index required.')
-            return updateRouting(command.edgeId, (edge) =>
-              removeRoutingPointPatch(edge, command.index!)
+            if (command.index === undefined) return invalid('Path index required.')
+            return updatePath(command.edgeId, (edge) =>
+              removePathPointPatch(edge, command.index!)
             ) as Draft<EdgeWriteOutput<C>>
-          case 'reset':
-            return updateRouting(command.edgeId, (edge) => resetRoutingPatch(edge)) as Draft<EdgeWriteOutput<C>>
+          case 'clear':
+            return updatePath(command.edgeId, (edge) => clearPathPatch(edge)) as Draft<EdgeWriteOutput<C>>
           default:
-            return invalid('Unsupported routing mode.') as Draft<EdgeWriteOutput<C>>
+            return invalid('Unsupported path mode.') as Draft<EdgeWriteOutput<C>>
         }
       }
       default:

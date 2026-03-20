@@ -1,3 +1,4 @@
+import { getEdgePath } from '@whiteboard/core/edge'
 import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useMemo } from 'react'
@@ -6,25 +7,35 @@ import {
   useSelection
 } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
-import { useEdgeRoutingSession } from '../session/routing'
+import { useEdgePathSession } from '../session/path'
 
 export type EdgeView = {
   edge: EdgeItem['edge']
-  endpoints: EdgeItem['endpoints']
+  ends: EdgeItem['ends']
 }
 
-export type SelectedEdgeRoutingHandleView = {
-  key: string
-  edgeId: EdgeId
-  index: number
-  point: Point
-  active: boolean
-}
+export type SelectedEdgePathPointView =
+  | {
+      key: string
+      kind: 'anchor'
+      edgeId: EdgeId
+      index: number
+      point: Point
+      active: boolean
+    }
+  | {
+      key: string
+      kind: 'insert'
+      edgeId: EdgeId
+      insertIndex: number
+      point: Point
+      active: false
+    }
 
 export type SelectedEdgeView = {
   edgeId: EdgeId
-  endpoints: EdgeView['endpoints']
-  routingHandles: readonly SelectedEdgeRoutingHandleView[]
+  ends: EdgeView['ends']
+  pathPoints: readonly SelectedEdgePathPointView[]
 }
 
 export const useEdgeView = (
@@ -45,7 +56,7 @@ export const useEdgeView = (
 
       return {
         edge: entry.edge,
-        endpoints: entry.endpoints
+        ends: entry.ends
       }
     },
     [entry]
@@ -56,7 +67,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInternalInstance()
   const edgeId = useSelection().target.edgeId
   const entry = useEdgeView(edgeId)
-  const routing = useEdgeRoutingSession(instance.internals.edge.routing, edgeId)
+  const pathSession = useEdgePathSession(instance.internals.edge.path, edgeId)
 
   return useMemo(() => {
     if (!edgeId || !entry) {
@@ -64,22 +75,49 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
     }
 
     const edge = entry.edge
-    const points = edge.routing?.points ?? []
-    const routingHandles =
-      edge.type === 'bezier' || edge.type === 'curve'
-        ? []
-        : points.map((point, index) => ({
-            key: `${edge.id}-point-${index}`,
-            edgeId: edge.id,
-            index,
-            point,
-            active: routing.activeRoutingIndex === index
-          }))
+    const points = edge.path?.points ?? []
+    const pathPoints: SelectedEdgePathPointView[] = []
+    const path = getEdgePath({
+      edge,
+      source: {
+        point: entry.ends.source.point,
+        side: entry.ends.source.anchor?.side
+      },
+      target: {
+        point: entry.ends.target.point,
+        side: entry.ends.target.anchor?.side
+      }
+    })
+
+    points.forEach((point, index) => {
+      pathPoints.push({
+        key: `${edge.id}-anchor-${index}`,
+        kind: 'anchor',
+        edgeId: edge.id,
+        index,
+        point,
+        active: pathSession.activePathIndex === index
+      })
+    })
+
+    path.segments.forEach((segment, index) => {
+      pathPoints.push({
+        key: `${edge.id}-insert-${index}`,
+        kind: 'insert',
+        edgeId: edge.id,
+        insertIndex: segment.insertIndex,
+        point: segment.insertPoint ?? {
+          x: (segment.from.x + segment.to.x) / 2,
+          y: (segment.from.y + segment.to.y) / 2
+        },
+        active: false
+      })
+    })
 
     return {
       edgeId,
-      endpoints: entry.endpoints,
-      routingHandles
+      ends: entry.ends,
+      pathPoints
     }
-  }, [routing.activeRoutingIndex, edgeId, entry])
+  }, [pathSession.activePathIndex, edgeId, entry])
 }

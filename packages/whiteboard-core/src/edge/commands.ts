@@ -13,7 +13,9 @@ import type {
 } from '../types'
 import {
   hasEdge,
-  hasNode
+  hasNode,
+  isNodeEdgeEnd,
+  isPointEdgeEnd
 } from '../types'
 
 export type EdgeCreateOperationResult =
@@ -22,7 +24,7 @@ export type EdgeCreateOperationResult =
     edgeId: EdgeId
   }, 'invalid'>
 
-export type InsertRoutingPointResult =
+export type InsertPathPointResult =
   Result<{
     patch: EdgePatch
     index: number
@@ -35,20 +37,34 @@ type BuildEdgeCreateOperationInput = {
   createEdgeId: () => EdgeId
 }
 
-const isManualRoutingUnsupported = (edge: Edge) =>
-  edge.type === 'bezier' || edge.type === 'curve'
-
-const createRoutingPatch = (
+const createPathPatch = (
   edge: Edge,
-  mode: 'auto' | 'manual',
   points?: Point[]
 ): EdgePatch => ({
-  routing: {
-    ...(edge.routing ?? {}),
-    mode,
-    points
-  }
+  path:
+    points && points.length > 0
+      ? {
+          ...(edge.path ?? {}),
+          points
+        }
+      : undefined
 })
+
+const validateEdgeEnd = (
+  doc: Document,
+  end: EdgeInput['source'] | undefined,
+  label: 'Source' | 'Target'
+) => {
+  if (!end) {
+    return err('invalid', `Missing ${label.toLowerCase()} edge end.`)
+  }
+
+  if (isNodeEdgeEnd(end) && !hasNode(doc, end.nodeId)) {
+    return err('invalid', `${label} node ${end.nodeId} not found.`)
+  }
+
+  return ok(undefined)
+}
 
 export const buildEdgeCreateOperation = ({
   payload,
@@ -56,8 +72,8 @@ export const buildEdgeCreateOperation = ({
   registries,
   createEdgeId
 }: BuildEdgeCreateOperationInput): EdgeCreateOperationResult => {
-  if (!payload.source?.nodeId || !payload.target?.nodeId) {
-    return err('invalid', 'Missing edge endpoints.')
+  if (!payload.source || !payload.target) {
+    return err('invalid', 'Missing edge ends.')
   }
   if (!payload.type) {
     return err('invalid', 'Missing edge type.')
@@ -65,11 +81,14 @@ export const buildEdgeCreateOperation = ({
   if (payload.id && hasEdge(doc, payload.id)) {
     return err('invalid', `Edge ${payload.id} already exists.`)
   }
-  if (!hasNode(doc, payload.source.nodeId)) {
-    return err('invalid', `Source node ${payload.source.nodeId} not found.`)
+
+  const sourceValidation = validateEdgeEnd(doc, payload.source, 'Source')
+  if (!sourceValidation.ok) {
+    return sourceValidation
   }
-  if (!hasNode(doc, payload.target.nodeId)) {
-    return err('invalid', `Target node ${payload.target.nodeId} not found.`)
+  const targetValidation = validateEdgeEnd(doc, payload.target, 'Target')
+  if (!targetValidation.ok) {
+    return targetValidation
   }
 
   const typeDef = registries.edgeTypes.get(payload.type)
@@ -98,53 +117,97 @@ export const buildEdgeCreateOperation = ({
   })
 }
 
-export const insertRoutingPoint = (
+export const insertPathPoint = (
   edge: Edge,
-  pathPoints: Point[],
-  segmentIndex: number,
+  insertIndex: number,
   pointWorld: Point
-): InsertRoutingPointResult => {
-  if (isManualRoutingUnsupported(edge)) {
-    return err('invalid', 'Manual routing is unsupported for this edge type.')
-  }
-  const basePoints = edge.routing?.points?.length
-    ? edge.routing.points
-    : pathPoints.slice(1, -1)
-  const insertIndex = Math.max(0, Math.min(segmentIndex, basePoints.length))
+): InsertPathPointResult => {
+  const basePoints = edge.path?.points ?? []
+  const nextInsertIndex = Math.max(0, Math.min(insertIndex, basePoints.length))
   const nextPoints = [...basePoints]
-  nextPoints.splice(insertIndex, 0, pointWorld)
+  nextPoints.splice(nextInsertIndex, 0, pointWorld)
   return ok({
-    index: insertIndex,
-    patch: createRoutingPatch(edge, 'manual', nextPoints)
+    index: nextInsertIndex,
+    patch: createPathPatch(edge, nextPoints)
   })
 }
 
-export const moveRoutingPoint = (
+export const movePathPoint = (
   edge: Edge,
   index: number,
   pointWorld: Point
 ): EdgePatch | undefined => {
-  if (isManualRoutingUnsupported(edge)) return undefined
-  const points = edge.routing?.points ?? []
+  const points = edge.path?.points ?? []
   if (index < 0 || index >= points.length) return undefined
   const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
-  return createRoutingPatch(edge, 'manual', nextPoints)
+  return createPathPatch(edge, nextPoints)
 }
 
-export const removeRoutingPoint = (
+export const removePathPoint = (
   edge: Edge,
   index: number
 ): EdgePatch | undefined => {
-  if (isManualRoutingUnsupported(edge)) return undefined
-  const points = edge.routing?.points ?? []
+  const points = edge.path?.points ?? []
   if (index < 0 || index >= points.length) return undefined
 
   const nextPoints = points.filter((_, idx) => idx !== index)
-  if (!nextPoints.length) {
-    return createRoutingPatch(edge, 'auto', undefined)
-  }
-  return createRoutingPatch(edge, 'manual', nextPoints)
+  return createPathPatch(edge, nextPoints)
 }
 
-export const resetRouting = (edge: Edge): EdgePatch =>
-  createRoutingPatch(edge, 'auto', undefined)
+export const clearPath = (edge: Edge): EdgePatch =>
+  createPathPatch(edge, undefined)
+
+export const moveEdge = (
+  edge: Edge,
+  delta: Point
+): EdgePatch | undefined => {
+  if (delta.x === 0 && delta.y === 0) {
+    return undefined
+  }
+
+  let changed = false
+
+  const source = isPointEdgeEnd(edge.source)
+    ? {
+        ...edge.source,
+        point: {
+          x: edge.source.point.x + delta.x,
+          y: edge.source.point.y + delta.y
+        }
+      }
+    : edge.source
+  if (source !== edge.source) {
+    changed = true
+  }
+
+  const target = isPointEdgeEnd(edge.target)
+    ? {
+        ...edge.target,
+        point: {
+          x: edge.target.point.x + delta.x,
+          y: edge.target.point.y + delta.y
+        }
+      }
+    : edge.target
+  if (target !== edge.target) {
+    changed = true
+  }
+
+  const pathPoints = edge.path?.points?.map((point) => ({
+    x: point.x + delta.x,
+    y: point.y + delta.y
+  }))
+  if (pathPoints?.length) {
+    changed = true
+  }
+
+  if (!changed) {
+    return undefined
+  }
+
+  return {
+    ...(source !== edge.source ? { source } : {}),
+    ...(target !== edge.target ? { target } : {}),
+    ...(pathPoints ? createPathPatch(edge, pathPoints) : {})
+  }
+}

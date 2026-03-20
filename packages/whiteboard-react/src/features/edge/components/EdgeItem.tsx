@@ -29,14 +29,14 @@ const EdgeItemBase = ({
   const svgPath = useMemo(() => getEdgePath({
     edge,
     source: {
-      point: entry.endpoints.source.point,
-      side: entry.endpoints.source.anchor.side
+      point: entry.ends.source.point,
+      side: entry.ends.source.anchor?.side
     },
     target: {
-      point: entry.endpoints.target.point,
-      side: entry.endpoints.target.anchor.side
+      point: entry.ends.target.point,
+      side: entry.ends.target.anchor?.side
     }
-  }).svgPath, [edge, entry.endpoints])
+  }).svgPath, [edge, entry.ends])
 
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useMemo(() => {
     const baseStroke = edge.style?.stroke ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'

@@ -126,6 +126,7 @@ export const createStagedKeyedStore = <Key, Value, Input>({
 
   return {
     get: (key) => current.get(key) ?? emptyValue,
+    all: () => current,
     subscribe: (key, listener) => {
       const listeners = listenersByKey.get(key) ?? new Set<Listener>()
       if (!listenersByKey.has(key)) {
