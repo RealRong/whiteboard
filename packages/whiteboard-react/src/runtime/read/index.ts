@@ -15,11 +15,13 @@ import { createEdgeRead } from './edge'
 import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
 import { createEditRead, type EditRead } from './edit'
+import { createSliceRead, type SliceRead } from './slice'
 
 export type RuntimeRead = Omit<EngineRead, 'node'> & {
   node: NodeRead
   tool: ToolRead
   edit: EditRead
+  slice: SliceRead
 }
 
 export const createRuntimeRead = ({
@@ -65,6 +67,10 @@ export const createRuntimeRead = ({
     edge: edgeRead,
     mindmap: mindmapRead,
     tree: engineRead.tree,
+    slice: createSliceRead({
+      read: engineRead,
+      selection
+    }),
     index: engineRead.index,
     tool: createToolRead({
       tool

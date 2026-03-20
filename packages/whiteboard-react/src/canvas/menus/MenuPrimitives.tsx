@@ -78,11 +78,13 @@ export const ChipColumn = ({
 export const Chip = ({
   active = false,
   disabled = false,
+  tone,
   onClick,
   children
 }: {
   active?: boolean
   disabled?: boolean
+  tone?: 'danger'
   onClick: () => void
   children: ReactNode
 }) => (
@@ -90,7 +92,42 @@ export const Chip = ({
     type="button"
     className="wb-node-toolbar-chip"
     data-active={active ? 'true' : undefined}
+    data-tone={tone}
     disabled={disabled}
+    onClick={onClick}
+    data-selection-ignore
+    data-input-ignore
+  >
+    {children}
+  </button>
+)
+
+export const MenuList = ({
+  children
+}: {
+  children: ReactNode
+}) => (
+  <div className="wb-node-toolbar-menu-list">
+    {children}
+  </div>
+)
+
+export const MenuItem = ({
+  disabled = false,
+  tone,
+  onClick,
+  children
+}: {
+  disabled?: boolean
+  tone?: 'danger'
+  onClick: () => void
+  children: ReactNode
+}) => (
+  <button
+    type="button"
+    className="wb-node-toolbar-menu-item"
+    disabled={disabled}
+    data-tone={tone}
     onClick={onClick}
     data-selection-ignore
     data-input-ignore

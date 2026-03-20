@@ -1,6 +1,10 @@
 import type { ReadControl, ReadDeps, ReadModel } from '@engine-types/read'
 import type { EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import {
+  exportSliceFromEdge,
+  exportSliceFromNodes
+} from '@whiteboard/core/document'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
 import { NodeRectIndex, SnapIndex, TreeIndex } from '../indexes'
@@ -112,6 +116,24 @@ export const createRead = ({
       tree: {
         get: treeProjection.get,
         subscribe: treeProjection.subscribe
+      },
+      slice: {
+        fromNodes: (nodeIds) => {
+          const exported = exportSliceFromNodes({
+            doc: readDocument(),
+            ids: nodeIds,
+            nodeSize: config.nodeSize
+          })
+          return exported.ok ? exported.data : undefined
+        },
+        fromEdge: (edgeId) => {
+          const exported = exportSliceFromEdge({
+            doc: readDocument(),
+            edgeId,
+            nodeSize: config.nodeSize
+          })
+          return exported.ok ? exported.data : undefined
+        }
       },
       index: indexes
     },

@@ -242,6 +242,7 @@ export const node = ({
         registries: instance.registries,
         createNodeId,
         createEdgeId,
+        nodeSize: instance.config.nodeSize,
         offset: DEFAULT_TUNING.shortcuts.duplicateOffset
       }),
       ({ nodeIds, edgeIds }) => ({ nodeIds, edgeIds })

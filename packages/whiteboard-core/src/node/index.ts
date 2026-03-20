@@ -1,6 +1,5 @@
 export {
   buildNodeDuplicateOperations,
-  createNodeDuplicateInput,
   expandNodeSelection
 } from './duplicate'
 export {

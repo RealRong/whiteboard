@@ -14,25 +14,22 @@ import {
   hasNode
 } from '../runtime/container'
 import {
-  alignNodes,
-  arrangeNodes,
-  deleteNodes,
-  distributeNodes,
-  duplicateNodes,
-  groupNodes,
-  toggleNodesLock,
+  buildContextMenuGroups,
+  createNodeSelectionActions
+} from '../features/node/actions'
+import {
   type GroupAutoFitMode,
-  ungroupNodes,
   updateGroupNode
 } from '../features/node/commands'
 import {
-  readLockLabel,
-  summarizeNodes
-} from '../features/node/summary'
-import {
   CREATE_NODE_PRESETS,
   closeAfter,
+  copyEdge,
+  copyNodes,
   createNodeFromPreset,
+  cutEdge,
+  cutNodes,
+  pasteClipboard,
   selectAllInScope
 } from './actions'
 import {
@@ -54,10 +51,11 @@ type ContextMenuItem = {
   label: string
   tone?: ContextMenuTone
   disabled?: boolean
-  onClick: () => void
+  onClick?: () => void
+  children?: readonly ContextMenuItem[]
 }
 
-type ContextMenuSection = {
+type ContextMenuGroup = {
   key: string
   title?: string
   items: readonly ContextMenuItem[]
@@ -85,6 +83,8 @@ type ContextMenuResolvedTarget =
   | { kind: 'node'; node: WhiteboardNode; world: Point }
   | { kind: 'nodes'; nodes: readonly WhiteboardNode[]; world: Point }
   | { kind: 'edge'; edgeId: EdgeId; world: Point }
+
+type ContextMenuSide = 'left' | 'right'
 
 const ShouldIgnoreDuplicateMs = 300
 const DuplicateDistance = 4
@@ -208,9 +208,37 @@ const readPlacement = ({
   return {
     left,
     top,
-    transform: `${alignRight ? 'translateX(-100%)' : ''} ${alignBottom ? 'translateY(-100%)' : ''}`.trim()
+    transform: `${alignRight ? 'translateX(-100%)' : ''} ${alignBottom ? 'translateY(-100%)' : ''}`.trim(),
+    submenuSide: alignRight ? 'left' as const : 'right' as const
   }
 }
+
+const bindContextMenuItems = (
+  items: readonly ContextMenuItem[],
+  close: () => void
+): ContextMenuItem[] => (
+  items.map((item) => ({
+    ...item,
+    onClick: item.onClick
+      ? () => {
+        closeAfter(item.onClick?.(), close)
+      }
+      : undefined,
+    children: item.children
+      ? bindContextMenuItems(item.children, close)
+      : undefined
+  }))
+)
+
+const bindContextMenuGroups = (
+  groups: readonly ContextMenuGroup[],
+  close: () => void
+): ContextMenuGroup[] => (
+  groups.map((group) => ({
+    ...group,
+    items: bindContextMenuItems(group.items, close)
+  }))
+)
 
 const readContextMenuOpenResult = ({
   instance,
@@ -309,6 +337,7 @@ export const ContextMenu = ({
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const [session, setSession] = useState<ContextMenuSession>(null)
+  const [submenuKey, setSubmenuKey] = useState<string | null>(null)
 
   const dismiss = useCallback((mode: 'dismiss' | 'action') => {
     setSession((current) => {
@@ -317,6 +346,7 @@ export const ContextMenu = ({
       }
       return null
     })
+    setSubmenuKey(null)
   }, [instance])
 
   const dismissAction = useCallback(() => {
@@ -341,6 +371,7 @@ export const ContextMenu = ({
         selection.target.edgeId
       )
     })
+    setSubmenuKey(null)
   }, [instance])
 
   useEffect(() => {
@@ -416,161 +447,9 @@ export const ContextMenu = ({
     const target = resolveContextMenuTarget(instance, session.target)
     if (!target) return undefined
 
-    const buildArrangeSection = (
-      nodeIds: readonly NodeId[]
-    ): ContextMenuSection => ({
-      key: 'arrange',
-      title: 'Arrange',
-      items: [
-        {
-          key: 'arrange.front',
-          label: 'Bring to front',
-          onClick: () => {
-            closeAfter(arrangeNodes(instance, nodeIds, 'front'), dismissAction)
-          }
-        },
-        {
-          key: 'arrange.forward',
-          label: 'Bring forward',
-          onClick: () => {
-            closeAfter(arrangeNodes(instance, nodeIds, 'forward'), dismissAction)
-          }
-        },
-        {
-          key: 'arrange.backward',
-          label: 'Send backward',
-          onClick: () => {
-            closeAfter(arrangeNodes(instance, nodeIds, 'backward'), dismissAction)
-          }
-        },
-        {
-          key: 'arrange.back',
-          label: 'Send to back',
-          onClick: () => {
-            closeAfter(arrangeNodes(instance, nodeIds, 'back'), dismissAction)
-          }
-        }
-      ]
-    })
-
-    const buildAlignSection = (
-      nodeIds: readonly NodeId[]
-    ): ContextMenuSection => ({
-      key: 'align',
-      title: 'Align',
-      items: [
-        {
-          key: 'align.top',
-          label: 'Align top',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'top'), dismissAction)
-          }
-        },
-        {
-          key: 'align.left',
-          label: 'Align left',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'left'), dismissAction)
-          }
-        },
-        {
-          key: 'align.right',
-          label: 'Align right',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'right'), dismissAction)
-          }
-        },
-        {
-          key: 'align.bottom',
-          label: 'Align bottom',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'bottom'), dismissAction)
-          }
-        },
-        {
-          key: 'align.horizontal',
-          label: 'Align horizontal center',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'horizontal'), dismissAction)
-          }
-        },
-        {
-          key: 'align.vertical',
-          label: 'Align vertical center',
-          onClick: () => {
-            closeAfter(alignNodes(instance, nodeIds, 'vertical'), dismissAction)
-          }
-        }
-      ]
-    })
-
-    const buildDistributeSection = (
-      nodeIds: readonly NodeId[]
-    ): ContextMenuSection => ({
-      key: 'distribute',
-      title: 'Distribute',
-      items: [
-        {
-          key: 'distribute.horizontal',
-          label: 'Distribute horizontally',
-          onClick: () => {
-            closeAfter(distributeNodes(instance, nodeIds, 'horizontal'), dismissAction)
-          }
-        },
-        {
-          key: 'distribute.vertical',
-          label: 'Distribute vertically',
-          onClick: () => {
-            closeAfter(distributeNodes(instance, nodeIds, 'vertical'), dismissAction)
-          }
-        }
-      ]
-    })
-
-    const buildNodeActionItems = (
-      nodes: readonly WhiteboardNode[]
-    ): ContextMenuSection => {
-      const summary = summarizeNodes(nodes)
-      const nodeIds = summary.ids
-
-      return {
-        key: `${nodes.length > 1 ? 'nodes' : 'node'}.actions`,
-        items: [
-          {
-            key: `${nodes.length > 1 ? 'nodes' : 'node'}.duplicate`,
-            label: 'Duplicate',
-            disabled: summary.count === 0,
-            onClick: () => {
-              if (summary.count === 0) return
-              closeAfter(duplicateNodes(instance, nodeIds), dismissAction)
-            }
-          },
-          {
-            key: `${nodes.length > 1 ? 'nodes' : 'node'}.delete`,
-            label: 'Delete',
-            tone: 'danger',
-            disabled: summary.count === 0,
-            onClick: () => {
-              if (summary.count === 0) return
-              closeAfter(deleteNodes(instance, nodeIds), dismissAction)
-            }
-          },
-          {
-            key: `${nodes.length > 1 ? 'nodes' : 'node'}.lock`,
-            label: readLockLabel(summary),
-            disabled: summary.count === 0,
-            onClick: () => {
-              if (summary.count === 0) return
-              closeAfter(toggleNodesLock(instance, nodes, summary), dismissAction)
-            }
-          }
-        ]
-      }
-    }
-
     const buildGroupSection = (
       node: WhiteboardNode
-    ): ContextMenuSection => {
+    ): ContextMenuGroup => {
       const collapsed = Boolean(node.data?.collapsed)
       const autoFit: GroupAutoFitMode =
         node.data?.autoFit === 'manual'
@@ -616,11 +495,25 @@ export const ContextMenu = ({
       }
     }
 
-    const readSections = (): readonly ContextMenuSection[] => {
+    const readGroups = (): readonly ContextMenuGroup[] => {
       switch (target.kind) {
         case 'canvas': {
           const container = instance.state.container.get()
           return [
+            {
+              key: 'edit',
+              title: 'Edit',
+              items: [
+                {
+                  key: 'edit.paste',
+                  label: 'Paste',
+                  onClick: () => pasteClipboard(instance, {
+                    at: target.world,
+                    parentId: container.id
+                  })
+                }
+              ]
+            },
             {
               key: 'create',
               title: 'Create',
@@ -674,58 +567,50 @@ export const ContextMenu = ({
           ]
         }
         case 'node': {
-          const summary = summarizeNodes([target.node])
-          const sections: ContextMenuSection[] = [
-            buildNodeActionItems([target.node]),
-            buildArrangeSection(summary.ids)
-          ]
+          const actions = createNodeSelectionActions(instance, [target.node], {
+            onCopy: () => copyNodes(instance, [target.node.id]),
+            onCut: () => cutNodes(instance, [target.node.id])
+          })
+          const groups = bindContextMenuGroups(
+            buildContextMenuGroups(actions),
+            dismissAction
+          )
           if (target.node.type === 'group') {
-            sections.push(buildGroupSection(target.node))
+            const groupSection = buildGroupSection(target.node)
+            const structureIndex = groups.findIndex((group) => group.key === 'structure')
+            if (structureIndex >= 0) {
+              groups.splice(structureIndex + 1, 0, groupSection)
+            } else {
+              groups.push(groupSection)
+            }
           }
-          return sections
+          return groups
         }
         case 'nodes': {
-          const summary = summarizeNodes(target.nodes)
-          const sections: ContextMenuSection[] = [
-            {
-              ...buildNodeActionItems(target.nodes),
-              items: [
-                ...buildNodeActionItems(target.nodes).items,
-                {
-                  key: 'nodes.group',
-                  label: 'Group',
-                  disabled: summary.count < 2,
-                  onClick: () => {
-                    if (summary.count < 2) return
-                    closeAfter(groupNodes(instance, summary.ids), dismissAction)
-                  }
-                },
-                {
-                  key: 'nodes.ungroup',
-                  label: 'Ungroup',
-                  disabled: !summary.hasGroup,
-                  onClick: () => {
-                    if (!summary.hasGroup) return
-                    closeAfter(ungroupNodes(instance, summary.ids), dismissAction)
-                  }
-                }
-              ]
-            },
-            buildArrangeSection(summary.ids)
-          ]
-          if (summary.count >= 2) {
-            sections.push(buildAlignSection(summary.ids))
-          }
-          if (summary.count >= 3) {
-            sections.push(buildDistributeSection(summary.ids))
-          }
-          return sections
+          const actions = createNodeSelectionActions(instance, target.nodes, {
+            onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
+            onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
+          })
+          return bindContextMenuGroups(
+            buildContextMenuGroups(actions),
+            dismissAction
+          )
         }
         case 'edge':
           return [
             {
               key: 'edge.actions',
               items: [
+                {
+                  key: 'edge.copy',
+                  label: 'Copy',
+                  onClick: () => copyEdge(instance, target.edgeId)
+                },
+                {
+                  key: 'edge.cut',
+                  label: 'Cut',
+                  onClick: () => cutEdge(instance, target.edgeId)
+                },
                 {
                   key: 'edge.delete',
                   label: 'Delete',
@@ -746,7 +631,7 @@ export const ContextMenu = ({
         containerWidth: surface.width,
         containerHeight: surface.height
       }),
-      sections: readSections()
+      groups: readGroups()
     }
   }, [dismissAction, instance, session, surface.height, surface.width])
 
@@ -776,11 +661,84 @@ export const ContextMenu = ({
 
   if (!view) return null
 
+  const submenuSide: ContextMenuSide = view.placement.submenuSide
+  const menuStyle = {
+    left: view.placement.left,
+    top: view.placement.top,
+    transform: view.placement.transform
+  }
+
+  const renderLeafItem = (item: ContextMenuItem) => (
+    <button
+      key={item.key}
+      type="button"
+      className="wb-context-menu-item"
+      data-tone={item.tone === 'danger' ? 'danger' : undefined}
+      disabled={item.disabled}
+      data-context-menu-item={item.key}
+      onClick={item.onClick}
+      onPointerEnter={() => {
+        setSubmenuKey(null)
+      }}
+      onFocus={() => {
+        setSubmenuKey(null)
+      }}
+      data-context-menu-ignore
+      data-selection-ignore
+      data-input-ignore
+    >
+      <span>{item.label}</span>
+    </button>
+  )
+
+  const renderSubmenuItem = (item: ContextMenuItem) => {
+    const open = submenuKey === item.key
+    return (
+      <div
+        key={item.key}
+        className="wb-context-menu-item-shell"
+        data-open={open ? 'true' : undefined}
+        onPointerEnter={() => {
+          setSubmenuKey(item.key)
+        }}
+        onFocus={() => {
+          setSubmenuKey(item.key)
+        }}
+        data-context-menu-ignore
+      >
+        <button
+          type="button"
+          className="wb-context-menu-item"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-context-menu-item={item.key}
+          data-context-menu-ignore
+          data-selection-ignore
+          data-input-ignore
+        >
+          <span>{item.label}</span>
+          <span className="wb-context-menu-item-caret" aria-hidden="true">›</span>
+        </button>
+        {open && item.children?.length ? (
+          <div
+            className="wb-context-submenu"
+            data-side={submenuSide}
+            data-context-menu-ignore
+            data-selection-ignore
+            data-input-ignore
+          >
+            {item.children.map((child) => renderLeafItem(child))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="wb-context-menu-layer" ref={rootRef} data-context-menu-ignore>
       <div
         className="wb-context-menu"
-        style={view.placement}
+        style={menuStyle}
         data-context-menu-ignore
         data-selection-ignore
         data-input-ignore
@@ -791,27 +749,19 @@ export const ContextMenu = ({
         onPointerDown={(event) => {
           event.stopPropagation()
         }}
+        onPointerLeave={() => {
+          setSubmenuKey(null)
+        }}
       >
-        {view.sections.map((section) => (
-          <div key={section.key} className="wb-context-menu-section">
-            {section.title ? (
-              <div className="wb-context-menu-section-title">{section.title}</div>
+        {view.groups.map((group) => (
+          <div key={group.key} className="wb-context-menu-section">
+            {group.title ? (
+              <div className="wb-context-menu-section-title">{group.title}</div>
             ) : null}
-            {section.items.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className="wb-context-menu-item"
-                data-tone={item.tone === 'danger' ? 'danger' : undefined}
-                disabled={item.disabled}
-                data-context-menu-item={item.key}
-                onClick={item.onClick}
-                data-context-menu-ignore
-                data-selection-ignore
-                data-input-ignore
-              >
-                {item.label}
-              </button>
+            {group.items.map((item) => (
+              item.children?.length
+                ? renderSubmenuItem(item)
+                : renderLeafItem(item)
             ))}
           </div>
         ))}

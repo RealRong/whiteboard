@@ -198,7 +198,6 @@ export const createNodePressSession = (
     })
 
     active.last = preview.position
-    active.hoveredContainerId = preview.hoveredContainerId
     const edgeUpdates = resolveNodeDragFollowEdges({
       active,
       positions: preview.patches,
@@ -265,7 +264,6 @@ export const createNodePressSession = (
     const drag = buildNodeDragState({
       nodes: readCanvasNodes(),
       anchorId: pending.nodeRect.node.id,
-      anchorType: pending.nodeRect.node.type,
       startWorld: pending.start.world,
       origin: {
         x: pending.nodeRect.node.position.x,

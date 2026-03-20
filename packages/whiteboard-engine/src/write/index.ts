@@ -17,6 +17,7 @@ import { DEFAULT_HISTORY_CONFIG } from '../config'
 import { cancelled } from '../result'
 import { plan } from './plan'
 import { createWriteNormalize } from './normalize'
+import { normalizeDocument } from '../document/normalize'
 
 const resolveOrigin = (source: CommandSource): Origin =>
   source === 'remote' ? 'remote' : source === 'system' ? 'system' : 'user'
@@ -76,7 +77,10 @@ export const createWrite = ({
   const replaceDocument = (
     document: Document
   ): WriteResult => {
-    const committedDocument = assertDocument(document)
+    const committedDocument = normalizeDocument(
+      assertDocument(document),
+      instance.config
+    )
     instance.document.commit(committedDocument)
 
     return {

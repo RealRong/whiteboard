@@ -1,4 +1,5 @@
 export { createEngine } from './instance/engine'
+export { normalizeDocument } from './document/normalize'
 export {
   DEFAULT_BOARD_CONFIG
 } from './config'
@@ -13,6 +14,7 @@ export type {
   EngineRuntimeOptions,
   EngineRead,
   EngineReadIndex,
+  SliceRead,
   TreeRead,
   MindmapRead
 } from './types/instance'

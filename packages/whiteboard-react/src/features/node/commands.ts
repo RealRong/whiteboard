@@ -11,7 +11,7 @@ type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
 type NodeReadInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
 type NodeSelectionInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
 
-export type ArrangeMode = 'front' | 'forward' | 'backward' | 'back'
+export type OrderMode = 'front' | 'forward' | 'backward' | 'back'
 export type GroupAutoFitMode = 'expand-only' | 'manual'
 
 const getSelectedNodeIds = (instance: NodeStateInstance): NodeId[] =>
@@ -86,10 +86,10 @@ export const ungroupSelection = (
   ungroupNodes(instance, nodeIds)
 }
 
-export const arrangeNodes = (
+export const orderNodes = (
   instance: NodeCommandsInstance,
   nodeIds: readonly NodeId[],
-  mode: ArrangeMode
+  mode: OrderMode
 ) => {
   if (!nodeIds.length) return
 

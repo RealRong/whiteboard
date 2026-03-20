@@ -15,27 +15,23 @@ import {
 } from '../runtime/hooks'
 import { mergeRecordPatch } from '../runtime/utils/recordPatch'
 import {
-  alignNodes,
-  arrangeNodes,
-  deleteNodes,
-  distributeNodes,
-  duplicateNodes,
-  toggleNodesLock,
   type GroupAutoFitMode,
   updateGroupNode
 } from '../features/node/commands'
 import {
+  buildMoreMenuSections,
+  createNodeSelectionActions,
+  type NodeSelectionActions
+} from '../features/node/actions'
+import {
+  copyNodes,
+  cutNodes,
   closeAfter
 } from './actions'
 import { measureTextSizeFromSource } from '../features/node/registry/default/shared'
-import {
-  readLockLabel,
-  summarizeNodes,
-  type NodeSummary
-} from '../features/node/summary'
-import { ArrangeMenu } from './menus/ArrangeMenu'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
+import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
@@ -50,12 +46,11 @@ type ToolbarItemKey =
   | 'stroke'
   | 'text'
   | 'group'
-  | 'arrange'
-  | 'lock'
+  | 'layout'
   | 'more'
 
-type ToolbarMenuKey = Exclude<ToolbarItemKey, 'lock'>
-type ToolbarCapabilityKey = 'fill' | 'stroke' | 'text' | 'group'
+type ToolbarMenuKey = ToolbarItemKey
+type ToolbarCapabilityKey = Exclude<ToolbarItemKey, 'layout' | 'more'>
 type ToolbarPlacement = 'top' | 'bottom'
 
 type ToolbarCapabilities = Record<ToolbarCapabilityKey, boolean>
@@ -73,6 +68,7 @@ type ToolbarSource = {
 
 type ToolbarModel = {
   items: readonly ToolbarItem[]
+  actions: NodeSelectionActions
   nodes: readonly Node[]
   primaryNode: Node
   primarySchema?: NodeSchema
@@ -161,8 +157,6 @@ const MultiCapabilityOrder: readonly ToolbarCapabilityKey[] = [
 ]
 
 const StaticItemKeys: readonly ToolbarItemKey[] = [
-  'arrange',
-  'lock',
   'more'
 ]
 
@@ -237,7 +231,8 @@ const resolveSharedCapabilities = (
 })
 
 const resolveItemKeys = (
-  sources: readonly ToolbarSource[]
+  sources: readonly ToolbarSource[],
+  actions: NodeSelectionActions
 ): ToolbarItemKey[] => {
   const capabilities = sources.map(readCapabilities)
   if (!capabilities.length) {
@@ -254,37 +249,31 @@ const resolveItemKeys = (
     : MultiCapabilityOrder
 
   return [
+    ...(singleMode || !actions.layout.visible ? [] : ['layout'] as const),
     ...capabilityOrder.filter((key) => sharedCapabilities[key]),
     ...StaticItemKeys
   ]
 }
 
 const buildToolbarItem = (
-  key: ToolbarItemKey,
-  summary: NodeSummary
+  key: ToolbarItemKey
 ): ToolbarItem => (
-  key === 'lock'
-    ? {
-        key,
-        label: readLockLabel(summary),
-        active: summary.lock === 'all'
-      }
-    : {
-        key,
-        label:
-          key === 'fill'
-            ? 'Fill'
-            : key === 'stroke'
-              ? 'Stroke'
-              : key === 'text'
-                ? 'Text'
-                : key === 'group'
-                  ? 'Group'
-                  : key === 'arrange'
-                    ? 'Arrange'
-                    : 'More',
-        active: false
-      }
+  {
+    key,
+    label:
+      key === 'fill'
+        ? 'Fill'
+        : key === 'stroke'
+          ? 'Stroke'
+          : key === 'text'
+            ? 'Text'
+            : key === 'group'
+              ? 'Group'
+              : key === 'layout'
+                ? 'Layout'
+                : 'More',
+    active: false
+  }
 )
 
 const SvgIcon = ({
@@ -333,16 +322,12 @@ const ToolbarIcons: Record<ToolbarItemKey, ReactNode> = {
       <rect x="12.5" y="10.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
-  arrange: (
+  layout: (
     <SvgIcon>
-      <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <rect x="10" y="10" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  lock: (
-    <SvgIcon>
-      <path d="M8.5 10.5V8.75a3.5 3.5 0 1 1 7 0v1.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <rect x="7" y="10.5" width="10" height="8.5" rx="2" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <path d="M4.5 7h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <path d="M12 4.5v15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <rect x="6" y="9" width="4" height="3" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+      <rect x="14" y="9" width="4" height="6" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
     </SvgIcon>
   ),
   more: (
@@ -649,10 +634,6 @@ const updateToolbarTextFontSize = ({
   instance.commands.node.update(node.id, patch)
 }
 
-const isToolbarMenuKey = (
-  key: ToolbarItemKey
-): key is ToolbarMenuKey => key !== 'lock'
-
 export const NodeToolbar = ({
   containerRef,
   surface
@@ -684,8 +665,11 @@ export const NodeToolbar = ({
       node,
       schema: instance.registry.get(node.type)?.schema
     }))
-    const summary = summarizeNodes(nodes)
-    const items = resolveItemKeys(sources).map((key) => buildToolbarItem(key, summary))
+    const actions = createNodeSelectionActions(instance, nodes, {
+      onCopy: () => copyNodes(instance, nodes.map((node) => node.id)),
+      onCut: () => cutNodes(instance, nodes.map((node) => node.id))
+    })
+    const items = resolveItemKeys(sources, actions).map((key) => buildToolbarItem(key))
 
     if (items.length) {
       const { placement, anchor } = resolveToolbarPlacement({
@@ -695,6 +679,7 @@ export const NodeToolbar = ({
 
       toolbar = {
         items,
+        actions,
         nodes,
         primaryNode,
         primarySchema: instance.registry.get(primaryNode.type)?.schema,
@@ -769,8 +754,7 @@ export const NodeToolbar = ({
       })
     : undefined
 
-  const summary = summarizeNodes(toolbar.nodes)
-  const nodeIds = summary.ids
+  const actions = toolbar.actions
   const primarySchema = toolbar.primarySchema
   const fillValue = typeof toolbar.primaryNode.style?.fill === 'string'
     ? toolbar.primaryNode.style.fill
@@ -895,33 +879,31 @@ export const NodeToolbar = ({
             } : undefined}
           />
         )
-      case 'arrange':
+      case 'layout':
         return (
-          <ArrangeMenu
-            canAlign={summary.count >= 2}
-            canDistribute={summary.count >= 3}
-            onOrder={(mode) => {
-              closeAfter(arrangeNodes(instance, nodeIds, mode), closeMenu)
-            }}
+          <LayoutMenu
+            canAlign={actions.layout.canAlign}
+            canDistribute={actions.layout.canDistribute}
             onAlign={(mode) => {
-              closeAfter(alignNodes(instance, nodeIds, mode), closeMenu)
+              closeAfter(actions.layout.onAlign(mode), closeMenu)
             }}
             onDistribute={(mode) => {
-              closeAfter(distributeNodes(instance, nodeIds, mode), closeMenu)
+              closeAfter(actions.layout.onDistribute(mode), closeMenu)
             }}
           />
         )
       case 'more':
         return (
           <MoreMenu
-            canDuplicate={summary.count > 0}
-            canDelete={summary.count > 0}
-            onDuplicate={() => {
-              closeAfter(duplicateNodes(instance, nodeIds), closeMenu)
-            }}
-            onDelete={() => {
-              closeAfter(deleteNodes(instance, nodeIds), closeMenu)
-            }}
+            sections={buildMoreMenuSections(actions).map((section) => ({
+              ...section,
+              items: section.items.map((item) => ({
+                ...item,
+                onClick: () => {
+                  closeAfter(item.onClick(), closeMenu)
+                }
+              }))
+            }))}
           />
         )
     }
@@ -949,9 +931,7 @@ export const NodeToolbar = ({
               data-active={active ? 'true' : undefined}
               title={item.label}
               ref={(element) => {
-                if (isToolbarMenuKey(item.key)) {
-                  buttonRefByKey.current[item.key] = element
-                }
+                buttonRefByKey.current[item.key] = element
               }}
               data-selection-ignore
               data-input-ignore
@@ -959,11 +939,6 @@ export const NodeToolbar = ({
                 event.stopPropagation()
               }}
               onClick={() => {
-                if (item.key === 'lock') {
-                  closeAfter(toggleNodesLock(instance, toolbar.nodes, summary), closeMenu)
-                  return
-                }
-                if (!isToolbarMenuKey(item.key)) return
                 setActiveMenuKey((current) => current === item.key ? null : item.key)
               }}
             >

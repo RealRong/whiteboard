@@ -3,7 +3,11 @@ import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
 import { createDefaultNodeRegistry } from './features/node/registry'
 import type { WhiteboardProps } from './types/common'
-import { createEngine, type EngineInstance } from '@whiteboard/engine'
+import {
+  createEngine,
+  normalizeDocument,
+  type EngineInstance
+} from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
 import { InstanceProvider } from './runtime/hooks/useWhiteboard'
 import { useInternalInstance, useStoreValue, useTool } from './runtime/hooks'
@@ -12,6 +16,7 @@ import {
 } from './runtime/viewport'
 import { CanvasChrome } from './canvas/CanvasChrome'
 import { createMarqueeSession } from './canvas/Marquee'
+import { useCanvasClipboard } from './canvas/useCanvasClipboard'
 import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
 import { useEdgeInput } from './features/edge/hooks/useEdgeInput'
 import { createNodePressSession } from './features/node/hooks/drag/session'
@@ -105,6 +110,9 @@ const WhiteboardCanvas = ({
   useCanvasInsert({
     containerRef
   })
+  useCanvasClipboard({
+    containerRef
+  })
   useBindViewportInput({
     instance,
     containerRef,
@@ -157,23 +165,31 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onDocumentChangeRef = useRef(onDocumentChange)
-  const lastOutboundDocumentRef = useRef<Document>(document)
   const resolvedConfig = useMemo(
     () => normalizeConfig(options),
     [options]
   )
+  const boardConfig = useMemo(
+    () => toBoardConfig(resolvedConfig),
+    [resolvedConfig]
+  )
+  const inputDocument = useMemo(
+    () => normalizeDocument(document, boardConfig),
+    [document, boardConfig]
+  )
+  const lastOutboundDocumentRef = useRef<Document>(inputDocument)
   onDocumentChangeRef.current = onDocumentChange
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
   if (!engineInstanceRef.current) {
     engineInstanceRef.current = createEngine({
       registries: coreRegistries,
-      document,
+      document: inputDocument,
       onDocumentChange: (nextDocument) => {
         lastOutboundDocumentRef.current = nextDocument
         onDocumentChangeRef.current(nextDocument)
       },
-      config: toBoardConfig(resolvedConfig)
+      config: boardConfig
     })
   }
   const engineInstance = engineInstanceRef.current!
@@ -196,12 +212,22 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   useImperativeHandle(ref, () => instance, [instance])
 
   useEffect(() => {
-    if (isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, document)) {
+    if (isMirroredDocumentFromEngine(document, inputDocument)) {
       return
     }
-    lastOutboundDocumentRef.current = document
-    instance.commands.document.replace(document)
-  }, [document, instance])
+    if (!isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, inputDocument)) {
+      return
+    }
+    onDocumentChangeRef.current(inputDocument)
+  }, [document, inputDocument])
+
+  useEffect(() => {
+    if (isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, inputDocument)) {
+      return
+    }
+    lastOutboundDocumentRef.current = inputDocument
+    instance.commands.document.replace(inputDocument)
+  }, [inputDocument, instance])
 
   const runtimeConfig = useMemo(
     () => ({

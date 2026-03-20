@@ -1,31 +1,31 @@
 import {
-  Chip,
-  ChipColumn
+  MenuItem,
+  MenuList,
+  MenuSection
 } from './MenuPrimitives'
+import type { NodeMenuSection } from '../../features/node/actions'
 
 export const MoreMenu = ({
-  canDuplicate,
-  canDelete,
-  onDuplicate,
-  onDelete
+  sections
 }: {
-  canDuplicate: boolean
-  canDelete: boolean
-  onDuplicate: () => void
-  onDelete: () => void
+  sections: readonly NodeMenuSection[]
 }) => (
-  <ChipColumn>
-    <Chip
-      disabled={!canDuplicate}
-      onClick={onDuplicate}
-    >
-      Duplicate
-    </Chip>
-    <Chip
-      disabled={!canDelete}
-      onClick={onDelete}
-    >
-      Delete
-    </Chip>
-  </ChipColumn>
+  <>
+    {sections.map((section) => (
+      <MenuSection key={section.key} title={section.title}>
+        <MenuList>
+          {section.items.map((item) => (
+            <MenuItem
+              key={item.key}
+              disabled={item.disabled}
+              tone={item.tone}
+              onClick={item.onClick}
+            >
+              {item.label}
+            </MenuItem>
+          ))}
+        </MenuList>
+      </MenuSection>
+    ))}
+  </>
 )

@@ -1,12 +1,9 @@
 import type { BoardConfig } from '@whiteboard/core/config'
 import {
   computeSnap,
-  expandContainerRect,
   expandRectByThreshold,
   findSmallestContainerAtPoint,
   getContainerDescendants,
-  getNodesBoundingRect,
-  rectEquals,
   resolveSnapThresholdWorld,
   resolveInteractionZoom,
   type Guide,
@@ -30,7 +27,7 @@ type DragMember = {
 
 export type NodeDragRuntimeState = {
   anchorId: NodeId
-  anchorType: Node['type']
+  roots: DragMember[]
   members: DragMember[]
   startWorld: Point
   origin: Point
@@ -39,7 +36,6 @@ export type NodeDragRuntimeState = {
     width: number
     height: number
   }
-  hoveredContainerId?: NodeId
 }
 
 type NodeDragPositionUpdate = {
@@ -55,7 +51,6 @@ type NodeDragPreviewResult = {
 }
 
 const SNAP_CROSS_THRESHOLD_RATIO = 0.6
-const GROUP_RECT_EPSILON = 0.5
 const EDGE_FOLLOW_DELTA_EPSILON = 0.001
 
 const toNodeById = (nodes: readonly Node[]) =>
@@ -103,14 +98,19 @@ const appendDragMembers = (
   if (memberIds.has(node.id)) return
 
   memberIds.add(node.id)
-  members.push({
-    id: node.id,
-    offset: {
-      x: node.position.x - anchor.x,
-      y: node.position.y - anchor.y
-    }
-  })
+  members.push(createDragMember(anchor, node))
 }
+
+const createDragMember = (
+  anchor: Point,
+  node: Node
+): DragMember => ({
+  id: node.id,
+  offset: {
+    x: node.position.x - anchor.x,
+    y: node.position.y - anchor.y
+  }
+})
 
 const hasParentIdPatch = (
   patch: NodePatch
@@ -149,7 +149,6 @@ const normalizePatch = (
 export const buildNodeDragState = (options: {
   nodes: readonly Node[],
   anchorId: NodeId
-  anchorType: Node['type']
   startWorld: Point
   origin: Point
   size: {
@@ -161,7 +160,6 @@ export const buildNodeDragState = (options: {
   const {
     nodes,
     anchorId,
-    anchorType,
     startWorld,
     origin,
     size,
@@ -169,12 +167,14 @@ export const buildNodeDragState = (options: {
   } = options
   const nodeById = toNodeById(nodes)
   const rootIds = getDragRootIds(nodes, anchorId, selectedNodeIds)
+  const roots: DragMember[] = []
   const members: DragMember[] = []
   const memberIds = new Set<NodeId>()
 
   rootIds.forEach((rootId) => {
     const root = nodeById.get(rootId)
     if (!root) return
+    roots.push(createDragMember(origin, root))
     appendDragMembers(members, memberIds, origin, root)
     if (root.type !== 'group') return
     getContainerDescendants(nodes, root.id).forEach((child) => {
@@ -184,7 +184,7 @@ export const buildNodeDragState = (options: {
 
   return {
     anchorId,
-    anchorType,
+    roots,
     members,
     startWorld,
     origin,
@@ -345,18 +345,13 @@ export const resolveNodeDragPreview = (options: {
     }
   }
 
-  const hoveredContainerId =
-    active.members.length === 1 && active.anchorType !== 'group'
-      ? findSmallestContainerAtPoint(
-        [...nodes],
-        config.nodeSize,
-        {
-          x: position.x + active.size.width / 2,
-          y: position.y + active.size.height / 2
-        },
-        active.anchorId
-      )?.id
-      : undefined
+  const rootPositions = buildPositionUpdates(active.roots, position)
+  const hoveredContainerId = resolveHoveredContainerId({
+    roots: rootPositions,
+    nodes,
+    config,
+    excludeNodeIds: new Set(active.members.map((member) => member.id))
+  })
 
   return {
     position,
@@ -373,10 +368,9 @@ export const resolveNodeDragCommit = (options: {
 }): Array<{ id: NodeId; patch: NodePatch }> => {
   const { draft, nodes, config } = options
   const nodeById = toNodeById(nodes)
-  const currentNode = nodeById.get(draft.anchorId)
-  if (!currentNode) return []
 
   const updates = buildPositionUpdates(draft.members, draft.last)
+  const rootUpdates = buildPositionUpdates(draft.roots, draft.last)
 
   const patches = new Map<NodeId, NodePatch>()
   updates.forEach((update) => {
@@ -385,64 +379,47 @@ export const resolveNodeDragCommit = (options: {
     })
   })
 
-  if (draft.members.length === 1 && draft.anchorType !== 'group') {
-    const parentId = currentNode.parentId
-    const hoveredContainerId = draft.hoveredContainerId
-
-    if (hoveredContainerId && hoveredContainerId !== parentId) {
-      const hoveredGroup = nodeById.get(hoveredContainerId)
-      if (hoveredGroup) {
-        mergePatch(patches, draft.anchorId, {
-          parentId: hoveredGroup.id
-        })
-        const groupRect = getNodeAABB(hoveredGroup, config.nodeSize)
-        const children = getContainerDescendants(nodes, hoveredGroup.id)
-        const virtualNode: Node = {
-          ...currentNode,
-          position: draft.last
-        }
-        const contentRect = getNodesBoundingRect(
-          [...children, virtualNode],
-          config.nodeSize
-        )
-        if (contentRect) {
-          const padding =
-            hoveredGroup.data && typeof hoveredGroup.data.padding === 'number'
-              ? hoveredGroup.data.padding
-              : config.node.groupPadding
-          const expanded = expandContainerRect(groupRect, contentRect, padding)
-          if (!rectEquals(expanded, groupRect, GROUP_RECT_EPSILON)) {
-            mergePatch(patches, hoveredGroup.id, {
-              position: {
-                x: expanded.x,
-                y: expanded.y
-              },
-              size: {
-                width: expanded.width,
-                height: expanded.height
-              }
-            })
-          }
-        }
-      }
-    } else if (!hoveredContainerId && parentId) {
-      const parentNode = nodeById.get(parentId)
-      if (parentNode) {
-        const parentRect = getNodeAABB(parentNode, config.nodeSize)
-        const nodeRect = {
-          x: draft.last.x,
-          y: draft.last.y,
-          width: draft.size.width,
-          height: draft.size.height
-        }
-        if (!rectContains(parentRect, nodeRect)) {
-          mergePatch(patches, draft.anchorId, {
-            parentId: undefined
-          })
-        }
-      }
+  const targetByRootId = resolveRootContainerTargets({
+    roots: rootUpdates,
+    nodes,
+    config,
+    excludeNodeIds: new Set(draft.members.map((member) => member.id))
+  })
+  rootUpdates.forEach((update) => {
+    const node = nodeById.get(update.id)
+    if (!node) {
+      return
     }
-  }
+
+    const targetContainerId = targetByRootId.get(update.id)
+    if (targetContainerId && targetContainerId !== node.parentId) {
+      mergePatch(patches, update.id, {
+        parentId: targetContainerId
+      })
+      return
+    }
+
+    if (!node.parentId) {
+      return
+    }
+
+    const parentNode = nodeById.get(node.parentId)
+    if (!parentNode) {
+      return
+    }
+
+    const nextNode: Node = {
+      ...node,
+      position: update.position
+    }
+    const nextRect = getNodeAABB(nextNode, config.nodeSize)
+    const parentRect = getNodeAABB(parentNode, config.nodeSize)
+    if (!rectContains(parentRect, nextRect)) {
+      mergePatch(patches, update.id, {
+        parentId: undefined
+      })
+    }
+  })
 
   const normalizedUpdates: Array<{ id: NodeId; patch: NodePatch }> = []
   patches.forEach((patch, id) => {
@@ -457,4 +434,71 @@ export const resolveNodeDragCommit = (options: {
   })
 
   return normalizedUpdates
+}
+
+const resolveRootContainerTargets = (options: {
+  roots: readonly NodeDragPositionUpdate[]
+  nodes: readonly Node[]
+  config: Pick<BoardConfig, 'nodeSize'>
+  excludeNodeIds: ReadonlySet<NodeId>
+}) => {
+  const {
+    roots,
+    nodes,
+    config,
+    excludeNodeIds
+  } = options
+  const nodeById = toNodeById(nodes)
+  const containerNodes = nodes.filter((node) => !excludeNodeIds.has(node.id))
+  const targets = new Map<NodeId, NodeId | undefined>()
+
+  roots.forEach((root) => {
+    const node = nodeById.get(root.id)
+    if (!node) {
+      return
+    }
+
+    const nextNode: Node = {
+      ...node,
+      position: root.position
+    }
+    const rect = getNodeAABB(nextNode, config.nodeSize)
+    const target = findSmallestContainerAtPoint(
+      containerNodes,
+      config.nodeSize,
+      {
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height / 2
+      },
+      node.id
+    )?.id
+    targets.set(root.id, target)
+  })
+
+  return targets
+}
+
+const resolveHoveredContainerId = (options: {
+  roots: readonly NodeDragPositionUpdate[]
+  nodes: readonly Node[]
+  config: Pick<BoardConfig, 'nodeSize'>
+  excludeNodeIds: ReadonlySet<NodeId>
+}) => {
+  const targets = resolveRootContainerTargets(options)
+  let hovered: NodeId | undefined
+
+  for (const target of targets.values()) {
+    if (!target) {
+      return undefined
+    }
+    if (hovered === undefined) {
+      hovered = target
+      continue
+    }
+    if (hovered !== target) {
+      return undefined
+    }
+  }
+
+  return hovered
 }

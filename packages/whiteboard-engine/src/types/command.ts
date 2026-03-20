@@ -13,6 +13,11 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import type {
+  Slice,
+  SliceInsertOptions,
+  SliceInsertResult
+} from '@whiteboard/core/document'
+import type {
   NodeAlignMode,
   NodeDistributeMode
 } from '@whiteboard/core/node'
@@ -356,6 +361,10 @@ export type EngineCommands = {
       source?: CommandSource
     ) => CommandResult
     replace: (document: Document) => CommandResult
+    insert: (
+      slice: Slice,
+      options?: SliceInsertOptions
+    ) => CommandResult<Omit<SliceInsertResult, 'operations'>>
   }
   history: {
     get: () => HistoryState

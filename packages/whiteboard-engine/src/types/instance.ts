@@ -1,5 +1,6 @@
 import type { BoardConfig } from '@whiteboard/core/config'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import type { SliceExportResult } from '@whiteboard/core/document'
 import type {
   CanvasNode,
   EdgeItem,
@@ -56,11 +57,17 @@ export type MindmapRead = {
 
 export type TreeRead = KeyedReadStore<NodeId, readonly NodeId[]>
 
+export type SliceRead = {
+  fromNodes: (nodeIds: readonly NodeId[]) => SliceExportResult | undefined
+  fromEdge: (edgeId: EdgeId) => SliceExportResult | undefined
+}
+
 export type EngineRead = {
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead
   tree: TreeRead
+  slice: SliceRead
   index: EngineReadIndex
 }
 

@@ -19,6 +19,7 @@ import { createRead } from '../read'
 import { MINDMAP_LAYOUT_READ_IMPACT, RESET_READ_IMPACT } from '../read/impacts'
 import { createWrite } from '../write'
 import { createDocumentSource } from './document'
+import { normalizeDocument } from '../document/normalize'
 import type { Commit } from '@engine-types/commit'
 import type { CommandResult } from '@engine-types/result'
 import { cancelled, success } from '../result'
@@ -33,7 +34,7 @@ export const createEngine = ({
 }: CreateEngineOptions): EngineInstance => {
   const config = resolveBoardConfig(overrides)
   const resolvedRegistries = registries ?? createRegistries()
-  const documentSource = createDocumentSource(document)
+  const documentSource = createDocumentSource(normalizeDocument(document, config))
   const commit = createValueStore<Commit | null>(null)
   let mindmapLayout = EMPTY_MINDMAP_LAYOUT
 
@@ -120,7 +121,10 @@ export const createEngine = ({
   }
 
   const commands = createCommands({
-    write
+    write,
+    readDocument: documentSource.get,
+    config,
+    registries: resolvedRegistries
   })
 
   const configure = ({
