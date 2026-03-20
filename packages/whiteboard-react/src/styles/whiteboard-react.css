@@ -1253,28 +1253,7 @@
   user-select: none;
 }
 
-.wb-default-text-sticky {
-  position: relative;
-  width: 100%;
-  min-height: 100%;
-  padding: 16px;
-  background:
-    linear-gradient(
-      180deg,
-      hsl(var(--wb-ui-surface) / 0.16) 0%,
-      hsl(var(--wb-ui-surface) / 0) 18%,
-      hsl(var(--wb-ui-text-primary) / 0.04) 100%
-    ),
-    var(--wb-sticky-fill, hsl(var(--tag-yellow-background, 47.6 70.7% 92%)));
-  border-radius: 0;
-  box-sizing: border-box;
-  isolation: isolate;
-  box-shadow:
-    inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18),
-    inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04);
-}
-
-.wb-default-text-sticky::before {
+.wb-node-block[data-node-type='sticky']::before {
   content: '';
   position: absolute;
   left: 5%;
@@ -1289,8 +1268,17 @@
   pointer-events: none;
 }
 
-.wb-default-text-sticky.wb-default-text-editor {
-  min-height: 100%;
+.wb-sticky-content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.wb-sticky-content.wb-default-text-editor {
+  min-height: 0;
   height: 100%;
   overflow: auto;
 }

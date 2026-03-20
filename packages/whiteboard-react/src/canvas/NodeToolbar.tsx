@@ -28,7 +28,12 @@ import {
   cutNodes,
   closeAfter
 } from './actions'
-import { measureTextSizeFromSource } from '../features/node/registry/default/shared'
+import {
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_MIN_WIDTH,
+  measureTextNodeSize,
+  readTextWidthMode
+} from '../features/node/text'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
@@ -554,13 +559,16 @@ const updateToolbarTextNode = ({
     field
   })
   const committedRect = instance.engine.read.node.item.get(node.id)?.rect
+  const widthMode = readTextWidthMode(node)
   const size = source && committedRect
-    ? measureTextSizeFromSource({
+    ? measureTextNodeSize({
         content: value,
         placeholder: 'Text',
         source,
-        minWidth: 24,
-        maxWidth: Math.max(640, committedRect.width)
+        mode: widthMode,
+        width: committedRect.width,
+        minWidth: TEXT_MIN_WIDTH,
+        maxWidth: TEXT_AUTO_MAX_WIDTH
       })
     : undefined
 
@@ -609,16 +617,19 @@ const updateToolbarTextFontSize = ({
     field
   })
   const committedRect = instance.engine.read.node.item.get(node.id)?.rect
+  const widthMode = readTextWidthMode(node)
   const textValue = typeof node.data?.[field] === 'string'
     ? node.data[field] as string
     : ''
   const size = source && committedRect
-    ? measureTextSizeFromSource({
+    ? measureTextNodeSize({
         content: textValue,
         placeholder: 'Text',
         source,
-        minWidth: 24,
-        maxWidth: Math.max(640, committedRect.width),
+        mode: widthMode,
+        width: committedRect.width,
+        minWidth: TEXT_MIN_WIDTH,
+        maxWidth: TEXT_AUTO_MAX_WIDTH,
         fontSize: value
       })
     : undefined

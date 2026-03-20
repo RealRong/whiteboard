@@ -72,6 +72,7 @@ export const NodeItem = memo(({
       ref={measuredElementRef}
       className="wb-node-block"
       data-node-id={nodeId}
+      data-node-type={resolvedNode.type}
       onPointerDown={(event) => {
         onNodePointerDown(nodeId, event)
       }}

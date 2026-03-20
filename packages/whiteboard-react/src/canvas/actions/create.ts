@@ -1,5 +1,6 @@
 import type { NodeId, NodeInput, Point } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from '../../runtime/instance'
+import { TEXT_START_SIZE } from '../../features/node/text'
 
 type CommandsInstance = Pick<WhiteboardInstance, 'commands'>
 
@@ -36,7 +37,7 @@ export const CREATE_NODE_PRESETS: readonly CreateNodePreset[] = [
     label: 'Add text',
     input: (world) => placeNodeInput(world, {
       type: 'text',
-      size: { width: 48, height: 24 },
+      size: { ...TEXT_START_SIZE },
       data: { text: '' }
     }, 'point')
   },

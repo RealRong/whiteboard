@@ -11,12 +11,18 @@ import {
   writeNodeSessionPatch
 } from '../../session/node'
 import {
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_MIN_WIDTH,
+  isTextContentEmpty,
+  measureTextNodeSize,
+  readTextWidthMode
+} from '../../text'
+import {
   createSchema,
   createTextField,
   focusEditableEnd,
   getStyleNumber,
   getStyleString,
-  measureTextSizeFromSource,
   readEditableText,
   styleField
 } from './shared'
@@ -36,8 +42,6 @@ const stickySchema = createSchema('sticky', 'Sticky', [
   styleField('strokeWidth', 'Stroke width', 'number', { min: 0, step: 1 })
 ])
 
-const TEXT_MIN_WIDTH = 24
-const TEXT_MAX_WIDTH = 640
 type TextSize = {
   width: number
   height: number
@@ -51,25 +55,17 @@ const isSameSize = (
   && left?.height === right?.height
 )
 
-const measureTextSize = ({
-  content,
-  placeholder,
-  source,
-  maxWidth
-}: {
-  content: string
-  placeholder: string
-  source: HTMLDivElement
-  maxWidth: number
-}): TextSize | undefined => {
-  return measureTextSizeFromSource({
-    content,
-    placeholder,
-    source,
-    minWidth: TEXT_MIN_WIDTH,
-    maxWidth
-  })
-}
+const readStickyFill = (
+  node: NodeRenderProps['node']
+) => (
+  typeof node.style?.fill === 'string'
+    ? node.style.fill
+    : (
+        node.data && typeof node.data.background === 'string'
+          ? node.data.background
+          : 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
+      )
+)
 
 const TextNodeRenderer = ({
   update,
@@ -85,6 +81,7 @@ const TextNodeRenderer = ({
   const text = typeof node.data?.text === 'string' ? node.data.text : ''
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
+  const widthMode = readTextWidthMode(node)
   const sourceRef = useRef<HTMLDivElement | null>(null)
   const previewSizeRef = useRef<TextSize | null>(null)
   const setSourceRef = (element: HTMLDivElement | null) => {
@@ -144,11 +141,14 @@ const TextNodeRenderer = ({
       }
     }
 
-    return measureTextSize({
+    return measureTextNodeSize({
       content,
       placeholder,
       source,
-      maxWidth: Math.max(TEXT_MAX_WIDTH, rect.width)
+      mode: widthMode,
+      width: rect.width,
+      minWidth: TEXT_MIN_WIDTH,
+      maxWidth: TEXT_AUTO_MAX_WIDTH
     }) ?? previewSizeRef.current ?? {
       width: rect.width,
       height: rect.height
@@ -217,17 +217,20 @@ const TextNodeRenderer = ({
       return
     }
 
-    const nextSize = measureTextSize({
+    const nextSize = measureTextNodeSize({
       content: draft,
       placeholder,
       source,
-      maxWidth: Math.max(TEXT_MAX_WIDTH, rect.width)
+      mode: widthMode,
+      width: rect.width,
+      minWidth: widthMode === 'auto' ? rect.width : undefined,
+      maxWidth: TEXT_AUTO_MAX_WIDTH
     })
 
     if (nextSize) {
       writeTextPreview(nextSize)
     }
-  }, [clearTextPreview, draft, editing, isSticky, placeholder, rect.width, writeTextPreview])
+  }, [clearTextPreview, draft, editing, isSticky, placeholder, rect.width, widthMode, writeTextPreview])
 
   useEffect(() => () => {
     if (previewSizeRef.current === null || isSticky) {
@@ -245,6 +248,14 @@ const TextNodeRenderer = ({
         updateData({ text: nextDraft })
       }
       instance.commands.edit.clear()
+      return
+    }
+
+    if (isTextContentEmpty(nextDraft)) {
+      clearTextPreview()
+      instance.commands.edit.clear()
+      instance.commands.selection.clear()
+      instance.commands.node.deleteCascade([node.id])
       return
     }
 
@@ -293,7 +304,7 @@ const TextNodeRenderer = ({
       <div
         data-selection-ignore
         data-input-ignore
-        className={`wb-default-text-display wb-default-text-editor${isSticky ? ' wb-default-text-sticky' : ''}`}
+        className={`wb-default-text-display wb-default-text-editor${isSticky ? ' wb-sticky-content' : ''}`}
         contentEditable="plaintext-only"
         suppressContentEditableWarning
         role="textbox"
@@ -312,16 +323,7 @@ const TextNodeRenderer = ({
         }}
         style={{
           fontSize,
-          color,
-          '--wb-sticky-fill': isSticky
-            ? (typeof node.style?.fill === 'string'
-                ? node.style.fill
-                : (
-                    node.data && typeof node.data.background === 'string'
-                      ? node.data.background
-                      : 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
-                  ))
-            : undefined
+          color
         } as CSSProperties}
       />
     )
@@ -329,22 +331,13 @@ const TextNodeRenderer = ({
 
   return (
     <div
-      className={`wb-default-text-display${isSticky ? ' wb-default-text-sticky' : ''}`}
+      className={`wb-default-text-display${isSticky ? ' wb-sticky-content' : ''}`}
       data-node-editable-field="text"
       ref={setSourceRef}
       style={{
         fontSize,
         color,
-        opacity: selected ? 1 : 0.9,
-        '--wb-sticky-fill': isSticky
-          ? (typeof node.style?.fill === 'string'
-              ? node.style.fill
-              : (
-                  node.data && typeof node.data.background === 'string'
-                    ? node.data.background
-                    : 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
-                ))
-          : undefined
+        opacity: selected ? 1 : 0.9
       }}
     >
       {text || placeholder}
@@ -369,14 +362,17 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
   }
 
   return {
-    background: 'transparent',
+    '--wb-sticky-fill': readStickyFill(props.node),
+    background:
+      'linear-gradient(180deg, hsl(var(--wb-ui-surface) / 0.16) 0%, hsl(var(--wb-ui-surface) / 0) 18%, hsl(var(--wb-ui-text-primary) / 0.04) 100%), var(--wb-sticky-fill, hsl(var(--tag-yellow-background, 47.6 70.7% 92%)))',
     border: 'none',
     boxSizing: 'border-box',
     borderRadius: 0,
     boxShadow: props.selected
-      ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2)'
-      : 'none',
+      ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2), inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18), inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04)'
+      : 'inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18), inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04)',
     display: 'block',
+    isolation: 'isolate',
     overflow: 'visible',
     padding: 0,
     textAlign: 'left'

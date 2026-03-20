@@ -6,6 +6,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
 import type { WhiteboardInstance } from '../../runtime/instance'
+import { TEXT_START_SIZE } from '../../features/node/text'
 
 export type InsertPresetGroup =
   | 'text'
@@ -272,7 +273,7 @@ export const TEXT_INSERT_PRESET = createNodePreset({
   placement: 'point',
   input: () => ({
     type: 'text',
-    size: { width: 48, height: 24 },
+    size: { ...TEXT_START_SIZE },
     data: { text: '' }
   })
 })

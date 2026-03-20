@@ -12,6 +12,10 @@ import {
   type ResizeDragState,
   type RotateDragState
 } from '../transform/math'
+import {
+  isTextNode,
+  setTextWidthMode
+} from '../../text'
 
 type ActiveTransform = {
   nodeId: NodeId
@@ -46,6 +50,12 @@ export const createNodeTransformSession = (
       }
 
       let patch: NodePatch | undefined = resolveResizeCommitPatch(node, update)
+      if (patch?.size && isTextNode(node)) {
+        patch = {
+          ...patch,
+          data: setTextWidthMode(node, 'fixed')
+        }
+      }
       const padding = resolveGroupResizePadding({
         group: node,
         update,
