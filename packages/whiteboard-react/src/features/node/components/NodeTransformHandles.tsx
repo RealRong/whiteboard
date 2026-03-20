@@ -14,6 +14,7 @@ type NodeTransformHandlesProps = {
   node: NodeViewNode
   rect: NodeViewRect
   rotation: number
+  canResize: boolean
   canRotate: boolean
   onTransformPointerDown: (
     nodeId: NodeViewNode['id'],
@@ -50,6 +51,7 @@ export const NodeTransformHandles = ({
   node,
   rect,
   rotation,
+  canResize,
   canRotate,
   onTransformPointerDown
 }: NodeTransformHandlesProps) => {
@@ -59,6 +61,7 @@ export const NodeTransformHandles = ({
   const handles = buildTransformHandles({
     rect,
     rotation,
+    canResize,
     canRotate,
     rotateHandleOffset: NODE_ROTATE_HANDLE_OFFSET,
     zoom

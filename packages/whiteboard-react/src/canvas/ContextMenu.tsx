@@ -3,6 +3,7 @@ import type {
   EdgeId,
   Node as WhiteboardNode,
   NodeId,
+  NodeSchema,
   Point
 } from '@whiteboard/core/types'
 import {
@@ -33,11 +34,18 @@ import {
   selectAllInScope
 } from './actions'
 import {
+  COLOR_OPTIONS,
+  DRAW_STROKE_WIDTHS,
+  OPACITY_OPTIONS,
+  STROKE_WIDTHS
+} from './menus/options'
+import {
   isContextMenuIgnoredTarget,
   readElementEdgeId,
   readElementNodeId
 } from './target'
 import { readContainerBodyTarget } from '../features/node/scene'
+import { updateNodesStyle } from '../features/node/style'
 
 type Surface = {
   width: number
@@ -183,6 +191,114 @@ const isPointInRect = (
   && point.y >= rect.y
   && point.y <= rect.y + rect.height
 )
+
+const hasStyleField = (
+  schema: NodeSchema | undefined,
+  path: string
+) => schema?.fields.some((field) => field.scope === 'style' && field.path === path) ?? false
+
+const canEditStrokeStyle = (
+  node: WhiteboardNode,
+  schema: NodeSchema | undefined
+) => (
+  hasStyleField(schema, 'stroke')
+  || hasStyleField(schema, 'strokeWidth')
+  || typeof node.style?.stroke === 'string'
+  || typeof node.style?.strokeWidth === 'number'
+)
+
+const canEditOpacityStyle = (
+  node: WhiteboardNode,
+  schema: NodeSchema | undefined
+) => (
+  hasStyleField(schema, 'opacity')
+  || typeof node.style?.opacity === 'number'
+)
+
+const withCurrentLabel = (
+  label: string,
+  active: boolean
+) => active ? `${label} (Current)` : label
+
+const buildStrokeStyleGroup = ({
+  instance,
+  nodes
+}: {
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'registry' | 'commands'>
+  nodes: readonly WhiteboardNode[]
+}): ContextMenuGroup | undefined => {
+  if (!nodes.length) {
+    return undefined
+  }
+
+  const sources = nodes.map((node) => ({
+    node,
+    schema: instance.registry.get(node.type)?.schema
+  }))
+  const supportsStroke = sources.every(({ node, schema }) => canEditStrokeStyle(node, schema))
+  if (!supportsStroke) {
+    return undefined
+  }
+
+  const supportsOpacity = sources.every(({ node, schema }) => canEditOpacityStyle(node, schema))
+  const strokeWidths = nodes.every((node) => node.type === 'draw')
+    ? DRAW_STROKE_WIDTHS
+    : STROKE_WIDTHS
+  const primary = nodes[0]
+  const stroke = typeof primary.style?.stroke === 'string'
+    ? primary.style.stroke
+    : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
+  const strokeWidth = typeof primary.style?.strokeWidth === 'number'
+    ? primary.style.strokeWidth
+    : 1
+  const opacity = typeof primary.style?.opacity === 'number'
+    ? primary.style.opacity
+    : 1
+
+  return {
+    key: 'style',
+    title: 'Style',
+    items: [
+      {
+        key: 'style.stroke',
+        label: 'Stroke',
+        children: COLOR_OPTIONS.map((option) => ({
+          key: `style.stroke.${option.label.toLowerCase()}`,
+          label: withCurrentLabel(option.label, stroke === option.value),
+          onClick: () => {
+            updateNodesStyle(instance, nodes, { stroke: option.value })
+          }
+        }))
+      },
+      {
+        key: 'style.width',
+        label: 'Width',
+        children: strokeWidths.map((value) => ({
+          key: `style.width.${value}`,
+          label: withCurrentLabel(`${value}`, strokeWidth === value),
+          onClick: () => {
+            updateNodesStyle(instance, nodes, { strokeWidth: value })
+          }
+        }))
+      },
+      ...(supportsOpacity
+        ? [
+          {
+            key: 'style.opacity',
+            label: 'Opacity',
+            children: OPACITY_OPTIONS.map((option) => ({
+              key: `style.opacity.${option.label}`,
+              label: withCurrentLabel(option.label, opacity === option.value),
+              onClick: () => {
+                updateNodesStyle(instance, nodes, { opacity: option.value })
+              }
+            }))
+          }
+        ]
+        : [])
+    ]
+  }
+}
 
 const readPlacement = ({
   screen,
@@ -571,28 +687,44 @@ export const ContextMenu = ({
             onCopy: () => copyNodes(instance, [target.node.id]),
             onCut: () => cutNodes(instance, [target.node.id])
           })
-          const groups = bindContextMenuGroups(
-            buildContextMenuGroups(actions),
+          const groups = buildContextMenuGroups(actions)
+          const styleGroup = buildStrokeStyleGroup({
+            instance,
+            nodes: [target.node]
+          })
+          if (styleGroup) {
+            groups.unshift(styleGroup)
+          }
+          const boundGroups = bindContextMenuGroups(
+            groups,
             dismissAction
           )
           if (target.node.type === 'group') {
             const groupSection = buildGroupSection(target.node)
-            const structureIndex = groups.findIndex((group) => group.key === 'structure')
+            const structureIndex = boundGroups.findIndex((group) => group.key === 'structure')
             if (structureIndex >= 0) {
-              groups.splice(structureIndex + 1, 0, groupSection)
+              boundGroups.splice(structureIndex + 1, 0, groupSection)
             } else {
-              groups.push(groupSection)
+              boundGroups.push(groupSection)
             }
           }
-          return groups
+          return boundGroups
         }
         case 'nodes': {
           const actions = createNodeSelectionActions(instance, target.nodes, {
             onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
             onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
           })
+          const groups = buildContextMenuGroups(actions)
+          const styleGroup = buildStrokeStyleGroup({
+            instance,
+            nodes: target.nodes
+          })
+          if (styleGroup) {
+            groups.unshift(styleGroup)
+          }
           return bindContextMenuGroups(
-            buildContextMenuGroups(actions),
+            groups,
             dismissAction
           )
         }

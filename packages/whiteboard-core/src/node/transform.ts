@@ -52,12 +52,21 @@ export const rotateVector = (vector: Point, rotation: number) =>
 export const buildTransformHandles = (options: {
   rect: Rect
   rotation: number
+  canResize: boolean
   canRotate: boolean
   rotateHandleOffset: number
   zoom: number
   zoomEpsilon?: number
 }): TransformHandle[] => {
-  const { rect, rotation, canRotate, rotateHandleOffset, zoom, zoomEpsilon = 0.0001 } = options
+  const {
+    rect,
+    rotation,
+    canResize,
+    canRotate,
+    rotateHandleOffset,
+    zoom,
+    zoomEpsilon = 0.0001
+  } = options
   const center = getRectCenter(rect)
   const cx = rect.x + rect.width / 2
   const cy = rect.y + rect.height / 2
@@ -77,13 +86,15 @@ export const buildTransformHandles = (options: {
       rotatePoint(localPositions[direction], center, rotation)
     ])
   ) as Record<ResizeDirection, Point>
-  const resizeHandles = (Object.keys(positions) as ResizeDirection[]).map((direction) => ({
-    id: `resize-${direction}`,
-    kind: 'resize' as const,
-    direction,
-    position: positions[direction],
-    cursor: resizeHandleMap[direction].cursor
-  }))
+  const resizeHandles = canResize
+    ? (Object.keys(positions) as ResizeDirection[]).map((direction) => ({
+        id: `resize-${direction}`,
+        kind: 'resize' as const,
+        direction,
+        position: positions[direction],
+        cursor: resizeHandleMap[direction].cursor
+      }))
+    : []
   if (!canRotate) return resizeHandles
 
   const offsetWorld = rotateHandleOffset / Math.max(zoom, zoomEpsilon)

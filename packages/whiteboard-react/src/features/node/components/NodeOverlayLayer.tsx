@@ -67,6 +67,7 @@ const NodeTransformOverlayItem = memo(({
       node={view.node}
       rect={view.rect}
       rotation={view.rotation}
+      canResize={view.canResize}
       canRotate={view.canRotate}
       onTransformPointerDown={onTransformPointerDown}
     />

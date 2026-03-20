@@ -1,8 +1,8 @@
 import {
-  COLORS,
   ColorSwatch,
   MenuSection
 } from './MenuPrimitives'
+import { COLORS } from './options'
 
 export const FillMenu = ({
   value,

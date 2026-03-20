@@ -6,7 +6,9 @@ export type EdgePresetKey =
   | 'edge.curve'
 
 export type InsertPresetKey = string
-export type DrawPresetKey = string
+export type DrawPresetKey =
+  | 'draw.pen'
+  | 'draw.highlighter'
 
 export type SelectTool = {
   type: 'select'
@@ -45,6 +47,7 @@ const EDGE_PRESET_TO_TYPE = {
 } as const satisfies Record<EdgePresetKey, EdgeType>
 
 export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
+export const DEFAULT_DRAW_PRESET_KEY: DrawPresetKey = 'draw.pen'
 
 export const SelectTool: SelectTool = {
   type: 'select'
@@ -61,9 +64,23 @@ export const createEdgeTool = (
   preset
 })
 
+export const createDrawTool = (
+  preset: DrawPresetKey = DEFAULT_DRAW_PRESET_KEY
+): DrawTool => ({
+  type: 'draw',
+  preset
+})
+
 const isEdgePresetKey = (
   value: string
 ): value is EdgePresetKey => value in EDGE_PRESET_TO_TYPE
+
+const isDrawPresetKey = (
+  value: string
+): value is DrawPresetKey => (
+  value === 'draw.pen'
+  || value === 'draw.highlighter'
+)
 
 export const readEdgeType = (
   preset: EdgePresetKey
@@ -143,13 +160,11 @@ export const normalizeTool = (
             : 'text'
       }
     case 'draw':
-      return {
-        type: 'draw',
-        preset:
-          typeof tool.preset === 'string' && tool.preset.trim()
-            ? tool.preset
-            : 'free'
-      }
+      return createDrawTool(
+        typeof tool.preset === 'string' && isDrawPresetKey(tool.preset)
+          ? tool.preset
+          : DEFAULT_DRAW_PRESET_KEY
+      )
     case 'select':
     default:
       return SelectTool

@@ -1,28 +1,44 @@
 import {
-  COLORS,
-  STROKE_WIDTHS,
   Chip,
   ChipRow,
   ColorSwatch,
   MenuSection
 } from './MenuPrimitives'
+import {
+  COLORS,
+  OPACITY_OPTIONS,
+  STROKE_WIDTHS
+} from './options'
 
 export const StrokeMenu = ({
+  colors = COLORS,
+  widths = STROKE_WIDTHS,
+  opacities = OPACITY_OPTIONS,
   stroke,
   strokeWidth,
+  opacity,
   onStrokeChange,
-  onStrokeWidthChange
+  onStrokeWidthChange,
+  onOpacityChange
 }: {
+  colors?: readonly string[]
+  widths?: readonly number[]
+  opacities?: readonly {
+    label: string
+    value: number
+  }[]
   stroke?: string
   strokeWidth?: number
+  opacity?: number
   onStrokeChange?: (value: string) => void
   onStrokeWidthChange?: (value: number) => void
+  onOpacityChange?: (value: number) => void
 }) => (
   <>
     {onStrokeChange ? (
       <MenuSection title="Stroke">
         <div className="wb-node-toolbar-swatch-grid">
-          {COLORS.map((color) => (
+          {colors.map((color) => (
             <ColorSwatch
               key={color}
               color={color}
@@ -38,7 +54,7 @@ export const StrokeMenu = ({
     {onStrokeWidthChange ? (
       <MenuSection title="Width">
         <ChipRow>
-          {STROKE_WIDTHS.map((value) => (
+          {widths.map((value) => (
             <Chip
               key={value}
               active={strokeWidth === value}
@@ -47,6 +63,23 @@ export const StrokeMenu = ({
               }}
             >
               {value}
+            </Chip>
+          ))}
+        </ChipRow>
+      </MenuSection>
+    ) : null}
+    {onOpacityChange ? (
+      <MenuSection title="Opacity">
+        <ChipRow>
+          {opacities.map((option) => (
+            <Chip
+              key={option.label}
+              active={opacity === option.value}
+              onClick={() => {
+                onOpacityChange(option.value)
+              }}
+            >
+              {option.label}
             </Chip>
           ))}
         </ChipRow>

@@ -37,6 +37,7 @@ export type NodeView = {
   hovered: boolean
   rotation: number
   hasResizePreview: boolean
+  canResize: boolean
   canRotate: boolean
   nodeStyle: CSSProperties
   transformStyle: CSSProperties
@@ -50,8 +51,21 @@ export type NodeOverlayView = {
   node: NodeView['node']
   rect: NodeView['rect']
   rotation: NodeView['rotation']
+  canResize: NodeView['canResize']
   canRotate: NodeView['canRotate']
 }
+
+const resolveCanResize = (
+  definition?: NodeDefinition
+) => definition?.canResize ?? true
+
+const resolveCanRotate = (
+  definition?: NodeDefinition
+) => (
+  typeof definition?.canRotate === 'boolean'
+    ? definition.canRotate
+    : getNodeScene(definition) !== 'container'
+)
 
 const resolveNodeOverlayViewState = (
   instance: Pick<InternalInstance, 'registry'>,
@@ -62,14 +76,15 @@ const resolveNodeOverlayViewState = (
   const rect = item.rect
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const definition = instance.registry.get(node.type)
-  const canRotate =
-    typeof definition?.canRotate === 'boolean' ? definition.canRotate : getNodeScene(definition) !== 'container'
+  const canResize = resolveCanResize(definition)
+  const canRotate = resolveCanRotate(definition)
 
   return {
     nodeId,
     node,
     rect,
     rotation,
+    canResize,
     canRotate
   }
 }
@@ -99,10 +114,10 @@ const resolveNodeViewState = (
     selected,
     hovered,
     update,
-    updateData
+      updateData
   }
-  const canRotate =
-    typeof definition?.canRotate === 'boolean' ? definition.canRotate : getNodeScene(definition) !== 'container'
+  const canResize = resolveCanResize(definition)
+  const canRotate = resolveCanRotate(definition)
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}
@@ -115,6 +130,7 @@ const resolveNodeViewState = (
     hovered,
     rotation,
     hasResizePreview,
+    canResize,
     canRotate,
     nodeStyle,
     transformStyle,

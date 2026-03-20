@@ -16,12 +16,15 @@ import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
 import { createEditRead, type EditRead } from './edit'
 import { createSliceRead, type SliceRead } from './slice'
+import { createDrawRead, type DrawRead } from './draw'
+import type { DrawRuntime } from '../draw'
 
 export type RuntimeRead = Omit<EngineRead, 'node'> & {
   node: NodeRead
   tool: ToolRead
   edit: EditRead
   slice: SliceRead
+  draw: DrawRead
 }
 
 export const createRuntimeRead = ({
@@ -32,7 +35,8 @@ export const createRuntimeRead = ({
   interaction,
   node,
   edge,
-  mindmap
+  mindmap,
+  draw
 }: {
   engineRead: EngineRead
   tool: ReadStore<Tool>
@@ -42,6 +46,7 @@ export const createRuntimeRead = ({
   node: Pick<NodeFeatureRuntime, 'session' | 'press'>
   edge: Pick<EdgeFeatureRuntime, 'path'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
+  draw: Pick<DrawRuntime, 'read'>
 }): RuntimeRead => {
   const nodeRead = createNodeRead({
     read: engineRead,
@@ -72,6 +77,9 @@ export const createRuntimeRead = ({
       selection
     }),
     index: engineRead.index,
+    draw: createDrawRead({
+      draw: draw.read
+    }),
     tool: createToolRead({
       tool
     }),

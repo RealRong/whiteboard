@@ -7,8 +7,10 @@ import type {
 import type { Tool } from '../tool'
 import {
   DEFAULT_EDGE_PRESET_KEY,
+  DEFAULT_DRAW_PRESET_KEY,
   HandTool,
   SelectTool,
+  createDrawTool,
   createEdgeTool,
   isSameTool,
   normalizeTool
@@ -38,6 +40,7 @@ import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runt
 import { createRuntimeRead } from '../read'
 import type { Viewport } from '@whiteboard/core/types'
 import { finalize } from '../selection/finalize'
+import { createDrawRuntime } from '../draw'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
@@ -50,6 +53,7 @@ type InstanceInternals = {
   node: ReturnType<typeof createNodeFeatureRuntime>
   edge: ReturnType<typeof createEdgeFeatureRuntime>
   mindmap: ReturnType<typeof createMindmapFeatureRuntime>
+  draw: ReturnType<typeof createDrawRuntime>
 }
 
 const createInstanceStores = ({
@@ -75,6 +79,9 @@ const createInstanceStores = ({
   const node = createNodeFeatureRuntime()
   const edge = createEdgeFeatureRuntime()
   const mindmap = createMindmapFeatureRuntime()
+  const draw = createDrawRuntime({
+    getTool: () => tool.get()
+  })
   const read = createRuntimeRead({
     engineRead: engine.read,
     tool,
@@ -83,7 +90,8 @@ const createInstanceStores = ({
     interaction: interaction.mode,
     node,
     edge,
-    mindmap
+    mindmap,
+    draw
   })
 
   return {
@@ -104,7 +112,8 @@ const createInstanceStores = ({
     internals: {
       node,
       edge,
-      mindmap
+      mindmap,
+      draw
     }
   }
 }
@@ -115,7 +124,8 @@ const createCommands = ({
   edit,
   selection,
   container,
-  viewport
+  viewport,
+  draw
 }: {
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<Tool>>
@@ -123,6 +133,7 @@ const createCommands = ({
   selection: SelectionCommands
   container: ReturnType<typeof createContainerState>
   viewport: ViewportCommands
+  draw: ReturnType<typeof createDrawRuntime>['commands']
 }): WhiteboardInstance['commands'] => {
   const setTool = (nextTool: Tool) => {
     const normalized = normalizeTool(nextTool)
@@ -149,13 +160,11 @@ const createCommands = ({
           preset
         })
       },
-      draw: (preset = 'free') => {
-        setTool({
-          type: 'draw',
-          preset
-        })
+      draw: (preset = DEFAULT_DRAW_PRESET_KEY) => {
+        setTool(createDrawTool(preset))
       }
     },
+    draw,
     edit,
     selection: {
       replace: (nodeIds) => {
@@ -231,6 +240,7 @@ export const createInstance = ({
     internals.node.clear()
     internals.edge.clear()
     internals.mindmap.clear()
+    internals.draw.clear()
   }
   const unsubscribeCommit = engine.commit.subscribe(() => {
     const commit = engine.commit.get()
@@ -261,7 +271,8 @@ export const createInstance = ({
     edit: stores.edit.commands,
     selection: stores.selection.commands,
     container: stores.container,
-    viewport: viewport.commands
+    viewport: viewport.commands,
+    draw: internals.draw.commands
   })
 
   return {

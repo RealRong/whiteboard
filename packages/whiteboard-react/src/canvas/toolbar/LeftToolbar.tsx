@@ -2,6 +2,7 @@ import {
   GitBranch,
   Hand,
   MousePointer2,
+  PencilLine,
   Shapes,
   StickyNote,
   Type
@@ -12,12 +13,19 @@ import {
   useRef,
   useState
 } from 'react'
-import { useInternalInstance, useTool } from '../../runtime/hooks'
 import {
+  useInternalInstance,
+  useStoreValue,
+  useTool
+} from '../../runtime/hooks'
+import {
+  DEFAULT_DRAW_PRESET_KEY,
   DEFAULT_EDGE_PRESET_KEY,
+  type DrawPresetKey,
   type EdgePresetKey
 } from '../../runtime/tool'
 import { EdgeMenu, EdgePresetGlyph } from './menus/EdgeMenu'
+import { DrawMenu } from './menus/DrawMenu'
 import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
@@ -37,6 +45,7 @@ type Surface = {
 }
 
 type MenuKey =
+  | 'draw'
   | 'edge'
   | 'sticky'
   | 'shape'
@@ -48,6 +57,7 @@ const MenuOffset = 10
 const MenuWidth = 240
 
 const MenuApproxHeight: Record<MenuKey, number> = {
+  draw: 244,
   edge: 164,
   sticky: 164,
   shape: 252,
@@ -62,9 +72,11 @@ export const LeftToolbar = ({
   const instance = useInternalInstance()
   const tool = useTool()
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const drawPresetRef = useRef<DrawPresetKey>(DEFAULT_DRAW_PRESET_KEY)
   const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
   const buttonRefByKey = useRef<Partial<Record<MenuKey, HTMLButtonElement | null>>>({})
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
+  const drawState = useStoreValue(instance.internals.draw.style)
   const insertGroup = tool.type === 'insert'
     ? readInsertPresetGroup(tool.preset)
     : undefined
@@ -76,6 +88,16 @@ export const LeftToolbar = ({
   const edgePreset = tool.type === 'edge'
     ? tool.preset
     : edgePresetRef.current
+  const drawPreset = tool.type === 'draw'
+    ? tool.preset
+    : drawPresetRef.current
+  const drawStyle = drawState.byPreset[drawPreset]
+
+  useEffect(() => {
+    if (tool.type === 'draw') {
+      drawPresetRef.current = tool.preset
+    }
+  }, [tool])
 
   useEffect(() => {
     if (tool.type === 'edge') {
@@ -252,6 +274,35 @@ export const LeftToolbar = ({
         </button>
         <button
           ref={(element) => {
+            buttonRefByKey.current.draw = element
+          }}
+          type="button"
+          className="wb-left-toolbar-button"
+          data-active={tool.type === 'draw' ? 'true' : undefined}
+          onClick={() => {
+            if (tool.type !== 'draw') {
+              instance.commands.tool.draw(drawPreset)
+              setOpenMenu('draw')
+              return
+            }
+
+            setOpenMenu((current) => current === 'draw' ? null : 'draw')
+          }}
+          data-selection-ignore
+          data-input-ignore
+          title="Draw"
+        >
+          <span
+            className="wb-left-toolbar-button-tint"
+            style={{
+              background: drawStyle.color,
+              opacity: drawStyle.opacity
+            }}
+          />
+          <ToolbarIcon icon={PencilLine} />
+        </button>
+        <button
+          ref={(element) => {
             buttonRefByKey.current.mindmap = element
           }}
           type="button"
@@ -279,6 +330,21 @@ export const LeftToolbar = ({
           data-selection-ignore
           data-input-ignore
         >
+          {openMenu === 'draw' ? (
+            <DrawMenu
+              preset={drawPreset}
+              style={drawStyle}
+              onPreset={(value) => {
+                instance.commands.tool.draw(value)
+              }}
+              onColor={(value) => {
+                instance.commands.draw.set({ color: value }, drawPreset)
+              }}
+              onWidth={(value) => {
+                instance.commands.draw.set({ width: value }, drawPreset)
+              }}
+            />
+          ) : null}
           {openMenu === 'edge' ? (
             <EdgeMenu
               value={edgePreset}

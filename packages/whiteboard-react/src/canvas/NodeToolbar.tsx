@@ -34,10 +34,18 @@ import {
   measureTextNodeSize,
   readTextWidthMode
 } from '../features/node/text'
+import {
+  mergeNodeStyle,
+  removeNodeStyle,
+  removeNodeStyleKey,
+  updateNodeStyle,
+  updateNodesStyle
+} from '../features/node/style'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'
+import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
 
@@ -64,6 +72,13 @@ type ToolbarItem = {
   key: ToolbarItemKey
   label: string
   active: boolean
+}
+
+type ToolbarIconState = {
+  fill?: string
+  stroke?: string
+  strokeWidth?: number
+  opacity?: number
 }
 
 type ToolbarSource = {
@@ -132,6 +147,7 @@ const NodeTypesByCapability: Record<
   ]),
   stroke: new Set([
     'rect',
+    'draw',
     'group',
     'ellipse',
     'diamond',
@@ -302,46 +318,78 @@ const SvgIcon = ({
 
 const IconStrokeWidth = 1
 
-const ToolbarIcons: Record<ToolbarItemKey, ReactNode> = {
-  fill: (
-    <SvgIcon>
-      <path d="M8 5.5h6l3.5 3.5v1L11 17.5 6.5 13l7-7.5Z" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <path d="M5 19.5h14" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  stroke: (
-    <SvgIcon>
-      <circle cx="12" cy="11" r="5.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <path d="M4.5 19.5h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  text: (
-    <SvgIcon>
-      <path d="M7 6.5h10" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <path d="M12 6.5v11" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  group: (
-    <SvgIcon>
-      <rect x="4.5" y="6.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <rect x="12.5" y="10.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  layout: (
-    <SvgIcon>
-      <path d="M4.5 7h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <path d="M12 4.5v15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <rect x="6" y="9" width="4" height="3" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-      <rect x="14" y="9" width="4" height="6" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-    </SvgIcon>
-  ),
-  more: (
-    <SvgIcon>
-      <circle cx="7" cy="12" r="1.15" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
-      <circle cx="17" cy="12" r="1.15" fill="currentColor" stroke="none" />
-    </SvgIcon>
-  )
+const resolveToolbarStrokePreviewWidth = (
+  value?: number
+) => {
+  if (!Number.isFinite(value)) {
+    return 2
+  }
+
+  return Math.min(4.5, Math.max(1.5, value as number))
+}
+
+const renderToolbarIcon = (
+  key: ToolbarItemKey,
+  state: ToolbarIconState
+): ReactNode => {
+  switch (key) {
+    case 'fill':
+      return (
+        <SvgIcon>
+          <path d="M8 5.5h6l3.5 3.5v1L11 17.5 6.5 13l7-7.5Z" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <path
+            d="M5.5 19.5h13"
+            stroke={state.fill ?? 'currentColor'}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </SvgIcon>
+      )
+    case 'stroke':
+      return (
+        <SvgIcon>
+          <path
+            d="M5 18.5h14"
+            stroke={state.stroke ?? 'currentColor'}
+            strokeOpacity={state.opacity ?? 1}
+            strokeWidth={resolveToolbarStrokePreviewWidth(state.strokeWidth)}
+            strokeLinecap="round"
+          />
+          <path d="M5 7h14" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+        </SvgIcon>
+      )
+    case 'text':
+      return (
+        <SvgIcon>
+          <path d="M7 6.5h10" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <path d="M12 6.5v11" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+        </SvgIcon>
+      )
+    case 'group':
+      return (
+        <SvgIcon>
+          <rect x="4.5" y="6.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <rect x="12.5" y="10.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+        </SvgIcon>
+      )
+    case 'layout':
+      return (
+        <SvgIcon>
+          <path d="M4.5 7h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <path d="M12 4.5v15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <rect x="6" y="9" width="4" height="3" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+          <rect x="14" y="9" width="4" height="6" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
+        </SvgIcon>
+      )
+    case 'more':
+      return (
+        <SvgIcon>
+          <circle cx="7" cy="12" r="1.15" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
+          <circle cx="17" cy="12" r="1.15" fill="currentColor" stroke="none" />
+        </SvgIcon>
+      )
+  }
 }
 
 const resolveToolbarPlacement = ({
@@ -458,57 +506,10 @@ const readMenuAnchor = ({
   }
 }
 
-const mergeStyle = (
-  current: Record<string, string | number> | undefined,
-  patch: Record<string, string | number>
-) => mergeRecordPatch(current, patch)
-
 const mergeData = (
   current: Record<string, unknown> | undefined,
   patch: Record<string, unknown>
 ) => mergeRecordPatch(current, patch)
-
-const removeStyleKey = (
-  current: Record<string, string | number> | undefined,
-  key: string
-) => {
-  if (!current || !(key in current)) {
-    return current
-  }
-
-  const next = {
-    ...current
-  }
-  delete next[key]
-  return Object.keys(next).length > 0 ? next : undefined
-}
-
-const updateNodesStyle = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
-  nodes: readonly Node[],
-  patch: Record<string, string | number>
-) => instance.commands.node.updateMany(nodes.map((node) => ({
-  id: node.id,
-  patch: {
-    style: mergeStyle(node.style, patch)
-  }
-})))
-
-const updateNodeStyle = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
-  node: Node,
-  patch: Record<string, string | number>
-) => instance.commands.node.update(node.id, {
-  style: mergeStyle(node.style, patch)
-})
-
-const removeNodeStyle = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
-  node: Node,
-  key: string
-) => instance.commands.node.update(node.id, {
-  style: removeStyleKey(node.style, key)
-})
 
 const queryNodeTextSource = ({
   container,
@@ -606,8 +607,8 @@ const updateToolbarTextFontSize = ({
   }
 
   const nextStyle = value === undefined
-    ? removeStyleKey(node.style, 'fontSize')
-    : mergeStyle(node.style, { fontSize: value })
+    ? removeNodeStyleKey(node.style, 'fontSize')
+    : mergeNodeStyle(node.style, { fontSize: value })
   const patch: Record<string, unknown> = {
     style: nextStyle
   }
@@ -778,6 +779,9 @@ export const NodeToolbar = ({
   const strokeWidthValue = typeof toolbar.primaryNode.style?.strokeWidth === 'number'
     ? toolbar.primaryNode.style.strokeWidth
     : 1
+  const strokeOpacityValue = typeof toolbar.primaryNode.style?.opacity === 'number'
+    ? toolbar.primaryNode.style.opacity
+    : undefined
   const textValue = readTextValue(toolbar.primaryNode, primarySchema)
   const textFieldKey = readTextFieldKey(toolbar.primaryNode, primarySchema)
   const textColor = typeof toolbar.primaryNode.style?.color === 'string'
@@ -797,11 +801,21 @@ export const NodeToolbar = ({
     || hasSchemaField(primarySchema, 'data', 'collapsed')
   const showGroupAutoFit = !primarySchema
     || hasSchemaField(primarySchema, 'data', 'autoFit')
+  const showStrokeOpacitySection =
+    hasSchemaField(primarySchema, 'style', 'opacity')
+    || typeof toolbar.primaryNode.style?.opacity === 'number'
+  const drawOnlyStrokeMenu = toolbar.nodes.every((node) => node.type === 'draw')
   const groupCollapsed = Boolean(toolbar.primaryNode.data?.collapsed)
   const groupAutoFit: GroupAutoFitMode =
     toolbar.primaryNode.data?.autoFit === 'manual'
       ? 'manual'
       : 'expand-only'
+  const toolbarIconState: ToolbarIconState = {
+    fill: fillValue,
+    stroke: strokeValue,
+    strokeWidth: strokeWidthValue,
+    opacity: strokeOpacityValue
+  }
 
   const renderMenu = () => {
     if (!activeMenuKey) return null
@@ -829,14 +843,19 @@ export const NodeToolbar = ({
       case 'stroke':
         return (
           <StrokeMenu
+            widths={drawOnlyStrokeMenu ? DRAW_STROKE_WIDTHS : undefined}
             stroke={strokeValue}
             strokeWidth={strokeWidthValue}
+            opacity={strokeOpacityValue}
             onStrokeChange={(value) => {
               updateNodesStyle(instance, toolbar.nodes, { stroke: value })
             }}
             onStrokeWidthChange={(value) => {
               updateNodesStyle(instance, toolbar.nodes, { strokeWidth: value })
             }}
+            onOpacityChange={showStrokeOpacitySection ? (value) => {
+              updateNodesStyle(instance, toolbar.nodes, { opacity: value })
+            } : undefined}
           />
         )
       case 'text':
@@ -953,7 +972,7 @@ export const NodeToolbar = ({
                 setActiveMenuKey((current) => current === item.key ? null : item.key)
               }}
             >
-              {ToolbarIcons[item.key]}
+              {renderToolbarIcon(item.key, toolbarIconState)}
             </button>
           )
         })}

@@ -26,6 +26,8 @@ import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { EdgePresetKey, Tool } from '../tool'
 import type { EditField, EditTarget } from '../edit'
+import type { DrawCommands, DrawRuntime } from '../draw'
+import type { DrawPresetKey } from '../tool'
 
 type EngineCommands = EngineInstance['commands']
 
@@ -45,8 +47,9 @@ export type WhiteboardInstance = {
       hand: () => void
       edge: (preset?: EdgePresetKey) => void
       insert: (preset: string) => void
-      draw: (preset?: string) => void
+      draw: (preset?: DrawPresetKey) => void
     }
+    draw: DrawCommands
     edit: {
       start: (nodeId: NodeId, field: EditField) => void
       clear: () => void
@@ -90,5 +93,6 @@ export type InternalInstance = WhiteboardInstance & {
     node: NodeFeatureRuntime
     edge: EdgeFeatureRuntime
     mindmap: MindmapFeatureRuntime
+    draw: DrawRuntime
   }
 }

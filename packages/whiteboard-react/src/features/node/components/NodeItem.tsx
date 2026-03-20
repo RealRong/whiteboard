@@ -47,6 +47,7 @@ export const NodeItem = memo(({
     updateData
   } = view
   const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
+  const hit = definition?.hit ?? 'box'
   const setMeasuredElement = useCallback((element: HTMLDivElement | null) => {
     registerMeasuredElement(nodeId, element, shouldAutoMeasure)
   }, [nodeId, registerMeasuredElement, shouldAutoMeasure])
@@ -54,7 +55,7 @@ export const NodeItem = memo(({
 
   const rootStyle: CSSProperties = {
     ...nodeStyle,
-    pointerEvents: 'auto',
+    pointerEvents: hit === 'path' ? 'none' : 'auto',
     ...transformStyle
   }
   const renderProps: NodeRenderProps = {
@@ -73,6 +74,7 @@ export const NodeItem = memo(({
       className="wb-node-block"
       data-node-id={nodeId}
       data-node-type={resolvedNode.type}
+      data-node-hit={hit}
       onPointerDown={(event) => {
         onNodePointerDown(nodeId, event)
       }}

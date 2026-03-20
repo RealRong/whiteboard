@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
-  COLORS,
-  FONT_SIZES,
   Chip,
   ChipRow,
   ColorSwatch,
   MenuSection
 } from './MenuPrimitives'
+import {
+  COLORS,
+  FONT_SIZES
+} from './options'
 
 export const TextMenu = ({
   value,

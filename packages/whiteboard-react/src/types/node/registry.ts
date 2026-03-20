@@ -2,6 +2,7 @@ import type { Node, NodePatch, NodeSchema, Rect } from '@whiteboard/core/types'
 import type { CSSProperties, ReactNode } from 'react'
 
 export type NodeScene = 'content' | 'container'
+export type NodeHit = 'box' | 'path'
 
 export type NodeRenderProps = {
   node: Node
@@ -16,11 +17,13 @@ export type NodeDefinition = {
   type: string
   label?: string
   scene?: NodeScene
+  hit?: NodeHit
   schema?: NodeSchema
   defaultData?: Record<string, unknown>
   render: (props: NodeRenderProps) => ReactNode
   style?: (props: NodeRenderProps) => CSSProperties
   canRotate?: boolean
+  canResize?: boolean
   autoMeasure?: boolean
 }
 
