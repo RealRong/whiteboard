@@ -241,7 +241,7 @@ export const createTransformSession = (
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[],
-    guides: readonly ReturnType<typeof resolveResizePreview>['guides'] = []
+    guides: ReturnType<typeof resolveResizePreview>['guides'] = []
   ) => {
     instance.internals.node.session.write({
       patches
@@ -488,5 +488,3 @@ export const createTransformSession = (
     }
   }
 }
-
-export const createNodeTransformSession = createTransformSession

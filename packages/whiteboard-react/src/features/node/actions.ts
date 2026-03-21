@@ -3,7 +3,7 @@ import type {
   NodeDistributeMode
 } from '@whiteboard/core/node'
 import type { Node } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { InternalInstance } from '../../runtime/instance'
 import {
   alignNodes,
   deleteNodes,
@@ -25,7 +25,7 @@ import {
   type NodeSummary
 } from './summary'
 
-type NodeActionsInstance = Pick<WhiteboardInstance, 'commands' | 'registry'>
+type NodeActionsInstance = Pick<InternalInstance, 'commands' | 'registry'>
 
 type NodeActionExtras = {
   onCopy?: () => unknown
@@ -42,9 +42,17 @@ export type NodeActionItem = {
   onClick: () => void
 }
 
+export type NodeActionSection = {
+  key: 'layout' | 'layer' | 'structure' | 'state' | 'edit' | 'danger'
+  title: string
+  kind: 'submenu' | 'list'
+  items: readonly NodeActionItem[]
+}
+
 export type NodeSelectionActions = {
   summary: NodeSummary
   can: NodeSelectionCan
+  sections: readonly NodeActionSection[]
   filter: {
     visible: boolean
     types: readonly NodeTypeSummary[]
@@ -163,6 +171,76 @@ const DISTRIBUTE_ITEMS: ReadonlyArray<{
   }
 ]
 
+const readSections = ({
+  layer,
+  layout,
+  structure,
+  state,
+  edit,
+  danger
+}: Pick<NodeSelectionActions, 'layer' | 'layout' | 'structure' | 'state' | 'edit' | 'danger'>): NodeActionSection[] => {
+  const sections: NodeActionSection[] = []
+
+  if (layout.visible) {
+    sections.push({
+      key: 'layout',
+      title: 'Layout',
+      kind: 'submenu',
+      items: [
+        ...layout.alignItems,
+        ...layout.distributeItems
+      ]
+    })
+  }
+
+  if (layer.visible) {
+    sections.push({
+      key: 'layer',
+      title: 'Layer',
+      kind: 'submenu',
+      items: layer.items
+    })
+  }
+
+  if (structure.visible) {
+    sections.push({
+      key: 'structure',
+      title: 'Structure',
+      kind: 'list',
+      items: structure.items
+    })
+  }
+
+  if (state.visible) {
+    sections.push({
+      key: 'state',
+      title: 'State',
+      kind: 'list',
+      items: state.items
+    })
+  }
+
+  if (edit.visible) {
+    sections.push({
+      key: 'edit',
+      title: 'Edit',
+      kind: 'list',
+      items: edit.items
+    })
+  }
+
+  if (danger.visible) {
+    sections.push({
+      key: 'danger',
+      title: 'Danger',
+      kind: 'list',
+      items: danger.items
+    })
+  }
+
+  return sections
+}
+
 export const createNodeSelectionActions = (
   instance: NodeActionsInstance,
   nodes: readonly Node[],
@@ -258,13 +336,13 @@ export const createNodeSelectionActions = (
     }
   ]
 
-  return {
+  const actions = {
     summary,
     can,
     filter: {
       visible: can.filter,
       types: summary.types,
-      onSelect: (type) => {
+      onSelect: (type: string) => {
         filterNodesByType(instance, nodes, type)
       }
     },
@@ -319,5 +397,10 @@ export const createNodeSelectionActions = (
       visible: can.delete,
       items: dangerItems
     }
+  } satisfies Omit<NodeSelectionActions, 'sections'>
+
+  return {
+    ...actions,
+    sections: readSections(actions)
   }
 }

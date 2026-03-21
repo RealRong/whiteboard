@@ -24,7 +24,7 @@ import {
   projectNodeItem,
   type NodeSessionReader
 } from '../../features/node/session/node'
-import type { NodePress } from '../../features/node/session/runtime'
+import type { NodeChromeHidden } from '../../features/node/session/runtime'
 
 export type NodeChrome = {
   selection: boolean
@@ -72,34 +72,30 @@ export const resolveNodeTransform = (
       : resolveNodeScene(definition) !== 'container'
 })
 
-const showsSelection = (
-  press: NodePress
-) => press === null || press === 'repeat'
-
 const resolveNodeChrome = ({
   tool,
   edit,
   selection,
   interaction,
-  press
+  chromeHidden
 }: {
   tool: Tool
   edit: EditTarget
   selection: SelectionView
   interaction: InteractionMode
-  press: NodePress
+  chromeHidden: NodeChromeHidden
 }): NodeChrome => {
-  const selectionVisible = showsSelection(press)
+  const selectionVisible = !chromeHidden
   const editing = edit !== null
   const edgeSelected = selection.target.edgeId !== undefined
-  const idle = interaction === 'idle'
+  const idleLike = interaction === 'idle' || interaction === 'press'
 
   return {
     selection: selectionVisible,
     toolbar:
       tool.type === 'select'
       && !editing
-      && idle
+      && idleLike
       && selectionVisible
       && !edgeSelected
       && selection.items.count > 0,
@@ -109,12 +105,12 @@ const resolveNodeChrome = ({
       && !edgeSelected
       && (
         interaction === 'node-transform'
-        || (idle && selectionVisible)
+        || (idleLike && selectionVisible)
       ),
     connect:
       tool.type === 'edge'
       && !editing
-      && idle
+      && idleLike
       && selectionVisible
   }
 }
@@ -216,20 +212,20 @@ export const createNodeChromeRead = ({
   edit,
   selection,
   interaction,
-  press
+  chromeHidden
 }: {
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionView>
   interaction: ReadStore<InteractionMode>
-  press: ReadStore<NodePress>
+  chromeHidden: ReadStore<NodeChromeHidden>
 }): NodeRead['chrome'] => createDerivedStore<NodeChrome>({
   get: (readStore) => resolveNodeChrome({
     tool: readStore(tool),
     edit: readStore(edit),
     selection: readStore(selection),
     interaction: readStore(interaction),
-    press: readStore(press)
+    chromeHidden: readStore(chromeHidden)
   }),
   isEqual: isChromeEqual
 })
@@ -242,7 +238,7 @@ export const createNodeRead = ({
   edit,
   selection,
   interaction,
-  press
+  chromeHidden
 }: {
   read: EngineRead
   registry: NodeRegistry
@@ -251,14 +247,14 @@ export const createNodeRead = ({
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionView>
   interaction: ReadStore<InteractionMode>
-  press: ReadStore<NodePress>
+  chromeHidden: ReadStore<NodeChromeHidden>
 }): NodeRead => {
   const chrome = createNodeChromeRead({
     tool,
     edit,
     selection,
     interaction,
-    press
+    chromeHidden
   })
   const scene = (node: Pick<Node, 'type'> | string) => resolveNodeScene(
     registry.get(readNodeType(node))

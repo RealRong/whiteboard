@@ -6,7 +6,10 @@ import type {
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
 import type { WhiteboardInstance } from '../../runtime/instance'
-import { TEXT_START_SIZE } from '../../features/node/text'
+import {
+  createStickyNodeInput,
+  createTextNodeInput
+} from '../../features/node/text'
 
 export type InsertPresetGroup =
   | 'text'
@@ -272,9 +275,7 @@ export const TEXT_INSERT_PRESET = createNodePreset({
   focus: 'text',
   placement: 'point',
   input: () => ({
-    type: 'text',
-    size: { ...TEXT_START_SIZE },
-    data: { text: '' }
+    ...createTextNodeInput()
   })
 })
 
@@ -284,20 +285,7 @@ export const STICKY_INSERT_PRESETS: readonly InsertPreset[] = STICKY_TONES.map((
     group: 'sticky',
     label: tone.label,
     focus: 'text',
-    input: () => ({
-      type: 'sticky',
-      size: { width: 200, height: 150 },
-      data: {
-        text: '',
-        background: tone.fill
-      },
-      style: {
-        fill: tone.fill,
-        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
-        stroke: 'hsl(var(--ui-text-primary, 40 2.1% 28%) / 0.12)',
-        strokeWidth: 1
-      }
-    })
+    input: () => createStickyNodeInput(tone.fill)
   })
 )
 
@@ -437,9 +425,47 @@ export const DEFAULT_STICKY_PRESET_KEY = STICKY_INSERT_PRESETS[0].key
 export const DEFAULT_SHAPE_PRESET_KEY = SHAPE_INSERT_PRESETS[0].key
 export const DEFAULT_MINDMAP_PRESET_KEY = MINDMAP_INSERT_PRESETS[0].key
 
+const CREATE_PRESET_KEY_SET = new Set<string>([
+  TEXT_INSERT_PRESET.key,
+  DEFAULT_STICKY_PRESET_KEY,
+  ...SHAPE_INSERT_PRESETS.map((preset) => preset.key)
+])
+
+export const CREATE_PRESETS: readonly InsertPreset[] = INSERT_PRESETS.filter((preset) =>
+  CREATE_PRESET_KEY_SET.has(preset.key)
+)
+
 export const getInsertPreset = (
   key: string
 ) => INSERT_PRESET_INDEX.get(key)
+
+export const runInsertPreset = ({
+  instance,
+  preset,
+  world,
+  parentId
+}: {
+  instance: WhiteboardInstance
+  preset: InsertPreset
+  world: Point
+  parentId?: NodeId
+}) => {
+  const result = preset.create({
+    instance,
+    world,
+    parentId: preset.canNest === false ? undefined : parentId
+  })
+  if (!result) {
+    return
+  }
+
+  instance.commands.selection.replace([result.nodeId])
+  if (result.edit) {
+    instance.commands.edit.start(result.edit.nodeId, result.edit.field)
+  }
+
+  return result
+}
 
 export const readStickyInsertTone = (
   key: string | undefined

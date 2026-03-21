@@ -7,7 +7,7 @@ import {
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
-import type { NodePressSession } from '../hooks/drag/session'
+import type { NodeGesture } from '../gesture'
 import { useNodeView } from '../hooks/useNodeView'
 import { GroupNodeChrome } from '../registry/default/group'
 
@@ -44,11 +44,11 @@ ContainerBackgroundItem.displayName = 'ContainerBackgroundItem'
 const ContainerChromeItem = memo(({
   nodeId,
   selected,
-  pressSession
+  gesture
 }: {
   nodeId: NodeId
   selected: boolean
-  pressSession: NodePressSession
+  gesture: NodeGesture
 }) => {
   const view = useNodeView(nodeId, { selected })
 
@@ -79,10 +79,10 @@ const ContainerChromeItem = memo(({
         node={view.node}
         updateData={view.updateData}
         onHeaderPointerDown={(event) => {
-          pressSession.handleNodePointerDown(nodeId, event)
+          gesture.handleNodePointerDown(nodeId, event)
         }}
         onHeaderDoubleClick={(event) => {
-          pressSession.handleNodeDoubleClick(nodeId, event)
+          gesture.handleNodeDoubleClick(nodeId, event)
         }}
       />
     </div>
@@ -116,9 +116,9 @@ export const ContainerLayer = () => {
 }
 
 export const ContainerChromeLayer = ({
-  pressSession
+  gesture
 }: {
-  pressSession: NodePressSession
+  gesture: NodeGesture
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
@@ -141,7 +141,7 @@ export const ContainerChromeLayer = ({
           key={nodeId}
           nodeId={nodeId}
           selected={selectedSet.has(nodeId) && chrome.selection}
-          pressSession={pressSession}
+          gesture={gesture}
         />
       ))}
     </div>

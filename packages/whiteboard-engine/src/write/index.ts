@@ -14,7 +14,7 @@ import {
 } from '@whiteboard/core/kernel'
 import { createId } from '@whiteboard/core/utils'
 import { DEFAULT_HISTORY_CONFIG } from '../config'
-import { cancelled } from '../result'
+import { cancelled, failure } from '../result'
 import { plan } from './plan'
 import { createWriteNormalize } from './normalize'
 import { normalizeDocument } from '../document/normalize'
@@ -58,7 +58,10 @@ export const createWrite = ({
     const currentDocument = instance.document.get()
     const reduced = normalize.reduce(currentDocument, operations, origin)
     if (!reduced.ok) {
-      return reduced
+      return failure(
+        reduced.reason,
+        reduced.message ?? 'Failed to reduce operations.'
+      )
     }
 
     instance.document.commit(reduced.doc)

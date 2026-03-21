@@ -18,15 +18,6 @@ import {
   isOrderedArrayEqual,
   isRectEqual
 } from '../utils/equality'
-import {
-  isNodeSelectionCanEqual,
-  resolveNodeSelectionCan,
-  isNodeSummaryEqual,
-  summarizeNodes,
-  type NodeSelectionCan,
-  type NodeSummary
-} from '../../features/node/summary'
-import type { NodeMeta } from '../../types/node'
 
 export type Source =
   | { kind: 'none' }
@@ -60,8 +51,6 @@ export type View = {
     primary?: Node
     count: number
   }
-  summary: NodeSummary
-  can: NodeSelectionCan
   transform: Transform
   box?: Rect
 }
@@ -78,8 +67,6 @@ const EMPTY_ITEMS: readonly NodeItem[] = []
 const EMPTY_SOURCE: Source = {
   kind: 'none'
 }
-const EMPTY_SUMMARY = summarizeNodes(EMPTY_NODES)
-const EMPTY_CAN = resolveNodeSelectionCan(EMPTY_NODES)
 const EMPTY_TRANSFORM: Transform = {
   move: false,
   resize: 'none',
@@ -122,8 +109,6 @@ export const isViewEqual = (
   && left.target.edgeId === right.target.edgeId
   && left.items.primary === right.items.primary
   && left.items.count === right.items.count
-  && isNodeSummaryEqual(left.summary, right.summary)
-  && isNodeSelectionCanEqual(left.can, right.can)
   && left.transform.move === right.transform.move
   && left.transform.resize === right.transform.resize
   && left.transform.rotate === right.transform.rotate
@@ -159,13 +144,11 @@ export const resolveView = ({
   source,
   readNode,
   readEdge,
-  resolveNodeMeta,
   resolveNodeTransform
 }: {
   source: Source
   readNode: (nodeId: NodeId) => NodeItem | undefined
   readEdge: (edgeId: EdgeId) => EdgeItem | undefined
-  resolveNodeMeta: (type: string) => NodeMeta | undefined
   resolveNodeTransform: (node: Node) => {
     resize: boolean
     rotate: boolean
@@ -185,8 +168,6 @@ export const resolveView = ({
         primary: undefined,
         count: 0
       },
-      summary: EMPTY_SUMMARY,
-      can: EMPTY_CAN,
       transform: EMPTY_TRANSFORM,
       box: undefined
     }
@@ -205,12 +186,6 @@ export const resolveView = ({
     ? new Set<NodeId>(nodeIds)
     : EMPTY_NODE_SET
   const count = nodes.length
-  const summary = summarizeNodes(nodes, {
-    resolveMeta: resolveNodeMeta
-  })
-  const can = resolveNodeSelectionCan(nodes, {
-    resolveMeta: resolveNodeMeta
-  })
   const transform = count > 0
     ? {
         move: nodes.every((node) => !node.locked),
@@ -246,8 +221,6 @@ export const resolveView = ({
       primary: nodes[0],
       count
     },
-    summary,
-    can,
     transform,
     box
   }

@@ -25,6 +25,7 @@ import {
 } from '../features/node/commands'
 import {
   createNodeSelectionActions,
+  type NodeActionItem,
   type NodeSelectionActions
 } from '../features/node/actions'
 import {
@@ -33,10 +34,9 @@ import {
   closeAfter
 } from './actions'
 import {
-  TEXT_AUTO_MAX_WIDTH,
-  TEXT_MIN_WIDTH,
+  TEXT_DEFAULT_FONT_SIZE,
+  TEXT_PLACEHOLDER,
   measureTextNodeSize,
-  readTextWidthMode
 } from '../features/node/text'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
@@ -404,36 +404,22 @@ const readMoreMenuSections = (
   actions: NodeSelectionActions,
   close: () => void
 ): MoreMenuSection[] => {
-  const sections: MoreMenuSection[] = []
-  const pushSection = (
-    key: string,
-    title: string,
-    visible: boolean,
-    items: readonly NodeSelectionActions['layer']['items']
-  ) => {
-    if (!visible) {
-      return
+  const bindItems = (
+    items: readonly NodeActionItem[]
+  ) => items.map((item) => ({
+    ...item,
+    onClick: () => {
+      closeAfter(item.onClick(), close)
     }
+  }))
 
-    sections.push({
-      key,
-      title,
-      items: items.map((item) => ({
-        ...item,
-        onClick: () => {
-          closeAfter(item.onClick(), close)
-        }
-      }))
-    })
-  }
-
-  pushSection('layer', 'Layer', actions.layer.visible, actions.layer.items)
-  pushSection('structure', 'Structure', actions.structure.visible, actions.structure.items)
-  pushSection('state', 'State', actions.state.visible, actions.state.items)
-  pushSection('edit', 'Edit', actions.edit.visible, actions.edit.items)
-  pushSection('danger', 'Danger', actions.danger.visible, actions.danger.items)
-
-  return sections
+  return actions.sections
+    .filter((section) => section.key !== 'layout')
+    .map((section) => ({
+      key: section.key,
+      title: section.title,
+      items: bindItems(section.items)
+    }))
 }
 
 const updateToolbarTextNode = ({
@@ -463,16 +449,13 @@ const updateToolbarTextNode = ({
     field
   })
   const committedRect = instance.engine.read.node.item.get(node.id)?.rect
-  const widthMode = readTextWidthMode(node)
   const size = source && committedRect
     ? measureTextNodeSize({
+        node,
         content: value,
-        placeholder: 'Text',
+        placeholder: TEXT_PLACEHOLDER,
         source,
-        mode: widthMode,
-        width: committedRect.width,
-        minWidth: TEXT_MIN_WIDTH,
-        maxWidth: TEXT_AUTO_MAX_WIDTH
+        width: committedRect.width
       })
     : undefined
 
@@ -521,20 +504,17 @@ const updateToolbarTextFontSize = ({
     field
   })
   const committedRect = instance.engine.read.node.item.get(node.id)?.rect
-  const widthMode = readTextWidthMode(node)
   const textValue = typeof node.data?.[field] === 'string'
     ? node.data[field] as string
     : ''
   const size = source && committedRect
     ? measureTextNodeSize({
+        node,
         content: textValue,
-        placeholder: 'Text',
+        placeholder: TEXT_PLACEHOLDER,
         source,
-        mode: widthMode,
         width: committedRect.width,
-        minWidth: TEXT_MIN_WIDTH,
-        maxWidth: TEXT_AUTO_MAX_WIDTH,
-        fontSize: value
+        fontSize: value ?? TEXT_DEFAULT_FONT_SIZE
       })
     : undefined
 

@@ -20,7 +20,7 @@ import { useCanvasClipboard } from './canvas/useCanvasClipboard'
 import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
 import { useEdgeInput } from './features/edge/hooks/useEdgeInput'
 import { DrawLayer } from './features/draw/DrawLayer'
-import { createNodePressSession } from './features/node/hooks/drag/session'
+import { createNodeGesture } from './features/node/gesture'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import {
   ContainerChromeLayer,
@@ -63,7 +63,7 @@ const WhiteboardCanvas = ({
 }: CanvasProps) => {
   const instance = useInternalInstance()
   const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
-  const pressSessionRef = useRef<ReturnType<typeof createNodePressSession> | null>(null)
+  const gestureRef = useRef<ReturnType<typeof createNodeGesture> | null>(null)
   const viewport = useStoreValue(instance.viewport)
   const tool = useTool()
   const inputPolicy = useMemo(
@@ -90,23 +90,23 @@ const WhiteboardCanvas = ({
   if (!marqueeRef.current) {
     marqueeRef.current = createMarqueeSession(instance, {
       getContainerBodyPress: () => (
-        pressSessionRef.current?.handleContainerBodyPointerDown ?? null
+        gestureRef.current?.handleContainerBodyPointerDown ?? null
       )
     })
   }
 
   const marquee = marqueeRef.current!
 
-  if (!pressSessionRef.current) {
-    pressSessionRef.current = createNodePressSession(instance, marquee)
+  if (!gestureRef.current) {
+    gestureRef.current = createNodeGesture(instance, marquee)
   }
 
-  const pressSession = pressSessionRef.current!
+  const gesture = gestureRef.current!
 
   useEffect(() => () => {
     marquee.cancel()
-    pressSession.cancel()
-  }, [marquee, pressSession])
+    gesture.cancel()
+  }, [marquee, gesture])
 
   useCanvasInsert({
     containerRef
@@ -135,9 +135,9 @@ const WhiteboardCanvas = ({
       <div className="wb-root-viewport" style={transformStyle}>
         <ContainerLayer />
         <EdgeLayer onEdgePointerDown={edgeInput.handleEdgePointerDown} />
-        <NodeSceneLayer pressSession={pressSession} />
+        <NodeSceneLayer gesture={gesture} />
         <MindmapSceneLayer />
-        <ContainerChromeLayer pressSession={pressSession} />
+        <ContainerChromeLayer gesture={gesture} />
         <NodeOverlayLayer />
         <EdgeOverlayLayer
           onEndpointPointerDown={edgeInput.handleEndpointPointerDown}

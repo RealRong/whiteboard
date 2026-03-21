@@ -33,7 +33,6 @@ export const createSelectionRead = ({
     source: readStore(source),
     readNode: (nodeId) => readStore(nodeItem, nodeId),
     readEdge: (edgeId) => readStore(edgeItem, edgeId),
-    resolveNodeMeta: (type) => registry.get(type)?.meta,
     resolveNodeTransform: (node) => readNodeTransform(
       registry.get(node.type)
     )

@@ -2,15 +2,19 @@ import type { Operation } from '@whiteboard/core/types'
 import type { CommandFailure } from '@engine-types/result'
 import { cancelled as cancelledResult, failure, invalid as invalidResult } from '../result'
 
+export type DraftFailure = CommandFailure
+
+export type DraftSuccess<T = void> = {
+  ok: true
+  data: {
+    operations: readonly Operation[]
+    output: T
+  }
+}
+
 export type Draft<T = void> =
-  | {
-      ok: true
-      data: {
-        operations: readonly Operation[]
-        output: T
-      }
-    }
-  | CommandFailure
+  | DraftSuccess<T>
+  | DraftFailure
 
 export function success(operations: readonly Operation[]): Draft<void>
 export function success<T>(operations: readonly Operation[], output: T): Draft<T>
@@ -24,10 +28,10 @@ export function success<T>(operations: readonly Operation[], output?: T): Draft<
   }
 }
 
-export const invalid = (message: string, details?: unknown): Draft =>
+export const invalid = (message: string, details?: unknown): DraftFailure =>
   invalidResult(message, details)
 
-export const cancelled = (message?: string, details?: unknown): Draft =>
+export const cancelled = (message?: string, details?: unknown): DraftFailure =>
   cancelledResult(message, details)
 
 export const mergeKeepOutput = <T>(

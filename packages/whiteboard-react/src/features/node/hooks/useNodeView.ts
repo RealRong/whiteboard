@@ -55,7 +55,7 @@ export type NodeOverlayView = {
 }
 
 const resolveNodeOverlayViewState = (
-  instance: Pick<InternalInstance, 'registry'>,
+  instance: Pick<InternalInstance, 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem
 ): NodeOverlayView => {
@@ -75,7 +75,7 @@ const resolveNodeOverlayViewState = (
 }
 
 const resolveNodeViewState = (
-  instance: Pick<InternalInstance, 'commands' | 'registry'>,
+  instance: Pick<InternalInstance, 'commands' | 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
   session: NodeSession,

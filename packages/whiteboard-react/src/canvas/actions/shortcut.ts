@@ -11,6 +11,7 @@ import {
   groupSelection,
   ungroupSelection
 } from '../../features/node/commands'
+import { resolveNodeSelectionCan } from '../../features/node/summary'
 
 type ReadInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
 
@@ -74,7 +75,7 @@ const canDispatchShortcutAction = (
   action: ShortcutAction
 ) => {
   const selection = instance.read.selection.get()
-  const can = selection.can
+  const can = resolveNodeSelectionCan(selection.items.nodes)
   const hasSelection = can.delete || selection.target.edgeId !== undefined
 
   switch (action) {

@@ -5,13 +5,13 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
-import type { NodePressSession } from '../hooks/drag/session'
+import type { NodeGesture } from '../gesture'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = ({
-  pressSession
+  gesture
 }: {
-  pressSession: NodePressSession
+  gesture: NodeGesture
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
@@ -32,8 +32,8 @@ export const NodeSceneLayer = ({
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
           selected={selectedSet.has(nodeId) && chrome.selection}
-          onNodePointerDown={pressSession.handleNodePointerDown}
-          onNodeDoubleClick={pressSession.handleNodeDoubleClick}
+          onNodePointerDown={gesture.handleNodePointerDown}
+          onNodeDoubleClick={gesture.handleNodeDoubleClick}
         />
       ))}
     </div>

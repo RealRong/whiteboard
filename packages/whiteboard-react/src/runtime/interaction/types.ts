@@ -2,6 +2,7 @@ import type { ReadStore } from '@whiteboard/core/runtime'
 
 export type InteractionMode =
   | 'idle'
+  | 'press'
   | 'draw'
   | 'viewport-pan'
   | 'marquee'

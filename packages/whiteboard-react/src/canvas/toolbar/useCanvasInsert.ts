@@ -4,7 +4,10 @@ import type { Rect } from '@whiteboard/core/types'
 import { useInternalInstance } from '../../runtime/hooks'
 import { leave } from '../../runtime/container'
 import { isBackgroundPointerTarget } from '../target'
-import { getInsertPreset } from './presets'
+import {
+  getInsertPreset,
+  runInsertPreset
+} from './presets'
 
 export const useCanvasInsert = ({
   containerRef
@@ -55,19 +58,16 @@ export const useCanvasInsert = ({
         return
       }
 
-      const result = preset.create({
+      const result = runInsertPreset({
         instance,
+        preset,
         world: pointer.world,
-        parentId: preset.canNest === false ? undefined : activeContainer.id
+        parentId: activeContainer.id
       })
       if (!result) {
         return
       }
 
-      instance.commands.selection.replace([result.nodeId])
-      if (result.edit) {
-        instance.commands.edit.start(result.edit.nodeId, result.edit.field)
-      }
       instance.commands.tool.select()
 
       event.preventDefault()

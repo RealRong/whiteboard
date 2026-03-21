@@ -47,7 +47,7 @@ export const createRuntimeRead = ({
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionSource>
   interaction: ReadStore<InteractionMode>
-  node: Pick<NodeFeatureRuntime, 'session' | 'press'>
+  node: Pick<NodeFeatureRuntime, 'session' | 'chromeHidden'>
   edge: Pick<EdgeFeatureRuntime, 'path'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
 }): RuntimeRead => {
@@ -75,7 +75,7 @@ export const createRuntimeRead = ({
     edit,
     selection: selectionRead,
     interaction,
-    press: node.press
+    chromeHidden: node.chromeHidden
   })
   const mindmapRead = createMindmapRead({
     read: engineRead,

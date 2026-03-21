@@ -11,9 +11,7 @@ import {
   type NodeSessionStore
 } from './node'
 
-export type NodePress = NodePressPhase | null
-
-export type NodePressPhase = 'repeat' | 'retarget' | 'hold'
+export type NodeChromeHidden = boolean
 
 export type GuidesSessionStore =
   Pick<StagedValueStore<readonly Guide[]>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
@@ -43,7 +41,7 @@ const createGuidesSessionStore = (
 export type NodeFeatureRuntime = {
   session: NodeSessionStore
   guides: GuidesSessionStore
-  press: ValueStore<NodePress>
+  chromeHidden: ValueStore<NodeChromeHidden>
   clear: () => void
 }
 
@@ -56,7 +54,7 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
 
   const node = createNodeSessionStore(schedule)
   const guides = createGuidesSessionStore(schedule)
-  const press = createValueStore<NodePress>(null)
+  const chromeHidden = createValueStore<NodeChromeHidden>(false)
 
   flushAll.push(node.flush, guides.flush)
 
@@ -69,10 +67,10 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
   return {
     session: node,
     guides,
-    press,
+    chromeHidden,
     clear: () => {
       task.cancel()
-      press.set(null)
+      chromeHidden.set(false)
       node.clear()
       guides.clear()
     }

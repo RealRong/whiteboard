@@ -1,4 +1,5 @@
 export { createInteractionCoordinator } from './coordinator'
+export { createPressRuntime } from './press'
 export type {
   InteractionCoordinator,
   InteractionMode

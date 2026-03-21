@@ -16,10 +16,11 @@ import {
   hasNode
 } from '../runtime/container'
 import {
-  createNodeSelectionActions
+  createNodeSelectionActions,
+  type NodeActionItem,
+  type NodeActionSection
 } from '../features/node/actions'
 import {
-  summarizeNodes,
   type NodeSummary,
   type NodeTypeSummary
 } from '../features/node/summary'
@@ -29,16 +30,18 @@ import {
   updateGroupNode
 } from '../features/node/commands'
 import {
-  CREATE_NODE_PRESETS,
   closeAfter,
   copyEdge,
   copyNodes,
-  createNodeFromPreset,
   cutEdge,
   cutNodes,
   pasteClipboard,
   selectAllInScope
 } from './actions'
+import {
+  CREATE_PRESETS,
+  runInsertPreset
+} from './toolbar/presets'
 import {
   COLOR_OPTIONS,
   DRAW_STROKE_WIDTHS,
@@ -350,6 +353,18 @@ const bindContextMenuItems = (
   }))
 )
 
+const toContextMenuItems = (
+  items: readonly NodeActionItem[]
+): ContextMenuItem[] => (
+  items.map((item) => ({
+    key: item.key,
+    label: item.label,
+    tone: item.tone,
+    disabled: item.disabled,
+    onClick: item.onClick
+  }))
+)
+
 const bindContextMenuGroups = (
   groups: readonly ContextMenuGroup[],
   close: () => void
@@ -377,69 +392,25 @@ const bindContextMenuFilter = (
 }
 
 const readActionContextMenuGroups = (
-  actions: ReturnType<typeof createNodeSelectionActions>
-): ContextMenuGroup[] => {
-  const groups: ContextMenuGroup[] = []
-
-  if (actions.layout.visible) {
-    groups.push({
-      key: 'layout',
-      items: [
-        {
-          key: 'layout.menu',
-          label: 'Layout',
-          children: [
-            ...actions.layout.alignItems,
-            ...actions.layout.distributeItems
-          ]
-        }
-      ]
-    })
-  }
-
-  if (actions.layer.visible) {
-    groups.push({
-      key: 'layer',
-      items: [
-        {
-          key: 'layer.menu',
-          label: 'Layer',
-          children: actions.layer.items
-        }
-      ]
-    })
-  }
-
-  if (actions.structure.visible) {
-    groups.push({
-      key: 'structure',
-      items: actions.structure.items
-    })
-  }
-
-  if (actions.state.visible) {
-    groups.push({
-      key: 'state',
-      items: actions.state.items
-    })
-  }
-
-  if (actions.edit.visible) {
-    groups.push({
-      key: 'edit',
-      items: actions.edit.items
-    })
-  }
-
-  if (actions.danger.visible) {
-    groups.push({
-      key: 'danger',
-      items: actions.danger.items
-    })
-  }
-
-  return groups
-}
+  sections: readonly NodeActionSection[]
+): ContextMenuGroup[] => sections.map((section) => (
+  section.kind === 'submenu'
+    ? {
+        key: section.key,
+        items: [
+          {
+            key: `${section.key}.menu`,
+            label: section.title,
+            children: toContextMenuItems(section.items)
+          }
+        ]
+      }
+    : {
+        key: section.key,
+        title: section.title,
+        items: toContextMenuItems(section.items)
+      }
+))
 
 const readContextMenuOpenResult = ({
   instance,
@@ -719,12 +690,17 @@ export const ContextMenu = ({
               {
                 key: 'create',
                 title: 'Create',
-                items: CREATE_NODE_PRESETS.map((preset) => ({
+                items: CREATE_PRESETS.map((preset) => ({
                   key: preset.key,
                   label: preset.label,
                   onClick: () => {
                     closeAfter(
-                      createNodeFromPreset(instance, preset, target.world, container.id),
+                      runInsertPreset({
+                        instance,
+                        preset,
+                        world: target.world,
+                        parentId: container.id
+                      }),
                       dismissAction
                     )
                   }
@@ -770,15 +746,11 @@ export const ContextMenu = ({
           }
         }
         case 'node': {
-          const summary = summarizeNodes([target.node], {
-            resolveMeta: (type) => instance.registry.get(type)?.meta
-          })
           const actions = createNodeSelectionActions(instance, [target.node], {
-            summary,
             onCopy: () => copyNodes(instance, [target.node.id]),
             onCut: () => cutNodes(instance, [target.node.id])
           })
-          const groups = readActionContextMenuGroups(actions)
+          const groups = readActionContextMenuGroups(actions.sections)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: [target.node]
@@ -813,15 +785,11 @@ export const ContextMenu = ({
           }
         }
         case 'nodes': {
-          const summary = summarizeNodes(target.nodes, {
-            resolveMeta: (type) => instance.registry.get(type)?.meta
-          })
           const actions = createNodeSelectionActions(instance, target.nodes, {
-            summary,
             onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
             onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
           })
-          const groups = readActionContextMenuGroups(actions)
+          const groups = readActionContextMenuGroups(actions.sections)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: target.nodes
@@ -830,7 +798,7 @@ export const ContextMenu = ({
             groups.unshift(styleGroup)
           }
           return {
-            summary,
+            summary: actions.summary,
             filter: bindContextMenuFilter(
               actions.filter.visible
                 ? {
@@ -885,6 +853,7 @@ export const ContextMenu = ({
         containerWidth: surface.width,
         containerHeight: surface.height
       }),
+      summary: menu.summary,
       filter: menu.filter,
       groups: menu.groups
     }

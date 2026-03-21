@@ -18,6 +18,5 @@ export const closeAfter = (
   })
 }
 
-export * from './create'
 export * from './clipboard'
 export * from './shortcut'

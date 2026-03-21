@@ -11,13 +11,13 @@ import {
   writeNodeSessionPatch
 } from '../../session/node'
 import {
-  TEXT_AUTO_MAX_WIDTH,
-  TEXT_MIN_WIDTH,
   focusEditableEnd,
   isTextContentEmpty,
   measureTextNodeSize,
   readEditableText,
-  readTextWidthMode
+  STICKY_DEFAULT_FILL,
+  STICKY_PLACEHOLDER,
+  TEXT_PLACEHOLDER
 } from '../../text'
 import {
   createSchema,
@@ -63,7 +63,7 @@ const readStickyFill = (
     : (
         node.data && typeof node.data.background === 'string'
           ? node.data.background
-          : 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
+          : STICKY_DEFAULT_FILL
       )
 )
 
@@ -81,14 +81,13 @@ const TextNodeRenderer = ({
   const text = typeof node.data?.text === 'string' ? node.data.text : ''
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
-  const widthMode = readTextWidthMode(node)
   const sourceRef = useRef<HTMLDivElement | null>(null)
   const previewSizeRef = useRef<TextSize | null>(null)
   const setSourceRef = (element: HTMLDivElement | null) => {
     sourceRef.current = element
   }
   const manualFontSize = getStyleNumber(node, 'fontSize')
-  const placeholder = isSticky ? 'Sticky' : 'Text'
+  const placeholder = isSticky ? STICKY_PLACEHOLDER : TEXT_PLACEHOLDER
   const displayFontSize = useAutoFontSize({
     text,
     placeholder,
@@ -142,13 +141,11 @@ const TextNodeRenderer = ({
     }
 
     return measureTextNodeSize({
+      node,
       content,
       placeholder,
       source,
-      mode: widthMode,
       width: rect.width,
-      minWidth: TEXT_MIN_WIDTH,
-      maxWidth: TEXT_AUTO_MAX_WIDTH
     }) ?? previewSizeRef.current ?? {
       width: rect.width,
       height: rect.height
@@ -218,19 +215,18 @@ const TextNodeRenderer = ({
     }
 
     const nextSize = measureTextNodeSize({
+      node,
       content: draft,
       placeholder,
       source,
-      mode: widthMode,
       width: rect.width,
-      minWidth: widthMode === 'auto' ? rect.width : undefined,
-      maxWidth: TEXT_AUTO_MAX_WIDTH
+      minWidth: rect.width
     })
 
     if (nextSize) {
       writeTextPreview(nextSize)
     }
-  }, [clearTextPreview, draft, editing, isSticky, placeholder, rect.width, widthMode, writeTextPreview])
+  }, [clearTextPreview, draft, editing, isSticky, node, placeholder, rect.width, writeTextPreview])
 
   useEffect(() => () => {
     if (previewSizeRef.current === null || isSticky) {
@@ -374,7 +370,7 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
     overflow: 'visible',
     padding: 0,
     textAlign: 'left'
-  }
+  } as CSSProperties
 }
 
 export const TextNodeDefinition: NodeDefinition = {
