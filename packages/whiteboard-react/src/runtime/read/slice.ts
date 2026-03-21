@@ -1,7 +1,6 @@
 import type { SliceExportResult } from '@whiteboard/core/document'
 import type { EngineRead } from '@whiteboard/engine'
-import type { ReadStore } from '@whiteboard/core/runtime'
-import type { View as SelectionView } from '../selection'
+import type { SelectionRead } from './selection'
 
 export type SliceRead = EngineRead['slice'] & {
   fromSelection: () => SliceExportResult | undefined
@@ -12,7 +11,7 @@ export const createSliceRead = ({
   selection
 }: {
   read: EngineRead
-  selection: ReadStore<SelectionView>
+  selection: SelectionRead
 }): SliceRead => ({
   fromNodes: read.slice.fromNodes,
   fromEdge: read.slice.fromEdge,

@@ -72,6 +72,7 @@ const ContainerChromeItem = memo(({
     <div
       className="wb-container-shell"
       data-node-id={nodeId}
+      data-selected={selected ? 'true' : undefined}
       style={rootStyle}
     >
       <div className="wb-container-shell-frame" style={frameStyle} />

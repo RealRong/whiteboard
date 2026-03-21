@@ -15,7 +15,8 @@ import {
   getNodeAABB,
   getRectCenter,
   isPointEqual,
-  isSizeEqual
+  isSizeEqual,
+  rotatePoint
 } from '@whiteboard/core/geometry'
 import type { Node, NodeId, Point, Rect, Size } from '@whiteboard/core/types'
 
@@ -56,6 +57,31 @@ export type TransformDragState = ResizeDragState | RotateDragState
 export type ResizePreviewResult = {
   update: ResizeUpdate
   guides: readonly Guide[]
+}
+
+export type TransformPreviewPatch = {
+  id: NodeId
+  position?: Point
+  size?: {
+    width: number
+    height: number
+  }
+  rotation?: number
+}
+
+export type SelectionTransformMember = {
+  node: Node
+  rect: Rect
+  rotation: number
+}
+
+export type SelectionResizePreviewResult = {
+  patches: readonly TransformPreviewPatch[]
+  guides: readonly Guide[]
+}
+
+export type SelectionRotatePreviewResult = {
+  patches: readonly TransformPreviewPatch[]
 }
 
 const RESIZE_MIN_SIZE = {
@@ -204,7 +230,7 @@ export const resolveResizePreview = (options: {
   zoom: number
   altKey: boolean
   shiftKey: boolean
-  nodeId: NodeId
+  excludeNodeIds?: readonly NodeId[]
   config: Pick<BoardConfig, 'node'>
   readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
 }): ResizePreviewResult => {
@@ -215,7 +241,7 @@ export const resolveResizePreview = (options: {
     zoom,
     altKey,
     shiftKey,
-    nodeId,
+    excludeNodeIds,
     config,
     readSnapCandidatesInRect
   } = options
@@ -254,16 +280,18 @@ export const resolveResizePreview = (options: {
       height: nextSize.height
     }
     const { sourceX, sourceY } = getResizeSourceEdges(drag.handle)
+    const excludeSet = excludeNodeIds
+      ? new Set<NodeId>(excludeNodeIds)
+      : undefined
     const snapped = computeResizeSnap({
       movingRect,
       candidates: [
         ...readSnapCandidatesInRect(
           expandRectByThreshold(movingRect, thresholdWorld)
         )
-      ],
+      ].filter((candidate) => !excludeSet?.has(candidate.id)),
       threshold: thresholdWorld,
       minSize: RESIZE_MIN_SIZE,
-      excludeId: nodeId,
       sourceEdges: {
         sourceX,
         sourceY
@@ -300,3 +328,110 @@ export const resolveRotatePreview = (options: {
   startRotation: options.drag.startRotation,
   shiftKey: options.shiftKey
 })
+
+const toRectFromUpdate = (
+  update: ResizeUpdate
+): Rect => ({
+  x: update.position.x,
+  y: update.position.y,
+  width: update.size.width,
+  height: update.size.height
+})
+
+const scaleAxis = (
+  startValue: number,
+  startOrigin: number,
+  scale: number,
+  nextOrigin: number
+) => nextOrigin + (startValue - startOrigin) * scale
+
+const buildResizePatch = (
+  member: SelectionTransformMember,
+  nextRect: Rect,
+  startRect: Rect
+): TransformPreviewPatch => {
+  const scaleX = startRect.width > ZOOM_EPSILON
+    ? nextRect.width / startRect.width
+    : 1
+  const scaleY = startRect.height > ZOOM_EPSILON
+    ? nextRect.height / startRect.height
+    : 1
+
+  return {
+    id: member.node.id,
+    position: {
+      x: scaleAxis(member.rect.x, startRect.x, scaleX, nextRect.x),
+      y: scaleAxis(member.rect.y, startRect.y, scaleY, nextRect.y)
+    },
+    size: {
+      width: Math.max(1, member.rect.width * scaleX),
+      height: Math.max(1, member.rect.height * scaleY)
+    }
+  }
+}
+
+export const resolveSelectionResizePreview = (options: {
+  snapEnabled: boolean
+  drag: ResizeDragState
+  currentScreen: Point
+  zoom: number
+  altKey: boolean
+  shiftKey: boolean
+  members: readonly SelectionTransformMember[]
+  config: Pick<BoardConfig, 'node'>
+  readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
+}): SelectionResizePreviewResult => {
+  const box = resolveResizePreview({
+    snapEnabled: options.snapEnabled,
+    drag: options.drag,
+    currentScreen: options.currentScreen,
+    zoom: options.zoom,
+    altKey: options.altKey,
+    shiftKey: options.shiftKey,
+    excludeNodeIds: options.members.map((member) => member.node.id),
+    config: options.config,
+    readSnapCandidatesInRect: options.readSnapCandidatesInRect
+  })
+  const startRect: Rect = {
+    x: options.drag.startCenter.x - options.drag.startSize.width / 2,
+    y: options.drag.startCenter.y - options.drag.startSize.height / 2,
+    width: options.drag.startSize.width,
+    height: options.drag.startSize.height
+  }
+  const nextRect = toRectFromUpdate(box.update)
+
+  return {
+    patches: options.members.map((member) => buildResizePatch(member, nextRect, startRect)),
+    guides: box.guides
+  }
+}
+
+export const resolveSelectionRotatePreview = (options: {
+  drag: RotateDragState
+  currentPoint: Point
+  shiftKey: boolean
+  members: readonly SelectionTransformMember[]
+}): SelectionRotatePreviewResult => {
+  const nextRotation = resolveRotatePreview({
+    drag: options.drag,
+    currentPoint: options.currentPoint,
+    shiftKey: options.shiftKey
+  })
+  const delta = nextRotation - options.drag.startRotation
+
+  return {
+    patches: options.members.map((member) => {
+      const center = getRectCenter(member.rect)
+      const nextCenter = rotatePoint(center, options.drag.center, delta)
+
+      return {
+        id: member.node.id,
+        position: {
+          x: nextCenter.x - member.rect.width / 2,
+          y: nextCenter.y - member.rect.height / 2
+        },
+        rotation: member.rotation + delta
+      }
+    })
+  }
+}

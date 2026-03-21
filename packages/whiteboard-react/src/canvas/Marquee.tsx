@@ -5,6 +5,7 @@ import {
   type SelectionMode
 } from '@whiteboard/core/node'
 import {
+  createDerivedStore,
   createValueStore,
   type ReadStore
 } from '@whiteboard/core/runtime'
@@ -18,6 +19,7 @@ import {
   leave
 } from '../runtime/container'
 import { readContainerBodyTarget } from '../features/node/scene'
+import { matchNodeIdsInRect } from '../features/node/selection'
 import { createRafTask } from '../runtime/utils/rafTask'
 import type { ViewportPointer } from '../runtime/viewport'
 import { isBackgroundPointerTarget } from './target'
@@ -77,6 +79,22 @@ const isPointInRect = (point: { x: number; y: number }, rect: Rect) => (
   && point.y <= rect.y + rect.height
 )
 
+const projectWorldRect = (
+  instance: InternalInstance,
+  worldRect: Rect
+): Rect => {
+  const topLeft = instance.viewport.worldToScreen({
+    x: worldRect.x,
+    y: worldRect.y
+  })
+  const bottomRight = instance.viewport.worldToScreen({
+    x: worldRect.x + worldRect.width,
+    y: worldRect.y + worldRect.height
+  })
+
+  return rectFromPoints(topLeft, bottomRight)
+}
+
 export const createMarqueeSession = (
   instance: InternalInstance,
   {
@@ -85,7 +103,26 @@ export const createMarqueeSession = (
     getContainerBodyPress?: () => ContainerBodyPressHandler | null
   } = {}
 ): MarqueeSession => {
-  const rect = createValueStore<Rect | undefined>(undefined)
+  const worldRect = createValueStore<Rect | undefined>(undefined)
+  const rect = createDerivedStore<Rect | undefined>({
+    get: (read) => {
+      const nextWorldRect = read(worldRect)
+      read(instance.viewport)
+      if (!nextWorldRect) {
+        return undefined
+      }
+      return projectWorldRect(instance, nextWorldRect)
+    },
+    isEqual: (left, right) => (
+      left === right
+      || (
+        left?.x === right?.x
+        && left?.y === right?.y
+        && left?.width === right?.width
+        && left?.height === right?.height
+      )
+    )
+  })
   let active: ActiveMarquee | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
 
@@ -94,7 +131,7 @@ export const createMarqueeSession = (
     containerNodeIds: ReadonlySet<NodeId> | undefined,
     policy: MarqueePolicy
   ) => {
-    const matchedNodeIds = instance.read.index.node.idsInRect(queryRect, policy)
+    const matchedNodeIds = matchNodeIdsInRect(instance, queryRect, policy)
     return containerNodeIds
       ? matchedNodeIds.filter((nodeId) => containerNodeIds.has(nodeId))
       : matchedNodeIds
@@ -125,7 +162,7 @@ export const createMarqueeSession = (
     active = null
     session = null
     flushTask.cancel()
-    rect.set(undefined)
+    worldRect.set(undefined)
   }
 
   const updateSelection = (
@@ -155,7 +192,7 @@ export const createMarqueeSession = (
       active.containerNodeIds,
       active.policy
     )
-    rect.set(rectFromPoints(active.start.screen, current.screen))
+    worldRect.set(rectFromPoints(active.start.world, current.world))
     flushTask.schedule()
     return true
   }
@@ -228,7 +265,7 @@ export const createMarqueeSession = (
       clearOnTap
     }
     session = nextSession
-    rect.set(undefined)
+    worldRect.set(undefined)
     return true
   }
 
@@ -270,7 +307,7 @@ export const createMarqueeSession = (
         if (getContainerBodyPress?.()?.(containerNodeId, container, event)) {
           return
         }
-        const currentSelectedNodeIds = instance.state.selection.get().target.nodeIds
+        const currentSelectedNodeIds = instance.read.selection.get().target.nodeIds
         const nextSelectedNodeIds = [
           ...applySelection(
             new Set(currentSelectedNodeIds),
@@ -287,7 +324,7 @@ export const createMarqueeSession = (
 
     const selectedNodeIds = filterNodeIds(
       activeContainer,
-      instance.state.selection.get().target.nodeIds
+      instance.read.selection.get().target.nodeIds
     )
     const containerNodeIds = activeContainer.id
       ? new Set<NodeId>(activeContainer.ids)
@@ -309,7 +346,7 @@ export const createMarqueeSession = (
       return
     }
 
-    if (instance.state.selection.get().target.edgeId !== undefined) {
+    if (instance.read.selection.get().target.edgeId !== undefined) {
       instance.commands.selection.clear()
     }
 

@@ -9,6 +9,7 @@ import {
   deleteNodes,
   distributeNodes,
   duplicateNodes,
+  filterNodesByType,
   groupNodes,
   orderNodes,
   toggleNodesLock,
@@ -16,19 +17,24 @@ import {
   type OrderMode
 } from './commands'
 import {
+  resolveNodeSelectionCan,
+  type NodeSelectionCan,
+  type NodeTypeSummary,
   readLockLabel,
   summarizeNodes,
   type NodeSummary
 } from './summary'
 
-type NodeActionsInstance = Pick<WhiteboardInstance, 'commands'>
+type NodeActionsInstance = Pick<WhiteboardInstance, 'commands' | 'registry'>
 
 type NodeActionExtras = {
   onCopy?: () => unknown
   onCut?: () => unknown
+  summary?: NodeSummary
+  can?: NodeSelectionCan
 }
 
-export type NodeMenuItem = {
+export type NodeActionItem = {
   key: string
   label: string
   disabled?: boolean
@@ -36,58 +42,43 @@ export type NodeMenuItem = {
   onClick: () => void
 }
 
-export type NodeMenuSection = {
-  key: string
-  title: string
-  items: readonly NodeMenuItem[]
-}
-
-export type NodeContextMenuItem = {
-  key: string
-  label: string
-  disabled?: boolean
-  tone?: 'danger'
-  onClick?: () => void
-  children?: readonly NodeMenuItem[]
-}
-
-export type NodeContextMenuGroup = {
-  key: string
-  title?: string
-  items: readonly NodeContextMenuItem[]
-}
-
 export type NodeSelectionActions = {
   summary: NodeSummary
+  can: NodeSelectionCan
+  filter: {
+    visible: boolean
+    types: readonly NodeTypeSummary[]
+    onSelect: (type: string) => void
+  }
   layer: {
     visible: boolean
-    items: readonly NodeMenuItem[]
+    items: readonly NodeActionItem[]
     onSelect: (mode: OrderMode) => void
   }
   layout: {
     visible: boolean
     canAlign: boolean
     canDistribute: boolean
-    alignItems: readonly NodeMenuItem[]
-    distributeItems: readonly NodeMenuItem[]
+    alignItems: readonly NodeActionItem[]
+    distributeItems: readonly NodeActionItem[]
     onAlign: (mode: NodeAlignMode) => void
     onDistribute: (mode: NodeDistributeMode) => void
   }
   structure: {
     visible: boolean
-    items: readonly NodeMenuItem[]
+    items: readonly NodeActionItem[]
   }
   state: {
     visible: boolean
-    items: readonly NodeMenuItem[]
+    items: readonly NodeActionItem[]
   }
   edit: {
     visible: boolean
-    items: readonly NodeMenuItem[]
+    items: readonly NodeActionItem[]
   }
   danger: {
     visible: boolean
-    items: readonly NodeMenuItem[]
+    items: readonly NodeActionItem[]
   }
 }
 
@@ -177,18 +168,14 @@ export const createNodeSelectionActions = (
   nodes: readonly Node[],
   extras?: NodeActionExtras
 ): NodeSelectionActions => {
-  const summary = summarizeNodes(nodes)
+  const summary = extras?.summary ?? summarizeNodes(nodes)
+  const can = extras?.can ?? resolveNodeSelectionCan(nodes, {
+    resolveMeta: (type) => instance.registry.get(type)?.meta
+  })
   const nodeIds = summary.ids
   const groupIds = nodes
     .filter((node) => node.type === 'group')
     .map((node) => node.id)
-
-  const canOrder = summary.count > 0
-  const canAlign = summary.count >= 2
-  const canDistribute = summary.count >= 3
-  const canGroup = summary.count >= 2
-  const canUngroup = groupIds.length > 0
-  const canEdit = summary.count > 0
 
   const onOrder = (mode: OrderMode) => {
     orderNodes(instance, nodeIds, mode)
@@ -202,14 +189,91 @@ export const createNodeSelectionActions = (
     distributeNodes(instance, nodeIds, mode)
   }
 
+  const structureItems: NodeActionItem[] = [
+    {
+      key: 'structure.group',
+      label: 'Group',
+      disabled: !can.makeGroup,
+      onClick: () => {
+        groupNodes(instance, nodeIds)
+      }
+    },
+    {
+      key: 'structure.ungroup',
+      label: 'Ungroup',
+      disabled: !can.ungroup,
+      onClick: () => {
+        ungroupNodes(instance, groupIds)
+      }
+    }
+  ]
+
+  const stateItems: NodeActionItem[] = [
+    {
+      key: 'state.lock',
+      label: readLockLabel(summary),
+      disabled: !can.lock,
+      onClick: () => {
+        toggleNodesLock(instance, nodes, summary)
+      }
+    }
+  ]
+
+  const editItems: NodeActionItem[] = [
+    ...(extras?.onCopy
+      ? [{
+          key: 'edit.copy',
+          label: 'Copy',
+          disabled: !can.copy,
+          onClick: extras.onCopy
+        }]
+      : []),
+    ...(extras?.onCut
+      ? [{
+          key: 'edit.cut',
+          label: 'Cut',
+          disabled: !can.cut,
+          onClick: extras.onCut
+        }]
+      : []),
+    {
+      key: 'edit.duplicate',
+      label: 'Duplicate',
+      disabled: !can.duplicate,
+      onClick: () => {
+        duplicateNodes(instance, nodeIds)
+      }
+    }
+  ]
+
+  const dangerItems: NodeActionItem[] = [
+    {
+      key: 'danger.delete',
+      label: 'Delete',
+      tone: 'danger',
+      disabled: !can.delete,
+      onClick: () => {
+        deleteNodes(instance, nodeIds)
+      }
+    }
+  ]
+
   return {
     summary,
+    can,
+    filter: {
+      visible: can.filter,
+      types: summary.types,
+      onSelect: (type) => {
+        filterNodesByType(instance, nodes, type)
+      }
+    },
     layer: {
-      visible: canOrder,
+      visible: can.order,
       items: ORDER_ITEMS.map((item) => ({
         key: item.key,
         label: item.label,
-        disabled: !canOrder,
+        disabled: !can.order,
         onClick: () => {
           onOrder(item.mode)
         }
@@ -217,13 +281,13 @@ export const createNodeSelectionActions = (
       onSelect: onOrder
     },
     layout: {
-      visible: canAlign,
-      canAlign,
-      canDistribute,
+      visible: can.align,
+      canAlign: can.align,
+      canDistribute: can.distribute,
       alignItems: ALIGN_ITEMS.map((item) => ({
         key: item.key,
         label: item.label,
-        disabled: !canAlign,
+        disabled: !can.align,
         onClick: () => {
           onAlign(item.mode)
         }
@@ -231,7 +295,7 @@ export const createNodeSelectionActions = (
       distributeItems: DISTRIBUTE_ITEMS.map((item) => ({
         key: item.key,
         label: item.label,
-        disabled: !canDistribute,
+        disabled: !can.distribute,
         onClick: () => {
           onDistribute(item.mode)
         }
@@ -240,198 +304,20 @@ export const createNodeSelectionActions = (
       onDistribute
     },
     structure: {
-      visible: canGroup || canUngroup,
-      items: [
-        {
-          key: 'structure.group',
-          label: 'Group',
-          disabled: !canGroup,
-          onClick: () => {
-            groupNodes(instance, nodeIds)
-          }
-        },
-        {
-          key: 'structure.ungroup',
-          label: 'Ungroup',
-          disabled: !canUngroup,
-          onClick: () => {
-            ungroupNodes(instance, groupIds)
-          }
-        }
-      ]
+      visible: can.makeGroup || can.ungroup,
+      items: structureItems
     },
     state: {
-      visible: canEdit,
-      items: [
-        {
-          key: 'state.lock',
-          label: readLockLabel(summary),
-          disabled: !canEdit,
-          onClick: () => {
-            toggleNodesLock(instance, nodes, summary)
-          }
-        }
-      ]
+      visible: can.lock,
+      items: stateItems
     },
     edit: {
-      visible: canEdit,
-      items: [
-        ...(extras?.onCopy
-          ? [
-            {
-              key: 'edit.copy',
-              label: 'Copy',
-              disabled: !canEdit,
-              onClick: extras.onCopy
-            }
-          ]
-          : []),
-        ...(extras?.onCut
-          ? [
-            {
-              key: 'edit.cut',
-              label: 'Cut',
-              disabled: !canEdit,
-              onClick: extras.onCut
-            }
-          ]
-          : []),
-        {
-          key: 'edit.duplicate',
-          label: 'Duplicate',
-          disabled: !canEdit,
-          onClick: () => {
-            duplicateNodes(instance, nodeIds)
-          }
-        }
-      ]
+      visible: editItems.length > 0,
+      items: editItems
     },
     danger: {
-      visible: canEdit,
-      items: [
-        {
-          key: 'danger.delete',
-          label: 'Delete',
-          tone: 'danger',
-          disabled: !canEdit,
-          onClick: () => {
-            deleteNodes(instance, nodeIds)
-          }
-        }
-      ]
+      visible: can.delete,
+      items: dangerItems
     }
   }
-}
-
-export const buildMoreMenuSections = (
-  actions: NodeSelectionActions
-): NodeMenuSection[] => {
-  const sections: NodeMenuSection[] = []
-
-  if (actions.layer.visible) {
-    sections.push({
-      key: 'layer',
-      title: 'Layer',
-      items: actions.layer.items
-    })
-  }
-
-  if (actions.structure.visible) {
-    sections.push({
-      key: 'structure',
-      title: 'Structure',
-      items: actions.structure.items
-    })
-  }
-
-  if (actions.state.visible) {
-    sections.push({
-      key: 'state',
-      title: 'State',
-      items: actions.state.items
-    })
-  }
-
-  if (actions.edit.visible) {
-    sections.push({
-      key: 'edit',
-      title: 'Edit',
-      items: actions.edit.items
-    })
-  }
-
-  if (actions.danger.visible) {
-    sections.push({
-      key: 'danger',
-      title: 'Danger',
-      items: actions.danger.items
-    })
-  }
-
-  return sections
-}
-
-export const buildContextMenuGroups = (
-  actions: NodeSelectionActions
-): NodeContextMenuGroup[] => {
-  const groups: NodeContextMenuGroup[] = []
-
-  if (actions.layout.visible) {
-    groups.push({
-      key: 'layout',
-      items: [
-        {
-          key: 'layout.menu',
-          label: 'Layout',
-          children: [
-            ...actions.layout.alignItems,
-            ...actions.layout.distributeItems
-          ]
-        }
-      ]
-    })
-  }
-
-  if (actions.layer.visible) {
-    groups.push({
-      key: 'layer',
-      items: [
-        {
-          key: 'layer.menu',
-          label: 'Layer',
-          children: actions.layer.items
-        }
-      ]
-    })
-  }
-
-  if (actions.structure.visible) {
-    groups.push({
-      key: 'structure',
-      items: actions.structure.items
-    })
-  }
-
-  if (actions.state.visible) {
-    groups.push({
-      key: 'state',
-      items: actions.state.items
-    })
-  }
-
-  if (actions.edit.visible) {
-    groups.push({
-      key: 'edit',
-      items: actions.edit.items
-    })
-  }
-
-  if (actions.danger.visible) {
-    groups.push({
-      key: 'danger',
-      items: actions.danger.items
-    })
-  }
-
-  return groups
 }

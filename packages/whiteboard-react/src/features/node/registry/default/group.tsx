@@ -149,7 +149,7 @@ const groupStyle = (props: NodeRenderProps): CSSProperties => {
   const collapsed = getDataBool(props.node, 'collapsed')
   const borderColor = typeof props.node.style?.stroke === 'string'
     ? props.node.style.stroke
-    : props.hovered || props.selected
+    : props.hovered
       ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
       : 'hsl(var(--ui-border-strong, 40 9.1% 93.5%))'
   const borderWidth = typeof props.node.style?.strokeWidth === 'number'
@@ -164,7 +164,7 @@ const groupStyle = (props: NodeRenderProps): CSSProperties => {
   return {
     background: fill,
     border: `${borderWidth}px dashed ${borderColor}`,
-    boxShadow: props.selected ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2)' : 'none',
+    boxShadow: 'none',
     color: getStyleString(props.node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
     display: 'block',
     paddingTop: 28,
@@ -176,7 +176,12 @@ const groupStyle = (props: NodeRenderProps): CSSProperties => {
 
 export const GroupNodeDefinition: NodeDefinition = {
   type: 'group',
-  label: 'Group',
+  meta: {
+    name: 'Group',
+    family: 'container',
+    icon: 'group',
+    controls: ['fill', 'stroke', 'group']
+  },
   scene: 'container',
   schema: groupSchema,
   defaultData: { title: '', collapsed: false, autoFit: 'expand-only', padding: 24 },

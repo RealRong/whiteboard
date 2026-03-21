@@ -39,6 +39,47 @@ export type NodeRead = {
   chrome: ReadStore<Chrome>
 }
 
+export const createNodeItemRead = ({
+  read,
+  session
+}: {
+  read: Pick<EngineRead, 'node'>
+  session: NodeSessionReader
+}): NodeRead['item'] => createKeyedDerivedStore({
+  get: (readStore, nodeId: NodeId) => {
+    const item = readStore(read.node.item, nodeId)
+    if (!item) {
+      return undefined
+    }
+    const sessionValue = readStore(session, nodeId)
+    return projectNodeItem(item, sessionValue)
+  },
+  isEqual: isNodeItemEqual
+})
+
+export const createNodeChromeRead = ({
+  tool,
+  edit,
+  selection,
+  interaction,
+  press
+}: {
+  tool: ReadStore<Tool>
+  edit: ReadStore<EditTarget>
+  selection: ReadStore<SelectionView>
+  interaction: ReadStore<InteractionMode>
+  press: ReadStore<NodePress>
+}): NodeRead['chrome'] => createDerivedStore<Chrome>({
+  get: (readStore) => resolveChrome({
+    tool: readStore(tool),
+    edit: readStore(edit),
+    selection: readStore(selection),
+    interaction: readStore(interaction),
+    press: readStore(press)
+  }),
+  isEqual: isChromeEqual
+})
+
 export const createNodeRead = ({
   read,
   session,
@@ -56,30 +97,21 @@ export const createNodeRead = ({
   interaction: ReadStore<InteractionMode>
   press: ReadStore<NodePress>
 }): NodeRead => {
-  const chrome = createDerivedStore<Chrome>({
-    get: (readStore) => resolveChrome({
-      tool: readStore(tool),
-      edit: readStore(edit),
-      selection: readStore(selection),
-      interaction: readStore(interaction),
-      press: readStore(press)
-    }),
-    isEqual: isChromeEqual
+  const item = createNodeItemRead({
+    read,
+    session
+  })
+  const chrome = createNodeChromeRead({
+    tool,
+    edit,
+    selection,
+    interaction,
+    press
   })
 
   return {
     list: read.node.list,
-    item: createKeyedDerivedStore({
-      get: (readStore, nodeId: NodeId) => {
-        const item = readStore(read.node.item, nodeId)
-        if (!item) {
-          return undefined
-        }
-        const sessionValue = readStore(session, nodeId)
-        return projectNodeItem(item, sessionValue)
-      },
-      isEqual: isNodeItemEqual
-    }),
+    item,
     chrome
   }
 }

@@ -259,7 +259,12 @@ const createShapeDefinition = (
   defaultData: Record<string, unknown>
 ): NodeDefinition => ({
   type,
-  label,
+  meta: {
+    name: label,
+    family: 'shape',
+    icon: type,
+    controls: ['fill', 'stroke']
+  },
   defaultData,
   render: (props) => <ShapeNode {...props} variant={type} />,
   schema: createSchema(type, label, [
@@ -279,7 +284,12 @@ const createShapeDefinition = (
 
 export const RectNodeDefinition: NodeDefinition = {
   type: 'rect',
-  label: 'Rect',
+  meta: {
+    name: 'Rect',
+    family: 'shape',
+    icon: 'rect',
+    controls: ['fill', 'stroke']
+  },
   schema: rectSchema,
   render: ({ node }) => getNodeLabel(node, node.type),
   style: rectStyle

@@ -59,11 +59,13 @@ type InstanceInternals = {
 const createInstanceStores = ({
   engine,
   initialTool,
-  interaction
+  interaction,
+  registry
 }: {
   engine: EngineInstance
   initialTool: Tool
   interaction: InteractionCoordinator
+  registry: NodeRegistry
 }): {
   stores: InstanceStores
   state: WhiteboardInstance['state']
@@ -73,9 +75,7 @@ const createInstanceStores = ({
   const tool = createValueStore<Tool>(initialTool)
   const edit = createEditState()
   const container = createContainerState(engine.read)
-  const selection = createSelectionState({
-    read: engine.read
-  })
+  const selection = createSelectionState()
   const node = createNodeFeatureRuntime()
   const edge = createEdgeFeatureRuntime()
   const mindmap = createMindmapFeatureRuntime()
@@ -84,9 +84,10 @@ const createInstanceStores = ({
   })
   const read = createRuntimeRead({
     engineRead: engine.read,
+    registry,
     tool,
     edit: edit.store,
-    selection: selection.store,
+    selection: selection.source,
     interaction: interaction.mode,
     node,
     edge,
@@ -104,7 +105,7 @@ const createInstanceStores = ({
     state: {
       tool,
       edit: edit.store,
-      selection: selection.store,
+      selection: selection.source,
       container: container.store,
       interaction: interaction.mode
     },
@@ -229,7 +230,8 @@ export const createInstance = ({
   } = createInstanceStores({
     engine,
     initialTool,
-    interaction
+    interaction,
+    registry
   })
 
   const resetUiSessionState = () => {

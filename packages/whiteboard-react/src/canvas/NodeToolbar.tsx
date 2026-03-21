@@ -19,7 +19,6 @@ import {
   updateGroupNode
 } from '../features/node/commands'
 import {
-  buildMoreMenuSections,
   createNodeSelectionActions,
   type NodeSelectionActions
 } from '../features/node/actions'
@@ -44,7 +43,7 @@ import {
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
-import { MoreMenu } from './menus/MoreMenu'
+import { MoreMenu, type MoreMenuSection } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
@@ -63,10 +62,7 @@ type ToolbarItemKey =
   | 'more'
 
 type ToolbarMenuKey = ToolbarItemKey
-type ToolbarCapabilityKey = Exclude<ToolbarItemKey, 'layout' | 'more'>
 type ToolbarPlacement = 'top' | 'bottom'
-
-type ToolbarCapabilities = Record<ToolbarCapabilityKey, boolean>
 
 type ToolbarItem = {
   key: ToolbarItemKey
@@ -79,11 +75,6 @@ type ToolbarIconState = {
   stroke?: string
   strokeWidth?: number
   opacity?: number
-}
-
-type ToolbarSource = {
-  node: Node
-  schema?: NodeSchema
 }
 
 type ToolbarModel = {
@@ -106,76 +97,6 @@ const SafeMargin = 12
 const MenuWidth = 220
 const ToolbarVerticalGap = 12
 const ToolbarMinTopSpace = 56
-
-const CapabilityFields: Record<
-  ToolbarCapabilityKey,
-  readonly { scope: 'data' | 'style'; path: string }[]
-> = {
-  fill: [
-    { scope: 'style', path: 'fill' }
-  ],
-  stroke: [
-    { scope: 'style', path: 'stroke' },
-    { scope: 'style', path: 'strokeWidth' }
-  ],
-  text: [
-    { scope: 'data', path: 'text' },
-    { scope: 'data', path: 'title' },
-    { scope: 'style', path: 'color' },
-    { scope: 'style', path: 'fontSize' }
-  ],
-  group: [
-    { scope: 'data', path: 'collapsed' },
-    { scope: 'data', path: 'autoFit' }
-  ]
-}
-
-const NodeTypesByCapability: Record<
-  ToolbarCapabilityKey,
-  ReadonlySet<string>
-> = {
-  fill: new Set([
-    'rect',
-    'sticky',
-    'group',
-    'ellipse',
-    'diamond',
-    'triangle',
-    'arrow-sticker',
-    'callout',
-    'highlight'
-  ]),
-  stroke: new Set([
-    'rect',
-    'draw',
-    'group',
-    'ellipse',
-    'diamond',
-    'triangle',
-    'arrow-sticker',
-    'callout',
-    'highlight'
-  ]),
-  text: new Set([
-    'text',
-    'sticky'
-  ]),
-  group: new Set([
-    'group'
-  ])
-}
-
-const SingleCapabilityOrder: readonly ToolbarCapabilityKey[] = [
-  'fill',
-  'stroke',
-  'text',
-  'group'
-]
-
-const MultiCapabilityOrder: readonly ToolbarCapabilityKey[] = [
-  'fill',
-  'stroke'
-]
 
 const StaticItemKeys: readonly ToolbarItemKey[] = [
   'more'
@@ -212,69 +133,17 @@ const readTextValue = (
   return typeof value === 'string' ? value : ''
 }
 
-const hasTextValue = (node: Node) => (
-  typeof node.data?.title === 'string' || typeof node.data?.text === 'string'
-)
-
-const hasCapabilitySchemaField = (
-  schema: NodeSchema | undefined,
-  key: ToolbarCapabilityKey
-) => CapabilityFields[key].some((field) =>
-  hasSchemaField(schema, field.scope, field.path)
-)
-
-const readCapabilities = ({
-  node,
-  schema
-}: ToolbarSource): ToolbarCapabilities => ({
-  fill:
-    hasCapabilitySchemaField(schema, 'fill')
-    || NodeTypesByCapability.fill.has(node.type),
-  stroke:
-    hasCapabilitySchemaField(schema, 'stroke')
-    || NodeTypesByCapability.stroke.has(node.type),
-  text:
-    hasCapabilitySchemaField(schema, 'text')
-    || NodeTypesByCapability.text.has(node.type)
-    || hasTextValue(node),
-  group:
-    hasCapabilitySchemaField(schema, 'group')
-    || NodeTypesByCapability.group.has(node.type)
-})
-
-const resolveSharedCapabilities = (
-  capabilities: readonly ToolbarCapabilities[]
-): ToolbarCapabilities => ({
-  fill: capabilities.every((capability) => capability.fill),
-  stroke: capabilities.every((capability) => capability.stroke),
-  text: false,
-  group: false
-})
-
 const resolveItemKeys = (
-  sources: readonly ToolbarSource[],
-  actions: NodeSelectionActions
-): ToolbarItemKey[] => {
-  const capabilities = sources.map(readCapabilities)
-  if (!capabilities.length) {
-    return []
-  }
-
-  const singleMode = capabilities.length === 1
-  const sharedCapabilities = singleMode
-    ? capabilities[0]
-    : resolveSharedCapabilities(capabilities)
-
-  const capabilityOrder = singleMode
-    ? SingleCapabilityOrder
-    : MultiCapabilityOrder
-
-  return [
-    ...(singleMode || !actions.layout.visible ? [] : ['layout'] as const),
-    ...capabilityOrder.filter((key) => sharedCapabilities[key]),
-    ...StaticItemKeys
-  ]
-}
+  actions: NodeSelectionActions,
+  count: number
+): ToolbarItemKey[] => [
+  ...(count > 1 && actions.can.align ? ['layout'] as const : []),
+  ...(actions.can.fill ? ['fill'] as const : []),
+  ...(actions.can.stroke ? ['stroke'] as const : []),
+  ...(actions.can.text ? ['text'] as const : []),
+  ...(actions.can.group ? ['group'] as const : []),
+  ...StaticItemKeys
+]
 
 const buildToolbarItem = (
   key: ToolbarItemKey
@@ -533,6 +402,42 @@ const queryNodeTextSource = ({
     : undefined
 }
 
+const readMoreMenuSections = (
+  actions: NodeSelectionActions,
+  close: () => void
+): MoreMenuSection[] => {
+  const sections: MoreMenuSection[] = []
+  const pushSection = (
+    key: string,
+    title: string,
+    visible: boolean,
+    items: readonly NodeSelectionActions['layer']['items']
+  ) => {
+    if (!visible) {
+      return
+    }
+
+    sections.push({
+      key,
+      title,
+      items: items.map((item) => ({
+        ...item,
+        onClick: () => {
+          closeAfter(item.onClick(), close)
+        }
+      }))
+    })
+  }
+
+  pushSection('layer', 'Layer', actions.layer.visible, actions.layer.items)
+  pushSection('structure', 'Structure', actions.structure.visible, actions.structure.items)
+  pushSection('state', 'State', actions.state.visible, actions.state.items)
+  pushSection('edit', 'Edit', actions.edit.visible, actions.edit.items)
+  pushSection('danger', 'Danger', actions.danger.visible, actions.danger.items)
+
+  return sections
+}
+
 const updateToolbarTextNode = ({
   instance,
   container,
@@ -670,18 +575,17 @@ export const NodeToolbar = ({
   const rect = selection.box
   const nodes = selection.items.nodes
   const primaryNode = selection.items.primary
+  const summary = selection.summary
   let toolbar: ToolbarModel | undefined
 
   if (rect && primaryNode && nodes.length) {
-    const sources = nodes.map((node) => ({
-      node,
-      schema: instance.registry.get(node.type)?.schema
-    }))
     const actions = createNodeSelectionActions(instance, nodes, {
+      summary,
+      can: selection.can,
       onCopy: () => copyNodes(instance, nodes.map((node) => node.id)),
       onCut: () => cutNodes(instance, nodes.map((node) => node.id))
     })
-    const items = resolveItemKeys(sources, actions).map((key) => buildToolbarItem(key))
+    const items = resolveItemKeys(actions, nodes.length).map((key) => buildToolbarItem(key))
 
     if (items.length) {
       const { placement, anchor } = resolveToolbarPlacement({
@@ -925,15 +829,18 @@ export const NodeToolbar = ({
       case 'more':
         return (
           <MoreMenu
-            sections={buildMoreMenuSections(actions).map((section) => ({
-              ...section,
-              items: section.items.map((item) => ({
-                ...item,
-                onClick: () => {
-                  closeAfter(item.onClick(), closeMenu)
+            summary={toolbar.nodes.length > 1
+              ? actions.summary
+              : undefined}
+            filter={actions.filter.visible
+              ? {
+                  types: actions.filter.types,
+                  onSelect: (type) => {
+                    closeAfter(actions.filter.onSelect(type), closeMenu)
+                  }
                 }
-              }))
-            }))}
+              : undefined}
+            sections={readMoreMenuSections(actions, closeMenu)}
           />
         )
     }

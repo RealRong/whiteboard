@@ -4,5 +4,5 @@ import { useStoreValue } from './useStoreValue'
 
 export const useSelection = (): View => {
   const instance = useWhiteboard()
-  return useStoreValue(instance.state.selection)
+  return useStoreValue(instance.read.selection)
 }

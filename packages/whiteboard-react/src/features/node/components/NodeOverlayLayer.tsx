@@ -13,9 +13,12 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeOverlayView } from '../hooks/useNodeView'
-import { createNodeTransformSession } from '../hooks/transform/session'
+import { createTransformSession } from '../hooks/transform/session'
 import { NodeConnectHandles } from './NodeConnectHandles'
-import { NodeTransformHandles } from './NodeTransformHandles'
+import {
+  NodeTransformHandles,
+  TransformHandles
+} from './NodeTransformHandles'
 
 const NodeInteractionGuidesLayer = ({
   guides
@@ -130,6 +133,41 @@ const ActiveContainerOverlay = ({
   </div>
 )
 
+const SelectionTransformOverlay = ({
+  selection,
+  onTransformPointerDown
+}: {
+  selection: ReturnType<typeof useSelection>
+  onTransformPointerDown: (
+    handle: TransformHandle,
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => void
+}) => {
+  if (selection.items.count <= 1 || !selection.box) {
+    return null
+  }
+
+  return (
+    <>
+      <div
+        className="wb-selection-transform-box"
+        style={{
+          transform: `translate(${selection.box.x}px, ${selection.box.y}px)`,
+          width: selection.box.width,
+          height: selection.box.height
+        }}
+      />
+      <TransformHandles
+        rect={selection.box}
+        rotation={0}
+        canResize={selection.transform.resize !== 'none'}
+        canRotate={selection.transform.rotate}
+        onTransformPointerDown={onTransformPointerDown}
+      />
+    </>
+  )
+}
+
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const chrome = useStoreValue(instance.read.node.chrome)
@@ -137,10 +175,10 @@ export const NodeOverlayLayer = () => {
   const guides = useStoreValue(instance.internals.node.guides)
   const selection = useSelection()
   const activeContainerNode = useNodeOverlayView(container.id)
-  const transformSessionRef = useRef<ReturnType<typeof createNodeTransformSession> | null>(null)
+  const transformSessionRef = useRef<ReturnType<typeof createTransformSession> | null>(null)
 
   if (!transformSessionRef.current) {
-    transformSessionRef.current = createNodeTransformSession(instance)
+    transformSessionRef.current = createTransformSession(instance)
   }
 
   const transformSession = transformSessionRef.current!
@@ -156,7 +194,10 @@ export const NodeOverlayLayer = () => {
           title: resolveContainerTitle(activeContainerNode.node)
         }
       : undefined
-  const nodeHandleNodeIds = chrome.transform ? selection.target.nodeIds : EMPTY_NODE_IDS
+  const singleTransformNodeId =
+    chrome.transform && selection.items.count === 1
+      ? selection.target.nodeIds[0]
+      : undefined
   const connectNodeIds = chrome.connect ? selection.target.nodeIds : EMPTY_NODE_IDS
 
   return (
@@ -168,13 +209,18 @@ export const NodeOverlayLayer = () => {
             title={activeContainer.title}
           />
         ) : null}
-        {nodeHandleNodeIds.map((nodeId: NodeId) => (
+        {singleTransformNodeId ? (
           <NodeTransformOverlayItem
-            key={`transform:${nodeId}`}
-            nodeId={nodeId}
-            onTransformPointerDown={transformSession.handleTransformPointerDown}
+            nodeId={singleTransformNodeId}
+            onTransformPointerDown={transformSession.handleNodePointerDown}
           />
-        ))}
+        ) : null}
+        {chrome.transform ? (
+          <SelectionTransformOverlay
+            selection={selection}
+            onTransformPointerDown={transformSession.handleSelectionPointerDown}
+          />
+        ) : null}
         {connectNodeIds.map((nodeId) => (
           <NodeConnectOverlayItem
             key={`connect:${nodeId}`}

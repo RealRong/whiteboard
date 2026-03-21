@@ -10,7 +10,7 @@ import type { RuntimeRead } from '../read'
 import type {
   Container
 } from '../container'
-import type { View as SelectionView } from '../selection'
+import type { Source as SelectionSource } from '../selection'
 import type {
   ViewportCommands,
   ViewportRead
@@ -36,7 +36,7 @@ export type WhiteboardInstance = {
   state: {
     tool: ReadStore<Tool>
     edit: ReadStore<EditTarget>
-    selection: ReadStore<SelectionView>
+    selection: ReadStore<SelectionSource>
     container: ReadStore<Container>
     interaction: ReadStore<InteractionMode>
   }

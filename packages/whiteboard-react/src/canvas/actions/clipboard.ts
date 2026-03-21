@@ -195,8 +195,8 @@ const applyInsertedRoots = (
 export const hasClipboardSelection = (
   instance: ClipboardInstance
 ) => (
-  instance.state.selection.get().target.nodeIds.length > 0
-  || instance.state.selection.get().target.edgeId !== undefined
+  instance.read.selection.get().target.nodeIds.length > 0
+  || instance.read.selection.get().target.edgeId !== undefined
 )
 
 export const copyNodes = async (
@@ -254,7 +254,7 @@ export const cutSelection = async (
   instance: ClipboardInstance,
   event?: ClipboardEvent
 ) => {
-  const selection = instance.state.selection.get()
+  const selection = instance.read.selection.get()
 
   if (selection.target.edgeId !== undefined) {
     return cutEdge(instance, selection.target.edgeId, event)

@@ -368,9 +368,7 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
     border: 'none',
     boxSizing: 'border-box',
     borderRadius: 0,
-    boxShadow: props.selected
-      ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.2), inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18), inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04)'
-      : 'inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18), inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04)',
+    boxShadow: 'inset 0 1px 0 hsl(var(--wb-ui-surface) / 0.18), inset 0 -1px 0 hsl(var(--wb-ui-text-primary) / 0.04)',
     display: 'block',
     isolation: 'isolate',
     overflow: 'visible',
@@ -381,7 +379,12 @@ const createTextStyle = (variant: 'text' | 'sticky') => (props: NodeRenderProps)
 
 export const TextNodeDefinition: NodeDefinition = {
   type: 'text',
-  label: 'Text',
+  meta: {
+    name: 'Text',
+    family: 'text',
+    icon: 'text',
+    controls: ['text']
+  },
   schema: textSchema,
   defaultData: { text: '' },
   render: (props) => <TextNodeRenderer {...props} variant="text" />,
@@ -390,7 +393,12 @@ export const TextNodeDefinition: NodeDefinition = {
 
 export const StickyNodeDefinition: NodeDefinition = {
   type: 'sticky',
-  label: 'Sticky',
+  meta: {
+    name: 'Sticky',
+    family: 'text',
+    icon: 'sticky',
+    controls: ['fill', 'text']
+  },
   schema: stickySchema,
   defaultData: { text: '' },
   render: (props) => <TextNodeRenderer {...props} variant="sticky" />,

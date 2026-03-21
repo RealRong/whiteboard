@@ -11,14 +11,11 @@ import {
   groupSelection,
   ungroupSelection
 } from '../../features/node/commands'
-import {
-  summarizeNodes
-} from '../../features/node/summary'
 
 type ReadInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
 
 const getSelectedNodeIds = (instance: ReadInstance) =>
-  [...instance.state.selection.get().target.nodeIds]
+  [...instance.read.selection.get().target.nodeIds]
 
 export const selectAllInScope = (instance: ReadInstance) => {
   const container = instance.state.container.get()
@@ -33,7 +30,7 @@ export const selectAllInScope = (instance: ReadInstance) => {
 const deleteCurrent = (
   instance: ReadInstance
 ) => {
-  const selection = instance.state.selection.get()
+  const selection = instance.read.selection.get()
   if (selection.target.edgeId !== undefined) {
     const result = instance.commands.edge.delete([selection.target.edgeId])
     if (!result.ok) return
@@ -76,15 +73,15 @@ const canDispatchShortcutAction = (
   instance: ReadInstance,
   action: ShortcutAction
 ) => {
-  const selection = instance.state.selection.get()
-  const summary = summarizeNodes(selection.items.nodes)
-  const hasSelection = summary.count > 0 || selection.target.edgeId !== undefined
+  const selection = instance.read.selection.get()
+  const can = selection.can
+  const hasSelection = can.delete || selection.target.edgeId !== undefined
 
   switch (action) {
     case 'group.create':
-      return summary.count >= 2
+      return can.makeGroup
     case 'group.ungroup':
-      return summary.hasGroup
+      return can.ungroup
     case 'selection.selectAll':
       return true
     case 'selection.clear':
@@ -96,7 +93,7 @@ const canDispatchShortcutAction = (
     case 'selection.delete':
       return hasSelection
     case 'selection.duplicate':
-      return summary.count > 0
+      return can.duplicate
     case 'history.undo':
     case 'history.redo':
       return true

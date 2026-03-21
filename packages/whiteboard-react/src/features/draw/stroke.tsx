@@ -1,8 +1,12 @@
 import {
+  getRectCenter,
+  rectContains,
+  rectIntersects,
+  rotatePoint,
   distancePointToSegment,
   getAABBFromPoints
 } from '@whiteboard/core/geometry'
-import type { Node, Point, Size } from '@whiteboard/core/types'
+import type { Node, Point, Rect, Size } from '@whiteboard/core/types'
 
 export type ResolvedDrawStroke = Readonly<{
   position: Point
@@ -12,6 +16,7 @@ export type ResolvedDrawStroke = Readonly<{
 
 export const DRAW_MIN_LENGTH_SCREEN = 4
 export const DRAW_SIMPLIFY_DISTANCE_SCREEN = 1.5
+const DRAW_PATH_SAMPLE_STEPS = 8
 
 const isFinitePoint = (
   value: unknown
@@ -39,6 +44,108 @@ const distanceSquared = (
   return (dx * dx) + (dy * dy)
 }
 
+const expandRect = (
+  rect: Rect,
+  padding: number
+): Rect => ({
+  x: rect.x - padding,
+  y: rect.y - padding,
+  width: rect.width + padding * 2,
+  height: rect.height + padding * 2
+})
+
+const isPointInRect = (
+  point: Point,
+  rect: Rect
+) => (
+  point.x >= rect.x
+  && point.x <= rect.x + rect.width
+  && point.y >= rect.y
+  && point.y <= rect.y + rect.height
+)
+
+const cross = (
+  left: Point,
+  right: Point,
+  target: Point
+) => (
+  (right.x - left.x) * (target.y - left.y)
+  - (right.y - left.y) * (target.x - left.x)
+)
+
+const isPointOnSegment = (
+  point: Point,
+  left: Point,
+  right: Point
+) => (
+  Math.abs(cross(left, right, point)) <= 1e-6
+  && point.x >= Math.min(left.x, right.x) - 1e-6
+  && point.x <= Math.max(left.x, right.x) + 1e-6
+  && point.y >= Math.min(left.y, right.y) - 1e-6
+  && point.y <= Math.max(left.y, right.y) + 1e-6
+)
+
+const segmentsIntersect = (
+  leftStart: Point,
+  leftEnd: Point,
+  rightStart: Point,
+  rightEnd: Point
+) => {
+  const left1 = cross(leftStart, leftEnd, rightStart)
+  const left2 = cross(leftStart, leftEnd, rightEnd)
+  const right1 = cross(rightStart, rightEnd, leftStart)
+  const right2 = cross(rightStart, rightEnd, leftEnd)
+
+  if (
+    ((left1 > 0 && left2 < 0) || (left1 < 0 && left2 > 0))
+    && ((right1 > 0 && right2 < 0) || (right1 < 0 && right2 > 0))
+  ) {
+    return true
+  }
+
+  return (
+    isPointOnSegment(rightStart, leftStart, leftEnd)
+    || isPointOnSegment(rightEnd, leftStart, leftEnd)
+    || isPointOnSegment(leftStart, rightStart, rightEnd)
+    || isPointOnSegment(leftEnd, rightStart, rightEnd)
+  )
+}
+
+const segmentIntersectsRect = (
+  left: Point,
+  right: Point,
+  rect: Rect
+) => {
+  if (isPointInRect(left, rect) || isPointInRect(right, rect)) {
+    return true
+  }
+
+  const topLeft = { x: rect.x, y: rect.y }
+  const topRight = { x: rect.x + rect.width, y: rect.y }
+  const bottomRight = { x: rect.x + rect.width, y: rect.y + rect.height }
+  const bottomLeft = { x: rect.x, y: rect.y + rect.height }
+
+  return (
+    segmentsIntersect(left, right, topLeft, topRight)
+    || segmentsIntersect(left, right, topRight, bottomRight)
+    || segmentsIntersect(left, right, bottomRight, bottomLeft)
+    || segmentsIntersect(left, right, bottomLeft, topLeft)
+  )
+}
+
+const quadraticPoint = (
+  from: Point,
+  control: Point,
+  to: Point,
+  t: number
+): Point => {
+  const inverse = 1 - t
+  return {
+    x: inverse * inverse * from.x + 2 * inverse * t * control.x + t * t * to.x,
+    y: inverse * inverse * from.y + 2 * inverse * t * control.y + t * t * to.y
+  }
+}
+
 export const readDrawPoints = (
   node: Pick<Node, 'data'>
 ): Point[] => {
@@ -48,6 +155,127 @@ export const readDrawPoints = (
   }
 
   return raw.filter(isFinitePoint)
+}
+
+const createDrawWorldProjector = (
+  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>,
+  rect: Rect
+) => {
+  const baseSize = readDrawBaseSize(node)
+  const safeBaseWidth = Math.max(1, baseSize.width)
+  const safeBaseHeight = Math.max(1, baseSize.height)
+  const scaleX = rect.width / safeBaseWidth
+  const scaleY = rect.height / safeBaseHeight
+  const center = getRectCenter(rect)
+  const rotation = node.rotation ?? 0
+
+  const project = (point: Point): Point => {
+    const world = {
+      x: rect.x + point.x * scaleX,
+      y: rect.y + point.y * scaleY
+    }
+    return rotation
+      ? rotatePoint(world, center, rotation)
+      : world
+  }
+
+  return {
+    project,
+    strokeRadius: Math.max(
+      1,
+      (Math.max(1, (typeof node.style?.strokeWidth === 'number' ? node.style.strokeWidth : 2)) * Math.max(scaleX, scaleY)) / 2
+    )
+  }
+}
+
+const sampleDrawPathPoints = (
+  points: readonly Point[]
+) => {
+  if (points.length <= 2) {
+    return [...points]
+  }
+
+  const sampled: Point[] = [points[0]]
+  let start = points[0]
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const control = points[index]
+    const end = midpoint(control, points[index + 1])
+    for (let step = 1; step <= DRAW_PATH_SAMPLE_STEPS; step += 1) {
+      sampled.push(quadraticPoint(start, control, end, step / DRAW_PATH_SAMPLE_STEPS))
+    }
+    start = end
+  }
+
+  const last = points[points.length - 1]
+  const previous = sampled[sampled.length - 1]
+  if (!previous || previous.x !== last.x || previous.y !== last.y) {
+    sampled.push(last)
+  }
+
+  return sampled
+}
+
+const resolveDrawPaintedRect = (
+  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>,
+  rect: Rect
+) => {
+  const points = readDrawPoints(node)
+  if (!points.length) {
+    return undefined
+  }
+
+  const { project, strokeRadius } = createDrawWorldProjector(node, rect)
+  const worldPoints = points.map(project)
+  return expandRect(getAABBFromPoints(worldPoints), strokeRadius)
+}
+
+export const matchDrawRect = ({
+  node,
+  rect,
+  queryRect,
+  mode
+}: {
+  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>
+  rect: Rect
+  queryRect: Rect
+  mode: 'touch' | 'contain'
+}) => {
+  const paintedRect = resolveDrawPaintedRect(node, rect)
+  if (!paintedRect) {
+    return false
+  }
+
+  if (mode === 'contain') {
+    return rectContains(queryRect, paintedRect)
+  }
+
+  if (!rectIntersects(queryRect, paintedRect)) {
+    return false
+  }
+
+  const localPoints = readDrawPoints(node)
+  const { project, strokeRadius } = createDrawWorldProjector(node, rect)
+  const expandedQueryRect = expandRect(queryRect, strokeRadius)
+  const worldPoints = sampleDrawPathPoints(localPoints).map(project)
+
+  if (worldPoints.length === 1) {
+    return isPointInRect(worldPoints[0], expandedQueryRect)
+  }
+
+  for (let index = 0; index < worldPoints.length; index += 1) {
+    if (isPointInRect(worldPoints[index], expandedQueryRect)) {
+      return true
+    }
+    if (index === 0) {
+      continue
+    }
+    if (segmentIntersectsRect(worldPoints[index - 1], worldPoints[index], expandedQueryRect)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 const simplifyDrawPointsRadial = (

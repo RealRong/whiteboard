@@ -1,1 +1,10 @@
-export type { NodeDefinition, NodeRegistry, NodeRenderProps, NodeScene, NodeHit } from './registry'
+export type {
+  ControlId,
+  NodeDefinition,
+  NodeRegistry,
+  NodeRenderProps,
+  NodeScene,
+  NodeHit,
+  NodeMeta,
+  NodeFamily
+} from './registry'

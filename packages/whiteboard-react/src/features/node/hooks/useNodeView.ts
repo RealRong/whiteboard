@@ -10,7 +10,7 @@ import {
   useNodeSession,
   type NodeSession
 } from '../session/node'
-import { getNodeScene } from '../scene'
+import { resolveNodeTransformCapability } from '../capability'
 
 const buildNodeTransformStyle = (
   rect: NodeItem['rect'],
@@ -55,18 +55,6 @@ export type NodeOverlayView = {
   canRotate: NodeView['canRotate']
 }
 
-const resolveCanResize = (
-  definition?: NodeDefinition
-) => definition?.canResize ?? true
-
-const resolveCanRotate = (
-  definition?: NodeDefinition
-) => (
-  typeof definition?.canRotate === 'boolean'
-    ? definition.canRotate
-    : getNodeScene(definition) !== 'container'
-)
-
 const resolveNodeOverlayViewState = (
   instance: Pick<InternalInstance, 'registry'>,
   nodeId: NodeId,
@@ -76,16 +64,15 @@ const resolveNodeOverlayViewState = (
   const rect = item.rect
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const definition = instance.registry.get(node.type)
-  const canResize = resolveCanResize(definition)
-  const canRotate = resolveCanRotate(definition)
+  const capability = resolveNodeTransformCapability(definition)
 
   return {
     nodeId,
     node,
     rect,
     rotation,
-    canResize,
-    canRotate
+    canResize: capability.resize,
+    canRotate: capability.rotate
   }
 }
 
@@ -116,8 +103,7 @@ const resolveNodeViewState = (
     update,
       updateData
   }
-  const canResize = resolveCanResize(definition)
-  const canRotate = resolveCanRotate(definition)
+  const capability = resolveNodeTransformCapability(definition)
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}
@@ -130,8 +116,8 @@ const resolveNodeViewState = (
     hovered,
     rotation,
     hasResizePreview,
-    canResize,
-    canRotate,
+    canResize: capability.resize,
+    canRotate: capability.rotate,
     nodeStyle,
     transformStyle,
     definition,

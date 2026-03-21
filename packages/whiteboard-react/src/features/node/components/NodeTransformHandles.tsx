@@ -10,6 +10,18 @@ import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
 
+type TransformHandlesProps = {
+  rect: NodeViewRect
+  rotation: number
+  canResize: boolean
+  canRotate: boolean
+  onTransformPointerDown: (
+    handle: TransformHandle,
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => void
+  handleProps?: Record<string, string | undefined>
+}
+
 type NodeTransformHandlesProps = {
   node: NodeViewNode
   rect: NodeViewRect
@@ -47,14 +59,14 @@ const buildNodeTransformHandleStyle = ({
   } as CSSProperties
 }
 
-export const NodeTransformHandles = ({
-  node,
+export const TransformHandles = ({
   rect,
   rotation,
   canResize,
   canRotate,
-  onTransformPointerDown
-}: NodeTransformHandlesProps) => {
+  onTransformPointerDown,
+  handleProps
+}: TransformHandlesProps) => {
   const instance = useInternalInstance()
   const zoom = useStoreValue(instance.viewport).zoom
 
@@ -74,13 +86,13 @@ export const NodeTransformHandles = ({
           key={handle.id}
           data-selection-ignore
           data-input-role="node-transform-handle"
-          data-node-id={node.id}
           data-kind={handle.kind}
           data-transform-kind={handle.kind}
           data-resize-direction={handle.direction}
           className="wb-node-transform-handle"
+          {...handleProps}
           onPointerDown={(event) => {
-            onTransformPointerDown(node.id, handle, event)
+            onTransformPointerDown(handle, event)
           }}
           style={buildNodeTransformHandleStyle({
             handle,
@@ -103,3 +115,25 @@ export const NodeTransformHandles = ({
     </>
   )
 }
+
+export const NodeTransformHandles = ({
+  node,
+  rect,
+  rotation,
+  canResize,
+  canRotate,
+  onTransformPointerDown
+}: NodeTransformHandlesProps) => (
+  <TransformHandles
+    rect={rect}
+    rotation={rotation}
+    canResize={canResize}
+    canRotate={canRotate}
+    handleProps={{
+      'data-node-id': node.id
+    }}
+    onTransformPointerDown={(handle, event) => {
+      onTransformPointerDown(node.id, handle, event)
+    }}
+  />
+)

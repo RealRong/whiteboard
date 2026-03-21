@@ -75,6 +75,7 @@ export const NodeItem = memo(({
       data-node-id={nodeId}
       data-node-type={resolvedNode.type}
       data-node-hit={hit}
+      data-selected={selected ? 'true' : undefined}
       onPointerDown={(event) => {
         onNodePointerDown(nodeId, event)
       }}
@@ -84,10 +85,6 @@ export const NodeItem = memo(({
       style={{
         width: rect.width,
         height: rect.height,
-        border: `1px solid ${selected ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))' : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'}`,
-        boxShadow: selected
-          ? '0 0 0 2px hsl(var(--ui-accent, 209.8 76.7% 51.2%) / 0.4)'
-          : '0 6px 16px hsl(var(--ui-text-primary, 40 2.1% 28%) / 0.08)',
         ...rootStyle
       }}
     >

@@ -6,4 +6,13 @@ export { createNodeRegistry, createDefaultNodeRegistry } from './features/node/r
 
 export type { WhiteboardOptions, HistoryOptions, WhiteboardProps } from './types/common'
 export type { WhiteboardInstance, Tool } from './runtime/instance'
-export type { NodeDefinition, NodeRegistry, NodeRenderProps, NodeScene, NodeHit } from './types/node'
+export type {
+  ControlId,
+  NodeDefinition,
+  NodeRegistry,
+  NodeRenderProps,
+  NodeScene,
+  NodeHit,
+  NodeMeta,
+  NodeFamily
+} from './types/node'

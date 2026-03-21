@@ -7,15 +7,15 @@ import type { WhiteboardInstance } from '../../runtime/instance'
 import type { NodeSummary } from './summary'
 
 type NodeCommandsInstance = Pick<WhiteboardInstance, 'commands'>
-type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'state'>
+type NodeStateInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
 type NodeReadInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
-type NodeSelectionInstance = Pick<WhiteboardInstance, 'commands' | 'state' | 'read'>
+type NodeSelectionInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
 
 export type OrderMode = 'front' | 'forward' | 'backward' | 'back'
 export type GroupAutoFitMode = 'expand-only' | 'manual'
 
 const getSelectedNodeIds = (instance: NodeStateInstance): NodeId[] =>
-  [...instance.state.selection.get().target.nodeIds]
+  [...instance.read.selection.get().target.nodeIds]
 
 export const deleteNodes = (
   instance: NodeCommandsInstance,
@@ -58,6 +58,22 @@ export const groupNodes = (
   const result = instance.commands.node.group.create([...nodeIds])
   if (!result.ok) return
   instance.commands.selection.replace([result.data.groupId])
+}
+
+export const filterNodesByType = (
+  instance: NodeCommandsInstance,
+  nodes: readonly Node[],
+  type: string
+) => {
+  const nodeIds = nodes
+    .filter((node) => node.type === type)
+    .map((node) => node.id)
+
+  if (!nodeIds.length) {
+    return
+  }
+
+  instance.commands.selection.replace(nodeIds)
 }
 
 export const groupSelection = (

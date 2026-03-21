@@ -101,6 +101,14 @@
   z-index: var(--wb-z-node-overlay);
 }
 
+.wb-selection-transform-box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 calc(1px / var(--wb-zoom, 1)) var(--wb-selection-border);
+}
+
 .wb-container-layer {
   position: absolute;
   inset: 0;
@@ -141,6 +149,21 @@
   pointer-events: none;
 }
 
+.wb-container-shell-frame::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1px / var(--wb-zoom, 1));
+  border-radius: inherit;
+  border: calc(1px / var(--wb-zoom, 1)) solid transparent;
+  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) transparent;
+  pointer-events: none;
+}
+
+.wb-container-shell[data-selected='true'] .wb-container-shell-frame::after {
+  border-color: var(--wb-selection-border);
+  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(var(--wb-ui-accent) / 0.14);
+}
+
 .wb-drag-guides-layer {
   position: absolute;
   inset: 0;
@@ -163,6 +186,21 @@
   user-select: none;
   touch-action: none;
   overflow: visible;
+}
+
+.wb-node-block::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1px / var(--wb-zoom, 1));
+  border-radius: inherit;
+  border: calc(1px / var(--wb-zoom, 1)) solid transparent;
+  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) transparent;
+  pointer-events: none;
+}
+
+.wb-node-block[data-selected='true'][data-node-hit='box']::after {
+  border-color: var(--wb-selection-border);
+  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(var(--wb-ui-accent) / 0.14);
 }
 
 .wb-marquee-layer {
@@ -683,6 +721,64 @@
   font-size: 14px;
 }
 
+.wb-selection-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0 8px 10px;
+  border-bottom: 1px solid var(--wb-border-subtle);
+}
+
+.wb-selection-summary-icons {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-top: 1px;
+}
+
+.wb-selection-summary-icons > * + * {
+  margin-left: -5px;
+}
+
+.wb-selection-summary-icon,
+.wb-selection-summary-overflow {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--wb-ui-border-subtle) / 0.42);
+  background: hsl(var(--wb-ui-surface) / 0.96);
+  color: var(--wb-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.wb-selection-summary-overflow {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wb-selection-summary-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  gap: 4px;
+}
+
+.wb-selection-summary-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wb-text-primary);
+}
+
+.wb-selection-summary-detail {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--wb-text-secondary);
+}
+
 .wb-node-toolbar-menu-section + .wb-node-toolbar-menu-section {
   margin-top: 10px;
 }
@@ -802,6 +898,67 @@
 .wb-node-toolbar-menu-item:disabled {
   opacity: 0.42;
   cursor: default;
+}
+
+.wb-selection-filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-selection-filter-chip {
+  min-width: 0;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 0 9px;
+  border: none;
+  border-radius: 999px;
+  background: hsl(var(--wb-ui-surface-strong) / 0.58);
+  color: var(--wb-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  box-shadow: none;
+}
+
+.wb-selection-filter-chip:hover,
+.wb-selection-filter-chip:focus-visible {
+  background: var(--wb-button-hover);
+  color: var(--wb-text-primary);
+}
+
+.wb-selection-filter-chip-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-selection-filter-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-selection-filter-chip-count {
+  flex: 0 0 auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: hsl(var(--wb-ui-surface) / 0.95);
+  color: var(--wb-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .wb-node-toolbar-layout-panel {

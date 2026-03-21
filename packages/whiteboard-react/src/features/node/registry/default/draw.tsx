@@ -16,7 +16,12 @@ const drawSchema = createSchema('draw', 'Draw', [
 
 export const DrawNodeDefinition: NodeDefinition = {
   type: 'draw',
-  label: 'Draw',
+  meta: {
+    name: 'Draw',
+    family: 'draw',
+    icon: 'draw',
+    controls: ['stroke']
+  },
   hit: 'path',
   canResize: false,
   canRotate: false,

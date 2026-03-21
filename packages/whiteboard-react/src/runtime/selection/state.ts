@@ -3,10 +3,7 @@ import {
   type SelectionMode
 } from '@whiteboard/core/node'
 import {
-  createDerivedStore,
   createValueStore,
-  type KeyedReadStore,
-  type ReadStore,
   type ValueStore
 } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
@@ -20,6 +17,15 @@ import {
   isOrderedArrayEqual,
   isRectEqual
 } from '../utils/equality'
+import {
+  isNodeSelectionCanEqual,
+  resolveNodeSelectionCan,
+  isNodeSummaryEqual,
+  summarizeNodes,
+  type NodeSelectionCan,
+  type NodeSummary
+} from '../../features/node/summary'
+import type { NodeMeta } from '../../types/node'
 
 export type Source =
   | { kind: 'none' }
@@ -35,6 +41,12 @@ export type Commands = {
   clear: () => void
 }
 
+export type Transform = {
+  move: boolean
+  resize: 'none' | 'resize' | 'scale'
+  rotate: boolean
+}
+
 export type View = {
   kind: 'none' | 'node' | 'nodes' | 'edge'
   target: {
@@ -47,22 +59,15 @@ export type View = {
     primary?: Node
     count: number
   }
+  summary: NodeSummary
+  can: NodeSelectionCan
+  transform: Transform
   box?: Rect
 }
 
 export type Store = {
   source: ValueStore<Source>
-  store: ReadStore<View>
   commands: Commands
-}
-
-type ReadDeps = {
-  node: {
-    item: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
-  }
-  edge: {
-    item: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
-  }
 }
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
@@ -71,6 +76,13 @@ const EMPTY_NODES: readonly Node[] = []
 const EMPTY_ITEMS: readonly NodeItem[] = []
 const EMPTY_SOURCE: Source = {
   kind: 'none'
+}
+const EMPTY_SUMMARY = summarizeNodes(EMPTY_NODES)
+const EMPTY_CAN = resolveNodeSelectionCan(EMPTY_NODES)
+const EMPTY_TRANSFORM: Transform = {
+  move: false,
+  resize: 'none',
+  rotate: false
 }
 
 const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
@@ -135,7 +147,7 @@ const isSourceEqual = (
   }
 }
 
-const isViewEqual = (
+export const isViewEqual = (
   left: View,
   right: View
 ) => (
@@ -143,6 +155,11 @@ const isViewEqual = (
   && left.target.edgeId === right.target.edgeId
   && left.items.primary === right.items.primary
   && left.items.count === right.items.count
+  && isNodeSummaryEqual(left.summary, right.summary)
+  && isNodeSelectionCanEqual(left.can, right.can)
+  && left.transform.move === right.transform.move
+  && left.transform.resize === right.transform.resize
+  && left.transform.rotate === right.transform.rotate
   && isOrderedArrayEqual(left.target.nodeIds, right.target.nodeIds)
   && isOrderedArrayEqual(left.items.nodes, right.items.nodes)
   && isRectEqual(left.box, right.box)
@@ -171,14 +188,21 @@ const toSource = (
     : EMPTY_SOURCE
 }
 
-const resolveView = ({
+export const resolveView = ({
   source,
   readNode,
-  readEdge
+  readEdge,
+  resolveNodeMeta,
+  resolveNodeTransform
 }: {
   source: Source
   readNode: (nodeId: NodeId) => NodeItem | undefined
   readEdge: (edgeId: EdgeId) => EdgeItem | undefined
+  resolveNodeMeta: (type: string) => NodeMeta | undefined
+  resolveNodeTransform: (node: Node) => {
+    resize: boolean
+    rotate: boolean
+  }
 }): View => {
   if (source.kind === 'edge') {
     const edgeId = readEdge(source.edgeId)?.edge.id
@@ -194,6 +218,9 @@ const resolveView = ({
         primary: undefined,
         count: 0
       },
+      summary: EMPTY_SUMMARY,
+      can: EMPTY_CAN,
+      transform: EMPTY_TRANSFORM,
       box: undefined
     }
   }
@@ -211,6 +238,27 @@ const resolveView = ({
     ? new Set<NodeId>(nodeIds)
     : EMPTY_NODE_SET
   const count = nodes.length
+  const summary = summarizeNodes(nodes, {
+    resolveMeta: resolveNodeMeta
+  })
+  const can = resolveNodeSelectionCan(nodes, {
+    resolveMeta: resolveNodeMeta
+  })
+  const transform = count > 0
+    ? {
+        move: nodes.every((node) => !node.locked),
+        resize: nodes.every((node) => (
+          !node.locked
+          && resolveNodeTransform(node).resize
+        ))
+          ? 'resize' as const
+          : 'none' as const,
+        rotate: count === 1 && nodes.every((node) => (
+          !node.locked
+          && resolveNodeTransform(node).rotate
+        ))
+      }
+    : EMPTY_TRANSFORM
   const box = items.length > 0
     ? getBoundingRect(items.map((item) => item.rect))
     : undefined
@@ -231,15 +279,14 @@ const resolveView = ({
       primary: nodes[0],
       count
     },
+    summary,
+    can,
+    transform,
     box
   }
 }
 
-export const createState = ({
-  read
-}: {
-  read: ReadDeps
-}): Store => {
+export const createState = (): Store => {
   const source = createValueStore<Source>(EMPTY_SOURCE, {
     isEqual: isSourceEqual
   })
@@ -250,15 +297,6 @@ export const createState = ({
     }
     source.set(next)
   }
-
-  const store = createDerivedStore<View>({
-    get: (readStore) => resolveView({
-      source: readStore(source),
-      readNode: (nodeId) => readStore(read.node.item, nodeId),
-      readEdge: (edgeId) => readStore(read.edge.item, edgeId)
-    }),
-    isEqual: isViewEqual
-  })
 
   const writeNodes = (
     nodeIds: readonly NodeId[],
@@ -312,7 +350,6 @@ export const createState = ({
 
   return {
     source,
-    store,
     commands: {
       replace,
       add,

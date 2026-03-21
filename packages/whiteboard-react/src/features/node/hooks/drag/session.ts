@@ -73,7 +73,7 @@ const isSingleSelectedNode = (
   nodeId: NodeId,
   currentSelectedNodeIds: readonly NodeId[]
 ) => (
-  instance.state.selection.get().target.edgeId === undefined
+  instance.read.selection.get().target.edgeId === undefined
   && currentSelectedNodeIds.length === 1
   && currentSelectedNodeIds[0] === nodeId
 )
@@ -83,7 +83,7 @@ const isSelectedNode = (
   nodeId: NodeId,
   currentSelectedNodeIds: readonly NodeId[]
 ) => (
-  instance.state.selection.get().target.edgeId === undefined
+  instance.read.selection.get().target.edgeId === undefined
   && currentSelectedNodeIds.includes(nodeId)
 )
 
@@ -482,7 +482,7 @@ export const createNodePressSession = (
 
       const currentSelectedNodeIds = filterNodeIds(
         container,
-        instance.state.selection.get().target.nodeIds
+        instance.read.selection.get().target.nodeIds
       )
       const selectionMode = resolveSelectionMode(event)
       const phase: Exclude<NodePressPhase, 'hold'> =
@@ -559,7 +559,7 @@ export const createNodePressSession = (
       const container = instance.state.container.get()
       const currentSelectedNodeIds = filterNodeIds(
         container,
-        instance.state.selection.get().target.nodeIds
+        instance.read.selection.get().target.nodeIds
       )
       const selectionMode = resolveSelectionMode(event)
       const phase: Exclude<NodePressPhase, 'hold'> =

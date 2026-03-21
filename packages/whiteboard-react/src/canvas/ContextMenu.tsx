@@ -15,9 +15,13 @@ import {
   hasNode
 } from '../runtime/container'
 import {
-  buildContextMenuGroups,
   createNodeSelectionActions
 } from '../features/node/actions'
+import {
+  summarizeNodes,
+  type NodeSummary,
+  type NodeTypeSummary
+} from '../features/node/summary'
 import {
   type GroupAutoFitMode,
   updateGroupNode
@@ -44,6 +48,8 @@ import {
   readElementEdgeId,
   readElementNodeId
 } from './target'
+import { SelectionSummaryHeader } from '../features/node/components/SelectionSummaryHeader'
+import { SelectionTypeFilterStrip } from '../features/node/components/SelectionTypeFilterStrip'
 import { readContainerBodyTarget } from '../features/node/scene'
 import { updateNodesStyle } from '../features/node/style'
 
@@ -67,6 +73,17 @@ type ContextMenuGroup = {
   key: string
   title?: string
   items: readonly ContextMenuItem[]
+}
+
+type ContextMenuFilter = {
+  types: readonly NodeTypeSummary[]
+  onSelect: (type: string) => void
+}
+
+type ContextMenuView = {
+  summary?: NodeSummary
+  filter?: ContextMenuFilter
+  groups: readonly ContextMenuGroup[]
 }
 
 type ContextMenuTarget =
@@ -356,6 +373,87 @@ const bindContextMenuGroups = (
   }))
 )
 
+const bindContextMenuFilter = (
+  filter: ContextMenuFilter | undefined,
+  close: () => void
+): ContextMenuFilter | undefined => {
+  if (!filter) {
+    return undefined
+  }
+
+  return {
+    ...filter,
+    onSelect: (type) => {
+      closeAfter(filter.onSelect(type), close)
+    }
+  }
+}
+
+const readActionContextMenuGroups = (
+  actions: ReturnType<typeof createNodeSelectionActions>
+): ContextMenuGroup[] => {
+  const groups: ContextMenuGroup[] = []
+
+  if (actions.layout.visible) {
+    groups.push({
+      key: 'layout',
+      items: [
+        {
+          key: 'layout.menu',
+          label: 'Layout',
+          children: [
+            ...actions.layout.alignItems,
+            ...actions.layout.distributeItems
+          ]
+        }
+      ]
+    })
+  }
+
+  if (actions.layer.visible) {
+    groups.push({
+      key: 'layer',
+      items: [
+        {
+          key: 'layer.menu',
+          label: 'Layer',
+          children: actions.layer.items
+        }
+      ]
+    })
+  }
+
+  if (actions.structure.visible) {
+    groups.push({
+      key: 'structure',
+      items: actions.structure.items
+    })
+  }
+
+  if (actions.state.visible) {
+    groups.push({
+      key: 'state',
+      items: actions.state.items
+    })
+  }
+
+  if (actions.edit.visible) {
+    groups.push({
+      key: 'edit',
+      items: actions.edit.items
+    })
+  }
+
+  if (actions.danger.visible) {
+    groups.push({
+      key: 'danger',
+      items: actions.danger.items
+    })
+  }
+
+  return groups
+}
+
 const readContextMenuOpenResult = ({
   instance,
   targetElement,
@@ -371,7 +469,7 @@ const readContextMenuOpenResult = ({
   leaveContainer: boolean
 } | undefined => {
   const container = instance.state.container.get()
-  const selection = instance.state.selection.get()
+  const selection = instance.read.selection.get()
   const nodeId = readElementNodeId(targetElement)
 
   if (nodeId) {
@@ -478,7 +576,7 @@ export const ContextMenu = ({
       leave(instance)
     }
 
-    const selection = instance.state.selection.get()
+    const selection = instance.read.selection.get()
     setSession({
       screen: result.screen,
       target: result.target,
@@ -611,83 +709,89 @@ export const ContextMenu = ({
       }
     }
 
-    const readGroups = (): readonly ContextMenuGroup[] => {
+    const readMenu = (): ContextMenuView => {
       switch (target.kind) {
         case 'canvas': {
           const container = instance.state.container.get()
-          return [
-            {
-              key: 'edit',
-              title: 'Edit',
-              items: [
-                {
-                  key: 'edit.paste',
-                  label: 'Paste',
-                  onClick: () => pasteClipboard(instance, {
-                    at: target.world,
-                    parentId: container.id
-                  })
-                }
-              ]
-            },
-            {
-              key: 'create',
-              title: 'Create',
-              items: CREATE_NODE_PRESETS.map((preset) => ({
-                key: preset.key,
-                label: preset.label,
-                onClick: () => {
-                  closeAfter(
-                    createNodeFromPreset(instance, preset, target.world, container.id),
-                    dismissAction
-                  )
-                }
-              }))
-            },
-            {
-              key: 'history',
-              title: 'History',
-              items: [
-                {
-                  key: 'history.undo',
-                  label: 'Undo',
-                  onClick: () => {
-                    instance.commands.history.undo()
-                    dismissAction()
+          return {
+            groups: [
+              {
+                key: 'edit',
+                title: 'Edit',
+                items: [
+                  {
+                    key: 'edit.paste',
+                    label: 'Paste',
+                    onClick: () => pasteClipboard(instance, {
+                      at: target.world,
+                      parentId: container.id
+                    })
                   }
-                },
-                {
-                  key: 'history.redo',
-                  label: 'Redo',
+                ]
+              },
+              {
+                key: 'create',
+                title: 'Create',
+                items: CREATE_NODE_PRESETS.map((preset) => ({
+                  key: preset.key,
+                  label: preset.label,
                   onClick: () => {
-                    instance.commands.history.redo()
-                    dismissAction()
+                    closeAfter(
+                      createNodeFromPreset(instance, preset, target.world, container.id),
+                      dismissAction
+                    )
                   }
-                }
-              ]
-            },
-            {
-              key: 'selection',
-              title: 'Selection',
-              items: [
-                {
-                  key: 'selection.select-all',
-                  label: 'Select all',
-                  onClick: () => {
-                    selectAllInScope(instance)
-                    dismissAction()
+                }))
+              },
+              {
+                key: 'history',
+                title: 'History',
+                items: [
+                  {
+                    key: 'history.undo',
+                    label: 'Undo',
+                    onClick: () => {
+                      instance.commands.history.undo()
+                      dismissAction()
+                    }
+                  },
+                  {
+                    key: 'history.redo',
+                    label: 'Redo',
+                    onClick: () => {
+                      instance.commands.history.redo()
+                      dismissAction()
+                    }
                   }
-                }
-              ]
-            }
-          ]
+                ]
+              },
+              {
+                key: 'selection',
+                title: 'Selection',
+                items: [
+                  {
+                    key: 'selection.select-all',
+                    label: 'Select all',
+                    onClick: () => {
+                      selectAllInScope(instance)
+                      dismissAction()
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
         case 'node': {
+          const summary = summarizeNodes([target.node], {
+            resolveMeta: (type) => instance.registry.get(type)?.meta
+          })
           const actions = createNodeSelectionActions(instance, [target.node], {
+            summary,
             onCopy: () => copyNodes(instance, [target.node.id]),
             onCut: () => cutNodes(instance, [target.node.id])
           })
-          const groups = buildContextMenuGroups(actions)
+          const groups = readActionContextMenuGroups(actions)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: [target.node]
@@ -708,14 +812,29 @@ export const ContextMenu = ({
               boundGroups.push(groupSection)
             }
           }
-          return boundGroups
+          return {
+            filter: bindContextMenuFilter(
+              actions.filter.visible
+                ? {
+                    types: actions.filter.types,
+                    onSelect: actions.filter.onSelect
+                  }
+                : undefined,
+              dismissAction
+            ),
+            groups: boundGroups
+          }
         }
         case 'nodes': {
+          const summary = summarizeNodes(target.nodes, {
+            resolveMeta: (type) => instance.registry.get(type)?.meta
+          })
           const actions = createNodeSelectionActions(instance, target.nodes, {
+            summary,
             onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
             onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
           })
-          const groups = buildContextMenuGroups(actions)
+          const groups = readActionContextMenuGroups(actions)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: target.nodes
@@ -723,39 +842,55 @@ export const ContextMenu = ({
           if (styleGroup) {
             groups.unshift(styleGroup)
           }
-          return bindContextMenuGroups(
-            groups,
-            dismissAction
-          )
+          return {
+            summary,
+            filter: bindContextMenuFilter(
+              actions.filter.visible
+                ? {
+                    types: actions.filter.types,
+                    onSelect: actions.filter.onSelect
+                  }
+                : undefined,
+              dismissAction
+            ),
+            groups: bindContextMenuGroups(
+              groups,
+              dismissAction
+            )
+          }
         }
         case 'edge':
-          return [
-            {
-              key: 'edge.actions',
-              items: [
-                {
-                  key: 'edge.copy',
-                  label: 'Copy',
-                  onClick: () => copyEdge(instance, target.edgeId)
-                },
-                {
-                  key: 'edge.cut',
-                  label: 'Cut',
-                  onClick: () => cutEdge(instance, target.edgeId)
-                },
-                {
-                  key: 'edge.delete',
-                  label: 'Delete',
-                  tone: 'danger',
-                  onClick: () => {
-                    closeAfter(instance.commands.edge.delete([target.edgeId]), dismissAction)
+          return {
+            groups: [
+              {
+                key: 'edge.actions',
+                items: [
+                  {
+                    key: 'edge.copy',
+                    label: 'Copy',
+                    onClick: () => copyEdge(instance, target.edgeId)
+                  },
+                  {
+                    key: 'edge.cut',
+                    label: 'Cut',
+                    onClick: () => cutEdge(instance, target.edgeId)
+                  },
+                  {
+                    key: 'edge.delete',
+                    label: 'Delete',
+                    tone: 'danger',
+                    onClick: () => {
+                      closeAfter(instance.commands.edge.delete([target.edgeId]), dismissAction)
+                    }
                   }
-                }
-              ]
-            }
-          ]
+                ]
+              }
+            ]
+          }
       }
     }
+
+    const menu = readMenu()
 
     return {
       placement: readPlacement({
@@ -763,7 +898,8 @@ export const ContextMenu = ({
         containerWidth: surface.width,
         containerHeight: surface.height
       }),
-      groups: readGroups()
+      filter: menu.filter,
+      groups: menu.groups
     }
   }, [dismissAction, instance, session, surface.height, surface.width])
 
@@ -866,6 +1002,19 @@ export const ContextMenu = ({
     )
   }
 
+  const renderGroup = (group: ContextMenuGroup) => (
+    <div key={group.key} className="wb-context-menu-section">
+      {group.title ? (
+        <div className="wb-context-menu-section-title">{group.title}</div>
+      ) : null}
+      {group.items.map((item) => (
+        item.children?.length
+          ? renderSubmenuItem(item)
+          : renderLeafItem(item)
+      ))}
+    </div>
+  )
+
   return (
     <div className="wb-context-menu-layer" ref={rootRef} data-context-menu-ignore>
       <div
@@ -885,18 +1034,19 @@ export const ContextMenu = ({
           setSubmenuKey(null)
         }}
       >
-        {view.groups.map((group) => (
-          <div key={group.key} className="wb-context-menu-section">
-            {group.title ? (
-              <div className="wb-context-menu-section-title">{group.title}</div>
-            ) : null}
-            {group.items.map((item) => (
-              item.children?.length
-                ? renderSubmenuItem(item)
-                : renderLeafItem(item)
-            ))}
+        {view.summary ? (
+          <SelectionSummaryHeader summary={view.summary} />
+        ) : null}
+        {view.filter ? (
+          <div className="wb-context-menu-section">
+            <div className="wb-context-menu-section-title">Filter</div>
+            <SelectionTypeFilterStrip
+              types={view.filter.types}
+              onSelect={view.filter.onSelect}
+            />
           </div>
-        ))}
+        ) : null}
+        {view.groups.map((group) => renderGroup(group))}
       </div>
     </div>
   )
