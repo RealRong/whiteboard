@@ -1,20 +1,19 @@
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import { isPointInRect } from '@whiteboard/core/geometry'
+import {
+  compactDrawPoints,
+  resolveDrawStroke
+} from '@whiteboard/core/node'
+import type { NodeId, Point } from '@whiteboard/core/types'
 import {
   useEffect,
   useRef,
   type RefObject
 } from 'react'
 import { isCanvasContentIgnoredTarget } from '../../canvas/target'
-import { useInternalInstance } from '../../runtime/hooks'
 import { leave } from '../../runtime/container'
+import { useInternalInstance } from '../../runtime/hooks'
 import type { DrawPresetKey } from '../../runtime/tool'
-import type { DrawStyle } from '../../runtime/draw'
-import {
-  DRAW_MIN_LENGTH_SCREEN,
-  DRAW_SIMPLIFY_DISTANCE_SCREEN,
-  simplifyDrawPoints,
-  resolveDrawStroke
-} from './stroke'
+import type { DrawPreview, DrawStyle } from './state'
 
 type ActiveStroke = {
   parentId?: NodeId
@@ -26,16 +25,38 @@ type ActiveStroke = {
 }
 
 const SAMPLE_DISTANCE_SCREEN = 1.5
+const DRAW_MIN_LENGTH_SCREEN = 4
+const DRAW_SIMPLIFY_DISTANCE_SCREEN = 1.5
+const DRAW_POINT_BUDGET_MIN = 24
+const DRAW_POINT_BUDGET_MAX = 320
+const DRAW_POINT_BUDGET_STEP_SCREEN = 6
 
-const isPointInRect = (
-  point: Point,
-  rect: Rect
-) => (
-  point.x >= rect.x
-  && point.x <= rect.x + rect.width
-  && point.y >= rect.y
-  && point.y <= rect.y + rect.height
-)
+const resolveDrawPointBudget = (
+  lengthScreen: number
+) => {
+  if (!Number.isFinite(lengthScreen) || lengthScreen <= 0) {
+    return DRAW_POINT_BUDGET_MIN
+  }
+
+  return Math.min(
+    DRAW_POINT_BUDGET_MAX,
+    Math.max(
+      DRAW_POINT_BUDGET_MIN,
+      Math.ceil(lengthScreen / DRAW_POINT_BUDGET_STEP_SCREEN)
+    )
+  )
+}
+
+const readSampleEvents = (
+  event: PointerEvent
+) => {
+  if (typeof event.getCoalescedEvents !== 'function') {
+    return [event]
+  }
+
+  const samples = event.getCoalescedEvents()
+  return samples.length ? samples : [event]
+}
 
 const readCaptureTarget = (
   event: PointerEvent
@@ -56,13 +77,16 @@ const hasMovedEnough = (
   return (dx * dx) + (dy * dy) >= SAMPLE_DISTANCE_SCREEN * SAMPLE_DISTANCE_SCREEN
 }
 
-export const useDrawInput = ({
-  containerRef
+export const useBindDrawInput = ({
+  containerRef,
+  setPreview
 }: {
   containerRef: RefObject<HTMLDivElement | null>
+  setPreview: (preview: DrawPreview | null) => void
 }) => {
   const instance = useInternalInstance()
   const activeRef = useRef<ActiveStroke | null>(null)
+  const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -70,12 +94,36 @@ export const useDrawInput = ({
       return
     }
 
-    const writePreview = (active: ActiveStroke) => {
-      instance.internals.draw.preview.set({
+    const flushPreview = (active: ActiveStroke | null) => {
+      frameRef.current = null
+      if (!active) {
+        setPreview(null)
+        return
+      }
+
+      setPreview({
         preset: active.preset,
         style: active.style,
         points: active.points
       })
+    }
+
+    const schedulePreview = () => {
+      if (frameRef.current !== null) {
+        return
+      }
+
+      frameRef.current = window.requestAnimationFrame(() => {
+        flushPreview(activeRef.current)
+      })
+    }
+
+    const clearPreview = () => {
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current)
+        frameRef.current = null
+      }
+      setPreview(null)
     }
 
     const pushPoint = (
@@ -102,16 +150,35 @@ export const useDrawInput = ({
         return
       }
 
-      active.points = [
-        ...active.points,
-        pointer.world
-      ]
+      active.points.push(pointer.world)
       active.lengthScreen += Math.hypot(
         pointer.screen.x - active.lastScreen.x,
         pointer.screen.y - active.lastScreen.y
       )
       active.lastScreen = pointer.screen
-      writePreview(active)
+      return true
+    }
+
+    const pushEventPoints = (
+      active: ActiveStroke,
+      event: PointerEvent,
+      force = false
+    ) => {
+      let changed = false
+      const samples = readSampleEvents(event)
+
+      for (let index = 0; index < samples.length; index += 1) {
+        const sample = samples[index]
+        changed = pushPoint(
+          active,
+          sample,
+          force && index === samples.length - 1
+        ) || changed
+      }
+
+      if (changed) {
+        schedulePreview()
+      }
     }
 
     const commit = (active: ActiveStroke) => {
@@ -123,9 +190,10 @@ export const useDrawInput = ({
       }
 
       const zoom = Math.max(0.0001, instance.viewport.get().zoom)
-      const points = simplifyDrawPoints({
+      const points = compactDrawPoints({
         points: active.points,
-        tolerance: DRAW_SIMPLIFY_DISTANCE_SCREEN / zoom
+        tolerance: DRAW_SIMPLIFY_DISTANCE_SCREEN / zoom,
+        budget: resolveDrawPointBudget(active.lengthScreen)
       })
       const stroke = resolveDrawStroke({
         points,
@@ -186,7 +254,7 @@ export const useDrawInput = ({
       const active: ActiveStroke = {
         parentId: activeContainer.id,
         preset: tool.preset,
-        style: instance.read.draw.style(tool.preset),
+        style: instance.state.draw.get()[tool.preset],
         points: [pointer.world],
         lastScreen: pointer.screen,
         lengthScreen: 0
@@ -202,7 +270,7 @@ export const useDrawInput = ({
             return
           }
 
-          pushPoint(current, moveEvent)
+          pushEventPoints(current, moveEvent)
         },
         up: (upEvent, session) => {
           const current = activeRef.current
@@ -211,13 +279,13 @@ export const useDrawInput = ({
             return
           }
 
-          pushPoint(current, upEvent, true)
+          pushEventPoints(current, upEvent, true)
           commit(current)
           session.finish()
         },
         cleanup: () => {
           activeRef.current = null
-          instance.internals.draw.preview.set(null)
+          clearPreview()
         }
       })
 
@@ -228,7 +296,7 @@ export const useDrawInput = ({
       activeRef.current = active
       instance.commands.edit.clear()
       instance.commands.selection.clear()
-      writePreview(active)
+      flushPreview(active)
 
       event.preventDefault()
       event.stopPropagation()
@@ -238,7 +306,7 @@ export const useDrawInput = ({
     return () => {
       container.removeEventListener('pointerdown', onPointerDown, true)
       activeRef.current = null
-      instance.internals.draw.preview.set(null)
+      clearPreview()
     }
-  }, [containerRef, instance])
+  }, [containerRef, instance, setPreview])
 }

@@ -9,7 +9,6 @@ import {
 } from '../../../runtime/hooks'
 import type { NodePressSession } from '../hooks/drag/session'
 import { useNodeView } from '../hooks/useNodeView'
-import { filterNodeIdsByScene } from '../scene'
 import { GroupNodeChrome } from '../registry/default/group'
 
 const ContainerBackgroundItem = memo(({
@@ -96,7 +95,7 @@ export const ContainerLayer = () => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const containerIds = useMemo(
-    () => filterNodeIdsByScene(instance, nodeIds, 'container'),
+    () => instance.read.node.filter(nodeIds, 'container'),
     [instance, nodeIds]
   )
 
@@ -127,7 +126,7 @@ export const ContainerChromeLayer = ({
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const containerIds = useMemo(
-    () => filterNodeIdsByScene(instance, nodeIds, 'container'),
+    () => instance.read.node.filter(nodeIds, 'container'),
     [instance, nodeIds]
   )
 

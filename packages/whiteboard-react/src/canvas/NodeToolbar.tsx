@@ -16,6 +16,11 @@ import {
 import { mergeRecordPatch } from '../runtime/utils/recordPatch'
 import {
   type GroupAutoFitMode,
+  mergeNodeStyle,
+  removeNodeStyle,
+  removeNodeStyleKey,
+  updateNodeStyle,
+  updateNodesStyle,
   updateGroupNode
 } from '../features/node/commands'
 import {
@@ -33,13 +38,6 @@ import {
   measureTextNodeSize,
   readTextWidthMode
 } from '../features/node/text'
-import {
-  mergeNodeStyle,
-  removeNodeStyle,
-  removeNodeStyleKey,
-  updateNodeStyle,
-  updateNodesStyle
-} from '../features/node/style'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'

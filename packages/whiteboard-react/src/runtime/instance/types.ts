@@ -26,7 +26,7 @@ import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { EdgePresetKey, Tool } from '../tool'
 import type { EditField, EditTarget } from '../edit'
-import type { DrawCommands, DrawRuntime } from '../draw'
+import type { DrawCommands, DrawStyles } from '../../features/draw/state'
 import type { DrawPresetKey } from '../tool'
 
 type EngineCommands = EngineInstance['commands']
@@ -35,6 +35,7 @@ export type WhiteboardInstance = {
   read: RuntimeRead
   state: {
     tool: ReadStore<Tool>
+    draw: ReadStore<DrawStyles>
     edit: ReadStore<EditTarget>
     selection: ReadStore<SelectionSource>
     container: ReadStore<Container>
@@ -93,6 +94,5 @@ export type InternalInstance = WhiteboardInstance & {
     node: NodeFeatureRuntime
     edge: EdgeFeatureRuntime
     mindmap: MindmapFeatureRuntime
-    draw: DrawRuntime
   }
 }

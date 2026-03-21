@@ -3,6 +3,16 @@ export {
   expandNodeSelection
 } from './duplicate'
 export {
+  compactDrawPoints,
+  matchDrawRect,
+  normalizeDrawPoints,
+  readDrawBaseSize,
+  readDrawPoints,
+  resolveDrawStroke,
+  simplifyDrawPoints,
+  type ResolvedDrawStroke
+} from './draw'
+export {
   expandContainerRect,
   findSmallestContainerAtPoint,
   getCollapsedGroupIds,

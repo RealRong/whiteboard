@@ -2,7 +2,7 @@ import {
   Highlighter,
   PencilLine
 } from 'lucide-react'
-import type { DrawStyle } from '../../../runtime/draw'
+import type { DrawStyle } from '../../../features/draw/state'
 import type { DrawPresetKey } from '../../../runtime/tool'
 import {
   ColorSwatch,
@@ -15,8 +15,8 @@ import {
 } from '../../menus/options'
 
 const DRAW_PRESET_ICONS = {
-  'draw.pen': PencilLine,
-  'draw.highlighter': Highlighter
+  pen: PencilLine,
+  highlighter: Highlighter
 } as const satisfies Record<DrawPresetKey, typeof PencilLine>
 
 export const DrawMenu = ({

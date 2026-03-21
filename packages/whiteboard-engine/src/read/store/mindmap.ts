@@ -5,13 +5,17 @@ import type { Node, NodeId } from '@whiteboard/core/types'
 import type { BoardConfig } from '@engine-types/instance'
 import { DEFAULT_TUNING } from '../../config'
 import {
+  createValueStore,
+  type ReadStore
+} from '@whiteboard/core/runtime'
+import {
   buildMindmapLines,
   computeMindmapLayout,
   getMindmapLabel,
   getMindmapTree
 } from '@whiteboard/core/mindmap'
-import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
+import { createTrackedRead } from './tracked'
 
 type MindmapTreeCacheKey = {
   treeId: string
@@ -120,8 +124,14 @@ export const createMindmapProjection = (
   }
 ) => {
   const config = deps.config
-  const idsListeners = new Set<() => void>()
-  const listenersById = new Map<NodeId, Set<() => void>>()
+  const list = createValueStore<readonly NodeId[]>([])
+  const tracked = createTrackedRead<NodeId, MindmapItem | undefined>({
+    emptyValue: undefined,
+    read: (treeId) => {
+      ensureSynced()
+      return state.entryById.get(treeId)
+    }
+  })
   let snapshotRef: ReadSnapshot = initialSnapshot
   let state: MindmapProjectionState = {
     treeCache: new Map<NodeId, MindmapTreeCacheEntry>(),
@@ -198,7 +208,7 @@ export const createMindmapProjection = (
       const previous = current.treeCache.get(root.id)
       const nextTree = previous && isSameCacheKey(previous.key, cacheKey)
         ? previous.tree
-        : buildTree(root, tree, layout)
+        : buildTree(root, tree, resolvedLayout)
       const nextCacheEntry = {
         key: cacheKey,
         tree: nextTree
@@ -241,37 +251,9 @@ export const createMindmapProjection = (
     }
   }
 
-  const ids = () => {
-    ensureSynced()
-    return state.ids
-  }
-
-  const get = (treeId: NodeId) => {
-    ensureSynced()
-    return state.entryById.get(treeId)
-  }
-
-  const subscribe = (treeId: NodeId, listener: () => void) => {
-    const treeListeners = listenersById.get(treeId) ?? new Set<() => void>()
-    if (!listenersById.has(treeId)) {
-      listenersById.set(treeId, treeListeners)
-    }
-    treeListeners.add(listener)
-    return () => {
-      treeListeners.delete(listener)
-      if (!treeListeners.size) {
-        listenersById.delete(treeId)
-      }
-    }
-  }
-
-  const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
-
-  const notifyTree = (treeId: NodeId) => {
-    const treeListeners = listenersById.get(treeId)
-    if (!treeListeners?.size) return
-    notifyListeners(treeListeners)
-  }
+  const initial = reconcile(state)
+  commitState(initial.nextState)
+  list.set(state.ids)
 
   const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
     snapshotRef = snapshot
@@ -283,19 +265,15 @@ export const createMindmapProjection = (
     commitState(next.nextState)
 
     if (next.idsChanged) {
-      notifyListeners(idsListeners)
+      list.set(state.ids)
     }
 
-    next.changedTreeIds.forEach((treeId) => {
-      notifyTree(treeId)
-    })
+    tracked.sync(next.changedTreeIds)
   }
 
   return {
-    ids,
-    get,
-    subscribe,
-    subscribeIds,
+    list: list as ReadStore<readonly NodeId[]>,
+    item: tracked.item,
     applyChange
   }
 }

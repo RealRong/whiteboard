@@ -18,7 +18,6 @@ import {
 import { createState as createContainerState } from '../container'
 import {
   createState as createEditState,
-  finalize as finalizeEdit,
   type Commands as EditCommands
 } from '../edit'
 import {
@@ -39,11 +38,12 @@ import { createEdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import { createRuntimeRead } from '../read'
 import type { Viewport } from '@whiteboard/core/types'
-import { finalize } from '../selection/finalize'
-import { createDrawRuntime } from '../draw'
+import { finalize } from '../finalize'
+import { createDrawState } from '../../features/draw/state'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
+  draw: ReturnType<typeof createDrawState>
   edit: ReturnType<typeof createEditState>
   container: ReturnType<typeof createContainerState>
   selection: ReturnType<typeof createSelectionState>
@@ -53,7 +53,6 @@ type InstanceInternals = {
   node: ReturnType<typeof createNodeFeatureRuntime>
   edge: ReturnType<typeof createEdgeFeatureRuntime>
   mindmap: ReturnType<typeof createMindmapFeatureRuntime>
-  draw: ReturnType<typeof createDrawRuntime>
 }
 
 const createInstanceStores = ({
@@ -73,15 +72,13 @@ const createInstanceStores = ({
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
+  const draw = createDrawState()
   const edit = createEditState()
   const container = createContainerState(engine.read)
   const selection = createSelectionState()
   const node = createNodeFeatureRuntime()
   const edge = createEdgeFeatureRuntime()
   const mindmap = createMindmapFeatureRuntime()
-  const draw = createDrawRuntime({
-    getTool: () => tool.get()
-  })
   const read = createRuntimeRead({
     engineRead: engine.read,
     registry,
@@ -91,19 +88,20 @@ const createInstanceStores = ({
     interaction: interaction.mode,
     node,
     edge,
-    mindmap,
-    draw
+    mindmap
   })
 
   return {
     stores: {
       tool,
+      draw,
       edit,
       container,
       selection
     },
     state: {
       tool,
+      draw: draw.store,
       edit: edit.store,
       selection: selection.source,
       container: container.store,
@@ -113,8 +111,7 @@ const createInstanceStores = ({
     internals: {
       node,
       edge,
-      mindmap,
-      draw
+      mindmap
     }
   }
 }
@@ -134,7 +131,7 @@ const createCommands = ({
   selection: SelectionCommands
   container: ReturnType<typeof createContainerState>
   viewport: ViewportCommands
-  draw: ReturnType<typeof createDrawRuntime>['commands']
+  draw: ReturnType<typeof createDrawState>['commands']
 }): WhiteboardInstance['commands'] => {
   const setTool = (nextTool: Tool) => {
     const normalized = normalizeTool(nextTool)
@@ -242,7 +239,6 @@ export const createInstance = ({
     internals.node.clear()
     internals.edge.clear()
     internals.mindmap.clear()
-    internals.draw.clear()
   }
   const unsubscribeCommit = engine.commit.subscribe(() => {
     const commit = engine.commit.get()
@@ -258,11 +254,7 @@ export const createInstance = ({
     finalize({
       read,
       container: stores.container,
-      selection: stores.selection
-    })
-    finalizeEdit({
-      read,
-      container: stores.container,
+      selection: stores.selection,
       edit: stores.edit
     })
   })
@@ -274,7 +266,7 @@ export const createInstance = ({
     selection: stores.selection.commands,
     container: stores.container,
     viewport: viewport.commands,
-    draw: internals.draw.commands
+    draw: stores.draw.commands
   })
 
   return {

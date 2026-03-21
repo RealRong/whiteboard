@@ -5,4 +5,3 @@ export {
   type Store,
   type View
 } from './state'
-export { finalize } from './finalize'

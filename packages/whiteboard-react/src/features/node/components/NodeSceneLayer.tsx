@@ -7,7 +7,6 @@ import {
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import type { NodePressSession } from '../hooks/drag/session'
 import { NodeItem } from './NodeItem'
-import { filterNodeIdsByScene } from '../scene'
 
 export const NodeSceneLayer = ({
   pressSession
@@ -21,7 +20,7 @@ export const NodeSceneLayer = ({
   const selectedSet = selection.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
   const contentNodeIds = useMemo(
-    () => filterNodeIdsByScene(instance, nodeIds, 'content'),
+    () => instance.read.node.filter(nodeIds, 'content'),
     [instance, nodeIds]
   )
 

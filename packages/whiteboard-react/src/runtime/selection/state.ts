@@ -2,6 +2,7 @@ import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
+import { getRectsBoundingRect } from '@whiteboard/core/geometry'
 import {
   createValueStore,
   type ValueStore
@@ -83,40 +84,6 @@ const EMPTY_TRANSFORM: Transform = {
   move: false,
   resize: 'none',
   rotate: false
-}
-
-const getBoundingRect = (rects: readonly Rect[]): Rect | undefined => {
-  if (!rects.length) {
-    return undefined
-  }
-
-  let minX = Number.POSITIVE_INFINITY
-  let minY = Number.POSITIVE_INFINITY
-  let maxX = Number.NEGATIVE_INFINITY
-  let maxY = Number.NEGATIVE_INFINITY
-
-  rects.forEach((rect) => {
-    minX = Math.min(minX, rect.x)
-    minY = Math.min(minY, rect.y)
-    maxX = Math.max(maxX, rect.x + rect.width)
-    maxY = Math.max(maxY, rect.y + rect.height)
-  })
-
-  if (
-    !Number.isFinite(minX)
-    || !Number.isFinite(minY)
-    || !Number.isFinite(maxX)
-    || !Number.isFinite(maxY)
-  ) {
-    return undefined
-  }
-
-  return {
-    x: minX,
-    y: minY,
-    width: Math.max(0, maxX - minX),
-    height: Math.max(0, maxY - minY)
-  }
 }
 
 const readNodeItems = (
@@ -260,7 +227,7 @@ export const resolveView = ({
       }
     : EMPTY_TRANSFORM
   const box = items.length > 0
-    ? getBoundingRect(items.map((item) => item.rect))
+    ? getRectsBoundingRect(items.map((item) => item.rect))
     : undefined
 
   return {

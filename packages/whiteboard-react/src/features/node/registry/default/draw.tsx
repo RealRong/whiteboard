@@ -1,10 +1,12 @@
+import {
+  readDrawBaseSize,
+  readDrawPoints
+} from '@whiteboard/core/node'
 import type { NodeDefinition } from '../../../../types/node'
 import {
   DrawStrokeHitShape,
   DrawStrokeSelectionShape,
-  DrawStrokeShape,
-  readDrawBaseSize,
-  readDrawPoints
+  DrawStrokeShape
 } from '../../../draw/stroke'
 import { createSchema, getStyleNumber, getStyleString, styleField } from './shared'
 

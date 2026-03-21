@@ -7,8 +7,8 @@ export type EdgePresetKey =
 
 export type InsertPresetKey = string
 export type DrawPresetKey =
-  | 'draw.pen'
-  | 'draw.highlighter'
+  | 'pen'
+  | 'highlighter'
 
 export type SelectTool = {
   type: 'select'
@@ -47,7 +47,7 @@ const EDGE_PRESET_TO_TYPE = {
 } as const satisfies Record<EdgePresetKey, EdgeType>
 
 export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
-export const DEFAULT_DRAW_PRESET_KEY: DrawPresetKey = 'draw.pen'
+export const DEFAULT_DRAW_PRESET_KEY: DrawPresetKey = 'pen'
 
 export const SelectTool: SelectTool = {
   type: 'select'
@@ -78,8 +78,8 @@ const isEdgePresetKey = (
 const isDrawPresetKey = (
   value: string
 ): value is DrawPresetKey => (
-  value === 'draw.pen'
-  || value === 'draw.highlighter'
+  value === 'pen'
+  || value === 'highlighter'
 )
 
 export const readEdgeType = (

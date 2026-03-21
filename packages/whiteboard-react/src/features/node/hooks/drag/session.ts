@@ -35,7 +35,6 @@ import {
   type NodeDragRuntimeState
 } from './math'
 import { GestureTuning } from '../../../../runtime/interaction'
-import { getNodeScene } from '../../scene'
 
 type ActiveDrag = NodeDragRuntimeState & {
   pointerId: number
@@ -109,7 +108,7 @@ export const createNodePressSession = (
         : undefined
     }
 
-    if (getNodeScene(instance.registry.get(entry.node.type)) === 'container') {
+    if (instance.read.node.scene(entry.node) === 'container') {
       return new Set<NodeId>(instance.read.tree.get(nodeId))
     }
 
@@ -633,7 +632,7 @@ export const createNodePressSession = (
       const nodeEntry = instance.read.index.node.get(nodeId)
       if (
         !nodeEntry
-        || getNodeScene(instance.registry.get(nodeEntry.node.type)) !== 'container'
+        || instance.read.node.scene(nodeEntry.node) !== 'container'
       ) {
         return
       }

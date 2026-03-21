@@ -3,8 +3,10 @@ import {
   MenuList,
   MenuSection
 } from './MenuPrimitives'
-import { SelectionSummaryHeader } from '../../features/node/components/SelectionSummaryHeader'
-import { SelectionTypeFilterStrip } from '../../features/node/components/SelectionTypeFilterStrip'
+import {
+  SelectionSummaryHeader,
+  SelectionTypeFilterStrip
+} from '../../features/node/components/SelectionSummaryHeader'
 import type { NodeSummary, NodeTypeSummary } from '../../features/node/summary'
 
 export type MoreMenuItem = {

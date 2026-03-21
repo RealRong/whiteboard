@@ -1,4 +1,7 @@
-import { rectFromPoints } from '@whiteboard/core/geometry'
+import {
+  isPointInRect,
+  rectFromPoints
+} from '@whiteboard/core/geometry'
 import {
   applySelection,
   resolveSelectionMode,
@@ -18,8 +21,6 @@ import {
   filterNodeIds,
   leave
 } from '../runtime/container'
-import { readContainerBodyTarget } from '../features/node/scene'
-import { matchNodeIdsInRect } from '../features/node/selection'
 import { createRafTask } from '../runtime/utils/rafTask'
 import type { ViewportPointer } from '../runtime/viewport'
 import { isBackgroundPointerTarget } from './target'
@@ -71,13 +72,6 @@ type ContainerBodyPressHandler = (
 ) => boolean
 
 const toSelectionKey = (nodeIds: Iterable<NodeId>) => [...nodeIds].sort().join('|')
-
-const isPointInRect = (point: { x: number; y: number }, rect: Rect) => (
-  point.x >= rect.x
-  && point.x <= rect.x + rect.width
-  && point.y >= rect.y
-  && point.y <= rect.y + rect.height
-)
 
 const projectWorldRect = (
   instance: InternalInstance,
@@ -131,7 +125,7 @@ export const createMarqueeSession = (
     containerNodeIds: ReadonlySet<NodeId> | undefined,
     policy: MarqueePolicy
   ) => {
-    const matchedNodeIds = matchNodeIdsInRect(instance, queryRect, policy)
+    const matchedNodeIds = instance.read.node.idsInRect(queryRect, policy)
     return containerNodeIds
       ? matchedNodeIds.filter((nodeId) => containerNodeIds.has(nodeId))
       : matchedNodeIds
@@ -302,7 +296,7 @@ export const createMarqueeSession = (
     }
 
     if (!activeContainer.id) {
-      const containerNodeId = readContainerBodyTarget(instance, startPointer.world)
+      const containerNodeId = instance.read.node.containerAt(startPointer.world)
       if (containerNodeId) {
         if (getContainerBodyPress?.()?.(containerNodeId, container, event)) {
           return

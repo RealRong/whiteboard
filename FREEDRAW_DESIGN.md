@@ -1,757 +1,663 @@
-# Whiteboard FreeDraw 设计与实现
+# Whiteboard Draw 最终设计
 
 ## 1. 目标
 
-这份文档定义 whiteboard `freedraw` 的长期最优方案。
+这份文档定义 whiteboard `draw` 的最终定稿。
 
-目标：
-
-- 左侧 toolbar 增加一级图标入口
-- 点击后切到 `draw` 工具，并弹出二级菜单
-- 二级菜单用于修改笔样式
-- 交互、数据、实现路径一次性收敛
-
-设计前提：
+约束：
 
 - 不考虑兼容成本
-- 优先长期最优
+- 追求长期最优
 - 概念尽量少
 - API 尽量短
-- 不引入第二套平行 runtime
+- 命名尽量清晰直接
+- 不引入额外 runtime 概念
 
-## 2. 总结论
+本文解决 4 个核心问题：
 
-`freedraw` 最优上应当被定义为：
+- `draw` 到底应不应该是 runtime
+- `draw session` 到底是什么
+- 为什么需要 preview
+- `interaction` 模块应该负责到哪里
 
-- 一个独立工具 `tool.type = 'draw'`
-- 一类独立 node `type = 'draw'`
-- 一套独立但很小的 draw style runtime
+## 2. 最终结论
 
-一句话：
+`draw` 最优上不应该设计成一个大的 `draw runtime`。
 
-- 工具态负责“正在画”
-- node 负责“画完后的对象”
-- style runtime 负责“当前笔参数”
+长期最优的最简模型只有 3 块：
 
-不建议把 freedraw 做成：
+- `tool.draw(preset)`：当前工具模式
+- `state.draw`：各 draw preset 的持久样式
+- `preview`：当前这“一笔”尚未提交前的本地临时可视化
 
-- edge
-- 一串 document-level operation
-- 纯 overlay 且不落文档的临时图层
+也就是说：
 
-因为用户画完以后，行业规范下它就应该是一个可选中、可移动、可复制、可分组的对象。
+- `draw style` 是状态
+- `preview` 是局部临时态
+- `pointer` 交互逻辑在 `useBindDrawInput`
+- 文档写入只在 `pointerup`
 
-## 3. 行业规范
+不建议保留：
 
-主流白板产品中，freedraw 大致遵循以下规范：
+- `createDrawRuntime`
+- `instance.read.draw`
+- `instance.internals.draw`
+- `draw session` 这个偏大的概念名
 
-### 3.1 工具入口
+如果一定要给“当前这一笔”起名，最好的名字也不是 `draw session`，而是：
 
-- 左侧一级 toolbar 有单独图标
-- 点击图标进入绘制模式
-- 再点一次图标或点击已激活图标，弹出/收起笔设置菜单
+- `activeDraw`
+- `drawPreview`
 
-### 3.2 绘制行为
+## 3. 职责拆分
 
-- pointer down 开始一笔
-- pointer move 连续采样
-- pointer up 提交为一个对象
-- 绘制过程中显示实时 preview
-- 一次笔画只生成一个对象，不在 move 期间持续写 document
+### 3.1 tool
 
-### 3.3 绘制结果
+职责：
 
-- 绘制完成后，通常自动选中新建笔迹
-- 笔迹作为普通对象参与：
-  - move
-  - order
-  - duplicate
-  - copy / paste
-  - group
-  - delete
+- 当前是否处于 draw 模式
+- 当前 draw 使用哪个 preset
 
-### 3.4 样式菜单
-
-通常最少包含：
-
-- 笔类型
-- 颜色
-- 粗细
-
-第一阶段不必做：
-
-- 压感
-- 纹理笔刷
-- 橡皮擦
-- 局部擦除
-
-## 4. 产品模型
-
-## 4.1 只保留一个 draw 工具
-
-不建议拆成：
-
-- pen tool
-- highlighter tool
-- pencil tool
-
-这会把工具栏一级菜单膨胀掉。
-
-最优方案是：
-
-- 一级菜单只有一个 `draw`
-- 二级菜单切 preset / color / width
-
-也就是：
-
-- `draw` 是工具类型
-- `preset` 是 draw 的内部模式
-
-## 4.2 第一阶段 preset
-
-建议第一阶段只做两个 preset：
-
-- `draw.pen`
-- `draw.highlighter`
-
-理由：
-
-- 这是行业里最常见的最小组合
-- `pen` 解决普通手写/线稿
-- `highlighter` 解决标注感
-- 不需要一开始就做 pencil/brush
-
-## 4.3 preset 与 style 的关系
-
-不建议把所有样式都编码进 `tool.preset`。
-
-例如不要做成：
-
-- `draw.pen.black.2`
-- `draw.pen.red.4`
-
-这会导致：
-
-- preset 爆炸
-- 状态很难扩展
-- UI 逻辑和数据语义耦合
-
-正确拆法：
-
-- `tool = { type: 'draw', preset: DrawPresetKey }`
-- `draw state = 当前各 preset 对应的 style`
-
-也就是：
-
-- preset 决定行为类型
-- style 决定颜色/粗细/透明度
-
-## 5. 最优数据模型
-
-## 5.1 工具态
-
-延续现有 runtime/tool 结构：
+推荐模型：
 
 ```ts
-type DrawPresetKey =
-  | 'draw.pen'
-  | 'draw.highlighter'
+type DrawPreset = 'pen' | 'highlighter'
+
+type Tool =
+  | { type: 'select' }
+  | { type: 'hand' }
+  | { type: 'edge'; preset: EdgePreset }
+  | { type: 'insert'; preset: InsertPreset }
+  | { type: 'draw'; preset: DrawPreset }
 ```
 
-```ts
-type DrawTool = {
-  type: 'draw'
-  preset: DrawPresetKey
-}
-```
+说明：
 
-`tool` 保持轻量，只表达当前模式。
+- `tool` 只表达模式身份
+- `tool` 不承担样式配置
+- `tool` 不承担临时交互数据
 
-## 5.2 draw style runtime
+### 3.2 draw state
 
-建议新增最小共享集：
+职责：
+
+- 保存每个 preset 的持久样式
+
+推荐模型：
 
 ```ts
 type DrawStyle = {
   color: string
   width: number
-  opacity?: number
+  opacity: number
 }
+
+type DrawStyles = Record<DrawPreset, DrawStyle>
 ```
 
-```ts
-type DrawState = {
-  byPreset: Record<DrawPresetKey, DrawStyle>
-}
-```
+说明：
 
-推荐 API：
+- 这是公开共享状态
+- toolbar 会读它
+- draw input 会读它
+- 快捷键、插件未来也可以读写它
+- 它不是 runtime
 
-```ts
-instance.read.draw.style(preset?)
-instance.commands.draw.set(patch, preset?)
-```
+### 3.3 preview
 
-解释：
+职责：
 
-- `read.draw.style()` 默认读当前 preset
-- `commands.draw.set(...)` 默认改当前 preset
+- 表示当前这一笔尚未提交前的临时显示
 
-不要做成：
-
-- `instance.commands.tool.drawStyle.set(...)`
-- `instance.state.tool.draw`
-
-因为 `tool` 的职责应保持为“当前工具身份”，而不是承担绘制配置。
-
-## 5.3 文档对象
-
-长期最优建议是单独 node：
+推荐模型：
 
 ```ts
-type Node = {
-  type: 'draw'
-  position: Point
-  size: Size
-  data: {
-    points: Point[]
-    baseSize: Size
-  }
-  style: {
-    stroke: string
-    strokeWidth: number
-    opacity?: number
-  }
+type DrawPreview = {
+  preset: DrawPreset
+  style: DrawStyle
+  points: readonly Point[]
 }
 ```
 
 说明：
 
-- `position`
-  - draw node 的左上角
-- `size`
-  - 当前显示尺寸
-- `data.points`
-  - 局部坐标系下的原始点列
-- `data.baseSize`
-  - 原始坐标空间大小
+- preview 只用于渲染
+- preview 不进入 engine
+- preview 不进入文档
+- preview 不进入 history
+- preview 不应该挂到 instance internals 上供全局消费
 
-不建议把点存成世界坐标。
+### 3.4 active draw
 
-因为：
+职责：
 
-- move 时必须重写所有点
-- resize 时更难收敛
-- duplicate / copy / paste 不够优雅
+- 表示本次 pointer 手势中的真实活动数据
 
-`local points + baseSize` 是长期最稳的模型。
+推荐模型：
 
-## 6. 绘制算法
+```ts
+type ActiveDraw = {
+  preset: DrawPreset
+  style: DrawStyle
+  parentId?: NodeId
+  points: Point[]
+  lastScreen: Point
+  lengthScreen: number
+}
+```
 
-## 6.1 输入阶段
+说明：
 
-pointer move 期间不直接写 document。
+- `ActiveDraw` 只存在于 `useBindDrawInput`
+- 用 `ref` 保存
+- 不进 React 共享状态
+- 不进 instance
 
-推荐流程：
+## 4. 为什么需要 preview
 
-1. pointer down
-2. 建立本地 draw session
-3. 连续采样 world points
-4. 生成 preview path
-5. pointer up 时一次性 `node.create`
-
-这符合行业规范，也避免：
-
-- history 膨胀
-- document 高频写入
-- React 层抖动
-
-## 6.2 采样
-
-推荐按屏幕距离采样，而不是每个原始事件都记。
-
-例如：
-
-- 只有当新点与上一个采样点的屏幕距离超过 `1.5 ~ 2px` 时才入列
+preview 是必要的，但 preview 不等于 runtime。
 
 原因：
 
-- 体验和 zoom 无关
-- 点数更稳定
-- 后续平滑和 hit test 更轻
+- 真正的 draw node 应该只在 `pointerup` 一次性写入文档
+- 如果没有 preview，用户从按下到抬起期间画布上什么都没有，体验不成立
+- 如果改成 `pointerdown` 先创建 node、`pointermove` 持续改 node，会污染文档写路径
 
-## 6.3 平滑
+持续写 document 的问题：
 
-第一阶段建议：
+- history 会充满临时笔迹变更
+- selection / finalize 更复杂
+- 协作同步会出现大量临时脏写
+- replace / reset / undo 链路更脆弱
 
-- 存 polyline points
-- 渲染时用平滑 path
+所以长期最优不是“去掉 preview”，而是：
 
-也就是：
+- 保留 preview
+- 但把 preview 收成局部临时态
 
-- 数据是折线
-- 显示是平滑曲线
+## 5. interaction 的职责
 
-这比“直接存贝塞尔控制点”更稳。
+`interaction` 应该是 session coordinator，不应该是 canvas event router。
 
-推荐做法：
+### 5.1 interaction 该负责的
 
-- 采样后先做 radial simplification
-- 渲染时用 quadratic / catmull-rom to bezier
-
-这样：
-
-- 数据简单
-- 复制/缩放/命中都更稳定
-- 以后也容易做导出
-
-## 6.4 提交
-
-pointer up 时：
-
-- 如果有效点数不足
-  - 丢弃
-- 否则：
-  - 计算 bounds
-  - 转成 local points
-  - 创建 `draw` node
-  - 自动选中新节点
-
-建议同时设一个最小笔画阈值：
-
-- 非常短的点击抖动不生成对象
-
-## 7. 渲染模型
-
-## 7.1 作为 node 渲染
-
-推荐新增默认 node 定义：
-
-- `packages/whiteboard-react/src/features/node/registry/default/draw.tsx`
-
-渲染方式：
-
-- 一个 `svg`
-- `viewBox = 0 0 baseSize.width baseSize.height`
-- path 根据 `data.points` 生成
-- `width/height = 100%`
-
-这样 resize 时天然成立：
-
-- node `size` 变了
-- `svg` 自动缩放
-- 不必重写点集
-
-## 7.2 stroke 行为
-
-draw node 的 `strokeWidth` 应是对象的一部分，随 zoom 一起缩放，不应该像 handles 一样保持屏幕常量。
-
-这是白板行业规范。
-
-也就是说：
-
-- 笔画是内容，不是 UI chrome
-
-## 7.3 透明度
-
-`highlighter` 建议通过 `opacity` 实现，而不是新做 blend runtime。
-
-第一阶段推荐：
-
-- `pen`
-  - opacity = 1
-- `highlighter`
-  - opacity = 0.3 ~ 0.45
-
-不必第一阶段引入：
-
-- multiply
-- mix-blend-mode
-- 特殊合成逻辑
-
-## 8. 命中与选择
-
-## 8.1 行业最优
-
-行业最优不是 bbox hit，而是 stroke hit。
+- 一次交互开始后的会话维持
+- `pointermove`
+- `pointerup`
+- `pointercancel`
+- pointer capture / release
+- `Escape` 取消
+- `blur` 取消
+- autopan
+- document selection lock
 
 也就是：
 
-- 点击笔迹附近能选中
-- 点击 bounding box 空白区域不应选中
+- 一旦某个 feature 已经决定“这次我接管”
+- 后续生命周期交给 `interaction.start(...)`
 
-## 8.2 当前架构下的建议
+### 5.2 interaction 不该负责的
 
-你当前 node 体系默认偏向 box hit。
+- 入口 `pointerdown` 的 feature 分流
+- 命中测试和 target 解析
+- 哪个 tool 应该接管本次事件
+- 普通 click / hover / contextmenu / wheel 路由
 
-要长期最优，建议给 node definition 增加最小命中语义：
+这些都依赖具体 feature 和具体 DOM 上下文，不能塞进 `interaction`。
+
+### 5.3 draw 与 interaction 的关系
+
+最优流程：
+
+- `useBindDrawInput` 监听 `pointerdown`
+- 发现 `tool.type === 'draw'` 后决定接管
+- 接着调用 `instance.interaction.start(...)`
+- 后续 move / up / cancel 全交给 interaction
+
+所以不是 interaction 负责全部鼠标事件绑定，而是：
+
+- `pointerdown` 入口：feature hook
+- `move/up/cancel` 会话：interaction
+
+## 6. 推荐公开 API
+
+最终推荐只保留这几个公开入口：
 
 ```ts
-type NodeHit = 'box' | 'path'
+instance.commands.tool.draw(preset?: DrawPreset): void
+
+instance.state.draw: ReadStore<DrawStyles>
+
+instance.commands.draw.patch(
+  preset: DrawPreset,
+  patch: Partial<DrawStyle>
+): void
 ```
 
-并让 draw node 走：
+说明：
 
-- `hit = 'path'`
+- `tool.draw(preset)` 只切到 draw 模式
+- `state.draw` 只负责样式状态
+- `commands.draw.patch` 只负责更新样式
 
-渲染上使用两条 path：
+## 7. 为什么用 `patch(preset, patch)`
 
-- visible path
-- invisible hit path
+推荐：
 
-其中 invisible hit path：
+```ts
+instance.commands.draw.patch('pen', { width: 4 })
+```
 
-- `stroke: transparent`
-- 更大的 `strokeWidth`
-- 只用于 pointer 事件
+不推荐：
 
-这和 edge 的 hit path 设计是同一思路，也是长期最优。
+```ts
+instance.commands.draw.set({ width: 4 }, maybePreset)
+```
 
-## 8.3 第一阶段与最终形态
+原因：
 
-如果要快速上线，可以先接受 bbox hit。
+- `patch` 清楚表达“部分更新”
+- `preset` 显式传入，不依赖当前 tool
+- toolbar / 快捷键 / 插件都更容易复用
+- API 没有隐式上下文
 
-但从长期最优看，draw node 应尽快切到 path hit。
+## 8. 不推荐的 API
 
-因为 bbox hit 对自由笔迹体验很差，尤其是：
+不建议保留：
 
-- 弯折笔画
-- 细长笔画
-- 中空 scribble
+```ts
+instance.read.draw.style(...)
+instance.internals.draw.preview
+createDrawRuntime(...)
+```
 
-## 9. Toolbar 设计
+原因：
 
-## 9.1 一级菜单
+- `style` 是状态，不是 read domain
+- `preview` 是本地临时态，不该作为全局 internal state 暴露
+- `runtime` 这个命名会误导职责，把配置状态和临时会话混在一起
 
-左侧 toolbar 增加一个图标按钮：
+## 9. 最优数据流
 
-- 建议使用 `lucide-react` 中单支笔图标
-- 优先 `PencilLine`
-- 若当前版本没有，可退到 `PenTool`
+### 9.1 WhiteboardCanvas
 
-位置建议：
+推荐在 canvas 层本地持有 preview：
 
-- 放在 `mindmap` 下方或紧邻 `text / shapes` 区域
+```ts
+const [drawPreview, setDrawPreview] = useState<DrawPreview | null>(null)
 
-更推荐：
+useBindDrawInput({
+  containerRef,
+  setPreview: setDrawPreview
+})
 
-- 放在 `mindmap` 下方，作为最后一个绘制类工具
+<DrawPreview preview={drawPreview} />
+```
 
-因为现有顺序大致是：
+这就足够了。
 
-- navigation
-- edge
-- sticky
-- text
-- shape
-- mindmap
+不需要：
 
-`draw` 应属于“创建内容”类，但比 `mindmap` 更轻、更高频。
+- `drawPreviewStore`
+- `instance.internals.draw.preview`
+- `draw session runtime`
 
-如果只从白板行业习惯看，最自然顺序是：
+### 9.2 useBindDrawInput
 
-- select/hand
-- edge
-- sticky
-- text
-- shape
-- draw
-- mindmap
+推荐最小 API：
 
-## 9.2 一级按钮行为
-
-建议行为：
-
-- 当前不在 `draw`
-  - 点击：切到最近一次 draw preset，并打开菜单
-- 当前已经在 `draw`
-  - 点击：切换菜单开合
-
-这和现有 `edge` 一级按钮行为保持一致，概念最少。
-
-## 9.3 二级菜单
-
-建议新增：
-
-- `packages/whiteboard-react/src/canvas/toolbar/menus/DrawMenu.tsx`
-
-组件保持 dumb：
-
-```tsx
-<DrawMenu
-  preset="draw.pen"
-  color="#222"
-  width={3}
-  onPresetChange={(preset) => ...}
-  onColorChange={(color) => ...}
-  onWidthChange={(width) => ...}
-/>
+```ts
+useBindDrawInput({
+  containerRef,
+  setPreview
+})
 ```
 
 职责：
 
-- 只负责展示
-- 不直接读 instance
-- 不直接写 instance
+- 监听 `pointerdown`
+- 判断是否由 draw 接管
+- 创建 `activeRef`
+- 在 move 期间采样点
+- 更新 preview
+- 在 up 时一次性提交 node
 
-这和你现在对 menu 的要求一致。
+### 9.3 DrawPreview
 
-## 9.4 二级菜单内容
+组件只负责渲染：
 
-第一阶段建议三段：
+```ts
+<DrawPreview preview={preview} />
+```
 
-### Preset
+它不负责：
 
-- Pen
-- Highlighter
+- 采样
+- 模式判断
+- node 创建
+- session 管理
 
-表现形式：
+## 10. 输入路径
 
-- 两个大预览行或两个 chip
-- 每个预览要能一眼看出线条质感
+### 10.1 pointerdown
 
-### Color
+步骤：
 
-- 复用当前项目已有 stroke swatch 色板
-- 不新造一套颜色系统
+1. 判断 `event.button === 0`
+2. 判断 `interaction.mode === 'idle'`
+3. 判断 `tool.type === 'draw'`
+4. 判断 target 在白板容器内且不属于 ignore target
+5. 读取当前 container 作用域
+6. 从 `state.draw` 读取当前 preset 样式
+7. 创建 `activeRef.current`
+8. 写入 preview
+9. 清空 edit / selection
+10. 调用 `interaction.start(...)`
 
-### Width
+### 10.2 pointermove
 
-- 预设档位，不用 slider
+步骤：
 
-推荐档位：
+1. 从 event 读 world point / screen point
+2. 按屏幕距离阈值采样
+3. 追加到 `activeRef.current.points`
+4. 更新 length
+5. 合帧更新 preview
 
-- `1`
-- `2`
-- `4`
-- `8`
-- `12`
+### 10.3 pointerup
+
+步骤：
+
+1. 追加最后一个点
+2. 长度不足则丢弃
+3. simplify
+4. resolve stroke
+5. `instance.commands.node.create({ type: 'draw', ... })`
+6. 成功后选中新 node
+7. 清空 preview
+8. 清空 `activeRef`
+
+### 10.4 cleanup
+
+在以下场景清空临时态：
+
+- `pointercancel`
+- `Escape`
+- `blur`
+- interaction cancel
+- unmount
+
+## 11. 性能原则
+
+最优方式不是把所有点放进 `useState`。
+
+推荐：
+
+- 热路径用 `ref`
+- 渲染快照用 `state`
+
+即：
+
+- `ActiveDraw` 存在 `useRef`
+- `DrawPreview` 存在 `useState`
+
+如果需要进一步稳住性能，可以在 `useBindDrawInput` 内做一层 `requestAnimationFrame` 合帧，让 `setPreview` 最多一帧更新一次。
+
+这仍然不需要引入新的全局 store。
+
+## 12. 点数控制
+
+`draw` 的点数控制应分成两个阶段：
+
+- preview 阶段：允许较密采样，优先保证手感
+- 持久化阶段：必须压缩，优先控制文档体积与 hit-test 成本
+
+### 12.1 行业规范
+
+主流白板产品通常不会把每个原始 pointer 事件点都直接存进文档。
+
+更常见的做法是：
+
+1. 输入阶段允许较密采样
+2. 绘制过程中实时显示 preview
+3. `pointerup` 时做一次或多次简化
+4. 最终只保存“视觉上足够接近”的点列或控制点
+
+这意味着：
+
+- preview 可以点多
+- 持久化不能无上限地存点
+
+### 12.2 当前推荐策略
+
+长期最优建议保持为：
+
+- 采样阈值使用屏幕空间阈值
+- 提交阈值也使用屏幕空间误差换算到世界空间
+- 最终保存简化后的局部点列
+
+也就是：
+
+- 采样手感跟缩放解耦
+- 持久化误差跟视觉误差对齐
+- 文档不保存原始 world points
+
+### 12.3 采样阶段
+
+采样阶段目标是“顺滑”，不是“最省点”。
+
+建议：
+
+- `pointermove` 时按屏幕距离阈值采样
+- 未来如需更顺滑，可选支持 `getCoalescedEvents()`
+- 活动笔迹保存在 `activeRef`
+- preview 只读当前采样结果
+
+不建议：
+
+- 在采样阶段就过度做重型简化
+- 为了省点而牺牲手感
+
+### 12.4 提交阶段
+
+`pointerup` 时必须进行持久化压缩。
+
+推荐顺序：
+
+1. 去掉非法点和重复点
+2. 做一次径向简化
+3. 再做一次基于线段误差的简化
+4. 生成最终 stroke bounding box
+5. 将点转成局部坐标后写入 node
+
+这个阶段的目标不是“数学最优”，而是：
+
+- 视觉误差足够小
+- 点数足够少
+- 实现足够简单稳定
+
+### 12.5 持久化预算
+
+长期最优建议再明确一层“持久化预算”。
+
+建议原则：
+
+- 对普通笔画，按视觉误差阈值压缩即可
+- 对超长笔画，再附加一层软上限控制
+
+可选策略：
+
+- 如果简化后点数仍明显过多，则逐步增大 tolerance 再压一次
+- 或者设置一个大致目标区间，而不是硬编码极小上限
+
+推荐思路：
+
+- 不做死板的固定点数上限
+- 做“误差优先，点数兜底”的二段式控制
+
+这样可以避免两种问题：
+
+- 短笔画被过度压扁
+- 超长笔画最终点数过多
+
+### 12.6 为什么要控最终点数
+
+最终点数不只是影响文档大小，还会影响：
+
+- path 渲染成本
+- 复制粘贴负载
+- hit-test 成本
+- marquee / selection 计算成本
+
+尤其对白板来说，draw node 不只是显示，还要参与：
+
+- 选中
+- 移动
+- 复制
+- 分组
+- 命中测试
+
+所以“最终点数预算”比“输入点数预算”更重要。
+
+### 12.7 不建议的方向
+
+当前阶段不建议直接改成：
+
+- 存每一个原始 pointer 点
+- move 期间持续写 document
+- 一开始就上复杂的 bezier 拟合控制点模型
 
 原因：
 
-- 白板里离散档位比 slider 更稳、更快
-- 与 edge/stroke menu 风格一致
+- 第一种会让数据和 hit-test 膨胀
+- 第二种会污染文档写路径和 history
+- 第三种会显著增加编辑、命中和实现复杂度
 
-## 10. 默认样式
+对白板产品来说，长期最优仍是：
 
-建议默认值：
+- preview 阶段密采样
+- 提交阶段轻量简化
+- 最终持久化为压缩后的局部点列
 
-### `draw.pen`
+## 13. 文件结构建议
 
-- `stroke = hsl(var(--ui-text-primary, 40 2.1% 28%))`
-- `strokeWidth = 2`
-- `opacity = 1`
+最终推荐只保留这些核心文件：
 
-### `draw.highlighter`
+- `packages/whiteboard-react/src/features/draw/state.ts`
+- `packages/whiteboard-react/src/features/draw/useBindDrawInput.ts`
+- `packages/whiteboard-react/src/features/draw/DrawPreview.tsx`
+- `packages/whiteboard-react/src/features/draw/stroke.tsx`
 
-- `stroke = hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%))`
-- `strokeWidth = 12`
-- `opacity = 0.35`
+建议删除：
 
-颜色上优先复用项目现有 token，不新增 draw 专用 token。
-
-## 11. 交互边界
-
-## 11.1 与 selection
-
-draw tool 激活时：
-
-- pointer down 在画布空白处，开始绘制
-- 不进入 node press / marquee
-
-draw 提交后：
-
-- 新建 node 成为当前 selection
-
-这和插入 shape / sticky 的“创建后选中”保持一致。
-
-## 11.2 与 edit
-
-draw tool 不进入 edit。
-
-需要明确：
-
-- draw node 没有文本编辑态
-- 双击不进入 edit
-
-## 11.3 与 pan
-
-沿用现有全局规则：
-
-- 空格或 hand tool 优先 pan
-
-draw tool 下不建议额外做双指逻辑。
-
-## 11.4 与 copy / paste
-
-draw node 既然是普通 node，就应天然支持：
-
-- duplicate
-- copy / paste
-- cut
-
-不需要专门为 freedraw 重做 clipboard 协议。
-
-## 12. 实现方案
-
-## 12.1 React runtime
-
-建议新增最小模块：
-
-- `packages/whiteboard-react/src/features/draw/session.ts`
-  - 维护当前笔画 session
-- `packages/whiteboard-react/src/features/draw/input.ts`
-  - 处理 pointer down/move/up
-- `packages/whiteboard-react/src/features/draw/components/DrawPreview.tsx`
-  - 绘制中的 preview
 - `packages/whiteboard-react/src/runtime/draw/index.ts`
-  - draw style state / read / commands
+- `packages/whiteboard-react/src/runtime/read/draw.ts`
 
-这里不要拆得更细。
+理由：
 
-例如不建议同时再拆：
+- `draw` 不需要独立 runtime
+- `draw style` 不需要额外 read 层
+- preview 不应挂到 instance internals
 
-- `store.ts`
-- `selectors.ts`
-- `actions.ts`
-- `service.ts`
+## 14. instance 侧的最终形态
 
-第一阶段没有必要。
-
-## 12.2 node registry
-
-新增：
-
-- `packages/whiteboard-react/src/features/node/registry/default/draw.tsx`
-
-职责：
-
-- 定义 `type = 'draw'`
-- 渲染 draw node
-- 暴露 schema
-
-schema 第一阶段只需要：
-
-- `style.stroke`
-- `style.strokeWidth`
-- `style.opacity`
-
-不需要把 `points` 暴露到 schema。
-
-## 12.3 core
-
-如果需要共享算法，建议新增：
-
-- `packages/whiteboard-core/src/node/draw.ts`
-
-职责：
-
-- bounds 计算
-- local points 转换
-- simplification
-- path string 生成辅助
-
-因为 freedraw 最终是 node，而不是 edge，所以这套辅助更适合落在 `node`。
-
-不建议放到：
-
-- `geometry/freehand.ts`
-- `utils/freehand.ts`
-
-除非后续确认有跨 node/edge 的复用需求。
-
-## 12.4 instance API
-
-推荐新增：
+### 13.1 state
 
 ```ts
-instance.read.draw.style(preset?)
-instance.commands.draw.set(patch, preset?)
+instance.state = {
+  tool,
+  draw,
+  edit,
+  selection,
+  container,
+  interaction
+}
 ```
 
-以及沿用已有：
+其中：
+
+- `state.draw` 是公开共享状态
+
+### 13.2 commands
 
 ```ts
-instance.commands.tool.draw(preset?)
+instance.commands = {
+  tool: {
+    draw(preset?)
+  },
+  draw: {
+    patch(preset, patch)
+  }
+}
 ```
 
-不要新增：
+### 13.3 不再存在
 
-- `instance.api.draw`
-- `instance.runtime.draw`
+```ts
+instance.read.draw
+instance.internals.draw
+```
 
-保持 `state / read / commands` 结构即可。
+## 15. toolbar 的正确读法
 
-## 13. 分阶段实施
+toolbar 应该读：
 
-## 第 1 阶段：最小可用
+```ts
+useStoreValue(instance.state.draw)
+```
 
-- toolbar 新增 draw 一级图标
-- 新增 `DrawMenu`
-- 支持 `draw.pen` / `draw.highlighter`
-- pointer 绘制 session
-- preview overlay
-- pointer up 创建 `draw` node
-- 绘制完成后自动选中
+不应该读：
 
-这阶段先不做 path hit，允许 bbox hit。
+```ts
+useStoreValue(instance.internals.draw.style)
+```
 
-## 第 2 阶段：对象化完善
+因为 toolbar 读的是公开产品状态，不是内部会话态。
 
-- draw node 支持 duplicate / copy / paste / group / order
-- NodeToolbar / ContextMenu 接入 stroke 样式
-- draw node 默认不进入 edit
+## 16. 为什么这是长期最优
 
-## 第 3 阶段：命中优化
+这套方案的优点：
 
-- node definition 支持 `hit = 'path'`
-- draw node 改成 hit path
-- 只在笔迹附近响应 pointer down
+- 公开 API 少
+- 概念少
+- 状态与临时态边界清楚
+- 没有把 preview 塞进 instance
+- 没有把 style 伪装成 runtime
+- 没有让 interaction 膨胀成全局输入路由器
+- draw 的真正复杂度集中在一个 hook 里
+- 以后扩展 pressure / smoothing / eraser 也仍然可以留在 feature 内部
 
-这一步对体验提升最大，是长期最优的关键。
+一句话总结：
 
-## 第 4 阶段：变换能力
+- `tool` 决定是不是 draw
+- `state.draw` 决定怎么画
+- `useBindDrawInput` 决定这一笔怎么走
+- `preview` 决定用户现在看到什么
+- `pointerup` 决定何时把结果写进文档
 
-如果后续需要，再做：
+## 17. 实施顺序
 
-- resize
-- rotate
+推荐按以下顺序落地：
 
-但第一阶段不建议强上。
+1. 新建 `features/draw/state.ts`
+2. 把 draw style store 和 `commands.draw.patch` 从 `runtime/draw` 挪到 `state.draw`
+3. 删除 `runtime/read/draw.ts`
+4. 把 toolbar 改成读 `instance.state.draw`
+5. 把 `useDrawInput` 改成 `useBindDrawInput`
+6. 把 preview 改成本地 `useState`
+7. 删除 `instance.internals.draw.preview`
+8. 删除 `createDrawRuntime`
+9. 清理 instance types 和 read assembly
 
-原因：
+## 18. 最终定稿
 
-- freehand 的首要价值是“画”
-- 不是“变换”
+最终定稿可以压成一句话：
 
-如果要加 resize，建议：
+`draw` 最优上不是 runtime，而是 `tool + state + local preview`。
 
-- 缩放几何
-- 不默认缩放 strokeWidth
+其中：
 
-## 14. 不建议现在做的事
-
-以下都不建议首版实现：
-
-- 压感
-- 多种笔刷纹理
-- 擦除器
-- 局部节点切割
-- SVG path 控制点编辑
-- draw 与 edge 合并
-- draw 直接写成 edge path
-
-这些都会让第一版模型失焦。
-
-## 15. 最终建议
-
-最终建议非常简单：
-
-- 左侧新增一个 `draw` 一级按钮
-- 点击进入 `tool.draw`
-- 右侧二级菜单只改 `preset / color / width`
-- 绘制时本地 preview，抬笔一次性创建 `draw` node
-- `draw` 作为普通 node 存入 document
-- 第一阶段先 bbox hit，第二阶段升级成 path hit
-
-这条路线最符合行业规范，也最贴合你当前代码结构。
+- `interaction` 只负责已开始交互后的 session 协调
+- `pointerdown` 入口仍由 feature hook 决定
+- preview 只表示“这一笔尚未提交前的临时显示”
+- draw node 只在 `pointerup` 一次性提交

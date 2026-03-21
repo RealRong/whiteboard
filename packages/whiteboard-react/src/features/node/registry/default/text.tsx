@@ -13,17 +13,17 @@ import {
 import {
   TEXT_AUTO_MAX_WIDTH,
   TEXT_MIN_WIDTH,
+  focusEditableEnd,
   isTextContentEmpty,
   measureTextNodeSize,
+  readEditableText,
   readTextWidthMode
 } from '../../text'
 import {
   createSchema,
   createTextField,
-  focusEditableEnd,
   getStyleNumber,
   getStyleString,
-  readEditableText,
   styleField
 } from './shared'
 

@@ -2,11 +2,14 @@ export { clamp, degToRad } from './scalar'
 
 export {
   getRectCenter,
+  isPointInRect,
   rectFromPoints,
   rectContains,
   rectIntersects,
+  expandRect,
   getRectCorners,
-  getAABBFromPoints
+  getAABBFromPoints,
+  getRectsBoundingRect
 } from './rect'
 
 export { rotatePoint } from './point'

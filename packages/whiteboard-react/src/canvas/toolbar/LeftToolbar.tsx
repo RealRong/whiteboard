@@ -76,7 +76,7 @@ export const LeftToolbar = ({
   const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
   const buttonRefByKey = useRef<Partial<Record<MenuKey, HTMLButtonElement | null>>>({})
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
-  const drawState = useStoreValue(instance.internals.draw.style)
+  const drawStyles = useStoreValue(instance.state.draw)
   const insertGroup = tool.type === 'insert'
     ? readInsertPresetGroup(tool.preset)
     : undefined
@@ -91,7 +91,7 @@ export const LeftToolbar = ({
   const drawPreset = tool.type === 'draw'
     ? tool.preset
     : drawPresetRef.current
-  const drawStyle = drawState.byPreset[drawPreset]
+  const drawStyle = drawStyles[drawPreset]
 
   useEffect(() => {
     if (tool.type === 'draw') {
@@ -338,10 +338,10 @@ export const LeftToolbar = ({
                 instance.commands.tool.draw(value)
               }}
               onColor={(value) => {
-                instance.commands.draw.set({ color: value }, drawPreset)
+                instance.commands.draw.patch(drawPreset, { color: value })
               }}
               onWidth={(value) => {
-                instance.commands.draw.set({ width: value }, drawPreset)
+                instance.commands.draw.patch(drawPreset, { width: value })
               }}
             />
           ) : null}

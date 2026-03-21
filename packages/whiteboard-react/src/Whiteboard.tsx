@@ -19,7 +19,7 @@ import { createMarqueeSession } from './canvas/Marquee'
 import { useCanvasClipboard } from './canvas/useCanvasClipboard'
 import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
 import { useEdgeInput } from './features/edge/hooks/useEdgeInput'
-import { useDrawInput } from './features/draw/useDrawInput'
+import { DrawLayer } from './features/draw/DrawLayer'
 import { createNodePressSession } from './features/node/hooks/drag/session'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import {
@@ -30,7 +30,6 @@ import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
-import { DrawPreview } from './features/draw/DrawPreview'
 import {
   createInstance,
   type WhiteboardInstance,
@@ -112,9 +111,6 @@ const WhiteboardCanvas = ({
   useCanvasInsert({
     containerRef
   })
-  useDrawInput({
-    containerRef
-  })
   useCanvasClipboard({
     containerRef
   })
@@ -148,7 +144,7 @@ const WhiteboardCanvas = ({
           onPathPointPointerDown={edgeInput.handlePathPointPointerDown}
           onPathPointKeyDown={edgeInput.handlePathPointKeyDown}
         />
-        <DrawPreview />
+        <DrawLayer containerRef={containerRef} />
       </div>
       <CanvasChrome
         containerRef={containerRef}

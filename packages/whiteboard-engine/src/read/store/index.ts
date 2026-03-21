@@ -52,7 +52,17 @@ export const createRead = ({
     indexes
   })
 
+  const syncIndexes = (impact: KernelReadImpact, model: ReadModel) => {
+    nodeRectIndex.applyChange(impact, model)
+    snapIndex.applyChange(impact, {
+      all: nodeRectIndex.all,
+      get: nodeRectIndex.byId
+    })
+    treeIndex.applyChange(model)
+  }
+
   const initialModel = readModel()
+  syncIndexes(RESET_READ_IMPACT, initialModel)
   const initialSnapshot = createSnapshot(initialModel)
 
   const nodeProjection = createNodeProjection(initialSnapshot)
@@ -65,12 +75,7 @@ export const createRead = ({
 
   const applyImpact = (impact: KernelReadImpact) => {
     const model = readModel()
-    nodeRectIndex.applyChange(impact, model)
-    snapIndex.applyChange(impact, {
-      all: nodeRectIndex.all,
-      get: nodeRectIndex.byId
-    })
-    treeIndex.applyChange(model)
+    syncIndexes(impact, model)
     const snapshot = createSnapshot(model)
     nodeProjection.applyChange(impact, snapshot)
     edgeProjection.applyChange(impact, snapshot)
@@ -78,45 +83,22 @@ export const createRead = ({
     treeProjection.applyChange(impact, snapshot)
   }
 
-  applyImpact(RESET_READ_IMPACT)
-
   return {
     read: {
       node: {
-        list: {
-          get: nodeProjection.ids,
-          subscribe: nodeProjection.subscribeIds
-        },
-        item: {
-          get: nodeProjection.get,
-          subscribe: nodeProjection.subscribe
-        }
+        list: nodeProjection.list,
+        item: nodeProjection.item
       },
       edge: {
-        list: {
-          get: edgeProjection.ids,
-          subscribe: edgeProjection.subscribeIds
-        },
-        item: {
-          get: edgeProjection.get,
-          subscribe: edgeProjection.subscribe
-        },
+        list: edgeProjection.list,
+        item: edgeProjection.item,
         related: edgeProjection.related
       },
       mindmap: {
-        list: {
-          get: mindmapProjection.ids,
-          subscribe: mindmapProjection.subscribeIds
-        },
-        item: {
-          get: mindmapProjection.get,
-          subscribe: mindmapProjection.subscribe
-        }
+        list: mindmapProjection.list,
+        item: mindmapProjection.item
       },
-      tree: {
-        get: treeProjection.get,
-        subscribe: treeProjection.subscribe
-      },
+      tree: treeProjection.item,
       slice: {
         fromNodes: (nodeIds) => {
           const exported = exportSliceFromNodes({

@@ -1,10 +1,5 @@
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { NodeId } from '@whiteboard/core/types'
-import {
-  createState as createContainerState,
-  hasNode
-} from '../container'
-import type { WhiteboardInstance } from '../instance'
 
 export type EditField = 'text' | 'title'
 
@@ -44,30 +39,5 @@ export const createState = (): State => {
         store.set(null)
       }
     }
-  }
-}
-
-export const finalize = ({
-  read,
-  container,
-  edit
-}: {
-  read: Pick<WhiteboardInstance['read'], 'node'>
-  container: ReturnType<typeof createContainerState>
-  edit: State
-}) => {
-  const current = edit.store.get()
-  if (!current) {
-    return
-  }
-
-  if (!read.node.item.get(current.nodeId)) {
-    edit.commands.clear()
-    return
-  }
-
-  const activeContainer = container.store.get()
-  if (activeContainer.id && !hasNode(activeContainer, current.nodeId)) {
-    edit.commands.clear()
   }
 }

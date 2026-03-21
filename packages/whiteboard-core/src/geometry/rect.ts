@@ -5,6 +5,13 @@ export const getRectCenter = (rect: Rect): Point => ({
   y: rect.y + rect.height / 2
 })
 
+export const isPointInRect = (point: Point, rect: Rect) => (
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height
+)
+
 export const rectFromPoints = (a: Point, b: Point): Rect => {
   const x = Math.min(a.x, b.x)
   const y = Math.min(a.y, b.y)
@@ -27,6 +34,16 @@ export const rectIntersects = (a: Rect, b: Rect) => (
   a.y + a.height >= b.y
 )
 
+export const expandRect = (
+  rect: Rect,
+  value: number
+): Rect => ({
+  x: rect.x - value,
+  y: rect.y - value,
+  width: rect.width + value * 2,
+  height: rect.height + value * 2
+})
+
 export const getRectCorners = (rect: Rect): Point[] => [
   { x: rect.x, y: rect.y },
   { x: rect.x + rect.width, y: rect.y },
@@ -35,16 +52,27 @@ export const getRectCorners = (rect: Rect): Point[] => [
 ]
 
 export const getAABBFromPoints = (points: Point[]): Rect => {
+  return getRectsBoundingRect(points.map((point) => ({
+    x: point.x,
+    y: point.y,
+    width: 0,
+    height: 0
+  }))) ?? { x: 0, y: 0, width: 0, height: 0 }
+}
+
+export const getRectsBoundingRect = (
+  rects: readonly Rect[]
+): Rect | undefined => {
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
 
-  points.forEach((point) => {
-    minX = Math.min(minX, point.x)
-    minY = Math.min(minY, point.y)
-    maxX = Math.max(maxX, point.x)
-    maxY = Math.max(maxY, point.y)
+  rects.forEach((rect) => {
+    minX = Math.min(minX, rect.x)
+    minY = Math.min(minY, rect.y)
+    maxX = Math.max(maxX, rect.x + rect.width)
+    maxY = Math.max(maxY, rect.y + rect.height)
   })
 
   if (
@@ -53,7 +81,7 @@ export const getAABBFromPoints = (points: Point[]): Rect => {
     !Number.isFinite(maxX) ||
     !Number.isFinite(maxY)
   ) {
-    return { x: 0, y: 0, width: 0, height: 0 }
+    return undefined
   }
 
   return {

@@ -1,9 +1,11 @@
-import { createValueStore, type ValueStore } from '@whiteboard/core/runtime'
-import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
+import type { Guide } from '@whiteboard/core/node'
 import {
-  createGuidesSessionStore,
-  type GuidesSessionStore
-} from './guides'
+  createStagedValueStore,
+  createValueStore,
+  type StagedValueStore,
+  type ValueStore
+} from '@whiteboard/core/runtime'
+import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 import {
   createNodeSessionStore,
   type NodeSessionStore
@@ -12,6 +14,31 @@ import {
 export type NodePress = NodePressPhase | null
 
 export type NodePressPhase = 'repeat' | 'retarget' | 'hold'
+
+export type GuidesSessionStore =
+  Pick<StagedValueStore<readonly Guide[]>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+
+const EMPTY_GUIDES: readonly Guide[] = []
+
+const createGuidesSessionStore = (
+  schedule: () => void
+) => {
+  const store = createStagedValueStore({
+    schedule,
+    initial: EMPTY_GUIDES,
+    isEqual: (left, right) => left === right
+  })
+
+  return {
+    get: store.get,
+    subscribe: store.subscribe,
+    write: (next: readonly Guide[]) => {
+      store.write(next.length ? next : EMPTY_GUIDES)
+    },
+    clear: store.clear,
+    flush: store.flush
+  }
+}
 
 export type NodeFeatureRuntime = {
   session: NodeSessionStore

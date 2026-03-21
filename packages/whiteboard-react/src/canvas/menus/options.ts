@@ -34,11 +34,11 @@ export const FONT_SIZES = [14, 16, 20, 24] as const
 
 export const DRAW_PRESET_OPTIONS = [
   {
-    key: 'draw.pen',
+    key: 'pen',
     label: 'Pen'
   },
   {
-    key: 'draw.highlighter',
+    key: 'highlighter',
     label: 'Highlighter'
   }
 ] as const satisfies readonly {

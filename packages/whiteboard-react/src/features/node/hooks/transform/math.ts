@@ -4,6 +4,7 @@ import {
   computeResizeRect,
   computeResizeSnap,
   expandRectByThreshold,
+  getNodesBoundingRect,
   getResizeSourceEdges,
   resolveInteractionZoom,
   resolveSnapThresholdWorld,
@@ -12,7 +13,6 @@ import {
   type SnapCandidate
 } from '@whiteboard/core/node'
 import {
-  getNodeAABB,
   getRectCenter,
   isPointEqual,
   isSizeEqual,
@@ -102,37 +102,10 @@ const getDirectChildBounds = (
   nodes: readonly Node[],
   groupId: NodeId,
   nodeSize: Size
-): Rect | undefined => {
-  let minX = Number.POSITIVE_INFINITY
-  let minY = Number.POSITIVE_INFINITY
-  let maxX = Number.NEGATIVE_INFINITY
-  let maxY = Number.NEGATIVE_INFINITY
-
-  nodes.forEach((node) => {
-    if (node.parentId !== groupId) return
-    const rect = getNodeAABB(node, nodeSize)
-    minX = Math.min(minX, rect.x)
-    minY = Math.min(minY, rect.y)
-    maxX = Math.max(maxX, rect.x + rect.width)
-    maxY = Math.max(maxY, rect.y + rect.height)
-  })
-
-  if (
-    !Number.isFinite(minX) ||
-    !Number.isFinite(minY) ||
-    !Number.isFinite(maxX) ||
-    !Number.isFinite(maxY)
-  ) {
-    return undefined
-  }
-
-  return {
-    x: minX,
-    y: minY,
-    width: Math.max(0, maxX - minX),
-    height: Math.max(0, maxY - minY)
-  }
-}
+): Rect | undefined => getNodesBoundingRect(
+  nodes.filter((node) => node.parentId === groupId),
+  nodeSize
+)
 
 export const resolveResizeDrag = (options: {
   pointerId: number

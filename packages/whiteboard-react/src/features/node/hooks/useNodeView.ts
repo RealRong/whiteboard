@@ -10,7 +10,6 @@ import {
   useNodeSession,
   type NodeSession
 } from '../session/node'
-import { resolveNodeTransformCapability } from '../capability'
 
 const buildNodeTransformStyle = (
   rect: NodeItem['rect'],
@@ -63,8 +62,7 @@ const resolveNodeOverlayViewState = (
   const node = item.node
   const rect = item.rect
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
-  const definition = instance.registry.get(node.type)
-  const capability = resolveNodeTransformCapability(definition)
+  const capability = instance.read.node.transform(node)
 
   return {
     nodeId,
@@ -103,7 +101,7 @@ const resolveNodeViewState = (
     update,
       updateData
   }
-  const capability = resolveNodeTransformCapability(definition)
+  const capability = instance.read.node.transform(resolvedNode)
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}

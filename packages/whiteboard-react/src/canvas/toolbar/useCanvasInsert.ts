@@ -1,19 +1,10 @@
+import { isPointInRect } from '@whiteboard/core/geometry'
 import { useEffect, type RefObject } from 'react'
 import type { Rect } from '@whiteboard/core/types'
 import { useInternalInstance } from '../../runtime/hooks'
 import { leave } from '../../runtime/container'
 import { isBackgroundPointerTarget } from '../target'
 import { getInsertPreset } from './presets'
-
-const isPointInRect = (
-  point: { x: number; y: number },
-  rect: Rect
-) => (
-  point.x >= rect.x
-  && point.x <= rect.x + rect.width
-  && point.y >= rect.y
-  && point.y <= rect.y + rect.height
-)
 
 export const useCanvasInsert = ({
   containerRef

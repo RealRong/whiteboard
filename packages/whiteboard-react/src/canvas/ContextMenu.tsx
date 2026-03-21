@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { isPointInRect } from '@whiteboard/core/geometry'
 import type {
   EdgeId,
   Node as WhiteboardNode,
@@ -24,6 +25,7 @@ import {
 } from '../features/node/summary'
 import {
   type GroupAutoFitMode,
+  updateNodesStyle,
   updateGroupNode
 } from '../features/node/commands'
 import {
@@ -48,10 +50,10 @@ import {
   readElementEdgeId,
   readElementNodeId
 } from './target'
-import { SelectionSummaryHeader } from '../features/node/components/SelectionSummaryHeader'
-import { SelectionTypeFilterStrip } from '../features/node/components/SelectionTypeFilterStrip'
-import { readContainerBodyTarget } from '../features/node/scene'
-import { updateNodesStyle } from '../features/node/style'
+import {
+  SelectionSummaryHeader,
+  SelectionTypeFilterStrip
+} from '../features/node/components/SelectionSummaryHeader'
 
 type Surface = {
   width: number
@@ -193,21 +195,6 @@ const resolveContextMenuTarget = (
     }
   }
 }
-
-const isPointInRect = (
-  point: Point,
-  rect: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-) => (
-  point.x >= rect.x
-  && point.x <= rect.x + rect.width
-  && point.y >= rect.y
-  && point.y <= rect.y + rect.height
-)
 
 const hasStyleField = (
   schema: NodeSchema | undefined,
@@ -512,7 +499,7 @@ const readContextMenuOpenResult = ({
   )
 
   if (!insideActiveContainer) {
-    const containerNodeId = readContainerBodyTarget(instance, world)
+    const containerNodeId = instance.read.node.containerAt(world)
     if (containerNodeId) {
       return {
         target: selection.target.nodeSet.has(containerNodeId) && selection.items.count > 1

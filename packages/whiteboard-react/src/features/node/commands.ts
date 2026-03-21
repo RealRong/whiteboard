@@ -4,6 +4,7 @@ import type {
 } from '@whiteboard/core/node'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from '../../runtime/instance'
+import { mergeRecordPatch } from '../../runtime/utils/recordPatch'
 import type { NodeSummary } from './summary'
 
 type NodeCommandsInstance = Pick<WhiteboardInstance, 'commands'>
@@ -13,6 +14,26 @@ type NodeSelectionInstance = Pick<WhiteboardInstance, 'commands' | 'read'>
 
 export type OrderMode = 'front' | 'forward' | 'backward' | 'back'
 export type GroupAutoFitMode = 'expand-only' | 'manual'
+
+export const mergeNodeStyle = (
+  current: Record<string, string | number> | undefined,
+  patch: Record<string, string | number>
+) => mergeRecordPatch(current, patch)
+
+export const removeNodeStyleKey = (
+  current: Record<string, string | number> | undefined,
+  key: string
+) => {
+  if (!current || !(key in current)) {
+    return current
+  }
+
+  const next = {
+    ...current
+  }
+  delete next[key]
+  return Object.keys(next).length > 0 ? next : undefined
+}
 
 const getSelectedNodeIds = (instance: NodeStateInstance): NodeId[] =>
   [...instance.read.selection.get().target.nodeIds]
@@ -49,6 +70,33 @@ export const setNodesLocked = (
   })))
   if (!result.ok) return
 }
+
+export const updateNodesStyle = (
+  instance: NodeCommandsInstance,
+  nodes: readonly Node[],
+  patch: Record<string, string | number>
+) => instance.commands.node.updateMany(nodes.map((node) => ({
+  id: node.id,
+  patch: {
+    style: mergeNodeStyle(node.style, patch)
+  }
+})))
+
+export const updateNodeStyle = (
+  instance: NodeCommandsInstance,
+  node: Node,
+  patch: Record<string, string | number>
+) => instance.commands.node.update(node.id, {
+  style: mergeNodeStyle(node.style, patch)
+})
+
+export const removeNodeStyle = (
+  instance: NodeCommandsInstance,
+  node: Node,
+  key: string
+) => instance.commands.node.update(node.id, {
+  style: removeNodeStyleKey(node.style, key)
+})
 
 export const groupNodes = (
   instance: NodeCommandsInstance,

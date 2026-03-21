@@ -9,17 +9,15 @@ import type { Tool } from '../tool'
 import type { EditTarget } from '../edit'
 import type { InteractionMode } from '../interaction'
 import {
-  createNodeChromeRead,
+  createNodeRead,
   createNodeItemRead,
+  resolveNodeTransform,
   type NodeRead
 } from './node'
 import { createEdgeRead } from './edge'
 import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
-import { createEditRead, type EditRead } from './edit'
 import { createSliceRead, type SliceRead } from './slice'
-import { createDrawRead, type DrawRead } from './draw'
-import type { DrawRuntime } from '../draw'
 import {
   createSelectionRead,
   type SelectionRead
@@ -29,9 +27,7 @@ export type RuntimeRead = Omit<EngineRead, 'node'> & {
   node: NodeRead
   selection: SelectionRead
   tool: ToolRead
-  edit: EditRead
   slice: SliceRead
-  draw: DrawRead
 }
 
 export const createRuntimeRead = ({
@@ -43,8 +39,7 @@ export const createRuntimeRead = ({
   interaction,
   node,
   edge,
-  mindmap,
-  draw
+  mindmap
 }: {
   engineRead: EngineRead
   registry: NodeRegistry
@@ -55,7 +50,6 @@ export const createRuntimeRead = ({
   node: Pick<NodeFeatureRuntime, 'session' | 'press'>
   edge: Pick<EdgeFeatureRuntime, 'path'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
-  draw: Pick<DrawRuntime, 'read'>
 }): RuntimeRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
@@ -70,19 +64,19 @@ export const createRuntimeRead = ({
     source: selection,
     nodeItem,
     edgeItem: edgeRead.item,
-    registry
+    registry,
+    resolveNodeTransform
   })
-  const nodeRead: NodeRead = {
-    list: engineRead.node.list,
+  const nodeRead: NodeRead = createNodeRead({
+    read: engineRead,
+    registry,
     item: nodeItem,
-    chrome: createNodeChromeRead({
-      tool,
-      edit,
-      selection: selectionRead,
-      interaction,
-      press: node.press
-    })
-  }
+    tool,
+    edit,
+    selection: selectionRead,
+    interaction,
+    press: node.press
+  })
   const mindmapRead = createMindmapRead({
     read: engineRead,
     session: mindmap.drag
@@ -99,14 +93,8 @@ export const createRuntimeRead = ({
       selection: selectionRead
     }),
     index: engineRead.index,
-    draw: createDrawRead({
-      draw: draw.read
-    }),
     tool: createToolRead({
       tool
-    }),
-    edit: createEditRead({
-      edit
     })
   }
 }

@@ -1,10 +1,11 @@
-import { useInternalInstance, useStoreValue } from '../../runtime/hooks'
+import type { DrawPreview as DrawPreviewValue } from './state'
 import { DrawStrokeShape } from './stroke'
 
-export const DrawPreview = () => {
-  const instance = useInternalInstance()
-  const preview = useStoreValue(instance.internals.draw.preview)
-
+export const DrawPreview = ({
+  preview
+}: {
+  preview: DrawPreviewValue | null
+}) => {
   if (!preview || preview.points.length === 0) {
     return null
   }

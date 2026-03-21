@@ -1,3 +1,4 @@
+import { expandRect } from '../geometry'
 import type { Rect } from '../types'
 
 export type SnapThresholdConfig = {
@@ -23,9 +24,4 @@ export const resolveSnapThresholdWorld = (
 export const expandRectByThreshold = (
   rect: Rect,
   thresholdWorld: number
-): Rect => ({
-  x: rect.x - thresholdWorld,
-  y: rect.y - thresholdWorld,
-  width: rect.width + thresholdWorld * 2,
-  height: rect.height + thresholdWorld * 2
-})
+): Rect => expandRect(rect, thresholdWorld)

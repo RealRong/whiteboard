@@ -3,6 +3,10 @@ import type {
   CanvasNode,
   EdgeItem
 } from '@whiteboard/core/read'
+import {
+  createValueStore,
+  type ReadStore
+} from '@whiteboard/core/runtime'
 import type { Edge, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import {
   collectRelatedEdgeIds,
@@ -14,8 +18,8 @@ import {
   isSamePointArray,
   isSameRectWithRotationTuple
 } from '@whiteboard/core/utils'
-import { notifyListeners, subscribeListener } from './subscriptions'
 import type { ReadSnapshot } from './types'
+import { createTrackedRead } from './tracked'
 
 type EdgeCacheEntry = {
   sourceRectRef?: CanvasNode
@@ -210,9 +214,15 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
 export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   const getNodeRect = (snapshot: ReadSnapshot) => snapshot.indexes.node.get
   const readModel = (snapshot: ReadSnapshot) => snapshot.model
-  const state = emptyState()
-  const idsListeners = new Set<() => void>()
-  const listenersById = new Map<EdgeId, Set<() => void>>()
+  const list = createValueStore<readonly EdgeId[]>([])
+  const tracked = createTrackedRead<EdgeId, EdgeItem | undefined>({
+    emptyValue: undefined,
+    read: (edgeId) => {
+      ensureSynced()
+      return state.byId.get(edgeId)
+    }
+  })
+  let state: EdgeCacheState = emptyState()
   let snapshotRef: ReadSnapshot = initialSnapshot
   let visibleEdgesRef: ReadSnapshot['model']['edges']['visible'] | undefined
 
@@ -320,10 +330,7 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
   }
 
   const commitState = (nextState: EdgeCacheState) => {
-    state.relations = nextState.relations
-    state.cacheById = nextState.cacheById
-    state.ids = nextState.ids
-    state.byId = nextState.byId
+    state = nextState
   }
 
   const reconcileEdges = (
@@ -457,42 +464,11 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     }
   }
 
-  const ids = () => {
-    ensureSynced()
-    return state.ids
-  }
-
-  const related = (nodeIds: Iterable<NodeId>) => {
-    ensureSynced()
-    return Array.from(collectRelatedEdgeIds(state.relations.nodeToEdgeIds, nodeIds))
-  }
-
-  const get = (edgeId: EdgeId) => {
-    ensureSynced()
-    return state.byId.get(edgeId)
-  }
-
-  const subscribe = (edgeId: EdgeId, listener: () => void) => {
-    const edgeListeners = listenersById.get(edgeId) ?? new Set<() => void>()
-    if (!listenersById.has(edgeId)) {
-      listenersById.set(edgeId, edgeListeners)
-    }
-    edgeListeners.add(listener)
-    return () => {
-      edgeListeners.delete(listener)
-      if (!edgeListeners.size) {
-        listenersById.delete(edgeId)
-      }
-    }
-  }
-
-  const subscribeIds = (listener: () => void) => subscribeListener(idsListeners, listener)
-
-  const notifyEdge = (edgeId: EdgeId) => {
-    const edgeListeners = listenersById.get(edgeId)
-    if (!edgeListeners?.size) return
-    notifyListeners(edgeListeners)
-  }
+  const initialVisibleEdges = readModel(snapshotRef).edges.visible
+  const initial = reconcileAll(state, initialVisibleEdges)
+  commitState(initial.nextState)
+  visibleEdgesRef = initialVisibleEdges
+  list.set(state.ids)
 
   const applyChange = (impact: KernelReadImpact, snapshot: ReadSnapshot) => {
     snapshotRef = snapshot
@@ -531,20 +507,21 @@ export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
     }
 
     if (idsChanged) {
-      notifyListeners(idsListeners)
+      list.set(state.ids)
     }
 
-    changedEdgeIds.forEach((edgeId) => {
-      notifyEdge(edgeId)
-    })
+    tracked.sync(changedEdgeIds)
+  }
+
+  const related = (nodeIds: Iterable<NodeId>) => {
+    ensureSynced()
+    return Array.from(collectRelatedEdgeIds(state.relations.nodeToEdgeIds, nodeIds))
   }
 
   return {
-    ids,
+    list: list as ReadStore<readonly EdgeId[]>,
     related,
-    get,
-    subscribe,
-    subscribeIds,
+    item: tracked.item,
     applyChange
   }
 }
