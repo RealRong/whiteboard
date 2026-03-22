@@ -1,6 +1,6 @@
 import { useInteraction, useTool } from '../../../runtime/hooks'
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
-import { EdgePreview } from './EdgePreview'
+import { EdgeHintLayer } from './EdgeHintLayer'
 import { EdgeSelectedControls } from './EdgeSelectedControls'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -41,7 +41,7 @@ export const EdgeOverlayLayer = ({
           onPathPointKeyDown={onPathPointKeyDown}
         />
       ) : null}
-      <EdgePreview />
+      <EdgeHintLayer />
     </>
   )
 }

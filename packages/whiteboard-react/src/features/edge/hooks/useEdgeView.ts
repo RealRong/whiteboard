@@ -7,7 +7,7 @@ import {
   useSelection
 } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
-import { useEdgePathSession } from '../session/path'
+import { EMPTY_PATCH } from '../preview'
 
 export type EdgeView = {
   edge: EdgeItem['edge']
@@ -67,7 +67,11 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInternalInstance()
   const edgeId = useSelection().target.edgeId
   const entry = useEdgeView(edgeId)
-  const pathSession = useEdgePathSession(instance.internals.edge.path, edgeId)
+  const patch = useOptionalKeyedStoreValue(
+    instance.internals.edge.preview.patch,
+    edgeId,
+    EMPTY_PATCH
+  )
 
   return useMemo(() => {
     if (!edgeId || !entry) {
@@ -96,7 +100,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
         edgeId: edge.id,
         index,
         point,
-        active: pathSession.activePathIndex === index
+        active: patch.activePathIndex === index
       })
     })
 
@@ -119,5 +123,5 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
       ends: entry.ends,
       pathPoints
     }
-  }, [pathSession.activePathIndex, edgeId, entry])
+  }, [patch.activePathIndex, edgeId, entry])
 }

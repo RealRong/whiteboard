@@ -50,6 +50,7 @@
   --wb-shadow-accent-md: 0 4px 12px hsl(var(--wb-ui-accent) / 0.16);
   --wb-shadow-accent-lg: 0 4px 10px hsl(var(--wb-ui-accent) / 0.35);
   --wb-canvas-background-default: linear-gradient(180deg, hsl(var(--wb-ui-canvas)) 0%, hsl(var(--wb-ui-surface)) 68%);
+  --wb-canvas-pattern-color: hsl(var(--wb-ui-text-primary) / 0.08);
   --wb-preview-line: hsl(var(--wb-ui-text-primary) / 0.7);
   --wb-mindmap-surface: hsl(var(--wb-tag-yellow-background));
   --wb-mindmap-border: var(--wb-text-primary);
@@ -71,6 +72,12 @@
   position: absolute;
   inset: 0;
   overflow: visible;
+}
+
+.wb-canvas-background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .wb-root-container[data-tool='hand'] .wb-root-viewport,

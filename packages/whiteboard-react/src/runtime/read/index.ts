@@ -1,7 +1,7 @@
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
-import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
+import type { EdgePreview } from '../../features/edge/preview'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { ReadStore } from '@whiteboard/core/runtime'
 import type { Source as SelectionSource } from '../selection'
@@ -53,7 +53,7 @@ export const createRuntimeRead = ({
   selection: ReadStore<SelectionSource>
   interaction: ReadStore<InteractionMode>
   node: Pick<NodeFeatureRuntime, 'session' | 'chromeHidden'>
-  edge: Pick<EdgeFeatureRuntime, 'path'>
+  edge: Pick<EdgePreview, 'patch'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
 }): RuntimeRead => {
   const nodeItem = createNodeItemRead({
@@ -63,7 +63,7 @@ export const createRuntimeRead = ({
   const edgeRead = createEdgeRead({
     read: engineRead,
     nodeItem,
-    session: edge.path
+    patch: edge.patch
   })
   const selectionRead = createSelectionRead({
     source: selection,
@@ -90,6 +90,7 @@ export const createRuntimeRead = ({
   })
 
   return {
+    document: engineRead.document,
     node: nodeRead,
     chrome: chromeRead,
     edge: edgeRead,

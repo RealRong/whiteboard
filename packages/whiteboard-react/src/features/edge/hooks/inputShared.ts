@@ -2,7 +2,6 @@ import type { EdgeItem } from '@whiteboard/core/read'
 import type {
   EdgeAnchor,
   EdgeEnd,
-  EdgeId,
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
@@ -49,18 +48,6 @@ export const toPathPatch = (
   path: {
     points: [...points]
   }
-})
-
-export const toSessionPatch = (
-  edgeId: EdgeId,
-  patch: EdgePatch,
-  activePathIndex?: number
-) => ({
-  id: edgeId,
-  source: patch.source,
-  target: patch.target,
-  pathPoints: patch.path?.points,
-  activePathIndex
 })
 
 export const canMoveEdge = (

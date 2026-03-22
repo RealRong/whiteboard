@@ -1,6 +1,5 @@
 import { getAnchorFromPoint } from '@whiteboard/core/edge'
 import type { EdgeAnchor, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EdgeConnectState, EdgeDraftEnd } from '../../../../types/edge'
 import type { InternalInstance } from '../../../../runtime/instance'
 
 const ZOOM_EPSILON = 0.0001
@@ -39,14 +38,6 @@ export type SnapTarget = {
   nodeId: NodeId
   anchor: EdgeAnchor
   pointWorld: Point
-}
-
-const resolveConnectPoint = (
-  _instance: Pick<InternalInstance, 'read'>,
-  value: EdgeDraftEnd | undefined
-): Point | undefined => {
-  if (!value) return undefined
-  return value.point
 }
 
 export const resolveSnapTarget = (
@@ -98,31 +89,5 @@ export const resolveSnapTarget = (
     nodeId: best.nodeId,
     anchor: best.anchor,
     pointWorld: best.pointWorld
-  }
-}
-
-export type ConnectPreviewModel = {
-  from?: Point
-  to?: Point
-  snap?: Point
-  showPreviewLine: boolean
-}
-
-export const resolveConnectPreview = (
-  instance: Pick<InternalInstance, 'config' | 'read' | 'viewport'>,
-  state: EdgeConnectState
-): ConnectPreviewModel => {
-  const from = resolveConnectPoint(instance, state.from)
-  const to = resolveConnectPoint(instance, state.to)
-  const snap =
-    state.to?.kind === 'node'
-      ? resolveConnectPoint(instance, state.to)
-      : undefined
-
-  return {
-    from,
-    to,
-    snap,
-    showPreviewLine: Boolean(state.kind === 'create' && from && to)
   }
 }

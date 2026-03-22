@@ -17,6 +17,16 @@ export const document = ({
         options
       },
       origin: 'user'
-    })
+    }),
+    background: {
+      set: (background) => write.apply({
+        domain: 'document',
+        command: {
+          type: 'background',
+          background
+        },
+        origin: 'user'
+      })
+    }
   } satisfies EngineCommands['document']
 }

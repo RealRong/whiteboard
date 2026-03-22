@@ -14,6 +14,7 @@ import { useInternalInstance, useStoreValue, useTool } from './runtime/hooks'
 import {
   useBindViewportInput
 } from './runtime/viewport'
+import { CanvasBackground } from './canvas/CanvasBackground'
 import { CanvasChrome } from './canvas/CanvasChrome'
 import { createMarqueeSession } from './canvas/Marquee'
 import { useCanvasClipboard } from './canvas/useCanvasClipboard'
@@ -132,6 +133,7 @@ const WhiteboardCanvas = ({
       style={containerStyle}
       tabIndex={0}
     >
+      <CanvasBackground />
       <div className="wb-root-viewport" style={transformStyle}>
         <ContainerLayer />
         <EdgeLayer onEdgePointerDown={edgeInput.handleEdgePointerDown} />

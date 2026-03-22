@@ -35,7 +35,7 @@ import {
   type InteractionCoordinator
 } from '../interaction'
 import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
-import { createEdgeFeatureRuntime } from '../../features/edge/session/runtime'
+import { createEdgePreview } from '../../features/edge/preview'
 import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import { createRuntimeRead } from '../read'
 import type { Viewport } from '@whiteboard/core/types'
@@ -52,7 +52,9 @@ type InstanceStores = {
 
 type InstanceInternals = {
   node: ReturnType<typeof createNodeFeatureRuntime>
-  edge: ReturnType<typeof createEdgeFeatureRuntime>
+  edge: {
+    preview: ReturnType<typeof createEdgePreview>
+  }
   mindmap: ReturnType<typeof createMindmapFeatureRuntime>
 }
 
@@ -78,7 +80,9 @@ const createInstanceStores = ({
   const container = createContainerState(engine.read)
   const selection = createSelectionState()
   const node = createNodeFeatureRuntime()
-  const edge = createEdgeFeatureRuntime()
+  const edge = {
+    preview: createEdgePreview()
+  }
   const mindmap = createMindmapFeatureRuntime()
   const read = createRuntimeRead({
     engineRead: engine.read,
@@ -88,7 +92,7 @@ const createInstanceStores = ({
     selection: selection.source,
     interaction: interaction.mode,
     node,
-    edge,
+    edge: edge.preview,
     mindmap
   })
 
@@ -244,7 +248,7 @@ export const createInstance = ({
     stores.container.commands.clear()
     snap.clear()
     internals.node.clear()
-    internals.edge.clear()
+    internals.edge.preview.clear()
     internals.mindmap.clear()
   }
   const unsubscribeCommit = engine.commit.subscribe(() => {

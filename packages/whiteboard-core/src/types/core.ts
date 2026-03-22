@@ -309,9 +309,14 @@ export type MindmapCommandOptions = {
   layout?: MindmapLayoutHint
 }
 
+export type DocumentPatch = {
+  background?: Document['background']
+}
+
 // Operation is immutable once created. Any enrichment or normalization must
 // return a new operation instead of mutating an existing one.
 export type Operation =
+  | { readonly type: 'document.update'; readonly patch: DocumentPatch; readonly before?: DocumentPatch }
   | { readonly type: 'node.create'; readonly node: Node }
   | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch; readonly before?: Node }
   | { readonly type: 'node.delete'; readonly id: NodeId; readonly before?: Node }

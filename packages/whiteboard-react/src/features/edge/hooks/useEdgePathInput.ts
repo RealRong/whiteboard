@@ -2,14 +2,14 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import {
   useCallback,
-  useEffect,
-  useRef,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent
 } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
+import { toPatchEntry } from '../preview'
 import type { SelectedEdgePathPointView } from './useEdgeView'
-import { toPathPatch, toSessionPatch } from './inputShared'
+import { toPathPatch } from './inputShared'
+import { useEdgePatchSession } from './useEdgePatchSession'
 
 type ActivePath = {
   edgeId: EdgeId
@@ -22,78 +22,61 @@ type ActivePath = {
 
 export const useEdgePathInput = () => {
   const instance = useInternalInstance()
-  const activeRef = useRef<ActivePath | null>(null)
-  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
 
   const readPathEntry = useCallback((edgeId: EdgeId) => (
     instance.read.edge.item.get(edgeId)
   ), [instance])
 
-  const writeEdgePreview = useCallback((
+  const writePreview = useCallback((
     edgeId: EdgeId,
     points: readonly Point[],
     activePathIndex?: number
   ) => {
-    instance.internals.edge.path.write({
-      patches: [toSessionPatch(edgeId, toPathPatch(points), activePathIndex)]
-    })
+    instance.internals.edge.preview.patch.write([
+      toPatchEntry(edgeId, toPathPatch(points), activePathIndex)
+    ])
   }, [instance])
 
-  const clearPath = useCallback(() => {
-    activeRef.current = null
-    sessionRef.current = null
-    instance.internals.edge.path.clear()
-  }, [instance])
+  const session = useEdgePatchSession<ActivePath>({
+    mode: 'edge-path',
+    update: (active, input) => {
+      const entry = readPathEntry(active.edgeId)
+      if (!entry) {
+        return 'cancel'
+      }
 
-  const cancelPath = useCallback(() => {
-    if (sessionRef.current) {
-      sessionRef.current.cancel()
-      return
-    }
-    clearPath()
-  }, [clearPath])
+      const points = entry.edge.path?.points ?? []
+      if (active.index < 0 || active.index >= points.length) {
+        return 'cancel'
+      }
 
-  const updatePathPreview = useCallback((
-    input: {
-      clientX: number
-      clientY: number
-    }
-  ) => {
-    const active = activeRef.current
-    if (!active) {
-      return
-    }
+      const { world } = instance.viewport.pointer(input)
+      const point = {
+        x: active.origin.x + (world.x - active.start.x),
+        y: active.origin.y + (world.y - active.start.y)
+      }
+      if (isPointEqual(point, active.point)) {
+        return
+      }
 
-    const entry = readPathEntry(active.edgeId)
-    if (!entry) {
-      cancelPath()
-      return
+      active.point = point
+      writePreview(
+        active.edgeId,
+        points.map((entryPoint, pointIndex) => (
+          pointIndex === active.index ? point : entryPoint
+        )),
+        active.index
+      )
+    },
+    commit: (active) => {
+      if (
+        readPathEntry(active.edgeId)
+        && !isPointEqual(active.point, active.origin)
+      ) {
+        instance.commands.edge.path.move(active.edgeId, active.index, active.point)
+      }
     }
-
-    const points = entry.edge.path?.points ?? []
-    if (active.index < 0 || active.index >= points.length) {
-      cancelPath()
-      return
-    }
-
-    const { world } = instance.viewport.pointer(input)
-    const point = {
-      x: active.origin.x + (world.x - active.start.x),
-      y: active.origin.y + (world.y - active.start.y)
-    }
-    if (isPointEqual(point, active.point)) {
-      return
-    }
-
-    active.point = point
-    writeEdgePreview(
-      active.edgeId,
-      points.map((entryPoint, pointIndex) => (
-        pointIndex === active.index ? point : entryPoint
-      )),
-      active.index
-    )
-  }, [cancelPath, instance, readPathEntry, writeEdgePreview])
+  })
 
   const startPathDrag = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
@@ -101,60 +84,26 @@ export const useEdgePathInput = () => {
     index: number,
     origin: Point
   ) => {
-    const nextSession = instance.interaction.start({
-      mode: 'edge-path',
-      pointerId: event.pointerId,
+    const points = readPathEntry(edgeId)?.edge.path?.points ?? []
+    const started = session.start({
+      event,
       capture: event.currentTarget,
-      pan: {
-        frame: (pointer) => {
-          updatePathPreview(pointer)
-        }
-      },
-      cleanup: clearPath,
-      move: (moveEvent, session) => {
-        if (!activeRef.current) {
-          return
-        }
-
-        session.pan(moveEvent)
-        updatePathPreview(moveEvent)
-      },
-      up: (_upEvent, session) => {
-        const active = activeRef.current
-        if (!active) {
-          return
-        }
-
-        if (
-          readPathEntry(active.edgeId)
-          && !isPointEqual(active.point, active.origin)
-        ) {
-          instance.commands.edge.path.move(active.edgeId, active.index, active.point)
-        }
-        session.finish()
+      active: {
+        edgeId,
+        index,
+        pointerId: event.pointerId,
+        start: instance.viewport.pointer(event).world,
+        origin,
+        point: origin
       }
     })
-    if (!nextSession) {
+    if (!started) {
       return false
     }
 
-    activeRef.current = {
-      edgeId,
-      index,
-      pointerId: event.pointerId,
-      start: instance.viewport.pointer(event).world,
-      origin,
-      point: origin
-    }
-    sessionRef.current = nextSession
-    const points = readPathEntry(edgeId)?.edge.path?.points ?? []
-    writeEdgePreview(edgeId, points, index)
+    writePreview(edgeId, points, index)
     return true
-  }, [clearPath, instance, readPathEntry, updatePathPreview, writeEdgePreview])
-
-  useEffect(() => () => {
-    cancelPath()
-  }, [cancelPath])
+  }, [instance, readPathEntry, session, writePreview])
 
   return {
     handlePathPointPointerDown: (
@@ -165,7 +114,7 @@ export const useEdgePathInput = () => {
         return
       }
 
-      if (activeRef.current) {
+      if (session.activeRef.current) {
         return
       }
 

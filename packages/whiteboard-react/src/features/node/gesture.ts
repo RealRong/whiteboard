@@ -256,7 +256,7 @@ export const createNodeGesture = (
     dragSession = null
     instance.internals.node.session.clear()
     instance.internals.snap.clear()
-    instance.internals.edge.path.clear()
+    instance.internals.edge.preview.patch.clear()
   }
 
   const clearChrome = () => {
@@ -326,12 +326,10 @@ export const createNodeGesture = (
       patches: preview.patches,
       hoveredContainerId: preview.hoveredContainerId
     })
-    instance.internals.edge.path.write({
-      patches: edgeUpdates.map(({ id, patch }) => ({
+    instance.internals.edge.preview.patch.write(edgeUpdates.map(({ id, patch }) => ({
         id,
         pathPoints: patch.path?.points
-      }))
-    })
+      })))
   }
 
   const runTap = (

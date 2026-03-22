@@ -1,16 +1,15 @@
-import { useInternalInstance } from '../../../runtime/hooks'
-import { useEdgeConnectSession } from '../session/connect'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 
-export const EdgePreview = () => {
+export const EdgeHintLayer = () => {
   const instance = useInternalInstance()
-  const preview = useEdgeConnectSession(instance.internals.edge.connection)
-  const { activePointerId, from, to, snap, showPreviewLine } = preview
+  const hint = useStoreValue(instance.internals.edge.preview.hint)
+  const { line, snap } = hint
   const zoom = instance.viewport.get().zoom
   const pointRadius = 4 / Math.max(zoom, 0.0001)
   const snapRadius = 6 / Math.max(zoom, 0.0001)
   const strokeWidth = 2 / Math.max(zoom, 0.0001)
 
-  if (!from && !to && !snap) return null
+  if (!line && !snap) return null
 
   return (
     <svg
@@ -19,20 +18,20 @@ export const EdgePreview = () => {
       overflow="visible"
       className="wb-edge-preview-layer"
     >
-      {showPreviewLine && from && to && (
+      {line && (
         <>
           <line
-            x1={from.x}
-            y1={from.y}
-            x2={to.x}
-            y2={to.y}
+            x1={line.from.x}
+            y1={line.from.y}
+            x2={line.to.x}
+            y2={line.to.y}
             stroke="var(--wb-preview-line)"
             strokeWidth={strokeWidth}
             strokeDasharray="6 4"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={from.x} cy={from.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
-          <circle cx={to.x} cy={to.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
+          <circle cx={line.from.x} cy={line.from.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
+          <circle cx={line.to.x} cy={line.to.y} r={pointRadius} fill="var(--wb-text-primary)" className="wb-edge-preview-point" />
         </>
       )}
       {snap && (
@@ -45,7 +44,6 @@ export const EdgePreview = () => {
           strokeWidth={strokeWidth}
           vectorEffect="non-scaling-stroke"
           className="wb-edge-preview-point"
-          data-active={activePointerId !== undefined ? 'true' : 'false'}
         />
       )}
     </svg>

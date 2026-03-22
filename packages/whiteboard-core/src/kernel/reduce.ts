@@ -46,6 +46,7 @@ type MindmapImpactState = {
 
 type ReadImpactState = {
   full: boolean
+  document: boolean
   node: NodeImpactState
   edge: EdgeImpactState
   mindmap: MindmapImpactState
@@ -200,6 +201,7 @@ const classifyEdgePatch = (patch: EdgePatch): EdgePatchImpact => {
 
 const createReadImpactState = (operationCount: number): ReadImpactState => ({
   full: operationCount > DEFAULT_MAX_OPERATIONS,
+  document: false,
   node: {
     ids: new Set<NodeId>(),
     geometry: false,
@@ -226,6 +228,10 @@ const trackReadImpact = (
   if (state.full) return
 
   switch (operation.type) {
+    case 'document.update': {
+      state.document = true
+      return
+    }
     case 'node.create': {
       if (isMindmapNode(operation.node)) {
         markMindmapView(state.mindmap, operation.node.id)
@@ -342,6 +348,7 @@ const finalizeReadImpact = (
   ) {
     return {
       reset: true,
+      document: false,
       node: {
         ids: EMPTY_NODE_IDS,
         geometry: false,
@@ -364,6 +371,7 @@ const finalizeReadImpact = (
 
   return {
     reset: false,
+    document: state.document,
     node: {
       ids: Array.from(state.node.ids),
       geometry: state.node.geometry,
@@ -467,6 +475,17 @@ const normalizeOperation = (
   operation: Operation
 ): Operation => {
   switch (operation.type) {
+    case 'document.update': {
+      if (!operation.before) {
+        return {
+          ...operation,
+          before: {
+            background: document.background
+          }
+        }
+      }
+      return operation
+    }
     case 'node.update': {
       const current = getNode(document, operation.id)
       if (!operation.before && current) {
@@ -552,6 +571,13 @@ const normalizeOperation = (
 
 const buildInverse = (operation: Operation): Operation[] | null => {
   switch (operation.type) {
+    case 'document.update': {
+      if (!operation.before) return null
+      return [{
+        type: 'document.update',
+        patch: operation.before
+      }]
+    }
     case 'node.create': {
       return [{
         type: 'node.delete',
@@ -639,6 +665,13 @@ const applyOperation = (
   operation: Operation
 ) => {
   switch (operation.type) {
+    case 'document.update': {
+      draft.next = {
+        ...draft.next,
+        background: operation.patch.background
+      }
+      return
+    }
     case 'node.create': {
       const entities = ensureNodeEntities(draft)
       entities[operation.node.id] = operation.node

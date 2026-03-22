@@ -15,6 +15,7 @@ export type KernelContext = {
 
 export type KernelReadImpact = {
   reset: boolean
+  document: boolean
   node: {
     ids: readonly NodeId[]
     geometry: boolean

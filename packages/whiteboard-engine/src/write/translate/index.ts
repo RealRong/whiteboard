@@ -10,12 +10,20 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import type { TranslateResult } from './result'
-import { invalid, success } from './result'
+import { cancelled, invalid, success } from './result'
 import { translateNode } from './node'
 import { translateEdge } from './edge'
 import { translateMindmap } from './mindmap'
 
 type DocumentCommand = WriteCommandMap['document']
+
+const isBackgroundEqual = (
+  left: Document['background'] | undefined,
+  right: Document['background'] | undefined
+) => (
+  left?.type === right?.type
+  && left?.color === right?.color
+)
 
 export type WriteTranslateContext = {
   doc: Document
@@ -59,6 +67,21 @@ const translateDocument = <C extends DocumentCommand>(
           allNodeIds: planned.data.allNodeIds,
           allEdgeIds: planned.data.allEdgeIds
         } as WriteOutput<'document', C>
+      )
+    }
+    case 'background': {
+      if (isBackgroundEqual(ctx.doc.background, command.background)) {
+        return cancelled('Background is already current.') as TranslateResult<WriteOutput<'document', C>>
+      }
+
+      return success(
+        [{
+          type: 'document.update',
+          patch: {
+            background: command.background
+          }
+        }],
+        undefined as WriteOutput<'document', C>
       )
     }
     default:

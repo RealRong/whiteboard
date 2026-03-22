@@ -7,8 +7,8 @@ import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import {
   projectEdgeItem,
-  type EdgePathSessionReader
-} from '../../features/edge/session/path'
+  type EdgePatchReader
+} from '../../features/edge/preview'
 
 const toNodeCanvas = (item: NodeItem) => ({
   rect: item.rect,
@@ -36,11 +36,11 @@ const isEdgeItemEqual = (
 export const createEdgeRead = ({
   read,
   nodeItem,
-  session
+  patch
 }: {
   read: Pick<EngineRead, 'edge'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  session: EdgePathSessionReader
+  patch: EdgePatchReader
 }): {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
@@ -55,7 +55,7 @@ export const createEdgeRead = ({
         return undefined
       }
 
-      const nextEntry = projectEdgeItem(entry, readStore(session, edgeId))
+      const nextEntry = projectEdgeItem(entry, readStore(patch, edgeId))
       const source =
         nextEntry.edge.source.kind === 'node'
           ? readStore(nodeItem, nextEntry.edge.source.nodeId)

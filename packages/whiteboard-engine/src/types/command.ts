@@ -52,11 +52,16 @@ export type NodeUpdateManyOptions = {
   origin?: WriteOrigin
 }
 
-export type DocumentWriteCommand = {
-  type: 'insert'
-  slice: Slice
-  options?: SliceInsertOptions
-}
+export type DocumentWriteCommand =
+  | {
+      type: 'insert'
+      slice: Slice
+      options?: SliceInsertOptions
+    }
+  | {
+      type: 'background'
+      background?: Document['background']
+    }
 
 export type NodeWriteCommand =
   | {
@@ -308,6 +313,9 @@ export type EngineCommands = {
       slice: Slice,
       options?: SliceInsertOptions
     ) => CommandResult<Omit<SliceInsertResult, 'operations'>>
+    background: {
+      set: (background?: Document['background']) => CommandResult
+    }
   }
   history: {
     get: () => HistoryState

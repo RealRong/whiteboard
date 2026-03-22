@@ -23,7 +23,7 @@ import type {
 } from '../interaction/types'
 import type { SnapRuntime } from '../interaction/snap'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
-import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
+import type { EdgePreview } from '../../features/edge/preview'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { EdgePresetKey, Tool } from '../tool'
 import type { EditField, EditTarget } from '../edit'
@@ -94,7 +94,9 @@ export type InternalInstance = WhiteboardInstance & {
     viewport: ViewportRuntime
     snap: SnapRuntime
     node: NodeFeatureRuntime
-    edge: EdgeFeatureRuntime
+    edge: {
+      preview: EdgePreview
+    }
     mindmap: MindmapFeatureRuntime
   }
 }

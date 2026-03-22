@@ -3,6 +3,7 @@ import type { EngineDocument, EngineRead, EngineReadIndex } from '@engine-types/
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { BoardConfig } from '@whiteboard/core/config'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import { createValueStore } from '@whiteboard/core/runtime'
 import {
   exportSliceFromEdge,
   exportSliceFromNodes
@@ -56,6 +57,7 @@ export const createRead = ({
     model,
     index
   })
+  const background = createValueStore(readDocument().background)
 
   const syncIndexes = (impact: KernelReadImpact, model: ReadModel) => {
     nodeRectIndex.applyChange(impact, model)
@@ -81,6 +83,10 @@ export const createRead = ({
   })
 
   const applyImpact = (impact: KernelReadImpact) => {
+    if (impact.reset || impact.document) {
+      background.set(readDocument().background)
+    }
+
     const model = readModel()
     syncIndexes(impact, model)
     const snapshot = createSnapshot(model)
@@ -92,6 +98,9 @@ export const createRead = ({
 
   return {
     read: {
+      document: {
+        background
+      },
       node: {
         list: nodeProjection.list,
         item: nodeProjection.item

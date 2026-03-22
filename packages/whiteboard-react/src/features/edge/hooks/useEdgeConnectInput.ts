@@ -4,7 +4,8 @@ import type {
   EdgeId,
   EdgePatch,
   EdgeType,
-  NodeId
+  NodeId,
+  Point
 } from '@whiteboard/core/types'
 import {
   useCallback,
@@ -23,23 +24,21 @@ import { readEdgeType } from '../../../runtime/tool'
 import { createRafTask } from '../../../runtime/utils/rafTask'
 import type { EdgeConnectState, EdgeDraftEnd } from '../../../types/edge'
 import {
+  type EdgeHint,
+  toPatchEntry
+} from '../preview'
+import {
   ConnectHandleSide,
   type ConnectPointer,
   type PointerSourceEvent,
   readCaptureTarget,
-  toEdgeEnd,
-  toSessionPatch
+  toEdgeEnd
 } from './inputShared'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,
-  resolveConnectPreview,
   resolveSnapTarget
 } from './connect/math'
-
-type ActiveConnect = {
-  state: EdgeConnectState
-}
 
 const NODE_CONNECT_HANDLE_SELECTOR = '[data-input-role="node-edge-handle"]'
 const NODE_SELECTOR = '[data-node-id]'
@@ -52,9 +51,9 @@ export const useEdgeConnectInput = ({
 }) => {
   const instance = useInternalInstance()
   const tool = useTool()
-  const activeRef = useRef<ActiveConnect | null>(null)
+  const activeRef = useRef<EdgeConnectState | null>(null)
   const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
-  const hoverEventRef = useRef<PointerEvent | null>(null)
+  const hoverPointRef = useRef<Point | null>(null)
 
   const readPointer = useCallback((
     event: Pick<PointerSourceEvent, 'pointerId' | 'clientX' | 'clientY'>
@@ -63,18 +62,26 @@ export const useEdgeConnectInput = ({
     ...instance.viewport.pointer(event)
   }), [instance])
 
-  const writeEdgePreview = useCallback((
+  const writePatch = useCallback((
     edgeId: EdgeId,
     patch: EdgePatch,
     activePathIndex?: number
   ) => {
-    instance.internals.edge.path.write({
-      patches: [toSessionPatch(edgeId, patch, activePathIndex)]
-    })
+    instance.internals.edge.preview.patch.write([
+      toPatchEntry(edgeId, patch, activePathIndex)
+    ])
   }, [instance])
 
-  const clearEdgePreview = useCallback(() => {
-    instance.internals.edge.path.clear()
+  const clearPatch = useCallback(() => {
+    instance.internals.edge.preview.patch.clear()
+  }, [instance])
+
+  const writeHint = useCallback((next: EdgeHint) => {
+    instance.internals.edge.preview.hint.write(next)
+  }, [instance])
+
+  const clearHint = useCallback(() => {
+    instance.internals.edge.preview.hint.clear()
   }, [instance])
 
   const beginFromPoint = useCallback((
@@ -244,56 +251,88 @@ export const useEdgeConnectInput = ({
     })
   }, [instance])
 
-  const writeConnectPreview = useCallback((state: EdgeConnectState) => {
-    instance.internals.edge.connection.write({
-      activePointerId: state.pointerId,
-      ...resolveConnectPreview(instance, state)
-    })
+  const writeStateHint = useCallback((state: EdgeConnectState) => {
+    const next: EdgeHint = {
+      line:
+        state.kind === 'create' && state.from && state.to
+          ? {
+              from: state.from.point,
+              to: state.to.point
+            }
+          : undefined,
+      snap:
+        state.to?.kind === 'node'
+          ? state.to.point
+          : undefined
+    }
 
-    if (state.kind !== 'reconnect' || !state.to) {
-      clearEdgePreview()
+    if (!next.line && !next.snap) {
+      clearHint()
       return
     }
 
-    writeEdgePreview(
+    writeHint(next)
+  }, [clearHint, writeHint])
+
+  const writeStatePatch = useCallback((state: EdgeConnectState) => {
+    if (state.kind !== 'reconnect' || !state.to) {
+      clearPatch()
+      return
+    }
+
+    writePatch(
       state.edgeId,
       state.end === 'source'
         ? { source: toEdgeEnd(state.to) }
         : { target: toEdgeEnd(state.to) }
     )
-  }, [clearEdgePreview, instance, writeEdgePreview])
+  }, [clearPatch, writePatch])
 
-  const setHoverPreview = useCallback((snap?: { x: number; y: number }) => {
-    instance.internals.edge.connection.write(
-      snap
-        ? {
-            showPreviewLine: false,
-            snap
-          }
-        : {
-            showPreviewLine: false
-          }
-    )
-  }, [instance])
+  const writeStatePreview = useCallback((state: EdgeConnectState) => {
+    writeStateHint(state)
+    writeStatePatch(state)
+  }, [writeStateHint, writeStatePatch])
 
-  const hoverTaskRef = useRef(createRafTask(() => {
-    const hoverEvent = hoverEventRef.current
-    if (!hoverEvent || activeRef.current || !instance.read.tool.is('edge')) {
+  const setHoverHint = useCallback((snap?: Point) => {
+    if (!snap) {
+      clearHint()
       return
     }
 
-    const target = resolveSnapTarget(instance, readPointer(hoverEvent).world)
-    setHoverPreview(target?.pointWorld)
+    writeHint({ snap })
+  }, [clearHint, writeHint])
+
+  const updateActive = useCallback((pointer: ConnectPointer) => {
+    const active = activeRef.current
+    if (!active) {
+      return false
+    }
+
+    if (!updateConnectState(active, pointer)) {
+      return false
+    }
+
+    writeStatePreview(active)
+    return true
+  }, [updateConnectState, writeStatePreview])
+
+  const hoverTaskRef = useRef(createRafTask(() => {
+    const hoverPoint = hoverPointRef.current
+    if (!hoverPoint || activeRef.current || !instance.read.tool.is('edge')) {
+      return
+    }
+
+    const target = resolveSnapTarget(instance, hoverPoint)
+    setHoverHint(target?.pointWorld)
   }))
 
   const clearConnect = useCallback(() => {
     activeRef.current = null
     sessionRef.current = null
     hoverTaskRef.current.cancel()
-    hoverEventRef.current = null
-    instance.internals.edge.connection.clear()
-    clearEdgePreview()
-  }, [clearEdgePreview, instance])
+    hoverPointRef.current = null
+    instance.internals.edge.preview.clear()
+  }, [instance])
 
   const cancelConnect = useCallback(() => {
     if (sessionRef.current) {
@@ -318,29 +357,19 @@ export const useEdgeConnectInput = ({
             return
           }
 
-          if (!updateConnectState(active.state, readPointer({
-            pointerId: active.state.pointerId,
+          updateActive(readPointer({
+            pointerId: active.pointerId,
             ...pointer
-          }))) {
-            return
-          }
-
-          writeConnectPreview(active.state)
+          }))
         }
       },
       cleanup: clearConnect,
       move: (moveEvent, session) => {
-        const active = activeRef.current
-        if (!active) {
-          return
-        }
-
-        if (!updateConnectState(active.state, readPointer(moveEvent))) {
+        if (!updateActive(readPointer(moveEvent))) {
           return
         }
 
         session.pan(moveEvent)
-        writeConnectPreview(active.state)
       },
       up: (_upEvent, session) => {
         const active = activeRef.current
@@ -348,7 +377,7 @@ export const useEdgeConnectInput = ({
           return
         }
 
-        commitConnectState(active.state)
+        commitConnectState(active)
         session.finish()
       }
     })
@@ -356,16 +385,14 @@ export const useEdgeConnectInput = ({
       return false
     }
 
-    activeRef.current = {
-      state
-    }
+    activeRef.current = state
     sessionRef.current = nextSession
-    writeConnectPreview(state)
+    writeStatePreview(state)
 
     event.preventDefault()
     event.stopPropagation()
     return true
-  }, [clearConnect, commitConnectState, instance, readPointer, updateConnectState, writeConnectPreview])
+  }, [clearConnect, commitConnectState, readPointer, updateActive, writeStatePreview])
 
   useEffect(() => {
     const container = containerRef.current
@@ -427,14 +454,14 @@ export const useEdgeConnectInput = ({
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      hoverEventRef.current = event
+      hoverPointRef.current = instance.viewport.pointer(event).world
       hoverTaskRef.current.schedule()
     }
 
     const handlePointerLeave = () => {
       hoverTaskRef.current.cancel()
-      hoverEventRef.current = null
-      setHoverPreview(undefined)
+      hoverPointRef.current = null
+      clearHint()
     }
 
     container.addEventListener('pointerdown', handlePointerDown)
@@ -443,8 +470,8 @@ export const useEdgeConnectInput = ({
 
     return () => {
       hoverTaskRef.current.cancel()
-      hoverEventRef.current = null
-      setHoverPreview(undefined)
+      hoverPointRef.current = null
+      clearHint()
       container.removeEventListener('pointerdown', handlePointerDown)
       container.removeEventListener('pointermove', handlePointerMove)
       container.removeEventListener('pointerleave', handlePointerLeave)
@@ -456,13 +483,13 @@ export const useEdgeConnectInput = ({
     containerRef,
     instance,
     readPointer,
-    setHoverPreview,
+    clearHint,
     startConnectSession,
     tool
   ])
 
   useEffect(() => {
-    if (tool.type !== 'edge' && activeRef.current?.state.kind === 'create') {
+    if (tool.type !== 'edge' && activeRef.current?.kind === 'create') {
       cancelConnect()
     }
   }, [cancelConnect, tool])

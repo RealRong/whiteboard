@@ -22,6 +22,7 @@ const EMPTY_MINDMAP_IMPACT = {
 
 export const RESET_READ_IMPACT: KernelReadImpact = {
   reset: true,
+  document: false,
   node: EMPTY_NODE_IMPACT,
   edge: EMPTY_EDGE_IMPACT,
   mindmap: EMPTY_MINDMAP_IMPACT
@@ -29,6 +30,7 @@ export const RESET_READ_IMPACT: KernelReadImpact = {
 
 export const MINDMAP_LAYOUT_READ_IMPACT: KernelReadImpact = {
   reset: false,
+  document: false,
   node: EMPTY_NODE_IMPACT,
   edge: EMPTY_EDGE_IMPACT,
   mindmap: {

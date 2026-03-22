@@ -55,6 +55,9 @@ export type SliceRead = {
 }
 
 export type EngineRead = {
+  document: {
+    background: ReadStore<Document['background'] | undefined>
+  }
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead
