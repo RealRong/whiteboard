@@ -1,4 +1,5 @@
 import { createValueStore } from '@whiteboard/core/runtime'
+import type { HistoryState } from '@whiteboard/core/kernel'
 import type { EngineInstance } from '@whiteboard/engine'
 import type {
   WhiteboardInstance,
@@ -44,6 +45,7 @@ import { createDrawState } from '../../features/draw/state'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
+  history: ReturnType<typeof createValueStore<HistoryState>>
   draw: ReturnType<typeof createDrawState>
   edit: ReturnType<typeof createEditState>
   container: ReturnType<typeof createContainerState>
@@ -75,6 +77,7 @@ const createInstanceStores = ({
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(initialTool)
+  const history = createValueStore(engine.commands.history.get())
   const draw = createDrawState()
   const edit = createEditState()
   const container = createContainerState(engine.read)
@@ -89,6 +92,7 @@ const createInstanceStores = ({
     registry,
     tool,
     edit: edit.store,
+    history,
     selection: selection.source,
     interaction: interaction.mode,
     node,
@@ -99,6 +103,7 @@ const createInstanceStores = ({
   return {
     stores: {
       tool,
+      history,
       draw,
       edit,
       container,
@@ -124,6 +129,7 @@ const createInstanceStores = ({
 const createCommands = ({
   engine,
   tool,
+  history,
   edit,
   selection,
   container,
@@ -132,6 +138,7 @@ const createCommands = ({
 }: {
   engine: EngineInstance
   tool: ReturnType<typeof createValueStore<Tool>>
+  history: ReturnType<typeof createValueStore<HistoryState>>
   edit: EditCommands
   selection: SelectionCommands
   container: ReturnType<typeof createContainerState>
@@ -143,9 +150,29 @@ const createCommands = ({
     if (isSameTool(tool.get(), normalized)) return
     tool.set(normalized)
   }
+  const syncHistory = () => {
+    history.set(engine.commands.history.get())
+  }
 
   return {
     ...engine.commands,
+    history: {
+      get: engine.commands.history.get,
+      clear: () => {
+        engine.commands.history.clear()
+        syncHistory()
+      },
+      undo: () => {
+        const result = engine.commands.history.undo()
+        syncHistory()
+        return result
+      },
+      redo: () => {
+        const result = engine.commands.history.redo()
+        syncHistory()
+        return result
+      }
+    },
     tool: {
       set: setTool,
       select: () => {
@@ -251,7 +278,11 @@ export const createInstance = ({
     internals.edge.preview.clear()
     internals.mindmap.clear()
   }
+  const syncHistory = () => {
+    stores.history.set(engine.commands.history.get())
+  }
   const unsubscribeCommit = engine.commit.subscribe(() => {
+    syncHistory()
     const commit = engine.commit.get()
     if (!commit) {
       return
@@ -273,6 +304,7 @@ export const createInstance = ({
   const commands = createCommands({
     engine,
     tool: stores.tool,
+    history: stores.history,
     edit: stores.edit.commands,
     selection: stores.selection.commands,
     container: stores.container,
@@ -304,6 +336,7 @@ export const createInstance = ({
         mindmapLayout: config.mindmapLayout,
         history: config.history
       })
+      syncHistory()
     },
     dispose: () => {
       unsubscribeCommit()

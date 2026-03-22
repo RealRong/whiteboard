@@ -1,4 +1,5 @@
 import type { EngineRead } from '@whiteboard/engine'
+import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgePreview } from '../../features/edge/preview'
@@ -28,6 +29,7 @@ import {
 } from './selection'
 
 export type RuntimeRead = Omit<EngineRead, 'node'> & {
+  history: ReadStore<HistoryState>
   node: NodeRead
   chrome: ChromeRead
   selection: SelectionRead
@@ -40,6 +42,7 @@ export const createRuntimeRead = ({
   registry,
   tool,
   edit,
+  history,
   selection,
   interaction,
   node,
@@ -50,6 +53,7 @@ export const createRuntimeRead = ({
   registry: NodeRegistry
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
+  history: ReadStore<HistoryState>
   selection: ReadStore<SelectionSource>
   interaction: ReadStore<InteractionMode>
   node: Pick<NodeFeatureRuntime, 'session' | 'chromeHidden'>
@@ -91,6 +95,8 @@ export const createRuntimeRead = ({
 
   return {
     document: engineRead.document,
+    canvas: engineRead.canvas,
+    history,
     node: nodeRead,
     chrome: chromeRead,
     edge: edgeRead,

@@ -3,11 +3,17 @@ import type { EngineDocument, EngineRead, EngineReadIndex } from '@engine-types/
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { BoardConfig } from '@whiteboard/core/config'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import { getEdgePath } from '@whiteboard/core/edge'
+import {
+  getAABBFromPoints,
+  getRectsBoundingRect
+} from '@whiteboard/core/geometry'
 import { createValueStore } from '@whiteboard/core/runtime'
 import {
   exportSliceFromEdge,
   exportSliceFromNodes
 } from '@whiteboard/core/document'
+import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
 import { NodeRectIndex, SnapIndex, TreeIndex } from '../indexes'
@@ -82,6 +88,64 @@ export const createRead = ({
     readIds: treeIndex.ids
   })
 
+  const readEdgeBounds = (edgeId: EdgeId): Rect | undefined => {
+    const item = edgeProjection.item.get(edgeId)
+    if (!item) {
+      return undefined
+    }
+
+    const path = getEdgePath({
+      edge: item.edge,
+      source: {
+        point: item.ends.source.point,
+        side: item.ends.source.anchor?.side
+      },
+      target: {
+        point: item.ends.target.point,
+        side: item.ends.target.anchor?.side
+      }
+    })
+    const points = path.points.length > 0
+      ? path.points
+      : [item.ends.source.point, item.ends.target.point]
+
+    return getAABBFromPoints(points)
+  }
+
+  const readMindmapBounds = (treeId: NodeId): Rect | undefined => {
+    const item = mindmapProjection.item.get(treeId)
+    if (!item) {
+      return undefined
+    }
+
+    return {
+      x: item.node.position.x + item.computed.bbox.x,
+      y: item.node.position.y + item.computed.bbox.y,
+      width: item.computed.bbox.width,
+      height: item.computed.bbox.height
+    }
+  }
+
+  const readCanvasBounds = (): Rect | undefined => {
+    const rects: Rect[] = nodeRectIndex.all().map((entry) => entry.aabb)
+
+    edgeProjection.list.get().forEach((edgeId) => {
+      const rect = readEdgeBounds(edgeId)
+      if (rect) {
+        rects.push(rect)
+      }
+    })
+
+    mindmapProjection.list.get().forEach((treeId) => {
+      const rect = readMindmapBounds(treeId)
+      if (rect) {
+        rects.push(rect)
+      }
+    })
+
+    return getRectsBoundingRect(rects)
+  }
+
   const applyImpact = (impact: KernelReadImpact) => {
     if (impact.reset || impact.document) {
       background.set(readDocument().background)
@@ -100,6 +164,9 @@ export const createRead = ({
     read: {
       document: {
         background
+      },
+      canvas: {
+        bounds: readCanvasBounds
       },
       node: {
         list: nodeProjection.list,

@@ -11,6 +11,7 @@ export type {
   CreateEngineOptions,
   EngineInstance,
   BoardConfig,
+  CanvasRead,
   EngineRuntimeOptions,
   EngineRead,
   EngineReadIndex,

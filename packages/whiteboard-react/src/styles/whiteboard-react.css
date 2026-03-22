@@ -266,6 +266,83 @@
   z-index: var(--wb-z-toolbar);
 }
 
+.wb-canvas-dock-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: var(--wb-z-toolbar);
+}
+
+.wb-canvas-dock {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--wb-surface-elevated);
+  border: 1px solid hsl(var(--wb-ui-border-subtle) / 0.4);
+  box-shadow: var(--wb-panel-shadow);
+  pointer-events: auto;
+}
+
+.wb-canvas-dock-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wb-canvas-dock-divider {
+  width: 1px;
+  align-self: stretch;
+  background: hsl(var(--wb-ui-border-subtle) / 0.4);
+}
+
+.wb-canvas-dock-button,
+.wb-canvas-dock-zoom {
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wb-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  appearance: none;
+}
+
+.wb-canvas-dock-button {
+  width: 36px;
+  padding: 0;
+}
+
+.wb-canvas-dock-zoom {
+  min-width: 58px;
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.wb-canvas-dock-button:hover,
+.wb-canvas-dock-button:focus-visible,
+.wb-canvas-dock-zoom:hover,
+.wb-canvas-dock-zoom:focus-visible {
+  background: var(--wb-button-hover);
+  color: var(--wb-text-primary);
+}
+
+.wb-canvas-dock-button:disabled,
+.wb-canvas-dock-zoom:disabled {
+  opacity: 0.36;
+  cursor: default;
+}
+
 .wb-left-toolbar {
   position: absolute;
   left: 16px;

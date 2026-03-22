@@ -3,11 +3,13 @@ import {
   createValueStore,
   type ReadStore
 } from '@whiteboard/core/runtime'
-import type { Point, Viewport } from '@whiteboard/core/types'
+import type { Point, Rect, Viewport } from '@whiteboard/core/types'
 import {
   applyScreenPan,
+  fitViewportToRect,
   applyWheelInput,
   clientToScreenPoint,
+  DEFAULT_VIEWPORT_FIT_PADDING,
   DEFAULT_VIEWPORT_LIMITS,
   EMPTY_CONTAINER_RECT,
   normalizeViewport,
@@ -40,6 +42,7 @@ export type ViewportRead = ReadStore<Viewport> & {
 export type ViewportCommands = {
   panBy: (delta: Point) => void
   zoomTo: (zoom: number, anchor?: Point) => void
+  fit: (bounds: Rect, padding?: number) => void
   reset: () => void
 }
 
@@ -144,6 +147,15 @@ export const createViewport = ({
         }
 
         setViewport(zoomViewport(current, factor, anchor))
+      },
+      fit: (bounds, padding = DEFAULT_VIEWPORT_FIT_PADDING) => {
+        setViewport(fitViewportToRect({
+          viewport: state.get(),
+          rect,
+          bounds,
+          limits,
+          padding
+        }))
       },
       reset: () => {
         setViewport(initial)

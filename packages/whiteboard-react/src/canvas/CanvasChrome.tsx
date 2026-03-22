@@ -1,5 +1,6 @@
 import { useEffect, useState, type RefObject } from 'react'
 import type { ShortcutOverrides } from '../types/common/shortcut'
+import { CanvasDock } from './CanvasDock'
 import { ContextMenu } from './ContextMenu'
 import { NodeToolbar } from './NodeToolbar'
 import {
@@ -82,6 +83,7 @@ export const CanvasChrome = ({
   return (
     <>
       <LeftToolbar surface={surface} />
+      <CanvasDock />
       <Marquee
         containerRef={containerRef}
         marquee={marquee}

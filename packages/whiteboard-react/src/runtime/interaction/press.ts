@@ -78,9 +78,11 @@ export const createPressRuntime = (
             return
           }
 
+          const wasHeld = held
+          const onDragStart = active.onDragStart
           currentSession.finish()
-          active.onDragStart?.(event, {
-            held
+          onDragStart?.(event, {
+            held: wasHeld
           })
         },
         up: (event, currentSession) => {

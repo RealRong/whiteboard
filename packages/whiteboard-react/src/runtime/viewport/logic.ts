@@ -1,10 +1,11 @@
 import {
+  getRectCenter,
   panViewport,
   viewportScreenToWorld,
   viewportWorldToScreen,
   zoomViewport
 } from '@whiteboard/core/geometry'
-import type { Point, Viewport } from '@whiteboard/core/types'
+import type { Point, Rect, Viewport } from '@whiteboard/core/types'
 
 export type ContainerRect = {
   left: number
@@ -38,6 +39,8 @@ export const DEFAULT_VIEWPORT_LIMITS: ViewportLimits = {
   minZoom: 0.0001,
   maxZoom: Number.POSITIVE_INFINITY
 }
+
+export const DEFAULT_VIEWPORT_FIT_PADDING = 48
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -115,6 +118,39 @@ export const applyScreenPan = (
     x: deltaScreen.x / zoom,
     y: deltaScreen.y / zoom
   })
+}
+
+export const fitViewportToRect = ({
+  viewport,
+  rect,
+  bounds,
+  limits,
+  padding
+}: {
+  viewport: Viewport
+  rect: ContainerRect
+  bounds: Rect
+  limits: ViewportLimits
+  padding: number
+}): Viewport => {
+  const inset = Math.max(0, padding)
+  const innerWidth = rect.width - inset * 2
+  const innerHeight = rect.height - inset * 2
+  if (innerWidth <= 0 || innerHeight <= 0) {
+    return viewport
+  }
+
+  const safeWidth = Math.max(bounds.width, 1)
+  const safeHeight = Math.max(bounds.height, 1)
+  const zoom = Math.min(innerWidth / safeWidth, innerHeight / safeHeight)
+  if (!Number.isFinite(zoom) || zoom <= 0) {
+    return viewport
+  }
+
+  return normalizeViewport({
+    center: getRectCenter(bounds),
+    zoom
+  }, limits)
 }
 
 export const applyWheelInput = ({

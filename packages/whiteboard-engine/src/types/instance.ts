@@ -54,10 +54,15 @@ export type SliceRead = {
   fromEdge: (edgeId: EdgeId) => SliceExportResult | undefined
 }
 
+export type CanvasRead = {
+  bounds: () => Rect | undefined
+}
+
 export type EngineRead = {
   document: {
     background: ReadStore<Document['background'] | undefined>
   }
+  canvas: CanvasRead
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead
