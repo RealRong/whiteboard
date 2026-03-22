@@ -1,5 +1,10 @@
-import type { Point, Rect, Size } from '../types'
+import type { NodeId, Point, Rect, Size } from '../types'
 import { getRectCenter, rotatePoint } from '../geometry'
+import {
+  computeResizeSnap,
+  type Guide,
+  type SnapCandidate
+} from './snap'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1
@@ -18,6 +23,35 @@ export type TransformHandle = {
   position: Point
   cursor: string
 }
+
+export type ResizeUpdate = {
+  position: Point
+  size: Size
+}
+
+export type ResizePreviewResult = {
+  update: ResizeUpdate
+  guides: readonly Guide[]
+}
+
+export type TransformPreviewPatch = {
+  id: NodeId
+  position?: Point
+  size?: Size
+  rotation?: number
+}
+
+export type TransformProjectionMember = {
+  id: NodeId
+  rect: Rect
+}
+
+const DEFAULT_MIN_SIZE: Size = {
+  width: 20,
+  height: 20
+}
+
+const ZOOM_EPSILON = 0.0001
 
 export const resizeHandleMap: Record<ResizeDirection, ResizeHandleMeta> = {
   nw: { sx: -1, sy: -1, cursor: 'nwse-resize' },
@@ -197,6 +231,119 @@ export const computeResizeRect = (options: {
       height
     }
   }
+}
+
+export const resolveResizePreview = (options: {
+  handle: ResizeDirection
+  startScreen: Point
+  currentScreen: Point
+  startCenter: Point
+  startRotation: number
+  startSize: Size
+  startAspect: number
+  zoom: number
+  altKey: boolean
+  shiftKey: boolean
+  minSize?: Size
+  snap?: {
+    threshold: number
+    candidates: readonly SnapCandidate[]
+  }
+}): ResizePreviewResult => {
+  const safeZoom = Math.max(options.zoom, ZOOM_EPSILON)
+  const resized = computeResizeRect({
+    handle: options.handle,
+    startScreen: options.startScreen,
+    currentScreen: options.currentScreen,
+    startCenter: options.startCenter,
+    startRotation: options.startRotation,
+    startSize: options.startSize,
+    startAspect: options.startAspect,
+    minSize: options.minSize ?? DEFAULT_MIN_SIZE,
+    zoom: safeZoom,
+    altKey: options.altKey,
+    shiftKey: options.shiftKey,
+    zoomEpsilon: ZOOM_EPSILON
+  })
+
+  let nextRect = resized.rect
+  let nextSize: Size = {
+    width: resized.width,
+    height: resized.height
+  }
+  let guides: readonly Guide[] = []
+
+  if (options.snap && !options.altKey && options.startRotation === 0) {
+    const { sourceX, sourceY } = getResizeSourceEdges(options.handle)
+    const snapped = computeResizeSnap({
+      movingRect: nextRect,
+      candidates: [...options.snap.candidates],
+      threshold: options.snap.threshold,
+      minSize: options.minSize ?? DEFAULT_MIN_SIZE,
+      sourceEdges: {
+        sourceX,
+        sourceY
+      }
+    })
+    nextRect = snapped.rect
+    nextSize = {
+      width: snapped.width,
+      height: snapped.height
+    }
+    guides = snapped.guides
+  }
+
+  return {
+    update: {
+      position: {
+        x: nextRect.x,
+        y: nextRect.y
+      },
+      size: nextSize
+    },
+    guides
+  }
+}
+
+export const getResizeUpdateRect = (
+  update: ResizeUpdate
+): Rect => ({
+  x: update.position.x,
+  y: update.position.y,
+  width: update.size.width,
+  height: update.size.height
+})
+
+const scaleAxis = (
+  startValue: number,
+  startOrigin: number,
+  scale: number,
+  nextOrigin: number
+) => nextOrigin + (startValue - startOrigin) * scale
+
+export const projectResizePatches = (options: {
+  startRect: Rect
+  nextRect: Rect
+  members: readonly TransformProjectionMember[]
+}): TransformPreviewPatch[] => {
+  const scaleX = options.startRect.width > ZOOM_EPSILON
+    ? options.nextRect.width / options.startRect.width
+    : 1
+  const scaleY = options.startRect.height > ZOOM_EPSILON
+    ? options.nextRect.height / options.startRect.height
+    : 1
+
+  return options.members.map((member) => ({
+    id: member.id,
+    position: {
+      x: scaleAxis(member.rect.x, options.startRect.x, scaleX, options.nextRect.x),
+      y: scaleAxis(member.rect.y, options.startRect.y, scaleY, options.nextRect.y)
+    },
+    size: {
+      width: Math.max(1, member.rect.width * scaleX),
+      height: Math.max(1, member.rect.height * scaleY)
+    }
+  }))
 }
 
 export const computeNextRotation = (options: {

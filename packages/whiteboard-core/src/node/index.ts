@@ -21,6 +21,7 @@ export {
   getNodesBoundingRect,
   isHiddenByCollapsedGroup,
   normalizeGroupBounds,
+  resolveContainerPadding,
   rectEquals
 } from './group'
 export type {
@@ -38,13 +39,20 @@ export {
   buildTransformHandles,
   computeNextRotation,
   computeResizeRect,
+  getResizeUpdateRect,
+  projectResizePatches,
   getResizeSourceEdges,
+  resolveResizePreview,
   resizeHandleMap,
   rotateVector
 } from './transform'
 export type {
   HorizontalResizeEdge,
+  ResizePreviewResult,
+  ResizeUpdate,
   ResizeDirection,
+  TransformPreviewPatch,
+  TransformProjectionMember,
   TransformHandle,
   VerticalResizeEdge
 } from './transform'

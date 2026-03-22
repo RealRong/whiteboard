@@ -3,59 +3,116 @@ import {
   isPointEqual,
   isSizeEqual
 } from '@whiteboard/core/geometry'
-import type { TransformHandle } from '@whiteboard/core/node'
-import type { NodeId, NodePatch } from '@whiteboard/core/types'
+import {
+  computeNextRotation,
+  computeResizeRect,
+  expandRectByThreshold,
+  getResizeUpdateRect,
+  projectResizePatches,
+  resolveInteractionZoom,
+  resolveResizePreview,
+  resolveSnapThresholdWorld,
+  type Guide,
+  type ResizeDirection,
+  type TransformHandle,
+  type TransformPreviewPatch
+} from '@whiteboard/core/node'
+import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { InternalInstance } from '../../../../runtime/instance'
-import {
-  resolveGroupResizePadding,
-  resolveResizeCommitPatch,
-  resolveResizeDrag,
-  resolveResizePreview,
-  resolveRotatePreview,
-  resolveSelectionResizePreview,
-  resolveSelectionRotatePreview,
-  type ResizeDragState,
-  type RotateDragState,
-  type SelectionTransformMember,
-  type TransformPreviewPatch
-} from '../transform/math'
-import {
-  isTextNode,
-  setTextWidthMode
-} from '../../text'
 
-type ActiveTransform =
-  | {
-      kind: 'node'
-      nodeId: NodeId
-      drag: ResizeDragState | RotateDragState
-    }
-  | {
-      kind: 'selection'
-      members: readonly SelectionTransformMember[]
-      drag: ResizeDragState | RotateDragState
-      lastPatches?: readonly TransformPreviewPatch[]
-    }
+const RESIZE_MIN_SIZE = {
+  width: 20,
+  height: 20
+}
 
-const toSelectionMember = (
-  instance: InternalInstance,
-  nodeId: NodeId
-): SelectionTransformMember | undefined => {
-  const item = instance.read.node.item.get(nodeId)
-  if (!item) {
-    return undefined
+const ZOOM_EPSILON = 0.0001
+
+type ResizeDragState = {
+  mode: 'resize'
+  pointerId: number
+  handle: ResizeDirection
+  startScreen: Point
+  startCenter: Point
+  startRotation: number
+  startSize: {
+    width: number
+    height: number
   }
+  startAspect: number
+}
 
+type RotateDragState = {
+  mode: 'rotate'
+  pointerId: number
+  startAngle: number
+  startRotation: number
+  center: Point
+}
+
+type TransformDragState = ResizeDragState | RotateDragState
+
+type TransformTarget = {
+  id: NodeId
+  node: Node
+  rect: Rect
+}
+
+type ActiveTransform = {
+  targets: readonly TransformTarget[]
+  drag: TransformDragState
+  patches?: readonly TransformPreviewPatch[]
+}
+
+type TransformPointerEvent = ReactPointerEvent<HTMLDivElement>
+
+const createResizeDrag = (options: {
+  pointerId: number
+  handle: ResizeDirection
+  rect: Rect
+  rotation: number
+  startScreen: Point
+}): ResizeDragState => ({
+  mode: 'resize',
+  pointerId: options.pointerId,
+  handle: options.handle,
+  startScreen: options.startScreen,
+  startCenter: getRectCenter(options.rect),
+  startRotation: options.rotation,
+  startSize: {
+    width: options.rect.width,
+    height: options.rect.height
+  },
+  startAspect: options.rect.width / Math.max(options.rect.height, ZOOM_EPSILON)
+})
+
+const createRotateDrag = (options: {
+  pointerId: number
+  rect: Rect
+  rotation: number
+  start: Point
+}): RotateDragState => {
+  const center = getRectCenter(options.rect)
   return {
-    node: item.node,
-    rect: item.rect,
-    rotation: typeof item.node.rotation === 'number' ? item.node.rotation : 0
+    mode: 'rotate',
+    pointerId: options.pointerId,
+    startAngle: Math.atan2(options.start.y - center.y, options.start.x - center.x),
+    startRotation: options.rotation,
+    center
   }
 }
 
-const resolveSelectionCommitPatch = (
-  node: SelectionTransformMember['node'],
+const getResizeStartRect = (
+  drag: ResizeDragState
+): Rect => ({
+  x: drag.startCenter.x - drag.startSize.width / 2,
+  y: drag.startCenter.y - drag.startSize.height / 2,
+  width: drag.startSize.width,
+  height: drag.startSize.height
+})
+
+const toPatch = (
+  node: Pick<Node, 'position' | 'size' | 'rotation'>,
   preview: TransformPreviewPatch
 ) => {
   const patch: NodePatch = {}
@@ -80,13 +137,27 @@ const resolveSelectionCommitPatch = (
   return patch
 }
 
+const toTarget = (
+  instance: InternalInstance,
+  nodeId: NodeId
+): TransformTarget | undefined => {
+  const item = instance.read.node.item.get(nodeId)
+  if (!item) {
+    return undefined
+  }
+
+  return {
+    id: item.node.id,
+    node: item.node,
+    rect: item.rect
+  }
+}
+
 export const createTransformSession = (
   instance: InternalInstance
 ) => {
   let active: ActiveTransform | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
-
-  const readCanvasNodes = () => instance.read.index.node.all().map((entry) => entry.node)
 
   const clear = () => {
     active = null
@@ -95,130 +166,140 @@ export const createTransformSession = (
     instance.internals.node.guides.clear()
   }
 
-  const commitNode = (
-    next: Extract<ActiveTransform, { kind: 'node' }>
+  const writePreview = (
+    patches: readonly TransformPreviewPatch[],
+    guides: readonly Guide[] = []
   ) => {
-    const node = instance.read.index.node.get(next.nodeId)?.node
-    if (!node) {
-      return
+    instance.internals.node.session.write({
+      patches
+    })
+    instance.internals.node.guides.write(guides)
+  }
+
+  const buildResizePreview = (options: {
+    drag: ResizeDragState
+    currentScreen: Point
+    zoom: number
+    altKey: boolean
+    shiftKey: boolean
+    excludeNodeIds: readonly NodeId[]
+  }) => {
+    const safeZoom = resolveInteractionZoom(options.zoom)
+    const base = {
+      handle: options.drag.handle,
+      startScreen: options.drag.startScreen,
+      currentScreen: options.currentScreen,
+      startCenter: options.drag.startCenter,
+      startRotation: options.drag.startRotation,
+      startSize: options.drag.startSize,
+      startAspect: options.drag.startAspect,
+      zoom: safeZoom,
+      altKey: options.altKey,
+      shiftKey: options.shiftKey,
+      minSize: RESIZE_MIN_SIZE
     }
+    const rawRect = computeResizeRect(base).rect
+    const threshold = resolveSnapThresholdWorld(instance.config.node, safeZoom)
+    const excludeSet = new Set<NodeId>(options.excludeNodeIds)
 
-    if (next.drag.mode === 'resize') {
-      const update = next.drag.lastUpdate
-      if (!update) {
-        return
-      }
-
-      let patch: NodePatch | undefined = resolveResizeCommitPatch(node, update)
-      if (patch?.size && isTextNode(node)) {
-        patch = {
-          ...patch,
-          data: setTextWidthMode(node, 'fixed')
-        }
-      }
-      const padding = resolveGroupResizePadding({
-        group: node,
-        update,
-        nodes: readCanvasNodes(),
-        nodeSize: instance.config.nodeSize
-      })
-
-      if (padding !== undefined) {
-        patch ??= {}
-        patch.data = {
-          ...(node.data ?? {}),
-          autoFit: 'manual',
-          padding
-        }
-      } else if (node.type === 'group') {
-        patch ??= {}
-        patch.data = {
-          ...(node.data ?? {}),
-          autoFit: 'manual'
-        }
-      }
-
-      if (!patch) {
-        return
-      }
-
-      instance.commands.node.update(next.nodeId, patch)
-      return
-    }
-
-    if (typeof next.drag.currentRotation !== 'number') {
-      return
-    }
-
-    const previousRotation = node.rotation ?? 0
-    if (previousRotation === next.drag.currentRotation) {
-      return
-    }
-
-    instance.commands.node.update(next.nodeId, {
-      rotation: next.drag.currentRotation
+    return resolveResizePreview({
+      ...base,
+      snap:
+        options.altKey || options.drag.startRotation !== 0
+          ? undefined
+          : {
+              threshold,
+              candidates: instance.read.index.snap.inRect(
+                expandRectByThreshold(rawRect, threshold)
+              ).filter((candidate) => !excludeSet.has(candidate.id as NodeId))
+            }
     })
   }
 
-  const commitSelection = (
-    next: Extract<ActiveTransform, { kind: 'selection' }>
+  const updateResizePreview = (
+    next: ActiveTransform,
+    drag: ResizeDragState,
+    event: PointerEvent
   ) => {
-    if (!next.lastPatches?.length) {
+    const preview = buildResizePreview({
+      drag,
+      currentScreen: {
+        x: event.clientX,
+        y: event.clientY
+      },
+      zoom: instance.viewport.get().zoom,
+      altKey: event.altKey,
+      shiftKey: event.shiftKey,
+      excludeNodeIds: next.targets.map((target) => target.id)
+    })
+
+    next.patches = next.targets.length === 1
+      ? [{
+          id: next.targets[0]!.id,
+          position: preview.update.position,
+          size: preview.update.size
+        }]
+      : projectResizePatches({
+          startRect: getResizeStartRect(drag),
+          nextRect: getResizeUpdateRect(preview.update),
+          members: next.targets
+        })
+
+    writePreview(next.patches, preview.guides)
+  }
+
+  const updateRotatePreview = (
+    next: ActiveTransform,
+    drag: RotateDragState,
+    event: PointerEvent
+  ) => {
+    const rotation = computeNextRotation({
+      center: drag.center,
+      currentPoint: instance.viewport.pointer(event).world,
+      startAngle: drag.startAngle,
+      startRotation: drag.startRotation,
+      shiftKey: event.shiftKey
+    })
+    next.patches = [{
+      id: next.targets[0]!.id,
+      rotation
+    }]
+    writePreview(next.patches)
+  }
+
+  const updatePreview = (
+    next: ActiveTransform,
+    event: PointerEvent
+  ) => {
+    if (next.drag.mode === 'resize') {
+      updateResizePreview(next, next.drag, event)
       return
     }
 
-    const nodes = readCanvasNodes()
-    const updates = next.lastPatches.flatMap((preview) => {
-      const member = next.members.find((item) => item.node.id === preview.id)
-      if (!member) {
+    updateRotatePreview(next, next.drag, event)
+  }
+
+  const commit = (next: ActiveTransform) => {
+    if (!next.patches?.length) {
+      return
+    }
+
+    const targetById = new Map(
+      next.targets.map((target) => [target.id, target] as const)
+    )
+    const updates = next.patches.flatMap((preview) => {
+      const target = targetById.get(preview.id)
+      if (!target) {
         return []
       }
 
-      let patch = resolveSelectionCommitPatch(member.node, preview)
+      const patch = toPatch(target.node, preview)
       if (!patch) {
         return []
       }
 
-      if (patch.size && isTextNode(member.node)) {
-        patch = {
-          ...patch,
-          data: setTextWidthMode(member.node, 'fixed')
-        }
-      }
-
-      if (patch.size && patch.position) {
-        const padding = resolveGroupResizePadding({
-          group: member.node,
-          update: {
-            position: patch.position,
-            size: patch.size
-          },
-          nodes,
-          nodeSize: instance.config.nodeSize
-        })
-
-        if (padding !== undefined) {
-          patch = {
-            ...patch,
-            data: {
-              ...(member.node.data ?? {}),
-              autoFit: 'manual',
-              padding
-            }
-          }
-        } else if (member.node.type === 'group') {
-          patch = {
-            ...patch,
-            data: {
-              ...(member.node.data ?? {}),
-              autoFit: 'manual'
-            }
-          }
-        }
-      }
-
       return [{
-        id: member.node.id,
+        id: target.id,
         patch
       }]
     })
@@ -230,23 +311,138 @@ export const createTransformSession = (
     instance.commands.node.updateMany(updates)
   }
 
-  const commit = (next: ActiveTransform) => {
-    if (next.kind === 'node') {
-      commitNode(next)
+  const canStart = (
+    event: TransformPointerEvent
+  ) => (
+    event.button === 0
+    && !active
+    && instance.read.tool.is('select')
+  )
+
+  const start = (
+    next: ActiveTransform,
+    event: TransformPointerEvent
+  ) => {
+    const nextSession = instance.interaction.start({
+      mode: 'node-transform',
+      pointerId: event.pointerId,
+      capture: event.currentTarget,
+      cleanup: clear,
+      move: (event) => {
+        if (!active) {
+          return
+        }
+        updatePreview(active, event)
+      },
+      up: (_event, session) => {
+        if (!active) {
+          return
+        }
+
+        commit(active)
+        session.finish()
+      }
+    })
+    if (!nextSession) {
+      return false
+    }
+
+    active = next
+    session = nextSession
+    instance.internals.node.session.clear()
+    instance.internals.node.guides.clear()
+    event.preventDefault()
+    event.stopPropagation()
+    return true
+  }
+
+  const createNodeActive = (
+    nodeId: NodeId,
+    handle: TransformHandle,
+    event: TransformPointerEvent
+  ): ActiveTransform | undefined => {
+    const nodeRect = instance.read.index.node.get(nodeId)
+    if (!nodeRect || nodeRect.node.locked) {
       return
     }
 
-    commitSelection(next)
+    const transform = instance.read.node.transform(nodeRect.node)
+    const target: TransformTarget = {
+      id: nodeRect.node.id,
+      node: nodeRect.node,
+      rect: nodeRect.rect
+    }
+    const startScreen = {
+      x: event.clientX,
+      y: event.clientY
+    }
+
+    if (handle.kind === 'resize') {
+      if (!handle.direction || !transform.resize) {
+        return
+      }
+      return {
+        targets: [target],
+        drag: createResizeDrag({
+          pointerId: event.pointerId,
+          handle: handle.direction,
+          rect: nodeRect.rect,
+          rotation: nodeRect.rotation,
+          startScreen
+        })
+      }
+    }
+
+    if (!transform.rotate) {
+      return
+    }
+
+    return {
+      targets: [target],
+      drag: createRotateDrag({
+        pointerId: event.pointerId,
+        rect: nodeRect.rect,
+        rotation: nodeRect.rotation,
+        start: instance.viewport.pointer(event).world
+      })
+    }
   }
 
-  const writePreview = (
-    patches: readonly TransformPreviewPatch[],
-    guides: ReturnType<typeof resolveResizePreview>['guides'] = []
-  ) => {
-    instance.internals.node.session.write({
-      patches
-    })
-    instance.internals.node.guides.write(guides)
+  const createSelectionActive = (
+    handle: TransformHandle,
+    event: TransformPointerEvent
+  ): ActiveTransform | undefined => {
+    const selection = instance.read.selection.get()
+    if (
+      selection.items.count <= 1
+      || !selection.box
+      || handle.kind !== 'resize'
+      || !handle.direction
+      || selection.transform.resize === 'none'
+    ) {
+      return
+    }
+
+    const targets = selection.target.nodeIds
+      .map((nodeId) => toTarget(instance, nodeId))
+      .filter((target): target is TransformTarget => Boolean(target))
+    if (targets.length !== selection.target.nodeIds.length) {
+      return
+    }
+
+    return {
+      targets,
+      drag: createResizeDrag({
+        pointerId: event.pointerId,
+        handle: handle.direction,
+        rect: selection.box,
+        rotation: 0,
+        startScreen: {
+          x: event.clientX,
+          y: event.clientY
+        }
+      })
+    }
   }
 
   return {
@@ -260,231 +456,33 @@ export const createTransformSession = (
     handleNodePointerDown: (
       nodeId: NodeId,
       handle: TransformHandle,
-      event: ReactPointerEvent<HTMLDivElement>
+      event: TransformPointerEvent
     ) => {
-      if (event.button !== 0) return
-      if (active) return
-      if (!instance.read.tool.is('select')) return
-
-      const nodeRect = instance.read.index.node.get(nodeId)
-      if (!nodeRect || nodeRect.node.locked) return
-
-      let drag: ResizeDragState | RotateDragState
-
-      if (handle.kind === 'resize') {
-        if (!handle.direction) return
-        drag = resolveResizeDrag({
-          pointerId: event.pointerId,
-          handle: handle.direction,
-          rect: nodeRect.rect,
-          rotation: nodeRect.rotation,
-          startScreen: {
-            x: event.clientX,
-            y: event.clientY
-          }
-        })
-      } else if (handle.kind === 'rotate') {
-        const center = getRectCenter(nodeRect.rect)
-        const { world } = instance.viewport.pointer(event)
-        drag = {
-          mode: 'rotate',
-          pointerId: event.pointerId,
-          startAngle: Math.atan2(world.y - center.y, world.x - center.x),
-          startRotation: nodeRect.rotation,
-          currentRotation: nodeRect.rotation,
-          center
-        }
-      } else {
+      if (!canStart(event)) {
         return
       }
 
-      const nextSession = instance.interaction.start({
-        mode: 'node-transform',
-        pointerId: event.pointerId,
-        capture: event.currentTarget,
-        cleanup: clear,
-        move: (event) => {
-          if (!active || active.kind !== 'node') {
-            return
-          }
-
-          if (active.drag.mode === 'resize') {
-            const preview = resolveResizePreview({
-              snapEnabled: instance.read.tool.is('select'),
-              drag: active.drag,
-              currentScreen: {
-                x: event.clientX,
-                y: event.clientY
-              },
-              zoom: instance.viewport.get().zoom,
-              altKey: event.altKey,
-              shiftKey: event.shiftKey,
-              excludeNodeIds: [active.nodeId],
-              config: instance.config,
-              readSnapCandidatesInRect: (rect) => instance.read.index.snap.inRect(rect)
-            })
-
-            active.drag.lastUpdate = preview.update
-            writePreview([{
-              id: active.nodeId,
-              position: preview.update.position,
-              size: preview.update.size
-            }], preview.guides)
-            return
-          }
-
-          const rotation = resolveRotatePreview({
-            drag: active.drag,
-            currentPoint: instance.viewport.pointer(event).world,
-            shiftKey: event.shiftKey
-          })
-          active.drag.currentRotation = rotation
-          writePreview([{
-            id: active.nodeId,
-            rotation
-          }])
-        },
-        up: (_event, session) => {
-          if (!active || active.kind !== 'node') {
-            return
-          }
-
-          commit(active)
-          session.finish()
-        }
-      })
-      if (!nextSession) return
-
-      active = {
-        kind: 'node',
-        nodeId,
-        drag
+      const next = createNodeActive(nodeId, handle, event)
+      if (!next) {
+        return
       }
-      session = nextSession
-      instance.internals.node.session.clear()
-      instance.internals.node.guides.clear()
 
-      event.preventDefault()
-      event.stopPropagation()
+      start(next, event)
     },
     handleSelectionPointerDown: (
       handle: TransformHandle,
-      event: ReactPointerEvent<HTMLDivElement>
+      event: TransformPointerEvent
     ) => {
-      if (event.button !== 0) return
-      if (active) return
-      if (!instance.read.tool.is('select')) return
-
-      const selection = instance.read.selection.get()
-      if (selection.items.count <= 1 || !selection.box) {
+      if (!canStart(event)) {
         return
       }
 
-      const members = selection.target.nodeIds
-        .map((nodeId) => toSelectionMember(instance, nodeId))
-        .filter((member): member is SelectionTransformMember => Boolean(member))
-      if (members.length !== selection.target.nodeIds.length) {
+      const next = createSelectionActive(handle, event)
+      if (!next) {
         return
       }
 
-      let drag: ResizeDragState | RotateDragState
-      if (handle.kind === 'resize') {
-        if (!handle.direction || selection.transform.resize === 'none') {
-          return
-        }
-        drag = resolveResizeDrag({
-          pointerId: event.pointerId,
-          handle: handle.direction,
-          rect: selection.box,
-          rotation: 0,
-          startScreen: {
-            x: event.clientX,
-            y: event.clientY
-          }
-        })
-      } else {
-        if (!selection.transform.rotate) {
-          return
-        }
-        const center = getRectCenter(selection.box)
-        const { world } = instance.viewport.pointer(event)
-        drag = {
-          mode: 'rotate',
-          pointerId: event.pointerId,
-          startAngle: Math.atan2(world.y - center.y, world.x - center.x),
-          startRotation: 0,
-          currentRotation: 0,
-          center
-        }
-      }
-
-      const nextSession = instance.interaction.start({
-        mode: 'node-transform',
-        pointerId: event.pointerId,
-        capture: event.currentTarget,
-        cleanup: clear,
-        move: (event) => {
-          if (!active || active.kind !== 'selection') {
-            return
-          }
-
-          if (active.drag.mode === 'resize') {
-            const preview = resolveSelectionResizePreview({
-              snapEnabled: instance.read.tool.is('select'),
-              drag: active.drag,
-              currentScreen: {
-                x: event.clientX,
-                y: event.clientY
-              },
-              zoom: instance.viewport.get().zoom,
-              altKey: event.altKey,
-              shiftKey: event.shiftKey,
-              members: active.members,
-              config: instance.config,
-              readSnapCandidatesInRect: (rect) => instance.read.index.snap.inRect(rect)
-            })
-
-            active.lastPatches = preview.patches
-            writePreview(preview.patches, preview.guides)
-            return
-          }
-
-          const preview = resolveSelectionRotatePreview({
-            drag: active.drag,
-            currentPoint: instance.viewport.pointer(event).world,
-            shiftKey: event.shiftKey,
-            members: active.members
-          })
-          active.drag.currentRotation = resolveRotatePreview({
-            drag: active.drag,
-            currentPoint: instance.viewport.pointer(event).world,
-            shiftKey: event.shiftKey
-          })
-          active.lastPatches = preview.patches
-          writePreview(preview.patches)
-        },
-        up: (_event, session) => {
-          if (!active || active.kind !== 'selection') {
-            return
-          }
-
-          commit(active)
-          session.finish()
-        }
-      })
-      if (!nextSession) return
-
-      active = {
-        kind: 'selection',
-        members,
-        drag
-      }
-      session = nextSession
-      instance.internals.node.session.clear()
-      instance.internals.node.guides.clear()
-
-      event.preventDefault()
-      event.stopPropagation()
+      start(next, event)
     }
   }
 }

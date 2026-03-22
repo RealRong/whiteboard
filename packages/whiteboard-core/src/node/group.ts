@@ -142,6 +142,36 @@ export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
   Math.abs(a.height - b.height) <= epsilon
 )
 
+export const resolveContainerPadding = (options: {
+  containerRect: Rect
+  contentRect: Rect
+  currentPadding?: number
+  epsilon?: number
+}) => {
+  const {
+    containerRect,
+    contentRect,
+    currentPadding,
+    epsilon = 0.5
+  } = options
+  const left = contentRect.x - containerRect.x
+  const top = contentRect.y - containerRect.y
+  const right =
+    containerRect.x + containerRect.width - (contentRect.x + contentRect.width)
+  const bottom =
+    containerRect.y + containerRect.height - (contentRect.y + contentRect.height)
+  const padding = Math.max(0, Math.min(left, top, right, bottom))
+
+  if (
+    currentPadding !== undefined
+    && Math.abs(currentPadding - padding) <= epsilon
+  ) {
+    return
+  }
+
+  return padding
+}
+
 const createChildIdsByParentId = (nodes: readonly Node[]) => {
   const childIdsByParentId = new Map<NodeId, NodeId[]>()
   nodes.forEach((node) => {

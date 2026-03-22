@@ -36,7 +36,6 @@ export type Commands = {
 export type Transform = {
   move: boolean
   resize: 'none' | 'resize' | 'scale'
-  rotate: boolean
 }
 
 export type View = {
@@ -69,8 +68,7 @@ const EMPTY_SOURCE: Source = {
 }
 const EMPTY_TRANSFORM: Transform = {
   move: false,
-  resize: 'none',
-  rotate: false
+  resize: 'none'
 }
 
 const readNodeItems = (
@@ -111,7 +109,6 @@ export const isViewEqual = (
   && left.items.count === right.items.count
   && left.transform.move === right.transform.move
   && left.transform.resize === right.transform.resize
-  && left.transform.rotate === right.transform.rotate
   && isOrderedArrayEqual(left.target.nodeIds, right.target.nodeIds)
   && isOrderedArrayEqual(left.items.nodes, right.items.nodes)
   && isRectEqual(left.box, right.box)
@@ -194,11 +191,7 @@ export const resolveView = ({
           && resolveNodeTransform(node).resize
         ))
           ? 'resize' as const
-          : 'none' as const,
-        rotate: count === 1 && nodes.every((node) => (
-          !node.locked
-          && resolveNodeTransform(node).rotate
-        ))
+          : 'none' as const
       }
     : EMPTY_TRANSFORM
   const box = items.length > 0

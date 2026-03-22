@@ -161,7 +161,7 @@ const SelectionTransformOverlay = ({
         rect={selection.box}
         rotation={0}
         canResize={selection.transform.resize !== 'none'}
-        canRotate={selection.transform.rotate}
+        canRotate={false}
         onTransformPointerDown={onTransformPointerDown}
       />
     </>
