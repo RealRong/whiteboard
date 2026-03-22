@@ -14,6 +14,10 @@ import {
   resolveNodeTransform,
   type NodeRead
 } from './node'
+import {
+  createChromeRead,
+  type ChromeRead
+} from './chrome'
 import { createEdgeRead } from './edge'
 import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
@@ -25,6 +29,7 @@ import {
 
 export type RuntimeRead = Omit<EngineRead, 'node'> & {
   node: NodeRead
+  chrome: ChromeRead
   selection: SelectionRead
   tool: ToolRead
   slice: SliceRead
@@ -70,7 +75,9 @@ export const createRuntimeRead = ({
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
     registry,
-    item: nodeItem,
+    item: nodeItem
+  })
+  const chromeRead = createChromeRead({
     tool,
     edit,
     selection: selectionRead,
@@ -84,6 +91,7 @@ export const createRuntimeRead = ({
 
   return {
     node: nodeRead,
+    chrome: chromeRead,
     edge: edgeRead,
     mindmap: mindmapRead,
     selection: selectionRead,

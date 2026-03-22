@@ -17,14 +17,14 @@ const isSameModelRefs = (
     visibleNodes,
     canvasNodes,
     visibleEdges,
-    canvasNodeById,
-    canvasNodeIds
+    nodeById,
+    nodeIds
   }: {
     visibleNodes: Node[]
     canvasNodes: Node[]
     visibleEdges: Edge[]
-    canvasNodeById: ReadModel['indexes']['canvasNodeById']
-    canvasNodeIds: ReadModel['indexes']['canvasNodeIds']
+    nodeById: ReadModel['canvas']['nodeById']
+    nodeIds: ReadModel['canvas']['nodeIds']
   }
 ): cache is ReadModel => {
   if (!cache) return false
@@ -32,8 +32,8 @@ const isSameModelRefs = (
     cache.nodes.visible === visibleNodes &&
     cache.nodes.canvas === canvasNodes &&
     cache.edges.visible === visibleEdges &&
-    cache.indexes.canvasNodeById === canvasNodeById &&
-    cache.indexes.canvasNodeIds === canvasNodeIds
+    cache.canvas.nodeById === nodeById &&
+    cache.canvas.nodeIds === nodeIds
   )
 }
 
@@ -53,9 +53,9 @@ export const createReadModel = ({
   let canvasNodesCache: Node[] = EMPTY_NODES
   let canvasNodeByIdCache: Map<NodeId, Node> = EMPTY_NODE_MAP
   let canvasNodeIdsCache: NodeId[] = EMPTY_NODE_IDS
-  let indexesCache: ReadModel['indexes'] = {
-    canvasNodeById: EMPTY_NODE_MAP,
-    canvasNodeIds: EMPTY_NODE_IDS
+  let canvasCache: ReadModel['canvas'] = {
+    nodeById: EMPTY_NODE_MAP,
+    nodeIds: EMPTY_NODE_IDS
   }
 
   type EdgeVisibleCache = {
@@ -81,9 +81,9 @@ export const createReadModel = ({
       canvasNodesCache = EMPTY_NODES
       canvasNodeByIdCache = EMPTY_NODE_MAP
       canvasNodeIdsCache = EMPTY_NODE_IDS
-      indexesCache = {
-        canvasNodeById: EMPTY_NODE_MAP,
-        canvasNodeIds: EMPTY_NODE_IDS
+      canvasCache = {
+        nodeById: EMPTY_NODE_MAP,
+        nodeIds: EMPTY_NODE_IDS
       }
     } else if (nodes !== previousNodesRef) {
       const previousCanvasNodesCache = canvasNodesCache
@@ -110,14 +110,14 @@ export const createReadModel = ({
       canvasNodeIdsCache = isSameRefOrder(canvasNodeIdsCache, normalizedCanvasNodeIds)
         ? canvasNodeIdsCache
         : normalizedCanvasNodeIds
-      indexesCache = (
-        indexesCache.canvasNodeById === canvasNodeByIdCache &&
-        indexesCache.canvasNodeIds === canvasNodeIdsCache
+      canvasCache = (
+        canvasCache.nodeById === canvasNodeByIdCache &&
+        canvasCache.nodeIds === canvasNodeIdsCache
       )
-        ? indexesCache
+        ? canvasCache
         : {
-            canvasNodeById: canvasNodeByIdCache,
-            canvasNodeIds: canvasNodeIdsCache
+            nodeById: canvasNodeByIdCache,
+            nodeIds: canvasNodeIdsCache
           }
 
       previousNodesRef = nodes
@@ -155,8 +155,8 @@ export const createReadModel = ({
       visibleNodes: visibleNodesCache,
       canvasNodes: canvasNodesCache,
       visibleEdges: visibleEdgesCache,
-      canvasNodeById: indexesCache.canvasNodeById,
-      canvasNodeIds: indexesCache.canvasNodeIds
+      nodeById: canvasCache.nodeById,
+      nodeIds: canvasCache.nodeIds
     })) {
       return cache
     }
@@ -169,7 +169,7 @@ export const createReadModel = ({
       edges: {
         visible: visibleEdgesCache
       },
-      indexes: indexesCache
+      canvas: canvasCache
     }
     return cache
   }

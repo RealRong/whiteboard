@@ -25,9 +25,12 @@ import {
 } from '../features/node/commands'
 import {
   createNodeSelectionActions,
-  type NodeActionItem,
   type NodeSelectionActions
 } from '../features/node/actions'
+import {
+  readNodeMenuFilter,
+  readNodeMoreMenuSections
+} from './nodeActionSurface'
 import {
   copyNodes,
   cutNodes,
@@ -41,7 +44,7 @@ import {
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
-import { MoreMenu, type MoreMenuSection } from './menus/MoreMenu'
+import { MoreMenu } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
@@ -400,28 +403,6 @@ const queryNodeTextSource = ({
     : undefined
 }
 
-const readMoreMenuSections = (
-  actions: NodeSelectionActions,
-  close: () => void
-): MoreMenuSection[] => {
-  const bindItems = (
-    items: readonly NodeActionItem[]
-  ) => items.map((item) => ({
-    ...item,
-    onClick: () => {
-      closeAfter(item.onClick(), close)
-    }
-  }))
-
-  return actions.sections
-    .filter((section) => section.key !== 'layout')
-    .map((section) => ({
-      key: section.key,
-      title: section.title,
-      items: bindItems(section.items)
-    }))
-}
-
 const updateToolbarTextNode = ({
   instance,
   container,
@@ -538,7 +519,7 @@ export const NodeToolbar = ({
 }) => {
   const instance = useInternalInstance()
   const viewport = useStoreValue(instance.viewport)
-  const chrome = useStoreValue(instance.read.node.chrome)
+  const chrome = useStoreValue(instance.read.chrome.node)
   const selection = useSelection()
   const worldToScreen = useCallback(
     (point: Point) => instance.viewport.worldToScreen(point),
@@ -810,15 +791,8 @@ export const NodeToolbar = ({
             summary={toolbar.nodes.length > 1
               ? actions.summary
               : undefined}
-            filter={actions.filter.visible
-              ? {
-                  types: actions.filter.types,
-                  onSelect: (type) => {
-                    closeAfter(actions.filter.onSelect(type), closeMenu)
-                  }
-                }
-              : undefined}
-            sections={readMoreMenuSections(actions, closeMenu)}
+            filter={readNodeMenuFilter(actions, closeMenu)}
+            sections={readNodeMoreMenuSections(actions, closeMenu)}
           />
         )
     }

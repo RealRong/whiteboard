@@ -11,7 +11,7 @@ import { createTrackedRead } from './tracked'
 export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
   const cacheById = new Map<NodeId, NodeItem>()
   const list = createValueStore(
-    initialSnapshot.model.indexes.canvasNodeIds as readonly NodeId[]
+    initialSnapshot.model.canvas.nodeIds as readonly NodeId[]
   )
   const tracked = createTrackedRead<NodeId, NodeItem | undefined>({
     emptyValue: undefined,
@@ -19,14 +19,14 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
   })
   let snapshotRef: ReadSnapshot = initialSnapshot
 
-  const getNodeMap = () => snapshotRef.model.indexes.canvasNodeById
+  const getNodeMap = () => snapshotRef.model.canvas.nodeById
 
   const readEntry = (
     nodeId: NodeId,
     previous?: NodeItem
   ) => {
     const node = getNodeMap().get(nodeId)
-    const canvasNode = snapshotRef.indexes.node.get(nodeId)
+    const canvasNode = snapshotRef.index.node.get(nodeId)
     if (!node || !canvasNode) {
       return undefined
     }
@@ -59,7 +59,7 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
   ) => {
     snapshotRef = snapshot
     const prevIds = list.get()
-    const nextIds = snapshotRef.model.indexes.canvasNodeIds as readonly NodeId[]
+    const nextIds = snapshotRef.model.canvas.nodeIds as readonly NodeId[]
     const idsChanged = prevIds !== nextIds
 
     if (idsChanged) {
@@ -87,7 +87,7 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
 
     if (idsChanged) {
       prevIds.forEach((nodeId) => {
-        if (!snapshotRef.model.indexes.canvasNodeById.has(nodeId)) {
+        if (!snapshotRef.model.canvas.nodeById.has(nodeId)) {
           changedNodeIds.add(nodeId)
         }
       })

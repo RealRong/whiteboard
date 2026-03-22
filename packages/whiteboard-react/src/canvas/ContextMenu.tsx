@@ -16,13 +16,10 @@ import {
   hasNode
 } from '../runtime/container'
 import {
-  createNodeSelectionActions,
-  type NodeActionItem,
-  type NodeActionSection
+  createNodeSelectionActions
 } from '../features/node/actions'
 import {
-  type NodeSummary,
-  type NodeTypeSummary
+  type NodeSummary
 } from '../features/node/summary'
 import {
   type GroupAutoFitMode,
@@ -57,38 +54,24 @@ import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
 } from '../features/node/components/SelectionSummaryHeader'
+import {
+  bindNodeMenuGroup,
+  readNodeContextMenuGroups,
+  readNodeMenuFilter,
+  type NodeMenuFilter,
+  type NodeMenuGroup,
+  type NodeMenuItem
+} from './nodeActionSurface'
 
 type Surface = {
   width: number
   height: number
 }
 
-type ContextMenuTone = 'default' | 'danger'
-
-type ContextMenuItem = {
-  key: string
-  label: string
-  tone?: ContextMenuTone
-  disabled?: boolean
-  onClick?: () => void
-  children?: readonly ContextMenuItem[]
-}
-
-type ContextMenuGroup = {
-  key: string
-  title?: string
-  items: readonly ContextMenuItem[]
-}
-
-type ContextMenuFilter = {
-  types: readonly NodeTypeSummary[]
-  onSelect: (type: string) => void
-}
-
 type ContextMenuView = {
   summary?: NodeSummary
-  filter?: ContextMenuFilter
-  groups: readonly ContextMenuGroup[]
+  filter?: NodeMenuFilter
+  groups: readonly NodeMenuGroup[]
 }
 
 type ContextMenuTarget =
@@ -233,7 +216,7 @@ const buildStrokeStyleGroup = ({
 }: {
   instance: Pick<ReturnType<typeof useInternalInstance>, 'registry' | 'commands'>
   nodes: readonly WhiteboardNode[]
-}): ContextMenuGroup | undefined => {
+}): NodeMenuGroup | undefined => {
   if (!nodes.length) {
     return undefined
   }
@@ -335,82 +318,6 @@ const readPlacement = ({
     submenuSide: alignRight ? 'left' as const : 'right' as const
   }
 }
-
-const bindContextMenuItems = (
-  items: readonly ContextMenuItem[],
-  close: () => void
-): ContextMenuItem[] => (
-  items.map((item) => ({
-    ...item,
-    onClick: item.onClick
-      ? () => {
-        closeAfter(item.onClick?.(), close)
-      }
-      : undefined,
-    children: item.children
-      ? bindContextMenuItems(item.children, close)
-      : undefined
-  }))
-)
-
-const toContextMenuItems = (
-  items: readonly NodeActionItem[]
-): ContextMenuItem[] => (
-  items.map((item) => ({
-    key: item.key,
-    label: item.label,
-    tone: item.tone,
-    disabled: item.disabled,
-    onClick: item.onClick
-  }))
-)
-
-const bindContextMenuGroups = (
-  groups: readonly ContextMenuGroup[],
-  close: () => void
-): ContextMenuGroup[] => (
-  groups.map((group) => ({
-    ...group,
-    items: bindContextMenuItems(group.items, close)
-  }))
-)
-
-const bindContextMenuFilter = (
-  filter: ContextMenuFilter | undefined,
-  close: () => void
-): ContextMenuFilter | undefined => {
-  if (!filter) {
-    return undefined
-  }
-
-  return {
-    ...filter,
-    onSelect: (type) => {
-      closeAfter(filter.onSelect(type), close)
-    }
-  }
-}
-
-const readActionContextMenuGroups = (
-  sections: readonly NodeActionSection[]
-): ContextMenuGroup[] => sections.map((section) => (
-  section.kind === 'submenu'
-    ? {
-        key: section.key,
-        items: [
-          {
-            key: `${section.key}.menu`,
-            label: section.title,
-            children: toContextMenuItems(section.items)
-          }
-        ]
-      }
-    : {
-        key: section.key,
-        title: section.title,
-        items: toContextMenuItems(section.items)
-      }
-))
 
 const readContextMenuOpenResult = ({
   instance,
@@ -621,7 +528,7 @@ export const ContextMenu = ({
 
     const buildGroupSection = (
       node: WhiteboardNode
-    ): ContextMenuGroup => {
+    ): NodeMenuGroup => {
       const collapsed = Boolean(node.data?.collapsed)
       const autoFit: GroupAutoFitMode =
         node.data?.autoFit === 'manual'
@@ -750,38 +657,29 @@ export const ContextMenu = ({
             onCopy: () => copyNodes(instance, [target.node.id]),
             onCut: () => cutNodes(instance, [target.node.id])
           })
-          const groups = readActionContextMenuGroups(actions.sections)
+          const groups = readNodeContextMenuGroups(actions, dismissAction)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: [target.node]
           })
           if (styleGroup) {
-            groups.unshift(styleGroup)
+            groups.unshift(bindNodeMenuGroup(styleGroup, dismissAction))
           }
-          const boundGroups = bindContextMenuGroups(
-            groups,
-            dismissAction
-          )
           if (target.node.type === 'group') {
-            const groupSection = buildGroupSection(target.node)
-            const structureIndex = boundGroups.findIndex((group) => group.key === 'structure')
+            const groupSection = bindNodeMenuGroup(
+              buildGroupSection(target.node),
+              dismissAction
+            )
+            const structureIndex = groups.findIndex((group) => group.key === 'structure')
             if (structureIndex >= 0) {
-              boundGroups.splice(structureIndex + 1, 0, groupSection)
+              groups.splice(structureIndex + 1, 0, groupSection)
             } else {
-              boundGroups.push(groupSection)
+              groups.push(groupSection)
             }
           }
           return {
-            filter: bindContextMenuFilter(
-              actions.filter.visible
-                ? {
-                    types: actions.filter.types,
-                    onSelect: actions.filter.onSelect
-                  }
-                : undefined,
-              dismissAction
-            ),
-            groups: boundGroups
+            filter: readNodeMenuFilter(actions, dismissAction),
+            groups
           }
         }
         case 'nodes': {
@@ -789,35 +687,24 @@ export const ContextMenu = ({
             onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
             onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
           })
-          const groups = readActionContextMenuGroups(actions.sections)
+          const groups = readNodeContextMenuGroups(actions, dismissAction)
           const styleGroup = buildStrokeStyleGroup({
             instance,
             nodes: target.nodes
           })
           if (styleGroup) {
-            groups.unshift(styleGroup)
+            groups.unshift(bindNodeMenuGroup(styleGroup, dismissAction))
           }
           return {
             summary: actions.summary,
-            filter: bindContextMenuFilter(
-              actions.filter.visible
-                ? {
-                    types: actions.filter.types,
-                    onSelect: actions.filter.onSelect
-                  }
-                : undefined,
-              dismissAction
-            ),
-            groups: bindContextMenuGroups(
-              groups,
-              dismissAction
-            )
+            filter: readNodeMenuFilter(actions, dismissAction),
+            groups
           }
         }
         case 'edge':
           return {
             groups: [
-              {
+              bindNodeMenuGroup({
                 key: 'edge.actions',
                 items: [
                   {
@@ -834,12 +721,10 @@ export const ContextMenu = ({
                     key: 'edge.delete',
                     label: 'Delete',
                     tone: 'danger',
-                    onClick: () => {
-                      closeAfter(instance.commands.edge.delete([target.edgeId]), dismissAction)
-                    }
+                    onClick: () => instance.commands.edge.delete([target.edgeId])
                   }
                 ]
-              }
+              }, dismissAction)
             ]
           }
       }
@@ -892,7 +777,7 @@ export const ContextMenu = ({
     transform: view.placement.transform
   }
 
-  const renderLeafItem = (item: ContextMenuItem) => (
+  const renderLeafItem = (item: NodeMenuItem) => (
     <button
       key={item.key}
       type="button"
@@ -915,7 +800,7 @@ export const ContextMenu = ({
     </button>
   )
 
-  const renderSubmenuItem = (item: ContextMenuItem) => {
+  const renderSubmenuItem = (item: NodeMenuItem) => {
     const open = submenuKey === item.key
     return (
       <div
@@ -958,7 +843,7 @@ export const ContextMenu = ({
     )
   }
 
-  const renderGroup = (group: ContextMenuGroup) => (
+  const renderGroup = (group: NodeMenuGroup) => (
     <div key={group.key} className="wb-context-menu-section">
       {group.title ? (
         <div className="wb-context-menu-section-title">{group.title}</div>

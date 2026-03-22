@@ -1,7 +1,7 @@
-import type { WriteInstance } from '@engine-types/write'
 import type { NodeWriteOutput, WriteCommandMap } from '@engine-types/command'
-import type { Draft } from '../draft'
-import { cancelled, invalid, op, ops, success } from '../draft'
+import type { WriteTranslateContext } from './index'
+import type { TranslateResult } from './result'
+import { cancelled, invalid, fromOp, fromOps, success } from './result'
 import {
   buildNodeAlignOperations,
   buildNodeCreateOperation,
@@ -27,8 +27,7 @@ import {
   bringOrderToFront,
   sanitizeOrderIds,
   sendOrderToBack,
-  sendOrderBackward,
-  createId
+  sendOrderBackward
 } from '@whiteboard/core/utils'
 import { DEFAULT_TUNING } from '../../config'
 
@@ -63,105 +62,105 @@ const toUpdateOperations = (
   }))
 }
 
-export const node = ({
-  instance
-}: {
-  instance: Pick<WriteInstance, 'document' | 'config' | 'registries'>
-}) => {
-  const readDoc = (): Document => instance.document.get()
-  const createGroupId = () => createId('group')
-  const createNodeId = () => createId('node')
-  const createEdgeId = () => createId('edge')
+export const translateNode = <C extends NodeCommand>(
+  command: C,
+  ctx: WriteTranslateContext
+): TranslateResult<NodeWriteOutput<C>> => {
+  const doc = ctx.doc
 
-  const create = (command: CreateCommand): Draft<{ nodeId: NodeId }> =>
-    op(
+  const create = (command: CreateCommand): TranslateResult<{ nodeId: NodeId }> =>
+    fromOp(
       buildNodeCreateOperation({
         payload: command.payload,
-        doc: readDoc(),
-        registries: instance.registries,
-        createNodeId
+        doc,
+        registries: ctx.registries,
+        createNodeId: ctx.ids.node
       }),
       ({ nodeId }) => ({ nodeId })
     )
 
-  const group = (command: GroupCommand): Draft<{ groupId: NodeId }> => {
+  const group = (command: GroupCommand): TranslateResult<{ groupId: NodeId }> => {
     if (command.ids.length < 2) {
       return cancelled('At least two nodes are required.')
     }
 
-    return ops(
+    return fromOps(
       buildNodeGroupOperations({
         ids: command.ids,
-        doc: readDoc(),
-        nodeSize: instance.config.nodeSize,
-        createGroupId
+        doc,
+        nodeSize: ctx.config.nodeSize,
+        createGroupId: ctx.ids.group
       }),
       ({ groupId }) => ({ groupId })
     )
   }
 
-  const ungroup = (command: UngroupCommand): Draft<{ nodeIds: NodeId[] }> =>
-    ops(
-      buildNodeUngroupOperations(command.id, readDoc()),
+  const ungroup = (command: UngroupCommand): TranslateResult<{ nodeIds: NodeId[] }> =>
+    fromOps(
+      buildNodeUngroupOperations(command.id, doc),
       ({ nodeIds }) => ({ nodeIds })
     )
 
-  const ungroupMany = (command: UngroupManyCommand): Draft<{ nodeIds: NodeId[] }> => {
+  const ungroupMany = (command: UngroupManyCommand): TranslateResult<{ nodeIds: NodeId[] }> => {
     if (!command.ids.length) {
       return cancelled('No groups selected.')
     }
 
-    return ops(
-      buildNodeUngroupManyOperations(command.ids, readDoc()),
+    return fromOps(
+      buildNodeUngroupManyOperations(command.ids, doc),
       ({ nodeIds }) => ({ nodeIds })
     )
   }
 
-  const updateMany = (command: UpdateManyCommand): Draft =>
-    success(toUpdateOperations(command.updates))
+  const updateMany = (command: UpdateManyCommand): TranslateResult => {
+    const operations = toUpdateOperations(command.updates)
+    if (!operations.length) {
+      return cancelled('No node updates provided.')
+    }
+    return success(operations)
+  }
 
-  const align = (command: AlignCommand): Draft => {
+  const align = (command: AlignCommand): TranslateResult => {
     if (command.ids.length < 2) {
       return cancelled('At least two nodes are required.')
     }
 
     const result = buildNodeAlignOperations({
       ids: command.ids,
-      doc: readDoc(),
-      nodeSize: instance.config.nodeSize,
+      doc,
+      nodeSize: ctx.config.nodeSize,
       mode: command.mode
     })
     if (!result.ok) {
-      return ops(result)
+      return fromOps(result)
     }
     if (!result.data.operations.length) {
       return cancelled('Nodes are already aligned.')
     }
-    return ops(result)
+    return fromOps(result)
   }
 
-  const distribute = (command: DistributeCommand): Draft => {
+  const distribute = (command: DistributeCommand): TranslateResult => {
     if (command.ids.length < 3) {
       return cancelled('At least three nodes are required.')
     }
 
     const result = buildNodeDistributeOperations({
       ids: command.ids,
-      doc: readDoc(),
-      nodeSize: instance.config.nodeSize,
+      doc,
+      nodeSize: ctx.config.nodeSize,
       mode: command.mode
     })
     if (!result.ok) {
-      return ops(result)
+      return fromOps(result)
     }
     if (!result.data.operations.length) {
       return cancelled('Nodes are already distributed.')
     }
-    return ops(result)
+    return fromOps(result)
   }
 
-  const updateData = (command: DataCommand): Draft => {
-    const doc = readDoc()
+  const updateData = (command: DataCommand): TranslateResult => {
     const current = getNode(doc, command.id)
     if (!current) {
       return invalid(`Node ${command.id} not found.`)
@@ -178,8 +177,7 @@ export const node = ({
     }])
   }
 
-  const order = (command: OrderCommand): Draft => {
-    const doc = readDoc()
+  const order = (command: OrderCommand): TranslateResult => {
     const current = [...doc.nodes.order]
     const target = sanitizeOrderIds(command.ids) as NodeId[]
     let nextOrder: NodeId[]
@@ -206,12 +204,11 @@ export const node = ({
     return success([{ type: 'node.order.set', ids: nextOrder }])
   }
 
-  const deleteCascade = (command: DeleteCascadeCommand): Draft => {
+  const deleteCascade = (command: DeleteCascadeCommand): TranslateResult => {
     if (!command.ids.length) {
       return cancelled('No nodes selected.')
     }
 
-    const doc = readDoc()
     const { expandedIds } = expandNodeSelection(listNodes(doc), command.ids)
     if (!expandedIds.size) {
       return cancelled('No nodes selected.')
@@ -234,48 +231,46 @@ export const node = ({
 
   const duplicate = (
     command: DuplicateCommand
-  ): Draft<{ nodeIds: NodeId[]; edgeIds: EdgeId[] }> =>
-    ops(
+  ): TranslateResult<{ nodeIds: NodeId[]; edgeIds: EdgeId[] }> =>
+    fromOps(
       buildNodeDuplicateOperations({
-        doc: readDoc(),
+        doc,
         ids: command.ids,
-        registries: instance.registries,
-        createNodeId,
-        createEdgeId,
-        nodeSize: instance.config.nodeSize,
+        registries: ctx.registries,
+        createNodeId: ctx.ids.node,
+        createEdgeId: ctx.ids.edge,
+        nodeSize: ctx.config.nodeSize,
         offset: DEFAULT_TUNING.shortcuts.duplicateOffset
       }),
       ({ nodeIds, edgeIds }) => ({ nodeIds, edgeIds })
     )
 
-  return <C extends NodeCommand>(command: C): Draft<NodeWriteOutput<C>> => {
-    switch (command.type) {
-      case 'create':
-        return create(command) as Draft<NodeWriteOutput<C>>
-      case 'updateMany':
-        return updateMany(command) as Draft<NodeWriteOutput<C>>
-      case 'align':
-        return align(command) as Draft<NodeWriteOutput<C>>
-      case 'distribute':
-        return distribute(command) as Draft<NodeWriteOutput<C>>
-      case 'data':
-        return updateData(command) as Draft<NodeWriteOutput<C>>
-      case 'delete':
-        return success(command.ids.map((id) => ({ type: 'node.delete' as const, id }))) as Draft<NodeWriteOutput<C>>
-      case 'deleteCascade':
-        return deleteCascade(command) as Draft<NodeWriteOutput<C>>
-      case 'duplicate':
-        return duplicate(command) as Draft<NodeWriteOutput<C>>
-      case 'group.create':
-        return group(command) as Draft<NodeWriteOutput<C>>
-      case 'group.ungroup':
-        return ungroup(command) as Draft<NodeWriteOutput<C>>
-      case 'group.ungroupMany':
-        return ungroupMany(command) as Draft<NodeWriteOutput<C>>
-      case 'order':
-        return order(command) as Draft<NodeWriteOutput<C>>
-      default:
-        return invalid('Unsupported node action.') as Draft<NodeWriteOutput<C>>
-    }
+  switch (command.type) {
+    case 'create':
+      return create(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'updateMany':
+      return updateMany(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'align':
+      return align(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'distribute':
+      return distribute(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'data':
+      return updateData(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'delete':
+      return success(command.ids.map((id) => ({ type: 'node.delete' as const, id }))) as TranslateResult<NodeWriteOutput<C>>
+    case 'deleteCascade':
+      return deleteCascade(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'duplicate':
+      return duplicate(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'group.create':
+      return group(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'group.ungroup':
+      return ungroup(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'group.ungroupMany':
+      return ungroupMany(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'order':
+      return order(command) as TranslateResult<NodeWriteOutput<C>>
+    default:
+      return invalid('Unsupported node action.') as TranslateResult<NodeWriteOutput<C>>
   }
 }

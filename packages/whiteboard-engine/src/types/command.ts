@@ -8,9 +8,7 @@ import type {
   NodeId,
   NodeInput,
   NodePatch,
-  Operation,
-  Point,
-  Rect
+  Point
 } from '@whiteboard/core/types'
 import type {
   Slice,
@@ -21,14 +19,12 @@ import type {
   NodeAlignMode,
   NodeDistributeMode
 } from '@whiteboard/core/node'
-import type { PointerInput, Size } from './common'
 import type {
   MindmapApplyCommand,
   MindmapCloneSubtreeOptions,
   MindmapCreateOptions
 } from './mindmap'
-import type { ResizeDirection } from './node'
-import type { HistoryState } from './state'
+import type { HistoryState } from '@whiteboard/core/kernel'
 import type {
   MindmapAttachPayload,
   MindmapCommandOptions,
@@ -43,73 +39,9 @@ import type {
 } from './mindmap'
 import type { CommandResult } from './result'
 
-export type CommandSource =
-  | 'remote'
+export type WriteOrigin =
   | 'system'
   | 'user'
-
-export type MindmapStartDragOptions = {
-  treeId: MindmapId
-  nodeId: MindmapNodeId
-  pointer: PointerInput
-}
-
-export type MindmapUpdateDragOptions = {
-  pointer: PointerInput
-}
-
-export type MindmapEndDragOptions = {
-  pointer: PointerInput
-}
-
-export type MindmapCancelDragOptions = {
-  pointer?: PointerInput
-}
-
-export type NodeDragStartOptions = {
-  nodeId: NodeId
-  pointer: PointerInput
-}
-
-export type NodeDragUpdateOptions = {
-  pointer: PointerInput
-}
-
-export type NodeDragEndOptions = {
-  pointer: PointerInput
-}
-
-export type NodeDragCancelOptions = {
-  pointer?: PointerInput
-}
-
-export type NodeResizeStartOptions = {
-  nodeId: NodeId
-  pointer: PointerInput
-  handle: ResizeDirection
-  rect: Rect
-  rotation: number
-}
-
-export type NodeRotateStartOptions = {
-  nodeId: NodeId
-  pointer: PointerInput
-  rect: Rect
-  rotation: number
-}
-
-export type NodeTransformUpdateOptions = {
-  pointer: PointerInput
-  minSize?: Size
-}
-
-export type NodeTransformEndOptions = {
-  pointer: PointerInput
-}
-
-export type NodeTransformCancelOptions = {
-  pointer?: PointerInput
-}
 
 export type NodeBatchUpdate = {
   id: NodeId
@@ -117,7 +49,13 @@ export type NodeBatchUpdate = {
 }
 
 export type NodeUpdateManyOptions = {
-  source?: CommandSource
+  origin?: WriteOrigin
+}
+
+export type DocumentWriteCommand = {
+  type: 'insert'
+  slice: Slice
+  options?: SliceInsertOptions
 }
 
 export type NodeWriteCommand =
@@ -214,11 +152,13 @@ export type EdgeWriteCommand =
 export type MindmapWriteCommand = MindmapApplyCommand
 
 export type WriteDomain =
+  | 'document'
   | 'node'
   | 'edge'
   | 'mindmap'
 
 export type WriteCommandMap = {
+  document: DocumentWriteCommand
   node: NodeWriteCommand
   edge: EdgeWriteCommand
   mindmap: MindmapWriteCommand
@@ -230,8 +170,13 @@ export type WriteInput<
 > = {
   domain: D
   command: C
-  source?: CommandSource
+  origin?: WriteOrigin
 }
+
+export type DocumentWriteOutput<C extends DocumentWriteCommand = DocumentWriteCommand> =
+  C extends { type: 'insert' }
+    ? Omit<SliceInsertResult, 'operations'>
+    : void
 
 export type NodeWriteOutput<C extends NodeWriteCommand = NodeWriteCommand> =
   C extends { type: 'create' }
@@ -278,9 +223,11 @@ export type WriteOutput<
   D extends WriteDomain,
   C extends WriteCommandMap[D] = WriteCommandMap[D]
 > =
-  D extends 'node'
-    ? NodeWriteOutput<Extract<C, NodeWriteCommand>>
-    : D extends 'edge'
+  D extends 'document'
+    ? DocumentWriteOutput<Extract<C, DocumentWriteCommand>>
+    : D extends 'node'
+      ? NodeWriteOutput<Extract<C, NodeWriteCommand>>
+      : D extends 'edge'
       ? EdgeWriteOutput<Extract<C, EdgeWriteCommand>>
       : D extends 'mindmap'
         ? MindmapWriteOutput<Extract<C, MindmapWriteCommand>>
@@ -356,10 +303,6 @@ export type MindmapCommands = {
 
 export type EngineCommands = {
   document: {
-    apply: (
-      operations: readonly Operation[],
-      source?: CommandSource
-    ) => CommandResult
     replace: (document: Document) => CommandResult
     insert: (
       slice: Slice,

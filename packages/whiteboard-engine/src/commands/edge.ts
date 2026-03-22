@@ -2,7 +2,7 @@ import type {
   EdgeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource, EngineCommands } from '@engine-types/command'
+import type { EngineCommands, WriteOrigin } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   EdgeId,
@@ -10,7 +10,6 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import { cancelled as cancelledResult } from '../result'
 
 type EdgeCommand = WriteCommandMap['edge']
 
@@ -21,12 +20,12 @@ export const edge = ({
 }): EngineCommands['edge'] => {
   const run = <C extends EdgeCommand>(
     command: C,
-    source: CommandSource = 'user'
+    origin: WriteOrigin = 'user'
   ) =>
     apply({
       domain: 'edge',
       command,
-      source
+      origin
     })
 
   const create = (payload: EdgeInput) =>
@@ -45,15 +44,11 @@ export const edge = ({
       updates: [{ id, patch }]
     })
 
-  const updateMany = (updates: readonly EdgeBatchUpdate[]) => {
-    if (!updates.length) {
-      return cancelledResult('No edge updates provided.')
-    }
-    return run({
+  const updateMany = (updates: readonly EdgeBatchUpdate[]) =>
+    run({
       type: 'updateMany',
       updates
     })
-  }
 
   const remove = (ids: EdgeId[]) =>
     run({ type: 'delete', ids })

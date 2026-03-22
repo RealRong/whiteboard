@@ -11,14 +11,10 @@ import {
 } from '@whiteboard/core/node'
 import {
   getNodeAABB,
-  isPointEqual,
-  isSizeEqual,
-  rectContains
 } from '@whiteboard/core/geometry'
 import { moveEdgePath } from '@whiteboard/core/edge'
 import type { EdgeItem } from '@whiteboard/core/read'
-import type { EdgeId, EdgePatch, Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
-import { mergeObjectPatch } from '../../../../runtime/utils/recordPatch'
+import type { EdgeId, EdgePatch, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 
 type DragMember = {
   id: NodeId
@@ -111,40 +107,6 @@ const createDragMember = (
     y: node.position.y - anchor.y
   }
 })
-
-const hasParentIdPatch = (
-  patch: NodePatch
-): patch is NodePatch & { parentId: NodeId | undefined } =>
-  Object.prototype.hasOwnProperty.call(patch, 'parentId')
-
-const mergePatch = (
-  patches: Map<NodeId, NodePatch>,
-  id: NodeId,
-  patch: NodePatch
-) => {
-  if (!Object.keys(patch).length) return
-  const prev = patches.get(id)
-  patches.set(id, mergeObjectPatch(prev, patch))
-}
-
-const normalizePatch = (
-  currentNode: Node,
-  patch: NodePatch
-): NodePatch | undefined => {
-  const normalized: NodePatch = {}
-
-  if (patch.position && !isPointEqual(patch.position, currentNode.position)) {
-    normalized.position = patch.position
-  }
-  if (patch.size && !isSizeEqual(patch.size, currentNode.size)) {
-    normalized.size = patch.size
-  }
-  if (hasParentIdPatch(patch) && patch.parentId !== currentNode.parentId) {
-    normalized.parentId = patch.parentId
-  }
-
-  return Object.keys(normalized).length ? normalized : undefined
-}
 
 export const buildNodeDragState = (options: {
   nodes: readonly Node[],
@@ -363,77 +325,21 @@ export const resolveNodeDragPreview = (options: {
 
 export const resolveNodeDragCommit = (options: {
   draft: NodeDragRuntimeState
-  nodes: readonly Node[]
-  config: Pick<BoardConfig, 'node' | 'nodeSize'>
-}): Array<{ id: NodeId; patch: NodePatch }> => {
-  const { draft, nodes, config } = options
-  const nodeById = toNodeById(nodes)
+}): Array<{ id: NodeId; patch: { position: Point } }> => {
+  const { draft } = options
+  if (
+    draft.last.x === draft.origin.x
+    && draft.last.y === draft.origin.y
+  ) {
+    return []
+  }
 
-  const updates = buildPositionUpdates(draft.members, draft.last)
-  const rootUpdates = buildPositionUpdates(draft.roots, draft.last)
-
-  const patches = new Map<NodeId, NodePatch>()
-  updates.forEach((update) => {
-    mergePatch(patches, update.id, {
-      position: update.position
-    })
-  })
-
-  const targetByRootId = resolveRootContainerTargets({
-    roots: rootUpdates,
-    nodes,
-    config,
-    excludeNodeIds: new Set(draft.members.map((member) => member.id))
-  })
-  rootUpdates.forEach((update) => {
-    const node = nodeById.get(update.id)
-    if (!node) {
-      return
-    }
-
-    const targetContainerId = targetByRootId.get(update.id)
-    if (targetContainerId && targetContainerId !== node.parentId) {
-      mergePatch(patches, update.id, {
-        parentId: targetContainerId
-      })
-      return
-    }
-
-    if (!node.parentId) {
-      return
-    }
-
-    const parentNode = nodeById.get(node.parentId)
-    if (!parentNode) {
-      return
-    }
-
-    const nextNode: Node = {
-      ...node,
+  return buildPositionUpdates(draft.members, draft.last).map((update) => ({
+    id: update.id,
+    patch: {
       position: update.position
     }
-    const nextRect = getNodeAABB(nextNode, config.nodeSize)
-    const parentRect = getNodeAABB(parentNode, config.nodeSize)
-    if (!rectContains(parentRect, nextRect)) {
-      mergePatch(patches, update.id, {
-        parentId: undefined
-      })
-    }
-  })
-
-  const normalizedUpdates: Array<{ id: NodeId; patch: NodePatch }> = []
-  patches.forEach((patch, id) => {
-    const current = nodeById.get(id)
-    if (!current) return
-    const normalized = normalizePatch(current, patch)
-    if (!normalized) return
-    normalizedUpdates.push({
-      id,
-      patch: normalized
-    })
-  })
-
-  return normalizedUpdates
+  }))
 }
 
 const resolveRootContainerTargets = (options: {

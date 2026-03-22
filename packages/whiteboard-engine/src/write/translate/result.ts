@@ -1,53 +1,49 @@
 import type { Operation } from '@whiteboard/core/types'
 import type { CommandFailure } from '@engine-types/result'
-import { cancelled as cancelledResult, failure, invalid as invalidResult } from '../result'
+import { cancelled as cancelledResult, failure, invalid as invalidResult } from '../../result'
 
-export type DraftFailure = CommandFailure
+export type TranslateFailure = CommandFailure
 
-export type DraftSuccess<T = void> = {
+export type TranslateSuccess<T = void> = {
   ok: true
-  data: {
-    operations: readonly Operation[]
-    output: T
-  }
+  operations: readonly Operation[]
+  output: T
 }
 
-export type Draft<T = void> =
-  | DraftSuccess<T>
-  | DraftFailure
+export type TranslateResult<T = void> =
+  | TranslateSuccess<T>
+  | TranslateFailure
 
-export function success(operations: readonly Operation[]): Draft<void>
-export function success<T>(operations: readonly Operation[], output: T): Draft<T>
-export function success<T>(operations: readonly Operation[], output?: T): Draft<T> {
+export function success(operations: readonly Operation[]): TranslateResult<void>
+export function success<T>(operations: readonly Operation[], output: T): TranslateResult<T>
+export function success<T>(operations: readonly Operation[], output?: T): TranslateResult<T> {
   return {
     ok: true,
-    data: {
-      operations,
-      output: output as T
-    }
+    operations,
+    output: output as T
   }
 }
 
-export const invalid = (message: string, details?: unknown): DraftFailure =>
+export const invalid = (message: string, details?: unknown): TranslateFailure =>
   invalidResult(message, details)
 
-export const cancelled = (message?: string, details?: unknown): DraftFailure =>
+export const cancelled = (message?: string, details?: unknown): TranslateFailure =>
   cancelledResult(message, details)
 
-export const mergeKeepOutput = <T>(
-  base: Draft<T>,
-  ...drafts: Draft<void>[]
-): Draft<T> => {
+export const append = <T>(
+  base: TranslateResult<T>,
+  ...results: TranslateResult<void>[]
+): TranslateResult<T> => {
   if (!base.ok) return base
 
-  const operations: Operation[] = [...base.data.operations]
+  const operations: Operation[] = [...base.operations]
 
-  for (const draft of drafts) {
-    if (!draft.ok) return draft
-    operations.push(...draft.data.operations)
+  for (const result of results) {
+    if (!result.ok) return result
+    operations.push(...result.operations)
   }
 
-  return success(operations, base.data.output)
+  return success(operations, base.output)
 }
 
 type FailLike = {
@@ -75,24 +71,24 @@ const toOutput = <TData, TOutput>(
 ) =>
   select ? select(data) : undefined as TOutput
 
-export const op = <
+export const fromOp = <
   TData extends { operation: Operation },
   TOutput = void
 >(
   result: OpLike<TData> | FailLike,
   select?: (data: TData) => TOutput
-): Draft<TOutput> =>
+): TranslateResult<TOutput> =>
   result.ok
     ? success([result.data.operation], toOutput(result.data, select))
     : failure(result.error.code, result.error.message, result.error.details)
 
-export const ops = <
+export const fromOps = <
   TData extends { operations: readonly Operation[] },
   TOutput = void
 >(
   result: OpsLike<TData> | FailLike,
   select?: (data: TData) => TOutput
-): Draft<TOutput> =>
+): TranslateResult<TOutput> =>
   result.ok
     ? success(result.data.operations, toOutput(result.data, select))
     : failure(result.error.code, result.error.message, result.error.details)

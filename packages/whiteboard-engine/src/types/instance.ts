@@ -7,22 +7,18 @@ import type {
   MindmapItem,
   NodeItem
 } from '@whiteboard/core/read'
+import type { HistoryConfig } from '@whiteboard/core/kernel'
+import type { SnapCandidate } from '@whiteboard/core/node'
 import type { NodeRectHitOptions } from '@whiteboard/core/node'
-import type { CoreRegistries, Document, EdgeAnchor, EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { CoreRegistries, Document, EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
   ReadStore
 } from '@whiteboard/core/runtime'
 import type { EngineCommands } from './command'
-import type { ResolvedHistoryConfig, Size } from './common'
-import type { SnapCandidate } from './node'
 import type { Commit } from './commit'
 export type { BoardConfig } from '@whiteboard/core/config'
 
-export type EdgeConnectAnchorResult = {
-  anchor: EdgeAnchor
-  point: Point
-}
 export type EngineReadIndex = {
   node: {
     all: () => CanvasNode[]
@@ -32,10 +28,6 @@ export type EngineReadIndex = {
   snap: {
     all: () => SnapCandidate[]
     inRect: (rect: Rect) => SnapCandidate[]
-  }
-  tree: {
-    list: (nodeId: NodeId) => readonly NodeId[]
-    has: (rootId: NodeId, nodeId: NodeId) => boolean
   }
 }
 
@@ -73,7 +65,7 @@ export type EngineRead = {
 
 export type EngineRuntimeOptions = {
   mindmapLayout: MindmapLayoutConfig
-  history?: ResolvedHistoryConfig
+  history?: Partial<HistoryConfig>
 }
 
 export type EngineInstance = {

@@ -212,7 +212,7 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
 }
 
 export const createEdgeProjection = (initialSnapshot: ReadSnapshot) => {
-  const getNodeRect = (snapshot: ReadSnapshot) => snapshot.indexes.node.get
+  const getNodeRect = (snapshot: ReadSnapshot) => snapshot.index.node.get
   const readModel = (snapshot: ReadSnapshot) => snapshot.model
   const list = createValueStore<readonly EdgeId[]>([])
   const tracked = createTrackedRead<EdgeId, EdgeItem | undefined>({

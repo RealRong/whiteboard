@@ -170,7 +170,7 @@ const SelectionTransformOverlay = ({
 
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
-  const chrome = useStoreValue(instance.read.node.chrome)
+  const chrome = useStoreValue(instance.read.chrome.node)
   const container = useContainer()
   const guides = useStoreValue(instance.internals.node.guides)
   const selection = useSelection()

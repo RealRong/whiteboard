@@ -17,7 +17,9 @@ import {
   getResizeSourceEdges
 } from '@whiteboard/core/node'
 import { getRectCenter } from '@whiteboard/core/geometry'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../src/config'
+import { DEFAULT_TUNING } from '../../../src/config'
+
+const ZOOM_EPSILON = 0.0001
 
 type RulesOptions = {
   config: BoardConfig
@@ -26,7 +28,7 @@ type RulesOptions = {
 }
 
 const resolveInteractionZoom = (zoom: number) =>
-  Math.max(zoom, DEFAULT_INTERNALS.zoomEpsilon)
+  Math.max(zoom, ZOOM_EPSILON)
 
 const resolveSnapThresholdWorld = (
   config: BoardConfig['node'],
@@ -79,7 +81,7 @@ export class Rules {
         width: rect.width,
         height: rect.height
       },
-      startAspect: rect.width / Math.max(rect.height, DEFAULT_INTERNALS.zoomEpsilon)
+      startAspect: rect.width / Math.max(rect.height, ZOOM_EPSILON)
     }
   }
 

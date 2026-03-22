@@ -3,7 +3,7 @@ import {
   resolveSelectionMode,
   type SelectionMode
 } from '@whiteboard/core/node'
-import type { EdgeId, NodeId, Operation } from '@whiteboard/core/types'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
@@ -36,7 +36,6 @@ import {
   buildNodeDragState,
   resolveNodeDragFollowEdges,
   resolveNodeDragCommit,
-  resolveNodeDragPositions,
   resolveNodeDragPreview,
   type NodeDragRuntimeState
 } from './hooks/drag/math'
@@ -68,32 +67,16 @@ type PressContext = {
   field?: EditField
 }
 
-type MovePlan =
-  | {
-      kind: 'drag'
-    }
-  | {
-      kind: 'marquee'
-      policy: MarqueePolicy
-    }
-
-type HoldPlan =
-  | {
-      kind: 'none'
-    }
-  | {
-      kind: 'marquee'
-      clearSelection: boolean
-      policy: MarqueePolicy
-    }
-
-type PressPlan = {
+type PressIntent = {
   chromeHidden: boolean
   tapSelectionIds: readonly NodeId[]
   dragSelectionIds: readonly NodeId[]
   tap: 'select' | 'edit' | 'noop'
-  move: MovePlan
-  hold: HoldPlan
+  move: 'drag' | 'marquee'
+  moveMarqueePolicy?: MarqueePolicy
+  hold: 'none' | 'marquee'
+  holdMarqueePolicy?: MarqueePolicy
+  clearSelectionOnHold: boolean
 }
 
 const isSingleSelectedNode = (
@@ -119,7 +102,7 @@ const hasSelectionChanged = (
   )
 )
 
-const resolveNodePressPlan = ({
+const resolveNodePressIntent = ({
   nodeId,
   zone,
   field,
@@ -133,7 +116,7 @@ const resolveNodePressPlan = ({
   locked: boolean
   selectionMode: SelectionMode
   currentSelectedNodeIds: readonly NodeId[]
-}): PressPlan => {
+}): PressIntent => {
   const repeat = selectionMode === 'replace' && (
     zone === 'node'
       ? isSingleSelectedNode(nodeId, currentSelectedNodeIds)
@@ -167,30 +150,72 @@ const resolveNodePressPlan = ({
       : repeat
         ? (field ? 'edit' : 'noop')
         : 'select',
-    move:
+    move: zone === 'body' && !repeat ? 'marquee' : 'drag',
+    moveMarqueePolicy:
       zone === 'body' && !repeat
         ? {
-            kind: 'marquee',
-            policy: {
-              match: 'touch'
-            }
+            match: 'touch'
           }
-        : {
-            kind: 'drag'
-          },
-    hold:
+        : undefined,
+    hold: zone === 'node' || repeat ? 'marquee' : 'none',
+    holdMarqueePolicy:
       zone === 'node' || repeat
         ? {
-            kind: 'marquee',
-            clearSelection: selectionMode === 'replace',
-            policy: {
-              match: 'contain',
-              exclude: [nodeId]
-            }
+            match: 'contain',
+            exclude: [nodeId]
           }
-        : {
-            kind: 'none'
-          }
+        : undefined,
+    clearSelectionOnHold:
+      (zone === 'node' || repeat)
+      && selectionMode === 'replace'
+  }
+}
+
+const readPressContext = ({
+  instance,
+  nodeRect,
+  container,
+  pointerId,
+  capture,
+  clientX,
+  clientY,
+  selectionMode,
+  field,
+  zone
+}: {
+  instance: InternalInstance
+  nodeRect: NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>
+  container: ReturnType<InternalInstance['state']['container']['get']>
+  pointerId: number
+  capture: Element
+  clientX: number
+  clientY: number
+  selectionMode: SelectionMode
+  zone: NodeGestureZone
+  field?: EditField
+}): PressContext => {
+  const currentSelectedNodeIds = filterNodeIds(
+    container,
+    instance.read.selection.get().target.nodeIds
+  )
+
+  return {
+    pointerId,
+    capture,
+    nodeRect,
+    start: {
+      clientX,
+      clientY,
+      world: instance.viewport.pointer({
+        clientX,
+        clientY
+      }).world
+    },
+    currentSelectedNodeIds,
+    containerNodeIds: readMarqueeScope(instance, nodeRect.node.id, container),
+    selectionMode,
+    zone,
+    field
   }
 }
 
@@ -245,33 +270,13 @@ export const createNodeGesture = (
 
   const commit = (draft: ActiveDrag) => {
     const nodeUpdates = resolveNodeDragCommit({
-      draft,
-      nodes: readCanvasNodes(),
-      config: instance.config
+      draft
     })
-    const edgeUpdates = resolveNodeDragFollowEdges({
-      active: draft,
-      positions: resolveNodeDragPositions(draft, draft.last),
-      edgeIds: draft.relatedEdgeIds,
-      readEdge: (edgeId) => instance.engine.read.edge.item.get(edgeId)
-    })
-    const operations: Operation[] = [
-      ...nodeUpdates.map(({ id, patch }) => ({
-        type: 'node.update' as const,
-        id,
-        patch
-      })),
-      ...edgeUpdates.map(({ id, patch }) => ({
-        type: 'edge.update' as const,
-        id,
-        patch
-      }))
-    ]
-    if (!operations.length) {
+    if (!nodeUpdates.length) {
       return
     }
 
-    instance.commands.document.apply(operations)
+    instance.commands.node.updateMany(nodeUpdates)
   }
 
   const updatePreview = (input: {
@@ -316,7 +321,7 @@ export const createNodeGesture = (
 
   const runTap = (
     context: PressContext,
-    plan: PressPlan,
+    intent: PressIntent,
     event: PointerEvent
   ) => {
     if (
@@ -327,14 +332,14 @@ export const createNodeGesture = (
     }
 
     if (
-      plan.tap === 'select'
-      && hasSelectionChanged(context.currentSelectedNodeIds, plan.tapSelectionIds)
+      intent.tap === 'select'
+      && hasSelectionChanged(context.currentSelectedNodeIds, intent.tapSelectionIds)
     ) {
-      instance.commands.selection.replace(plan.tapSelectionIds)
+      instance.commands.selection.replace(intent.tapSelectionIds)
       return
     }
 
-    if (plan.tap === 'edit' && context.field) {
+    if (intent.tap === 'edit' && context.field) {
       instance.commands.edit.start(context.nodeRect.node.id, context.field)
     }
   }
@@ -367,15 +372,15 @@ export const createNodeGesture = (
 
   const startDrag = (
     context: PressContext,
-    plan: PressPlan,
+    intent: PressIntent,
     moveEvent: PointerEvent
   ) => {
     if (context.nodeRect.node.locked) {
       return
     }
 
-    if (hasSelectionChanged(context.currentSelectedNodeIds, plan.dragSelectionIds)) {
-      instance.commands.selection.replace(plan.dragSelectionIds)
+    if (hasSelectionChanged(context.currentSelectedNodeIds, intent.dragSelectionIds)) {
+      instance.commands.selection.replace(intent.dragSelectionIds)
     }
 
     const drag = buildNodeDragState({
@@ -390,7 +395,7 @@ export const createNodeGesture = (
         width: context.nodeRect.rect.width,
         height: context.nodeRect.rect.height
       },
-      selectedNodeIds: plan.dragSelectionIds
+      selectedNodeIds: intent.dragSelectionIds
     })
     if (!drag.members.length) {
       return
@@ -450,10 +455,9 @@ export const createNodeGesture = (
 
   const startPress = (
     context: PressContext,
-    plan: PressPlan
+    intent: PressIntent
   ) => {
-    const hold = plan.hold
-    instance.internals.node.chromeHidden.set(plan.chromeHidden)
+    instance.internals.node.chromeHidden.set(intent.chromeHidden)
 
     const started = press.start({
       pointerId: context.pointerId,
@@ -463,32 +467,34 @@ export const createNodeGesture = (
         clientY: context.start.clientY
       },
       threshold: GestureTuning.dragMinDistance,
-      holdDelay: hold.kind === 'marquee'
+      holdDelay: intent.hold === 'marquee'
         ? GestureTuning.holdDelay
         : undefined,
-      onHold: hold.kind === 'marquee'
+      onHold: intent.hold === 'marquee'
         ? () => {
             instance.internals.node.chromeHidden.set(true)
-            if (hold.clearSelection) {
+            if (intent.clearSelectionOnHold) {
               instance.commands.selection.clear()
             }
           }
         : undefined,
       onTap: (event) => {
-        runTap(context, plan, event)
+        runTap(context, intent, event)
       },
       onDragStart: (event, state) => {
-        if (state.held && hold.kind === 'marquee') {
-          startMarquee(context, hold.policy, event)
+        if (state.held && intent.hold === 'marquee' && intent.holdMarqueePolicy) {
+          startMarquee(context, intent.holdMarqueePolicy, event)
           return
         }
 
-        if (plan.move.kind === 'drag') {
-          startDrag(context, plan, event)
+        if (intent.move === 'drag') {
+          startDrag(context, intent, event)
           return
         }
 
-        startMarquee(context, plan.move.policy, event)
+        if (intent.moveMarqueePolicy) {
+          startMarquee(context, intent.moveMarqueePolicy, event)
+        }
       },
       onCleanup: () => {
         clearChrome()
@@ -497,6 +503,20 @@ export const createNodeGesture = (
 
     return Boolean(started)
   }
+
+  const beginPress = (
+    context: PressContext
+  ) => startPress(
+    context,
+    resolveNodePressIntent({
+      nodeId: context.nodeRect.node.id,
+      zone: context.zone,
+      field: context.field,
+      locked: Boolean(context.nodeRect.node.locked),
+      selectionMode: context.selectionMode,
+      currentSelectedNodeIds: context.currentSelectedNodeIds
+    })
+  )
 
   return {
     cancel: () => {
@@ -532,34 +552,19 @@ export const createNodeGesture = (
         container = instance.state.container.get()
       }
 
-      const currentSelectedNodeIds = filterNodeIds(
+      const context = readPressContext({
+        instance,
+        nodeRect,
         container,
-        instance.read.selection.get().target.nodeIds
-      )
-      const context: PressContext = {
         pointerId: event.pointerId,
         capture: event.currentTarget,
-        nodeRect,
-        start: {
-          clientX: event.clientX,
-          clientY: event.clientY,
-          world: instance.viewport.pointer(event).world
-        },
-        currentSelectedNodeIds,
-        containerNodeIds: readMarqueeScope(instance, nodeRect.node.id, container),
+        clientX: event.clientX,
+        clientY: event.clientY,
         selectionMode: resolveSelectionMode(event),
         zone: 'node',
         field: readEditableFieldTarget(event.target)
-      }
-      const plan = resolveNodePressPlan({
-        nodeId,
-        zone: context.zone,
-        field: context.field,
-        locked: Boolean(nodeRect.node.locked),
-        selectionMode: context.selectionMode,
-        currentSelectedNodeIds
       })
-      if (!startPress(context, plan)) {
+      if (!beginPress(context)) {
         return
       }
 
@@ -582,32 +587,18 @@ export const createNodeGesture = (
       if (!nodeRect) return false
 
       const container = instance.state.container.get()
-      const currentSelectedNodeIds = filterNodeIds(
+      const context = readPressContext({
+        instance,
+        nodeRect,
         container,
-        instance.read.selection.get().target.nodeIds
-      )
-      const context: PressContext = {
         pointerId: event.pointerId,
         capture,
-        nodeRect,
-        start: {
-          clientX: event.clientX,
-          clientY: event.clientY,
-          world: instance.viewport.pointer(event).world
-        },
-        currentSelectedNodeIds,
-        containerNodeIds: readMarqueeScope(instance, nodeRect.node.id, container),
+        clientX: event.clientX,
+        clientY: event.clientY,
         selectionMode: resolveSelectionMode(event),
         zone: 'body'
-      }
-      const plan = resolveNodePressPlan({
-        nodeId,
-        zone: context.zone,
-        locked: Boolean(nodeRect.node.locked),
-        selectionMode: context.selectionMode,
-        currentSelectedNodeIds
       })
-      if (!startPress(context, plan)) {
+      if (!beginPress(context)) {
         return false
       }
 

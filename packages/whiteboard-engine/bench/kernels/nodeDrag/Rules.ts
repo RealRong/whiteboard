@@ -5,7 +5,9 @@ import type { NodeDragChildren, NodeDragDraft } from '@engine-types/node/drag'
 import type { Guide } from '@engine-types/node/snap'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { computeSnap, findSmallestGroupAtPoint, getGroupDescendants } from '@whiteboard/core/node'
-import { DEFAULT_INTERNALS, DEFAULT_TUNING } from '../../../src/config'
+import { DEFAULT_TUNING } from '../../../src/config'
+
+const ZOOM_EPSILON = 0.0001
 
 type MoveOptions = {
   nodeId: NodeId
@@ -31,7 +33,7 @@ type NodePreviewUpdate = {
 }
 
 const resolveInteractionZoom = (zoom: number) =>
-  Math.max(zoom, DEFAULT_INTERNALS.zoomEpsilon)
+  Math.max(zoom, ZOOM_EPSILON)
 
 const resolveSnapThresholdWorld = (
   config: BoardConfig['node'],

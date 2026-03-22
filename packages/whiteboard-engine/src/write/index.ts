@@ -1,9 +1,14 @@
-import type { WriteControl, WriteDeps, WriteResult } from '@engine-types/write'
+import type { WriteControl, WriteResult } from '@engine-types/write'
 import type { WriteCommandMap, WriteDomain, WriteInput, WriteOutput } from '@engine-types/command'
-import type { CommandSource } from '@engine-types/command'
+import type { BoardConfig, EngineDocument } from '@engine-types/instance'
 import {
   assertDocument,
+  type CoreRegistries,
   type Document,
+  type EdgeId,
+  type MindmapId,
+  type MindmapNodeId,
+  type NodeId,
   type Operation,
   type Origin
 } from '@whiteboard/core/types'
@@ -14,13 +19,10 @@ import {
 } from '@whiteboard/core/kernel'
 import { createId } from '@whiteboard/core/utils'
 import { DEFAULT_HISTORY_CONFIG } from '../config'
-import { cancelled, failure } from '../result'
-import { plan } from './plan'
-import { createWriteNormalize } from './normalize'
+import { failure } from '../result'
+import { translateWrite } from './translate'
+import { createWritePipeline } from './normalize'
 import { normalizeDocument } from '../document/normalize'
-
-const resolveOrigin = (source: CommandSource): Origin =>
-  source === 'remote' ? 'remote' : source === 'system' ? 'system' : 'user'
 
 const now = (): number => {
   if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
@@ -30,10 +32,23 @@ const now = (): number => {
 }
 
 export const createWrite = ({
-  instance
-}: WriteDeps): WriteControl => {
+  document: documentSource,
+  config,
+  registries
+}: {
+  document: EngineDocument
+  config: BoardConfig
+  registries: CoreRegistries
+}): WriteControl => {
   const readNow = now
-  const planner = plan({ instance })
+  const commitDocument = documentSource.commit
+  const ids = {
+    node: (): NodeId => createId('node'),
+    edge: (): EdgeId => createId('edge'),
+    group: (): NodeId => createId('group'),
+    mindmap: (): MindmapId => createId('mindmap'),
+    mindmapNode: (): MindmapNodeId => createId('mnode')
+  }
 
   const reduce = (
     document: Document,
@@ -44,19 +59,51 @@ export const createWrite = ({
     origin
   })
 
-  const normalize = createWriteNormalize({
+  const pipeline = createWritePipeline({
     reduce,
-    nodeSize: instance.config.nodeSize,
-    groupPadding: instance.config.node.groupPadding
+    nodeSize: config.nodeSize,
+    groupPadding: config.node.groupPadding
   })
 
-  const commitOperations = <T>(
+  const toOperationResult = <T>(
+    reduced: Extract<KernelReduceResult, { ok: true }>,
+    data: T
+  ): WriteResult<T> => ({
+    ok: true,
+    data,
+    kind: 'operations',
+    doc: reduced.doc,
+    changes: reduced.changes,
+    inverse: reduced.inverse,
+    impact: reduced.read
+  })
+
+  const toReplaceResult = (
+    document: Document
+  ): WriteResult => ({
+    ok: true,
+    data: undefined,
+    kind: 'replace',
+    doc: document,
+    changes: {
+      id: createId('change'),
+      timestamp: readNow(),
+      operations: [],
+      origin: 'system'
+    }
+  })
+
+  const runOperations = <T>(
+    document: Document,
     operations: readonly Operation[],
     origin: Origin,
     data: T
   ): WriteResult<T> => {
-    const currentDocument = instance.document.get()
-    const reduced = normalize.reduce(currentDocument, operations, origin)
+    const reduced = pipeline.run(
+      document,
+      operations,
+      origin
+    )
     if (!reduced.ok) {
       return failure(
         reduced.reason,
@@ -64,113 +111,86 @@ export const createWrite = ({
       )
     }
 
-    instance.document.commit(reduced.doc)
-
-    return {
-      ok: true,
-      data,
-      kind: 'operations',
-      doc: reduced.doc,
-      changes: reduced.changes,
-      inverse: reduced.inverse,
-      impact: reduced.read
-    }
+    commitDocument(reduced.doc)
+    return toOperationResult(reduced, data)
   }
 
-  const replaceDocument = (
+  const runReplace = (
     document: Document
   ): WriteResult => {
-    const committedDocument = normalizeDocument(
+    const nextDocument = normalizeDocument(
       assertDocument(document),
-      instance.config
+      config
     )
-    instance.document.commit(committedDocument)
-
-    return {
-      ok: true,
-      data: undefined,
-      kind: 'replace',
-      doc: committedDocument,
-      changes: {
-        id: createId('change'),
-        timestamp: readNow(),
-        operations: [],
-        origin: 'system'
-      }
-    }
+    commitDocument(nextDocument)
+    return toReplaceResult(nextDocument)
   }
 
   const history = createHistory<Operation, Origin, WriteResult>({
     now: readNow,
     config: DEFAULT_HISTORY_CONFIG,
     replay: (operations) => {
-      const committed = commitOperations(operations, 'system', undefined)
-      return committed.ok ? committed : false
+      const result = runOperations(
+        documentSource.get(),
+        operations,
+        'system',
+        undefined
+      )
+      return result.ok ? result : false
     }
   })
 
-  const clearHistory = <T>(committed: WriteResult<T>): WriteResult<T> => {
-    if (committed.ok) {
+  const clearOnSuccess = <T>(result: WriteResult<T>): WriteResult<T> => {
+    if (result.ok) {
       history.clear()
     }
-    return committed
+    return result
   }
 
-  const captureHistory = <T>(committed: WriteResult<T>): WriteResult<T> => {
+  const capture = <T>(result: WriteResult<T>): WriteResult<T> => {
     if (
-      committed.ok
-      && committed.kind === 'operations'
-      && committed.inverse
+      result.ok
+      && result.kind === 'operations'
+      && result.inverse
     ) {
       history.capture({
-        forward: committed.changes.operations,
-        inverse: committed.inverse,
-        origin: committed.changes.origin
+        forward: result.changes.operations,
+        inverse: result.inverse,
+        origin: result.changes.origin
       })
     }
 
-    return committed
+    return result
   }
 
   const apply = <
     D extends WriteDomain,
     C extends WriteCommandMap[D]
   >(payload: WriteInput<D, C>): WriteResult<WriteOutput<D, C>> => {
-    const draft = planner(payload)
-    if (!draft.ok) return draft
+    const doc = documentSource.get()
+    const translated = translateWrite(payload, {
+      doc,
+      config,
+      registries,
+      ids
+    })
+    if (!translated.ok) return translated
 
-    return captureHistory(
-      commitOperations(
-        draft.data.operations,
-        resolveOrigin(payload.source ?? 'user'),
-        draft.data.output
-      )
-    )
-  }
-
-  const applyOperations = (
-    operations: readonly Operation[],
-    source: CommandSource = 'user'
-  ): WriteResult => {
-    if (!operations.length) {
-      return cancelled('No operations provided.')
-    }
-
-    return captureHistory(
-      commitOperations(
-        operations,
-        resolveOrigin(source),
-        undefined
+    return capture(
+      runOperations(
+        doc,
+        translated.operations,
+        payload.origin ?? 'user',
+        translated.output
       )
     )
   }
 
   const replace = (document: Document) =>
-    clearHistory(replaceDocument(document))
+    clearOnSuccess(runReplace(document))
 
   return {
     apply,
-    applyOperations,
     replace,
     history: {
       get: history.get,

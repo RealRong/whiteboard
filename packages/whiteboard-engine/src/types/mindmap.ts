@@ -6,10 +6,10 @@ import type {
   MindmapNodeId,
   MindmapTree,
   NodeId,
-  Point
+  Point,
+  Size
 } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { Size } from './common'
 
 export type { MindmapLayoutConfig, MindmapLayoutMode } from '@whiteboard/core/mindmap'
 

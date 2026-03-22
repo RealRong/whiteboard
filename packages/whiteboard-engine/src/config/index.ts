@@ -2,15 +2,12 @@ import type { BoardConfig } from '@whiteboard/core/config'
 import { mergeValue } from '@whiteboard/core/utils'
 import {
   DEFAULT_HISTORY_CONFIG,
-  DEFAULT_BOARD_CONFIG,
-  DEFAULT_INTERNALS
+  DEFAULT_BOARD_CONFIG
 } from './defaults'
 
 export {
   DEFAULT_HISTORY_CONFIG,
   DEFAULT_BOARD_CONFIG,
-  DEFAULT_INTERNALS,
-  DEFAULT_MINDMAP_LAYOUT,
   DEFAULT_TUNING
 } from './defaults'
 

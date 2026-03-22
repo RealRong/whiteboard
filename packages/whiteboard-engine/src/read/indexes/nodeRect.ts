@@ -43,7 +43,7 @@ export class NodeRectIndex {
       case 'dirty':
         return this.syncByNodeIds(
           impact.node.ids,
-          model.indexes.canvasNodeById
+          model.canvas.nodeById
         )
       default:
         return false

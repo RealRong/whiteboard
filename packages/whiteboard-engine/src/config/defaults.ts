@@ -3,18 +3,16 @@ import {
   DEFAULT_MINDMAP_NODE_SIZE,
   DEFAULT_NODE_SIZE
 } from '@whiteboard/core/config'
-import type { Size } from '@engine-types/common'
-import type { ResolvedHistoryConfig } from '@engine-types/common'
+import type { HistoryConfig } from '@whiteboard/core/kernel'
 import type { MindmapLayoutMode } from '@whiteboard/core/mindmap'
+import type { Size } from '@whiteboard/core/types'
 export {
   DEFAULT_BOARD_CONFIG,
   DEFAULT_MINDMAP_NODE_SIZE,
   DEFAULT_NODE_SIZE
 } from '@whiteboard/core/config'
 
-export const DEFAULT_MINDMAP_LAYOUT = {}
-
-export const DEFAULT_HISTORY_CONFIG: ResolvedHistoryConfig = {
+export const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
   enabled: true,
   capacity: 100,
   captureSystem: true,
@@ -55,15 +53,5 @@ export const DEFAULT_TUNING = {
   },
   query: {
     snapGridPaddingFactor: 6
-  }
-} as const
-
-export const DEFAULT_INTERNALS = {
-  zoomEpsilon: 0.0001,
-  containerRect: {
-    left: 0,
-    top: 0,
-    width: 0,
-    height: 0
   }
 } as const

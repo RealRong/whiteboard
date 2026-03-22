@@ -3,7 +3,7 @@ import type {
   NodeUpdateManyOptions,
   WriteCommandMap
 } from '@engine-types/command'
-import type { CommandSource, EngineCommands } from '@engine-types/command'
+import type { EngineCommands, WriteOrigin } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   NodeAlignMode,
@@ -14,7 +14,6 @@ import type {
   NodeInput,
   NodePatch
 } from '@whiteboard/core/types'
-import { cancelled as cancelledResult } from '../result'
 
 type NodeCommand = WriteCommandMap['node']
 
@@ -25,12 +24,12 @@ export const node = ({
 }): EngineCommands['node'] => {
   const run = <C extends NodeCommand>(
     command: C,
-    source: CommandSource = 'user'
+    origin: WriteOrigin = 'user'
   ) =>
     apply({
       domain: 'node',
       command,
-      source
+      origin
     })
 
   const create = (payload: NodeInput) =>
@@ -45,43 +44,31 @@ export const node = ({
   const updateMany = (
     updates: readonly NodeBatchUpdate[],
     options?: NodeUpdateManyOptions
-  ) => {
-    if (!updates.length) {
-      return cancelledResult('No node updates provided.')
-    }
-    return run({
+  ) =>
+    run({
       type: 'updateMany',
       updates
-    }, options?.source ?? 'user')
-  }
+    }, options?.origin ?? 'user')
 
   const align = (
     ids: readonly NodeId[],
     mode: NodeAlignMode
-  ) => {
-    if (ids.length < 2) {
-      return cancelledResult('At least two nodes are required.')
-    }
-    return run({
+  ) =>
+    run({
       type: 'align',
       ids,
       mode
     })
-  }
 
   const distribute = (
     ids: readonly NodeId[],
     mode: NodeDistributeMode
-  ) => {
-    if (ids.length < 3) {
-      return cancelledResult('At least three nodes are required.')
-    }
-    return run({
+  ) =>
+    run({
       type: 'distribute',
       ids,
       mode
     })
-  }
 
   const updateData = (id: NodeId, patch: Record<string, unknown>) =>
     run({

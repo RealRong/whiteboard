@@ -1,11 +1,9 @@
 import {
-  createDerivedStore,
   createKeyedDerivedStore
 } from '@whiteboard/core/runtime'
 import { matchDrawRect } from '@whiteboard/core/node'
 import type {
   KeyedReadStore,
-  ReadStore
 } from '@whiteboard/core/runtime'
 import type { CanvasNode, NodeItem } from '@whiteboard/core/read'
 import {
@@ -16,37 +14,15 @@ import type { NodeRectHitOptions } from '@whiteboard/core/node'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeDefinition, NodeRegistry, NodeScene } from '../../types/node'
-import type { EditTarget } from '../edit'
-import type { InteractionMode } from '../interaction'
-import type { View as SelectionView } from '../selection'
-import type { Tool } from '../tool'
 import {
   projectNodeItem,
   type NodeSessionReader
 } from '../../features/node/session/node'
-import type { NodeChromeHidden } from '../../features/node/session/runtime'
-
-export type NodeChrome = {
-  selection: boolean
-  toolbar: boolean
-  transform: boolean
-  connect: boolean
-}
 
 export type NodeTransform = {
   resize: boolean
   rotate: boolean
 }
-
-const isChromeEqual = (
-  left: NodeChrome,
-  right: NodeChrome
-) => (
-  left.selection === right.selection
-  && left.toolbar === right.toolbar
-  && left.transform === right.transform
-  && left.connect === right.connect
-)
 
 const readNodeType = (
   node: Pick<Node, 'type'> | string
@@ -71,49 +47,6 @@ export const resolveNodeTransform = (
       ? definition.canRotate
       : resolveNodeScene(definition) !== 'container'
 })
-
-const resolveNodeChrome = ({
-  tool,
-  edit,
-  selection,
-  interaction,
-  chromeHidden
-}: {
-  tool: Tool
-  edit: EditTarget
-  selection: SelectionView
-  interaction: InteractionMode
-  chromeHidden: NodeChromeHidden
-}): NodeChrome => {
-  const selectionVisible = !chromeHidden
-  const editing = edit !== null
-  const edgeSelected = selection.target.edgeId !== undefined
-  const idleLike = interaction === 'idle' || interaction === 'press'
-
-  return {
-    selection: selectionVisible,
-    toolbar:
-      tool.type === 'select'
-      && !editing
-      && idleLike
-      && selectionVisible
-      && !edgeSelected
-      && selection.items.count > 0,
-    transform:
-      tool.type === 'select'
-      && !editing
-      && !edgeSelected
-      && (
-        interaction === 'node-transform'
-        || (idleLike && selectionVisible)
-      ),
-    connect:
-      tool.type === 'edge'
-      && !editing
-      && idleLike
-      && selectionVisible
-  }
-}
 
 const matchesPathNode = ({
   entry,
@@ -181,7 +114,6 @@ const isNodeItemEqual = (
 export type NodeRead = {
   list: EngineRead['node']['list']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
-  chrome: ReadStore<NodeChrome>
   scene: (node: Pick<Node, 'type'> | string) => NodeScene
   transform: (node: Pick<Node, 'type'> | string) => NodeTransform
   filter: (nodeIds: readonly NodeId[], scene: NodeScene) => readonly NodeId[]
@@ -207,55 +139,15 @@ export const createNodeItemRead = ({
   isEqual: isNodeItemEqual
 })
 
-export const createNodeChromeRead = ({
-  tool,
-  edit,
-  selection,
-  interaction,
-  chromeHidden
-}: {
-  tool: ReadStore<Tool>
-  edit: ReadStore<EditTarget>
-  selection: ReadStore<SelectionView>
-  interaction: ReadStore<InteractionMode>
-  chromeHidden: ReadStore<NodeChromeHidden>
-}): NodeRead['chrome'] => createDerivedStore<NodeChrome>({
-  get: (readStore) => resolveNodeChrome({
-    tool: readStore(tool),
-    edit: readStore(edit),
-    selection: readStore(selection),
-    interaction: readStore(interaction),
-    chromeHidden: readStore(chromeHidden)
-  }),
-  isEqual: isChromeEqual
-})
-
 export const createNodeRead = ({
   read,
   registry,
-  item,
-  tool,
-  edit,
-  selection,
-  interaction,
-  chromeHidden
+  item
 }: {
   read: EngineRead
   registry: NodeRegistry
   item: KeyedReadStore<NodeId, NodeItem | undefined>
-  tool: ReadStore<Tool>
-  edit: ReadStore<EditTarget>
-  selection: ReadStore<SelectionView>
-  interaction: ReadStore<InteractionMode>
-  chromeHidden: ReadStore<NodeChromeHidden>
 }): NodeRead => {
-  const chrome = createNodeChromeRead({
-    tool,
-    edit,
-    selection,
-    interaction,
-    chromeHidden
-  })
   const scene = (node: Pick<Node, 'type'> | string) => resolveNodeScene(
     registry.get(readNodeType(node))
   )
@@ -266,7 +158,6 @@ export const createNodeRead = ({
   return {
     list: read.node.list,
     item,
-    chrome,
     scene,
     transform,
     filter: (nodeIds, expectedScene) => nodeIds.filter((nodeId) => {

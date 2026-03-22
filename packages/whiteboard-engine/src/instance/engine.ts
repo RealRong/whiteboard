@@ -10,7 +10,7 @@ import type {
   WriteOutput
 } from '@engine-types/command'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { Write, WriteInstance, WriteResult } from '@engine-types/write'
+import type { Write, WriteResult } from '@engine-types/write'
 import { createValueStore } from '@whiteboard/core/runtime'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createCommands } from '../commands'
@@ -38,12 +38,6 @@ export const createEngine = ({
   const commit = createValueStore<Commit | null>(null)
   let mindmapLayout = EMPTY_MINDMAP_LAYOUT
 
-  const writeInstance: WriteInstance = {
-    document: documentSource,
-    config,
-    registries: resolvedRegistries
-  }
-
   const readControl = createRead({
     document: documentSource,
     mindmapLayout: () => mindmapLayout,
@@ -51,7 +45,9 @@ export const createEngine = ({
   })
 
   const writer = createWrite({
-    instance: writeInstance
+    document: documentSource,
+    config,
+    registries: resolvedRegistries
   })
 
   const toCommit = (
@@ -109,8 +105,6 @@ export const createEngine = ({
       C extends WriteCommandMap[D]
     >(payload: WriteInput<D, C>): CommandResult<WriteOutput<D, C>> =>
       publish(writer.apply(payload), 'apply'),
-    applyOperations: (operations, source) =>
-      publish(writer.applyOperations(operations, source), 'apply'),
     replace: (document) => publish(writer.replace(document), 'replace'),
     history: {
       get: writer.history.get,
@@ -121,10 +115,7 @@ export const createEngine = ({
   }
 
   const commands = createCommands({
-    write,
-    readDocument: documentSource.get,
-    config,
-    registries: resolvedRegistries
+    write
   })
 
   const configure = ({

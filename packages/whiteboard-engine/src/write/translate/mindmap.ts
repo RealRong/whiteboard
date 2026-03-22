@@ -2,7 +2,6 @@ import type {
   MindmapWriteOutput,
   WriteCommandMap
 } from '@engine-types/command'
-import type { WriteInstance } from '@engine-types/write'
 import type {
   MindmapCloneSubtreeOptions,
   MindmapCreateOptions,
@@ -12,8 +11,9 @@ import type {
   MindmapMoveLayoutOptions,
   MindmapMoveRootOptions
 } from '@engine-types/mindmap'
-import type { Draft } from '../draft'
-import { cancelled, invalid, mergeKeepOutput, success } from '../draft'
+import type { WriteTranslateContext } from './index'
+import type { TranslateResult } from './result'
+import { append, cancelled, invalid, success } from './result'
 import { getNode } from '@whiteboard/core/types'
 import type {
   Document,
@@ -25,7 +25,6 @@ import type {
   MindmapNodeId,
   MindmapTree
 } from '@whiteboard/core/types'
-import { createId } from '@whiteboard/core/utils'
 import {
   addChild as addMindmapChild,
   addSibling as addMindmapSibling,
@@ -83,7 +82,7 @@ const runMindmapPlan = <TExtra extends object = {}, TOutput = void>({
   options?: MindmapCommandOptions
   run: (tree: MindmapTree) => MindmapCommandResult<TExtra>
   select?: (result: { tree: MindmapTree } & TExtra) => TOutput
-}): Draft<TOutput> => {
+}): TranslateResult<TOutput> => {
   const beforeTree = readMindmap(doc, id)
   if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
 
@@ -102,30 +101,26 @@ const runMindmapPlan = <TExtra extends object = {}, TOutput = void>({
   )
 }
 
-export const mindmap = ({
-  instance
-}: {
-  instance: Pick<WriteInstance, 'document'>
-}) => {
-  const readDoc = (): Document => instance.document.get()
-  const createTreeId = () => createId('mindmap')
-  const createNodeId = () => createId('mnode')
+export const translateMindmap = <C extends MindmapCommand>(
+  command: C,
+  ctx: WriteTranslateContext
+): TranslateResult<MindmapWriteOutput<C>> => {
+  const doc = ctx.doc
 
   const create = (
     payload?: MindmapCreateOptions
-  ): Draft<{ mindmapId: MindmapId; rootId: MindmapNodeId }> => {
-    const doc = readDoc()
+  ): TranslateResult<{ mindmapId: MindmapId; rootId: MindmapNodeId }> => {
     if (payload?.id && readMindmap(doc, payload.id)) {
       return invalid(`Mindmap ${payload.id} already exists.`)
     }
 
     const tree = createMindmap({
-      id: payload?.id ?? createTreeId(),
+      id: payload?.id ?? ctx.ids.mindmap(),
       rootId: payload?.rootId,
       rootData: payload?.rootData,
       idGenerator: {
-        treeId: createTreeId,
-        nodeId: createNodeId
+        treeId: ctx.ids.mindmap,
+        nodeId: ctx.ids.mindmapNode
       }
     })
 
@@ -138,17 +133,15 @@ export const mindmap = ({
     )
   }
 
-  const replace = (id: MindmapId, tree: MindmapTree): Draft => {
-    const doc = readDoc()
+  const replace = (id: MindmapId, tree: MindmapTree): TranslateResult => {
     const beforeTree = readMindmap(doc, id)
     if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
     if (tree.id !== id) return invalid('Mindmap id mismatch.')
     return success([createSetOp({ id, tree })])
   }
 
-  const removeMindmaps = (ids: MindmapId[]): Draft => {
+  const removeMindmaps = (ids: MindmapId[]): TranslateResult => {
     if (!ids.length) return invalid('No mindmap ids provided.')
-    const doc = readDoc()
     for (const id of ids) {
       if (!readMindmap(doc, id)) return invalid(`Mindmap ${id} not found.`)
     }
@@ -160,9 +153,9 @@ export const mindmap = ({
     parentId: MindmapNodeId,
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: MindmapCommandOptions
-  ): Draft<{ nodeId: MindmapNodeId }> =>
+  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       options,
       run: (tree) =>
@@ -170,7 +163,7 @@ export const mindmap = ({
           tree,
           parentId,
           payload,
-          withNodeIdGenerator(createNodeId, resolveSlot(options))
+          withNodeIdGenerator(ctx.ids.mindmapNode, resolveSlot(options))
         ),
       select: ({ nodeId }) => ({ nodeId })
     })
@@ -181,9 +174,9 @@ export const mindmap = ({
     position: 'before' | 'after',
     payload?: MindmapNodeData | MindmapAttachPayload,
     options?: AddSiblingOptions
-  ): Draft<{ nodeId: MindmapNodeId }> =>
+  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       options: options?.options,
       run: (tree) =>
@@ -192,7 +185,7 @@ export const mindmap = ({
           nodeId,
           position,
           payload,
-          withNodeIdGenerator(options?.createNodeId ?? createNodeId)
+          withNodeIdGenerator(options?.createNodeId ?? ctx.ids.mindmapNode)
         ),
       select: ({ nodeId: nextNodeId }) => ({ nodeId: nextNodeId })
     })
@@ -202,18 +195,18 @@ export const mindmap = ({
     nodeId: MindmapNodeId,
     newParentId: MindmapNodeId,
     options?: MindmapCommandOptions
-  ): Draft =>
+  ): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       options,
       run: (tree) =>
         moveMindmapSubtree(tree, nodeId, newParentId, resolveSlot(options))
     })
 
-  const removeSubtree = (id: MindmapId, nodeId: MindmapNodeId): Draft =>
+  const removeSubtree = (id: MindmapId, nodeId: MindmapNodeId): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) => removeMindmapSubtree(tree, nodeId)
     })
@@ -222,15 +215,15 @@ export const mindmap = ({
     id: MindmapId,
     nodeId: MindmapNodeId,
     options?: MindmapCloneSubtreeOptions
-  ): Draft<{ nodeId: MindmapNodeId; map: Record<MindmapNodeId, MindmapNodeId> }> =>
+  ): TranslateResult<{ nodeId: MindmapNodeId; map: Record<MindmapNodeId, MindmapNodeId> }> =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) =>
         cloneMindmapSubtree(
           tree,
           nodeId,
-          withNodeIdGenerator(createNodeId, {
+          withNodeIdGenerator(ctx.ids.mindmapNode, {
             parentId: options?.parentId,
             index: options?.index,
             side: options?.side
@@ -243,9 +236,9 @@ export const mindmap = ({
     id: MindmapId,
     nodeId: MindmapNodeId,
     collapsed?: boolean
-  ): Draft =>
+  ): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) => toggleMindmapCollapse(tree, nodeId, collapsed)
     })
@@ -254,9 +247,9 @@ export const mindmap = ({
     id: MindmapId,
     nodeId: MindmapNodeId,
     patch: Partial<MindmapNodeData>
-  ): Draft =>
+  ): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) => setMindmapNodeData(tree, nodeId, patch)
     })
@@ -266,16 +259,16 @@ export const mindmap = ({
     parentId: MindmapNodeId,
     fromIndex: number,
     toIndex: number
-  ): Draft =>
+  ): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) => reorderMindmapChild(tree, parentId, fromIndex, toIndex)
     })
 
-  const setSide = (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right'): Draft =>
+  const setSide = (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right'): TranslateResult =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       run: (tree) => setMindmapSide(tree, nodeId, side)
     })
@@ -285,9 +278,9 @@ export const mindmap = ({
     targetId: MindmapNodeId,
     payload: MindmapAttachPayload,
     options?: MindmapCommandOptions
-  ): Draft<{ nodeId: MindmapNodeId }> =>
+  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
     runMindmapPlan({
-      doc: readDoc(),
+      doc,
       id,
       options,
       run: (tree) =>
@@ -295,7 +288,7 @@ export const mindmap = ({
           tree,
           targetId,
           payload,
-          withNodeIdGenerator(createNodeId, resolveSlot(options))
+          withNodeIdGenerator(ctx.ids.mindmapNode, resolveSlot(options))
         ),
       select: ({ nodeId }) => ({ nodeId })
     })
@@ -319,7 +312,7 @@ export const mindmap = ({
     nodeSize,
     layout,
     payload
-  }: MindmapInsertNodeOptions): Draft<{ nodeId: MindmapNodeId }> => {
+  }: MindmapInsertNodeOptions): TranslateResult<{ nodeId: MindmapNodeId }> => {
     const normalizedPayload: MindmapNodeData | MindmapAttachPayload = payload ?? {
       kind: 'text',
       text: ''
@@ -350,8 +343,8 @@ export const mindmap = ({
     }
 
     if (plan.mode === 'towardRoot') {
-      const insertedNodeId = createNodeId()
-      return mergeKeepOutput(
+      const insertedNodeId = ctx.ids.mindmapNode()
+      return append(
         addSibling(id, plan.nodeId, 'before', normalizedPayload, {
           options: {
             layout: hint
@@ -376,7 +369,7 @@ export const mindmap = ({
     side,
     nodeSize,
     layout
-  }: MindmapMoveLayoutOptions): Draft =>
+  }: MindmapMoveLayoutOptions): TranslateResult =>
     moveSubtree(id, nodeId, newParentId, {
       index,
       side,
@@ -390,7 +383,7 @@ export const mindmap = ({
     origin,
     nodeSize,
     layout
-  }: MindmapMoveDropOptions): Draft => {
+  }: MindmapMoveDropOptions): TranslateResult => {
     const shouldMove =
       drop.parentId !== origin?.parentId
       || drop.index !== origin?.index
@@ -412,8 +405,8 @@ export const mindmap = ({
     nodeId,
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
-  }: MindmapMoveRootOptions): Draft => {
-    const node = getNode(readDoc(), nodeId)
+  }: MindmapMoveRootOptions): TranslateResult => {
+    const node = getNode(doc, nodeId)
     if (!node) {
       return cancelled(`Node ${nodeId} not found.`)
     }
@@ -433,46 +426,44 @@ export const mindmap = ({
     }])
   }
 
-  return <C extends MindmapCommand>(command: C): Draft<MindmapWriteOutput<C>> => {
-    switch (command.type) {
-      case 'create':
-        return create(command.payload) as Draft<MindmapWriteOutput<C>>
-      case 'replace':
-        return replace(command.id, command.tree) as Draft<MindmapWriteOutput<C>>
-      case 'delete':
-        return removeMindmaps(command.ids) as Draft<MindmapWriteOutput<C>>
-      case 'insert.child':
-        return addChild(command.id, command.parentId, command.payload, command.options) as Draft<MindmapWriteOutput<C>>
-      case 'insert.sibling':
-        return addSibling(command.id, command.nodeId, command.position, command.payload, {
-          options: command.options
-        }) as Draft<MindmapWriteOutput<C>>
-      case 'insert.external':
-        return attachExternal(command.id, command.targetId, command.payload, command.options) as Draft<MindmapWriteOutput<C>>
-      case 'insert.placement':
-        return insertPlacement(command) as Draft<MindmapWriteOutput<C>>
-      case 'move.subtree':
-        return moveSubtree(command.id, command.nodeId, command.newParentId, command.options) as Draft<MindmapWriteOutput<C>>
-      case 'move.layout':
-        return moveWithLayout(command) as Draft<MindmapWriteOutput<C>>
-      case 'move.drop':
-        return moveWithDrop(command) as Draft<MindmapWriteOutput<C>>
-      case 'move.reorder':
-        return reorderChild(command.id, command.parentId, command.fromIndex, command.toIndex) as Draft<MindmapWriteOutput<C>>
-      case 'move.root':
-        return moveRoot(command) as Draft<MindmapWriteOutput<C>>
-      case 'remove':
-        return removeSubtree(command.id, command.nodeId) as Draft<MindmapWriteOutput<C>>
-      case 'clone.subtree':
-        return cloneSubtree(command.id, command.nodeId, command.options) as Draft<MindmapWriteOutput<C>>
-      case 'update.data':
-        return setNodeData(command.id, command.nodeId, command.patch) as Draft<MindmapWriteOutput<C>>
-      case 'update.collapse':
-        return toggleCollapse(command.id, command.nodeId, command.collapsed) as Draft<MindmapWriteOutput<C>>
-      case 'update.side':
-        return setSide(command.id, command.nodeId, command.side) as Draft<MindmapWriteOutput<C>>
-      default:
-        return invalid('Unsupported mindmap command type.') as Draft<MindmapWriteOutput<C>>
-    }
+  switch (command.type) {
+    case 'create':
+      return create(command.payload) as TranslateResult<MindmapWriteOutput<C>>
+    case 'replace':
+      return replace(command.id, command.tree) as TranslateResult<MindmapWriteOutput<C>>
+    case 'delete':
+      return removeMindmaps(command.ids) as TranslateResult<MindmapWriteOutput<C>>
+    case 'insert.child':
+      return addChild(command.id, command.parentId, command.payload, command.options) as TranslateResult<MindmapWriteOutput<C>>
+    case 'insert.sibling':
+      return addSibling(command.id, command.nodeId, command.position, command.payload, {
+        options: command.options
+      }) as TranslateResult<MindmapWriteOutput<C>>
+    case 'insert.external':
+      return attachExternal(command.id, command.targetId, command.payload, command.options) as TranslateResult<MindmapWriteOutput<C>>
+    case 'insert.placement':
+      return insertPlacement(command) as TranslateResult<MindmapWriteOutput<C>>
+    case 'move.subtree':
+      return moveSubtree(command.id, command.nodeId, command.newParentId, command.options) as TranslateResult<MindmapWriteOutput<C>>
+    case 'move.layout':
+      return moveWithLayout(command) as TranslateResult<MindmapWriteOutput<C>>
+    case 'move.drop':
+      return moveWithDrop(command) as TranslateResult<MindmapWriteOutput<C>>
+    case 'move.reorder':
+      return reorderChild(command.id, command.parentId, command.fromIndex, command.toIndex) as TranslateResult<MindmapWriteOutput<C>>
+    case 'move.root':
+      return moveRoot(command) as TranslateResult<MindmapWriteOutput<C>>
+    case 'remove':
+      return removeSubtree(command.id, command.nodeId) as TranslateResult<MindmapWriteOutput<C>>
+    case 'clone.subtree':
+      return cloneSubtree(command.id, command.nodeId, command.options) as TranslateResult<MindmapWriteOutput<C>>
+    case 'update.data':
+      return setNodeData(command.id, command.nodeId, command.patch) as TranslateResult<MindmapWriteOutput<C>>
+    case 'update.collapse':
+      return toggleCollapse(command.id, command.nodeId, command.collapsed) as TranslateResult<MindmapWriteOutput<C>>
+    case 'update.side':
+      return setSide(command.id, command.nodeId, command.side) as TranslateResult<MindmapWriteOutput<C>>
+    default:
+      return invalid('Unsupported mindmap command type.') as TranslateResult<MindmapWriteOutput<C>>
   }
 }

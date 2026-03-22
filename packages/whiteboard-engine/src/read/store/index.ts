@@ -1,6 +1,8 @@
-import type { ReadControl, ReadDeps, ReadModel } from '@engine-types/read'
-import type { EngineReadIndex } from '@engine-types/instance'
+import type { ReadModel } from '@engine-types/read'
+import type { EngineDocument, EngineRead, EngineReadIndex } from '@engine-types/instance'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
+import type { BoardConfig } from '@whiteboard/core/config'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import {
   exportSliceFromEdge,
   exportSliceFromNodes
@@ -19,7 +21,14 @@ export const createRead = ({
   document,
   mindmapLayout,
   config
-}: ReadDeps): ReadControl => {
+}: {
+  document: EngineDocument
+  mindmapLayout: () => MindmapLayoutConfig
+  config: BoardConfig
+}): {
+  read: EngineRead
+  invalidate: (impact: KernelReadImpact) => void
+} => {
   const readDocument = document.get
   const readModel = createReadModel({ readDocument })
 
@@ -31,7 +40,7 @@ export const createRead = ({
     )
   )
   const treeIndex = new TreeIndex()
-  const indexes: EngineReadIndex = {
+  const index: EngineReadIndex = {
     node: {
       all: nodeRectIndex.all,
       get: nodeRectIndex.byId,
@@ -40,16 +49,12 @@ export const createRead = ({
     snap: {
       all: snapIndex.all,
       inRect: snapIndex.queryInRect
-    },
-    tree: {
-      list: treeIndex.ids,
-      has: treeIndex.has
     }
   }
 
   const createSnapshot = (model: ReadModel): ReadSnapshot => ({
     model,
-    indexes
+    index
   })
 
   const syncIndexes = (impact: KernelReadImpact, model: ReadModel) => {
@@ -71,7 +76,9 @@ export const createRead = ({
     config,
     mindmapLayout
   })
-  const treeProjection = createTreeProjection(initialSnapshot)
+  const treeProjection = createTreeProjection({
+    readIds: treeIndex.ids
+  })
 
   const applyImpact = (impact: KernelReadImpact) => {
     const model = readModel()
@@ -80,7 +87,7 @@ export const createRead = ({
     nodeProjection.applyChange(impact, snapshot)
     edgeProjection.applyChange(impact, snapshot)
     mindmapProjection.applyChange(impact, snapshot)
-    treeProjection.applyChange(impact, snapshot)
+    treeProjection.applyChange()
   }
 
   return {
@@ -117,7 +124,7 @@ export const createRead = ({
           return exported.ok ? exported.data : undefined
         }
       },
-      index: indexes
+      index
     },
     invalidate: applyImpact
   }

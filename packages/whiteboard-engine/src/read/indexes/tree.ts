@@ -5,7 +5,7 @@ const EMPTY_IDS: readonly NodeId[] = []
 const EMPTY_SET: ReadonlySet<NodeId> = new Set<NodeId>()
 
 export class TreeIndex {
-  private nodeMap: ReadModel['indexes']['canvasNodeById'] = new Map()
+  private nodeById: ReadModel['canvas']['nodeById'] = new Map()
   private allIds: readonly NodeId[] = EMPTY_IDS
   private groups = new Set<NodeId>()
   private children = new Map<NodeId, NodeId[]>()
@@ -13,14 +13,14 @@ export class TreeIndex {
   private setCache = new Map<NodeId, ReadonlySet<NodeId>>()
 
   applyChange = (model: ReadModel) => {
-    const nextNodeMap = model.indexes.canvasNodeById
-    const nextIds = model.indexes.canvasNodeIds
+    const nextNodeById = model.canvas.nodeById
+    const nextIds = model.canvas.nodeIds
 
-    if (this.nodeMap === nextNodeMap && this.allIds === nextIds) {
+    if (this.nodeById === nextNodeById && this.allIds === nextIds) {
       return
     }
 
-    this.nodeMap = nextNodeMap
+    this.nodeById = nextNodeById
     this.allIds = nextIds
     this.groups = new Set()
     this.children = new Map()
@@ -28,7 +28,7 @@ export class TreeIndex {
     this.setCache.clear()
 
     nextIds.forEach((nodeId) => {
-      const node = nextNodeMap.get(nodeId)
+      const node = nextNodeById.get(nodeId)
       if (!node) return
 
       if (node.type === 'group') {
@@ -57,9 +57,6 @@ export class TreeIndex {
     return ids
   }
 
-  has = (rootId: NodeId, nodeId: NodeId): boolean =>
-    this.readSet(rootId).has(nodeId)
-
   private readIds = (rootId: NodeId): readonly NodeId[] => {
     const set = this.readSet(rootId)
     if (set.size === 0) {
@@ -76,7 +73,7 @@ export class TreeIndex {
       return cached
     }
 
-    if (!this.nodeMap.has(rootId) || !this.groups.has(rootId)) {
+    if (!this.nodeById.has(rootId) || !this.groups.has(rootId)) {
       this.setCache.set(rootId, EMPTY_SET)
       return EMPTY_SET
     }
