@@ -172,7 +172,7 @@ export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const chrome = useStoreValue(instance.read.chrome.node)
   const container = useContainer()
-  const guides = useStoreValue(instance.internals.node.guides)
+  const guides = useStoreValue(instance.internals.snap.guides)
   const selection = useSelection()
   const activeContainerNode = useNodeOverlayView(container.id)
   const transformSessionRef = useRef<ReturnType<typeof createTransformSession> | null>(null)

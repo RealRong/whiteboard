@@ -36,6 +36,7 @@ import {
   buildNodeDragState,
   resolveNodeDragFollowEdges,
   resolveNodeDragCommit,
+  resolveNodeDragPosition,
   resolveNodeDragPreview,
   type NodeDragRuntimeState
 } from './hooks/drag/math'
@@ -254,7 +255,7 @@ export const createNodeGesture = (
     active = null
     dragSession = null
     instance.internals.node.session.clear()
-    instance.internals.node.guides.clear()
+    instance.internals.snap.clear()
     instance.internals.edge.path.clear()
   }
 
@@ -287,15 +288,30 @@ export const createNodeGesture = (
       return
     }
 
+    const world = instance.viewport.pointer(input).world
+    const rawPosition = resolveNodeDragPosition({
+      active,
+      world
+    })
+    const snapped = instance.internals.snap.move({
+      rect: {
+        x: rawPosition.x,
+        y: rawPosition.y,
+        width: active.size.width,
+        height: active.size.height
+      },
+      excludeIds: active.members.map((member) => member.id),
+      allowCross: active.allowCross,
+      disabled: !instance.read.tool.is('select')
+    })
     const preview = resolveNodeDragPreview({
       active,
-      world: instance.viewport.pointer(input).world,
-      zoom: instance.viewport.get().zoom,
-      snapEnabled: instance.read.tool.is('select'),
-      allowCross: active.allowCross,
+      position: {
+        x: snapped.x,
+        y: snapped.y
+      },
       nodes: readCanvasNodes(),
-      config: instance.config,
-      readSnapCandidatesInRect: (rect) => instance.read.index.snap.inRect(rect)
+      config: instance.config
     })
 
     active.last = preview.position
@@ -310,7 +326,6 @@ export const createNodeGesture = (
       patches: preview.patches,
       hoveredContainerId: preview.hoveredContainerId
     })
-    instance.internals.node.guides.write(preview.guides)
     instance.internals.edge.path.write({
       patches: edgeUpdates.map(({ id, patch }) => ({
         id,
@@ -444,7 +459,7 @@ export const createNodeGesture = (
     }
     dragSession = nextSession
     instance.internals.node.session.clear()
-    instance.internals.node.guides.clear()
+    instance.internals.snap.clear()
     nextSession.pan(moveEvent)
     updatePreview(moveEvent)
 

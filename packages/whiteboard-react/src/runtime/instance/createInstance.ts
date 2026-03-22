@@ -31,6 +31,7 @@ import { createViewport } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
 import {
   createInteractionCoordinator,
+  createSnapRuntime,
   type InteractionCoordinator
 } from '../interaction'
 import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
@@ -219,6 +220,11 @@ export const createInstance = ({
   const interaction = createInteractionCoordinator({
     getViewport: () => viewport.input
   })
+  const snap = createSnapRuntime({
+    config: engine.config.node,
+    readZoom: () => viewport.read.get().zoom,
+    query: engine.read.index.snap.inRect
+  })
   const {
     stores,
     state,
@@ -236,6 +242,7 @@ export const createInstance = ({
     stores.edit.commands.clear()
     stores.selection.commands.clear()
     stores.container.commands.clear()
+    snap.clear()
     internals.node.clear()
     internals.edge.clear()
     internals.mindmap.clear()
@@ -273,6 +280,7 @@ export const createInstance = ({
     engine,
     internals: {
       viewport,
+      snap,
       ...internals
     },
     interaction,

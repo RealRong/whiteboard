@@ -6,13 +6,9 @@ import {
 import {
   computeNextRotation,
   computeResizeRect,
-  expandRectByThreshold,
+  getResizeSourceEdges,
   getResizeUpdateRect,
   projectResizePatches,
-  resolveInteractionZoom,
-  resolveResizePreview,
-  resolveSnapThresholdWorld,
-  type Guide,
   type ResizeDirection,
   type TransformHandle,
   type TransformPreviewPatch
@@ -163,20 +159,18 @@ export const createTransformSession = (
     active = null
     session = null
     instance.internals.node.session.clear()
-    instance.internals.node.guides.clear()
+    instance.internals.snap.clear()
   }
 
   const writePreview = (
-    patches: readonly TransformPreviewPatch[],
-    guides: readonly Guide[] = []
+    patches: readonly TransformPreviewPatch[]
   ) => {
     instance.internals.node.session.write({
       patches
     })
-    instance.internals.node.guides.write(guides)
   }
 
-  const buildResizePreview = (options: {
+  const buildResizeUpdate = (options: {
     drag: ResizeDragState
     currentScreen: Point
     zoom: number
@@ -184,8 +178,7 @@ export const createTransformSession = (
     shiftKey: boolean
     excludeNodeIds: readonly NodeId[]
   }) => {
-    const safeZoom = resolveInteractionZoom(options.zoom)
-    const base = {
+    const rawRect = computeResizeRect({
       handle: options.drag.handle,
       startScreen: options.drag.startScreen,
       currentScreen: options.currentScreen,
@@ -193,26 +186,22 @@ export const createTransformSession = (
       startRotation: options.drag.startRotation,
       startSize: options.drag.startSize,
       startAspect: options.drag.startAspect,
-      zoom: safeZoom,
+      zoom: Math.max(options.zoom, ZOOM_EPSILON),
       altKey: options.altKey,
       shiftKey: options.shiftKey,
       minSize: RESIZE_MIN_SIZE
-    }
-    const rawRect = computeResizeRect(base).rect
-    const threshold = resolveSnapThresholdWorld(instance.config.node, safeZoom)
-    const excludeSet = new Set<NodeId>(options.excludeNodeIds)
+    })
+    const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-    return resolveResizePreview({
-      ...base,
-      snap:
-        options.altKey || options.drag.startRotation !== 0
-          ? undefined
-          : {
-              threshold,
-              candidates: instance.read.index.snap.inRect(
-                expandRectByThreshold(rawRect, threshold)
-              ).filter((candidate) => !excludeSet.has(candidate.id as NodeId))
-            }
+    return instance.internals.snap.resize({
+      rect: rawRect.rect,
+      source: {
+        x: sourceX,
+        y: sourceY
+      },
+      minSize: RESIZE_MIN_SIZE,
+      excludeIds: options.excludeNodeIds,
+      disabled: options.altKey || options.drag.startRotation !== 0
     })
   }
 
@@ -221,7 +210,7 @@ export const createTransformSession = (
     drag: ResizeDragState,
     event: PointerEvent
   ) => {
-    const preview = buildResizePreview({
+    const update = buildResizeUpdate({
       drag,
       currentScreen: {
         x: event.clientX,
@@ -236,16 +225,16 @@ export const createTransformSession = (
     next.patches = next.targets.length === 1
       ? [{
           id: next.targets[0]!.id,
-          position: preview.update.position,
-          size: preview.update.size
+          position: update.position,
+          size: update.size
         }]
       : projectResizePatches({
           startRect: getResizeStartRect(drag),
-          nextRect: getResizeUpdateRect(preview.update),
+          nextRect: getResizeUpdateRect(update),
           members: next.targets
         })
 
-    writePreview(next.patches, preview.guides)
+    writePreview(next.patches)
   }
 
   const updateRotatePreview = (
@@ -253,6 +242,7 @@ export const createTransformSession = (
     drag: RotateDragState,
     event: PointerEvent
   ) => {
+    instance.internals.snap.clear()
     const rotation = computeNextRotation({
       center: drag.center,
       currentPoint: instance.viewport.pointer(event).world,
@@ -350,7 +340,7 @@ export const createTransformSession = (
     active = next
     session = nextSession
     instance.internals.node.session.clear()
-    instance.internals.node.guides.clear()
+    instance.internals.snap.clear()
     event.preventDefault()
     event.stopPropagation()
     return true

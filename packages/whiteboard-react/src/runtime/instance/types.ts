@@ -21,6 +21,7 @@ import type {
   InteractionCoordinator,
   InteractionMode
 } from '../interaction/types'
+import type { SnapRuntime } from '../interaction/snap'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgeFeatureRuntime } from '../../features/edge/session/runtime'
 import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
@@ -91,6 +92,7 @@ export type InternalInstance = WhiteboardInstance & {
   registry: NodeRegistry
   internals: {
     viewport: ViewportRuntime
+    snap: SnapRuntime
     node: NodeFeatureRuntime
     edge: EdgeFeatureRuntime
     mindmap: MindmapFeatureRuntime

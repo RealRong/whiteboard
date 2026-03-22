@@ -1,13 +1,7 @@
 import type { BoardConfig } from '@whiteboard/core/config'
 import {
-  computeSnap,
-  expandRectByThreshold,
   findSmallestContainerAtPoint,
   getContainerDescendants,
-  resolveSnapThresholdWorld,
-  resolveInteractionZoom,
-  type Guide,
-  type SnapCandidate
 } from '@whiteboard/core/node'
 import {
   getNodeAABB,
@@ -41,12 +35,10 @@ type NodeDragPositionUpdate = {
 
 type NodeDragPreviewResult = {
   position: Point
-  guides: readonly Guide[]
   hoveredContainerId?: NodeId
   patches: NodeDragPositionUpdate[]
 }
 
-const SNAP_CROSS_THRESHOLD_RATIO = 0.6
 const EDGE_FOLLOW_DELTA_EPSILON = 0.001
 
 const toNodeById = (nodes: readonly Node[]) =>
@@ -177,10 +169,13 @@ const buildPositionUpdates = (
   }))
 )
 
-export const resolveNodeDragPositions = (
-  active: NodeDragRuntimeState,
-  anchorPosition: Point
-) => buildPositionUpdates(active.members, anchorPosition)
+export const resolveNodeDragPosition = (options: {
+  active: NodeDragRuntimeState
+  world: Point
+}): Point => ({
+  x: options.active.origin.x + (options.world.x - options.active.startWorld.x),
+  y: options.active.origin.y + (options.world.y - options.active.startWorld.y)
+})
 
 export const resolveNodeDragFollowEdges = (options: {
   active: NodeDragRuntimeState
@@ -245,67 +240,16 @@ export const resolveNodeDragFollowEdges = (options: {
 
 export const resolveNodeDragPreview = (options: {
   active: NodeDragRuntimeState
-  world: Point
-  zoom: number
-  snapEnabled: boolean
-  allowCross: boolean
+  position: Point
   nodes: readonly Node[]
-  config: Pick<BoardConfig, 'node' | 'nodeSize'>
-  readSnapCandidatesInRect: (rect: Rect) => readonly SnapCandidate[]
+  config: Pick<BoardConfig, 'nodeSize'>
 }): NodeDragPreviewResult => {
   const {
     active,
-    world,
-    zoom,
-    snapEnabled,
-    allowCross,
+    position,
     nodes,
-    config,
-    readSnapCandidatesInRect
+    config
   } = options
-  const safeZoom = resolveInteractionZoom(zoom)
-  const basePosition = {
-    x: active.origin.x + (world.x - active.startWorld.x),
-    y: active.origin.y + (world.y - active.startWorld.y)
-  }
-
-  let position = basePosition
-  let guides: readonly Guide[] = []
-
-  if (snapEnabled) {
-    const thresholdWorld = resolveSnapThresholdWorld(config.node, safeZoom)
-    const movingRect: Rect = {
-      x: basePosition.x,
-      y: basePosition.y,
-      width: active.size.width,
-      height: active.size.height
-    }
-    const queryRect = expandRectByThreshold(movingRect, thresholdWorld)
-    const exclude = new Set(active.members.map((member) => member.id))
-    const candidates = readSnapCandidatesInRect(queryRect)
-      .filter((candidate) => !exclude.has(candidate.id as NodeId))
-    const snapResult = computeSnap(
-      movingRect,
-      candidates,
-      thresholdWorld,
-      active.anchorId,
-      {
-        allowCross,
-        crossThreshold: thresholdWorld * SNAP_CROSS_THRESHOLD_RATIO
-      }
-    )
-    guides = snapResult.guides
-    position = {
-      x:
-        snapResult.dx !== undefined
-          ? basePosition.x + snapResult.dx
-          : basePosition.x,
-      y:
-        snapResult.dy !== undefined
-          ? basePosition.y + snapResult.dy
-          : basePosition.y
-    }
-  }
 
   const rootPositions = buildPositionUpdates(active.roots, position)
   const hoveredContainerId = resolveHoveredContainerId({
@@ -317,7 +261,6 @@ export const resolveNodeDragPreview = (options: {
 
   return {
     position,
-    guides,
     hoveredContainerId,
     patches: buildPositionUpdates(active.members, position)
   }

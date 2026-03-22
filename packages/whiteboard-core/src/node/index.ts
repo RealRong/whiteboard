@@ -42,13 +42,11 @@ export {
   getResizeUpdateRect,
   projectResizePatches,
   getResizeSourceEdges,
-  resolveResizePreview,
   resizeHandleMap,
   rotateVector
 } from './transform'
 export type {
   HorizontalResizeEdge,
-  ResizePreviewResult,
   ResizeUpdate,
   ResizeDirection,
   TransformPreviewPatch,

@@ -1,10 +1,5 @@
 import type { NodeId, Point, Rect, Size } from '../types'
 import { getRectCenter, rotatePoint } from '../geometry'
-import {
-  computeResizeSnap,
-  type Guide,
-  type SnapCandidate
-} from './snap'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1
@@ -29,11 +24,6 @@ export type ResizeUpdate = {
   size: Size
 }
 
-export type ResizePreviewResult = {
-  update: ResizeUpdate
-  guides: readonly Guide[]
-}
-
 export type TransformPreviewPatch = {
   id: NodeId
   position?: Point
@@ -44,11 +34,6 @@ export type TransformPreviewPatch = {
 export type TransformProjectionMember = {
   id: NodeId
   rect: Rect
-}
-
-const DEFAULT_MIN_SIZE: Size = {
-  width: 20,
-  height: 20
 }
 
 const ZOOM_EPSILON = 0.0001
@@ -230,78 +215,6 @@ export const computeResizeRect = (options: {
       width,
       height
     }
-  }
-}
-
-export const resolveResizePreview = (options: {
-  handle: ResizeDirection
-  startScreen: Point
-  currentScreen: Point
-  startCenter: Point
-  startRotation: number
-  startSize: Size
-  startAspect: number
-  zoom: number
-  altKey: boolean
-  shiftKey: boolean
-  minSize?: Size
-  snap?: {
-    threshold: number
-    candidates: readonly SnapCandidate[]
-  }
-}): ResizePreviewResult => {
-  const safeZoom = Math.max(options.zoom, ZOOM_EPSILON)
-  const resized = computeResizeRect({
-    handle: options.handle,
-    startScreen: options.startScreen,
-    currentScreen: options.currentScreen,
-    startCenter: options.startCenter,
-    startRotation: options.startRotation,
-    startSize: options.startSize,
-    startAspect: options.startAspect,
-    minSize: options.minSize ?? DEFAULT_MIN_SIZE,
-    zoom: safeZoom,
-    altKey: options.altKey,
-    shiftKey: options.shiftKey,
-    zoomEpsilon: ZOOM_EPSILON
-  })
-
-  let nextRect = resized.rect
-  let nextSize: Size = {
-    width: resized.width,
-    height: resized.height
-  }
-  let guides: readonly Guide[] = []
-
-  if (options.snap && !options.altKey && options.startRotation === 0) {
-    const { sourceX, sourceY } = getResizeSourceEdges(options.handle)
-    const snapped = computeResizeSnap({
-      movingRect: nextRect,
-      candidates: [...options.snap.candidates],
-      threshold: options.snap.threshold,
-      minSize: options.minSize ?? DEFAULT_MIN_SIZE,
-      sourceEdges: {
-        sourceX,
-        sourceY
-      }
-    })
-    nextRect = snapped.rect
-    nextSize = {
-      width: snapped.width,
-      height: snapped.height
-    }
-    guides = snapped.guides
-  }
-
-  return {
-    update: {
-      position: {
-        x: nextRect.x,
-        y: nextRect.y
-      },
-      size: nextSize
-    },
-    guides
   }
 }
 
