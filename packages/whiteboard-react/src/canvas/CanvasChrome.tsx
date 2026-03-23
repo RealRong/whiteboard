@@ -85,7 +85,6 @@ export const CanvasChrome = ({
       <LeftToolbar surface={surface} />
       <CanvasDock />
       <Marquee
-        containerRef={containerRef}
         marquee={marquee}
       />
       <NodeToolbar

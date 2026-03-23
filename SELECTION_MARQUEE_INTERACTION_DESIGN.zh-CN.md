@@ -71,12 +71,8 @@ type MarqueeStart = {
   pointerId: number
   capture: Element
   start: ViewportPointer
-  mode: SelectionMode
-  base: readonly NodeId[]
   scope?: ReadonlySet<NodeId>
   match: MarqueeMatch
-  exclude?: readonly NodeId[]
-  clearOnTap?: boolean
 }
 ```
 
@@ -84,6 +80,19 @@ type MarqueeStart = {
 
 - `touch` 表示只要碰到就算命中
 - `contain` 表示必须被完整包裹才算命中
+- `scope` 表示这次框选只在某个给定集合内查找
+
+这里有一个边界要明确：
+
+- `marquee` 只负责算 matched ids
+- 怎么把 matched ids 写回 `selection`，由外层 gesture/profile 决定
+
+也就是说这些东西不应该进 `marquee.start(...)`：
+
+- `mode`
+- `base`
+- `clearOnTap`
+- `exclude`
 
 这已经足够表达背景框选、长按精准框选、容器内框选。
 
@@ -227,15 +236,22 @@ move:
   drag current node or drag current selection
 
 hold:
-  clear selection when needed
-  start marquee(match: 'contain', exclude: [pressedNodeId])
+  clear selection
+  start marquee(match: 'contain')
 ```
 
-这里 `exclude: [pressedNodeId]` 的原因是：
+这里不需要 `exclude: [pressedNodeId]`。
 
-- 起始 node 已经是当前命中源
-- 长按后用户想重新圈选周围对象
-- 起始 node 不应该再被 contain-marquee 回选回来
+原因是：
+
+- `hold -> contain marquee` 之前已经明确清空当前 selection
+- contain marquee 的结果完全由这次新框决定
+- 起始点落在 pressed node 内部时，这个 node 几何上本来就不可能被完整包裹
+
+所以：
+
+- 不需要再把 pressed node 上下文传进 marquee
+- `marquee` 保持纯几何命中就够了
 
 ### 7.3 `selection-box`
 
@@ -301,6 +317,11 @@ hold:
 - 计算 matched ids
 - 在合适时机把结果写回 `selection`
 
+更准确地说：
+
+- `marquee` 负责“框到了谁”
+- `gesture profile` 负责“框到的人怎么写回 selection”
+
 ### 8.3 不把视觉态再做成另一套行为系统
 
 虚线和实线只是 `marquee.match` 的渲染结果。
@@ -341,12 +362,8 @@ marquee.start({
   pointerId,
   capture,
   start,
-  mode,
-  base,
   scope,
-  match,
-  exclude,
-  clearOnTap
+  match
 })
 
 marquee.cancel()
@@ -356,8 +373,8 @@ marquee.rect
 重点是：
 
 - `match` 明确
-- `exclude` 明确
-- 不再混入 selection 领域词
+- `scope` 明确
+- 不混入 selection 领域词
 
 ### 9.3 `gesture`
 
@@ -412,7 +429,304 @@ runIntent(intent)
 
 所以最该改的不是 selection store，而是 interaction target 分层。
 
-## 11. 推荐实施顺序
+## 11. `gesture` 如何最大程度简化
+
+### 11.1 根本判断
+
+长期最优不是继续在 `features/node/gesture.ts` 里做局部瘦身，而是先改它的全局定位。
+
+`gesture` 最终不应该是：
+
+- node 交互巨石
+- selection 语义中心
+- marquee 启动中心
+- drag preview 执行中心
+- chrome 显隐维护中心
+
+它最终应该只是：
+
+- select tool 的输入路由器
+
+也就是只做四件事：
+
+```ts
+readTarget(event)
+readContext(target, event)
+resolveIntent(target, context)
+runIntent(intent)
+```
+
+换句话说：
+
+- `gesture` 只负责“识别输入目标并分流”
+- 不负责“亲自把所有事情做完”
+
+### 11.2 当前哪些复杂度是没必要的
+
+当前 `gesture` 的复杂度里，有一部分是真实业务复杂度，但有一部分只是边界没切开造成的。
+
+最没必要的复杂度有这些：
+
+1. 用 `zone: 'node' | 'body'` 承载过多语义
+   - 实际交互目标已经不止两类
+   - 至少还有 `background / container-body / selection-box / transform-handle`
+   - 把这些语义压成 `zone`，只会把复杂度拖进条件分支
+
+2. `PressIntent` 里提前塞入太多执行细节
+   - `tapSelectionIds`
+   - `dragSelectionIds`
+   - `moveMarqueePolicy`
+   - `holdMarqueePolicy`
+   - `clearSelectionOnHold`
+   - 这些都不是“意图”本身，而是执行层细节
+
+3. `gesture` 自己持有 drag active state
+   - 当前 node drag 的 preview / snap / edge follow / commit 都挂在 `gesture` 里
+   - 这些复杂度不该算在 gesture 头上
+   - 它们应该属于独立的 `node-drag session`
+
+4. `Marquee` 自己处理背景 pointerdown 与 selection 合并
+   - 这会导致背景输入和 node 输入由两套拥有者分别处理
+   - 如果再加 `selection-box`，就会继续裂成第三套
+
+5. `gesture` 手动维护 chrome 隐藏
+   - `chromeHidden` 不是完全错误
+   - 但它不该成为 press intent 的一部分到处传递
+   - chrome 应尽量从 `interaction + selection + edit` 派生
+
+### 11.3 哪些复杂度是必要的
+
+这些复杂度本身不是问题，不能为了“看起来简单”硬砍：
+
+1. `tap / drag / hold` 分流是必要的
+   - 这是 Miro 风格交互的基础
+
+2. container scope 是必要的
+   - 容器内框选与全画布框选不是同一件事
+
+3. drag preview / snap / edge follow 是必要的
+   - 但它们属于 drag session
+   - 不属于 gesture
+
+所以正确的做法不是消灭这些复杂度，而是把它们移回正确层级。
+
+### 11.4 最优的全局结构
+
+建议最终把 select tool 的交互链路收成这四层：
+
+1. `selection`
+   - committed result
+
+2. `marquee`
+   - 纯框选 session
+
+3. `node-drag`
+   - 纯拖拽 session
+
+4. `gesture`
+   - 输入路由器
+
+它们的职责分别是：
+
+- `selection` 负责“当前选中了谁”
+- `marquee` 负责“框到了谁”
+- `node-drag` 负责“当前拖到了哪里、preview 是什么、怎么 commit”
+- `gesture` 负责“这次 pointerdown 应该走哪条路”
+
+### 11.5 最小 target 模型
+
+`gesture` 之所以会膨胀，一个根本原因是 target 模型太含糊。
+
+建议最终只保留这些显式 target：
+
+```ts
+type GestureTarget =
+  | { kind: 'background' }
+  | { kind: 'node'; nodeId: NodeId; field?: EditField }
+  | { kind: 'container-body'; nodeId: NodeId }
+  | { kind: 'selection-box' }
+  | { kind: 'transform-handle'; handle: TransformHandle; nodeId?: NodeId }
+```
+
+这样：
+
+- `background` 不再藏在 `Marquee.tsx`
+- `container body` 不再藏在 `zone === 'body'`
+- `selection-box` 不再被硬塞进 node 逻辑
+- `transform-handle` 也不需要和 node press 混写
+
+### 11.6 每类 target 的固定规则
+
+#### `background`
+
+```ts
+tap:
+  clear selection
+
+move:
+  start marquee(match: 'touch')
+```
+
+#### `node`
+
+```ts
+tap:
+  select / edit
+
+move:
+  start node-drag
+
+hold:
+  clear selection
+  start marquee(match: 'contain')
+```
+
+#### `container-body`
+
+```ts
+tap:
+  select container
+
+move:
+  start marquee(match: 'touch')
+
+hold:
+  clear selection
+  start marquee(match: 'contain')
+```
+
+#### `selection-box`
+
+```ts
+tap:
+  noop
+
+move:
+  start node-drag for current selection
+
+hold:
+  clear selection
+  start marquee(match: 'contain')
+```
+
+#### `transform-handle`
+
+```ts
+move:
+  start transform session
+```
+
+这套固定规则比“先读 zone / repeat / field / currentSelectedIds，再拼 intent”更稳定。
+
+### 11.7 `gesture` 不该再做什么
+
+最终 `gesture` 不该再直接做这些事：
+
+- 不自己维护 drag active state
+- 不自己写 preview patch
+- 不自己决定 marquee 怎么合并 selection
+- 不自己绑定背景 pointerdown
+- 不自己拼 chrome 业务规则
+
+这些应分别交给：
+
+- `node-drag`
+- `marquee`
+- `selection`
+- `surface router`
+- `chrome read`
+
+### 11.8 三刀最有效的重构
+
+如果只做最有效的三刀，我建议顺序是：
+
+#### 第一刀：把 `marquee` 纯化
+
+把 `marquee.start(...)` 收成纯框选输入：
+
+```ts
+marquee.start({
+  pointerId,
+  capture,
+  start,
+  scope,
+  match
+})
+```
+
+不要再让它接：
+
+- `mode`
+- `base`
+- `clearOnTap`
+
+这样 `marquee` 才是纯 producer。
+
+#### 第二刀：把 node drag 从 `gesture` 中抽出去
+
+把这些都挪到独立 `node-drag` session：
+
+- build drag state
+- preview
+- snap
+- related edge follow
+- commit
+
+这样 `gesture` 只需要在 move 时调用：
+
+```ts
+nodeDrag.start(...)
+```
+
+#### 第三刀：把背景输入也并入统一 surface 路由
+
+不要再让 `Marquee` 组件自己监听背景 `pointerdown`。
+
+应该由统一的 select-surface 输入入口来识别：
+
+- background
+- node
+- container-body
+- selection-box
+
+然后再决定是：
+
+- `marquee.start(...)`
+- `nodeDrag.start(...)`
+- `transform.start(...)`
+
+### 11.9 最终形态
+
+最终最理想的结构不是一个更大的 runtime，而是一个更薄的交互漏斗：
+
+```ts
+select-surface/
+  target.ts
+  context.ts
+  intent.ts
+  router.ts
+
+marquee/
+  session.ts
+  layer.tsx
+
+node-drag/
+  session.ts
+
+transform/
+  session.ts
+```
+
+其中：
+
+- `select-surface/router` 只做输入分流
+- `marquee/session` 只做框选
+- `node-drag/session` 只做拖拽
+- `transform/session` 只做缩放旋转
+
+这比继续维护一个 600+ 行的 `node/gesture.ts` 明显更符合长期最优。
+
+## 12. 推荐实施顺序
 
 ### 阶段 1：先把 `selection-box` 变成显式 target
 
@@ -461,7 +775,7 @@ runIntent(intent)
 
 - press / drag / hold 的逻辑继续变短
 
-## 12. 最终结论
+## 13. 最终结论
 
 长期最优设计不是把 `selection` 变复杂，而是把职责切清：
 

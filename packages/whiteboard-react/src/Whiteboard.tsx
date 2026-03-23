@@ -89,11 +89,7 @@ const WhiteboardCanvas = ({
   )
 
   if (!marqueeRef.current) {
-    marqueeRef.current = createMarqueeSession(instance, {
-      getContainerBodyPress: () => (
-        gestureRef.current?.handleContainerBodyPointerDown ?? null
-      )
-    })
+    marqueeRef.current = createMarqueeSession(instance)
   }
 
   const marquee = marqueeRef.current!
@@ -108,6 +104,22 @@ const WhiteboardCanvas = ({
     marquee.cancel()
     gesture.cancel()
   }, [marquee, gesture])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) {
+      return
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      gesture.handleBackgroundPointerDown(container, event)
+    }
+
+    container.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [containerRef, gesture])
 
   useCanvasInsert({
     containerRef
@@ -140,7 +152,7 @@ const WhiteboardCanvas = ({
         <NodeSceneLayer gesture={gesture} />
         <MindmapSceneLayer />
         <ContainerChromeLayer gesture={gesture} />
-        <NodeOverlayLayer />
+        <NodeOverlayLayer gesture={gesture} />
         <EdgeOverlayLayer
           onEndpointPointerDown={edgeInput.handleEndpointPointerDown}
           onPathPointPointerDown={edgeInput.handlePathPointPointerDown}

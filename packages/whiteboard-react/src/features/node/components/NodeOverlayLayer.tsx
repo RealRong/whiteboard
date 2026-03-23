@@ -14,6 +14,7 @@ import {
 } from '../../../runtime/hooks'
 import { useNodeOverlayView } from '../hooks/useNodeView'
 import { createTransformSession } from '../hooks/transform/session'
+import type { NodeGesture } from '../gesture'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import {
   NodeTransformHandles,
@@ -135,9 +136,13 @@ const ActiveContainerOverlay = ({
 
 const SelectionTransformOverlay = ({
   selection,
+  onSelectionBoxPointerDown,
   onTransformPointerDown
 }: {
   selection: ReturnType<typeof useSelection>
+  onSelectionBoxPointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => void
   onTransformPointerDown: (
     handle: TransformHandle,
     event: ReactPointerEvent<HTMLDivElement>
@@ -156,6 +161,7 @@ const SelectionTransformOverlay = ({
           width: selection.box.width,
           height: selection.box.height
         }}
+        onPointerDown={onSelectionBoxPointerDown}
       />
       <TransformHandles
         rect={selection.box}
@@ -168,7 +174,11 @@ const SelectionTransformOverlay = ({
   )
 }
 
-export const NodeOverlayLayer = () => {
+export const NodeOverlayLayer = ({
+  gesture
+}: {
+  gesture: NodeGesture
+}) => {
   const instance = useInternalInstance()
   const chrome = useStoreValue(instance.read.chrome.node)
   const container = useContainer()
@@ -218,6 +228,7 @@ export const NodeOverlayLayer = () => {
         {chrome.transform ? (
           <SelectionTransformOverlay
             selection={selection}
+            onSelectionBoxPointerDown={gesture.handleSelectionBoxPointerDown}
             onTransformPointerDown={transformSession.handleSelectionPointerDown}
           />
         ) : null}
