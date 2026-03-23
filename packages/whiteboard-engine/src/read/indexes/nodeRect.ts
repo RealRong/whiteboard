@@ -16,7 +16,7 @@ const resolveRebuild = (impact: KernelReadImpact): Rebuild => {
   if (impact.reset || impact.node.list) {
     return 'full'
   }
-  if (impact.node.geometry) {
+  if (impact.node.geometry || impact.node.value) {
     return impact.node.ids.length === 0 ? 'full' : 'dirty'
   }
   return 'none'

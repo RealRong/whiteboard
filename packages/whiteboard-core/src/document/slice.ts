@@ -177,6 +177,7 @@ const getEdgeBounds = ({
         const node = nodesById.get(edge.source.nodeId)
         if (!node) return undefined
         return {
+          node,
           rect: getNodeRect(node, nodeSize),
           rotation: node.rotation
         }
@@ -187,6 +188,7 @@ const getEdgeBounds = ({
         const node = nodesById.get(edge.target.nodeId)
         if (!node) return undefined
         return {
+          node,
           rect: getNodeRect(node, nodeSize),
           rotation: node.rotation
         }
@@ -276,12 +278,14 @@ const detachEdge = ({
     edge,
     source: sourceNode
       ? {
+        node: sourceNode,
         rect: getNodeRect(sourceNode, nodeSize),
         rotation: sourceNode.rotation
       }
       : undefined,
     target: targetNode
       ? {
+        node: targetNode,
         rect: getNodeRect(targetNode, nodeSize),
         rotation: targetNode.rotation
       }

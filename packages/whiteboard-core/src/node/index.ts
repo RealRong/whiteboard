@@ -3,6 +3,12 @@ export {
   expandNodeSelection
 } from './duplicate'
 export {
+  getAutoNodeAnchor,
+  getNodeAnchorFromPoint,
+  getNodeAnchorPoint,
+  type NodeOutlineAnchorOptions
+} from './outline'
+export {
   compactDrawPoints,
   matchDrawRect,
   normalizeDrawPoints,
@@ -88,6 +94,11 @@ export {
   applySelection,
   resolveSelectionMode
 } from './selection'
+export {
+  isShapeKind,
+  readShapeKind,
+  type ShapeKind
+} from './shape'
 export type {
   NodeAlignMode,
   NodeDistributeMode,

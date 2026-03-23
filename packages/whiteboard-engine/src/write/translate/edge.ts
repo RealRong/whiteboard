@@ -71,12 +71,14 @@ const resolvePath = (
     edge,
     source: sourceNode
       ? {
+          node: sourceNode,
           rect: getNodeRect(sourceNode, nodeSize),
           rotation: sourceNode.rotation
         }
       : undefined,
     target: targetNode
       ? {
+          node: targetNode,
           rect: getNodeRect(targetNode, nodeSize),
           rotation: targetNode.rotation
         }

@@ -3,6 +3,7 @@ import type {
   NodeDistributeMode
 } from '@whiteboard/core/node'
 import type { Node, NodeId } from '@whiteboard/core/types'
+import type { NodeMeta } from '../../types/node'
 import type { WhiteboardInstance } from '../../runtime/instance'
 import { mergeRecordPatch } from '../../runtime/utils/recordPatch'
 import type { NodeSummary } from './summary'
@@ -108,13 +109,16 @@ export const groupNodes = (
   instance.commands.selection.replace([result.data.groupId])
 }
 
-export const filterNodesByType = (
+export const filterNodesByKey = (
   instance: NodeCommandsInstance,
   nodes: readonly Node[],
-  type: string
+  key: string,
+  options?: {
+    resolveMeta?: (node: Node) => NodeMeta | undefined
+  }
 ) => {
   const nodeIds = nodes
-    .filter((node) => node.type === type)
+    .filter((node) => (options?.resolveMeta?.(node)?.key ?? node.type) === key)
     .map((node) => node.id)
 
   if (!nodeIds.length) {

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
-import type { NodeDefinition, NodeRegistry } from '../../../types/node'
+import type { Node } from '@whiteboard/core/types'
+import type { NodeDefinition, NodeMeta, NodeRegistry } from '../../../types/node'
 
 export const createNodeRegistry = (definitions: NodeDefinition[] = []): NodeRegistry => {
   const map = new Map(definitions.map((definition) => [definition.type, definition]))
@@ -31,4 +32,16 @@ export const useNodeRegistry = () => {
     throw new Error('NodeRegistryProvider is missing.')
   }
   return registry
+}
+
+export const resolveNodeMeta = (
+  registry: Pick<NodeRegistry, 'get'>,
+  node: Node
+): NodeMeta | undefined => {
+  const definition = registry.get(node.type)
+  if (!definition) {
+    return undefined
+  }
+
+  return definition.describe?.(node) ?? definition.meta
 }

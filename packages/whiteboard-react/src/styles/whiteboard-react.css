@@ -413,6 +413,15 @@
   color: currentColor;
 }
 
+.wb-left-toolbar-button-shape-preview {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
 .wb-left-toolbar-divider {
   width: 100%;
   height: 1px;
@@ -672,7 +681,7 @@
 
 .wb-left-toolbar-shape-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1634,14 +1643,29 @@
 }
 
 .wb-shape-node-label {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  min-width: 0;
   max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
   font-size: 14px;
   line-height: 1.35;
   text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
-  pointer-events: none;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.wb-shape-node-editor {
+  outline: none;
+  user-select: text;
 }
 
 .wb-default-group {

@@ -18,6 +18,30 @@ const toNodeEnd = (nodeId: string) => ({
   nodeId
 })
 
+const createShapeNode = (
+  input: Omit<Node, 'type'> & {
+    kind: string
+    text: string
+  }
+): Node => {
+  const {
+    kind,
+    text,
+    data,
+    ...node
+  } = input
+
+  return {
+    ...node,
+    type: 'shape',
+    data: {
+      ...(data ?? {}),
+      kind,
+      text
+    }
+  }
+}
+
 const createBaseDocument = (id: string, nodes: Node[], edges: Edge[]): Document => ({
   ...createDocument(id),
   nodes: toCollection(nodes),
@@ -36,19 +60,19 @@ const createBasicDocument = (): Document => {
     },
     {
       id: 'node-1',
-      type: 'rect',
+      type: 'shape',
       position: { x: -200, y: -80 },
       size: { width: 160, height: 100 },
       parentId: groupId,
-      data: { title: 'Start' }
+      data: { kind: 'rect', text: 'Start' }
     },
     {
       id: 'node-2',
-      type: 'rect',
+      type: 'shape',
       position: { x: 140, y: -40 },
       size: { width: 180, height: 120 },
       parentId: groupId,
-      data: { title: 'Process' }
+      data: { kind: 'rect', text: 'Process' }
     },
     {
       id: 'node-3',
@@ -99,13 +123,16 @@ const createDenseDocument = (): Document => {
       const id = `grid-${row}-${col}`
       nodes.push({
         id,
-        type: 'rect',
+        type: 'shape',
         position: {
           x: col * gapX - (cols * gapX) / 2,
           y: row * gapY - (rows * gapY) / 2
         },
         size,
-        data: { title: `${row + 1}-${col + 1}` }
+        data: {
+          kind: 'rect',
+          text: `${row + 1}-${col + 1}`
+        }
       })
     }
   }
@@ -178,80 +205,120 @@ const createMindmapDocument = (): Document => {
 
 const createShapesDocument = (): Document => {
   const nodes: Node[] = [
-    {
-      id: 'shape-ellipse',
-      type: 'ellipse',
-      position: { x: -420, y: -140 },
-      size: { width: 200, height: 130 },
-      data: { title: 'Entry' }
-    },
-    {
+    createShapeNode({
+      id: 'shape-start',
+      kind: 'pill',
+      text: 'Start',
+      position: { x: -520, y: -160 },
+      size: { width: 200, height: 100 }
+    }),
+    createShapeNode({
+      id: 'shape-process',
+      kind: 'rect',
+      text: 'Process',
+      position: { x: -240, y: -160 },
+      size: { width: 180, height: 110 }
+    }),
+    createShapeNode({
+      id: 'shape-data',
+      kind: 'parallelogram',
+      text: 'Input / Output',
+      position: { x: 20, y: -160 },
+      size: { width: 210, height: 110 }
+    }),
+    createShapeNode({
       id: 'shape-diamond',
-      type: 'diamond',
-      position: { x: -110, y: -150 },
-      size: { width: 180, height: 180 },
-      data: { title: 'Decision' }
-    },
-    {
-      id: 'shape-triangle',
-      type: 'triangle',
-      position: { x: 170, y: -130 },
-      size: { width: 190, height: 160 },
-      data: { title: 'Alert' }
-    },
-    {
-      id: 'shape-arrow',
-      type: 'arrow-sticker',
-      position: { x: 450, y: -120 },
-      size: { width: 220, height: 120 },
-      data: { title: 'Ship it' }
-    },
-    {
+      kind: 'diamond',
+      text: 'Decision',
+      position: { x: 320, y: -180 },
+      size: { width: 180, height: 180 }
+    }),
+    createShapeNode({
+      id: 'shape-database',
+      kind: 'cylinder',
+      text: 'Database',
+      position: { x: -460, y: 120 },
+      size: { width: 180, height: 130 }
+    }),
+    createShapeNode({
+      id: 'shape-document',
+      kind: 'document',
+      text: 'Document',
+      position: { x: -180, y: 120 },
+      size: { width: 190, height: 130 }
+    }),
+    createShapeNode({
+      id: 'shape-subprocess',
+      kind: 'predefined-process',
+      text: 'Subprocess',
+      position: { x: 120, y: 130 },
+      size: { width: 210, height: 110 }
+    }),
+    createShapeNode({
       id: 'shape-callout',
-      type: 'callout',
-      position: { x: -260, y: 120 },
-      size: { width: 280, height: 160 },
-      data: { text: '新节点已经接入默认 registry，可直接拖拽、缩放、旋转、连线。' }
-    },
-    {
+      kind: 'callout',
+      text: '统一 shape 节点后，文本编辑、切换样式、catalog 都走一条链路。',
+      position: { x: 410, y: 100 },
+      size: { width: 280, height: 170 }
+    }),
+    createShapeNode({
+      id: 'shape-cloud',
+      kind: 'cloud',
+      text: 'Cloud',
+      position: { x: 380, y: -10 },
+      size: { width: 220, height: 140 }
+    }),
+    createShapeNode({
       id: 'shape-highlight',
-      type: 'highlight',
-      position: { x: 120, y: 170 },
-      size: { width: 240, height: 110 },
-      data: { text: 'Highlight' }
-    }
+      kind: 'highlight',
+      text: 'Annotation',
+      position: { x: 430, y: 310 },
+      size: { width: 240, height: 110 }
+    })
   ]
 
   const edges: Edge[] = [
     {
       id: 'shape-edge-1',
       type: 'linear',
-      source: toNodeEnd('shape-ellipse'),
-      target: toNodeEnd('shape-diamond')
+      source: toNodeEnd('shape-start'),
+      target: toNodeEnd('shape-process')
     },
     {
       id: 'shape-edge-2',
       type: 'linear',
-      source: toNodeEnd('shape-diamond'),
-      target: toNodeEnd('shape-triangle')
+      source: toNodeEnd('shape-process'),
+      target: toNodeEnd('shape-data')
     },
     {
       id: 'shape-edge-3',
       type: 'linear',
-      source: toNodeEnd('shape-triangle'),
-      target: toNodeEnd('shape-arrow')
+      source: toNodeEnd('shape-data'),
+      target: toNodeEnd('shape-diamond')
     },
     {
       id: 'shape-edge-4',
       type: 'linear',
-      source: toNodeEnd('shape-callout'),
-      target: toNodeEnd('shape-diamond')
+      source: toNodeEnd('shape-database'),
+      target: toNodeEnd('shape-document')
     },
     {
       id: 'shape-edge-5',
       type: 'linear',
-      source: toNodeEnd('shape-highlight'),
-      target: toNodeEnd('shape-arrow')
+      source: toNodeEnd('shape-document'),
+      target: toNodeEnd('shape-subprocess')
+    },
+    {
+      id: 'shape-edge-6',
+      type: 'linear',
+      source: toNodeEnd('shape-subprocess'),
+      target: toNodeEnd('shape-diamond')
+    },
+    {
+      id: 'shape-edge-7',
+      type: 'linear',
+      source: toNodeEnd('shape-cloud'),
+      target: toNodeEnd('shape-callout')
     }
   ]
 

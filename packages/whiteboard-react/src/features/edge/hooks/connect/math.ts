@@ -23,11 +23,12 @@ const resolveAnchorThresholdWorld = (
 
 export const resolveAnchorFromPoint = (
   instance: Pick<InternalInstance, 'config' | 'viewport'>,
+  node: { type: string; data?: Record<string, unknown> },
   rect: Rect,
   rotation: number,
   pointWorld: Point
 ) => {
-  return getAnchorFromPoint(rect, rotation, pointWorld, {
+  return getAnchorFromPoint(node, rect, rotation, pointWorld, {
     snapMin: readAnchorSnapMinWorld(instance),
     snapRatio: instance.config.edge.anchorSnapRatio,
     anchorOffset: DEFAULT_EDGE_ANCHOR_OFFSET
@@ -66,6 +67,7 @@ export const resolveSnapTarget = (
 
     const resolved = resolveAnchorFromPoint(
       instance,
+      entry.node,
       entry.rect,
       entry.rotation,
       pointWorld
@@ -74,6 +76,8 @@ export const resolveSnapTarget = (
       resolved.point.x - pointWorld.x,
       resolved.point.y - pointWorld.y
     )
+    if (distance > candidateThresholdWorld) continue
+
     if (!best || distance < best.distance) {
       best = {
         nodeId: entry.node.id,

@@ -32,7 +32,7 @@ export const MoreMenu = ({
   summary?: NodeSummary
   filter?: {
     types: readonly NodeTypeSummary[]
-    onSelect: (type: string) => void
+    onSelect: (key: string) => void
   }
 }) => (
   <>

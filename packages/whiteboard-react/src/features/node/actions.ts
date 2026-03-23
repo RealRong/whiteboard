@@ -4,12 +4,13 @@ import type {
 } from '@whiteboard/core/node'
 import type { Node } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../runtime/instance'
+import { resolveNodeMeta } from './registry'
 import {
   alignNodes,
   deleteNodes,
   distributeNodes,
   duplicateNodes,
-  filterNodesByType,
+  filterNodesByKey,
   groupNodes,
   orderNodes,
   toggleNodesLock,
@@ -56,7 +57,7 @@ export type NodeSelectionActions = {
   filter: {
     visible: boolean
     types: readonly NodeTypeSummary[]
-    onSelect: (type: string) => void
+    onSelect: (key: string) => void
   }
   layer: {
     visible: boolean
@@ -246,9 +247,11 @@ export const createNodeSelectionActions = (
   nodes: readonly Node[],
   extras?: NodeActionExtras
 ): NodeSelectionActions => {
-  const summary = extras?.summary ?? summarizeNodes(nodes)
+  const summary = extras?.summary ?? summarizeNodes(nodes, {
+    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+  })
   const can = extras?.can ?? resolveNodeSelectionCan(nodes, {
-    resolveMeta: (type) => instance.registry.get(type)?.meta
+    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
   })
   const nodeIds = summary.ids
   const groupIds = nodes
@@ -342,8 +345,10 @@ export const createNodeSelectionActions = (
     filter: {
       visible: can.filter,
       types: summary.types,
-      onSelect: (type: string) => {
-        filterNodesByType(instance, nodes, type)
+      onSelect: (key: string) => {
+        filterNodesByKey(instance, nodes, key, {
+          resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+        })
       }
     },
     layer: {

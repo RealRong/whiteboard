@@ -1,4 +1,4 @@
-import { getAnchorPoint } from '@whiteboard/core/geometry'
+import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type {
   EdgeAnchor,
   EdgeId,
@@ -113,6 +113,7 @@ export const useEdgeConnectInput = ({
 
     const resolved = resolveAnchorFromPoint(
       instance,
+      entry.node,
       entry.rect,
       entry.rotation,
       pointer.world
@@ -159,7 +160,7 @@ export const useEdgeConnectInput = ({
         kind: 'node',
         nodeId,
         anchor,
-        point: getAnchorPoint(entry.rect, anchor, entry.rotation)
+        point: getNodeAnchorPoint(entry.node, entry.rect, anchor, entry.rotation)
       },
       to: {
         kind: 'point',

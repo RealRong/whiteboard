@@ -1,4 +1,4 @@
-import type { Edge, Rect } from '../types/core'
+import type { Edge, Node, Rect } from '../types/core'
 import { getEdgePath } from './path'
 import {
   resolveEdgeEnds,
@@ -9,10 +9,12 @@ import type { EdgePathResult } from './types'
 export type ResolveEdgePathFromRectsInput = {
   edge: Edge
   source?: {
+    node: Pick<Node, 'type' | 'data'>
     rect: Rect
     rotation?: number
   }
   target?: {
+    node: Pick<Node, 'type' | 'data'>
     rect: Rect
     rotation?: number
   }

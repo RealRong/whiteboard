@@ -14,40 +14,40 @@ const INSERTABLE_NODES: Array<{
   data?: Record<string, unknown>
 }> = [
   {
-    type: 'ellipse',
+    type: 'shape',
     label: '椭圆',
     size: { width: 200, height: 130 },
-    data: { title: 'Ellipse' }
+    data: { kind: 'ellipse', text: 'Ellipse' }
   },
   {
-    type: 'diamond',
+    type: 'shape',
     label: '菱形',
     size: { width: 180, height: 180 },
-    data: { title: 'Decision' }
+    data: { kind: 'diamond', text: 'Decision' }
   },
   {
-    type: 'triangle',
+    type: 'shape',
     label: '三角形',
     size: { width: 190, height: 160 },
-    data: { title: 'Triangle' }
+    data: { kind: 'triangle', text: 'Triangle' }
   },
   {
-    type: 'arrow-sticker',
+    type: 'shape',
     label: '箭头',
     size: { width: 220, height: 120 },
-    data: { title: 'Arrow' }
+    data: { kind: 'arrow-sticker', text: 'Arrow' }
   },
   {
-    type: 'callout',
+    type: 'shape',
     label: '气泡',
     size: { width: 280, height: 160 },
-    data: { text: 'Callout' }
+    data: { kind: 'callout', text: 'Callout' }
   },
   {
-    type: 'highlight',
+    type: 'shape',
     label: '高亮',
     size: { width: 240, height: 110 },
-    data: { text: 'Highlight' }
+    data: { kind: 'highlight', text: 'Highlight' }
   }
 ]
 

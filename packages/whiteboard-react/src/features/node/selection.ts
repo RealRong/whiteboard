@@ -1,4 +1,5 @@
 import type { View as SelectionView } from '../../runtime/selection'
+import type { Node } from '@whiteboard/core/types'
 import type { NodeMeta } from '../../types/node'
 import {
   resolveNodeSelectionCan,
@@ -18,7 +19,7 @@ const EMPTY_CAN = resolveNodeSelectionCan([])
 export const resolveNodeSelectionView = (
   selection: SelectionView,
   options?: {
-    resolveMeta?: (type: string) => NodeMeta | undefined
+    resolveMeta?: (node: Node) => NodeMeta | undefined
   }
 ): NodeSelectionView => {
   const nodes = selection.items.nodes

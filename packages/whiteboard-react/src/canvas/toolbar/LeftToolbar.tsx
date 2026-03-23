@@ -3,7 +3,6 @@ import {
   Hand,
   MousePointer2,
   PencilLine,
-  Shapes,
   StickyNote,
   Type
 } from 'lucide-react'
@@ -18,6 +17,10 @@ import {
   useStoreValue,
   useTool
 } from '../../runtime/hooks'
+import {
+  ShapeGlyph,
+  readShapePreviewFill
+} from '../../features/node/shape'
 import {
   DEFAULT_DRAW_PRESET_KEY,
   DEFAULT_EDGE_PRESET_KEY,
@@ -35,6 +38,7 @@ import {
   DEFAULT_SHAPE_PRESET_KEY,
   DEFAULT_STICKY_PRESET_KEY,
   TEXT_INSERT_PRESET,
+  readShapePresetKind,
   readStickyInsertTone,
   readInsertPresetGroup
 } from './presets'
@@ -60,7 +64,7 @@ const MenuApproxHeight: Record<MenuKey, number> = {
   draw: 244,
   edge: 164,
   sticky: 164,
-  shape: 252,
+  shape: 388,
   mindmap: 248
 }
 
@@ -85,6 +89,10 @@ export const LeftToolbar = ({
       ? tool.preset
       : DEFAULT_STICKY_PRESET_KEY
   )
+  const shapePreset = tool.type === 'insert' && insertGroup === 'shape'
+    ? tool.preset
+    : DEFAULT_SHAPE_PRESET_KEY
+  const shapeKind = readShapePresetKind(shapePreset)
   const edgePreset = tool.type === 'edge'
     ? tool.preset
     : edgePresetRef.current
@@ -270,7 +278,18 @@ export const LeftToolbar = ({
           data-input-ignore
           title="Shapes"
         >
-          <ToolbarIcon icon={Shapes} />
+          {shapeKind ? (
+            <span className="wb-left-toolbar-button-shape-preview">
+              <ShapeGlyph
+                kind={shapeKind}
+                width={22}
+                height={22}
+                strokeWidth={4}
+                fill={readShapePreviewFill(shapeKind)}
+                stroke="currentColor"
+              />
+            </span>
+          ) : null}
         </button>
         <button
           ref={(element) => {
@@ -366,7 +385,7 @@ export const LeftToolbar = ({
           ) : null}
           {openMenu === 'shape' ? (
             <ShapeMenu
-              value={tool.type === 'insert' && insertGroup === 'shape' ? tool.preset : DEFAULT_SHAPE_PRESET_KEY}
+              value={shapePreset}
               onChange={(value) => {
                 closeMenu()
                 instance.commands.tool.insert(value)

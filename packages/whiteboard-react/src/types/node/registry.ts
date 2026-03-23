@@ -7,6 +7,7 @@ export type NodeFamily = 'text' | 'shape' | 'container' | 'draw'
 export type ControlId = 'fill' | 'stroke' | 'text' | 'group'
 
 export type NodeMeta = {
+  key?: string
   name: string
   family: NodeFamily
   icon: string
@@ -25,6 +26,7 @@ export type NodeRenderProps = {
 export type NodeDefinition = {
   type: string
   meta: NodeMeta
+  describe?: (node: Node) => NodeMeta
   scene?: NodeScene
   hit?: NodeHit
   schema?: NodeSchema

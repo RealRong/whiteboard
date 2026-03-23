@@ -1,5 +1,6 @@
-import { getAnchorPoint, getRectCenter } from '../geometry'
-import type { Edge, EdgeAnchor, EdgeEnd, Point, Rect } from '../types/core'
+import { getRectCenter } from '../geometry'
+import { getNodeAnchorPoint } from '../node/outline'
+import type { Edge, EdgeAnchor, EdgeEnd, Node, Point, Rect } from '../types/core'
 import { isNodeEdgeEnd } from '../types/core'
 import { getAutoAnchorFromRect } from './anchor'
 
@@ -17,6 +18,7 @@ export type ResolvedEdgeEnds = {
 type ResolveNodeEndInput = {
   end: Extract<EdgeEnd, { kind: 'node' }>
   node: {
+    node: Pick<Node, 'type' | 'data'>
     rect: Rect
     rotation?: number
   }
@@ -30,13 +32,14 @@ const resolveNodeEnd = ({
 }: ResolveNodeEndInput): ResolvedEdgeEnd => {
   const rotation = node.rotation ?? 0
   const auto = getAutoAnchorFromRect(
+    node.node,
     node.rect,
     rotation,
     otherPoint
   )
   const anchor = end.anchor ?? auto.anchor
   const point = end.anchor
-    ? getAnchorPoint(node.rect, anchor, rotation)
+    ? getNodeAnchorPoint(node.node, node.rect, anchor, rotation)
     : auto.point
 
   return {
@@ -56,10 +59,12 @@ const resolvePointEnd = (
 export type ResolveEdgeEndsInput = {
   edge: Edge
   source?: {
+    node: Pick<Node, 'type' | 'data'>
     rect: Rect
     rotation?: number
   }
   target?: {
+    node: Pick<Node, 'type' | 'data'>
     rect: Rect
     rotation?: number
   }

@@ -1,2 +1,7 @@
-export { createNodeRegistry, NodeRegistryProvider, useNodeRegistry } from './nodeRegistry'
+export {
+  createNodeRegistry,
+  NodeRegistryProvider,
+  resolveNodeMeta,
+  useNodeRegistry
+} from './nodeRegistry'
 export { createDefaultNodeRegistry } from './default'

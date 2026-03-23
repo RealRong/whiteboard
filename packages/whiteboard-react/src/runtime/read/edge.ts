@@ -11,6 +11,7 @@ import {
 } from '../../features/edge/preview'
 
 const toNodeCanvas = (item: NodeItem) => ({
+  node: item.node,
   rect: item.rect,
   rotation: item.node.rotation ?? 0
 })

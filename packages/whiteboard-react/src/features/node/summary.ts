@@ -2,7 +2,7 @@ import type { Node, NodeId } from '@whiteboard/core/types'
 import type { ControlId, NodeFamily, NodeMeta } from '../../types/node'
 
 export type NodeTypeSummary = {
-  type: string
+  key: string
   name: string
   family: NodeFamily
   icon: string
@@ -57,20 +57,21 @@ const EMPTY_CAN: NodeSelectionCan = {
   delete: false
 }
 
-const readTypeMeta = (
-  type: string,
-  resolveMeta?: (type: string) => NodeMeta | undefined
-) => resolveMeta?.(type) ?? {
-  name: type,
+const readNodeMeta = (
+  node: Node,
+  resolveMeta?: (node: Node) => NodeMeta | undefined
+) => resolveMeta?.(node) ?? {
+  key: node.type,
+  name: node.type,
   family: 'shape' as const,
-  icon: type,
+  icon: node.type,
   controls: EMPTY_CONTROLS
 }
 
 export const summarizeNodes = (
   nodes: readonly Node[],
   options?: {
-    resolveMeta?: (type: string) => NodeMeta | undefined
+    resolveMeta?: (node: Node) => NodeMeta | undefined
   }
 ): NodeSummary => {
   const ids = nodes.length > 0 ? nodes.map((node) => node.id) : EMPTY_IDS
@@ -80,28 +81,34 @@ export const summarizeNodes = (
     (total, node) => total + (node.locked ? 1 : 0),
     0
   )
-  const typeCountByType = new Map<string, number>()
+  const typeCountByKey = new Map<string, {
+    key: string
+    name: string
+    family: NodeFamily
+    icon: string
+    count: number
+  }>()
 
   nodes.forEach((node) => {
-    typeCountByType.set(
-      node.type,
-      (typeCountByType.get(node.type) ?? 0) + 1
-    )
+    const meta = readNodeMeta(node, options?.resolveMeta)
+    const key = meta.key ?? node.type
+    const current = typeCountByKey.get(key)
+    if (current) {
+      current.count += 1
+      return
+    }
+
+    typeCountByKey.set(key, {
+      key,
+      name: meta.name,
+      family: meta.family,
+      icon: meta.icon,
+      count: 1
+    })
   })
 
-  const types = typeCountByType.size > 0
-    ? [...typeCountByType.entries()]
-      .map(([type, typeCount]) => {
-        const meta = readTypeMeta(type, options?.resolveMeta)
-
-        return {
-          type,
-          name: meta.name,
-          family: meta.family,
-          icon: meta.icon,
-          count: typeCount
-        }
-      })
+  const types = typeCountByKey.size > 0
+    ? [...typeCountByKey.values()]
       .sort((left, right) => (
         right.count - left.count || left.name.localeCompare(right.name)
       ))
@@ -132,7 +139,7 @@ const hasControl = (
 export const resolveNodeSelectionCan = (
   nodes: readonly Node[],
   options?: {
-    resolveMeta?: (type: string) => NodeMeta | undefined
+    resolveMeta?: (node: Node) => NodeMeta | undefined
   }
 ): NodeSelectionCan => {
   const count = nodes.length
@@ -141,9 +148,11 @@ export const resolveNodeSelectionCan = (
     return EMPTY_CAN
   }
 
-  const metas = nodes.map((node) => readTypeMeta(node.type, options?.resolveMeta))
+  const metas = nodes.map((node) => readNodeMeta(node, options?.resolveMeta))
   const hasShared = (control: ControlId) => metas.every((meta) => hasControl(meta, control))
-  const mixedTypes = new Set(nodes.map((node) => node.type)).size > 1
+  const mixedTypes = new Set(
+    nodes.map((node, index) => metas[index]?.key ?? node.type)
+  ).size > 1
 
   return {
     fill: hasShared('fill'),
@@ -195,7 +204,7 @@ export const isNodeSummaryEqual = (
   && left.mixed === right.mixed
   && left.types.length === right.types.length
   && left.types.every((item, index) => (
-    item.type === right.types[index]?.type
+    item.key === right.types[index]?.key
     && item.name === right.types[index]?.name
     && item.family === right.types[index]?.family
     && item.icon === right.types[index]?.icon

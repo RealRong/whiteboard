@@ -7,6 +7,12 @@ import type {
 import type { EditField } from '../../runtime/edit'
 import type { WhiteboardInstance } from '../../runtime/instance'
 import {
+  SHAPE_SPECS,
+  isShapeKind,
+  createShapeNodeInput
+} from '../../features/node/shape'
+import type { ShapeKind } from '../../features/node/shape'
+import {
   createStickyNodeInput,
   createTextNodeInput
 } from '../../features/node/text'
@@ -289,120 +295,15 @@ export const STICKY_INSERT_PRESETS: readonly InsertPreset[] = STICKY_TONES.map((
   })
 )
 
-export const SHAPE_INSERT_PRESETS: readonly InsertPreset[] = [
+export const SHAPE_INSERT_PRESETS: readonly InsertPreset[] = SHAPE_SPECS.map((spec) =>
   createNodePreset({
-    key: 'shape.rect',
+    key: `shape.${spec.kind}`,
     group: 'shape',
-    label: 'Rectangle',
-    input: () => ({
-      type: 'rect',
-      size: { width: 180, height: 100 },
-      data: { title: 'Rectangle' },
-      style: {
-        fill: 'hsl(var(--ui-surface, 0 0% 100%))',
-        stroke: 'hsl(var(--ui-border-subtle, 40 5.7% 89.6%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.ellipse',
-    group: 'shape',
-    label: 'Ellipse',
-    input: () => ({
-      type: 'ellipse',
-      size: { width: 180, height: 100 },
-      data: { title: 'Ellipse' },
-      style: {
-        fill: 'hsl(var(--tag-blue-background, 206.1 79.3% 94.3%))',
-        stroke: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.diamond',
-    group: 'shape',
-    label: 'Diamond',
-    input: () => ({
-      type: 'diamond',
-      size: { width: 180, height: 120 },
-      data: { title: 'Decision' },
-      style: {
-        fill: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))',
-        stroke: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.triangle',
-    group: 'shape',
-    label: 'Triangle',
-    input: () => ({
-      type: 'triangle',
-      size: { width: 180, height: 130 },
-      data: { title: 'Triangle' },
-      style: {
-        fill: 'hsl(var(--tag-red-background, 5.7 77.8% 94.7%))',
-        stroke: 'hsl(var(--tag-red-foreground, 4 58.4% 54.7%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--tag-red-foreground, 4 58.4% 54.7%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.callout',
-    group: 'shape',
-    label: 'Callout',
-    input: () => ({
-      type: 'callout',
-      size: { width: 240, height: 140 },
-      data: { text: 'Callout' },
-      style: {
-        fill: 'hsl(var(--ui-surface, 0 0% 100%))',
-        stroke: 'hsl(var(--ui-text-secondary, 37.5 3.3% 47.5%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.arrow-sticker',
-    group: 'shape',
-    label: 'Arrow',
-    input: () => ({
-      type: 'arrow-sticker',
-      size: { width: 220, height: 110 },
-      data: { title: 'Arrow' },
-      style: {
-        fill: 'hsl(var(--tag-blue-background, 206.1 79.3% 94.3%))',
-        stroke: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))',
-        strokeWidth: 1,
-        color: 'hsl(var(--tag-blue-foreground, 211.4 57.3% 50.4%))'
-      }
-    })
-  }),
-  createNodePreset({
-    key: 'shape.highlight',
-    group: 'shape',
-    label: 'Highlight',
-    input: () => ({
-      type: 'highlight',
-      size: { width: 220, height: 90 },
-      data: { text: 'Highlight' },
-      style: {
-        fill: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%) / 0.9)',
-        stroke: 'hsl(var(--tag-yellow-foreground, 38.1 59.2% 50%) / 0.6)',
-        strokeWidth: 1,
-        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-      }
-    })
+    label: spec.label,
+    focus: 'text',
+    input: () => createShapeNodeInput(spec.kind)
   })
-] as const
+)
 
 export const MINDMAP_INSERT_PRESETS: readonly InsertPreset[] = MINDMAP_INSERT_TEMPLATES.map(createMindmapPreset)
 
@@ -424,6 +325,17 @@ const STICKY_TONE_INDEX = new Map(
 export const DEFAULT_STICKY_PRESET_KEY = STICKY_INSERT_PRESETS[0].key
 export const DEFAULT_SHAPE_PRESET_KEY = SHAPE_INSERT_PRESETS[0].key
 export const DEFAULT_MINDMAP_PRESET_KEY = MINDMAP_INSERT_PRESETS[0].key
+
+export const readShapePresetKind = (
+  key: string | undefined
+): ShapeKind | undefined => {
+  if (!key?.startsWith('shape.')) {
+    return undefined
+  }
+
+  const kind = key.slice('shape.'.length)
+  return isShapeKind(kind) ? kind : undefined
+}
 
 const CREATE_PRESET_KEY_SET = new Set<string>([
   TEXT_INSERT_PRESET.key,

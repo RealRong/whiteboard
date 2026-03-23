@@ -204,7 +204,7 @@ const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full'
     return 'dirty'
   }
 
-  if (impact.node.geometry || impact.edge.geometry || impact.edge.value) {
+  if (impact.node.geometry || impact.node.value || impact.edge.geometry || impact.edge.value) {
     return 'full'
   }
 

@@ -1,18 +1,16 @@
 import {
-  ArrowRight,
-  Circle,
-  Diamond,
   Folder,
-  Highlighter,
-  MessageSquare,
   PencilLine,
   Shapes,
-  Square,
   StickyNote,
-  Triangle,
   Type,
   type LucideIcon
 } from 'lucide-react'
+import {
+  isShapeKind,
+  ShapeGlyph,
+  readShapePreviewFill
+} from '../shape'
 import {
   readNodeSummaryDetail,
   readNodeSummaryTitle,
@@ -26,13 +24,6 @@ const IconByName: Record<string, LucideIcon> = {
   text: Type,
   sticky: StickyNote,
   group: Folder,
-  rect: Square,
-  ellipse: Circle,
-  diamond: Diamond,
-  triangle: Triangle,
-  'arrow-sticker': ArrowRight,
-  callout: MessageSquare,
-  highlight: Highlighter,
   draw: PencilLine
 }
 
@@ -47,6 +38,18 @@ export const NodeTypeIcon = ({
   strokeWidth?: number
   className?: string
 }) => {
+  if (isShapeKind(icon)) {
+    return (
+      <ShapeGlyph
+        kind={icon}
+        size={size}
+        strokeWidth={strokeWidth}
+        fill={readShapePreviewFill(icon)}
+        className={className}
+      />
+    )
+  }
+
   const Icon = IconByName[icon] ?? Shapes
 
   return (
@@ -65,16 +68,16 @@ export const SelectionTypeFilterStrip = ({
   onSelect
 }: {
   types: readonly NodeTypeSummary[]
-  onSelect: (type: string) => void
+  onSelect: (key: string) => void
 }) => (
   <div className="wb-selection-filter-strip">
     {types.map((item) => (
       <button
-        key={item.type}
+        key={item.key}
         type="button"
         className="wb-selection-filter-chip"
         onClick={() => {
-          onSelect(item.type)
+          onSelect(item.key)
         }}
         title={`Keep only ${item.name}`}
         data-selection-ignore
@@ -110,7 +113,7 @@ export const SelectionSummaryHeader = ({
       <div className="wb-selection-summary-icons" data-mixed={summary.mixed ? 'true' : undefined}>
         {types.map((item) => (
           <span
-            key={item.type}
+            key={item.key}
             className="wb-selection-summary-icon"
             title={item.name}
           >

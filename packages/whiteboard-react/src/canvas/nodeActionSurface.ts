@@ -23,7 +23,7 @@ export type NodeMenuGroup = {
 
 export type NodeMenuFilter = {
   types: readonly NodeTypeSummary[]
-  onSelect: (type: string) => void
+  onSelect: (key: string) => void
 }
 
 const bindNodeMenuItems = (
@@ -73,8 +73,8 @@ export const readNodeMenuFilter = (
 
   return {
     types: actions.filter.types,
-    onSelect: (type) => {
-      closeAfter(actions.filter.onSelect(type), close)
+    onSelect: (key) => {
+      closeAfter(actions.filter.onSelect(key), close)
     }
   }
 }
