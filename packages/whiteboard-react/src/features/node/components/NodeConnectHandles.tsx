@@ -1,6 +1,7 @@
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/core/read'
 import type { EdgeAnchor } from '@whiteboard/core/types'
+import { usePickRef } from '../../../runtime/hooks'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
@@ -12,6 +13,42 @@ type NodeConnectHandlesProps = {
 }
 
 const NODE_CONNECT_SIDES = ['top', 'right', 'bottom', 'left'] as const
+
+const NodeConnectHandleItem = ({
+  nodeId,
+  side,
+  point
+}: {
+  nodeId: NodeViewNode['id']
+  side: EdgeAnchor['side']
+  point: {
+    x: number
+    y: number
+  }
+}) => {
+  const ref = usePickRef({
+    kind: 'node',
+    id: nodeId,
+    part: 'connect',
+    side
+  })
+
+  return (
+    <div
+      ref={ref}
+      data-selection-ignore
+      className="wb-node-handle"
+      style={{
+        left: `calc(${point.x}px - (12px / var(--wb-zoom, 1) / 2))`,
+        top: `calc(${point.y}px - (12px / var(--wb-zoom, 1) / 2))`,
+        marginLeft: 0,
+        marginTop: 0,
+        right: 'auto',
+        bottom: 'auto'
+      }}
+    />
+  )
+}
 
 export const NodeConnectHandles = ({
   node,
@@ -57,21 +94,11 @@ export const NodeConnectHandles = ({
         )
 
         return (
-          <div
+          <NodeConnectHandleItem
             key={side}
-            data-selection-ignore
-            data-input-role="node-edge-handle"
-            data-node-id={node.id}
-            data-handle-side={side}
-            className="wb-node-handle"
-            style={{
-              left: `calc(${point.x}px - (12px / var(--wb-zoom, 1) / 2))`,
-              top: `calc(${point.y}px - (12px / var(--wb-zoom, 1) / 2))`,
-              marginLeft: 0,
-              marginTop: 0,
-              right: 'auto',
-              bottom: 'auto'
-            }}
+            nodeId={node.id}
+            side={side}
+            point={point}
           />
         )
       })}

@@ -7,6 +7,7 @@ import type {
   NodeSchema,
   Point
 } from '@whiteboard/core/types'
+import type { PointerPick } from '../runtime/pick'
 import {
   useInternalInstance
 } from '../runtime/hooks'
@@ -45,11 +46,7 @@ import {
   OPACITY_OPTIONS,
   STROKE_WIDTHS
 } from './menus/options'
-import {
-  isContextMenuIgnoredTarget,
-  readElementEdgeId,
-  readElementNodeId
-} from './target'
+import { isContextMenuIgnoredTarget } from './target'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
@@ -321,48 +318,65 @@ const readPlacement = ({
 
 const readContextMenuOpenResult = ({
   instance,
-  targetElement,
-  screen,
-  world
+  input
 }: {
   instance: Pick<ReturnType<typeof useInternalInstance>, 'read' | 'state' | 'registry'>
-  targetElement: Element | null
-  screen: Point
-  world: Point
+  input: PointerPick
 }): {
   target: ContextMenuTarget
   leaveContainer: boolean
 } | undefined => {
   const container = instance.state.container.get()
   const selection = instance.read.selection.get()
-  const nodeId = readElementNodeId(targetElement)
+  const world = input.point.world
+  const pick = input.pick
 
-  if (nodeId) {
+  if (pick.kind === 'selection-box' && selection.items.count > 1) {
     return {
-      target: selection.target.nodeSet.has(nodeId) && selection.items.count > 1
-        ? {
-          kind: 'nodes',
-          nodeIds: selection.target.nodeIds,
-          world
-        }
-        : {
-          kind: 'node',
-          nodeId,
-          world
-        },
-      leaveContainer: !hasNode(container, nodeId)
+      target: {
+        kind: 'nodes',
+        nodeIds: selection.target.nodeIds,
+        world
+      },
+      leaveContainer: false
     }
   }
 
-  const edgeId = readElementEdgeId(targetElement)
-  if (edgeId) {
-    const entry = instance.read.edge.item.get(edgeId)
+  if (pick.kind === 'node') {
+    if (pick.part === 'container' && pick.id === container.id) {
+      return {
+        target: {
+          kind: 'canvas',
+          world
+        },
+        leaveContainer: false
+      }
+    }
+
+    return {
+      target: selection.target.nodeSet.has(pick.id) && selection.items.count > 1
+        ? {
+            kind: 'nodes',
+            nodeIds: selection.target.nodeIds,
+            world
+          }
+        : {
+            kind: 'node',
+            nodeId: pick.id,
+            world
+          },
+      leaveContainer: !hasNode(container, pick.id)
+    }
+  }
+
+  if (pick.kind === 'edge') {
+    const entry = instance.read.edge.item.get(pick.id)
     if (!entry) return undefined
 
     return {
       target: {
         kind: 'edge',
-        edgeId,
+        edgeId: pick.id,
         world
       },
       leaveContainer: !hasEdge(container, entry.edge)
@@ -458,15 +472,12 @@ export const ContextMenu = ({
     if (!container) return
 
     const openFromEvent = (
-      event: Pick<MouseEvent | PointerEvent, 'clientX' | 'clientY'>,
-      targetElement: Element | null
+      event: Pick<MouseEvent | PointerEvent, 'target' | 'clientX' | 'clientY'>
     ) => {
-      const pointer = instance.viewport.pointer(event)
+      const input = instance.read.pick.from(event, container)
       const result = readContextMenuOpenResult({
         instance,
-        targetElement,
-        screen: pointer.screen,
-        world: pointer.world
+        input
       })
       if (!result) return
 
@@ -477,7 +488,7 @@ export const ContextMenu = ({
       }
       open({
         ...result,
-        screen: pointer.screen
+        screen: input.point.screen
       })
     }
 
@@ -486,10 +497,9 @@ export const ContextMenu = ({
       if (instance.interaction.mode.get() !== 'idle') return
       if (isContextMenuIgnoredTarget(event.target)) return
 
-      const targetElement = event.target instanceof Element ? event.target : null
       event.preventDefault()
       event.stopPropagation()
-      openFromEvent(event, targetElement)
+      openFromEvent(event)
     }
 
     const onContextMenu = (event: MouseEvent) => {
@@ -507,8 +517,7 @@ export const ContextMenu = ({
         return
       }
 
-      const targetElement = event.target instanceof Element ? event.target : null
-      openFromEvent(event, targetElement)
+      openFromEvent(event)
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)

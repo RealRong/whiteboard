@@ -2,10 +2,7 @@ import { moveEdge } from '@whiteboard/core/edge'
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
-import {
-  useCallback,
-  type PointerEvent as ReactPointerEvent
-} from 'react'
+import { useCallback } from 'react'
 import {
   hasEdge,
   leave
@@ -70,7 +67,8 @@ export const useEdgeDragInput = () => {
   const startEdgeDrag = useCallback((
     event: PointerSourceEvent,
     edgeId: EdgeId,
-    edge: EdgeItem['edge']
+    edge: EdgeItem['edge'],
+    capture?: Element | null
   ) => {
     if (!canMoveEdge(edge)) {
       return false
@@ -78,7 +76,7 @@ export const useEdgeDragInput = () => {
 
     return session.start({
       event,
-      capture: readCaptureTarget(event),
+      capture: capture ?? readCaptureTarget(event),
       active: {
         edgeId,
         pointerId: event.pointerId,
@@ -90,27 +88,22 @@ export const useEdgeDragInput = () => {
   }, [instance, session])
 
   return {
-    handleEdgePointerDown: (
-      event: ReactPointerEvent<SVGPathElement>
+    handlePointerDown: (
+      event: PointerSourceEvent,
+      edgeId: EdgeId,
+      capture?: Element | null
     ) => {
       if (event.button !== 0) {
-        return
+        return false
       }
 
       if (session.activeRef.current) {
-        return
-      }
-
-      const edgeId = event.currentTarget
-        .closest('[data-edge-id]')
-        ?.getAttribute('data-edge-id') as EdgeId | null
-      if (!edgeId) {
-        return
+        return false
       }
 
       const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
-        return
+        return false
       }
 
       if (!hasEdge(instance.state.container.get(), entry.edge)) {
@@ -123,13 +116,17 @@ export const useEdgeDragInput = () => {
         instance.commands.selection.selectEdge(edgeId)
         event.preventDefault()
         event.stopPropagation()
-        return
+        return true
       }
 
       instance.commands.selection.selectEdge(edgeId)
-      startEdgeDrag(event, edgeId, entry.edge)
+      const started = startEdgeDrag(event, edgeId, entry.edge, capture)
+      if (!started) {
+        return false
+      }
       event.preventDefault()
       event.stopPropagation()
+      return true
     }
   }
 }

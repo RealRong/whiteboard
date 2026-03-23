@@ -60,7 +60,8 @@ type ActiveTransform = {
   patches?: readonly TransformPreviewPatch[]
 }
 
-type TransformPointerEvent = ReactPointerEvent<HTMLDivElement>
+type TransformPointerEvent = PointerEvent | ReactPointerEvent<Element>
+type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const createResizeDrag = (options: {
   pointerId: number
@@ -311,12 +312,13 @@ export const createTransformSession = (
 
   const start = (
     next: ActiveTransform,
-    event: TransformPointerEvent
+    event: TransformPointerEvent,
+    capture: Element
   ) => {
     const nextSession = instance.interaction.start({
       mode: 'node-transform',
       pointerId: event.pointerId,
-      capture: event.currentTarget,
+      capture,
       cleanup: clear,
       move: (event) => {
         if (!active) {
@@ -348,7 +350,7 @@ export const createTransformSession = (
 
   const createNodeActive = (
     nodeId: NodeId,
-    handle: TransformHandle,
+    handle: TransformPickHandle,
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
     const nodeRect = instance.read.index.node.get(nodeId)
@@ -399,7 +401,7 @@ export const createTransformSession = (
   }
 
   const createSelectionActive = (
-    handle: TransformHandle,
+    handle: TransformPickHandle,
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
     const selection = instance.read.selection.get()
@@ -443,36 +445,45 @@ export const createTransformSession = (
       }
       clear()
     },
-    handleNodePointerDown: (
-      nodeId: NodeId,
-      handle: TransformHandle,
-      event: TransformPointerEvent
+    handleCanvasPointerDown: (
+      container: HTMLDivElement,
+      event: PointerEvent
     ) => {
       if (!canStart(event)) {
-        return
+        return false
       }
 
-      const next = createNodeActive(nodeId, handle, event)
-      if (!next) {
-        return
+      const input = instance.read.pick.from(event, container)
+      const capture = input.element ?? container
+      const pick = input.pick
+
+      if (
+        pick.kind === 'node'
+        && pick.part === 'transform'
+        && pick.handle
+      ) {
+        const next = createNodeActive(pick.id, pick.handle, event)
+        if (!next) {
+          return false
+        }
+
+        return start(next, event, capture)
       }
 
-      start(next, event)
-    },
-    handleSelectionPointerDown: (
-      handle: TransformHandle,
-      event: TransformPointerEvent
-    ) => {
-      if (!canStart(event)) {
-        return
+      if (
+        pick.kind === 'selection-box'
+        && pick.part === 'transform'
+        && pick.handle
+      ) {
+        const next = createSelectionActive(pick.handle, event)
+        if (!next) {
+          return false
+        }
+
+        return start(next, event, capture)
       }
 
-      const next = createSelectionActive(handle, event)
-      if (!next) {
-        return
-      }
-
-      start(next, event)
+      return false
     }
   }
 }

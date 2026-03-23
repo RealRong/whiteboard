@@ -27,6 +27,12 @@ import {
   createSelectionRead,
   type SelectionRead
 } from './selection'
+import {
+  createPickRead,
+  type PickRead
+} from './pick'
+import type { PickRuntime } from '../pick'
+import type { ViewportRead } from '../viewport'
 
 export type RuntimeRead = Omit<EngineRead, 'node'> & {
   history: ReadStore<HistoryState>
@@ -35,6 +41,7 @@ export type RuntimeRead = Omit<EngineRead, 'node'> & {
   selection: SelectionRead
   tool: ToolRead
   slice: SliceRead
+  pick: PickRead
 }
 
 export const createRuntimeRead = ({
@@ -45,6 +52,8 @@ export const createRuntimeRead = ({
   history,
   selection,
   interaction,
+  pick,
+  viewport,
   node,
   edge,
   mindmap
@@ -56,6 +65,8 @@ export const createRuntimeRead = ({
   history: ReadStore<HistoryState>
   selection: ReadStore<SelectionSource>
   interaction: ReadStore<InteractionMode>
+  pick: PickRuntime
+  viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session' | 'chromeHidden'>
   edge: Pick<EdgePreview, 'patch'>
   mindmap: Pick<MindmapFeatureRuntime, 'drag'>
@@ -106,6 +117,10 @@ export const createRuntimeRead = ({
     slice: createSliceRead({
       read: engineRead,
       selection: selectionRead
+    }),
+    pick: createPickRead({
+      registry: pick,
+      viewport
     }),
     index: engineRead.index,
     tool: createToolRead({

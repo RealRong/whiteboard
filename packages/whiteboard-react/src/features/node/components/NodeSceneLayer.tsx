@@ -32,7 +32,6 @@ export const NodeSceneLayer = ({
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
           selected={selectedSet.has(nodeId) && chrome.selection}
-          onNodePointerDown={gesture.handleNodePointerDown}
           onNodeDoubleClick={gesture.handleNodeDoubleClick}
         />
       ))}

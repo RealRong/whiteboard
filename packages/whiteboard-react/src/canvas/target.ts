@@ -1,10 +1,8 @@
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { EditField } from '../runtime/edit'
 
 export const CanvasContentIgnoreSelector = [
   '[data-selection-ignore]',
   '[data-input-ignore]',
-  '[data-input-role]',
   'input',
   'textarea',
   'select',
@@ -12,37 +10,6 @@ export const CanvasContentIgnoreSelector = [
   'a[href]',
   '[contenteditable]:not([contenteditable="false"])'
 ].join(', ')
-
-const CanvasEntitySelector = [
-  '[data-node-id]',
-  '[data-edge-id]'
-].join(', ')
-
-export const readElementNodeId = (
-  target: EventTarget | null
-): NodeId | undefined => {
-  if (!(target instanceof Element)) {
-    return undefined
-  }
-
-  return target
-    .closest('[data-node-id]')
-    ?.getAttribute('data-node-id')
-    ?? undefined
-}
-
-export const readElementEdgeId = (
-  target: EventTarget | null
-): EdgeId | undefined => {
-  if (!(target instanceof Element)) {
-    return undefined
-  }
-
-  return target
-    .closest('[data-edge-id]')
-    ?.getAttribute('data-edge-id')
-    ?? undefined
-}
 
 export const readEditableFieldTarget = (
   target: EventTarget | null
@@ -77,24 +44,3 @@ export const isContextMenuIgnoredTarget = (target: EventTarget | null) =>
 
 export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))
-
-export const isBackgroundPointerTarget = ({
-  target,
-  currentTarget,
-  activeContainerId
-}: {
-  target: EventTarget | null
-  currentTarget: HTMLDivElement
-  activeContainerId?: NodeId
-}) => (
-  target instanceof Element
-  && currentTarget.contains(target)
-  && !target.closest(CanvasContentIgnoreSelector)
-  && (() => {
-    const entity = target.closest(CanvasEntitySelector)
-    if (!entity) return true
-    if (entity.hasAttribute('data-edge-id')) return false
-    return activeContainerId !== undefined
-      && entity.getAttribute('data-node-id') === activeContainerId
-  })()
-)

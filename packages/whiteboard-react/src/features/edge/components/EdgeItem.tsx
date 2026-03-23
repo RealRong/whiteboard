@@ -1,7 +1,7 @@
 import { getEdgePath } from '@whiteboard/core/edge'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import { usePickRef } from '../../../runtime/hooks'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
 import type { EdgeView } from '../hooks/useEdgeView'
 
@@ -9,7 +9,6 @@ type EdgeItemProps = {
   entry: EdgeView
   hitTestThresholdScreen: number
   selected?: boolean
-  onPathPointerDown?: (event: ReactPointerEvent<SVGPathElement>) => void
 }
 
 const resolveMarker = (value: string | undefined, fallbackId: string) => {
@@ -22,10 +21,14 @@ const resolveMarker = (value: string | undefined, fallbackId: string) => {
 const EdgeItemBase = ({
   entry,
   hitTestThresholdScreen,
-  selected,
-  onPathPointerDown
+  selected
 }: EdgeItemProps) => {
   const edge = entry.edge
+  const ref = usePickRef({
+    kind: 'edge',
+    id: edge.id,
+    part: 'body'
+  })
   const svgPath = useMemo(() => getEdgePath({
     edge,
     source: {
@@ -73,6 +76,7 @@ const EdgeItemBase = ({
       style={{ '--wb-edge-hover-stroke-width': `${hoverStrokeWidth}` } as CSSProperties}
     >
       <path
+        ref={ref}
         d={svgPath}
         fill="none"
         stroke="transparent"
@@ -81,7 +85,6 @@ const EdgeItemBase = ({
         pointerEvents="stroke"
         tabIndex={0}
         className="wb-edge-hit-path"
-        onPointerDown={onPathPointerDown}
       />
       <path
         d={svgPath}

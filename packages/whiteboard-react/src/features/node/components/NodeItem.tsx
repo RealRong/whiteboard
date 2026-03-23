@@ -1,10 +1,10 @@
 import { memo, useCallback, type CSSProperties } from 'react'
 import type {
-  MouseEvent as ReactMouseEvent,
-  PointerEvent as ReactPointerEvent
+  MouseEvent as ReactMouseEvent
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRenderProps } from '../../../types/node'
+import { usePickRef } from '../../../runtime/hooks'
 import { useNodeView } from '../hooks/useNodeView'
 
 type NodeItemProps = {
@@ -15,10 +15,6 @@ type NodeItemProps = {
     enabled: boolean
   ) => void
   selected: boolean
-  onNodePointerDown: (
-    nodeId: NodeId,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
   onNodeDoubleClick: (
     nodeId: NodeId,
     event: ReactMouseEvent<HTMLDivElement>
@@ -28,7 +24,6 @@ export const NodeItem = memo(({
   nodeId,
   registerMeasuredElement,
   selected,
-  onNodePointerDown,
   onNodeDoubleClick,
 }: NodeItemProps) => {
   const view = useNodeView(nodeId, { selected })
@@ -48,10 +43,20 @@ export const NodeItem = memo(({
   } = view
   const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
   const hit = definition?.hit ?? 'box'
+  const setPickElement = usePickRef({
+    kind: 'node',
+    id: nodeId,
+    part: 'body'
+  })
   const setMeasuredElement = useCallback((element: HTMLDivElement | null) => {
     registerMeasuredElement(nodeId, element, shouldAutoMeasure)
   }, [nodeId, registerMeasuredElement, shouldAutoMeasure])
-  const measuredElementRef = definition?.autoMeasure ? setMeasuredElement : undefined
+  const setRootElement = useCallback((element: HTMLDivElement | null) => {
+    setPickElement(element)
+    if (definition?.autoMeasure) {
+      setMeasuredElement(element)
+    }
+  }, [definition?.autoMeasure, setMeasuredElement, setPickElement])
 
   const rootStyle: CSSProperties = {
     ...nodeStyle,
@@ -70,15 +75,12 @@ export const NodeItem = memo(({
 
   return (
     <div
-      ref={measuredElementRef}
+      ref={setRootElement}
       className="wb-node-block"
       data-node-id={nodeId}
       data-node-type={resolvedNode.type}
       data-node-hit={hit}
       data-selected={selected ? 'true' : undefined}
-      onPointerDown={(event) => {
-        onNodePointerDown(nodeId, event)
-      }}
       onDoubleClick={(event) => {
         onNodeDoubleClick(nodeId, event)
       }}

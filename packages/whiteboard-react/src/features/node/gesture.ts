@@ -2,18 +2,14 @@ import {
   isPointInRect
 } from '@whiteboard/core/geometry'
 import { resolveSelectionMode } from '@whiteboard/core/node'
-import type { NodeId, Point } from '@whiteboard/core/types'
+import type { NodeId } from '@whiteboard/core/types'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from 'react'
 import type { MarqueeSession } from '../../canvas/Marquee'
 import {
-  isBackgroundPointerTarget,
   isCanvasContentIgnoredTarget,
-  isEditableTarget,
-  isInputIgnoredTarget,
-  isSelectionIgnoredTarget,
   readEditableFieldTarget
 } from '../../canvas/target'
 import type { InternalInstance } from '../../runtime/instance'
@@ -65,7 +61,10 @@ const readSelectionBoxTarget = (
 
 const resolveActiveContainer = (
   instance: InternalInstance,
-  world: Point
+  world: {
+    x: number
+    y: number
+  }
 ): ContainerState => {
   const container = instance.state.container.get()
   if (!container.id) {
@@ -79,51 +78,6 @@ const resolveActiveContainer = (
 
   leave(instance)
   return instance.state.container.get()
-}
-
-const resolveBackgroundTarget = ({
-  instance,
-  container,
-  currentTarget,
-  target,
-  world
-}: {
-  instance: InternalInstance
-  container: ContainerState
-  currentTarget: HTMLDivElement
-  target: EventTarget | null
-  world: Point
-}): PressTarget | undefined => {
-  if (!isBackgroundPointerTarget({
-    target,
-    currentTarget,
-    activeContainerId: container.id
-  })) {
-    return undefined
-  }
-
-  if (container.id) {
-    return {
-      kind: 'background'
-    }
-  }
-
-  const containerNodeId = instance.read.node.containerAt(world)
-  if (!containerNodeId) {
-    return {
-      kind: 'background'
-    }
-  }
-
-  const nodeRect = instance.read.index.node.get(containerNodeId)
-  if (!nodeRect) {
-    return undefined
-  }
-
-  return {
-    kind: 'container-body',
-    nodeRect
-  }
 }
 
 const stopPointerDown = (
@@ -170,81 +124,95 @@ export const createNodeGesture = (
 
   return {
     cancel: press.cancel,
-    handleNodePointerDown: (
-      nodeId: NodeId,
-      event: ReactPointerEvent<HTMLDivElement>
-    ) => {
-      if (event.button !== 0) return
-      if (!canStartPointerGesture()) return
-      if (
-        isEditableTarget(event.target)
-        || isInputIgnoredTarget(event.target)
-        || isSelectionIgnoredTarget(event.target)
-      ) {
-        return
-      }
-
-      const target = readNodeTarget(instance, nodeId, event.target)
-      if (!target) {
-        return
-      }
-
-      let container = instance.state.container.get()
-      if (!hasNode(container, nodeId)) {
-        leave(instance)
-        container = instance.state.container.get()
-      }
-
-      beginPointerGesture({
-        event,
-        capture: event.currentTarget,
-        container,
-        target
-      })
-    },
-    handleSelectionBoxPointerDown: (
-      event: ReactPointerEvent<HTMLDivElement>
-    ) => {
-      if (event.button !== 0) return
-      if (!canStartPointerGesture()) return
-      if (isSelectionIgnoredTarget(event.target) || isInputIgnoredTarget(event.target)) {
-        return
-      }
-
-      const target = readSelectionBoxTarget(instance)
-      if (!target) {
-        return
-      }
-
-      beginPointerGesture({
-        event,
-        capture: event.currentTarget,
-        container: instance.state.container.get(),
-        target
-      })
-    },
-    handleBackgroundPointerDown: (
+    handleCanvasPointerDown: (
       container: HTMLDivElement,
       event: PointerEvent
     ) => {
-      if (event.defaultPrevented) return
-      if (event.button !== 0) return
-      if (!canStartPointerGesture()) return
+      if (event.defaultPrevented) return false
+      if (event.button !== 0) return false
+      if (!canStartPointerGesture()) return false
 
-      const startPointer = instance.viewport.pointer(event)
-      const activeContainer = resolveActiveContainer(instance, startPointer.world)
-      const target = resolveBackgroundTarget({
-        instance,
-        container: activeContainer,
-        currentTarget: container,
-        target: event.target,
-        world: startPointer.world
-      })
-      if (!target) {
-        return
+      const input = instance.read.pick.from(event, container)
+      if (input.editable || input.ignoreInput || input.ignoreSelection) {
+        return false
       }
 
-      beginPointerGesture({
+      if (
+        input.pick.kind === 'node'
+        && input.pick.part === 'body'
+      ) {
+        const target = readNodeTarget(instance, input.pick.id, input.element)
+        if (!target) {
+          return false
+        }
+
+        let currentContainer = instance.state.container.get()
+        if (!hasNode(currentContainer, input.pick.id)) {
+          leave(instance)
+          currentContainer = instance.state.container.get()
+        }
+
+        return beginPointerGesture({
+          event,
+          capture: container,
+          container: currentContainer,
+          target
+        })
+      }
+
+      if (
+        input.pick.kind === 'selection-box'
+        && input.pick.part === 'body'
+      ) {
+        const target = readSelectionBoxTarget(instance)
+        if (!target) {
+          return false
+        }
+
+        return beginPointerGesture({
+          event,
+          capture: container,
+          container: instance.state.container.get(),
+          target
+        })
+      }
+
+      const activeContainer = resolveActiveContainer(instance, input.point.world)
+      const target = (() => {
+        if (input.pick.kind === 'background') {
+          return {
+            kind: 'background'
+          } satisfies PressTarget
+        }
+
+        if (
+          input.pick.kind === 'node'
+          && input.pick.part === 'container'
+        ) {
+          if (input.pick.id === activeContainer.id) {
+            return {
+              kind: 'background'
+            } satisfies PressTarget
+          }
+
+          const nodeRect = instance.read.index.node.get(input.pick.id)
+          if (!nodeRect) {
+            return undefined
+          }
+
+          return {
+            kind: 'container-body',
+            nodeRect
+          } satisfies PressTarget
+        }
+
+        return undefined
+      })()
+      if (!target) {
+        return false
+      }
+
+      return beginPointerGesture({
         event,
         capture: container,
         container: activeContainer,

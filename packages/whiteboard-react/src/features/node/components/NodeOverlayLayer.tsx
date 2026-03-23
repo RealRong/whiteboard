@@ -1,20 +1,16 @@
 import {
-  memo,
-  useEffect,
-  useRef,
-  type PointerEvent as ReactPointerEvent
+  memo
 } from 'react'
-import type { Guide, TransformHandle } from '@whiteboard/core/node'
+import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import {
   useInternalInstance,
   useContainer,
+  usePickRef,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeOverlayView } from '../hooks/useNodeView'
-import { createTransformSession } from '../hooks/transform/session'
-import type { NodeGesture } from '../gesture'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import {
   NodeTransformHandles,
@@ -53,14 +49,8 @@ const NodeInteractionGuidesLayer = ({
 
 const NodeTransformOverlayItem = memo(({
   nodeId,
-  onTransformPointerDown
 }: {
   nodeId: NodeId
-  onTransformPointerDown: (
-    nodeId: NodeId,
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
 }) => {
   const view = useNodeOverlayView(nodeId)
 
@@ -73,7 +63,6 @@ const NodeTransformOverlayItem = memo(({
       rotation={view.rotation}
       canResize={view.canResize}
       canRotate={view.canRotate}
-      onTransformPointerDown={onTransformPointerDown}
     />
   )
 })
@@ -135,19 +124,15 @@ const ActiveContainerOverlay = ({
 )
 
 const SelectionTransformOverlay = ({
-  selection,
-  onSelectionBoxPointerDown,
-  onTransformPointerDown
+  selection
 }: {
   selection: ReturnType<typeof useSelection>
-  onSelectionBoxPointerDown: (
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
-  onTransformPointerDown: (
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
 }) => {
+  const ref = usePickRef({
+    kind: 'selection-box',
+    part: 'body'
+  })
+
   if (selection.items.count <= 1 || !selection.box) {
     return null
   }
@@ -155,47 +140,31 @@ const SelectionTransformOverlay = ({
   return (
     <>
       <div
+        ref={ref}
         className="wb-selection-transform-box"
         style={{
           transform: `translate(${selection.box.x}px, ${selection.box.y}px)`,
           width: selection.box.width,
           height: selection.box.height
         }}
-        onPointerDown={onSelectionBoxPointerDown}
       />
       <TransformHandles
         rect={selection.box}
         rotation={0}
         canResize={selection.transform.resize !== 'none'}
         canRotate={false}
-        onTransformPointerDown={onTransformPointerDown}
       />
     </>
   )
 }
 
-export const NodeOverlayLayer = ({
-  gesture
-}: {
-  gesture: NodeGesture
-}) => {
+export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const chrome = useStoreValue(instance.read.chrome.node)
   const container = useContainer()
   const guides = useStoreValue(instance.internals.snap.guides)
   const selection = useSelection()
   const activeContainerNode = useNodeOverlayView(container.id)
-  const transformSessionRef = useRef<ReturnType<typeof createTransformSession> | null>(null)
-
-  if (!transformSessionRef.current) {
-    transformSessionRef.current = createTransformSession(instance)
-  }
-
-  const transformSession = transformSessionRef.current!
-
-  useEffect(() => () => {
-    transformSession.cancel()
-  }, [transformSession])
 
   const activeContainer =
     container.id && activeContainerNode
@@ -222,14 +191,11 @@ export const NodeOverlayLayer = ({
         {singleTransformNodeId ? (
           <NodeTransformOverlayItem
             nodeId={singleTransformNodeId}
-            onTransformPointerDown={transformSession.handleNodePointerDown}
           />
         ) : null}
         {chrome.transform ? (
           <SelectionTransformOverlay
             selection={selection}
-            onSelectionBoxPointerDown={gesture.handleSelectionBoxPointerDown}
-            onTransformPointerDown={transformSession.handleSelectionPointerDown}
           />
         ) : null}
         {connectNodeIds.map((nodeId) => (

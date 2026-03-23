@@ -1,5 +1,4 @@
 import type { EdgeId } from '@whiteboard/core/types'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import { memo } from 'react'
 import {
   useInternalInstance,
@@ -14,15 +13,13 @@ type EdgeItemByIdProps = {
   edgeId: EdgeId
   hitTestThresholdScreen: number
   selected: boolean
-  handleEdgePathPointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
 }
 
 const EdgeItemById = memo(
   ({
     edgeId,
     hitTestThresholdScreen,
-    selected,
-    handleEdgePathPointerDown
+    selected
   }: EdgeItemByIdProps) => {
     const entry = useEdgeView(edgeId)
     if (!entry) return null
@@ -32,17 +29,12 @@ const EdgeItemById = memo(
         entry={entry}
         hitTestThresholdScreen={hitTestThresholdScreen}
         selected={selected}
-        onPathPointerDown={handleEdgePathPointerDown}
       />
     )
   }
 )
 
-export const EdgeLayer = ({
-  onEdgePointerDown
-}: {
-  onEdgePointerDown: (event: ReactPointerEvent<SVGPathElement>) => void
-}) => {
+export const EdgeLayer = () => {
   const instance = useInternalInstance()
   const edgeIds = useStoreValue(instance.read.edge.list)
   const selectedEdgeId = useSelection().target.edgeId
@@ -87,7 +79,6 @@ export const EdgeLayer = ({
           edgeId={edgeId}
           hitTestThresholdScreen={hitTestThresholdScreen}
           selected={edgeId === selectedEdgeId}
-          handleEdgePathPointerDown={onEdgePointerDown}
         />
       ))}
     </svg>

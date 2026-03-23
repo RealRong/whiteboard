@@ -35,6 +35,7 @@ import {
   createSnapRuntime,
   type InteractionCoordinator
 } from '../interaction'
+import { createPickRuntime } from '../pick'
 import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
 import { createEdgePreview } from '../../features/edge/preview'
 import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
@@ -53,6 +54,7 @@ type InstanceStores = {
 }
 
 type InstanceInternals = {
+  pick: ReturnType<typeof createPickRuntime>
   node: ReturnType<typeof createNodeFeatureRuntime>
   edge: {
     preview: ReturnType<typeof createEdgePreview>
@@ -64,12 +66,16 @@ const createInstanceStores = ({
   engine,
   initialTool,
   interaction,
-  registry
+  registry,
+  pick,
+  viewport
 }: {
   engine: EngineInstance
   initialTool: Tool
   interaction: InteractionCoordinator
   registry: NodeRegistry
+  pick: ReturnType<typeof createPickRuntime>
+  viewport: ReturnType<typeof createViewport>['read']
 }): {
   stores: InstanceStores
   state: WhiteboardInstance['state']
@@ -95,6 +101,8 @@ const createInstanceStores = ({
     history,
     selection: selection.source,
     interaction: interaction.mode,
+    pick,
+    viewport,
     node,
     edge: edge.preview,
     mindmap
@@ -119,6 +127,7 @@ const createInstanceStores = ({
     },
     read,
     internals: {
+      pick,
       node,
       edge,
       mindmap
@@ -251,6 +260,7 @@ export const createInstance = ({
   const interaction = createInteractionCoordinator({
     getViewport: () => viewport.input
   })
+  const pick = createPickRuntime()
   const snap = createSnapRuntime({
     config: engine.config.node,
     readZoom: () => viewport.read.get().zoom,
@@ -265,7 +275,9 @@ export const createInstance = ({
     engine,
     initialTool,
     interaction,
-    registry
+    registry,
+    pick,
+    viewport: viewport.read
   })
 
   const resetUiSessionState = () => {

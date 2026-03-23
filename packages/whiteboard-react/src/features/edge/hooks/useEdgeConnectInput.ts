@@ -11,10 +11,8 @@ import {
   useCallback,
   useEffect,
   useRef,
-  type PointerEvent as ReactPointerEvent,
   type RefObject
 } from 'react'
-import { CanvasContentIgnoreSelector } from '../../../canvas/target'
 import {
   hasEdge,
   leave
@@ -39,10 +37,6 @@ import {
   resolveAnchorFromPoint,
   resolveSnapTarget
 } from './connect/math'
-
-const NODE_CONNECT_HANDLE_SELECTOR = '[data-input-role="node-edge-handle"]'
-const NODE_SELECTOR = '[data-node-id]'
-const CONNECT_IGNORE_SELECTOR = CanvasContentIgnoreSelector
 
 export const useEdgeConnectInput = ({
   containerRef
@@ -395,63 +389,66 @@ export const useEdgeConnectInput = ({
     return true
   }, [clearConnect, commitConnectState, readPointer, updateActive, writeStatePreview])
 
+  const handleCanvasPointerDown = useCallback((
+    container: HTMLDivElement,
+    event: PointerEvent
+  ) => {
+    if (event.defaultPrevented) return false
+    if (event.button !== 0) return false
+    if (activeRef.current) return false
+    if (!instance.read.tool.is('edge')) return false
+
+    const edgeType = tool.type === 'edge'
+      ? readEdgeType(tool.preset)
+      : undefined
+    if (!edgeType) {
+      return false
+    }
+
+    const pointerState = readPointer(event)
+    const input = instance.read.pick.from(event, container)
+    const pick = input.pick
+
+    if (pick.kind === 'node' && pick.part === 'connect' && pick.side) {
+      const state = beginFromHandle(pick.id, pick.side, pointerState, edgeType)
+      if (!state) {
+        return false
+      }
+
+      return startConnectSession(event, state)
+    }
+
+    if (input.editable || input.ignoreInput || input.ignoreSelection) {
+      return false
+    }
+
+    if (
+      pick.kind !== 'node'
+      || (pick.part !== 'body' && pick.part !== 'container')
+    ) {
+      return startConnectSession(event, beginFromPoint(pointerState, edgeType))
+    }
+
+    const state = beginFromNode(pick.id, pointerState, edgeType)
+    if (!state) {
+      return false
+    }
+
+    return startConnectSession(event, state)
+  }, [
+    beginFromHandle,
+    beginFromNode,
+    beginFromPoint,
+    instance,
+    readPointer,
+    startConnectSession,
+    tool
+  ])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) {
       return
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.defaultPrevented) return
-      if (event.button !== 0) return
-      if (activeRef.current) return
-      if (!instance.read.tool.is('edge')) return
-      if (!(event.target instanceof Element)) return
-
-      const edgeType = tool.type === 'edge'
-        ? readEdgeType(tool.preset)
-        : undefined
-      if (!edgeType) {
-        return
-      }
-
-      const pointerState = readPointer(event)
-      const handleElement = event.target.closest(NODE_CONNECT_HANDLE_SELECTOR)
-      if (handleElement && container.contains(handleElement)) {
-        const nodeId = handleElement.getAttribute('data-node-id') as NodeId | null
-        const side = handleElement.getAttribute('data-handle-side') as ConnectHandleSide | null
-        if (!nodeId || !side) {
-          return
-        }
-
-        const state = beginFromHandle(nodeId, side, pointerState, edgeType)
-        if (!state) {
-          return
-        }
-
-        startConnectSession(event, state)
-        return
-      }
-
-      if (event.target.closest(CONNECT_IGNORE_SELECTOR)) return
-
-      const nodeElement = event.target.closest(NODE_SELECTOR)
-      if (!nodeElement || !container.contains(nodeElement)) {
-        startConnectSession(event, beginFromPoint(pointerState, edgeType))
-        return
-      }
-
-      const nodeId = nodeElement.getAttribute('data-node-id') as NodeId | null
-      if (!nodeId) {
-        return
-      }
-
-      const state = beginFromNode(nodeId, pointerState, edgeType)
-      if (!state) {
-        return
-      }
-
-      startConnectSession(event, state)
     }
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -465,7 +462,6 @@ export const useEdgeConnectInput = ({
       clearHint()
     }
 
-    container.addEventListener('pointerdown', handlePointerDown)
     container.addEventListener('pointermove', handlePointerMove)
     container.addEventListener('pointerleave', handlePointerLeave)
 
@@ -473,20 +469,13 @@ export const useEdgeConnectInput = ({
       hoverTaskRef.current.cancel()
       hoverPointRef.current = null
       clearHint()
-      container.removeEventListener('pointerdown', handlePointerDown)
       container.removeEventListener('pointermove', handlePointerMove)
       container.removeEventListener('pointerleave', handlePointerLeave)
     }
   }, [
-    beginFromHandle,
-    beginFromNode,
-    beginFromPoint,
     containerRef,
     instance,
-    readPointer,
-    clearHint,
-    startConnectSession,
-    tool
+    clearHint
   ])
 
   useEffect(() => {
@@ -500,26 +489,24 @@ export const useEdgeConnectInput = ({
   }, [cancelConnect])
 
   return {
+    handleCanvasPointerDown,
     handleEndpointPointerDown: (
-      event: ReactPointerEvent<HTMLDivElement>
+      event: PointerSourceEvent,
+      edgeId: EdgeId,
+      end: 'source' | 'target',
+      capture?: Element | null
     ) => {
       if (event.button !== 0) {
-        return
+        return false
       }
 
       if (activeRef.current) {
-        return
-      }
-
-      const edgeId = event.currentTarget.getAttribute('data-edge-id') as EdgeId | null
-      const end = event.currentTarget.getAttribute('data-edge-end') as 'source' | 'target' | null
-      if (!edgeId || !end) {
-        return
+        return false
       }
 
       const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
-        return
+        return false
       }
 
       if (!hasEdge(instance.state.container.get(), entry.edge)) {
@@ -530,10 +517,13 @@ export const useEdgeConnectInput = ({
 
       const state = beginReconnect(edgeId, end, readPointer(event))
       if (!state) {
-        return
+        return false
       }
 
-      startConnectSession(event, state)
+      return startConnectSession({
+        ...event,
+        currentTarget: capture ?? event.currentTarget
+      }, state)
     }
   }
 }

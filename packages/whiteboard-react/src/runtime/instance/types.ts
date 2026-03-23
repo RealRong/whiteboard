@@ -29,6 +29,7 @@ import type { EdgePresetKey, Tool } from '../tool'
 import type { EditField, EditTarget } from '../edit'
 import type { DrawCommands, DrawStyles } from '../../features/draw/state'
 import type { DrawPresetKey } from '../tool'
+import type { PickRuntime } from '../pick'
 
 type EngineCommands = EngineInstance['commands']
 
@@ -92,6 +93,7 @@ export type InternalInstance = WhiteboardInstance & {
   registry: NodeRegistry
   internals: {
     viewport: ViewportRuntime
+    pick: PickRuntime
     snap: SnapRuntime
     node: NodeFeatureRuntime
     edge: {

@@ -1,8 +1,6 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from '../../../../runtime/hooks'
-import { isSelectionIgnoredTarget } from '../../../../canvas/target'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
@@ -62,100 +60,90 @@ export const useMindmapDrag = () => {
     cancel()
   }, [cancel])
 
-  return {
-    handleMindmapNodePointerDown: (
-      event: ReactPointerEvent<HTMLDivElement>,
-      treeId: NodeId,
-      nodeId: MindmapNodeId
-    ) => {
-      if (event.button !== 0) {
-        return
-      }
+  const start = useCallback((
+    capture: Element,
+    event: PointerEvent,
+    treeId: NodeId,
+    nodeId: MindmapNodeId
+  ) => {
+    const treeView = instance.read.mindmap.item.get(treeId)
+    if (!treeView) {
+      return false
+    }
 
-      if (activeRef.current) {
-        return
-      }
-
-      if (isSelectionIgnoredTarget(event.target)) {
-        return
-      }
-
-      const treeView = instance.read.mindmap.item.get(treeId)
-      if (!treeView) {
-        return
-      }
-
-      const nextSession = instance.interaction.start({
-        mode: 'mindmap-drag',
-        pointerId: event.pointerId,
-        capture: event.currentTarget,
-        pan: {
-          frame: (pointer) => {
-            updatePreview(pointer)
-          }
-        },
-        cleanup: clear,
-        move: (event, session) => {
-          if (!activeRef.current) {
-            return
-          }
-
-          session.pan(event)
-          updatePreview(event)
-        },
-        up: (_event, session) => {
-          const active = activeRef.current
-          if (!active) {
-            return
-          }
-
-          if (active.kind === 'root') {
-            instance.commands.mindmap.moveRoot({
-              nodeId: active.treeId,
-              position: active.position
-            })
-            session.finish()
-            return
-          }
-
-          if (active.drop) {
-            instance.commands.mindmap.moveDrop({
-              id: active.treeId,
-              nodeId: active.nodeId,
-              drop: {
-                parentId: active.drop.parentId,
-                index: active.drop.index,
-                side: active.drop.side
-              },
-              origin: {
-                parentId: active.originParentId,
-                index: active.originIndex
-              },
-              nodeSize: instance.config.mindmapNodeSize,
-              layout: active.layout
-            })
-          }
-
-          session.finish()
+    const nextSession = instance.interaction.start({
+      mode: 'mindmap-drag',
+      pointerId: event.pointerId,
+      capture,
+      pan: {
+        frame: (pointer) => {
+          updatePreview(pointer)
         }
-      })
-      if (!nextSession) return
+      },
+      cleanup: clear,
+      move: (event, session) => {
+        if (!activeRef.current) {
+          return
+        }
 
-      const { world } = instance.viewport.pointer(event)
-      const baseOffset = {
-        x: treeView.node.position.x,
-        y: treeView.node.position.y
+        session.pan(event)
+        updatePreview(event)
+      },
+      up: (_event, session) => {
+        const active = activeRef.current
+        if (!active) {
+          return
+        }
+
+        if (active.kind === 'root') {
+          instance.commands.mindmap.moveRoot({
+            nodeId: active.treeId,
+            position: active.position
+          })
+          session.finish()
+          return
+        }
+
+        if (active.drop) {
+          instance.commands.mindmap.moveDrop({
+            id: active.treeId,
+            nodeId: active.nodeId,
+            drop: {
+              parentId: active.drop.parentId,
+              index: active.drop.index,
+              side: active.drop.side
+            },
+            origin: {
+              parentId: active.originParentId,
+              index: active.originIndex
+            },
+            nodeSize: instance.config.mindmapNodeSize,
+            layout: active.layout
+          })
+        }
+
+        session.finish()
       }
+    })
+    if (!nextSession) {
+      return false
+    }
 
-      const next =
-        nodeId === treeView.tree.rootId
-          ? resolveRootDragSession({
+    const { world } = instance.viewport.pointer(event)
+    const baseOffset = {
+      x: treeView.node.position.x,
+      y: treeView.node.position.y
+    }
+
+    const next =
+      nodeId === treeView.tree.rootId
+        ? resolveRootDragSession({
             treeId,
             pointerId: event.pointerId,
             start: world,
             origin: baseOffset
           })
-          : resolveSubtreeDragSession({
+        : resolveSubtreeDragSession({
             treeId,
             treeView,
             nodeId,
@@ -164,18 +152,49 @@ export const useMindmapDrag = () => {
             baseOffset
           })
 
-      if (!next) {
-        nextSession.cancel()
-        return
+    if (!next) {
+      nextSession.cancel()
+      return false
+    }
+
+    activeRef.current = {
+      ...next
+    }
+    sessionRef.current = nextSession
+    instance.internals.mindmap.drag.write(toMindmapDragState(next))
+    event.preventDefault()
+    event.stopPropagation()
+    return true
+  }, [clear, instance, updatePreview])
+
+  return {
+    handleCanvasPointerDown: (
+      container: HTMLDivElement,
+      event: PointerEvent
+    ) => {
+      if (event.defaultPrevented || event.button !== 0) {
+        return false
       }
 
-      activeRef.current = {
-        ...next
+      if (activeRef.current || !instance.read.tool.is('select')) {
+        return false
       }
-      sessionRef.current = nextSession
-      instance.internals.mindmap.drag.write(toMindmapDragState(next))
-      event.preventDefault()
-      event.stopPropagation()
+
+      const input = instance.read.pick.from(event, container)
+      if (input.ignoreSelection || input.ignoreInput || input.editable) {
+        return false
+      }
+
+      if (input.pick.kind !== 'mindmap') {
+        return false
+      }
+
+      return start(
+        input.element ?? container,
+        event,
+        input.pick.treeId,
+        input.pick.nodeId
+      )
     }
   }
 }

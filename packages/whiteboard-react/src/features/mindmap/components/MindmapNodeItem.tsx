@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
-import type { MindmapNodeId, Rect } from '@whiteboard/core/types'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
+import { usePickRef } from '../../../runtime/hooks'
 
 const MINDMAP_NODE_DEFAULT_BORDER = 1
 const MINDMAP_NODE_ACTIVE_BORDER = 2
@@ -8,6 +8,7 @@ const MINDMAP_NODE_TRANSITION = 'transform 160ms ease, opacity 160ms ease'
 const MINDMAP_ADD_PLACEMENTS = ['up', 'down', 'left', 'right'] as const
 
 type MindmapNodeItemProps = {
+  treeId: NodeId
   id: MindmapNodeId
   rect: Rect
   shiftX: number
@@ -18,10 +19,10 @@ type MindmapNodeItemProps = {
   showActions: boolean
   dragPreviewActive: boolean
   onAddChild: (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => void
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
 }
 
 export const MindmapNodeItem = ({
+  treeId,
   id,
   rect,
   shiftX,
@@ -31,20 +32,23 @@ export const MindmapNodeItem = ({
   attachTarget,
   showActions,
   dragPreviewActive,
-  onAddChild,
-  onPointerDown
+  onAddChild
 }: MindmapNodeItemProps) => {
+  const ref = usePickRef({
+    kind: 'mindmap',
+    treeId,
+    nodeId: id
+  })
   const transition = dragPreviewActive ? 'none' : MINDMAP_NODE_TRANSITION
   const borderWidth = attachTarget ? MINDMAP_NODE_ACTIVE_BORDER : MINDMAP_NODE_DEFAULT_BORDER
 
   return (
     <div
-      data-input-role="mindmap-node"
+      ref={ref}
       data-mindmap-node-id={id}
       data-drag-active={dragActive ? 'true' : undefined}
       data-drag-preview-active={dragPreviewActive ? 'true' : undefined}
       className="wb-mindmap-node-item"
-      onPointerDown={onPointerDown}
       style={{
         '--wb-mindmap-node-w': `${rect.width}px`,
         '--wb-mindmap-node-h': `${rect.height}px`,

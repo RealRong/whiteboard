@@ -4,6 +4,7 @@ import type {
 } from '@whiteboard/core/types'
 import {
   useInternalInstance,
+  usePickRef,
   useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
@@ -17,6 +18,11 @@ const ContainerBackgroundItem = memo(({
   nodeId: NodeId
 }) => {
   const view = useNodeView(nodeId)
+  const ref = usePickRef({
+    kind: 'node',
+    id: nodeId,
+    part: 'container'
+  })
 
   if (!view) {
     return null
@@ -33,7 +39,7 @@ const ContainerBackgroundItem = memo(({
   }
 
   return (
-    <div className="wb-container-block" style={rootStyle}>
+    <div ref={ref} className="wb-container-block" style={rootStyle}>
       <div className="wb-container-fill" style={fillStyle} />
     </div>
   )
@@ -78,9 +84,6 @@ const ContainerChromeItem = memo(({
       <GroupNodeChrome
         node={view.node}
         updateData={view.updateData}
-        onHeaderPointerDown={(event) => {
-          gesture.handleNodePointerDown(nodeId, event)
-        }}
         onHeaderDoubleClick={(event) => {
           gesture.handleNodeDoubleClick(nodeId, event)
         }}

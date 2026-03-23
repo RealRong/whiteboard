@@ -1,25 +1,24 @@
 import type {
-  CSSProperties,
-  PointerEvent as ReactPointerEvent
+  CSSProperties
 } from 'react'
 import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/core/read'
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import {
+  useInternalInstance,
+  usePickRef,
+  useStoreValue
+} from '../../../runtime/hooks'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
 
 type TransformHandlesProps = {
+  nodeId?: NodeViewNode['id']
   rect: NodeViewRect
   rotation: number
   canResize: boolean
   canRotate: boolean
-  onTransformPointerDown: (
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
-  handleProps?: Record<string, string | undefined>
 }
 
 type NodeTransformHandlesProps = {
@@ -28,11 +27,6 @@ type NodeTransformHandlesProps = {
   rotation: number
   canResize: boolean
   canRotate: boolean
-  onTransformPointerDown: (
-    nodeId: NodeViewNode['id'],
-    handle: TransformHandle,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => void
 }
 
 const NODE_TRANSFORM_HANDLE_SIZE = 10
@@ -59,13 +53,73 @@ const buildNodeTransformHandleStyle = ({
   } as CSSProperties
 }
 
+const TransformHandleItem = ({
+  nodeId,
+  handle,
+  zoom
+}: {
+  nodeId?: NodeViewNode['id']
+  handle: TransformHandle
+  zoom: number
+}) => {
+  const ref = usePickRef(
+    nodeId
+      ? {
+          kind: 'node',
+          id: nodeId,
+          part: 'transform',
+          handle: {
+            id: handle.id,
+            kind: handle.kind,
+            direction: handle.direction
+          }
+        }
+      : {
+          kind: 'selection-box',
+          part: 'transform',
+          handle: {
+            id: handle.id,
+            kind: handle.kind,
+            direction: handle.direction
+          }
+        }
+  )
+
+  return (
+    <div
+      ref={ref}
+      data-node-id={nodeId}
+      data-selection-ignore
+      data-kind={handle.kind}
+      data-transform-kind={handle.kind}
+      data-resize-direction={handle.direction}
+      className="wb-node-transform-handle"
+      style={buildNodeTransformHandleStyle({
+        handle,
+        zoom,
+        size: handle.kind === 'rotate'
+          ? NODE_ROTATE_HANDLE_SIZE
+          : NODE_TRANSFORM_HANDLE_SIZE
+      })}
+    >
+      {handle.kind === 'rotate' ? (
+        <RotateCw
+          className="wb-node-transform-handle-icon"
+          size={NODE_ROTATE_ICON_SIZE / Math.max(zoom, 0.0001)}
+          strokeWidth={1}
+          absoluteStrokeWidth
+        />
+      ) : null}
+    </div>
+  )
+}
+
 export const TransformHandles = ({
+  nodeId,
   rect,
   rotation,
   canResize,
-  canRotate,
-  onTransformPointerDown,
-  handleProps
+  canRotate
 }: TransformHandlesProps) => {
   const instance = useInternalInstance()
   const zoom = useStoreValue(instance.viewport).zoom
@@ -82,35 +136,12 @@ export const TransformHandles = ({
   return (
     <>
       {handles.map((handle) => (
-        <div
+        <TransformHandleItem
           key={handle.id}
-          data-selection-ignore
-          data-input-role="node-transform-handle"
-          data-kind={handle.kind}
-          data-transform-kind={handle.kind}
-          data-resize-direction={handle.direction}
-          className="wb-node-transform-handle"
-          {...handleProps}
-          onPointerDown={(event) => {
-            onTransformPointerDown(handle, event)
-          }}
-          style={buildNodeTransformHandleStyle({
-            handle,
-            zoom,
-            size: handle.kind === 'rotate'
-              ? NODE_ROTATE_HANDLE_SIZE
-              : NODE_TRANSFORM_HANDLE_SIZE
-          })}
-        >
-          {handle.kind === 'rotate' ? (
-            <RotateCw
-              className="wb-node-transform-handle-icon"
-              size={NODE_ROTATE_ICON_SIZE / Math.max(zoom, 0.0001)}
-              strokeWidth={1}
-              absoluteStrokeWidth
-            />
-          ) : null}
-        </div>
+          nodeId={nodeId}
+          handle={handle}
+          zoom={zoom}
+        />
       ))}
     </>
   )
@@ -121,19 +152,13 @@ export const NodeTransformHandles = ({
   rect,
   rotation,
   canResize,
-  canRotate,
-  onTransformPointerDown
+  canRotate
 }: NodeTransformHandlesProps) => (
   <TransformHandles
+    nodeId={node.id}
     rect={rect}
     rotation={rotation}
     canResize={canResize}
     canRotate={canRotate}
-    handleProps={{
-      'data-node-id': node.id
-    }}
-    onTransformPointerDown={(handle, event) => {
-      onTransformPointerDown(node.id, handle, event)
-    }}
   />
 )

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import type {
   CSSProperties,
-  MouseEvent as ReactMouseEvent,
-  PointerEvent as ReactPointerEvent
+  MouseEvent as ReactMouseEvent
 } from 'react'
 import type { Node } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
 import {
   useEdit,
-  useInternalInstance
+  useInternalInstance,
+  usePickRef
 } from '../../../../runtime/hooks'
 import {
   createSchema,
@@ -39,14 +39,12 @@ const groupSchema = createSchema('group', 'Group', [
 type GroupNodeChromeProps = {
   node: Node
   updateData: (patch: Record<string, unknown>) => void
-  onHeaderPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
   onHeaderDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
 }
 
 export const GroupNodeChrome = ({
   node,
   updateData,
-  onHeaderPointerDown,
   onHeaderDoubleClick
 }: GroupNodeChromeProps) => {
   const instance = useInternalInstance()
@@ -56,6 +54,11 @@ export const GroupNodeChrome = ({
   const editing = edit?.nodeId === node.id && edit.field === 'title'
   const [draft, setDraft] = useState(title)
   const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
+  const headerRef = usePickRef({
+    kind: 'node',
+    id: node.id,
+    part: 'body'
+  })
 
   useEffect(() => {
     setDraft(title)
@@ -75,8 +78,8 @@ export const GroupNodeChrome = ({
   return (
     <>
       <div
+        ref={headerRef}
         className="wb-default-group-header"
-        onPointerDown={onHeaderPointerDown}
         onDoubleClick={onHeaderDoubleClick}
       >
         <div

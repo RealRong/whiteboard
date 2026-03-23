@@ -10,7 +10,6 @@ import {
 import type { InternalInstance } from '../../runtime/instance'
 import { filterNodeIds } from '../../runtime/container'
 import type { MarqueeMatch, MarqueeSession } from '../../canvas/Marquee'
-import { readElementNodeId } from '../../canvas/target'
 import type { EditField } from '../../runtime/edit'
 import { createNodeDragSession } from './drag/session'
 
@@ -279,7 +278,10 @@ export const createNodePressController = (
         }
       },
       onTap: (event) => {
-        if (readElementNodeId(event.target) !== target.nodeRect.node.id) {
+        const targetPick = instance.internals.pick.element(
+          event.target instanceof Element ? event.target : null
+        )
+        if (targetPick?.kind !== 'node' || targetPick.id !== target.nodeRect.node.id) {
           return
         }
 

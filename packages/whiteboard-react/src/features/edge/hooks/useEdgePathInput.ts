@@ -2,12 +2,12 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import {
   useCallback,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent
+  type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { toPatchEntry } from '../preview'
 import type { SelectedEdgePathPointView } from './useEdgeView'
+import type { PointerSourceEvent } from './inputShared'
 import { toPathPatch } from './inputShared'
 import { useEdgePatchSession } from './useEdgePatchSession'
 
@@ -79,15 +79,16 @@ export const useEdgePathInput = () => {
   })
 
   const startPathDrag = useCallback((
-    event: ReactPointerEvent<HTMLDivElement>,
+    event: PointerSourceEvent,
     edgeId: EdgeId,
     index: number,
-    origin: Point
+    origin: Point,
+    capture?: Element | null
   ) => {
     const points = readPathEntry(edgeId)?.edge.path?.points ?? []
     const started = session.start({
       event,
-      capture: event.currentTarget,
+      capture: capture ?? (event.target instanceof Element ? event.target : null),
       active: {
         edgeId,
         index,
@@ -106,59 +107,61 @@ export const useEdgePathInput = () => {
   }, [instance, readPathEntry, session, writePreview])
 
   return {
-    handlePathPointPointerDown: (
-      event: ReactPointerEvent<HTMLDivElement>,
-      pathPoint: SelectedEdgePathPointView
+    handlePointerDown: (
+      event: PointerSourceEvent,
+      pathPoint: SelectedEdgePathPointView,
+      capture?: Element | null
     ) => {
       if (event.button !== 0) {
-        return
+        return false
       }
 
       if (session.activeRef.current) {
-        return
+        return false
       }
 
       if (pathPoint.kind === 'insert') {
         const worldPoint = instance.viewport.pointer(event).world
         const result = instance.commands.edge.path.insert(pathPoint.edgeId, worldPoint)
         if (!result.ok) {
-          return
+          return false
         }
 
         const origin =
           readPathEntry(pathPoint.edgeId)?.edge.path?.points?.[result.data.index]
           ?? worldPoint
-        if (!startPathDrag(event, pathPoint.edgeId, result.data.index, origin)) {
-          return
+        if (!startPathDrag(event, pathPoint.edgeId, result.data.index, origin, capture)) {
+          return false
         }
         event.preventDefault()
         event.stopPropagation()
-        return
+        return true
       }
 
       const entry = readPathEntry(pathPoint.edgeId)
       if (!entry) {
-        return
+        return false
       }
 
       const points = entry.edge.path?.points ?? []
       const origin = points[pathPoint.index]
       if (!origin) {
-        return
+        return false
       }
 
       if (event.detail >= 2) {
         instance.commands.edge.path.remove(pathPoint.edgeId, pathPoint.index)
         event.preventDefault()
         event.stopPropagation()
-        return
+        return true
       }
 
-      if (!startPathDrag(event, pathPoint.edgeId, pathPoint.index, origin)) {
-        return
+      if (!startPathDrag(event, pathPoint.edgeId, pathPoint.index, origin, capture)) {
+        return false
       }
       event.preventDefault()
       event.stopPropagation()
+      return true
     },
     handlePathPointKeyDown: (
       event: ReactKeyboardEvent<HTMLDivElement>,

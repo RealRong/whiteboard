@@ -1,82 +1,79 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
-import { useEffect, type RefObject } from 'react'
-import type { Rect } from '@whiteboard/core/types'
+import { useCallback } from 'react'
 import { useInternalInstance } from '../../runtime/hooks'
 import { leave } from '../../runtime/container'
-import { isBackgroundPointerTarget } from '../target'
 import {
   getInsertPreset,
   runInsertPreset
 } from './presets'
 
-export const useCanvasInsert = ({
-  containerRef
-}: {
-  containerRef: RefObject<HTMLDivElement | null>
-}) => {
+export const useCanvasInsert = () => {
   const instance = useInternalInstance()
 
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) {
-      return
+  const handleCanvasPointerDown = useCallback((
+    container: HTMLDivElement,
+    event: PointerEvent
+  ) => {
+    if (event.defaultPrevented) return false
+    if (event.button !== 0) return false
+    if (instance.interaction.mode.get() !== 'idle') return false
+
+    if (!instance.read.tool.is('insert')) return false
+    const presetKey = instance.read.tool.preset()
+    if (!presetKey) return false
+
+    const preset = getInsertPreset(presetKey)
+    if (!preset) {
+      return false
     }
 
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.defaultPrevented) return
-      if (event.button !== 0) return
-      if (instance.interaction.mode.get() !== 'idle') return
+    const input = instance.read.pick.from(event, container)
+    let activeContainer = instance.state.container.get()
+    if (activeContainer.id) {
+      const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
+      const insideActiveContainer = Boolean(
+        activeRect && isPointInRect(input.point.world, activeRect)
+      )
 
-      if (!instance.read.tool.is('insert')) return
-      const presetKey = instance.read.tool.preset()
-      if (!presetKey) return
-
-      const preset = getInsertPreset(presetKey)
-      if (!preset) {
-        return
+      if (!insideActiveContainer) {
+        leave(instance)
+        activeContainer = instance.state.container.get()
       }
-
-      const pointer = instance.viewport.pointer(event)
-      let activeContainer = instance.state.container.get()
-      if (activeContainer.id) {
-        const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
-        const insideActiveContainer = Boolean(
-          activeRect && isPointInRect(pointer.world, activeRect)
-        )
-
-        if (!insideActiveContainer) {
-          leave(instance)
-          activeContainer = instance.state.container.get()
-        }
-      }
-
-      if (!isBackgroundPointerTarget({
-        target: event.target,
-        currentTarget: container,
-        activeContainerId: activeContainer.id
-      })) {
-        return
-      }
-
-      const result = runInsertPreset({
-        instance,
-        preset,
-        world: pointer.world,
-        parentId: activeContainer.id
-      })
-      if (!result) {
-        return
-      }
-
-      instance.commands.tool.select()
-
-      event.preventDefault()
-      event.stopPropagation()
     }
 
-    container.addEventListener('pointerdown', onPointerDown, true)
-    return () => {
-      container.removeEventListener('pointerdown', onPointerDown, true)
+    if (input.editable || input.ignoreInput || input.ignoreSelection) {
+      return false
     }
-  }, [containerRef, instance])
+
+    const canInsert =
+      input.pick.kind === 'background'
+      || (
+        input.pick.kind === 'node'
+        && input.pick.part === 'container'
+        && input.pick.id === activeContainer.id
+      )
+    if (!canInsert) {
+      return false
+    }
+
+    const result = runInsertPreset({
+      instance,
+      preset,
+      world: input.point.world,
+      parentId: activeContainer.id
+    })
+    if (!result) {
+      return false
+    }
+
+    instance.commands.tool.select()
+
+    event.preventDefault()
+    event.stopPropagation()
+    return true
+  }, [instance])
+
+  return {
+    handleCanvasPointerDown
+  }
 }
