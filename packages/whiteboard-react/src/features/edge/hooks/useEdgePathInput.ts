@@ -4,6 +4,7 @@ import {
   useCallback,
   type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
+import type { CanvasDown } from '../../../runtime/input/down'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { toPatchEntry } from '../preview'
 import type { SelectedEdgePathPointView } from './useEdgeView'
@@ -107,11 +108,11 @@ export const useEdgePathInput = () => {
   }, [instance, readPathEntry, session, writePreview])
 
   return {
-    handlePointerDown: (
-      event: PointerSourceEvent,
-      pathPoint: SelectedEdgePathPointView,
-      capture?: Element | null
+    down: (
+      input: CanvasDown
     ) => {
+      const { event } = input
+
       if (event.button !== 0) {
         return false
       }
@@ -119,6 +120,29 @@ export const useEdgePathInput = () => {
       if (session.activeRef.current) {
         return false
       }
+
+      if (input.pick.kind !== 'edge' || input.pick.part !== 'path') {
+        return false
+      }
+
+      const pathPoint: SelectedEdgePathPointView =
+        input.pick.index === undefined
+          ? {
+              key: `${input.pick.id}:insert:${input.pick.insert ?? 0}`,
+              kind: 'insert',
+              edgeId: input.pick.id,
+              insertIndex: input.pick.insert ?? 0,
+              point: input.point.world,
+              active: false
+            }
+          : {
+              key: `${input.pick.id}:anchor:${input.pick.index}`,
+              kind: 'anchor',
+              edgeId: input.pick.id,
+              index: input.pick.index,
+              point: input.point.world,
+              active: false
+            }
 
       if (pathPoint.kind === 'insert') {
         const worldPoint = instance.viewport.pointer(event).world
@@ -130,7 +154,7 @@ export const useEdgePathInput = () => {
         const origin =
           readPathEntry(pathPoint.edgeId)?.edge.path?.points?.[result.data.index]
           ?? worldPoint
-        if (!startPathDrag(event, pathPoint.edgeId, result.data.index, origin, capture)) {
+        if (!startPathDrag(event, pathPoint.edgeId, result.data.index, origin, input.capture)) {
           return false
         }
         event.preventDefault()
@@ -156,14 +180,14 @@ export const useEdgePathInput = () => {
         return true
       }
 
-      if (!startPathDrag(event, pathPoint.edgeId, pathPoint.index, origin, capture)) {
+      if (!startPathDrag(event, pathPoint.edgeId, pathPoint.index, origin, input.capture)) {
         return false
       }
       event.preventDefault()
       event.stopPropagation()
       return true
     },
-    handlePathPointKeyDown: (
+    keyDown: (
       event: ReactKeyboardEvent<HTMLDivElement>,
       pathPoint: Extract<SelectedEdgePathPointView, { kind: 'anchor' }>
     ) => {

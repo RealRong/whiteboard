@@ -6,4 +6,3 @@ export {
   type Commands,
   type Container
 } from './state'
-export { enter, leave } from './policy'

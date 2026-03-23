@@ -82,10 +82,10 @@ const ContainerChromeItem = memo(({
     >
       <div className="wb-container-shell-frame" style={frameStyle} />
       <GroupNodeChrome
-        node={view.node}
-        updateData={view.updateData}
+        node={view.renderProps.node}
+        write={view.renderProps.write}
         onHeaderDoubleClick={(event) => {
-          gesture.handleNodeDoubleClick(nodeId, event)
+          gesture.doubleClick(nodeId, event)
         }}
       />
     </div>

@@ -163,6 +163,57 @@ const createCommands = ({
     history.set(engine.commands.history.get())
   }
 
+  const selectionCommands: WhiteboardInstance['commands']['selection'] = {
+    replace: (nodeIds) => {
+      edit.clear()
+      selection.replace(nodeIds)
+    },
+    add: (nodeIds) => {
+      edit.clear()
+      selection.add(nodeIds)
+    },
+    remove: (nodeIds) => {
+      edit.clear()
+      selection.remove(nodeIds)
+    },
+    toggle: (nodeIds) => {
+      edit.clear()
+      selection.toggle(nodeIds)
+    },
+    selectEdge: (edgeId) => {
+      edit.clear()
+      selection.selectEdge(edgeId)
+    },
+    selectAll: () => {
+      edit.clear()
+      const activeContainer = container.store.get()
+      selection.replace(
+        activeContainer.id
+          ? [...activeContainer.ids]
+          : [...engine.read.node.list.get()]
+      )
+    },
+    clear: () => {
+      edit.clear()
+      selection.clear()
+    }
+  }
+
+  const containerCommands: WhiteboardInstance['commands']['container'] = {
+    enter: (nodeId) => {
+      selectionCommands.clear()
+      container.commands.enter(nodeId)
+    },
+    exit: () => {
+      selectionCommands.clear()
+      container.commands.exit()
+    },
+    clear: () => {
+      selectionCommands.clear()
+      container.commands.clear()
+    }
+  }
+
   return {
     ...engine.commands,
     history: {
@@ -205,33 +256,8 @@ const createCommands = ({
     },
     draw,
     edit,
-    selection: {
-      replace: (nodeIds) => {
-        edit.clear()
-        selection.replace(nodeIds)
-      },
-      add: (nodeIds) => {
-        edit.clear()
-        selection.add(nodeIds)
-      },
-      remove: (nodeIds) => {
-        edit.clear()
-        selection.remove(nodeIds)
-      },
-      toggle: (nodeIds) => {
-        edit.clear()
-        selection.toggle(nodeIds)
-      },
-      selectEdge: (edgeId) => {
-        edit.clear()
-        selection.selectEdge(edgeId)
-      },
-      clear: () => {
-        edit.clear()
-        selection.clear()
-      }
-    },
-    container: container.commands,
+    selection: selectionCommands,
+    container: containerCommands,
     viewport,
     edge: engine.commands.edge
   }

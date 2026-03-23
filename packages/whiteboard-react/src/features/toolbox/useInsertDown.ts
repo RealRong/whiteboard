@@ -1,25 +1,26 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
 import { useCallback } from 'react'
+import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
-import { leave } from '../../runtime/container'
 import {
-  getInsertPreset,
-  runInsertPreset
+  getInsertPreset
 } from './presets'
+import { insertPreset } from './insert'
 
-export const useCanvasInsert = () => {
+export const useInsertDown = () => {
   const instance = useInternalInstance()
 
-  const handleCanvasPointerDown = useCallback((
-    container: HTMLDivElement,
-    event: PointerEvent
+  const down = useCallback((
+    input: CanvasDown
   ) => {
+    const { event } = input
+
     if (event.defaultPrevented) return false
     if (event.button !== 0) return false
-    if (instance.interaction.mode.get() !== 'idle') return false
+    if (input.mode !== 'idle') return false
 
-    if (!instance.read.tool.is('insert')) return false
-    const presetKey = instance.read.tool.preset()
+    if (input.tool.type !== 'insert') return false
+    const presetKey = input.tool.preset
     if (!presetKey) return false
 
     const preset = getInsertPreset(presetKey)
@@ -27,7 +28,6 @@ export const useCanvasInsert = () => {
       return false
     }
 
-    const input = instance.read.pick.from(event, container)
     let activeContainer = instance.state.container.get()
     if (activeContainer.id) {
       const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
@@ -36,7 +36,7 @@ export const useCanvasInsert = () => {
       )
 
       if (!insideActiveContainer) {
-        leave(instance)
+        instance.commands.container.exit()
         activeContainer = instance.state.container.get()
       }
     }
@@ -56,7 +56,7 @@ export const useCanvasInsert = () => {
       return false
     }
 
-    const result = runInsertPreset({
+    const result = insertPreset({
       instance,
       preset,
       world: input.point.world,
@@ -74,6 +74,6 @@ export const useCanvasInsert = () => {
   }, [instance])
 
   return {
-    handleCanvasPointerDown
+    down
   }
 }

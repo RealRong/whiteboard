@@ -3,16 +3,15 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useCallback } from 'react'
+import type { CanvasDown } from '../../../runtime/input/down'
 import {
-  hasEdge,
-  leave
+  hasEdge
 } from '../../../runtime/container'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { toPatchEntry } from '../preview'
 import type { PointerSourceEvent } from './inputShared'
 import {
-  canMoveEdge,
-  readCaptureTarget
+  canMoveEdge
 } from './inputShared'
 import { useEdgePatchSession } from './useEdgePatchSession'
 
@@ -68,7 +67,7 @@ export const useEdgeDragInput = () => {
     event: PointerSourceEvent,
     edgeId: EdgeId,
     edge: EdgeItem['edge'],
-    capture?: Element | null
+    capture: Element
   ) => {
     if (!canMoveEdge(edge)) {
       return false
@@ -76,7 +75,7 @@ export const useEdgeDragInput = () => {
 
     return session.start({
       event,
-      capture: capture ?? readCaptureTarget(event),
+      capture,
       active: {
         edgeId,
         pointerId: event.pointerId,
@@ -88,11 +87,11 @@ export const useEdgeDragInput = () => {
   }, [instance, session])
 
   return {
-    handlePointerDown: (
-      event: PointerSourceEvent,
-      edgeId: EdgeId,
-      capture?: Element | null
+    down: (
+      input: CanvasDown
     ) => {
+      const { event } = input
+
       if (event.button !== 0) {
         return false
       }
@@ -101,13 +100,18 @@ export const useEdgeDragInput = () => {
         return false
       }
 
+      if (input.pick.kind !== 'edge' || input.pick.part !== 'body') {
+        return false
+      }
+
+      const edgeId = input.pick.id
       const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
         return false
       }
 
       if (!hasEdge(instance.state.container.get(), entry.edge)) {
-        leave(instance)
+        instance.commands.container.exit()
       }
 
       if (event.shiftKey || event.detail >= 2) {
@@ -120,7 +124,7 @@ export const useEdgeDragInput = () => {
       }
 
       instance.commands.selection.selectEdge(edgeId)
-      const started = startEdgeDrag(event, edgeId, entry.edge, capture)
+      const started = startEdgeDrag(event, edgeId, entry.edge, input.capture)
       if (!started) {
         return false
       }

@@ -4,7 +4,7 @@ import type {
   SliceRoots
 } from '@whiteboard/core/document'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { WhiteboardInstance } from '../../../runtime/instance'
 
 const ClipboardPacketType = 'whiteboard/slice'
 const ClipboardPacketVersion = 1
@@ -19,6 +19,15 @@ type ClipboardPacket = {
   slice: Slice
   roots?: SliceRoots
 }
+
+export type ClipboardTarget =
+  | 'selection'
+  | {
+      nodeIds: readonly NodeId[]
+    }
+  | {
+      edgeId: EdgeId
+    }
 
 let memoryPacket: ClipboardPacket | null = null
 let lastPasteKey: string | null = null
@@ -192,82 +201,89 @@ const applyInsertedRoots = (
   instance.commands.selection.clear()
 }
 
-export const hasClipboardSelection = (
-  instance: ClipboardInstance
-) => (
-  instance.read.selection.get().target.nodeIds.length > 0
-  || instance.read.selection.get().target.edgeId !== undefined
-)
-
-export const copyNodes = async (
+const readSelectionTarget = (
   instance: ClipboardInstance,
-  nodeIds: readonly NodeId[],
-  event?: ClipboardEvent
-) => {
-  const exported = instance.read.slice.fromNodes(nodeIds)
-  if (!exported) return false
-  return writePacket(toPacket(exported), event)
-}
-
-export const cutNodes = async (
-  instance: ClipboardInstance,
-  nodeIds: readonly NodeId[],
-  event?: ClipboardEvent
-) => {
-  const copied = await copyNodes(instance, nodeIds, event)
-  if (!copied) return false
-  const result = instance.commands.node.deleteCascade([...nodeIds])
-  return result.ok
-}
-
-export const copyEdge = async (
-  instance: ClipboardInstance,
-  edgeId: EdgeId,
-  event?: ClipboardEvent
-) => {
-  const exported = instance.read.slice.fromEdge(edgeId)
-  if (!exported) return false
-  return writePacket(toPacket(exported), event)
-}
-
-export const cutEdge = async (
-  instance: ClipboardInstance,
-  edgeId: EdgeId,
-  event?: ClipboardEvent
-) => {
-  const copied = await copyEdge(instance, edgeId, event)
-  if (!copied) return false
-  const result = instance.commands.edge.delete([edgeId])
-  return result.ok
-}
-
-export const copySelection = async (
-  instance: ClipboardInstance,
-  event?: ClipboardEvent
-) => {
-  const exported = instance.read.slice.fromSelection()
-  if (!exported) return false
-  return writePacket(toPacket(exported), event)
-}
-
-export const cutSelection = async (
-  instance: ClipboardInstance,
-  event?: ClipboardEvent
-) => {
+): Exclude<ClipboardTarget, 'selection'> | undefined => {
   const selection = instance.read.selection.get()
 
   if (selection.target.edgeId !== undefined) {
-    return cutEdge(instance, selection.target.edgeId, event)
+    return {
+      edgeId: selection.target.edgeId
+    }
   }
 
   if (selection.target.nodeIds.length > 0) {
-    return cutNodes(instance, selection.target.nodeIds, event)
+    return {
+      nodeIds: selection.target.nodeIds
+    }
   }
 
-  return false
+  return undefined
 }
 
-export const pasteClipboard = async (
+const resolveClipboardTarget = (
+  instance: ClipboardInstance,
+  target: ClipboardTarget
+): Exclude<ClipboardTarget, 'selection'> | undefined => (
+  target === 'selection'
+    ? readSelectionTarget(instance)
+    : target
+)
+
+const readSliceExport = (
+  instance: ClipboardInstance,
+  target: ClipboardTarget
+) => {
+  const resolved = resolveClipboardTarget(instance, target)
+  if (!resolved) {
+    return undefined
+  }
+
+  if ('edgeId' in resolved) {
+    return instance.read.slice.fromEdge(resolved.edgeId)
+  }
+
+  return instance.read.slice.fromNodes(resolved.nodeIds)
+}
+
+export const copy = async (
+  instance: ClipboardInstance,
+  target: ClipboardTarget = 'selection',
+  event?: ClipboardEvent
+) => {
+  const exported = readSliceExport(instance, target)
+  if (!exported) {
+    return false
+  }
+
+  return writePacket(toPacket(exported), event)
+}
+
+export const cut = async (
+  instance: ClipboardInstance,
+  target: ClipboardTarget = 'selection',
+  event?: ClipboardEvent
+) => {
+  const resolved = resolveClipboardTarget(instance, target)
+  if (!resolved) {
+    return false
+  }
+
+  const copied = await copy(instance, resolved, event)
+  if (!copied) {
+    return false
+  }
+
+  if ('edgeId' in resolved) {
+    const result = instance.commands.edge.delete([resolved.edgeId])
+    return result.ok
+  }
+
+  const result = instance.commands.node.deleteCascade([...resolved.nodeIds])
+  return result.ok
+}
+
+export const paste = async (
   instance: ClipboardInstance,
   options?: {
     at?: Point

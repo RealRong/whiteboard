@@ -13,9 +13,9 @@ import {
   useRef,
   type RefObject
 } from 'react'
+import type { CanvasDown } from '../../../runtime/input/down'
 import {
-  hasEdge,
-  leave
+  hasEdge
 } from '../../../runtime/container'
 import { useInternalInstance, useTool } from '../../../runtime/hooks'
 import { readEdgeType } from '../../../runtime/tool'
@@ -389,24 +389,22 @@ export const useEdgeConnectInput = ({
     return true
   }, [clearConnect, commitConnectState, readPointer, updateActive, writeStatePreview])
 
-  const handleCanvasPointerDown = useCallback((
-    container: HTMLDivElement,
-    event: PointerEvent
+  const create = useCallback((
+    input: CanvasDown
   ) => {
+    const { event } = input
+
     if (event.defaultPrevented) return false
     if (event.button !== 0) return false
     if (activeRef.current) return false
-    if (!instance.read.tool.is('edge')) return false
+    if (input.mode !== 'idle' || input.tool.type !== 'edge') return false
 
-    const edgeType = tool.type === 'edge'
-      ? readEdgeType(tool.preset)
-      : undefined
+    const edgeType = readEdgeType(input.tool.preset)
     if (!edgeType) {
       return false
     }
 
     const pointerState = readPointer(event)
-    const input = instance.read.pick.from(event, container)
     const pick = input.pick
 
     if (pick.kind === 'node' && pick.part === 'connect' && pick.side) {
@@ -415,7 +413,10 @@ export const useEdgeConnectInput = ({
         return false
       }
 
-      return startConnectSession(event, state)
+      return startConnectSession({
+        ...event,
+        currentTarget: input.capture
+      }, state)
     }
 
     if (input.editable || input.ignoreInput || input.ignoreSelection) {
@@ -426,7 +427,10 @@ export const useEdgeConnectInput = ({
       pick.kind !== 'node'
       || (pick.part !== 'body' && pick.part !== 'container')
     ) {
-      return startConnectSession(event, beginFromPoint(pointerState, edgeType))
+      return startConnectSession({
+        ...event,
+        currentTarget: input.capture
+      }, beginFromPoint(pointerState, edgeType))
     }
 
     const state = beginFromNode(pick.id, pointerState, edgeType)
@@ -434,7 +438,10 @@ export const useEdgeConnectInput = ({
       return false
     }
 
-    return startConnectSession(event, state)
+    return startConnectSession({
+      ...event,
+      currentTarget: input.capture
+    }, state)
   }, [
     beginFromHandle,
     beginFromNode,
@@ -489,13 +496,12 @@ export const useEdgeConnectInput = ({
   }, [cancelConnect])
 
   return {
-    handleCanvasPointerDown,
-    handleEndpointPointerDown: (
-      event: PointerSourceEvent,
-      edgeId: EdgeId,
-      end: 'source' | 'target',
-      capture?: Element | null
+    create,
+    reconnect: (
+      input: CanvasDown
     ) => {
+      const { event } = input
+
       if (event.button !== 0) {
         return false
       }
@@ -504,13 +510,23 @@ export const useEdgeConnectInput = ({
         return false
       }
 
+      if (
+        input.pick.kind !== 'edge'
+        || input.pick.part !== 'end'
+        || !input.pick.end
+      ) {
+        return false
+      }
+
+      const edgeId = input.pick.id
+      const end = input.pick.end
       const entry = instance.read.edge.item.get(edgeId)
       if (!entry) {
         return false
       }
 
       if (!hasEdge(instance.state.container.get(), entry.edge)) {
-        leave(instance)
+        instance.commands.container.exit()
       }
 
       instance.commands.selection.selectEdge(edgeId)
@@ -522,7 +538,7 @@ export const useEdgeConnectInput = ({
 
       return startConnectSession({
         ...event,
-        currentTarget: capture ?? event.currentTarget
+        currentTarget: input.capture
       }, state)
     }
   }

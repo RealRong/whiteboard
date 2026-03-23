@@ -6,8 +6,8 @@ import {
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
-} from '../../features/node/components/SelectionSummaryHeader'
-import type { NodeSummary, NodeTypeSummary } from '../../features/node/summary'
+} from '../../../node/components/SelectionSummaryHeader'
+import type { NodeSummary, NodeTypeSummary } from '../../../node/summary'
 
 export type MoreMenuItem = {
   key: string

@@ -3,7 +3,6 @@ import type {
   MouseEvent as ReactMouseEvent
 } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import type { NodeRenderProps } from '../../../types/node'
 import { usePickRef } from '../../../runtime/hooks'
 import { useNodeView } from '../hooks/useNodeView'
 
@@ -33,13 +32,11 @@ export const NodeItem = memo(({
   const {
     node: resolvedNode,
     rect,
-    hovered,
     hasResizePreview,
     nodeStyle,
     transformStyle,
     definition,
-    update,
-    updateData
+    renderProps
   } = view
   const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
   const hit = definition?.hit ?? 'box'
@@ -62,14 +59,6 @@ export const NodeItem = memo(({
     ...nodeStyle,
     pointerEvents: hit === 'path' ? 'none' : 'auto',
     ...transformStyle
-  }
-  const renderProps: NodeRenderProps = {
-    node: resolvedNode,
-    rect,
-    selected,
-    hovered,
-    update,
-    updateData
   }
   const content = definition ? definition.render(renderProps) : resolvedNode.type
 

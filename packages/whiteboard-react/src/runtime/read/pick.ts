@@ -4,7 +4,7 @@ import {
   isInputIgnoredTarget,
   isSelectionIgnoredTarget,
   readEditableFieldTarget
-} from '../../canvas/target'
+} from '../input/target'
 import type { Pick as CanvasPick, PickRuntime, PointerPick } from '../pick'
 import type { ViewportRead } from '../viewport'
 

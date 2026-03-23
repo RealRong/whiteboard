@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 
-export const ToolbarIcon = ({
+export const ToolIcon = ({
   icon: Icon
 }: {
   icon: LucideIcon

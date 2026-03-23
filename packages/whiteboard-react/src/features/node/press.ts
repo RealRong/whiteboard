@@ -9,8 +9,8 @@ import {
 } from '../../runtime/interaction'
 import type { InternalInstance } from '../../runtime/instance'
 import { filterNodeIds } from '../../runtime/container'
-import type { MarqueeMatch, MarqueeSession } from '../../canvas/Marquee'
 import type { EditField } from '../../runtime/edit'
+import type { MarqueeMatch, MarqueeSession } from '../selection/chrome/Marquee'
 import { createNodeDragSession } from './drag/session'
 
 type NodeEntry = NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>

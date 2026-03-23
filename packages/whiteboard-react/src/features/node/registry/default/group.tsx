@@ -4,7 +4,7 @@ import type {
   MouseEvent as ReactMouseEvent
 } from 'react'
 import type { Node } from '@whiteboard/core/types'
-import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
+import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../../types/node'
 import {
   useEdit,
   useInternalInstance,
@@ -38,13 +38,13 @@ const groupSchema = createSchema('group', 'Group', [
 
 type GroupNodeChromeProps = {
   node: Node
-  updateData: (patch: Record<string, unknown>) => void
+  write: Pick<NodeWrite, 'data'>
   onHeaderDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
 }
 
 export const GroupNodeChrome = ({
   node,
-  updateData,
+  write,
   onHeaderDoubleClick
 }: GroupNodeChromeProps) => {
   const instance = useInternalInstance()
@@ -66,13 +66,13 @@ export const GroupNodeChrome = ({
 
   const commit = () => {
     if (draft !== title) {
-      updateData({ title: draft })
+      write.data({ title: draft })
     }
     instance.commands.edit.clear()
   }
 
   const toggleCollapse = () => {
-    updateData({ collapsed: !collapsed })
+    write.data({ collapsed: !collapsed })
   }
 
   return (
@@ -137,12 +137,12 @@ export const GroupNodeChrome = ({
   )
 }
 
-const GroupNodeRenderer = ({ updateData, node }: NodeRenderProps) => {
+const GroupNodeRenderer = ({ node, write }: NodeRenderProps) => {
   return (
     <div className="wb-default-group">
       <GroupNodeChrome
         node={node}
-        updateData={updateData}
+        write={write}
       />
     </div>
   )

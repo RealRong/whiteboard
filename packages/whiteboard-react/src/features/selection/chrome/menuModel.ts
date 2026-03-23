@@ -1,10 +1,10 @@
 import type {
   NodeActionItem,
   NodeSelectionActions
-} from '../features/node/actions'
-import type { NodeTypeSummary } from '../features/node/summary'
+} from '../../node/actions'
+import type { NodeTypeSummary } from '../../node/summary'
 import type { MoreMenuSection } from './menus/MoreMenu'
-import { closeAfter } from './actions'
+import { closeAfter } from './closeAfter'
 
 export type NodeMenuItem = {
   key: string
@@ -67,14 +67,15 @@ export const readNodeMenuFilter = (
   actions: NodeSelectionActions,
   close: () => void
 ): NodeMenuFilter | undefined => {
-  if (!actions.filter.visible) {
+  const filter = actions.filter
+  if (!filter) {
     return undefined
   }
 
   return {
-    types: actions.filter.types,
+    types: filter.types,
     onSelect: (key) => {
-      closeAfter(actions.filter.onSelect(key), close)
+      closeAfter(filter.onSelect(key), close)
     }
   }
 }

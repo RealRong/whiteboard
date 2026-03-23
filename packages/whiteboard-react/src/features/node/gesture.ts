@@ -7,17 +7,16 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from 'react'
-import type { MarqueeSession } from '../../canvas/Marquee'
+import type { CanvasDown } from '../../runtime/input/down'
 import {
   isCanvasContentIgnoredTarget,
   readEditableFieldTarget
-} from '../../canvas/target'
+} from '../../runtime/input/target'
 import type { InternalInstance } from '../../runtime/instance'
 import {
-  enter,
-  hasNode,
-  leave
+  hasNode
 } from '../../runtime/container'
+import type { MarqueeSession } from '../selection/chrome/Marquee'
 import {
   createNodePressController,
   type PressInput,
@@ -76,7 +75,7 @@ const resolveActiveContainer = (
     return container
   }
 
-  leave(instance)
+  instance.commands.container.exit()
   return instance.state.container.get()
 }
 
@@ -94,11 +93,6 @@ export const createNodeGesture = (
   marquee: MarqueeSession
 ) => {
   const press = createNodePressController(instance, marquee)
-
-  const canStartPointerGesture = () => (
-    instance.interaction.mode.get() === 'idle'
-    && instance.read.tool.is('select')
-  )
 
   const beginPointerGesture = (input: {
     event: PointerGestureEvent
@@ -124,15 +118,14 @@ export const createNodeGesture = (
 
   return {
     cancel: press.cancel,
-    handleCanvasPointerDown: (
-      container: HTMLDivElement,
-      event: PointerEvent
+    down: (
+      input: CanvasDown
     ) => {
+      const { event } = input
+
       if (event.defaultPrevented) return false
       if (event.button !== 0) return false
-      if (!canStartPointerGesture()) return false
-
-      const input = instance.read.pick.from(event, container)
+      if (input.mode !== 'idle' || input.tool.type !== 'select') return false
       if (input.editable || input.ignoreInput || input.ignoreSelection) {
         return false
       }
@@ -148,13 +141,13 @@ export const createNodeGesture = (
 
         let currentContainer = instance.state.container.get()
         if (!hasNode(currentContainer, input.pick.id)) {
-          leave(instance)
+          instance.commands.container.exit()
           currentContainer = instance.state.container.get()
         }
 
         return beginPointerGesture({
           event,
-          capture: container,
+          capture: input.capture,
           container: currentContainer,
           target
         })
@@ -171,7 +164,7 @@ export const createNodeGesture = (
 
         return beginPointerGesture({
           event,
-          capture: container,
+          capture: input.capture,
           container: instance.state.container.get(),
           target
         })
@@ -214,12 +207,12 @@ export const createNodeGesture = (
 
       return beginPointerGesture({
         event,
-        capture: container,
+        capture: input.capture,
         container: activeContainer,
         target
       })
     },
-    handleNodeDoubleClick: (
+    doubleClick: (
       nodeId: NodeId,
       event: ReactMouseEvent<HTMLDivElement>
     ) => {
@@ -241,7 +234,7 @@ export const createNodeGesture = (
         return
       }
 
-      enter(instance, nodeId)
+      instance.commands.container.enter(nodeId)
       event.preventDefault()
       event.stopPropagation()
     }

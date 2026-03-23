@@ -7,50 +7,46 @@ import type {
   NodeSchema,
   Point
 } from '@whiteboard/core/types'
-import type { PointerPick } from '../runtime/pick'
+import type { PointerPick } from '../../../runtime/pick'
 import {
+  useElementSize,
   useInternalInstance
-} from '../runtime/hooks'
+} from '../../../runtime/hooks'
 import {
-  leave,
   hasEdge,
   hasNode
-} from '../runtime/container'
+} from '../../../runtime/container'
 import {
   createNodeSelectionActions
-} from '../features/node/actions'
+} from '../../node/actions'
 import {
   type NodeSummary
-} from '../features/node/summary'
+} from '../../node/summary'
 import {
   type GroupAutoFitMode,
-  updateNodesStyle,
-  updateGroupNode
-} from '../features/node/commands'
+  toNodeStyleUpdates
+} from '../../node/patch'
 import {
-  closeAfter,
-  copyEdge,
-  copyNodes,
-  cutEdge,
-  cutNodes,
-  pasteClipboard,
-  selectAllInScope
-} from './actions'
+  copy,
+  cut,
+  paste
+} from '../actions/clipboard'
+import { closeAfter } from './closeAfter'
 import {
   CREATE_PRESETS,
-  runInsertPreset
-} from './toolbar/presets'
+} from '../../toolbox/presets'
+import { insertPreset } from '../../toolbox/insert'
 import {
   COLOR_OPTIONS,
   DRAW_STROKE_WIDTHS,
   OPACITY_OPTIONS,
   STROKE_WIDTHS
 } from './menus/options'
-import { isContextMenuIgnoredTarget } from './target'
+import { isContextMenuIgnoredTarget } from '../../../runtime/input/target'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
-} from '../features/node/components/SelectionSummaryHeader'
+} from '../../node/components/SelectionSummaryHeader'
 import {
   bindNodeMenuGroup,
   readNodeContextMenuGroups,
@@ -58,12 +54,7 @@ import {
   type NodeMenuFilter,
   type NodeMenuGroup,
   type NodeMenuItem
-} from './nodeActionSurface'
-
-type Surface = {
-  width: number
-  height: number
-}
+} from './menuModel'
 
 type ContextMenuView = {
   summary?: NodeSummary
@@ -253,7 +244,9 @@ const buildStrokeStyleGroup = ({
           key: `style.stroke.${option.label.toLowerCase()}`,
           label: withCurrentLabel(option.label, stroke === option.value),
           onClick: () => {
-            updateNodesStyle(instance, nodes, { stroke: option.value })
+            instance.commands.node.updateMany(
+              toNodeStyleUpdates(nodes, { stroke: option.value })
+            )
           }
         }))
       },
@@ -264,7 +257,9 @@ const buildStrokeStyleGroup = ({
           key: `style.width.${value}`,
           label: withCurrentLabel(`${value}`, strokeWidth === value),
           onClick: () => {
-            updateNodesStyle(instance, nodes, { strokeWidth: value })
+            instance.commands.node.updateMany(
+              toNodeStyleUpdates(nodes, { strokeWidth: value })
+            )
           }
         }))
       },
@@ -277,7 +272,9 @@ const buildStrokeStyleGroup = ({
               key: `style.opacity.${option.label}`,
               label: withCurrentLabel(option.label, opacity === option.value),
               onClick: () => {
-                updateNodesStyle(instance, nodes, { opacity: option.value })
+                instance.commands.node.updateMany(
+                  toNodeStyleUpdates(nodes, { opacity: option.value })
+                )
               }
             }))
           }
@@ -420,13 +417,12 @@ const readContextMenuOpenResult = ({
 }
 
 export const ContextMenu = ({
-  containerRef,
-  surface
+  containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
-  surface: Surface
 }) => {
   const instance = useInternalInstance()
+  const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const [session, setSession] = useState<ContextMenuSession>(null)
@@ -452,7 +448,7 @@ export const ContextMenu = ({
     screen: Point
   }) => {
     if (result.leaveContainer) {
-      leave(instance)
+      instance.commands.container.exit()
     }
 
     const selection = instance.read.selection.get()
@@ -552,7 +548,7 @@ export const ContextMenu = ({
             key: 'group.toggle-collapse',
             label: collapsed ? 'Expand' : 'Collapse',
             onClick: () => {
-              closeAfter(updateGroupNode(instance, node.id, {
+              closeAfter(instance.commands.node.updateData(node.id, {
                 collapsed: !collapsed
               }), dismissAction)
             }
@@ -563,7 +559,7 @@ export const ContextMenu = ({
               ? 'Auto fit: expand-only'
               : 'Set auto fit: expand-only',
             onClick: () => {
-              closeAfter(updateGroupNode(instance, node.id, {
+              closeAfter(instance.commands.node.updateData(node.id, {
                 autoFit: 'expand-only'
               }), dismissAction)
             }
@@ -574,7 +570,7 @@ export const ContextMenu = ({
               ? 'Auto fit: manual'
               : 'Set auto fit: manual',
             onClick: () => {
-              closeAfter(updateGroupNode(instance, node.id, {
+              closeAfter(instance.commands.node.updateData(node.id, {
                 autoFit: 'manual'
               }), dismissAction)
             }
@@ -596,7 +592,7 @@ export const ContextMenu = ({
                   {
                     key: 'edit.paste',
                     label: 'Paste',
-                    onClick: () => pasteClipboard(instance, {
+                    onClick: () => paste(instance, {
                       at: target.world,
                       parentId: container.id
                     })
@@ -609,9 +605,9 @@ export const ContextMenu = ({
                 items: CREATE_PRESETS.map((preset) => ({
                   key: preset.key,
                   label: preset.label,
-                  onClick: () => {
-                    closeAfter(
-                      runInsertPreset({
+                    onClick: () => {
+                      closeAfter(
+                      insertPreset({
                         instance,
                         preset,
                         world: target.world,
@@ -652,7 +648,7 @@ export const ContextMenu = ({
                     key: 'selection.select-all',
                     label: 'Select all',
                     onClick: () => {
-                      selectAllInScope(instance)
+                      instance.commands.selection.selectAll()
                       dismissAction()
                     }
                   }
@@ -663,8 +659,12 @@ export const ContextMenu = ({
         }
         case 'node': {
           const actions = createNodeSelectionActions(instance, [target.node], {
-            onCopy: () => copyNodes(instance, [target.node.id]),
-            onCut: () => cutNodes(instance, [target.node.id])
+            onCopy: () => copy(instance, {
+              nodeIds: [target.node.id]
+            }),
+            onCut: () => cut(instance, {
+              nodeIds: [target.node.id]
+            })
           })
           const groups = readNodeContextMenuGroups(actions, dismissAction)
           const styleGroup = buildStrokeStyleGroup({
@@ -693,8 +693,12 @@ export const ContextMenu = ({
         }
         case 'nodes': {
           const actions = createNodeSelectionActions(instance, target.nodes, {
-            onCopy: () => copyNodes(instance, target.nodes.map((node) => node.id)),
-            onCut: () => cutNodes(instance, target.nodes.map((node) => node.id))
+            onCopy: () => copy(instance, {
+              nodeIds: target.nodes.map((node) => node.id)
+            }),
+            onCut: () => cut(instance, {
+              nodeIds: target.nodes.map((node) => node.id)
+            })
           })
           const groups = readNodeContextMenuGroups(actions, dismissAction)
           const styleGroup = buildStrokeStyleGroup({
@@ -719,12 +723,16 @@ export const ContextMenu = ({
                   {
                     key: 'edge.copy',
                     label: 'Copy',
-                    onClick: () => copyEdge(instance, target.edgeId)
+                    onClick: () => copy(instance, {
+                      edgeId: target.edgeId
+                    })
                   },
                   {
                     key: 'edge.cut',
                     label: 'Cut',
-                    onClick: () => cutEdge(instance, target.edgeId)
+                    onClick: () => cut(instance, {
+                      edgeId: target.edgeId
+                    })
                   },
                   {
                     key: 'edge.delete',

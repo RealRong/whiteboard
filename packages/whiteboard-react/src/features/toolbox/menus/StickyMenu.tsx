@@ -1,4 +1,4 @@
-import { MenuSection } from '../../menus/MenuPrimitives'
+import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 import {
   STICKY_INSERT_OPTIONS,
   STICKY_INSERT_PRESETS

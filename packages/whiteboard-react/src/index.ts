@@ -11,6 +11,7 @@ export type {
   NodeDefinition,
   NodeRegistry,
   NodeRenderProps,
+  NodeWrite,
   NodeScene,
   NodeHit,
   NodeMeta,

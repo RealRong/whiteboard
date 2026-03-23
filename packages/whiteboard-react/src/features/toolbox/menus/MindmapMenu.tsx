@@ -1,4 +1,4 @@
-import { ChipColumn, MenuSection } from '../../menus/MenuPrimitives'
+import { ChipColumn, MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 import {
   MINDMAP_INSERT_PRESETS,
   MINDMAP_INSERT_TEMPLATES

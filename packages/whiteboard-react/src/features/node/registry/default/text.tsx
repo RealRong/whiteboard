@@ -68,8 +68,7 @@ const readStickyFill = (
 )
 
 const TextNodeRenderer = ({
-  update,
-  updateData,
+  write,
   node,
   rect,
   selected,
@@ -241,7 +240,7 @@ const TextNodeRenderer = ({
   const commit = (nextDraft = draft) => {
     if (isSticky) {
       if (nextDraft !== text) {
-        updateData({ text: nextDraft })
+        write.data({ text: nextDraft })
       }
       instance.commands.edit.clear()
       return
@@ -270,7 +269,7 @@ const TextNodeRenderer = ({
     }
 
     if (Object.keys(patch).length) {
-      update(patch)
+      write.patch(patch)
     }
 
     clearTextPreview()

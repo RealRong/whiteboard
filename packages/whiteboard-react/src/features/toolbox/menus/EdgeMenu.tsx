@@ -1,5 +1,5 @@
 import type { EdgePresetKey } from '../../../runtime/tool'
-import { MenuSection } from '../../menus/MenuPrimitives'
+import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 
 type EdgeOption = {
   key: EdgePresetKey

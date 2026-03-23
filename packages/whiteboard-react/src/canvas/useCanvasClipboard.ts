@@ -1,15 +1,14 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance } from '../runtime/hooks'
 import {
-  copySelection,
-  cutSelection,
-  pasteClipboard,
-  hasClipboardSelection
-} from './actions'
+  copy,
+  cut,
+  paste
+} from '../features/selection/actions/clipboard'
 import {
   isEditableTarget,
   isInputIgnoredTarget
-} from './target'
+} from '../runtime/input/target'
 
 export const useCanvasClipboard = ({
   containerRef
@@ -26,28 +25,36 @@ export const useCanvasClipboard = ({
     const shouldIgnore = (target: EventTarget | null) =>
       isEditableTarget(target) || isInputIgnoredTarget(target)
 
+    const hasSelectionTarget = () => {
+      const selection = instance.read.selection.get()
+      return (
+        selection.target.edgeId !== undefined
+        || selection.target.nodeIds.length > 0
+      )
+    }
+
     const onPointerMove = (event: PointerEvent) => {
       lastPointerWorldRef.current = instance.viewport.pointer(event).world
     }
 
     const onCopy = (event: ClipboardEvent) => {
-      if (event.defaultPrevented || shouldIgnore(event.target) || !hasClipboardSelection(instance)) {
+      if (event.defaultPrevented || shouldIgnore(event.target) || !hasSelectionTarget()) {
         return
       }
 
       event.preventDefault()
       event.stopPropagation()
-      void copySelection(instance, event)
+      void copy(instance, 'selection', event)
     }
 
     const onCut = (event: ClipboardEvent) => {
-      if (event.defaultPrevented || shouldIgnore(event.target) || !hasClipboardSelection(instance)) {
+      if (event.defaultPrevented || shouldIgnore(event.target) || !hasSelectionTarget()) {
         return
       }
 
       event.preventDefault()
       event.stopPropagation()
-      void cutSelection(instance, event)
+      void cut(instance, 'selection', event)
     }
 
     const onPaste = (event: ClipboardEvent) => {
@@ -57,7 +64,7 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void pasteClipboard(instance, {
+      void paste(instance, {
         event,
         at: lastPointerWorldRef.current ?? undefined
       })

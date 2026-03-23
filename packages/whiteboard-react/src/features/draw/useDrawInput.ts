@@ -10,7 +10,7 @@ import {
   useRef,
   useState
 } from 'react'
-import { leave } from '../../runtime/container'
+import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
 import type { DrawPresetKey } from '../../runtime/tool'
 import type { DrawPreview, DrawStyle } from './state'
@@ -57,16 +57,6 @@ const readSampleEvents = (
   const samples = event.getCoalescedEvents()
   return samples.length ? samples : [event]
 }
-
-const readCaptureTarget = (
-  event: PointerEvent
-): Element | null => (
-  event.currentTarget instanceof Element
-    ? event.currentTarget
-    : event.target instanceof Element
-      ? event.target
-      : null
-)
 
 const hasMovedEnough = (
   left: Point,
@@ -220,18 +210,16 @@ export const useDrawInput = () => {
     clearPreview()
   }, [clearPreview])
 
-  const handleCanvasPointerDown = useCallback((
-    container: HTMLDivElement,
-    event: PointerEvent
+  const down = useCallback((
+    input: CanvasDown
   ) => {
+    const { event } = input
+
     if (event.defaultPrevented) return false
     if (event.button !== 0) return false
-    if (instance.interaction.mode.get() !== 'idle') return false
+    if (input.mode !== 'idle') return false
 
-    const tool = instance.read.tool.get()
-    if (tool.type !== 'draw') return false
-
-    const input = instance.read.pick.from(event, container)
+    if (input.tool.type !== 'draw') return false
     if (
       input.editable
       || input.ignoreInput
@@ -249,15 +237,15 @@ export const useDrawInput = () => {
       )
 
       if (!insideActiveContainer) {
-        leave(instance)
+        instance.commands.container.exit()
         activeContainer = instance.state.container.get()
       }
     }
 
     const active: ActiveStroke = {
       parentId: activeContainer.id,
-      preset: tool.preset,
-      style: instance.state.draw.get()[tool.preset],
+      preset: input.tool.preset,
+      style: instance.state.draw.get()[input.tool.preset],
       points: [input.point.world],
       lastScreen: input.point.screen,
       lengthScreen: 0
@@ -266,7 +254,7 @@ export const useDrawInput = () => {
     const session = instance.interaction.start({
       mode: 'draw',
       pointerId: event.pointerId,
-      capture: readCaptureTarget(event),
+      capture: input.capture,
       move: (moveEvent) => {
         const current = activeRef.current
         if (!current) {
@@ -308,6 +296,6 @@ export const useDrawInput = () => {
 
   return {
     preview,
-    handleCanvasPointerDown
+    down
   }
 }

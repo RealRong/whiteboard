@@ -14,13 +14,17 @@ export type NodeMeta = {
   controls: readonly ControlId[]
 }
 
+export type NodeWrite = {
+  patch: (patch: NodePatch) => void
+  data: (patch: Record<string, unknown>) => void
+}
+
 export type NodeRenderProps = {
   node: Node
   rect: Rect
   selected: boolean
   hovered: boolean
-  update: (patch: NodePatch) => void
-  updateData: (patch: Record<string, unknown>) => void
+  write: NodeWrite
 }
 
 export type NodeDefinition = {

@@ -1,9 +1,9 @@
-import { MenuSection } from '../../menus/MenuPrimitives'
+import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 import {
   SHAPE_MENU_SECTIONS,
   ShapeGlyph,
   readShapePreviewFill
-} from '../../../features/node/shape'
+} from '../../node/shape'
 import { readShapePresetKind } from '../presets'
 
 export type ShapeMenuValue = string

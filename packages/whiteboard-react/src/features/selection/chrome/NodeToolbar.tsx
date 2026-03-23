@@ -9,38 +9,38 @@ import {
 } from 'react'
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import {
+  useElementSize,
   useInternalInstance,
   useSelection,
   useStoreValue
-} from '../runtime/hooks'
-import { mergeRecordPatch } from '../runtime/utils/recordPatch'
+} from '../../../runtime/hooks'
+import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
 import {
   type GroupAutoFitMode,
   mergeNodeStyle,
-  removeNodeStyle,
   removeNodeStyleKey,
-  updateNodeStyle,
-  updateNodesStyle,
-  updateGroupNode
-} from '../features/node/commands'
+  toNodeStylePatch,
+  toNodeStyleRemovalPatch,
+  toNodeStyleUpdates
+} from '../../node/patch'
 import {
   createNodeSelectionActions,
   type NodeSelectionActions
-} from '../features/node/actions'
+} from '../../node/actions'
 import {
   readNodeMenuFilter,
   readNodeMoreMenuSections
-} from './nodeActionSurface'
+} from './menuModel'
 import {
-  copyNodes,
-  cutNodes,
-  closeAfter
-} from './actions'
+  copy,
+  cut
+} from '../actions/clipboard'
+import { closeAfter } from './closeAfter'
 import {
   TEXT_DEFAULT_FONT_SIZE,
   TEXT_PLACEHOLDER,
   measureTextNodeSize,
-} from '../features/node/text'
+} from '../../node/text'
 import { FillMenu } from './menus/FillMenu'
 import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
@@ -48,11 +48,6 @@ import { MoreMenu } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
-
-type Surface = {
-  width: number
-  height: number
-}
 
 type ToolbarItemKey =
   | 'fill'
@@ -466,10 +461,16 @@ const updateToolbarTextFontSize = ({
 }) => {
   if (node.type !== 'text') {
     if (value === undefined) {
-      removeNodeStyle(instance, node, 'fontSize')
+      instance.commands.node.update(
+        node.id,
+        toNodeStyleRemovalPatch(node, 'fontSize')
+      )
       return
     }
-    updateNodeStyle(instance, node, { fontSize: value })
+    instance.commands.node.update(
+      node.id,
+      toNodeStylePatch(node, { fontSize: value })
+    )
     return
   }
 
@@ -511,13 +512,12 @@ const updateToolbarTextFontSize = ({
 }
 
 export const NodeToolbar = ({
-  containerRef,
-  surface
+  containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
-  surface: Surface
 }) => {
   const instance = useInternalInstance()
+  const surface = useElementSize(containerRef)
   const viewport = useStoreValue(instance.viewport)
   const chrome = useStoreValue(instance.read.chrome.node)
   const selection = useSelection()
@@ -541,8 +541,12 @@ export const NodeToolbar = ({
     const actions = createNodeSelectionActions(instance, nodes, {
       summary,
       can: selection.can,
-      onCopy: () => copyNodes(instance, nodes.map((node) => node.id)),
-      onCut: () => cutNodes(instance, nodes.map((node) => node.id))
+      onCopy: () => copy(instance, {
+        nodeIds: nodes.map((node) => node.id)
+      }),
+      onCut: () => cut(instance, {
+        nodeIds: nodes.map((node) => node.id)
+      })
     })
     const items = resolveItemKeys(actions, nodes.length).map((key) => buildToolbarItem(key))
 
@@ -689,7 +693,9 @@ export const NodeToolbar = ({
           <FillMenu
             value={fillValue}
             onChange={(value) => {
-              updateNodesStyle(instance, toolbar.nodes, { fill: value })
+              instance.commands.node.updateMany(
+                toNodeStyleUpdates(toolbar.nodes, { fill: value })
+              )
               const stickyNodes = toolbar.nodes.filter((node) => node.type === 'sticky')
               if (!stickyNodes.length) {
                 return
@@ -711,13 +717,19 @@ export const NodeToolbar = ({
             strokeWidth={strokeWidthValue}
             opacity={strokeOpacityValue}
             onStrokeChange={(value) => {
-              updateNodesStyle(instance, toolbar.nodes, { stroke: value })
+              instance.commands.node.updateMany(
+                toNodeStyleUpdates(toolbar.nodes, { stroke: value })
+              )
             }}
             onStrokeWidthChange={(value) => {
-              updateNodesStyle(instance, toolbar.nodes, { strokeWidth: value })
+              instance.commands.node.updateMany(
+                toNodeStyleUpdates(toolbar.nodes, { strokeWidth: value })
+              )
             }}
             onOpacityChange={showStrokeOpacitySection ? (value) => {
-              updateNodesStyle(instance, toolbar.nodes, { opacity: value })
+              instance.commands.node.updateMany(
+                toNodeStyleUpdates(toolbar.nodes, { opacity: value })
+              )
             } : undefined}
           />
         )
@@ -740,7 +752,10 @@ export const NodeToolbar = ({
               })
             } : undefined}
             onColorChange={showTextColorSection ? (value) => {
-              updateNodeStyle(instance, toolbar.primaryNode, { color: value })
+              instance.commands.node.update(
+                toolbar.primaryNode.id,
+                toNodeStylePatch(toolbar.primaryNode, { color: value })
+              )
             } : undefined}
             onFontSizeChange={showTextFontSizeSection ? (value) => {
               updateToolbarTextFontSize({
@@ -761,12 +776,12 @@ export const NodeToolbar = ({
             showCollapsed={showGroupCollapsed}
             showAutoFit={showGroupAutoFit}
             onToggleCollapsed={showGroupCollapsed ? () => {
-              void updateGroupNode(instance, toolbar.primaryNode.id, {
+              void instance.commands.node.updateData(toolbar.primaryNode.id, {
                 collapsed: !groupCollapsed
               })
             } : undefined}
             onAutoFitChange={showGroupAutoFit ? (value) => {
-              void updateGroupNode(instance, toolbar.primaryNode.id, {
+              void instance.commands.node.updateData(toolbar.primaryNode.id, {
                 autoFit: value
               })
             } : undefined}

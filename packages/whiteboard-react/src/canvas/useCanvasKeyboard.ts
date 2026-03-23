@@ -1,20 +1,30 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import type {
   ShortcutAction,
+  ShortcutBinding,
   ShortcutOverrides
 } from '../types/common/shortcut'
 import { useInternalInstance } from '../runtime/hooks'
 import {
-  DEFAULT_SHORTCUT_BINDINGS,
-  dispatchCanvasShortcutAction,
-  resolveShortcutBindings
-} from './actions'
-import {
   isEditableTarget,
   isInputIgnoredTarget
-} from './target'
+} from '../runtime/input/target'
+import { resolveNodeSelectionCan } from '../features/node/summary'
 
 const ModifierOrder = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
+
+const DEFAULT_SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
+  { key: 'Mod+G', action: 'group.create' },
+  { key: 'Shift+Mod+G', action: 'group.ungroup' },
+  { key: 'Mod+A', action: 'selection.selectAll' },
+  { key: 'Escape', action: 'selection.clear' },
+  { key: 'Backspace', action: 'selection.delete' },
+  { key: 'Delete', action: 'selection.delete' },
+  { key: 'Mod+D', action: 'selection.duplicate' },
+  { key: 'Mod+Z', action: 'history.undo' },
+  { key: 'Shift+Mod+Z', action: 'history.redo' },
+  { key: 'Mod+Y', action: 'history.redo' }
+] as const
 
 type Platform = 'mac' | 'win' | 'linux'
 
@@ -110,6 +120,117 @@ const createShortcutMap = (
   return map
 }
 
+const resolveShortcutBindings = (
+  defaults: readonly ShortcutBinding[] = DEFAULT_SHORTCUT_BINDINGS,
+  overrides?: ShortcutOverrides
+): readonly ShortcutBinding[] => {
+  if (!overrides) {
+    return defaults
+  }
+
+  return typeof overrides === 'function'
+    ? overrides(defaults)
+    : overrides
+}
+
+const canDispatchShortcutAction = (
+  instance: ReturnType<typeof useInternalInstance>,
+  action: ShortcutAction
+) => {
+  const selection = instance.read.selection.get()
+  const can = resolveNodeSelectionCan(selection.items.nodes)
+  const hasSelection = can.delete || selection.target.edgeId !== undefined
+
+  switch (action) {
+    case 'group.create':
+      return can.makeGroup
+    case 'group.ungroup':
+      return can.ungroup
+    case 'selection.selectAll':
+      return true
+    case 'selection.clear':
+      return (
+        hasSelection
+        || instance.state.container.get().id !== undefined
+        || !instance.read.tool.is('select')
+      )
+    case 'selection.delete':
+      return hasSelection
+    case 'selection.duplicate':
+      return can.duplicate
+    case 'history.undo':
+    case 'history.redo':
+      return true
+    default:
+      return false
+  }
+}
+
+const dispatchShortcutAction = (
+  instance: ReturnType<typeof useInternalInstance>,
+  action: ShortcutAction
+) => {
+  if (!canDispatchShortcutAction(instance, action)) {
+    return false
+  }
+
+  const selection = instance.read.selection.get()
+
+  switch (action) {
+    case 'selection.selectAll':
+      instance.commands.selection.selectAll()
+      return true
+    case 'selection.clear':
+      if (!instance.read.tool.is('select')) {
+        instance.commands.tool.select()
+      }
+      instance.commands.container.exit()
+      return true
+    case 'selection.delete':
+      if (selection.target.edgeId !== undefined) {
+        return instance.commands.edge.delete([selection.target.edgeId]).ok
+      }
+      if (!selection.target.nodeIds.length) {
+        return false
+      }
+      instance.commands.node.deleteCascade([...selection.target.nodeIds])
+      return true
+    case 'selection.duplicate': {
+      const result = instance.commands.node.duplicate([...selection.target.nodeIds])
+      if (!result.ok || result.data.nodeIds.length <= 0) {
+        return false
+      }
+      instance.commands.selection.replace(result.data.nodeIds)
+      return true
+    }
+    case 'group.create': {
+      const result = instance.commands.node.group.create([...selection.target.nodeIds])
+      if (!result.ok) {
+        return false
+      }
+      instance.commands.selection.replace([result.data.groupId])
+      return true
+    }
+    case 'group.ungroup': {
+      const groupIds = selection.target.nodeIds.filter((nodeId) =>
+        selection.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
+      )
+      const result = instance.commands.node.group.ungroupMany(groupIds)
+      if (!result.ok) {
+        return false
+      }
+      instance.commands.selection.replace(result.data.nodeIds)
+      return true
+    }
+    case 'history.undo':
+      return instance.commands.history.undo().ok
+    case 'history.redo':
+      return instance.commands.history.redo().ok
+    default:
+      return false
+  }
+}
+
 export const useCanvasKeyboard = ({
   containerRef,
   shortcuts
@@ -170,7 +291,7 @@ export const useCanvasKeyboard = ({
 
       const action = shortcutMap.get(chord)
       if (!action) return
-      if (!dispatchCanvasShortcutAction(instance, action)) return
+      if (!dispatchShortcutAction(instance, action)) return
 
       if (event.cancelable) {
         event.preventDefault()

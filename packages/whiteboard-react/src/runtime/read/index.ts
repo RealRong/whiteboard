@@ -22,7 +22,6 @@ import {
 import { createEdgeRead } from './edge'
 import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
-import { createSliceRead, type SliceRead } from './slice'
 import {
   createSelectionRead,
   type SelectionRead
@@ -40,7 +39,6 @@ export type RuntimeRead = Omit<EngineRead, 'node'> & {
   chrome: ChromeRead
   selection: SelectionRead
   tool: ToolRead
-  slice: SliceRead
   pick: PickRead
 }
 
@@ -114,10 +112,7 @@ export const createRuntimeRead = ({
     mindmap: mindmapRead,
     selection: selectionRead,
     tree: engineRead.tree,
-    slice: createSliceRead({
-      read: engineRead,
-      selection: selectionRead
-    }),
+    slice: engineRead.slice,
     pick: createPickRead({
       registry: pick,
       viewport

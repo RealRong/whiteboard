@@ -5,14 +5,14 @@ import {
   Scan,
   Undo2
 } from 'lucide-react'
-import { useInternalInstance, useStoreValue } from '../runtime/hooks'
-import { ToolbarIcon } from './toolbar/ToolbarIcon'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import { ToolIcon } from '../../toolbox/ToolIcon'
 
 const ZOOM_FACTOR = 1.2
 
 const formatZoom = (zoom: number) => `${Math.round(zoom * 100)}%`
 
-export const CanvasDock = () => {
+export const ViewportDock = () => {
   const instance = useInternalInstance()
   const viewport = useStoreValue(instance.viewport)
   const history = useStoreValue(instance.read.history)
@@ -44,7 +44,7 @@ export const CanvasDock = () => {
             data-selection-ignore
             data-input-ignore
           >
-            <ToolbarIcon icon={Undo2} />
+            <ToolIcon icon={Undo2} />
           </button>
           <button
             type="button"
@@ -57,7 +57,7 @@ export const CanvasDock = () => {
             data-selection-ignore
             data-input-ignore
           >
-            <ToolbarIcon icon={Redo2} />
+            <ToolIcon icon={Redo2} />
           </button>
         </div>
         <div className="wb-canvas-dock-divider" />
@@ -70,7 +70,7 @@ export const CanvasDock = () => {
             data-selection-ignore
             data-input-ignore
           >
-            <ToolbarIcon icon={Scan} />
+            <ToolIcon icon={Scan} />
           </button>
         </div>
         <div className="wb-canvas-dock-divider" />
@@ -85,7 +85,7 @@ export const CanvasDock = () => {
             data-selection-ignore
             data-input-ignore
           >
-            <ToolbarIcon icon={Minus} />
+            <ToolIcon icon={Minus} />
           </button>
           <button
             type="button"
@@ -109,7 +109,7 @@ export const CanvasDock = () => {
             data-selection-ignore
             data-input-ignore
           >
-            <ToolbarIcon icon={Plus} />
+            <ToolIcon icon={Plus} />
           </button>
         </div>
       </div>

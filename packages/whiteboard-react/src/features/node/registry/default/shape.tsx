@@ -61,7 +61,7 @@ const ShapeLabel = ({
   color,
   fontSize,
   kind,
-  updateData
+  write
 }: NodeRenderProps & {
   kind: ReturnType<typeof readShapeKind>
   color: string
@@ -108,7 +108,7 @@ const ShapeLabel = ({
 
   const commit = (value = draft) => {
     if (value !== text) {
-      updateData({ text: value })
+      write.data({ text: value })
     }
     instance.commands.edit.clear()
   }

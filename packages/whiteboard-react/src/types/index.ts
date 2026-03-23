@@ -16,6 +16,7 @@ export type {
   NodeDefinition,
   NodeRegistry,
   NodeRenderProps,
+  NodeWrite,
   NodeScene,
 } from './node'
 

@@ -63,6 +63,7 @@ export type WhiteboardInstance = {
       remove: (nodeIds: readonly NodeId[]) => void
       toggle: (nodeIds: readonly NodeId[]) => void
       selectEdge: (edgeId: EdgeId) => void
+      selectAll: () => void
       clear: () => void
     }
     container: {

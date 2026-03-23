@@ -1,68 +1,14 @@
-import { useEffect, useState, type RefObject } from 'react'
+import type { RefObject } from 'react'
 import type { ShortcutOverrides } from '../types/common/shortcut'
-import { CanvasDock } from './CanvasDock'
-import { ContextMenu } from './ContextMenu'
-import { NodeToolbar } from './NodeToolbar'
+import { ContextMenu } from '../features/selection/chrome/ContextMenu'
 import {
   Marquee,
   type MarqueeSession
-} from './Marquee'
-import { LeftToolbar } from './toolbar/LeftToolbar'
+} from '../features/selection/chrome/Marquee'
+import { NodeToolbar } from '../features/selection/chrome/NodeToolbar'
+import { ToolPalette } from '../features/toolbox/ToolPalette'
+import { ViewportDock } from '../features/viewport/chrome/ViewportDock'
 import { useCanvasKeyboard } from './useCanvasKeyboard'
-
-type CanvasSurface = {
-  width: number
-  height: number
-}
-
-const EmptySurface: CanvasSurface = {
-  width: 0,
-  height: 0
-}
-
-const readSurfaceSize = (
-  element: HTMLDivElement | null
-): CanvasSurface => ({
-  width: element?.clientWidth ?? 0,
-  height: element?.clientHeight ?? 0
-})
-
-const useCanvasSurface = (
-  containerRef: RefObject<HTMLDivElement | null>
-) => {
-  const [surface, setSurface] = useState<CanvasSurface>(EmptySurface)
-
-  useEffect(() => {
-    const element = containerRef.current
-
-    const updateSurface = () => {
-      const nextSurface = readSurfaceSize(element)
-      setSurface((current) => (
-        current.width === nextSurface.width
-        && current.height === nextSurface.height
-          ? current
-          : nextSurface
-      ))
-    }
-
-    updateSurface()
-
-    if (!element || typeof ResizeObserver === 'undefined') {
-      return
-    }
-
-    const observer = new ResizeObserver(() => {
-      updateSurface()
-    })
-    observer.observe(element)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [containerRef])
-
-  return surface
-}
 
 export const CanvasChrome = ({
   containerRef,
@@ -73,8 +19,6 @@ export const CanvasChrome = ({
   shortcuts?: ShortcutOverrides
   marquee: MarqueeSession
 }) => {
-  const surface = useCanvasSurface(containerRef)
-
   useCanvasKeyboard({
     containerRef,
     shortcuts
@@ -82,18 +26,16 @@ export const CanvasChrome = ({
 
   return (
     <>
-      <LeftToolbar surface={surface} />
-      <CanvasDock />
+      <ToolPalette containerRef={containerRef} />
+      <ViewportDock />
       <Marquee
         marquee={marquee}
       />
       <NodeToolbar
         containerRef={containerRef}
-        surface={surface}
       />
       <ContextMenu
         containerRef={containerRef}
-        surface={surface}
       />
     </>
   )

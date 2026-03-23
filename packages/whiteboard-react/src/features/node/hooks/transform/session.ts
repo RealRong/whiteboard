@@ -15,6 +15,7 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { CanvasDown } from '../../../../runtime/input/down'
 import type { InternalInstance } from '../../../../runtime/instance'
 
 const RESIZE_MIN_SIZE = {
@@ -445,16 +446,15 @@ export const createTransformSession = (
       }
       clear()
     },
-    handleCanvasPointerDown: (
-      container: HTMLDivElement,
-      event: PointerEvent
+    down: (
+      input: CanvasDown
     ) => {
+      const { event } = input
+
       if (!canStart(event)) {
         return false
       }
 
-      const input = instance.read.pick.from(event, container)
-      const capture = input.element ?? container
       const pick = input.pick
 
       if (
@@ -467,7 +467,7 @@ export const createTransformSession = (
           return false
         }
 
-        return start(next, event, capture)
+        return start(next, event, input.capture)
       }
 
       if (
@@ -480,7 +480,7 @@ export const createTransformSession = (
           return false
         }
 
-        return start(next, event, capture)
+        return start(next, event, input.capture)
       }
 
       return false

@@ -7,11 +7,11 @@ import {
   type ReadStore
 } from '@whiteboard/core/runtime'
 import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useStoreValue } from '../runtime/hooks'
-import { GestureTuning } from '../runtime/interaction'
-import type { InternalInstance } from '../runtime/instance'
-import { createRafTask } from '../runtime/utils/rafTask'
-import type { ViewportPointer } from '../runtime/viewport'
+import { useStoreValue } from '../../../runtime/hooks'
+import { GestureTuning } from '../../../runtime/interaction'
+import type { InternalInstance } from '../../../runtime/instance'
+import { createRafTask } from '../../../runtime/utils/rafTask'
+import type { ViewportPointer } from '../../../runtime/viewport'
 
 export type MarqueeMatch = 'touch' | 'contain'
 

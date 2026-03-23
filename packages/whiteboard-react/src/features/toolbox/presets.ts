@@ -1,21 +1,19 @@
 import type {
   MindmapNodeData,
-  NodeId,
   NodeInput,
   Point
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import type { WhiteboardInstance } from '../../runtime/instance'
 import {
   SHAPE_SPECS,
   isShapeKind,
   createShapeNodeInput
-} from '../../features/node/shape'
-import type { ShapeKind } from '../../features/node/shape'
+} from '../node/shape'
+import type { ShapeKind } from '../node/shape'
 import {
   createStickyNodeInput,
   createTextNodeInput
-} from '../../features/node/text'
+} from '../node/text'
 
 export type InsertPresetGroup =
   | 'text'
@@ -23,31 +21,21 @@ export type InsertPresetGroup =
   | 'shape'
   | 'mindmap'
 
-export type InsertPresetResult = {
-  nodeId: NodeId
-  edit?: {
-    nodeId: NodeId
-    field: EditField
-  }
-}
+export type InsertPlacement = 'center' | 'point'
 
-export type InsertPreset = {
+type InsertPresetBase = {
   key: string
   group: InsertPresetGroup
   label: string
   description?: string
   canNest?: boolean
-  create: (options: {
-    instance: WhiteboardInstance
-    world: Point
-    parentId?: NodeId
-  }) => InsertPresetResult | undefined
 }
 
-export type StickyTone = {
-  key: string
-  label: string
-  fill: string
+export type NodeInsertPreset = InsertPresetBase & {
+  kind: 'node'
+  focus?: EditField
+  placement?: InsertPlacement
+  input: (world: Point) => Omit<NodeInput, 'position'>
 }
 
 export type MindmapTemplate = {
@@ -59,6 +47,24 @@ export type MindmapTemplate = {
     data: MindmapNodeData
     side?: 'left' | 'right'
   }[]
+}
+
+export type MindmapInsertPreset = InsertPresetBase & {
+  kind: 'mindmap'
+  group: 'mindmap'
+  description: string
+  canNest: false
+  template: MindmapTemplate
+}
+
+export type InsertPreset =
+  | NodeInsertPreset
+  | MindmapInsertPreset
+
+export type StickyTone = {
+  key: string
+  label: string
+  fill: string
 }
 
 const STICKY_TONES: readonly StickyTone[] = [
@@ -163,27 +169,6 @@ export const MINDMAP_INSERT_TEMPLATES: readonly MindmapTemplate[] = [
   }
 ] as const
 
-type InsertPlacement = 'center' | 'point'
-
-const placeNodeInput = (
-  world: Point,
-  input: Omit<NodeInput, 'position'>,
-  placement: InsertPlacement = 'center'
-): NodeInput => {
-  const width = input.size?.width ?? 160
-  const height = input.size?.height ?? 80
-
-  return {
-    ...input,
-    position: placement === 'point'
-      ? world
-      : {
-          x: world.x - width / 2,
-          y: world.y - height / 2
-        }
-  }
-}
-
 const createNodePreset = ({
   key,
   group,
@@ -200,77 +185,27 @@ const createNodePreset = ({
   focus?: EditField
   placement?: InsertPlacement
   input: (world: Point) => Omit<NodeInput, 'position'>
-}): InsertPreset => ({
+}): NodeInsertPreset => ({
+  kind: 'node',
   key,
   group,
   label,
   description,
-  create: ({ instance, world, parentId }) => {
-    const result = instance.commands.node.create(
-      placeNodeInput(world, {
-        ...input(world),
-        parentId
-      }, placement)
-    )
-    if (!result.ok) {
-      return
-    }
-
-    return {
-      nodeId: result.data.nodeId,
-      edit: focus
-        ? {
-            nodeId: result.data.nodeId,
-            field: focus
-          }
-        : undefined
-    }
-  }
+  focus,
+  placement,
+  input
 })
 
 const createMindmapPreset = (
   template: MindmapTemplate
-): InsertPreset => ({
+): MindmapInsertPreset => ({
+  kind: 'mindmap',
   key: template.key,
   group: 'mindmap',
   label: template.label,
   description: template.description,
   canNest: false,
-  create: ({ instance, world }) => {
-    const result = instance.commands.mindmap.create({
-      rootData: template.root
-    })
-    if (!result.ok) {
-      return
-    }
-
-    template.children?.forEach((child) => {
-      instance.commands.mindmap.addChild(
-        result.data.mindmapId,
-        result.data.rootId,
-        child.data,
-        {
-          side: child.side
-        }
-      )
-    })
-
-    const rect = instance.read.index.node.get(result.data.mindmapId)?.rect
-    const width = rect?.width ?? 260
-    const height = rect?.height ?? 180
-    instance.commands.mindmap.moveRoot({
-      nodeId: result.data.mindmapId,
-      position: {
-        x: world.x - width / 2,
-        y: world.y - height / 2
-      },
-      threshold: 0
-    })
-
-    return {
-      nodeId: result.data.mindmapId
-    }
-  }
+  template
 })
 
 export const TEXT_INSERT_PRESET = createNodePreset({
@@ -285,7 +220,7 @@ export const TEXT_INSERT_PRESET = createNodePreset({
   })
 })
 
-export const STICKY_INSERT_PRESETS: readonly InsertPreset[] = STICKY_TONES.map((tone) =>
+export const STICKY_INSERT_PRESETS: readonly NodeInsertPreset[] = STICKY_TONES.map((tone) =>
   createNodePreset({
     key: tone.key,
     group: 'sticky',
@@ -295,7 +230,7 @@ export const STICKY_INSERT_PRESETS: readonly InsertPreset[] = STICKY_TONES.map((
   })
 )
 
-export const SHAPE_INSERT_PRESETS: readonly InsertPreset[] = SHAPE_SPECS.map((spec) =>
+export const SHAPE_INSERT_PRESETS: readonly NodeInsertPreset[] = SHAPE_SPECS.map((spec) =>
   createNodePreset({
     key: `shape.${spec.kind}`,
     group: 'shape',
@@ -305,7 +240,7 @@ export const SHAPE_INSERT_PRESETS: readonly InsertPreset[] = SHAPE_SPECS.map((sp
   })
 )
 
-export const MINDMAP_INSERT_PRESETS: readonly InsertPreset[] = MINDMAP_INSERT_TEMPLATES.map(createMindmapPreset)
+export const MINDMAP_INSERT_PRESETS: readonly MindmapInsertPreset[] = MINDMAP_INSERT_TEMPLATES.map(createMindmapPreset)
 
 export const INSERT_PRESETS: readonly InsertPreset[] = [
   TEXT_INSERT_PRESET,
@@ -350,34 +285,6 @@ export const CREATE_PRESETS: readonly InsertPreset[] = INSERT_PRESETS.filter((pr
 export const getInsertPreset = (
   key: string
 ) => INSERT_PRESET_INDEX.get(key)
-
-export const runInsertPreset = ({
-  instance,
-  preset,
-  world,
-  parentId
-}: {
-  instance: WhiteboardInstance
-  preset: InsertPreset
-  world: Point
-  parentId?: NodeId
-}) => {
-  const result = preset.create({
-    instance,
-    world,
-    parentId: preset.canNest === false ? undefined : parentId
-  })
-  if (!result) {
-    return
-  }
-
-  instance.commands.selection.replace([result.nodeId])
-  if (result.edit) {
-    instance.commands.edit.start(result.edit.nodeId, result.edit.field)
-  }
-
-  return result
-}
 
 export const readStickyInsertTone = (
   key: string | undefined

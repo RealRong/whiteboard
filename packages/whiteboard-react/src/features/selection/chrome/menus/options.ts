@@ -1,4 +1,4 @@
-import type { DrawPresetKey } from '../../runtime/tool'
+import type { DrawPresetKey } from '../../../../runtime/tool'
 
 export const COLOR_OPTIONS = [
   { label: 'Ink', value: 'hsl(var(--ui-text-primary, 40 2.1% 28%))' },

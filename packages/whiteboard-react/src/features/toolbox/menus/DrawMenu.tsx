@@ -2,17 +2,17 @@ import {
   Highlighter,
   PencilLine
 } from 'lucide-react'
-import type { DrawStyle } from '../../../features/draw/state'
+import type { DrawStyle } from '../../draw/state'
 import type { DrawPresetKey } from '../../../runtime/tool'
 import {
   ColorSwatch,
   MenuSection
-} from '../../menus/MenuPrimitives'
+} from '../../selection/chrome/menus/MenuPrimitives'
 import {
   COLORS,
   DRAW_PRESET_OPTIONS,
   DRAW_STROKE_WIDTHS
-} from '../../menus/options'
+} from '../../selection/chrome/menus/options'
 
 const DRAW_PRESET_ICONS = {
   pen: PencilLine,

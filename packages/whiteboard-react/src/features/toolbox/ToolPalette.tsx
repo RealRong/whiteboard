@@ -13,6 +13,7 @@ import {
   useState
 } from 'react'
 import {
+  useElementSize,
   useInternalInstance,
   useStoreValue,
   useTool
@@ -20,7 +21,7 @@ import {
 import {
   ShapeGlyph,
   readShapePreviewFill
-} from '../../features/node/shape'
+} from '../node/shape'
 import {
   DEFAULT_DRAW_PRESET_KEY,
   DEFAULT_EDGE_PRESET_KEY,
@@ -32,7 +33,7 @@ import { DrawMenu } from './menus/DrawMenu'
 import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
-import { ToolbarIcon } from './ToolbarIcon'
+import { ToolIcon } from './ToolIcon'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_SHAPE_PRESET_KEY,
@@ -42,11 +43,6 @@ import {
   readStickyInsertTone,
   readInsertPresetGroup
 } from './presets'
-
-type Surface = {
-  width: number
-  height: number
-}
 
 type MenuKey =
   | 'draw'
@@ -68,13 +64,16 @@ const MenuApproxHeight: Record<MenuKey, number> = {
   mindmap: 248
 }
 
-export const LeftToolbar = ({
-  surface
+export const ToolPalette = ({
+  containerRef
 }: {
-  surface: Surface
+  containerRef: {
+    current: HTMLDivElement | null
+  }
 }) => {
   const instance = useInternalInstance()
   const tool = useTool()
+  const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const drawPresetRef = useRef<DrawPresetKey>(DEFAULT_DRAW_PRESET_KEY)
   const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
@@ -201,7 +200,7 @@ export const LeftToolbar = ({
           data-input-ignore
           title={tool.type === 'hand' ? 'Hand' : 'Select'}
         >
-          <ToolbarIcon icon={toolIcon} />
+          <ToolIcon icon={toolIcon} />
         </button>
         <div className="wb-left-toolbar-divider" />
         <button
@@ -248,7 +247,7 @@ export const LeftToolbar = ({
               background: stickyTone?.fill
             }}
           />
-          <ToolbarIcon icon={StickyNote} />
+          <ToolIcon icon={StickyNote} />
         </button>
         <button
           type="button"
@@ -262,7 +261,7 @@ export const LeftToolbar = ({
           data-input-ignore
           title="Text"
         >
-          <ToolbarIcon icon={Type} />
+          <ToolIcon icon={Type} />
         </button>
         <button
           ref={(element) => {
@@ -318,7 +317,7 @@ export const LeftToolbar = ({
               opacity: drawStyle.opacity
             }}
           />
-          <ToolbarIcon icon={PencilLine} />
+          <ToolIcon icon={PencilLine} />
         </button>
         <button
           ref={(element) => {
@@ -334,7 +333,7 @@ export const LeftToolbar = ({
           data-input-ignore
           title="Mindmap"
         >
-          <ToolbarIcon icon={GitBranch} />
+          <ToolIcon icon={GitBranch} />
         </button>
       </div>
       {openMenu && menuStyle ? (

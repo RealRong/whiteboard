@@ -16,15 +16,9 @@ import {
 } from './runtime/viewport'
 import { CanvasBackground } from './canvas/CanvasBackground'
 import { CanvasChrome } from './canvas/CanvasChrome'
-import { createMarqueeSession } from './canvas/Marquee'
 import { useCanvasClipboard } from './canvas/useCanvasClipboard'
-import { useCanvasPointerDown } from './canvas/useCanvasPointerDown'
-import { useCanvasInsert } from './canvas/toolbar/useCanvasInsert'
-import { useEdgeInput } from './features/edge/hooks/useEdgeInput'
+import { useCanvasDown } from './canvas/useCanvasDown'
 import { DrawLayer } from './features/draw/DrawLayer'
-import { useDrawInput } from './features/draw/useDrawInput'
-import { useMindmapDrag } from './features/mindmap/hooks/drag/useMindmapDrag'
-import { createNodeGesture } from './features/node/gesture'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import {
   ContainerChromeLayer,
@@ -34,7 +28,6 @@ import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
-import { createTransformSession } from './features/node/hooks/transform/session'
 import {
   createInstance,
   type WhiteboardInstance,
@@ -67,9 +60,6 @@ const WhiteboardCanvas = ({
   containerStyle
 }: CanvasProps) => {
   const instance = useInternalInstance()
-  const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
-  const gestureRef = useRef<ReturnType<typeof createNodeGesture> | null>(null)
-  const transformRef = useRef<ReturnType<typeof createTransformSession> | null>(null)
   const viewport = useStoreValue(instance.viewport)
   const tool = useTool()
   const inputPolicy = useMemo(
@@ -92,34 +82,6 @@ const WhiteboardCanvas = ({
     } as CSSProperties),
     [viewport]
   )
-
-  if (!marqueeRef.current) {
-    marqueeRef.current = createMarqueeSession(instance)
-  }
-
-  const marquee = marqueeRef.current!
-
-  if (!gestureRef.current) {
-    gestureRef.current = createNodeGesture(instance, marquee)
-  }
-
-  const gesture = gestureRef.current!
-
-  if (!transformRef.current) {
-    transformRef.current = createTransformSession(instance)
-  }
-
-  const transform = transformRef.current!
-
-  useEffect(() => () => {
-    marquee.cancel()
-    gesture.cancel()
-    transform.cancel()
-  }, [gesture, marquee, transform])
-
-  const insertInput = useCanvasInsert()
-  const drawInput = useDrawInput()
-  const mindmapDrag = useMindmapDrag()
   useCanvasClipboard({
     containerRef
   })
@@ -128,34 +90,8 @@ const WhiteboardCanvas = ({
     containerRef,
     options: inputPolicy
   })
-  const edgeInput = useEdgeInput({
+  const canvasDown = useCanvasDown({
     containerRef
-  })
-  useCanvasPointerDown({
-    containerRef,
-    onPointerDown: (container, event) => {
-      if (edgeInput.handleCanvasPointerDown(container, event)) {
-        return true
-      }
-
-      if (drawInput.handleCanvasPointerDown(container, event)) {
-        return true
-      }
-
-      if (insertInput.handleCanvasPointerDown(container, event)) {
-        return true
-      }
-
-      if (transform.handleCanvasPointerDown(container, event)) {
-        return true
-      }
-
-      if (mindmapDrag.handleCanvasPointerDown(container, event)) {
-        return true
-      }
-
-      return gesture.handleCanvasPointerDown(container, event)
-    }
   })
 
   return (
@@ -171,18 +107,18 @@ const WhiteboardCanvas = ({
       <div className="wb-root-viewport" style={transformStyle}>
         <ContainerLayer />
         <EdgeLayer />
-        <NodeSceneLayer gesture={gesture} />
+        <NodeSceneLayer gesture={canvasDown.node} />
         <MindmapSceneLayer />
-        <ContainerChromeLayer gesture={gesture} />
+        <ContainerChromeLayer gesture={canvasDown.node} />
         <NodeOverlayLayer />
         <EdgeOverlayLayer
-          onPathPointKeyDown={edgeInput.handlePathPointKeyDown}
+          onPathPointKeyDown={canvasDown.edgeKeyDown}
         />
-        <DrawLayer preview={drawInput.preview} />
+        <DrawLayer preview={canvasDown.drawPreview} />
       </div>
       <CanvasChrome
         containerRef={containerRef}
-        marquee={marquee}
+        marquee={canvasDown.marquee}
         shortcuts={resolvedConfig.shortcuts}
       />
     </div>
