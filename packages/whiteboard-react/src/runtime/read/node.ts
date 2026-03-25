@@ -2,6 +2,8 @@ import {
   createKeyedDerivedStore
 } from '@whiteboard/core/runtime'
 import {
+  getNodeOutlineBounds,
+  getNodeOutlineRect,
   isContainerNode,
   matchDrawRect
 } from '@whiteboard/core/node'
@@ -10,6 +12,7 @@ import type {
 } from '@whiteboard/core/runtime'
 import type { CanvasNode, NodeItem } from '@whiteboard/core/read'
 import {
+  getNodeAABB,
   rectContainsRotatedRect,
   isPointInRect
 } from '@whiteboard/core/geometry'
@@ -121,6 +124,8 @@ const isNodeItemEqual = (
 export type NodeRead = {
   list: EngineRead['node']['list']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
+  bounds: (nodeId: NodeId) => Rect | undefined
+  frame: (nodeId: NodeId) => Rect | undefined
   scene: (node: Pick<Node, 'type'> | string) => NodeScene
   transform: (node: Pick<Node, 'type'> | string) => NodeTransform
   connect: (node: Pick<Node, 'type'> | string) => boolean
@@ -169,6 +174,30 @@ export const createNodeRead = ({
   return {
     list: read.node.list,
     item,
+    bounds: (nodeId) => {
+      const nextItem = item.get(nodeId)
+      if (!nextItem) {
+        return undefined
+      }
+
+      const rotation = typeof nextItem.node.rotation === 'number'
+        ? nextItem.node.rotation
+        : 0
+
+      return nextItem.node.type === 'shape'
+        ? getNodeOutlineBounds(nextItem.node, nextItem.rect, rotation)
+        : getNodeAABB(nextItem.node, nextItem.rect)
+    },
+    frame: (nodeId) => {
+      const nextItem = item.get(nodeId)
+      if (!nextItem) {
+        return undefined
+      }
+
+      return nextItem.node.type === 'shape'
+        ? getNodeOutlineRect(nextItem.node, nextItem.rect)
+        : nextItem.rect
+    },
     scene,
     transform,
     connect,

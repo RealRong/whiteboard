@@ -39,6 +39,7 @@ export type InteractionStartInput = Readonly<{
   mode: ActiveInteractionMode
   pointerId?: number
   capture?: Element | null
+  chrome?: boolean
   pan?: AutoPanOptions | false
   cleanup?: () => void
   move?: (
@@ -62,6 +63,7 @@ export type InteractionStartInput = Readonly<{
 
 export type InteractionCoordinator = {
   mode: ReadStore<InteractionMode>
+  pressChrome: ReadStore<boolean>
   space: ReadStore<boolean>
   start: (input: InteractionStartInput) => InteractionSession | null
   cancel: () => void

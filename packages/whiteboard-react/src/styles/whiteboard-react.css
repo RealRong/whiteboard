@@ -117,6 +117,14 @@
   box-shadow: inset 0 0 0 calc(1px / var(--wb-zoom, 1)) var(--wb-selection-border);
 }
 
+.wb-node-transform-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 calc(1px / var(--wb-zoom, 1)) var(--wb-selection-border);
+}
+
 .wb-container-layer {
   position: absolute;
   inset: 0;
@@ -167,19 +175,6 @@
   pointer-events: none;
 }
 
-.wb-container-shell-frame[data-selected='true']::after {
-  border-color: var(--wb-selection-border);
-  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(var(--wb-ui-accent) / 0.14);
-}
-
-.wb-container-selection-outline {
-  position: absolute;
-  inset: calc(-1px / var(--wb-zoom, 1));
-  border: calc(1px / var(--wb-zoom, 1)) solid var(--wb-selection-border);
-  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(var(--wb-ui-accent) / 0.14);
-  pointer-events: none;
-}
-
 .wb-drag-guides-layer {
   position: absolute;
   inset: 0;
@@ -202,21 +197,6 @@
   user-select: none;
   touch-action: none;
   overflow: visible;
-}
-
-.wb-node-block::after {
-  content: '';
-  position: absolute;
-  inset: calc(-1px / var(--wb-zoom, 1));
-  border-radius: inherit;
-  border: calc(1px / var(--wb-zoom, 1)) solid transparent;
-  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) transparent;
-  pointer-events: none;
-}
-
-.wb-node-block[data-selected='true'][data-node-hit='box']::after {
-  border-color: var(--wb-selection-border);
-  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(var(--wb-ui-accent) / 0.14);
 }
 
 .wb-marquee-layer {

@@ -108,6 +108,7 @@ const createInstanceStores = ({
     history,
     selection: selection.source,
     interaction: interaction.mode,
+    pressChrome: interaction.pressChrome,
     pick,
     viewport,
     node,

@@ -47,9 +47,7 @@ const readShapeColors = (
   return {
     kind,
     fill: getStyleString(props.node, 'fill') ?? spec.defaults.fill,
-    stroke: props.selected
-      ? 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))'
-      : (getStyleString(props.node, 'stroke') ?? spec.defaults.stroke),
+    stroke: getStyleString(props.node, 'stroke') ?? spec.defaults.stroke,
     color: getStyleString(props.node, 'color') ?? spec.defaults.color,
     strokeWidth: getStyleNumber(props.node, 'strokeWidth') ?? (props.hovered ? 1.6 : 1.2),
     fontSize: getStyleNumber(props.node, 'fontSize') ?? TEXT_DEFAULT_FONT_SIZE

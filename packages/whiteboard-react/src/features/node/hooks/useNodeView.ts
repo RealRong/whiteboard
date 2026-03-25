@@ -33,6 +33,7 @@ export type NodeView = {
   nodeId: NodeId
   node: NodeItem['node']
   rect: NodeItem['rect']
+  frameRect: NodeItem['rect']
   rotation: number
   hidden: boolean
   hasResizePreview: boolean
@@ -49,6 +50,7 @@ export type NodeOverlayView = {
   nodeId: NodeView['nodeId']
   node: NodeView['node']
   rect: NodeView['rect']
+  frameRect: NodeView['frameRect']
   rotation: NodeView['rotation']
   canConnect: NodeView['canConnect']
   canResize: NodeView['canResize']
@@ -62,6 +64,7 @@ const resolveNodeOverlayViewState = (
 ): NodeOverlayView => {
   const node = item.node
   const rect = item.rect
+  const frameRect = instance.read.node.frame(nodeId) ?? rect
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   const capability = instance.read.node.transform(node)
 
@@ -69,6 +72,7 @@ const resolveNodeOverlayViewState = (
     nodeId,
     node,
     rect,
+    frameRect,
     rotation,
     canConnect: instance.read.node.connect(node),
     canResize: capability.resize,
@@ -85,6 +89,7 @@ const resolveNodeViewState = (
 ): NodeView => {
   const resolvedNode = item.node
   const rect = item.rect
+  const frameRect = instance.read.node.frame(nodeId) ?? rect
   const hidden = session.hidden
   const hasResizePreview = Boolean(session.patch?.size)
   const rotation = typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0
@@ -114,6 +119,7 @@ const resolveNodeViewState = (
     nodeId,
     node: resolvedNode,
     rect,
+    frameRect,
     rotation,
     hidden,
     hasResizePreview,

@@ -25,6 +25,7 @@ export const createSelectionRead = ({
   nodeItem,
   edgeItem,
   edgeBounds,
+  nodeBounds,
   registry,
   resolveNodeTransform: readNodeTransform = resolveNodeTransform
 }: {
@@ -33,6 +34,7 @@ export const createSelectionRead = ({
   nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
   edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
   edgeBounds: (edgeId: EdgeId) => Rect | undefined
+  nodeBounds: (nodeId: NodeId) => Rect | undefined
   registry: NodeRegistry
   resolveNodeTransform?: typeof resolveNodeTransform
 }): SelectionRead => createDerivedStore<SelectionView>({
@@ -42,6 +44,7 @@ export const createSelectionRead = ({
     readNode: (nodeId) => readStore(nodeItem, nodeId),
     readEdge: (edgeId) => readStore(edgeItem, edgeId),
     readEdgeBounds: edgeBounds,
+    readNodeBounds: nodeBounds,
     resolveNodeScene: (node) => resolveNodeScene(
       registry.get(node.type)
     ),

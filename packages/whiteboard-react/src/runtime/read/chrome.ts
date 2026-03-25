@@ -30,15 +30,19 @@ const resolveNodeChrome = ({
   tool,
   edit,
   selection,
-  interaction
+  interaction,
+  pressChrome
 }: {
   tool: Tool
   edit: EditTarget
   selection: SelectionView
   interaction: InteractionMode
+  pressChrome: boolean
 }): NodeChrome => {
   const editing = edit !== null
-  const idleLike = interaction === 'idle' || interaction === 'press'
+  const idleLike =
+    interaction === 'idle'
+    || (interaction === 'press' && pressChrome)
   const pureNodeSelection =
     (selection.kind === 'node' || selection.kind === 'nodes')
     && selection.items.edgeCount === 0
@@ -69,19 +73,22 @@ export const createChromeRead = ({
   tool,
   edit,
   selection,
-  interaction
+  interaction,
+  pressChrome
 }: {
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionView>
   interaction: ReadStore<InteractionMode>
+  pressChrome: ReadStore<boolean>
 }): ChromeRead => ({
   node: createDerivedStore<NodeChrome>({
     get: (readStore) => resolveNodeChrome({
       tool: readStore(tool),
       edit: readStore(edit),
       selection: readStore(selection),
-      interaction: readStore(interaction)
+      interaction: readStore(interaction),
+      pressChrome: readStore(pressChrome)
     }),
     isEqual: isNodeChromeEqual
   })

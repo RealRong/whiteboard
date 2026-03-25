@@ -6,6 +6,7 @@ import type {
 export type PressStartInput = {
   pointerId: number
   capture: Element
+  chrome?: boolean
   start: {
     clientX: number
     clientY: number
@@ -55,6 +56,7 @@ export const createPressRuntime = (
         mode: 'press',
         pointerId: input.pointerId,
         capture: input.capture,
+        chrome: input.chrome,
         cleanup: clear,
         move: (event, currentSession) => {
           const active = current

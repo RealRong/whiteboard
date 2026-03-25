@@ -15,6 +15,7 @@ type ActiveInteraction = Readonly<{
   id: number
   mode: ActiveInteractionMode
   pointerId?: number
+  chrome?: boolean
 }>
 
 export const createInteractionCoordinator = ({
@@ -26,6 +27,12 @@ export const createInteractionCoordinator = ({
   const space = createValueStore(false)
   const mode = createDerivedStore({
     get: (read) => read(active)?.mode ?? 'idle'
+  })
+  const pressChrome = createDerivedStore({
+    get: (read) => {
+      const current = read(active)
+      return current?.mode === 'press' && Boolean(current.chrome)
+    }
   })
   let nextId = 1
   let releaseWindow = () => {}
@@ -222,6 +229,7 @@ export const createInteractionCoordinator = ({
 
   return {
     mode,
+    pressChrome,
     space,
     start: (input) => {
       if (active.get()) {
@@ -231,7 +239,8 @@ export const createInteractionCoordinator = ({
       const current: ActiveInteraction = {
         id: nextId++,
         mode: input.mode,
-        pointerId: input.pointerId
+        pointerId: input.pointerId,
+        chrome: input.chrome
       }
       let done = false
 

@@ -4,6 +4,8 @@ export {
 } from './duplicate'
 export {
   getAutoNodeAnchor,
+  getNodeOutlineBounds,
+  getNodeOutlineRect,
   getNodeAnchorFromPoint,
   getNodeAnchorPoint,
   type NodeOutlineAnchorOptions

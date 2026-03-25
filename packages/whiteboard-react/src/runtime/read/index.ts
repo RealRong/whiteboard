@@ -49,6 +49,7 @@ export const createRuntimeRead = ({
   history,
   selection,
   interaction,
+  pressChrome,
   pick,
   viewport,
   node,
@@ -61,6 +62,7 @@ export const createRuntimeRead = ({
   history: ReadStore<HistoryState>
   selection: ReadStore<SelectionSource>
   interaction: ReadStore<InteractionMode>
+  pressChrome: ReadStore<boolean>
   pick: PickRuntime
   viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session'>
@@ -75,25 +77,27 @@ export const createRuntimeRead = ({
     nodeItem,
     patch: edge.patch
   })
+  const nodeRead: NodeRead = createNodeRead({
+    read: engineRead,
+    registry,
+    item: nodeItem
+  })
   const selectionRead = createSelectionRead({
     source: selection,
     nodeList: engineRead.node.list,
     nodeItem,
     edgeItem: edgeRead.item,
     edgeBounds: edgeRead.bounds,
+    nodeBounds: nodeRead.bounds,
     registry,
     resolveNodeTransform
-  })
-  const nodeRead: NodeRead = createNodeRead({
-    read: engineRead,
-    registry,
-    item: nodeItem
   })
   const chromeRead = createChromeRead({
     tool,
     edit,
     selection: selectionRead,
-    interaction
+    interaction,
+    pressChrome
   })
 
   return {

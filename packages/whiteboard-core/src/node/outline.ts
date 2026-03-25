@@ -1,5 +1,11 @@
 import type { EdgeAnchor, Node, Point, Rect } from '../types'
-import { clamp, getRectCenter, rotatePoint } from '../geometry'
+import {
+  clamp,
+  expandRect,
+  getAABBFromPoints,
+  getRectCenter,
+  rotatePoint
+} from '../geometry'
 import { readShapeKind, type ShapeKind } from './shape'
 
 type OutlineSide = EdgeAnchor['side']
@@ -498,6 +504,49 @@ const toSidePoints = (
   side: OutlineSide
 ): Point[] => getOutlineSpec(node)[side].map((value) => toLocalPoint(rect, value))
 
+const readOutlinePoints = (
+  node: Pick<Node, 'type' | 'data'>,
+  rect: Rect
+) => {
+  const sides: OutlineSide[] = ['top', 'right', 'bottom', 'left']
+  return sides.flatMap((side) => toSidePoints(rect, node, side))
+}
+
+const readShapeStrokeWidth = (
+  node: Pick<Node, 'type' | 'style'>
+) => {
+  if (node.type !== 'shape') {
+    return 0
+  }
+
+  const raw = node.style?.strokeWidth
+  const value = typeof raw === 'string'
+    ? Number(raw)
+    : raw
+
+  return Number.isFinite(value)
+    ? Math.max(0, value as number)
+    : 1
+}
+
+const expandOutlineBounds = (
+  rect: Rect,
+  node: Pick<Node, 'type' | 'style'>,
+  bounds: Rect
+) => {
+  const strokeWidth = readShapeStrokeWidth(node)
+  if (strokeWidth <= 0) {
+    return bounds
+  }
+
+  const expansion = Math.max(
+    rect.width * (strokeWidth / OUTLINE_VIEWBOX) / 2,
+    rect.height * (strokeWidth / OUTLINE_VIEWBOX) / 2
+  )
+
+  return expandRect(bounds, expansion)
+}
+
 const distance = (
   left: Point,
   right: Point
@@ -688,6 +737,44 @@ export const getNodeAnchorPoint = (
   )
 
   return toWorldPoint(local, center, rotation)
+}
+
+export const getNodeOutlineRect = (
+  node: Pick<Node, 'type' | 'data' | 'style'>,
+  rect: Rect
+): Rect => {
+  if (node.type !== 'shape') {
+    return rect
+  }
+
+  return expandOutlineBounds(
+    rect,
+    node,
+    getAABBFromPoints(readOutlinePoints(node, rect))
+  )
+}
+
+export const getNodeOutlineBounds = (
+  node: Pick<Node, 'type' | 'data' | 'style'>,
+  rect: Rect,
+  rotation = 0
+): Rect => {
+  if (node.type !== 'shape') {
+    return rect
+  }
+
+  const center = getRectCenter(rect)
+  const points = readOutlinePoints(node, rect).map((point) => (
+    rotation
+      ? rotatePoint(point, center, rotation)
+      : point
+  ))
+
+  return expandOutlineBounds(
+    rect,
+    node,
+    getAABBFromPoints(points)
+  )
 }
 
 export const getNodeAnchorFromPoint = (

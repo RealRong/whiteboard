@@ -118,11 +118,13 @@ const readEdgeItems = (
 const readSelectionNodeRects = ({
   nodes,
   allNodes,
-  readNode
+  readNode,
+  readNodeBounds
 }: {
   nodes: readonly Node[]
   allNodes: readonly Node[]
   readNode: (nodeId: NodeId) => NodeItem | undefined
+  readNodeBounds: (nodeId: NodeId) => Rect | undefined
 }): readonly Rect[] => {
   const rects: Rect[] = []
   const rectNodeIds = new Set<NodeId>()
@@ -135,12 +137,13 @@ const readSelectionNodeRects = ({
     }
 
     const item = readNode(nodeId)
-    if (!item) {
+    const bounds = readNodeBounds(nodeId)
+    if (!item || !bounds) {
       return
     }
 
     rectNodeIds.add(nodeId)
-    rects.push(item.rect)
+    rects.push(bounds)
   }
 
   nodes.forEach((node) => {
@@ -216,6 +219,7 @@ export const resolveView = ({
   resolveNodeTransform,
   resolveNodeScene,
   readEdgeBounds,
+  readNodeBounds,
   allNodeIds
 }: {
   source: Source
@@ -227,6 +231,7 @@ export const resolveView = ({
   }
   resolveNodeScene: (node: Node) => NodeScene
   readEdgeBounds: (edgeId: EdgeId) => Rect | undefined
+  readNodeBounds: (nodeId: NodeId) => Rect | undefined
   allNodeIds: readonly NodeId[]
 }): View => {
   const nodeItems = readNodeItems(readNode, source.nodeIds)
@@ -285,9 +290,12 @@ export const resolveView = ({
         allNodes: allNodeIds
           .map((nodeId) => readNode(nodeId)?.node)
           .filter((node): node is Node => Boolean(node)),
-        readNode
+        readNode,
+        readNodeBounds
       })
-    : nodeItems.map((item) => item.rect)
+    : nodeIds
+      .map((nodeId) => readNodeBounds(nodeId))
+      .filter((rect): rect is Rect => Boolean(rect))
   const box = getRectsBoundingRect([
     ...nodeRects,
     ...edgeIds

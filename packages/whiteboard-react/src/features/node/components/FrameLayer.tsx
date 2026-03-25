@@ -72,25 +72,22 @@ FrameBodyHitItem.displayName = 'FrameBodyHitItem'
 
 const ContainerChromeItem = memo(({
   nodeId,
-  selected,
   gesture
 }: {
   nodeId: NodeId
-  selected: boolean
   gesture: NodeGesture
 }) => {
-  const view = useNodeView(nodeId, { selected })
+  const view = useNodeView(nodeId)
 
   if (!view) {
     return null
   }
 
-  if (view.node.type === 'group' && !selected) {
+  if (view.node.type !== 'frame') {
     return null
   }
 
   const isFrame = view.node.type === 'frame'
-  const isGroup = view.node.type === 'group'
   const rootStyle: CSSProperties = {
     width: view.rect.width,
     height: view.rect.height,
@@ -100,9 +97,6 @@ const ContainerChromeItem = memo(({
     border: isFrame ? view.nodeStyle.border : undefined,
     borderRadius: view.nodeStyle.borderRadius,
     boxShadow: isFrame ? view.nodeStyle.boxShadow : undefined
-  }
-  const selectionOutlineStyle: CSSProperties = {
-    borderRadius: view.nodeStyle.borderRadius
   }
 
   return (
@@ -114,14 +108,7 @@ const ContainerChromeItem = memo(({
       {isFrame ? (
         <div
           className="wb-container-shell-frame"
-          data-selected={selected ? 'true' : undefined}
           style={frameStyle}
-        />
-      ) : null}
-      {isGroup && selected ? (
-        <div
-          className="wb-container-selection-outline"
-          style={selectionOutlineStyle}
         />
       ) : null}
       {isFrame ? (
@@ -178,8 +165,6 @@ export const ContainerChromeLayer = ({
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
-  const selection = useSelection()
-  const selectedSet = selection.target.nodeSet
   const containerIds = useMemo(
     () => instance.read.node.filter(nodeIds, 'container'),
     [instance, nodeIds]
@@ -195,7 +180,6 @@ export const ContainerChromeLayer = ({
         <ContainerChromeItem
           key={nodeId}
           nodeId={nodeId}
-          selected={selectedSet.has(nodeId)}
           gesture={gesture}
         />
       ))}

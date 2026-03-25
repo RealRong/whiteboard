@@ -49,21 +49,42 @@ const NodeInteractionGuidesLayer = ({
 
 const NodeTransformOverlayItem = memo(({
   nodeId,
+  showHandles
 }: {
   nodeId: NodeId
+  showHandles: boolean
 }) => {
   const view = useNodeOverlayView(nodeId)
 
-  if (!view || view.node.locked) return null
+  if (!view) return null
+
+  const frameRect = view.node.type === 'shape'
+    ? view.frameRect
+    : view.rect
 
   return (
-    <NodeTransformHandles
-      node={view.node}
-      rect={view.rect}
-      rotation={view.rotation}
-      canResize={view.canResize}
-      canRotate={view.canRotate}
-    />
+    <>
+      {view.node.type === 'shape' ? (
+        <div
+          className="wb-node-transform-frame"
+          style={{
+            transform: `translate(${frameRect.x}px, ${frameRect.y}px)${view.rotation !== 0 ? ` rotate(${view.rotation}deg)` : ''}`,
+            width: frameRect.width,
+            height: frameRect.height,
+            transformOrigin: view.rotation !== 0 ? 'center center' : undefined
+          }}
+        />
+      ) : null}
+      {showHandles && !view.node.locked ? (
+        <NodeTransformHandles
+          node={view.node}
+          rect={frameRect}
+          rotation={view.rotation}
+          canResize={view.canResize}
+          canRotate={view.canRotate}
+        />
+      ) : null}
+    </>
   )
 })
 
@@ -140,13 +161,7 @@ const SelectionFrameOverlay = ({
     part: 'body'
   })
 
-  if (
-    !selection.box
-    || (
-      selection.items.count <= 1
-      && selection.transform.resize !== 'scale'
-    )
-  ) {
+  if (!selection.box || selection.items.nodeCount === 0) {
     return null
   }
 
@@ -204,18 +219,18 @@ export const NodeOverlayLayer = () => {
           title: resolveFrameTitle(activeFrameNode.node)
         }
       : undefined
-  const showSelectionFrame = Boolean(selection.box) && (
-    selection.items.count > 1
-    || selection.transform.resize === 'scale'
-  )
-  const singleTransformNodeId =
-    chrome.transform && selection.kind === 'node'
-      ? selection.target.nodeIds[0]
-      : undefined
+  const showSelectionFrame = Boolean(selection.box) && selection.items.nodeCount > 0
+  const singleTransformNodeId = selection.kind === 'node'
+    ? selection.target.nodeIds[0]
+    : undefined
   const showSelectionHandles =
     chrome.transform
     && Boolean(selection.box)
     && selection.transform.resize === 'scale'
+  const hideSelectionFrameForSingleShape =
+    selection.kind === 'node'
+    && selection.items.nodeCount === 1
+    && selection.items.primaryNode?.type === 'shape'
   const connectNodeIds = chrome.connect ? selection.target.nodeIds : EMPTY_NODE_IDS
 
   return (
@@ -230,9 +245,10 @@ export const NodeOverlayLayer = () => {
         {singleTransformNodeId ? (
           <NodeTransformOverlayItem
             nodeId={singleTransformNodeId}
+            showHandles={chrome.transform}
           />
         ) : null}
-        {showSelectionFrame ? (
+        {showSelectionFrame && !hideSelectionFrameForSingleShape ? (
           <SelectionFrameOverlay
             selection={selection}
           />

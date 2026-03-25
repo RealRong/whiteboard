@@ -58,6 +58,7 @@ type NodePressController = {
 }
 
 type PressPlan = {
+  chrome?: boolean
   holdDelay?: number
   hold?: () => void
   tap?: (event: PointerEvent) => void
@@ -323,6 +324,7 @@ export const createNodePressController = (
   ) => Boolean(press.start({
     pointerId: input.pointerId,
     capture: input.capture,
+    chrome: plan.chrome,
     start: {
       clientX: input.clientX,
       clientY: input.clientY
@@ -479,6 +481,7 @@ export const createNodePressController = (
       selectedAncestorGroupId
       && input.selectionMode === 'replace'
     )
+    const keepChrome = state.selected || dragCurrentSelection
     const repeat = input.selectionMode === 'replace'
       && (
         target.kind === 'node'
@@ -517,6 +520,7 @@ export const createNodePressController = (
 
     if (target.kind === 'container-body') {
       return {
+        chrome: keepChrome,
         holdDelay: GestureTuning.holdDelay,
         hold,
         tap: () => {
@@ -548,6 +552,7 @@ export const createNodePressController = (
         : 'select'
 
     return {
+      chrome: keepChrome,
       holdDelay: GestureTuning.holdDelay,
       hold,
       tap: (event) => {
@@ -604,6 +609,7 @@ export const createNodePressController = (
     }
 
     return {
+      chrome: true,
       holdDelay: GestureTuning.holdDelay,
       hold: () => {
         startSelectionMarquee(input, {
@@ -641,6 +647,7 @@ export const createNodePressController = (
     const edgeFilter = readEdgeFilter(instance, scope)
 
     return {
+      chrome: false,
       tap: () => {
         if (input.selectionMode === 'replace') {
           instance.commands.selection.clear()
