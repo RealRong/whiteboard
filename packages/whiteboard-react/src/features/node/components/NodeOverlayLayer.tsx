@@ -5,12 +5,12 @@ import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import {
   useInternalInstance,
-  useContainer,
+  useFrameScope,
   usePickRef,
-  useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeOverlayView } from '../hooks/useNodeView'
+import { useSelection } from '../selection'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import {
   NodeTransformHandles,
@@ -76,7 +76,7 @@ const NodeConnectOverlayItem = memo(({
 }) => {
   const view = useNodeOverlayView(nodeId)
 
-  if (!view) return null
+  if (!view || !view.canConnect) return null
 
   return (
     <NodeConnectHandles
@@ -91,7 +91,7 @@ NodeConnectOverlayItem.displayName = 'NodeConnectOverlayItem'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 
-const resolveContainerTitle = (
+const resolveFrameTitle = (
   node: {
     type: string
     data?: Record<string, unknown>
@@ -101,10 +101,16 @@ const resolveContainerTitle = (
   if (typeof title === 'string' && title.trim()) {
     return title.trim()
   }
-  return node.type === 'group' ? 'Group' : node.type
+  if (node.type === 'group') {
+    return 'Group'
+  }
+  if (node.type === 'frame') {
+    return 'Frame'
+  }
+  return node.type
 }
 
-const ActiveContainerOverlay = ({
+const ActiveFrameOverlay = ({
   rect,
   title
 }: {
@@ -123,69 +129,102 @@ const ActiveContainerOverlay = ({
   </div>
 )
 
-const SelectionTransformOverlay = ({
+const SelectionFrameOverlay = ({
   selection
 }: {
   selection: ReturnType<typeof useSelection>
 }) => {
+  const interactive = selection.items.count > 1
   const ref = usePickRef({
     kind: 'selection-box',
     part: 'body'
   })
 
-  if (selection.items.count <= 1 || !selection.box) {
+  if (
+    !selection.box
+    || (
+      selection.items.count <= 1
+      && selection.transform.resize !== 'scale'
+    )
+  ) {
     return null
   }
 
   return (
-    <>
-      <div
-        ref={ref}
-        className="wb-selection-transform-box"
-        style={{
-          transform: `translate(${selection.box.x}px, ${selection.box.y}px)`,
-          width: selection.box.width,
-          height: selection.box.height
-        }}
-      />
-      <TransformHandles
-        rect={selection.box}
-        rotation={0}
-        canResize={selection.transform.resize !== 'none'}
-        canRotate={false}
-      />
-    </>
+    <div
+      ref={interactive ? ref : undefined}
+      className="wb-selection-transform-box"
+      style={{
+        pointerEvents: interactive ? 'auto' : 'none',
+        transform: `translate(${selection.box.x}px, ${selection.box.y}px)`,
+        width: selection.box.width,
+        height: selection.box.height
+      }}
+    />
+  )
+}
+
+const SelectionHandlesOverlay = ({
+  selection
+}: {
+  selection: ReturnType<typeof useSelection>
+}) => {
+  if (
+    !selection.box
+    || (
+      selection.items.count <= 1
+      && selection.transform.resize !== 'scale'
+    )
+  ) {
+    return null
+  }
+
+  return (
+    <TransformHandles
+      rect={selection.box}
+      rotation={0}
+      canResize={selection.transform.resize === 'scale'}
+      canRotate={false}
+    />
   )
 }
 
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const chrome = useStoreValue(instance.read.chrome.node)
-  const container = useContainer()
+  const frame = useFrameScope()
   const guides = useStoreValue(instance.internals.snap.guides)
   const selection = useSelection()
-  const activeContainerNode = useNodeOverlayView(container.id)
+  const activeFrameNode = useNodeOverlayView(frame.id)
 
-  const activeContainer =
-    container.id && activeContainerNode
+  const activeFrame =
+    frame.id && activeFrameNode
       ? {
-          rect: activeContainerNode.rect,
-          title: resolveContainerTitle(activeContainerNode.node)
+          rect: activeFrameNode.rect,
+          title: resolveFrameTitle(activeFrameNode.node)
         }
       : undefined
+  const showSelectionFrame = Boolean(selection.box) && (
+    selection.items.count > 1
+    || selection.transform.resize === 'scale'
+  )
   const singleTransformNodeId =
-    chrome.transform && selection.items.count === 1
+    chrome.transform && selection.kind === 'node'
       ? selection.target.nodeIds[0]
       : undefined
+  const showSelectionHandles =
+    chrome.transform
+    && Boolean(selection.box)
+    && selection.transform.resize === 'scale'
   const connectNodeIds = chrome.connect ? selection.target.nodeIds : EMPTY_NODE_IDS
 
   return (
     <>
       <div className="wb-node-overlay-layer">
-        {activeContainer ? (
-          <ActiveContainerOverlay
-            rect={activeContainer.rect}
-            title={activeContainer.title}
+        {activeFrame ? (
+          <ActiveFrameOverlay
+            rect={activeFrame.rect}
+            title={activeFrame.title}
           />
         ) : null}
         {singleTransformNodeId ? (
@@ -193,8 +232,13 @@ export const NodeOverlayLayer = () => {
             nodeId={singleTransformNodeId}
           />
         ) : null}
-        {chrome.transform ? (
-          <SelectionTransformOverlay
+        {showSelectionFrame ? (
+          <SelectionFrameOverlay
+            selection={selection}
+          />
+        ) : null}
+        {showSelectionHandles ? (
+          <SelectionHandlesOverlay
             selection={selection}
           />
         ) : null}

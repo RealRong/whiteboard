@@ -6,10 +6,8 @@ import type { EditTarget } from '../edit'
 import type { InteractionMode } from '../interaction'
 import type { View as SelectionView } from '../selection'
 import type { Tool } from '../tool'
-import type { NodeChromeHidden } from '../../features/node/session/runtime'
 
 export type NodeChrome = {
-  selection: boolean
   toolbar: boolean
   transform: boolean
   connect: boolean
@@ -23,8 +21,7 @@ const isNodeChromeEqual = (
   left: NodeChrome,
   right: NodeChrome
 ) => (
-  left.selection === right.selection
-  && left.toolbar === right.toolbar
+  left.toolbar === right.toolbar
   && left.transform === right.transform
   && left.connect === right.connect
 )
@@ -33,42 +30,38 @@ const resolveNodeChrome = ({
   tool,
   edit,
   selection,
-  interaction,
-  chromeHidden
+  interaction
 }: {
   tool: Tool
   edit: EditTarget
   selection: SelectionView
   interaction: InteractionMode
-  chromeHidden: NodeChromeHidden
 }): NodeChrome => {
-  const selectionVisible = !chromeHidden
   const editing = edit !== null
-  const edgeSelected = selection.target.edgeId !== undefined
   const idleLike = interaction === 'idle' || interaction === 'press'
+  const pureNodeSelection =
+    (selection.kind === 'node' || selection.kind === 'nodes')
+    && selection.items.edgeCount === 0
 
   return {
-    selection: selectionVisible,
     toolbar:
       tool.type === 'select'
       && !editing
       && idleLike
-      && selectionVisible
-      && !edgeSelected
-      && selection.items.count > 0,
+      && pureNodeSelection,
     transform:
       tool.type === 'select'
       && !editing
-      && !edgeSelected
+      && pureNodeSelection
       && (
         interaction === 'node-transform'
-        || (idleLike && selectionVisible)
+        || idleLike
       ),
     connect:
       tool.type === 'edge'
       && !editing
       && idleLike
-      && selectionVisible
+      && selection.items.count > 0
   }
 }
 
@@ -76,22 +69,19 @@ export const createChromeRead = ({
   tool,
   edit,
   selection,
-  interaction,
-  chromeHidden
+  interaction
 }: {
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionView>
   interaction: ReadStore<InteractionMode>
-  chromeHidden: ReadStore<NodeChromeHidden>
 }): ChromeRead => ({
   node: createDerivedStore<NodeChrome>({
     get: (readStore) => resolveNodeChrome({
       tool: readStore(tool),
       edit: readStore(edit),
       selection: readStore(selection),
-      interaction: readStore(interaction),
-      chromeHidden: readStore(chromeHidden)
+      interaction: readStore(interaction)
     }),
     isEqual: isNodeChromeEqual
   })

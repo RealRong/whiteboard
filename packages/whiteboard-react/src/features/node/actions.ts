@@ -233,7 +233,9 @@ export const createNodeSelectionActions = (
 
   const selection = {
     replace: (nextNodeIds: readonly NodeId[]) => {
-      instance.commands.selection.replace(nextNodeIds)
+      instance.commands.selection.replace({
+        nodeIds: nextNodeIds
+      })
     }
   }
 

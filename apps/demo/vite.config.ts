@@ -30,7 +30,7 @@ export default defineConfig({
         replacement: path.join(engineSrc, 'types', '$1')
       },
       {
-        find: /^@whiteboard\/core\/(types|utils|geometry|node|mindmap|edge|schema|kernel|perf)$/,
+        find: /^@whiteboard\/core\/(types|utils|geometry|node|mindmap|edge|schema|kernel|perf|runtime|config|document|read)$/,
         replacement: `${coreSrc}/$1/index.ts`
       },
       {

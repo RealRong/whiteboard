@@ -6,9 +6,13 @@ export type EdgePresetKey =
   | 'edge.curve'
 
 export type InsertPresetKey = string
-export type DrawPresetKey =
+export type DrawBrushKind =
   | 'pen'
   | 'highlighter'
+
+export type DrawKind =
+  | DrawBrushKind
+  | 'eraser'
 
 export type SelectTool = {
   type: 'select'
@@ -30,7 +34,7 @@ export type InsertTool = {
 
 export type DrawTool = {
   type: 'draw'
-  preset: DrawPresetKey
+  kind: DrawKind
 }
 
 export type Tool =
@@ -47,7 +51,8 @@ const EDGE_PRESET_TO_TYPE = {
 } as const satisfies Record<EdgePresetKey, EdgeType>
 
 export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
-export const DEFAULT_DRAW_PRESET_KEY: DrawPresetKey = 'pen'
+export const DEFAULT_DRAW_BRUSH_KIND: DrawBrushKind = 'pen'
+export const DEFAULT_DRAW_KIND: DrawKind = DEFAULT_DRAW_BRUSH_KIND
 
 export const SelectTool: SelectTool = {
   type: 'select'
@@ -65,21 +70,32 @@ export const createEdgeTool = (
 })
 
 export const createDrawTool = (
-  preset: DrawPresetKey = DEFAULT_DRAW_PRESET_KEY
+  kind: DrawKind = DEFAULT_DRAW_KIND
 ): DrawTool => ({
   type: 'draw',
-  preset
+  kind
 })
 
 const isEdgePresetKey = (
   value: string
 ): value is EdgePresetKey => value in EDGE_PRESET_TO_TYPE
 
-const isDrawPresetKey = (
+const isDrawBrushKindValue = (
   value: string
-): value is DrawPresetKey => (
+): value is DrawBrushKind => (
   value === 'pen'
   || value === 'highlighter'
+)
+
+export const isDrawBrushKind = (
+  value: string
+): value is DrawBrushKind => isDrawBrushKindValue(value)
+
+export const isDrawKind = (
+  value: string
+): value is DrawKind => (
+  value === 'eraser'
+  || isDrawBrushKindValue(value)
 )
 
 export const readEdgeType = (
@@ -89,12 +105,13 @@ export const readEdgeType = (
 export const matchTool = (
   tool: Tool,
   type: Tool['type'],
-  preset?: string
+  value?: string
 ) => (
   tool.type === type
   && (
-    preset === undefined
-    || ('preset' in tool && tool.preset === preset)
+    value === undefined
+    || ('preset' in tool && tool.preset === value)
+    || ('kind' in tool && tool.kind === value)
   )
 )
 
@@ -112,7 +129,7 @@ export const isSameTool = (
     case 'insert':
       return right.type === 'insert' && left.preset === right.preset
     case 'draw':
-      return right.type === 'draw' && left.preset === right.preset
+      return right.type === 'draw' && left.kind === right.kind
     default:
       return true
   }
@@ -140,6 +157,7 @@ export const normalizeTool = (
   const tool = value as {
     type?: unknown
     preset?: unknown
+    kind?: unknown
   }
 
   switch (tool.type) {
@@ -161,9 +179,11 @@ export const normalizeTool = (
       }
     case 'draw':
       return createDrawTool(
-        typeof tool.preset === 'string' && isDrawPresetKey(tool.preset)
-          ? tool.preset
-          : DEFAULT_DRAW_PRESET_KEY
+        typeof tool.kind === 'string' && isDrawKind(tool.kind)
+          ? tool.kind
+          : typeof tool.preset === 'string' && isDrawKind(tool.preset)
+            ? tool.preset
+            : DEFAULT_DRAW_KIND
       )
     case 'select':
     default:

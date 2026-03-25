@@ -41,12 +41,12 @@ const insertNodePreset = (
   instance: WhiteboardInstance,
   preset: Extract<InsertPreset, { kind: 'node' }>,
   world: Point,
-  parentId?: NodeId
+  containerId?: NodeId
 ): InsertResult | undefined => {
   const result = instance.commands.node.create(
     placeNodeInput(world, {
       ...preset.input(world),
-      parentId
+      containerId
     }, preset.placement)
   )
   if (!result.ok) {
@@ -109,19 +109,19 @@ export const insertPreset = ({
   instance,
   preset,
   world,
-  parentId
+  containerId
 }: {
   instance: WhiteboardInstance
   preset: InsertPreset
   world: Point
-  parentId?: NodeId
+  containerId?: NodeId
 }) => {
   const result = preset.kind === 'node'
     ? insertNodePreset(
         instance,
         preset,
         world,
-        preset.canNest === false ? undefined : parentId
+        preset.canNest === false ? undefined : containerId
       )
     : insertMindmapPreset(instance, preset, world)
 
@@ -129,7 +129,9 @@ export const insertPreset = ({
     return undefined
   }
 
-  instance.commands.selection.replace([result.nodeId])
+  instance.commands.selection.replace({
+    nodeIds: [result.nodeId]
+  })
   if (result.edit) {
     instance.commands.edit.start(result.edit.nodeId, result.edit.field)
   }

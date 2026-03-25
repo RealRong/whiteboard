@@ -53,7 +53,7 @@ const translateDocument = <C extends DocumentCommand>(
         createEdgeId: ctx.ids.edge,
         at: command.options?.at,
         offset: command.options?.offset,
-        parentId: command.options?.parentId,
+        containerId: command.options?.containerId,
         roots: command.options?.roots
       })
       if (!planned.ok) {

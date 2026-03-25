@@ -2,11 +2,9 @@ import { getEdgePath } from '@whiteboard/core/edge'
 import type { EdgeItem } from '@whiteboard/core/read'
 import type { EdgeId, Point } from '@whiteboard/core/types'
 import { useMemo } from 'react'
-import {
-  useInternalInstance,
-  useSelection
-} from '../../../runtime/hooks'
+import { useInternalInstance } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useSelection } from '../../node/selection'
 import { EMPTY_PATCH } from '../preview'
 
 export type EdgeView = {
@@ -65,7 +63,10 @@ export const useEdgeView = (
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const instance = useInternalInstance()
-  const edgeId = useSelection().target.edgeId
+  const selection = useSelection()
+  const edgeId = selection.kind === 'edge' && selection.items.count === 1
+    ? selection.target.edgeId
+    : undefined
   const entry = useEdgeView(edgeId)
   const patch = useOptionalKeyedStoreValue(
     instance.internals.edge.preview.patch,

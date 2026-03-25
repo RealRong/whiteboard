@@ -4,10 +4,10 @@ import { ContextMenu } from '../features/selection/chrome/ContextMenu'
 import {
   Marquee,
   type MarqueeSession
-} from '../features/selection/chrome/Marquee'
+} from '../features/selection/Marquee'
 import { NodeToolbar } from '../features/selection/chrome/NodeToolbar'
 import { ToolPalette } from '../features/toolbox/ToolPalette'
-import { ViewportDock } from '../features/viewport/chrome/ViewportDock'
+import { ViewportDock } from '../features/viewport/ViewportDock'
 import { useCanvasKeyboard } from './useCanvasKeyboard'
 
 export const CanvasChrome = ({

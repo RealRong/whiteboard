@@ -1,12 +1,16 @@
+import { useMemo } from 'react'
 import type { View as SelectionView } from '../../runtime/selection'
 import type { Node } from '@whiteboard/core/types'
 import type { NodeMeta } from '../../types/node'
+import { resolveNodeMeta } from './registry'
 import {
   resolveNodeSelectionCan,
   summarizeNodes,
   type NodeSelectionCan,
   type NodeSummary
 } from './summary'
+import { useInternalInstance } from '../../runtime/hooks/useWhiteboard'
+import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export type NodeSelectionView = SelectionView & {
   summary: NodeSummary
@@ -37,4 +41,13 @@ export const resolveNodeSelectionView = (
         })
       : EMPTY_CAN
   }
+}
+
+export const useSelection = (): NodeSelectionView => {
+  const instance = useInternalInstance()
+  const selection = useStoreValue(instance.read.selection)
+
+  return useMemo(() => resolveNodeSelectionView(selection, {
+    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+  }), [instance, selection])
 }

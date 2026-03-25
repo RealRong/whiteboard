@@ -15,7 +15,7 @@ import {
 import {
   hasEdge,
   hasNode
-} from '../../../runtime/container'
+} from '../../../runtime/frame'
 import {
   createNodeSelectionActions
 } from '../../node/actions'
@@ -23,7 +23,6 @@ import {
   type NodeSummary
 } from '../../node/summary'
 import {
-  type GroupAutoFitMode,
   toNodeStyleUpdates
 } from '../../node/patch'
 import {
@@ -70,7 +69,7 @@ type ContextMenuTarget =
 
 type ContextMenuSelectionSnapshot = {
   nodeIds: readonly NodeId[]
-  edgeId?: EdgeId
+  edgeIds: readonly EdgeId[]
 }
 
 type ContextMenuSession = {
@@ -94,23 +93,21 @@ const MenuSafeMargin = 12
 
 const snapshotSelection = (
   nodeIds: readonly NodeId[],
-  edgeId?: EdgeId
+  edgeIds: readonly EdgeId[]
 ): ContextMenuSelectionSnapshot => ({
   nodeIds,
-  edgeId
+  edgeIds
 })
 
 const restoreSelection = (
   instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
   selection: ContextMenuSelectionSnapshot
 ) => {
-  if (selection.edgeId !== undefined) {
-    instance.commands.selection.selectEdge(selection.edgeId)
-    return
-  }
-
-  if (selection.nodeIds.length > 0) {
-    instance.commands.selection.replace(selection.nodeIds)
+  if (selection.nodeIds.length > 0 || selection.edgeIds.length > 0) {
+    instance.commands.selection.replace({
+      nodeIds: selection.nodeIds,
+      edgeIds: selection.edgeIds
+    })
     return
   }
 
@@ -321,9 +318,9 @@ const readContextMenuOpenResult = ({
   input: PointerPick
 }): {
   target: ContextMenuTarget
-  leaveContainer: boolean
+  leaveFrame: boolean
 } | undefined => {
-  const container = instance.state.container.get()
+  const frame = instance.state.frame.get()
   const selection = instance.read.selection.get()
   const world = input.point.world
   const pick = input.pick
@@ -335,18 +332,18 @@ const readContextMenuOpenResult = ({
         nodeIds: selection.target.nodeIds,
         world
       },
-      leaveContainer: false
+      leaveFrame: false
     }
   }
 
   if (pick.kind === 'node') {
-    if (pick.part === 'container' && pick.id === container.id) {
+    if (pick.part === 'container' && pick.id === frame.id) {
       return {
         target: {
           kind: 'canvas',
           world
         },
-        leaveContainer: false
+        leaveFrame: false
       }
     }
 
@@ -362,7 +359,7 @@ const readContextMenuOpenResult = ({
             nodeId: pick.id,
             world
           },
-      leaveContainer: !hasNode(container, pick.id)
+      leaveFrame: !hasNode(frame, pick.id)
     }
   }
 
@@ -376,18 +373,18 @@ const readContextMenuOpenResult = ({
         edgeId: pick.id,
         world
       },
-      leaveContainer: !hasEdge(container, entry.edge)
+      leaveFrame: !hasEdge(frame, entry.edge)
     }
   }
 
-  const activeRect = container.id
-    ? instance.read.index.node.get(container.id)?.rect
+  const activeRect = frame.id
+    ? instance.read.index.node.get(frame.id)?.rect
     : undefined
-  const insideActiveContainer = Boolean(
+  const insideActiveFrame = Boolean(
     activeRect && isPointInRect(world, activeRect)
   )
 
-  if (!insideActiveContainer) {
+  if (!insideActiveFrame) {
     const containerNodeId = instance.read.node.containerAt(world)
     if (containerNodeId) {
       return {
@@ -402,7 +399,7 @@ const readContextMenuOpenResult = ({
             nodeId: containerNodeId,
             world
           },
-        leaveContainer: !hasNode(container, containerNodeId)
+        leaveFrame: !hasNode(frame, containerNodeId)
       }
     }
   }
@@ -412,7 +409,7 @@ const readContextMenuOpenResult = ({
       kind: 'canvas',
       world
     },
-    leaveContainer: Boolean(container.id)
+    leaveFrame: Boolean(frame.id)
   }
 }
 
@@ -444,11 +441,11 @@ export const ContextMenu = ({
 
   const open = useCallback((result: {
     target: ContextMenuTarget
-    leaveContainer: boolean
+    leaveFrame: boolean
     screen: Point
   }) => {
-    if (result.leaveContainer) {
-      instance.commands.container.exit()
+    if (result.leaveFrame) {
+      instance.commands.frame.exit()
     }
 
     const selection = instance.read.selection.get()
@@ -457,7 +454,7 @@ export const ContextMenu = ({
       target: result.target,
       selection: snapshotSelection(
         selection.target.nodeIds,
-        selection.target.edgeId
+        selection.target.edgeIds
       )
     })
     setSubmenuKey(null)
@@ -531,58 +528,10 @@ export const ContextMenu = ({
     const target = resolveContextMenuTarget(instance, session.target)
     if (!target) return undefined
 
-    const buildGroupSection = (
-      node: WhiteboardNode
-    ): NodeMenuGroup => {
-      const collapsed = Boolean(node.data?.collapsed)
-      const autoFit: GroupAutoFitMode =
-        node.data?.autoFit === 'manual'
-          ? 'manual'
-          : 'expand-only'
-
-      return {
-        key: 'group',
-        title: 'Group',
-        items: [
-          {
-            key: 'group.toggle-collapse',
-            label: collapsed ? 'Expand' : 'Collapse',
-            onClick: () => {
-              closeAfter(instance.commands.node.updateData(node.id, {
-                collapsed: !collapsed
-              }), dismissAction)
-            }
-          },
-          {
-            key: 'group.auto-fit-expand-only',
-            label: autoFit === 'expand-only'
-              ? 'Auto fit: expand-only'
-              : 'Set auto fit: expand-only',
-            onClick: () => {
-              closeAfter(instance.commands.node.updateData(node.id, {
-                autoFit: 'expand-only'
-              }), dismissAction)
-            }
-          },
-          {
-            key: 'group.auto-fit-manual',
-            label: autoFit === 'manual'
-              ? 'Auto fit: manual'
-              : 'Set auto fit: manual',
-            onClick: () => {
-              closeAfter(instance.commands.node.updateData(node.id, {
-                autoFit: 'manual'
-              }), dismissAction)
-            }
-          }
-        ]
-      }
-    }
-
     const readMenu = (): ContextMenuView => {
       switch (target.kind) {
         case 'canvas': {
-          const container = instance.state.container.get()
+          const frame = instance.state.frame.get()
           return {
             groups: [
               {
@@ -594,7 +543,7 @@ export const ContextMenu = ({
                     label: 'Paste',
                     onClick: () => paste(instance, {
                       at: target.world,
-                      parentId: container.id
+                      containerId: frame.id
                     })
                   }
                 ]
@@ -611,7 +560,7 @@ export const ContextMenu = ({
                         instance,
                         preset,
                         world: target.world,
-                        parentId: container.id
+                        containerId: frame.id
                       }),
                       dismissAction
                     )
@@ -674,18 +623,6 @@ export const ContextMenu = ({
           if (styleGroup) {
             groups.unshift(bindNodeMenuGroup(styleGroup, dismissAction))
           }
-          if (target.node.type === 'group') {
-            const groupSection = bindNodeMenuGroup(
-              buildGroupSection(target.node),
-              dismissAction
-            )
-            const structureIndex = groups.findIndex((group) => group.key === 'structure')
-            if (structureIndex >= 0) {
-              groups.splice(structureIndex + 1, 0, groupSection)
-            } else {
-              groups.push(groupSection)
-            }
-          }
           return {
             filter: readNodeMenuFilter(actions, dismissAction),
             groups
@@ -724,14 +661,14 @@ export const ContextMenu = ({
                     key: 'edge.copy',
                     label: 'Copy',
                     onClick: () => copy(instance, {
-                      edgeId: target.edgeId
+                      edgeIds: [target.edgeId]
                     })
                   },
                   {
                     key: 'edge.cut',
                     label: 'Cut',
                     onClick: () => cut(instance, {
-                      edgeId: target.edgeId
+                      edgeIds: [target.edgeId]
                     })
                   },
                   {

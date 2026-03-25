@@ -27,10 +27,7 @@ export const useCanvasClipboard = ({
 
     const hasSelectionTarget = () => {
       const selection = instance.read.selection.get()
-      return (
-        selection.target.edgeId !== undefined
-        || selection.target.nodeIds.length > 0
-      )
+      return selection.items.count > 0
     }
 
     const onPointerMove = (event: PointerEvent) => {

@@ -20,7 +20,7 @@ export const useMindmapDrag = () => {
   const clear = useCallback(() => {
     activeRef.current = null
     sessionRef.current = null
-    instance.internals.mindmap.drag.clear()
+    instance.internals.mindmapDrag.clear()
   }, [instance])
 
   const cancel = useCallback(() => {
@@ -54,7 +54,7 @@ export const useMindmapDrag = () => {
     activeRef.current = {
       ...next
     }
-    instance.internals.mindmap.drag.write(toMindmapDragState(next))
+    instance.internals.mindmapDrag.write(toMindmapDragState(next))
   }, [instance])
 
   useEffect(() => () => {
@@ -162,7 +162,7 @@ export const useMindmapDrag = () => {
       ...next
     }
     sessionRef.current = nextSession
-    instance.internals.mindmap.drag.write(toMindmapDragState(next))
+    instance.internals.mindmapDrag.write(toMindmapDragState(next))
     event.preventDefault()
     event.stopPropagation()
     return true

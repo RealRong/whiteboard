@@ -3,7 +3,6 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgePreview } from '../../features/edge/preview'
-import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
 import type { ReadStore } from '@whiteboard/core/runtime'
 import type { Source as SelectionSource } from '../selection'
 import type { Tool } from '../tool'
@@ -20,7 +19,6 @@ import {
   type ChromeRead
 } from './chrome'
 import { createEdgeRead } from './edge'
-import { createMindmapRead } from './mindmap'
 import { createToolRead, type ToolRead } from './tool'
 import {
   createSelectionRead,
@@ -33,9 +31,10 @@ import {
 import type { PickRuntime } from '../pick'
 import type { ViewportRead } from '../viewport'
 
-export type RuntimeRead = Omit<EngineRead, 'node'> & {
+export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
   history: ReadStore<HistoryState>
   node: NodeRead
+  edge: ReturnType<typeof createEdgeRead>
   chrome: ChromeRead
   selection: SelectionRead
   tool: ToolRead
@@ -53,8 +52,7 @@ export const createRuntimeRead = ({
   pick,
   viewport,
   node,
-  edge,
-  mindmap
+  edge
 }: {
   engineRead: EngineRead
   registry: NodeRegistry
@@ -65,9 +63,8 @@ export const createRuntimeRead = ({
   interaction: ReadStore<InteractionMode>
   pick: PickRuntime
   viewport: ViewportRead
-  node: Pick<NodeFeatureRuntime, 'session' | 'chromeHidden'>
+  node: Pick<NodeFeatureRuntime, 'session'>
   edge: Pick<EdgePreview, 'patch'>
-  mindmap: Pick<MindmapFeatureRuntime, 'drag'>
 }): RuntimeRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
@@ -80,8 +77,10 @@ export const createRuntimeRead = ({
   })
   const selectionRead = createSelectionRead({
     source: selection,
+    nodeList: engineRead.node.list,
     nodeItem,
     edgeItem: edgeRead.item,
+    edgeBounds: edgeRead.bounds,
     registry,
     resolveNodeTransform
   })
@@ -94,12 +93,7 @@ export const createRuntimeRead = ({
     tool,
     edit,
     selection: selectionRead,
-    interaction,
-    chromeHidden: node.chromeHidden
-  })
-  const mindmapRead = createMindmapRead({
-    read: engineRead,
-    session: mindmap.drag
+    interaction
   })
 
   return {
@@ -109,7 +103,7 @@ export const createRuntimeRead = ({
     node: nodeRead,
     chrome: chromeRead,
     edge: edgeRead,
-    mindmap: mindmapRead,
+    mindmap: engineRead.mindmap,
     selection: selectionRead,
     tree: engineRead.tree,
     slice: engineRead.slice,

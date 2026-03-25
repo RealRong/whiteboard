@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import {
   useInternalInstance,
-  useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import type { NodeGesture } from '../gesture'
+import { useSelection } from '../selection'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = ({
@@ -15,7 +15,6 @@ export const NodeSceneLayer = ({
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
-  const chrome = useStoreValue(instance.read.chrome.node)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
@@ -31,7 +30,7 @@ export const NodeSceneLayer = ({
           key={nodeId}
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
-          selected={selectedSet.has(nodeId) && chrome.selection}
+          selected={selectedSet.has(nodeId)}
           onNodeDoubleClick={gesture.doubleClick}
         />
       ))}

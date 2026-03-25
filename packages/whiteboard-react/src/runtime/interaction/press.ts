@@ -14,13 +14,7 @@ export type PressStartInput = {
   holdDelay?: number
   onHold?: () => void
   onTap?: (event: PointerEvent) => void
-  onDragStart?: (
-    event: PointerEvent,
-    state: {
-      held: boolean
-    }
-  ) => void
-  onCleanup?: () => void
+  onDragStart?: (event: PointerEvent) => void
 }
 
 export type PressRuntime = {
@@ -34,7 +28,6 @@ export const createPressRuntime = (
   let session: InteractionSession | null = null
   let current: PressStartInput | null = null
   let holdTimer: number | null = null
-  let held = false
 
   const clearHoldTimer = () => {
     if (holdTimer === null || typeof window === 'undefined') {
@@ -47,11 +40,8 @@ export const createPressRuntime = (
 
   const clear = () => {
     clearHoldTimer()
-    const cleanup = current?.onCleanup
     session = null
     current = null
-    held = false
-    cleanup?.()
   }
 
   return {
@@ -78,12 +68,9 @@ export const createPressRuntime = (
             return
           }
 
-          const wasHeld = held
           const onDragStart = active.onDragStart
           currentSession.finish()
-          onDragStart?.(event, {
-            held: wasHeld
-          })
+          onDragStart?.(event)
         },
         up: (event, currentSession) => {
           const active = current
@@ -91,10 +78,7 @@ export const createPressRuntime = (
             return
           }
 
-          if (!held) {
-            active.onTap?.(event)
-          }
-
+          active.onTap?.(event)
           currentSession.finish()
         }
       })
@@ -111,11 +95,11 @@ export const createPressRuntime = (
         && typeof window !== 'undefined'
       ) {
         holdTimer = window.setTimeout(() => {
-          if (current !== input) {
+          if (current !== input || !session) {
             return
           }
 
-          held = true
+          session.finish()
           input.onHold?.()
         }, input.holdDelay)
       }

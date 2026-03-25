@@ -6,18 +6,24 @@ import {
   createValueStore,
   type ReadStore
 } from '@whiteboard/core/runtime'
-import type { NodeId, Rect } from '@whiteboard/core/types'
-import { useStoreValue } from '../../../runtime/hooks'
-import { GestureTuning } from '../../../runtime/interaction'
-import type { InternalInstance } from '../../../runtime/instance'
-import { createRafTask } from '../../../runtime/utils/rafTask'
-import type { ViewportPointer } from '../../../runtime/viewport'
+import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
+import { useStoreValue } from '../../runtime/hooks'
+import { GestureTuning } from '../../runtime/interaction'
+import type { InternalInstance } from '../../runtime/instance'
+import { createRafTask } from '../../runtime/utils/rafTask'
+import type { ViewportPointer } from '../../runtime/viewport'
 
 export type MarqueeMatch = 'touch' | 'contain'
+
+export type MarqueeItems = {
+  nodeIds: readonly NodeId[]
+  edgeIds: readonly EdgeId[]
+}
 
 export type MarqueeEnd = {
   moved: boolean
   nodeIds: readonly NodeId[]
+  edgeIds: readonly EdgeId[]
 }
 
 export type MarqueeStartInput = {
@@ -25,8 +31,9 @@ export type MarqueeStartInput = {
   capture: Element
   start: ViewportPointer
   scope?: ReadonlySet<NodeId>
+  edgeFilter?: (edgeId: EdgeId) => boolean
   match: MarqueeMatch
-  onChange?: (nodeIds: readonly NodeId[]) => void
+  onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
 }
 
@@ -34,10 +41,11 @@ type ActiveMarquee = {
   pointerId: number
   start: ViewportPointer
   scope?: ReadonlySet<NodeId>
+  edgeFilter?: (edgeId: EdgeId) => boolean
   match: MarqueeMatch
-  latestNodeIds?: NodeId[]
+  latest?: MarqueeItems
   emittedKey: string
-  onChange?: (nodeIds: readonly NodeId[]) => void
+  onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
 }
 
@@ -48,7 +56,12 @@ export type MarqueeSession = {
   cancel: () => void
 }
 
-const toNodeIdKey = (nodeIds: Iterable<NodeId>) => [...nodeIds].sort().join('|')
+const toItemsKey = (
+  items: MarqueeItems
+) => [
+  [...items.nodeIds].sort().join('|'),
+  [...items.edgeIds].sort().join('|')
+].join('::')
 
 const projectWorldRect = (
   instance: InternalInstance,
@@ -93,31 +106,44 @@ export const createMarqueeSession = (
   let active: ActiveMarquee | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
 
-  const readMatchedNodeIds = (
+  const readMatchedItems = (
     queryRect: Rect,
     scope: ReadonlySet<NodeId> | undefined,
+    edgeFilter: ((edgeId: EdgeId) => boolean) | undefined,
     match: MarqueeMatch
-  ) => {
+  ): MarqueeItems => {
     const matchedNodeIds = instance.read.node.idsInRect(queryRect, {
       match
     })
-    return scope
+    const nodeIds = scope
       ? matchedNodeIds.filter((nodeId) => scope.has(nodeId))
       : matchedNodeIds
+    const edgeIds = instance.read.edge.idsInRect(queryRect, {
+      match
+    }).filter((edgeId) => (
+      edgeFilter
+        ? edgeFilter(edgeId)
+        : true
+    ))
+
+    return {
+      nodeIds,
+      edgeIds
+    }
   }
 
   const flushChange = () => {
-    if (!active || active.latestNodeIds === undefined) {
+    if (!active || active.latest === undefined) {
       return
     }
 
-    const nextKey = toNodeIdKey(active.latestNodeIds)
+    const nextKey = toItemsKey(active.latest)
     if (nextKey === active.emittedKey) {
       return
     }
 
     active.emittedKey = nextKey
-    active.onChange?.(active.latestNodeIds)
+    active.onChange?.(active.latest)
   }
 
   const flushTask = createRafTask(flushChange)
@@ -145,16 +171,17 @@ export const createMarqueeSession = (
     const dy = Math.abs(current.screen.y - active.start.screen.y)
 
     if (
-      active.latestNodeIds === undefined
+      active.latest === undefined
       && dx < GestureTuning.dragMinDistance
       && dy < GestureTuning.dragMinDistance
     ) {
       return false
     }
 
-    active.latestNodeIds = readMatchedNodeIds(
+    active.latest = readMatchedItems(
       rectFromPoints(active.start.world, current.world),
       active.scope,
+      active.edgeFilter,
       active.match
     )
     worldRect.set(rectFromPoints(active.start.world, current.world))
@@ -170,6 +197,7 @@ export const createMarqueeSession = (
       capture,
       start,
       scope,
+      edgeFilter,
       match,
       onChange,
       onEnd
@@ -184,7 +212,7 @@ export const createMarqueeSession = (
         capture,
         pan: {
           frame: (pointer) => {
-            if (!active || active.latestNodeIds === undefined) {
+            if (!active || active.latest === undefined) {
               return
             }
 
@@ -202,22 +230,25 @@ export const createMarqueeSession = (
             return
           }
 
-          if (active.latestNodeIds !== undefined) {
+          if (active.latest !== undefined) {
             const current = instance.viewport.pointer(upEvent)
-            active.latestNodeIds = readMatchedNodeIds(
+            active.latest = readMatchedItems(
               rectFromPoints(active.start.world, current.world),
               active.scope,
+              active.edgeFilter,
               active.match
             )
             flushChange()
             active.onEnd?.({
               moved: true,
-              nodeIds: active.latestNodeIds
+              nodeIds: active.latest.nodeIds,
+              edgeIds: active.latest.edgeIds
             })
           } else {
             active.onEnd?.({
               moved: false,
-              nodeIds: []
+              nodeIds: [],
+              edgeIds: []
             })
           }
 
@@ -232,6 +263,7 @@ export const createMarqueeSession = (
         pointerId,
         start,
         scope,
+        edgeFilter,
         match,
         emittedKey: '',
         onChange,

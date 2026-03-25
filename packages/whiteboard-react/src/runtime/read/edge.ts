@@ -1,9 +1,14 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
-import { resolveEdgeEnds } from '@whiteboard/core/edge'
+import {
+  getEdgePath,
+  getEdgePathBounds,
+  matchEdgeRect,
+  resolveEdgeEnds
+} from '@whiteboard/core/edge'
 import { createKeyedDerivedStore } from '@whiteboard/core/runtime'
 import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
-import type { EdgeId, NodeId } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import {
   projectEdgeItem,
@@ -42,14 +47,16 @@ export const createEdgeRead = ({
   read: Pick<EngineRead, 'edge'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
   patch: EdgePatchReader
-}): {
-  list: EngineRead['edge']['list']
-  item: KeyedReadStore<EdgeId, EdgeItem | undefined>
-  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
-} => ({
-  list: read.edge.list,
-  related: read.edge.related,
-  item: createKeyedDerivedStore({
+	}): {
+	  list: EngineRead['edge']['list']
+	  item: KeyedReadStore<EdgeId, EdgeItem | undefined>
+	  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
+	  bounds: (edgeId: EdgeId) => Rect | undefined
+	  idsInRect: (rect: Rect, options?: {
+	    match?: 'touch' | 'contain'
+	  }) => EdgeId[]
+	} => {
+  const item = createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
       const entry = readStore(read.edge.item, edgeId)
       if (!entry) {
@@ -88,4 +95,47 @@ export const createEdgeRead = ({
     },
     isEqual: isEdgeItemEqual
   })
-})
+
+  const readEdgePath = (edgeId: EdgeId) => {
+    const entry = item.get(edgeId)
+    if (!entry) {
+      return undefined
+    }
+
+    return getEdgePath({
+      edge: entry.edge,
+      source: {
+        point: entry.ends.source.point,
+        side: entry.ends.source.anchor?.side
+      },
+      target: {
+        point: entry.ends.target.point,
+        side: entry.ends.target.anchor?.side
+      }
+    })
+  }
+
+  return {
+    list: read.edge.list,
+    item,
+    related: read.edge.related,
+    bounds: (edgeId) => {
+      const path = readEdgePath(edgeId)
+      return path
+        ? getEdgePathBounds(path)
+        : undefined
+    },
+    idsInRect: (rect, options) => read.edge.list.get().filter((edgeId) => {
+      const path = readEdgePath(edgeId)
+      if (!path) {
+        return false
+      }
+
+      return matchEdgeRect({
+        path,
+        queryRect: rect,
+        mode: options?.match ?? 'touch'
+      })
+    })
+  }
+}

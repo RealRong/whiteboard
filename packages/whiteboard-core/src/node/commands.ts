@@ -63,6 +63,16 @@ type BuildNodeLayoutOperationsInput = {
   nodeSize: Size
 }
 
+const readSharedRelation = (
+  nodes: readonly Node[],
+  key: 'containerId' | 'groupId'
+) => {
+  const first = nodes[0]?.[key]
+  return nodes.every((node) => node[key] === first)
+    ? first
+    : undefined
+}
+
 const readLayoutEntries = ({
   ids,
   doc,
@@ -125,7 +135,10 @@ export const buildNodeCreateOperation = ({
   const node: Node = {
     ...normalized,
     id,
-    layer: normalized.type === 'group' ? (normalized.layer ?? 'background') : normalized.layer
+    layer:
+      normalized.type === 'group' || normalized.type === 'frame'
+        ? (normalized.layer ?? 'background')
+        : normalized.layer
   }
 
   return ok({
@@ -162,6 +175,8 @@ export const buildNodeGroupOperations = ({
   const maxX = Math.max(...nodes.map((node) => node.position.x + (node.size?.width ?? nodeSize.width)))
   const maxY = Math.max(...nodes.map((node) => node.position.y + (node.size?.height ?? nodeSize.height)))
   const groupId = createGroupId()
+  const containerId = readSharedRelation(nodes, 'containerId')
+  const parentGroupId = readSharedRelation(nodes, 'groupId')
 
   return ok({
     groupId,
@@ -176,13 +191,15 @@ export const buildNodeGroupOperations = ({
           size: {
             width: Math.max(0, maxX - minX),
             height: Math.max(0, maxY - minY)
-          }
+          },
+          containerId,
+          groupId: parentGroupId
         }
       },
       ...nodes.map((node) => ({
         type: 'node.update' as const,
         id: node.id,
-        patch: { parentId: groupId }
+        patch: { groupId }
       }))
     ]
   })
@@ -278,13 +295,13 @@ export const buildNodeUngroupManyOperations = (
 
   const childrenByParent = new Map<NodeId, Node[]>()
   listNodes(doc).forEach((node) => {
-    if (!node.parentId) return
-    const siblings = childrenByParent.get(node.parentId)
+    if (!node.groupId) return
+    const siblings = childrenByParent.get(node.groupId)
     if (siblings) {
       siblings.push(node)
       return
     }
-    childrenByParent.set(node.parentId, [node])
+    childrenByParent.set(node.groupId, [node])
   })
 
   const operations: Operation[] = []
@@ -298,7 +315,7 @@ export const buildNodeUngroupManyOperations = (
       ...children.map((node) => ({
         type: 'node.update' as const,
         id: node.id,
-        patch: { parentId: undefined }
+        patch: { groupId: undefined }
       })),
       {
         type: 'node.delete' as const,

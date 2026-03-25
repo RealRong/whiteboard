@@ -33,6 +33,7 @@ export type NodeDefinition = {
   describe?: (node: Node) => NodeMeta
   scene?: NodeScene
   hit?: NodeHit
+  connect?: boolean
   schema?: NodeSchema
   defaultData?: Record<string, unknown>
   render: (props: NodeRenderProps) => ReactNode

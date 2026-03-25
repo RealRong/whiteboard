@@ -92,7 +92,8 @@ const NODE_LIST_KEYS = new Set<keyof NodePatch>([
   'type',
   'layer',
   'zIndex',
-  'parentId'
+  'containerId',
+  'groupId'
 ])
 
 const NODE_VALUE_KEYS = new Set<keyof NodePatch>([
@@ -124,14 +125,6 @@ const isMindmapNode = (node: Node | undefined) =>
 
 const isCanvasNode = (node: Node | undefined) =>
   Boolean(node && node.type !== 'mindmap')
-
-const getCollapsed = (node: Node | undefined) =>
-  Boolean(
-    node?.type === 'group' &&
-    node.data &&
-    typeof node.data.collapsed === 'boolean' &&
-    node.data.collapsed
-  )
 
 const addNodeId = (ids: Set<NodeId>, id: NodeId) => {
   ids.add(id)
@@ -268,8 +261,7 @@ const trackReadImpact = (
       const afterIsMindmap = isMindmapNode(after)
       const beforeIsCanvas = isCanvasNode(before)
       const afterIsCanvas = isCanvasNode(after)
-      const collapsedChanged = getCollapsed(before) !== getCollapsed(after)
-      const nodeList = patch.list || beforeIsCanvas !== afterIsCanvas || collapsedChanged
+      const nodeList = patch.list || beforeIsCanvas !== afterIsCanvas
       const nodeChanged = patch.geometry || nodeList || patch.value
 
       if (beforeIsCanvas || afterIsCanvas) {

@@ -8,9 +8,12 @@ import type {
 import type { MindmapLayoutConfig } from '../../types/mindmap'
 import type { RuntimeRead } from '../read'
 import type {
-  Container
-} from '../container'
-import type { Source as SelectionSource } from '../selection'
+  FrameScope
+} from '../frame'
+import type {
+  Input as SelectionInput,
+  Source as SelectionSource
+} from '../selection'
 import type {
   ViewportCommands,
   ViewportRead
@@ -24,11 +27,18 @@ import type {
 import type { SnapRuntime } from '../interaction/snap'
 import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
 import type { EdgePreview } from '../../features/edge/preview'
-import type { MindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
-import type { EdgePresetKey, Tool } from '../tool'
+import type { MindmapDragStore } from '../../features/mindmap/session/drag'
+import type {
+  DrawKind,
+  EdgePresetKey,
+  Tool
+} from '../tool'
 import type { EditField, EditTarget } from '../edit'
-import type { DrawCommands, DrawStyles } from '../../features/draw/state'
-import type { DrawPresetKey } from '../tool'
+import type {
+  BrushStylePatch,
+  DrawSlot,
+  DrawState
+} from '../../features/draw/state'
 import type { PickRuntime } from '../pick'
 
 type EngineCommands = EngineInstance['commands']
@@ -37,10 +47,10 @@ export type WhiteboardInstance = {
   read: RuntimeRead
   state: {
     tool: ReadStore<Tool>
-    draw: ReadStore<DrawStyles>
+    draw: ReadStore<DrawState>
     edit: ReadStore<EditTarget>
     selection: ReadStore<SelectionSource>
-    container: ReadStore<Container>
+    frame: ReadStore<FrameScope>
     interaction: ReadStore<InteractionMode>
   }
   commands: Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
@@ -50,23 +60,25 @@ export type WhiteboardInstance = {
       hand: () => void
       edge: (preset?: EdgePresetKey) => void
       insert: (preset: string) => void
-      draw: (preset?: DrawPresetKey) => void
+      draw: (kind?: DrawKind) => void
     }
-    draw: DrawCommands
+    draw: {
+      slot: (slot: DrawSlot) => void
+      patch: (patch: BrushStylePatch) => void
+    }
     edit: {
       start: (nodeId: NodeId, field: EditField) => void
       clear: () => void
     }
     selection: {
-      replace: (nodeIds: readonly NodeId[]) => void
-      add: (nodeIds: readonly NodeId[]) => void
-      remove: (nodeIds: readonly NodeId[]) => void
-      toggle: (nodeIds: readonly NodeId[]) => void
-      selectEdge: (edgeId: EdgeId) => void
+      replace: (input: SelectionInput) => void
+      add: (input: SelectionInput) => void
+      remove: (input: SelectionInput) => void
+      toggle: (input: SelectionInput) => void
       selectAll: () => void
       clear: () => void
     }
-    container: {
+    frame: {
       enter: (nodeId: NodeId) => void
       exit: () => void
       clear: () => void
@@ -100,6 +112,6 @@ export type InternalInstance = WhiteboardInstance & {
     edge: {
       preview: EdgePreview
     }
-    mindmap: MindmapFeatureRuntime
+    mindmapDrag: MindmapDragStore
   }
 }

@@ -16,7 +16,7 @@ import {
 import type { CanvasDown } from '../../../runtime/input/down'
 import {
   hasEdge
-} from '../../../runtime/container'
+} from '../../../runtime/frame'
 import { useInternalInstance, useTool } from '../../../runtime/hooks'
 import { readEdgeType } from '../../../runtime/tool'
 import { createRafTask } from '../../../runtime/utils/rafTask'
@@ -100,6 +100,11 @@ export const useEdgeConnectInput = ({
     pointer: ConnectPointer,
     edgeType: EdgeType
   ): EdgeConnectState | undefined => {
+    const node = instance.read.node.item.get(nodeId)?.node
+    if (!node || !instance.read.node.connect(node)) {
+      return undefined
+    }
+
     const entry = instance.read.index.node.get(nodeId)
     if (!entry) {
       return undefined
@@ -136,6 +141,11 @@ export const useEdgeConnectInput = ({
     pointer: ConnectPointer,
     edgeType: EdgeType
   ): EdgeConnectState | undefined => {
+    const node = instance.read.node.item.get(nodeId)?.node
+    if (!node || !instance.read.node.connect(node)) {
+      return undefined
+    }
+
     const entry = instance.read.index.node.get(nodeId)
     if (!entry) {
       return undefined
@@ -435,7 +445,10 @@ export const useEdgeConnectInput = ({
 
     const state = beginFromNode(pick.id, pointerState, edgeType)
     if (!state) {
-      return false
+      return startConnectSession({
+        ...event,
+        currentTarget: input.capture
+      }, beginFromPoint(pointerState, edgeType))
     }
 
     return startConnectSession({
@@ -525,11 +538,13 @@ export const useEdgeConnectInput = ({
         return false
       }
 
-      if (!hasEdge(instance.state.container.get(), entry.edge)) {
-        instance.commands.container.exit()
+      if (!hasEdge(instance.state.frame.get(), entry.edge)) {
+        instance.commands.frame.exit()
       }
 
-      instance.commands.selection.selectEdge(edgeId)
+      instance.commands.selection.replace({
+        edgeIds: [edgeId]
+      })
 
       const state = beginReconnect(edgeId, end, readPointer(event))
       if (!state) {

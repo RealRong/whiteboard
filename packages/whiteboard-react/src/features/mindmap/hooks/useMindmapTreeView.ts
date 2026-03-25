@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
-import { useMindmapDragSession } from '../session/drag'
 
 type MindmapLineView = {
   id: string
@@ -65,7 +64,7 @@ export const useMindmapTreeView = (
 ): MindmapTreeViewData | undefined => {
   const instance = useInternalInstance()
   const treeView = useKeyedStoreValue(instance.read.mindmap.item, treeId)
-  const drag = useMindmapDragSession(instance.internals.mindmap.drag)
+  const drag = useStoreValue(instance.internals.mindmapDrag)
   const tree = treeView?.tree
   const root = treeView?.node
   const layout = treeView?.layout

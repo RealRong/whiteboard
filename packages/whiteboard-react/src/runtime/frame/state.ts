@@ -38,7 +38,7 @@ export type Commands = {
   clear: () => void
 }
 
-export type Container = {
+export type FrameScope = {
   id?: NodeId
   ids: readonly NodeId[]
   set?: ReadonlySet<NodeId>
@@ -46,19 +46,19 @@ export type Container = {
 
 type Store = {
   source: ValueStore<NodeId | undefined>
-  store: ReadStore<Container>
+  store: ReadStore<FrameScope>
   commands: Commands
 }
 
 const EMPTY_IDS: readonly NodeId[] = []
 const EMPTY_SET: ReadonlySet<NodeId> = new Set<NodeId>()
-const ROOT: Container = {
+const ROOT: FrameScope = {
   ids: EMPTY_IDS
 }
 
 const isEqual = (
-  left: Container,
-  right: Container
+  left: FrameScope,
+  right: FrameScope
 ) => (
   left.id === right.id
   && isOrderedArrayEqual(left.ids, right.ids)
@@ -69,7 +69,7 @@ export const createState = (
 ): Store => {
   const source = createValueStore<NodeId | undefined>(undefined)
 
-  const store = createDerivedStore<Container>({
+  const store = createDerivedStore<FrameScope>({
     get: (readStore) => {
       const current = readStore(source)
       if (!current) {
@@ -114,28 +114,28 @@ export const createState = (
 }
 
 export const hasNode = (
-  container: Container,
+  frame: FrameScope,
   nodeId: NodeId
 ): boolean => (
-  container.id
-    ? Boolean(container.set?.has(nodeId))
+  frame.id
+    ? Boolean(frame.set?.has(nodeId))
     : true
 )
 
 export const filterNodeIds = (
-  container: Container,
+  frame: FrameScope,
   nodeIds: readonly NodeId[]
 ): readonly NodeId[] => (
-  container.id
-    ? nodeIds.filter((nodeId) => hasNode(container, nodeId))
+  frame.id
+    ? nodeIds.filter((nodeId) => hasNode(frame, nodeId))
     : nodeIds
 )
 
 export const hasEdge = (
-  container: Container,
+  frame: FrameScope,
   edge: Pick<Edge, 'source' | 'target'>
 ): boolean => {
-  if (!container.id) {
+  if (!frame.id) {
     return true
   }
 
@@ -148,7 +148,7 @@ export const hasEdge = (
   }
 
   return (
-    (!isNodeEdgeEnd(edge.source) || hasNode(container, edge.source.nodeId))
-    && (!isNodeEdgeEnd(edge.target) || hasNode(container, edge.target.nodeId))
+    (!isNodeEdgeEnd(edge.source) || hasNode(frame, edge.source.nodeId))
+    && (!isNodeEdgeEnd(edge.target) || hasNode(frame, edge.target.nodeId))
   )
 }

@@ -1,6 +1,8 @@
 import {
+  Eraser,
   GitBranch,
   Hand,
+  Highlighter,
   MousePointer2,
   PencilLine,
   StickyNote,
@@ -23,9 +25,12 @@ import {
   readShapePreviewFill
 } from '../node/shape'
 import {
-  DEFAULT_DRAW_PRESET_KEY,
+  DEFAULT_DRAW_BRUSH_KIND,
+  DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,
-  type DrawPresetKey,
+  isDrawBrushKind,
+  type DrawBrushKind,
+  type DrawKind,
   type EdgePresetKey
 } from '../../runtime/tool'
 import { EdgeMenu, EdgePresetGlyph } from './menus/EdgeMenu'
@@ -34,6 +39,13 @@ import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
 import { ToolIcon } from './ToolIcon'
+import {
+  readDrawSlot,
+  readDrawStyle,
+  type DrawBrush,
+  type DrawState,
+  type DrawSlot
+} from '../draw/state'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_SHAPE_PRESET_KEY,
@@ -54,14 +66,74 @@ type MenuKey =
 const ToolbarInset = 16
 const ToolbarButtonSize = 40
 const MenuOffset = 10
-const MenuWidth = 240
+const MenuWidth: Record<MenuKey, number> = {
+  draw: 360,
+  edge: 240,
+  sticky: 240,
+  shape: 240,
+  mindmap: 240
+}
 
 const MenuApproxHeight: Record<MenuKey, number> = {
-  draw: 244,
+  draw: 324,
   edge: 164,
   sticky: 164,
   shape: 388,
   mindmap: 248
+}
+
+const readMenuWidth = (
+  key: MenuKey,
+  drawKind: DrawKind,
+  drawPanelOpen: boolean
+) => (
+  key === 'draw' && (!drawPanelOpen || drawKind === 'eraser')
+    ? 72
+    : MenuWidth[key]
+)
+
+const readMenuHeight = (
+  key: MenuKey,
+  drawKind: DrawKind,
+  drawPanelOpen: boolean
+) => {
+  if (key !== 'draw') {
+    return MenuApproxHeight[key]
+  }
+
+  if (drawKind === 'eraser') {
+    return 188
+  }
+
+  return drawPanelOpen
+    ? MenuApproxHeight.draw
+    : 292
+}
+
+const DRAW_KIND_ICON = {
+  pen: PencilLine,
+  highlighter: Highlighter,
+  eraser: Eraser
+} as const satisfies Record<DrawKind, typeof PencilLine>
+
+const readBrushState = (
+  state: DrawState,
+  kind: DrawKind
+): {
+  brushKind: DrawBrushKind
+  brush: DrawBrush
+  slot: DrawSlot
+} => {
+  const brushKind = isDrawBrushKind(kind)
+    ? kind
+    : DEFAULT_DRAW_BRUSH_KIND
+  const brush = state[brushKind]
+
+  return {
+    brushKind,
+    brush,
+    slot: readDrawSlot(state, brushKind)
+  }
 }
 
 export const ToolPalette = ({
@@ -75,11 +147,12 @@ export const ToolPalette = ({
   const tool = useTool()
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const drawPresetRef = useRef<DrawPresetKey>(DEFAULT_DRAW_PRESET_KEY)
+  const drawKindRef = useRef<DrawKind>(DEFAULT_DRAW_KIND)
   const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
   const buttonRefByKey = useRef<Partial<Record<MenuKey, HTMLButtonElement | null>>>({})
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
-  const drawStyles = useStoreValue(instance.state.draw)
+  const [drawPanelOpen, setDrawPanelOpen] = useState(false)
+  const drawState = useStoreValue(instance.state.draw)
   const insertGroup = tool.type === 'insert'
     ? readInsertPresetGroup(tool.preset)
     : undefined
@@ -95,14 +168,19 @@ export const ToolPalette = ({
   const edgePreset = tool.type === 'edge'
     ? tool.preset
     : edgePresetRef.current
-  const drawPreset = tool.type === 'draw'
-    ? tool.preset
-    : drawPresetRef.current
-  const drawStyle = drawStyles[drawPreset]
+  const drawKind = tool.type === 'draw'
+    ? tool.kind
+    : drawKindRef.current
+  const drawBrushState = readBrushState(drawState, drawKind)
+  const drawStyle = readDrawStyle(drawState, drawBrushState.brushKind)
+  const drawButtonStyle = isDrawBrushKind(drawKind)
+    ? drawStyle
+    : undefined
+  const DrawButtonIcon = DRAW_KIND_ICON[drawKind]
 
   useEffect(() => {
     if (tool.type === 'draw') {
-      drawPresetRef.current = tool.preset
+      drawKindRef.current = tool.kind
     }
   }, [tool])
 
@@ -122,22 +200,24 @@ export const ToolPalette = ({
       return undefined
     }
 
-    const estimatedHeight = MenuApproxHeight[openMenu]
+    const estimatedHeight = readMenuHeight(openMenu, drawKind, drawPanelOpen)
     const centerY = ToolbarInset + button.offsetTop + button.offsetHeight / 2
     const minCenter = ToolbarInset + estimatedHeight / 2
     const maxCenter = Math.max(minCenter, surface.height - ToolbarInset - estimatedHeight / 2)
     const minLeft = ToolbarInset + ToolbarButtonSize + MenuOffset
-    const maxLeft = Math.max(ToolbarInset, surface.width - MenuWidth - ToolbarInset)
+    const menuWidth = readMenuWidth(openMenu, drawKind, drawPanelOpen)
+    const maxLeft = Math.max(ToolbarInset, surface.width - menuWidth - ToolbarInset)
 
     return {
       left: Math.min(minLeft, maxLeft),
       top: Math.min(maxCenter, Math.max(minCenter, centerY)),
-      width: MenuWidth
+      width: menuWidth
     }
-  }, [openMenu, surface.height, surface.width])
+  }, [drawKind, drawPanelOpen, openMenu, surface.height, surface.width])
 
   const closeMenu = () => {
     setOpenMenu(null)
+    setDrawPanelOpen(false)
   }
 
   useEffect(() => {
@@ -299,25 +379,34 @@ export const ToolPalette = ({
           data-active={tool.type === 'draw' ? 'true' : undefined}
           onClick={() => {
             if (tool.type !== 'draw') {
-              instance.commands.tool.draw(drawPreset)
+              instance.commands.tool.draw(drawKind)
+              setDrawPanelOpen(false)
               setOpenMenu('draw')
               return
             }
 
-            setOpenMenu((current) => current === 'draw' ? null : 'draw')
+            if (openMenu === 'draw') {
+              closeMenu()
+              return
+            }
+
+            setDrawPanelOpen(false)
+            setOpenMenu('draw')
           }}
           data-selection-ignore
           data-input-ignore
           title="Draw"
         >
-          <span
-            className="wb-left-toolbar-button-tint"
-            style={{
-              background: drawStyle.color,
-              opacity: drawStyle.opacity
-            }}
-          />
-          <ToolIcon icon={PencilLine} />
+          {drawButtonStyle ? (
+            <span
+              className="wb-left-toolbar-button-tint"
+              style={{
+                background: drawButtonStyle.color,
+                opacity: drawButtonStyle.opacity
+              }}
+            />
+          ) : null}
+          <ToolIcon icon={DrawButtonIcon} />
         </button>
         <button
           ref={(element) => {
@@ -336,7 +425,42 @@ export const ToolPalette = ({
           <ToolIcon icon={GitBranch} />
         </button>
       </div>
-      {openMenu && menuStyle ? (
+      {openMenu === 'draw' && menuStyle ? (
+        <div
+          className="wb-left-toolbar-draw-floating"
+          style={{
+            left: menuStyle.left,
+            top: menuStyle.top,
+            transform: 'translateY(-50%)'
+          }}
+          data-selection-ignore
+          data-input-ignore
+        >
+          <DrawMenu
+            kind={drawKind}
+            activeSlot={drawBrushState.slot}
+            slots={drawBrushState.brush.slots}
+            panelOpen={drawPanelOpen}
+            onKind={(value) => {
+              setDrawPanelOpen(false)
+              instance.commands.tool.draw(value)
+            }}
+            onSlot={(value) => {
+              if (value === drawBrushState.slot) {
+                setDrawPanelOpen((current) => !current)
+                return
+              }
+
+              instance.commands.draw.slot(value)
+              setDrawPanelOpen(true)
+            }}
+            onPatch={(patch) => {
+              instance.commands.draw.patch(patch)
+            }}
+          />
+        </div>
+      ) : null}
+      {openMenu && openMenu !== 'draw' && menuStyle ? (
         <div
           className="wb-left-toolbar-menu"
           style={{
@@ -348,21 +472,6 @@ export const ToolPalette = ({
           data-selection-ignore
           data-input-ignore
         >
-          {openMenu === 'draw' ? (
-            <DrawMenu
-              preset={drawPreset}
-              style={drawStyle}
-              onPreset={(value) => {
-                instance.commands.tool.draw(value)
-              }}
-              onColor={(value) => {
-                instance.commands.draw.patch(drawPreset, { color: value })
-              }}
-              onWidth={(value) => {
-                instance.commands.draw.patch(drawPreset, { width: value })
-              }}
-            />
-          ) : null}
           {openMenu === 'edge' ? (
             <EdgeMenu
               value={edgePreset}

@@ -20,6 +20,8 @@ export type ResolvedDrawStroke = Readonly<{
 const DRAW_PATH_SAMPLE_STEPS = 8
 const DEFAULT_COMPACT_GROWTH = 1.35
 const DEFAULT_COMPACT_PASSES = 4
+const DEFAULT_DRAW_RESOLVE_TOLERANCE_SCREEN = 0.75
+const DEFAULT_DRAW_RESOLVE_MAX_POINTS = 640
 
 const isFinitePoint = (
   value: unknown
@@ -348,6 +350,29 @@ export const compactDrawPoints = ({
   }
 
   return next
+}
+
+export const resolveDrawPoints = ({
+  points,
+  zoom,
+  toleranceScreen = DEFAULT_DRAW_RESOLVE_TOLERANCE_SCREEN,
+  maxPoints = DEFAULT_DRAW_RESOLVE_MAX_POINTS
+}: {
+  points: readonly Point[]
+  zoom: number
+  toleranceScreen?: number
+  maxPoints?: number
+}) => {
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+  const budget = Number.isFinite(maxPoints) && maxPoints > 0
+    ? Math.floor(maxPoints)
+    : undefined
+
+  return compactDrawPoints({
+    points,
+    tolerance: toleranceScreen / safeZoom,
+    budget
+  })
 }
 
 export const readDrawBaseSize = (

@@ -69,26 +69,6 @@ export const deriveVisibleEdges = (
   return orderByIds(visibleEdges, edgeOrder ?? EMPTY_EDGE_IDS)
 }
 
-const isCollapsedGroup = (node: Node) =>
-  node.type === 'group' &&
-  node.data &&
-  typeof node.data.collapsed === 'boolean' &&
-  node.data.collapsed
-
-const isHiddenByCollapsedGroup = (
-  node: Node,
-  nodeById: ReadonlyMap<NodeId, Node>,
-  collapsedGroupIds: ReadonlySet<NodeId>
-) => {
-  let parentId = node.parentId
-  while (parentId) {
-    if (collapsedGroupIds.has(parentId)) return true
-    const parent = nodeById.get(parentId)
-    parentId = parent?.parentId
-  }
-  return false
-}
-
 export const deriveNodeReadSlices = (
   nodes: EntityCollection<NodeId, Node>
 ): NodeReadSlices => {
@@ -102,26 +82,11 @@ export const deriveNodeReadSlices = (
     }
   }
 
-  const nodeById = new Map<NodeId, Node>()
-  const collapsedGroupIds = new Set<NodeId>()
-
-  ordered.forEach((node) => {
-    nodeById.set(node.id, node)
-    if (isCollapsedGroup(node)) {
-      collapsedGroupIds.add(node.id)
-    }
-  })
-
   const visible: Node[] = []
   const canvas: Node[] = []
   const canvasNodeById = new Map<NodeId, Node>()
 
   ordered.forEach((node) => {
-    const hidden =
-      collapsedGroupIds.size > 0 &&
-      isHiddenByCollapsedGroup(node, nodeById, collapsedGroupIds)
-    if (hidden) return
-
     visible.push(node)
     if (node.type !== 'mindmap') {
       canvas.push(node)

@@ -28,6 +28,7 @@ export const NodeItem = memo(({
   const view = useNodeView(nodeId, { selected })
 
   if (!view) return null
+  if (view.hidden) return null
 
   const {
     node: resolvedNode,

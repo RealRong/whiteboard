@@ -52,6 +52,10 @@ export type TreeRead = KeyedReadStore<NodeId, readonly NodeId[]>
 export type SliceRead = {
   fromNodes: (nodeIds: readonly NodeId[]) => SliceExportResult | undefined
   fromEdge: (edgeId: EdgeId) => SliceExportResult | undefined
+  fromSelection: (selection: {
+    nodeIds?: readonly NodeId[]
+    edgeIds?: readonly EdgeId[]
+  }) => SliceExportResult | undefined
 }
 
 export type CanvasRead = {

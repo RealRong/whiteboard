@@ -22,14 +22,20 @@ type NodeSessionWritePatch =
     id: NodeId
   }
 
-type NodeSessionWrite = {
+type NodeSessionPreviewWrite = {
   patches: readonly NodeSessionWritePatch[]
   hoveredContainerId?: NodeId
 }
 
+type NodeSessionWrite =
+  NodeSessionPreviewWrite & {
+    hiddenIds?: readonly NodeId[]
+  }
+
 export type NodeSession = {
   patch?: NodePatch
   hovered: boolean
+  hidden: boolean
 }
 
 export type NodeSessionStore =
@@ -39,7 +45,8 @@ export type NodeSessionReader =
   Pick<NodeSessionStore, 'get' | 'subscribe'>
 
 const EMPTY_NODE_SESSION: NodeSession = {
-  hovered: false
+  hovered: false,
+  hidden: false
 }
 
 const EMPTY_NODE_MAP: NodeSessionMap =
@@ -47,13 +54,15 @@ const EMPTY_NODE_MAP: NodeSessionMap =
 
 const toNodeSessionMap = ({
   patches,
-  hoveredContainerId
+  hoveredContainerId,
+  hiddenIds = []
 }: NodeSessionWrite): NodeSessionMap => {
-  if (!patches.length && hoveredContainerId === undefined) {
+  if (!patches.length && hoveredContainerId === undefined && hiddenIds.length === 0) {
     return EMPTY_NODE_MAP
   }
 
   const next = new Map<NodeId, NodeSession>()
+  const hiddenIdSet = new Set(hiddenIds)
 
   patches.forEach((patch) => {
     next.set(patch.id, {
@@ -62,15 +71,28 @@ const toNodeSessionMap = ({
         size: patch.size,
         rotation: patch.rotation
       },
-      hovered: hoveredContainerId === patch.id
+      hovered: hoveredContainerId === patch.id,
+      hidden: hiddenIdSet.has(patch.id)
     })
   })
 
   if (hoveredContainerId !== undefined && !next.has(hoveredContainerId)) {
     next.set(hoveredContainerId, {
-      hovered: true
+      hovered: true,
+      hidden: hiddenIdSet.has(hoveredContainerId)
     })
   }
+
+  hiddenIds.forEach((nodeId) => {
+    if (next.has(nodeId)) {
+      return
+    }
+
+    next.set(nodeId, {
+      hovered: false,
+      hidden: true
+    })
+  })
 
   return next
 }
@@ -80,6 +102,7 @@ const toNodeSessionWrite = (
 ): NodeSessionWrite => {
   const patches: NodeSessionWritePatch[] = []
   let hoveredContainerId: NodeId | undefined
+  const hiddenIds: NodeId[] = []
 
   sessions.forEach((session, nodeId) => {
     if (session.patch) {
@@ -91,11 +114,15 @@ const toNodeSessionWrite = (
     if (session.hovered) {
       hoveredContainerId = nodeId
     }
+    if (session.hidden) {
+      hiddenIds.push(nodeId)
+    }
   })
 
   return {
     patches,
-    hoveredContainerId
+    hoveredContainerId,
+    hiddenIds
   }
 }
 
@@ -109,6 +136,7 @@ export const createNodeSessionStore = (
   isEqual: (left, right) => (
     left.patch === right.patch
     && left.hovered === right.hovered
+    && left.hidden === right.hidden
   )
 })
 
@@ -123,11 +151,18 @@ export const writeNodeSessionPatch = (
   if (patch) {
     next.set(nodeId, {
       hovered: current?.hovered ?? false,
+      hidden: current?.hidden ?? false,
       patch
     })
   } else if (current?.hovered) {
     next.set(nodeId, {
-      hovered: true
+      hovered: true,
+      hidden: current.hidden
+    })
+  } else if (current?.hidden) {
+    next.set(nodeId, {
+      hovered: false,
+      hidden: true
     })
   } else {
     next.delete(nodeId)
@@ -141,6 +176,100 @@ export const clearNodeSessionPatch = (
   nodeId: NodeId
 ) => {
   writeNodeSessionPatch(store, nodeId, undefined)
+}
+
+const mergePreviewState = (
+  sessions: ReadonlyMap<NodeId, NodeSession>,
+  write: NodeSessionPreviewWrite
+): NodeSessionMap => {
+  const next = new Map<NodeId, NodeSession>()
+
+  sessions.forEach((session, nodeId) => {
+    if (session.hidden) {
+      next.set(nodeId, {
+        hovered: false,
+        hidden: true
+      })
+    }
+  })
+
+  write.patches.forEach((patch) => {
+    const current = next.get(patch.id)
+    next.set(patch.id, {
+      patch: {
+        position: patch.position,
+        size: patch.size,
+        rotation: patch.rotation
+      },
+      hovered: write.hoveredContainerId === patch.id,
+      hidden: current?.hidden ?? false
+    })
+  })
+
+  if (write.hoveredContainerId !== undefined && !next.has(write.hoveredContainerId)) {
+    const current = sessions.get(write.hoveredContainerId)
+    next.set(write.hoveredContainerId, {
+      hovered: true,
+      hidden: current?.hidden ?? false
+    })
+  }
+
+  return next
+}
+
+export const writeNodeSessionPreview = (
+  store: NodeSessionStore,
+  write: NodeSessionPreviewWrite
+) => {
+  store.write(toNodeSessionWrite(mergePreviewState(store.all(), write)))
+}
+
+export const clearNodeSessionPreview = (
+  store: NodeSessionStore
+) => {
+  writeNodeSessionPreview(store, {
+    patches: []
+  })
+}
+
+export const writeNodeSessionHidden = (
+  store: NodeSessionStore,
+  hiddenIds: readonly NodeId[]
+) => {
+  const hiddenIdSet = new Set(hiddenIds)
+  const next = new Map<NodeId, NodeSession>()
+
+  store.all().forEach((session, nodeId) => {
+    const hidden = hiddenIdSet.has(nodeId)
+    if (!hidden && !session.patch && !session.hovered) {
+      return
+    }
+
+    next.set(nodeId, {
+      patch: session.patch,
+      hovered: session.hovered,
+      hidden
+    })
+  })
+
+  hiddenIds.forEach((nodeId) => {
+    if (next.has(nodeId)) {
+      return
+    }
+
+    next.set(nodeId, {
+      hovered: false,
+      hidden: true
+    })
+  })
+
+  store.write(toNodeSessionWrite(next))
+}
+
+export const clearNodeSessionHidden = (
+  store: NodeSessionStore
+) => {
+  writeNodeSessionHidden(store, [])
 }
 
 const applyRectPatch = (

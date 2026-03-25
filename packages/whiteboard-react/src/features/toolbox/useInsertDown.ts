@@ -1,4 +1,5 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
+import { isContainerNode } from '@whiteboard/core/node'
 import { useCallback } from 'react'
 import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
@@ -28,16 +29,16 @@ export const useInsertDown = () => {
       return false
     }
 
-    let activeContainer = instance.state.container.get()
-    if (activeContainer.id) {
-      const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
-      const insideActiveContainer = Boolean(
+    let activeFrame = instance.state.frame.get()
+    if (activeFrame.id) {
+      const activeRect = instance.read.index.node.get(activeFrame.id)?.rect
+      const insideActiveFrame = Boolean(
         activeRect && isPointInRect(input.point.world, activeRect)
       )
 
-      if (!insideActiveContainer) {
-        instance.commands.container.exit()
-        activeContainer = instance.state.container.get()
+      if (!insideActiveFrame) {
+        instance.commands.frame.exit()
+        activeFrame = instance.state.frame.get()
       }
     }
 
@@ -45,13 +46,15 @@ export const useInsertDown = () => {
       return false
     }
 
+    const frameTargetId =
+      input.pick.kind === 'node'
+      && input.pick.part === 'container'
+      && isContainerNode(instance.read.node.item.get(input.pick.id)?.node ?? { type: '' })
+        ? input.pick.id
+        : undefined
     const canInsert =
       input.pick.kind === 'background'
-      || (
-        input.pick.kind === 'node'
-        && input.pick.part === 'container'
-        && input.pick.id === activeContainer.id
-      )
+      || frameTargetId !== undefined
     if (!canInsert) {
       return false
     }
@@ -60,7 +63,7 @@ export const useInsertDown = () => {
       instance,
       preset,
       world: input.point.world,
-      parentId: activeContainer.id
+      containerId: activeFrame.id ?? frameTargetId
     })
     if (!result) {
       return false

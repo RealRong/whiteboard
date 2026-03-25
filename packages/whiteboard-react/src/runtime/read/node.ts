@@ -1,7 +1,10 @@
 import {
   createKeyedDerivedStore
 } from '@whiteboard/core/runtime'
-import { matchDrawRect } from '@whiteboard/core/node'
+import {
+  isContainerNode,
+  matchDrawRect
+} from '@whiteboard/core/node'
 import type {
   KeyedReadStore,
 } from '@whiteboard/core/runtime'
@@ -23,6 +26,10 @@ export type NodeTransform = {
   resize: boolean
   rotate: boolean
 }
+
+const resolveNodeConnect = (
+  definition?: Pick<NodeDefinition, 'connect'>
+) => definition?.connect ?? true
 
 const readNodeType = (
   node: Pick<Node, 'type'> | string
@@ -116,6 +123,7 @@ export type NodeRead = {
   item: KeyedReadStore<NodeId, NodeItem | undefined>
   scene: (node: Pick<Node, 'type'> | string) => NodeScene
   transform: (node: Pick<Node, 'type'> | string) => NodeTransform
+  connect: (node: Pick<Node, 'type'> | string) => boolean
   filter: (nodeIds: readonly NodeId[], scene: NodeScene) => readonly NodeId[]
   containerAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
@@ -154,12 +162,16 @@ export const createNodeRead = ({
   const transform = (node: Pick<Node, 'type'> | string) => resolveNodeTransform(
     registry.get(readNodeType(node))
   )
+  const connect = (node: Pick<Node, 'type'> | string) => resolveNodeConnect(
+    registry.get(readNodeType(node))
+  )
 
   return {
     list: read.node.list,
     item,
     scene,
     transform,
+    connect,
     filter: (nodeIds, expectedScene) => nodeIds.filter((nodeId) => {
       const nextItem = item.get(nodeId)
       if (!nextItem) {
@@ -178,7 +190,10 @@ export const createNodeRead = ({
           continue
         }
 
-        if (scene(entry.node) !== 'container') {
+        if (
+          scene(entry.node) !== 'container'
+          || !isContainerNode(entry.node)
+        ) {
           continue
         }
 
@@ -191,24 +206,54 @@ export const createNodeRead = ({
     },
     idsInRect: (rect, options) => {
       const match = options?.match ?? 'touch'
-      const candidates = read.index.node.idsInRect(rect, {
+      const candidateIds = read.index.node.idsInRect(rect, {
         ...options,
         match: match === 'contain' ? 'touch' : match
       })
+      const candidateSet = new Set(candidateIds)
+      const matchCache = new Map<NodeId, boolean>()
 
-      return candidates.filter((nodeId) => {
-        const entry = read.index.node.get(nodeId)
-        if (!entry) {
+      const matchesCandidate = (
+        nodeId: NodeId
+      ): boolean => {
+        const cached = matchCache.get(nodeId)
+        if (cached !== undefined) {
+          return cached
+        }
+
+        if (!candidateSet.has(nodeId)) {
+          matchCache.set(nodeId, false)
           return false
         }
 
-        return matchesNodeRect({
+        const entry = read.index.node.get(nodeId)
+        if (!entry) {
+          matchCache.set(nodeId, false)
+          return false
+        }
+
+        if (entry.node.type === 'group') {
+          const descendantIds = read.tree.get(nodeId)
+          const matched = descendantIds.length > 0 && (
+            match === 'contain'
+              ? descendantIds.every((descendantId) => matchesCandidate(descendantId))
+              : descendantIds.some((descendantId) => matchesCandidate(descendantId))
+          )
+          matchCache.set(nodeId, matched)
+          return matched
+        }
+
+        const matched = matchesNodeRect({
           registry,
           entry,
           rect,
           match
         })
-      })
+        matchCache.set(nodeId, matched)
+        return matched
+      }
+
+      return candidateIds.filter((nodeId) => matchesCandidate(nodeId))
     }
   }
 }

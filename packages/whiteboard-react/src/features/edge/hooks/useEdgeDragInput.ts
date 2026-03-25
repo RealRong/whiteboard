@@ -6,7 +6,7 @@ import { useCallback } from 'react'
 import type { CanvasDown } from '../../../runtime/input/down'
 import {
   hasEdge
-} from '../../../runtime/container'
+} from '../../../runtime/frame'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { toPatchEntry } from '../preview'
 import type { PointerSourceEvent } from './inputShared'
@@ -110,20 +110,24 @@ export const useEdgeDragInput = () => {
         return false
       }
 
-      if (!hasEdge(instance.state.container.get(), entry.edge)) {
-        instance.commands.container.exit()
+      if (!hasEdge(instance.state.frame.get(), entry.edge)) {
+        instance.commands.frame.exit()
       }
 
       if (event.shiftKey || event.detail >= 2) {
         const point = instance.viewport.pointer(event).world
         instance.commands.edge.path.insert(edgeId, point)
-        instance.commands.selection.selectEdge(edgeId)
+        instance.commands.selection.replace({
+          edgeIds: [edgeId]
+        })
         event.preventDefault()
         event.stopPropagation()
         return true
       }
 
-      instance.commands.selection.selectEdge(edgeId)
+      instance.commands.selection.replace({
+        edgeIds: [edgeId]
+      })
       const started = startEdgeDrag(event, edgeId, entry.edge, input.capture)
       if (!started) {
         return false

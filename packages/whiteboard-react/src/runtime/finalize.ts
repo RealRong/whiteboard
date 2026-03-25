@@ -1,10 +1,11 @@
-import type { NodeId } from '@whiteboard/core/types'
+import { isContainerNode } from '@whiteboard/core/node'
+import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type { WhiteboardInstance } from './instance'
 import {
-  createState as createContainerState,
+  createState as createFrameState,
   hasEdge,
   hasNode
-} from './container'
+} from './frame'
 import type { State as EditState } from './edit'
 import type { Store as SelectionStore } from './selection'
 
@@ -23,6 +24,21 @@ const uniqueNodeIds = (nodeIds: readonly NodeId[]) => {
   return next
 }
 
+const uniqueEdgeIds = (edgeIds: readonly EdgeId[]) => {
+  const seen = new Set<EdgeId>()
+  const next: EdgeId[] = []
+
+  edgeIds.forEach((edgeId) => {
+    if (seen.has(edgeId)) {
+      return
+    }
+    seen.add(edgeId)
+    next.push(edgeId)
+  })
+
+  return next
+}
+
 const isOrderedEqual = (
   left: readonly NodeId[],
   right: readonly NodeId[]
@@ -31,46 +47,64 @@ const isOrderedEqual = (
   && left.every((value, index) => value === right[index])
 )
 
+const isOrderedEdgeEqual = (
+  left: readonly EdgeId[],
+  right: readonly EdgeId[]
+) => (
+  left.length === right.length
+  && left.every((value, index) => value === right[index])
+)
+
 export const finalize = ({
   read,
-  container,
+  frame,
   selection,
   edit
 }: {
   read: Pick<WhiteboardInstance['read'], 'node' | 'edge'>
-  container: ReturnType<typeof createContainerState>
+  frame: ReturnType<typeof createFrameState>
   selection: SelectionStore
   edit: EditState
 }) => {
-  const activeContainerId = container.source.get()
-  if (activeContainerId && !read.node.item.get(activeContainerId)) {
-    container.commands.clear()
+  const activeFrameId = frame.source.get()
+  if (activeFrameId) {
+    const activeNode = read.node.item.get(activeFrameId)?.node
+    if (!activeNode || !isContainerNode(activeNode)) {
+      frame.commands.clear()
+    }
   }
 
-  const activeContainer = container.store.get()
+  const activeFrame = frame.store.get()
   const currentSelection = selection.source.get()
-
-  if (currentSelection.kind === 'edge') {
-    const edge = read.edge.item.get(currentSelection.edgeId)?.edge
-    if (!edge || (activeContainer.id && !hasEdge(activeContainer, edge))) {
-      selection.commands.clear()
+  const nextNodeIds = uniqueNodeIds(currentSelection.nodeIds.filter((nodeId) => {
+    if (!read.node.item.get(nodeId)) {
+      return false
     }
-  } else if (currentSelection.kind === 'nodes') {
-    const nextNodeIds = uniqueNodeIds(currentSelection.nodeIds.filter((nodeId) => {
-      if (!read.node.item.get(nodeId)) {
-        return false
-      }
-      return activeContainer.id
-        ? Boolean(activeContainer.set?.has(nodeId))
-        : true
-    }))
+    return activeFrame.id
+      ? Boolean(activeFrame.set?.has(nodeId))
+      : true
+  }))
+  const nextEdgeIds = uniqueEdgeIds(currentSelection.edgeIds.filter((edgeId) => {
+    const edge = read.edge.item.get(edgeId)?.edge
+    if (!edge) {
+      return false
+    }
+    return activeFrame.id
+      ? hasEdge(activeFrame, edge)
+      : true
+  }))
 
-    if (!isOrderedEqual(nextNodeIds, currentSelection.nodeIds)) {
-      if (nextNodeIds.length > 0) {
-        selection.commands.replace(nextNodeIds)
-      } else {
-        selection.commands.clear()
-      }
+  if (
+    !isOrderedEqual(nextNodeIds, currentSelection.nodeIds)
+    || !isOrderedEdgeEqual(nextEdgeIds, currentSelection.edgeIds)
+  ) {
+    if (nextNodeIds.length > 0 || nextEdgeIds.length > 0) {
+      selection.commands.replace({
+        nodeIds: nextNodeIds,
+        edgeIds: nextEdgeIds
+      })
+    } else {
+      selection.commands.clear()
     }
   }
 
@@ -84,7 +118,7 @@ export const finalize = ({
     return
   }
 
-  if (activeContainer.id && !hasNode(activeContainer, currentEdit.nodeId)) {
+  if (activeFrame.id && !hasNode(activeFrame, currentEdit.nodeId)) {
     edit.commands.clear()
   }
 }

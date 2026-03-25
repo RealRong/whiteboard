@@ -7,16 +7,20 @@ import type {
 } from './types'
 import type { Tool } from '../tool'
 import {
+  DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,
-  DEFAULT_DRAW_PRESET_KEY,
   HandTool,
   SelectTool,
   createDrawTool,
   createEdgeTool,
+  isDrawBrushKind,
   isSameTool,
   normalizeTool
 } from '../tool'
-import { createState as createContainerState } from '../container'
+import {
+  createState as createFrameState,
+  hasEdge
+} from '../frame'
 import {
   createState as createEditState,
   type Commands as EditCommands
@@ -38,18 +42,21 @@ import {
 import { createPickRuntime } from '../pick'
 import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
 import { createEdgePreview } from '../../features/edge/preview'
-import { createMindmapFeatureRuntime } from '../../features/mindmap/session/runtime'
+import { createMindmapDragStore } from '../../features/mindmap/session/drag'
 import { createRuntimeRead } from '../read'
 import type { Viewport } from '@whiteboard/core/types'
 import { finalize } from '../finalize'
-import { createDrawState } from '../../features/draw/state'
+import {
+  createDrawState,
+  readDrawSlot
+} from '../../features/draw/state'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
   history: ReturnType<typeof createValueStore<HistoryState>>
   draw: ReturnType<typeof createDrawState>
   edit: ReturnType<typeof createEditState>
-  container: ReturnType<typeof createContainerState>
+  frame: ReturnType<typeof createFrameState>
   selection: ReturnType<typeof createSelectionState>
 }
 
@@ -59,7 +66,7 @@ type InstanceInternals = {
   edge: {
     preview: ReturnType<typeof createEdgePreview>
   }
-  mindmap: ReturnType<typeof createMindmapFeatureRuntime>
+  mindmapDrag: ReturnType<typeof createMindmapDragStore>
 }
 
 const createInstanceStores = ({
@@ -82,17 +89,17 @@ const createInstanceStores = ({
   read: WhiteboardInstance['read']
   internals: InstanceInternals
 } => {
-  const tool = createValueStore<Tool>(initialTool)
+  const tool = createValueStore<Tool>(normalizeTool(initialTool))
   const history = createValueStore(engine.commands.history.get())
   const draw = createDrawState()
   const edit = createEditState()
-  const container = createContainerState(engine.read)
+  const frame = createFrameState(engine.read)
   const selection = createSelectionState()
   const node = createNodeFeatureRuntime()
   const edge = {
     preview: createEdgePreview()
   }
-  const mindmap = createMindmapFeatureRuntime()
+  const mindmapDrag = createMindmapDragStore()
   const read = createRuntimeRead({
     engineRead: engine.read,
     registry,
@@ -104,8 +111,7 @@ const createInstanceStores = ({
     pick,
     viewport,
     node,
-    edge: edge.preview,
-    mindmap
+    edge: edge.preview
   })
 
   return {
@@ -114,7 +120,7 @@ const createInstanceStores = ({
       history,
       draw,
       edit,
-      container,
+      frame,
       selection
     },
     state: {
@@ -122,7 +128,7 @@ const createInstanceStores = ({
       draw: draw.store,
       edit: edit.store,
       selection: selection.source,
-      container: container.store,
+      frame: frame.store,
       interaction: interaction.mode
     },
     read,
@@ -130,7 +136,7 @@ const createInstanceStores = ({
       pick,
       node,
       edge,
-      mindmap
+      mindmapDrag
     }
   }
 }
@@ -141,7 +147,7 @@ const createCommands = ({
   history,
   edit,
   selection,
-  container,
+  frame,
   viewport,
   draw
 }: {
@@ -150,12 +156,16 @@ const createCommands = ({
   history: ReturnType<typeof createValueStore<HistoryState>>
   edit: EditCommands
   selection: SelectionCommands
-  container: ReturnType<typeof createContainerState>
+  frame: ReturnType<typeof createFrameState>
   viewport: ViewportCommands
-  draw: ReturnType<typeof createDrawState>['commands']
+  draw: ReturnType<typeof createDrawState>
 }): WhiteboardInstance['commands'] => {
   const setTool = (nextTool: Tool) => {
     const normalized = normalizeTool(nextTool)
+    if (normalized.type === 'draw') {
+      edit.clear()
+      selection.clear()
+    }
     if (isSameTool(tool.get(), normalized)) return
     tool.set(normalized)
   }
@@ -164,34 +174,38 @@ const createCommands = ({
   }
 
   const selectionCommands: WhiteboardInstance['commands']['selection'] = {
-    replace: (nodeIds) => {
+    replace: (input) => {
       edit.clear()
-      selection.replace(nodeIds)
+      selection.replace(input)
     },
-    add: (nodeIds) => {
+    add: (input) => {
       edit.clear()
-      selection.add(nodeIds)
+      selection.add(input)
     },
-    remove: (nodeIds) => {
+    remove: (input) => {
       edit.clear()
-      selection.remove(nodeIds)
+      selection.remove(input)
     },
-    toggle: (nodeIds) => {
+    toggle: (input) => {
       edit.clear()
-      selection.toggle(nodeIds)
-    },
-    selectEdge: (edgeId) => {
-      edit.clear()
-      selection.selectEdge(edgeId)
+      selection.toggle(input)
     },
     selectAll: () => {
       edit.clear()
-      const activeContainer = container.store.get()
-      selection.replace(
-        activeContainer.id
-          ? [...activeContainer.ids]
-          : [...engine.read.node.list.get()]
-      )
+      const activeFrame = frame.store.get()
+      selection.replace({
+        nodeIds:
+          activeFrame.id
+            ? [...activeFrame.ids]
+            : [...engine.read.node.list.get()],
+        edgeIds:
+          activeFrame.id
+            ? engine.read.edge.list.get().filter((edgeId) => {
+              const edge = engine.read.edge.item.get(edgeId)?.edge
+              return edge ? hasEdge(activeFrame, edge) : false
+            })
+            : [...engine.read.edge.list.get()]
+      })
     },
     clear: () => {
       edit.clear()
@@ -199,18 +213,41 @@ const createCommands = ({
     }
   }
 
-  const containerCommands: WhiteboardInstance['commands']['container'] = {
+  const frameCommands: WhiteboardInstance['commands']['frame'] = {
     enter: (nodeId) => {
       selectionCommands.clear()
-      container.commands.enter(nodeId)
+      frame.commands.enter(nodeId)
     },
     exit: () => {
       selectionCommands.clear()
-      container.commands.exit()
+      frame.commands.exit()
     },
     clear: () => {
       selectionCommands.clear()
-      container.commands.clear()
+      frame.commands.clear()
+    }
+  }
+
+  const drawCommands: WhiteboardInstance['commands']['draw'] = {
+    slot: (slot) => {
+      const current = tool.get()
+      if (current.type !== 'draw' || !isDrawBrushKind(current.kind)) {
+        return
+      }
+
+      draw.commands.slot(current.kind, slot)
+    },
+    patch: (patch) => {
+      const current = tool.get()
+      if (current.type !== 'draw' || !isDrawBrushKind(current.kind)) {
+        return
+      }
+
+      draw.commands.patch(
+        current.kind,
+        readDrawSlot(draw.store.get(), current.kind),
+        patch
+      )
     }
   }
 
@@ -250,14 +287,14 @@ const createCommands = ({
           preset
         })
       },
-      draw: (preset = DEFAULT_DRAW_PRESET_KEY) => {
-        setTool(createDrawTool(preset))
+      draw: (kind = DEFAULT_DRAW_KIND) => {
+        setTool(createDrawTool(kind))
       }
     },
-    draw,
+    draw: drawCommands,
     edit,
     selection: selectionCommands,
-    container: containerCommands,
+    frame: frameCommands,
     viewport,
     edge: engine.commands.edge
   }
@@ -310,11 +347,11 @@ export const createInstance = ({
     interaction.cancel()
     stores.edit.commands.clear()
     stores.selection.commands.clear()
-    stores.container.commands.clear()
+    stores.frame.commands.clear()
     snap.clear()
     internals.node.clear()
     internals.edge.preview.clear()
-    internals.mindmap.clear()
+    internals.mindmapDrag.clear()
   }
   const syncHistory = () => {
     stores.history.set(engine.commands.history.get())
@@ -333,7 +370,7 @@ export const createInstance = ({
 
     finalize({
       read,
-      container: stores.container,
+      frame: stores.frame,
       selection: stores.selection,
       edit: stores.edit
     })
@@ -345,9 +382,9 @@ export const createInstance = ({
     history: stores.history,
     edit: stores.edit.commands,
     selection: stores.selection.commands,
-    container: stores.container,
+    frame: stores.frame,
     viewport: viewport.commands,
-    draw: stores.draw.commands
+    draw: stores.draw
   })
 
   return {

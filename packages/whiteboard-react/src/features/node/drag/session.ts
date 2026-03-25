@@ -1,5 +1,15 @@
+import {
+  moveEdge
+} from '@whiteboard/core/edge'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../../runtime/instance'
+import {
+  toPatchEntry
+} from '../../edge/preview'
+import {
+  clearNodeSessionPreview,
+  writeNodeSessionPreview
+} from '../session/node'
 import {
   buildNodeDragState,
   resolveNodeDragCommit,
@@ -11,6 +21,7 @@ import {
 
 type ActiveDrag = NodeDragRuntimeState & {
   allowCross: boolean
+  selectedEdgeIds: readonly EdgeId[]
   relatedEdgeIds: readonly EdgeId[]
 }
 
@@ -21,6 +32,7 @@ export type NodeDragStart = {
   frame: Rect
   anchorId: NodeId
   nodeIds: readonly NodeId[]
+  edgeIds?: readonly EdgeId[]
   event: PointerEvent
 }
 
@@ -40,8 +52,7 @@ export const createNodeDragSession = (
   const clear = () => {
     active = null
     session = null
-    instance.internals.node.chromeHidden.set(false)
-    instance.internals.node.session.clear()
+    clearNodeSessionPreview(instance.internals.node.session)
     instance.internals.snap.clear()
     instance.internals.edge.preview.patch.clear()
   }
@@ -50,11 +61,34 @@ export const createNodeDragSession = (
     const nodeUpdates = resolveNodeDragCommit({
       draft
     })
-    if (!nodeUpdates.length) {
-      return
+    if (nodeUpdates.length) {
+      instance.commands.node.updateMany(nodeUpdates)
     }
 
-    instance.commands.node.updateMany(nodeUpdates)
+    const delta = {
+      x: draft.last.x - draft.origin.x,
+      y: draft.last.y - draft.origin.y
+    }
+    const edgeUpdates = draft.selectedEdgeIds.flatMap((edgeId) => {
+      const edge = instance.engine.read.edge.item.get(edgeId)?.edge
+      if (!edge) {
+        return []
+      }
+
+      const patch = moveEdge(edge, delta)
+      if (!patch) {
+        return []
+      }
+
+      return [{
+        id: edgeId,
+        patch
+      }]
+    })
+
+    if (edgeUpdates.length) {
+      instance.commands.edge.updateMany(edgeUpdates)
+    }
   }
 
   const updatePreview = (input: {
@@ -98,16 +132,36 @@ export const createNodeDragSession = (
       edgeIds: active.relatedEdgeIds,
       readEdge: (edgeId) => instance.engine.read.edge.item.get(edgeId)
     })
+    const delta = {
+      x: preview.position.x - active.origin.x,
+      y: preview.position.y - active.origin.y
+    }
+    const selectedEdgeUpdates = active.selectedEdgeIds.flatMap((edgeId) => {
+      const edge = instance.engine.read.edge.item.get(edgeId)?.edge
+      if (!edge) {
+        return []
+      }
 
-    instance.internals.node.session.write({
+      const patch = moveEdge(edge, delta)
+      if (!patch) {
+        return []
+      }
+
+      return [toPatchEntry(edgeId, patch)]
+    })
+
+    writeNodeSessionPreview(instance.internals.node.session, {
       patches: preview.patches,
       hoveredContainerId: preview.hoveredContainerId
     })
     instance.internals.edge.preview.patch.write(
-      edgeUpdates.map(({ id, patch }) => ({
-        id,
-        pathPoints: patch.path?.points
-      }))
+      [
+        ...selectedEdgeUpdates,
+        ...edgeUpdates.map(({ id, patch }) => ({
+          id,
+          pathPoints: patch.path?.points
+        }))
+      ]
     )
   }
 
@@ -163,13 +217,14 @@ export const createNodeDragSession = (
 
       active = {
         allowCross: input.event.altKey,
+        selectedEdgeIds: input.edgeIds ?? [],
         relatedEdgeIds: instance.read.edge.related(
           drag.members.map((member) => member.id)
-        ),
+        ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
         ...drag
       }
       session = nextSession
-      instance.internals.node.session.clear()
+      clearNodeSessionPreview(instance.internals.node.session)
       instance.internals.snap.clear()
       nextSession.pan(input.event)
       updatePreview(input.event)

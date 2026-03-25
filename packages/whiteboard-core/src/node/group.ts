@@ -8,7 +8,6 @@ import type {
   Size
 } from '../types'
 import { listNodes } from '../types'
-import { enlargeBox } from '../utils/group'
 import { getNodeAABB } from '../geometry'
 
 export type NormalizeGroupBoundsOptions = {
@@ -28,6 +27,10 @@ type GroupBoundsOperation = {
 }
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
+
+export const isContainerNode = (
+  node: Pick<Node, 'type'>
+) => node.type === 'frame'
 
 export const getNodesBoundingRect = (
   nodes: readonly Node[],
@@ -64,10 +67,10 @@ export const getNodesBoundingRect = (
 export const getContainerChildrenMap = (nodes: readonly Node[]) => {
   const map = new Map<NodeId, Node[]>()
   nodes.forEach((node) => {
-    if (!node.parentId) return
-    const list = map.get(node.parentId) ?? []
+    if (!node.containerId) return
+    const list = map.get(node.containerId) ?? []
     list.push(node)
-    map.set(node.parentId, list)
+    map.set(node.containerId, list)
   })
   return map
 }
@@ -88,51 +91,31 @@ export const getContainerDescendants = (nodes: readonly Node[], containerId: Nod
   return result
 }
 
-export const getCollapsedGroupIds = (nodes: readonly Node[]) => {
-  const set = new Set<NodeId>()
+export const getGroupChildrenMap = (nodes: readonly Node[]) => {
+  const map = new Map<NodeId, Node[]>()
   nodes.forEach((node) => {
-    if (node.type !== 'group') return
-    const collapsed =
-      node.data && typeof node.data.collapsed === 'boolean'
-        ? node.data.collapsed
-        : false
-    if (collapsed) {
-      set.add(node.id)
-    }
+    if (!node.groupId) return
+    const list = map.get(node.groupId) ?? []
+    list.push(node)
+    map.set(node.groupId, list)
   })
-  return set
+  return map
 }
 
-export const isHiddenByCollapsedGroup = (
-  node: Node,
-  nodeMap: ReadonlyMap<NodeId, Node>,
-  collapsedGroupIds: ReadonlySet<NodeId>
-) => {
-  let parentId = node.parentId
-  while (parentId) {
-    if (collapsedGroupIds.has(parentId)) return true
-    const parent = nodeMap.get(parentId)
-    parentId = parent?.parentId
+export const getGroupDescendants = (nodes: readonly Node[], groupId: NodeId): Node[] => {
+  const map = getGroupChildrenMap(nodes)
+  const result: Node[] = []
+  const stack = [...(map.get(groupId) ?? [])]
+  while (stack.length) {
+    const node = stack.pop()
+    if (!node) continue
+    result.push(node)
+    const children = map.get(node.id)
+    if (children) {
+      children.forEach((child) => stack.push(child))
+    }
   }
-  return false
-}
-
-export const expandContainerRect = (
-  containerRect: Rect,
-  contentRect: Rect,
-  padding: number
-): Rect => {
-  const padded = enlargeBox(contentRect, padding)
-  const left = Math.min(containerRect.x, padded.x)
-  const top = Math.min(containerRect.y, padded.y)
-  const right = Math.max(containerRect.x + containerRect.width, padded.x + padded.width)
-  const bottom = Math.max(containerRect.y + containerRect.height, padded.y + padded.height)
-  return {
-    x: left,
-    y: top,
-    width: Math.max(0, right - left),
-    height: Math.max(0, bottom - top)
-  }
+  return result
 }
 
 export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
@@ -142,48 +125,18 @@ export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
   Math.abs(a.height - b.height) <= epsilon
 )
 
-export const resolveContainerPadding = (options: {
-  containerRect: Rect
-  contentRect: Rect
-  currentPadding?: number
-  epsilon?: number
-}) => {
-  const {
-    containerRect,
-    contentRect,
-    currentPadding,
-    epsilon = 0.5
-  } = options
-  const left = contentRect.x - containerRect.x
-  const top = contentRect.y - containerRect.y
-  const right =
-    containerRect.x + containerRect.width - (contentRect.x + contentRect.width)
-  const bottom =
-    containerRect.y + containerRect.height - (contentRect.y + contentRect.height)
-  const padding = Math.max(0, Math.min(left, top, right, bottom))
-
-  if (
-    currentPadding !== undefined
-    && Math.abs(currentPadding - padding) <= epsilon
-  ) {
-    return
-  }
-
-  return padding
-}
-
-const createChildIdsByParentId = (nodes: readonly Node[]) => {
-  const childIdsByParentId = new Map<NodeId, NodeId[]>()
+const createChildIdsByGroupId = (nodes: readonly Node[]) => {
+  const childIdsByGroupId = new Map<NodeId, NodeId[]>()
   nodes.forEach((node) => {
-    if (!node.parentId) return
-    const childIds = childIdsByParentId.get(node.parentId)
+    if (!node.groupId) return
+    const childIds = childIdsByGroupId.get(node.groupId)
     if (childIds) {
       childIds.push(node.id)
       return
     }
-    childIdsByParentId.set(node.parentId, [node.id])
+    childIdsByGroupId.set(node.groupId, [node.id])
   })
-  return childIdsByParentId
+  return childIdsByGroupId
 }
 
 const sortGroupIdsBottomUp = ({
@@ -202,8 +155,8 @@ const sortGroupIdsBottomUp = ({
     if (cached !== undefined) return cached
 
     const node = nodeById[nodeId]
-    const parentId = node?.parentId
-    const parent = parentId ? nodeById[parentId] : undefined
+    const parentGroupId = node?.groupId
+    const parent = parentGroupId ? nodeById[parentGroupId] : undefined
     const depth = parent?.type === 'group' ? resolveDepth(parent.id) + 1 : 0
     depthById.set(nodeId, depth)
     return depth
@@ -220,27 +173,20 @@ const createGroupBoundsOperation = ({
   group,
   children,
   nodeSize,
-  groupPadding,
   rectEpsilon
 }: {
   group: Node
   children: readonly Node[]
   nodeSize: Size
-  groupPadding: number
   rectEpsilon: number
 }): GroupBoundsOperation | null => {
   if (!children.length) return null
-  if (group.data && group.data.autoFit === 'manual') return null
 
   const contentRect = getNodesBoundingRect(children, nodeSize)
   if (!contentRect) return null
 
   const groupRect = getNodeAABB(group, nodeSize)
-  const padding =
-    group.data && typeof group.data.padding === 'number'
-      ? group.data.padding
-      : groupPadding
-  const nextRect = expandContainerRect(groupRect, contentRect, padding)
+  const nextRect = contentRect
   if (rectEquals(nextRect, groupRect, rectEpsilon)) return null
 
   return {
@@ -256,7 +202,7 @@ const createGroupBoundsOperation = ({
 export const normalizeGroupBounds = ({
   document,
   nodeSize,
-  groupPadding,
+  groupPadding: _groupPadding,
   rectEpsilon
 }: NormalizeGroupBoundsOptions): Operation[] => {
   const orderedNodes = listNodes(document)
@@ -272,7 +218,7 @@ export const normalizeGroupBounds = ({
   })
   if (!groupIds.length) return []
 
-  const childIdsByParentId = createChildIdsByParentId(orderedNodes)
+  const childIdsByGroupId = createChildIdsByGroupId(orderedNodes)
   const workingNodes: Record<NodeId, Node> = {
     ...document.nodes.entities
   }
@@ -287,7 +233,7 @@ export const normalizeGroupBounds = ({
     const group = workingNodes[groupId]
     if (!group || group.type !== 'group') return
 
-    const childIds = childIdsByParentId.get(groupId) ?? EMPTY_NODE_IDS
+    const childIds = childIdsByGroupId.get(groupId) ?? EMPTY_NODE_IDS
     if (!childIds.length) return
 
     const children = childIds
@@ -298,7 +244,6 @@ export const normalizeGroupBounds = ({
       group,
       children,
       nodeSize,
-      groupPadding,
       rectEpsilon
     })
     if (!operation) return
@@ -329,7 +274,7 @@ export const findSmallestContainerAtPoint = (
 ) => {
   let best: { node: Node; area: number } | undefined
   nodes.forEach((node) => {
-    if (node.type !== 'group') return
+    if (!isContainerNode(node)) return
     if (excludeId && node.id === excludeId) return
     const rect = getNodeAABB(node, fallbackSize)
     if (!pointInRect(point, rect)) return

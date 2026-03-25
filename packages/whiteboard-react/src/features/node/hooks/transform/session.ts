@@ -6,6 +6,7 @@ import {
 import {
   computeNextRotation,
   computeResizeRect,
+  getGroupDescendants,
   getResizeSourceEdges,
   getResizeUpdateRect,
   projectResizePatches,
@@ -17,6 +18,10 @@ import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/type
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { CanvasDown } from '../../../../runtime/input/down'
 import type { InternalInstance } from '../../../../runtime/instance'
+import {
+  clearNodeSessionPreview,
+  writeNodeSessionPreview
+} from '../../session/node'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -57,6 +62,7 @@ type TransformTarget = {
 
 type ActiveTransform = {
   targets: readonly TransformTarget[]
+  commitTargetIds?: ReadonlySet<NodeId>
   drag: TransformDragState
   patches?: readonly TransformPreviewPatch[]
 }
@@ -160,14 +166,14 @@ export const createTransformSession = (
   const clear = () => {
     active = null
     session = null
-    instance.internals.node.session.clear()
+    clearNodeSessionPreview(instance.internals.node.session)
     instance.internals.snap.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    instance.internals.node.session.write({
+    writeNodeSessionPreview(instance.internals.node.session, {
       patches
     })
   }
@@ -276,10 +282,16 @@ export const createTransformSession = (
       return
     }
 
+    const commitTargetIds = next.commitTargetIds
+      ?? new Set(next.targets.map((target) => target.id))
     const targetById = new Map(
       next.targets.map((target) => [target.id, target] as const)
     )
     const updates = next.patches.flatMap((preview) => {
+      if (!commitTargetIds.has(preview.id)) {
+        return []
+      }
+
       const target = targetById.get(preview.id)
       if (!target) {
         return []
@@ -342,7 +354,7 @@ export const createTransformSession = (
 
     active = next
     session = nextSession
-    instance.internals.node.session.clear()
+    clearNodeSessionPreview(instance.internals.node.session)
     instance.internals.snap.clear()
     event.preventDefault()
     event.stopPropagation()
@@ -401,30 +413,123 @@ export const createTransformSession = (
     }
   }
 
+  const hasSelectedAncestorGroup = (
+    node: Node,
+    selectedNodeIds: ReadonlySet<NodeId>,
+    nodeById: ReadonlyMap<NodeId, Node>
+  ) => {
+    let groupId = node.groupId
+
+    while (groupId) {
+      const group = nodeById.get(groupId)
+      if (group?.type === 'group' && selectedNodeIds.has(groupId)) {
+        return true
+      }
+
+      groupId = group?.groupId
+    }
+
+    return false
+  }
+
+  const createSelectionScaleTargets = (
+    selectionNodeIds: readonly NodeId[]
+  ): {
+    targets: readonly TransformTarget[]
+    commitTargetIds: ReadonlySet<NodeId>
+  } | undefined => {
+    const allNodeIds = instance.read.node.list.get()
+    const allTargets = allNodeIds
+      .map((nodeId) => toTarget(instance, nodeId))
+      .filter((target): target is TransformTarget => Boolean(target))
+    const nodeById = new Map(allTargets.map((target) => [target.id, target.node] as const))
+    const targetById = new Map(allTargets.map((target) => [target.id, target] as const))
+    const selectedNodeIdSet = new Set(selectionNodeIds)
+    const rootSelectionIds = selectionNodeIds.filter((nodeId) => {
+      const node = nodeById.get(nodeId)
+      if (!node) {
+        return false
+      }
+
+      return !hasSelectedAncestorGroup(node, selectedNodeIdSet, nodeById)
+    })
+
+    if (!rootSelectionIds.length) {
+      return undefined
+    }
+
+    const orderedNodes = allTargets.map((target) => target.node)
+    const targets = new Map<NodeId, TransformTarget>()
+    const commitTargetIds = new Set<NodeId>()
+
+    rootSelectionIds.forEach((nodeId) => {
+      const target = targetById.get(nodeId)
+      if (!target) {
+        return
+      }
+
+      if (target.node.type === 'group') {
+        targets.set(target.id, target)
+        getGroupDescendants(orderedNodes, target.id).forEach((descendant) => {
+          const descendantTarget = targetById.get(descendant.id)
+          if (!descendantTarget) {
+            return
+          }
+
+          const scene = instance.read.node.scene(descendant)
+          if (descendant.type === 'group') {
+            targets.set(descendant.id, descendantTarget)
+            return
+          }
+
+          if (scene === 'container') {
+            return
+          }
+
+          targets.set(descendant.id, descendantTarget)
+          if (descendant.type !== 'group') {
+            commitTargetIds.add(descendant.id)
+          }
+        })
+        return
+      }
+
+      targets.set(target.id, target)
+      commitTargetIds.add(target.id)
+    })
+
+    if (!targets.size || !commitTargetIds.size) {
+      return undefined
+    }
+
+    return {
+      targets: [...targets.values()],
+      commitTargetIds
+    }
+  }
+
   const createSelectionActive = (
     handle: TransformPickHandle,
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
     const selection = instance.read.selection.get()
     if (
-      selection.items.count <= 1
-      || !selection.box
+      !selection.box
       || handle.kind !== 'resize'
       || !handle.direction
-      || selection.transform.resize === 'none'
+      || selection.transform.resize !== 'scale'
     ) {
       return
     }
 
-    const targets = selection.target.nodeIds
-      .map((nodeId) => toTarget(instance, nodeId))
-      .filter((target): target is TransformTarget => Boolean(target))
-    if (targets.length !== selection.target.nodeIds.length) {
+    const scaleTargets = createSelectionScaleTargets(selection.target.nodeIds)
+    if (!scaleTargets) {
       return
     }
 
     return {
-      targets,
+      targets: scaleTargets.targets,
+      commitTargetIds: scaleTargets.commitTargetIds,
       drag: createResizeDrag({
         pointerId: event.pointerId,
         handle: handle.direction,

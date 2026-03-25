@@ -2,9 +2,9 @@ import type { EdgeId } from '@whiteboard/core/types'
 import { memo } from 'react'
 import {
   useInternalInstance,
-  useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
+import { useSelection } from '../../node/selection'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID } from '../constants'
@@ -37,7 +37,7 @@ const EdgeItemById = memo(
 export const EdgeLayer = () => {
   const instance = useInternalInstance()
   const edgeIds = useStoreValue(instance.read.edge.list)
-  const selectedEdgeId = useSelection().target.edgeId
+  const selectedEdgeIds = useSelection().target.edgeSet
   const hitTestThresholdScreen = instance.config.edge.hitTestThresholdScreen
 
   return (
@@ -78,7 +78,7 @@ export const EdgeLayer = () => {
           key={edgeId}
           edgeId={edgeId}
           hitTestThresholdScreen={hitTestThresholdScreen}
-          selected={edgeId === selectedEdgeId}
+          selected={selectedEdgeIds.has(edgeId)}
         />
       ))}
     </svg>

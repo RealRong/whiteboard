@@ -1,5 +1,3 @@
-import type { DrawPresetKey } from '../../../../runtime/tool'
-
 export const COLOR_OPTIONS = [
   { label: 'Ink', value: 'hsl(var(--ui-text-primary, 40 2.1% 28%))' },
   { label: 'White', value: 'hsl(var(--ui-surface, 0 0% 100%))' },
@@ -31,17 +29,3 @@ export const OPACITY_OPTIONS = [
 ] as const
 
 export const FONT_SIZES = [14, 16, 20, 24] as const
-
-export const DRAW_PRESET_OPTIONS = [
-  {
-    key: 'pen',
-    label: 'Pen'
-  },
-  {
-    key: 'highlighter',
-    label: 'Highlighter'
-  }
-] as const satisfies readonly {
-  key: DrawPresetKey
-  label: string
-}[]

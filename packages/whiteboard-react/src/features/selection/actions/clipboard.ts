@@ -23,10 +23,8 @@ type ClipboardPacket = {
 export type ClipboardTarget =
   | 'selection'
   | {
-      nodeIds: readonly NodeId[]
-    }
-  | {
-      edgeId: EdgeId
+      nodeIds?: readonly NodeId[]
+      edgeIds?: readonly EdgeId[]
     }
 
 let memoryPacket: ClipboardPacket | null = null
@@ -178,23 +176,18 @@ const applyInsertedRoots = (
     allEdgeIds: readonly EdgeId[]
   }
 ) => {
-  if (inserted.roots.nodeIds.length > 0) {
-    instance.commands.selection.replace(inserted.roots.nodeIds)
-    return
-  }
+  const nodeIds = inserted.roots.nodeIds.length > 0
+    ? inserted.roots.nodeIds
+    : inserted.allNodeIds
+  const edgeIds = inserted.roots.edgeIds.length > 0
+    ? inserted.roots.edgeIds
+    : inserted.allEdgeIds
 
-  if (inserted.roots.edgeIds.length > 0) {
-    instance.commands.selection.selectEdge(inserted.roots.edgeIds[0])
-    return
-  }
-
-  if (inserted.allNodeIds.length > 0) {
-    instance.commands.selection.replace(inserted.allNodeIds)
-    return
-  }
-
-  if (inserted.allEdgeIds.length > 0) {
-    instance.commands.selection.selectEdge(inserted.allEdgeIds[0])
+  if (nodeIds.length > 0 || edgeIds.length > 0) {
+    instance.commands.selection.replace({
+      nodeIds,
+      edgeIds
+    })
     return
   }
 
@@ -206,15 +199,10 @@ const readSelectionTarget = (
 ): Exclude<ClipboardTarget, 'selection'> | undefined => {
   const selection = instance.read.selection.get()
 
-  if (selection.target.edgeId !== undefined) {
+  if (selection.items.count > 0) {
     return {
-      edgeId: selection.target.edgeId
-    }
-  }
-
-  if (selection.target.nodeIds.length > 0) {
-    return {
-      nodeIds: selection.target.nodeIds
+      nodeIds: selection.target.nodeIds,
+      edgeIds: selection.target.edgeIds
     }
   }
 
@@ -239,11 +227,7 @@ const readSliceExport = (
     return undefined
   }
 
-  if ('edgeId' in resolved) {
-    return instance.read.slice.fromEdge(resolved.edgeId)
-  }
-
-  return instance.read.slice.fromNodes(resolved.nodeIds)
+  return instance.read.slice.fromSelection(resolved)
 }
 
 export const copy = async (
@@ -274,13 +258,21 @@ export const cut = async (
     return false
   }
 
-  if ('edgeId' in resolved) {
-    const result = instance.commands.edge.delete([resolved.edgeId])
-    return result.ok
+  if (resolved.edgeIds?.length) {
+    const result = instance.commands.edge.delete([...resolved.edgeIds])
+    if (!result.ok) {
+      return false
+    }
   }
 
-  const result = instance.commands.node.deleteCascade([...resolved.nodeIds])
-  return result.ok
+  if (resolved.nodeIds?.length) {
+    const result = instance.commands.node.deleteCascade([...resolved.nodeIds])
+    if (!result.ok) {
+      return false
+    }
+  }
+
+  return true
 }
 
 export const paste = async (
@@ -288,7 +280,7 @@ export const paste = async (
   options?: {
     at?: Point
     event?: ClipboardEvent
-    parentId?: NodeId
+    containerId?: NodeId
   }
 ) => {
   const packet = await readPacket(options?.event)
@@ -297,7 +289,7 @@ export const paste = async (
   const at = readPasteAt(instance, options?.at)
   const inserted = instance.commands.document.insert(packet.slice, {
     at,
-    parentId: options?.parentId,
+    containerId: options?.containerId,
     roots: packet.roots
   })
   if (!inserted.ok) return false

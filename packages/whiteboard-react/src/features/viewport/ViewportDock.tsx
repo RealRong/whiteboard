@@ -5,8 +5,8 @@ import {
   Scan,
   Undo2
 } from 'lucide-react'
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
-import { ToolIcon } from '../../toolbox/ToolIcon'
+import { useInternalInstance, useStoreValue } from '../../runtime/hooks'
+import { ToolIcon } from '../toolbox/ToolIcon'
 
 const ZOOM_FACTOR = 1.2
 

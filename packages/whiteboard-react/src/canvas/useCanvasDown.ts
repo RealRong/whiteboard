@@ -5,13 +5,14 @@ import {
   type RefObject
 } from 'react'
 import { useDrawInput } from '../features/draw/useDrawInput'
+import { useEraserInput } from '../features/draw/useEraserInput'
 import { useEdgeInput } from '../features/edge/hooks/useEdgeInput'
 import { useMindmapDrag } from '../features/mindmap/hooks/drag/useMindmapDrag'
 import { createNodeGesture } from '../features/node/gesture'
 import { createTransformSession } from '../features/node/hooks/transform/session'
 import {
   createMarqueeSession
-} from '../features/selection/chrome/Marquee'
+} from '../features/selection/Marquee'
 import { useInsertDown } from '../features/toolbox/useInsertDown'
 import { useInternalInstance } from '../runtime/hooks'
 import {
@@ -26,54 +27,42 @@ export const useCanvasDown = ({
 }) => {
   const instance = useInternalInstance()
   const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
-  const nodeRef = useRef<ReturnType<typeof createNodeGesture> | null>(null)
+  const gestureRef = useRef<ReturnType<typeof createNodeGesture> | null>(null)
   const transformRef = useRef<ReturnType<typeof createTransformSession> | null>(null)
 
-  if (!marqueeRef.current) {
-    marqueeRef.current = createMarqueeSession(instance)
-  }
-
-  const marquee = marqueeRef.current!
-
-  if (!nodeRef.current) {
-    nodeRef.current = createNodeGesture(instance, marquee)
-  }
-
-  const node = nodeRef.current!
-
-  if (!transformRef.current) {
-    transformRef.current = createTransformSession(instance)
-  }
-
-  const transform = transformRef.current!
+  const marquee =
+    marqueeRef.current
+    ?? (marqueeRef.current = createMarqueeSession(instance))
+  const gesture =
+    gestureRef.current
+    ?? (gestureRef.current = createNodeGesture(instance, marquee))
+  const transform =
+    transformRef.current
+    ?? (transformRef.current = createTransformSession(instance))
   const edge = useEdgeInput({
     containerRef
   })
+  const eraser = useEraserInput()
   const draw = useDrawInput()
   const insert = useInsertDown()
   const mindmap = useMindmapDrag()
 
   useEffect(() => () => {
     marquee.cancel()
-    node.cancel()
+    gesture.cancel()
     transform.cancel()
-  }, [marquee, node, transform])
+  }, [gesture, marquee, transform])
 
-  const downTool = useCallback((input: CanvasDown) => (
+  const handleDown = useCallback((input: CanvasDown) => (
     edge.create(input)
+    || eraser.down(input)
     || draw.down(input)
     || insert.down(input)
-  ), [draw, edge, insert])
-
-  const downDirect = useCallback((input: CanvasDown) => (
-    transform.down(input)
+    || transform.down(input)
     || edge.down(input)
     || mindmap.down(input)
-  ), [edge, mindmap, transform])
-
-  const downScene = useCallback((input: CanvasDown) => (
-    node.down(input)
-  ), [node])
+    || gesture.down(input)
+  ), [draw, edge, eraser, gesture, insert, mindmap, transform])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
     const container = containerRef.current
@@ -82,8 +71,8 @@ export const useCanvasDown = ({
     }
 
     const input = readCanvasDown(instance, container, event)
-    return downTool(input) || downDirect(input) || downScene(input)
-  }, [containerRef, downDirect, downScene, downTool, instance])
+    return handleDown(input)
+  }, [containerRef, handleDown, instance])
 
   useEffect(() => {
     const container = containerRef.current
@@ -103,8 +92,8 @@ export const useCanvasDown = ({
 
   return {
     marquee,
-    node,
+    gesture,
     drawPreview: draw.preview,
-    edgeKeyDown: edge.keyDown
+    edgePathKeyDown: edge.keyDown
   }
 }

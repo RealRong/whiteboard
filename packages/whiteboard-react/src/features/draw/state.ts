@@ -1,91 +1,217 @@
-import { clamp } from '@whiteboard/core/geometry'
 import { createValueStore, type ValueStore } from '@whiteboard/core/runtime'
 import type { Point } from '@whiteboard/core/types'
-import type { DrawPresetKey } from '../../runtime/tool'
-import { DEFAULT_DRAW_PRESET_KEY } from '../../runtime/tool'
+import type { DrawBrushKind } from '../../runtime/tool'
 
-export type DrawStyle = Readonly<{
+export type DrawSlot =
+  | '1'
+  | '2'
+  | '3'
+
+export type BrushStyle = Readonly<{
+  color: string
+  width: number
+}>
+
+export type BrushStylePatch = Partial<BrushStyle>
+
+export type DrawBrush = Readonly<{
+  slot: DrawSlot
+  slots: Readonly<Record<DrawSlot, BrushStyle>>
+}>
+
+export type DrawState = Readonly<Record<DrawBrushKind, DrawBrush>>
+
+export type ResolvedDrawStyle = Readonly<{
+  kind: DrawBrushKind
   color: string
   width: number
   opacity: number
 }>
 
-export type DrawStylePatch = Partial<DrawStyle>
-
-export type DrawStyles = Readonly<Record<DrawPresetKey, DrawStyle>>
-
 export type DrawPreview = Readonly<{
-  preset: DrawPresetKey
-  style: DrawStyle
+  kind: DrawBrushKind
+  style: ResolvedDrawStyle
   points: readonly Point[]
 }>
 
 export type DrawCommands = {
-  patch: (preset: DrawPresetKey, patch: DrawStylePatch) => void
+  slot: (kind: DrawBrushKind, slot: DrawSlot) => void
+  patch: (
+    kind: DrawBrushKind,
+    slot: DrawSlot,
+    patch: BrushStylePatch
+  ) => void
 }
 
-const DEFAULT_DRAW_STYLES: DrawStyles = {
+export const DRAW_SLOTS = ['1', '2', '3'] as const satisfies readonly DrawSlot[]
+
+const DEFAULT_DRAW_STATE: DrawState = {
   pen: {
-    color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
-    width: 2,
-    opacity: 1
+    slot: '1',
+    slots: {
+      '1': {
+        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
+        width: 2
+      },
+      '2': {
+        color: 'hsl(var(--tag-blue-foreground, 206.5 74.4% 52.5%))',
+        width: 4
+      },
+      '3': {
+        color: 'hsl(var(--tag-purple-foreground, 278.6 32.7% 56.3%))',
+        width: 8
+      }
+    }
   },
   highlighter: {
-    color: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))',
-    width: 12,
-    opacity: 0.35
+    slot: '1',
+    slots: {
+      '1': {
+        color: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))',
+        width: 12
+      },
+      '2': {
+        color: 'hsl(var(--tag-green-background, 146.7 24.3% 92.7%))',
+        width: 12
+      },
+      '3': {
+        color: 'hsl(var(--tag-pink-background, 331.8 63% 94.7%))',
+        width: 12
+      }
+    }
   }
 }
 
+const DRAW_OPACITY: Readonly<Record<DrawBrushKind, number>> = {
+  pen: 1,
+  highlighter: 0.35
+}
+
 const normalizeStyle = (
-  value: DrawStyle
-): DrawStyle => ({
+  value: BrushStyle
+): BrushStyle => ({
   color: typeof value.color === 'string' && value.color.trim()
     ? value.color
-    : DEFAULT_DRAW_STYLES[DEFAULT_DRAW_PRESET_KEY].color,
-  width: Number.isFinite(value.width) ? Math.max(1, value.width) : 1,
-  opacity: Number.isFinite(value.opacity) ? clamp(value.opacity, 0, 1) : 1
+    : DEFAULT_DRAW_STATE.pen.slots['1'].color,
+  width: Number.isFinite(value.width)
+    ? Math.max(1, value.width)
+    : 1
 })
 
 const isSameStyle = (
-  left: DrawStyle,
-  right: DrawStyle
+  left: BrushStyle,
+  right: BrushStyle
 ) => (
   left.color === right.color
   && left.width === right.width
-  && left.opacity === right.opacity
 )
 
-const createInitialStyles = (): DrawStyles => ({
-  pen: normalizeStyle(DEFAULT_DRAW_STYLES.pen),
-  highlighter: normalizeStyle(DEFAULT_DRAW_STYLES.highlighter)
+const isSameBrush = (
+  left: DrawBrush,
+  right: DrawBrush
+) => (
+  left === right
+  || (
+    left.slot === right.slot
+    && DRAW_SLOTS.every((slot) => isSameStyle(left.slots[slot], right.slots[slot]))
+  )
+)
+
+const createInitialState = (): DrawState => ({
+  pen: {
+    slot: DEFAULT_DRAW_STATE.pen.slot,
+    slots: {
+      '1': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['1']),
+      '2': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['2']),
+      '3': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['3'])
+    }
+  },
+  highlighter: {
+    slot: DEFAULT_DRAW_STATE.highlighter.slot,
+    slots: {
+      '1': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['1']),
+      '2': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['2']),
+      '3': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['3'])
+    }
+  }
 })
 
+export const readDrawSlot = (
+  state: DrawState,
+  kind: DrawBrushKind
+): DrawSlot => state[kind].slot
+
+export const readDrawBrushStyle = (
+  state: DrawState,
+  kind: DrawBrushKind,
+  slot: DrawSlot = state[kind].slot
+): BrushStyle => state[kind].slots[slot]
+
+export const readDrawStyle = (
+  state: DrawState,
+  kind: DrawBrushKind
+): ResolvedDrawStyle => {
+  const style = readDrawBrushStyle(state, kind)
+
+  return {
+    kind,
+    color: style.color,
+    width: style.width,
+    opacity: DRAW_OPACITY[kind]
+  }
+}
+
 export const createDrawState = (): {
-  store: ValueStore<DrawStyles>
+  store: ValueStore<DrawState>
   commands: DrawCommands
 } => {
-  const store = createValueStore<DrawStyles>(createInitialStyles())
+  const store = createValueStore<DrawState>(createInitialState())
 
   return {
     store,
     commands: {
-      patch: (preset, patch) => {
+      slot: (kind, slot) => {
         store.update((current) => {
-          const previous = current[preset]
-          const next = normalizeStyle({
-            color: patch.color ?? previous.color,
-            width: patch.width ?? previous.width,
-            opacity: patch.opacity ?? previous.opacity
+          const previous = current[kind]
+          if (previous.slot === slot) {
+            return current
+          }
+
+          const next = {
+            ...previous,
+            slot
+          }
+
+          return isSameBrush(previous, next)
+            ? current
+            : {
+                ...current,
+                [kind]: next
+              }
+        })
+      },
+      patch: (kind, slot, patch) => {
+        store.update((current) => {
+          const previous = current[kind]
+          const currentStyle = previous.slots[slot]
+          const nextStyle = normalizeStyle({
+            color: patch.color ?? currentStyle.color,
+            width: patch.width ?? currentStyle.width
           })
 
-          if (isSameStyle(previous, next)) {
+          if (isSameStyle(currentStyle, nextStyle)) {
             return current
           }
 
           return {
             ...current,
-            [preset]: next
+            [kind]: {
+              ...previous,
+              slots: {
+                ...previous.slots,
+                [slot]: nextStyle
+              }
+            }
           }
         })
       }

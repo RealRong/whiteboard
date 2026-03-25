@@ -1,18 +1,11 @@
-import {
-  createValueStore,
-  type ValueStore
-} from '@whiteboard/core/runtime'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 import {
   createNodeSessionStore,
   type NodeSessionStore
 } from './node'
 
-export type NodeChromeHidden = boolean
-
 export type NodeFeatureRuntime = {
   session: NodeSessionStore
-  chromeHidden: ValueStore<NodeChromeHidden>
   clear: () => void
 }
 
@@ -24,7 +17,6 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
   }
 
   const node = createNodeSessionStore(schedule)
-  const chromeHidden = createValueStore<NodeChromeHidden>(false)
 
   flushAll.push(node.flush)
 
@@ -36,10 +28,8 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
 
   return {
     session: node,
-    chromeHidden,
     clear: () => {
       task.cancel()
-      chromeHidden.set(false)
       node.clear()
     }
   }

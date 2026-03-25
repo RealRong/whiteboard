@@ -3,13 +3,17 @@ import type { EngineDocument, EngineRead, EngineReadIndex } from '@engine-types/
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { BoardConfig } from '@whiteboard/core/config'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import { getEdgePath } from '@whiteboard/core/edge'
+import {
+  getEdgePath,
+  getEdgePathBounds
+} from '@whiteboard/core/edge'
 import {
   getAABBFromPoints,
   getRectsBoundingRect
 } from '@whiteboard/core/geometry'
 import { createValueStore } from '@whiteboard/core/runtime'
 import {
+  exportSliceFromSelection,
   exportSliceFromEdge,
   exportSliceFromNodes
 } from '@whiteboard/core/document'
@@ -105,11 +109,7 @@ export const createRead = ({
         side: item.ends.target.anchor?.side
       }
     })
-    const points = path.points.length > 0
-      ? path.points
-      : [item.ends.source.point, item.ends.target.point]
-
-    return getAABBFromPoints(points)
+    return getEdgePathBounds(path)
   }
 
   const readMindmapBounds = (treeId: NodeId): Rect | undefined => {
@@ -195,6 +195,15 @@ export const createRead = ({
           const exported = exportSliceFromEdge({
             doc: readDocument(),
             edgeId,
+            nodeSize: config.nodeSize
+          })
+          return exported.ok ? exported.data : undefined
+        },
+        fromSelection: (selection) => {
+          const exported = exportSliceFromSelection({
+            doc: readDocument(),
+            nodeIds: selection.nodeIds,
+            edgeIds: selection.edgeIds,
             nodeSize: config.nodeSize
           })
           return exported.ok ? exported.data : undefined

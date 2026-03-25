@@ -63,7 +63,7 @@ const createBasicDocument = (): Document => {
       type: 'shape',
       position: { x: -200, y: -80 },
       size: { width: 160, height: 100 },
-      parentId: groupId,
+      groupId,
       data: { kind: 'rect', text: 'Start' }
     },
     {
@@ -71,7 +71,7 @@ const createBasicDocument = (): Document => {
       type: 'shape',
       position: { x: 140, y: -40 },
       size: { width: 180, height: 120 },
-      parentId: groupId,
+      groupId,
       data: { kind: 'rect', text: 'Process' }
     },
     {
@@ -79,7 +79,7 @@ const createBasicDocument = (): Document => {
       type: 'text',
       position: { x: -120, y: 140 },
       size: { width: 200, height: 120 },
-      parentId: groupId,
+      groupId,
       data: { text: '双击编辑文本' }
     },
     {

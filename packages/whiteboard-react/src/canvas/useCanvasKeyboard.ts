@@ -139,25 +139,26 @@ const canDispatchShortcutAction = (
 ) => {
   const selection = instance.read.selection.get()
   const can = resolveNodeSelectionCan(selection.items.nodes)
-  const hasSelection = can.delete || selection.target.edgeId !== undefined
+  const pureNodeSelection = selection.items.edgeCount === 0
+  const hasSelection = selection.items.count > 0
 
   switch (action) {
     case 'group.create':
-      return can.makeGroup
+      return pureNodeSelection && can.makeGroup
     case 'group.ungroup':
-      return can.ungroup
+      return pureNodeSelection && can.ungroup
     case 'selection.selectAll':
       return true
     case 'selection.clear':
       return (
         hasSelection
-        || instance.state.container.get().id !== undefined
+        || instance.state.frame.get().id !== undefined
         || !instance.read.tool.is('select')
       )
     case 'selection.delete':
       return hasSelection
     case 'selection.duplicate':
-      return can.duplicate
+      return pureNodeSelection && can.duplicate
     case 'history.undo':
     case 'history.redo':
       return true
@@ -175,6 +176,7 @@ const dispatchShortcutAction = (
   }
 
   const selection = instance.read.selection.get()
+  const pureNodeSelection = selection.items.edgeCount === 0
 
   switch (action) {
     case 'selection.selectAll':
@@ -184,34 +186,61 @@ const dispatchShortcutAction = (
       if (!instance.read.tool.is('select')) {
         instance.commands.tool.select()
       }
-      instance.commands.container.exit()
+      instance.commands.frame.exit()
       return true
     case 'selection.delete':
-      if (selection.target.edgeId !== undefined) {
-        return instance.commands.edge.delete([selection.target.edgeId]).ok
-      }
-      if (!selection.target.nodeIds.length) {
+      if (!selection.target.nodeIds.length && !selection.target.edgeIds.length) {
         return false
       }
-      instance.commands.node.deleteCascade([...selection.target.nodeIds])
+
+      if (selection.target.edgeIds.length > 0) {
+        const result = instance.commands.edge.delete([...selection.target.edgeIds])
+        if (!result.ok) {
+          return false
+        }
+      }
+
+      if (selection.target.nodeIds.length > 0) {
+        const result = instance.commands.node.deleteCascade([...selection.target.nodeIds])
+        if (!result.ok) {
+          return false
+        }
+      }
+
       return true
     case 'selection.duplicate': {
+      if (!pureNodeSelection) {
+        return false
+      }
+
       const result = instance.commands.node.duplicate([...selection.target.nodeIds])
       if (!result.ok || result.data.nodeIds.length <= 0) {
         return false
       }
-      instance.commands.selection.replace(result.data.nodeIds)
+      instance.commands.selection.replace({
+        nodeIds: result.data.nodeIds
+      })
       return true
     }
     case 'group.create': {
+      if (!pureNodeSelection) {
+        return false
+      }
+
       const result = instance.commands.node.group.create([...selection.target.nodeIds])
       if (!result.ok) {
         return false
       }
-      instance.commands.selection.replace([result.data.groupId])
+      instance.commands.selection.replace({
+        nodeIds: [result.data.groupId]
+      })
       return true
     }
     case 'group.ungroup': {
+      if (!pureNodeSelection) {
+        return false
+      }
+
       const groupIds = selection.target.nodeIds.filter((nodeId) =>
         selection.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
       )
@@ -219,7 +248,9 @@ const dispatchShortcutAction = (
       if (!result.ok) {
         return false
       }
-      instance.commands.selection.replace(result.data.nodeIds)
+      instance.commands.selection.replace({
+        nodeIds: result.data.nodeIds
+      })
       return true
     }
     case 'history.undo':

@@ -155,7 +155,7 @@ export const App = () => {
     const offsetX = (column - 1) * 42
     const offsetY = (row - 1) * 34
     const center = instance.viewport.get().center
-    const parentId = instance.state.container.get().id
+    const containerId = instance.state.frame.get().id
     const id = createId('demo-node')
     const payload: NodeInput = {
       id,
@@ -166,13 +166,15 @@ export const App = () => {
       },
       size: template.size,
       data: template.data,
-      parentId
+      containerId
     }
 
     const result = instance.commands.node.create(payload)
     if (!result.ok) return
 
-    instance.commands.selection.replace([id])
+    instance.commands.selection.replace({
+      nodeIds: [id]
+    })
   }, [])
 
   return (

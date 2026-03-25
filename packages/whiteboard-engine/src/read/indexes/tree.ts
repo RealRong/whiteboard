@@ -1,4 +1,5 @@
 import type { ReadModel } from '@engine-types/read'
+import { isContainerNode } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 
 const EMPTY_IDS: readonly NodeId[] = []
@@ -7,7 +8,7 @@ const EMPTY_SET: ReadonlySet<NodeId> = new Set<NodeId>()
 export class TreeIndex {
   private nodeById: ReadModel['canvas']['nodeById'] = new Map()
   private allIds: readonly NodeId[] = EMPTY_IDS
-  private groups = new Set<NodeId>()
+  private containers = new Set<NodeId>()
   private children = new Map<NodeId, NodeId[]>()
   private idsCache = new Map<NodeId, readonly NodeId[]>()
   private setCache = new Map<NodeId, ReadonlySet<NodeId>>()
@@ -22,7 +23,7 @@ export class TreeIndex {
 
     this.nodeById = nextNodeById
     this.allIds = nextIds
-    this.groups = new Set()
+    this.containers = new Set()
     this.children = new Map()
     this.idsCache.clear()
     this.setCache.clear()
@@ -31,18 +32,18 @@ export class TreeIndex {
       const node = nextNodeById.get(nodeId)
       if (!node) return
 
-      if (node.type === 'group') {
-        this.groups.add(nodeId)
+      if (isContainerNode(node)) {
+        this.containers.add(nodeId)
       }
 
-      const parentId = node.parentId
-      if (!parentId) {
+      const containerId = node.containerId
+      if (!containerId) {
         return
       }
 
-      const children = this.children.get(parentId) ?? []
+      const children = this.children.get(containerId) ?? []
       children.push(nodeId)
-      this.children.set(parentId, children)
+      this.children.set(containerId, children)
     })
   }
 
@@ -73,7 +74,7 @@ export class TreeIndex {
       return cached
     }
 
-    if (!this.nodeById.has(rootId) || !this.groups.has(rootId)) {
+    if (!this.nodeById.has(rootId) || !this.containers.has(rootId)) {
       this.setCache.set(rootId, EMPTY_SET)
       return EMPTY_SET
     }

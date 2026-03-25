@@ -21,9 +21,9 @@ import { useCanvasDown } from './canvas/useCanvasDown'
 import { DrawLayer } from './features/draw/DrawLayer'
 import { NodeSceneLayer } from './features/node/components/NodeSceneLayer'
 import {
+  FrameLayer,
   ContainerChromeLayer,
-  ContainerLayer
-} from './features/node/components/ContainerLayer'
+} from './features/node/components/FrameLayer'
 import { EdgeLayer } from './features/edge/components/EdgeLayer'
 import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLayer'
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
@@ -90,7 +90,7 @@ const WhiteboardCanvas = ({
     containerRef,
     options: inputPolicy
   })
-  const canvasDown = useCanvasDown({
+  const canvasInput = useCanvasDown({
     containerRef
   })
 
@@ -99,26 +99,32 @@ const WhiteboardCanvas = ({
       ref={containerRef}
       className={resolvedConfig.className ? `wb-root-container ${resolvedConfig.className}` : 'wb-root-container'}
       data-tool={tool.type}
-      data-tool-preset={tool.type === 'edge' || tool.type === 'insert' || tool.type === 'draw' ? tool.preset : undefined}
+      data-tool-value={
+        tool.type === 'edge' || tool.type === 'insert'
+          ? tool.preset
+          : tool.type === 'draw'
+            ? tool.kind
+            : undefined
+      }
       style={containerStyle}
       tabIndex={0}
     >
       <CanvasBackground />
       <div className="wb-root-viewport" style={transformStyle}>
-        <ContainerLayer />
+        <FrameLayer gesture={canvasInput.gesture} />
         <EdgeLayer />
-        <NodeSceneLayer gesture={canvasDown.node} />
+        <NodeSceneLayer gesture={canvasInput.gesture} />
         <MindmapSceneLayer />
-        <ContainerChromeLayer gesture={canvasDown.node} />
+        <ContainerChromeLayer gesture={canvasInput.gesture} />
         <NodeOverlayLayer />
         <EdgeOverlayLayer
-          onPathPointKeyDown={canvasDown.edgeKeyDown}
+          onPathPointKeyDown={canvasInput.edgePathKeyDown}
         />
-        <DrawLayer preview={canvasDown.drawPreview} />
+        <DrawLayer preview={canvasInput.drawPreview} />
       </div>
       <CanvasChrome
         containerRef={containerRef}
-        marquee={canvasDown.marquee}
+        marquee={canvasInput.marquee}
         shortcuts={resolvedConfig.shortcuts}
       />
     </div>

@@ -1,6 +1,7 @@
 import {
   Folder,
   PencilLine,
+  Square,
   Shapes,
   StickyNote,
   Type,
@@ -24,6 +25,7 @@ const IconByName: Record<string, LucideIcon> = {
   text: Type,
   sticky: StickyNote,
   group: Folder,
+  frame: Square,
   draw: PencilLine
 }
 

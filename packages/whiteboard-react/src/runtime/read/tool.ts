@@ -1,7 +1,7 @@
 import type { ReadStore } from '@whiteboard/core/runtime'
 import type {
+  DrawKind,
   EdgePresetKey,
-  DrawPresetKey,
   InsertPresetKey,
   Tool
 } from '../tool'
@@ -10,13 +10,19 @@ import { matchTool } from '../tool'
 export type ToolRead = {
   get: () => Tool
   type: () => Tool['type']
-  preset: () => EdgePresetKey | InsertPresetKey | DrawPresetKey | undefined
+  preset: () => EdgePresetKey | InsertPresetKey | DrawKind | undefined
   is: (type: Tool['type'], preset?: string) => boolean
 }
 
 const readPreset = (
   tool: Tool
-) => ('preset' in tool ? tool.preset : undefined)
+) => (
+  'preset' in tool
+    ? tool.preset
+    : 'kind' in tool
+      ? tool.kind
+      : undefined
+)
 
 export const createToolRead = ({
   tool

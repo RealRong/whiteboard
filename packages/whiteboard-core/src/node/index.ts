@@ -9,25 +9,22 @@ export {
   type NodeOutlineAnchorOptions
 } from './outline'
 export {
-  compactDrawPoints,
   matchDrawRect,
-  normalizeDrawPoints,
   readDrawBaseSize,
   readDrawPoints,
+  resolveDrawPoints,
   resolveDrawStroke,
-  simplifyDrawPoints,
   type ResolvedDrawStroke
 } from './draw'
 export {
-  expandContainerRect,
   findSmallestContainerAtPoint,
-  getCollapsedGroupIds,
   getContainerChildrenMap,
   getContainerDescendants,
+  getGroupChildrenMap,
+  getGroupDescendants,
   getNodesBoundingRect,
-  isHiddenByCollapsedGroup,
+  isContainerNode,
   normalizeGroupBounds,
-  resolveContainerPadding,
   rectEquals
 } from './group'
 export type {

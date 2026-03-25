@@ -1,6 +1,7 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
 import {
-  compactDrawPoints,
+  isContainerNode,
+  resolveDrawPoints,
   resolveDrawStroke
 } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
@@ -12,40 +13,27 @@ import {
 } from 'react'
 import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
-import type { DrawPresetKey } from '../../runtime/tool'
-import type { DrawPreview, DrawStyle } from './state'
+import {
+  isDrawBrushKind,
+  type DrawBrushKind
+} from '../../runtime/tool'
+import {
+  readDrawStyle,
+  type DrawPreview,
+  type ResolvedDrawStyle
+} from './state'
 
 type ActiveStroke = {
-  parentId?: NodeId
-  preset: DrawPresetKey
-  style: DrawStyle
+  containerId?: NodeId
+  kind: DrawBrushKind
+  style: ResolvedDrawStyle
   points: Point[]
   lastScreen: Point
   lengthScreen: number
 }
 
-const SAMPLE_DISTANCE_SCREEN = 1.5
 const DRAW_MIN_LENGTH_SCREEN = 4
-const DRAW_SIMPLIFY_DISTANCE_SCREEN = 1.5
-const DRAW_POINT_BUDGET_MIN = 24
-const DRAW_POINT_BUDGET_MAX = 320
-const DRAW_POINT_BUDGET_STEP_SCREEN = 6
-
-const resolveDrawPointBudget = (
-  lengthScreen: number
-) => {
-  if (!Number.isFinite(lengthScreen) || lengthScreen <= 0) {
-    return DRAW_POINT_BUDGET_MIN
-  }
-
-  return Math.min(
-    DRAW_POINT_BUDGET_MAX,
-    Math.max(
-      DRAW_POINT_BUDGET_MIN,
-      Math.ceil(lengthScreen / DRAW_POINT_BUDGET_STEP_SCREEN)
-    )
-  )
-}
+const SAMPLE_DISTANCE_SCREEN = 1
 
 const readSampleEvents = (
   event: PointerEvent
@@ -73,6 +61,16 @@ export const useDrawInput = () => {
   const frameRef = useRef<number | null>(null)
   const [preview, setPreview] = useState<DrawPreview | null>(null)
 
+  const resolvePoints = useCallback((
+    points: readonly Point[]
+  ) => {
+    const zoom = instance.viewport.get().zoom
+    return resolveDrawPoints({
+      points,
+      zoom
+    })
+  }, [instance])
+
   const flushPreview = useCallback((active: ActiveStroke | null) => {
     frameRef.current = null
     if (!active) {
@@ -81,11 +79,11 @@ export const useDrawInput = () => {
     }
 
     setPreview({
-      preset: active.preset,
+      kind: active.kind,
       style: active.style,
-      points: active.points
+      points: resolvePoints(active.points)
     })
-  }, [])
+  }, [resolvePoints])
 
   const schedulePreview = useCallback(() => {
     if (frameRef.current !== null) {
@@ -168,12 +166,7 @@ export const useDrawInput = () => {
       return
     }
 
-    const zoom = Math.max(0.0001, instance.viewport.get().zoom)
-    const points = compactDrawPoints({
-      points: active.points,
-      tolerance: DRAW_SIMPLIFY_DISTANCE_SCREEN / zoom,
-      budget: resolveDrawPointBudget(active.lengthScreen)
-    })
+    const points = resolvePoints(active.points)
     const stroke = resolveDrawStroke({
       points,
       width: active.style.width
@@ -184,7 +177,7 @@ export const useDrawInput = () => {
 
     const result = instance.commands.node.create({
       type: 'draw',
-      parentId: active.parentId,
+      containerId: active.containerId,
       position: stroke.position,
       size: stroke.size,
       data: {
@@ -201,9 +194,7 @@ export const useDrawInput = () => {
     if (!result.ok) {
       return
     }
-
-    instance.commands.selection.replace([result.data.nodeId])
-  }, [instance])
+  }, [instance, resolvePoints])
 
   useEffect(() => () => {
     activeRef.current = null
@@ -219,33 +210,45 @@ export const useDrawInput = () => {
     if (event.button !== 0) return false
     if (input.mode !== 'idle') return false
 
-    if (input.tool.type !== 'draw') return false
+    if (input.tool.type !== 'draw' || !isDrawBrushKind(input.tool.kind)) return false
     if (
       input.editable
       || input.ignoreInput
       || input.ignoreSelection
-      || input.pick.kind !== 'background'
     ) {
       return false
     }
 
-    let activeContainer = instance.state.container.get()
-    if (activeContainer.id) {
-      const activeRect = instance.read.index.node.get(activeContainer.id)?.rect
-      const insideActiveContainer = Boolean(
+    let activeFrame = instance.state.frame.get()
+    if (activeFrame.id) {
+      const activeRect = instance.read.index.node.get(activeFrame.id)?.rect
+      const insideActiveFrame = Boolean(
         activeRect && isPointInRect(input.point.world, activeRect)
       )
 
-      if (!insideActiveContainer) {
-        instance.commands.container.exit()
-        activeContainer = instance.state.container.get()
+      if (!insideActiveFrame) {
+        instance.commands.frame.exit()
+        activeFrame = instance.state.frame.get()
       }
     }
 
+    const frameTargetId =
+      input.pick.kind === 'node'
+      && input.pick.part === 'container'
+      && isContainerNode(instance.read.node.item.get(input.pick.id)?.node ?? { type: '' })
+        ? input.pick.id
+        : undefined
+    const canDraw =
+      input.pick.kind === 'background'
+      || frameTargetId !== undefined
+    if (!canDraw) {
+      return false
+    }
+
     const active: ActiveStroke = {
-      parentId: activeContainer.id,
-      preset: input.tool.preset,
-      style: instance.state.draw.get()[input.tool.preset],
+      containerId: activeFrame.id ?? frameTargetId,
+      kind: input.tool.kind,
+      style: readDrawStyle(instance.state.draw.get(), input.tool.kind),
       points: [input.point.world],
       lastScreen: input.point.screen,
       lengthScreen: 0
@@ -285,8 +288,6 @@ export const useDrawInput = () => {
     }
 
     activeRef.current = active
-    instance.commands.edit.clear()
-    instance.commands.selection.clear()
     flushPreview(active)
 
     event.preventDefault()

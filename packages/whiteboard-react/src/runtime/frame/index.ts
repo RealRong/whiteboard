@@ -4,5 +4,5 @@ export {
   hasEdge,
   hasNode,
   type Commands,
-  type Container
+  type FrameScope
 } from './state'

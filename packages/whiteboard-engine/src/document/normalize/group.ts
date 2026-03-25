@@ -1,5 +1,4 @@
 import {
-  expandContainerRect,
   rectEquals
 } from '@whiteboard/core/node'
 import { reduceOperations } from '@whiteboard/core/kernel'
@@ -13,22 +12,10 @@ import type {
 import { DEFAULT_TUNING } from '../../config'
 import { NodeGeometryCache } from '../../geometry/nodeGeometry'
 
-const readGroupPadding = (
-  group: Pick<Node, 'data'>,
-  defaultPadding: number
-) => {
-  const value = group.data?.padding
-  return typeof value === 'number' ? value : defaultPadding
-}
-
-const isManualGroup = (
-  group: Pick<Node, 'data'>
-) => group.data?.autoFit === 'manual'
-
 type GroupIndex = {
   groupIds: Set<NodeId>
-  parentById: Map<NodeId, NodeId | undefined>
-  childrenByParentId: Map<NodeId, Set<NodeId>>
+  groupIdById: Map<NodeId, NodeId | undefined>
+  childrenByGroupId: Map<NodeId, Set<NodeId>>
   orderIndexById: Map<NodeId, number>
 }
 
@@ -37,8 +24,8 @@ const createGroupIndex = (
 ): GroupIndex => {
   const index: GroupIndex = {
     groupIds: new Set(),
-    parentById: new Map(),
-    childrenByParentId: new Map(),
+    groupIdById: new Map(),
+    childrenByGroupId: new Map(),
     orderIndexById: new Map()
   }
   fillGroupIndex(index, document)
@@ -50,17 +37,17 @@ const fillGroupIndex = (
   document: Document
 ) => {
   index.groupIds.clear()
-  index.parentById.clear()
-  index.childrenByParentId.clear()
+  index.groupIdById.clear()
+  index.childrenByGroupId.clear()
   index.orderIndexById.clear()
 
   const entities = document.nodes.entities
   for (const node of Object.values(entities)) {
-    index.parentById.set(node.id, node.parentId)
-    if (node.parentId) {
-      const children = index.childrenByParentId.get(node.parentId) ?? new Set<NodeId>()
+    index.groupIdById.set(node.id, node.groupId)
+    if (node.groupId) {
+      const children = index.childrenByGroupId.get(node.groupId) ?? new Set<NodeId>()
       children.add(node.id)
-      index.childrenByParentId.set(node.parentId, children)
+      index.childrenByGroupId.set(node.groupId, children)
     }
     if (node.type === 'group') {
       index.groupIds.add(node.id)
@@ -87,7 +74,7 @@ const collectDirtyGroups = (
       if (index.groupIds.has(current)) {
         dirty.add(current)
       }
-      current = index.parentById.get(current)
+      current = index.groupIdById.get(current)
     }
   }
 
@@ -102,9 +89,9 @@ const sortDirtyGroupsBottomUp = (
   const resolveDepth = (groupId: NodeId): number => {
     const cached = depthById.get(groupId)
     if (cached !== undefined) return cached
-    const parentId = index.parentById.get(groupId)
-    const depth = parentId && index.groupIds.has(parentId)
-      ? resolveDepth(parentId) + 1
+    const parentGroupId = index.groupIdById.get(groupId)
+    const depth = parentGroupId && index.groupIds.has(parentGroupId)
+      ? resolveDepth(parentGroupId) + 1
       : 0
     depthById.set(groupId, depth)
     return depth
@@ -121,7 +108,7 @@ const collectGroupOpsFromIndex = ({
   document,
   index,
   dirtyGroupIds,
-  groupPadding,
+  groupPadding: _groupPadding,
   geometry
 }: {
   document: Document
@@ -143,9 +130,8 @@ const collectGroupOpsFromIndex = ({
     if (!index.groupIds.has(groupId)) continue
     const group = workingNodes[groupId]
     if (!group || group.type !== 'group') continue
-    if (isManualGroup(group)) continue
 
-    const childIds = index.childrenByParentId.get(groupId)
+    const childIds = index.childrenByGroupId.get(groupId)
     if (!childIds || childIds.size === 0) continue
 
     const children = Array.from(childIds)
@@ -187,11 +173,7 @@ const collectGroupOpsFromIndex = ({
     const groupRect = groupEntry?.aabb
     if (!groupRect) continue
 
-    const nextRect = expandContainerRect(
-      groupRect,
-      contentRect,
-      readGroupPadding(group, groupPadding)
-    )
+    const nextRect = contentRect
     if (rectEquals(nextRect, groupRect, rectEpsilon)) continue
 
     const operation: Operation = {

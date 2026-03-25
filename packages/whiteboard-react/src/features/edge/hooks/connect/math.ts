@@ -59,6 +59,7 @@ export const resolveSnapTarget = (
   for (let index = 0; index < nodeIds.length; index += 1) {
     const entry = instance.read.index.node.get(nodeIds[index])
     if (!entry) continue
+    if (!instance.read.node.connect(entry.node)) continue
     const candidateThresholdWorld = resolveAnchorThresholdWorld(instance, entry.rect)
     const rect = entry.aabb
     const dx = Math.max(rect.x - pointWorld.x, 0, pointWorld.x - (rect.x + rect.width))

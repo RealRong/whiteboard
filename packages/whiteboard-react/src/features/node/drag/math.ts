@@ -1,7 +1,8 @@
 import type { BoardConfig } from '@whiteboard/core/config'
 import {
   findSmallestContainerAtPoint,
-  getContainerDescendants,
+  getGroupDescendants,
+  isContainerNode
 } from '@whiteboard/core/node'
 import {
   getNodeAABB,
@@ -49,12 +50,12 @@ const hasSelectedAncestor = (
   selectedNodeIds: ReadonlySet<NodeId>,
   nodeById: ReadonlyMap<NodeId, Node>
 ) => {
-  let parentId = node.parentId
-  while (parentId) {
-    if (selectedNodeIds.has(parentId)) {
+  let groupId = node.groupId
+  while (groupId) {
+    if (selectedNodeIds.has(groupId)) {
       return true
     }
-    parentId = nodeById.get(parentId)?.parentId
+    groupId = nodeById.get(groupId)?.groupId
   }
   return false
 }
@@ -131,7 +132,7 @@ export const buildNodeDragState = (options: {
     roots.push(createDragMember(origin, root))
     appendDragMembers(members, memberIds, origin, root)
     if (root.type !== 'group') return
-    getContainerDescendants(nodes, root.id).forEach((child) => {
+    getGroupDescendants(nodes, root.id).forEach((child) => {
       appendDragMembers(members, memberIds, origin, child)
     })
   })
@@ -298,7 +299,10 @@ const resolveRootContainerTargets = (options: {
     excludeNodeIds
   } = options
   const nodeById = toNodeById(nodes)
-  const containerNodes = nodes.filter((node) => !excludeNodeIds.has(node.id))
+  const containerNodes = nodes.filter((node) => (
+    !excludeNodeIds.has(node.id)
+    && isContainerNode(node)
+  ))
   const targets = new Map<NodeId, NodeId | undefined>()
 
   roots.forEach((root) => {

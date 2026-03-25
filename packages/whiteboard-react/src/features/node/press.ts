@@ -2,19 +2,27 @@ import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import {
+  isNodeEdgeEnd,
+  type Edge,
+  type EdgeId,
+  type NodeId,
+  type Point,
+  type Rect
+} from '@whiteboard/core/types'
 import {
   createPressRuntime,
   GestureTuning
 } from '../../runtime/interaction'
 import type { InternalInstance } from '../../runtime/instance'
-import { filterNodeIds } from '../../runtime/container'
+import type { Input as SelectionInput } from '../../runtime/selection'
+import { filterNodeIds } from '../../runtime/frame'
 import type { EditField } from '../../runtime/edit'
-import type { MarqueeMatch, MarqueeSession } from '../selection/chrome/Marquee'
+import type { MarqueeMatch, MarqueeSession } from '../selection/Marquee'
 import { createNodeDragSession } from './drag/session'
 
 type NodeEntry = NonNullable<ReturnType<InternalInstance['read']['index']['node']['get']>>
-type ContainerState = ReturnType<InternalInstance['state']['container']['get']>
+type FrameScope = ReturnType<InternalInstance['state']['frame']['get']>
 
 export type PressTarget =
   | {
@@ -26,6 +34,7 @@ export type PressTarget =
     }
   | {
       kind: 'node'
+      hitNodeId: NodeId
       nodeRect: NodeEntry
       field?: EditField
     }
@@ -40,12 +49,43 @@ export type PressInput = {
   clientX: number
   clientY: number
   selectionMode: SelectionMode
-  container: ContainerState
+  frame: FrameScope
 }
 
 type NodePressController = {
   begin: (input: PressInput, target: PressTarget) => boolean
   cancel: () => void
+}
+
+type PressPlan = {
+  holdDelay?: number
+  hold?: () => void
+  tap?: (event: PointerEvent) => void
+  drag?: (event: PointerEvent) => void
+}
+
+type NodeLikeTarget = Extract<PressTarget, { kind: 'node' | 'container-body' }>
+
+type NodePressState = {
+  nodeId: NodeId
+  selectedNodeIds: readonly NodeId[]
+  selectedEdgeIds: readonly EdgeId[]
+  nextTapSelection: SelectionInput
+  scope?: ReadonlySet<NodeId>
+  frame: Rect
+  selected: boolean
+  singleSelected: boolean
+}
+
+type SelectionMarqueeConfig = {
+  scope?: ReadonlySet<NodeId>
+  edgeFilter?: (edgeId: EdgeId) => boolean
+  match: MarqueeMatch
+  baseNodeIds: readonly NodeId[]
+  baseEdgeIds: readonly EdgeId[]
+  selectionMode: SelectionMode
+  clear?: boolean
+  onTap?: () => void
 }
 
 const isSingleSelectedNode = (
@@ -61,27 +101,100 @@ const isSelectedNode = (
   selectedNodeIds: readonly NodeId[]
 ) => selectedNodeIds.includes(nodeId)
 
+const readNearestSelectedGroupId = (
+  instance: InternalInstance,
+  nodeId: NodeId,
+  selectedNodeIds: readonly NodeId[]
+) => {
+  if (!selectedNodeIds.length) {
+    return undefined
+  }
+
+  const selectedIdSet = new Set(selectedNodeIds)
+  let current = instance.read.node.item.get(nodeId)?.node
+
+  while (current?.groupId) {
+    const group = instance.read.node.item.get(current.groupId)?.node
+    if (!group) {
+      return undefined
+    }
+
+    if (group.type === 'group' && selectedIdSet.has(group.id)) {
+      return group.id
+    }
+
+    current = group
+  }
+
+  return undefined
+}
+
 const hasSelectionChanged = (
-  currentSelectedNodeIds: readonly NodeId[],
-  nextSelectedNodeIds: readonly NodeId[]
+  currentSelection: SelectionInput,
+  nextSelection: SelectionInput
 ) => (
-  nextSelectedNodeIds.length !== currentSelectedNodeIds.length
-  || nextSelectedNodeIds.some(
-    (selectedNodeId, index) => selectedNodeId !== currentSelectedNodeIds[index]
+  (nextSelection.nodeIds?.length ?? 0) !== (currentSelection.nodeIds?.length ?? 0)
+  || (nextSelection.edgeIds?.length ?? 0) !== (currentSelection.edgeIds?.length ?? 0)
+  || (nextSelection.nodeIds ?? []).some(
+    (selectedNodeId, index) => selectedNodeId !== currentSelection.nodeIds?.[index]
+  )
+  || (nextSelection.edgeIds ?? []).some(
+    (selectedEdgeId, index) => selectedEdgeId !== currentSelection.edgeIds?.[index]
   )
 )
 
 const toSelectionKey = (
-  nodeIds: readonly NodeId[]
-) => [...nodeIds].sort().join('|')
+  selection: SelectionInput
+) => [
+  [...(selection.nodeIds ?? [])].sort().join('|'),
+  [...(selection.edgeIds ?? [])].sort().join('|')
+].join('::')
 
 const readSelectedNodeIds = (
   instance: InternalInstance,
-  container: ContainerState
+  frame: FrameScope
 ) => filterNodeIds(
-  container,
+  frame,
   instance.read.selection.get().target.nodeIds
 )
+
+const matchesEdgeScope = (
+  scope: ReadonlySet<NodeId> | undefined,
+  edge: Pick<Edge, 'source' | 'target'>
+) => {
+  if (!scope) {
+    return true
+  }
+
+  const hasNodeEnd =
+    isNodeEdgeEnd(edge.source)
+    || isNodeEdgeEnd(edge.target)
+
+  if (!hasNodeEnd) {
+    return false
+  }
+
+  return (
+    (!isNodeEdgeEnd(edge.source) || scope.has(edge.source.nodeId))
+    && (!isNodeEdgeEnd(edge.target) || scope.has(edge.target.nodeId))
+  )
+}
+
+const readSelectedEdgeIds = (
+  instance: InternalInstance,
+  frame: FrameScope
+) => {
+  const edgeIds = instance.read.selection.get().target.edgeIds
+  if (!frame.id) {
+    return edgeIds
+  }
+
+  const scope = new Set(frame.ids)
+  return edgeIds.filter((edgeId) => {
+    const edge = instance.read.edge.item.get(edgeId)?.edge
+    return edge ? matchesEdgeScope(scope, edge) : false
+  })
+}
 
 const readStartWorld = (
   instance: InternalInstance,
@@ -93,44 +206,103 @@ const readStartWorld = (
 
 const readScope = (
   instance: InternalInstance,
-  container: ContainerState,
-  target: PressTarget
+  frame: FrameScope,
+  target?: NodeLikeTarget
 ): ReadonlySet<NodeId> | undefined => {
-  if (target.kind === 'node' || target.kind === 'container-body') {
+  if (target) {
     if (instance.read.node.scene(target.nodeRect.node) === 'container') {
       return new Set<NodeId>(instance.read.tree.get(target.nodeRect.node.id))
     }
   }
 
-  return container.id
-    ? new Set<NodeId>(container.ids)
+  return frame.id
+    ? new Set<NodeId>(frame.ids)
     : undefined
+}
+
+const readEdgeFilter = (
+  instance: InternalInstance,
+  scope: ReadonlySet<NodeId> | undefined
+) => {
+  if (!scope) {
+    return undefined
+  }
+
+  return (edgeId: EdgeId) => {
+    const edge = instance.read.edge.item.get(edgeId)?.edge
+    return edge ? matchesEdgeScope(scope, edge) : false
+  }
 }
 
 const buildSelectionWriter = (
   instance: InternalInstance,
-  baseSelectedNodeIds: readonly NodeId[],
+  baseSelection: SelectionInput,
   selectionMode: SelectionMode
 ) => {
-  let currentKey = toSelectionKey(baseSelectedNodeIds)
+  let currentKey = toSelectionKey(baseSelection)
 
-  return (matchedNodeIds: readonly NodeId[]) => {
-    const nextSelectedNodeIds = [
-      ...applySelection(
-        new Set(baseSelectedNodeIds),
-        [...matchedNodeIds],
-        selectionMode
-      )
-    ]
-    const nextKey = toSelectionKey(nextSelectedNodeIds)
+  return (matched: SelectionInput) => {
+    const nextSelection: SelectionInput = {
+      nodeIds: [
+        ...applySelection(
+          new Set(baseSelection.nodeIds ?? []),
+          [...(matched.nodeIds ?? [])],
+          selectionMode
+        )
+      ],
+      edgeIds: [
+        ...applySelection(
+          new Set(baseSelection.edgeIds ?? []),
+          [...(matched.edgeIds ?? [])],
+          selectionMode
+        )
+      ]
+    }
+    const nextKey = toSelectionKey(nextSelection)
     if (nextKey === currentKey) {
       return
     }
 
     currentKey = nextKey
-    instance.commands.selection.replace(nextSelectedNodeIds)
+    instance.commands.selection.replace(nextSelection)
   }
 }
+
+const readSelection = (
+  state: Pick<NodePressState, 'selectedNodeIds' | 'selectedEdgeIds'>
+): SelectionInput => ({
+  nodeIds: state.selectedNodeIds,
+  edgeIds: state.selectedEdgeIds
+})
+
+const readNodeOnlySelection = (
+  nodeIds: readonly NodeId[]
+): SelectionInput => ({
+  nodeIds,
+  edgeIds: []
+})
+
+const applyNodeTapSelection = (
+  selectedNodeIds: readonly NodeId[],
+  selectedEdgeIds: readonly EdgeId[],
+  nodeId: NodeId,
+  selectionMode: SelectionMode
+): SelectionInput => ({
+  nodeIds: [
+    ...applySelection(
+      new Set(selectedNodeIds),
+      [nodeId],
+      selectionMode
+    )
+  ],
+  edgeIds: [
+    ...applySelection(
+      new Set(selectedEdgeIds),
+      [],
+      selectionMode
+    )
+  ]
+})
 
 export const createNodePressController = (
   instance: InternalInstance,
@@ -139,30 +311,15 @@ export const createNodePressController = (
   const press = createPressRuntime(instance.interaction)
   const drag = createNodeDragSession(instance)
 
-  const clearChrome = () => {
-    instance.internals.node.chromeHidden.set(false)
-  }
-
   const cancel = () => {
     press.cancel()
     drag.cancel()
     marquee.cancel()
-    clearChrome()
   }
 
-  const startPress = (
+  const runPressPlan = (
     input: PressInput,
-    options: {
-      holdDelay?: number
-      onHold?: () => void
-      onTap?: (event: PointerEvent) => void
-      onDragStart?: (
-        event: PointerEvent,
-        state: {
-          held: boolean
-        }
-      ) => void
-    }
+    plan: PressPlan
   ) => Boolean(press.start({
     pointerId: input.pointerId,
     capture: input.capture,
@@ -171,27 +328,27 @@ export const createNodePressController = (
       clientY: input.clientY
     },
     threshold: GestureTuning.dragMinDistance,
-    holdDelay: options.holdDelay,
-    onHold: options.onHold,
-    onTap: options.onTap,
-    onDragStart: options.onDragStart,
-    onCleanup: clearChrome
+    holdDelay: plan.holdDelay,
+    onHold: plan.hold,
+    onTap: plan.tap,
+    onDragStart: plan.drag
   }))
 
-  const startMarquee = (
+  const startSelectionMarquee = (
     input: PressInput,
-    config: {
-      scope?: ReadonlySet<NodeId>
-      match: MarqueeMatch
-      baseSelectedNodeIds: readonly NodeId[]
-      selectionMode: SelectionMode
-      onTap?: () => void
-    },
-    moveEvent: PointerEvent
+    config: SelectionMarqueeConfig,
+    moveEvent?: PointerEvent
   ) => {
+    if (config.clear) {
+      instance.commands.selection.clear()
+    }
+
     const applyMatched = buildSelectionWriter(
       instance,
-      config.baseSelectedNodeIds,
+      {
+        nodeIds: config.baseNodeIds,
+        edgeIds: config.baseEdgeIds
+      },
       config.selectionMode
     )
     const started = marquee.start({
@@ -202,11 +359,15 @@ export const createNodePressController = (
         clientY: input.clientY
       }),
       scope: config.scope,
+      edgeFilter: config.edgeFilter,
       match: config.match,
       onChange: applyMatched,
       onEnd: (result) => {
         if (result.moved) {
-          applyMatched(result.nodeIds)
+          applyMatched({
+            nodeIds: result.nodeIds,
+            edgeIds: result.edgeIds
+          })
           return
         }
 
@@ -217,7 +378,7 @@ export const createNodePressController = (
       return
     }
 
-    if (moveEvent.cancelable) {
+    if (moveEvent?.cancelable) {
       moveEvent.preventDefault()
     }
   }
@@ -228,6 +389,7 @@ export const createNodePressController = (
       frame: Rect
       anchorId: NodeId
       nodeIds: readonly NodeId[]
+      edgeIds?: readonly EdgeId[]
     },
     event: PointerEvent
   ) => {
@@ -238,251 +400,292 @@ export const createNodePressController = (
       frame: config.frame,
       anchorId: config.anchorId,
       nodeIds: config.nodeIds,
+      edgeIds: config.edgeIds,
       event
     })
   }
 
-  const beginNodePress = (
+  const startNodeFrameDrag = (
     input: PressInput,
-    target: Extract<PressTarget, { kind: 'node' }>
+    state: NodePressState,
+    nodeIds: readonly NodeId[],
+    edgeIds: readonly EdgeId[],
+    event: PointerEvent
   ) => {
-    const currentSelectedNodeIds = readSelectedNodeIds(instance, input.container)
-    const tapSelectionIds = [
-      ...applySelection(
-        new Set(currentSelectedNodeIds),
-        [target.nodeRect.node.id],
+    startDrag(input, {
+      frame: state.frame,
+      anchorId: state.nodeId,
+      nodeIds,
+      edgeIds
+    }, event)
+  }
+
+  const readNodeFrame = (
+    target: Pick<NodeLikeTarget, 'nodeRect'>
+  ): Rect => ({
+    x: target.nodeRect.node.position.x,
+    y: target.nodeRect.node.position.y,
+    width: target.nodeRect.rect.width,
+    height: target.nodeRect.rect.height
+  })
+
+  const readNodePressState = (
+    input: PressInput,
+    target: NodeLikeTarget
+  ): NodePressState => {
+    const nodeId = target.nodeRect.node.id
+    const selectedNodeIds = readSelectedNodeIds(instance, input.frame)
+    const selectedEdgeIds = readSelectedEdgeIds(instance, input.frame)
+
+    return {
+      nodeId,
+      selectedNodeIds,
+      selectedEdgeIds,
+      nextTapSelection: applyNodeTapSelection(
+        selectedNodeIds,
+        selectedEdgeIds,
+        nodeId,
         input.selectionMode
-      )
-    ]
+      ),
+      scope: readScope(instance, input.frame, target),
+      frame: readNodeFrame(target),
+      selected: isSelectedNode(nodeId, selectedNodeIds),
+      singleSelected: isSingleSelectedNode(nodeId, selectedNodeIds)
+    }
+  }
+
+  const replaceSelection = (
+    currentSelection: SelectionInput,
+    nextSelection: SelectionInput
+  ) => {
+    if (!hasSelectionChanged(currentSelection, nextSelection)) {
+      return
+    }
+
+    instance.commands.selection.replace(nextSelection)
+  }
+
+  const resolveNodeLikePressPlan = (
+    input: PressInput,
+    target: NodeLikeTarget
+  ): PressPlan => {
+    const state = readNodePressState(input, target)
+    const selection = instance.read.selection.get()
+    const currentSelection = readSelection(state)
+    const selectedAncestorGroupId = target.kind === 'node'
+      ? readNearestSelectedGroupId(instance, target.hitNodeId, state.selectedNodeIds)
+      : undefined
+    const dragCurrentSelection = Boolean(
+      selectedAncestorGroupId
+      && input.selectionMode === 'replace'
+    )
     const repeat = input.selectionMode === 'replace'
-      && isSingleSelectedNode(target.nodeRect.node.id, currentSelectedNodeIds)
-    const dragSelectionIds = currentSelectedNodeIds.includes(target.nodeRect.node.id)
-      ? currentSelectedNodeIds
-      : tapSelectionIds
-    const clearSelectionOnHold = input.selectionMode === 'replace'
-    const scope = readScope(instance, input.container, target)
+      && (
+        target.kind === 'node'
+          ? state.singleSelected
+          : state.selected
+      )
+    const dragSelectionIds = repeat
+      ? state.selectedNodeIds
+      : dragCurrentSelection
+        ? state.selectedNodeIds
+      : target.kind === 'container-body'
+        ? (state.nextTapSelection.nodeIds ?? [])
+        : state.selected
+          ? state.selectedNodeIds
+          : (state.nextTapSelection.nodeIds ?? [])
+    const dragSelection = readNodeOnlySelection(dragSelectionIds)
+    const dragSelectionEdgeIds =
+      repeat || dragCurrentSelection || state.selected
+        ? state.selectedEdgeIds
+        : []
+    const dragFrame = dragCurrentSelection && selection.box
+      ? selection.box
+      : state.frame
+    const edgeFilter = readEdgeFilter(instance, state.scope)
+    const hold = () => {
+      startSelectionMarquee(input, {
+        scope: state.scope,
+        edgeFilter,
+        match: 'contain',
+        baseNodeIds: [],
+        baseEdgeIds: [],
+        selectionMode: 'replace',
+        clear: true
+      })
+    }
+
+    if (target.kind === 'container-body') {
+      return {
+        holdDelay: GestureTuning.holdDelay,
+        hold,
+        tap: () => {
+          replaceSelection(currentSelection, state.nextTapSelection)
+        },
+        drag: (event) => {
+          if (!repeat) {
+            startSelectionMarquee(input, {
+              scope: state.scope,
+              edgeFilter,
+              match: 'touch',
+              baseNodeIds: state.selectedNodeIds,
+              baseEdgeIds: state.selectedEdgeIds,
+              selectionMode: input.selectionMode
+            }, event)
+            return
+          }
+
+          replaceSelection(currentSelection, dragSelection)
+          startNodeFrameDrag(input, state, dragSelectionIds, dragSelectionEdgeIds, event)
+        }
+      }
+    }
+
     const tapAction: 'select' | 'edit' | 'noop' = target.nodeRect.node.locked
       ? 'select'
       : repeat
         ? (target.field ? 'edit' : 'noop')
         : 'select'
 
-    instance.internals.node.chromeHidden.set(!repeat)
-
-    return startPress(input, {
+    return {
       holdDelay: GestureTuning.holdDelay,
-      onHold: () => {
-        instance.internals.node.chromeHidden.set(true)
-        if (clearSelectionOnHold) {
-          instance.commands.selection.clear()
-        }
-      },
-      onTap: (event) => {
+      hold,
+      tap: (event) => {
         const targetPick = instance.internals.pick.element(
           event.target instanceof Element ? event.target : null
         )
-        if (targetPick?.kind !== 'node' || targetPick.id !== target.nodeRect.node.id) {
+        if (
+          targetPick?.kind !== 'node'
+          || (
+            targetPick.id !== target.hitNodeId
+            && targetPick.id !== target.nodeRect.node.id
+          )
+        ) {
           return
         }
 
-        if (
-          tapAction === 'select'
-          && hasSelectionChanged(currentSelectedNodeIds, tapSelectionIds)
-        ) {
-          instance.commands.selection.replace(tapSelectionIds)
+        if (tapAction === 'select') {
+          replaceSelection(currentSelection, state.nextTapSelection)
           return
         }
 
         if (tapAction === 'edit' && target.field) {
-          instance.commands.edit.start(target.nodeRect.node.id, target.field)
+          instance.commands.edit.start(state.nodeId, target.field)
         }
       },
-      onDragStart: (event, state) => {
-        if (state.held) {
-          startMarquee(input, {
-            scope,
-            match: 'contain',
-            baseSelectedNodeIds: clearSelectionOnHold
-              ? []
-              : currentSelectedNodeIds,
-            selectionMode: clearSelectionOnHold
-              ? 'replace'
-              : input.selectionMode
+      drag: (event) => {
+        if (dragCurrentSelection) {
+          startDrag(input, {
+            frame: dragFrame,
+            anchorId: dragSelectionIds[0]!,
+            nodeIds: dragSelectionIds,
+            edgeIds: dragSelectionEdgeIds
           }, event)
           return
         }
 
-        if (hasSelectionChanged(currentSelectedNodeIds, dragSelectionIds)) {
-          instance.commands.selection.replace(dragSelectionIds)
-        }
-
-        startDrag(input, {
-          frame: {
-            x: target.nodeRect.node.position.x,
-            y: target.nodeRect.node.position.y,
-            width: target.nodeRect.rect.width,
-            height: target.nodeRect.rect.height
-          },
-          anchorId: target.nodeRect.node.id,
-          nodeIds: dragSelectionIds
-        }, event)
+        replaceSelection(currentSelection, dragSelection)
+        startNodeFrameDrag(input, state, dragSelectionIds, dragSelectionEdgeIds, event)
       }
-    })
+    }
   }
 
-  const beginContainerBodyPress = (
-    input: PressInput,
-    target: Extract<PressTarget, { kind: 'container-body' }>
-  ) => {
-    const currentSelectedNodeIds = readSelectedNodeIds(instance, input.container)
-    const tapSelectionIds = [
-      ...applySelection(
-        new Set(currentSelectedNodeIds),
-        [target.nodeRect.node.id],
-        input.selectionMode
-      )
-    ]
-    const repeat = input.selectionMode === 'replace'
-      && isSelectedNode(target.nodeRect.node.id, currentSelectedNodeIds)
-    const dragSelectionIds = repeat
-      ? currentSelectedNodeIds
-      : tapSelectionIds
-    const scope = readScope(instance, input.container, target)
-
-    instance.internals.node.chromeHidden.set(!repeat)
-
-    return startPress(input, {
-      holdDelay: repeat
-        ? GestureTuning.holdDelay
-        : undefined,
-      onHold: repeat
-        ? () => {
-            instance.internals.node.chromeHidden.set(true)
-            instance.commands.selection.clear()
-          }
-        : undefined,
-      onTap: () => {
-        if (hasSelectionChanged(currentSelectedNodeIds, tapSelectionIds)) {
-          instance.commands.selection.replace(tapSelectionIds)
-        }
-      },
-      onDragStart: (event, state) => {
-        if (state.held && repeat) {
-          startMarquee(input, {
-            scope,
-            match: 'contain',
-            baseSelectedNodeIds: [],
-            selectionMode: 'replace'
-          }, event)
-          return
-        }
-
-        if (!repeat) {
-          startMarquee(input, {
-            scope,
-            match: 'touch',
-            baseSelectedNodeIds: currentSelectedNodeIds,
-            selectionMode: input.selectionMode
-          }, event)
-          return
-        }
-
-        startDrag(input, {
-          frame: {
-            x: target.nodeRect.node.position.x,
-            y: target.nodeRect.node.position.y,
-            width: target.nodeRect.rect.width,
-            height: target.nodeRect.rect.height
-          },
-          anchorId: target.nodeRect.node.id,
-          nodeIds: dragSelectionIds
-        }, event)
-      }
-    })
-  }
-
-  const beginSelectionBoxPress = (
+  const resolveSelectionBoxPressPlan = (
     input: PressInput,
     target: Extract<PressTarget, { kind: 'selection-box' }>
-  ) => {
-    const currentSelectedNodeIds = readSelectedNodeIds(instance, input.container)
-    if (!currentSelectedNodeIds.length) {
-      return false
+  ): PressPlan | undefined => {
+    const selectedNodeIds = readSelectedNodeIds(instance, input.frame)
+    const selectedEdgeIds = readSelectedEdgeIds(instance, input.frame)
+    const scope = readScope(instance, input.frame)
+    const edgeFilter = readEdgeFilter(instance, scope)
+
+    if (!selectedNodeIds.length && !selectedEdgeIds.length) {
+      return undefined
     }
 
-    return startPress(input, {
+    return {
       holdDelay: GestureTuning.holdDelay,
-      onHold: () => {
-        instance.internals.node.chromeHidden.set(true)
-        instance.commands.selection.clear()
+      hold: () => {
+        startSelectionMarquee(input, {
+          scope,
+          edgeFilter,
+          match: 'contain',
+          baseNodeIds: [],
+          baseEdgeIds: [],
+          selectionMode: 'replace',
+          clear: true
+        })
       },
-      onTap: () => {},
-      onDragStart: (event, state) => {
-        if (state.held) {
-          startMarquee(input, {
-            scope: readScope(instance, input.container, target),
-            match: 'contain',
-            baseSelectedNodeIds: [],
-            selectionMode: 'replace'
-          }, event)
+      tap: () => {},
+      drag: (event) => {
+        if (!selectedNodeIds.length) {
           return
         }
 
         startDrag(input, {
           frame: target.box,
-          anchorId: currentSelectedNodeIds[0]!,
-          nodeIds: currentSelectedNodeIds
+          anchorId: selectedNodeIds[0]!,
+          nodeIds: selectedNodeIds,
+          edgeIds: selectedEdgeIds
         }, event)
       }
-    })
+    }
   }
 
-  const beginBackgroundPress = (
+  const resolveBackgroundPressPlan = (
     input: PressInput
-  ) => {
-    const currentSelectedNodeIds = readSelectedNodeIds(instance, input.container)
-    const edgeSelected = instance.read.selection.get().target.edgeId !== undefined
+  ): PressPlan => {
+    const selectedNodeIds = readSelectedNodeIds(instance, input.frame)
+    const scope = readScope(instance, input.frame)
+    const selectedEdgeIds = readSelectedEdgeIds(instance, input.frame)
+    const edgeFilter = readEdgeFilter(instance, scope)
 
-    return startPress(input, {
-      onTap: () => {
+    return {
+      tap: () => {
         if (input.selectionMode === 'replace') {
           instance.commands.selection.clear()
         }
       },
-      onDragStart: (event) => {
-        if (edgeSelected) {
-          instance.commands.selection.clear()
-        }
-
-        startMarquee(input, {
-          scope: readScope(instance, input.container, {
-            kind: 'background'
-          }),
+      drag: (event) => {
+        startSelectionMarquee(input, {
+          scope,
+          edgeFilter,
           match: 'touch',
-          baseSelectedNodeIds: edgeSelected
-            ? []
-            : currentSelectedNodeIds,
+          baseNodeIds: selectedNodeIds,
+          baseEdgeIds: selectedEdgeIds,
           selectionMode: input.selectionMode
         }, event)
       }
-    })
+    }
+  }
+
+  const resolvePressPlan = (
+    input: PressInput,
+    target: PressTarget
+  ): PressPlan | undefined => {
+    if (target.kind === 'node') {
+      return resolveNodeLikePressPlan(input, target)
+    }
+
+    if (target.kind === 'container-body') {
+      return resolveNodeLikePressPlan(input, target)
+    }
+
+    if (target.kind === 'selection-box') {
+      return resolveSelectionBoxPressPlan(input, target)
+    }
+
+    return resolveBackgroundPressPlan(input)
   }
 
   return {
     begin: (input, target) => {
-      if (target.kind === 'node') {
-        return beginNodePress(input, target)
+      const plan = resolvePressPlan(input, target)
+      if (!plan) {
+        return false
       }
 
-      if (target.kind === 'container-body') {
-        return beginContainerBodyPress(input, target)
-      }
-
-      if (target.kind === 'selection-box') {
-        return beginSelectionBoxPress(input, target)
-      }
-
-      return beginBackgroundPress(input)
+      return runPressPlan(input, plan)
     },
     cancel
   }

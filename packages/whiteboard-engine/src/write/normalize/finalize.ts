@@ -6,8 +6,7 @@ import {
 } from '@whiteboard/core/geometry'
 import {
   findSmallestContainerAtPoint,
-  getNodesBoundingRect,
-  resolveContainerPadding
+  isContainerNode
 } from '@whiteboard/core/node'
 import type {
   Document,
@@ -246,7 +245,8 @@ const diffNodeChange = (
     || !isRotationEqual(before.rotation, after.rotation)
   )
   const relation = (
-    before.parentId !== after.parentId
+    before.containerId !== after.containerId
+    || before.groupId !== after.groupId
     || before.type !== after.type
   )
   const value = (
@@ -389,23 +389,6 @@ const hasNodeSizeChange = (
   )
 }
 
-const readGroupPadding = (
-  node: Pick<Node, 'data'>
-) => {
-  const value = node.data?.padding
-  return typeof value === 'number' ? value : undefined
-}
-
-const buildGroupContentRect = (
-  document: Document,
-  groupId: NodeId,
-  nodeSize: Size
-) => getNodesBoundingRect(
-  Object.values(document.nodes.entities)
-    .filter((node) => node.parentId === groupId),
-  nodeSize
-)
-
 type NodeMoveAnalysis = {
   idSet: ReadonlySet<NodeId>
   rootIds: readonly NodeId[]
@@ -463,12 +446,12 @@ const hasMovedAncestor = (
   movedNodeIds: ReadonlySet<NodeId>,
   nodeById: Readonly<Record<NodeId, Node>>
 ) => {
-  let parentId = node.parentId
-  while (parentId) {
-    if (movedNodeIds.has(parentId)) {
+  let groupId = node.groupId
+  while (groupId) {
+    if (movedNodeIds.has(groupId)) {
       return true
     }
-    parentId = nodeById[parentId]?.parentId
+    groupId = nodeById[groupId]?.groupId
   }
   return false
 }
@@ -476,7 +459,7 @@ const hasMovedAncestor = (
 const collectNodeDataOps = ({
   document,
   changes,
-  nodeSize
+  nodeSize: _nodeSize
 }: {
   document: Document
   changes: WriteChanges
@@ -503,43 +486,6 @@ const collectNodeDataOps = ({
           [TEXT_WIDTH_MODE_KEY]: 'fixed'
         }
       }
-    }
-
-    if (
-      node.type === 'group'
-      && (
-        hasNodePositionChange(change)
-        || hasNodeSizeChange(change)
-      )
-    ) {
-      const nextData: Record<string, unknown> = {
-        ...(data ?? {}),
-        autoFit: 'manual'
-      }
-      const contentRect = buildGroupContentRect(
-        document,
-        node.id,
-        nodeSize
-      )
-
-      if (contentRect) {
-        const nextRect = {
-          x: node.position.x,
-          y: node.position.y,
-          width: node.size?.width ?? nodeSize.width,
-          height: node.size?.height ?? nodeSize.height
-        }
-        const padding = resolveContainerPadding({
-          containerRect: nextRect,
-          contentRect,
-          currentPadding: readGroupPadding(node)
-        })
-        if (padding !== undefined) {
-          nextData.padding = padding
-        }
-      }
-
-      data = nextData
     }
 
     if (isShallowEqual(node.data, data)) {
@@ -580,12 +526,19 @@ const collectReparentOps = ({
     return []
   }
 
+  if (!moves.idSet.size) {
+    return []
+  }
+
   const nodes = Object.values(afterDocument.nodes.entities)
-  const containerNodes = nodes.filter((node) => !moves.idSet.has(node.id))
+  const containerNodes = nodes.filter((node) => (
+    !moves.idSet.has(node.id)
+    && isContainerNode(node)
+  ))
   const next: Operation[] = []
 
-  moves.rootIds.forEach((rootId) => {
-    const node = afterDocument.nodes.entities[rootId]
+  moves.idSet.forEach((nodeId) => {
+    const node = afterDocument.nodes.entities[nodeId]
     if (!node) {
       return
     }
@@ -601,33 +554,33 @@ const collectReparentOps = ({
       node.id
     )?.id
 
-    if (targetContainerId && targetContainerId !== node.parentId) {
+    if (targetContainerId && targetContainerId !== node.containerId) {
       next.push({
         type: 'node.update',
         id: node.id,
         patch: {
-          parentId: targetContainerId
+          containerId: targetContainerId
         }
       })
       return
     }
 
-    if (!node.parentId) {
+    if (!node.containerId) {
       return
     }
 
-    const parentNode = afterDocument.nodes.entities[node.parentId]
-    if (!parentNode) {
+    const containerNode = afterDocument.nodes.entities[node.containerId]
+    if (!containerNode || !isContainerNode(containerNode)) {
       return
     }
 
-    const parentRect = getNodeAABB(parentNode, nodeSize)
-    if (!rectContains(parentRect, rect)) {
+    const containerRect = getNodeAABB(containerNode, nodeSize)
+    if (!rectContains(containerRect, rect)) {
       next.push({
         type: 'node.update',
         id: node.id,
         patch: {
-          parentId: undefined
+          containerId: undefined
         }
       })
     }
@@ -714,56 +667,30 @@ export const collectFinalizeOps = ({
   ]
 }
 
-const readGroupLayoutState = (
-  node: Node | undefined
-) => (
-  node?.type === 'group'
-    ? {
-        autoFit: node.data?.autoFit,
-        padding: typeof node.data?.padding === 'number'
-          ? node.data.padding
-          : undefined
-      }
-    : undefined
-)
-
-const affectsGroupLayout = (
-  change: NodeChange
-) => {
-  const before = readGroupLayoutState(change.before)
-  const after = readGroupLayoutState(change.after)
-  if (!before && !after) {
-    return false
-  }
-
-  return (
-    before?.autoFit !== after?.autoFit
-    || before?.padding !== after?.padding
-  )
-}
-
 export const collectDirtyNodeIds = (
   changes: WriteChanges
 ): ReadonlySet<NodeId> => {
   const nodeIds = new Set<NodeId>()
 
   changes.nodes.forEach((change, nodeId) => {
-    if (
-      !change.geometry
-      && !change.relation
-      && !affectsGroupLayout(change)
-    ) {
+    if (!change.geometry && !change.relation) {
       return
     }
 
     if (change.after) {
       nodeIds.add(nodeId)
     }
-    if (change.before?.parentId) {
-      nodeIds.add(change.before.parentId)
+    if (change.before?.containerId) {
+      nodeIds.add(change.before.containerId)
     }
-    if (change.after?.parentId) {
-      nodeIds.add(change.after.parentId)
+    if (change.after?.containerId) {
+      nodeIds.add(change.after.containerId)
+    }
+    if (change.before?.groupId) {
+      nodeIds.add(change.before.groupId)
+    }
+    if (change.after?.groupId) {
+      nodeIds.add(change.after.groupId)
     }
   })
 

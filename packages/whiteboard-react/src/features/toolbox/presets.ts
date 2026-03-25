@@ -14,9 +14,13 @@ import {
   createStickyNodeInput,
   createTextNodeInput
 } from '../node/text'
+import {
+  createFrameNodeInput
+} from '../node/frame'
 
 export type InsertPresetGroup =
   | 'text'
+  | 'frame'
   | 'sticky'
   | 'shape'
   | 'mindmap'
@@ -220,6 +224,17 @@ export const TEXT_INSERT_PRESET = createNodePreset({
   })
 })
 
+export const FRAME_INSERT_PRESET = createNodePreset({
+  key: 'frame',
+  group: 'frame',
+  label: 'Frame',
+  description: 'Manual container area',
+  focus: 'title',
+  input: () => ({
+    ...createFrameNodeInput()
+  })
+})
+
 export const STICKY_INSERT_PRESETS: readonly NodeInsertPreset[] = STICKY_TONES.map((tone) =>
   createNodePreset({
     key: tone.key,
@@ -244,6 +259,7 @@ export const MINDMAP_INSERT_PRESETS: readonly MindmapInsertPreset[] = MINDMAP_IN
 
 export const INSERT_PRESETS: readonly InsertPreset[] = [
   TEXT_INSERT_PRESET,
+  FRAME_INSERT_PRESET,
   ...STICKY_INSERT_PRESETS,
   ...SHAPE_INSERT_PRESETS,
   ...MINDMAP_INSERT_PRESETS
@@ -274,6 +290,7 @@ export const readShapePresetKind = (
 
 const CREATE_PRESET_KEY_SET = new Set<string>([
   TEXT_INSERT_PRESET.key,
+  FRAME_INSERT_PRESET.key,
   DEFAULT_STICKY_PRESET_KEY,
   ...SHAPE_INSERT_PRESETS.map((preset) => preset.key)
 ])

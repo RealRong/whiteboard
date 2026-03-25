@@ -47,7 +47,7 @@ export type SliceExportResult = {
 export type SliceInsertOptions = {
   at?: Point
   offset?: Point
-  parentId?: NodeId
+  containerId?: NodeId
   roots?: SliceRoots
 }
 
@@ -70,6 +70,13 @@ type ExportEdgeInput = {
   nodeSize: Size
 }
 
+type ExportSelectionInput = {
+  doc: Document
+  nodeIds?: readonly NodeId[]
+  edgeIds?: readonly EdgeId[]
+  nodeSize: Size
+}
+
 type InsertSliceInput = {
   doc: Document
   slice: Slice
@@ -79,7 +86,7 @@ type InsertSliceInput = {
   createEdgeId?: () => EdgeId
   at?: Point
   offset?: Point
-  parentId?: NodeId
+  containerId?: NodeId
   roots?: SliceRoots
 }
 
@@ -125,16 +132,16 @@ const collectExpandedNodeIds = (
   selectedIds: readonly NodeId[]
 ) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
-  const childIdsByParentId = new Map<NodeId, NodeId[]>()
+  const childIdsByGroupId = new Map<NodeId, NodeId[]>()
 
   nodes.forEach((node) => {
-    if (!node.parentId) return
-    const childIds = childIdsByParentId.get(node.parentId)
+    if (!node.groupId) return
+    const childIds = childIdsByGroupId.get(node.groupId)
     if (childIds) {
       childIds.push(node.id)
       return
     }
-    childIdsByParentId.set(node.parentId, [node.id])
+    childIdsByGroupId.set(node.groupId, [node.id])
   })
 
   const expandedIds = new Set<NodeId>()
@@ -151,7 +158,7 @@ const collectExpandedNodeIds = (
 
     if (node.type !== 'group') continue
 
-    const childIds = childIdsByParentId.get(nodeId)
+    const childIds = childIdsByGroupId.get(nodeId)
     if (!childIds?.length) continue
     childIds.forEach((childId) => {
       stack.push(childId)
@@ -309,6 +316,64 @@ const detachEdge = ({
   })
 }
 
+const detachSelectionEdge = ({
+  edge,
+  doc,
+  nodeIds,
+  nodeSize
+}: {
+  edge: Edge
+  doc: Document
+  nodeIds: ReadonlySet<NodeId>
+  nodeSize: Size
+}): Result<Edge, 'invalid'> => {
+  const sourceNode = isNodeEdgeEnd(edge.source)
+    ? getNode(doc, edge.source.nodeId)
+    : undefined
+  const targetNode = isNodeEdgeEnd(edge.target)
+    ? getNode(doc, edge.target.nodeId)
+    : undefined
+  const resolved = resolveEdgeEnds({
+    edge,
+    source: sourceNode
+      ? {
+        node: sourceNode,
+        rect: getNodeRect(sourceNode, nodeSize),
+        rotation: sourceNode.rotation
+      }
+      : undefined,
+    target: targetNode
+      ? {
+        node: targetNode,
+        rect: getNodeRect(targetNode, nodeSize),
+        rotation: targetNode.rotation
+      }
+      : undefined
+  })
+
+  if (!resolved) {
+    return err('invalid', `Edge ${edge.id} could not be resolved.`)
+  }
+
+  return ok({
+    ...cloneEdge(edge),
+    source:
+      isNodeEdgeEnd(edge.source) && nodeIds.has(edge.source.nodeId)
+        ? cloneEdgeEnd(edge.source)
+        : {
+          kind: 'point',
+          point: cloneValue(resolved.source.point)
+        },
+    target:
+      isNodeEdgeEnd(edge.target) && nodeIds.has(edge.target.nodeId)
+        ? cloneEdgeEnd(edge.target)
+        : {
+          kind: 'point',
+          point: cloneValue(resolved.target.point)
+        }
+  })
+}
+
 const isEdgeInsideNodeSlice = (
   edge: Edge,
   nodeIds: ReadonlySet<NodeId>
@@ -387,7 +452,10 @@ const withCreatedEdges = (
 const readDefaultRoots = (slice: Slice): SliceRoots => {
   const nodeIdSet = new Set(slice.nodes.map((node) => node.id))
   const nodeIds = slice.nodes
-    .filter((node) => !node.parentId || !nodeIdSet.has(node.parentId))
+    .filter((node) => (
+      (!node.containerId || !nodeIdSet.has(node.containerId))
+      && (!node.groupId || !nodeIdSet.has(node.groupId))
+    ))
     .map((node) => node.id)
 
   if (nodeIds.length > 0) {
@@ -507,6 +575,73 @@ export const exportSliceFromEdge = ({
   })
 }
 
+export const exportSliceFromSelection = ({
+  doc,
+  nodeIds = [],
+  edgeIds = [],
+  nodeSize
+}: ExportSelectionInput): Result<SliceExportResult, 'invalid'> => {
+  const selectedNodeIds = dedupeIds(nodeIds)
+  const selectedEdgeIds = dedupeIds(edgeIds)
+  if (!selectedNodeIds.length && !selectedEdgeIds.length) {
+    return err('invalid', 'No selection provided.')
+  }
+
+  const orderedNodes = listNodes(doc)
+  const expandedNodeIds = collectExpandedNodeIds(orderedNodes, selectedNodeIds)
+  const nodes = orderedNodes
+    .filter((node) => expandedNodeIds.has(node.id))
+    .map((node) => cloneNode(node))
+  const nodeIdSet = new Set(nodes.map((node) => node.id))
+
+  const edges: Edge[] = []
+  const includedEdgeIds = new Set<EdgeId>()
+
+  listEdges(doc).forEach((edge) => {
+    if (isEdgeInsideNodeSlice(edge, nodeIdSet)) {
+      edges.push(cloneEdge(edge))
+      includedEdgeIds.add(edge.id)
+      return
+    }
+
+    if (!selectedEdgeIds.includes(edge.id)) {
+      return
+    }
+
+    const detached = detachSelectionEdge({
+      edge,
+      doc,
+      nodeIds: nodeIdSet,
+      nodeSize
+    })
+    if (!detached.ok) {
+      return
+    }
+
+    edges.push(detached.data)
+    includedEdgeIds.add(edge.id)
+  })
+
+  const slice: Slice = {
+    version: 1,
+    nodes,
+    edges
+  }
+  const bounds = getSliceBounds(slice, nodeSize)
+  if (!bounds) {
+    return err('invalid', 'Slice bounds could not be resolved.')
+  }
+
+  return ok({
+    slice,
+    roots: {
+      nodeIds: selectedNodeIds.filter((nodeId) => nodeIdSet.has(nodeId)),
+      edgeIds: selectedEdgeIds.filter((edgeId) => includedEdgeIds.has(edgeId))
+    },
+    bounds
+  })
+}
+
 export const buildInsertSliceOperations = ({
   doc,
   slice,
@@ -516,7 +651,7 @@ export const buildInsertSliceOperations = ({
   createEdgeId = () => createId('edge'),
   at,
   offset,
-  parentId,
+  containerId,
   roots
 }: InsertSliceInput): Result<SliceInsertResult, 'invalid'> => {
   if (!slice.nodes.length && !slice.edges.length) {
@@ -551,10 +686,11 @@ export const buildInsertSliceOperations = ({
   const nodeById = new Map<NodeId, Node>(slice.nodes.map((node) => [node.id, node]))
 
   const getDepth = (node: Node): number => {
-    if (!node.parentId || !sourceNodeIds.has(node.parentId)) return 0
+    const ownerId = node.groupId ?? node.containerId
+    if (!ownerId || !sourceNodeIds.has(ownerId)) return 0
     const cached = depthCache.get(node.id)
     if (typeof cached === 'number') return cached
-    const parent = nodeById.get(node.parentId)
+    const parent = nodeById.get(ownerId)
     const depth = parent ? getDepth(parent) + 1 : 0
     depthCache.set(node.id, depth)
     return depth
@@ -564,14 +700,27 @@ export const buildInsertSliceOperations = ({
 
   for (const sourceNode of orderedNodes) {
     const nextNodeId = createNodeId()
-    let nextParentId = parentId
+    let nextContainerId = containerId
+    let nextGroupId = sourceNode.groupId
 
-    if (sourceNode.parentId && sourceNodeIds.has(sourceNode.parentId)) {
-      const remappedParentId = nodeIdMap.get(sourceNode.parentId)
-      if (!remappedParentId) {
-        return err('invalid', `Node ${sourceNode.id} parent ${sourceNode.parentId} could not be remapped.`)
+    if (sourceNode.containerId && sourceNodeIds.has(sourceNode.containerId)) {
+      const remappedContainerId = nodeIdMap.get(sourceNode.containerId)
+      if (!remappedContainerId) {
+        return err('invalid', `Node ${sourceNode.id} container ${sourceNode.containerId} could not be remapped.`)
       }
-      nextParentId = remappedParentId
+      nextContainerId = remappedContainerId
+    }
+
+    if (sourceNode.groupId) {
+      if (sourceNodeIds.has(sourceNode.groupId)) {
+        const remappedGroupId = nodeIdMap.get(sourceNode.groupId)
+        if (!remappedGroupId) {
+          return err('invalid', `Node ${sourceNode.id} group ${sourceNode.groupId} could not be remapped.`)
+        }
+        nextGroupId = remappedGroupId
+      } else {
+        nextGroupId = undefined
+      }
     }
 
     const planned = buildNodeCreateOperation({
@@ -582,7 +731,8 @@ export const buildInsertSliceOperations = ({
           x: sourceNode.position.x + delta.x,
           y: sourceNode.position.y + delta.y
         },
-        parentId: nextParentId
+        containerId: nextContainerId,
+        groupId: nextGroupId
       },
       doc: withCreatedNodes(doc, duplicatedNodeOperations),
       registries,

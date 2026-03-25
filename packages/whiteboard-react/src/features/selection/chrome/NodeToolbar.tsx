@@ -11,12 +11,11 @@ import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import {
   useElementSize,
   useInternalInstance,
-  useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
+import { useSelection } from '../../node/selection'
 import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
 import {
-  type GroupAutoFitMode,
   mergeNodeStyle,
   removeNodeStyleKey,
   toNodeStylePatch,
@@ -42,7 +41,6 @@ import {
   measureTextNodeSize,
 } from '../../node/text'
 import { FillMenu } from './menus/FillMenu'
-import { GroupMenu } from './menus/GroupMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
@@ -53,7 +51,6 @@ type ToolbarItemKey =
   | 'fill'
   | 'stroke'
   | 'text'
-  | 'group'
   | 'layout'
   | 'more'
 
@@ -137,7 +134,6 @@ const resolveItemKeys = (
   ...(actions.can.fill ? ['fill'] as const : []),
   ...(actions.can.stroke ? ['stroke'] as const : []),
   ...(actions.can.text ? ['text'] as const : []),
-  ...(actions.can.group ? ['group'] as const : []),
   ...StaticItemKeys
 ]
 
@@ -153,9 +149,7 @@ const buildToolbarItem = (
           ? 'Stroke'
           : key === 'text'
             ? 'Text'
-            : key === 'group'
-              ? 'Group'
-              : key === 'layout'
+            : key === 'layout'
                 ? 'Layout'
                 : 'More',
     active: false
@@ -228,13 +222,6 @@ const renderToolbarIcon = (
         <SvgIcon>
           <path d="M7 6.5h10" stroke="currentColor" strokeWidth={IconStrokeWidth} />
           <path d="M12 6.5v11" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-        </SvgIcon>
-      )
-    case 'group':
-      return (
-        <SvgIcon>
-          <rect x="4.5" y="6.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <rect x="12.5" y="10.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={IconStrokeWidth} />
         </SvgIcon>
       )
     case 'layout':
@@ -533,7 +520,7 @@ export const NodeToolbar = ({
   }, [])
   const rect = selection.box
   const nodes = selection.items.nodes
-  const primaryNode = selection.items.primary
+  const primaryNode = selection.items.primaryNode
   const summary = selection.summary
   let toolbar: ToolbarModel | undefined
 
@@ -664,19 +651,10 @@ export const NodeToolbar = ({
     || hasSchemaField(primarySchema, 'style', 'color')
   const showTextFontSizeSection = !primarySchema
     || hasSchemaField(primarySchema, 'style', 'fontSize')
-  const showGroupCollapsed = !primarySchema
-    || hasSchemaField(primarySchema, 'data', 'collapsed')
-  const showGroupAutoFit = !primarySchema
-    || hasSchemaField(primarySchema, 'data', 'autoFit')
   const showStrokeOpacitySection =
     hasSchemaField(primarySchema, 'style', 'opacity')
     || typeof toolbar.primaryNode.style?.opacity === 'number'
   const drawOnlyStrokeMenu = toolbar.nodes.every((node) => node.type === 'draw')
-  const groupCollapsed = Boolean(toolbar.primaryNode.data?.collapsed)
-  const groupAutoFit: GroupAutoFitMode =
-    toolbar.primaryNode.data?.autoFit === 'manual'
-      ? 'manual'
-      : 'expand-only'
   const toolbarIconState: ToolbarIconState = {
     fill: fillValue,
     stroke: strokeValue,
@@ -764,25 +742,6 @@ export const NodeToolbar = ({
                 node: toolbar.primaryNode,
                 field: textFieldKey,
                 value
-              })
-            } : undefined}
-          />
-        )
-      case 'group':
-        return (
-          <GroupMenu
-            collapsed={groupCollapsed}
-            autoFit={groupAutoFit}
-            showCollapsed={showGroupCollapsed}
-            showAutoFit={showGroupAutoFit}
-            onToggleCollapsed={showGroupCollapsed ? () => {
-              void instance.commands.node.updateData(toolbar.primaryNode.id, {
-                collapsed: !groupCollapsed
-              })
-            } : undefined}
-            onAutoFitChange={showGroupAutoFit ? (value) => {
-              void instance.commands.node.updateData(toolbar.primaryNode.id, {
-                autoFit: value
               })
             } : undefined}
           />

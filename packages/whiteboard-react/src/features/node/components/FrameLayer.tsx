@@ -1,24 +1,28 @@
-import { memo, useMemo, type CSSProperties } from 'react'
+import { memo, useCallback, useMemo, type CSSProperties } from 'react'
 import type {
   NodeId
 } from '@whiteboard/core/types'
 import {
   useInternalInstance,
   usePickRef,
-  useSelection,
   useStoreValue
 } from '../../../runtime/hooks'
 import type { NodeGesture } from '../gesture'
 import { useNodeView } from '../hooks/useNodeView'
-import { GroupNodeChrome } from '../registry/default/group'
+import { useSelection } from '../selection'
+import { FrameNodeChrome } from '../registry/default/frame'
 
-const ContainerBackgroundItem = memo(({
-  nodeId
+const FrameBodyHitItem = memo(({
+  nodeId,
+  selected,
+  gesture
 }: {
   nodeId: NodeId
+  selected: boolean
+  gesture: NodeGesture
 }) => {
   const view = useNodeView(nodeId)
-  const ref = usePickRef({
+  const bindPickRef = usePickRef({
     kind: 'node',
     id: nodeId,
     part: 'container'
@@ -28,9 +32,16 @@ const ContainerBackgroundItem = memo(({
     return null
   }
 
+  const canHitBody =
+    view.node.type !== 'group'
+    || selected
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    bindPickRef(canHitBody ? element : null)
+  }, [bindPickRef, canHitBody])
   const rootStyle: CSSProperties = {
     width: view.rect.width,
     height: view.rect.height,
+    pointerEvents: canHitBody ? 'auto' : 'none',
     ...view.transformStyle
   }
   const fillStyle: CSSProperties = {
@@ -39,13 +50,25 @@ const ContainerBackgroundItem = memo(({
   }
 
   return (
-    <div ref={ref} className="wb-container-block" style={rootStyle}>
-      <div className="wb-container-fill" style={fillStyle} />
+    <div
+      ref={ref}
+      className="wb-container-block"
+      style={rootStyle}
+      onDoubleClick={view.node.type === 'frame'
+        ? (event) => {
+          gesture.doubleClick(nodeId, event)
+        }
+        : undefined}
+    >
+      <div
+        className="wb-container-fill"
+        style={fillStyle}
+      />
     </div>
   )
 })
 
-ContainerBackgroundItem.displayName = 'ContainerBackgroundItem'
+FrameBodyHitItem.displayName = 'FrameBodyHitItem'
 
 const ContainerChromeItem = memo(({
   nodeId,
@@ -62,41 +85,69 @@ const ContainerChromeItem = memo(({
     return null
   }
 
+  if (view.node.type === 'group' && !selected) {
+    return null
+  }
+
+  const isFrame = view.node.type === 'frame'
+  const isGroup = view.node.type === 'group'
   const rootStyle: CSSProperties = {
     width: view.rect.width,
     height: view.rect.height,
     ...view.transformStyle
   }
   const frameStyle: CSSProperties = {
-    border: view.nodeStyle.border,
+    border: isFrame ? view.nodeStyle.border : undefined,
     borderRadius: view.nodeStyle.borderRadius,
-    boxShadow: view.nodeStyle.boxShadow
+    boxShadow: isFrame ? view.nodeStyle.boxShadow : undefined
+  }
+  const selectionOutlineStyle: CSSProperties = {
+    borderRadius: view.nodeStyle.borderRadius
   }
 
   return (
     <div
       className="wb-container-shell"
       data-node-id={nodeId}
-      data-selected={selected ? 'true' : undefined}
       style={rootStyle}
     >
-      <div className="wb-container-shell-frame" style={frameStyle} />
-      <GroupNodeChrome
-        node={view.renderProps.node}
-        write={view.renderProps.write}
-        onHeaderDoubleClick={(event) => {
-          gesture.doubleClick(nodeId, event)
-        }}
-      />
+      {isFrame ? (
+        <div
+          className="wb-container-shell-frame"
+          data-selected={selected ? 'true' : undefined}
+          style={frameStyle}
+        />
+      ) : null}
+      {isGroup && selected ? (
+        <div
+          className="wb-container-selection-outline"
+          style={selectionOutlineStyle}
+        />
+      ) : null}
+      {isFrame ? (
+        <FrameNodeChrome
+          node={view.renderProps.node}
+          write={view.renderProps.write}
+          onDoubleClick={(event) => {
+            gesture.doubleClick(nodeId, event)
+          }}
+        />
+      ) : null}
     </div>
   )
 })
 
 ContainerChromeItem.displayName = 'ContainerChromeItem'
 
-export const ContainerLayer = () => {
+export const FrameLayer = ({
+  gesture
+}: {
+  gesture: NodeGesture
+}) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
+  const selection = useSelection()
+  const selectedSet = selection.target.nodeSet
   const containerIds = useMemo(
     () => instance.read.node.filter(nodeIds, 'container'),
     [instance, nodeIds]
@@ -109,9 +160,11 @@ export const ContainerLayer = () => {
   return (
     <div className="wb-container-layer">
       {containerIds.map((nodeId) => (
-        <ContainerBackgroundItem
+        <FrameBodyHitItem
           key={nodeId}
           nodeId={nodeId}
+          selected={selectedSet.has(nodeId)}
+          gesture={gesture}
         />
       ))}
     </div>
@@ -125,7 +178,6 @@ export const ContainerChromeLayer = ({
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
-  const chrome = useStoreValue(instance.read.chrome.node)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const containerIds = useMemo(
@@ -143,7 +195,7 @@ export const ContainerChromeLayer = ({
         <ContainerChromeItem
           key={nodeId}
           nodeId={nodeId}
-          selected={selectedSet.has(nodeId) && chrome.selection}
+          selected={selectedSet.has(nodeId)}
           gesture={gesture}
         />
       ))}

@@ -37,7 +37,8 @@ export interface Node {
   rotation?: number
   layer?: 'background' | 'default' | 'overlay'
   zIndex?: number
-  parentId?: NodeId
+  containerId?: NodeId
+  groupId?: NodeId
   locked?: boolean
   data?: Record<string, unknown>
   style?: Record<string, string | number>

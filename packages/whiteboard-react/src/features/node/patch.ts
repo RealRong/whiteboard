@@ -1,8 +1,6 @@
 import type { Node, NodePatch } from '@whiteboard/core/types'
 import { mergeRecordPatch } from '../../runtime/utils/recordPatch'
 
-export type GroupAutoFitMode = 'expand-only' | 'manual'
-
 export type NodeStylePatch = Record<string, string | number>
 
 export const mergeNodeStyle = (
