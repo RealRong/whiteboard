@@ -1,5 +1,6 @@
 import { createValueStore } from '@whiteboard/core/runtime'
 import type { HistoryState } from '@whiteboard/core/kernel'
+import type { EdgeConnectCandidate } from '@whiteboard/core/edge'
 import type { EngineInstance } from '@whiteboard/engine'
 import type {
   WhiteboardInstance,
@@ -353,9 +354,40 @@ export const createInstance = ({
   })
   const pick = createPickRuntime()
   const snap = createSnapRuntime({
-    config: engine.config.node,
     readZoom: () => viewport.read.get().zoom,
-    query: engine.read.index.snap.inRect
+    node: {
+      config: engine.config.node,
+      query: engine.read.index.snap.inRect
+    },
+    edge: {
+      config: engine.config.edge,
+      nodeSize: engine.config.nodeSize,
+      query: (rect) => {
+        const nodeIds = engine.read.index.node.idsInRect(rect)
+        const candidates: EdgeConnectCandidate[] = []
+
+        for (let index = 0; index < nodeIds.length; index += 1) {
+          const entry = engine.read.index.node.get(nodeIds[index])
+          if (!entry) {
+            continue
+          }
+
+          if ((registry.get(entry.node.type)?.connect ?? true) === false) {
+            continue
+          }
+
+          candidates.push({
+            nodeId: entry.node.id,
+            node: entry.node,
+            rect: entry.rect,
+            aabb: entry.aabb,
+            rotation: entry.rotation
+          })
+        }
+
+        return candidates
+      }
+    }
   })
   const {
     stores,
@@ -376,7 +408,7 @@ export const createInstance = ({
     stores.edit.commands.clear()
     stores.selection.commands.clear()
     stores.frame.commands.clear()
-    snap.clear()
+    snap.node.clear()
     internals.node.clear()
     internals.edge.preview.clear()
     internals.mindmapDrag.clear()

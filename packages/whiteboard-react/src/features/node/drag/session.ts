@@ -53,7 +53,7 @@ export const createNodeDragSession = (
     active = null
     session = null
     clearNodeSessionPreview(instance.internals.node.session)
-    instance.internals.snap.clear()
+    instance.internals.snap.node.clear()
     instance.internals.edge.preview.patch.clear()
   }
 
@@ -104,7 +104,7 @@ export const createNodeDragSession = (
       active,
       world
     })
-    const snapped = instance.internals.snap.move({
+    const snapped = instance.internals.snap.node.move({
       rect: {
         x: rawPosition.x,
         y: rawPosition.y,
@@ -225,7 +225,7 @@ export const createNodeDragSession = (
       }
       session = nextSession
       clearNodeSessionPreview(instance.internals.node.session)
-      instance.internals.snap.clear()
+      instance.internals.snap.node.clear()
       nextSession.pan(input.event)
       updatePreview(input.event)
 

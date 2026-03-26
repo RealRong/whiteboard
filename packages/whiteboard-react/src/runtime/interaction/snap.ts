@@ -1,4 +1,11 @@
 import {
+  resolveEdgeConnectQueryRect,
+  resolveEdgeConnectTarget,
+  type EdgeConnectCandidate,
+  type EdgeConnectConfig,
+  type EdgeConnectResult
+} from '@whiteboard/core/edge'
+import {
   computeResizeSnap,
   computeSnap,
   expandRectByThreshold,
@@ -14,7 +21,7 @@ import {
   createStagedValueStore,
   type ReadStore
 } from '@whiteboard/core/runtime'
-import type { Rect, Size } from '@whiteboard/core/types'
+import type { Point, Rect, Size } from '@whiteboard/core/types'
 import { createRafTask, type RafTask } from '../utils/rafTask'
 
 const EMPTY_GUIDES: readonly Guide[] = []
@@ -43,11 +50,20 @@ export type ResizeSnapInput = {
   disabled?: boolean
 }
 
-export type SnapRuntime = {
+export type NodeSnapRuntime = {
   guides: ReadStore<readonly Guide[]>
   clear: () => void
   move: (input: MoveSnapInput) => Rect
   resize: (input: ResizeSnapInput) => ResizeUpdate
+}
+
+export type EdgeSnapRuntime = {
+  connect: (pointWorld: Point) => EdgeConnectResult | undefined
+}
+
+export type SnapRuntime = {
+  node: NodeSnapRuntime
+  edge: EdgeSnapRuntime
 }
 
 const toResizeUpdate = (
@@ -75,7 +91,7 @@ const filterCandidates = (
   return candidates.filter((candidate) => !exclude.has(candidate.id))
 }
 
-export const createSnapRuntime = ({
+const createNodeSnapRuntime = ({
   config,
   readZoom,
   query
@@ -83,7 +99,7 @@ export const createSnapRuntime = ({
   config: SnapThresholdConfig
   readZoom: () => number
   query: (rect: Rect) => readonly SnapCandidate[]
-}): SnapRuntime => {
+}): NodeSnapRuntime => {
   let task!: RafTask
   const schedule = () => {
     task.schedule()
@@ -182,3 +198,56 @@ export const createSnapRuntime = ({
     }
   }
 }
+
+const createEdgeSnapRuntime = ({
+  config,
+  nodeSize,
+  readZoom,
+  query
+}: {
+  config: EdgeConnectConfig
+  nodeSize: Size
+  readZoom: () => number
+  query: (rect: Rect) => readonly EdgeConnectCandidate[]
+}): EdgeSnapRuntime => ({
+  connect: (pointWorld) => {
+    const zoom = readZoom()
+    return resolveEdgeConnectTarget({
+      pointWorld,
+      candidates: query(
+        resolveEdgeConnectQueryRect(pointWorld, zoom, config, nodeSize)
+      ),
+      zoom,
+      config
+    })
+  }
+})
+
+export const createSnapRuntime = ({
+  readZoom,
+  node,
+  edge
+}: {
+  readZoom: () => number
+  node: {
+    config: SnapThresholdConfig
+    query: (rect: Rect) => readonly SnapCandidate[]
+  }
+  edge: {
+    config: EdgeConnectConfig
+    nodeSize: Size
+    query: (rect: Rect) => readonly EdgeConnectCandidate[]
+  }
+}): SnapRuntime => ({
+  node: createNodeSnapRuntime({
+    config: node.config,
+    readZoom,
+    query: node.query
+  }),
+  edge: createEdgeSnapRuntime({
+    config: edge.config,
+    nodeSize: edge.nodeSize,
+    readZoom,
+    query: edge.query
+  })
+})

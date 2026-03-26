@@ -207,7 +207,7 @@ const SelectionHandlesOverlay = ({
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const frame = useFrameScope()
-  const guides = useStoreValue(instance.internals.snap.guides)
+  const guides = useStoreValue(instance.internals.snap.node.guides)
   const presentation = useSelectionPresentation()
   const activeFrameNode = useNodeOverlayView(frame.id)
 

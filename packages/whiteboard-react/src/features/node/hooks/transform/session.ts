@@ -168,7 +168,7 @@ export const createTransformSession = (
     active = null
     session = null
     clearNodeSessionPreview(instance.internals.node.session)
-    instance.internals.snap.clear()
+    instance.internals.snap.node.clear()
   }
 
   const writePreview = (
@@ -202,7 +202,7 @@ export const createTransformSession = (
     })
     const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-    return instance.internals.snap.resize({
+    return instance.internals.snap.node.resize({
       rect: rawRect.rect,
       source: {
         x: sourceX,
@@ -251,7 +251,7 @@ export const createTransformSession = (
     drag: RotateDragState,
     event: PointerEvent
   ) => {
-    instance.internals.snap.clear()
+    instance.internals.snap.node.clear()
     const rotation = computeNextRotation({
       center: drag.center,
       currentPoint: instance.viewport.pointer(event).world,
@@ -350,7 +350,7 @@ export const createTransformSession = (
     active = next
     session = nextSession
     clearNodeSessionPreview(instance.internals.node.session)
-    instance.internals.snap.clear()
+    instance.internals.snap.node.clear()
     event.preventDefault()
     event.stopPropagation()
     return true

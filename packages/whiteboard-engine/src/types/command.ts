@@ -1,5 +1,6 @@
 import type {
   Document,
+  EdgeEnd,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -326,6 +327,11 @@ export type EngineCommands = {
   edge: {
     create: (payload: EdgeInput) => CommandResult<{ edgeId: EdgeId }>
     move: (edgeId: EdgeId, delta: Point) => CommandResult
+    reconnect: (
+      edgeId: EdgeId,
+      end: 'source' | 'target',
+      target: EdgeEnd
+    ) => CommandResult
     update: (id: EdgeId, patch: EdgePatch) => CommandResult
     updateMany: (updates: readonly EdgeBatchUpdate[]) => CommandResult
     delete: (ids: EdgeId[]) => CommandResult

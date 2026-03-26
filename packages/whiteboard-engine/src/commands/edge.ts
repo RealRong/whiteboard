@@ -5,6 +5,7 @@ import type {
 import type { EngineCommands, WriteOrigin } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
+  EdgeEnd,
   EdgeId,
   EdgeInput,
   EdgePatch,
@@ -37,6 +38,17 @@ export const edge = ({
       edgeId,
       delta
     })
+
+  const reconnect = (
+    edgeId: EdgeId,
+    end: 'source' | 'target',
+    target: EdgeEnd
+  ) => update(
+    edgeId,
+    end === 'source'
+      ? { source: target }
+      : { target }
+  )
 
   const update = (id: EdgeId, patch: EdgePatch) =>
     run({
@@ -96,6 +108,7 @@ export const edge = ({
   return {
     create,
     move,
+    reconnect,
     update,
     updateMany,
     delete: remove,

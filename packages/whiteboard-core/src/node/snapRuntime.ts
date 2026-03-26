@@ -1,4 +1,8 @@
-import { expandRect } from '../geometry'
+import {
+  expandRectByThreshold as expandByThreshold,
+  resolveInteractionZoom as resolveZoom,
+  resolveWorldThreshold
+} from '../snap'
 import type { Rect } from '../types'
 
 export type SnapThresholdConfig = {
@@ -9,19 +13,20 @@ export type SnapThresholdConfig = {
 export const resolveInteractionZoom = (
   zoom: number,
   zoomEpsilon = 0.0001
-) => Math.max(zoom, zoomEpsilon)
+) => resolveZoom(zoom, zoomEpsilon)
 
 export const resolveSnapThresholdWorld = (
   node: SnapThresholdConfig,
   zoom: number,
   zoomEpsilon = 0.0001
-) =>
-  Math.min(
-    node.snapThresholdScreen / resolveInteractionZoom(zoom, zoomEpsilon),
-    node.snapMaxThresholdWorld
-  )
+) => resolveWorldThreshold(
+  node.snapThresholdScreen,
+  node.snapMaxThresholdWorld,
+  zoom,
+  zoomEpsilon
+)
 
 export const expandRectByThreshold = (
   rect: Rect,
   thresholdWorld: number
-): Rect => expandRect(rect, thresholdWorld)
+): Rect => expandByThreshold(rect, thresholdWorld)

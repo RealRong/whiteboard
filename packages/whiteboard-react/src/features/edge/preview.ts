@@ -42,8 +42,12 @@ type EdgePatchStore =
 export type EdgePatchReader =
   Pick<EdgePatchStore, 'get' | 'subscribe'>
 
+type EdgeHintValueStore = StagedValueStore<EdgeHint>
+
 type EdgeHintStore =
-  Pick<StagedValueStore<EdgeHint>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+  Pick<EdgeHintValueStore, 'get' | 'subscribe' | 'clear' | 'flush'> & {
+    set: (next?: EdgeHint) => void
+  }
 
 export type EdgePreview = {
   patch: EdgePatchStore
@@ -153,11 +157,25 @@ export const createEdgePreview = (): EdgePreview => {
     task.schedule()
   }
 
-  const hint = createStagedValueStore({
+  const hintValue = createStagedValueStore({
     schedule,
     initial: EMPTY_HINT,
     isEqual: isHintEqual
   })
+  const hint: EdgeHintStore = {
+    get: hintValue.get,
+    subscribe: hintValue.subscribe,
+    clear: hintValue.clear,
+    flush: hintValue.flush,
+    set: (next) => {
+      if (!next) {
+        hintValue.clear()
+        return
+      }
+
+      hintValue.write(next)
+    }
+  }
   const patch = createStagedKeyedStore({
     schedule,
     emptyState: EMPTY_PATCH_MAP,

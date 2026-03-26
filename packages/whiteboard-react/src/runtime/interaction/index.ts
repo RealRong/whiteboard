@@ -7,7 +7,9 @@ export type {
   InteractionState
 } from './types'
 export type {
+  EdgeSnapRuntime,
   MoveSnapInput,
+  NodeSnapRuntime,
   ResizeSnapInput,
   ResizeSnapSource,
   SnapRuntime
