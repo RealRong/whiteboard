@@ -9,7 +9,6 @@ import {
 } from '@whiteboard/core/edge'
 import {
   getNodeAABB,
-  getAABBFromPoints,
   getRectsBoundingRect,
   isPointInRect
 } from '@whiteboard/core/geometry'
@@ -24,7 +23,6 @@ import {
   getNodeOutlineRect,
   filterNodeIdsInRect,
   resolveSelectionTransformTargets,
-  getGroupDescendants,
   matchCanvasNodeRect,
   getTargetBounds
 } from '@whiteboard/core/node'
@@ -87,12 +85,12 @@ export const createRead = ({
   const background = createValueStore(readDocument().background)
 
   const syncIndexes = (impact: KernelReadImpact, model: ReadModel) => {
-    nodeRectIndex.applyChange(impact, model)
+    treeIndex.applyChange(model)
+    nodeRectIndex.applyChange(impact, model, treeIndex)
     snapIndex.applyChange(impact, {
       all: nodeRectIndex.all,
       get: nodeRectIndex.byId
-    })
-    treeIndex.applyChange(model)
+    }, nodeRectIndex.changedIds())
   }
 
   const initialModel = readModel()
@@ -109,30 +107,36 @@ export const createRead = ({
     readIds: treeIndex.ids
   })
 
+  const readCanvasNode = (
+    nodeId: NodeId
+  ) => index.node.get(nodeId)
+
   const readProjectedNodeBounds = (nodeId: NodeId): Rect | undefined => {
     const item = nodeProjection.item.get(nodeId)
-    if (!item) {
+    const canvasNode = readCanvasNode(nodeId)
+    if (!item || !canvasNode) {
       return undefined
     }
 
-    const rotation = typeof item.node.rotation === 'number'
-      ? item.node.rotation
-      : 0
-
     return item.node.type === 'shape'
-      ? getNodeOutlineBounds(item.node, item.rect, rotation)
-      : getNodeAABB(item.node, item.rect)
+      ? getNodeOutlineBounds(
+          item.node,
+          canvasNode.rect,
+          canvasNode.rotation
+        )
+      : canvasNode.aabb
   }
 
   const readProjectedNodeFrame = (nodeId: NodeId): Rect | undefined => {
     const item = nodeProjection.item.get(nodeId)
-    if (!item) {
+    const canvasNode = readCanvasNode(nodeId)
+    if (!item || !canvasNode) {
       return undefined
     }
 
     return item.node.type === 'shape'
-      ? getNodeOutlineRect(item.node, item.rect)
-      : item.rect
+      ? getNodeOutlineRect(item.node, canvasNode.rect)
+      : canvasNode.rect
   }
 
   const readFrameNodeAtPoint = (
@@ -164,25 +168,12 @@ export const createRead = ({
       ...options,
       match: match === 'contain' ? 'touch' : match
     })
-    const nodes = readModel().nodes.canvas
-    const descendantIdsByGroupId = new Map<NodeId, readonly NodeId[]>()
-    const readDescendantIds = (groupId: NodeId): readonly NodeId[] => {
-      const cached = descendantIdsByGroupId.get(groupId)
-      if (cached) {
-        return cached
-      }
-
-      const next = getGroupDescendants(nodes, groupId).map((node) => node.id)
-      descendantIdsByGroupId.set(groupId, next)
-      return next
-    }
-
     return filterNodeIdsInRect({
       rect,
       candidateIds,
       match,
       getEntry: index.node.get,
-      getDescendants: readDescendantIds,
+      getDescendants: treeIndex.ids,
       matchEntry: matchCanvasNodeRect
     })
   }
@@ -223,10 +214,14 @@ export const createRead = ({
     if (!item) {
       return undefined
     }
+    const position = item.node.position
+    if (!position) {
+      return undefined
+    }
 
     return {
-      x: item.node.position.x + item.computed.bbox.x,
-      y: item.node.position.y + item.computed.bbox.y,
+      x: position.x + item.computed.bbox.x,
+      y: position.y + item.computed.bbox.y,
       width: item.computed.bbox.width,
       height: item.computed.bbox.height
     }
@@ -268,7 +263,7 @@ export const createRead = ({
     const model = readModel()
     syncIndexes(impact, model)
     const snapshot = createSnapshot(model)
-    nodeProjection.applyChange(impact, snapshot)
+    nodeProjection.applyChange(impact, snapshot, nodeRectIndex.changedIds())
     edgeProjection.applyChange(impact, snapshot)
     mindmapProjection.applyChange(impact, snapshot)
     treeProjection.applyChange()

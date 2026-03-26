@@ -1,22 +1,12 @@
+import {
+  sanitizeGroupNode,
+  sanitizeGroupPatch
+} from '@whiteboard/core/node'
 import type {
   Document,
   Node,
   Operation
 } from '@whiteboard/core/types'
-
-const hasOwn = (target: object, key: string) =>
-  Object.prototype.hasOwnProperty.call(target, key)
-
-const stripGroupRotationFromNode = (
-  node: Node
-) => {
-  if (node.type !== 'group' || node.rotation === undefined) {
-    return node
-  }
-
-  const { rotation: _rotation, ...nextNode } = node
-  return nextNode
-}
 
 export const sanitizeDocument = (
   document: Document
@@ -25,7 +15,7 @@ export const sanitizeDocument = (
   const entities: Record<string, Node> = {}
 
   Object.entries(document.nodes.entities).forEach(([id, node]) => {
-    const nextNode = stripGroupRotationFromNode(node)
+    const nextNode = sanitizeGroupNode(node)
     entities[id] = nextNode
     if (nextNode !== node) {
       changed = true
@@ -55,7 +45,7 @@ export const sanitizeOperations = ({
   operations.forEach((operation) => {
     switch (operation.type) {
       case 'node.create': {
-        const node = stripGroupRotationFromNode(operation.node)
+        const node = sanitizeGroupNode(operation.node)
         if (node === operation.node) {
           next.push(operation)
           return
@@ -68,19 +58,16 @@ export const sanitizeOperations = ({
         return
       }
       case 'node.update': {
-        if (!hasOwn(operation.patch, 'rotation')) {
-          next.push(operation)
-          return
-        }
-
         const current = document.nodes.entities[operation.id]
-        const nextType = operation.patch.type ?? current?.type
-        if (nextType !== 'group') {
+        const patch = sanitizeGroupPatch(
+          operation.patch,
+          current?.type
+        )
+        if (patch === operation.patch) {
           next.push(operation)
           return
         }
 
-        const { rotation: _rotation, ...patch } = operation.patch
         if (!Object.keys(patch).length) {
           return
         }

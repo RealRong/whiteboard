@@ -3,6 +3,7 @@ import type { WriteTranslateContext } from './index'
 import type { TranslateResult } from './result'
 import { cancelled, invalid, fromOps, success } from './result'
 import {
+  buildDeleteOwnerOps,
   buildNodeAlignOperations,
   buildNodeCreateOperation,
   buildNodeDistributeOperations,
@@ -11,9 +12,8 @@ import {
   buildMoveSet,
   buildNodeUngroupManyOperations,
   buildNodeUngroupOperations,
+  buildOwnerOps,
   expandNodeSelection,
-  getNodeOwnerMap,
-  isOwnerNode,
   resolveMoveEffect
 } from '@whiteboard/core/node'
 import {
@@ -21,11 +21,8 @@ import {
   listNodes,
   getNode,
   isNodeEdgeEnd,
-  type Document,
   type EdgeId,
-  type Node,
   type NodeId,
-  type Operation
 } from '@whiteboard/core/types'
 import {
   bringOrderForward,
@@ -68,168 +65,6 @@ const toUpdateOperations = (
   }))
 }
 
-const EMPTY_NODE_IDS: readonly NodeId[] = []
-
-const readChildren = (
-  node: Pick<Node, 'children'> | undefined
-): readonly NodeId[] => node?.children ?? EMPTY_NODE_IDS
-
-const isNodeIdArrayEqual = (
-  left: readonly NodeId[] | undefined,
-  right: readonly NodeId[] | undefined
-) => {
-  if (left === right) {
-    return true
-  }
-
-  const nextLeft = left ?? EMPTY_NODE_IDS
-  const nextRight = right ?? EMPTY_NODE_IDS
-  if (nextLeft.length !== nextRight.length) {
-    return false
-  }
-
-  return nextLeft.every((id, index) => id === nextRight[index])
-}
-
-const buildSetOwnerOperations = (
-  doc: Document,
-  changes: readonly { id: NodeId; ownerId?: NodeId }[]
-): TranslateResult => {
-  if (!changes.length) {
-    return success([])
-  }
-
-  const nodes = listNodes(doc)
-  const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
-  const ownerByChildId = new Map(getNodeOwnerMap(nodes))
-  const nextChildrenByOwner = new Map<NodeId, NodeId[]>()
-  const dirtyOwnerIds = new Set<NodeId>()
-
-  const readNextChildren = (ownerId: NodeId) => {
-    const cached = nextChildrenByOwner.get(ownerId)
-    if (cached) {
-      return cached
-    }
-
-    const next = [...readChildren(nodeById.get(ownerId))]
-    nextChildrenByOwner.set(ownerId, next)
-    return next
-  }
-
-  for (const change of changes) {
-    const currentOwnerId = ownerByChildId.get(change.id)
-    if (currentOwnerId === change.ownerId) {
-      continue
-    }
-
-    if (currentOwnerId) {
-      const currentChildren = readNextChildren(currentOwnerId)
-      const nextChildren = currentChildren.filter((childId) => childId !== change.id)
-      nextChildrenByOwner.set(currentOwnerId, nextChildren)
-      dirtyOwnerIds.add(currentOwnerId)
-    }
-
-    if (!change.ownerId) {
-      ownerByChildId.delete(change.id)
-      continue
-    }
-
-    const owner = nodeById.get(change.ownerId)
-    if (!owner) {
-      return invalid(`Owner ${change.ownerId} not found.`)
-    }
-    if (!isOwnerNode(owner)) {
-      return invalid(`Node ${change.ownerId} is not an owner.`)
-    }
-
-    const nextChildren = readNextChildren(change.ownerId)
-    if (!nextChildren.includes(change.id)) {
-      nextChildren.push(change.id)
-    }
-    dirtyOwnerIds.add(change.ownerId)
-    ownerByChildId.set(change.id, change.ownerId)
-  }
-
-  return success(
-    Array.from(dirtyOwnerIds).flatMap((ownerId) => {
-      const owner = nodeById.get(ownerId)
-      if (!owner) {
-        return []
-      }
-
-      const nextChildren = nextChildrenByOwner.get(ownerId) ?? [...readChildren(owner)]
-      return isNodeIdArrayEqual(owner.children, nextChildren)
-        ? []
-        : [{
-            type: 'node.update' as const,
-            id: ownerId,
-            patch: {
-              children: nextChildren
-            }
-          }]
-    })
-  )
-}
-
-const buildDetachDeleteOperations = (
-  doc: Document,
-  ids: readonly NodeId[]
-): TranslateResult => {
-  if (!ids.length) {
-    return success([])
-  }
-
-  const deletedIds = new Set(ids)
-  const nodes = listNodes(doc)
-  const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
-  const ownerByChildId = getNodeOwnerMap(nodes)
-  const nextChildrenByOwner = new Map<NodeId, NodeId[]>()
-  const dirtyOwnerIds = new Set<NodeId>()
-
-  const readNextChildren = (ownerId: NodeId) => {
-    const cached = nextChildrenByOwner.get(ownerId)
-    if (cached) {
-      return cached
-    }
-
-    const next = [...readChildren(nodeById.get(ownerId))]
-    nextChildrenByOwner.set(ownerId, next)
-    return next
-  }
-
-  deletedIds.forEach((nodeId) => {
-    const ownerId = ownerByChildId.get(nodeId)
-    if (!ownerId || deletedIds.has(ownerId)) {
-      return
-    }
-
-    const currentChildren = readNextChildren(ownerId)
-    const nextChildren = currentChildren.filter((childId) => childId !== nodeId)
-    nextChildrenByOwner.set(ownerId, nextChildren)
-    dirtyOwnerIds.add(ownerId)
-  })
-
-  return success(
-    Array.from(dirtyOwnerIds).flatMap((ownerId) => {
-      const owner = nodeById.get(ownerId)
-      if (!owner) {
-        return []
-      }
-
-      const nextChildren = nextChildrenByOwner.get(ownerId) ?? [...readChildren(owner)]
-      return isNodeIdArrayEqual(owner.children, nextChildren)
-        ? []
-        : [{
-            type: 'node.update' as const,
-            id: ownerId,
-            patch: {
-              children: nextChildren
-            }
-          }]
-    })
-  )
-}
-
 export const translateNode = <C extends NodeCommand>(
   command: C,
   ctx: WriteTranslateContext
@@ -247,20 +82,23 @@ export const translateNode = <C extends NodeCommand>(
       return invalid(planned.error.message, planned.error.details)
     }
 
-    const owner = command.payload.ownerId
-      ? buildSetOwnerOperations(doc, [{
-          id: planned.data.nodeId,
-          ownerId: command.payload.ownerId
-        }])
-      : success([])
+    const owner = buildOwnerOps({
+      document: doc,
+      changes: command.payload.ownerId
+        ? [{
+            id: planned.data.nodeId,
+            ownerId: command.payload.ownerId
+          }]
+        : []
+    })
     if (!owner.ok) {
-      return owner
+      return invalid(owner.error.message, owner.error.details)
     }
 
     return success(
       [
         planned.data.operation,
-        ...owner.operations
+        ...owner.data
       ],
       {
         nodeId: planned.data.nodeId
@@ -277,7 +115,6 @@ export const translateNode = <C extends NodeCommand>(
       buildNodeGroupOperations({
         ids: command.ids,
         doc,
-        nodeSize: ctx.config.nodeSize,
         createGroupId: ctx.ids.group
       }),
       ({ groupId }) => ({ groupId })
@@ -333,9 +170,12 @@ export const translateNode = <C extends NodeCommand>(
       nodeSize: ctx.config.nodeSize
     })
 
-    const owner = buildSetOwnerOperations(doc, effect.owners)
+    const owner = buildOwnerOps({
+      document: doc,
+      changes: effect.owners
+    })
     if (!owner.ok) {
-      return owner
+      return invalid(owner.error.message, owner.error.details)
     }
 
     const operations = [
@@ -347,7 +187,7 @@ export const translateNode = <C extends NodeCommand>(
           }
         }))
       ]),
-      ...owner.operations,
+      ...owner.data,
       ...effect.edges.map((entry) => ({
         type: 'edge.update' as const,
         id: entry.id,
@@ -463,14 +303,17 @@ export const translateNode = <C extends NodeCommand>(
           || (isNodeEdgeEnd(edge.target) && expandedIds.has(edge.target.nodeId))
       )
       .map((edge) => edge.id)
-    const detach = buildDetachDeleteOperations(doc, nodeIds)
+    const detach = buildDeleteOwnerOps({
+      document: doc,
+      ids: nodeIds
+    })
     if (!detach.ok) {
-      return detach
+      return invalid(detach.error.message, detach.error.details)
     }
 
     return success([
       ...edgeIds.map((id) => ({ type: 'edge.delete' as const, id })),
-      ...detach.operations,
+      ...detach.data,
       ...nodeIds.map((id) => ({ type: 'node.delete' as const, id }))
     ])
   }
@@ -510,13 +353,19 @@ export const translateNode = <C extends NodeCommand>(
       }
 
       {
-        const detach = buildDetachDeleteOperations(doc, command.ids)
+        const detach = buildDeleteOwnerOps({
+          document: doc,
+          ids: command.ids
+        })
         if (!detach.ok) {
-          return detach as TranslateResult<NodeWriteOutput<C>>
+          return invalid(
+            detach.error.message,
+            detach.error.details
+          ) as TranslateResult<NodeWriteOutput<C>>
         }
 
         return success([
-          ...detach.operations,
+          ...detach.data,
           ...command.ids.map((id) => ({ type: 'node.delete' as const, id }))
         ]) as TranslateResult<NodeWriteOutput<C>>
       }

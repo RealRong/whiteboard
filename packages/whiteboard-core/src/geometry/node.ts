@@ -2,13 +2,19 @@ import type { Node, Rect, Size } from '../types'
 import { getAABBFromPoints } from './rect'
 import { getRotatedCorners } from './rotation'
 
+const ORIGIN = {
+  x: 0,
+  y: 0
+} as const
+
 export const getNodeRect = (node: Node, fallback: Size): Rect => {
   const width = node.size?.width ?? fallback.width
   const height = node.size?.height ?? fallback.height
+  const position = node.position ?? ORIGIN
 
   return {
-    x: node.position.x,
-    y: node.position.y,
+    x: position.x,
+    y: position.y,
     width,
     height
   }

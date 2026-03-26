@@ -91,14 +91,16 @@ const toCacheKey = ({
   root: Node
   layout: MindmapLayoutConfig
   nodeSize: { width: number; height: number }
-}): MindmapTreeCacheKey => ({
+}): MindmapTreeCacheKey => {
+  const position = root.position ?? { x: 0, y: 0 }
+  return {
   treeId: tree.id,
   rootId: tree.rootId,
   rootRef: root,
   treeNodesRef: tree.nodes,
   treeChildrenRef: tree.children,
-  rootPositionX: root.position.x,
-  rootPositionY: root.position.y,
+  rootPositionX: position.x,
+  rootPositionY: position.y,
   rootWidth: root.size?.width,
   rootHeight: root.size?.height,
   mode: layout.mode === 'tidy' ? 'tidy' : 'simple',
@@ -107,7 +109,8 @@ const toCacheKey = ({
   side: layout.options?.side,
   nodeWidth: nodeSize.width,
   nodeHeight: nodeSize.height
-})
+  }
+}
 
 const isSameCacheKey = (left: MindmapTreeCacheKey, right: MindmapTreeCacheKey) => {
   for (const key of MINDMAP_CACHE_SCALAR_KEYS) {

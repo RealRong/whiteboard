@@ -15,7 +15,7 @@ const resolveRebuild = (impact: KernelReadImpact): Rebuild => {
   if (impact.reset || impact.node.list) {
     return 'full'
   }
-  if (impact.node.geometry) {
+  if (impact.node.geometry || impact.node.value) {
     return impact.node.ids.length === 0 ? 'full' : 'dirty'
   }
   return 'none'
@@ -132,7 +132,8 @@ export class SnapIndex {
 
   applyChange = (
     impact: KernelReadImpact,
-    node: Pick<EngineReadIndex['node'], 'all' | 'get'>
+    node: Pick<EngineReadIndex['node'], 'all' | 'get'>,
+    extraNodeIds: readonly NodeId[] = []
   ): boolean => {
     const rebuild = resolveRebuild(impact)
     switch (rebuild) {
@@ -141,7 +142,13 @@ export class SnapIndex {
       case 'full':
         return this.syncFull(node.all())
       case 'dirty':
-        return this.syncByNodeIds(impact.node.ids, node.get)
+        return this.syncByNodeIds(
+          new Set([
+            ...impact.node.ids,
+            ...extraNodeIds
+          ]),
+          node.get
+        )
       default:
         return false
     }

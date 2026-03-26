@@ -152,9 +152,13 @@ export const useMindmapDrag = () => {
     }
 
     const { world } = instance.viewport.pointer(event)
+    const position = treeView.node.position
+    if (!position) {
+      return false
+    }
     const baseOffset = {
-      x: treeView.node.position.x,
-      y: treeView.node.position.y
+      x: position.x,
+      y: position.y
     }
 
     const next =

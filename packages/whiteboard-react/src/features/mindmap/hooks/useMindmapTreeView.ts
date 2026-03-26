@@ -91,7 +91,7 @@ export const useMindmapTreeView = (
 
   return useMemo(
     () => {
-      if (!treeView || !root) {
+      if (!treeView || !root || !root.position) {
         return undefined
       }
 

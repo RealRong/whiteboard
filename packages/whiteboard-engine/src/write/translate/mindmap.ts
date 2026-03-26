@@ -410,6 +410,9 @@ export const translateMindmap = <C extends MindmapCommand>(
     if (!node) {
       return cancelled(`Node ${nodeId} not found.`)
     }
+    if (!node.position) {
+      return invalid(`Node ${nodeId} has no position.`)
+    }
     if (
       Math.abs(node.position.x - position.x) < threshold
       && Math.abs(node.position.y - position.y) < threshold

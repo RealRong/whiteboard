@@ -1,10 +1,10 @@
 import type { Node, NodeId, Point, Rect, Size } from '../types'
 import { getRectCenter, rotatePoint } from '../geometry'
 import {
-  filterRootIds,
   getGroupDescendants,
   isContainerNode
 } from './group'
+import { filterRootIds } from './owner'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1

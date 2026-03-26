@@ -1,5 +1,4 @@
 import type { ReadModel } from '@engine-types/read'
-import { isContainerNode } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 
 const EMPTY_IDS: readonly NodeId[] = []
@@ -8,11 +7,11 @@ const EMPTY_SET: ReadonlySet<NodeId> = new Set<NodeId>()
 export class TreeIndex {
   private nodeById: ReadModel['canvas']['nodeById'] = new Map()
   private allIds: readonly NodeId[] = EMPTY_IDS
-  private containers = new Set<NodeId>()
   private ownerById = new Map<NodeId, NodeId>()
   private children = new Map<NodeId, NodeId[]>()
   private idsCache = new Map<NodeId, readonly NodeId[]>()
   private setCache = new Map<NodeId, ReadonlySet<NodeId>>()
+  private ancestorsCache = new Map<NodeId, readonly NodeId[]>()
 
   applyChange = (model: ReadModel) => {
     const nextNodeById = model.canvas.nodeById
@@ -24,19 +23,15 @@ export class TreeIndex {
 
     this.nodeById = nextNodeById
     this.allIds = nextIds
-    this.containers = new Set()
     this.ownerById = new Map()
     this.children = new Map()
     this.idsCache.clear()
     this.setCache.clear()
+    this.ancestorsCache.clear()
 
     nextIds.forEach((nodeId) => {
       const node = nextNodeById.get(nodeId)
       if (!node) return
-
-      if (isContainerNode(node)) {
-        this.containers.add(nodeId)
-      }
 
       node.children?.forEach((childId) => {
         const children = this.children.get(node.id) ?? []
@@ -48,6 +43,28 @@ export class TreeIndex {
   }
 
   owner = (nodeId: NodeId): NodeId | undefined => this.ownerById.get(nodeId)
+
+  childrenOf = (ownerId: NodeId): readonly NodeId[] =>
+    this.children.get(ownerId) ?? EMPTY_IDS
+
+  ancestors = (nodeId: NodeId): readonly NodeId[] => {
+    const cached = this.ancestorsCache.get(nodeId)
+    if (cached) {
+      return cached
+    }
+
+    const ancestors: NodeId[] = []
+    let current = this.ownerById.get(nodeId)
+
+    while (current) {
+      ancestors.push(current)
+      current = this.ownerById.get(current)
+    }
+
+    const result = ancestors.length > 0 ? ancestors : EMPTY_IDS
+    this.ancestorsCache.set(nodeId, result)
+    return result
+  }
 
   ids = (rootId: NodeId): readonly NodeId[] => {
     const cached = this.idsCache.get(rootId)
@@ -76,13 +93,13 @@ export class TreeIndex {
       return cached
     }
 
-    if (!this.nodeById.has(rootId) || !this.containers.has(rootId)) {
+    if (!this.nodeById.has(rootId)) {
       this.setCache.set(rootId, EMPTY_SET)
       return EMPTY_SET
     }
 
     const set = new Set<NodeId>()
-    const stack = [...(this.children.get(rootId) ?? EMPTY_IDS)]
+    const stack = [...this.childrenOf(rootId)]
 
     while (stack.length > 0) {
       const nodeId = stack.pop()
@@ -91,12 +108,9 @@ export class TreeIndex {
       }
 
       set.add(nodeId)
-      const children = this.children.get(nodeId)
-      if (children) {
-        children.forEach((childId) => {
-          stack.push(childId)
-        })
-      }
+      this.childrenOf(nodeId).forEach((childId) => {
+        stack.push(childId)
+      })
     }
 
     const result = set.size > 0 ? set : EMPTY_SET

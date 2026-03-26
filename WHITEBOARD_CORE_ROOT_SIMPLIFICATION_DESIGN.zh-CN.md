@@ -211,7 +211,7 @@ type Doc = {
 type Node = {
   id: NodeId
   type: string
-  position: Point
+  position?: Point
   size?: Size
   rotation?: number
   locked?: boolean
@@ -251,7 +251,7 @@ type Edge = {
 
 语义如下：
 
-- 所有 node 都保持 world position
+- 几何 node 保持 world position
 - group/frame 不建立局部坐标系
 - group/frame 通过 `children` 持有稳定成员
 - owner 关系用于结构、选择、导出、批量操作
@@ -288,6 +288,7 @@ type Edge = {
   - 语义是稳定成员集合
   - 无 padding
   - 自己不维护独立几何真相
+  - 自己不需要持久化 `position/size/rotation`
   - group bounds 由 children 的 world bounds 派生
   - 拖动 group = 平移 descendants
   - resize group = scale descendants

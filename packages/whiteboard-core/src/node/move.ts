@@ -14,11 +14,13 @@ import type {
 } from '../types'
 import {
   expandGroupMembers,
-  filterRootIds,
   findSmallestContainerAtPoint,
-  getNodeOwnerMap,
   isContainerNode
 } from './group'
+import {
+  filterRootIds,
+  getNodeOwnerMap
+} from './owner'
 
 export type MoveMember = {
   id: NodeId
@@ -90,10 +92,15 @@ export const buildMoveSet = (options: {
     }
   }
 
-  const members = expandGroupMembers(nodes, rootIds).map((node) => ({
-    id: node.id,
-    position: node.position
-  }))
+  const members = expandGroupMembers(nodes, rootIds)
+    .flatMap((node) => (
+      node.position
+        ? [{
+            id: node.id,
+            position: node.position
+          }]
+        : []
+    ))
 
   return {
     rootIds,

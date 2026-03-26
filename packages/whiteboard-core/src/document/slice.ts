@@ -4,10 +4,13 @@ import { resolveEdgeEnds } from '../edge/endpoints'
 import { getAABBFromPoints, getNodeRect, getRectCenter } from '../geometry'
 import {
   getGroupDescendants,
-  getNodeOwnerMap,
   getNodesBoundingRect,
   isOwnerNode
 } from '../node/group'
+import {
+  getNodeOwnerMap,
+  patchChildren
+} from '../node/owner'
 import { buildNodeCreateOperation } from '../node/commands'
 import { createId } from '../utils/id'
 import { cloneValue } from '../utils/merge'
@@ -16,9 +19,11 @@ import type {
   CoreRegistries,
   Document,
   Edge,
+  EdgeInput,
   EdgeEnd,
   EdgeId,
   Node,
+  NodeInput,
   NodeId,
   Operation,
   Point,
@@ -104,6 +109,23 @@ const toRoots = (roots?: Partial<SliceRoots>): SliceRoots => ({
 
 const dedupeIds = <T extends string>(ids: readonly T[]) => [...new Set(ids)]
 
+const offsetPoint = (
+  point: Point,
+  delta: Point
+): Point => ({
+  x: point.x + delta.x,
+  y: point.y + delta.y
+})
+
+const offsetOptionalPoint = (
+  point: Point | undefined,
+  delta: Point
+): Point | undefined => (
+  point
+    ? offsetPoint(point, delta)
+    : undefined
+)
+
 const cloneEdgeEnd = (end: EdgeEnd): EdgeEnd => (
   isNodeEdgeEnd(end)
     ? {
@@ -118,7 +140,7 @@ const cloneEdgeEnd = (end: EdgeEnd): EdgeEnd => (
 
 const cloneNode = (node: Node): Node => ({
   ...cloneValue(node),
-  position: cloneValue(node.position),
+  position: node.position ? cloneValue(node.position) : undefined,
   size: node.size ? cloneValue(node.size) : undefined,
   children: node.children ? [...node.children] : undefined,
   data: node.data ? cloneValue(node.data) : undefined,
@@ -144,6 +166,117 @@ const cloneEdge = (edge: Edge): Edge => ({
   label: edge.label ? cloneValue(edge.label) : undefined,
   data: edge.data ? cloneValue(edge.data) : undefined
 })
+
+const remapNodeChildren = (
+  children: readonly NodeId[] | undefined,
+  nodeIdMap: ReadonlyMap<NodeId, NodeId>
+): NodeId[] | undefined => children
+  ? children
+    .map((childId) => nodeIdMap.get(childId))
+    .filter((childId): childId is NodeId => Boolean(childId))
+  : undefined
+
+const remapSliceNodeInput = ({
+  node,
+  nextNodeId,
+  nodeIdMap,
+  delta
+}: {
+  node: Node
+  nextNodeId: NodeId
+  nodeIdMap: ReadonlyMap<NodeId, NodeId>
+  delta: Point
+}): NodeInput => ({
+  ...cloneNode(node),
+  id: nextNodeId,
+  position: offsetOptionalPoint(node.position, delta),
+  children: remapNodeChildren(node.children, nodeIdMap)
+})
+
+const remapEdgeEnd = ({
+  end,
+  nodeIdMap,
+  delta
+}: {
+  end: EdgeEnd
+  nodeIdMap: ReadonlyMap<NodeId, NodeId>
+  delta: Point
+}): EdgeEnd | undefined => (
+  isNodeEdgeEnd(end)
+    ? (() => {
+        const nodeId = nodeIdMap.get(end.nodeId)
+        if (!nodeId) return undefined
+        return {
+          kind: 'node',
+          nodeId,
+          anchor: end.anchor ? cloneValue(end.anchor) : undefined
+        } as const
+      })()
+    : {
+        kind: 'point',
+        point: offsetPoint(end.point, delta)
+      }
+)
+
+const remapEdgeRoute = (
+  route: Edge['route'],
+  delta: Point
+): EdgeInput['route'] => (
+  route?.kind === 'manual'
+    ? {
+        kind: 'manual',
+        points: route.points.map((point) => offsetPoint(point, delta))
+      }
+    : route
+      ? cloneValue(route)
+      : undefined
+)
+
+const remapSliceEdgeInput = ({
+  edge,
+  nextEdgeId,
+  nodeIdMap,
+  delta
+}: {
+  edge: Edge
+  nextEdgeId: EdgeId
+  nodeIdMap: ReadonlyMap<NodeId, NodeId>
+  delta: Point
+}): EdgeInput | undefined => {
+  const source = remapEdgeEnd({
+    end: edge.source,
+    nodeIdMap,
+    delta
+  })
+  const target = remapEdgeEnd({
+    end: edge.target,
+    nodeIdMap,
+    delta
+  })
+
+  if (!source || !target) {
+    return undefined
+  }
+
+  return {
+    ...cloneEdge(edge),
+    id: nextEdgeId,
+    source,
+    target,
+    route: remapEdgeRoute(edge.route, delta),
+    label: edge.label
+      ? {
+          ...cloneValue(edge.label),
+          offset: edge.label.offset
+            ? {
+                x: edge.label.offset.x,
+                y: edge.label.offset.y
+              }
+            : undefined
+        }
+      : undefined
+  }
+}
 
 const collectExpandedNodeIds = (
   nodes: readonly Node[],
@@ -710,22 +843,13 @@ export const buildInsertSliceOperations = ({
       return err('invalid', `Node ${sourceNode.id} could not be remapped.`)
     }
 
-    const nextChildren = sourceNode.children
-      ? sourceNode.children
-        .map((childId) => nodeIdMap.get(childId))
-        .filter((childId): childId is NodeId => Boolean(childId))
-      : undefined
-
     const planned = buildNodeCreateOperation({
-      payload: {
-        ...cloneNode(sourceNode),
-        id: nextNodeId,
-        position: {
-          x: sourceNode.position.x + delta.x,
-          y: sourceNode.position.y + delta.y
-        },
-        children: nextChildren
-      },
+      payload: remapSliceNodeInput({
+        node: sourceNode,
+        nextNodeId,
+        nodeIdMap,
+        delta
+      }),
       doc: withCreatedNodes(doc, duplicatedNodeOperations),
       registries,
       createNodeId: () => nextNodeId
@@ -753,91 +877,30 @@ export const buildInsertSliceOperations = ({
       return err('invalid', `Node ${ownerId} is not an owner.`)
     }
 
-    operations.push({
-      type: 'node.update',
-      id: owner.id,
-      patch: {
-        children: [
-          ...(owner.children ?? []),
-          ...nextRootNodeIds
-        ]
-      }
-    })
+    const patch = patchChildren(owner, [
+      ...(owner.children ?? []),
+      ...nextRootNodeIds
+    ])
+    if (patch) {
+      operations.push(patch)
+    }
   }
 
   for (const sourceEdge of slice.edges) {
     const nextEdgeId = createEdgeId()
-    const nextSource: Edge['source'] | undefined =
-      isNodeEdgeEnd(sourceEdge.source)
-        ? (() => {
-          const nodeId = nodeIdMap.get(sourceEdge.source.nodeId)
-          if (!nodeId) return undefined
-          return {
-            kind: 'node',
-            nodeId,
-            anchor: sourceEdge.source.anchor ? cloneValue(sourceEdge.source.anchor) : undefined
-          } as const
-        })()
-        : {
-          kind: 'point',
-          point: {
-            x: sourceEdge.source.point.x + delta.x,
-            y: sourceEdge.source.point.y + delta.y
-          }
-        }
+    const payload = remapSliceEdgeInput({
+      edge: sourceEdge,
+      nextEdgeId,
+      nodeIdMap,
+      delta
+    })
 
-    const nextTarget: Edge['target'] | undefined =
-      isNodeEdgeEnd(sourceEdge.target)
-        ? (() => {
-          const nodeId = nodeIdMap.get(sourceEdge.target.nodeId)
-          if (!nodeId) return undefined
-          return {
-            kind: 'node',
-            nodeId,
-            anchor: sourceEdge.target.anchor ? cloneValue(sourceEdge.target.anchor) : undefined
-          } as const
-        })()
-        : {
-          kind: 'point',
-          point: {
-            x: sourceEdge.target.point.x + delta.x,
-            y: sourceEdge.target.point.y + delta.y
-          }
-        }
-
-    if (!nextSource || !nextTarget) {
+    if (!payload) {
       return err('invalid', `Edge ${sourceEdge.id} references nodes outside the slice.`)
     }
 
     const planned = buildEdgeCreateOperation({
-      payload: {
-        ...cloneEdge(sourceEdge),
-        id: nextEdgeId,
-        source: nextSource,
-        target: nextTarget,
-        route: sourceEdge.route?.kind === 'manual'
-          ? {
-            kind: 'manual',
-            points: sourceEdge.route.points.map((point) => ({
-              x: point.x + delta.x,
-              y: point.y + delta.y
-            }))
-          }
-          : sourceEdge.route
-            ? cloneValue(sourceEdge.route)
-            : undefined,
-        label: sourceEdge.label
-          ? {
-            ...cloneValue(sourceEdge.label),
-            offset: sourceEdge.label.offset
-              ? {
-                x: sourceEdge.label.offset.x,
-                y: sourceEdge.label.offset.y
-              }
-              : undefined
-          }
-          : undefined
-      },
+      payload,
       doc: withCreatedEdges(withCreatedNodes(doc, duplicatedNodeOperations), duplicatedEdgeOperations),
       registries,
       createEdgeId: () => nextEdgeId

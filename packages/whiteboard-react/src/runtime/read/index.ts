@@ -1,6 +1,9 @@
 import type { EngineRead } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
-import { getTargetBounds } from '@whiteboard/core/node'
+import {
+  getNodeOutlineRect,
+  getTargetBounds
+} from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/node'
@@ -77,17 +80,13 @@ export const createRuntimeRead = ({
     .filter((node): node is NonNullable<typeof node> => Boolean(node))
   const readNodeFrame = (nodeId: NodeId) => {
     const item = nodeItem.get(nodeId)
-    const entry = engineRead.index.node.get(nodeId)
-    if (!item?.node || !entry) {
+    if (!item?.node) {
       return undefined
     }
 
-    return {
-      x: item.node.position.x,
-      y: item.node.position.y,
-      width: entry.rect.width,
-      height: entry.rect.height
-    }
+    return item.node.type === 'shape'
+      ? getNodeOutlineRect(item.node, item.rect)
+      : item.rect
   }
   const bounds: EngineRead['bounds'] = {
     canvas: engineRead.bounds.canvas,

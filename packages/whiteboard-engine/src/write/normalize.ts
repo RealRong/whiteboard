@@ -6,14 +6,10 @@ import type {
   Size
 } from '@whiteboard/core/types'
 import {
-  collectGroupOps
-} from '../document/normalize/group'
-import {
   sanitizeOperations
 } from '../document/normalize/sanitize'
 import {
   collectChanges,
-  collectDirtyNodeIds,
   collectFinalizeOps,
 } from './normalize/finalize'
 
@@ -35,12 +31,10 @@ type Reduced = Extract<KernelReduceResult, { ok: true }>
 
 export const createWritePipeline = ({
   reduce,
-  nodeSize,
-  groupPadding
+  nodeSize
 }: {
   reduce: Reduce
   nodeSize: Size
-  groupPadding: number
 }): WritePipeline => {
   const append = (
     document: Document,
@@ -86,32 +80,6 @@ export const createWritePipeline = ({
     )
   }
 
-  const runGroupStep = (
-    beforeDocument: Document,
-    reduced: Reduced,
-    origin: Origin
-  ): KernelReduceResult => {
-    const changes = deriveChanges(beforeDocument, reduced)
-    const dirtyNodeIds = collectDirtyNodeIds(changes)
-    if (!dirtyNodeIds.size) {
-      return reduced
-    }
-
-    const operations = collectGroupOps({
-      document: reduced.doc,
-      nodeIds: dirtyNodeIds,
-      nodeSize,
-      groupPadding,
-    })
-
-    return append(
-      beforeDocument,
-      reduced,
-      operations,
-      origin
-    )
-  }
-
   const run = (
     document: Document,
     operations: readonly Operation[],
@@ -129,7 +97,7 @@ export const createWritePipeline = ({
       return finalized
     }
 
-    return runGroupStep(document, finalized, origin)
+    return finalized
   }
 
   return {

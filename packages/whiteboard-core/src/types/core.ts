@@ -32,7 +32,7 @@ export type NodeType = string
 export interface Node {
   id: NodeId
   type: NodeType
-  position: Point
+  position?: Point
   size?: Size
   rotation?: number
   layer?: 'background' | 'default' | 'overlay'

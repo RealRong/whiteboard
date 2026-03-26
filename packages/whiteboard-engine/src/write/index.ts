@@ -61,8 +61,7 @@ export const createWrite = ({
 
   const pipeline = createWritePipeline({
     reduce,
-    nodeSize: config.nodeSize,
-    groupPadding: config.node.groupPadding
+    nodeSize: config.nodeSize
   })
 
   const toOperationResult = <T>(

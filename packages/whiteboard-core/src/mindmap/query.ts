@@ -201,9 +201,9 @@ const resolveAnchorWorld = ({
 }: {
   tree: MindmapTree
   hint: MindmapLayoutHint
-  nodePosition: Node['position']
+  nodePosition?: Node['position']
 }) => {
-  if (!hint.nodeSize) return undefined
+  if (!hint.nodeSize || !nodePosition) return undefined
   const layout = computeMindmapLayout(tree, hint.nodeSize, {
     mode: hint.mode,
     options: hint.options
@@ -229,10 +229,10 @@ const resolveAnchorPatch = ({
   beforeTree: MindmapTree
   afterTree: MindmapTree
   hint?: MindmapLayoutHint
-  nodePosition: Node['position']
+  nodePosition?: Node['position']
   threshold?: number
 }): { position: Node['position'] } | undefined => {
-  if (!hint?.nodeSize || !hint.anchorId) return undefined
+  if (!hint?.nodeSize || !hint.anchorId || !nodePosition) return undefined
   const before = resolveAnchorWorld({ tree: beforeTree, hint, nodePosition })
   const after = resolveAnchorWorld({ tree: afterTree, hint, nodePosition })
   if (!before || !after) return undefined

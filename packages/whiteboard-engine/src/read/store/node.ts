@@ -55,7 +55,8 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
 
   const applyChange = (
     impact: KernelReadImpact,
-    snapshot: ReadSnapshot
+    snapshot: ReadSnapshot,
+    extraChangedNodeIds: readonly NodeId[] = []
   ) => {
     snapshotRef = snapshot
     const prevIds = list.get()
@@ -84,6 +85,10 @@ export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {
         changedNodeIds.add(nodeId)
       })
     }
+
+    extraChangedNodeIds.forEach((nodeId) => {
+      changedNodeIds.add(nodeId)
+    })
 
     if (idsChanged) {
       prevIds.forEach((nodeId) => {

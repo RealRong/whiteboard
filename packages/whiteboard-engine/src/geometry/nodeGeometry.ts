@@ -28,12 +28,12 @@ export class NodeGeometryCache {
   constructor(private nodeSize: Size) {}
 
   private toStateTuple = (node: Node): NodeGeometryStateTuple => {
-    const size = node.size ?? this.nodeSize
+    const rect = getNodeRect(node, this.nodeSize)
     return {
-      x: toFiniteOrUndefined(node.position.x),
-      y: toFiniteOrUndefined(node.position.y),
-      width: toFiniteOrUndefined(size.width),
-      height: toFiniteOrUndefined(size.height),
+      x: toFiniteOrUndefined(rect.x),
+      y: toFiniteOrUndefined(rect.y),
+      width: toFiniteOrUndefined(rect.width),
+      height: toFiniteOrUndefined(rect.height),
       rotation: toFiniteOrUndefined(node.rotation ?? 0)
     }
   }

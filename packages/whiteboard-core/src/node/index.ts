@@ -19,23 +19,37 @@ export {
   type ResolvedDrawStroke
 } from './draw'
 export {
+  buildDeleteOwnerOps,
+  buildOwnerOps,
+  createOwnerDepthResolver,
+  createOwnerState,
+  equalChildren,
+  filterRootIds,
+  findOwnerAncestor,
+  getNodeOwnerMap,
+  getOwnerChildrenMap,
+  getOwnerDescendants,
+  patchChildren,
+  readChildren,
+  replaceChildren
+} from './owner'
+export type {
+  OwnerState
+} from './owner'
+export {
   findGroupAncestor,
   findSmallestContainerAtPoint,
-  filterRootIds,
   getContainerChildrenMap,
   getContainerDescendants,
   expandGroupMembers,
   getGroupChildrenMap,
   getGroupDescendants,
-  getNodeOwnerMap,
   getNodesBoundingRect,
   isContainerNode,
   isOwnerNode,
-  normalizeGroupBounds,
-  rectEquals
-} from './group'
-export type {
-  NormalizeGroupBoundsOptions
+  rectEquals,
+  sanitizeGroupNode,
+  sanitizeGroupPatch
 } from './group'
 export {
   buildMoveSet,
