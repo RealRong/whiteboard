@@ -14,6 +14,7 @@ import type {
 import {
   hasEdge,
   hasNode,
+  isManualEdgeRoute,
   isNodeEdgeEnd,
   isPointEdgeEnd
 } from '../types'
@@ -24,7 +25,7 @@ export type EdgeCreateOperationResult =
     edgeId: EdgeId
   }, 'invalid'>
 
-export type InsertPathPointResult =
+export type InsertRoutePointResult =
   Result<{
     patch: EdgePatch
     index: number
@@ -37,17 +38,19 @@ type BuildEdgeCreateOperationInput = {
   createEdgeId: () => EdgeId
 }
 
-const createPathPatch = (
+const createRoutePatch = (
   edge: Edge,
   points?: Point[]
 ): EdgePatch => ({
-  path:
+  route:
     points && points.length > 0
       ? {
-          ...(edge.path ?? {}),
+          kind: 'manual',
           points
         }
-      : undefined
+      : {
+          kind: 'auto'
+        }
 })
 
 const validateEdgeEnd = (
@@ -117,47 +120,53 @@ export const buildEdgeCreateOperation = ({
   })
 }
 
-export const insertPathPoint = (
+export const insertRoutePoint = (
   edge: Edge,
   insertIndex: number,
   pointWorld: Point
-): InsertPathPointResult => {
-  const basePoints = edge.path?.points ?? []
+): InsertRoutePointResult => {
+  const basePoints = isManualEdgeRoute(edge.route)
+    ? edge.route.points
+    : []
   const nextInsertIndex = Math.max(0, Math.min(insertIndex, basePoints.length))
   const nextPoints = [...basePoints]
   nextPoints.splice(nextInsertIndex, 0, pointWorld)
   return ok({
     index: nextInsertIndex,
-    patch: createPathPatch(edge, nextPoints)
+    patch: createRoutePatch(edge, nextPoints)
   })
 }
 
-export const movePathPoint = (
+export const moveRoutePoint = (
   edge: Edge,
   index: number,
   pointWorld: Point
 ): EdgePatch | undefined => {
-  const points = edge.path?.points ?? []
+  const points = isManualEdgeRoute(edge.route)
+    ? edge.route.points
+    : []
   if (index < 0 || index >= points.length) return undefined
   const nextPoints = points.map((point, idx) => (idx === index ? pointWorld : point))
-  return createPathPatch(edge, nextPoints)
+  return createRoutePatch(edge, nextPoints)
 }
 
-export const removePathPoint = (
+export const removeRoutePoint = (
   edge: Edge,
   index: number
 ): EdgePatch | undefined => {
-  const points = edge.path?.points ?? []
+  const points = isManualEdgeRoute(edge.route)
+    ? edge.route.points
+    : []
   if (index < 0 || index >= points.length) return undefined
 
   const nextPoints = points.filter((_, idx) => idx !== index)
-  return createPathPatch(edge, nextPoints)
+  return createRoutePatch(edge, nextPoints)
 }
 
-export const clearPath = (edge: Edge): EdgePatch =>
-  createPathPatch(edge, undefined)
+export const clearRoute = (edge: Edge): EdgePatch =>
+  createRoutePatch(edge, undefined)
 
-export const moveEdgePath = (
+export const moveEdgeRoute = (
   edge: Edge,
   delta: Point
 ): EdgePatch | undefined => {
@@ -165,16 +174,18 @@ export const moveEdgePath = (
     return undefined
   }
 
-  const pathPoints = edge.path?.points?.map((point) => ({
+  const routePoints = isManualEdgeRoute(edge.route)
+    ? edge.route.points.map((point) => ({
     x: point.x + delta.x,
     y: point.y + delta.y
-  }))
+    }))
+    : undefined
 
-  if (!pathPoints?.length) {
+  if (!routePoints?.length) {
     return undefined
   }
 
-  return createPathPatch(edge, pathPoints)
+  return createRoutePatch(edge, routePoints)
 }
 
 export const moveEdge = (
@@ -213,8 +224,8 @@ export const moveEdge = (
     changed = true
   }
 
-  const pathPatch = moveEdgePath(edge, delta)
-  if (pathPatch) {
+  const routePatch = moveEdgeRoute(edge, delta)
+  if (routePatch) {
     changed = true
   }
 
@@ -225,6 +236,6 @@ export const moveEdge = (
   return {
     ...(source !== edge.source ? { source } : {}),
     ...(target !== edge.target ? { target } : {}),
-    ...(pathPatch ?? {})
+    ...(routePatch ?? {})
   }
 }

@@ -4,7 +4,6 @@ import {
 import {
   getNodeOutlineBounds,
   getNodeOutlineRect,
-  isContainerNode,
   matchDrawRect
 } from '@whiteboard/core/node'
 import type {
@@ -19,7 +18,7 @@ import {
 import type { NodeRectHitOptions } from '@whiteboard/core/node'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
-import type { NodeDefinition, NodeRegistry, NodeScene } from '../../types/node'
+import type { NodeDefinition, NodeRegistry, NodeRole } from '../../types/node'
 import {
   projectNodeItem,
   type NodeSessionReader
@@ -34,6 +33,10 @@ const resolveNodeConnect = (
   definition?: Pick<NodeDefinition, 'connect'>
 ) => definition?.connect ?? true
 
+const resolveNodeEnter = (
+  definition?: Pick<NodeDefinition, 'enter'>
+) => definition?.enter ?? false
+
 const readNodeType = (
   node: Pick<Node, 'type'> | string
 ) => (
@@ -42,20 +45,18 @@ const readNodeType = (
     : node.type
 )
 
-export const resolveNodeScene = (
-  definition?: Pick<NodeDefinition, 'scene'>
-): NodeScene => definition?.scene === 'container'
-  ? 'container'
-  : 'content'
+export const resolveNodeRole = (
+  definition?: Pick<NodeDefinition, 'role'>
+): NodeRole => definition?.role ?? 'content'
 
 export const resolveNodeTransform = (
-  definition?: Pick<NodeDefinition, 'scene' | 'canResize' | 'canRotate'>
+  definition?: Pick<NodeDefinition, 'role' | 'canResize' | 'canRotate'>
 ): NodeTransform => ({
   resize: definition?.canResize ?? true,
   rotate:
     typeof definition?.canRotate === 'boolean'
       ? definition.canRotate
-      : resolveNodeScene(definition) !== 'container'
+      : resolveNodeRole(definition) === 'content'
 })
 
 const matchesPathNode = ({
@@ -126,11 +127,12 @@ export type NodeRead = {
   item: KeyedReadStore<NodeId, NodeItem | undefined>
   bounds: (nodeId: NodeId) => Rect | undefined
   frame: (nodeId: NodeId) => Rect | undefined
-  scene: (node: Pick<Node, 'type'> | string) => NodeScene
+  role: (node: Pick<Node, 'type'> | string) => NodeRole
   transform: (node: Pick<Node, 'type'> | string) => NodeTransform
   connect: (node: Pick<Node, 'type'> | string) => boolean
-  filter: (nodeIds: readonly NodeId[], scene: NodeScene) => readonly NodeId[]
-  containerAt: (point: Point) => NodeId | undefined
+  enter: (node: Pick<Node, 'type'> | string) => boolean
+  filter: (nodeIds: readonly NodeId[], role: NodeRole) => readonly NodeId[]
+  frameAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
 }
 
@@ -161,13 +163,16 @@ export const createNodeRead = ({
   registry: NodeRegistry
   item: KeyedReadStore<NodeId, NodeItem | undefined>
 }): NodeRead => {
-  const scene = (node: Pick<Node, 'type'> | string) => resolveNodeScene(
+  const role = (node: Pick<Node, 'type'> | string) => resolveNodeRole(
     registry.get(readNodeType(node))
   )
   const transform = (node: Pick<Node, 'type'> | string) => resolveNodeTransform(
     registry.get(readNodeType(node))
   )
   const connect = (node: Pick<Node, 'type'> | string) => resolveNodeConnect(
+    registry.get(readNodeType(node))
+  )
+  const enter = (node: Pick<Node, 'type'> | string) => resolveNodeEnter(
     registry.get(readNodeType(node))
   )
 
@@ -198,18 +203,19 @@ export const createNodeRead = ({
         ? getNodeOutlineRect(nextItem.node, nextItem.rect)
         : nextItem.rect
     },
-    scene,
+    role,
     transform,
     connect,
-    filter: (nodeIds, expectedScene) => nodeIds.filter((nodeId) => {
+    enter,
+    filter: (nodeIds, expectedRole) => nodeIds.filter((nodeId) => {
       const nextItem = item.get(nodeId)
       if (!nextItem) {
         return false
       }
 
-      return scene(nextItem.node) === expectedScene
+      return role(nextItem.node) === expectedRole
     }),
-    containerAt: (point) => {
+    frameAt: (point) => {
       const nodeIds = read.node.list.get()
 
       for (let index = nodeIds.length - 1; index >= 0; index -= 1) {
@@ -219,10 +225,7 @@ export const createNodeRead = ({
           continue
         }
 
-        if (
-          scene(entry.node) !== 'container'
-          || !isContainerNode(entry.node)
-        ) {
+        if (role(entry.node) !== 'frame') {
           continue
         }
 

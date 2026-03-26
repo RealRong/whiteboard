@@ -1,7 +1,10 @@
 import { useMemo } from 'react'
 import type { View as SelectionView } from '../../runtime/selection'
-import type { Node } from '@whiteboard/core/types'
+import type { Node, Rect } from '@whiteboard/core/types'
 import type { NodeMeta } from '../../types/node'
+import type { EditTarget } from '../../runtime/edit'
+import type { InteractionMode } from '../../runtime/interaction'
+import type { Tool } from '../../runtime/tool'
 import { resolveNodeMeta } from './registry'
 import {
   resolveNodeSelectionCan,
@@ -9,16 +12,126 @@ import {
   type NodeSelectionCan,
   type NodeSummary
 } from './summary'
-import { useInternalInstance } from '../../runtime/hooks/useWhiteboard'
+import {
+  useEdit,
+  useInternalInstance,
+  useTool
+} from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export type NodeSelectionView = SelectionView & {
   summary: NodeSummary
   can: NodeSelectionCan
+  selectionBox: SelectionBoxView
+}
+
+export type SelectionBoxView = {
+  box?: Rect
+  interactive: boolean
+  frame: boolean
+  handles: boolean
+  canResize: boolean
+}
+
+export type NodeChromeView = {
+  toolbar: boolean
+  transform: boolean
+  connect: boolean
+}
+
+export type SelectionPresentation = {
+  selection: NodeSelectionView
+  chrome: NodeChromeView
+  showToolbar: boolean
+  singleTransformNodeId?: string
+  showSelectionFrame: boolean
+  showSelectionHandles: boolean
+  hideSelectionFrameForSingleShape: boolean
+  connectNodeIds: readonly string[]
 }
 
 const EMPTY_SUMMARY = summarizeNodes([])
 const EMPTY_CAN = resolveNodeSelectionCan([])
+
+export const resolveSelectionBoxView = (
+  selection: SelectionView
+): SelectionBoxView => {
+  const box = selection.box
+  const canResize = selection.transform.resize === 'scale'
+
+  return {
+    box,
+    interactive: Boolean(box) && (selection.items.count > 1 || canResize),
+    frame: Boolean(box) && selection.items.nodeCount > 0,
+    handles: Boolean(box) && canResize,
+    canResize
+  }
+}
+
+export const resolveNodeChromeView = ({
+  tool,
+  edit,
+  selection,
+  mode,
+  chrome
+}: {
+  tool: Tool
+  edit: EditTarget
+  selection: SelectionView
+  mode: InteractionMode
+  chrome: boolean
+}): NodeChromeView => {
+  const editing = edit !== null
+  const pureNodeSelection =
+    (selection.kind === 'node' || selection.kind === 'nodes')
+    && selection.items.edgeCount === 0
+
+  return {
+    toolbar:
+      tool.type === 'select'
+      && !editing
+      && chrome
+      && pureNodeSelection,
+    transform:
+      tool.type === 'select'
+      && !editing
+      && pureNodeSelection
+      && (
+        mode === 'node-transform'
+        || chrome
+      ),
+    connect:
+      tool.type === 'edge'
+      && !editing
+      && chrome
+      && selection.items.count > 0
+  }
+}
+
+export const resolveSelectionPresentation = (
+  selection: NodeSelectionView,
+  chrome: NodeChromeView
+): SelectionPresentation => ({
+  selection,
+  chrome,
+  showToolbar: chrome.toolbar,
+  singleTransformNodeId:
+    selection.kind === 'node'
+      ? selection.target.nodeIds[0]
+      : undefined,
+  showSelectionFrame: selection.selectionBox.frame,
+  showSelectionHandles:
+    chrome.transform
+    && selection.selectionBox.handles,
+  hideSelectionFrameForSingleShape:
+    selection.kind === 'node'
+    && selection.items.nodeCount === 1
+    && selection.items.primaryNode?.type === 'shape',
+  connectNodeIds:
+    chrome.connect
+      ? selection.target.nodeIds
+      : []
+})
 
 export const resolveNodeSelectionView = (
   selection: SelectionView,
@@ -27,6 +140,7 @@ export const resolveNodeSelectionView = (
   }
 ): NodeSelectionView => {
   const nodes = selection.items.nodes
+  const box = resolveSelectionBoxView(selection)
 
   return {
     ...selection,
@@ -39,7 +153,8 @@ export const resolveNodeSelectionView = (
       ? resolveNodeSelectionCan(nodes, {
           resolveMeta: options?.resolveMeta
         })
-      : EMPTY_CAN
+      : EMPTY_CAN,
+    selectionBox: box
   }
 }
 
@@ -50,4 +165,31 @@ export const useSelection = (): NodeSelectionView => {
   return useMemo(() => resolveNodeSelectionView(selection, {
     resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
   }), [instance, selection])
+}
+
+export const useNodeChrome = (): NodeChromeView => {
+  const instance = useInternalInstance()
+  const tool = useTool()
+  const edit = useEdit()
+  const selection = useStoreValue(instance.read.selection)
+  const mode = useStoreValue(instance.interaction.mode)
+  const interaction = useStoreValue(instance.state.interaction)
+
+  return useMemo(() => resolveNodeChromeView({
+    tool,
+    edit,
+    selection,
+    mode,
+    chrome: interaction.chrome
+  }), [edit, interaction.chrome, mode, selection, tool])
+}
+
+export const useSelectionPresentation = (): SelectionPresentation => {
+  const selection = useSelection()
+  const chrome = useNodeChrome()
+
+  return useMemo(
+    () => resolveSelectionPresentation(selection, chrome),
+    [chrome, selection]
+  )
 }

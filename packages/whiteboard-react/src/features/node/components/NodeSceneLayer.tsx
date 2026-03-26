@@ -4,14 +4,14 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
-import type { NodeGesture } from '../gesture'
+import type { SelectionGesture } from '../../selection/gesture'
 import { useSelection } from '../selection'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = ({
   gesture
 }: {
-  gesture: NodeGesture
+  gesture: SelectionGesture
 }) => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)

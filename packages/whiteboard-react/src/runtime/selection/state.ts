@@ -16,7 +16,7 @@ import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
-import type { NodeScene } from '../../types/node'
+import type { NodeRole } from '../../types/node'
 import {
   isOrderedArrayEqual,
   isRectEqual
@@ -89,16 +89,10 @@ const EMPTY_TRANSFORM: Transform = {
 
 const canScaleNode = (
   node: Node,
-  resolveNodeScene: (node: Node) => NodeScene
+  resolveNodeRole: (node: Node) => NodeRole
 ) => (
   !node.locked
-  && (
-    node.type === 'group'
-    || (
-      node.type !== 'frame'
-      && resolveNodeScene(node) !== 'container'
-    )
-  )
+  && resolveNodeRole(node) !== 'frame'
 )
 
 const readNodeItems = (
@@ -168,7 +162,7 @@ const readSelectionNodeRects = ({
   return rects
 }
 
-const isSourceEqual = (
+export const isSourceEqual = (
   left: Source,
   right: Source
 ) => (
@@ -196,7 +190,7 @@ export const isViewEqual = (
   && isRectEqual(left.box, right.box)
 )
 
-const toSource = (
+export const toSource = (
   input: Input
 ): Source => {
   const nodeIds = [...new Set(input.nodeIds ?? EMPTY_NODE_IDS)]
@@ -217,7 +211,7 @@ export const resolveView = ({
   readNode,
   readEdge,
   resolveNodeTransform,
-  resolveNodeScene,
+  resolveNodeRole,
   readEdgeBounds,
   readNodeBounds,
   allNodeIds
@@ -229,7 +223,7 @@ export const resolveView = ({
     resize: boolean
     rotate: boolean
   }
-  resolveNodeScene: (node: Node) => NodeScene
+  resolveNodeRole: (node: Node) => NodeRole
   readEdgeBounds: (edgeId: EdgeId) => Rect | undefined
   readNodeBounds: (nodeId: NodeId) => Rect | undefined
   allNodeIds: readonly NodeId[]
@@ -263,7 +257,7 @@ export const resolveView = ({
       && resolveNodeTransform(node).resize
     ))
   const canScaleNodes = nodeCount > 0
-    && nodes.every((node) => canScaleNode(node, resolveNodeScene))
+    && nodes.every((node) => canScaleNode(node, resolveNodeRole))
   const transform = count > 0
     ? {
         move: nodes.every((node) => !node.locked),
@@ -337,7 +331,7 @@ export const resolveView = ({
   }
 }
 
-const writeSelection = (
+export const applySource = (
   current: Source,
   input: Input,
   mode: SelectionMode
@@ -373,13 +367,13 @@ export const createState = (): Store => {
         writeSource(toSource(input))
       },
       add: (input) => {
-        writeSource(writeSelection(readSource(), input, 'add'))
+        writeSource(applySource(readSource(), input, 'add'))
       },
       remove: (input) => {
-        writeSource(writeSelection(readSource(), input, 'subtract'))
+        writeSource(applySource(readSource(), input, 'subtract'))
       },
       toggle: (input) => {
-        writeSource(writeSelection(readSource(), input, 'toggle'))
+        writeSource(applySource(readSource(), input, 'toggle'))
       },
       clear: () => {
         writeSource(EMPTY_SOURCE)

@@ -103,7 +103,11 @@ export const applyNodeDefaults = (input: NodeInput, registries: CoreRegistries):
 
 export const applyEdgeDefaults = (input: EdgeInput, registries: CoreRegistries): EdgeInput => {
   const type = input.type ?? 'linear'
-  const next = cloneTarget({ ...input, type }) as EdgeInput
+  const next = cloneTarget({
+    ...input,
+    type,
+    route: input.route ?? { kind: 'auto' as const }
+  }) as EdgeInput
   const definition = registries.edgeTypes.get(type) as EdgeTypeDefinition | undefined
   if (definition?.defaultData) {
     next.data = next.data ?? {}

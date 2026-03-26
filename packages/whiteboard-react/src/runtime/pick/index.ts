@@ -22,7 +22,7 @@ export type Pick =
   | {
       kind: 'node'
       id: NodeId
-      part: 'body' | 'container' | 'transform' | 'connect'
+      part: 'body' | 'shell' | 'transform' | 'connect'
       handle?: {
         id: TransformHandle['id']
         kind: TransformHandle['kind']

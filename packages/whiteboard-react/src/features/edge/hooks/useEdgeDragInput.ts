@@ -1,43 +1,47 @@
 import { moveEdge } from '@whiteboard/core/edge'
 import { isPointEqual } from '@whiteboard/core/geometry'
-import type { EdgeItem } from '@whiteboard/core/read'
-import type { EdgeId, Point } from '@whiteboard/core/types'
+import type { EdgeId, EdgePatch, Point } from '@whiteboard/core/types'
 import { useCallback } from 'react'
-import type { CanvasDown } from '../../../runtime/input/down'
-import {
-  hasEdge
-} from '../../../runtime/frame'
 import { useInternalInstance } from '../../../runtime/hooks'
-import { toPatchEntry } from '../preview'
-import type { PointerSourceEvent } from './inputShared'
+import type { EdgeDown } from '../../../runtime/input/pointer'
+import { writeEdgePreviewPatch } from '../preview'
 import {
-  canMoveEdge
-} from './inputShared'
-import { useEdgePatchSession } from './useEdgePatchSession'
+  type PointerSourceEvent,
+  useEdgePatchSession
+} from './useEdgePatchSession'
 
 type ActiveDrag = {
   edgeId: EdgeId
   pointerId: number
   start: Point
   delta: Point
-  edge: EdgeItem['edge']
 }
 
 export const useEdgeDragInput = () => {
   const instance = useInternalInstance()
 
+  const readMovePatch = useCallback((
+    edgeId: EdgeId,
+    delta: Point
+  ): EdgePatch | undefined => {
+    const view = instance.read.edge.view.get(edgeId)
+    if (!view?.can.move) {
+      return undefined
+    }
+
+    return moveEdge(view.edge, delta)
+  }, [instance])
+
   const writePreview = useCallback((
     edgeId: EdgeId,
-    patch: ReturnType<typeof moveEdge>
+    patch: EdgePatch | undefined
   ) => {
     if (!patch) {
       instance.internals.edge.preview.patch.clear()
       return
     }
 
-    instance.internals.edge.preview.patch.write([
-      toPatchEntry(edgeId, patch)
-    ])
+    writeEdgePreviewPatch(instance.internals.edge.preview, edgeId, patch)
   }, [instance])
 
   const session = useEdgePatchSession<ActiveDrag>({
@@ -53,7 +57,11 @@ export const useEdgeDragInput = () => {
       }
 
       active.delta = delta
-      writePreview(active.edgeId, moveEdge(active.edge, delta))
+      const patch = readMovePatch(active.edgeId, delta)
+      if (!patch) {
+        return 'cancel'
+      }
+      writePreview(active.edgeId, patch)
     },
     commit: (active) => {
       if (!isPointEqual(active.delta, { x: 0, y: 0 })) {
@@ -66,10 +74,10 @@ export const useEdgeDragInput = () => {
   const startEdgeDrag = useCallback((
     event: PointerSourceEvent,
     edgeId: EdgeId,
-    edge: EdgeItem['edge'],
     capture: Element
   ) => {
-    if (!canMoveEdge(edge)) {
+    const view = instance.read.edge.view.get(edgeId)
+    if (!view?.can.move) {
       return false
     }
 
@@ -80,21 +88,16 @@ export const useEdgeDragInput = () => {
         edgeId,
         pointerId: event.pointerId,
         start: instance.viewport.pointer(event).world,
-        delta: { x: 0, y: 0 },
-        edge
+        delta: { x: 0, y: 0 }
       }
     })
   }, [instance, session])
 
   return {
     down: (
-      input: CanvasDown
+      input: EdgeDown
     ) => {
       const { event } = input
-
-      if (event.button !== 0) {
-        return false
-      }
 
       if (session.activeRef.current) {
         return false
@@ -105,18 +108,18 @@ export const useEdgeDragInput = () => {
       }
 
       const edgeId = input.pick.id
-      const entry = instance.read.edge.item.get(edgeId)
-      if (!entry) {
+      const view = instance.read.edge.view.get(edgeId)
+      if (!view) {
         return false
       }
 
-      if (!hasEdge(instance.state.frame.get(), entry.edge)) {
-        instance.commands.frame.exit()
-      }
-
       if (event.shiftKey || event.detail >= 2) {
+        if (!view.can.editRoute) {
+          return false
+        }
+
         const point = instance.viewport.pointer(event).world
-        instance.commands.edge.path.insert(edgeId, point)
+        instance.commands.edge.route.insert(edgeId, point)
         instance.commands.selection.replace({
           edgeIds: [edgeId]
         })
@@ -128,7 +131,7 @@ export const useEdgeDragInput = () => {
       instance.commands.selection.replace({
         edgeIds: [edgeId]
       })
-      const started = startEdgeDrag(event, edgeId, entry.edge, input.capture)
+      const started = startEdgeDrag(event, edgeId, input.capture)
       if (!started) {
         return false
       }

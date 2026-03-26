@@ -1,23 +1,17 @@
 import type { EngineRead } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
-import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
+import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
 import type { ReadStore } from '@whiteboard/core/runtime'
 import type { Source as SelectionSource } from '../selection'
 import type { Tool } from '../tool'
-import type { EditTarget } from '../edit'
-import type { InteractionMode } from '../interaction'
 import {
   createNodeRead,
   createNodeItemRead,
   resolveNodeTransform,
   type NodeRead
 } from './node'
-import {
-  createChromeRead,
-  type ChromeRead
-} from './chrome'
 import { createEdgeRead } from './edge'
 import { createToolRead, type ToolRead } from './tool'
 import {
@@ -35,7 +29,6 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
   history: ReadStore<HistoryState>
   node: NodeRead
   edge: ReturnType<typeof createEdgeRead>
-  chrome: ChromeRead
   selection: SelectionRead
   tool: ToolRead
   pick: PickRead
@@ -45,11 +38,8 @@ export const createRuntimeRead = ({
   engineRead,
   registry,
   tool,
-  edit,
   history,
   selection,
-  interaction,
-  pressChrome,
   pick,
   viewport,
   node,
@@ -58,11 +48,8 @@ export const createRuntimeRead = ({
   engineRead: EngineRead
   registry: NodeRegistry
   tool: ReadStore<Tool>
-  edit: ReadStore<EditTarget>
   history: ReadStore<HistoryState>
   selection: ReadStore<SelectionSource>
-  interaction: ReadStore<InteractionMode>
-  pressChrome: ReadStore<boolean>
   pick: PickRuntime
   viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session'>
@@ -89,15 +76,22 @@ export const createRuntimeRead = ({
     edgeItem: edgeRead.item,
     edgeBounds: edgeRead.bounds,
     nodeBounds: nodeRead.bounds,
+    nodeFrame: (nodeId) => {
+      const item = nodeItem.get(nodeId)
+      const entry = engineRead.index.node.get(nodeId)
+      if (!item?.node || !entry) {
+        return undefined
+      }
+
+      return {
+        x: item.node.position.x,
+        y: item.node.position.y,
+        width: entry.rect.width,
+        height: entry.rect.height
+      }
+    },
     registry,
     resolveNodeTransform
-  })
-  const chromeRead = createChromeRead({
-    tool,
-    edit,
-    selection: selectionRead,
-    interaction,
-    pressChrome
   })
 
   return {
@@ -105,7 +99,6 @@ export const createRuntimeRead = ({
     canvas: engineRead.canvas,
     history,
     node: nodeRead,
-    chrome: chromeRead,
     edge: edgeRead,
     mindmap: engineRead.mindmap,
     selection: selectionRead,

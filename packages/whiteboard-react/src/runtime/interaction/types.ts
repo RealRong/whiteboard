@@ -11,9 +11,15 @@ export type InteractionMode =
   | 'node-transform'
   | 'edge-drag'
   | 'edge-connect'
-  | 'edge-path'
+  | 'edge-route'
 
 export type ActiveInteractionMode = Exclude<InteractionMode, 'idle'>
+
+export type InteractionState = Readonly<{
+  busy: boolean
+  chrome: boolean
+  space: boolean
+}>
 
 export type AutoPanPointer = Readonly<{
   clientX: number
@@ -63,7 +69,9 @@ export type InteractionStartInput = Readonly<{
 
 export type InteractionCoordinator = {
   mode: ReadStore<InteractionMode>
-  pressChrome: ReadStore<boolean>
+  busy: ReadStore<boolean>
+  chrome: ReadStore<boolean>
+  state: ReadStore<InteractionState>
   space: ReadStore<boolean>
   start: (input: InteractionStartInput) => InteractionSession | null
   cancel: () => void

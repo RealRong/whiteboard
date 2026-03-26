@@ -3,7 +3,8 @@ export { createPressRuntime } from './press'
 export { createSnapRuntime } from './snap'
 export type {
   InteractionCoordinator,
-  InteractionMode
+  InteractionMode,
+  InteractionState
 } from './types'
 export type {
   MoveSnapInput,

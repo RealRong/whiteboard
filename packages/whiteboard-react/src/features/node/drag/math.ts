@@ -7,9 +7,8 @@ import {
 import {
   getNodeAABB,
 } from '@whiteboard/core/geometry'
-import { moveEdgePath } from '@whiteboard/core/edge'
-import type { EdgeItem } from '@whiteboard/core/read'
-import type { EdgeId, EdgePatch, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
+import { moveEdgeRoute } from '@whiteboard/core/edge'
+import type { Edge, EdgeId, EdgePatch, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 
 type DragMember = {
   id: NodeId
@@ -182,7 +181,7 @@ export const resolveNodeDragFollowEdges = (options: {
   active: NodeDragRuntimeState
   positions: readonly NodeDragPositionUpdate[]
   edgeIds: readonly EdgeId[]
-  readEdge: (edgeId: EdgeId) => Readonly<EdgeItem> | undefined
+  readEdge: (edgeId: EdgeId) => Readonly<Edge> | undefined
 }): Array<{ id: EdgeId; patch: EdgePatch }> => {
   const { active, positions, edgeIds, readEdge } = options
   const memberById = new Map(active.members.map((member) => [member.id, member]))
@@ -211,7 +210,7 @@ export const resolveNodeDragFollowEdges = (options: {
 
   const updates: Array<{ id: EdgeId; patch: EdgePatch }> = []
   edgeIds.forEach((edgeId) => {
-    const edge = readEdge(edgeId)?.edge
+    const edge = readEdge(edgeId)
     if (!edge) {
       return
     }
@@ -225,7 +224,7 @@ export const resolveNodeDragFollowEdges = (options: {
       return
     }
 
-    const patch = moveEdgePath(edge, sourceDelta)
+    const patch = moveEdgeRoute(edge, sourceDelta)
     if (!patch) {
       return
     }

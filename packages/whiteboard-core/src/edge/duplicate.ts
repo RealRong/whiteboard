@@ -14,9 +14,16 @@ export const createEdgeDuplicateInput = (
   target: edge.target.kind === 'node'
     ? { ...edge.target, nodeId: targetNodeId }
     : { ...edge.target, point: clonePoint(edge.target.point) },
-  path: edge.path
+  route: edge.route
     ? {
-        points: edge.path.points ? edge.path.points.map(clonePoint) : undefined
+        ...(edge.route.kind === 'manual'
+          ? {
+              kind: 'manual' as const,
+              points: edge.route.points.map(clonePoint)
+            }
+          : {
+              kind: 'auto' as const
+            })
       }
     : undefined,
   style: edge.style ? { ...edge.style } : undefined,

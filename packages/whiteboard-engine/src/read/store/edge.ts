@@ -63,7 +63,7 @@ type EdgeStructureTuple = {
   sourceAnchorOffset?: number
   targetAnchorSide?: string
   targetAnchorOffset?: number
-  pathPointsRef?: readonly { x: number; y: number }[]
+  routePointsRef?: readonly { x: number; y: number }[]
 }
 
 type EdgeCacheMaterial = {
@@ -86,7 +86,7 @@ const EDGE_STRUCTURE_SCALAR_KEYS = [
   'sourceAnchorOffset',
   'targetAnchorSide',
   'targetAnchorOffset'
-] as const satisfies readonly (Exclude<keyof EdgeStructureTuple, 'pathPointsRef'>)[]
+] as const satisfies readonly (Exclude<keyof EdgeStructureTuple, 'routePointsRef'>)[]
 
 const emptyRelations = (): EdgeRelations => ({
   edgeById: new Map<EdgeId, Edge>(),
@@ -166,7 +166,9 @@ const toEdgeStructureTuple = (edge: EdgeItem['edge']): EdgeStructureTuple => ({
   sourceAnchorOffset: edge.source.kind === 'node' ? edge.source.anchor?.offset : undefined,
   targetAnchorSide: edge.target.kind === 'node' ? edge.target.anchor?.side : undefined,
   targetAnchorOffset: edge.target.kind === 'node' ? edge.target.anchor?.offset : undefined,
-  pathPointsRef: edge.path?.points
+  routePointsRef: edge.route?.kind === 'manual'
+    ? edge.route.points
+    : undefined
 })
 
 const isSameEdgeStructureTuple = (
@@ -188,7 +190,7 @@ const isSameEdgeStructureTuple = (
 
     if (left[key] !== right[key]) return false
   }
-  return isSamePointArray(left.pathPointsRef, right.pathPointsRef)
+  return isSamePointArray(left.routePointsRef, right.routePointsRef)
 }
 
 const resolveEdgeRebuild = (impact: KernelReadImpact): 'none' | 'dirty' | 'full' => {

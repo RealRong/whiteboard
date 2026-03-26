@@ -147,7 +147,7 @@ export type EdgeWriteCommand =
       ids: EdgeId[]
     }
   | {
-      type: 'path'
+      type: 'route'
       mode: 'insert' | 'move' | 'remove' | 'clear'
       edgeId: EdgeId
       index?: number
@@ -200,7 +200,7 @@ export type NodeWriteOutput<C extends NodeWriteCommand = NodeWriteCommand> =
 export type EdgeWriteOutput<C extends EdgeWriteCommand = EdgeWriteCommand> =
   C extends { type: 'create' }
     ? { edgeId: EdgeId }
-    : C extends { type: 'path'; mode: 'insert' }
+    : C extends { type: 'route'; mode: 'insert' }
       ? { index: number }
       : void
 
@@ -329,7 +329,7 @@ export type EngineCommands = {
     update: (id: EdgeId, patch: EdgePatch) => CommandResult
     updateMany: (updates: readonly EdgeBatchUpdate[]) => CommandResult
     delete: (ids: EdgeId[]) => CommandResult
-    path: {
+    route: {
       insert: (edgeId: EdgeId, point: Point) => CommandResult<{ index: number }>
       move: (edgeId: EdgeId, index: number, point: Point) => CommandResult
       remove: (edgeId: EdgeId, index: number) => CommandResult

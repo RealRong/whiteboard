@@ -1,8 +1,11 @@
 import { useCallback, type RefObject } from 'react'
-import type { CanvasDown } from '../../../runtime/input/down'
+import type {
+  EdgeCreateDown,
+  EdgeDown
+} from '../../../runtime/input/pointer'
 import { useEdgeConnectInput } from './useEdgeConnectInput'
 import { useEdgeDragInput } from './useEdgeDragInput'
-import { useEdgePathInput } from './useEdgePathInput'
+import { useEdgeRouteInput } from './useEdgeRouteInput'
 
 export const useEdgeInput = ({
   containerRef
@@ -13,31 +16,23 @@ export const useEdgeInput = ({
     containerRef
   })
   const drag = useEdgeDragInput()
-  const path = useEdgePathInput()
+  const route = useEdgeRouteInput()
 
-  const create = useCallback((input: CanvasDown) => (
+  const create = useCallback((input: EdgeCreateDown) => (
     connect.create(input)
   ), [connect])
 
-  const down = useCallback((input: CanvasDown) => {
-    if (input.event.defaultPrevented || input.event.button !== 0) {
-      return false
-    }
-
-    if (input.mode !== 'idle' || input.tool.type !== 'select') {
-      return false
-    }
-
+  const down = useCallback((input: EdgeDown) => {
     return (
       drag.down(input)
       || connect.reconnect(input)
-      || path.down(input)
+      || route.down(input)
     )
-  }, [connect, drag, path])
+  }, [connect, drag, route])
 
   return {
     create,
     down,
-    keyDown: path.keyDown
+    keyDown: route.keyDown
   }
 }

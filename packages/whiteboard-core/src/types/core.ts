@@ -118,9 +118,19 @@ export const isPointEdgeEnd = (
   value: EdgeEnd
 ): value is PointEdgeEnd => value.kind === 'point'
 
-export type EdgePath = {
-  points?: Point[]
-}
+export type EdgeRoute =
+  | {
+      kind: 'auto'
+    }
+  | {
+      kind: 'manual'
+      points: Point[]
+    }
+
+export const isManualEdgeRoute = (
+  route: EdgeRoute | undefined
+): route is Extract<EdgeRoute, { kind: 'manual' }> =>
+  route?.kind === 'manual'
 
 export type EdgeStyle = {
   stroke?: string
@@ -143,7 +153,7 @@ export interface Edge {
   source: EdgeEnd
   target: EdgeEnd
   type: EdgeType
-  path?: EdgePath
+  route?: EdgeRoute
   style?: EdgeStyle
   label?: EdgeLabel
   data?: Record<string, unknown>

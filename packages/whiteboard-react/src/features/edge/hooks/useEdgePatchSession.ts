@@ -5,9 +5,31 @@ import {
   type MutableRefObject
 } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
-import type { PointerSourceEvent } from './inputShared'
 
-type PatchSessionMode = 'edge-drag' | 'edge-path'
+export type PointerSourceEvent = {
+  pointerId: number
+  clientX: number
+  clientY: number
+  button: number
+  detail: number
+  shiftKey: boolean
+  target: EventTarget | null
+  currentTarget: EventTarget | null
+  preventDefault: () => void
+  stopPropagation: () => void
+}
+
+export const readCaptureTarget = (
+  event: PointerSourceEvent
+): Element | null => (
+  event.currentTarget instanceof Element
+    ? event.currentTarget
+    : event.target instanceof Element
+      ? event.target
+      : null
+)
+
+type PatchSessionMode = 'edge-drag' | 'edge-route'
 
 type PatchSessionStartInput<Active> = {
   event: Pick<PointerSourceEvent, 'pointerId'>

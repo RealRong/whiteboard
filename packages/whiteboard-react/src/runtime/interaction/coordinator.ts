@@ -4,6 +4,7 @@ import {
 } from '@whiteboard/core/runtime'
 import type {
   ActiveInteractionMode,
+  InteractionState,
   InteractionCoordinator,
   InteractionSession,
   InteractionStartInput
@@ -25,14 +26,30 @@ export const createInteractionCoordinator = ({
 }): InteractionCoordinator => {
   const active = createValueStore<ActiveInteraction | null>(null)
   const space = createValueStore(false)
+  const busy = createDerivedStore({
+    get: (read) => read(active) !== null
+  })
   const mode = createDerivedStore({
     get: (read) => read(active)?.mode ?? 'idle'
   })
-  const pressChrome = createDerivedStore({
+  const chrome = createDerivedStore({
     get: (read) => {
       const current = read(active)
-      return current?.mode === 'press' && Boolean(current.chrome)
+      return current === null
+        || (current.mode === 'press' && Boolean(current.chrome))
     }
+  })
+  const state = createDerivedStore<InteractionState>({
+    get: (read) => ({
+      busy: read(busy),
+      chrome: read(chrome),
+      space: read(space)
+    }),
+    isEqual: (left, right) => (
+      left.busy === right.busy
+      && left.chrome === right.chrome
+      && left.space === right.space
+    )
   })
   let nextId = 1
   let releaseWindow = () => {}
@@ -229,7 +246,9 @@ export const createInteractionCoordinator = ({
 
   return {
     mode,
-    pressChrome,
+    busy,
+    chrome,
+    state,
     space,
     start: (input) => {
       if (active.get()) {

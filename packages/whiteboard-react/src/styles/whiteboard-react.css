@@ -165,6 +165,12 @@
   pointer-events: none;
 }
 
+.wb-node-shell-hit {
+  position: absolute;
+  pointer-events: auto;
+  background: transparent;
+}
+
 .wb-container-shell-frame::after {
   content: '';
   position: absolute;

@@ -5,11 +5,11 @@ import { cancelled, invalid, fromOp, success } from './result'
 import {
   buildEdgeCreateOperation,
   getNearestEdgeInsertIndex,
-  insertPathPoint as insertPathPointPatch,
+  insertRoutePoint as insertRoutePointPatch,
   moveEdge as moveEdgePatch,
-  movePathPoint as movePathPointPatch,
-  removePathPoint as removePathPointPatch,
-  clearPath as clearPathPatch,
+  moveRoutePoint as moveRoutePointPatch,
+  removeRoutePoint as removeRoutePointPatch,
+  clearRoute as clearRoutePatch,
   resolveEdgePathFromRects
 } from '@whiteboard/core/edge'
 import { getNodeRect } from '@whiteboard/core/geometry'
@@ -100,14 +100,14 @@ export const translateEdge = <C extends EdgeCommand>(
     return success(operations)
   }
 
-  const updatePath = (
+  const updateRoute = (
     edgeId: EdgeId,
-    buildPatch: (edge: Readonly<Edge>) => ReturnType<typeof clearPathPatch> | undefined
+    buildPatch: (edge: Readonly<Edge>) => ReturnType<typeof clearRoutePatch> | undefined
   ): TranslateResult => {
     const edge = getEdge(doc, edgeId)
     if (!edge) return cancelled('Edge not found.')
     const patch = buildPatch(edge)
-    if (!patch) return cancelled('No path patch generated.')
+    if (!patch) return cancelled('No route patch generated.')
     return success([{ type: 'edge.update', id: edgeId, patch }])
   }
 
@@ -150,7 +150,7 @@ export const translateEdge = <C extends EdgeCommand>(
         ({ edgeId }) => ({ edgeId })
       ) as TranslateResult<EdgeWriteOutput<C>>
     case 'move':
-      return updatePath(command.edgeId, (edge) =>
+      return updateRoute(command.edgeId, (edge) =>
         moveEdgePatch(edge, command.delta)
       ) as TranslateResult<EdgeWriteOutput<C>>
     case 'updateMany':
@@ -159,10 +159,10 @@ export const translateEdge = <C extends EdgeCommand>(
       return success(command.ids.map((id) => ({ type: 'edge.delete' as const, id }))) as TranslateResult<EdgeWriteOutput<C>>
     case 'order':
       return order(command) as TranslateResult<EdgeWriteOutput<C>>
-    case 'path': {
+    case 'route': {
       switch (command.mode) {
         case 'insert': {
-          if (!command.point) return invalid('Path point required.')
+          if (!command.point) return invalid('Route point required.')
           const edge = getEdge(doc, command.edgeId)
           if (!edge) return cancelled('Edge not found.')
           const path = resolvePath(doc, edge, ctx.config.nodeSize)
@@ -170,7 +170,7 @@ export const translateEdge = <C extends EdgeCommand>(
             return cancelled('Edge path unavailable.')
           }
           const insertIndex = getNearestEdgeInsertIndex(command.point, path.segments)
-          const patch = insertPathPointPatch(
+          const patch = insertRoutePointPatch(
             edge,
             insertIndex,
             command.point
@@ -183,27 +183,27 @@ export const translateEdge = <C extends EdgeCommand>(
         }
         case 'move':
           if (command.index === undefined || !command.point) {
-            return invalid('Path index and point required.')
+            return invalid('Route index and point required.')
           }
           {
             const index = command.index
             const point = command.point
-            return updatePath(command.edgeId, (edge) =>
-              movePathPointPatch(edge, index, point)
+            return updateRoute(command.edgeId, (edge) =>
+              moveRoutePointPatch(edge, index, point)
             ) as TranslateResult<EdgeWriteOutput<C>>
           }
         case 'remove':
-          if (command.index === undefined) return invalid('Path index required.')
+          if (command.index === undefined) return invalid('Route index required.')
           {
             const index = command.index
-            return updatePath(command.edgeId, (edge) =>
-              removePathPointPatch(edge, index)
+            return updateRoute(command.edgeId, (edge) =>
+              removeRoutePointPatch(edge, index)
             ) as TranslateResult<EdgeWriteOutput<C>>
           }
         case 'clear':
-          return updatePath(command.edgeId, (edge) => clearPathPatch(edge)) as TranslateResult<EdgeWriteOutput<C>>
+          return updateRoute(command.edgeId, (edge) => clearRoutePatch(edge)) as TranslateResult<EdgeWriteOutput<C>>
         default:
-          return invalid('Unsupported path mode.') as TranslateResult<EdgeWriteOutput<C>>
+          return invalid('Unsupported route mode.') as TranslateResult<EdgeWriteOutput<C>>
       }
     }
     default:

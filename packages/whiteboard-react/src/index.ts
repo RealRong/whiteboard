@@ -13,7 +13,7 @@ export type {
   NodeRegistry,
   NodeRenderProps,
   NodeWrite,
-  NodeScene,
+  NodeRole,
   NodeHit,
   NodeMeta,
   NodeFamily

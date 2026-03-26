@@ -1,4 +1,5 @@
 import { buildEdgeCreateOperation } from '../edge/commands'
+import { readEdgeRoutePoints } from '../edge/types'
 import { resolveEdgeEnds } from '../edge/endpoints'
 import { getAABBFromPoints, getNodeRect, getRectCenter } from '../geometry'
 import { getNodesBoundingRect } from '../node/group'
@@ -121,7 +122,7 @@ const cloneEdge = (edge: Edge): Edge => ({
   ...cloneValue(edge),
   source: cloneEdgeEnd(edge.source),
   target: cloneEdgeEnd(edge.target),
-  path: edge.path ? cloneValue(edge.path) : undefined,
+  route: edge.route ? cloneValue(edge.route) : undefined,
   style: edge.style ? cloneValue(edge.style) : undefined,
   label: edge.label ? cloneValue(edge.label) : undefined,
   data: edge.data ? cloneValue(edge.data) : undefined
@@ -206,7 +207,7 @@ const getEdgeBounds = ({
 
   const points: Point[] = [
     resolved.source.point,
-    ...(edge.path?.points ? edge.path.points.map((point) => cloneValue(point)) : []),
+    ...readEdgeRoutePoints(edge.route).map((point) => cloneValue(point)),
     resolved.target.point
   ]
 
@@ -798,16 +799,16 @@ export const buildInsertSliceOperations = ({
         id: nextEdgeId,
         source: nextSource,
         target: nextTarget,
-        path: sourceEdge.path?.points
+        route: sourceEdge.route?.kind === 'manual'
           ? {
-            ...cloneValue(sourceEdge.path),
-            points: sourceEdge.path.points.map((point) => ({
+            kind: 'manual',
+            points: sourceEdge.route.points.map((point) => ({
               x: point.x + delta.x,
               y: point.y + delta.y
             }))
           }
-          : sourceEdge.path
-            ? cloneValue(sourceEdge.path)
+          : sourceEdge.route
+            ? cloneValue(sourceEdge.route)
             : undefined,
         label: sourceEdge.label
           ? {

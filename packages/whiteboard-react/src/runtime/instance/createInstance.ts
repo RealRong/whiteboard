@@ -26,8 +26,10 @@ import {
   type Commands as EditCommands
 } from '../edit'
 import {
+  applySource,
   createState as createSelectionState,
-  type Commands as SelectionCommands
+  isSourceEqual,
+  toSource
 } from '../selection'
 import type {
   ViewportCommands
@@ -40,7 +42,7 @@ import {
   type InteractionCoordinator
 } from '../interaction'
 import { createPickRuntime } from '../pick'
-import { createNodeFeatureRuntime } from '../../features/node/session/runtime'
+import { createNodeFeatureRuntime } from '../../features/node/session/node'
 import { createEdgePreview } from '../../features/edge/preview'
 import { createMindmapDragStore } from '../../features/mindmap/session/drag'
 import { createRuntimeRead } from '../read'
@@ -104,11 +106,8 @@ const createInstanceStores = ({
     engineRead: engine.read,
     registry,
     tool,
-    edit: edit.store,
     history,
     selection: selection.source,
-    interaction: interaction.mode,
-    pressChrome: interaction.pressChrome,
     pick,
     viewport,
     node,
@@ -130,7 +129,7 @@ const createInstanceStores = ({
       edit: edit.store,
       selection: selection.source,
       frame: frame.store,
-      interaction: interaction.mode
+      interaction: interaction.state
     },
     read,
     internals: {
@@ -156,7 +155,7 @@ const createCommands = ({
   tool: ReturnType<typeof createValueStore<Tool>>
   history: ReturnType<typeof createValueStore<HistoryState>>
   edit: EditCommands
-  selection: SelectionCommands
+  selection: ReturnType<typeof createSelectionState>
   frame: ReturnType<typeof createFrameState>
   viewport: ViewportCommands
   draw: ReturnType<typeof createDrawState>
@@ -165,7 +164,7 @@ const createCommands = ({
     const normalized = normalizeTool(nextTool)
     if (normalized.type === 'draw') {
       edit.clear()
-      selection.clear()
+      selection.commands.clear()
     }
     if (isSameTool(tool.get(), normalized)) return
     tool.set(normalized)
@@ -174,27 +173,51 @@ const createCommands = ({
     history.set(engine.commands.history.get())
   }
 
+  const writeSelection = (
+    next: ReturnType<typeof selection.source.get>,
+    write: () => void
+  ) => {
+    if (isSourceEqual(selection.source.get(), next)) {
+      return
+    }
+
+    edit.clear()
+    write()
+  }
+
   const selectionCommands: WhiteboardInstance['commands']['selection'] = {
     replace: (input) => {
-      edit.clear()
-      selection.replace(input)
+      writeSelection(toSource(input), () => {
+        selection.commands.replace(input)
+      })
     },
     add: (input) => {
-      edit.clear()
-      selection.add(input)
+      writeSelection(
+        applySource(selection.source.get(), input, 'add'),
+        () => {
+          selection.commands.add(input)
+        }
+      )
     },
     remove: (input) => {
-      edit.clear()
-      selection.remove(input)
+      writeSelection(
+        applySource(selection.source.get(), input, 'subtract'),
+        () => {
+          selection.commands.remove(input)
+        }
+      )
     },
     toggle: (input) => {
-      edit.clear()
-      selection.toggle(input)
+      writeSelection(
+        applySource(selection.source.get(), input, 'toggle'),
+        () => {
+          selection.commands.toggle(input)
+        }
+      )
     },
     selectAll: () => {
-      edit.clear()
       const activeFrame = frame.store.get()
-      selection.replace({
+      const next = toSource({
         nodeIds:
           activeFrame.id
             ? [...activeFrame.ids]
@@ -207,10 +230,14 @@ const createCommands = ({
             })
             : [...engine.read.edge.list.get()]
       })
+      writeSelection(next, () => {
+        selection.commands.replace(next)
+      })
     },
     clear: () => {
-      edit.clear()
-      selection.clear()
+      writeSelection(toSource({}), () => {
+        selection.commands.clear()
+      })
     }
   }
 
@@ -382,7 +409,7 @@ export const createInstance = ({
     tool: stores.tool,
     history: stores.history,
     edit: stores.edit.commands,
-    selection: stores.selection.commands,
+    selection: stores.selection,
     frame: stores.frame,
     viewport: viewport.commands,
     draw: stores.draw

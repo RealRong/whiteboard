@@ -24,6 +24,7 @@ export const DrawNodeDefinition: NodeDefinition = {
     icon: 'draw',
     controls: ['stroke']
   },
+  role: 'content',
   hit: 'path',
   connect: false,
   canResize: false,

@@ -4,6 +4,7 @@ import {
 } from '@whiteboard/core/runtime'
 import type { NodeItem } from '@whiteboard/core/read'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
+import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type NodeSessionMap = ReadonlyMap<NodeId, NodeSession>
@@ -43,6 +44,11 @@ export type NodeSessionStore =
 
 export type NodeSessionReader =
   Pick<NodeSessionStore, 'get' | 'subscribe'>
+
+export type NodeFeatureRuntime = {
+  session: NodeSessionStore
+  clear: () => void
+}
 
 const EMPTY_NODE_SESSION: NodeSession = {
   hovered: false,
@@ -139,6 +145,32 @@ export const createNodeSessionStore = (
     && left.hidden === right.hidden
   )
 })
+
+export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
+  const flushAll: Array<() => void> = []
+  let task!: RafTask
+  const schedule = () => {
+    task.schedule()
+  }
+
+  const session = createNodeSessionStore(schedule)
+
+  flushAll.push(session.flush)
+
+  task = createRafTask(() => {
+    flushAll.forEach((flush) => {
+      flush()
+    })
+  }, { fallback: 'microtask' })
+
+  return {
+    session,
+    clear: () => {
+      task.cancel()
+      session.clear()
+    }
+  }
+}
 
 export const writeNodeSessionPatch = (
   store: NodeSessionStore,

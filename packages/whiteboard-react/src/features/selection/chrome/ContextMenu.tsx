@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { isPointInRect } from '@whiteboard/core/geometry'
 import type {
   EdgeId,
   Node as WhiteboardNode,
@@ -7,15 +6,11 @@ import type {
   NodeSchema,
   Point
 } from '@whiteboard/core/types'
-import type { PointerPick } from '../../../runtime/pick'
 import {
   useElementSize,
   useInternalInstance
 } from '../../../runtime/hooks'
-import {
-  hasEdge,
-  hasNode
-} from '../../../runtime/frame'
+import type { InternalInstance } from '../../../runtime/instance'
 import {
   createNodeSelectionActions
 } from '../../node/actions'
@@ -30,7 +25,6 @@ import {
   cut,
   paste
 } from '../actions/clipboard'
-import { closeAfter } from './closeAfter'
 import {
   CREATE_PRESETS,
 } from '../../toolbox/presets'
@@ -42,6 +36,11 @@ import {
   STROKE_WIDTHS
 } from './menus/options'
 import { isContextMenuIgnoredTarget } from '../../../runtime/input/target'
+import {
+  readContextOpen,
+  resolveContextTarget,
+  type ContextTarget
+} from '../../../runtime/input/pointer'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
@@ -61,12 +60,6 @@ type ContextMenuView = {
   groups: readonly NodeMenuGroup[]
 }
 
-type ContextMenuTarget =
-  | { kind: 'canvas'; world: Point }
-  | { kind: 'node'; nodeId: NodeId; world: Point }
-  | { kind: 'nodes'; nodeIds: readonly NodeId[]; world: Point }
-  | { kind: 'edge'; edgeId: EdgeId; world: Point }
-
 type ContextMenuSelectionSnapshot = {
   nodeIds: readonly NodeId[]
   edgeIds: readonly EdgeId[]
@@ -74,22 +67,31 @@ type ContextMenuSelectionSnapshot = {
 
 type ContextMenuSession = {
   screen: Point
-  target: ContextMenuTarget
+  target: ContextTarget
   selection: ContextMenuSelectionSnapshot
 } | null
 
-type ContextMenuResolvedTarget =
-  | { kind: 'canvas'; world: Point }
-  | { kind: 'node'; node: WhiteboardNode; world: Point }
-  | { kind: 'nodes'; nodes: readonly WhiteboardNode[]; world: Point }
-  | { kind: 'edge'; edgeId: EdgeId; world: Point }
-
 type ContextMenuSide = 'left' | 'right'
+type ContextMenuInstance = Pick<
+  InternalInstance,
+  'commands' | 'read' | 'state' | 'registry' | 'viewport'
+>
+type ContextMenuRenderState = {
+  submenuKey: string | null
+  submenuSide: ContextMenuSide
+  openSubmenu: (key: string) => void
+  clearSubmenu: () => void
+}
 
 const ShouldIgnoreDuplicateMs = 300
 const DuplicateDistance = 4
 const MenuWidth = 220
 const MenuSafeMargin = 12
+const MenuIgnoreAttrs = {
+  'data-context-menu-ignore': '',
+  'data-selection-ignore': '',
+  'data-input-ignore': ''
+} as const
 
 const snapshotSelection = (
   nodeIds: readonly NodeId[],
@@ -100,7 +102,7 @@ const snapshotSelection = (
 })
 
 const restoreSelection = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
+  instance: Pick<InternalInstance, 'commands'>,
   selection: ContextMenuSelectionSnapshot
 ) => {
   if (selection.nodeIds.length > 0 || selection.edgeIds.length > 0) {
@@ -124,47 +126,6 @@ const isDuplicateContextMenuOpen = (
     Math.abs(prev.x - next.x) <= DuplicateDistance
     && Math.abs(prev.y - next.y) <= DuplicateDistance
   )
-}
-
-const resolveContextMenuTarget = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'read'>,
-  target: ContextMenuTarget
-): ContextMenuResolvedTarget | undefined => {
-  switch (target.kind) {
-    case 'canvas':
-      return target
-    case 'node': {
-      const entry = instance.read.node.item.get(target.nodeId)
-      if (!entry) return undefined
-      return {
-        kind: 'node',
-        node: entry.node,
-        world: target.world
-      }
-    }
-    case 'nodes': {
-      const nodes = target.nodeIds
-        .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
-        .filter((node): node is NonNullable<typeof node> => Boolean(node))
-
-      if (!nodes.length) return undefined
-
-      return {
-        kind: 'nodes',
-        nodes,
-        world: target.world
-      }
-    }
-    case 'edge': {
-      const entry = instance.read.edge.item.get(target.edgeId)
-      if (!entry) return undefined
-      return {
-        kind: 'edge',
-        edgeId: entry.edge.id,
-        world: target.world
-      }
-    }
-  }
 }
 
 const hasStyleField = (
@@ -199,7 +160,7 @@ const buildStrokeStyleGroup = ({
   instance,
   nodes
 }: {
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'registry' | 'commands'>
+  instance: Pick<ContextMenuInstance, 'registry' | 'commands'>
   nodes: readonly WhiteboardNode[]
 }): NodeMenuGroup | undefined => {
   if (!nodes.length) {
@@ -281,6 +242,190 @@ const buildStrokeStyleGroup = ({
   }
 }
 
+const readCanvasMenuView = ({
+  instance,
+  world,
+  close
+}: {
+  instance: ContextMenuInstance
+  world: Point
+  close: () => void
+}): ContextMenuView => {
+  const frame = instance.state.frame.get()
+
+  return {
+    groups: [
+      bindNodeMenuGroup({
+        key: 'edit',
+        title: 'Edit',
+        items: [
+          {
+            key: 'edit.paste',
+            label: 'Paste',
+            onClick: () => paste(instance, {
+              at: world,
+              containerId: frame.id
+            })
+          }
+        ]
+      }, close),
+      bindNodeMenuGroup({
+        key: 'create',
+        title: 'Create',
+        items: CREATE_PRESETS.map((preset) => ({
+          key: preset.key,
+          label: preset.label,
+          onClick: () => insertPreset({
+            instance,
+            preset,
+            world,
+            containerId: frame.id
+          })
+        }))
+      }, close),
+      bindNodeMenuGroup({
+        key: 'history',
+        title: 'History',
+        items: [
+          {
+            key: 'history.undo',
+            label: 'Undo',
+            onClick: () => instance.commands.history.undo()
+          },
+          {
+            key: 'history.redo',
+            label: 'Redo',
+            onClick: () => instance.commands.history.redo()
+          }
+        ]
+      }, close),
+      bindNodeMenuGroup({
+        key: 'selection',
+        title: 'Selection',
+        items: [
+          {
+            key: 'selection.select-all',
+            label: 'Select all',
+            onClick: () => instance.commands.selection.selectAll()
+          }
+        ]
+      }, close)
+    ]
+  }
+}
+
+const readNodeMenuView = ({
+  instance,
+  nodes,
+  close
+}: {
+  instance: ContextMenuInstance
+  nodes: readonly WhiteboardNode[]
+  close: () => void
+}): ContextMenuView => {
+  const nodeIds = nodes.map((node) => node.id)
+  const actions = createNodeSelectionActions(instance, nodes, {
+    onCopy: () => copy(instance, {
+      nodeIds
+    }),
+    onCut: () => cut(instance, {
+      nodeIds
+    })
+  })
+  const styleGroup = buildStrokeStyleGroup({
+    instance,
+    nodes
+  })
+
+  return {
+    summary: nodes.length > 1 ? actions.summary : undefined,
+    filter: readNodeMenuFilter(actions, close),
+    groups: [
+      ...(styleGroup ? [bindNodeMenuGroup(styleGroup, close)] : []),
+      ...readNodeContextMenuGroups(actions, close)
+    ]
+  }
+}
+
+const readEdgeMenuView = ({
+  instance,
+  edgeId,
+  close
+}: {
+  instance: ContextMenuInstance
+  edgeId: EdgeId
+  close: () => void
+}): ContextMenuView => ({
+  groups: [
+    bindNodeMenuGroup({
+      key: 'edge.actions',
+      items: [
+        {
+          key: 'edge.copy',
+          label: 'Copy',
+          onClick: () => copy(instance, {
+            edgeIds: [edgeId]
+          })
+        },
+        {
+          key: 'edge.cut',
+          label: 'Cut',
+          onClick: () => cut(instance, {
+            edgeIds: [edgeId]
+          })
+        },
+        {
+          key: 'edge.delete',
+          label: 'Delete',
+          tone: 'danger',
+          onClick: () => instance.commands.edge.delete([edgeId])
+        }
+      ]
+    }, close)
+  ]
+})
+
+const readContextMenuView = ({
+  instance,
+  target,
+  close
+}: {
+  instance: ContextMenuInstance
+  target: ReturnType<typeof resolveContextTarget>
+  close: () => void
+}): ContextMenuView | undefined => {
+  if (!target) {
+    return undefined
+  }
+
+  switch (target.kind) {
+    case 'canvas':
+      return readCanvasMenuView({
+        instance,
+        world: target.world,
+        close
+      })
+    case 'node':
+      return readNodeMenuView({
+        instance,
+        nodes: [target.node],
+        close
+      })
+    case 'nodes':
+      return readNodeMenuView({
+        instance,
+        nodes: target.nodes,
+        close
+      })
+    case 'edge':
+      return readEdgeMenuView({
+        instance,
+        edgeId: target.edgeId,
+        close
+      })
+  }
+}
+
 const readPlacement = ({
   screen,
   containerWidth,
@@ -310,108 +455,98 @@ const readPlacement = ({
   }
 }
 
-const readContextMenuOpenResult = ({
-  instance,
-  input
+const ContextMenuItemView = ({
+  item,
+  state
 }: {
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'read' | 'state' | 'registry'>
-  input: PointerPick
-}): {
-  target: ContextMenuTarget
-  leaveFrame: boolean
-} | undefined => {
-  const frame = instance.state.frame.get()
-  const selection = instance.read.selection.get()
-  const world = input.point.world
-  const pick = input.pick
+  item: NodeMenuItem
+  state: ContextMenuRenderState
+}) => {
+  const open = state.submenuKey === item.key
+  const children = item.children?.length
 
-  if (pick.kind === 'selection-box' && selection.items.count > 1) {
-    return {
-      target: {
-        kind: 'nodes',
-        nodeIds: selection.target.nodeIds,
-        world
-      },
-      leaveFrame: false
-    }
+  if (!children) {
+    return (
+      <button
+        key={item.key}
+        type="button"
+        className="wb-context-menu-item"
+        data-tone={item.tone === 'danger' ? 'danger' : undefined}
+        disabled={item.disabled}
+        data-context-menu-item={item.key}
+        onClick={item.onClick}
+        onPointerEnter={state.clearSubmenu}
+        onFocus={state.clearSubmenu}
+        {...MenuIgnoreAttrs}
+      >
+        <span>{item.label}</span>
+      </button>
+    )
   }
 
-  if (pick.kind === 'node') {
-    if (pick.part === 'container' && pick.id === frame.id) {
-      return {
-        target: {
-          kind: 'canvas',
-          world
-        },
-        leaveFrame: false
-      }
-    }
-
-    return {
-      target: selection.target.nodeSet.has(pick.id) && selection.items.count > 1
-        ? {
-            kind: 'nodes',
-            nodeIds: selection.target.nodeIds,
-            world
-          }
-        : {
-            kind: 'node',
-            nodeId: pick.id,
-            world
-          },
-      leaveFrame: !hasNode(frame, pick.id)
-    }
-  }
-
-  if (pick.kind === 'edge') {
-    const entry = instance.read.edge.item.get(pick.id)
-    if (!entry) return undefined
-
-    return {
-      target: {
-        kind: 'edge',
-        edgeId: pick.id,
-        world
-      },
-      leaveFrame: !hasEdge(frame, entry.edge)
-    }
-  }
-
-  const activeRect = frame.id
-    ? instance.read.index.node.get(frame.id)?.rect
-    : undefined
-  const insideActiveFrame = Boolean(
-    activeRect && isPointInRect(world, activeRect)
+  return (
+    <div
+      key={item.key}
+      className="wb-context-menu-item-shell"
+      data-open={open ? 'true' : undefined}
+      onPointerEnter={() => {
+        state.openSubmenu(item.key)
+      }}
+      onFocus={() => {
+        state.openSubmenu(item.key)
+      }}
+      data-context-menu-ignore
+    >
+      <button
+        type="button"
+        className="wb-context-menu-item"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-context-menu-item={item.key}
+        {...MenuIgnoreAttrs}
+      >
+        <span>{item.label}</span>
+        <span className="wb-context-menu-item-caret" aria-hidden="true">›</span>
+      </button>
+      {open ? (
+        <div
+          className="wb-context-submenu"
+          data-side={state.submenuSide}
+          {...MenuIgnoreAttrs}
+        >
+          {item.children?.map((child) => (
+            <ContextMenuItemView
+              key={child.key}
+              item={child}
+              state={state}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
-
-  if (!insideActiveFrame) {
-    const containerNodeId = instance.read.node.containerAt(world)
-    if (containerNodeId) {
-      return {
-        target: selection.target.nodeSet.has(containerNodeId) && selection.items.count > 1
-          ? {
-            kind: 'nodes',
-            nodeIds: selection.target.nodeIds,
-            world
-          }
-          : {
-            kind: 'node',
-            nodeId: containerNodeId,
-            world
-          },
-        leaveFrame: !hasNode(frame, containerNodeId)
-      }
-    }
-  }
-
-  return {
-    target: {
-      kind: 'canvas',
-      world
-    },
-    leaveFrame: Boolean(frame.id)
-  }
 }
+
+const ContextMenuGroupView = ({
+  group,
+  state
+}: {
+  group: NodeMenuGroup
+  state: ContextMenuRenderState
+}) => (
+  <div className="wb-context-menu-section">
+    {group.title ? (
+      <div className="wb-context-menu-section-title">{group.title}</div>
+    ) : null}
+    {group.items.map((item) => (
+      <ContextMenuItemView
+        key={item.key}
+        item={item}
+        state={state}
+      />
+    ))}
+  </div>
+)
 
 export const ContextMenu = ({
   containerRef
@@ -440,7 +575,7 @@ export const ContextMenu = ({
   }, [dismiss])
 
   const open = useCallback((result: {
-    target: ContextMenuTarget
+    target: ContextTarget
     leaveFrame: boolean
     screen: Point
   }) => {
@@ -468,10 +603,7 @@ export const ContextMenu = ({
       event: Pick<MouseEvent | PointerEvent, 'target' | 'clientX' | 'clientY'>
     ) => {
       const input = instance.read.pick.from(event, container)
-      const result = readContextMenuOpenResult({
-        instance,
-        input
-      })
+      const result = readContextOpen(instance, input)
       if (!result) return
 
       lastOpenRef.current = {
@@ -487,7 +619,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (instance.interaction.mode.get() !== 'idle') return
+      if (instance.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -496,7 +628,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (instance.interaction.mode.get() !== 'idle') return
+      if (instance.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -525,166 +657,15 @@ export const ContextMenu = ({
   const view = useMemo(() => {
     if (!session) return undefined
 
-    const target = resolveContextMenuTarget(instance, session.target)
-    if (!target) return undefined
-
-    const readMenu = (): ContextMenuView => {
-      switch (target.kind) {
-        case 'canvas': {
-          const frame = instance.state.frame.get()
-          return {
-            groups: [
-              {
-                key: 'edit',
-                title: 'Edit',
-                items: [
-                  {
-                    key: 'edit.paste',
-                    label: 'Paste',
-                    onClick: () => paste(instance, {
-                      at: target.world,
-                      containerId: frame.id
-                    })
-                  }
-                ]
-              },
-              {
-                key: 'create',
-                title: 'Create',
-                items: CREATE_PRESETS.map((preset) => ({
-                  key: preset.key,
-                  label: preset.label,
-                    onClick: () => {
-                      closeAfter(
-                      insertPreset({
-                        instance,
-                        preset,
-                        world: target.world,
-                        containerId: frame.id
-                      }),
-                      dismissAction
-                    )
-                  }
-                }))
-              },
-              {
-                key: 'history',
-                title: 'History',
-                items: [
-                  {
-                    key: 'history.undo',
-                    label: 'Undo',
-                    onClick: () => {
-                      instance.commands.history.undo()
-                      dismissAction()
-                    }
-                  },
-                  {
-                    key: 'history.redo',
-                    label: 'Redo',
-                    onClick: () => {
-                      instance.commands.history.redo()
-                      dismissAction()
-                    }
-                  }
-                ]
-              },
-              {
-                key: 'selection',
-                title: 'Selection',
-                items: [
-                  {
-                    key: 'selection.select-all',
-                    label: 'Select all',
-                    onClick: () => {
-                      instance.commands.selection.selectAll()
-                      dismissAction()
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        }
-        case 'node': {
-          const actions = createNodeSelectionActions(instance, [target.node], {
-            onCopy: () => copy(instance, {
-              nodeIds: [target.node.id]
-            }),
-            onCut: () => cut(instance, {
-              nodeIds: [target.node.id]
-            })
-          })
-          const groups = readNodeContextMenuGroups(actions, dismissAction)
-          const styleGroup = buildStrokeStyleGroup({
-            instance,
-            nodes: [target.node]
-          })
-          if (styleGroup) {
-            groups.unshift(bindNodeMenuGroup(styleGroup, dismissAction))
-          }
-          return {
-            filter: readNodeMenuFilter(actions, dismissAction),
-            groups
-          }
-        }
-        case 'nodes': {
-          const actions = createNodeSelectionActions(instance, target.nodes, {
-            onCopy: () => copy(instance, {
-              nodeIds: target.nodes.map((node) => node.id)
-            }),
-            onCut: () => cut(instance, {
-              nodeIds: target.nodes.map((node) => node.id)
-            })
-          })
-          const groups = readNodeContextMenuGroups(actions, dismissAction)
-          const styleGroup = buildStrokeStyleGroup({
-            instance,
-            nodes: target.nodes
-          })
-          if (styleGroup) {
-            groups.unshift(bindNodeMenuGroup(styleGroup, dismissAction))
-          }
-          return {
-            summary: actions.summary,
-            filter: readNodeMenuFilter(actions, dismissAction),
-            groups
-          }
-        }
-        case 'edge':
-          return {
-            groups: [
-              bindNodeMenuGroup({
-                key: 'edge.actions',
-                items: [
-                  {
-                    key: 'edge.copy',
-                    label: 'Copy',
-                    onClick: () => copy(instance, {
-                      edgeIds: [target.edgeId]
-                    })
-                  },
-                  {
-                    key: 'edge.cut',
-                    label: 'Cut',
-                    onClick: () => cut(instance, {
-                      edgeIds: [target.edgeId]
-                    })
-                  },
-                  {
-                    key: 'edge.delete',
-                    label: 'Delete',
-                    tone: 'danger',
-                    onClick: () => instance.commands.edge.delete([target.edgeId])
-                  }
-                ]
-              }, dismissAction)
-            ]
-          }
-      }
+    const target = resolveContextTarget(instance, session.target)
+    const menu = readContextMenuView({
+      instance,
+      target,
+      close: dismissAction
+    })
+    if (!menu) {
+      return undefined
     }
-
-    const menu = readMenu()
 
     return {
       placement: readPlacement({
@@ -724,100 +705,28 @@ export const ContextMenu = ({
 
   if (!view) return null
 
-  const submenuSide: ContextMenuSide = view.placement.submenuSide
   const menuStyle = {
     left: view.placement.left,
     top: view.placement.top,
     transform: view.placement.transform
   }
-
-  const renderLeafItem = (item: NodeMenuItem) => (
-    <button
-      key={item.key}
-      type="button"
-      className="wb-context-menu-item"
-      data-tone={item.tone === 'danger' ? 'danger' : undefined}
-      disabled={item.disabled}
-      data-context-menu-item={item.key}
-      onClick={item.onClick}
-      onPointerEnter={() => {
-        setSubmenuKey(null)
-      }}
-      onFocus={() => {
-        setSubmenuKey(null)
-      }}
-      data-context-menu-ignore
-      data-selection-ignore
-      data-input-ignore
-    >
-      <span>{item.label}</span>
-    </button>
-  )
-
-  const renderSubmenuItem = (item: NodeMenuItem) => {
-    const open = submenuKey === item.key
-    return (
-      <div
-        key={item.key}
-        className="wb-context-menu-item-shell"
-        data-open={open ? 'true' : undefined}
-        onPointerEnter={() => {
-          setSubmenuKey(item.key)
-        }}
-        onFocus={() => {
-          setSubmenuKey(item.key)
-        }}
-        data-context-menu-ignore
-      >
-        <button
-          type="button"
-          className="wb-context-menu-item"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          data-context-menu-item={item.key}
-          data-context-menu-ignore
-          data-selection-ignore
-          data-input-ignore
-        >
-          <span>{item.label}</span>
-          <span className="wb-context-menu-item-caret" aria-hidden="true">›</span>
-        </button>
-        {open && item.children?.length ? (
-          <div
-            className="wb-context-submenu"
-            data-side={submenuSide}
-            data-context-menu-ignore
-            data-selection-ignore
-            data-input-ignore
-          >
-            {item.children.map((child) => renderLeafItem(child))}
-          </div>
-        ) : null}
-      </div>
-    )
+  const renderState: ContextMenuRenderState = {
+    submenuKey,
+    submenuSide: view.placement.submenuSide,
+    openSubmenu: (key) => {
+      setSubmenuKey(key)
+    },
+    clearSubmenu: () => {
+      setSubmenuKey(null)
+    }
   }
-
-  const renderGroup = (group: NodeMenuGroup) => (
-    <div key={group.key} className="wb-context-menu-section">
-      {group.title ? (
-        <div className="wb-context-menu-section-title">{group.title}</div>
-      ) : null}
-      {group.items.map((item) => (
-        item.children?.length
-          ? renderSubmenuItem(item)
-          : renderLeafItem(item)
-      ))}
-    </div>
-  )
 
   return (
     <div className="wb-context-menu-layer" ref={rootRef} data-context-menu-ignore>
       <div
         className="wb-context-menu"
         style={menuStyle}
-        data-context-menu-ignore
-        data-selection-ignore
-        data-input-ignore
+        {...MenuIgnoreAttrs}
         onContextMenu={(event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -826,7 +735,7 @@ export const ContextMenu = ({
           event.stopPropagation()
         }}
         onPointerLeave={() => {
-          setSubmenuKey(null)
+          renderState.clearSubmenu()
         }}
       >
         {view.summary ? (
@@ -841,7 +750,13 @@ export const ContextMenu = ({
             />
           </div>
         ) : null}
-        {view.groups.map((group) => renderGroup(group))}
+        {view.groups.map((group) => (
+          <ContextMenuGroupView
+            key={group.key}
+            group={group}
+            state={renderState}
+          />
+        ))}
       </div>
     </div>
   )

@@ -17,7 +17,7 @@ export type {
   NodeRegistry,
   NodeRenderProps,
   NodeWrite,
-  NodeScene,
+  NodeRole,
 } from './node'
 
 export type { EdgeConnectState } from './edge'

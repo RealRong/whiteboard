@@ -1,10 +1,10 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import {
-  getEdgePath,
   getEdgePathBounds,
   matchEdgeRect,
-  resolveEdgeEnds
+  resolveEdgeView
 } from '@whiteboard/core/edge'
+import type { EdgeView as CoreEdgeView } from '@whiteboard/core/edge'
 import { createKeyedDerivedStore } from '@whiteboard/core/runtime'
 import type { KeyedReadStore } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
@@ -14,6 +14,10 @@ import {
   projectEdgeItem,
   type EdgePatchReader
 } from '../../features/edge/preview'
+
+type RuntimeEdgeView = CoreEdgeView & {
+  edge: EdgeItem['edge']
+}
 
 const toNodeCanvas = (item: NodeItem) => ({
   node: item.node,
@@ -47,15 +51,16 @@ export const createEdgeRead = ({
   read: Pick<EngineRead, 'edge'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
   patch: EdgePatchReader
-	}): {
-	  list: EngineRead['edge']['list']
-	  item: KeyedReadStore<EdgeId, EdgeItem | undefined>
-	  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
-	  bounds: (edgeId: EdgeId) => Rect | undefined
-	  idsInRect: (rect: Rect, options?: {
-	    match?: 'touch' | 'contain'
-	  }) => EdgeId[]
-	} => {
+}): {
+  list: EngineRead['edge']['list']
+  item: KeyedReadStore<EdgeId, EdgeItem | undefined>
+  view: KeyedReadStore<EdgeId, RuntimeEdgeView | undefined>
+  related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
+  bounds: (edgeId: EdgeId) => Rect | undefined
+  idsInRect: (rect: Rect, options?: {
+    match?: 'touch' | 'contain'
+  }) => EdgeId[]
+} => {
   const item = createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
       const entry = readStore(read.edge.item, edgeId)
@@ -63,76 +68,61 @@ export const createEdgeRead = ({
         return undefined
       }
 
-      const nextEntry = projectEdgeItem(entry, readStore(patch, edgeId))
-      const source =
-        nextEntry.edge.source.kind === 'node'
-          ? readStore(nodeItem, nextEntry.edge.source.nodeId)
-          : undefined
-      const target =
-        nextEntry.edge.target.kind === 'node'
-          ? readStore(nodeItem, nextEntry.edge.target.nodeId)
-          : undefined
-      if (
-        (nextEntry.edge.source.kind === 'node' && !source)
-        || (nextEntry.edge.target.kind === 'node' && !target)
-      ) {
-        return nextEntry
-      }
-
-      const ends = resolveEdgeEnds({
-        edge: nextEntry.edge,
-        source: source ? toNodeCanvas(source) : undefined,
-        target: target ? toNodeCanvas(target) : undefined
-      })
-      if (!ends) {
-        return nextEntry
-      }
-
-      return {
-        ...nextEntry,
-        ends
-      }
+      return projectEdgeItem(entry, readStore(patch, edgeId))
     },
     isEqual: isEdgeItemEqual
   })
 
-  const readEdgePath = (edgeId: EdgeId) => {
-    const entry = item.get(edgeId)
-    if (!entry) {
-      return undefined
-    }
-
-    return getEdgePath({
-      edge: entry.edge,
-      source: {
-        point: entry.ends.source.point,
-        side: entry.ends.source.anchor?.side
-      },
-      target: {
-        point: entry.ends.target.point,
-        side: entry.ends.target.anchor?.side
+  const view = createKeyedDerivedStore({
+    get: (readStore, edgeId: EdgeId) => {
+      const entry = readStore(item, edgeId)
+      if (!entry) {
+        return undefined
       }
-    })
-  }
+
+      const source =
+        entry.edge.source.kind === 'node'
+          ? readStore(nodeItem, entry.edge.source.nodeId)
+          : undefined
+      const target =
+        entry.edge.target.kind === 'node'
+          ? readStore(nodeItem, entry.edge.target.nodeId)
+          : undefined
+
+      const resolved = resolveEdgeView({
+        edge: entry.edge,
+        source: source ? toNodeCanvas(source) : undefined,
+        target: target ? toNodeCanvas(target) : undefined
+      })
+
+      return {
+        edge: entry.edge,
+        ...resolved
+      }
+    }
+  })
+
+  const readEdgeView = (edgeId: EdgeId) => view.get(edgeId)
 
   return {
     list: read.edge.list,
     item,
+    view,
     related: read.edge.related,
     bounds: (edgeId) => {
-      const path = readEdgePath(edgeId)
-      return path
-        ? getEdgePathBounds(path)
+      const nextView = readEdgeView(edgeId)
+      return nextView
+        ? getEdgePathBounds(nextView.path)
         : undefined
     },
     idsInRect: (rect, options) => read.edge.list.get().filter((edgeId) => {
-      const path = readEdgePath(edgeId)
-      if (!path) {
+      const nextView = readEdgeView(edgeId)
+      if (!nextView) {
         return false
       }
 
       return matchEdgeRect({
-        path,
+        path: nextView.path,
         queryRect: rect,
         mode: options?.match ?? 'touch'
       })

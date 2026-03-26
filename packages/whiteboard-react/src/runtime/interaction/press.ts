@@ -47,7 +47,7 @@ export const createPressRuntime = (
 
   return {
     start: (input) => {
-      if (session || interaction.mode.get() !== 'idle') {
+      if (session || interaction.busy.get()) {
         return null
       }
 

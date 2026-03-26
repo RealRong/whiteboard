@@ -61,7 +61,7 @@ export const FrameNodeChrome = ({
   const headerRef = usePickRef({
     kind: 'node',
     id: node.id,
-    part: 'body'
+    part: 'shell'
   })
 
   useEffect(() => {
@@ -144,12 +144,13 @@ export const FrameNodeDefinition: NodeDefinition = {
     icon: 'frame',
     controls: ['fill', 'stroke', 'text']
   },
-  scene: 'container',
+  role: 'frame',
   schema: frameSchema,
   defaultData: {
     title: FRAME_DEFAULT_TITLE
   },
   render: () => null,
   style: (props) => frameStyle(props.node),
-  canRotate: false
+  canRotate: false,
+  enter: true
 }

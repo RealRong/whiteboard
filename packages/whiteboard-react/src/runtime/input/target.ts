@@ -42,5 +42,8 @@ export const isSelectionIgnoredTarget = (target: EventTarget | null) =>
 export const isContextMenuIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest('[data-context-menu-ignore]'))
 
+export const isKeyboardIgnoredTarget = (target: EventTarget | null) =>
+  isEditableTarget(target) || isInputIgnoredTarget(target)
+
 export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))

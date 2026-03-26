@@ -4,7 +4,18 @@ import type {
 } from '../../node/actions'
 import type { NodeTypeSummary } from '../../node/summary'
 import type { MoreMenuSection } from './menus/MoreMenu'
-import { closeAfter } from './closeAfter'
+
+export const closeAfter = (
+  result: unknown,
+  close: () => void
+) => {
+  if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+    return Promise.resolve(result).finally(close)
+  }
+
+  close()
+  return result
+}
 
 export type NodeMenuItem = {
   key: string

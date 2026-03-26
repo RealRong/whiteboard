@@ -55,7 +55,7 @@ export const edge = ({
 
   const insert = (edgeId: EdgeId, point: Point) =>
     run({
-      type: 'path',
+      type: 'route',
       mode: 'insert',
       edgeId,
       point
@@ -63,7 +63,7 @@ export const edge = ({
 
   const movePath = (edgeId: EdgeId, index: number, point: Point) =>
     run({
-      type: 'path',
+      type: 'route',
       mode: 'move',
       edgeId,
       index,
@@ -72,7 +72,7 @@ export const edge = ({
 
   const removeAt = (edgeId: EdgeId, index: number) =>
     run({
-      type: 'path',
+      type: 'route',
       mode: 'remove',
       edgeId,
       index
@@ -80,7 +80,7 @@ export const edge = ({
 
   const clear = (edgeId: EdgeId) =>
     run({
-      type: 'path',
+      type: 'route',
       mode: 'clear',
       edgeId
     })
@@ -99,7 +99,7 @@ export const edge = ({
     update,
     updateMany,
     delete: remove,
-    path: {
+    route: {
       insert,
       move: movePath,
       remove: removeAt,

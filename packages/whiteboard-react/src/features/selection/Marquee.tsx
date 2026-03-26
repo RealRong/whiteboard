@@ -30,8 +30,6 @@ export type MarqueeStartInput = {
   pointerId: number
   capture: Element
   start: ViewportPointer
-  scope?: ReadonlySet<NodeId>
-  edgeFilter?: (edgeId: EdgeId) => boolean
   match: MarqueeMatch
   onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
@@ -40,8 +38,6 @@ export type MarqueeStartInput = {
 type ActiveMarquee = {
   pointerId: number
   start: ViewportPointer
-  scope?: ReadonlySet<NodeId>
-  edgeFilter?: (edgeId: EdgeId) => boolean
   match: MarqueeMatch
   latest?: MarqueeItems
   emittedKey: string
@@ -108,23 +104,14 @@ export const createMarqueeSession = (
 
   const readMatchedItems = (
     queryRect: Rect,
-    scope: ReadonlySet<NodeId> | undefined,
-    edgeFilter: ((edgeId: EdgeId) => boolean) | undefined,
     match: MarqueeMatch
   ): MarqueeItems => {
-    const matchedNodeIds = instance.read.node.idsInRect(queryRect, {
+    const nodeIds = instance.read.node.idsInRect(queryRect, {
       match
     })
-    const nodeIds = scope
-      ? matchedNodeIds.filter((nodeId) => scope.has(nodeId))
-      : matchedNodeIds
     const edgeIds = instance.read.edge.idsInRect(queryRect, {
       match
-    }).filter((edgeId) => (
-      edgeFilter
-        ? edgeFilter(edgeId)
-        : true
-    ))
+    })
 
     return {
       nodeIds,
@@ -180,8 +167,6 @@ export const createMarqueeSession = (
 
     active.latest = readMatchedItems(
       rectFromPoints(active.start.world, current.world),
-      active.scope,
-      active.edgeFilter,
       active.match
     )
     worldRect.set(rectFromPoints(active.start.world, current.world))
@@ -196,13 +181,11 @@ export const createMarqueeSession = (
       pointerId,
       capture,
       start,
-      scope,
-      edgeFilter,
       match,
       onChange,
       onEnd
     }) => {
-      if (active || instance.interaction.mode.get() !== 'idle') {
+      if (active || instance.interaction.busy.get()) {
         return false
       }
 
@@ -234,8 +217,6 @@ export const createMarqueeSession = (
             const current = instance.viewport.pointer(upEvent)
             active.latest = readMatchedItems(
               rectFromPoints(active.start.world, current.world),
-              active.scope,
-              active.edgeFilter,
               active.match
             )
             flushChange()
@@ -262,8 +243,6 @@ export const createMarqueeSession = (
       active = {
         pointerId,
         start,
-        scope,
-        edgeFilter,
         match,
         emittedKey: '',
         onChange,

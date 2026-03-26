@@ -3,12 +3,24 @@ import {
   Plus,
   Redo2,
   Scan,
-  Undo2
+  Undo2,
+  type LucideIcon
 } from 'lucide-react'
 import { useInternalInstance, useStoreValue } from '../../runtime/hooks'
-import { ToolIcon } from '../toolbox/ToolIcon'
 
 const ZOOM_FACTOR = 1.2
+
+const ToolIcon = ({
+  icon: Icon
+}: {
+  icon: LucideIcon
+}) => (
+  <Icon
+    size={18}
+    strokeWidth={1}
+    absoluteStrokeWidth
+  />
+)
 
 const formatZoom = (zoom: number) => `${Math.round(zoom * 100)}%`
 

@@ -380,6 +380,7 @@ export const TextNodeDefinition: NodeDefinition = {
     icon: 'text',
     controls: ['text']
   },
+  role: 'content',
   schema: textSchema,
   defaultData: { text: '' },
   render: (props) => <TextNodeRenderer {...props} variant="text" />,
@@ -394,6 +395,7 @@ export const StickyNodeDefinition: NodeDefinition = {
     icon: 'sticky',
     controls: ['fill', 'text']
   },
+  role: 'content',
   schema: stickySchema,
   defaultData: { text: '' },
   render: (props) => <TextNodeRenderer {...props} variant="sticky" />,

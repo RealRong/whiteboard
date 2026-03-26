@@ -6,6 +6,7 @@ import type {
   EdgePathSegment,
   EdgeRouter
 } from './types'
+import { readEdgeRoutePoints } from './types'
 
 const DEFAULT_ORTHO_OFFSET = 50
 const DEFAULT_CURVE_CURVATURE = 0.35
@@ -37,7 +38,7 @@ const getPathPoints = (
   input: EdgePathInput
 ) => [
   input.source.point,
-  ...(input.edge.path?.points ?? []),
+  ...readEdgeRoutePoints(input.edge.route),
   input.target.point
 ]
 
@@ -365,7 +366,7 @@ const linearRouter: EdgeRouter = (input) => {
 }
 
 const stepRouter: EdgeRouter = ({ edge, source, target }) => {
-  if (edge.path?.points?.length) {
+  if (readEdgeRoutePoints(edge.route).length > 0) {
     return buildStepPathThroughPoints({
       edge,
       source,

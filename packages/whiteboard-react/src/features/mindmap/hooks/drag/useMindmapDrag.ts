@@ -1,7 +1,7 @@
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef } from 'react'
-import type { CanvasDown } from '../../../../runtime/input/down'
 import { useInternalInstance } from '../../../../runtime/hooks'
+import type { MindmapDown } from '../../../../runtime/input/pointer'
 import {
   resolveNextMindmapDragSession,
   resolveRootDragSession,
@@ -170,29 +170,15 @@ export const useMindmapDrag = () => {
 
   return {
     down: (
-      input: CanvasDown
+      input: MindmapDown
     ) => {
-      const { event } = input
-
-      if (event.defaultPrevented || event.button !== 0) {
-        return false
-      }
-
-      if (activeRef.current || input.mode !== 'idle' || input.tool.type !== 'select') {
-        return false
-      }
-
-      if (input.ignoreSelection || input.ignoreInput || input.editable) {
-        return false
-      }
-
-      if (input.pick.kind !== 'mindmap') {
+      if (activeRef.current) {
         return false
       }
 
       return start(
         input.capture,
-        event,
+        input.event,
         input.pick.treeId,
         input.pick.nodeId
       )

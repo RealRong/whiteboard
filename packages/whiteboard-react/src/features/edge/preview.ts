@@ -25,8 +25,8 @@ export type EdgeHint = {
 type EdgePatch = {
   source?: EdgeItem['edge']['source']
   target?: EdgeItem['edge']['target']
-  pathPoints?: readonly Point[]
-  activePathIndex?: number
+  route?: EdgeItem['edge']['route']
+  activeRouteIndex?: number
 }
 
 type EdgePatchEntry =
@@ -77,8 +77,8 @@ const toPatchMap = (
     next.set(entry.id, {
       source: entry.source,
       target: entry.target,
-      pathPoints: entry.pathPoints,
-      activePathIndex: entry.activePathIndex
+      route: entry.route,
+      activeRouteIndex: entry.activeRouteIndex
     })
   })
   return next
@@ -128,16 +128,18 @@ const applyPatch = (
     }
   }
 
-  if (patch.pathPoints) {
-    const points = next.path?.points ?? []
-    if (patch.pathPoints !== points) {
-      next = {
-        ...next,
-        path: {
-          ...(next.path ?? {}),
-          points: [...patch.pathPoints]
-        }
-      }
+  if (patch.route && patch.route !== next.route) {
+    next = {
+      ...next,
+      route:
+        patch.route.kind === 'manual'
+          ? {
+              kind: 'manual',
+              points: [...patch.route.points]
+            }
+          : {
+              kind: 'auto'
+            }
     }
   }
 
@@ -164,8 +166,8 @@ export const createEdgePreview = (): EdgePreview => {
     isEqual: (left, right) => (
       isEdgeEndPatchEqual(left.source, right.source)
       && isEdgeEndPatchEqual(left.target, right.target)
-      && left.pathPoints === right.pathPoints
-      && left.activePathIndex === right.activePathIndex
+      && left.route === right.route
+      && left.activeRouteIndex === right.activeRouteIndex
     )
   })
 
@@ -188,17 +190,47 @@ export const createEdgePreview = (): EdgePreview => {
   }
 }
 
-export const toPatchEntry = (
+export const toEdgePreviewEntry = (
   edgeId: EdgeId,
   patch: CoreEdgePatch,
-  activePathIndex?: number
+  activeRouteIndex?: number
 ): EdgePatchEntry => ({
   id: edgeId,
   source: patch.source,
   target: patch.target,
-  pathPoints: patch.path?.points,
-  activePathIndex
+  route: patch.route,
+  activeRouteIndex
 })
+
+export const writeEdgePreviewPatch = (
+  preview: EdgePreview,
+  edgeId: EdgeId,
+  patch: CoreEdgePatch,
+  activeRouteIndex?: number
+) => {
+  preview.patch.write([
+    toEdgePreviewEntry(edgeId, patch, activeRouteIndex)
+  ])
+}
+
+export const writeEdgePreviewRoute = (
+  preview: EdgePreview,
+  edgeId: EdgeId,
+  points: readonly Point[],
+  activeRouteIndex?: number
+) => {
+  writeEdgePreviewPatch(
+    preview,
+    edgeId,
+    {
+      route: {
+        kind: 'manual',
+        points: [...points]
+      }
+    },
+    activeRouteIndex
+  )
+}
 
 export const projectEdgeItem = (
   item: EdgeItem,

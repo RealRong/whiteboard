@@ -1,8 +1,12 @@
-export { useWhiteboard, useInternalInstance } from './useWhiteboard'
-export { useEdit } from './useEdit'
-export { useFrameScope } from './useFrameScope'
-export { useInteraction } from './useInteraction'
-export { useTool } from './useTool'
+export {
+  InstanceProvider,
+  useWhiteboard,
+  useInternalInstance,
+  useEdit,
+  useFrameScope,
+  useInteraction,
+  useTool
+} from './useWhiteboard'
 export { useStoreValue } from './useStoreValue'
 export { usePickRef } from './usePickRef'
 export { useElementSize } from './useElementSize'

@@ -13,7 +13,7 @@ import {
   useInternalInstance,
   useStoreValue
 } from '../../../runtime/hooks'
-import { useSelection } from '../../node/selection'
+import { useSelectionPresentation } from '../../node/selection'
 import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
 import {
   mergeNodeStyle,
@@ -27,6 +27,7 @@ import {
   type NodeSelectionActions
 } from '../../node/actions'
 import {
+  closeAfter,
   readNodeMenuFilter,
   readNodeMoreMenuSections
 } from './menuModel'
@@ -34,7 +35,6 @@ import {
   copy,
   cut
 } from '../actions/clipboard'
-import { closeAfter } from './closeAfter'
 import {
   TEXT_DEFAULT_FONT_SIZE,
   TEXT_PLACEHOLDER,
@@ -506,8 +506,8 @@ export const NodeToolbar = ({
   const instance = useInternalInstance()
   const surface = useElementSize(containerRef)
   const viewport = useStoreValue(instance.viewport)
-  const chrome = useStoreValue(instance.read.chrome.node)
-  const selection = useSelection()
+  const presentation = useSelectionPresentation()
+  const selection = presentation.selection
   const worldToScreen = useCallback(
     (point: Point) => instance.viewport.worldToScreen(point),
     [instance, viewport.center.x, viewport.center.y, viewport.zoom]
@@ -555,7 +555,7 @@ export const NodeToolbar = ({
     }
   }
 
-  const showsNodeToolbar = chrome.toolbar
+  const showsNodeToolbar = presentation.showToolbar
 
   useEffect(() => {
     closeMenu()

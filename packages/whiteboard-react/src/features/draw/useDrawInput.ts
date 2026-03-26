@@ -1,6 +1,4 @@
-import { isPointInRect } from '@whiteboard/core/geometry'
 import {
-  isContainerNode,
   resolveDrawPoints,
   resolveDrawStroke
 } from '@whiteboard/core/node'
@@ -11,10 +9,9 @@ import {
   useRef,
   useState
 } from 'react'
-import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
+import type { DrawDown } from '../../runtime/input/pointer'
 import {
-  isDrawBrushKind,
   type DrawBrushKind
 } from '../../runtime/tool'
 import {
@@ -202,51 +199,16 @@ export const useDrawInput = () => {
   }, [clearPreview])
 
   const down = useCallback((
-    input: CanvasDown
+    input: DrawDown
   ) => {
-    const { event } = input
-
-    if (event.defaultPrevented) return false
-    if (event.button !== 0) return false
-    if (input.mode !== 'idle') return false
-
-    if (input.tool.type !== 'draw' || !isDrawBrushKind(input.tool.kind)) return false
-    if (
-      input.editable
-      || input.ignoreInput
-      || input.ignoreSelection
-    ) {
+    if (input.pick.kind !== 'background') {
       return false
     }
 
-    let activeFrame = instance.state.frame.get()
-    if (activeFrame.id) {
-      const activeRect = instance.read.index.node.get(activeFrame.id)?.rect
-      const insideActiveFrame = Boolean(
-        activeRect && isPointInRect(input.point.world, activeRect)
-      )
-
-      if (!insideActiveFrame) {
-        instance.commands.frame.exit()
-        activeFrame = instance.state.frame.get()
-      }
-    }
-
-    const frameTargetId =
-      input.pick.kind === 'node'
-      && input.pick.part === 'container'
-      && isContainerNode(instance.read.node.item.get(input.pick.id)?.node ?? { type: '' })
-        ? input.pick.id
-        : undefined
-    const canDraw =
-      input.pick.kind === 'background'
-      || frameTargetId !== undefined
-    if (!canDraw) {
-      return false
-    }
+    const frameTargetId = input.frame.id ?? instance.read.node.frameAt(input.point.world)
 
     const active: ActiveStroke = {
-      containerId: activeFrame.id ?? frameTargetId,
+      containerId: input.frame.id ?? frameTargetId,
       kind: input.tool.kind,
       style: readDrawStyle(instance.state.draw.get(), input.tool.kind),
       points: [input.point.world],
@@ -256,7 +218,7 @@ export const useDrawInput = () => {
 
     const session = instance.interaction.start({
       mode: 'draw',
-      pointerId: event.pointerId,
+      pointerId: input.event.pointerId,
       capture: input.capture,
       move: (moveEvent) => {
         const current = activeRef.current
@@ -290,8 +252,8 @@ export const useDrawInput = () => {
     activeRef.current = active
     flushPreview(active)
 
-    event.preventDefault()
-    event.stopPropagation()
+    input.event.preventDefault()
+    input.event.stopPropagation()
     return true
   }, [clearPreview, commit, flushPreview, instance, pushEventPoints])
 

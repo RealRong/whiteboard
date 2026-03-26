@@ -9,8 +9,12 @@ import {
   type EngineInstance
 } from '@whiteboard/engine'
 import { normalizeConfig, toBoardConfig } from './config'
-import { InstanceProvider } from './runtime/hooks/useWhiteboard'
-import { useInternalInstance, useStoreValue, useTool } from './runtime/hooks'
+import {
+  InstanceProvider,
+  useInternalInstance,
+  useStoreValue,
+  useTool
+} from './runtime/hooks'
 import {
   useBindViewportInput
 } from './runtime/viewport'
@@ -111,14 +115,14 @@ const WhiteboardCanvas = ({
     >
       <CanvasBackground />
       <div className="wb-root-viewport" style={transformStyle}>
-        <FrameLayer gesture={canvasInput.gesture} />
+        <FrameLayer />
         <EdgeLayer />
         <NodeSceneLayer gesture={canvasInput.gesture} />
         <MindmapSceneLayer />
         <ContainerChromeLayer gesture={canvasInput.gesture} />
         <NodeOverlayLayer />
         <EdgeOverlayLayer
-          onPathPointKeyDown={canvasInput.edgePathKeyDown}
+          onRoutePointKeyDown={canvasInput.edgeRouteKeyDown}
         />
         <DrawLayer preview={canvasInput.drawPreview} />
       </div>

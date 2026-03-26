@@ -6,7 +6,8 @@ import {
   MousePointer2,
   PencilLine,
   StickyNote,
-  Type
+  Type,
+  type LucideIcon
 } from 'lucide-react'
 import {
   useEffect,
@@ -38,7 +39,6 @@ import { DrawMenu } from './menus/DrawMenu'
 import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
-import { ToolIcon } from './ToolIcon'
 import {
   readDrawSlot,
   readDrawStyle,
@@ -81,6 +81,18 @@ const MenuApproxHeight: Record<MenuKey, number> = {
   shape: 388,
   mindmap: 248
 }
+
+const ToolIcon = ({
+  icon: Icon
+}: {
+  icon: LucideIcon
+}) => (
+  <Icon
+    size={18}
+    strokeWidth={1}
+    absoluteStrokeWidth
+  />
+)
 
 const readMenuWidth = (
   key: MenuKey,

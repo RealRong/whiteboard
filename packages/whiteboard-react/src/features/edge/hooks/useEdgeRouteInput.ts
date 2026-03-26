@@ -4,15 +4,16 @@ import {
   useCallback,
   type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
-import type { CanvasDown } from '../../../runtime/input/down'
 import { useInternalInstance } from '../../../runtime/hooks'
-import { toPatchEntry } from '../preview'
-import type { SelectedEdgePathPointView } from './useEdgeView'
-import type { PointerSourceEvent } from './inputShared'
-import { toPathPatch } from './inputShared'
-import { useEdgePatchSession } from './useEdgePatchSession'
+import type { EdgeDown } from '../../../runtime/input/pointer'
+import { writeEdgePreviewRoute } from '../preview'
+import type { SelectedEdgeRoutePointView } from './useEdgeView'
+import {
+  type PointerSourceEvent,
+  useEdgePatchSession
+} from './useEdgePatchSession'
 
-type ActivePath = {
+type ActiveRoute = {
   edgeId: EdgeId
   index: number
   pointerId: number
@@ -21,33 +22,103 @@ type ActivePath = {
   point: Point
 }
 
-export const useEdgePathInput = () => {
+type EdgeRoutePick = EdgeDown['pick'] & {
+  part: 'path'
+}
+
+const isEdgeRoutePick = (
+  pick: EdgeDown['pick']
+): pick is EdgeRoutePick => pick.part === 'path'
+
+export const useEdgeRouteInput = () => {
   const instance = useInternalInstance()
 
-  const readPathEntry = useCallback((edgeId: EdgeId) => (
-    instance.read.edge.item.get(edgeId)
+  const readRouteView = useCallback((edgeId: EdgeId) => (
+    instance.read.edge.view.get(edgeId)
   ), [instance])
+
+  const readRoutePoints = useCallback((edgeId: EdgeId) => {
+    const view = readRouteView(edgeId)
+    if (!view?.can.editRoute) {
+      return []
+    }
+
+    return view.handles.flatMap((handle) => (
+      handle.kind === 'anchor'
+        ? [handle.point]
+        : []
+    ))
+  }, [readRouteView])
+
+  const readRouteOrigin = useCallback((
+    edgeId: EdgeId,
+    index: number
+  ) => readRoutePoints(edgeId)[index], [readRoutePoints])
+
+  const readRoutePoint = useCallback((
+    pick: EdgeRoutePick
+  ): SelectedEdgeRoutePointView | undefined => {
+    const view = readRouteView(pick.id)
+    if (!view?.can.editRoute) {
+      return undefined
+    }
+
+    if (pick.index !== undefined) {
+      const handle = view.handles.find((entry) => (
+        entry.kind === 'anchor'
+        && entry.index === pick.index
+      ))
+      if (!handle || handle.kind !== 'anchor') {
+        return undefined
+      }
+
+      return {
+        key: `${pick.id}:anchor:${handle.index}`,
+        kind: 'anchor',
+        edgeId: pick.id,
+        index: handle.index,
+        point: handle.point,
+        active: false
+      }
+    }
+
+    const insertIndex = pick.insert ?? 0
+    const handle = view.handles.find((entry) => (
+      entry.kind === 'insert'
+      && entry.insertIndex === insertIndex
+    ))
+    if (!handle || handle.kind !== 'insert') {
+      return undefined
+    }
+
+    return {
+      key: `${pick.id}:insert:${handle.insertIndex}`,
+      kind: 'insert',
+      edgeId: pick.id,
+      insertIndex: handle.insertIndex,
+      point: handle.point,
+      active: false
+    }
+  }, [readRouteView])
 
   const writePreview = useCallback((
     edgeId: EdgeId,
     points: readonly Point[],
-    activePathIndex?: number
+    activeRouteIndex?: number
   ) => {
-    instance.internals.edge.preview.patch.write([
-      toPatchEntry(edgeId, toPathPatch(points), activePathIndex)
-    ])
+    writeEdgePreviewRoute(
+      instance.internals.edge.preview,
+      edgeId,
+      points,
+      activeRouteIndex
+    )
   }, [instance])
 
-  const session = useEdgePatchSession<ActivePath>({
-    mode: 'edge-path',
+  const session = useEdgePatchSession<ActiveRoute>({
+    mode: 'edge-route',
     update: (active, input) => {
-      const entry = readPathEntry(active.edgeId)
-      if (!entry) {
-        return 'cancel'
-      }
-
-      const points = entry.edge.path?.points ?? []
-      if (active.index < 0 || active.index >= points.length) {
+      const points = readRoutePoints(active.edgeId)
+      if (!points.length || active.index < 0 || active.index >= points.length) {
         return 'cancel'
       }
 
@@ -71,22 +142,22 @@ export const useEdgePathInput = () => {
     },
     commit: (active) => {
       if (
-        readPathEntry(active.edgeId)
+        readRouteView(active.edgeId)?.can.editRoute
         && !isPointEqual(active.point, active.origin)
       ) {
-        instance.commands.edge.path.move(active.edgeId, active.index, active.point)
+        instance.commands.edge.route.move(active.edgeId, active.index, active.point)
       }
     }
   })
 
-  const startPathDrag = useCallback((
+  const startRouteDrag = useCallback((
     event: PointerSourceEvent,
     edgeId: EdgeId,
     index: number,
     origin: Point,
     capture?: Element | null
   ) => {
-    const points = readPathEntry(edgeId)?.edge.path?.points ?? []
+    const points = readRoutePoints(edgeId)
     const started = session.start({
       event,
       capture: capture ?? (event.target instanceof Element ? event.target : null),
@@ -105,56 +176,39 @@ export const useEdgePathInput = () => {
 
     writePreview(edgeId, points, index)
     return true
-  }, [instance, readPathEntry, session, writePreview])
+  }, [instance, readRoutePoints, session, writePreview])
 
   return {
     down: (
-      input: CanvasDown
+      input: EdgeDown
     ) => {
       const { event } = input
-
-      if (event.button !== 0) {
-        return false
-      }
 
       if (session.activeRef.current) {
         return false
       }
 
-      if (input.pick.kind !== 'edge' || input.pick.part !== 'path') {
+      if (input.pick.kind !== 'edge' || !isEdgeRoutePick(input.pick)) {
         return false
       }
 
-      const pathPoint: SelectedEdgePathPointView =
-        input.pick.index === undefined
-          ? {
-              key: `${input.pick.id}:insert:${input.pick.insert ?? 0}`,
-              kind: 'insert',
-              edgeId: input.pick.id,
-              insertIndex: input.pick.insert ?? 0,
-              point: input.point.world,
-              active: false
-            }
-          : {
-              key: `${input.pick.id}:anchor:${input.pick.index}`,
-              kind: 'anchor',
-              edgeId: input.pick.id,
-              index: input.pick.index,
-              point: input.point.world,
-              active: false
-            }
+      const routePoint = readRoutePoint(input.pick)
+      if (!routePoint) {
+        return false
+      }
 
-      if (pathPoint.kind === 'insert') {
+      if (routePoint.kind === 'insert') {
         const worldPoint = instance.viewport.pointer(event).world
-        const result = instance.commands.edge.path.insert(pathPoint.edgeId, worldPoint)
+        const result = instance.commands.edge.route.insert(routePoint.edgeId, worldPoint)
         if (!result.ok) {
           return false
         }
 
-        const origin =
-          readPathEntry(pathPoint.edgeId)?.edge.path?.points?.[result.data.index]
-          ?? worldPoint
-        if (!startPathDrag(event, pathPoint.edgeId, result.data.index, origin, input.capture)) {
+        const origin = readRouteOrigin(
+          routePoint.edgeId,
+          result.data.index
+        ) ?? worldPoint
+        if (!startRouteDrag(event, routePoint.edgeId, result.data.index, origin, input.capture)) {
           return false
         }
         event.preventDefault()
@@ -162,25 +216,19 @@ export const useEdgePathInput = () => {
         return true
       }
 
-      const entry = readPathEntry(pathPoint.edgeId)
-      if (!entry) {
-        return false
-      }
-
-      const points = entry.edge.path?.points ?? []
-      const origin = points[pathPoint.index]
+      const origin = readRouteOrigin(routePoint.edgeId, routePoint.index)
       if (!origin) {
         return false
       }
 
       if (event.detail >= 2) {
-        instance.commands.edge.path.remove(pathPoint.edgeId, pathPoint.index)
+        instance.commands.edge.route.remove(routePoint.edgeId, routePoint.index)
         event.preventDefault()
         event.stopPropagation()
         return true
       }
 
-      if (!startPathDrag(event, pathPoint.edgeId, pathPoint.index, origin, input.capture)) {
+      if (!startRouteDrag(event, routePoint.edgeId, routePoint.index, origin, input.capture)) {
         return false
       }
       event.preventDefault()
@@ -189,23 +237,18 @@ export const useEdgePathInput = () => {
     },
     keyDown: (
       event: ReactKeyboardEvent<HTMLDivElement>,
-      pathPoint: Extract<SelectedEdgePathPointView, { kind: 'anchor' }>
+      routePoint: Extract<SelectedEdgeRoutePointView, { kind: 'anchor' }>
     ) => {
       if (event.key !== 'Backspace' && event.key !== 'Delete') {
         return
       }
 
-      const entry = readPathEntry(pathPoint.edgeId)
-      if (!entry) {
+      const points = readRoutePoints(routePoint.edgeId)
+      if (routePoint.index < 0 || routePoint.index >= points.length) {
         return
       }
 
-      const points = entry.edge.path?.points ?? []
-      if (pathPoint.index < 0 || pathPoint.index >= points.length) {
-        return
-      }
-
-      instance.commands.edge.path.remove(pathPoint.edgeId, pathPoint.index)
+      instance.commands.edge.route.remove(routePoint.edgeId, routePoint.index)
       event.preventDefault()
       event.stopPropagation()
     }

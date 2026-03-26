@@ -73,7 +73,7 @@ export const useBindViewportInput = ({
     let panSession: ReturnType<typeof interaction.start> = null
     let pendingWheelInput: WheelInput | null = null
 
-    const isViewportInputBlocked = () => interaction.mode.get() !== 'idle'
+    const isViewportInputBlocked = () => interaction.busy.get()
 
     const refreshContainerRect = () => {
       viewport.setRect(readContainerRect(element))

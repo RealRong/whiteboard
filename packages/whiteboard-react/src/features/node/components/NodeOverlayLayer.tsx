@@ -10,7 +10,7 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeOverlayView } from '../hooks/useNodeView'
-import { useSelection } from '../selection'
+import { useSelectionPresentation } from '../selection'
 import { NodeConnectHandles } from './NodeConnectHandles'
 import {
   NodeTransformHandles,
@@ -151,17 +151,20 @@ const ActiveFrameOverlay = ({
 )
 
 const SelectionFrameOverlay = ({
-  selection
+  presentation
 }: {
-  selection: ReturnType<typeof useSelection>
+  presentation: ReturnType<typeof useSelectionPresentation>
 }) => {
-  const interactive = selection.items.count > 1
+  const interactive = presentation.selection.selectionBox.interactive
   const ref = usePickRef({
     kind: 'selection-box',
     part: 'body'
   })
 
-  if (!selection.box || selection.items.nodeCount === 0) {
+  if (
+    !presentation.selection.selectionBox.frame
+    || !presentation.selection.selectionBox.box
+  ) {
     return null
   }
 
@@ -171,34 +174,31 @@ const SelectionFrameOverlay = ({
       className="wb-selection-transform-box"
       style={{
         pointerEvents: interactive ? 'auto' : 'none',
-        transform: `translate(${selection.box.x}px, ${selection.box.y}px)`,
-        width: selection.box.width,
-        height: selection.box.height
+        transform: `translate(${presentation.selection.selectionBox.box.x}px, ${presentation.selection.selectionBox.box.y}px)`,
+        width: presentation.selection.selectionBox.box.width,
+        height: presentation.selection.selectionBox.box.height
       }}
     />
   )
 }
 
 const SelectionHandlesOverlay = ({
-  selection
+  presentation
 }: {
-  selection: ReturnType<typeof useSelection>
+  presentation: ReturnType<typeof useSelectionPresentation>
 }) => {
   if (
-    !selection.box
-    || (
-      selection.items.count <= 1
-      && selection.transform.resize !== 'scale'
-    )
+    !presentation.selection.selectionBox.handles
+    || !presentation.selection.selectionBox.box
   ) {
     return null
   }
 
   return (
     <TransformHandles
-      rect={selection.box}
+      rect={presentation.selection.selectionBox.box}
       rotation={0}
-      canResize={selection.transform.resize === 'scale'}
+      canResize={presentation.selection.selectionBox.canResize}
       canRotate={false}
     />
   )
@@ -206,10 +206,9 @@ const SelectionHandlesOverlay = ({
 
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
-  const chrome = useStoreValue(instance.read.chrome.node)
   const frame = useFrameScope()
   const guides = useStoreValue(instance.internals.snap.guides)
-  const selection = useSelection()
+  const presentation = useSelectionPresentation()
   const activeFrameNode = useNodeOverlayView(frame.id)
 
   const activeFrame =
@@ -219,19 +218,9 @@ export const NodeOverlayLayer = () => {
           title: resolveFrameTitle(activeFrameNode.node)
         }
       : undefined
-  const showSelectionFrame = Boolean(selection.box) && selection.items.nodeCount > 0
-  const singleTransformNodeId = selection.kind === 'node'
-    ? selection.target.nodeIds[0]
-    : undefined
-  const showSelectionHandles =
-    chrome.transform
-    && Boolean(selection.box)
-    && selection.transform.resize === 'scale'
-  const hideSelectionFrameForSingleShape =
-    selection.kind === 'node'
-    && selection.items.nodeCount === 1
-    && selection.items.primaryNode?.type === 'shape'
-  const connectNodeIds = chrome.connect ? selection.target.nodeIds : EMPTY_NODE_IDS
+  const connectNodeIds = presentation.connectNodeIds.length > 0
+    ? presentation.connectNodeIds
+    : EMPTY_NODE_IDS
 
   return (
     <>
@@ -242,20 +231,20 @@ export const NodeOverlayLayer = () => {
             title={activeFrame.title}
           />
         ) : null}
-        {singleTransformNodeId ? (
+        {presentation.singleTransformNodeId ? (
           <NodeTransformOverlayItem
-            nodeId={singleTransformNodeId}
-            showHandles={chrome.transform}
+            nodeId={presentation.singleTransformNodeId}
+            showHandles={presentation.chrome.transform}
           />
         ) : null}
-        {showSelectionFrame && !hideSelectionFrameForSingleShape ? (
+        {presentation.showSelectionFrame && !presentation.hideSelectionFrameForSingleShape ? (
           <SelectionFrameOverlay
-            selection={selection}
+            presentation={presentation}
           />
         ) : null}
-        {showSelectionHandles ? (
+        {presentation.showSelectionHandles ? (
           <SelectionHandlesOverlay
-            selection={selection}
+            presentation={presentation}
           />
         ) : null}
         {connectNodeIds.map((nodeId) => (

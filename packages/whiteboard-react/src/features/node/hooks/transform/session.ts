@@ -16,8 +16,9 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { CanvasDown } from '../../../../runtime/input/down'
+import type { CanvasFrameDown } from '../../../../runtime/input/pointer'
 import type { InternalInstance } from '../../../../runtime/instance'
+import { resolveSelectionBoxView } from '../../selection'
 import {
   clearNodeSessionPreview,
   writeNodeSessionPreview
@@ -315,13 +316,7 @@ export const createTransformSession = (
     instance.commands.node.updateMany(updates)
   }
 
-  const canStart = (
-    event: TransformPointerEvent
-  ) => (
-    event.button === 0
-    && !active
-    && instance.read.tool.is('select')
-  )
+  const canStart = () => !active
 
   const start = (
     next: ActiveTransform,
@@ -476,13 +471,13 @@ export const createTransformSession = (
             return
           }
 
-          const scene = instance.read.node.scene(descendant)
+          const role = instance.read.node.role(descendant)
           if (descendant.type === 'group') {
             targets.set(descendant.id, descendantTarget)
             return
           }
 
-          if (scene === 'container') {
+          if (role === 'frame') {
             return
           }
 
@@ -513,11 +508,12 @@ export const createTransformSession = (
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
     const selection = instance.read.selection.get()
+    const selectionBox = resolveSelectionBoxView(selection)
     if (
-      !selection.box
+      !selectionBox.box
       || handle.kind !== 'resize'
       || !handle.direction
-      || selection.transform.resize !== 'scale'
+      || !selectionBox.canResize
     ) {
       return
     }
@@ -533,7 +529,7 @@ export const createTransformSession = (
       drag: createResizeDrag({
         pointerId: event.pointerId,
         handle: handle.direction,
-        rect: selection.box,
+        rect: selectionBox.box,
         rotation: 0,
         startScreen: {
           x: event.clientX,
@@ -552,11 +548,11 @@ export const createTransformSession = (
       clear()
     },
     down: (
-      input: CanvasDown
+      input: CanvasFrameDown
     ) => {
       const { event } = input
 
-      if (!canStart(event)) {
+      if (!canStart()) {
         return false
       }
 

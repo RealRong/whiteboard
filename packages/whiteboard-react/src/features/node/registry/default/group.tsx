@@ -17,7 +17,7 @@ export const GroupNodeDefinition: NodeDefinition = {
     icon: 'group',
     controls: []
   },
-  scene: 'container',
+  role: 'group',
   render: () => null,
   style: groupStyle,
   connect: false,

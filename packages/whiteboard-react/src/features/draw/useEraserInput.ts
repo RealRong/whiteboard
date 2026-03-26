@@ -4,8 +4,11 @@ import {
   useEffect,
   useRef
 } from 'react'
-import type { CanvasDown } from '../../runtime/input/down'
 import { useInternalInstance } from '../../runtime/hooks'
+import {
+  buildSegmentRect,
+  type EraserDown
+} from '../../runtime/input/pointer'
 import {
   clearNodeSessionHidden,
   writeNodeSessionHidden
@@ -29,17 +32,6 @@ const readSampleEvents = (
   const samples = event.getCoalescedEvents()
   return samples.length ? samples : [event]
 }
-
-const buildSegmentRect = (
-  left: Point,
-  right: Point,
-  halfWorld: number
-): Rect => ({
-  x: Math.min(left.x, right.x) - halfWorld,
-  y: Math.min(left.y, right.y) - halfWorld,
-  width: Math.abs(right.x - left.x) + halfWorld * 2,
-  height: Math.abs(right.y - left.y) + halfWorld * 2
-})
 
 export const useEraserInput = () => {
   const instance = useInternalInstance()
@@ -101,16 +93,8 @@ export const useEraserInput = () => {
   useEffect(() => clear, [clear])
 
   const down = useCallback((
-    input: CanvasDown
+    input: EraserDown
   ) => {
-    const { event } = input
-
-    if (event.defaultPrevented) return false
-    if (event.button !== 0) return false
-    if (input.mode !== 'idle') return false
-    if (input.tool.type !== 'draw' || input.tool.kind !== 'eraser') return false
-    if (input.editable || input.ignoreInput) return false
-
     const active: ActiveErase = {
       ids: new Set<NodeId>(),
       lastWorld: input.point.world
@@ -119,7 +103,7 @@ export const useEraserInput = () => {
 
     const session = instance.interaction.start({
       mode: 'draw',
-      pointerId: event.pointerId,
+      pointerId: input.event.pointerId,
       capture: input.capture,
       move: (moveEvent) => {
         const current = activeRef.current
@@ -152,8 +136,8 @@ export const useEraserInput = () => {
 
     activeRef.current = active
     syncHidden(active)
-    event.preventDefault()
-    event.stopPropagation()
+    input.event.preventDefault()
+    input.event.stopPropagation()
     return true
   }, [clear, collectEvent, collectPoint, instance, syncHidden])
 

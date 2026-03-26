@@ -1,4 +1,4 @@
-import { moveEdgePath } from '@whiteboard/core/edge'
+import { moveEdgeRoute } from '@whiteboard/core/edge'
 import {
   getNodeAABB,
   isPointEqual,
@@ -207,10 +207,16 @@ const isEdgeEndEqual = (
   return false
 }
 
-const isEdgePathEqual = (
-  left: Edge['path'],
-  right: Edge['path']
-) => isPointArrayEqual(left?.points, right?.points)
+const isEdgeRouteEqual = (
+  left: Edge['route'],
+  right: Edge['route']
+) => (
+  left?.kind === right?.kind
+  && isPointArrayEqual(
+    left?.kind === 'manual' ? left.points : undefined,
+    right?.kind === 'manual' ? right.points : undefined
+  )
+)
 
 const isEdgeLabelEqual = (
   left?: EdgeLabel,
@@ -291,7 +297,7 @@ const diffEdgeChange = (
     !isEdgeEndEqual(before.source, after.source)
     || !isEdgeEndEqual(before.target, after.target)
     || before.type !== after.type
-    || !isEdgePathEqual(before.path, after.path)
+    || !isEdgeRouteEqual(before.route, after.route)
   )
   const value = (
     !isShallowEqual(before.style, after.style)
@@ -619,7 +625,7 @@ const collectEdgeFollowOps = ({
       return
     }
 
-    const patch = moveEdgePath(edge, sourceDelta)
+    const patch = moveEdgeRoute(edge, sourceDelta)
     if (!patch) {
       return
     }

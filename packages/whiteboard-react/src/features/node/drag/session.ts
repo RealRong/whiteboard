@@ -4,7 +4,7 @@ import {
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../../runtime/instance'
 import {
-  toPatchEntry
+  toEdgePreviewEntry
 } from '../../edge/preview'
 import {
   clearNodeSessionPreview,
@@ -70,7 +70,7 @@ export const createNodeDragSession = (
       y: draft.last.y - draft.origin.y
     }
     const edgeUpdates = draft.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = instance.engine.read.edge.item.get(edgeId)?.edge
+      const edge = instance.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -130,14 +130,14 @@ export const createNodeDragSession = (
       active,
       positions: preview.patches,
       edgeIds: active.relatedEdgeIds,
-      readEdge: (edgeId) => instance.engine.read.edge.item.get(edgeId)
+      readEdge: (edgeId) => instance.read.edge.view.get(edgeId)?.edge
     })
     const delta = {
       x: preview.position.x - active.origin.x,
       y: preview.position.y - active.origin.y
     }
     const selectedEdgeUpdates = active.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = instance.engine.read.edge.item.get(edgeId)?.edge
+      const edge = instance.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -147,7 +147,7 @@ export const createNodeDragSession = (
         return []
       }
 
-      return [toPatchEntry(edgeId, patch)]
+      return [toEdgePreviewEntry(edgeId, patch)]
     })
 
     writeNodeSessionPreview(instance.internals.node.session, {
@@ -159,7 +159,7 @@ export const createNodeDragSession = (
         ...selectedEdgeUpdates,
         ...edgeUpdates.map(({ id, patch }) => ({
           id,
-          pathPoints: patch.path?.points
+          route: patch.route
         }))
       ]
     )

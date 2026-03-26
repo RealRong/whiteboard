@@ -22,10 +22,10 @@ import type { ViewportRuntime } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
 import type {
   InteractionCoordinator,
-  InteractionMode
+  InteractionState
 } from '../interaction/types'
 import type { SnapRuntime } from '../interaction/snap'
-import type { NodeFeatureRuntime } from '../../features/node/session/runtime'
+import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
 import type { MindmapDragStore } from '../../features/mindmap/session/drag'
 import type {
@@ -51,7 +51,7 @@ export type WhiteboardInstance = {
     edit: ReadStore<EditTarget>
     selection: ReadStore<SelectionSource>
     frame: ReadStore<FrameScope>
-    interaction: ReadStore<InteractionMode>
+    interaction: ReadStore<InteractionState>
   }
   commands: Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport'> & {
     tool: {

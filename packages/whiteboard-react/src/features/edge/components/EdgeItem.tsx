@@ -1,4 +1,3 @@
-import { getEdgePath } from '@whiteboard/core/edge'
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
 import { usePickRef } from '../../../runtime/hooks'
@@ -29,17 +28,7 @@ const EdgeItemBase = ({
     id: edge.id,
     part: 'body'
   })
-  const svgPath = useMemo(() => getEdgePath({
-    edge,
-    source: {
-      point: entry.ends.source.point,
-      side: entry.ends.source.anchor?.side
-    },
-    target: {
-      point: entry.ends.target.point,
-      side: entry.ends.target.anchor?.side
-    }
-  }).svgPath, [edge, entry.ends])
+  const svgPath = entry.path.svgPath
 
   const { stroke, strokeWidth, dash, markerStart, markerEnd, hitWidth, animation } = useMemo(() => {
     const baseStroke = edge.style?.stroke ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
