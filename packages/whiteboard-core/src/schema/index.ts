@@ -8,7 +8,7 @@ import type {
   NodeTypeDefinition,
   SchemaField
 } from '../types/core'
-import { cloneValue } from '../utils'
+import { cloneValue } from '../utils/merge'
 import { getValueByPath, hasValueByPath, setValueByPath } from '../utils/objectPath'
 
 type SchemaTarget = {

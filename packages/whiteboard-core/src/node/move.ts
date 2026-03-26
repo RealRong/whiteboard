@@ -16,6 +16,7 @@ import {
   expandGroupMembers,
   filterRootIds,
   findSmallestContainerAtPoint,
+  getNodeOwnerMap,
   isContainerNode
 } from './group'
 
@@ -34,9 +35,9 @@ export type MoveNodePosition = {
   position: Point
 }
 
-export type MoveContainerChange = {
+export type MoveOwnerChange = {
   id: NodeId
-  containerId?: NodeId
+  ownerId?: NodeId
 }
 
 export type MoveEdgeChange = {
@@ -46,7 +47,7 @@ export type MoveEdgeChange = {
 
 export type MoveEffect = {
   nodes: readonly MoveNodePosition[]
-  containers: readonly MoveContainerChange[]
+  owners: readonly MoveOwnerChange[]
   edges: readonly MoveEdgeChange[]
   hoveredContainerId?: NodeId
 }
@@ -54,7 +55,7 @@ export type MoveEffect = {
 const EMPTY_ROOT_IDS: readonly NodeId[] = []
 const EMPTY_MEMBERS: readonly MoveMember[] = []
 const EMPTY_POSITIONS: readonly MoveNodePosition[] = []
-const EMPTY_CONTAINERS: readonly MoveContainerChange[] = []
+const EMPTY_OWNERS: readonly MoveOwnerChange[] = []
 const EMPTY_EDGES: readonly MoveEdgeChange[] = []
 const EMPTY_MEMBER_ID_SET: ReadonlySet<NodeId> = new Set<NodeId>()
 
@@ -117,7 +118,7 @@ export const projectMovePositions = (
   }))
 }
 
-const resolveContainerTarget = (options: {
+const resolveFrameOwnerTarget = (options: {
   node: Node
   position: Point
   containerNodes: readonly Node[]
@@ -157,7 +158,7 @@ const resolveSharedContainerTarget = (options: {
       continue
     }
 
-    const target = resolveContainerTarget({
+    const target = resolveFrameOwnerTarget({
       node,
       position,
       containerNodes: options.containerNodes,
@@ -178,47 +179,52 @@ const resolveSharedContainerTarget = (options: {
   return hovered
 }
 
-const collectContainerChanges = (options: {
-  members: readonly MoveMember[]
+const collectOwnerChanges = (options: {
+  rootIds: readonly NodeId[]
   nodeById: ReadonlyMap<NodeId, Node>
+  ownerByChildId: ReadonlyMap<NodeId, NodeId>
   positionById: ReadonlyMap<NodeId, Point>
   containerNodes: readonly Node[]
   nodeSize: Size
-}): readonly MoveContainerChange[] => {
-  if (!options.members.length) {
-    return EMPTY_CONTAINERS
+}): readonly MoveOwnerChange[] => {
+  if (!options.rootIds.length) {
+    return EMPTY_OWNERS
   }
 
-  const changes: MoveContainerChange[] = []
+  const changes: MoveOwnerChange[] = []
 
-  options.members.forEach((member) => {
-    const node = options.nodeById.get(member.id)
-    const position = options.positionById.get(member.id)
+  options.rootIds.forEach((nodeId) => {
+    const node = options.nodeById.get(nodeId)
+    const position = options.positionById.get(nodeId)
     if (!node || !position) {
       return
     }
 
-    const targetContainerId = resolveContainerTarget({
+    const currentOwnerId = options.ownerByChildId.get(node.id)
+    const currentOwner = currentOwnerId
+      ? options.nodeById.get(currentOwnerId)
+      : undefined
+
+    if (currentOwner?.type === 'group') {
+      return
+    }
+
+    const targetOwnerId = resolveFrameOwnerTarget({
       node,
       position,
       containerNodes: options.containerNodes,
       nodeSize: options.nodeSize
     })
 
-    if (targetContainerId && targetContainerId !== node.containerId) {
+    if (targetOwnerId && targetOwnerId !== currentOwnerId) {
       changes.push({
         id: node.id,
-        containerId: targetContainerId
+        ownerId: targetOwnerId
       })
       return
     }
 
-    if (!node.containerId) {
-      return
-    }
-
-    const containerNode = options.nodeById.get(node.containerId)
-    if (!containerNode || !isContainerNode(containerNode)) {
+    if (!currentOwnerId || currentOwner?.type !== 'frame') {
       return
     }
 
@@ -226,17 +232,17 @@ const collectContainerChanges = (options: {
       ...node,
       position
     }
-    const containerRect = getNodeAABB(containerNode, options.nodeSize)
+    const containerRect = getNodeAABB(currentOwner, options.nodeSize)
     const nextRect = getNodeAABB(nextNode, options.nodeSize)
     if (!rectContains(containerRect, nextRect)) {
       changes.push({
         id: node.id,
-        containerId: undefined
+        ownerId: undefined
       })
     }
   })
 
-  return changes.length > 0 ? changes : EMPTY_CONTAINERS
+  return changes.length > 0 ? changes : EMPTY_OWNERS
 }
 
 const collectFollowEdgePatches = (options: {
@@ -286,12 +292,13 @@ export const resolveMoveEffect = (options: {
   if (!positions.length) {
     return {
       nodes: EMPTY_POSITIONS,
-      containers: EMPTY_CONTAINERS,
+      owners: EMPTY_OWNERS,
       edges: EMPTY_EDGES
     }
   }
 
   const nodeById = toNodeById(options.nodes)
+  const ownerByChildId = getNodeOwnerMap(options.nodes)
   const memberIds = toMemberIdSet(options.move.members)
   const positionById = toPositionById(positions)
   const containerNodes = options.nodes.filter((node) => (
@@ -301,9 +308,10 @@ export const resolveMoveEffect = (options: {
 
   return {
     nodes: positions,
-    containers: collectContainerChanges({
-      members: options.move.members,
+    owners: collectOwnerChanges({
+      rootIds: options.move.rootIds,
       nodeById,
+      ownerByChildId,
       positionById,
       containerNodes,
       nodeSize: options.nodeSize

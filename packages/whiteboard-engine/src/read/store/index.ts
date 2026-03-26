@@ -10,7 +10,8 @@ import {
 import {
   getNodeAABB,
   getAABBFromPoints,
-  getRectsBoundingRect
+  getRectsBoundingRect,
+  isPointInRect
 } from '@whiteboard/core/geometry'
 import { createValueStore } from '@whiteboard/core/runtime'
 import {
@@ -20,12 +21,18 @@ import {
 } from '@whiteboard/core/document'
 import {
   getNodeOutlineBounds,
+  getNodeOutlineRect,
+  filterNodeIdsInRect,
+  resolveSelectionTransformTargets,
+  getGroupDescendants,
+  matchCanvasNodeRect,
   getTargetBounds
 } from '@whiteboard/core/node'
 import {
   listNodes,
   type EdgeId,
   type NodeId,
+  type Point,
   type Rect
 } from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
@@ -117,6 +124,80 @@ export const createRead = ({
       : getNodeAABB(item.node, item.rect)
   }
 
+  const readProjectedNodeFrame = (nodeId: NodeId): Rect | undefined => {
+    const item = nodeProjection.item.get(nodeId)
+    if (!item) {
+      return undefined
+    }
+
+    return item.node.type === 'shape'
+      ? getNodeOutlineRect(item.node, item.rect)
+      : item.rect
+  }
+
+  const readFrameNodeAtPoint = (
+    point: Point
+  ): NodeId | undefined => {
+    const nodeIds = nodeProjection.list.get()
+
+    for (let offset = nodeIds.length - 1; offset >= 0; offset -= 1) {
+      const nodeId = nodeIds[offset]
+      const entry = index.node.get(nodeId)
+      if (!entry || entry.node.type !== 'frame') {
+        continue
+      }
+
+      if (isPointInRect(point, entry.rect)) {
+        return nodeId
+      }
+    }
+
+    return undefined
+  }
+
+  const readNodeIdsInRect = (
+    rect: Rect,
+    options?: Parameters<typeof index.node.idsInRect>[1]
+  ): NodeId[] => {
+    const match = options?.match ?? 'touch'
+    const candidateIds = index.node.idsInRect(rect, {
+      ...options,
+      match: match === 'contain' ? 'touch' : match
+    })
+    const nodes = readModel().nodes.canvas
+    const descendantIdsByGroupId = new Map<NodeId, readonly NodeId[]>()
+    const readDescendantIds = (groupId: NodeId): readonly NodeId[] => {
+      const cached = descendantIdsByGroupId.get(groupId)
+      if (cached) {
+        return cached
+      }
+
+      const next = getGroupDescendants(nodes, groupId).map((node) => node.id)
+      descendantIdsByGroupId.set(groupId, next)
+      return next
+    }
+
+    return filterNodeIdsInRect({
+      rect,
+      candidateIds,
+      match,
+      getEntry: index.node.get,
+      getDescendants: readDescendantIds,
+      matchEntry: matchCanvasNodeRect
+    })
+  }
+
+  const readNodeTransformTargets = (
+    nodeIds: readonly NodeId[]
+  ) => resolveSelectionTransformTargets(
+    index.node.all().map((entry) => ({
+      id: entry.node.id,
+      node: entry.node,
+      rect: entry.rect
+    })),
+    nodeIds
+  )
+
   const readEdgeBounds = (edgeId: EdgeId): Rect | undefined => {
     const item = edgeProjection.item.get(edgeId)
     if (!item) {
@@ -204,7 +285,13 @@ export const createRead = ({
       },
       node: {
         list: nodeProjection.list,
-        item: nodeProjection.item
+        item: nodeProjection.item,
+        owner: treeIndex.owner,
+        bounds: readProjectedNodeBounds,
+        frame: readProjectedNodeFrame,
+        frameAt: readFrameNodeAtPoint,
+        idsInRect: readNodeIdsInRect,
+        transformTargets: readNodeTransformTargets
       },
       edge: {
         list: edgeProjection.list,

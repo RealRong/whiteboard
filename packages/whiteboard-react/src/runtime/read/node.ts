@@ -1,21 +1,14 @@
 import {
   createKeyedDerivedStore
 } from '@whiteboard/core/runtime'
-import {
-  getNodeOutlineBounds,
-  getNodeOutlineRect,
-  matchDrawRect
-} from '@whiteboard/core/node'
 import type {
   KeyedReadStore,
 } from '@whiteboard/core/runtime'
-import type { CanvasNode, NodeItem } from '@whiteboard/core/read'
-import {
-  getNodeAABB,
-  rectContainsRotatedRect,
-  isPointInRect
-} from '@whiteboard/core/geometry'
-import type { NodeRectHitOptions } from '@whiteboard/core/node'
+import type { NodeItem } from '@whiteboard/core/read'
+import type {
+  NodeRectHitOptions,
+  TransformSelectionTargets
+} from '@whiteboard/core/node'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeDefinition, NodeRegistry, NodeRole } from '../../types/node'
@@ -59,55 +52,6 @@ export const resolveNodeTransform = (
       : resolveNodeRole(definition) === 'content'
 })
 
-const matchesPathNode = ({
-  entry,
-  rect,
-  match
-}: {
-  entry: CanvasNode
-  rect: Rect
-  match: 'touch' | 'contain'
-}) => {
-  switch (entry.node.type) {
-    case 'draw':
-      return matchDrawRect({
-        node: entry.node,
-        rect: entry.rect,
-        queryRect: rect,
-        mode: match
-      })
-    default:
-      return match === 'contain'
-        ? rectContainsRotatedRect(rect, entry.rect, entry.rotation)
-        : true
-  }
-}
-
-const matchesNodeRect = ({
-  registry,
-  entry,
-  rect,
-  match
-}: {
-  registry: NodeRegistry
-  entry: CanvasNode
-  rect: Rect
-  match: 'touch' | 'contain'
-}) => {
-  const definition = registry.get(entry.node.type)
-  if (definition?.hit === 'path') {
-    return matchesPathNode({
-      entry,
-      rect,
-      match
-    })
-  }
-
-  return match === 'contain'
-    ? rectContainsRotatedRect(rect, entry.rect, entry.rotation)
-    : true
-}
-
 const isNodeItemEqual = (
   left: NodeItem | undefined,
   right: NodeItem | undefined
@@ -125,6 +69,7 @@ const isNodeItemEqual = (
 export type NodeRead = {
   list: EngineRead['node']['list']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
+  owner: (nodeId: NodeId) => NodeId | undefined
   bounds: (nodeId: NodeId) => Rect | undefined
   frame: (nodeId: NodeId) => Rect | undefined
   role: (node: Pick<Node, 'type'> | string) => NodeRole
@@ -134,6 +79,9 @@ export type NodeRead = {
   filter: (nodeIds: readonly NodeId[], role: NodeRole) => readonly NodeId[]
   frameAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
+  transformTargets: (
+    nodeIds: readonly NodeId[]
+  ) => TransformSelectionTargets<Node> | undefined
 }
 
 export const createNodeItemRead = ({
@@ -179,30 +127,9 @@ export const createNodeRead = ({
   return {
     list: read.node.list,
     item,
-    bounds: (nodeId) => {
-      const nextItem = item.get(nodeId)
-      if (!nextItem) {
-        return undefined
-      }
-
-      const rotation = typeof nextItem.node.rotation === 'number'
-        ? nextItem.node.rotation
-        : 0
-
-      return nextItem.node.type === 'shape'
-        ? getNodeOutlineBounds(nextItem.node, nextItem.rect, rotation)
-        : getNodeAABB(nextItem.node, nextItem.rect)
-    },
-    frame: (nodeId) => {
-      const nextItem = item.get(nodeId)
-      if (!nextItem) {
-        return undefined
-      }
-
-      return nextItem.node.type === 'shape'
-        ? getNodeOutlineRect(nextItem.node, nextItem.rect)
-        : nextItem.rect
-    },
+    owner: read.node.owner,
+    bounds: read.node.bounds,
+    frame: read.node.frame,
     role,
     transform,
     connect,
@@ -215,77 +142,8 @@ export const createNodeRead = ({
 
       return role(nextItem.node) === expectedRole
     }),
-    frameAt: (point) => {
-      const nodeIds = read.node.list.get()
-
-      for (let index = nodeIds.length - 1; index >= 0; index -= 1) {
-        const nodeId = nodeIds[index]
-        const entry = read.index.node.get(nodeId)
-        if (!entry) {
-          continue
-        }
-
-        if (role(entry.node) !== 'frame') {
-          continue
-        }
-
-        if (isPointInRect(point, entry.rect)) {
-          return nodeId
-        }
-      }
-
-      return undefined
-    },
-    idsInRect: (rect, options) => {
-      const match = options?.match ?? 'touch'
-      const candidateIds = read.index.node.idsInRect(rect, {
-        ...options,
-        match: match === 'contain' ? 'touch' : match
-      })
-      const candidateSet = new Set(candidateIds)
-      const matchCache = new Map<NodeId, boolean>()
-
-      const matchesCandidate = (
-        nodeId: NodeId
-      ): boolean => {
-        const cached = matchCache.get(nodeId)
-        if (cached !== undefined) {
-          return cached
-        }
-
-        if (!candidateSet.has(nodeId)) {
-          matchCache.set(nodeId, false)
-          return false
-        }
-
-        const entry = read.index.node.get(nodeId)
-        if (!entry) {
-          matchCache.set(nodeId, false)
-          return false
-        }
-
-        if (entry.node.type === 'group') {
-          const descendantIds = read.tree.get(nodeId)
-          const matched = descendantIds.length > 0 && (
-            match === 'contain'
-              ? descendantIds.every((descendantId) => matchesCandidate(descendantId))
-              : descendantIds.some((descendantId) => matchesCandidate(descendantId))
-          )
-          matchCache.set(nodeId, matched)
-          return matched
-        }
-
-        const matched = matchesNodeRect({
-          registry,
-          entry,
-          rect,
-          match
-        })
-        matchCache.set(nodeId, matched)
-        return matched
-      }
-
-      return candidateIds.filter((nodeId) => matchesCandidate(nodeId))
-    }
+    frameAt: read.node.frameAt,
+    idsInRect: read.node.idsInRect,
+    transformTargets: read.node.transformTargets
   }
 }

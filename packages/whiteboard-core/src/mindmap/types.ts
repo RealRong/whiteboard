@@ -1,4 +1,4 @@
-import type { Result } from '../types/result'
+import type { Result } from '../types'
 
 export type MindmapId = string
 export type MindmapNodeId = string

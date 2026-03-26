@@ -4,15 +4,10 @@ import {
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
-import type { SelectionGesture } from '../../selection/gesture'
 import { useSelection } from '../selection'
 import { NodeItem } from './NodeItem'
 
-export const NodeSceneLayer = ({
-  gesture
-}: {
-  gesture: SelectionGesture
-}) => {
+export const NodeSceneLayer = () => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const selection = useSelection()
@@ -31,7 +26,6 @@ export const NodeSceneLayer = ({
           nodeId={nodeId}
           registerMeasuredElement={registerMeasuredElement}
           selected={selectedSet.has(nodeId)}
-          onNodeDoubleClick={gesture.doubleClick}
         />
       ))}
     </div>

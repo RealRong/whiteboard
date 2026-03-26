@@ -2,9 +2,15 @@ import { buildEdgeCreateOperation } from '../edge/commands'
 import { readEdgeRoutePoints } from '../edge/types'
 import { resolveEdgeEnds } from '../edge/endpoints'
 import { getAABBFromPoints, getNodeRect, getRectCenter } from '../geometry'
-import { getNodesBoundingRect } from '../node/group'
+import {
+  getGroupDescendants,
+  getNodeOwnerMap,
+  getNodesBoundingRect,
+  isOwnerNode
+} from '../node/group'
 import { buildNodeCreateOperation } from '../node/commands'
-import { cloneValue, createId } from '../utils'
+import { createId } from '../utils/id'
+import { cloneValue } from '../utils/merge'
 import { err, ok } from '../types'
 import type {
   CoreRegistries,
@@ -48,7 +54,7 @@ export type SliceExportResult = {
 export type SliceInsertOptions = {
   at?: Point
   offset?: Point
-  containerId?: NodeId
+  ownerId?: NodeId
   roots?: SliceRoots
 }
 
@@ -87,7 +93,7 @@ type InsertSliceInput = {
   createEdgeId?: () => EdgeId
   at?: Point
   offset?: Point
-  containerId?: NodeId
+  ownerId?: NodeId
   roots?: SliceRoots
 }
 
@@ -114,8 +120,19 @@ const cloneNode = (node: Node): Node => ({
   ...cloneValue(node),
   position: cloneValue(node.position),
   size: node.size ? cloneValue(node.size) : undefined,
+  children: node.children ? [...node.children] : undefined,
   data: node.data ? cloneValue(node.data) : undefined,
   style: node.style ? cloneValue(node.style) : undefined
+})
+
+const filterNodeChildren = (
+  node: Node,
+  includedNodeIds: ReadonlySet<NodeId>
+): Node => ({
+  ...node,
+  children: node.children
+    ? node.children.filter((childId) => includedNodeIds.has(childId))
+    : undefined
 })
 
 const cloneEdge = (edge: Edge): Edge => ({
@@ -133,18 +150,6 @@ const collectExpandedNodeIds = (
   selectedIds: readonly NodeId[]
 ) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
-  const childIdsByGroupId = new Map<NodeId, NodeId[]>()
-
-  nodes.forEach((node) => {
-    if (!node.groupId) return
-    const childIds = childIdsByGroupId.get(node.groupId)
-    if (childIds) {
-      childIds.push(node.id)
-      return
-    }
-    childIdsByGroupId.set(node.groupId, [node.id])
-  })
-
   const expandedIds = new Set<NodeId>()
   const stack = dedupeIds(selectedIds)
 
@@ -157,12 +162,10 @@ const collectExpandedNodeIds = (
 
     expandedIds.add(nodeId)
 
-    if (node.type !== 'group') continue
+    if (!isOwnerNode(node)) continue
 
-    const childIds = childIdsByGroupId.get(nodeId)
-    if (!childIds?.length) continue
-    childIds.forEach((childId) => {
-      stack.push(childId)
+    getGroupDescendants(nodes, nodeId).forEach((child) => {
+      stack.push(child.id)
     })
   }
 
@@ -451,12 +454,9 @@ const withCreatedEdges = (
 }
 
 const readDefaultRoots = (slice: Slice): SliceRoots => {
-  const nodeIdSet = new Set(slice.nodes.map((node) => node.id))
+  const ownerByChildId = getNodeOwnerMap(slice.nodes)
   const nodeIds = slice.nodes
-    .filter((node) => (
-      (!node.containerId || !nodeIdSet.has(node.containerId))
-      && (!node.groupId || !nodeIdSet.has(node.groupId))
-    ))
+    .filter((node) => !ownerByChildId.has(node.id))
     .map((node) => node.id)
 
   if (nodeIds.length > 0) {
@@ -501,15 +501,16 @@ export const exportSliceFromNodes = ({
 
   const orderedNodes = listNodes(doc)
   const expandedIds = collectExpandedNodeIds(orderedNodes, selectedIds)
-  const nodes = orderedNodes
+  const rawNodes = orderedNodes
     .filter((node) => expandedIds.has(node.id))
     .map((node) => cloneNode(node))
 
-  if (!nodes.length) {
+  if (!rawNodes.length) {
     return err('invalid', 'No nodes selected.')
   }
 
-  const nodeIdSet = new Set(nodes.map((node) => node.id))
+  const nodeIdSet = new Set(rawNodes.map((node) => node.id))
+  const nodes = rawNodes.map((node) => filterNodeChildren(node, nodeIdSet))
   const edges = listEdges(doc)
     .filter((edge) => isEdgeInsideNodeSlice(edge, nodeIdSet))
     .map((edge) => cloneEdge(edge))
@@ -590,10 +591,11 @@ export const exportSliceFromSelection = ({
 
   const orderedNodes = listNodes(doc)
   const expandedNodeIds = collectExpandedNodeIds(orderedNodes, selectedNodeIds)
-  const nodes = orderedNodes
+  const rawNodes = orderedNodes
     .filter((node) => expandedNodeIds.has(node.id))
     .map((node) => cloneNode(node))
-  const nodeIdSet = new Set(nodes.map((node) => node.id))
+  const nodeIdSet = new Set(rawNodes.map((node) => node.id))
+  const nodes = rawNodes.map((node) => filterNodeChildren(node, nodeIdSet))
 
   const edges: Edge[] = []
   const includedEdgeIds = new Set<EdgeId>()
@@ -652,7 +654,7 @@ export const buildInsertSliceOperations = ({
   createEdgeId = () => createId('edge'),
   at,
   offset,
-  containerId,
+  ownerId,
   roots
 }: InsertSliceInput): Result<SliceInsertResult, 'invalid'> => {
   if (!slice.nodes.length && !slice.edges.length) {
@@ -673,7 +675,6 @@ export const buildInsertSliceOperations = ({
       ? cloneValue(offset)
       : { x: 0, y: 0 }
 
-  const sourceNodeIds = new Set(slice.nodes.map((node) => node.id))
   const normalizedRoots = toRoots(roots ?? readDefaultRoots(slice))
 
   const operations: Operation[] = []
@@ -685,44 +686,35 @@ export const buildInsertSliceOperations = ({
   const allEdgeIds: EdgeId[] = []
   const depthCache = new Map<NodeId, number>()
   const nodeById = new Map<NodeId, Node>(slice.nodes.map((node) => [node.id, node]))
+  const ownerByChildId = getNodeOwnerMap(slice.nodes)
 
   const getDepth = (node: Node): number => {
-    const ownerId = node.groupId ?? node.containerId
-    if (!ownerId || !sourceNodeIds.has(ownerId)) return 0
+    const currentOwnerId = ownerByChildId.get(node.id)
+    if (!currentOwnerId) return 0
     const cached = depthCache.get(node.id)
     if (typeof cached === 'number') return cached
-    const parent = nodeById.get(ownerId)
+    const parent = nodeById.get(currentOwnerId)
     const depth = parent ? getDepth(parent) + 1 : 0
     depthCache.set(node.id, depth)
     return depth
   }
 
   const orderedNodes = [...slice.nodes].sort((left, right) => getDepth(left) - getDepth(right))
+  orderedNodes.forEach((sourceNode) => {
+    nodeIdMap.set(sourceNode.id, createNodeId())
+  })
 
   for (const sourceNode of orderedNodes) {
-    const nextNodeId = createNodeId()
-    let nextContainerId = containerId
-    let nextGroupId = sourceNode.groupId
-
-    if (sourceNode.containerId && sourceNodeIds.has(sourceNode.containerId)) {
-      const remappedContainerId = nodeIdMap.get(sourceNode.containerId)
-      if (!remappedContainerId) {
-        return err('invalid', `Node ${sourceNode.id} container ${sourceNode.containerId} could not be remapped.`)
-      }
-      nextContainerId = remappedContainerId
+    const nextNodeId = nodeIdMap.get(sourceNode.id)
+    if (!nextNodeId) {
+      return err('invalid', `Node ${sourceNode.id} could not be remapped.`)
     }
 
-    if (sourceNode.groupId) {
-      if (sourceNodeIds.has(sourceNode.groupId)) {
-        const remappedGroupId = nodeIdMap.get(sourceNode.groupId)
-        if (!remappedGroupId) {
-          return err('invalid', `Node ${sourceNode.id} group ${sourceNode.groupId} could not be remapped.`)
-        }
-        nextGroupId = remappedGroupId
-      } else {
-        nextGroupId = undefined
-      }
-    }
+    const nextChildren = sourceNode.children
+      ? sourceNode.children
+        .map((childId) => nodeIdMap.get(childId))
+        .filter((childId): childId is NodeId => Boolean(childId))
+      : undefined
 
     const planned = buildNodeCreateOperation({
       payload: {
@@ -732,8 +724,7 @@ export const buildInsertSliceOperations = ({
           x: sourceNode.position.x + delta.x,
           y: sourceNode.position.y + delta.y
         },
-        containerId: nextContainerId,
-        groupId: nextGroupId
+        children: nextChildren
       },
       doc: withCreatedNodes(doc, duplicatedNodeOperations),
       registries,
@@ -747,6 +738,31 @@ export const buildInsertSliceOperations = ({
     operations.push(planned.data.operation)
     allNodeIds.push(planned.data.nodeId)
     nodeIdMap.set(sourceNode.id, planned.data.nodeId)
+  }
+
+  const nextRootNodeIds = normalizedRoots.nodeIds
+    .map((nodeId) => nodeIdMap.get(nodeId))
+    .filter((nodeId): nodeId is NodeId => Boolean(nodeId))
+
+  if (ownerId && nextRootNodeIds.length > 0) {
+    const owner = getNode(doc, ownerId)
+    if (!owner) {
+      return err('invalid', `Owner ${ownerId} not found.`)
+    }
+    if (!isOwnerNode(owner)) {
+      return err('invalid', `Node ${ownerId} is not an owner.`)
+    }
+
+    operations.push({
+      type: 'node.update',
+      id: owner.id,
+      patch: {
+        children: [
+          ...(owner.children ?? []),
+          ...nextRootNodeIds
+        ]
+      }
+    })
   }
 
   for (const sourceEdge of slice.edges) {

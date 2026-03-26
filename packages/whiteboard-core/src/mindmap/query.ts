@@ -8,7 +8,7 @@ import {
 } from './types'
 import { layoutMindmap, layoutMindmapTidy } from './layout'
 import { getMindmapTreeFromNode } from './helpers'
-import { cloneValue } from '../utils'
+import { cloneValue } from '../utils/merge'
 import type { MindmapLayoutHint, Node, Operation, Size } from '../types/core'
 
 export type MindmapLine = {

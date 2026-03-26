@@ -2,8 +2,7 @@ import {
   memo,
   useCallback,
   useMemo,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent
+  type CSSProperties
 } from 'react'
 import type {
   NodeId
@@ -13,7 +12,6 @@ import {
   usePickRef,
   useStoreValue
 } from '../../../runtime/hooks'
-import type { SelectionGesture } from '../../selection/gesture'
 import { useNodeView } from '../hooks/useNodeView'
 import { useSelection } from '../selection'
 import { FrameNodeChrome } from '../registry/default/frame'
@@ -140,14 +138,12 @@ const ShellHitItem = ({
   nodeId,
   side,
   style,
-  active = true,
-  onDoubleClick
+  active = true
 }: {
   nodeId: NodeId
   side: typeof SHELL_HITS[number]['key']
   style: CSSProperties
   active?: boolean
-  onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
 }) => {
   const bindPickRef = usePickRef({
     kind: 'node',
@@ -167,17 +163,14 @@ const ShellHitItem = ({
         ...style,
         pointerEvents: active ? 'auto' : 'none'
       }}
-      onDoubleClick={onDoubleClick}
     />
   )
 }
 
 const ContainerChromeItem = memo(({
-  nodeId,
-  gesture
+  nodeId
 }: {
   nodeId: NodeId
-  gesture: SelectionGesture
 }) => {
   const view = useNodeView(nodeId)
 
@@ -212,9 +205,6 @@ const ContainerChromeItem = memo(({
           nodeId={nodeId}
           side={hit.key}
           style={hit.style}
-          onDoubleClick={(event) => {
-            gesture.doubleClick(nodeId, event)
-          }}
         />
       ))}
       <div
@@ -224,9 +214,6 @@ const ContainerChromeItem = memo(({
       <FrameNodeChrome
         node={view.renderProps.node}
         write={view.renderProps.write}
-        onDoubleClick={(event) => {
-          gesture.doubleClick(nodeId, event)
-        }}
       />
     </div>
   )
@@ -271,11 +258,7 @@ export const FrameLayer = () => {
   )
 }
 
-export const ContainerChromeLayer = ({
-  gesture
-}: {
-  gesture: SelectionGesture
-}) => {
+export const ContainerChromeLayer = () => {
   const instance = useInternalInstance()
   const nodeIds = useStoreValue(instance.read.node.list)
   const frameIds = useMemo(
@@ -293,7 +276,6 @@ export const ContainerChromeLayer = ({
         <ContainerChromeItem
           key={nodeId}
           nodeId={nodeId}
-          gesture={gesture}
         />
       ))}
     </div>

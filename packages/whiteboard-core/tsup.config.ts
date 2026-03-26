@@ -13,8 +13,7 @@ export default defineConfig({
     'runtime/index': 'src/runtime/index.ts',
     'config/index': 'src/config/index.ts',
     'document/index': 'src/document/index.ts',
-    'read/index': 'src/read/index.ts',
-    'perf/index': 'src/perf/index.ts'
+    'read/index': 'src/read/index.ts'
   },
   format: ['esm', 'cjs'],
   dts: true,

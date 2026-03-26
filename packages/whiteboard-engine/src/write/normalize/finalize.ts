@@ -243,8 +243,7 @@ const diffNodeChange = (
     || !isRotationEqual(before.rotation, after.rotation)
   )
   const relation = (
-    before.containerId !== after.containerId
-    || before.groupId !== after.groupId
+    !isArrayEqual(before.children, after.children)
     || before.type !== after.type
   )
   const value = (
@@ -455,18 +454,6 @@ export const collectDirtyNodeIds = (
 
     if (change.after) {
       nodeIds.add(nodeId)
-    }
-    if (change.before?.containerId) {
-      nodeIds.add(change.before.containerId)
-    }
-    if (change.after?.containerId) {
-      nodeIds.add(change.after.containerId)
-    }
-    if (change.before?.groupId) {
-      nodeIds.add(change.before.groupId)
-    }
-    if (change.after?.groupId) {
-      nodeIds.add(change.after.groupId)
     }
   })
 

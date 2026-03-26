@@ -9,6 +9,7 @@ export class TreeIndex {
   private nodeById: ReadModel['canvas']['nodeById'] = new Map()
   private allIds: readonly NodeId[] = EMPTY_IDS
   private containers = new Set<NodeId>()
+  private ownerById = new Map<NodeId, NodeId>()
   private children = new Map<NodeId, NodeId[]>()
   private idsCache = new Map<NodeId, readonly NodeId[]>()
   private setCache = new Map<NodeId, ReadonlySet<NodeId>>()
@@ -24,6 +25,7 @@ export class TreeIndex {
     this.nodeById = nextNodeById
     this.allIds = nextIds
     this.containers = new Set()
+    this.ownerById = new Map()
     this.children = new Map()
     this.idsCache.clear()
     this.setCache.clear()
@@ -36,16 +38,16 @@ export class TreeIndex {
         this.containers.add(nodeId)
       }
 
-      const containerId = node.containerId
-      if (!containerId) {
-        return
-      }
-
-      const children = this.children.get(containerId) ?? []
-      children.push(nodeId)
-      this.children.set(containerId, children)
+      node.children?.forEach((childId) => {
+        const children = this.children.get(node.id) ?? []
+        children.push(childId)
+        this.children.set(node.id, children)
+        this.ownerById.set(childId, node.id)
+      })
     })
   }
+
+  owner = (nodeId: NodeId): NodeId | undefined => this.ownerById.get(nodeId)
 
   ids = (rootId: NodeId): readonly NodeId[] => {
     const cached = this.idsCache.get(rootId)

@@ -30,7 +30,7 @@ export const useInsertDown = () => {
       instance,
       preset,
       world: input.point.world,
-      containerId: input.frame.id ?? frameTargetId
+      ownerId: input.frame.id ?? frameTargetId
     })
     if (!result) {
       return false

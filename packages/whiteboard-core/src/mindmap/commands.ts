@@ -1,4 +1,4 @@
-import { err, ok } from '../types/result'
+import { err, ok } from '../types'
 import type {
   MindmapAttachPayload,
   MindmapCommandResult,

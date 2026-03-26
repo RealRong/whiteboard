@@ -117,9 +117,9 @@ const WhiteboardCanvas = ({
       <div className="wb-root-viewport" style={transformStyle}>
         <FrameLayer />
         <EdgeLayer />
-        <NodeSceneLayer gesture={canvasInput.gesture} />
+        <NodeSceneLayer />
         <MindmapSceneLayer />
-        <ContainerChromeLayer gesture={canvasInput.gesture} />
+        <ContainerChromeLayer />
         <NodeOverlayLayer />
         <EdgeOverlayLayer
           onRoutePointKeyDown={canvasInput.edgeRouteKeyDown}

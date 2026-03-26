@@ -1,16 +1,23 @@
 import {
+  canReconnectEdgeEnd,
   DEFAULT_EDGE_ANCHOR_OFFSET,
-  resolveAnchorFromPoint
+  resolveAnchorFromPoint,
+  resolveReconnectDraftEnd,
+  setEdgeConnectTarget,
+  startEdgeCreate,
+  startEdgeReconnect,
+  toEdgeConnectCommit,
+  toEdgeConnectHint,
+  toEdgeConnectPatch,
+  toEdgeDraftEnd,
+  type EdgeConnectState
 } from '@whiteboard/core/edge'
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type {
   EdgeAnchor,
-  EdgeEnd,
   EdgeId,
-  EdgePatch,
   EdgeType,
-  NodeId,
-  Point
+  NodeId
 } from '@whiteboard/core/types'
 import {
   useCallback,
@@ -24,9 +31,7 @@ import type {
 } from '../../../runtime/input/pointer'
 import { readEdgeType } from '../../../runtime/tool'
 import type { ViewportPointer } from '../../../runtime/viewport'
-import type { EdgeConnectState, EdgeDraftEnd } from '../../../types/edge'
 import {
-  type EdgeHint,
   writeEdgePreviewPatch
 } from '../preview'
 import {
@@ -41,74 +46,6 @@ type ConnectPointer = ViewportPointer & {
 type ConnectNodeEntry = NonNullable<
   ReturnType<ReturnType<typeof useInternalInstance>['read']['index']['node']['get']>
 >
-
-const toPointDraftEnd = (
-  point: Point
-): EdgeDraftEnd => ({
-  kind: 'point',
-  point
-})
-
-const toEdgeEnd = (
-  value: EdgeDraftEnd
-): EdgeEnd => (
-  value.kind === 'node'
-    ? {
-        kind: 'node',
-        nodeId: value.nodeId,
-        anchor: value.anchor
-      }
-    : {
-        kind: 'point',
-        point: value.point
-      }
-)
-
-const canReconnectEnd = (
-  can: {
-    reconnectSource: boolean
-    reconnectTarget: boolean
-  },
-  end: 'source' | 'target'
-) => (
-  end === 'source'
-    ? can.reconnectSource
-    : can.reconnectTarget
-)
-
-const toReconnectPatch = (
-  end: 'source' | 'target',
-  value: EdgeDraftEnd
-): EdgePatch => (
-  end === 'source'
-    ? { source: toEdgeEnd(value) }
-    : { target: toEdgeEnd(value) }
-)
-
-const toConnectHint = (
-  state: EdgeConnectState
-): EdgeHint | undefined => {
-  const line =
-    state.kind === 'create' && state.to
-      ? {
-          from: state.from.point,
-          to: state.to.point
-        }
-      : undefined
-  const snap =
-    state.to?.kind === 'node'
-      ? state.to.point
-      : undefined
-
-  if (!line && !snap) {
-    return undefined
-  }
-
-  return {
-    line,
-    snap
-  }
-}
 
 export const useEdgeConnectInput = () => {
   const instance = useInternalInstance()
@@ -126,18 +63,6 @@ export const useEdgeConnectInput = () => {
   const clearPatch = useCallback(() => {
     instance.internals.edge.preview.patch.clear()
   }, [instance])
-
-  const createState = useCallback((
-    from: EdgeDraftEnd,
-    pointer: ConnectPointer,
-    edgeType: EdgeType
-  ): EdgeConnectState => ({
-    kind: 'create',
-    pointerId: pointer.pointerId,
-    edgeType,
-    from,
-    to: toPointDraftEnd(pointer.world)
-  }), [])
 
   const readConnectNode = useCallback((
     nodeId: NodeId
@@ -164,12 +89,17 @@ export const useEdgeConnectInput = () => {
           offset: DEFAULT_EDGE_ANCHOR_OFFSET
         }
 
-        return createState({
-          kind: 'node',
-          nodeId: pick.id,
-          anchor,
-          point: getNodeAnchorPoint(entry.node, entry.rect, anchor, entry.rotation)
-        }, pointer, edgeType)
+        return startEdgeCreate({
+          pointerId: pointer.pointerId,
+          edgeType,
+          from: {
+            kind: 'node',
+            nodeId: pick.id,
+            anchor,
+            point: getNodeAnchorPoint(entry.node, entry.rect, anchor, entry.rotation)
+          },
+          to: toEdgeDraftEnd(pointer.world)
+        })
       }
     }
 
@@ -188,17 +118,27 @@ export const useEdgeConnectInput = () => {
           config: instance.config.edge
         })
 
-        return createState({
-          kind: 'node',
-          nodeId: pick.id,
-          anchor: resolved.anchor,
-          point: resolved.point
-        }, pointer, edgeType)
+        return startEdgeCreate({
+          pointerId: pointer.pointerId,
+          edgeType,
+          from: {
+            kind: 'node',
+            nodeId: pick.id,
+            anchor: resolved.anchor,
+            point: resolved.point
+          },
+          to: toEdgeDraftEnd(pointer.world)
+        })
       }
     }
 
-    return createState(toPointDraftEnd(pointer.world), pointer, edgeType)
-  }, [createState, instance, readConnectNode])
+    return startEdgeCreate({
+      pointerId: pointer.pointerId,
+      edgeType,
+      from: toEdgeDraftEnd(pointer.world),
+      to: toEdgeDraftEnd(pointer.world)
+    })
+  }, [instance, readConnectNode])
 
   const readReconnectState = useCallback((
     edgeId: EdgeId,
@@ -210,86 +150,70 @@ export const useEdgeConnectInput = () => {
       return undefined
     }
 
-    if (!canReconnectEnd(view.can, end)) {
+    if (!canReconnectEdgeEnd(view.can, end)) {
       return undefined
     }
 
     const edgeEnd = view.edge[end]
     const resolvedEnd = view.ends[end]
-    const from: EdgeDraftEnd =
-      edgeEnd.kind === 'node'
-        ? {
-            kind: 'node',
-            nodeId: edgeEnd.nodeId,
-            anchor: edgeEnd.anchor ?? {
-              side: resolvedEnd.anchor?.side ?? 'right',
-              offset: resolvedEnd.anchor?.offset ?? DEFAULT_EDGE_ANCHOR_OFFSET
-            },
-            point: resolvedEnd.point
-          }
-        : {
-            kind: 'point',
-            point: resolvedEnd.point
-          }
-
-    return {
-      kind: 'reconnect',
+    return startEdgeReconnect({
       pointerId: pointer.pointerId,
       edgeId,
       end,
-      from
-    }
+      from: resolveReconnectDraftEnd({
+        end: edgeEnd,
+        point: resolvedEnd.point,
+        anchor: resolvedEnd.anchor,
+        anchorOffset: DEFAULT_EDGE_ANCHOR_OFFSET
+      })
+    })
   }, [instance])
 
   const updateConnectState = useCallback((
     state: EdgeConnectState,
     pointer: ConnectPointer
-  ) => {
+  ): EdgeConnectState | undefined => {
     if (pointer.pointerId !== state.pointerId) {
-      return false
+      return undefined
     }
 
     const snap = instance.internals.snap.edge.connect(pointer.world)
-    state.to = snap
-      ? {
-          kind: 'node',
-          nodeId: snap.nodeId,
-          anchor: snap.anchor,
-          point: snap.pointWorld
-        }
-      : toPointDraftEnd(pointer.world)
-    return true
+    return setEdgeConnectTarget(
+      state,
+      toEdgeDraftEnd(pointer.world, snap)
+    )
   }, [instance])
 
   const commitConnectState = useCallback((state: EdgeConnectState) => {
-    const target = state.to
-    if (!target) {
+    const commit = toEdgeConnectCommit(state)
+    if (!commit) {
       return
     }
 
-    if (state.kind === 'reconnect') {
+    if (commit.kind === 'reconnect') {
       instance.commands.edge.reconnect(
-        state.edgeId,
-        state.end,
-        toEdgeEnd(target)
+        commit.edgeId,
+        commit.end,
+        commit.target
       )
       return
     }
 
-    instance.commands.edge.create({
-      source: toEdgeEnd(state.from),
-      target: toEdgeEnd(target),
-      type: state.edgeType
-    })
+    instance.commands.edge.create(commit.input)
   }, [instance])
 
   const writeStateHint = useCallback((state: EdgeConnectState) => {
-    const next = toConnectHint(state)
-    instance.internals.edge.preview.hint.set(next)
+    instance.internals.edge.preview.hint.set(toEdgeConnectHint(state))
   }, [instance])
 
   const writeStatePatch = useCallback((state: EdgeConnectState) => {
-    if (state.kind !== 'reconnect' || !state.to) {
+    if (state.kind !== 'reconnect') {
+      clearPatch()
+      return
+    }
+
+    const patch = toEdgeConnectPatch(state)
+    if (!patch) {
       clearPatch()
       return
     }
@@ -297,7 +221,7 @@ export const useEdgeConnectInput = () => {
     writeEdgePreviewPatch(
       instance.internals.edge.preview,
       state.edgeId,
-      toReconnectPatch(state.end, state.to)
+      patch
     )
   }, [clearPatch, instance])
 
@@ -312,11 +236,13 @@ export const useEdgeConnectInput = () => {
       return false
     }
 
-    if (!updateConnectState(active, pointer)) {
+    const next = updateConnectState(active, pointer)
+    if (!next) {
       return false
     }
 
-    writeStatePreview(active)
+    activeRef.current = next
+    writeStatePreview(next)
     return true
   }, [updateConnectState, writeStatePreview])
 

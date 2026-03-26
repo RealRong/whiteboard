@@ -2,8 +2,6 @@ import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
-import type { NodeId } from '@whiteboard/core/types'
-import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   createPressRuntime,
   GestureTuning
@@ -20,7 +18,7 @@ import {
 import type { MarqueeSession } from './Marquee'
 import { createNodeDragSession } from '../node/drag/session'
 
-type SelectionPressController = {
+export type SelectionGesture = {
   down: (input: GestureDown) => boolean
   cancel: () => void
 }
@@ -84,10 +82,10 @@ const stopPointerDown = (
   event.stopPropagation()
 }
 
-export const createSelectionPressController = (
+export const createSelectionGesture = (
   instance: InternalInstance,
   marquee: MarqueeSession
-): SelectionPressController => {
+): SelectionGesture => {
   const press = createPressRuntime(instance.interaction)
   const drag = createNodeDragSession(instance)
 
@@ -260,23 +258,3 @@ export const createSelectionPressController = (
     cancel
   }
 }
-
-export const createSelectionGesture = (
-  instance: InternalInstance,
-  marquee: MarqueeSession
-) => {
-  const press = createSelectionPressController(instance, marquee)
-
-  return {
-    cancel: press.cancel,
-    down: (
-      input: GestureDown
-    ) => press.down(input),
-    doubleClick: (
-      _nodeId: NodeId,
-      _event: ReactMouseEvent<HTMLDivElement>
-    ) => {}
-  }
-}
-
-export type SelectionGesture = ReturnType<typeof createSelectionGesture>

@@ -14,7 +14,10 @@ import type {
   Result,
   Size
 } from '../types'
-import { getGroupDescendants } from './group'
+import {
+  getGroupDescendants,
+  isOwnerNode
+} from './group'
 
 export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[]) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
@@ -22,7 +25,7 @@ export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[
 
   selectedIds.forEach((id) => {
     const node = nodeById.get(id)
-    if (node?.type !== 'group') return
+    if (!node || !isOwnerNode(node)) return
     getGroupDescendants(Array.from(nodes), id).forEach((child) => {
       expandedIds.add(child.id)
     })

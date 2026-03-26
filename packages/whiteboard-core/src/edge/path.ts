@@ -1,5 +1,4 @@
 import type { EdgeAnchor, Point } from '../types/core'
-import { getBezierPath, getSmoothPolyPath } from '../utils/path'
 import type {
   EdgePathInput,
   EdgePathResult,
@@ -18,6 +17,15 @@ const EDGE_SIDE_VECTOR: Record<EdgeAnchor['side'], Point> = {
   top: { x: 0, y: -1 },
   bottom: { x: 0, y: 1 }
 }
+
+type EdgeSide = EdgeAnchor['side']
+
+const EDGE_SIDE_POSITION = {
+  left: 'left',
+  right: 'right',
+  top: 'top',
+  bottom: 'bottom'
+} as const
 
 const getAutoSide = (from: Point, to: Point): EdgeAnchor['side'] => {
   const dx = to.x - from.x
@@ -95,6 +103,304 @@ const createSegments = (
   }
 
   return segments
+}
+
+const getDirection = ({
+  source,
+  sourcePosition = EDGE_SIDE_POSITION.bottom,
+  target
+}: {
+  source: Point
+  sourcePosition: EdgeSide
+  target: Point
+}): Point => {
+  if (
+    sourcePosition === EDGE_SIDE_POSITION.left
+    || sourcePosition === EDGE_SIDE_POSITION.right
+  ) {
+    return source.x < target.x ? { x: 1, y: 0 } : { x: -1, y: 0 }
+  }
+
+  return source.y < target.y ? { x: 0, y: 1 } : { x: 0, y: -1 }
+}
+
+const getDistance = (
+  left: Point,
+  right: Point
+) => Math.sqrt(
+  Math.pow(right.x - left.x, 2)
+  + Math.pow(right.y - left.y, 2)
+)
+
+const getEdgeCenter = ({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY
+}: {
+  sourceX: number
+  sourceY: number
+  targetX: number
+  targetY: number
+}): [number, number, number, number] => {
+  const xOffset = Math.abs(targetX - sourceX) / 2
+  const centerX = targetX < sourceX ? targetX + xOffset : targetX - xOffset
+  const yOffset = Math.abs(targetY - sourceY) / 2
+  const centerY = targetY < sourceY ? targetY + yOffset : targetY - yOffset
+
+  return [centerX, centerY, xOffset, yOffset]
+}
+
+const getSmoothPathPoints = ({
+  source,
+  sourcePosition = EDGE_SIDE_POSITION.bottom,
+  target,
+  targetPosition = EDGE_SIDE_POSITION.top,
+  center,
+  offset
+}: {
+  source: Point
+  sourcePosition: EdgeSide
+  target: Point
+  targetPosition: EdgeSide
+  center: Partial<Point>
+  offset: number
+}): [Point[], number, number, number, number] => {
+  const sourceDir = EDGE_SIDE_VECTOR[sourcePosition]
+  const targetDir = EDGE_SIDE_VECTOR[targetPosition]
+  const sourceGapped: Point = {
+    x: source.x + sourceDir.x * offset,
+    y: source.y + sourceDir.y * offset
+  }
+  const targetGapped: Point = {
+    x: target.x + targetDir.x * offset,
+    y: target.y + targetDir.y * offset
+  }
+  const dir = getDirection({
+    source: sourceGapped,
+    sourcePosition,
+    target: targetGapped
+  })
+  const dirAccessor = dir.x !== 0 ? 'x' : 'y'
+  const currDir = dir[dirAccessor]
+
+  let points: Point[] = []
+  let centerX = 0
+  let centerY = 0
+  const sourceGapOffset = { x: 0, y: 0 }
+  const targetGapOffset = { x: 0, y: 0 }
+
+  const [defaultCenterX, defaultCenterY, defaultOffsetX, defaultOffsetY] = getEdgeCenter({
+    sourceX: source.x,
+    sourceY: source.y,
+    targetX: target.x,
+    targetY: target.y
+  })
+
+  if (sourceDir[dirAccessor] * targetDir[dirAccessor] === -1) {
+    centerX = center.x ?? defaultCenterX
+    centerY = center.y ?? defaultCenterY
+    const verticalSplit: Point[] = [
+      { x: centerX, y: sourceGapped.y },
+      { x: centerX, y: targetGapped.y }
+    ]
+    const horizontalSplit: Point[] = [
+      { x: sourceGapped.x, y: centerY },
+      { x: targetGapped.x, y: centerY }
+    ]
+
+    if (sourceDir[dirAccessor] === currDir) {
+      points = dirAccessor === 'x' ? verticalSplit : horizontalSplit
+    } else {
+      points = dirAccessor === 'x' ? horizontalSplit : verticalSplit
+    }
+  } else {
+    const sourceTarget: Point[] = [{ x: sourceGapped.x, y: targetGapped.y }]
+    const targetSource: Point[] = [{ x: targetGapped.x, y: sourceGapped.y }]
+
+    if (dirAccessor === 'x') {
+      points = sourceDir.x === currDir ? targetSource : sourceTarget
+    } else {
+      points = sourceDir.y === currDir ? sourceTarget : targetSource
+    }
+
+    if (sourcePosition === targetPosition) {
+      const diff = Math.abs(source[dirAccessor] - target[dirAccessor])
+
+      if (diff <= offset) {
+        const gapOffset = Math.min(offset - 1, offset - diff)
+        if (sourceDir[dirAccessor] === currDir) {
+          sourceGapOffset[dirAccessor] = gapOffset
+        } else {
+          targetGapOffset[dirAccessor] = gapOffset
+        }
+      }
+    }
+
+    if (sourcePosition !== targetPosition) {
+      const dirAccessorOpposite = dirAccessor === 'x' ? 'y' : 'x'
+      const isSameDir = sourceDir[dirAccessor] === targetDir[dirAccessorOpposite]
+      const sourceGtTargetOppo = sourceGapped[dirAccessorOpposite] > targetGapped[dirAccessorOpposite]
+      const sourceLtTargetOppo = sourceGapped[dirAccessorOpposite] < targetGapped[dirAccessorOpposite]
+      const flipSourceTarget =
+        (sourceDir[dirAccessor] === 1 && ((!isSameDir && sourceGtTargetOppo) || (isSameDir && sourceLtTargetOppo)))
+        || (sourceDir[dirAccessor] !== 1 && ((!isSameDir && sourceLtTargetOppo) || (isSameDir && sourceGtTargetOppo)))
+
+      if (flipSourceTarget) {
+        points = dirAccessor === 'x' ? sourceTarget : targetSource
+      }
+    }
+
+    const sourceGapPoint = {
+      x: sourceGapped.x - sourceGapOffset.x,
+      y: sourceGapped.y - sourceGapOffset.y
+    }
+    const targetGapPoint = {
+      x: targetGapped.x - targetGapOffset.x,
+      y: targetGapped.y - targetGapOffset.y
+    }
+    const maxXDistance = Math.max(
+      Math.abs(sourceGapPoint.x - points[0].x),
+      Math.abs(targetGapPoint.x - points[0].x)
+    )
+    const maxYDistance = Math.max(
+      Math.abs(sourceGapPoint.y - points[0].y),
+      Math.abs(targetGapPoint.y - points[0].y)
+    )
+
+    if (maxXDistance >= maxYDistance) {
+      centerX = (sourceGapPoint.x + targetGapPoint.x) / 2
+      centerY = points[0].y
+    } else {
+      centerX = points[0].x
+      centerY = (sourceGapPoint.y + targetGapPoint.y) / 2
+    }
+  }
+
+  const pathPoints = [
+    source,
+    {
+      x: sourceGapped.x - sourceGapOffset.x,
+      y: sourceGapped.y - sourceGapOffset.y
+    },
+    ...points,
+    {
+      x: targetGapped.x - targetGapOffset.x,
+      y: targetGapped.y - targetGapOffset.y
+    },
+    target
+  ]
+
+  if (
+    sourcePosition === EDGE_SIDE_POSITION.left
+    && targetPosition === EDGE_SIDE_POSITION.left
+    && pathPoints.length === 5
+  ) {
+    const distanceX = target.x - source.x
+    if (distanceX > 0 && distanceX <= offset) {
+      pathPoints.splice(pathPoints.length - 2, 1)
+    } else if (distanceX <= 0) {
+      pathPoints.splice(1, 1)
+    }
+  }
+
+  if (
+    sourcePosition === EDGE_SIDE_POSITION.top
+    && targetPosition === EDGE_SIDE_POSITION.top
+    && pathPoints.length === 5
+  ) {
+    const distanceY = target.y - source.y
+    if (distanceY > 0 && distanceY <= offset) {
+      pathPoints.splice(pathPoints.length - 2, 1)
+    } else if (distanceY <= 0) {
+      pathPoints.splice(1, 1)
+    }
+  }
+
+  return [pathPoints, centerX, centerY, defaultOffsetX, defaultOffsetY]
+}
+
+const getBend = (
+  left: Point,
+  middle: Point,
+  right: Point,
+  size: number
+): string => {
+  const bendSize = Math.min(
+    getDistance(left, middle) / 2,
+    getDistance(middle, right) / 2,
+    size
+  )
+  const { x, y } = middle
+
+  if ((left.x === x && x === right.x) || (left.y === y && y === right.y)) {
+    return `L${x} ${y}`
+  }
+
+  if (left.y === y) {
+    const xDir = left.x < right.x ? -1 : 1
+    const yDir = left.y < right.y ? 1 : -1
+    return `L ${x + bendSize * xDir},${y}Q ${x},${y} ${x},${y + bendSize * yDir}`
+  }
+
+  const xDir = left.x < right.x ? 1 : -1
+  const yDir = left.y < right.y ? -1 : 1
+  return `L ${x},${y + bendSize * yDir}Q ${x},${y} ${x + bendSize * xDir},${y}`
+}
+
+const getSmoothPolyPath = ({
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  borderRadius = 5,
+  centerX,
+  centerY,
+  offset = 50,
+  bendOnlyLast = false
+}: {
+  sourceX: number
+  sourceY: number
+  sourcePosition: EdgeSide
+  targetPosition: EdgeSide
+  targetX: number
+  targetY: number
+  borderRadius: number
+  centerX?: number
+  centerY?: number
+  offset?: number
+  bendOnlyLast?: boolean
+}): [path: string, labelX: number, labelY: number, offsetX: number, offsetY: number, points: Point[]] => {
+  const [points, labelX, labelY, offsetX, offsetY] = getSmoothPathPoints({
+    source: { x: sourceX, y: sourceY },
+    sourcePosition,
+    target: { x: targetX, y: targetY },
+    targetPosition,
+    center: { x: centerX, y: centerY },
+    offset
+  })
+
+  const path = points.reduce<string>((result, point, index) => {
+    let segment = ''
+
+    if (index > 0 && index < points.length - 1) {
+      if (bendOnlyLast) {
+        segment = index === points.length - 3
+          ? getBend(points[index - 1], point, points[index + 1], borderRadius)
+          : `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`
+      } else {
+        segment = getBend(points[index - 1], point, points[index + 1], borderRadius)
+      }
+    } else {
+      segment = `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`
+    }
+
+    return result + segment
+  }, '')
+
+  return [path, labelX, labelY, offsetX, offsetY, points]
 }
 
 const chooseStepCorner = (
@@ -334,6 +640,125 @@ const getBezierControlPoint = ({
         y: from.y + getBezierControlOffset(to.y - from.y, curvature)
       }
   }
+}
+
+const getControlWithCurvature = ({
+  pos,
+  x1,
+  y1,
+  x2,
+  y2,
+  c
+}: {
+  pos: EdgeSide
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  c: number
+}): [number, number] => {
+  switch (pos) {
+    case EDGE_SIDE_POSITION.left:
+      return [x1 - getBezierControlOffset(x1 - x2, c), y1]
+    case EDGE_SIDE_POSITION.right:
+      return [x1 + getBezierControlOffset(x2 - x1, c), y1]
+    case EDGE_SIDE_POSITION.top:
+      return [x1, y1 - getBezierControlOffset(y1 - y2, c)]
+    case EDGE_SIDE_POSITION.bottom:
+    default:
+      return [x1, y1 + getBezierControlOffset(y2 - y1, c)]
+  }
+}
+
+const getBezierEdgeCenter = ({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourceControlX,
+  sourceControlY,
+  targetControlX,
+  targetControlY
+}: {
+  sourceX: number
+  sourceY: number
+  targetX: number
+  targetY: number
+  sourceControlX: number
+  sourceControlY: number
+  targetControlX: number
+  targetControlY: number
+}): [number, number, number, number] => {
+  const centerX =
+    sourceX * 0.125
+    + sourceControlX * 0.375
+    + targetControlX * 0.375
+    + targetX * 0.125
+  const centerY =
+    sourceY * 0.125
+    + sourceControlY * 0.375
+    + targetControlY * 0.375
+    + targetY * 0.125
+
+  return [
+    centerX,
+    centerY,
+    Math.abs(centerX - sourceX),
+    Math.abs(centerY - sourceY)
+  ]
+}
+
+const getBezierPath = ({
+  sourceX,
+  sourceY,
+  sourcePosition = EDGE_SIDE_POSITION.bottom,
+  targetX,
+  targetY,
+  targetPosition = EDGE_SIDE_POSITION.top,
+  curvature = 0.25
+}: {
+  sourceX: number
+  sourceY: number
+  sourcePosition?: EdgeSide
+  targetX: number
+  targetY: number
+  targetPosition?: EdgeSide
+  curvature?: number
+}): [path: string, labelX: number, labelY: number, offsetX: number, offsetY: number] => {
+  const [sourceControlX, sourceControlY] = getControlWithCurvature({
+    pos: sourcePosition,
+    x1: sourceX,
+    y1: sourceY,
+    x2: targetX,
+    y2: targetY,
+    c: curvature
+  })
+  const [targetControlX, targetControlY] = getControlWithCurvature({
+    pos: targetPosition,
+    x1: targetX,
+    y1: targetY,
+    x2: sourceX,
+    y2: sourceY,
+    c: curvature
+  })
+  const [labelX, labelY, offsetX, offsetY] = getBezierEdgeCenter({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourceControlX,
+    sourceControlY,
+    targetControlX,
+    targetControlY
+  })
+
+  return [
+    `M${sourceX},${sourceY} C${sourceControlX},${sourceControlY} ${targetControlX},${targetControlY} ${targetX},${targetY}`,
+    labelX,
+    labelY,
+    offsetX,
+    offsetY
+  ]
 }
 
 const buildSmoothCurvePath = (points: Point[]) => {

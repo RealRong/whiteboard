@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Node } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
@@ -44,13 +44,11 @@ const frameSchema = createSchema('frame', 'Frame', [
 type FrameNodeChromeProps = {
   node: Node
   write: Pick<NodeWrite, 'data'>
-  onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
 }
 
 export const FrameNodeChrome = ({
   node,
-  write,
-  onDoubleClick
+  write
 }: FrameNodeChromeProps) => {
   const instance = useInternalInstance()
   const edit = useEdit()
@@ -80,7 +78,6 @@ export const FrameNodeChrome = ({
     <div
       ref={headerRef}
       className="wb-frame-header"
-      onDoubleClick={onDoubleClick}
     >
       {editing ? (
         <input

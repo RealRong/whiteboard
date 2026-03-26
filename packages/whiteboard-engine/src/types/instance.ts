@@ -9,8 +9,20 @@ import type {
 } from '@whiteboard/core/read'
 import type { HistoryConfig } from '@whiteboard/core/kernel'
 import type { SnapCandidate } from '@whiteboard/core/node'
-import type { NodeRectHitOptions, TargetBoundsInput } from '@whiteboard/core/node'
-import type { CoreRegistries, Document, EdgeId, NodeId, Rect } from '@whiteboard/core/types'
+import type {
+  NodeRectHitOptions,
+  TargetBoundsInput,
+  TransformSelectionTargets
+} from '@whiteboard/core/node'
+import type {
+  CoreRegistries,
+  Document,
+  EdgeId,
+  Node,
+  NodeId,
+  Point,
+  Rect
+} from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
   ReadStore
@@ -34,6 +46,14 @@ export type EngineReadIndex = {
 export type NodeRead = {
   list: ReadStore<readonly NodeId[]>
   item: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
+  owner: (nodeId: NodeId) => NodeId | undefined
+  bounds: (nodeId: NodeId) => Rect | undefined
+  frame: (nodeId: NodeId) => Rect | undefined
+  frameAt: (point: Point) => NodeId | undefined
+  idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
+  transformTargets: (
+    nodeIds: readonly NodeId[]
+  ) => TransformSelectionTargets<Node> | undefined
 }
 
 export type EdgeRead = {

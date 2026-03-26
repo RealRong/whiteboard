@@ -10,8 +10,8 @@ export {
   type View
 } from './state'
 export {
-  createSelectionPressPolicy,
   readSelectionPressContext,
+  readSelectionPressPlan,
   type SelectionPressContext,
   type SelectionPressIntent,
   type SelectionPressPlan,

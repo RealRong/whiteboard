@@ -37,8 +37,7 @@ export interface Node {
   rotation?: number
   layer?: 'background' | 'default' | 'overlay'
   zIndex?: number
-  containerId?: NodeId
-  groupId?: NodeId
+  children?: NodeId[]
   locked?: boolean
   data?: Record<string, unknown>
   style?: Record<string, string | number>
@@ -273,6 +272,10 @@ const assertEntityCollection = <TId extends string, T extends { id: TId }>(
     if (entity.id !== id) {
       throw new Error(`Document ${name}.entities.${id} has mismatched entity id.`)
     }
+    const maybeChildren = (entity as { children?: unknown }).children
+    if (maybeChildren !== undefined && !Array.isArray(maybeChildren)) {
+      throw new Error(`Document ${name}.entities.${id}.children must be an array.`)
+    }
   }
 }
 
@@ -296,7 +299,10 @@ export interface Snapshot {
   document: Document
 }
 
-export type NodeInput = Omit<Node, 'id'> & { id?: NodeId }
+export type NodeInput = Omit<Node, 'id'> & {
+  id?: NodeId
+  ownerId?: NodeId
+}
 export type EdgeInput = Omit<Edge, 'id'> & { id?: EdgeId }
 export type NodePatch = Partial<Omit<Node, 'id' | 'type'>> & { type?: NodeType }
 export type EdgePatch = Partial<Omit<Edge, 'id'>>
@@ -408,3 +414,41 @@ export interface DispatchSuccess {
 }
 
 export type DispatchResult = DispatchSuccess | DispatchFailure
+
+export type ErrorInfo<C extends string = string> = {
+  code: C
+  message: string
+  details?: unknown
+}
+
+export type Result<T = void, C extends string = string> =
+  | {
+      ok: true
+      data: T
+    }
+  | {
+      ok: false
+      error: ErrorInfo<C>
+    }
+
+export function ok(): Result<void, never>
+export function ok<T>(data: T): Result<T, never>
+export function ok<T>(data?: T): Result<T, never> {
+  return {
+    ok: true,
+    data: data as T
+  }
+}
+
+export const err = <C extends string>(
+  code: C,
+  message: string,
+  details?: unknown
+): Result<never, C> => ({
+  ok: false,
+  error: {
+    code,
+    message,
+    details
+  }
+})

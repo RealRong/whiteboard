@@ -1,6 +1,11 @@
 import { expandRect } from './geometry'
 import type { Point, Rect } from './types'
 
+export type SnapThresholdConfig = {
+  snapThresholdScreen: number
+  snapMaxThresholdWorld: number
+}
+
 export const resolveInteractionZoom = (
   zoom: number,
   zoomEpsilon = 0.0001
@@ -20,6 +25,17 @@ export const resolveWorldThreshold = (
 ) => Math.min(
   resolveScreenDistanceWorld(screen, zoom, zoomEpsilon),
   maxWorld
+)
+
+export const resolveSnapThresholdWorld = (
+  config: SnapThresholdConfig,
+  zoom: number,
+  zoomEpsilon = 0.0001
+) => resolveWorldThreshold(
+  config.snapThresholdScreen,
+  config.snapMaxThresholdWorld,
+  zoom,
+  zoomEpsilon
 )
 
 export const expandRectByThreshold = (

@@ -18,7 +18,7 @@ import {
   type View as SelectionView
 } from '../selection/state'
 import {
-  createSelectionPressPolicy,
+  readSelectionPressPlan,
   type SelectionPressContext,
   type SelectionPressPlan
 } from '../selection/policy'
@@ -33,6 +33,7 @@ export const createSelectionRead = ({
   edgeItem,
   bounds,
   nodeFrame,
+  nodeOwner,
   registry,
   resolveNodeTransform: readNodeTransform = resolveNodeTransform
 }: {
@@ -41,6 +42,7 @@ export const createSelectionRead = ({
   edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
   bounds: (input: TargetBoundsInput) => Rect | undefined
   nodeFrame: (nodeId: NodeId) => Rect | undefined
+  nodeOwner: (nodeId: NodeId) => NodeId | undefined
   registry: NodeRegistry
   resolveNodeTransform?: typeof resolveNodeTransform
 }): SelectionRead => {
@@ -60,14 +62,12 @@ export const createSelectionRead = ({
     }),
     isEqual: isViewEqual
   })
-  const policy = createSelectionPressPolicy({
-    getSelection: store.get,
-    getNode: (nodeId) => nodeItem.get(nodeId)?.node,
-    getNodeFrame: nodeFrame,
-    getNodeRole
-  })
-
   return Object.assign(store, {
-    press: policy.press
+    press: (ctx: SelectionPressContext) => readSelectionPressPlan({
+      getNode: (nodeId) => nodeItem.get(nodeId)?.node,
+      getOwnerId: nodeOwner,
+      getNodeFrame: nodeFrame,
+      getNodeRole
+    }, ctx)
   })
 }

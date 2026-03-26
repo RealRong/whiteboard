@@ -1,7 +1,4 @@
 import { memo, useCallback, type CSSProperties } from 'react'
-import type {
-  MouseEvent as ReactMouseEvent
-} from 'react'
 import type { NodeId } from '@whiteboard/core/types'
 import { usePickRef } from '../../../runtime/hooks'
 import { useNodeView } from '../hooks/useNodeView'
@@ -14,16 +11,11 @@ type NodeItemProps = {
     enabled: boolean
   ) => void
   selected: boolean
-  onNodeDoubleClick: (
-    nodeId: NodeId,
-    event: ReactMouseEvent<HTMLDivElement>
-  ) => void
 }
 export const NodeItem = memo(({
   nodeId,
   registerMeasuredElement,
-  selected,
-  onNodeDoubleClick,
+  selected
 }: NodeItemProps) => {
   const view = useNodeView(nodeId, { selected })
 
@@ -71,9 +63,6 @@ export const NodeItem = memo(({
       data-node-type={resolvedNode.type}
       data-node-hit={hit}
       data-selected={selected ? 'true' : undefined}
-      onDoubleClick={(event) => {
-        onNodeDoubleClick(nodeId, event)
-      }}
       style={{
         width: rect.width,
         height: rect.height,

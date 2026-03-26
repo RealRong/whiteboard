@@ -17,7 +17,7 @@ import {
 } from '../types'
 import type { MindmapId, MindmapTree } from '../mindmap/types'
 import { getMindmapTreeFromNode } from '../mindmap/helpers'
-import { createId } from '../utils'
+import { createId } from '../utils/id'
 import type {
   KernelContext,
   KernelReadImpact,
@@ -92,8 +92,7 @@ const NODE_LIST_KEYS = new Set<keyof NodePatch>([
   'type',
   'layer',
   'zIndex',
-  'containerId',
-  'groupId'
+  'children'
 ])
 
 const NODE_VALUE_KEYS = new Set<keyof NodePatch>([

@@ -19,16 +19,18 @@ export {
   type ResolvedDrawStroke
 } from './draw'
 export {
+  findGroupAncestor,
   findSmallestContainerAtPoint,
   filterRootIds,
-  hasGroupAncestor,
   getContainerChildrenMap,
   getContainerDescendants,
   expandGroupMembers,
   getGroupChildrenMap,
   getGroupDescendants,
+  getNodeOwnerMap,
   getNodesBoundingRect,
   isContainerNode,
+  isOwnerNode,
   normalizeGroupBounds,
   rectEquals
 } from './group'
@@ -41,7 +43,7 @@ export {
   resolveMoveEffect
 } from './move'
 export type {
-  MoveContainerChange,
+  MoveOwnerChange,
   MoveEdgeChange,
   MoveEffect,
   MoveMember,
@@ -62,6 +64,7 @@ export {
   computeResizeRect,
   getResizeUpdateRect,
   projectResizePatches,
+  resolveSelectionTransformTargets,
   getResizeSourceEdges,
   resizeHandleMap,
   rotateVector
@@ -70,6 +73,8 @@ export type {
   HorizontalResizeEdge,
   ResizeUpdate,
   ResizeDirection,
+  TransformSelectionMember,
+  TransformSelectionTargets,
   TransformPreviewPatch,
   TransformProjectionMember,
   TransformHandle,
@@ -86,10 +91,14 @@ export {
   expandRectByThreshold,
   resolveInteractionZoom,
   resolveSnapThresholdWorld
-} from './snapRuntime'
+} from '../snap'
 export {
+  filterNodeIdsInRect,
   getNodeIdsInRect,
+  matchCanvasNodeRect,
   type NodeRectHitEntry,
+  type NodeRectHitMatch,
+  type NodeRectQuery,
   type NodeRectHitOptions
 } from './hitTest'
 export { toLayerOrderedCanvasNodes, toLayerOrderedCanvasNodeIds } from './layer'
@@ -106,8 +115,23 @@ export {
   distributeNodes
 } from './layout'
 export {
+  estimateTextAutoFont,
+  TEXT_FIT_VERTICAL_MARGIN,
+  resolveTextAutoFont,
+  resolveTextBox,
+  resolveTextContentBox,
+  TEXT_DEFAULT_FONT_SIZE
+} from './text'
+export type {
+  TextAutoFont,
+  TextContentBox,
+  TextFrameMetrics,
+  TextVariant
+} from './text'
+export {
   applySelection,
   getTargetBounds,
+  resolveSelectionPressPlan,
   resolveSelectionMode
 } from './selection'
 export {
@@ -122,9 +146,6 @@ export type {
   NodeLayoutUpdate
 } from './layout'
 export type {
-  SnapThresholdConfig
-} from './snapRuntime'
-export type {
   GridIndex,
   Guide,
   SnapAxis,
@@ -133,7 +154,17 @@ export type {
   SnapResult
 } from './snap'
 export type {
+  SnapThresholdConfig
+} from '../snap'
+export type {
+  SelectionIds,
+  SelectionPressInput,
+  SelectionPressIntent,
+  SelectionPressPlan,
+  SelectionPressSelection,
+  SelectionPressTarget,
   SelectionMode,
   SelectionModifiers,
+  SelectionTapMatch,
   TargetBoundsInput
 } from './selection'

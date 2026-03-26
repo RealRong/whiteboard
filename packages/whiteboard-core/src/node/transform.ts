@@ -1,5 +1,10 @@
-import type { NodeId, Point, Rect, Size } from '../types'
+import type { Node, NodeId, Point, Rect, Size } from '../types'
 import { getRectCenter, rotatePoint } from '../geometry'
+import {
+  filterRootIds,
+  getGroupDescendants,
+  isContainerNode
+} from './group'
 
 type ResizeHandleMeta = {
   sx: -1 | 0 | 1
@@ -34,6 +39,17 @@ export type TransformPreviewPatch = {
 export type TransformProjectionMember = {
   id: NodeId
   rect: Rect
+}
+
+export type TransformSelectionMember<TNode extends Pick<Node, 'id' | 'type' | 'children'>> = {
+  id: NodeId
+  node: TNode
+  rect: Rect
+}
+
+export type TransformSelectionTargets<TNode extends Pick<Node, 'id' | 'type' | 'children'>> = {
+  targets: readonly TransformSelectionMember<TNode>[]
+  commitIds: ReadonlySet<NodeId>
 }
 
 const ZOOM_EPSILON = 0.0001
@@ -257,6 +273,68 @@ export const projectResizePatches = (options: {
       height: Math.max(1, member.rect.height * scaleY)
     }
   }))
+}
+
+export const resolveSelectionTransformTargets = <
+  TNode extends Pick<Node, 'id' | 'type' | 'children'>
+>(
+  members: readonly TransformSelectionMember<TNode>[],
+  selectedIds: readonly NodeId[]
+): TransformSelectionTargets<TNode> | undefined => {
+  if (!members.length || !selectedIds.length) {
+    return undefined
+  }
+
+  const nodes = members.map((member) => member.node)
+  const rootIds = filterRootIds(nodes, selectedIds)
+  if (!rootIds.length) {
+    return undefined
+  }
+
+  const memberIds = new Set<NodeId>()
+  const commitIds = new Set<NodeId>()
+  const nodeById = new Map(members.map((member) => [member.id, member.node] as const))
+
+  rootIds.forEach((rootId) => {
+    const root = nodeById.get(rootId)
+    if (!root) {
+      return
+    }
+
+    memberIds.add(root.id)
+    if (root.type !== 'group') {
+      commitIds.add(root.id)
+      return
+    }
+
+    getGroupDescendants(nodes, root.id).forEach((descendant) => {
+      if (descendant.type === 'group') {
+        memberIds.add(descendant.id)
+        return
+      }
+
+      if (isContainerNode(descendant)) {
+        return
+      }
+
+      memberIds.add(descendant.id)
+      commitIds.add(descendant.id)
+    })
+  })
+
+  if (!memberIds.size || !commitIds.size) {
+    return undefined
+  }
+
+  const targets = members.filter((member) => memberIds.has(member.id))
+  if (!targets.length) {
+    return undefined
+  }
+
+  return {
+    targets,
+    commitIds
+  }
 }
 
 export const computeNextRotation = (options: {

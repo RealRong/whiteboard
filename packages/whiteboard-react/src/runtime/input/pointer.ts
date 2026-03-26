@@ -1,8 +1,5 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
 import type {
-  EdgeId,
-  Node as WhiteboardNode,
-  NodeId,
   Point,
   Rect
 } from '@whiteboard/core/types'
@@ -14,6 +11,12 @@ import {
 import type { InternalInstance } from '../instance'
 import type { PointerPick } from '../pick'
 import type { Tool } from '../tool'
+import {
+  readContextTarget,
+  resolveContextTarget as resolveInputContextTarget,
+  type ContextResolved,
+  type ContextTarget
+} from './target'
 import {
   isDrawBrushKind,
   type DrawBrushKind,
@@ -72,32 +75,23 @@ export type EdgeDown = SelectDown<PickOf<'edge'>>
 export type MindmapDown = SelectDown<PickOf<'mindmap'>>
 export type GestureDown = SelectDown
 
-export type CanvasDownRoute =
-  | { kind: 'edge-create'; input: EdgeCreateDown }
-  | { kind: 'eraser'; input: EraserDown }
-  | { kind: 'draw'; input: DrawDown }
-  | { kind: 'insert'; input: InsertDown }
-  | { kind: 'transform'; input: TransformDown }
-  | { kind: 'edge'; input: EdgeDown }
-  | { kind: 'mindmap'; input: MindmapDown }
-  | { kind: 'gesture'; input: GestureDown }
-
-export type ContextTarget =
-  | { kind: 'canvas'; world: Point }
-  | { kind: 'node'; nodeId: NodeId; world: Point }
-  | { kind: 'nodes'; nodeIds: readonly NodeId[]; world: Point }
-  | { kind: 'edge'; edgeId: EdgeId; world: Point }
-
-export type ContextResolved =
-  | { kind: 'canvas'; world: Point }
-  | { kind: 'node'; node: WhiteboardNode; world: Point }
-  | { kind: 'nodes'; nodes: readonly WhiteboardNode[]; world: Point }
-  | { kind: 'edge'; edgeId: EdgeId; world: Point }
+export type CanvasDownHandlers = {
+  edgeCreate: (input: EdgeCreateDown) => boolean
+  eraser: (input: EraserDown) => boolean
+  draw: (input: DrawDown) => boolean
+  insert: (input: InsertDown) => boolean
+  transform: (input: TransformDown) => boolean
+  edge: (input: EdgeDown) => boolean
+  mindmap: (input: MindmapDown) => boolean
+  gesture: (input: GestureDown) => boolean
+}
 
 export type ContextOpen = {
   target: ContextTarget
   leaveFrame: boolean
 }
+
+type CanvasFrameDeps = Pick<InternalInstance, 'commands' | 'read' | 'state'>
 
 export const readCanvasDown = (
   instance: InternalInstance,
@@ -127,14 +121,14 @@ export const readPointerSamples = (
 }
 
 const clearFrame = (
-  instance: InternalInstance
+  instance: CanvasFrameDeps
 ) => {
   instance.commands.frame.exit()
   return instance.state.frame.get()
 }
 
-export const normalizeCanvasFrame = (
-  instance: InternalInstance,
+const normalizeCanvasFrame = (
+  instance: CanvasFrameDeps,
   input: CanvasDown
 ): FrameScope => {
   const frame = instance.state.frame.get()
@@ -179,14 +173,6 @@ export const normalizeCanvasFrame = (
     }
   }
 }
-
-export const withCanvasFrame = (
-  instance: InternalInstance,
-  input: CanvasDown
-): CanvasFrameDown => ({
-  ...input,
-  frame: normalizeCanvasFrame(instance, input)
-})
 
 const isTransformPick = (
   input: CanvasFrameDown
@@ -256,100 +242,59 @@ const isSelectTool = (
   input.tool.type === 'select'
 )
 
-export const readCanvasDownRoute = (
-  input: CanvasFrameDown,
-  busy: boolean
-): CanvasDownRoute | undefined => {
-  if (input.event.defaultPrevented || input.event.button !== 0 || busy) {
-    return undefined
+export const dispatchCanvasDown = (
+  instance: CanvasFrameDeps & Pick<InternalInstance, 'interaction'>,
+  input: CanvasDown,
+  handlers: CanvasDownHandlers
+) => {
+  const next: CanvasFrameDown = {
+    ...input,
+    frame: normalizeCanvasFrame(instance, input)
+  }
+  if (
+    next.event.defaultPrevented
+    || next.event.button !== 0
+    || instance.interaction.busy.get()
+  ) {
+    return false
   }
 
-  if (allowsEdgeCreate(input)) {
-    return {
-      kind: 'edge-create',
-      input
-    }
+  if (allowsEdgeCreate(next)) {
+    return handlers.edgeCreate(next)
   }
 
-  if (allowsErase(input)) {
-    return {
-      kind: 'eraser',
-      input
-    }
+  if (allowsErase(next)) {
+    return handlers.eraser(next)
   }
 
-  if (allowsDraw(input)) {
-    return {
-      kind: 'draw',
-      input
-    }
+  if (allowsDraw(next)) {
+    return handlers.draw(next)
   }
 
-  if (allowsInsert(input)) {
-    return {
-      kind: 'insert',
-      input
-    }
+  if (allowsInsert(next)) {
+    return handlers.insert(next)
   }
 
-  if (!isSelectTool(input)) {
-    return undefined
+  if (!isSelectTool(next)) {
+    return false
   }
 
-  if (isTransformPick(input)) {
-    return {
-      kind: 'transform',
-      input
-    }
+  if (isTransformPick(next)) {
+    return handlers.transform(next)
   }
 
-  if (isEdgePick(input)) {
-    return {
-      kind: 'edge',
-      input
-    }
+  if (isEdgePick(next)) {
+    return handlers.edge(next)
   }
 
-  if (isMindmapPick(input) && allowsCanvasContent(input)) {
-    return {
-      kind: 'mindmap',
-      input
-    }
+  if (isMindmapPick(next) && allowsCanvasContent(next)) {
+    return handlers.mindmap(next)
   }
 
-  return allowsCanvasContent(input)
-    ? {
-        kind: 'gesture',
-        input
-      }
-    : undefined
+  return allowsCanvasContent(next)
+    ? handlers.gesture(next)
+    : false
 }
-
-const readNodeTarget = ({
-  selectionNodeSet,
-  selectionNodeIds,
-  selectionCount,
-  nodeId,
-  world
-}: {
-  selectionNodeSet: ReadonlySet<NodeId>
-  selectionNodeIds: readonly NodeId[]
-  selectionCount: number
-  nodeId: NodeId
-  world: Point
-}): ContextTarget => (
-  selectionNodeSet.has(nodeId) && selectionCount > 1
-    ? {
-        kind: 'nodes',
-        nodeIds: selectionNodeIds,
-        world
-      }
-    : {
-        kind: 'node',
-        nodeId,
-        world
-      }
-)
 
 export const readContextOpen = (
   instance: Pick<InternalInstance, 'read' | 'state'>,
@@ -359,43 +304,40 @@ export const readContextOpen = (
   const selection = instance.read.selection.get()
   const world = input.point.world
   const pick = input.pick
+  const target = readContextTarget({
+    pick,
+    world,
+    selectionNodeIds: selection.target.nodeIds,
+    selectionNodeSet: selection.target.nodeSet,
+    selectionCount: selection.items.count
+  })
 
-  if (pick.kind === 'selection-box' && selection.items.count > 1) {
+  if (target.kind === 'nodes') {
     return {
-      target: {
-        kind: 'nodes',
-        nodeIds: selection.target.nodeIds,
-        world
-      },
-      leaveFrame: false
+      target,
+      leaveFrame: pick.kind === 'selection-box'
+        ? false
+        : pick.kind === 'node'
+          ? !hasNode(frame, pick.id)
+          : false
     }
   }
 
-  if (pick.kind === 'node') {
+  if (target.kind === 'node') {
     return {
-      target: readNodeTarget({
-        selectionNodeSet: selection.target.nodeSet,
-        selectionNodeIds: selection.target.nodeIds,
-        selectionCount: selection.items.count,
-        nodeId: pick.id,
-        world
-      }),
-      leaveFrame: !hasNode(frame, pick.id)
+      target,
+      leaveFrame: !hasNode(frame, target.nodeId)
     }
   }
 
-  if (pick.kind === 'edge') {
-    const entry = instance.read.edge.item.get(pick.id)
+  if (target.kind === 'edge') {
+    const entry = instance.read.edge.item.get(target.edgeId)
     if (!entry) {
       return undefined
     }
 
     return {
-      target: {
-        kind: 'edge',
-        edgeId: pick.id,
-        world
-      },
+      target,
       leaveFrame: !hasEdge(frame, entry.edge)
     }
   }
@@ -417,48 +359,12 @@ export const readContextOpen = (
 export const resolveContextTarget = (
   instance: Pick<InternalInstance, 'read'>,
   target: ContextTarget
-): ContextResolved | undefined => {
-  switch (target.kind) {
-    case 'canvas':
-      return target
-    case 'node': {
-      const entry = instance.read.node.item.get(target.nodeId)
-      if (!entry) {
-        return undefined
-      }
+): ContextResolved | undefined => resolveInputContextTarget({
+  getNode: (nodeId) => instance.read.node.item.get(nodeId)?.node,
+  hasEdge: (edgeId) => Boolean(instance.read.edge.item.get(edgeId))
+}, target)
 
-      return {
-        kind: 'node',
-        node: entry.node,
-        world: target.world
-      }
-    }
-    case 'nodes': {
-      const nodes = target.nodeIds
-        .map((nodeId) => instance.read.node.item.get(nodeId)?.node)
-        .filter((node): node is NonNullable<typeof node> => Boolean(node))
-
-      if (!nodes.length) {
-        return undefined
-      }
-
-      return {
-        kind: 'nodes',
-        nodes,
-        world: target.world
-      }
-    }
-    case 'edge': {
-      const entry = instance.read.edge.item.get(target.edgeId)
-      if (!entry) {
-        return undefined
-      }
-
-      return {
-        kind: 'edge',
-        edgeId: entry.edge.id,
-        world: target.world
-      }
-    }
-  }
-}
+export type {
+  ContextResolved,
+  ContextTarget
+} from './target'

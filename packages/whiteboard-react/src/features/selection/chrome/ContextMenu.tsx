@@ -264,7 +264,7 @@ const readCanvasMenuView = ({
             label: 'Paste',
             onClick: () => paste(instance, {
               at: world,
-              containerId: frame.id
+              ownerId: frame.id
             })
           }
         ]
@@ -279,7 +279,7 @@ const readCanvasMenuView = ({
             instance,
             preset,
             world,
-            containerId: frame.id
+            ownerId: frame.id
           })
         }))
       }, close),

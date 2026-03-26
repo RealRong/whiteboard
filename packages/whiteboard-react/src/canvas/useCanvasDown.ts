@@ -16,10 +16,9 @@ import {
 import { useInsertDown } from '../features/toolbox/useInsertDown'
 import { useInternalInstance } from '../runtime/hooks'
 import {
+  dispatchCanvasDown,
   readCanvasDown,
-  readCanvasDownRoute,
-  type CanvasDown,
-  withCanvasFrame
+  type CanvasDown
 } from '../runtime/input/pointer'
 
 export const useCanvasDown = ({
@@ -56,33 +55,20 @@ export const useCanvasDown = ({
   }, [gesture, marquee, transform])
 
   const handleDown = useCallback((input: CanvasDown) => {
-    const next = withCanvasFrame(instance, input)
-    const route = readCanvasDownRoute(
-      next,
-      instance.interaction.busy.get()
+    return dispatchCanvasDown(
+      instance,
+      input,
+      {
+        edgeCreate: edge.create,
+        eraser: eraser.down,
+        draw: draw.down,
+        insert: insert.down,
+        transform: transform.down,
+        edge: edge.down,
+        mindmap: mindmap.down,
+        gesture: gesture.down
+      }
     )
-    if (!route) {
-      return false
-    }
-
-    switch (route.kind) {
-      case 'edge-create':
-        return edge.create(route.input)
-      case 'eraser':
-        return eraser.down(route.input)
-      case 'draw':
-        return draw.down(route.input)
-      case 'insert':
-        return insert.down(route.input)
-      case 'transform':
-        return transform.down(route.input)
-      case 'edge':
-        return edge.down(route.input)
-      case 'mindmap':
-        return mindmap.down(route.input)
-      case 'gesture':
-        return gesture.down(route.input)
-    }
   }, [draw, edge, eraser, gesture, insert, instance, mindmap, transform])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
@@ -113,7 +99,6 @@ export const useCanvasDown = ({
 
   return {
     marquee,
-    gesture,
     drawPreview: draw.preview,
     edgeRouteKeyDown: edge.keyDown
   }

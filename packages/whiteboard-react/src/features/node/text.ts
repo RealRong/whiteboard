@@ -1,5 +1,16 @@
+import {
+  estimateTextAutoFont as estimateTextAutoFontValue,
+  resolveTextAutoFont,
+  resolveTextContentBox,
+  TEXT_FIT_VERTICAL_MARGIN,
+  TEXT_DEFAULT_FONT_SIZE
+} from '@whiteboard/core/node'
+import type { TextContentBox, TextVariant } from '@whiteboard/core/node'
 import type { Node, NodeInput, Rect } from '@whiteboard/core/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
+
+export { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
+export type { TextVariant } from '@whiteboard/core/node'
 
 export type TextMeasureSize = {
   width: number
@@ -7,14 +18,11 @@ export type TextMeasureSize = {
 }
 
 export type TextWidthMode = 'auto' | 'fixed'
-export type TextVariant = 'text' | 'sticky'
 
 const TEXT_WIDTH_MODE_KEY = 'widthMode'
-export const TEXT_DEFAULT_FONT_SIZE = 14
 const TEXT_DEFAULT_LINE_HEIGHT_RATIO = 1.4
 const EMPTY_LINE = '\u00A0'
 const FIT_EPSILON = 0
-const FIT_SAFE_VERTICAL_MARGIN = 2
 const MAX_AUTO_FONT_TASKS_PER_FRAME = 8
 
 type TextMeasureElements = {
@@ -23,11 +31,6 @@ type TextMeasureElements = {
   block: HTMLDivElement
   frame: HTMLDivElement
   content: HTMLDivElement
-}
-
-type TextAutoFontRange = {
-  min: number
-  max: number
 }
 
 type TextAutoFontInput = {
@@ -80,11 +83,6 @@ export type TextAutoFontTask = {
   initial: number
   hasContent: boolean
   input: Omit<TextAutoFontInput, 'priority'>
-}
-
-type ContentBox = {
-  width: number
-  height: number
 }
 
 let textMeasureElements: TextMeasureElements | null = null
@@ -358,94 +356,6 @@ const ensureTextMeasureElements = (): TextMeasureElements | null => {
   return textMeasureElements
 }
 
-const clampBoxSize = (
-  size: number
-) => Math.max(1, size)
-
-const clampFontSize = (
-  size: number,
-  min: number,
-  max: number
-) => Math.max(min, Math.min(max, size))
-
-const getDefaultFrameInset = (
-  variant: TextVariant
-) => ({
-  padding: variant === 'sticky' ? 16 : 0,
-  border: 1
-})
-
-const resolveApproximateContentBox = (
-  variant: TextVariant,
-  rect: Rect
-): ContentBox => {
-  const inset = getDefaultFrameInset(variant)
-  const horizontalInset = inset.padding * 2 + inset.border * 2
-  const verticalInset = inset.padding * 2 + inset.border * 2
-
-  return {
-    width: clampBoxSize(rect.width - horizontalInset),
-    height: clampBoxSize(rect.height - verticalInset - FIT_SAFE_VERTICAL_MARGIN)
-  }
-}
-
-const resolveContentBox = ({
-  width,
-  height,
-  paddingTop,
-  paddingRight,
-  paddingBottom,
-  paddingLeft,
-  borderTop,
-  borderRight,
-  borderBottom,
-  borderLeft
-}: {
-  width: number
-  height: number
-  paddingTop: number
-  paddingRight: number
-  paddingBottom: number
-  paddingLeft: number
-  borderTop: number
-  borderRight: number
-  borderBottom: number
-  borderLeft: number
-}): ContentBox => ({
-  width: clampBoxSize(width - paddingLeft - paddingRight - borderLeft - borderRight),
-  height: clampBoxSize(
-    height - paddingTop - paddingBottom - borderTop - borderBottom - FIT_SAFE_VERTICAL_MARGIN
-  )
-})
-
-const resolveAutoFontRange = (
-  variant: TextVariant,
-  box: ContentBox
-): TextAutoFontRange => {
-  const min = variant === 'sticky' ? 12 : 10
-  const maxLimit = variant === 'sticky' ? 40 : 32
-  const estimatedMax = variant === 'sticky'
-    ? Math.floor(Math.min(box.height * 0.36, box.width * 0.22))
-    : Math.floor(box.height * 0.68)
-
-  return {
-    min,
-    max: clampFontSize(Math.max(min, estimatedMax), min, maxLimit)
-  }
-}
-
-const estimateInitialAutoFontSize = (
-  variant: TextVariant,
-  box: ContentBox
-) => {
-  const { min, max } = resolveAutoFontRange(variant, box)
-  const estimated = variant === 'sticky'
-    ? Math.round(Math.min(box.height * 0.22, box.width * 0.18))
-    : Math.round(box.height * 0.48)
-
-  return clampFontSize(estimated, min, max)
-}
-
 const measureTextSizeFromSource = ({
   content,
   placeholder,
@@ -524,7 +434,7 @@ const measureAutoFontSize = (
   } = elements
 
   frame.style.width = `${input.width}px`
-  frame.style.height = `${clampBoxSize(input.height - FIT_SAFE_VERTICAL_MARGIN)}px`
+  frame.style.height = `${Math.max(1, input.height - TEXT_FIT_VERTICAL_MARGIN)}px`
   frame.style.paddingTop = `${input.paddingTop}px`
   frame.style.paddingRight = `${input.paddingRight}px`
   frame.style.paddingBottom = `${input.paddingBottom}px`
@@ -658,16 +568,7 @@ export const estimateTextAutoFont = ({
 }: {
   variant: TextVariant
   rect: Rect
-}) => {
-  if (variant === 'text') {
-    return TEXT_DEFAULT_FONT_SIZE
-  }
-
-  return estimateInitialAutoFontSize(
-    variant,
-    resolveApproximateContentBox(variant, rect)
-  )
-}
+}) => estimateTextAutoFontValue(variant, rect)
 
 export const createTextAutoFontTask = ({
   text,
@@ -706,13 +607,9 @@ export const createTextAutoFontTask = ({
     borderBottom: readNumber(frameStyle.borderBottomWidth),
     borderLeft: readNumber(frameStyle.borderLeftWidth)
   }
-  const contentBox = resolveContentBox(metrics)
-  const range = resolveAutoFontRange(variant, contentBox)
-  const initial = clampFontSize(
-    estimateInitialAutoFontSize(variant, contentBox),
-    range.min,
-    range.max
-  )
+  const contentBox: TextContentBox = resolveTextContentBox(metrics)
+  const range = resolveTextAutoFont(variant, contentBox)
+  const initial = range.initial
   const normalizedLineHeight = normalizeLineHeight(
     sourceStyle.lineHeight,
     sourceStyle.fontSize

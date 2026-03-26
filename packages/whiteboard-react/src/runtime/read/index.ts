@@ -104,6 +104,7 @@ export const createRuntimeRead = ({
     edgeItem: edgeRead.item,
     bounds: bounds.targets,
     nodeFrame: readNodeFrame,
+    nodeOwner: nodeRead.owner,
     registry,
     resolveNodeTransform
   })

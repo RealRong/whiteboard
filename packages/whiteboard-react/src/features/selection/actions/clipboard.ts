@@ -280,7 +280,7 @@ export const paste = async (
   options?: {
     at?: Point
     event?: ClipboardEvent
-    containerId?: NodeId
+    ownerId?: NodeId
   }
 ) => {
   const packet = await readPacket(options?.event)
@@ -289,7 +289,7 @@ export const paste = async (
   const at = readPasteAt(instance, options?.at)
   const inserted = instance.commands.document.insert(packet.slice, {
     at,
-    containerId: options?.containerId,
+    ownerId: options?.ownerId,
     roots: packet.roots
   })
   if (!inserted.ok) return false

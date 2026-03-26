@@ -6,7 +6,6 @@ import {
 import {
   computeNextRotation,
   computeResizeRect,
-  getGroupDescendants,
   getResizeSourceEdges,
   getResizeUpdateRect,
   projectResizePatches,
@@ -140,22 +139,6 @@ const toPatch = (
   }
 
   return patch
-}
-
-const toTarget = (
-  instance: InternalInstance,
-  nodeId: NodeId
-): TransformTarget | undefined => {
-  const item = instance.read.node.item.get(nodeId)
-  if (!item) {
-    return undefined
-  }
-
-  return {
-    id: item.node.id,
-    node: item.node,
-    rect: item.rect
-  }
 }
 
 export const createTransformSession = (
@@ -408,98 +391,17 @@ export const createTransformSession = (
     }
   }
 
-  const hasSelectedAncestorGroup = (
-    node: Node,
-    selectedNodeIds: ReadonlySet<NodeId>,
-    nodeById: ReadonlyMap<NodeId, Node>
-  ) => {
-    let groupId = node.groupId
-
-    while (groupId) {
-      const group = nodeById.get(groupId)
-      if (group?.type === 'group' && selectedNodeIds.has(groupId)) {
-        return true
-      }
-
-      groupId = group?.groupId
-    }
-
-    return false
-  }
-
   const createSelectionScaleTargets = (
     selectionNodeIds: readonly NodeId[]
-  ): {
-    targets: readonly TransformTarget[]
-    commitTargetIds: ReadonlySet<NodeId>
-  } | undefined => {
-    const allNodeIds = instance.read.node.list.get()
-    const allTargets = allNodeIds
-      .map((nodeId) => toTarget(instance, nodeId))
-      .filter((target): target is TransformTarget => Boolean(target))
-    const nodeById = new Map(allTargets.map((target) => [target.id, target.node] as const))
-    const targetById = new Map(allTargets.map((target) => [target.id, target] as const))
-    const selectedNodeIdSet = new Set(selectionNodeIds)
-    const rootSelectionIds = selectionNodeIds.filter((nodeId) => {
-      const node = nodeById.get(nodeId)
-      if (!node) {
-        return false
-      }
-
-      return !hasSelectedAncestorGroup(node, selectedNodeIdSet, nodeById)
-    })
-
-    if (!rootSelectionIds.length) {
-      return undefined
-    }
-
-    const orderedNodes = allTargets.map((target) => target.node)
-    const targets = new Map<NodeId, TransformTarget>()
-    const commitTargetIds = new Set<NodeId>()
-
-    rootSelectionIds.forEach((nodeId) => {
-      const target = targetById.get(nodeId)
-      if (!target) {
-        return
-      }
-
-      if (target.node.type === 'group') {
-        targets.set(target.id, target)
-        getGroupDescendants(orderedNodes, target.id).forEach((descendant) => {
-          const descendantTarget = targetById.get(descendant.id)
-          if (!descendantTarget) {
-            return
-          }
-
-          const role = instance.read.node.role(descendant)
-          if (descendant.type === 'group') {
-            targets.set(descendant.id, descendantTarget)
-            return
-          }
-
-          if (role === 'frame') {
-            return
-          }
-
-          targets.set(descendant.id, descendantTarget)
-          if (descendant.type !== 'group') {
-            commitTargetIds.add(descendant.id)
-          }
-        })
-        return
-      }
-
-      targets.set(target.id, target)
-      commitTargetIds.add(target.id)
-    })
-
-    if (!targets.size || !commitTargetIds.size) {
+  ) => {
+    const resolved = instance.read.node.transformTargets(selectionNodeIds)
+    if (!resolved?.targets.length) {
       return undefined
     }
 
     return {
-      targets: [...targets.values()],
-      commitTargetIds
+      targets: resolved.targets as readonly TransformTarget[],
+      commitTargetIds: resolved.commitIds
     }
   }
 

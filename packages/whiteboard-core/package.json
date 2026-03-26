@@ -62,11 +62,6 @@
       "types": "./dist/read/index.d.ts",
       "import": "./dist/read/index.js",
       "require": "./dist/read/index.cjs"
-    },
-    "./perf": {
-      "types": "./dist/perf/index.d.ts",
-      "import": "./dist/perf/index.js",
-      "require": "./dist/perf/index.cjs"
     }
   },
   "files": [

@@ -1,8 +1,10 @@
+import type { CanvasNode } from '../read'
 import type { NodeId, Rect } from '../types'
 import {
   rectContainsRotatedRect,
   rectIntersectsRotatedRect
 } from '../geometry'
+import { matchDrawRect } from './draw'
 
 export type NodeRectHitEntry = {
   node: {
@@ -16,6 +18,21 @@ export type NodeRectHitEntry = {
 export type NodeRectHitOptions = {
   match?: 'touch' | 'contain'
   exclude?: readonly NodeId[]
+}
+
+export type NodeRectHitMatch = NonNullable<NodeRectHitOptions['match']>
+
+export type NodeRectQuery<TEntry extends NodeRectHitEntry> = {
+  rect: Rect
+  candidateIds: readonly NodeId[]
+  match: NodeRectHitMatch
+  getEntry: (nodeId: NodeId) => TEntry | undefined
+  getDescendants?: (nodeId: NodeId) => readonly NodeId[]
+  matchEntry: (
+    entry: TEntry,
+    rect: Rect,
+    match: NodeRectHitMatch
+  ) => boolean
 }
 
 export const getNodeIdsInRect = (
@@ -39,4 +56,73 @@ export const getNodeIdsInRect = (
         : rectIntersectsRotatedRect(rect, entry.rect, entry.rotation)
     })
     .map((entry) => entry.node.id)
+}
+
+export const matchCanvasNodeRect = (
+  entry: CanvasNode,
+  rect: Rect,
+  match: NodeRectHitMatch
+) => {
+  switch (entry.node.type) {
+    case 'draw':
+      return matchDrawRect({
+        node: entry.node,
+        rect: entry.rect,
+        queryRect: rect,
+        mode: match
+      })
+    default:
+      return match === 'contain'
+        ? rectContainsRotatedRect(rect, entry.rect, entry.rotation)
+        : true
+  }
+}
+
+export const filterNodeIdsInRect = <TEntry extends NodeRectHitEntry>({
+  rect,
+  candidateIds,
+  match,
+  getEntry,
+  getDescendants,
+  matchEntry
+}: NodeRectQuery<TEntry>): NodeId[] => {
+  const candidateSet = new Set(candidateIds)
+  const matchCache = new Map<NodeId, boolean>()
+
+  const matchesCandidate = (
+    nodeId: NodeId
+  ): boolean => {
+    const cached = matchCache.get(nodeId)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    if (!candidateSet.has(nodeId)) {
+      matchCache.set(nodeId, false)
+      return false
+    }
+
+    const entry = getEntry(nodeId)
+    if (!entry) {
+      matchCache.set(nodeId, false)
+      return false
+    }
+
+    if (entry.node.type === 'group' && getDescendants) {
+      const descendantIds = getDescendants(nodeId)
+      const matched = descendantIds.length > 0 && (
+        match === 'contain'
+          ? descendantIds.every((descendantId) => matchesCandidate(descendantId))
+          : descendantIds.some((descendantId) => matchesCandidate(descendantId))
+      )
+      matchCache.set(nodeId, matched)
+      return matched
+    }
+
+    const matched = matchEntry(entry, rect, match)
+    matchCache.set(nodeId, matched)
+    return matched
+  }
+
+  return candidateIds.filter((nodeId) => matchesCandidate(nodeId))
 }

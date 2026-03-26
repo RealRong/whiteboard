@@ -22,7 +22,7 @@ import {
 } from './state'
 
 type ActiveStroke = {
-  containerId?: NodeId
+  ownerId?: NodeId
   kind: DrawBrushKind
   style: ResolvedDrawStyle
   points: Point[]
@@ -164,7 +164,7 @@ export const useDrawInput = () => {
 
     const result = instance.commands.node.create({
       type: 'draw',
-      containerId: active.containerId,
+      ownerId: active.ownerId,
       position: stroke.position,
       size: stroke.size,
       data: {
@@ -198,7 +198,7 @@ export const useDrawInput = () => {
     const frameTargetId = input.frame.id ?? instance.read.node.frameAt(input.point.world)
 
     const active: ActiveStroke = {
-      containerId: input.frame.id ?? frameTargetId,
+      ownerId: input.frame.id ?? frameTargetId,
       kind: input.tool.kind,
       style: readDrawStyle(instance.state.draw.get(), input.tool.kind),
       points: [input.point.world],

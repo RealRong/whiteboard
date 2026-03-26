@@ -19,6 +19,10 @@ import {
   type NodeDistributeMode,
   type NodeLayoutEntry
 } from './layout'
+import {
+  filterRootIds,
+  getNodeOwnerMap
+} from './group'
 
 type NodeCreateOperationResult =
   Result<{
@@ -63,14 +67,64 @@ type BuildNodeLayoutOperationsInput = {
   nodeSize: Size
 }
 
-const readSharedRelation = (
-  nodes: readonly Node[],
-  key: 'containerId' | 'groupId'
+const readChildren = (
+  node: Pick<Node, 'children'> | undefined
+): readonly NodeId[] => node?.children ?? []
+
+const arraysEqual = (
+  left: readonly NodeId[] | undefined,
+  right: readonly NodeId[] | undefined
 ) => {
-  const first = nodes[0]?.[key]
-  return nodes.every((node) => node[key] === first)
-    ? first
-    : undefined
+  if (left === right) {
+    return true
+  }
+
+  const nextLeft = left ?? []
+  const nextRight = right ?? []
+  if (nextLeft.length !== nextRight.length) {
+    return false
+  }
+
+  return nextLeft.every((id, index) => id === nextRight[index])
+}
+
+const replaceChildren = (
+  current: readonly NodeId[],
+  removeIds: ReadonlySet<NodeId>,
+  insertedIds: readonly NodeId[]
+) => {
+  const firstIndex = current.findIndex((childId) => removeIds.has(childId))
+  const next = current.filter((childId) => !removeIds.has(childId))
+
+  if (firstIndex < 0) {
+    return [
+      ...next,
+      ...insertedIds
+    ]
+  }
+
+  return [
+    ...next.slice(0, firstIndex),
+    ...insertedIds,
+    ...next.slice(firstIndex)
+  ]
+}
+
+const toChildrenPatchOperation = (
+  node: Node | undefined,
+  children: readonly NodeId[]
+): Extract<Operation, { type: 'node.update' }> | undefined => {
+  if (!node || arraysEqual(node.children, children)) {
+    return undefined
+  }
+
+  return {
+    type: 'node.update',
+    id: node.id,
+    patch: {
+      children: [...children]
+    }
+  }
 }
 
 const readLayoutEntries = ({
@@ -131,14 +185,18 @@ export const buildNodeCreateOperation = ({
   }
 
   const normalized = applyNodeDefaults(payload, registries)
-  const id = normalized.id ?? createNodeId()
+  const {
+    ownerId: _ownerId,
+    ...nextNode
+  } = normalized
+  const id = nextNode.id ?? createNodeId()
   const node: Node = {
-    ...normalized,
+    ...nextNode,
     id,
     layer:
-      normalized.type === 'group' || normalized.type === 'frame'
-        ? (normalized.layer ?? 'background')
-        : normalized.layer
+      nextNode.type === 'group' || nextNode.type === 'frame'
+        ? (nextNode.layer ?? 'background')
+        : nextNode.layer
   }
 
   return ok({
@@ -156,13 +214,14 @@ export const buildNodeGroupOperations = ({
   nodeSize,
   createGroupId
 }: BuildNodeGroupOperationsInput): NodeGroupOperationResult => {
-  const uniqueIds = Array.from(new Set(ids))
-  if (!uniqueIds.length) {
+  const orderedNodes = listNodes(doc)
+  const rootIds = filterRootIds(orderedNodes, ids)
+  if (!rootIds.length) {
     return err('invalid', 'No node ids provided.')
   }
 
   const nodes: Node[] = []
-  for (const id of uniqueIds) {
+  for (const id of rootIds) {
     const node = getNode(doc, id)
     if (!node) {
       return err('invalid', `Node ${id} not found.`)
@@ -170,38 +229,58 @@ export const buildNodeGroupOperations = ({
     nodes.push(node)
   }
 
+  const ownerByChildId = getNodeOwnerMap(orderedNodes)
+  const directOwnerIds = rootIds.map((id) => ownerByChildId.get(id))
+  const sharedOwnerId = directOwnerIds.every((ownerId) => ownerId === directOwnerIds[0])
+    ? directOwnerIds[0]
+    : undefined
   const minX = Math.min(...nodes.map((node) => node.position.x))
   const minY = Math.min(...nodes.map((node) => node.position.y))
   const maxX = Math.max(...nodes.map((node) => node.position.x + (node.size?.width ?? nodeSize.width)))
   const maxY = Math.max(...nodes.map((node) => node.position.y + (node.size?.height ?? nodeSize.height)))
   const groupId = createGroupId()
-  const containerId = readSharedRelation(nodes, 'containerId')
-  const parentGroupId = readSharedRelation(nodes, 'groupId')
+  const selectedIdSet = new Set(rootIds)
+  const operations: Operation[] = [{
+    type: 'node.create',
+    node: {
+      id: groupId,
+      type: 'group',
+      layer: 'background',
+      position: { x: minX, y: minY },
+      size: {
+        width: Math.max(0, maxX - minX),
+        height: Math.max(0, maxY - minY)
+      },
+      children: rootIds
+    }
+  }]
+
+  if (sharedOwnerId) {
+    const owner = getNode(doc, sharedOwnerId)
+    const patch = toChildrenPatchOperation(
+      owner,
+      replaceChildren(readChildren(owner), selectedIdSet, [groupId])
+    )
+    if (patch) {
+      operations.push(patch)
+    }
+  } else {
+    const ownerIds = Array.from(new Set(directOwnerIds.filter((ownerId): ownerId is NodeId => Boolean(ownerId))))
+    ownerIds.forEach((ownerId) => {
+      const owner = getNode(doc, ownerId)
+      const patch = toChildrenPatchOperation(
+        owner,
+        replaceChildren(readChildren(owner), selectedIdSet, [])
+      )
+      if (patch) {
+        operations.push(patch)
+      }
+    })
+  }
 
   return ok({
     groupId,
-    operations: [
-      {
-        type: 'node.create',
-        node: {
-          id: groupId,
-          type: 'group',
-          layer: 'background',
-          position: { x: minX, y: minY },
-          size: {
-            width: Math.max(0, maxX - minX),
-            height: Math.max(0, maxY - minY)
-          },
-          containerId,
-          groupId: parentGroupId
-        }
-      },
-      ...nodes.map((node) => ({
-        type: 'node.update' as const,
-        id: node.id,
-        patch: { groupId }
-      }))
-    ]
+    operations
   })
 }
 
@@ -274,16 +353,26 @@ export const buildNodeUngroupManyOperations = (
   ids: readonly NodeId[],
   doc: Document
 ): NodeUngroupOperationResult => {
+  const orderedNodes = listNodes(doc)
   const uniqueIds = Array.from(new Set(ids))
   if (!uniqueIds.length) {
     return err('invalid', 'No group ids provided.')
   }
 
   const selectedSet = new Set(uniqueIds)
+  const nodeById = new Map<NodeId, Node>(orderedNodes.map((node) => [node.id, node]))
+  const ownerByChildId = new Map(getNodeOwnerMap(orderedNodes))
+  const workingChildrenByOwner = new Map<NodeId, NodeId[]>()
   const groups: Node[] = []
 
+  orderedNodes.forEach((node) => {
+    if (node.children?.length) {
+      workingChildrenByOwner.set(node.id, [...node.children])
+    }
+  })
+
   for (const id of uniqueIds) {
-    const group = getNode(doc, id)
+    const group = nodeById.get(id)
     if (!group) {
       return err('invalid', `Node ${id} not found.`)
     }
@@ -293,45 +382,80 @@ export const buildNodeUngroupManyOperations = (
     groups.push(group)
   }
 
-  const childrenByParent = new Map<NodeId, Node[]>()
-  listNodes(doc).forEach((node) => {
-    if (!node.groupId) return
-    const siblings = childrenByParent.get(node.groupId)
-    if (siblings) {
-      siblings.push(node)
-      return
+  const depthCache = new Map<NodeId, number>()
+  const resolveDepth = (nodeId: NodeId): number => {
+    const cached = depthCache.get(nodeId)
+    if (cached !== undefined) {
+      return cached
     }
-    childrenByParent.set(node.groupId, [node])
-  })
 
-  const operations: Operation[] = []
+    const ownerId = ownerByChildId.get(nodeId)
+    const owner = ownerId ? nodeById.get(ownerId) : undefined
+    const depth = owner?.type === 'group'
+      ? resolveDepth(owner.id) + 1
+      : 0
+    depthCache.set(nodeId, depth)
+    return depth
+  }
+
+  const deletedGroupIds = new Set<NodeId>()
   const nodeIds: NodeId[] = []
   const selectedNodeIds = new Set<NodeId>()
 
-  for (const group of groups) {
-    const children = childrenByParent.get(group.id) ?? []
+  groups
+    .sort((left, right) => resolveDepth(right.id) - resolveDepth(left.id))
+    .forEach((group) => {
+      const currentChildren = [...(workingChildrenByOwner.get(group.id) ?? [])]
+      const ownerId = ownerByChildId.get(group.id)
 
-    operations.push(
-      ...children.map((node) => ({
-        type: 'node.update' as const,
-        id: node.id,
-        patch: { groupId: undefined }
-      })),
-      {
-        type: 'node.delete' as const,
-        id: group.id
+      if (ownerId) {
+        const ownerChildren = workingChildrenByOwner.get(ownerId) ?? [...readChildren(nodeById.get(ownerId))]
+        const nextOwnerChildren = replaceChildren(
+          ownerChildren,
+          new Set([group.id]),
+          currentChildren
+        )
+        workingChildrenByOwner.set(ownerId, nextOwnerChildren)
+        currentChildren.forEach((childId) => {
+          ownerByChildId.set(childId, ownerId)
+        })
+      } else {
+        currentChildren.forEach((childId) => {
+          ownerByChildId.delete(childId)
+        })
       }
-    )
 
-    children.forEach((child) => {
-      const willBeDeleted = child.type === 'group' && selectedSet.has(child.id)
-      if (willBeDeleted || selectedNodeIds.has(child.id)) {
-        return
-      }
-      selectedNodeIds.add(child.id)
-      nodeIds.push(child.id)
+      workingChildrenByOwner.delete(group.id)
+      ownerByChildId.delete(group.id)
+      deletedGroupIds.add(group.id)
+
+      currentChildren.forEach((childId) => {
+        if (deletedGroupIds.has(childId) || selectedNodeIds.has(childId)) {
+          return
+        }
+        selectedNodeIds.add(childId)
+        nodeIds.push(childId)
+      })
     })
-  }
+
+  const operations: Operation[] = []
+  workingChildrenByOwner.forEach((children, ownerId) => {
+    if (deletedGroupIds.has(ownerId)) {
+      return
+    }
+
+    const patch = toChildrenPatchOperation(nodeById.get(ownerId), children)
+    if (patch) {
+      operations.push(patch)
+    }
+  })
+
+  deletedGroupIds.forEach((groupId) => {
+    operations.push({
+      type: 'node.delete',
+      id: groupId
+    })
+  })
 
   return ok({
     nodeIds,
