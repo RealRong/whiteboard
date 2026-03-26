@@ -1,4 +1,4 @@
-import type { Point } from '../types'
+import type { Point, Rect } from '../types'
 
 export const distancePointToSegment = (
   point: Point,
@@ -22,3 +22,14 @@ export const distancePointToSegment = (
   const closest = { x: a.x + abx * t, y: a.y + aby * t }
   return Math.hypot(point.x - closest.x, point.y - closest.y)
 }
+
+export const getSegmentBounds = (
+  a: Point,
+  b: Point,
+  padding = 0
+): Rect => ({
+  x: Math.min(a.x, b.x) - padding,
+  y: Math.min(a.y, b.y) - padding,
+  width: Math.abs(b.x - a.x) + padding * 2,
+  height: Math.abs(b.y - a.y) + padding * 2
+})

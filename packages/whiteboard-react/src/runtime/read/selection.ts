@@ -5,6 +5,7 @@ import {
 } from '@whiteboard/core/runtime'
 import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
 import type { EdgeId, NodeId, Node, Rect } from '@whiteboard/core/types'
+import type { TargetBoundsInput } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import {
   resolveNodeRole,
@@ -28,21 +29,17 @@ export type SelectionRead = ReadStore<SelectionView> & {
 
 export const createSelectionRead = ({
   source,
-  nodeList,
   nodeItem,
   edgeItem,
-  edgeBounds,
-  nodeBounds,
+  bounds,
   nodeFrame,
   registry,
   resolveNodeTransform: readNodeTransform = resolveNodeTransform
 }: {
   source: ReadStore<SelectionSource>
-  nodeList: ReadStore<readonly NodeId[]>
   nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
   edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
-  edgeBounds: (edgeId: EdgeId) => Rect | undefined
-  nodeBounds: (nodeId: NodeId) => Rect | undefined
+  bounds: (input: TargetBoundsInput) => Rect | undefined
   nodeFrame: (nodeId: NodeId) => Rect | undefined
   registry: NodeRegistry
   resolveNodeTransform?: typeof resolveNodeTransform
@@ -53,11 +50,9 @@ export const createSelectionRead = ({
   const store = createDerivedStore<SelectionView>({
     get: (readStore) => resolveView({
       source: readStore(source),
-      allNodeIds: readStore(nodeList),
       readNode: (nodeId) => readStore(nodeItem, nodeId),
       readEdge: (edgeId) => readStore(edgeItem, edgeId),
-      readEdgeBounds: edgeBounds,
-      readNodeBounds: nodeBounds,
+      readBounds: bounds,
       resolveNodeRole: getNodeRole,
       resolveNodeTransform: (node) => readNodeTransform(
         registry.get(node.type)

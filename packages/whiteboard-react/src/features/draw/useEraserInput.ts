@@ -1,3 +1,4 @@
+import { getSegmentBounds } from '@whiteboard/core/geometry'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
   useCallback,
@@ -6,7 +7,7 @@ import {
 } from 'react'
 import { useInternalInstance } from '../../runtime/hooks'
 import {
-  buildSegmentRect,
+  readPointerSamples,
   type EraserDown
 } from '../../runtime/input/pointer'
 import {
@@ -20,17 +21,6 @@ const ZOOM_EPSILON = 0.0001
 type ActiveErase = {
   ids: Set<NodeId>
   lastWorld: Point
-}
-
-const readSampleEvents = (
-  event: PointerEvent
-) => {
-  if (typeof event.getCoalescedEvents !== 'function') {
-    return [event]
-  }
-
-  const samples = event.getCoalescedEvents()
-  return samples.length ? samples : [event]
 }
 
 export const useEraserInput = () => {
@@ -72,12 +62,12 @@ export const useEraserInput = () => {
 
   const collectPoint = useCallback((active: ActiveErase, world: Point) => {
     const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(instance.viewport.get().zoom, ZOOM_EPSILON)
-    collectRect(active, buildSegmentRect(active.lastWorld, world, halfWorld))
+    collectRect(active, getSegmentBounds(active.lastWorld, world, halfWorld))
     active.lastWorld = world
   }, [collectRect, instance])
 
   const collectEvent = useCallback((active: ActiveErase, event: PointerEvent) => {
-    const samples = readSampleEvents(event)
+    const samples = readPointerSamples(event)
 
     for (let index = 0; index < samples.length; index += 1) {
       const pointer = instance.viewport.pointer(samples[index]!)

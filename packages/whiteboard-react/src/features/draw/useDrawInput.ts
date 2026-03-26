@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { useInternalInstance } from '../../runtime/hooks'
 import type { DrawDown } from '../../runtime/input/pointer'
+import { readPointerSamples } from '../../runtime/input/pointer'
 import {
   type DrawBrushKind
 } from '../../runtime/tool'
@@ -31,17 +32,6 @@ type ActiveStroke = {
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1
-
-const readSampleEvents = (
-  event: PointerEvent
-) => {
-  if (typeof event.getCoalescedEvents !== 'function') {
-    return [event]
-  }
-
-  const samples = event.getCoalescedEvents()
-  return samples.length ? samples : [event]
-}
 
 const hasMovedEnough = (
   left: Point,
@@ -139,7 +129,7 @@ export const useDrawInput = () => {
     force = false
   ) => {
     let changed = false
-    const samples = readSampleEvents(event)
+    const samples = readPointerSamples(event)
 
     for (let index = 0; index < samples.length; index += 1) {
       const sample = samples[index]

@@ -1,9 +1,8 @@
 import {
   applySelection,
-  getGroupDescendants,
+  type TargetBoundsInput,
   type SelectionMode
 } from '@whiteboard/core/node'
-import { getRectsBoundingRect } from '@whiteboard/core/geometry'
 import {
   createValueStore,
   type ValueStore
@@ -109,59 +108,6 @@ const readEdgeItems = (
   .map((edgeId) => readEdge(edgeId))
   .filter((item): item is EdgeItem => Boolean(item))
 
-const readSelectionNodeRects = ({
-  nodes,
-  allNodes,
-  readNode,
-  readNodeBounds
-}: {
-  nodes: readonly Node[]
-  allNodes: readonly Node[]
-  readNode: (nodeId: NodeId) => NodeItem | undefined
-  readNodeBounds: (nodeId: NodeId) => Rect | undefined
-}): readonly Rect[] => {
-  const rects: Rect[] = []
-  const rectNodeIds = new Set<NodeId>()
-
-  const pushRect = (
-    nodeId: NodeId
-  ) => {
-    if (rectNodeIds.has(nodeId)) {
-      return
-    }
-
-    const item = readNode(nodeId)
-    const bounds = readNodeBounds(nodeId)
-    if (!item || !bounds) {
-      return
-    }
-
-    rectNodeIds.add(nodeId)
-    rects.push(bounds)
-  }
-
-  nodes.forEach((node) => {
-    if (node.type !== 'group') {
-      pushRect(node.id)
-      return
-    }
-
-    const descendants = getGroupDescendants(allNodes, node.id)
-    const contentDescendants = descendants.filter((descendant) => descendant.type !== 'group')
-
-    if (!contentDescendants.length) {
-      pushRect(node.id)
-      return
-    }
-
-    contentDescendants.forEach((descendant) => {
-      pushRect(descendant.id)
-    })
-  })
-
-  return rects
-}
-
 export const isSourceEqual = (
   left: Source,
   right: Source
@@ -212,9 +158,7 @@ export const resolveView = ({
   readEdge,
   resolveNodeTransform,
   resolveNodeRole,
-  readEdgeBounds,
-  readNodeBounds,
-  allNodeIds
+  readBounds
 }: {
   source: Source
   readNode: (nodeId: NodeId) => NodeItem | undefined
@@ -224,9 +168,7 @@ export const resolveView = ({
     rotate: boolean
   }
   resolveNodeRole: (node: Node) => NodeRole
-  readEdgeBounds: (edgeId: EdgeId) => Rect | undefined
-  readNodeBounds: (nodeId: NodeId) => Rect | undefined
-  allNodeIds: readonly NodeId[]
+  readBounds: (input: TargetBoundsInput) => Rect | undefined
 }): View => {
   const nodeItems = readNodeItems(readNode, source.nodeIds)
   const edgeItems = readEdgeItems(readEdge, source.edgeIds)
@@ -278,24 +220,11 @@ export const resolveView = ({
           : 'none' as const
       }
     : EMPTY_TRANSFORM
-  const nodeRects = nodes.some((node) => node.type === 'group')
-    ? readSelectionNodeRects({
-        nodes,
-        allNodes: allNodeIds
-          .map((nodeId) => readNode(nodeId)?.node)
-          .filter((node): node is Node => Boolean(node)),
-        readNode,
-        readNodeBounds
-      })
-    : nodeIds
-      .map((nodeId) => readNodeBounds(nodeId))
-      .filter((rect): rect is Rect => Boolean(rect))
-  const box = getRectsBoundingRect([
-    ...nodeRects,
-    ...edgeIds
-      .map((edgeId) => readEdgeBounds(edgeId))
-      .filter((rect): rect is Rect => Boolean(rect))
-  ])
+  const box = readBounds({
+    nodeIds,
+    edgeIds,
+    groups: 'content'
+  })
 
   return {
     kind:

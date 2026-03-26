@@ -115,6 +115,17 @@ export const readCanvasDown = (
   }
 }
 
+export const readPointerSamples = (
+  event: PointerEvent
+) => {
+  if (typeof event.getCoalescedEvents !== 'function') {
+    return [event]
+  }
+
+  const samples = event.getCoalescedEvents()
+  return samples.length > 0 ? samples : [event]
+}
+
 const clearFrame = (
   instance: InternalInstance
 ) => {
@@ -451,14 +462,3 @@ export const resolveContextTarget = (
     }
   }
 }
-
-export const buildSegmentRect = (
-  left: Point,
-  right: Point,
-  halfWorld: number
-): Rect => ({
-  x: Math.min(left.x, right.x) - halfWorld,
-  y: Math.min(left.y, right.y) - halfWorld,
-  width: Math.abs(right.x - left.x) + halfWorld * 2,
-  height: Math.abs(right.y - left.y) + halfWorld * 2
-})

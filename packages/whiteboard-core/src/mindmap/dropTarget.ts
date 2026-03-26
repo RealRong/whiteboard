@@ -1,6 +1,10 @@
-import type { Rect } from '../types'
+import type { MindmapItem } from '../read'
+import type { Point, Rect, NodeId } from '../types'
 import type { MindmapDragDropTarget, MindmapLayoutOptions, MindmapNodeId, MindmapTree } from './types'
-import { getSide } from './query'
+import {
+  getSide,
+  getSubtreeIds
+} from './query'
 
 type ComputeEdgeAlignmentResult = {
   key: 'left-to-right' | 'right-to-left' | 'top-to-bottom' | 'bottom-to-top'
@@ -30,6 +34,35 @@ export type SubtreeDropTargetOptions = {
   reorderLineGap?: number
   reorderLineOverflow?: number
 }
+
+export type RootMindmapDrag = {
+  kind: 'root'
+  treeId: NodeId
+  pointerId: number
+  start: Point
+  origin: Point
+  position: Point
+}
+
+export type SubtreeMindmapDrag = {
+  kind: 'subtree'
+  treeId: NodeId
+  pointerId: number
+  nodeId: MindmapNodeId
+  originParentId?: MindmapNodeId
+  originIndex?: number
+  baseOffset: Point
+  offset: Point
+  rect: Rect
+  ghost: Rect
+  excludeIds: MindmapNodeId[]
+  layout: MindmapItem['layout']
+  drop?: MindmapDragDropTarget
+}
+
+export type MindmapDragSession =
+  | RootMindmapDrag
+  | SubtreeMindmapDrag
 
 const getNodeSide = (
   tree: MindmapTree,
@@ -126,6 +159,34 @@ const computeEdgeAlignment = (ghost: Rect, target: Rect): ComputeEdgeAlignmentRe
     }
   }
 }
+
+const buildNodeRectMap = (
+  item: MindmapItem,
+  baseOffset: Point
+) => {
+  const rectMap = new Map<MindmapNodeId, Rect>()
+  Object.entries(item.computed.node).forEach(([id, rect]) => {
+    if (!rect) return
+    rectMap.set(id as MindmapNodeId, {
+      x: rect.x + item.shiftX + baseOffset.x,
+      y: rect.y + item.shiftY + baseOffset.y,
+      width: rect.width,
+      height: rect.height
+    })
+  })
+  return rectMap
+}
+
+const buildGhostRect = (
+  pointerWorld: Point,
+  pointerOffset: Point,
+  nodeRect: Rect
+): Rect => ({
+  x: pointerWorld.x - pointerOffset.x,
+  y: pointerWorld.y - pointerOffset.y,
+  width: nodeRect.width,
+  height: nodeRect.height
+})
 
 export const computeSubtreeDropTarget = ({
   tree,
@@ -226,5 +287,118 @@ export const computeSubtreeDropTarget = ({
       x2: hoveredRect.x + hoveredRect.width + reorderLineOverflow,
       y2: lineY
     }
+  }
+}
+
+export const createRootDrag = (options: {
+  treeId: NodeId
+  pointerId: number
+  start: Point
+  origin: Point
+}): RootMindmapDrag => ({
+  kind: 'root',
+  treeId: options.treeId,
+  pointerId: options.pointerId,
+  start: options.start,
+  origin: options.origin,
+  position: options.origin
+})
+
+export const createSubtreeDrag = (options: {
+  treeId: NodeId
+  treeView: MindmapItem
+  nodeId: MindmapNodeId
+  pointerId: number
+  world: Point
+  baseOffset: Point
+}): SubtreeMindmapDrag | undefined => {
+  const {
+    treeId,
+    treeView,
+    nodeId,
+    pointerId,
+    world,
+    baseOffset
+  } = options
+  const nodeRects = buildNodeRectMap(treeView, baseOffset)
+  const rect = nodeRects.get(nodeId)
+  if (!rect) {
+    return undefined
+  }
+
+  const originParentId = treeView.tree.nodes[nodeId]?.parentId
+  const originIndex =
+    originParentId !== undefined
+      ? (treeView.tree.children[originParentId] ?? []).indexOf(nodeId)
+      : undefined
+
+  return {
+    kind: 'subtree',
+    treeId,
+    pointerId,
+    nodeId,
+    originParentId,
+    originIndex,
+    baseOffset,
+    offset: {
+      x: world.x - rect.x,
+      y: world.y - rect.y
+    },
+    rect,
+    ghost: rect,
+    excludeIds: getSubtreeIds(treeView.tree, nodeId),
+    layout: treeView.layout
+  }
+}
+
+const projectRootDrag = (
+  active: RootMindmapDrag,
+  world: Point
+): RootMindmapDrag => ({
+  ...active,
+  position: {
+    x: active.origin.x + (world.x - active.start.x),
+    y: active.origin.y + (world.y - active.start.y)
+  }
+})
+
+const projectSubtreeDrop = (
+  active: SubtreeMindmapDrag,
+  treeView: MindmapItem | undefined,
+  ghost: Rect
+) => (
+  treeView
+    ? computeSubtreeDropTarget({
+        tree: treeView.tree,
+        nodeRects: buildNodeRectMap(treeView, active.baseOffset),
+        ghost,
+        dragNodeId: active.nodeId,
+        dragExcludeIds: new Set(active.excludeIds),
+        layoutOptions: treeView.layout.options
+      })
+    : active.drop
+)
+
+export const projectMindmapDrag = (options: {
+  active: MindmapDragSession
+  world: Point
+  treeView?: MindmapItem
+}): MindmapDragSession => {
+  const {
+    active,
+    world,
+    treeView
+  } = options
+
+  if (active.kind === 'root') {
+    return projectRootDrag(active, world)
+  }
+
+  const ghost = buildGhostRect(world, active.offset, active.rect)
+  return {
+    ...active,
+    ghost,
+    drop: projectSubtreeDrop(active, treeView, ghost),
+    layout: treeView?.layout ?? active.layout
   }
 }

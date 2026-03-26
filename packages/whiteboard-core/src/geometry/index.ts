@@ -25,7 +25,10 @@ export {
   rectContainsRotatedRect
 } from './collision'
 
-export { distancePointToSegment } from './segment'
+export {
+  distancePointToSegment,
+  getSegmentBounds
+} from './segment'
 
 export {
   getNodeRect,

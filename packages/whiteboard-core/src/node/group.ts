@@ -118,6 +118,77 @@ export const getGroupDescendants = (nodes: readonly Node[], groupId: NodeId): No
   return result
 }
 
+const toNodeById = (
+  nodes: readonly Node[]
+): ReadonlyMap<NodeId, Node> =>
+  new Map(nodes.map((node) => [node.id, node]))
+
+export const hasGroupAncestor = (
+  node: Pick<Node, 'groupId'>,
+  ids: ReadonlySet<NodeId>,
+  nodeById: ReadonlyMap<NodeId, Pick<Node, 'groupId'>>
+) => {
+  let groupId = node.groupId
+  while (groupId) {
+    if (ids.has(groupId)) {
+      return true
+    }
+    groupId = nodeById.get(groupId)?.groupId
+  }
+  return false
+}
+
+export const filterRootIds = (
+  nodes: readonly Node[],
+  ids: readonly NodeId[]
+): NodeId[] => {
+  if (!ids.length) {
+    return []
+  }
+
+  const nodeById = toNodeById(nodes)
+  const uniqueIds = Array.from(new Set(ids)).filter((id) => nodeById.has(id))
+  if (!uniqueIds.length) {
+    return []
+  }
+
+  const idSet = new Set(uniqueIds)
+  return uniqueIds.filter((id) => {
+    const node = nodeById.get(id)
+    return node ? !hasGroupAncestor(node, idSet, nodeById) : false
+  })
+}
+
+export const expandGroupMembers = (
+  nodes: readonly Node[],
+  rootIds: readonly NodeId[]
+): Node[] => {
+  if (!rootIds.length) {
+    return []
+  }
+
+  const nodeById = toNodeById(nodes)
+  const memberIds = new Set<NodeId>()
+
+  rootIds.forEach((rootId) => {
+    const root = nodeById.get(rootId)
+    if (!root) {
+      return
+    }
+
+    memberIds.add(root.id)
+    if (root.type !== 'group') {
+      return
+    }
+
+    getGroupDescendants(nodes, root.id).forEach((child) => {
+      memberIds.add(child.id)
+    })
+  })
+
+  return nodes.filter((node) => memberIds.has(node.id))
+}
+
 export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
   Math.abs(a.x - b.x) <= epsilon &&
   Math.abs(a.y - b.y) <= epsilon &&
@@ -267,7 +338,7 @@ const pointInRect = (point: Point, rect: Rect) => (
 )
 
 export const findSmallestContainerAtPoint = (
-  nodes: Node[],
+  nodes: readonly Node[],
   fallbackSize: Size,
   point: Point,
   excludeId?: NodeId

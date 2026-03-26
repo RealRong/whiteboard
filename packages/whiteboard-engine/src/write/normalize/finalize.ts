@@ -1,13 +1,6 @@
-import { moveEdgeRoute } from '@whiteboard/core/edge'
 import {
-  getNodeAABB,
-  isPointEqual,
-  rectContains
+  isPointEqual
 } from '@whiteboard/core/geometry'
-import {
-  findSmallestContainerAtPoint,
-  isContainerNode
-} from '@whiteboard/core/node'
 import type {
   Document,
   Edge,
@@ -22,7 +15,6 @@ import type {
 } from '@whiteboard/core/types'
 
 const TEXT_WIDTH_MODE_KEY = 'widthMode'
-const EDGE_FOLLOW_DELTA_EPSILON = 0.001
 type NodeEdgeEnd = Extract<EdgeEnd, { kind: 'node' }>
 
 type NodeChange = {
@@ -368,14 +360,6 @@ export const collectChanges = ({
   touched: collectTouchedIds(operations)
 })
 
-const hasNodePositionChange = (
-  change: NodeChange
-) => Boolean(
-  change.before
-  && change.after
-  && !isPointEqual(change.before.position, change.after.position)
-)
-
 const hasNodeSizeChange = (
   change: NodeChange
 ) => {
@@ -393,73 +377,6 @@ const hasNodeSizeChange = (
     (before?.width ?? 0) !== (after?.width ?? 0)
     || (before?.height ?? 0) !== (after?.height ?? 0)
   )
-}
-
-type NodeMoveAnalysis = {
-  idSet: ReadonlySet<NodeId>
-  rootIds: readonly NodeId[]
-  deltaById: ReadonlyMap<NodeId, Point>
-}
-
-const analyzeNodeMoves = ({
-  afterDocument,
-  changes
-}: {
-  afterDocument: Document
-  changes: WriteChanges
-}): NodeMoveAnalysis | undefined => {
-  const idSet = new Set<NodeId>()
-  const deltaById = new Map<NodeId, Point>()
-
-  changes.nodes.forEach((change, nodeId) => {
-    if (!change.geometry || !hasNodePositionChange(change) || !change.before || !change.after) {
-      return
-    }
-
-    if (idSet.has(nodeId)) {
-      return
-    }
-
-    idSet.add(nodeId)
-    deltaById.set(nodeId, {
-      x: change.after.position.x - change.before.position.x,
-      y: change.after.position.y - change.before.position.y
-    })
-  })
-
-  if (!idSet.size) {
-    return undefined
-  }
-
-  const nodeById = afterDocument.nodes.entities
-  const rootIds = [...idSet].filter((nodeId) => {
-    const node = nodeById[nodeId]
-    if (!node) {
-      return false
-    }
-    return !hasMovedAncestor(node, idSet, nodeById)
-  })
-
-  return {
-    idSet,
-    rootIds,
-    deltaById
-  }
-}
-
-const hasMovedAncestor = (
-  node: Node,
-  movedNodeIds: ReadonlySet<NodeId>,
-  nodeById: Readonly<Record<NodeId, Node>>
-) => {
-  let groupId = node.groupId
-  while (groupId) {
-    if (movedNodeIds.has(groupId)) {
-      return true
-    }
-    groupId = nodeById[groupId]?.groupId
-  }
-  return false
 }
 
 const collectNodeDataOps = ({
@@ -510,136 +427,6 @@ const collectNodeDataOps = ({
   return next
 }
 
-const isSameDelta = (
-  left: Point,
-  right: Point,
-  epsilon = EDGE_FOLLOW_DELTA_EPSILON
-) => (
-  Math.abs(left.x - right.x) <= epsilon
-  && Math.abs(left.y - right.y) <= epsilon
-)
-
-const collectReparentOps = ({
-  afterDocument,
-  moves,
-  nodeSize
-}: {
-  afterDocument: Document
-  moves: NodeMoveAnalysis | undefined
-  nodeSize: Size
-}): Operation[] => {
-  if (!moves?.rootIds.length) {
-    return []
-  }
-
-  if (!moves.idSet.size) {
-    return []
-  }
-
-  const nodes = Object.values(afterDocument.nodes.entities)
-  const containerNodes = nodes.filter((node) => (
-    !moves.idSet.has(node.id)
-    && isContainerNode(node)
-  ))
-  const next: Operation[] = []
-
-  moves.idSet.forEach((nodeId) => {
-    const node = afterDocument.nodes.entities[nodeId]
-    if (!node) {
-      return
-    }
-
-    const rect = getNodeAABB(node, nodeSize)
-    const targetContainerId = findSmallestContainerAtPoint(
-      containerNodes,
-      nodeSize,
-      {
-        x: rect.x + rect.width / 2,
-        y: rect.y + rect.height / 2
-      },
-      node.id
-    )?.id
-
-    if (targetContainerId && targetContainerId !== node.containerId) {
-      next.push({
-        type: 'node.update',
-        id: node.id,
-        patch: {
-          containerId: targetContainerId
-        }
-      })
-      return
-    }
-
-    if (!node.containerId) {
-      return
-    }
-
-    const containerNode = afterDocument.nodes.entities[node.containerId]
-    if (!containerNode || !isContainerNode(containerNode)) {
-      return
-    }
-
-    const containerRect = getNodeAABB(containerNode, nodeSize)
-    if (!rectContains(containerRect, rect)) {
-      next.push({
-        type: 'node.update',
-        id: node.id,
-        patch: {
-          containerId: undefined
-        }
-      })
-    }
-  })
-
-  return next
-}
-
-const collectEdgeFollowOps = ({
-  afterDocument,
-  changes,
-  moves
-}: {
-  afterDocument: Document
-  changes: WriteChanges
-  moves: NodeMoveAnalysis | undefined
-}): Operation[] => {
-  if (!moves?.deltaById.size) {
-    return []
-  }
-
-  const updatedEdgeIds = new Set(changes.edges.keys())
-  const next: Operation[] = []
-
-  Object.values(afterDocument.edges.entities).forEach((edge) => {
-    if (updatedEdgeIds.has(edge.id)) {
-      return
-    }
-    if (edge.source.kind !== 'node' || edge.target.kind !== 'node') {
-      return
-    }
-
-    const sourceDelta = moves.deltaById.get(edge.source.nodeId)
-    const targetDelta = moves.deltaById.get(edge.target.nodeId)
-    if (!sourceDelta || !targetDelta || !isSameDelta(sourceDelta, targetDelta)) {
-      return
-    }
-
-    const patch = moveEdgeRoute(edge, sourceDelta)
-    if (!patch) {
-      return
-    }
-
-    next.push({
-      type: 'edge.update',
-      id: edge.id,
-      patch
-    })
-  })
-
-  return next
-}
-
 export const collectFinalizeOps = ({
   afterDocument,
   changes,
@@ -649,28 +436,11 @@ export const collectFinalizeOps = ({
   changes: WriteChanges
   nodeSize: Size
 }): Operation[] => {
-  const moves = analyzeNodeMoves({
-    afterDocument,
-    changes
+  return collectNodeDataOps({
+    document: afterDocument,
+    changes,
+    nodeSize
   })
-
-  return [
-    ...collectNodeDataOps({
-      document: afterDocument,
-      changes,
-      nodeSize
-    }),
-    ...collectReparentOps({
-      afterDocument,
-      moves,
-      nodeSize
-    }),
-    ...collectEdgeFollowOps({
-      afterDocument,
-      changes,
-      moves
-    })
-  ]
 }
 
 export const collectDirtyNodeIds = (

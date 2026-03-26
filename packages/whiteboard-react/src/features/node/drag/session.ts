@@ -1,6 +1,11 @@
 import {
   moveEdge
 } from '@whiteboard/core/edge'
+import {
+  buildMoveSet,
+  resolveMoveEffect,
+  type MoveSet
+} from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../../runtime/instance'
 import {
@@ -10,16 +15,17 @@ import {
   clearNodeSessionPreview,
   writeNodeSessionPreview
 } from '../session/node'
-import {
-  buildNodeDragState,
-  resolveNodeDragCommit,
-  resolveNodeDragFollowEdges,
-  resolveNodeDragPosition,
-  resolveNodeDragPreview,
-  type NodeDragRuntimeState
-} from './math'
 
-type ActiveDrag = NodeDragRuntimeState & {
+type ActiveDrag = {
+  ids: readonly NodeId[]
+  move: MoveSet
+  startWorld: Point
+  origin: Point
+  last: Point
+  size: {
+    width: number
+    height: number
+  }
   allowCross: boolean
   selectedEdgeIds: readonly EdgeId[]
   relatedEdgeIds: readonly EdgeId[]
@@ -58,24 +64,20 @@ export const createNodeDragSession = (
   }
 
   const commit = (draft: ActiveDrag) => {
-    const nodeUpdates = resolveNodeDragCommit({
-      draft
-    })
-    if (nodeUpdates.length) {
-      instance.commands.node.updateMany(nodeUpdates)
+    if (draft.last.x !== 0 || draft.last.y !== 0) {
+      instance.commands.node.move({
+        ids: draft.ids,
+        delta: draft.last
+      })
     }
 
-    const delta = {
-      x: draft.last.x - draft.origin.x,
-      y: draft.last.y - draft.origin.y
-    }
     const edgeUpdates = draft.selectedEdgeIds.flatMap((edgeId) => {
       const edge = instance.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
 
-      const patch = moveEdge(edge, delta)
+      const patch = moveEdge(edge, draft.last)
       if (!patch) {
         return []
       }
@@ -100,10 +102,10 @@ export const createNodeDragSession = (
     }
 
     const world = instance.viewport.pointer(input).world
-    const rawPosition = resolveNodeDragPosition({
-      active,
-      world
-    })
+    const rawPosition = {
+      x: active.origin.x + (world.x - active.startWorld.x),
+      y: active.origin.y + (world.y - active.startWorld.y)
+    }
     const snapped = instance.internals.snap.node.move({
       rect: {
         x: rawPosition.x,
@@ -111,31 +113,24 @@ export const createNodeDragSession = (
         width: active.size.width,
         height: active.size.height
       },
-      excludeIds: active.members.map((member) => member.id),
+      excludeIds: active.move.members.map((member) => member.id),
       allowCross: active.allowCross,
       disabled: !instance.read.tool.is('select')
     })
-    const preview = resolveNodeDragPreview({
-      active,
-      position: {
-        x: snapped.x,
-        y: snapped.y
-      },
-      nodes: readCanvasNodes(),
-      config: instance.config
-    })
-
-    active.last = preview.position
-    const edgeUpdates = resolveNodeDragFollowEdges({
-      active,
-      positions: preview.patches,
-      edgeIds: active.relatedEdgeIds,
-      readEdge: (edgeId) => instance.read.edge.view.get(edgeId)?.edge
-    })
     const delta = {
-      x: preview.position.x - active.origin.x,
-      y: preview.position.y - active.origin.y
+      x: snapped.x - active.origin.x,
+      y: snapped.y - active.origin.y
     }
+    const preview = resolveMoveEffect({
+      nodes: readCanvasNodes(),
+      edges: active.relatedEdgeIds
+        .map((edgeId) => instance.read.edge.view.get(edgeId)?.edge)
+        .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge)),
+      move: active.move,
+      delta,
+      nodeSize: instance.config.nodeSize
+    })
+    active.last = delta
     const selectedEdgeUpdates = active.selectedEdgeIds.flatMap((edgeId) => {
       const edge = instance.read.edge.view.get(edgeId)?.edge
       if (!edge) {
@@ -151,13 +146,13 @@ export const createNodeDragSession = (
     })
 
     writeNodeSessionPreview(instance.internals.node.session, {
-      patches: preview.patches,
+      patches: preview.nodes,
       hoveredContainerId: preview.hoveredContainerId
     })
     instance.internals.edge.preview.patch.write(
       [
         ...selectedEdgeUpdates,
-        ...edgeUpdates.map(({ id, patch }) => ({
+        ...preview.edges.map(({ id, patch }) => ({
           id,
           route: patch.route
         }))
@@ -167,21 +162,14 @@ export const createNodeDragSession = (
 
   return {
     start: (input) => {
-      const drag = buildNodeDragState({
+      const ids = input.nodeIds.includes(input.anchorId)
+        ? input.nodeIds
+        : [input.anchorId]
+      const move = buildMoveSet({
         nodes: readCanvasNodes(),
-        anchorId: input.anchorId,
-        startWorld: input.start,
-        origin: {
-          x: input.frame.x,
-          y: input.frame.y
-        },
-        size: {
-          width: input.frame.width,
-          height: input.frame.height
-        },
-        selectedNodeIds: input.nodeIds
+        ids
       })
-      if (!drag.members.length) {
+      if (!move.members.length) {
         return false
       }
 
@@ -216,12 +204,26 @@ export const createNodeDragSession = (
       }
 
       active = {
+        ids,
+        move,
+        startWorld: input.start,
+        origin: {
+          x: input.frame.x,
+          y: input.frame.y
+        },
+        last: {
+          x: 0,
+          y: 0
+        },
+        size: {
+          width: input.frame.width,
+          height: input.frame.height
+        },
         allowCross: input.event.altKey,
         selectedEdgeIds: input.edgeIds ?? [],
         relatedEdgeIds: instance.read.edge.related(
-          drag.members.map((member) => member.id)
+          move.members.map((member) => member.id)
         ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
-        ...drag
       }
       session = nextSession
       clearNodeSessionPreview(instance.internals.node.session)

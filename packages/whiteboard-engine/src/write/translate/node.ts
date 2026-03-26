@@ -8,9 +8,11 @@ import {
   buildNodeDistributeOperations,
   buildNodeDuplicateOperations,
   buildNodeGroupOperations,
+  buildMoveSet,
   buildNodeUngroupManyOperations,
   buildNodeUngroupOperations,
-  expandNodeSelection
+  expandNodeSelection,
+  resolveMoveEffect
 } from '@whiteboard/core/node'
 import {
   listEdges,
@@ -36,6 +38,7 @@ type CreateCommand = Extract<NodeCommand, { type: 'create' }>
 type GroupCommand = Extract<NodeCommand, { type: 'group.create' }>
 type UngroupCommand = Extract<NodeCommand, { type: 'group.ungroup' }>
 type UngroupManyCommand = Extract<NodeCommand, { type: 'group.ungroupMany' }>
+type MoveCommand = Extract<NodeCommand, { type: 'move' }>
 type UpdateManyCommand = Extract<NodeCommand, { type: 'updateMany' }>
 type DeleteCascadeCommand = Extract<NodeCommand, { type: 'deleteCascade' }>
 type DuplicateCommand = Extract<NodeCommand, { type: 'duplicate' }>
@@ -117,6 +120,58 @@ export const translateNode = <C extends NodeCommand>(
     if (!operations.length) {
       return cancelled('No node updates provided.')
     }
+    return success(operations)
+  }
+
+  const move = (command: MoveCommand): TranslateResult => {
+    if (!command.ids.length) {
+      return cancelled('No nodes selected.')
+    }
+    if (command.delta.x === 0 && command.delta.y === 0) {
+      return cancelled('Nodes are already current.')
+    }
+
+    const moveSet = buildMoveSet({
+      nodes: listNodes(doc),
+      ids: command.ids
+    })
+    if (!moveSet.members.length) {
+      return cancelled('No movable nodes selected.')
+    }
+
+    const effect = resolveMoveEffect({
+      nodes: listNodes(doc),
+      edges: listEdges(doc),
+      move: moveSet,
+      delta: command.delta,
+      nodeSize: ctx.config.nodeSize
+    })
+
+    const operations = [
+      ...toUpdateOperations([
+        ...effect.nodes.map((entry) => ({
+          id: entry.id,
+          patch: {
+            position: entry.position
+          }
+        })),
+        ...effect.containers.map((entry) => ({
+          id: entry.id,
+          patch: {
+            containerId: entry.containerId
+          }
+        }))
+      ]),
+      ...effect.edges.map((entry) => ({
+        type: 'edge.update' as const,
+        id: entry.id,
+        patch: entry.patch
+      }))
+    ]
+    if (!operations.length) {
+      return cancelled('Nodes are already current.')
+    }
+
     return success(operations)
   }
 
@@ -250,6 +305,8 @@ export const translateNode = <C extends NodeCommand>(
       return create(command) as TranslateResult<NodeWriteOutput<C>>
     case 'updateMany':
       return updateMany(command) as TranslateResult<NodeWriteOutput<C>>
+    case 'move':
+      return move(command) as TranslateResult<NodeWriteOutput<C>>
     case 'align':
       return align(command) as TranslateResult<NodeWriteOutput<C>>
     case 'distribute':

@@ -49,6 +49,11 @@ export type NodeBatchUpdate = {
   patch: NodePatch
 }
 
+export type NodeMoveInput = {
+  ids: readonly NodeId[]
+  delta: Point
+}
+
 export type NodeUpdateManyOptions = {
   origin?: WriteOrigin
 }
@@ -74,6 +79,11 @@ export type NodeWriteCommand =
       mode: 'merge' | 'replace'
       id: NodeId
       patch: Record<string, unknown>
+    }
+  | {
+      type: 'move'
+      ids: readonly NodeId[]
+      delta: Point
     }
   | {
       type: 'updateMany'
@@ -351,6 +361,7 @@ export type EngineCommands = {
   }
   node: {
     create: (payload: NodeInput) => CommandResult<{ nodeId: NodeId }>
+    move: (input: NodeMoveInput) => CommandResult
     update: (id: NodeId, patch: NodePatch) => CommandResult
     updateMany: (
       updates: readonly NodeBatchUpdate[],

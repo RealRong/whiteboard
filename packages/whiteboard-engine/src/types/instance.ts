@@ -9,7 +9,7 @@ import type {
 } from '@whiteboard/core/read'
 import type { HistoryConfig } from '@whiteboard/core/kernel'
 import type { SnapCandidate } from '@whiteboard/core/node'
-import type { NodeRectHitOptions } from '@whiteboard/core/node'
+import type { NodeRectHitOptions, TargetBoundsInput } from '@whiteboard/core/node'
 import type { CoreRegistries, Document, EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import type {
   KeyedReadStore,
@@ -58,15 +58,16 @@ export type SliceRead = {
   }) => SliceExportResult | undefined
 }
 
-export type CanvasRead = {
-  bounds: () => Rect | undefined
+export type BoundsRead = {
+  canvas: () => Rect | undefined
+  targets: (input: TargetBoundsInput) => Rect | undefined
 }
 
 export type EngineRead = {
   document: {
     background: ReadStore<Document['background'] | undefined>
   }
-  canvas: CanvasRead
+  bounds: BoundsRead
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead

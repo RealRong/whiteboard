@@ -1,5 +1,7 @@
 import type { EngineRead } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
+import { getTargetBounds } from '@whiteboard/core/node'
+import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
@@ -25,8 +27,9 @@ import {
 import type { PickRuntime } from '../pick'
 import type { ViewportRead } from '../viewport'
 
-export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
+export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   history: ReadStore<HistoryState>
+  bounds: EngineRead['bounds']
   node: NodeRead
   edge: ReturnType<typeof createEdgeRead>
   selection: SelectionRead
@@ -69,34 +72,45 @@ export const createRuntimeRead = ({
     registry,
     item: nodeItem
   })
+  const readRuntimeNodes = () => engineRead.node.list.get()
+    .map((nodeId) => nodeItem.get(nodeId)?.node)
+    .filter((node): node is NonNullable<typeof node> => Boolean(node))
+  const readNodeFrame = (nodeId: NodeId) => {
+    const item = nodeItem.get(nodeId)
+    const entry = engineRead.index.node.get(nodeId)
+    if (!item?.node || !entry) {
+      return undefined
+    }
+
+    return {
+      x: item.node.position.x,
+      y: item.node.position.y,
+      width: entry.rect.width,
+      height: entry.rect.height
+    }
+  }
+  const bounds: EngineRead['bounds'] = {
+    canvas: engineRead.bounds.canvas,
+    targets: (input) => getTargetBounds({
+      input,
+      nodes: readRuntimeNodes(),
+      readNodeBounds: nodeRead.bounds,
+      readEdgeBounds: edgeRead.bounds
+    })
+  }
   const selectionRead = createSelectionRead({
     source: selection,
-    nodeList: engineRead.node.list,
     nodeItem,
     edgeItem: edgeRead.item,
-    edgeBounds: edgeRead.bounds,
-    nodeBounds: nodeRead.bounds,
-    nodeFrame: (nodeId) => {
-      const item = nodeItem.get(nodeId)
-      const entry = engineRead.index.node.get(nodeId)
-      if (!item?.node || !entry) {
-        return undefined
-      }
-
-      return {
-        x: item.node.position.x,
-        y: item.node.position.y,
-        width: entry.rect.width,
-        height: entry.rect.height
-      }
-    },
+    bounds: bounds.targets,
+    nodeFrame: readNodeFrame,
     registry,
     resolveNodeTransform
   })
 
   return {
     document: engineRead.document,
-    canvas: engineRead.canvas,
+    bounds,
     history,
     node: nodeRead,
     edge: edgeRead,

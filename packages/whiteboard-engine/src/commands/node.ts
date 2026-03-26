@@ -1,5 +1,6 @@
 import type {
   NodeBatchUpdate,
+  NodeMoveInput,
   NodeUpdateManyOptions,
   WriteCommandMap
 } from '@engine-types/command'
@@ -34,6 +35,13 @@ export const node = ({
 
   const create = (payload: NodeInput) =>
     run({ type: 'create', payload })
+
+  const move = (input: NodeMoveInput) =>
+    run({
+      type: 'move',
+      ids: input.ids,
+      delta: input.delta
+    })
 
   const update = (id: NodeId, patch: NodePatch) =>
     run({
@@ -106,6 +114,7 @@ export const node = ({
 
   return {
     create,
+    move,
     update,
     updateMany,
     align,

@@ -20,8 +20,11 @@ export {
 } from './draw'
 export {
   findSmallestContainerAtPoint,
+  filterRootIds,
+  hasGroupAncestor,
   getContainerChildrenMap,
   getContainerDescendants,
+  expandGroupMembers,
   getGroupChildrenMap,
   getGroupDescendants,
   getNodesBoundingRect,
@@ -32,6 +35,19 @@ export {
 export type {
   NormalizeGroupBoundsOptions
 } from './group'
+export {
+  buildMoveSet,
+  projectMovePositions,
+  resolveMoveEffect
+} from './move'
+export type {
+  MoveContainerChange,
+  MoveEdgeChange,
+  MoveEffect,
+  MoveMember,
+  MoveNodePosition,
+  MoveSet
+} from './move'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
 export {
   deriveNodeReadSlices,
@@ -91,6 +107,7 @@ export {
 } from './layout'
 export {
   applySelection,
+  getTargetBounds,
   resolveSelectionMode
 } from './selection'
 export {
@@ -117,5 +134,6 @@ export type {
 } from './snap'
 export type {
   SelectionMode,
-  SelectionModifiers
+  SelectionModifiers,
+  TargetBoundsInput
 } from './selection'

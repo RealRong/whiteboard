@@ -8,6 +8,7 @@ import {
   getEdgePathBounds
 } from '@whiteboard/core/edge'
 import {
+  getNodeAABB,
   getAABBFromPoints,
   getRectsBoundingRect
 } from '@whiteboard/core/geometry'
@@ -17,7 +18,16 @@ import {
   exportSliceFromEdge,
   exportSliceFromNodes
 } from '@whiteboard/core/document'
-import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
+import {
+  getNodeOutlineBounds,
+  getTargetBounds
+} from '@whiteboard/core/node'
+import {
+  listNodes,
+  type EdgeId,
+  type NodeId,
+  type Rect
+} from '@whiteboard/core/types'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
 import { NodeRectIndex, SnapIndex, TreeIndex } from '../indexes'
@@ -92,6 +102,21 @@ export const createRead = ({
     readIds: treeIndex.ids
   })
 
+  const readProjectedNodeBounds = (nodeId: NodeId): Rect | undefined => {
+    const item = nodeProjection.item.get(nodeId)
+    if (!item) {
+      return undefined
+    }
+
+    const rotation = typeof item.node.rotation === 'number'
+      ? item.node.rotation
+      : 0
+
+    return item.node.type === 'shape'
+      ? getNodeOutlineBounds(item.node, item.rect, rotation)
+      : getNodeAABB(item.node, item.rect)
+  }
+
   const readEdgeBounds = (edgeId: EdgeId): Rect | undefined => {
     const item = edgeProjection.item.get(edgeId)
     if (!item) {
@@ -146,6 +171,14 @@ export const createRead = ({
     return getRectsBoundingRect(rects)
   }
 
+  const readTargetBounds = (input: Parameters<typeof getTargetBounds>[0]['input']) =>
+    getTargetBounds({
+      input,
+      nodes: listNodes(readDocument()),
+      readNodeBounds: readProjectedNodeBounds,
+      readEdgeBounds
+    })
+
   const applyImpact = (impact: KernelReadImpact) => {
     if (impact.reset || impact.document) {
       background.set(readDocument().background)
@@ -165,8 +198,9 @@ export const createRead = ({
       document: {
         background
       },
-      canvas: {
-        bounds: readCanvasBounds
+      bounds: {
+        canvas: readCanvasBounds,
+        targets: readTargetBounds
       },
       node: {
         list: nodeProjection.list,

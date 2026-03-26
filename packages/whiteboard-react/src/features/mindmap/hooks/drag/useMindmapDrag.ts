@@ -1,16 +1,37 @@
+import {
+  createRootDrag,
+  createSubtreeDrag,
+  projectMindmapDrag,
+  type MindmapDragSession
+} from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from '../../../../runtime/hooks'
 import type { MindmapDown } from '../../../../runtime/input/pointer'
-import {
-  resolveNextMindmapDragSession,
-  resolveRootDragSession,
-  resolveSubtreeDragSession,
-  toMindmapDragState,
-  type MindmapDragSession
-} from './math'
+import type { MindmapDragState } from '../../session/drag'
 
 type ActiveMindmapDragSession = MindmapDragSession
+
+const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
+  if (session.kind === 'root') {
+    return {
+      treeId: session.treeId,
+      kind: 'root',
+      baseOffset: session.position
+    }
+  }
+
+  return {
+    treeId: session.treeId,
+    kind: 'subtree',
+    baseOffset: session.baseOffset,
+    preview: {
+      nodeId: session.nodeId,
+      ghost: session.ghost,
+      drop: session.drop
+    }
+  }
+}
 
 export const useMindmapDrag = () => {
   const instance = useInternalInstance()
@@ -43,7 +64,7 @@ export const useMindmapDrag = () => {
     }
 
     const { world } = instance.viewport.pointer(input)
-    const next = resolveNextMindmapDragSession({
+    const next = projectMindmapDrag({
       active,
       world,
       treeView:
@@ -138,13 +159,13 @@ export const useMindmapDrag = () => {
 
     const next =
       nodeId === treeView.tree.rootId
-        ? resolveRootDragSession({
+        ? createRootDrag({
             treeId,
             pointerId: event.pointerId,
             start: world,
             origin: baseOffset
           })
-        : resolveSubtreeDragSession({
+        : createSubtreeDrag({
             treeId,
             treeView,
             nodeId,

@@ -30,7 +30,7 @@ export const ViewportDock = () => {
   const history = useStoreValue(instance.read.history)
 
   const fitToScreen = () => {
-    const bounds = instance.read.canvas.bounds()
+    const bounds = instance.read.bounds.canvas()
     if (!bounds) {
       return
     }
