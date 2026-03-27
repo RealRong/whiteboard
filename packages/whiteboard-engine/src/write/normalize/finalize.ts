@@ -1,6 +1,8 @@
 import {
   isPointEqual
 } from '@whiteboard/core/geometry'
+import { createNodeUpdateOperation } from '@whiteboard/core/node'
+import { compileNodeFieldUpdate } from '@whiteboard/core/schema'
 import type {
   Document,
   Edge,
@@ -432,18 +434,13 @@ const collectNodeDataOps = ({
       return
     }
 
-    next.push({
-      type: 'node.update',
-      id: nodeId,
-      update: {
-        records: [{
-          scope: 'data',
-          op: 'set',
-          path: TEXT_WIDTH_MODE_KEY,
-          value: 'fixed'
-        }]
-      }
-    })
+    next.push(createNodeUpdateOperation(
+      nodeId,
+      compileNodeFieldUpdate(
+        { scope: 'data', path: TEXT_WIDTH_MODE_KEY },
+        'fixed'
+      )
+    ))
   })
 
   return next

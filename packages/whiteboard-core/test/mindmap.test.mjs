@@ -4,11 +4,12 @@ import {
   addChild,
   createMindmap,
   createMindmapUpdateOps,
+  insertNode,
   layoutMindmap,
   layoutMindmapTidy,
   moveSubtree,
   removeSubtree,
-  setNodeData
+  updateNode
 } from '../dist/mindmap/index.js'
 
 test('mindmap commands', () => {
@@ -32,12 +33,17 @@ test('mindmap commands', () => {
   const children = tree2.children[tree2.rootId]
   assert.equal(children.length, 2)
 
-  const move = moveSubtree(tree2, children[1], children[0])
+  const move = moveSubtree(tree2, {
+    nodeId: children[1],
+    parentId: children[0]
+  })
   assert.ok(move.ok)
   const tree3 = move.data.tree
   assert.equal(tree3.nodes[children[1]].parentId, children[0])
 
-  const removed = removeSubtree(tree3, children[0])
+  const removed = removeSubtree(tree3, {
+    nodeId: children[0]
+  })
   assert.ok(removed.ok)
   const tree4 = removed.data.tree
   assert.ok(tree4.nodes[children[0]] === undefined)
@@ -65,7 +71,7 @@ test('mindmap layout outputs coordinates', () => {
   assert.ok(tidy.bbox.width >= 0 && tidy.bbox.height >= 0)
 })
 
-test('mindmap setNodeData 支持 canonical data mutations', () => {
+test('mindmap updateNode 支持 canonical data mutations 和字段更新', () => {
   let nodeSeq = 1
   const idGenerator = {
     treeId: () => 'mindmap_mutation',
@@ -81,30 +87,88 @@ test('mindmap setNodeData 支持 canonical data mutations', () => {
     }
   })
 
-  const setResult = setNodeData(tree, tree.rootId, [{
-    op: 'set',
-    path: 'meta.title',
-    value: 'Board'
-  }])
+  const setResult = updateNode(tree, {
+    nodeId: tree.rootId,
+    update: {
+      records: [{
+        op: 'set',
+        path: 'meta.title',
+        value: 'Board'
+      }]
+    }
+  })
   assert.ok(setResult.ok)
   assert.equal(setResult.data.tree.nodes[tree.rootId].data.meta.title, 'Board')
 
-  const unsetResult = setNodeData(setResult.data.tree, tree.rootId, [{
-    op: 'unset',
-    path: 'meta.title'
-  }])
+  const unsetResult = updateNode(setResult.data.tree, {
+    nodeId: tree.rootId,
+    update: {
+      records: [{
+        op: 'unset',
+        path: 'meta.title'
+      }]
+    }
+  })
   assert.ok(unsetResult.ok)
   assert.equal('title' in unsetResult.data.tree.nodes[tree.rootId].data.meta, false)
 
-  const spliceResult = setNodeData(unsetResult.data.tree, tree.rootId, [{
-    op: 'splice',
-    path: 'tags',
-    index: 1,
-    deleteCount: 1,
-    values: ['x', 'y']
-  }])
+  const spliceResult = updateNode(unsetResult.data.tree, {
+    nodeId: tree.rootId,
+    update: {
+      records: [{
+        op: 'splice',
+        path: 'tags',
+        index: 1,
+        deleteCount: 1,
+        values: ['x', 'y']
+      }]
+    }
+  })
   assert.ok(spliceResult.ok)
   assert.deepEqual(spliceResult.data.tree.nodes[tree.rootId].data.tags, ['a', 'x', 'y'])
+
+  const collapseResult = updateNode(spliceResult.data.tree, {
+    nodeId: tree.rootId,
+    update: {
+      collapsed: true
+    }
+  })
+  assert.ok(collapseResult.ok)
+  assert.equal(collapseResult.data.tree.nodes[tree.rootId].collapsed, true)
+})
+
+test('mindmap insertNode 会在目标节点上方插入新父节点', () => {
+  let nodeSeq = 1
+  const idGenerator = {
+    treeId: () => 'mindmap_parent',
+    nodeId: () => `node_${nodeSeq++}`
+  }
+
+  const tree = createMindmap({ idGenerator })
+  const childResult = addChild(
+    tree,
+    tree.rootId,
+    { kind: 'text', text: 'child' },
+    { side: 'left', idGenerator }
+  )
+  assert.ok(childResult.ok)
+
+  const wrapResult = insertNode(childResult.data.tree, {
+    kind: 'parent',
+    nodeId: childResult.data.nodeId,
+    payload: { kind: 'text', text: 'parent' }
+  }, { idGenerator })
+  assert.ok(wrapResult.ok)
+
+  const nextTree = wrapResult.data.tree
+  const parentId = wrapResult.data.nodeId
+  const childId = childResult.data.nodeId
+
+  assert.equal(nextTree.nodes[parentId].parentId, nextTree.rootId)
+  assert.equal(nextTree.nodes[parentId].side, 'left')
+  assert.equal(nextTree.nodes[childId].parentId, parentId)
+  assert.deepEqual(nextTree.children[parentId], [childId])
+  assert.equal(nextTree.children[nextTree.rootId][0], parentId)
 })
 
 test('createMindmapUpdateOps 将整树更新编译为 path scoped node.update record', () => {

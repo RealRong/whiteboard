@@ -1,3 +1,4 @@
+import { createNodeFieldsUpdateOperation } from '@whiteboard/core/node'
 import { getNode, type Document, type NodeId, type Operation } from '@whiteboard/core/types'
 import type { Size } from '@engine-types/common/base'
 import type { Point } from '@whiteboard/core/types'
@@ -40,13 +41,7 @@ export class CommitCompiler {
     }
     if (!patch.position && !patch.size) return []
 
-    return [{
-      type: 'node.update',
-      id: nodeId,
-      update: {
-        fields: patch
-      }
-    }]
+    return [createNodeFieldsUpdateOperation(nodeId, patch)]
   }
 
   compileRotate = (
@@ -57,14 +52,6 @@ export class CommitCompiler {
     const node = getNode(this.readDoc(), nodeId)
     if (!node) return []
     if ((node.rotation ?? 0) === rotation) return []
-    return [{
-      type: 'node.update',
-      id: nodeId,
-      update: {
-        fields: {
-          rotation
-        }
-      }
-    }]
+    return [createNodeFieldsUpdateOperation(nodeId, { rotation })]
   }
 }

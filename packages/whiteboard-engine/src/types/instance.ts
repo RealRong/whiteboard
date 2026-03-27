@@ -20,6 +20,7 @@ import type {
   EdgeId,
   Node,
   NodeId,
+  Operation,
   Point,
   Rect
 } from '@whiteboard/core/types'
@@ -29,7 +30,12 @@ import type {
 } from './store'
 import type { EngineCommands } from './command'
 import type { Commit } from './commit'
+import type { CommandResult } from './result'
 export type { BoardConfig } from '@whiteboard/core/config'
+
+export type ApplyOperationsOptions = {
+  origin?: 'user' | 'system' | 'remote'
+}
 
 export type EngineReadIndex = {
   node: {
@@ -103,9 +109,16 @@ export type EngineRuntimeOptions = {
 
 export type EngineInstance = {
   config: Readonly<BoardConfig>
+  document: {
+    get: () => Document
+  }
   read: EngineRead
   commit: ReadStore<Commit | null>
   commands: EngineCommands
+  applyOperations: (
+    operations: readonly Operation[],
+    options?: ApplyOperationsOptions
+  ) => CommandResult
   configure: (config: EngineRuntimeOptions) => void
   dispose: () => void
 }

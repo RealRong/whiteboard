@@ -24,111 +24,40 @@ export const mindmap = ({
         type: 'create',
         payload
       }),
-    replace: (id, tree) =>
-      run({
-        type: 'replace',
-        id,
-        tree
-      }),
     delete: (ids) =>
       run({
         type: 'delete',
         ids
       }),
-    addChild: (id, parentId, payload, options) =>
+    insert: (id, input) =>
       run({
-        type: 'insert.child',
+        type: 'insert',
         id,
-        parentId,
-        payload,
-        options
+        input
       }),
-    addSibling: (id, nodeId, position, payload, options) =>
-      run({
-        type: 'insert.sibling',
-        id,
-        nodeId,
-        position,
-        payload,
-        options
-      }),
-    attachExternal: (id, targetId, payload, options) =>
-      run({
-        type: 'insert.external',
-        id,
-        targetId,
-        payload,
-        options
-      }),
-    insertPlacement: (options) =>
-      run({
-        type: 'insert.placement',
-        ...options
-      }),
-    moveSubtree: (id, nodeId, newParentId, options) =>
+    moveSubtree: (id, input) =>
       run({
         type: 'move.subtree',
         id,
-        nodeId,
-        newParentId,
-        options
+        input
       }),
-    moveLayout: (options) =>
-      run({
-        type: 'move.layout',
-        ...options
-      }),
-    moveDrop: (options) =>
-      run({
-        type: 'move.drop',
-        ...options
-      }),
-    reorderChild: (id, parentId, fromIndex, toIndex) =>
-      run({
-        type: 'move.reorder',
-        id,
-        parentId,
-        fromIndex,
-        toIndex
-      }),
-    moveRoot: (options) =>
-      run({
-        type: 'move.root',
-        ...options
-      }),
-    removeSubtree: (id, nodeId) =>
+    removeSubtree: (id, input) =>
       run({
         type: 'remove',
         id,
-        nodeId
+        input
       }),
-    cloneSubtree: (id, nodeId, options) =>
+    cloneSubtree: (id, input) =>
       run({
         type: 'clone.subtree',
         id,
-        nodeId,
-        options
+        input
       }),
-    setNodeData: (id, nodeId, records) =>
+    updateNode: (id, input) =>
       run({
-        type: 'update.data',
+        type: 'update.node',
         id,
-        nodeId,
-        records
-      }),
-    toggleCollapse: (id, nodeId, collapsed) =>
-      run({
-        type: 'update.collapse',
-        id,
-        nodeId,
-        collapsed
-      }),
-    setSide: (id, nodeId, side) =>
-      run({
-        type: 'update.side',
-        id,
-        nodeId,
-        side
+        input
       })
   }
 }

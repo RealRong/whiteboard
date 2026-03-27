@@ -6,6 +6,7 @@ import type {
   Result
 } from '../types'
 import { err, listNodes, ok } from '../types'
+import { createNodeFieldsUpdateOperation } from './update'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 type OwnedNode = Pick<Node, 'id' | 'children'>
@@ -61,15 +62,9 @@ export const patchChildren = (
     return undefined
   }
 
-  return {
-    type: 'node.update',
-    id: node.id,
-    update: {
-      fields: {
-        children: [...children]
-      }
-    }
-  }
+  return createNodeFieldsUpdateOperation(node.id, {
+    children: [...children]
+  })
 }
 
 export const getNodeOwnerMap = (

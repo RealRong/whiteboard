@@ -114,6 +114,17 @@ export const createEngine = ({
     }
   }
 
+  const applyOperations: EngineInstance['applyOperations'] = (
+    operations,
+    options
+  ) => publish(
+    writer.applyOperations(
+      operations,
+      options?.origin ?? 'user'
+    ),
+    'apply'
+  )
+
   const commands = createCommands({
     write
   })
@@ -135,9 +146,13 @@ export const createEngine = ({
 
   return {
     config,
+    document: {
+      get: documentSource.get
+    },
     read: readControl.read,
     commit,
     commands,
+    applyOperations,
     configure,
     dispose
   }

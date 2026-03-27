@@ -3,57 +3,42 @@ import type {
   WriteCommandMap
 } from '@engine-types/command'
 import type {
-  MindmapCloneSubtreeOptions,
+  MindmapCloneSubtreeInput,
   MindmapCreateOptions,
-  MindmapInsertNodeOptions,
-  MindmapLayoutConfig,
-  MindmapMoveDropOptions,
-  MindmapMoveLayoutOptions,
-  MindmapMoveRootOptions
+  MindmapInsertOptions,
+  MindmapMoveSubtreeInput,
+  MindmapRemoveSubtreeInput,
+  MindmapUpdateNodeInput
 } from '@engine-types/mindmap'
 import type { WriteTranslateContext } from './index'
 import type { TranslateResult } from './result'
-import { append, cancelled, invalid, success } from './result'
+import { invalid, success } from './result'
 import { getNode } from '@whiteboard/core/types'
 import type {
   Document,
-  MindmapAttachPayload,
   MindmapCommandOptions,
-  MindmapLayoutHint,
   MindmapId,
-  MindmapNodeData,
+  MindmapInsertInput,
   MindmapNodeId,
   MindmapTree,
   Node,
   SpatialNode
 } from '@whiteboard/core/types'
 import {
-  addChild as addMindmapChild,
-  addSibling as addMindmapSibling,
-  attachExternal as attachMindmapExternal,
   cloneSubtree as cloneMindmapSubtree,
   createMindmapCreateOp,
   createMindmapDeleteOps,
   createMindmapUpdateOps,
   createMindmap,
+  insertNode as insertMindmapNode,
   moveSubtree as moveMindmapSubtree,
   removeSubtree as removeMindmapSubtree,
-  reorderChild as reorderMindmapChild,
-  resolveInsertPlan,
-  setNodeData as setMindmapNodeData,
-  setSide as setMindmapSide,
-  toggleCollapse as toggleMindmapCollapse,
-  type MindmapDataMutation,
+  updateNode as updateMindmapNode,
   type MindmapCommandResult
 } from '@whiteboard/core/mindmap'
 import { getMindmapTreeFromDocument } from '@whiteboard/core/mindmap'
-import { DEFAULT_TUNING } from '../../config'
 
 type MindmapCommand = WriteCommandMap['mindmap']
-type AddSiblingOptions = {
-  options?: MindmapCommandOptions
-  createNodeId?: () => MindmapNodeId
-}
 
 const readSpatialNode = (
   node: Node | undefined
@@ -81,6 +66,51 @@ const resolveSlot = (options?: MindmapCommandOptions) => ({
   side: options?.side
 })
 
+const toCoreInsertInput = (
+  input: MindmapInsertOptions
+): {
+  input: MindmapInsertInput
+  layout?: MindmapCommandOptions['layout']
+} => {
+  switch (input.kind) {
+    case 'child':
+      return {
+        input: {
+          kind: 'child',
+          parentId: input.parentId,
+          payload: input.payload,
+          options: {
+            index: input.options?.index,
+            side: input.options?.side
+          }
+        },
+        layout: input.options?.layout
+      }
+    case 'sibling':
+      return {
+        input: {
+          kind: 'sibling',
+          nodeId: input.nodeId,
+          position: input.position,
+          payload: input.payload
+        },
+        layout: input.options?.layout
+      }
+    case 'parent':
+      return {
+        input: {
+          kind: 'parent',
+          nodeId: input.nodeId,
+          payload: input.payload,
+          options: {
+            side: input.options?.side
+          }
+        },
+        layout: input.options?.layout
+      }
+  }
+}
+
 const runMindmapPlan = <TExtra extends object = {}, TOutput = void>({
   doc,
   id,
@@ -90,7 +120,7 @@ const runMindmapPlan = <TExtra extends object = {}, TOutput = void>({
 }: {
   doc: Document
   id: MindmapId
-  options?: MindmapCommandOptions
+  options?: { layout?: MindmapCommandOptions['layout'] }
   run: (tree: MindmapTree) => MindmapCommandResult<TExtra>
   select?: (result: { tree: MindmapTree } & TExtra) => TOutput
 }): TranslateResult<TOutput> => {
@@ -145,21 +175,6 @@ export const translateMindmap = <C extends MindmapCommand>(
     )
   }
 
-  const replace = (id: MindmapId, tree: MindmapTree): TranslateResult => {
-    const beforeTree = readMindmap(doc, id)
-    if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
-    if (tree.id !== id) return invalid('Mindmap id mismatch.')
-    const node = readSpatialNode(getNode(doc, id))
-    if (!node) {
-      return invalid(`Mindmap node ${id} not found.`)
-    }
-    return success(createMindmapUpdateOps({
-      beforeTree,
-      afterTree: tree,
-      node
-    }))
-  }
-
   const removeMindmaps = (ids: MindmapId[]): TranslateResult => {
     if (!ids.length) return invalid('No mindmap ids provided.')
     for (const id of ids) {
@@ -168,73 +183,56 @@ export const translateMindmap = <C extends MindmapCommand>(
     return success(createMindmapDeleteOps(ids))
   }
 
-  const addChild = (
+  const insert = (
     id: MindmapId,
-    parentId: MindmapNodeId,
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
-    runMindmapPlan({
+    input: MindmapInsertOptions
+  ): TranslateResult<{ nodeId: MindmapNodeId }> => {
+    const next = toCoreInsertInput(input)
+    return runMindmapPlan({
       doc,
       id,
-      options,
+      options: {
+        layout: next.layout
+      },
       run: (tree) =>
-        addMindmapChild(
+        insertMindmapNode(
           tree,
-          parentId,
-          payload,
-          withNodeIdGenerator(ctx.ids.mindmapNode, resolveSlot(options))
+          next.input,
+          withNodeIdGenerator(ctx.ids.mindmapNode)
         ),
       select: ({ nodeId }) => ({ nodeId })
     })
-
-  const addSibling = (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    position: 'before' | 'after',
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: AddSiblingOptions
-  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
-    runMindmapPlan({
-      doc,
-      id,
-      options: options?.options,
-      run: (tree) =>
-        addMindmapSibling(
-          tree,
-          nodeId,
-          position,
-          payload,
-          withNodeIdGenerator(options?.createNodeId ?? ctx.ids.mindmapNode)
-        ),
-      select: ({ nodeId: nextNodeId }) => ({ nodeId: nextNodeId })
-    })
+  }
 
   const moveSubtree = (
     id: MindmapId,
-    nodeId: MindmapNodeId,
-    newParentId: MindmapNodeId,
-    options?: MindmapCommandOptions
+    input: MindmapMoveSubtreeInput
   ): TranslateResult =>
     runMindmapPlan({
       doc,
       id,
-      options,
+      options: {
+        layout: input.layout
+      },
       run: (tree) =>
-        moveMindmapSubtree(tree, nodeId, newParentId, resolveSlot(options))
+        moveMindmapSubtree(tree, {
+          nodeId: input.nodeId,
+          parentId: input.parentId,
+          index: input.index,
+          side: input.side
+        })
     })
 
-  const removeSubtree = (id: MindmapId, nodeId: MindmapNodeId): TranslateResult =>
+  const removeSubtree = (id: MindmapId, input: MindmapRemoveSubtreeInput): TranslateResult =>
     runMindmapPlan({
       doc,
       id,
-      run: (tree) => removeMindmapSubtree(tree, nodeId)
+      run: (tree) => removeMindmapSubtree(tree, input)
     })
 
   const cloneSubtree = (
     id: MindmapId,
-    nodeId: MindmapNodeId,
-    options?: MindmapCloneSubtreeOptions
+    input: MindmapCloneSubtreeInput
   ): TranslateResult<{ nodeId: MindmapNodeId; map: Record<MindmapNodeId, MindmapNodeId> }> =>
     runMindmapPlan({
       doc,
@@ -242,249 +240,37 @@ export const translateMindmap = <C extends MindmapCommand>(
       run: (tree) =>
         cloneMindmapSubtree(
           tree,
-          nodeId,
-          withNodeIdGenerator(ctx.ids.mindmapNode, {
-            parentId: options?.parentId,
-            index: options?.index,
-            side: options?.side
-          })
+          input,
+          withNodeIdGenerator(ctx.ids.mindmapNode)
         ),
       select: ({ nodeId: clonedNodeId, map }) => ({ nodeId: clonedNodeId, map })
     })
 
-  const toggleCollapse = (
+  const updateNode = (
     id: MindmapId,
-    nodeId: MindmapNodeId,
-    collapsed?: boolean
+    input: MindmapUpdateNodeInput
   ): TranslateResult =>
     runMindmapPlan({
       doc,
       id,
-      run: (tree) => toggleMindmapCollapse(tree, nodeId, collapsed)
+      run: (tree) => updateMindmapNode(tree, input)
     })
-
-  const setNodeData = (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    records: readonly MindmapDataMutation[]
-  ): TranslateResult =>
-    runMindmapPlan({
-      doc,
-      id,
-      run: (tree) => setMindmapNodeData(tree, nodeId, records)
-    })
-
-  const reorderChild = (
-    id: MindmapId,
-    parentId: MindmapNodeId,
-    fromIndex: number,
-    toIndex: number
-  ): TranslateResult =>
-    runMindmapPlan({
-      doc,
-      id,
-      run: (tree) => reorderMindmapChild(tree, parentId, fromIndex, toIndex)
-    })
-
-  const setSide = (id: MindmapId, nodeId: MindmapNodeId, side: 'left' | 'right'): TranslateResult =>
-    runMindmapPlan({
-      doc,
-      id,
-      run: (tree) => setMindmapSide(tree, nodeId, side)
-    })
-
-  const attachExternal = (
-    id: MindmapId,
-    targetId: MindmapNodeId,
-    payload: MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ): TranslateResult<{ nodeId: MindmapNodeId }> =>
-    runMindmapPlan({
-      doc,
-      id,
-      options,
-      run: (tree) =>
-        attachMindmapExternal(
-          tree,
-          targetId,
-          payload,
-          withNodeIdGenerator(ctx.ids.mindmapNode, resolveSlot(options))
-        ),
-      select: ({ nodeId }) => ({ nodeId })
-    })
-
-  const layoutHint = (
-    anchorId: MindmapNodeId,
-    nodeSize: { width: number; height: number },
-    layout: MindmapLayoutConfig
-  ): MindmapLayoutHint => ({
-    nodeSize,
-    mode: layout.mode,
-    options: layout.options,
-    anchorId
-  })
-
-  const insertPlacement = ({
-    id,
-    tree,
-    targetNodeId,
-    placement,
-    nodeSize,
-    layout,
-    payload
-  }: MindmapInsertNodeOptions): TranslateResult<{ nodeId: MindmapNodeId }> => {
-    const normalizedPayload: MindmapNodeData | MindmapAttachPayload = payload ?? {
-      kind: 'text',
-      text: ''
-    }
-    const hint = layoutHint(targetNodeId, nodeSize, layout)
-    const plan = resolveInsertPlan({
-      tree,
-      targetNodeId,
-      placement,
-      layoutSide: layout.options?.side,
-      defaultSide: DEFAULT_TUNING.mindmap.defaultSide
-    })
-
-    if (plan.mode === 'child') {
-      return addChild(id, plan.parentId, normalizedPayload, {
-        index: plan.index,
-        side: plan.side,
-        layout: hint
-      })
-    }
-
-    if (plan.mode === 'sibling') {
-      return addSibling(id, plan.nodeId, plan.position, normalizedPayload, {
-        options: {
-          layout: hint
-        }
-      })
-    }
-
-    if (plan.mode === 'towardRoot') {
-      const insertedNodeId = ctx.ids.mindmapNode()
-      return append(
-        addSibling(id, plan.nodeId, 'before', normalizedPayload, {
-          options: {
-            layout: hint
-          },
-          createNodeId: () => insertedNodeId
-        }),
-        moveSubtree(id, targetNodeId, insertedNodeId, {
-          index: 0,
-          layout: layoutHint(insertedNodeId, nodeSize, layout)
-        })
-      )
-    }
-
-    return invalid('Unsupported insert plan.')
-  }
-
-  const moveWithLayout = ({
-    id,
-    nodeId,
-    newParentId,
-    index,
-    side,
-    nodeSize,
-    layout
-  }: MindmapMoveLayoutOptions): TranslateResult =>
-    moveSubtree(id, nodeId, newParentId, {
-      index,
-      side,
-      layout: layoutHint(newParentId, nodeSize, layout)
-    })
-
-  const moveWithDrop = ({
-    id,
-    nodeId,
-    drop,
-    origin,
-    nodeSize,
-    layout
-  }: MindmapMoveDropOptions): TranslateResult => {
-    const shouldMove =
-      drop.parentId !== origin?.parentId
-      || drop.index !== origin?.index
-      || typeof drop.side !== 'undefined'
-    if (!shouldMove) return cancelled('No subtree movement required.')
-
-    return moveWithLayout({
-      id,
-      nodeId,
-      newParentId: drop.parentId,
-      index: drop.index,
-      side: drop.side,
-      nodeSize,
-      layout
-    })
-  }
-
-  const moveRoot = ({
-    nodeId,
-    position,
-    threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
-  }: MindmapMoveRootOptions): TranslateResult => {
-    const node = readSpatialNode(getNode(doc, nodeId))
-    if (!node) {
-      return cancelled(`Node ${nodeId} not found.`)
-    }
-    if (
-      Math.abs(node.position.x - position.x) < threshold
-      && Math.abs(node.position.y - position.y) < threshold
-    ) {
-      return cancelled('Root movement is below threshold.')
-    }
-
-    return success([{
-      type: 'node.update',
-      id: nodeId,
-      update: {
-        fields: {
-          position: { x: position.x, y: position.y }
-        }
-      }
-    }])
-  }
 
   switch (command.type) {
     case 'create':
       return create(command.payload) as TranslateResult<MindmapWriteOutput<C>>
-    case 'replace':
-      return replace(command.id, command.tree) as TranslateResult<MindmapWriteOutput<C>>
     case 'delete':
       return removeMindmaps(command.ids) as TranslateResult<MindmapWriteOutput<C>>
-    case 'insert.child':
-      return addChild(command.id, command.parentId, command.payload, command.options) as TranslateResult<MindmapWriteOutput<C>>
-    case 'insert.sibling':
-      return addSibling(command.id, command.nodeId, command.position, command.payload, {
-        options: command.options
-      }) as TranslateResult<MindmapWriteOutput<C>>
-    case 'insert.external':
-      return attachExternal(command.id, command.targetId, command.payload, command.options) as TranslateResult<MindmapWriteOutput<C>>
-    case 'insert.placement':
-      return insertPlacement(command) as TranslateResult<MindmapWriteOutput<C>>
+    case 'insert':
+      return insert(command.id, command.input) as TranslateResult<MindmapWriteOutput<C>>
     case 'move.subtree':
-      return moveSubtree(command.id, command.nodeId, command.newParentId, command.options) as TranslateResult<MindmapWriteOutput<C>>
-    case 'move.layout':
-      return moveWithLayout(command) as TranslateResult<MindmapWriteOutput<C>>
-    case 'move.drop':
-      return moveWithDrop(command) as TranslateResult<MindmapWriteOutput<C>>
-    case 'move.reorder':
-      return reorderChild(command.id, command.parentId, command.fromIndex, command.toIndex) as TranslateResult<MindmapWriteOutput<C>>
-    case 'move.root':
-      return moveRoot(command) as TranslateResult<MindmapWriteOutput<C>>
+      return moveSubtree(command.id, command.input) as TranslateResult<MindmapWriteOutput<C>>
     case 'remove':
-      return removeSubtree(command.id, command.nodeId) as TranslateResult<MindmapWriteOutput<C>>
+      return removeSubtree(command.id, command.input) as TranslateResult<MindmapWriteOutput<C>>
     case 'clone.subtree':
-      return cloneSubtree(command.id, command.nodeId, command.options) as TranslateResult<MindmapWriteOutput<C>>
-    case 'update.data':
-      return setNodeData(command.id, command.nodeId, command.records) as TranslateResult<MindmapWriteOutput<C>>
-    case 'update.collapse':
-      return toggleCollapse(command.id, command.nodeId, command.collapsed) as TranslateResult<MindmapWriteOutput<C>>
-    case 'update.side':
-      return setSide(command.id, command.nodeId, command.side) as TranslateResult<MindmapWriteOutput<C>>
+      return cloneSubtree(command.id, command.input) as TranslateResult<MindmapWriteOutput<C>>
+    case 'update.node':
+      return updateNode(command.id, command.input) as TranslateResult<MindmapWriteOutput<C>>
     default:
       return invalid('Unsupported mindmap command type.') as TranslateResult<MindmapWriteOutput<C>>
   }

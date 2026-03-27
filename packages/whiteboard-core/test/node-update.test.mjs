@@ -3,7 +3,9 @@ import { test } from 'node:test'
 import { reduceOperations } from '../dist/kernel/index.js'
 import {
   applyNodeUpdate,
-  buildNodeUpdateInverse
+  buildNodeUpdateInverse,
+  createNodeFieldsUpdateOperation,
+  createNodeUpdateOperation
 } from '../dist/node/index.js'
 import { createDocument } from '../dist/types/index.js'
 
@@ -232,4 +234,33 @@ test('applyNodeUpdate 拒绝 group 几何写入与穿透 primitive 容器的 pat
   })
   assert.equal(primitivePathResult.ok, false)
   assert.match(primitivePathResult.message, /non-object container/)
+})
+
+test('node.update operation builder 会 compact update 载荷', () => {
+  assert.deepEqual(
+    createNodeUpdateOperation('node_1', {
+      fields: undefined,
+      records: []
+    }),
+    {
+      type: 'node.update',
+      id: 'node_1',
+      update: {}
+    }
+  )
+
+  assert.deepEqual(
+    createNodeFieldsUpdateOperation('node_1', {
+      position: { x: 10, y: 20 }
+    }),
+    {
+      type: 'node.update',
+      id: 'node_1',
+      update: {
+        fields: {
+          position: { x: 10, y: 20 }
+        }
+      }
+    }
+  )
 })

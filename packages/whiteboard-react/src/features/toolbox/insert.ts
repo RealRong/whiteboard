@@ -10,6 +10,7 @@ import type {
   InsertPlacement,
   InsertPreset
 } from './presets'
+import { moveMindmapRoot } from '../mindmap/commands'
 
 export type InsertResult = {
   nodeId: NodeId
@@ -78,21 +79,22 @@ const insertMindmapPreset = (
   }
 
   preset.template.children?.forEach((child) => {
-    instance.commands.mindmap.addChild(
-      result.data.mindmapId,
-      result.data.rootId,
-      child.data,
-      {
+    instance.commands.mindmap.insert(result.data.mindmapId, {
+      kind: 'child',
+      parentId: result.data.rootId,
+      payload: child.data,
+      options: {
         side: child.side
       }
-    )
+    })
   })
 
   const rect = instance.read.index.node.get(result.data.mindmapId)?.rect
   const width = rect?.width ?? 260
   const height = rect?.height ?? 180
 
-  instance.commands.mindmap.moveRoot({
+  moveMindmapRoot({
+    instance,
     nodeId: result.data.mindmapId,
     position: {
       x: world.x - width / 2,

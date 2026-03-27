@@ -2,6 +2,8 @@ export {
   applyNodeUpdate,
   buildNodeUpdateInverse,
   classifyNodeUpdate,
+  createNodeFieldsUpdateOperation,
+  createNodeUpdateOperation,
   isNodeUpdateEmpty,
   sanitizeGroupUpdate
 } from './update'

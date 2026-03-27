@@ -9,6 +9,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from '../../../../runtime/hooks'
 import type { MindmapDown } from '../../../../runtime/input/pointer'
 import type { MindmapDragState } from '../../session/drag'
+import {
+  moveMindmapByDrop,
+  moveMindmapRoot
+} from '../../commands'
 
 type ActiveMindmapDragSession = MindmapDragSession
 
@@ -118,16 +122,19 @@ export const useMindmapDrag = () => {
         }
 
         if (active.kind === 'root') {
-          instance.commands.mindmap.moveRoot({
+          moveMindmapRoot({
+            instance,
             nodeId: active.treeId,
-            position: active.position
+            position: active.position,
+            origin: active.origin
           })
           session.finish()
           return
         }
 
         if (active.drop) {
-          instance.commands.mindmap.moveDrop({
+          moveMindmapByDrop({
+            instance,
             id: active.treeId,
             nodeId: active.nodeId,
             drop: {

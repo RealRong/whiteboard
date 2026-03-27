@@ -9,6 +9,8 @@ import {
   buildNodeCreateOperation,
   buildNodeDistributeOperations,
   buildNodeDuplicateOperations,
+  createNodeFieldsUpdateOperation,
+  createNodeUpdateOperation,
   buildNodeGroupOperations,
   buildMoveSet,
   buildNodeUngroupManyOperations,
@@ -149,11 +151,7 @@ export const translateNode = <C extends NodeCommand>(
       }
 
       nextNodeById.set(id, result.next)
-      operations.push({
-        type: 'node.update',
-        id,
-        update
-      })
+      operations.push(createNodeUpdateOperation(id, update))
     }
 
     if (!operations.length) {
@@ -195,15 +193,11 @@ export const translateNode = <C extends NodeCommand>(
     }
 
     const operations = [
-      ...effect.nodes.map((entry) => ({
-        type: 'node.update' as const,
-        id: entry.id,
-        update: {
-          fields: {
-            position: entry.position
-          }
-        }
-      })),
+      ...effect.nodes.map((entry) =>
+        createNodeFieldsUpdateOperation(entry.id, {
+          position: entry.position
+        })
+      ),
       ...owner.data,
       ...effect.edges.map((entry) => ({
         type: 'edge.update' as const,

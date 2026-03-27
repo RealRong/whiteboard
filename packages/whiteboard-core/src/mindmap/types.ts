@@ -74,6 +74,60 @@ export type MindmapDataMutation =
       values?: readonly unknown[]
     }
 
+export type MindmapNodeUpdateInput = {
+  records?: readonly MindmapDataMutation[]
+  collapsed?: boolean
+  side?: 'left' | 'right'
+}
+
+export type MindmapInsertInput =
+  | {
+      kind: 'child'
+      parentId: MindmapNodeId
+      payload?: MindmapNodeData | MindmapAttachPayload
+      options?: {
+        index?: number
+        side?: 'left' | 'right'
+      }
+    }
+  | {
+      kind: 'sibling'
+      nodeId: MindmapNodeId
+      position: 'before' | 'after'
+      payload?: MindmapNodeData | MindmapAttachPayload
+    }
+  | {
+      kind: 'parent'
+      nodeId: MindmapNodeId
+      payload?: MindmapNodeData | MindmapAttachPayload
+      options?: {
+        side?: 'left' | 'right'
+      }
+    }
+
+export type MindmapMoveSubtreeInput = {
+  nodeId: MindmapNodeId
+  parentId: MindmapNodeId
+  index?: number
+  side?: 'left' | 'right'
+}
+
+export type MindmapRemoveSubtreeInput = {
+  nodeId: MindmapNodeId
+}
+
+export type MindmapCloneSubtreeInput = {
+  nodeId: MindmapNodeId
+  parentId?: MindmapNodeId
+  index?: number
+  side?: 'left' | 'right'
+}
+
+export type MindmapUpdateNodeInput = {
+  nodeId: MindmapNodeId
+  update: MindmapNodeUpdateInput
+}
+
 export type MindmapDragDropLine = {
   x1: number
   y1: number

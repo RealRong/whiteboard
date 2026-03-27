@@ -185,11 +185,25 @@ export const createWrite = ({
     )
   }
 
+  const applyOperations = (
+    operations: readonly Operation[],
+    origin: Origin = 'user'
+  ): WriteResult =>
+    capture(
+      runOperations(
+        documentSource.get(),
+        operations,
+        origin,
+        undefined
+      )
+    )
+
   const replace = (document: Document) =>
     clearOnSuccess(runReplace(document))
 
   return {
     apply,
+    applyOperations,
     replace,
     history: {
       get: history.get,

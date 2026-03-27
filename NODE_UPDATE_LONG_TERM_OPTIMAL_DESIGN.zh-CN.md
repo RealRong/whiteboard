@@ -1053,16 +1053,18 @@ reducer 不再依赖“对象快照 patch”来猜意图，而是直接执行意
 - mindmap 主链路编译已直接产出 `fields / records`
 - `mindmap.update.data` 已改为 canonical data mutations，不再传 `patch` 做隐式 merge
 - `createMindmapUpdateOps` 已从整块 `nextData` 根替换改为 `path: 'mindmap'` scoped record
-- finalize 主链路已直接产出 `records`
+- finalize 主链路已直接产出 `records`，并已切到 field compiler
 - node translate 主链路已直接产出 `fields`
 - node / mindmap 已复用同一套 path mutation apply 语义，避免局部更新规则漂移
 - core schema 已新增 field compiler：`compileNodeFieldRecord / compileNodeFieldUpdate / compileNodeFieldUpdates`
+- core node 已新增统一 `node.update` op builder：`createNodeUpdateOperation / createNodeFieldsUpdateOperation`
 - React 主写入口里，`toolbar + text/frame/shape inline editor` 已切到统一 field compiler
+- `mindmap compiler` 已切到同一个 field compiler，不再手写 `records` payload
+- engine translate / finalize / bench commit compiler 已切到同一个 `node.update` op builder
 
 剩余重点：
 
 - inspector / property panel
-- `packages/whiteboard-engine/src/write/translate/*`
 - `commands.mindmap.*`
 
 要做的事：

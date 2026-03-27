@@ -29,6 +29,7 @@ import {
   buildMoveSet,
   projectMovePositions
 } from './move'
+import { createNodeFieldsUpdateOperation } from './update'
 import {
   createOwnerDepthResolver,
   createOwnerState,
@@ -144,15 +145,11 @@ const buildLayoutOperations = (
     }
 
     if (node.type !== 'group') {
-      operations.push({
-        type: 'node.update',
-        id: update.id,
-        update: {
-          fields: {
-            position: update.position
-          }
-        }
-      })
+      operations.push(
+        createNodeFieldsUpdateOperation(update.id, {
+          position: update.position
+        })
+      )
       return
     }
 
@@ -179,15 +176,11 @@ const buildLayoutOperations = (
       }).members,
       delta
     ).forEach((entry) => {
-      operations.push({
-        type: 'node.update',
-        id: entry.id,
-        update: {
-          fields: {
-            position: entry.position
-          }
-        }
-      })
+      operations.push(
+        createNodeFieldsUpdateOperation(entry.id, {
+          position: entry.position
+        })
+      )
     })
   })
 

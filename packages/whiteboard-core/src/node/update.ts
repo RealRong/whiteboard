@@ -1,9 +1,11 @@
 import type {
   Node,
   NodeFieldPatch,
+  NodeId,
   NodePatch,
   NodeRecordMutation,
-  NodeUpdateInput
+  NodeUpdateInput,
+  Operation
 } from '../types'
 import {
   applyPathMutation,
@@ -289,6 +291,21 @@ const compactNodeUpdateInput = (
   ...(update.fields ? { fields: update.fields } : {}),
   ...(update.records?.length ? { records: update.records } : {})
 })
+
+export const createNodeUpdateOperation = (
+  id: NodeId,
+  update: NodeUpdateInput
+): Extract<Operation, { type: 'node.update' }> => ({
+  type: 'node.update',
+  id,
+  update: compactNodeUpdateInput(update)
+})
+
+export const createNodeFieldsUpdateOperation = (
+  id: NodeId,
+  fields: NodeFieldPatch
+): Extract<Operation, { type: 'node.update' }> =>
+  createNodeUpdateOperation(id, { fields })
 
 export const classifyNodeUpdate = (
   update: NodeUpdateInput

@@ -11,6 +11,7 @@ import {
 import { getNodeAABB, isPointEqual, isSizeEqual, rectContains } from '@whiteboard/core/geometry'
 import {
   expandGroupRect,
+  createNodeFieldsUpdateOperation,
   getGroupDescendants,
   getNodesBoundingRect,
   rectEquals
@@ -214,13 +215,7 @@ export class CommitCompiler {
       if (normalized.size) {
         fields.size = normalized.size
       }
-      operations.push({
-        type: 'node.update',
-        id,
-        update: {
-          fields
-        }
-      })
+      operations.push(createNodeFieldsUpdateOperation(id, fields))
     })
 
     return operations

@@ -8,6 +8,11 @@ import {
 } from './types'
 import { layoutMindmap, layoutMindmapTidy } from './layout'
 import { getMindmapTreeFromNode } from './helpers'
+import {
+  createNodeFieldsUpdateOperation,
+  createNodeUpdateOperation
+} from '../node/update'
+import { compileNodeFieldUpdate } from '../schema'
 import { cloneValue } from '../utils/merge'
 import type {
   MindmapLayoutHint,
@@ -301,18 +306,13 @@ export const createMindmapUpdateOps = ({
   node: SpatialNode
 }): Operation[] => {
   const nextTree = normalizeMindmapTree(node.id, afterTree)
-  const operations: Operation[] = [{
-    type: 'node.update',
-    id: node.id,
-    update: {
-      records: [{
-        scope: 'data',
-        op: 'set',
-        path: 'mindmap',
-        value: cloneValue(nextTree)
-      }]
-    }
-  }]
+  const operations: Operation[] = [createNodeUpdateOperation(
+    node.id,
+    compileNodeFieldUpdate(
+      { scope: 'data', path: 'mindmap' },
+      cloneValue(nextTree)
+    )
+  )]
 
   const anchorPatch = resolveAnchorPatch({
     beforeTree,
@@ -324,13 +324,7 @@ export const createMindmapUpdateOps = ({
 
   return [
     ...operations,
-    {
-      type: 'node.update',
-      id: node.id,
-      update: {
-        fields: anchorPatch
-      }
-    }
+    createNodeFieldsUpdateOperation(node.id, anchorPatch)
   ]
 }
 

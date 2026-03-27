@@ -2,6 +2,7 @@ import type {
   ChangeSet,
   Document,
   Operation,
+  Origin,
 } from '@whiteboard/core/types'
 import type { HistoryConfig } from '@whiteboard/core/kernel'
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
@@ -50,6 +51,10 @@ export type WriteControl = {
     D extends WriteDomain,
     C extends WriteCommandMap[D]
   >(input: WriteInput<D, C>) => WriteResult<WriteOutput<D, C>>
+  applyOperations: (
+    operations: readonly Operation[],
+    origin?: Origin
+  ) => WriteResult
   replace: (document: Document) => WriteResult
   history: {
     configure: (config: Partial<HistoryConfig>) => void

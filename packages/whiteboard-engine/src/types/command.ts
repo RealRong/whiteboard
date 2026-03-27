@@ -22,28 +22,20 @@ import type {
 } from '@whiteboard/core/node'
 import type {
   MindmapApplyCommand,
-  MindmapCloneSubtreeOptions,
-  MindmapCreateOptions
+  MindmapCloneSubtreeInput,
+  MindmapCreateOptions,
+  MindmapInsertOptions,
+  MindmapMoveSubtreeInput,
+  MindmapRemoveSubtreeInput,
+  MindmapUpdateNodeInput
 } from './mindmap'
 import type { HistoryState } from '@whiteboard/core/kernel'
-import type {
-  MindmapAttachPayload,
-  MindmapCommandOptions,
-  MindmapDataMutation,
-  MindmapNodeData,
-  MindmapTree
-} from '@whiteboard/core/types'
-import type {
-  MindmapInsertNodeOptions,
-  MindmapMoveDropOptions,
-  MindmapMoveLayoutOptions,
-  MindmapMoveRootOptions
-} from './mindmap'
 import type { CommandResult } from './result'
 
 export type WriteOrigin =
   | 'system'
   | 'user'
+  | 'remote'
 
 export type NodeBatchUpdate = {
   id: NodeId
@@ -216,12 +208,7 @@ export type MindmapWriteOutput<C extends MindmapWriteCommand = MindmapWriteComma
         mindmapId: MindmapId
         rootId: MindmapNodeId
       }
-    : C extends (
-      | { type: 'insert.child' }
-      | { type: 'insert.sibling' }
-      | { type: 'insert.external' }
-      | { type: 'insert.placement' }
-    )
+    : C extends { type: 'insert' }
       ? { nodeId: MindmapNodeId }
       : C extends { type: 'clone.subtree' }
         ? {
@@ -249,67 +236,24 @@ export type MindmapCommands = {
     mindmapId: MindmapId
     rootId: MindmapNodeId
   }>
-  replace: (id: MindmapId, tree: MindmapTree) => CommandResult
   delete: (ids: MindmapId[]) => CommandResult
-  addChild: (
+  insert: (
     id: MindmapId,
-    parentId: MindmapNodeId,
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapCommandOptions
+    input: MindmapInsertOptions
   ) => CommandResult<{ nodeId: MindmapNodeId }>
-  addSibling: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    position: 'before' | 'after',
-    payload?: MindmapNodeData | MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ) => CommandResult<{ nodeId: MindmapNodeId }>
-  attachExternal: (
-    id: MindmapId,
-    targetId: MindmapNodeId,
-    payload: MindmapAttachPayload,
-    options?: MindmapCommandOptions
-  ) => CommandResult<{ nodeId: MindmapNodeId }>
-  insertPlacement: (options: MindmapInsertNodeOptions) => CommandResult<{ nodeId: MindmapNodeId }>
   moveSubtree: (
     id: MindmapId,
-    nodeId: MindmapNodeId,
-    newParentId: MindmapNodeId,
-    options?: MindmapCommandOptions
+    input: MindmapMoveSubtreeInput
   ) => CommandResult
-  moveLayout: (options: MindmapMoveLayoutOptions) => CommandResult
-  moveDrop: (options: MindmapMoveDropOptions) => CommandResult
-  reorderChild: (
-    id: MindmapId,
-    parentId: MindmapNodeId,
-    fromIndex: number,
-    toIndex: number
-  ) => CommandResult
-  moveRoot: (options: MindmapMoveRootOptions) => CommandResult
-  removeSubtree: (id: MindmapId, nodeId: MindmapNodeId) => CommandResult
+  removeSubtree: (id: MindmapId, input: MindmapRemoveSubtreeInput) => CommandResult
   cloneSubtree: (
     id: MindmapId,
-    nodeId: MindmapNodeId,
-    options?: MindmapCloneSubtreeOptions
+    input: MindmapCloneSubtreeInput
   ) => CommandResult<{
     nodeId: MindmapNodeId
     map: Record<MindmapNodeId, MindmapNodeId>
   }>
-  setNodeData: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    records: readonly MindmapDataMutation[]
-  ) => CommandResult
-  toggleCollapse: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    collapsed?: boolean
-  ) => CommandResult
-  setSide: (
-    id: MindmapId,
-    nodeId: MindmapNodeId,
-    side: 'left' | 'right'
-  ) => CommandResult
+  updateNode: (id: MindmapId, input: MindmapUpdateNodeInput) => CommandResult
 }
 
 export type EngineCommands = {

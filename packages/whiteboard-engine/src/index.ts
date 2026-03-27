@@ -37,6 +37,7 @@ export type {
 export type {
   CreateEngineOptions,
   EngineInstance,
+  ApplyOperationsOptions,
   BoardConfig,
   BoundsRead,
   EngineRuntimeOptions,
