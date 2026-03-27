@@ -176,7 +176,7 @@ const normalizeMindmapTree = (
   tree: MindmapTree
 ): MindmapTree => (tree.id === id ? tree : { ...tree, id })
 
-const mergeMindmapData = (
+const buildMindmapNodeData = (
   data: SpatialNode['data'] | undefined,
   tree: MindmapTree
 ): SpatialNode['data'] => ({
@@ -279,7 +279,7 @@ export const createMindmapCreateOp = ({
     id,
     type: 'mindmap',
     position: cloneValue(tree.meta?.position ?? { x: 0, y: 0 }),
-    data: mergeMindmapData(undefined, normalizeMindmapTree(id, tree))
+    data: buildMindmapNodeData(undefined, normalizeMindmapTree(id, tree))
   }
 })
 
@@ -304,8 +304,13 @@ export const createMindmapUpdateOps = ({
   const operations: Operation[] = [{
     type: 'node.update',
     id: node.id,
-    patch: {
-      data: mergeMindmapData(node.data, nextTree)
+    update: {
+      records: [{
+        scope: 'data',
+        op: 'set',
+        path: 'mindmap',
+        value: cloneValue(nextTree)
+      }]
     }
   }]
 
@@ -322,7 +327,9 @@ export const createMindmapUpdateOps = ({
     {
       type: 'node.update',
       id: node.id,
-      patch: anchorPatch
+      update: {
+        fields: anchorPatch
+      }
     }
   ]
 }

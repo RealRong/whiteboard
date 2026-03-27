@@ -1,6 +1,7 @@
 import type {
   MindmapAttachPayload,
   MindmapCommandOptions,
+  MindmapDataMutation,
   MindmapId,
   MindmapNodeData,
   MindmapNodeId,
@@ -126,7 +127,7 @@ export type MindmapUpdateCommand =
       type: 'update.data'
       id: MindmapId
       nodeId: MindmapNodeId
-      patch: Partial<MindmapNodeData>
+      records: readonly MindmapDataMutation[]
     }
   | {
       type: 'update.collapse'

@@ -1,6 +1,6 @@
 import type {
   Node,
-  NodePatch,
+  NodeUpdateInput,
   NodeSchema,
   NodeType,
   Rect
@@ -21,8 +21,7 @@ export type NodeMeta = {
 }
 
 export type NodeWrite = {
-  patch: (patch: NodePatch) => void
-  data: (patch: Record<string, unknown>) => void
+  update: (update: NodeUpdateInput) => void
 }
 
 export type NodeRenderProps = {

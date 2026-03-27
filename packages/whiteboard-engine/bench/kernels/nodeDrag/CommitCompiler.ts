@@ -5,7 +5,6 @@ import {
   type Document,
   type Node,
   type NodeId,
-  type NodePatch,
   type Operation,
   type Point
 } from '@whiteboard/core/types'
@@ -38,8 +37,17 @@ type CompileInput = {
   hoveredGroupId?: NodeId
 }
 
-const hasParentIdPatch = (patch: NodePatch): patch is NodePatch & { parentId: NodeId | undefined } =>
+type NodeCommitPatch = {
+  position?: Point
+  size?: { width: number; height: number }
+  parentId?: NodeId
+}
+
+const hasParentIdPatch = (patch: NodeCommitPatch): patch is NodeCommitPatch & { parentId: NodeId | undefined } =>
   Object.prototype.hasOwnProperty.call(patch, 'parentId')
+
+const readParentId = (node: Node): NodeId | undefined =>
+  (node as Node & { parentId?: NodeId }).parentId
 
 const toNodeById = (nodes: Node[]) =>
   new Map(nodes.map((node) => [node.id, node]))
@@ -61,9 +69,9 @@ export class CommitCompiler {
     updates,
     hoveredGroupId
   }: CompileInput): Operation[] => {
-    const patches = new Map<NodeId, NodePatch>()
+    const patches = new Map<NodeId, NodeCommitPatch>()
     updates.forEach((update) => {
-      const patch: NodePatch = {}
+      const patch: NodeCommitPatch = {}
       if (update.position) patch.position = update.position
       if (update.size) patch.size = update.size
       this.mergePatch(patches, update.id, patch)
@@ -82,9 +90,9 @@ export class CommitCompiler {
   }
 
   private mergePatch = (
-    patches: Map<NodeId, NodePatch>,
+    patches: Map<NodeId, NodeCommitPatch>,
     id: NodeId,
-    patch: NodePatch
+    patch: NodeCommitPatch
   ) => {
     if (!Object.keys(patch).length) return
     const prev = patches.get(id)
@@ -92,7 +100,7 @@ export class CommitCompiler {
   }
 
   private appendDropToGroupPatch = (
-    patches: Map<NodeId, NodePatch>,
+    patches: Map<NodeId, NodeCommitPatch>,
     draft: NodeDragDraft,
     finalPosition: Point,
     hoveredGroupId?: NodeId
@@ -102,7 +110,7 @@ export class CommitCompiler {
     const currentNode = nodeById.get(draft.nodeId)
     if (!currentNode) return
 
-    const parentId = currentNode.parentId
+    const parentId = readParentId(currentNode)
 
     if (hoveredGroupId && hoveredGroupId !== parentId) {
       const hovered = nodeById.get(hoveredGroupId)
@@ -165,9 +173,9 @@ export class CommitCompiler {
 
   private normalizePatch = (
     currentNode: Node,
-    patch: NodePatch
-  ): NodePatch | undefined => {
-    const normalized: NodePatch = {}
+    patch: NodeCommitPatch
+  ): NodeCommitPatch | undefined => {
+    const normalized: NodeCommitPatch = {}
 
     if (patch.position && !isPointEqual(patch.position, currentNode.position)) {
       normalized.position = patch.position
@@ -177,7 +185,7 @@ export class CommitCompiler {
     }
     if (
       hasParentIdPatch(patch) &&
-      patch.parentId !== currentNode.parentId
+      patch.parentId !== readParentId(currentNode)
     ) {
       normalized.parentId = patch.parentId
     }
@@ -185,7 +193,7 @@ export class CommitCompiler {
     return Object.keys(normalized).length ? normalized : undefined
   }
 
-  private toOperations = (patches: Map<NodeId, NodePatch>): Operation[] => {
+  private toOperations = (patches: Map<NodeId, NodeCommitPatch>): Operation[] => {
     if (!patches.size) return []
 
     const doc = this.readDoc()
@@ -195,10 +203,23 @@ export class CommitCompiler {
       if (!currentNode) return
       const normalized = this.normalizePatch(currentNode, patch)
       if (!normalized) return
+      if (!normalized.position && !normalized.size) return
+      const fields: {
+        position?: Point
+        size?: { width: number; height: number }
+      } = {}
+      if (normalized.position) {
+        fields.position = normalized.position
+      }
+      if (normalized.size) {
+        fields.size = normalized.size
+      }
       operations.push({
         type: 'node.update',
         id,
-        patch: normalized
+        update: {
+          fields
+        }
       })
     })
 

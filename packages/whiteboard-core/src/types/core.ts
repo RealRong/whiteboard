@@ -1,5 +1,6 @@
 import type {
   MindmapAttachPayload,
+  MindmapDataMutation,
   MindmapNode,
   MindmapNodeData,
   MindmapNodeId,
@@ -10,6 +11,7 @@ import type {
 
 export type {
   MindmapAttachPayload,
+  MindmapDataMutation,
   MindmapNode,
   MindmapNodeData,
   MindmapNodeId,
@@ -337,7 +339,7 @@ export type NodeInput =
   | SpatialNodeInput
   | GroupNodeInput
 export type EdgeInput = Omit<Edge, 'id'> & { id?: EdgeId }
-export type NodePatch = {
+export type NodeFieldPatch = {
   position?: Point
   size?: Size
   rotation?: number
@@ -345,8 +347,26 @@ export type NodePatch = {
   zIndex?: number
   children?: NodeId[]
   locked?: boolean
+}
+export type NodePatch = NodeFieldPatch & {
   data?: NodeData
   style?: NodeStyle
+}
+export type NodeRecordScope = 'data' | 'style'
+export type NodeRecordMutation =
+  | { scope: NodeRecordScope; op: 'set'; path?: string; value: unknown }
+  | { scope: NodeRecordScope; op: 'unset'; path: string }
+  | {
+      scope: 'data'
+      op: 'splice'
+      path: string
+      index: number
+      deleteCount: number
+      values?: readonly unknown[]
+    }
+export type NodeUpdateInput = {
+  fields?: NodeFieldPatch
+  records?: readonly NodeRecordMutation[]
 }
 export type EdgePatch = Partial<Omit<Edge, 'id'>>
 
@@ -378,7 +398,7 @@ export type DocumentPatch = {
 export type Operation =
   | { readonly type: 'document.update'; readonly patch: DocumentPatch }
   | { readonly type: 'node.create'; readonly node: Node }
-  | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch }
+  | { readonly type: 'node.update'; readonly id: NodeId; readonly update: NodeUpdateInput }
   | { readonly type: 'node.delete'; readonly id: NodeId }
   | { readonly type: 'node.order.set'; readonly ids: readonly NodeId[] }
   | { readonly type: 'edge.create'; readonly edge: Edge }

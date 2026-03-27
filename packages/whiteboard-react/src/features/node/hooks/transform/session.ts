@@ -13,7 +13,7 @@ import {
   type TransformHandle,
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
-import type { Node, NodeId, NodePatch, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { CanvasFrameDown } from '../../../../runtime/input/pointer'
 import type { InternalInstance } from '../../../../runtime/instance'
@@ -119,7 +119,7 @@ const toPatch = (
   node: Node,
   preview: TransformPreviewPatch
 ) => {
-  const patch: NodePatch = {}
+  const patch: NodeFieldPatch = {}
   const position = node.type === 'group' ? undefined : node.position
   const size = node.type === 'group' ? undefined : node.size
   const rotation = node.type === 'group' ? undefined : node.rotation
@@ -291,7 +291,9 @@ export const createTransformSession = (
 
       return [{
         id: target.id,
-        patch
+        update: {
+          fields: patch
+        }
       }]
     })
 

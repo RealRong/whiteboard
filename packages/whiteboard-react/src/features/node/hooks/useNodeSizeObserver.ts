@@ -68,7 +68,7 @@ export const useNodeSizeObserver = () => {
     const flushMeasures = () => {
       if (!nextState.pendingSizeById.size) return
 
-      const updates: Array<{ id: NodeId; patch: { size: Size } }> = []
+      const updates: Array<{ id: NodeId; update: { fields: { size: Size } } }> = []
 
       nextState.pendingSizeById.forEach((size, nodeId) => {
         const current = instance.read.index.node.get(nodeId)
@@ -91,7 +91,9 @@ export const useNodeSizeObserver = () => {
         nextState.lastSizeById.set(nodeId, size)
         updates.push({
           id: nodeId,
-          patch: { size }
+          update: {
+            fields: { size }
+          }
         })
       })
       nextState.pendingSizeById.clear()

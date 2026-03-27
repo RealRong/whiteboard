@@ -6,7 +6,6 @@ import type {
   EdgePatch,
   Node,
   NodeId,
-  NodePatch,
   Operation,
   Origin
 } from '../types'
@@ -16,6 +15,11 @@ import {
   getNode,
   ok
 } from '../types'
+import {
+  applyNodeUpdate,
+  buildNodeUpdateInverse,
+  classifyNodeUpdate
+} from '../node'
 import { createId } from '../utils/id'
 import type {
   KernelContext,
@@ -65,12 +69,6 @@ type ReduceDraft = {
   origin?: Origin
 }
 
-type NodePatchImpact = {
-  geometry: boolean
-  list: boolean
-  value: boolean
-}
-
 type EdgePatchImpact = {
   geometry: boolean
   value: boolean
@@ -80,24 +78,6 @@ const DEFAULT_MAX_OPERATIONS = 100
 const DEFAULT_MAX_IDS = 200
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_EDGE_IDS: readonly EdgeId[] = []
-
-const NODE_GEOMETRY_KEYS = new Set<keyof NodePatch>([
-  'position',
-  'size',
-  'rotation'
-])
-
-const NODE_LIST_KEYS = new Set<keyof NodePatch>([
-  'layer',
-  'zIndex',
-  'children'
-])
-
-const NODE_VALUE_KEYS = new Set<keyof NodePatch>([
-  'data',
-  'locked',
-  'style'
-])
 
 const EDGE_GEOMETRY_KEYS = new Set<keyof EdgePatch>([
   'source',
@@ -134,46 +114,6 @@ const markMindmapView = (
   state.view = true
 }
 
-const mergeNodePatch = (
-  node: Node,
-  patch: NodePatch
-): Node => (
-  node.type === 'group'
-    ? {
-        ...node,
-        ...patch
-      }
-    : {
-        ...node,
-        ...patch
-      }
-)
-
-const toNodeSnapshotPatch = (
-  node: Node
-): NodePatch => (
-  node.type === 'group'
-    ? {
-        layer: node.layer,
-        zIndex: node.zIndex,
-        children: node.children,
-        locked: node.locked,
-        data: node.data,
-        style: node.style
-      }
-    : {
-        position: node.position,
-        size: node.size,
-        rotation: node.rotation,
-        layer: node.layer,
-        zIndex: node.zIndex,
-        children: node.children,
-        locked: node.locked,
-        data: node.data,
-        style: node.style
-      }
-)
-
 const toEdgeSnapshotPatch = (
   edge: Edge
 ): EdgePatch => ({
@@ -185,34 +125,6 @@ const toEdgeSnapshotPatch = (
   label: edge.label,
   data: edge.data
 })
-
-const classifyNodePatch = (patch: NodePatch): NodePatchImpact => {
-  const impact: NodePatchImpact = {
-    geometry: false,
-    list: false,
-    value: false
-  }
-
-  for (const key of Object.keys(patch) as Array<keyof NodePatch>) {
-    if (NODE_GEOMETRY_KEYS.has(key)) {
-      impact.geometry = true
-      continue
-    }
-    if (NODE_LIST_KEYS.has(key)) {
-      impact.list = true
-      continue
-    }
-    if (NODE_VALUE_KEYS.has(key)) {
-      impact.value = true
-      continue
-    }
-    impact.geometry = true
-    impact.list = true
-    impact.value = true
-  }
-
-  return impact
-}
 
 const classifyEdgePatch = (patch: EdgePatch): EdgePatchImpact => {
   const impact: EdgePatchImpact = {
@@ -298,33 +210,27 @@ const trackReadImpact = (
       return
     }
     case 'node.update': {
-      const patch = classifyNodePatch(operation.patch)
       const before = getNode(document, operation.id)
-      const after = before
-        ? mergeNodePatch(before, operation.patch)
-        : undefined
-      const beforeIsMindmap = isMindmapNode(before)
-      const afterIsMindmap = isMindmapNode(after)
-      const beforeIsCanvas = isCanvasNode(before)
-      const afterIsCanvas = isCanvasNode(after)
-      const nodeList = patch.list || beforeIsCanvas !== afterIsCanvas
-      const nodeChanged = patch.geometry || nodeList || patch.value
+      if (!before) {
+        return
+      }
+      const impact = classifyNodeUpdate(operation.update)
 
-      if (beforeIsCanvas || afterIsCanvas) {
+      if (isCanvasNode(before)) {
         const { node } = state
-        node.geometry ||= patch.geometry
-        node.list ||= nodeList
-        node.value ||= patch.value
-        if (nodeChanged) {
+        node.geometry ||= impact.geometry
+        node.list ||= impact.list
+        node.value ||= impact.value
+        if (impact.geometry || impact.list || impact.value) {
           addNodeId(node.ids, operation.id)
         }
       }
 
-      if (beforeIsMindmap || afterIsMindmap) {
-        markMindmapView(state.mindmap, before?.id ?? operation.id)
+      if (isMindmapNode(before) && impact.mindmapView) {
+        markMindmapView(state.mindmap, operation.id)
       }
 
-      if (patch.geometry && (beforeIsCanvas || afterIsCanvas)) {
+      if (impact.geometry && isCanvasNode(before)) {
         state.edge.geometry = true
         addNodeId(state.edge.nodeIds, operation.id)
       }
@@ -510,10 +416,12 @@ const buildInverse = (
     case 'node.update': {
       const current = getNode(document, operation.id)
       if (!current) return null
+      const inverse = buildNodeUpdateInverse(current, operation.update)
+      if (!inverse.ok) return null
       return [{
         type: 'node.update',
         id: operation.id,
-        patch: toNodeSnapshotPatch(current)
+        update: inverse.update
       }]
     }
     case 'node.delete': {
@@ -583,11 +491,10 @@ const applyOperation = (
     case 'node.update': {
       const current = getNode(draft.next, operation.id)
       if (!current) return
+      const applied = applyNodeUpdate(current, operation.update)
+      if (!applied.ok) return
       const entities = ensureNodeEntities(draft)
-      entities[operation.id] = {
-        ...current,
-        ...operation.patch
-      }
+      entities[operation.id] = applied.next
       return
     }
     case 'node.delete': {

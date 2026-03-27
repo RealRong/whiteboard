@@ -435,8 +435,13 @@ const collectNodeDataOps = ({
     next.push({
       type: 'node.update',
       id: nodeId,
-      patch: {
-        data
+      update: {
+        records: [{
+          scope: 'data',
+          op: 'set',
+          path: TEXT_WIDTH_MODE_KEY,
+          value: 'fixed'
+        }]
       }
     })
   })

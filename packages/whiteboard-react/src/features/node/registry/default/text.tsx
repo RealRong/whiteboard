@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
+import type { NodeRecordMutation, NodeUpdateInput } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
 import {
   useEdit,
   useInternalInstance
 } from '../../../../runtime/hooks'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
+import { toNodeFieldUpdate } from '../../patch'
 import {
   clearNodeSessionPatch,
   writeNodeSessionPatch
@@ -240,7 +242,12 @@ const TextNodeRenderer = ({
   const commit = (nextDraft = draft) => {
     if (isSticky) {
       if (nextDraft !== text) {
-        write.data({ text: nextDraft })
+        write.update(
+          toNodeFieldUpdate(
+            { scope: 'data', path: 'text' },
+            nextDraft
+          )
+        )
       }
       instance.commands.edit.clear()
       return
@@ -255,21 +262,23 @@ const TextNodeRenderer = ({
     }
 
     const nextSize = resolveTextSize(nextDraft)
-    const patch: Record<string, unknown> = {}
+    const update: NodeUpdateInput = {}
 
     if (nextDraft !== text) {
-      patch.data = {
-        ...(node.data ?? {}),
-        text: nextDraft
-      }
+      update.records = toNodeFieldUpdate(
+        { scope: 'data', path: 'text' },
+        nextDraft
+      ).records
     }
 
     if (!isSameSize(nextSize, committedRect)) {
-      patch.size = nextSize
+      update.fields = {
+        size: nextSize
+      }
     }
 
-    if (Object.keys(patch).length) {
-      write.patch(patch)
+    if (update.fields || update.records?.length) {
+      write.update(update)
     }
 
     clearTextPreview()

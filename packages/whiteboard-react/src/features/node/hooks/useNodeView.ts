@@ -99,11 +99,8 @@ const resolveNodeViewState = (
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
   const definition = instance.registry.get(resolvedNode.type)
   const write: NodeWrite = {
-    patch: (patch) => {
-      instance.commands.node.update(nodeId, patch)
-    },
-    data: (patch) => {
-      instance.commands.node.updateData(nodeId, patch)
+    update: (update) => {
+      instance.commands.node.update(nodeId, update)
     }
   }
   const renderProps: NodeRenderProps = {

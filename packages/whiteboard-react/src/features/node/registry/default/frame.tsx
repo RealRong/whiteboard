@@ -14,6 +14,7 @@ import {
   FRAME_DEFAULT_TEXT_COLOR,
   FRAME_DEFAULT_TITLE
 } from '../../frame'
+import { toNodeFieldUpdate } from '../../patch'
 import {
   createSchema,
   createTextField,
@@ -43,7 +44,7 @@ const frameSchema = createSchema('frame', 'Frame', [
 
 type FrameNodeChromeProps = {
   node: Node
-  write: Pick<NodeWrite, 'data'>
+  write: Pick<NodeWrite, 'update'>
 }
 
 export const FrameNodeChrome = ({
@@ -69,7 +70,12 @@ export const FrameNodeChrome = ({
   const commit = () => {
     const nextTitle = draft.trim() || FRAME_DEFAULT_TITLE
     if (nextTitle !== title) {
-      write.data({ title: nextTitle })
+      write.update(
+        toNodeFieldUpdate(
+          { scope: 'data', path: 'title' },
+          nextTitle
+        )
+      )
     }
     instance.commands.edit.clear()
   }

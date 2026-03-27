@@ -4,6 +4,9 @@ import type {
   EdgeSchema,
   EdgeTypeDefinition,
   NodeInput,
+  NodeRecordMutation,
+  NodeRecordScope,
+  NodeUpdateInput,
   NodeSchema,
   NodeType,
   NodeTypeDefinition,
@@ -174,4 +177,67 @@ const getSchemaFieldValue = (target: SchemaTarget, field: SchemaField): unknown 
   if (scope === 'style') return getValueByPath(target.style, field.path)
   if (scope === 'label') return getValueByPath(target.label, field.path)
   return getValueByPath(target.data, field.path)
+}
+
+export type NodeSchemaFieldRef = Pick<SchemaField, 'path'> & {
+  scope?: NodeRecordScope
+}
+
+const toNodeRecordPath = (
+  path: string
+): string | undefined => {
+  const normalized = path.trim()
+  return normalized ? normalized : undefined
+}
+
+export const compileNodeFieldRecord = (
+  field: NodeSchemaFieldRef,
+  value: unknown
+): NodeRecordMutation | undefined => {
+  const scope = field.scope ?? 'data'
+  const path = toNodeRecordPath(field.path)
+
+  if (value === undefined) {
+    if (!path) {
+      return undefined
+    }
+    return {
+      scope,
+      op: 'unset',
+      path
+    }
+  }
+
+  return {
+    scope,
+    op: 'set',
+    ...(path ? { path } : {}),
+    value: cloneValue(value)
+  }
+}
+
+export const compileNodeFieldUpdate = (
+  field: NodeSchemaFieldRef,
+  value: unknown
+): NodeUpdateInput => {
+  const record = compileNodeFieldRecord(field, value)
+  return record
+    ? { records: [record] }
+    : {}
+}
+
+export const compileNodeFieldUpdates = (
+  entries: ReadonlyArray<{
+    field: NodeSchemaFieldRef
+    value: unknown
+  }>
+): NodeUpdateInput => {
+  const records = entries.flatMap((entry) => {
+    const record = compileNodeFieldRecord(entry.field, entry.value)
+    return record ? [record] : []
+  })
+
+  return records.length > 0
+    ? { records }
+    : {}
 }

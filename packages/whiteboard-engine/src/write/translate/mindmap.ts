@@ -43,6 +43,7 @@ import {
   setNodeData as setMindmapNodeData,
   setSide as setMindmapSide,
   toggleCollapse as toggleMindmapCollapse,
+  type MindmapDataMutation,
   type MindmapCommandResult
 } from '@whiteboard/core/mindmap'
 import { getMindmapTreeFromDocument } from '@whiteboard/core/mindmap'
@@ -265,12 +266,12 @@ export const translateMindmap = <C extends MindmapCommand>(
   const setNodeData = (
     id: MindmapId,
     nodeId: MindmapNodeId,
-    patch: Partial<MindmapNodeData>
+    records: readonly MindmapDataMutation[]
   ): TranslateResult =>
     runMindmapPlan({
       doc,
       id,
-      run: (tree) => setMindmapNodeData(tree, nodeId, patch)
+      run: (tree) => setMindmapNodeData(tree, nodeId, records)
     })
 
   const reorderChild = (
@@ -439,8 +440,10 @@ export const translateMindmap = <C extends MindmapCommand>(
     return success([{
       type: 'node.update',
       id: nodeId,
-      patch: {
-        position: { x: position.x, y: position.y }
+      update: {
+        fields: {
+          position: { x: position.x, y: position.y }
+        }
       }
     }])
   }
@@ -477,7 +480,7 @@ export const translateMindmap = <C extends MindmapCommand>(
     case 'clone.subtree':
       return cloneSubtree(command.id, command.nodeId, command.options) as TranslateResult<MindmapWriteOutput<C>>
     case 'update.data':
-      return setNodeData(command.id, command.nodeId, command.patch) as TranslateResult<MindmapWriteOutput<C>>
+      return setNodeData(command.id, command.nodeId, command.records) as TranslateResult<MindmapWriteOutput<C>>
     case 'update.collapse':
       return toggleCollapse(command.id, command.nodeId, command.collapsed) as TranslateResult<MindmapWriteOutput<C>>
     case 'update.side':

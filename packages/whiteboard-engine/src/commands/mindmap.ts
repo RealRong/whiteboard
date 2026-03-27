@@ -109,12 +109,12 @@ export const mindmap = ({
         nodeId,
         options
       }),
-    setNodeData: (id, nodeId, patch) =>
+    setNodeData: (id, nodeId, records) =>
       run({
         type: 'update.data',
         id,
         nodeId,
-        patch
+        records
       }),
     toggleCollapse: (id, nodeId, collapsed) =>
       run({

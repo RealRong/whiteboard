@@ -1,4 +1,11 @@
 export {
+  applyNodeUpdate,
+  buildNodeUpdateInverse,
+  classifyNodeUpdate,
+  isNodeUpdateEmpty,
+  sanitizeGroupUpdate
+} from './update'
+export {
   buildNodeDuplicateOperations,
   expandNodeSelection
 } from './duplicate'

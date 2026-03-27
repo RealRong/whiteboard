@@ -147,8 +147,10 @@ const buildLayoutOperations = (
       operations.push({
         type: 'node.update',
         id: update.id,
-        patch: {
-          position: update.position
+        update: {
+          fields: {
+            position: update.position
+          }
         }
       })
       return
@@ -180,8 +182,10 @@ const buildLayoutOperations = (
       operations.push({
         type: 'node.update',
         id: entry.id,
-        patch: {
-          position: entry.position
+        update: {
+          fields: {
+            position: entry.position
+          }
         }
       })
     })

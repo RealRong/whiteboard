@@ -1,46 +1,72 @@
-import type { Node, NodePatch } from '@whiteboard/core/types'
-import { mergeRecordPatch } from '../../runtime/utils/recordPatch'
+import {
+  compileNodeFieldUpdate,
+  compileNodeFieldUpdates,
+  type NodeSchemaFieldRef
+} from '@whiteboard/core/schema'
+import { hasValueByPath } from '@whiteboard/core/utils'
+import type { Node, NodeUpdateInput } from '@whiteboard/core/types'
 
 export type NodeStylePatch = Record<string, string | number>
+export type NodeDataPatch = Record<string, unknown>
 
-export const mergeNodeStyle = (
-  current: Node['style'],
-  patch: NodeStylePatch
-) => mergeRecordPatch(current, patch)
+const readFieldContainer = (
+  node: Pick<Node, 'data' | 'style'>,
+  field: NodeSchemaFieldRef
+) => (field.scope === 'style' ? node.style : node.data)
 
-export const removeNodeStyleKey = (
-  current: Node['style'],
-  key: string
-) => {
-  if (!current || !(key in current)) {
-    return current
-  }
+export const toNodeFieldUpdate = (
+  field: NodeSchemaFieldRef,
+  value: unknown
+): NodeUpdateInput => compileNodeFieldUpdate(field, value)
 
-  const next = {
-    ...current
-  }
-  delete next[key]
-  return Object.keys(next).length > 0 ? next : undefined
-}
+export const toNodeFieldRemovalPatch = (
+  node: Pick<Node, 'data' | 'style'>,
+  field: NodeSchemaFieldRef
+): NodeUpdateInput => (
+  hasValueByPath(readFieldContainer(node, field), field.path)
+    ? compileNodeFieldUpdate(field, undefined)
+    : {}
+)
+
+export const toNodeDataPatch = (
+  _node: Pick<Node, 'data'>,
+  patch: NodeDataPatch
+): NodeUpdateInput => compileNodeFieldUpdates(
+  Object.entries(patch).map(([path, value]) => ({
+    field: {
+      scope: 'data' as const,
+      path
+    },
+    value
+  }))
+)
 
 export const toNodeStylePatch = (
-  node: Pick<Node, 'style'>,
+  _node: Pick<Node, 'style'>,
   patch: NodeStylePatch
-): NodePatch => ({
-  style: mergeNodeStyle(node.style, patch)
-})
+): NodeUpdateInput => compileNodeFieldUpdates(
+  Object.entries(patch).map(([path, value]) => ({
+    field: {
+      scope: 'style' as const,
+      path
+    },
+    value
+  }))
+)
 
 export const toNodeStyleRemovalPatch = (
   node: Pick<Node, 'style'>,
   key: string
-): NodePatch => ({
-  style: removeNodeStyleKey(node.style, key)
-})
+): NodeUpdateInput =>
+  toNodeFieldRemovalPatch(node, {
+    scope: 'style',
+    path: key
+  })
 
 export const toNodeStyleUpdates = (
   nodes: readonly Node[],
   patch: NodeStylePatch
 ) => nodes.map((node) => ({
   id: node.id,
-  patch: toNodeStylePatch(node, patch)
+  update: toNodeStylePatch(node, patch)
 }))

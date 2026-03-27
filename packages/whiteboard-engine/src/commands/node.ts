@@ -13,7 +13,7 @@ import type {
 import type {
   NodeId,
   NodeInput,
-  NodePatch
+  NodeUpdateInput
 } from '@whiteboard/core/types'
 
 type NodeCommand = WriteCommandMap['node']
@@ -43,10 +43,10 @@ export const node = ({
       delta: input.delta
     })
 
-  const update = (id: NodeId, patch: NodePatch) =>
+  const update = (id: NodeId, update: NodeUpdateInput) =>
     run({
       type: 'updateMany',
-      updates: [{ id, patch }]
+      updates: [{ id, update }]
     })
 
   const updateMany = (
@@ -76,14 +76,6 @@ export const node = ({
       type: 'distribute',
       ids,
       mode
-    })
-
-  const updateData = (id: NodeId, patch: Record<string, unknown>) =>
-    run({
-      type: 'data',
-      mode: 'merge',
-      id,
-      patch
     })
 
   const remove = (ids: NodeId[]) =>
@@ -119,7 +111,6 @@ export const node = ({
     updateMany,
     align,
     distribute,
-    updateData,
     delete: remove,
     deleteCascade,
     duplicate,

@@ -315,8 +315,10 @@ export const createNodeSelectionActions = (
 
       instance.commands.node.updateMany(nodes.map((node) => ({
         id: node.id,
-        patch: {
-          locked
+        update: {
+          fields: {
+            locked
+          }
         }
       })))
     },

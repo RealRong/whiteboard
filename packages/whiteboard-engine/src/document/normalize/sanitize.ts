@@ -1,6 +1,7 @@
 import {
+  isNodeUpdateEmpty,
   sanitizeGroupNode,
-  sanitizeGroupPatch
+  sanitizeGroupUpdate
 } from '@whiteboard/core/node'
 import type {
   Document,
@@ -59,21 +60,21 @@ export const sanitizeOperations = ({
       }
       case 'node.update': {
         const current = document.nodes.entities[operation.id]
-        const patch = sanitizeGroupPatch(
-          operation.patch,
+        const update = sanitizeGroupUpdate(
+          operation.update,
           current?.type
         )
-        if (patch === operation.patch) {
+        if (update === operation.update) {
           next.push(operation)
           return
         }
 
-        if (!Object.keys(patch).length) {
+        if (isNodeUpdateEmpty(update)) {
           return
         }
         next.push({
           ...operation,
-          patch
+          update
         })
         return
       }

@@ -1,7 +1,9 @@
 import { err, ok } from '../types'
+import { applyPathMutation } from '../utils'
 import type {
   MindmapAttachPayload,
   MindmapCommandResult,
+  MindmapDataMutation,
   MindmapIdGenerator,
   MindmapNode,
   MindmapNodeData,
@@ -40,6 +42,13 @@ const updateMeta = (tree: TreeDraft, timestamp = new Date().toISOString()) => {
     if (!tree.meta.createdAt) tree.meta.createdAt = timestamp
     tree.meta.updatedAt = timestamp
   }
+}
+
+const applyDataMutation = (
+  current: unknown,
+  mutation: MindmapDataMutation
+): { ok: true; value: unknown } | { ok: false; message: string } => {
+  return applyPathMutation(current, mutation)
 }
 
 const collectSubtreeIds = (tree: MindmapTree, rootId: MindmapNodeId) => {
@@ -306,13 +315,22 @@ export const toggleCollapse = (
 export const setNodeData = (
   tree: MindmapTree,
   nodeId: MindmapNodeId,
-  patch: Partial<MindmapNodeData | Record<string, unknown>>
+  records: readonly MindmapDataMutation[]
 ): MindmapCommandResult => {
   const node = ensureNode(tree, nodeId)
   if (!node) return createFailure(`Node ${nodeId} not found.`)
+  if (!records.length) return createFailure('No data updates provided.')
   const draft = cloneTree(tree)
-  const existing = draft.nodes[nodeId].data ?? {}
-  const nextData = typeof existing === 'object' && typeof patch === 'object' ? { ...existing, ...patch } : patch
+  let nextData = draft.nodes[nodeId].data
+
+  for (const record of records) {
+    const result = applyDataMutation(nextData, record)
+    if (!result.ok) {
+      return createFailure(result.message)
+    }
+    nextData = result.value as MindmapNode['data']
+  }
+
   draft.nodes[nodeId] = {
     ...draft.nodes[nodeId],
     data: nextData

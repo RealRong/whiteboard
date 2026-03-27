@@ -8,7 +8,7 @@ import type {
   MindmapNodeId,
   NodeId,
   NodeInput,
-  NodePatch,
+  NodeUpdateInput,
   Point
 } from '@whiteboard/core/types'
 import type {
@@ -29,6 +29,7 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import type {
   MindmapAttachPayload,
   MindmapCommandOptions,
+  MindmapDataMutation,
   MindmapNodeData,
   MindmapTree
 } from '@whiteboard/core/types'
@@ -46,7 +47,7 @@ export type WriteOrigin =
 
 export type NodeBatchUpdate = {
   id: NodeId
-  patch: NodePatch
+  update: NodeUpdateInput
 }
 
 export type NodeMoveInput = {
@@ -73,12 +74,6 @@ export type NodeWriteCommand =
   | {
       type: 'create'
       payload: NodeInput
-    }
-  | {
-      type: 'data'
-      mode: 'merge' | 'replace'
-      id: NodeId
-      patch: Record<string, unknown>
     }
   | {
       type: 'move'
@@ -303,7 +298,7 @@ export type MindmapCommands = {
   setNodeData: (
     id: MindmapId,
     nodeId: MindmapNodeId,
-    patch: Partial<MindmapNodeData>
+    records: readonly MindmapDataMutation[]
   ) => CommandResult
   toggleCollapse: (
     id: MindmapId,
@@ -362,7 +357,7 @@ export type EngineCommands = {
   node: {
     create: (payload: NodeInput) => CommandResult<{ nodeId: NodeId }>
     move: (input: NodeMoveInput) => CommandResult
-    update: (id: NodeId, patch: NodePatch) => CommandResult
+    update: (id: NodeId, update: NodeUpdateInput) => CommandResult
     updateMany: (
       updates: readonly NodeBatchUpdate[],
       options?: NodeUpdateManyOptions
@@ -375,7 +370,6 @@ export type EngineCommands = {
       ids: readonly NodeId[],
       mode: NodeDistributeMode
     ) => CommandResult
-    updateData: (id: NodeId, patch: Record<string, unknown>) => CommandResult
     delete: (ids: NodeId[]) => CommandResult
     deleteCascade: (ids: NodeId[]) => CommandResult
     duplicate: (ids: NodeId[]) => CommandResult<{

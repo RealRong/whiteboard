@@ -64,8 +64,10 @@ export const patchChildren = (
   return {
     type: 'node.update',
     id: node.id,
-    patch: {
-      children: [...children]
+    update: {
+      fields: {
+        children: [...children]
+      }
     }
   }
 }

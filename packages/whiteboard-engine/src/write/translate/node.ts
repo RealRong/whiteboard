@@ -3,6 +3,7 @@ import type { WriteTranslateContext } from './index'
 import type { TranslateResult } from './result'
 import { cancelled, invalid, fromOps, success } from './result'
 import {
+  applyNodeUpdate,
   buildDeleteOwnerOps,
   buildNodeAlignOperations,
   buildNodeCreateOperation,
@@ -14,6 +15,7 @@ import {
   buildNodeUngroupOperations,
   buildOwnerOps,
   expandNodeSelection,
+  isNodeUpdateEmpty,
   resolveMoveEffect
 } from '@whiteboard/core/node'
 import {
@@ -22,6 +24,7 @@ import {
   getNode,
   isNodeEdgeEnd,
   type EdgeId,
+  type Node,
   type NodeId,
 } from '@whiteboard/core/types'
 import {
@@ -42,28 +45,9 @@ type MoveCommand = Extract<NodeCommand, { type: 'move' }>
 type UpdateManyCommand = Extract<NodeCommand, { type: 'updateMany' }>
 type DeleteCascadeCommand = Extract<NodeCommand, { type: 'deleteCascade' }>
 type DuplicateCommand = Extract<NodeCommand, { type: 'duplicate' }>
-type DataCommand = Extract<NodeCommand, { type: 'data' }>
 type OrderCommand = Extract<NodeCommand, { type: 'order' }>
 type AlignCommand = Extract<NodeCommand, { type: 'align' }>
 type DistributeCommand = Extract<NodeCommand, { type: 'distribute' }>
-
-const toUpdateOperations = (
-  updates: readonly UpdateManyCommand['updates'][number][]
-) => {
-  const patchById = new Map<NodeId, UpdateManyCommand['updates'][number]['patch']>()
-
-  updates.forEach(({ id, patch }) => {
-    if (!Object.keys(patch).length) return
-    const previous = patchById.get(id)
-    patchById.set(id, previous ? { ...previous, ...patch } : patch)
-  })
-
-  return Array.from(patchById.entries()).map(([id, patch]) => ({
-    type: 'node.update' as const,
-    id,
-    patch
-  }))
-}
 
 export const translateNode = <C extends NodeCommand>(
   command: C,
@@ -139,7 +123,39 @@ export const translateNode = <C extends NodeCommand>(
   }
 
   const updateMany = (command: UpdateManyCommand): TranslateResult => {
-    const operations = toUpdateOperations(command.updates)
+    const nextNodeById = new Map<NodeId, Node>()
+    const operations: Array<{
+      type: 'node.update'
+      id: NodeId
+      update: UpdateManyCommand['updates'][number]['update']
+    }> = []
+
+    for (const { id, update } of command.updates) {
+      const current = nextNodeById.get(id) ?? getNode(doc, id)
+      if (!current) {
+        return invalid(`Node ${id} not found.`)
+      }
+
+      const result = applyNodeUpdate(current, update)
+      if (!result.ok) {
+        return invalid(result.message, {
+          nodeId: id,
+          update
+        })
+      }
+
+      if (isNodeUpdateEmpty(update)) {
+        continue
+      }
+
+      nextNodeById.set(id, result.next)
+      operations.push({
+        type: 'node.update',
+        id,
+        update
+      })
+    }
+
     if (!operations.length) {
       return cancelled('No node updates provided.')
     }
@@ -179,14 +195,15 @@ export const translateNode = <C extends NodeCommand>(
     }
 
     const operations = [
-      ...toUpdateOperations([
-        ...effect.nodes.map((entry) => ({
-          id: entry.id,
-          patch: {
+      ...effect.nodes.map((entry) => ({
+        type: 'node.update' as const,
+        id: entry.id,
+        update: {
+          fields: {
             position: entry.position
           }
-        }))
-      ]),
+        }
+      })),
       ...owner.data,
       ...effect.edges.map((entry) => ({
         type: 'edge.update' as const,
@@ -239,23 +256,6 @@ export const translateNode = <C extends NodeCommand>(
       return cancelled('Nodes are already distributed.')
     }
     return fromOps(result)
-  }
-
-  const updateData = (command: DataCommand): TranslateResult => {
-    const current = getNode(doc, command.id)
-    if (!current) {
-      return invalid(`Node ${command.id} not found.`)
-    }
-    const nextData = command.mode === 'merge'
-      ? { ...(current.data ?? {}), ...command.patch }
-      : { ...command.patch }
-    return success([{
-      type: 'node.update',
-      id: command.id,
-      patch: {
-        data: nextData
-      }
-    }])
   }
 
   const order = (command: OrderCommand): TranslateResult => {
@@ -345,8 +345,6 @@ export const translateNode = <C extends NodeCommand>(
       return align(command) as TranslateResult<NodeWriteOutput<C>>
     case 'distribute':
       return distribute(command) as TranslateResult<NodeWriteOutput<C>>
-    case 'data':
-      return updateData(command) as TranslateResult<NodeWriteOutput<C>>
     case 'delete':
       if (!command.ids.length) {
         return cancelled('No nodes selected.') as TranslateResult<NodeWriteOutput<C>>

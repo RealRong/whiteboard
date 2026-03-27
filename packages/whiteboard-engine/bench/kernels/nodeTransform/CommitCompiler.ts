@@ -43,7 +43,9 @@ export class CommitCompiler {
     return [{
       type: 'node.update',
       id: nodeId,
-      patch
+      update: {
+        fields: patch
+      }
     }]
   }
 
@@ -58,8 +60,10 @@ export class CommitCompiler {
     return [{
       type: 'node.update',
       id: nodeId,
-      patch: {
-        rotation
+      update: {
+        fields: {
+          rotation
+        }
       }
     }]
   }

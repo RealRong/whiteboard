@@ -63,6 +63,17 @@ export interface MindmapIdGenerator {
   nodeId?: () => MindmapNodeId
 }
 
+export type MindmapDataMutation =
+  | { op: 'set'; path?: string; value: unknown }
+  | { op: 'unset'; path: string }
+  | {
+      op: 'splice'
+      path: string
+      index: number
+      deleteCount: number
+      values?: readonly unknown[]
+    }
+
 export type MindmapDragDropLine = {
   x1: number
   y1: number

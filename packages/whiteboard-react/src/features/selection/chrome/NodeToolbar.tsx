@@ -7,17 +7,16 @@ import {
   useState,
   type RefObject
 } from 'react'
-import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeSchema, NodeUpdateInput, Point, Rect } from '@whiteboard/core/types'
 import {
   useElementSize,
   useInternalInstance,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useSelectionPresentation } from '../../node/selection'
-import { mergeRecordPatch } from '../../../runtime/utils/recordPatch'
 import {
-  mergeNodeStyle,
-  removeNodeStyleKey,
+  toNodeDataPatch,
+  toNodeFieldUpdate,
   toNodeStylePatch,
   toNodeStyleRemovalPatch,
   toNodeStyleUpdates
@@ -358,11 +357,6 @@ const readMenuAnchor = ({
   }
 }
 
-const mergeData = (
-  current: Record<string, unknown> | undefined,
-  patch: Record<string, unknown>
-) => mergeRecordPatch(current, patch)
-
 const queryNodeTextSource = ({
   container,
   nodeId,
@@ -398,14 +392,16 @@ const updateToolbarTextNode = ({
   field: 'title' | 'text'
   value: string
 }) => {
+  const update: NodeUpdateInput = toNodeFieldUpdate(
+    { scope: 'data', path: field },
+    value
+  )
+
   if (node.type !== 'text') {
-    instance.commands.node.updateData(node.id, { [field]: value })
+    instance.commands.node.update(node.id, update)
     return
   }
 
-  const patch: Record<string, unknown> = {
-    data: mergeData(node.data, { [field]: value })
-  }
   const source = queryNodeTextSource({
     container,
     nodeId: node.id,
@@ -427,10 +423,12 @@ const updateToolbarTextNode = ({
     && committedRect
     && (size.width !== committedRect.width || size.height !== committedRect.height)
   ) {
-    patch.size = size
+    update.fields = {
+      size
+    }
   }
 
-  instance.commands.node.update(node.id, patch)
+  instance.commands.node.update(node.id, update)
 }
 
 const updateToolbarTextFontSize = ({
@@ -461,12 +459,9 @@ const updateToolbarTextFontSize = ({
     return
   }
 
-  const nextStyle = value === undefined
-    ? removeNodeStyleKey(node.style, 'fontSize')
-    : mergeNodeStyle(node.style, { fontSize: value })
-  const patch: Record<string, unknown> = {
-    style: nextStyle
-  }
+  const update = value === undefined
+    ? toNodeStyleRemovalPatch(node, 'fontSize')
+    : toNodeStylePatch(node, { fontSize: value })
   const source = queryNodeTextSource({
     container,
     nodeId: node.id,
@@ -492,10 +487,12 @@ const updateToolbarTextFontSize = ({
     && committedRect
     && (size.width !== committedRect.width || size.height !== committedRect.height)
   ) {
-    patch.size = size
+    update.fields = {
+      size
+    }
   }
 
-  instance.commands.node.update(node.id, patch)
+  instance.commands.node.update(node.id, update)
 }
 
 export const NodeToolbar = ({
@@ -680,9 +677,7 @@ export const NodeToolbar = ({
               }
               instance.commands.node.updateMany(stickyNodes.map((node) => ({
                 id: node.id,
-                patch: {
-                  data: mergeData(node.data, { background: value })
-                }
+                update: toNodeDataPatch(node, { background: value })
               })))
             }}
           />
