@@ -13,13 +13,10 @@ import {
   readShapePreviewFill
 } from '../shape'
 import {
-  readNodeSummaryDetail,
-  readNodeSummaryTitle,
   type NodeSummary,
-  type NodeTypeSummary
+  type NodeTypeSummary,
+  readNodeSummaryView
 } from '../summary'
-
-const PreviewLimit = 3
 
 const IconByName: Record<string, LucideIcon> = {
   text: Type,
@@ -102,18 +99,16 @@ export const SelectionSummaryHeader = ({
 }: {
   summary: NodeSummary
 }) => {
-  const types = summary.types.slice(0, PreviewLimit)
-  const overflow = Math.max(0, summary.types.length - types.length)
-  const detail = readNodeSummaryDetail(summary)
+  const view = readNodeSummaryView(summary)
 
-  if (!summary.count || !types.length) {
+  if (!view) {
     return null
   }
 
   return (
     <div className="wb-selection-summary">
-      <div className="wb-selection-summary-icons" data-mixed={summary.mixed ? 'true' : undefined}>
-        {types.map((item) => (
+      <div className="wb-selection-summary-icons" data-mixed={view.mixed ? 'true' : undefined}>
+        {view.types.map((item) => (
           <span
             key={item.key}
             className="wb-selection-summary-icon"
@@ -122,16 +117,16 @@ export const SelectionSummaryHeader = ({
             <NodeTypeIcon icon={item.icon} />
           </span>
         ))}
-        {overflow > 0 ? (
-          <span className="wb-selection-summary-overflow">+{overflow}</span>
+        {view.overflow > 0 ? (
+          <span className="wb-selection-summary-overflow">+{view.overflow}</span>
         ) : null}
       </div>
       <div className="wb-selection-summary-body">
         <div className="wb-selection-summary-title">
-          {readNodeSummaryTitle(summary)}
+          {view.title}
         </div>
-        {detail ? (
-          <div className="wb-selection-summary-detail">{detail}</div>
+        {view.detail ? (
+          <div className="wb-selection-summary-detail">{view.detail}</div>
         ) : null}
       </div>
     </div>

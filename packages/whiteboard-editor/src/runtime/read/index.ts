@@ -90,6 +90,7 @@ export const createRuntimeRead = ({
     nodeItem,
     edgeItem: edgeRead.item,
     bounds: bounds.targets,
+    tree: engineRead.tree,
     nodeFrame: nodeRead.frame,
     nodeOwner: nodeRead.owner,
     registry,

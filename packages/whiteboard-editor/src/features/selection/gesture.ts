@@ -15,7 +15,7 @@ import {
   type SelectionPressIntent,
   type SelectionTapMatch
 } from '../../runtime/selection/policy'
-import type { MarqueeSession } from './Marquee'
+import type { MarqueeSession } from './marquee'
 import { createNodeDragSession } from '../node/drag/session'
 
 export type SelectionGesture = {

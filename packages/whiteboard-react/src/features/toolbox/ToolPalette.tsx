@@ -26,11 +26,8 @@ import {
   readShapePreviewFill
 } from '../node/shape'
 import {
-  DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,
-  isDrawBrushKind,
-  type DrawBrushKind,
   type DrawKind,
   type EdgePresetKey
 } from '../../runtime/tool'
@@ -40,47 +37,13 @@ import { StickyMenu } from './menus/StickyMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
 import {
-  readDrawSlot,
-  readDrawStyle,
-  type DrawBrush,
-  type DrawState,
-  type DrawSlot
-} from '../draw/state'
-import {
-  DEFAULT_MINDMAP_PRESET_KEY,
-  DEFAULT_SHAPE_PRESET_KEY,
-  DEFAULT_STICKY_PRESET_KEY,
   TEXT_INSERT_PRESET,
-  readShapePresetKind,
-  readStickyInsertTone,
-  readInsertPresetGroup
 } from './presets'
-
-type MenuKey =
-  | 'draw'
-  | 'edge'
-  | 'sticky'
-  | 'shape'
-  | 'mindmap'
-
-const ToolbarInset = 16
-const ToolbarButtonSize = 40
-const MenuOffset = 10
-const MenuWidth: Record<MenuKey, number> = {
-  draw: 360,
-  edge: 240,
-  sticky: 240,
-  shape: 240,
-  mindmap: 240
-}
-
-const MenuApproxHeight: Record<MenuKey, number> = {
-  draw: 324,
-  edge: 164,
-  sticky: 164,
-  shape: 388,
-  mindmap: 248
-}
+import {
+  readToolPaletteMenuPlacement,
+  readToolPaletteView,
+  type ToolPaletteMenuKey
+} from './paletteModel'
 
 const ToolIcon = ({
   icon: Icon
@@ -94,59 +57,11 @@ const ToolIcon = ({
   />
 )
 
-const readMenuWidth = (
-  key: MenuKey,
-  drawKind: DrawKind,
-  drawPanelOpen: boolean
-) => (
-  key === 'draw' && (!drawPanelOpen || drawKind === 'eraser')
-    ? 72
-    : MenuWidth[key]
-)
-
-const readMenuHeight = (
-  key: MenuKey,
-  drawKind: DrawKind,
-  drawPanelOpen: boolean
-) => {
-  if (key !== 'draw') {
-    return MenuApproxHeight[key]
-  }
-
-  if (drawKind === 'eraser') {
-    return 188
-  }
-
-  return drawPanelOpen
-    ? MenuApproxHeight.draw
-    : 292
-}
-
 const DRAW_KIND_ICON = {
   pen: PencilLine,
   highlighter: Highlighter,
   eraser: Eraser
 } as const satisfies Record<DrawKind, typeof PencilLine>
-
-const readBrushState = (
-  state: DrawState,
-  kind: DrawKind
-): {
-  brushKind: DrawBrushKind
-  brush: DrawBrush
-  slot: DrawSlot
-} => {
-  const brushKind = isDrawBrushKind(kind)
-    ? kind
-    : DEFAULT_DRAW_BRUSH_KIND
-  const brush = state[brushKind]
-
-  return {
-    brushKind,
-    brush,
-    slot: readDrawSlot(state, brushKind)
-  }
-}
 
 export const ToolPalette = ({
   containerRef
@@ -161,34 +76,17 @@ export const ToolPalette = ({
   const rootRef = useRef<HTMLDivElement | null>(null)
   const drawKindRef = useRef<DrawKind>(DEFAULT_DRAW_KIND)
   const edgePresetRef = useRef<EdgePresetKey>(DEFAULT_EDGE_PRESET_KEY)
-  const buttonRefByKey = useRef<Partial<Record<MenuKey, HTMLButtonElement | null>>>({})
-  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
+  const buttonRefByKey = useRef<Partial<Record<ToolPaletteMenuKey, HTMLButtonElement | null>>>({})
+  const [openMenu, setOpenMenu] = useState<ToolPaletteMenuKey | null>(null)
   const [drawPanelOpen, setDrawPanelOpen] = useState(false)
   const drawState = useStoreValue(instance.state.draw)
-  const insertGroup = tool.type === 'insert'
-    ? readInsertPresetGroup(tool.preset)
-    : undefined
-  const stickyTone = readStickyInsertTone(
-    tool.type === 'insert' && insertGroup === 'sticky'
-      ? tool.preset
-      : DEFAULT_STICKY_PRESET_KEY
-  )
-  const shapePreset = tool.type === 'insert' && insertGroup === 'shape'
-    ? tool.preset
-    : DEFAULT_SHAPE_PRESET_KEY
-  const shapeKind = readShapePresetKind(shapePreset)
-  const edgePreset = tool.type === 'edge'
-    ? tool.preset
-    : edgePresetRef.current
-  const drawKind = tool.type === 'draw'
-    ? tool.kind
-    : drawKindRef.current
-  const drawBrushState = readBrushState(drawState, drawKind)
-  const drawStyle = readDrawStyle(drawState, drawBrushState.brushKind)
-  const drawButtonStyle = isDrawBrushKind(drawKind)
-    ? drawStyle
-    : undefined
-  const DrawButtonIcon = DRAW_KIND_ICON[drawKind]
+  const palette = readToolPaletteView({
+    tool,
+    drawState,
+    lastDrawKind: drawKindRef.current,
+    lastEdgePreset: edgePresetRef.current
+  })
+  const DrawButtonIcon = DRAW_KIND_ICON[palette.drawKind]
 
   useEffect(() => {
     if (tool.type === 'draw') {
@@ -212,20 +110,16 @@ export const ToolPalette = ({
       return undefined
     }
 
-    const estimatedHeight = readMenuHeight(openMenu, drawKind, drawPanelOpen)
-    const centerY = ToolbarInset + button.offsetTop + button.offsetHeight / 2
-    const minCenter = ToolbarInset + estimatedHeight / 2
-    const maxCenter = Math.max(minCenter, surface.height - ToolbarInset - estimatedHeight / 2)
-    const minLeft = ToolbarInset + ToolbarButtonSize + MenuOffset
-    const menuWidth = readMenuWidth(openMenu, drawKind, drawPanelOpen)
-    const maxLeft = Math.max(ToolbarInset, surface.width - menuWidth - ToolbarInset)
-
-    return {
-      left: Math.min(minLeft, maxLeft),
-      top: Math.min(maxCenter, Math.max(minCenter, centerY)),
-      width: menuWidth
-    }
-  }, [drawKind, drawPanelOpen, openMenu, surface.height, surface.width])
+    return readToolPaletteMenuPlacement({
+      key: openMenu,
+      drawKind: palette.drawKind,
+      drawPanelOpen,
+      buttonOffsetTop: button.offsetTop,
+      buttonHeight: button.offsetHeight,
+      surfaceWidth: surface.width,
+      surfaceHeight: surface.height
+    })
+  }, [drawPanelOpen, openMenu, palette.drawKind, surface.height, surface.width])
 
   const closeMenu = () => {
     setOpenMenu(null)
@@ -304,7 +198,7 @@ export const ToolPalette = ({
           data-active={tool.type === 'edge' ? 'true' : undefined}
           onClick={() => {
             if (tool.type !== 'edge') {
-              instance.commands.tool.edge(edgePreset)
+              instance.commands.tool.edge(palette.edgePreset)
               setOpenMenu('edge')
               return
             }
@@ -316,7 +210,7 @@ export const ToolPalette = ({
           title="Edge"
         >
           <span className="wb-left-toolbar-button-edge-preview">
-            <EdgePresetGlyph preset={edgePreset} />
+            <EdgePresetGlyph preset={palette.edgePreset} />
           </span>
         </button>
         <button
@@ -325,7 +219,7 @@ export const ToolPalette = ({
           }}
           type="button"
           className="wb-left-toolbar-button"
-          data-active={insertGroup === 'sticky' ? 'true' : undefined}
+          data-active={palette.insertGroup === 'sticky' ? 'true' : undefined}
           onClick={() => {
             setOpenMenu((current) => current === 'sticky' ? null : 'sticky')
           }}
@@ -336,7 +230,7 @@ export const ToolPalette = ({
           <span
             className="wb-left-toolbar-button-tint"
             style={{
-              background: stickyTone?.fill
+              background: palette.stickyTone?.fill
             }}
           />
           <ToolIcon icon={StickyNote} />
@@ -361,7 +255,7 @@ export const ToolPalette = ({
           }}
           type="button"
           className="wb-left-toolbar-button"
-          data-active={insertGroup === 'shape' ? 'true' : undefined}
+          data-active={palette.insertGroup === 'shape' ? 'true' : undefined}
           onClick={() => {
             setOpenMenu((current) => current === 'shape' ? null : 'shape')
           }}
@@ -369,14 +263,14 @@ export const ToolPalette = ({
           data-input-ignore
           title="Shapes"
         >
-          {shapeKind ? (
+          {palette.shapeKind ? (
             <span className="wb-left-toolbar-button-shape-preview">
               <ShapeGlyph
-                kind={shapeKind}
+                kind={palette.shapeKind}
                 width={22}
                 height={22}
                 strokeWidth={4}
-                fill={readShapePreviewFill(shapeKind)}
+                fill={readShapePreviewFill(palette.shapeKind)}
                 stroke="currentColor"
               />
             </span>
@@ -391,7 +285,7 @@ export const ToolPalette = ({
           data-active={tool.type === 'draw' ? 'true' : undefined}
           onClick={() => {
             if (tool.type !== 'draw') {
-              instance.commands.tool.draw(drawKind)
+              instance.commands.tool.draw(palette.drawKind)
               setDrawPanelOpen(false)
               setOpenMenu('draw')
               return
@@ -409,12 +303,12 @@ export const ToolPalette = ({
           data-input-ignore
           title="Draw"
         >
-          {drawButtonStyle ? (
+          {palette.drawButtonStyle ? (
             <span
               className="wb-left-toolbar-button-tint"
               style={{
-                background: drawButtonStyle.color,
-                opacity: drawButtonStyle.opacity
+                background: palette.drawButtonStyle.color,
+                opacity: palette.drawButtonStyle.opacity
               }}
             />
           ) : null}
@@ -426,7 +320,7 @@ export const ToolPalette = ({
           }}
           type="button"
           className="wb-left-toolbar-button"
-          data-active={insertGroup === 'mindmap' ? 'true' : undefined}
+          data-active={palette.insertGroup === 'mindmap' ? 'true' : undefined}
           onClick={() => {
             setOpenMenu((current) => current === 'mindmap' ? null : 'mindmap')
           }}
@@ -449,16 +343,16 @@ export const ToolPalette = ({
           data-input-ignore
         >
           <DrawMenu
-            kind={drawKind}
-            activeSlot={drawBrushState.slot}
-            slots={drawBrushState.brush.slots}
+            kind={palette.drawKind}
+            activeSlot={palette.drawBrush.slot}
+            slots={palette.drawBrush.brush.slots}
             panelOpen={drawPanelOpen}
             onKind={(value) => {
               setDrawPanelOpen(false)
               instance.commands.tool.draw(value)
             }}
             onSlot={(value) => {
-              if (value === drawBrushState.slot) {
+              if (value === palette.drawBrush.slot) {
                 setDrawPanelOpen((current) => !current)
                 return
               }
@@ -486,7 +380,7 @@ export const ToolPalette = ({
         >
           {openMenu === 'edge' ? (
             <EdgeMenu
-              value={edgePreset}
+              value={palette.edgePreset}
               onChange={(value) => {
                 closeMenu()
                 edgePresetRef.current = value
@@ -496,7 +390,7 @@ export const ToolPalette = ({
           ) : null}
           {openMenu === 'sticky' ? (
             <StickyMenu
-              value={tool.type === 'insert' && insertGroup === 'sticky' ? tool.preset : DEFAULT_STICKY_PRESET_KEY}
+              value={palette.stickyPreset}
               onChange={(value) => {
                 closeMenu()
                 instance.commands.tool.insert(value)
@@ -505,7 +399,7 @@ export const ToolPalette = ({
           ) : null}
           {openMenu === 'shape' ? (
             <ShapeMenu
-              value={shapePreset}
+              value={palette.shapePreset}
               onChange={(value) => {
                 closeMenu()
                 instance.commands.tool.insert(value)
@@ -514,7 +408,7 @@ export const ToolPalette = ({
           ) : null}
           {openMenu === 'mindmap' ? (
             <MindmapMenu
-              value={tool.type === 'insert' && insertGroup === 'mindmap' ? tool.preset : DEFAULT_MINDMAP_PRESET_KEY}
+              value={palette.mindmapPreset}
               onChange={(value) => {
                 closeMenu()
                 instance.commands.tool.insert(value)

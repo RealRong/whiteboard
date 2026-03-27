@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 import type { InternalInstance } from '../instance'
 import { createRafTask } from '../utils/rafTask'
-import type { ContainerRect, WheelInput } from './logic'
+import type { ContainerRect, WheelInput } from '@whiteboard/editor'
 
 export type ViewportInputOptions = {
   panEnabled: boolean

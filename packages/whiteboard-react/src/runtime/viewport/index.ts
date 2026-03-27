@@ -1,11 +1,12 @@
 export {
   DEFAULT_VIEWPORT
-} from './createViewport'
+} from '@whiteboard/editor'
 export type {
   ViewportPointer,
   ViewportCommands,
   ViewportInputRuntime,
-  ViewportRead
-} from './createViewport'
+  ViewportRead,
+  ViewportRuntime
+} from '@whiteboard/editor'
 export type { ViewportInputOptions } from './useBindViewportInput'
 export { useBindViewportInput } from './useBindViewportInput'

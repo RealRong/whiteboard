@@ -4,7 +4,7 @@ import type {
 } from '@whiteboard/core/node'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../runtime/instance'
-import { resolveNodeMeta } from './registry'
+import type { NodeMeta } from '../../types/node'
 import {
   resolveNodeSelectionCan,
   type NodeSelectionCan,
@@ -14,7 +14,7 @@ import {
   type NodeSummary
 } from './summary'
 
-type NodeActionsInstance = Pick<InternalInstance, 'commands' | 'registry'>
+type NodeActionsInstance = Pick<InternalInstance, 'commands'>
 type OrderMode = 'front' | 'forward' | 'backward' | 'back'
 
 type NodeActionExtras = {
@@ -22,6 +22,7 @@ type NodeActionExtras = {
   onCut?: () => unknown
   summary?: NodeSummary
   can?: NodeSelectionCan
+  resolveMeta?: (node: Node) => NodeMeta | undefined
 }
 
 export type NodeActionItem = {
@@ -221,10 +222,10 @@ export const createNodeSelectionActions = (
   extras?: NodeActionExtras
 ): NodeSelectionActions => {
   const summary = extras?.summary ?? summarizeNodes(nodes, {
-    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+    resolveMeta: extras?.resolveMeta
   })
   const can = extras?.can ?? resolveNodeSelectionCan(nodes, {
-    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+    resolveMeta: extras?.resolveMeta
   })
   const nodeIds = summary.ids
   const groupIds = nodes
@@ -242,7 +243,7 @@ export const createNodeSelectionActions = (
   const run = {
     filter: (key: string) => {
       const filteredNodeIds = nodes
-        .filter((node) => (resolveNodeMeta(instance.registry, node)?.key ?? node.type) === key)
+        .filter((node) => (extras?.resolveMeta?.(node)?.key ?? node.type) === key)
         .map((node) => node.id)
 
       if (!filteredNodeIds.length) {

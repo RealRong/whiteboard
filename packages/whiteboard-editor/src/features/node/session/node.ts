@@ -5,7 +5,6 @@ import {
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
-import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type NodeSessionMap = ReadonlyMap<NodeId, NodeSession>
 
@@ -372,8 +371,3 @@ export const projectNodeItem = (
     rect
   }
 }
-
-export const useNodeSession = (
-  store: NodeSessionReader,
-  nodeId: NodeId | undefined
-) => useOptionalKeyedStoreValue(store, nodeId, EMPTY_NODE_SESSION)

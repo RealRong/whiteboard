@@ -1,6 +1,7 @@
 import {
   createDerivedStore,
   type KeyedReadStore,
+  type ReadFn,
   type ReadStore
 } from '@whiteboard/engine'
 import type { EdgeItem, NodeItem } from '@whiteboard/engine'
@@ -27,11 +28,30 @@ export type SelectionRead = ReadStore<SelectionView> & {
   press: (ctx: SelectionPressContext) => SelectionPressPlan | undefined
 }
 
+const trackSelectionBoundsDependencies = (
+  readStore: ReadFn,
+  source: SelectionSource,
+  nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>,
+  tree: KeyedReadStore<NodeId, readonly NodeId[]>
+) => {
+  source.nodeIds.forEach((nodeId) => {
+    const item = readStore(nodeItem, nodeId)
+    if (!item || item.node.type !== 'group') {
+      return
+    }
+
+    readStore(tree, nodeId).forEach((descendantId) => {
+      readStore(nodeItem, descendantId)
+    })
+  })
+}
+
 export const createSelectionRead = ({
   source,
   nodeItem,
   edgeItem,
   bounds,
+  tree,
   nodeFrame,
   nodeOwner,
   registry,
@@ -41,6 +61,7 @@ export const createSelectionRead = ({
   nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
   edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
   bounds: (input: TargetBoundsInput) => Rect | undefined
+  tree: KeyedReadStore<NodeId, readonly NodeId[]>
   nodeFrame: (nodeId: NodeId) => Rect | undefined
   nodeOwner: (nodeId: NodeId) => NodeId | undefined
   registry: NodeRegistry
@@ -50,16 +71,27 @@ export const createSelectionRead = ({
     registry.get(node.type)
   )
   const store = createDerivedStore<SelectionView>({
-    get: (readStore) => resolveView({
-      source: readStore(source),
-      readNode: (nodeId) => readStore(nodeItem, nodeId),
-      readEdge: (edgeId) => readStore(edgeItem, edgeId),
-      readBounds: bounds,
-      resolveNodeRole: getNodeRole,
-      resolveNodeTransform: (node) => readNodeTransform(
-        registry.get(node.type)
+    get: (readStore) => {
+      const selectionSource = readStore(source)
+
+      trackSelectionBoundsDependencies(
+        readStore,
+        selectionSource,
+        nodeItem,
+        tree
       )
-    }),
+
+      return resolveView({
+        source: selectionSource,
+        readNode: (nodeId) => readStore(nodeItem, nodeId),
+        readEdge: (edgeId) => readStore(edgeItem, edgeId),
+        readBounds: bounds,
+        resolveNodeRole: getNodeRole,
+        resolveNodeTransform: (node) => readNodeTransform(
+          registry.get(node.type)
+        )
+      })
+    },
     isEqual: isViewEqual
   })
   return Object.assign(store, {

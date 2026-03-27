@@ -1,5 +1,4 @@
 import {
-  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -7,7 +6,7 @@ import {
   useState,
   type RefObject
 } from 'react'
-import type { Node, NodeSchema, NodeUpdateInput, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeSchema, NodeUpdateInput, Point } from '@whiteboard/core/types'
 import {
   useElementSize,
   useInternalInstance,
@@ -31,6 +30,20 @@ import {
   readNodeMoreMenuSections
 } from './menuModel'
 import {
+  buildToolbarItem,
+  buildToolbarMenuStyle,
+  buildToolbarStyle,
+  hasSchemaField,
+  readMenuAnchor,
+  readTextFieldKey,
+  readTextValue,
+  resolveToolbarItemKeys,
+  resolveToolbarPlacement,
+  type ToolbarItem,
+  type ToolbarItemKey,
+  type ToolbarPlacement
+} from './layout'
+import {
   copy,
   cut
 } from '../actions/clipboard'
@@ -46,21 +59,7 @@ import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
 
-type ToolbarItemKey =
-  | 'fill'
-  | 'stroke'
-  | 'text'
-  | 'layout'
-  | 'more'
-
 type ToolbarMenuKey = ToolbarItemKey
-type ToolbarPlacement = 'top' | 'bottom'
-
-type ToolbarItem = {
-  key: ToolbarItemKey
-  label: string
-  active: boolean
-}
 
 type ToolbarIconState = {
   fill?: string
@@ -78,82 +77,6 @@ type ToolbarModel = {
   placement: ToolbarPlacement
   anchor: Point
 }
-
-type ToolbarMenuAnchor = {
-  top: number
-  bottom: number
-  centerX: number
-}
-
-const SafeMargin = 12
-const MenuWidth = 220
-const ToolbarVerticalGap = 12
-const ToolbarMinTopSpace = 56
-
-const StaticItemKeys: readonly ToolbarItemKey[] = [
-  'more'
-]
-
-const hasSchemaField = (
-  schema: NodeSchema | undefined,
-  scope: 'data' | 'style',
-  path: string
-) => schema?.fields.some((field) => field.scope === scope && field.path === path) ?? false
-
-const readTextFieldKey = (
-  node: Node,
-  schema?: NodeSchema
-): 'title' | 'text' => {
-  const schemaField = schema?.fields.find((field) =>
-    field.scope === 'data' && (field.path === 'text' || field.path === 'title')
-  )
-
-  if (schemaField?.path === 'text' || schemaField?.path === 'title') {
-    return schemaField.path
-  }
-
-  if (typeof node.data?.text === 'string') return 'text'
-  return 'title'
-}
-
-const readTextValue = (
-  node: Node,
-  schema?: NodeSchema
-) => {
-  const key = readTextFieldKey(node, schema)
-  const value = node.data?.[key]
-  return typeof value === 'string' ? value : ''
-}
-
-const resolveItemKeys = (
-  actions: NodeSelectionActions,
-  count: number
-): ToolbarItemKey[] => [
-  ...(count > 1 && actions.can.align ? ['layout'] as const : []),
-  ...(actions.can.fill ? ['fill'] as const : []),
-  ...(actions.can.stroke ? ['stroke'] as const : []),
-  ...(actions.can.text ? ['text'] as const : []),
-  ...StaticItemKeys
-]
-
-const buildToolbarItem = (
-  key: ToolbarItemKey
-): ToolbarItem => (
-  {
-    key,
-    label:
-      key === 'fill'
-        ? 'Fill'
-        : key === 'stroke'
-          ? 'Stroke'
-          : key === 'text'
-            ? 'Text'
-            : key === 'layout'
-                ? 'Layout'
-                : 'More',
-    active: false
-  }
-)
 
 const SvgIcon = ({
   children,
@@ -240,120 +163,6 @@ const renderToolbarIcon = (
           <circle cx="17" cy="12" r="1.15" fill="currentColor" stroke="none" />
         </SvgIcon>
       )
-  }
-}
-
-const resolveToolbarPlacement = ({
-  worldToScreen,
-  rect
-}: {
-  worldToScreen: (point: Point) => Point
-  rect: Rect
-}) => {
-  const topCenter = worldToScreen({
-    x: rect.x + rect.width / 2,
-    y: rect.y
-  })
-  const bottomCenter = worldToScreen({
-    x: rect.x + rect.width / 2,
-    y: rect.y + rect.height
-  })
-  const placement =
-    topCenter.y - ToolbarVerticalGap > ToolbarMinTopSpace
-      ? 'top'
-      : 'bottom'
-
-  return {
-    placement,
-    anchor: placement === 'top' ? topCenter : bottomCenter
-  } as {
-    placement: ToolbarPlacement
-    anchor: Point
-  }
-}
-
-const resolveHorizontalPosition = (
-  centerX: number,
-  containerWidth: number,
-  estimatedWidth: number
-) => {
-  if (centerX <= estimatedWidth / 2 + SafeMargin) {
-    return {
-      left: SafeMargin,
-      transform: ''
-    }
-  }
-  if (centerX >= containerWidth - estimatedWidth / 2 - SafeMargin) {
-    return {
-      left: containerWidth - SafeMargin,
-      transform: 'translateX(-100%)'
-    }
-  }
-  return {
-    left: centerX,
-    transform: 'translateX(-50%)'
-  }
-}
-
-const buildToolbarStyle = ({
-  placement,
-  x,
-  y,
-  containerWidth,
-  itemCount
-}: {
-  placement: ToolbarPlacement
-  x: number
-  y: number
-  containerWidth: number
-  itemCount: number
-}): CSSProperties => {
-  const widthEstimate = Math.max(160, itemCount * 36 + 28)
-  const horizontal = resolveHorizontalPosition(x, containerWidth, widthEstimate)
-  return {
-    left: horizontal.left,
-    top: y,
-    transform: [horizontal.transform, placement === 'top' ? 'translateY(-100%)' : 'translateY(0)']
-      .filter(Boolean)
-      .join(' ')
-  }
-}
-
-const buildToolbarMenuStyle = ({
-  anchor,
-  containerWidth,
-  containerHeight
-}: {
-  anchor: ToolbarMenuAnchor
-  containerWidth: number
-  containerHeight: number
-}): CSSProperties => {
-  const horizontal = resolveHorizontalPosition(anchor.centerX, containerWidth, MenuWidth)
-  const placeBottom = containerHeight - anchor.bottom >= 240
-  return {
-    left: horizontal.left,
-    top: placeBottom ? anchor.bottom + 8 : anchor.top - 8,
-    transform: [horizontal.transform, placeBottom ? 'translateY(0)' : 'translateY(-100%)']
-      .filter(Boolean)
-      .join(' ')
-  }
-}
-
-const readMenuAnchor = ({
-  container,
-  button
-}: {
-  container: HTMLDivElement | null
-  button: HTMLButtonElement | null | undefined
-}) => {
-  if (!container || !button) return undefined
-
-  const rect = button.getBoundingClientRect()
-  const containerRect = container.getBoundingClientRect()
-  return {
-    top: rect.top - containerRect.top,
-    bottom: rect.bottom - containerRect.top,
-    centerX: rect.left - containerRect.left + rect.width / 2
   }
 }
 
@@ -532,7 +341,7 @@ export const NodeToolbar = ({
         nodeIds: nodes.map((node) => node.id)
       })
     })
-    const items = resolveItemKeys(actions, nodes.length).map((key) => buildToolbarItem(key))
+    const items = resolveToolbarItemKeys(actions, nodes.length).map((key) => buildToolbarItem(key))
 
     if (items.length) {
       const { placement, anchor } = resolveToolbarPlacement({

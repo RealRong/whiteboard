@@ -14,7 +14,6 @@ import {
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { CanvasFrameDown } from '../../../../runtime/input/pointer'
 import type { InternalInstance } from '../../../../runtime/instance'
 import { resolveSelectionBoxView } from '../../selection'
@@ -67,7 +66,16 @@ type ActiveTransform = {
   patches?: readonly TransformPreviewPatch[]
 }
 
-type TransformPointerEvent = PointerEvent | ReactPointerEvent<Element>
+type TransformPointerEvent = Pick<
+  PointerEvent,
+  | 'altKey'
+  | 'clientX'
+  | 'clientY'
+  | 'pointerId'
+  | 'preventDefault'
+  | 'shiftKey'
+  | 'stopPropagation'
+>
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const createResizeDrag = (options: {

@@ -6,11 +6,23 @@ import {
   TEXT_DEFAULT_FONT_SIZE
 } from '@whiteboard/core/node'
 import type { TextContentBox, TextVariant } from '@whiteboard/core/node'
-import type { Node, Rect, SpatialNodeInput } from '@whiteboard/core/types'
+import type { Node, Rect } from '@whiteboard/core/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
 
 export { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
 export type { TextVariant } from '@whiteboard/core/node'
+export {
+  STICKY_DEFAULT_FILL,
+  STICKY_DEFAULT_STROKE,
+  STICKY_DEFAULT_STROKE_WIDTH,
+  STICKY_DEFAULT_TEXT_COLOR,
+  STICKY_PLACEHOLDER,
+  STICKY_START_SIZE,
+  TEXT_PLACEHOLDER,
+  TEXT_START_SIZE,
+  createStickyNodeInput,
+  createTextNodeInput
+} from '@whiteboard/editor'
 
 export type TextMeasureSize = {
   width: number
@@ -89,46 +101,8 @@ let textMeasureElements: TextMeasureElements | null = null
 const textAutoFontCache = new Map<string, number>()
 const textAutoFontQueue: TextAutoFontQueueTask[] = []
 
-export const TEXT_START_SIZE = {
-  width: 144,
-  height: 24
-} as const
-export const STICKY_START_SIZE = {
-  width: 200,
-  height: 150
-} as const
-export const TEXT_PLACEHOLDER = 'Text'
-export const STICKY_PLACEHOLDER = 'Sticky'
-export const STICKY_DEFAULT_FILL = 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))'
-export const STICKY_DEFAULT_TEXT_COLOR = 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-export const STICKY_DEFAULT_STROKE = 'hsl(var(--ui-text-primary, 40 2.1% 28%) / 0.12)'
-export const STICKY_DEFAULT_STROKE_WIDTH = 1
-
 export const TEXT_MIN_WIDTH = 24
 export const TEXT_AUTO_MAX_WIDTH = 360
-
-export const createTextNodeInput = (): Omit<SpatialNodeInput, 'position'> => ({
-  type: 'text',
-  size: { ...TEXT_START_SIZE },
-  data: { text: '' }
-})
-
-export const createStickyNodeInput = (
-  fill = STICKY_DEFAULT_FILL
-): Omit<SpatialNodeInput, 'position'> => ({
-  type: 'sticky',
-  size: { ...STICKY_START_SIZE },
-  data: {
-    text: '',
-    background: fill
-  },
-  style: {
-    fill,
-    color: STICKY_DEFAULT_TEXT_COLOR,
-    stroke: STICKY_DEFAULT_STROKE,
-    strokeWidth: STICKY_DEFAULT_STROKE_WIDTH
-  }
-})
 
 export const isTextNode = (
   node: Pick<Node, 'type' | 'data'>
