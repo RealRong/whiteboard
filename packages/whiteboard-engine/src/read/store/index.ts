@@ -12,7 +12,6 @@ import {
   getRectsBoundingRect,
   isPointInRect
 } from '@whiteboard/core/geometry'
-import { createValueStore } from '@whiteboard/core/runtime'
 import {
   exportSliceFromSelection,
   exportSliceFromEdge,
@@ -33,6 +32,7 @@ import {
   type Point,
   type Rect
 } from '@whiteboard/core/types'
+import { createValueStore } from '../../store'
 import { DEFAULT_TUNING } from '../../config'
 import { RESET_READ_IMPACT } from '../impacts'
 import { NodeRectIndex, SnapIndex, TreeIndex } from '../indexes'

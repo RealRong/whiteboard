@@ -5,7 +5,7 @@ import {
   createDerivedStore,
   createValueStore,
   type ReadStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import { useStoreValue } from '../../runtime/hooks'
 import { GestureTuning } from '../../runtime/interaction'

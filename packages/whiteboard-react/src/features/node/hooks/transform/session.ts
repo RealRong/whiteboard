@@ -116,20 +116,23 @@ const getResizeStartRect = (
 })
 
 const toPatch = (
-  node: Pick<Node, 'position' | 'size' | 'rotation'>,
+  node: Node,
   preview: TransformPreviewPatch
 ) => {
   const patch: NodePatch = {}
+  const position = node.type === 'group' ? undefined : node.position
+  const size = node.type === 'group' ? undefined : node.size
+  const rotation = node.type === 'group' ? undefined : node.rotation
 
-  if (preview.position && !isPointEqual(preview.position, node.position)) {
+  if (preview.position && !isPointEqual(preview.position, position)) {
     patch.position = preview.position
   }
-  if (preview.size && !isSizeEqual(preview.size, node.size)) {
+  if (preview.size && !isSizeEqual(preview.size, size)) {
     patch.size = preview.size
   }
   if (
     typeof preview.rotation === 'number'
-    && preview.rotation !== (node.rotation ?? 0)
+    && preview.rotation !== (rotation ?? 0)
   ) {
     patch.rotation = preview.rotation
   }

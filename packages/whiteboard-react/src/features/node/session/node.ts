@@ -1,8 +1,8 @@
 import {
   createStagedKeyedStore,
   type StagedKeyedStore
-} from '@whiteboard/core/runtime'
-import type { NodeItem } from '@whiteboard/core/read'
+} from '@whiteboard/engine'
+import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
@@ -324,7 +324,7 @@ const applyNodePatch = (
   node: NodeItem['node'],
   patch: NodePatch | undefined
 ): NodeItem['node'] => {
-  if (!patch) {
+  if (!patch || node.type === 'group') {
     return node
   }
 

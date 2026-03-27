@@ -4,7 +4,7 @@ import {
   type KeyedReadStore,
   type ReadStore,
   type ValueStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type {
   Edge,
   EdgeId,
@@ -12,7 +12,7 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import { isNodeEdgeEnd } from '@whiteboard/core/types'
-import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
+import type { EdgeItem, NodeItem } from '@whiteboard/engine'
 import { isOrderedArrayEqual } from '../utils/equality'
 
 type ReadDeps = {

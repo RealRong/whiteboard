@@ -2,8 +2,8 @@ import {
   createDerivedStore,
   type KeyedReadStore,
   type ReadStore
-} from '@whiteboard/core/runtime'
-import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
+} from '@whiteboard/engine'
+import type { EdgeItem, NodeItem } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Node, Rect } from '@whiteboard/core/types'
 import type { TargetBoundsInput } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'

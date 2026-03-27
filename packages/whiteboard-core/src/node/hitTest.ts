@@ -1,5 +1,4 @@
-import type { CanvasNode } from '../read'
-import type { NodeId, Rect } from '../types'
+import type { Node, NodeId, NodeType, Rect } from '../types'
 import {
   rectContainsRotatedRect,
   rectIntersectsRotatedRect
@@ -9,8 +8,14 @@ import { matchDrawRect } from './draw'
 export type NodeRectHitEntry = {
   node: {
     id: NodeId
-    type: string
+    type: NodeType
   }
+  rect: Rect
+  rotation: number
+}
+
+export type NodeRectMatchEntry = {
+  node: Node
   rect: Rect
   rotation: number
 }
@@ -59,7 +64,7 @@ export const getNodeIdsInRect = (
 }
 
 export const matchCanvasNodeRect = (
-  entry: CanvasNode,
+  entry: NodeRectMatchEntry,
   rect: Rect,
   match: NodeRectHitMatch
 ) => {

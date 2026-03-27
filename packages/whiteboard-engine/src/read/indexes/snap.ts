@@ -1,4 +1,4 @@
-import type { CanvasNode } from '@whiteboard/core/read'
+import type { CanvasNode } from '@engine-types/projection'
 import type { NodeId, Rect } from '@whiteboard/core/types'
 import type { SnapCandidate } from '@whiteboard/core/node'
 import type { EngineReadIndex } from '@engine-types/instance'

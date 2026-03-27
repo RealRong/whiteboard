@@ -42,6 +42,22 @@ type TouchedIds = {
   edgeIds: ReadonlySet<EdgeId>
 }
 
+const readNodeGeometry = (
+  node: Node | undefined
+): {
+  position?: Point
+  size?: Size
+  rotation?: number
+} | undefined => (
+  node && node.type !== 'group'
+    ? {
+        position: node.position,
+        size: node.size,
+        rotation: node.rotation
+      }
+    : undefined
+)
+
 const collectTouchedIds = (
   operations: readonly Operation[]
 ): TouchedIds => {
@@ -237,10 +253,12 @@ const diffNodeChange = (
     }
   }
 
+  const beforeGeometry = readNodeGeometry(before)
+  const afterGeometry = readNodeGeometry(after)
   const geometry = (
-    !isPointEqual(before.position, after.position)
-    || !isSizeEqual(before.size, after.size)
-    || !isRotationEqual(before.rotation, after.rotation)
+    !isPointOptionalEqual(beforeGeometry?.position, afterGeometry?.position)
+    || !isSizeEqual(beforeGeometry?.size, afterGeometry?.size)
+    || !isRotationEqual(beforeGeometry?.rotation, afterGeometry?.rotation)
   )
   const relation = (
     !isArrayEqual(before.children, after.children)
@@ -366,8 +384,8 @@ const hasNodeSizeChange = (
     return false
   }
 
-  const before = change.before.size
-  const after = change.after.size
+  const before = readNodeGeometry(change.before)?.size
+  const after = readNodeGeometry(change.after)?.size
   if (!before && !after) {
     return false
   }

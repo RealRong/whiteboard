@@ -2,7 +2,7 @@ import type {
   KeyedReadStore,
   ReadFn,
   ReadStore
-} from './types'
+} from '../types/store'
 
 type Dependency =
   | {
@@ -286,30 +286,10 @@ export const createKeyedDerivedStore = <Key, T,>({
       return
     }
 
-    const handleDependencyChange = () => {
-      const next = compute(entry)
-      const shouldRebind = !areDependenciesEqual(entry.dependencies, next.dependencies)
-      const changed = !entry.hasValue || !isEqual(entry.value as T, next.value)
-
-      if (shouldRebind) {
-        bindDependencies(entry, next.dependencies)
-      }
-
-      if (!changed) {
-        return
-      }
-
-      entry.value = next.value
-      entry.hasValue = true
-      Array.from(entry.listeners).forEach((listener) => {
-        listener()
-      })
-    }
-
     const unsubscribers = nextDependencies.map((dependency) => (
       dependency.kind === 'store'
-        ? dependency.store.subscribe(handleDependencyChange)
-        : dependency.store.subscribe(dependency.key, handleDependencyChange)
+        ? dependency.store.subscribe(() => handleDependencyChange(entry))
+        : dependency.store.subscribe(dependency.key, () => handleDependencyChange(entry))
     ))
 
     entry.unsubscribeDependencies = () => {
@@ -317,6 +297,26 @@ export const createKeyedDerivedStore = <Key, T,>({
         unsubscribe()
       })
     }
+  }
+
+  const handleDependencyChange = (entry: KeyedEntry<Key, T>) => {
+    const next = compute(entry)
+    const shouldRebind = !areDependenciesEqual(entry.dependencies, next.dependencies)
+    const changed = !entry.hasValue || !isEqual(entry.value as T, next.value)
+
+    if (shouldRebind) {
+      bindDependencies(entry, next.dependencies)
+    }
+
+    if (!changed) {
+      return
+    }
+
+    entry.value = next.value
+    entry.hasValue = true
+    Array.from(entry.listeners).forEach((listener) => {
+      listener()
+    })
   }
 
   const refresh = (entry: KeyedEntry<Key, T>) => {
@@ -334,22 +334,9 @@ export const createKeyedDerivedStore = <Key, T,>({
   return {
     get: (key) => {
       const entry = getEntry(key)
-
-      if (!entry.tracking) {
-        const nextValue = compute(entry).value
-        if (entry.hasValue && isEqual(entry.value as T, nextValue)) {
-          return entry.value as T
-        }
-
-        entry.value = nextValue
-        entry.hasValue = true
-        return nextValue
-      }
-
       if (!entry.hasValue) {
         refresh(entry)
       }
-
       return entry.value as T
     },
     subscribe: (key, listener) => {

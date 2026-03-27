@@ -571,7 +571,34 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 
 ## 11. 分阶段落地方案
 
-### 阶段 1：Owner 结构模型
+### 当前状态（2026-03-27）
+
+当前仓库已经完成了根模型收敛里的第一大步：
+
+- `NodeType` 已收成封闭集合
+- `Node` 已收成 `SpatialNode | GroupNode`
+- group bounds 已改成读侧派生
+- group 几何写入已不再作为真相保留
+- core / engine / react 主链路已经按这套模型修通
+- 公开 `Operation` 已收成纯前向写入
+- `mindmap.set` / `mindmap.delete` 已删除
+- mindmap 写入已经收回 `node.create` / `node.update` / `node.delete`
+
+这意味着：
+
+- 阶段 1 实际上已经完成
+- 阶段 2 与阶段 4 也已经完成
+- 现在不应该优先去搬 `core/read` 或 `core/runtime`
+- 下一步最优是开始阶段 3 的边界清理
+
+当前最优推进顺序应改成：
+
+1. 先完成阶段 1
+2. 完成阶段 2 与阶段 4 的模型收口
+3. 再做阶段 3 的边界清理
+4. 最后做阶段 5 的算法层再整理
+
+### 阶段 1：Owner 结构模型（已完成）
 
 目标：
 
@@ -595,7 +622,12 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 - 几何仍然保持 flat，不引入局部坐标嵌套
 - group 不再有独立几何真相
 
-### 阶段 2：写入模型瘦身
+当前状态：
+
+- 这一阶段的主目标已经达到
+- 文档里后续阶段应以这套新根模型为前提继续推进
+
+### 阶段 2：写入模型瘦身（已完成）
 
 目标：
 
@@ -613,7 +645,14 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 - op 模型清晰
 - reducer 职责清晰
 
-### 阶段 3：清理 core 边界
+当前状态：
+
+- 公开 `Operation` 已不再暴露 `before`
+- reducer 已改成内部自行补快照并构造 inverse
+- mindmap 已不再作为独立 operation 域
+- `Result` 与 `kernel reduce` 返回模型已统一成一套 `Result`
+
+### 阶段 3：清理 core 边界（已完成）
 
 目标：
 
@@ -630,7 +669,16 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 
 - core 不再承担上层运行时组织职责
 
-### 阶段 4：mindmap 收口
+当前状态：
+
+- `core/read` 已迁出到 `whiteboard-engine`
+- `core/runtime` 已迁出到 `whiteboard-engine`
+- `core` 内部对 read projection 的反向依赖已删除
+- selection press plan 已迁出到 `whiteboard-react`
+- edge connect session / hint / commit 已迁出到 `whiteboard-react`
+- edge view capability 已迁出到 `whiteboard-react`
+
+### 阶段 4：mindmap 收口（主干已完成）
 
 目标：
 
@@ -645,6 +693,12 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 阶段结果：
 
 - 文档模型和 op 模型都更统一
+
+当前状态：
+
+- tree 仍然放在 `node.data.mindmap`
+- translate 已只产出 `node` 域 operation
+- reducer 已删除 `mindmap.set` / `mindmap.delete` 独立分支
 
 ### 阶段 5：算法层再整理
 
@@ -677,8 +731,9 @@ freedraw 的采样、简化、命中，属于正常算法复杂度。
 如果后续开始落地，优先级应该始终是：
 
 1. 先改模型
-2. 再改边界
-3. 最后才改文件组织
+2. 再改写入模型
+3. 再改边界
+4. 最后才改文件组织
 
 不要反过来。
 

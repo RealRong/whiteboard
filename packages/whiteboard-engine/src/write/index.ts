@@ -71,10 +71,10 @@ export const createWrite = ({
     ok: true,
     data,
     kind: 'operations',
-    doc: reduced.doc,
-    changes: reduced.changes,
-    inverse: reduced.inverse,
-    impact: reduced.read
+    doc: reduced.data.doc,
+    changes: reduced.data.changes,
+    inverse: reduced.data.inverse,
+    impact: reduced.data.read
   })
 
   const toReplaceResult = (
@@ -105,12 +105,12 @@ export const createWrite = ({
     )
     if (!reduced.ok) {
       return failure(
-        reduced.reason,
-        reduced.message ?? 'Failed to reduce operations.'
+        reduced.error.code,
+        reduced.error.message
       )
     }
 
-    commitDocument(reduced.doc)
+    commitDocument(reduced.data.doc)
     return toOperationResult(reduced, data)
   }
 

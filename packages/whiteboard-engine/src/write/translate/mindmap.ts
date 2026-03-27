@@ -23,17 +23,19 @@ import type {
   MindmapId,
   MindmapNodeData,
   MindmapNodeId,
-  MindmapTree
+  MindmapTree,
+  Node,
+  SpatialNode
 } from '@whiteboard/core/types'
 import {
   addChild as addMindmapChild,
   addSibling as addMindmapSibling,
   attachExternal as attachMindmapExternal,
   cloneSubtree as cloneMindmapSubtree,
-  createDeleteOps,
+  createMindmapCreateOp,
+  createMindmapDeleteOps,
+  createMindmapUpdateOps,
   createMindmap,
-  createSetOp,
-  createSetOps,
   moveSubtree as moveMindmapSubtree,
   removeSubtree as removeMindmapSubtree,
   reorderChild as reorderMindmapChild,
@@ -51,6 +53,14 @@ type AddSiblingOptions = {
   options?: MindmapCommandOptions
   createNodeId?: () => MindmapNodeId
 }
+
+const readSpatialNode = (
+  node: Node | undefined
+): SpatialNode | undefined => (
+  node && node.type !== 'group'
+    ? node
+    : undefined
+)
 
 const readMindmap = (doc: Document, id: MindmapId): MindmapTree | undefined =>
   getMindmapTreeFromDocument(doc, id)
@@ -85,17 +95,18 @@ const runMindmapPlan = <TExtra extends object = {}, TOutput = void>({
 }): TranslateResult<TOutput> => {
   const beforeTree = readMindmap(doc, id)
   if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
+  const node = readSpatialNode(getNode(doc, id))
+  if (!node) return invalid(`Mindmap node ${id} not found.`)
 
   const next = run(beforeTree)
   if (!next.ok) return invalid(next.error.message, next.error.details)
 
   return success(
-    createSetOps({
-      id,
+    createMindmapUpdateOps({
       beforeTree,
       afterTree: next.data.tree,
       hint: options?.layout,
-      node: getNode(doc, id)
+      node
     }),
     select ? select(next.data) : undefined as TOutput
   )
@@ -125,7 +136,7 @@ export const translateMindmap = <C extends MindmapCommand>(
     })
 
     return success(
-      [createSetOp({ id: tree.id, tree })],
+      [createMindmapCreateOp({ id: tree.id, tree })],
       {
         mindmapId: tree.id,
         rootId: tree.rootId
@@ -137,7 +148,15 @@ export const translateMindmap = <C extends MindmapCommand>(
     const beforeTree = readMindmap(doc, id)
     if (!beforeTree) return invalid(`Mindmap ${id} not found.`)
     if (tree.id !== id) return invalid('Mindmap id mismatch.')
-    return success([createSetOp({ id, tree })])
+    const node = readSpatialNode(getNode(doc, id))
+    if (!node) {
+      return invalid(`Mindmap node ${id} not found.`)
+    }
+    return success(createMindmapUpdateOps({
+      beforeTree,
+      afterTree: tree,
+      node
+    }))
   }
 
   const removeMindmaps = (ids: MindmapId[]): TranslateResult => {
@@ -145,7 +164,7 @@ export const translateMindmap = <C extends MindmapCommand>(
     for (const id of ids) {
       if (!readMindmap(doc, id)) return invalid(`Mindmap ${id} not found.`)
     }
-    return success(createDeleteOps(ids))
+    return success(createMindmapDeleteOps(ids))
   }
 
   const addChild = (
@@ -406,12 +425,9 @@ export const translateMindmap = <C extends MindmapCommand>(
     position,
     threshold = DEFAULT_TUNING.mindmap.rootMoveThreshold
   }: MindmapMoveRootOptions): TranslateResult => {
-    const node = getNode(doc, nodeId)
+    const node = readSpatialNode(getNode(doc, nodeId))
     if (!node) {
       return cancelled(`Node ${nodeId} not found.`)
-    }
-    if (!node.position) {
-      return invalid(`Node ${nodeId} has no position.`)
     }
     if (
       Math.abs(node.position.x - position.x) < threshold

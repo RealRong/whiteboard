@@ -9,7 +9,12 @@ import {
 import { layoutMindmap, layoutMindmapTidy } from './layout'
 import { getMindmapTreeFromNode } from './helpers'
 import { cloneValue } from '../utils/merge'
-import type { MindmapLayoutHint, Node, Operation, Size } from '../types/core'
+import type {
+  MindmapLayoutHint,
+  Operation,
+  Size,
+  SpatialNode
+} from '../types/core'
 
 export type MindmapLine = {
   id: string
@@ -166,6 +171,21 @@ export const resolveInsertPlan = ({
 
 export const getMindmapTree = getMindmapTreeFromNode
 
+const normalizeMindmapTree = (
+  id: MindmapId,
+  tree: MindmapTree
+): MindmapTree => (tree.id === id ? tree : { ...tree, id })
+
+const mergeMindmapData = (
+  data: SpatialNode['data'] | undefined,
+  tree: MindmapTree
+): SpatialNode['data'] => ({
+  ...(data && typeof data === 'object'
+    ? data
+    : {}),
+  mindmap: cloneValue(tree)
+})
+
 export const getMindmapLabel = (node: MindmapNode | undefined) => {
   if (!node?.data || typeof node.data !== 'object' || !('kind' in node.data)) return 'mindmap'
   const data = node.data as { kind: string; text?: string; name?: string; title?: string; url?: string }
@@ -201,7 +221,7 @@ const resolveAnchorWorld = ({
 }: {
   tree: MindmapTree
   hint: MindmapLayoutHint
-  nodePosition?: Node['position']
+  nodePosition?: SpatialNode['position']
 }) => {
   if (!hint.nodeSize || !nodePosition) return undefined
   const layout = computeMindmapLayout(tree, hint.nodeSize, {
@@ -229,9 +249,9 @@ const resolveAnchorPatch = ({
   beforeTree: MindmapTree
   afterTree: MindmapTree
   hint?: MindmapLayoutHint
-  nodePosition?: Node['position']
+  nodePosition?: SpatialNode['position']
   threshold?: number
-}): { position: Node['position'] } | undefined => {
+}): { position: SpatialNode['position'] } | undefined => {
   if (!hint?.nodeSize || !hint.anchorId || !nodePosition) return undefined
   const before = resolveAnchorWorld({ tree: beforeTree, hint, nodePosition })
   const after = resolveAnchorWorld({ tree: afterTree, hint, nodePosition })
@@ -247,43 +267,51 @@ const resolveAnchorPatch = ({
   }
 }
 
-export const createSetOp = ({
+export const createMindmapCreateOp = ({
   id,
   tree
 }: {
   id: MindmapId
   tree: MindmapTree
 }): Operation => ({
-  type: 'mindmap.set',
-  id,
-  tree: cloneValue(tree)
+  type: 'node.create',
+  node: {
+    id,
+    type: 'mindmap',
+    position: cloneValue(tree.meta?.position ?? { x: 0, y: 0 }),
+    data: mergeMindmapData(undefined, normalizeMindmapTree(id, tree))
+  }
 })
 
-export const createDeleteOps = (ids: readonly MindmapId[]): Operation[] =>
+export const createMindmapDeleteOps = (ids: readonly MindmapId[]): Operation[] =>
   ids.map((id) => ({
-    type: 'mindmap.delete',
+    type: 'node.delete',
     id
   }))
 
-export const createSetOps = ({
-  id,
+export const createMindmapUpdateOps = ({
   beforeTree,
   afterTree,
   hint,
   node
 }: {
-  id: MindmapId
   beforeTree: MindmapTree
   afterTree: MindmapTree
   hint?: MindmapLayoutHint
-  node?: Node
+  node: SpatialNode
 }): Operation[] => {
-  const operations: Operation[] = [createSetOp({ id, tree: afterTree })]
+  const nextTree = normalizeMindmapTree(node.id, afterTree)
+  const operations: Operation[] = [{
+    type: 'node.update',
+    id: node.id,
+    patch: {
+      data: mergeMindmapData(node.data, nextTree)
+    }
+  }]
 
-  if (!node) return operations
   const anchorPatch = resolveAnchorPatch({
     beforeTree,
-    afterTree,
+    afterTree: nextTree,
     hint,
     nodePosition: node.position
   })

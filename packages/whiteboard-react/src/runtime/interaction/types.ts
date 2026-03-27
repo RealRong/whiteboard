@@ -1,4 +1,4 @@
-import type { ReadStore } from '@whiteboard/core/runtime'
+import type { ReadStore } from '@whiteboard/engine'
 
 export type InteractionMode =
   | 'idle'

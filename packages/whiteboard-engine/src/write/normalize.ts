@@ -45,7 +45,7 @@ export const createWritePipeline = ({
     operations.length > 0
       ? reduce(
           document,
-          [...reduced.changes.operations, ...operations],
+          [...reduced.data.changes.operations, ...operations],
           origin
         )
       : reduced
@@ -56,8 +56,8 @@ export const createWritePipeline = ({
     reduced: Reduced
   ) => collectChanges({
     beforeDocument,
-    afterDocument: reduced.doc,
-    operations: reduced.changes.operations
+    afterDocument: reduced.data.doc,
+    operations: reduced.data.changes.operations
   })
 
   const runFinalizeStep = (
@@ -67,7 +67,7 @@ export const createWritePipeline = ({
   ): KernelReduceResult => {
     const changes = deriveChanges(beforeDocument, reduced)
     const operations = collectFinalizeOps({
-      afterDocument: reduced.doc,
+      afterDocument: reduced.data.doc,
       changes,
       nodeSize
     })

@@ -1,4 +1,3 @@
-import { isPointEdgeEnd } from '../types/core'
 import { getEdgePath } from './path'
 import {
   resolveEdgeEnds,
@@ -75,12 +74,6 @@ export const resolveEdgeView = (
   return {
     ends,
     path,
-    handles: buildEdgeHandles(ends, input, path),
-    can: {
-      move: isPointEdgeEnd(input.edge.source) && isPointEdgeEnd(input.edge.target),
-      reconnectSource: true,
-      reconnectTarget: true,
-      editRoute: true
-    }
+    handles: buildEdgeHandles(ends, input, path)
   }
 }

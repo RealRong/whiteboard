@@ -54,12 +54,6 @@ export type EdgeView = {
   }
   path: EdgePathResult
   handles: readonly EdgeHandle[]
-  can: {
-    move: boolean
-    reconnectSource: boolean
-    reconnectTarget: boolean
-    editRoute: boolean
-  }
 }
 
 export const readEdgeRoutePoints = (

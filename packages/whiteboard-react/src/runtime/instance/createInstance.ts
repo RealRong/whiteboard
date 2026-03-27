@@ -1,4 +1,4 @@
-import { createValueStore } from '@whiteboard/core/runtime'
+import { createValueStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { EdgeConnectCandidate } from '@whiteboard/core/edge'
 import type { EngineInstance } from '@whiteboard/engine'

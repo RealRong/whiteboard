@@ -2,7 +2,7 @@ import { useMemo, useRef, useSyncExternalStore } from 'react'
 import type {
   KeyedReadStore,
   ReadStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 
 export const useStoreValue = <T,>(
   store: ReadStore<T>

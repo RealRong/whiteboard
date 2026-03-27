@@ -1,4 +1,10 @@
-import type { Node, NodePatch, NodeSchema, Rect } from '@whiteboard/core/types'
+import type {
+  Node,
+  NodePatch,
+  NodeSchema,
+  NodeType,
+  Rect
+} from '@whiteboard/core/types'
 import type { CSSProperties, ReactNode } from 'react'
 
 export type NodeRole = 'content' | 'frame' | 'group'
@@ -28,7 +34,7 @@ export type NodeRenderProps = {
 }
 
 export type NodeDefinition = {
-  type: string
+  type: NodeType
   meta: NodeMeta
   describe?: (node: Node) => NodeMeta
   role?: NodeRole
@@ -45,6 +51,6 @@ export type NodeDefinition = {
 }
 
 export type NodeRegistry = {
-  get: (type: string) => NodeDefinition | undefined
+  get: (type: NodeType) => NodeDefinition | undefined
   register: (definition: NodeDefinition) => void
 }

@@ -1,15 +1,15 @@
 import {
   createKeyedDerivedStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type {
   KeyedReadStore,
-} from '@whiteboard/core/runtime'
-import type { NodeItem } from '@whiteboard/core/read'
+  NodeItem
+} from '@whiteboard/engine'
 import type {
   NodeRectHitOptions,
   TransformSelectionTargets
 } from '@whiteboard/core/node'
-import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeId, NodeType, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeDefinition, NodeRegistry, NodeRole } from '../../types/node'
 import {
@@ -31,7 +31,7 @@ const resolveNodeEnter = (
 ) => definition?.enter ?? false
 
 const readNodeType = (
-  node: Pick<Node, 'type'> | string
+  node: Pick<Node, 'type'> | NodeType
 ) => (
   typeof node === 'string'
     ? node
@@ -72,10 +72,10 @@ export type NodeRead = {
   owner: (nodeId: NodeId) => NodeId | undefined
   bounds: (nodeId: NodeId) => Rect | undefined
   frame: (nodeId: NodeId) => Rect | undefined
-  role: (node: Pick<Node, 'type'> | string) => NodeRole
-  transform: (node: Pick<Node, 'type'> | string) => NodeTransform
-  connect: (node: Pick<Node, 'type'> | string) => boolean
-  enter: (node: Pick<Node, 'type'> | string) => boolean
+  role: (node: Pick<Node, 'type'> | NodeType) => NodeRole
+  transform: (node: Pick<Node, 'type'> | NodeType) => NodeTransform
+  connect: (node: Pick<Node, 'type'> | NodeType) => boolean
+  enter: (node: Pick<Node, 'type'> | NodeType) => boolean
   filter: (nodeIds: readonly NodeId[], role: NodeRole) => readonly NodeId[]
   frameAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
@@ -111,16 +111,16 @@ export const createNodeRead = ({
   registry: NodeRegistry
   item: KeyedReadStore<NodeId, NodeItem | undefined>
 }): NodeRead => {
-  const role = (node: Pick<Node, 'type'> | string) => resolveNodeRole(
+  const role = (node: Pick<Node, 'type'> | NodeType) => resolveNodeRole(
     registry.get(readNodeType(node))
   )
-  const transform = (node: Pick<Node, 'type'> | string) => resolveNodeTransform(
+  const transform = (node: Pick<Node, 'type'> | NodeType) => resolveNodeTransform(
     registry.get(readNodeType(node))
   )
-  const connect = (node: Pick<Node, 'type'> | string) => resolveNodeConnect(
+  const connect = (node: Pick<Node, 'type'> | NodeType) => resolveNodeConnect(
     registry.get(readNodeType(node))
   )
-  const enter = (node: Pick<Node, 'type'> | string) => resolveNodeEnter(
+  const enter = (node: Pick<Node, 'type'> | NodeType) => resolveNodeEnter(
     registry.get(readNodeType(node))
   )
 

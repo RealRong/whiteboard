@@ -6,7 +6,7 @@ import {
   TEXT_DEFAULT_FONT_SIZE
 } from '@whiteboard/core/node'
 import type { TextContentBox, TextVariant } from '@whiteboard/core/node'
-import type { Node, NodeInput, Rect } from '@whiteboard/core/types'
+import type { Node, Rect, SpatialNodeInput } from '@whiteboard/core/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
 
 export { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
@@ -107,7 +107,7 @@ export const STICKY_DEFAULT_STROKE_WIDTH = 1
 export const TEXT_MIN_WIDTH = 24
 export const TEXT_AUTO_MAX_WIDTH = 360
 
-export const createTextNodeInput = (): Omit<NodeInput, 'position'> => ({
+export const createTextNodeInput = (): Omit<SpatialNodeInput, 'position'> => ({
   type: 'text',
   size: { ...TEXT_START_SIZE },
   data: { text: '' }
@@ -115,7 +115,7 @@ export const createTextNodeInput = (): Omit<NodeInput, 'position'> => ({
 
 export const createStickyNodeInput = (
   fill = STICKY_DEFAULT_FILL
-): Omit<NodeInput, 'position'> => ({
+): Omit<SpatialNodeInput, 'position'> => ({
   type: 'sticky',
   size: { ...STICKY_START_SIZE },
   data: {

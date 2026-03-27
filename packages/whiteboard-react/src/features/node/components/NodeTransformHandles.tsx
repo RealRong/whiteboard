@@ -3,7 +3,7 @@ import type {
 } from 'react'
 import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
-import type { NodeItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/engine'
 import {
   useInternalInstance,
   usePickRef,

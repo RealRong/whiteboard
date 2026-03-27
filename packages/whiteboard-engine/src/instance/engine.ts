@@ -11,7 +11,6 @@ import type {
 } from '@engine-types/command'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { Write, WriteResult } from '@engine-types/write'
-import { createValueStore } from '@whiteboard/core/runtime'
 import { createRegistries } from '@whiteboard/core/kernel'
 import { createCommands } from '../commands'
 import { resolveBoardConfig } from '../config'
@@ -23,6 +22,7 @@ import { normalizeDocument } from '../document/normalize'
 import type { Commit } from '@engine-types/commit'
 import type { CommandResult } from '@engine-types/result'
 import { cancelled, success } from '../result'
+import { createValueStore } from '../store'
 
 const EMPTY_MINDMAP_LAYOUT: MindmapLayoutConfig = {}
 

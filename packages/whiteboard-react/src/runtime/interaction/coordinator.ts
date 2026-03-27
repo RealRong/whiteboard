@@ -1,7 +1,7 @@
 import {
   createDerivedStore,
   createValueStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type {
   ActiveInteractionMode,
   InteractionState,

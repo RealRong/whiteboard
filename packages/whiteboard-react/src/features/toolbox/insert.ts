@@ -1,7 +1,8 @@
 import type {
   NodeId,
   NodeInput,
-  Point
+  Point,
+  SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
 import type { WhiteboardInstance } from '../../runtime/instance'
@@ -20,9 +21,9 @@ export type InsertResult = {
 
 const placeNodeInput = (
   world: Point,
-  input: Omit<NodeInput, 'position'>,
+  input: Omit<SpatialNodeInput, 'position'>,
   placement: InsertPlacement = 'center'
-): NodeInput => {
+): SpatialNodeInput => {
   const width = input.size?.width ?? 160
   const height = input.size?.height ?? 80
 

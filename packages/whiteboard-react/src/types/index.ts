@@ -19,5 +19,3 @@ export type {
   NodeWrite,
   NodeRole,
 } from './node'
-
-export type { EdgeConnectState } from '@whiteboard/core/edge'

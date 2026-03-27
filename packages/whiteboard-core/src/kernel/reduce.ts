@@ -1,6 +1,5 @@
 import type {
   ChangeSet,
-  DispatchFailure,
   Document,
   Edge,
   EdgeId,
@@ -12,11 +11,11 @@ import type {
   Origin
 } from '../types'
 import {
+  err,
   getEdge,
-  getNode
+  getNode,
+  ok
 } from '../types'
-import type { MindmapId, MindmapTree } from '../mindmap/types'
-import { getMindmapTreeFromNode } from '../mindmap/helpers'
 import { createId } from '../utils/id'
 import type {
   KernelContext,
@@ -89,7 +88,6 @@ const NODE_GEOMETRY_KEYS = new Set<keyof NodePatch>([
 ])
 
 const NODE_LIST_KEYS = new Set<keyof NodePatch>([
-  'type',
   'layer',
   'zIndex',
   'children'
@@ -114,11 +112,6 @@ const EDGE_VALUE_KEYS = new Set<keyof EdgePatch>([
   'data'
 ])
 
-const normalizeMindmapTree = (
-  id: MindmapId,
-  tree: MindmapTree
-): MindmapTree => (tree.id === id ? tree : { ...tree, id })
-
 const isMindmapNode = (node: Node | undefined) =>
   node?.type === 'mindmap'
 
@@ -140,6 +133,58 @@ const markMindmapView = (
   state.ids.add(id)
   state.view = true
 }
+
+const mergeNodePatch = (
+  node: Node,
+  patch: NodePatch
+): Node => (
+  node.type === 'group'
+    ? {
+        ...node,
+        ...patch
+      }
+    : {
+        ...node,
+        ...patch
+      }
+)
+
+const toNodeSnapshotPatch = (
+  node: Node
+): NodePatch => (
+  node.type === 'group'
+    ? {
+        layer: node.layer,
+        zIndex: node.zIndex,
+        children: node.children,
+        locked: node.locked,
+        data: node.data,
+        style: node.style
+      }
+    : {
+        position: node.position,
+        size: node.size,
+        rotation: node.rotation,
+        layer: node.layer,
+        zIndex: node.zIndex,
+        children: node.children,
+        locked: node.locked,
+        data: node.data,
+        style: node.style
+      }
+)
+
+const toEdgeSnapshotPatch = (
+  edge: Edge
+): EdgePatch => ({
+  source: edge.source,
+  target: edge.target,
+  type: edge.type,
+  route: edge.route,
+  style: edge.style,
+  label: edge.label,
+  data: edge.data
+})
 
 const classifyNodePatch = (patch: NodePatch): NodePatchImpact => {
   const impact: NodePatchImpact = {
@@ -215,6 +260,7 @@ const createReadImpactState = (operationCount: number): ReadImpactState => ({
 
 const trackReadImpact = (
   state: ReadImpactState,
+  document: Document,
   operation: Operation
 ) => {
   if (state.full) return
@@ -238,7 +284,8 @@ const trackReadImpact = (
       return
     }
     case 'node.delete': {
-      if (isMindmapNode(operation.before)) {
+      const before = getNode(document, operation.id)
+      if (isMindmapNode(before)) {
         markMindmapView(state.mindmap, operation.id)
         return
       }
@@ -252,9 +299,9 @@ const trackReadImpact = (
     }
     case 'node.update': {
       const patch = classifyNodePatch(operation.patch)
-      const before = operation.before
+      const before = getNode(document, operation.id)
       const after = before
-        ? { ...before, ...operation.patch }
+        ? mergeNodePatch(before, operation.patch)
         : undefined
       const beforeIsMindmap = isMindmapNode(before)
       const afterIsMindmap = isMindmapNode(after)
@@ -312,17 +359,6 @@ const trackReadImpact = (
     case 'edge.order.set': {
       state.edge.list = true
       return
-    }
-    case 'mindmap.set': {
-      markMindmapView(state.mindmap, operation.id)
-      return
-    }
-    case 'mindmap.delete': {
-      markMindmapView(state.mindmap, operation.id)
-      return
-    }
-    default: {
-      state.full = true
     }
   }
 }
@@ -382,15 +418,6 @@ const finalizeReadImpact = (
     }
   }
 }
-const createDispatchFailure = (
-  reason: DispatchFailure['reason'],
-  message?: string
-): DispatchFailure => ({
-  ok: false,
-  reason,
-  message
-})
-
 const appendOrderId = <T extends string>(order: readonly T[], id: T): T[] =>
   order.includes(id) ? Array.from(order) : [...order, id]
 
@@ -461,112 +488,17 @@ const setEdgeOrder = (
   }
 }
 
-const normalizeOperation = (
+const buildInverse = (
   document: Document,
   operation: Operation
-): Operation => {
+): Operation[] | null => {
   switch (operation.type) {
     case 'document.update': {
-      if (!operation.before) {
-        return {
-          ...operation,
-          before: {
-            background: document.background
-          }
-        }
-      }
-      return operation
-    }
-    case 'node.update': {
-      const current = getNode(document, operation.id)
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    case 'node.delete': {
-      const current = getNode(document, operation.id)
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    case 'node.order.set': {
-      if (!operation.before) {
-        return {
-          ...operation,
-          before: [...document.nodes.order]
-        }
-      }
-      return operation
-    }
-    case 'edge.update': {
-      const current = getEdge(document, operation.id)
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    case 'edge.delete': {
-      const current = getEdge(document, operation.id)
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    case 'edge.order.set': {
-      if (!operation.before) {
-        return {
-          ...operation,
-          before: [...document.edges.order]
-        }
-      }
-      return operation
-    }
-    case 'mindmap.set': {
-      const current = getMindmapTreeFromNode(getNode(document, operation.id))
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    case 'mindmap.delete': {
-      const current = getMindmapTreeFromNode(getNode(document, operation.id))
-      if (!operation.before && current) {
-        return {
-          ...operation,
-          before: current
-        }
-      }
-      return operation
-    }
-    default:
-      return operation
-  }
-}
-
-const buildInverse = (operation: Operation): Operation[] | null => {
-  switch (operation.type) {
-    case 'document.update': {
-      if (!operation.before) return null
       return [{
         type: 'document.update',
-        patch: operation.before
+        patch: {
+          background: document.background
+        }
       }]
     }
     case 'node.create': {
@@ -576,25 +508,26 @@ const buildInverse = (operation: Operation): Operation[] | null => {
       }]
     }
     case 'node.update': {
-      if (!operation.before) return null
+      const current = getNode(document, operation.id)
+      if (!current) return null
       return [{
         type: 'node.update',
         id: operation.id,
-        patch: operation.before as unknown as NodePatch
+        patch: toNodeSnapshotPatch(current)
       }]
     }
     case 'node.delete': {
-      if (!operation.before) return null
+      const current = getNode(document, operation.id)
+      if (!current) return null
       return [{
         type: 'node.create',
-        node: operation.before
+        node: current
       }]
     }
     case 'node.order.set': {
-      if (!operation.before) return null
       return [{
         type: 'node.order.set',
-        ids: operation.before
+        ids: [...document.nodes.order]
       }]
     }
     case 'edge.create': {
@@ -604,50 +537,28 @@ const buildInverse = (operation: Operation): Operation[] | null => {
       }]
     }
     case 'edge.update': {
-      if (!operation.before) return null
+      const current = getEdge(document, operation.id)
+      if (!current) return null
       return [{
         type: 'edge.update',
         id: operation.id,
-        patch: operation.before as unknown as EdgePatch
+        patch: toEdgeSnapshotPatch(current)
       }]
     }
     case 'edge.delete': {
-      if (!operation.before) return null
+      const current = getEdge(document, operation.id)
+      if (!current) return null
       return [{
         type: 'edge.create',
-        edge: operation.before
+        edge: current
       }]
     }
     case 'edge.order.set': {
-      if (!operation.before) return null
       return [{
         type: 'edge.order.set',
-        ids: operation.before
+        ids: [...document.edges.order]
       }]
     }
-    case 'mindmap.set': {
-      if (!operation.before) {
-        return [{
-          type: 'mindmap.delete',
-          id: operation.id
-        }]
-      }
-      return [{
-        type: 'mindmap.set',
-        id: operation.id,
-        tree: operation.before
-      }]
-    }
-    case 'mindmap.delete': {
-      if (!operation.before) return null
-      return [{
-        type: 'mindmap.set',
-        id: operation.id,
-        tree: operation.before
-      }]
-    }
-    default:
-      return null
   }
 }
 
@@ -717,46 +628,6 @@ const applyOperation = (
       setEdgeOrder(draft, operation.ids)
       return
     }
-    case 'mindmap.set': {
-      const tree = normalizeMindmapTree(operation.id, operation.tree)
-      const existing = getNode(draft.next, operation.id)
-      const position = tree.meta?.position ?? { x: 0, y: 0 }
-      const entities = ensureNodeEntities(draft)
-
-      if (!existing) {
-        entities[operation.id] = {
-          id: operation.id,
-          type: 'mindmap',
-          position,
-          data: { mindmap: tree }
-        }
-        setNodeOrder(draft, appendOrderId(draft.next.nodes.order, operation.id))
-        return
-      }
-
-      if (existing.type !== 'mindmap') return
-
-      entities[operation.id] = {
-        ...existing,
-        position: existing.position ?? position,
-        data: {
-          ...(existing.data && typeof existing.data === 'object'
-            ? (existing.data as Record<string, unknown>)
-            : {}),
-          mindmap: tree
-        }
-      }
-      return
-    }
-    case 'mindmap.delete': {
-      if (!getNode(draft.next, operation.id)) return
-      const entities = ensureNodeEntities(draft)
-      delete entities[operation.id]
-      setNodeOrder(draft, removeOrderId(draft.next.nodes.order, operation.id))
-      return
-    }
-    default:
-      return
   }
 }
 
@@ -781,7 +652,7 @@ export const reduceOperations = (
   context: KernelContext = {}
 ): KernelReduceResult => {
   if (operations.length === 0) {
-    return createDispatchFailure('invalid', 'No operations to apply.')
+    return err('invalid', 'No operations to apply.')
   }
 
   const timestamp = (context.now ?? (() => Date.now()))()
@@ -806,16 +677,15 @@ export const reduceOperations = (
   }
 
   for (const rawOperation of operations) {
-    const operation = normalizeOperation(draft.next, rawOperation)
-    const inverseOperations = buildInverse(operation)
+    const inverseOperations = buildInverse(draft.next, rawOperation)
     if (!inverseOperations) {
-      return createDispatchFailure('invalid', 'Operation is not invertible.')
+      return err('invalid', 'Operation is not invertible.')
     }
 
-    draft.changes.push(operation)
+    draft.changes.push(rawOperation)
     draft.inverseGroups.push(inverseOperations)
-    trackReadImpact(draft.read, operation)
-    applyOperation(draft, operation)
+    trackReadImpact(draft.read, draft.next, rawOperation)
+    applyOperation(draft, rawOperation)
   }
 
   touch(draft)
@@ -825,8 +695,7 @@ export const reduceOperations = (
     inverse.push(...draft.inverseGroups[index])
   }
 
-  return {
-    ok: true,
+  return ok({
     doc: draft.next,
     changes: createChangeSet({
       operations: draft.changes,
@@ -835,5 +704,5 @@ export const reduceOperations = (
     }),
     inverse,
     read: finalizeReadImpact(draft.read)
-  }
+  })
 }

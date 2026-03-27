@@ -5,11 +5,15 @@ import {
   resolveEdgeView
 } from '@whiteboard/core/edge'
 import type { EdgeView as CoreEdgeView } from '@whiteboard/core/edge'
-import { createKeyedDerivedStore } from '@whiteboard/core/runtime'
-import type { KeyedReadStore } from '@whiteboard/core/runtime'
-import type { EdgeItem, NodeItem } from '@whiteboard/core/read'
+import { isPointEdgeEnd } from '@whiteboard/core/types'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
-import type { EngineRead } from '@whiteboard/engine'
+import {
+  createKeyedDerivedStore,
+  type EdgeItem,
+  type EngineRead,
+  type KeyedReadStore,
+  type NodeItem
+} from '@whiteboard/engine'
 import {
   projectEdgeItem,
   type EdgePatchReader
@@ -17,12 +21,20 @@ import {
 
 type RuntimeEdgeView = CoreEdgeView & {
   edge: EdgeItem['edge']
+  can: {
+    move: boolean
+    reconnectSource: boolean
+    reconnectTarget: boolean
+    editRoute: boolean
+  }
 }
 
 const toNodeCanvas = (item: NodeItem) => ({
   node: item.node,
   rect: item.rect,
-  rotation: item.node.rotation ?? 0
+  rotation: item.node.type === 'group'
+    ? 0
+    : (item.node.rotation ?? 0)
 })
 
 const isEdgeItemEqual = (
@@ -42,6 +54,15 @@ const isEdgeItemEqual = (
     && isPointEqual(left?.ends.target.point, right?.ends.target.point)
   )
 )
+
+const resolveEdgeCan = (
+  edge: EdgeItem['edge']
+): RuntimeEdgeView['can'] => ({
+  move: isPointEdgeEnd(edge.source) && isPointEdgeEnd(edge.target),
+  reconnectSource: true,
+  reconnectTarget: true,
+  editRoute: true
+})
 
 export const createEdgeRead = ({
   read,
@@ -97,6 +118,7 @@ export const createEdgeRead = ({
 
       return {
         edge: entry.edge,
+        can: resolveEdgeCan(entry.edge),
         ...resolved
       }
     }

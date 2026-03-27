@@ -3,9 +3,9 @@ import {
   createStagedValueStore,
   type StagedKeyedStore,
   type StagedValueStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import { isPointEqual } from '@whiteboard/core/geometry'
-import type { EdgeItem } from '@whiteboard/core/read'
+import type { EdgeItem } from '@whiteboard/engine'
 import type {
   EdgeEnd,
   EdgeId,

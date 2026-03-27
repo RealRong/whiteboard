@@ -1,15 +1,9 @@
-import {
-  findGroupAncestor,
-  type SelectionMode,
-  type SelectionPressTarget as CoreSelectionPressTarget
-} from '@whiteboard/core/node'
 import type {
   EdgeId,
   Node,
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
 import type { Pick as PointerPick } from '../pick'
 
@@ -60,138 +54,6 @@ export const isKeyboardIgnoredTarget = (target: EventTarget | null) =>
 
 export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
   target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))
-
-export type SelectionPressTarget = CoreSelectionPressTarget<EditField>
-
-type PressTargetDeps = {
-  getNode: (nodeId: NodeId) => Node | undefined
-  getOwnerId: (nodeId: NodeId) => NodeId | undefined
-  getNodeRole: (node: Node) => NodeRole
-}
-
-type PressTargetInput = {
-  pick: PointerPick
-  field?: EditField
-  mode: SelectionMode
-  selectedNodeIds: readonly NodeId[]
-}
-
-const findSelectedGroupId = (
-  deps: PressTargetDeps,
-  nodeId: NodeId,
-  selectedNodeIds: readonly NodeId[]
-) => findGroupAncestor(
-  nodeId,
-  deps.getNode,
-  deps.getOwnerId,
-  (groupId) => selectedNodeIds.includes(groupId)
-)
-
-const resolvePressNodeId = (
-  deps: PressTargetDeps,
-  input: PressTargetInput,
-  nodeId: NodeId
-) => {
-  if (input.mode !== 'replace') {
-    return nodeId
-  }
-
-  const node = deps.getNode(nodeId)
-  if (!node || node.type === 'group') {
-    return nodeId
-  }
-
-  const groupId = findGroupAncestor(nodeId, deps.getNode, deps.getOwnerId)
-  if (!groupId) {
-    return nodeId
-  }
-
-  const selectedNodeIds = input.selectedNodeIds
-  if (
-    selectedNodeIds.includes(nodeId)
-    || selectedNodeIds.includes(groupId)
-  ) {
-    return nodeId
-  }
-
-  return selectedNodeIds.some((selectedNodeId) =>
-    Boolean(findGroupAncestor(
-      selectedNodeId,
-      deps.getNode,
-      deps.getOwnerId,
-      (currentId) => currentId === groupId
-    ))
-  )
-    ? nodeId
-    : groupId
-}
-
-const readPressNodeTarget = (
-  deps: PressTargetDeps,
-  input: PressTargetInput,
-  nodeId: NodeId
-): SelectionPressTarget => ({
-  kind: 'node',
-  nodeId: resolvePressNodeId(deps, input, nodeId),
-  hitNodeId: nodeId,
-  selectedGroupId:
-    input.mode === 'replace'
-      ? findSelectedGroupId(deps, nodeId, input.selectedNodeIds)
-      : undefined,
-  field: input.field
-})
-
-export const readSelectionPressTarget = (
-  deps: PressTargetDeps,
-  input: PressTargetInput
-): SelectionPressTarget | undefined => {
-  const { pick } = input
-
-  switch (pick.kind) {
-    case 'background':
-      return {
-        kind: 'background'
-      }
-    case 'selection-box':
-      return pick.part === 'body'
-        ? {
-            kind: 'selection-box'
-          }
-        : undefined
-    case 'node':
-      if (pick.part === 'body') {
-        return readPressNodeTarget(deps, input, pick.id)
-      }
-
-      if (pick.part !== 'shell') {
-        return undefined
-      }
-
-      const node = deps.getNode(pick.id)
-      const role = node
-        ? deps.getNodeRole(node)
-        : undefined
-
-      if (role === 'frame') {
-        return {
-          kind: 'node',
-          nodeId: pick.id,
-          hitNodeId: pick.id,
-          field: input.field
-        }
-      }
-
-      return role === 'group'
-        ? {
-            kind: 'group-shell',
-            nodeId: pick.id
-          }
-        : undefined
-    case 'edge':
-    case 'mindmap':
-      return undefined
-  }
-}
 
 export type ContextTarget =
   | { kind: 'canvas'; world: Point }

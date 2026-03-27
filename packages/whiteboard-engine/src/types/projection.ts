@@ -1,10 +1,25 @@
-import type { MindmapLayout, MindmapLayoutConfig, MindmapNodeId, MindmapTree } from '../mindmap'
-import type { Edge, EdgeAnchor, EdgeEnd, EdgeId, Node, NodeId, Point, Rect } from '../types'
+import type {
+  MindmapLayout,
+  MindmapLayoutConfig,
+  MindmapNodeId,
+  MindmapTree
+} from '@whiteboard/core/mindmap'
+import type {
+  Edge,
+  EdgeAnchor,
+  EdgeEnd,
+  EdgeId,
+  Node,
+  NodeId,
+  Point,
+  Rect,
+  SpatialNode
+} from '@whiteboard/core/types'
 
 export type CanvasNode = {
   node: Node
-  rect: { x: number; y: number; width: number; height: number }
-  aabb: { x: number; y: number; width: number; height: number }
+  rect: Rect
+  aabb: Rect
   rotation: number
 }
 
@@ -35,7 +50,7 @@ export type MindmapLine = {
 
 export type MindmapItem = {
   id: NodeId
-  node: Node
+  node: SpatialNode
   tree: MindmapTree
   layout: MindmapLayoutConfig
   computed: MindmapLayout

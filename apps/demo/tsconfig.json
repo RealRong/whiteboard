@@ -17,10 +17,8 @@
       "@whiteboard/core/edge": ["../../packages/whiteboard-core/src/edge/index.ts"],
       "@whiteboard/core/schema": ["../../packages/whiteboard-core/src/schema/index.ts"],
       "@whiteboard/core/kernel": ["../../packages/whiteboard-core/src/kernel/index.ts"],
-      "@whiteboard/core/runtime": ["../../packages/whiteboard-core/src/runtime/index.ts"],
       "@whiteboard/core/config": ["../../packages/whiteboard-core/src/config/index.ts"],
       "@whiteboard/core/document": ["../../packages/whiteboard-core/src/document/index.ts"],
-      "@whiteboard/core/read": ["../../packages/whiteboard-core/src/read/index.ts"],
       "@whiteboard/core/perf": ["../../packages/whiteboard-core/src/perf/index.ts"],
       "types/*": ["../../packages/whiteboard-react/src/types/*"]
     }

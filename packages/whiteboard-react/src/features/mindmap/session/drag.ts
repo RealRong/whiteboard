@@ -3,7 +3,7 @@ import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
   createStagedValueStore,
   type StagedValueStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 
 type MindmapDragPreview = {

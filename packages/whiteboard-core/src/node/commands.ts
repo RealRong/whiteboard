@@ -109,7 +109,7 @@ const readLayoutEntries = ({
           x: bounds.x,
           y: bounds.y
         }
-      : node.position
+      : undefined
     if (!bounds || !position) {
       return err('invalid', `Node ${id} has no layout bounds.`)
     }

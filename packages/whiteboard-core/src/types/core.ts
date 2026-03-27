@@ -27,21 +27,47 @@ export type Size = { width: number; height: number }
 export type Rect = { x: number; y: number; width: number; height: number }
 export type Viewport = { center: Point; zoom: number }
 
-export type NodeType = string
+export const NODE_TYPES = [
+  'text',
+  'sticky',
+  'shape',
+  'draw',
+  'frame',
+  'group',
+  'mindmap'
+] as const
 
-export interface Node {
+export type NodeType = typeof NODE_TYPES[number]
+export type SpatialNodeType = Exclude<NodeType, 'group'>
+export type NodeLayer = 'background' | 'default' | 'overlay'
+export type NodeData = Record<string, unknown>
+export type NodeStyle = Record<string, string | number>
+
+export type BaseNode = {
   id: NodeId
   type: NodeType
-  position?: Point
-  size?: Size
-  rotation?: number
-  layer?: 'background' | 'default' | 'overlay'
+  layer?: NodeLayer
   zIndex?: number
   children?: NodeId[]
   locked?: boolean
-  data?: Record<string, unknown>
-  style?: Record<string, string | number>
+  data?: NodeData
+  style?: NodeStyle
 }
+
+export type SpatialNode = BaseNode & {
+  type: SpatialNodeType
+  position: Point
+  size?: Size
+  rotation?: number
+}
+
+export type GroupNode = BaseNode & {
+  type: 'group'
+}
+
+export type Node =
+  | SpatialNode
+  | GroupNode
 
 export type EdgeAnchor = {
   side: 'top' | 'right' | 'bottom' | 'left'
@@ -299,12 +325,29 @@ export interface Snapshot {
   document: Document
 }
 
-export type NodeInput = Omit<Node, 'id'> & {
+export type SpatialNodeInput = Omit<SpatialNode, 'id'> & {
   id?: NodeId
   ownerId?: NodeId
 }
+export type GroupNodeInput = Omit<GroupNode, 'id'> & {
+  id?: NodeId
+  ownerId?: NodeId
+}
+export type NodeInput =
+  | SpatialNodeInput
+  | GroupNodeInput
 export type EdgeInput = Omit<Edge, 'id'> & { id?: EdgeId }
-export type NodePatch = Partial<Omit<Node, 'id' | 'type'>> & { type?: NodeType }
+export type NodePatch = {
+  position?: Point
+  size?: Size
+  rotation?: number
+  layer?: NodeLayer
+  zIndex?: number
+  children?: NodeId[]
+  locked?: boolean
+  data?: NodeData
+  style?: NodeStyle
+}
 export type EdgePatch = Partial<Omit<Edge, 'id'>>
 
 export type MindmapCreateInput = {
@@ -333,17 +376,15 @@ export type DocumentPatch = {
 // Operation is immutable once created. Any enrichment or normalization must
 // return a new operation instead of mutating an existing one.
 export type Operation =
-  | { readonly type: 'document.update'; readonly patch: DocumentPatch; readonly before?: DocumentPatch }
+  | { readonly type: 'document.update'; readonly patch: DocumentPatch }
   | { readonly type: 'node.create'; readonly node: Node }
-  | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch; readonly before?: Node }
-  | { readonly type: 'node.delete'; readonly id: NodeId; readonly before?: Node }
-  | { readonly type: 'node.order.set'; readonly ids: readonly NodeId[]; readonly before?: readonly NodeId[] }
+  | { readonly type: 'node.update'; readonly id: NodeId; readonly patch: NodePatch }
+  | { readonly type: 'node.delete'; readonly id: NodeId }
+  | { readonly type: 'node.order.set'; readonly ids: readonly NodeId[] }
   | { readonly type: 'edge.create'; readonly edge: Edge }
-  | { readonly type: 'edge.update'; readonly id: EdgeId; readonly patch: EdgePatch; readonly before?: Edge }
-  | { readonly type: 'edge.delete'; readonly id: EdgeId; readonly before?: Edge }
-  | { readonly type: 'edge.order.set'; readonly ids: readonly EdgeId[]; readonly before?: readonly EdgeId[] }
-  | { readonly type: 'mindmap.set'; readonly id: MindmapId; readonly tree: MindmapTree; readonly before?: MindmapTree }
-  | { readonly type: 'mindmap.delete'; readonly id: MindmapId; readonly before?: MindmapTree }
+  | { readonly type: 'edge.update'; readonly id: EdgeId; readonly patch: EdgePatch }
+  | { readonly type: 'edge.delete'; readonly id: EdgeId }
+  | { readonly type: 'edge.order.set'; readonly ids: readonly EdgeId[] }
 
 export interface ChangeSet {
   id: string
@@ -400,20 +441,7 @@ export interface CoreRegistries {
 
 export type Origin = 'user' | 'remote' | 'system'
 
-export type DispatchFailureReason = 'cancelled' | 'invalid' | 'conflict' | 'unknown'
-
-export interface DispatchFailure {
-  ok: false
-  reason: DispatchFailureReason
-  message?: string
-}
-
-export interface DispatchSuccess {
-  ok: true
-  changes: ChangeSet
-}
-
-export type DispatchResult = DispatchSuccess | DispatchFailure
+export type ResultCode = 'cancelled' | 'invalid' | 'conflict' | 'unknown'
 
 export type ErrorInfo<C extends string = string> = {
   code: C

@@ -1,4 +1,4 @@
-import { createValueStore, type ValueStore } from '@whiteboard/core/runtime'
+import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
 import type { DrawBrushKind } from '../../runtime/tool'
 

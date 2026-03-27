@@ -1,16 +1,5 @@
 import {
-  canReconnectEdgeEnd,
-  DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveAnchorFromPoint,
-  resolveReconnectDraftEnd,
-  setEdgeConnectTarget,
-  startEdgeCreate,
-  startEdgeReconnect,
-  toEdgeConnectCommit,
-  toEdgeConnectHint,
-  toEdgeConnectPatch,
-  toEdgeDraftEnd,
-  type EdgeConnectState
 } from '@whiteboard/core/edge'
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type {
@@ -31,6 +20,18 @@ import type {
 } from '../../../runtime/input/pointer'
 import { readEdgeType } from '../../../runtime/tool'
 import type { ViewportPointer } from '../../../runtime/viewport'
+import {
+  DEFAULT_EDGE_ANCHOR_OFFSET,
+  resolveReconnectDraftEnd,
+  setEdgeConnectTarget,
+  startEdgeCreate,
+  startEdgeReconnect,
+  toEdgeConnectCommit,
+  toEdgeConnectHint,
+  toEdgeConnectPatch,
+  toEdgeDraftEnd,
+  type EdgeConnectState
+} from '../connect'
 import {
   writeEdgePreviewPatch
 } from '../preview'
@@ -150,7 +151,10 @@ export const useEdgeConnectInput = () => {
       return undefined
     }
 
-    if (!canReconnectEdgeEnd(view.can, end)) {
+    if (
+      (end === 'source' && !view.can.reconnectSource)
+      || (end === 'target' && !view.can.reconnectTarget)
+    ) {
       return undefined
     }
 

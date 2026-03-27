@@ -1,10 +1,12 @@
 import type {
+  GroupNode,
   Node,
   NodeId,
   NodePatch,
   Point,
   Rect,
-  Size
+  Size,
+  SpatialNode
 } from '../types'
 import { getNodeAABB } from '../geometry'
 import {
@@ -15,24 +17,32 @@ import {
 
 type OwnedNode = Pick<Node, 'id' | 'type' | 'children'>
 
-export const isContainerNode = (
-  node: Pick<Node, 'type'>
-) => node.type === 'frame'
+export const isContainerNode = <TNode extends Pick<Node, 'type'>>(
+  node: TNode
+): node is TNode & (SpatialNode & { type: 'frame' }) => node.type === 'frame'
 
-export const isOwnerNode = (
-  node: Pick<Node, 'type'>
-) => node.type === 'group' || isContainerNode(node)
+export const isOwnerNode = <TNode extends Pick<Node, 'type'>>(
+  node: TNode
+): node is TNode & (GroupNode | (SpatialNode & { type: 'frame' })) =>
+  node.type === 'group' || isContainerNode(node)
 
 export const sanitizeGroupNode = (
   node: Node
 ): Node => {
+  if (node.type !== 'group') {
+    return node
+  }
+
+  const rawNode = node as GroupNode & Partial<{
+    position: Point
+    size: Size
+    rotation: number
+  }>
+
   if (
-    node.type !== 'group'
-    || (
-      node.position === undefined
-      && node.size === undefined
-      && node.rotation === undefined
-    )
+    rawNode.position === undefined
+    && rawNode.size === undefined
+    && rawNode.rotation === undefined
   ) {
     return node
   }
@@ -42,7 +52,7 @@ export const sanitizeGroupNode = (
     size: _size,
     rotation: _rotation,
     ...nextNode
-  } = node
+  } = rawNode
 
   return nextNode
 }
@@ -54,7 +64,7 @@ export const sanitizeGroupPatch = (
   patch: NodePatch,
   type?: string
 ): NodePatch => {
-  if ((patch.type ?? type) !== 'group') {
+  if (type !== 'group') {
     return patch
   }
 
@@ -206,7 +216,7 @@ export const findSmallestContainerAtPoint = (
   let best: { node: Node; area: number } | undefined
 
   nodes.forEach((node) => {
-    if (!isContainerNode(node)) return
+    if (node.type !== 'frame') return
     if (excludeId && node.id === excludeId) return
 
     const rect = getNodeAABB(node, fallbackSize)

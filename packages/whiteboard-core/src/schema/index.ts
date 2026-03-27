@@ -5,6 +5,7 @@ import type {
   EdgeTypeDefinition,
   NodeInput,
   NodeSchema,
+  NodeType,
   NodeTypeDefinition,
   SchemaField
 } from '../types/core'
@@ -51,7 +52,7 @@ const mergeDefaults = (target: Record<string, unknown>, defaults: Record<string,
   })
 }
 
-const resolveNodeSchema = (registries: CoreRegistries, type: string): NodeSchema | undefined => {
+const resolveNodeSchema = (registries: CoreRegistries, type: NodeType): NodeSchema | undefined => {
   return registries.schemas.getNode(type) ?? registries.nodeTypes.get(type)?.schema
 }
 

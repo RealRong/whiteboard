@@ -1,4 +1,4 @@
-import type { ValueStore } from './types'
+import type { ValueStore } from '../types/store'
 
 const isSameValue = <T,>(prev: T, next: T) => Object.is(prev, next)
 

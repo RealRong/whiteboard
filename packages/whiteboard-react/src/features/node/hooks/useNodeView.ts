@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
-import type { NodeItem } from '@whiteboard/core/read'
+import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { InternalInstance } from '../../../runtime/instance'
 import { useInternalInstance } from '../../../runtime/hooks'
@@ -65,7 +65,9 @@ const resolveNodeOverlayViewState = (
   const node = item.node
   const rect = item.rect
   const frameRect = instance.read.node.frame(nodeId) ?? rect
-  const rotation = typeof node.rotation === 'number' ? node.rotation : 0
+  const rotation = node.type === 'group'
+    ? 0
+    : (typeof node.rotation === 'number' ? node.rotation : 0)
   const capability = instance.read.node.transform(node)
 
   return {
@@ -92,7 +94,9 @@ const resolveNodeViewState = (
   const frameRect = instance.read.node.frame(nodeId) ?? rect
   const hidden = session.hidden
   const hasResizePreview = Boolean(session.patch?.size)
-  const rotation = typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0
+  const rotation = resolvedNode.type === 'group'
+    ? 0
+    : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
   const definition = instance.registry.get(resolvedNode.type)
   const write: NodeWrite = {
     patch: (patch) => {

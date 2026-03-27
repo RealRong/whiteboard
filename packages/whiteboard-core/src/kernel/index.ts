@@ -4,6 +4,7 @@ export { createHistory } from './history'
 
 export type {
   KernelContext,
+  KernelReduceData,
   KernelReadImpact,
   KernelReduceResult
 } from './types'

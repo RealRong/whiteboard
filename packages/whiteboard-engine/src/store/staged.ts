@@ -1,7 +1,7 @@
 import type {
   StagedKeyedStore,
   StagedValueStore
-} from './types'
+} from '../types/store'
 
 type Listener = () => void
 

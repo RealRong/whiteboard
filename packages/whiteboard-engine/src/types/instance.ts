@@ -6,7 +6,7 @@ import type {
   EdgeItem,
   MindmapItem,
   NodeItem
-} from '@whiteboard/core/read'
+} from './projection'
 import type { HistoryConfig } from '@whiteboard/core/kernel'
 import type { SnapCandidate } from '@whiteboard/core/node'
 import type {
@@ -26,7 +26,7 @@ import type {
 import type {
   KeyedReadStore,
   ReadStore
-} from '@whiteboard/core/runtime'
+} from './store'
 import type { EngineCommands } from './command'
 import type { Commit } from './commit'
 export type { BoardConfig } from '@whiteboard/core/config'

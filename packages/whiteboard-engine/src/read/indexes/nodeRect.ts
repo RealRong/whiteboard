@@ -1,4 +1,4 @@
-import type { CanvasNode } from '@whiteboard/core/read'
+import type { CanvasNode } from '@engine-types/projection'
 import type { Node, NodeId, Rect } from '@whiteboard/core/types'
 import {
   getNodeOutlineBounds,

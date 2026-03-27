@@ -2,11 +2,8 @@ import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type {
   CanvasNode,
   EdgeItem
-} from '@whiteboard/core/read'
-import {
-  createValueStore,
-  type ReadStore
-} from '@whiteboard/core/runtime'
+} from '@engine-types/projection'
+import type { ReadStore } from '@engine-types/store'
 import type { Edge, EdgeId, NodeId, Point } from '@whiteboard/core/types'
 import {
   collectRelatedEdgeIds,
@@ -18,6 +15,7 @@ import {
   isSamePointArray,
   isSameRectWithRotationTuple
 } from '@whiteboard/core/utils'
+import { createValueStore } from '../../store'
 import type { ReadSnapshot } from './types'
 import { createTrackedRead } from './tracked'
 

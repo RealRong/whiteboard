@@ -1,7 +1,7 @@
 import {
   createKeyedStore,
   type KeyedReadStore
-} from '@whiteboard/core/runtime'
+} from '../../store'
 
 const isSameValue = <T,>(left: T, right: T) => Object.is(left, right)
 

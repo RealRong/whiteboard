@@ -1,7 +1,7 @@
 import type {
   KeyedStore,
   KeyedStorePatch
-} from './types'
+} from '../types/store'
 
 type Listener = () => void
 

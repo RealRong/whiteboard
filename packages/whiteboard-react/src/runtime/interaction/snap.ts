@@ -20,7 +20,7 @@ import {
 import {
   createStagedValueStore,
   type ReadStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type { Point, Rect, Size } from '@whiteboard/core/types'
 import { createRafTask, type RafTask } from '../utils/rafTask'
 

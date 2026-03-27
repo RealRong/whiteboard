@@ -1,19 +1,17 @@
 import type { KernelReadImpact } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { MindmapItem } from '@whiteboard/core/read'
-import type { Node, NodeId } from '@whiteboard/core/types'
+import type { MindmapItem } from '@engine-types/projection'
+import type { ReadStore } from '@engine-types/store'
+import type { Node, NodeId, SpatialNode } from '@whiteboard/core/types'
 import type { BoardConfig } from '@engine-types/instance'
 import { DEFAULT_TUNING } from '../../config'
-import {
-  createValueStore,
-  type ReadStore
-} from '@whiteboard/core/runtime'
 import {
   buildMindmapLines,
   computeMindmapLayout,
   getMindmapLabel,
   getMindmapTree
 } from '@whiteboard/core/mindmap'
+import { createValueStore } from '../../store'
 import type { ReadSnapshot } from './types'
 import { createTrackedRead } from './tracked'
 
@@ -88,19 +86,18 @@ const toCacheKey = ({
   nodeSize
 }: {
   tree: MindmapItem['tree']
-  root: Node
+  root: SpatialNode
   layout: MindmapLayoutConfig
   nodeSize: { width: number; height: number }
 }): MindmapTreeCacheKey => {
-  const position = root.position ?? { x: 0, y: 0 }
   return {
   treeId: tree.id,
   rootId: tree.rootId,
   rootRef: root,
   treeNodesRef: tree.nodes,
   treeChildrenRef: tree.children,
-  rootPositionX: position.x,
-  rootPositionY: position.y,
+  rootPositionX: root.position.x,
+  rootPositionY: root.position.y,
   rootWidth: root.size?.width,
   rootHeight: root.size?.height,
   mode: layout.mode === 'tidy' ? 'tidy' : 'simple',
@@ -143,7 +140,7 @@ export const createMindmapProjection = (
   }
 
   const buildTree = (
-    root: Node,
+    root: SpatialNode,
     tree: MindmapItem['tree'],
     layout: MindmapLayoutConfig
   ): MindmapItem => {
@@ -184,7 +181,9 @@ export const createMindmapProjection = (
       }
     }
 
-    const roots = visibleNodes.filter((node) => node.type === 'mindmap')
+    const roots = visibleNodes.filter(
+      (node): node is SpatialNode & { type: 'mindmap' } => node.type === 'mindmap'
+    )
     const resolvedLayout: MindmapLayoutConfig = {
       mode: layout.mode ?? DEFAULT_TUNING.mindmap.defaultMode,
       options: layout.options

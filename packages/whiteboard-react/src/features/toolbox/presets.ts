@@ -1,7 +1,7 @@
 import type {
   MindmapNodeData,
-  NodeInput,
-  Point
+  Point,
+  SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
 import {
@@ -39,7 +39,7 @@ export type NodeInsertPreset = InsertPresetBase & {
   kind: 'node'
   focus?: EditField
   placement?: InsertPlacement
-  input: (world: Point) => Omit<NodeInput, 'position'>
+  input: (world: Point) => Omit<SpatialNodeInput, 'position'>
 }
 
 export type MindmapTemplate = {
@@ -188,7 +188,7 @@ const createNodePreset = ({
   description?: string
   focus?: EditField
   placement?: InsertPlacement
-  input: (world: Point) => Omit<NodeInput, 'position'>
+  input: (world: Point) => Omit<SpatialNodeInput, 'position'>
 }): NodeInsertPreset => ({
   kind: 'node',
   key,

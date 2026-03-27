@@ -29,7 +29,8 @@ import type {
   Point,
   Rect,
   Result,
-  Size
+  Size,
+  SpatialNode
 } from '../types'
 import {
   getEdge,
@@ -117,15 +118,6 @@ const offsetPoint = (
   y: point.y + delta.y
 })
 
-const offsetOptionalPoint = (
-  point: Point | undefined,
-  delta: Point
-): Point | undefined => (
-  point
-    ? offsetPoint(point, delta)
-    : undefined
-)
-
 const cloneEdgeEnd = (end: EdgeEnd): EdgeEnd => (
   isNodeEdgeEnd(end)
     ? {
@@ -138,14 +130,34 @@ const cloneEdgeEnd = (end: EdgeEnd): EdgeEnd => (
     }
 )
 
-const cloneNode = (node: Node): Node => ({
-  ...cloneValue(node),
-  position: node.position ? cloneValue(node.position) : undefined,
-  size: node.size ? cloneValue(node.size) : undefined,
-  children: node.children ? [...node.children] : undefined,
-  data: node.data ? cloneValue(node.data) : undefined,
-  style: node.style ? cloneValue(node.style) : undefined
-})
+const cloneNode = (node: Node): Node => {
+  if (node.type === 'group') {
+    return {
+      id: node.id,
+      type: node.type,
+      layer: node.layer,
+      zIndex: node.zIndex,
+      children: node.children ? [...node.children] : undefined,
+      locked: node.locked,
+      data: node.data ? cloneValue(node.data) : undefined,
+      style: node.style ? cloneValue(node.style) : undefined
+    }
+  }
+
+  return {
+    id: node.id,
+    type: node.type,
+    position: cloneValue(node.position),
+    size: node.size ? cloneValue(node.size) : undefined,
+    rotation: node.rotation,
+    layer: node.layer,
+    zIndex: node.zIndex,
+    children: node.children ? [...node.children] : undefined,
+    locked: node.locked,
+    data: node.data ? cloneValue(node.data) : undefined,
+    style: node.style ? cloneValue(node.style) : undefined
+  }
+}
 
 const filterNodeChildren = (
   node: Node,
@@ -188,10 +200,22 @@ const remapSliceNodeInput = ({
   delta: Point
 }): NodeInput => ({
   ...cloneNode(node),
+  ...(node.type === 'group'
+    ? {}
+    : {
+        position: offsetPoint(node.position, delta)
+      }),
   id: nextNodeId,
-  position: offsetOptionalPoint(node.position, delta),
   children: remapNodeChildren(node.children, nodeIdMap)
 })
+
+const readSpatialNode = (
+  node: Node | undefined
+): SpatialNode | undefined => (
+  node && node.type !== 'group'
+    ? node
+    : undefined
+)
 
 const remapEdgeEnd = ({
   end,
@@ -318,7 +342,7 @@ const getEdgeBounds = ({
     edge,
     source: isNodeEdgeEnd(edge.source)
       ? (() => {
-        const node = nodesById.get(edge.source.nodeId)
+        const node = readSpatialNode(nodesById.get(edge.source.nodeId))
         if (!node) return undefined
         return {
           node,
@@ -329,7 +353,7 @@ const getEdgeBounds = ({
       : undefined,
     target: isNodeEdgeEnd(edge.target)
       ? (() => {
-        const node = nodesById.get(edge.target.nodeId)
+        const node = readSpatialNode(nodesById.get(edge.target.nodeId))
         if (!node) return undefined
         return {
           node,
@@ -412,10 +436,10 @@ const detachEdge = ({
   nodeSize: Size
 }): Result<Edge, 'invalid'> => {
   const sourceNode = isNodeEdgeEnd(edge.source)
-    ? getNode(doc, edge.source.nodeId)
+    ? readSpatialNode(getNode(doc, edge.source.nodeId))
     : undefined
   const targetNode = isNodeEdgeEnd(edge.target)
-    ? getNode(doc, edge.target.nodeId)
+    ? readSpatialNode(getNode(doc, edge.target.nodeId))
     : undefined
 
   const resolved = resolveEdgeEnds({
@@ -465,10 +489,10 @@ const detachSelectionEdge = ({
   nodeSize: Size
 }): Result<Edge, 'invalid'> => {
   const sourceNode = isNodeEdgeEnd(edge.source)
-    ? getNode(doc, edge.source.nodeId)
+    ? readSpatialNode(getNode(doc, edge.source.nodeId))
     : undefined
   const targetNode = isNodeEdgeEnd(edge.target)
-    ? getNode(doc, edge.target.nodeId)
+    ? readSpatialNode(getNode(doc, edge.target.nodeId))
     : undefined
   const resolved = resolveEdgeEnds({
     edge,

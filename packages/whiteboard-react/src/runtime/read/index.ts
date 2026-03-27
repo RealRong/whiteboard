@@ -8,7 +8,7 @@ import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
-import type { ReadStore } from '@whiteboard/core/runtime'
+import type { ReadStore } from '@whiteboard/engine'
 import type { Source as SelectionSource } from '../selection'
 import type { Tool } from '../tool'
 import {

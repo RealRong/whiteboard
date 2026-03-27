@@ -110,6 +110,7 @@ export {
   filterNodeIdsInRect,
   getNodeIdsInRect,
   matchCanvasNodeRect,
+  type NodeRectMatchEntry,
   type NodeRectHitEntry,
   type NodeRectHitMatch,
   type NodeRectQuery,
@@ -144,9 +145,7 @@ export type {
 } from './text'
 export {
   applySelection,
-  getTargetBounds,
-  resolveSelectionPressPlan,
-  resolveSelectionMode
+  getTargetBounds
 } from './selection'
 export {
   isShapeKind,
@@ -171,14 +170,6 @@ export type {
   SnapThresholdConfig
 } from '../snap'
 export type {
-  SelectionIds,
-  SelectionPressInput,
-  SelectionPressIntent,
-  SelectionPressPlan,
-  SelectionPressSelection,
-  SelectionPressTarget,
   SelectionMode,
-  SelectionModifiers,
-  SelectionTapMatch,
   TargetBoundsInput
 } from './selection'

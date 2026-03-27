@@ -1,4 +1,4 @@
-import { createValueStore } from '@whiteboard/core/runtime'
+import { createValueStore } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
 
 export type EditField = 'text' | 'title'

@@ -1,4 +1,4 @@
-import type { Node, NodeSchema, SchemaField } from '@whiteboard/core/types'
+import type { Node, NodeSchema, NodeType, SchemaField } from '@whiteboard/core/types'
 
 export const getDataString = (node: Node, key: string) => {
   const value = node.data && node.data[key]
@@ -56,7 +56,7 @@ export const createTextField = (path: 'title' | 'text') =>
   dataField(path, path === 'title' ? 'Title' : 'Text', path === 'title' ? 'string' : 'text')
 
 export const createSchema = (
-  type: string,
+  type: NodeType,
   label: string,
   fields: NodeSchema['fields']
 ): NodeSchema => ({

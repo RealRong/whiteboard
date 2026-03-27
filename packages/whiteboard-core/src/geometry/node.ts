@@ -1,16 +1,11 @@
-import type { Node, Rect, Size } from '../types'
+import type { Rect, Size, SpatialNode } from '../types'
 import { getAABBFromPoints } from './rect'
 import { getRotatedCorners } from './rotation'
 
-const ORIGIN = {
-  x: 0,
-  y: 0
-} as const
-
-export const getNodeRect = (node: Node, fallback: Size): Rect => {
+export const getNodeRect = (node: SpatialNode, fallback: Size): Rect => {
   const width = node.size?.width ?? fallback.width
   const height = node.size?.height ?? fallback.height
-  const position = node.position ?? ORIGIN
+  const position = node.position
 
   return {
     x: position.x,
@@ -20,7 +15,7 @@ export const getNodeRect = (node: Node, fallback: Size): Rect => {
   }
 }
 
-export const getNodeAABB = (node: Node, fallback: Size): Rect => {
+export const getNodeAABB = (node: SpatialNode, fallback: Size): Rect => {
   const rect = getNodeRect(node, fallback)
   const rotation = typeof node.rotation === 'number' ? node.rotation : 0
   if (!rotation) return rect

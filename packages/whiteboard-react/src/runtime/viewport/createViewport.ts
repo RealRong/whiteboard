@@ -2,7 +2,7 @@ import { isSameViewport, panViewport, zoomViewport } from '@whiteboard/core/geom
 import {
   createValueStore,
   type ReadStore
-} from '@whiteboard/core/runtime'
+} from '@whiteboard/engine'
 import type { Point, Rect, Viewport } from '@whiteboard/core/types'
 import {
   applyScreenPan,

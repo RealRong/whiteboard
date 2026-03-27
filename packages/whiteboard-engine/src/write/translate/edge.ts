@@ -26,12 +26,22 @@ import {
   isNodeEdgeEnd,
   type Document,
   type Edge,
-  type EdgeId
+  type EdgeId,
+  type Node,
+  type SpatialNode
 } from '@whiteboard/core/types'
 
 type EdgeCommand = WriteCommandMap['edge']
 type UpdateManyCommand = Extract<EdgeCommand, { type: 'updateMany' }>
 type OrderCommand = Extract<EdgeCommand, { type: 'order' }>
+
+const readSpatialNode = (
+  node: Node | undefined
+): SpatialNode | undefined => (
+  node && node.type !== 'group'
+    ? node
+    : undefined
+)
 
 const toUpdateOperations = (
   updates: readonly UpdateManyCommand['updates'][number][]
@@ -58,11 +68,11 @@ const resolvePath = (
 ) => {
   const sourceNode =
     isNodeEdgeEnd(edge.source)
-      ? getNode(doc, edge.source.nodeId)
+      ? readSpatialNode(getNode(doc, edge.source.nodeId))
       : undefined
   const targetNode =
     isNodeEdgeEnd(edge.target)
-      ? getNode(doc, edge.target.nodeId)
+      ? readSpatialNode(getNode(doc, edge.target.nodeId))
       : undefined
   if (isNodeEdgeEnd(edge.source) && !sourceNode) return undefined
   if (isNodeEdgeEnd(edge.target) && !targetNode) return undefined

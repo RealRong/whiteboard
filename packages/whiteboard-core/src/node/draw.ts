@@ -9,7 +9,7 @@ import {
   rectIntersects,
   rotatePoint
 } from '../geometry'
-import type { Node, Point, Rect, Size } from '../types'
+import type { Point, Rect, Size, SpatialNode } from '../types'
 
 export type ResolvedDrawStroke = Readonly<{
   position: Point
@@ -132,7 +132,7 @@ const quadraticPoint = (
 }
 
 const createDrawWorldProjector = (
-  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>,
+  node: Pick<SpatialNode, 'data' | 'style' | 'rotation' | 'size'>,
   rect: Rect
 ) => {
   const baseSize = readDrawBaseSize(node)
@@ -249,7 +249,7 @@ const simplifyDrawPointsBySegment = (
 }
 
 const resolveDrawPaintedRect = (
-  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>,
+  node: Pick<SpatialNode, 'data' | 'style' | 'rotation' | 'size'>,
   rect: Rect
 ) => {
   const points = readDrawPoints(node)
@@ -263,7 +263,7 @@ const resolveDrawPaintedRect = (
 }
 
 export const readDrawPoints = (
-  node: Pick<Node, 'data'>
+  node: Pick<SpatialNode, 'data'>
 ): Point[] => {
   const raw = node.data?.points
   if (!Array.isArray(raw)) {
@@ -376,7 +376,7 @@ export const resolveDrawPoints = ({
 }
 
 export const readDrawBaseSize = (
-  node: Pick<Node, 'data' | 'size'>
+  node: Pick<SpatialNode, 'data' | 'size'>
 ): Size => {
   const raw = node.data?.baseSize
   if (
@@ -436,7 +436,7 @@ export const matchDrawRect = ({
   queryRect,
   mode
 }: {
-  node: Pick<Node, 'data' | 'style' | 'rotation' | 'size'>
+  node: Pick<SpatialNode, 'data' | 'style' | 'rotation' | 'size'>
   rect: Rect
   queryRect: Rect
   mode: 'touch' | 'contain'

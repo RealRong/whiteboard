@@ -1,6 +1,6 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
-import type { ReadStore } from '@whiteboard/core/runtime'
+import type { ReadStore } from '@whiteboard/engine'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
 import type {
   EngineInstance

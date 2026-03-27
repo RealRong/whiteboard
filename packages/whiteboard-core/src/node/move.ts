@@ -10,7 +10,8 @@ import type {
   Node,
   NodeId,
   Point,
-  Size
+  Size,
+  SpatialNode
 } from '../types'
 import {
   expandGroupMembers,
@@ -94,7 +95,7 @@ export const buildMoveSet = (options: {
 
   const members = expandGroupMembers(nodes, rootIds)
     .flatMap((node) => (
-      node.position
+      node.type !== 'group'
         ? [{
             id: node.id,
             position: node.position
@@ -126,12 +127,12 @@ export const projectMovePositions = (
 }
 
 const resolveFrameOwnerTarget = (options: {
-  node: Node
+  node: SpatialNode
   position: Point
   containerNodes: readonly Node[]
   nodeSize: Size
 }): NodeId | undefined => {
-  const nextNode: Node = {
+  const nextNode: SpatialNode = {
     ...options.node,
     position: options.position
   }
@@ -161,7 +162,7 @@ const resolveSharedContainerTarget = (options: {
     const rootId = options.rootIds[index]!
     const node = options.nodeById.get(rootId)
     const position = options.positionById.get(rootId)
-    if (!node || !position) {
+    if (!node || node.type === 'group' || !position) {
       continue
     }
 
@@ -203,7 +204,7 @@ const collectOwnerChanges = (options: {
   options.rootIds.forEach((nodeId) => {
     const node = options.nodeById.get(nodeId)
     const position = options.positionById.get(nodeId)
-    if (!node || !position) {
+    if (!node || node.type === 'group' || !position) {
       return
     }
 
@@ -235,7 +236,7 @@ const collectOwnerChanges = (options: {
       return
     }
 
-    const nextNode: Node = {
+    const nextNode: SpatialNode = {
       ...node,
       position
     }

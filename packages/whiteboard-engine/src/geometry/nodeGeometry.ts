@@ -28,6 +28,12 @@ export class NodeGeometryCache {
   constructor(private nodeSize: Size) {}
 
   private toStateTuple = (node: Node): NodeGeometryStateTuple => {
+    if (node.type === 'group') {
+      return {
+        rotation: 0
+      }
+    }
+
     const rect = getNodeRect(node, this.nodeSize)
     return {
       x: toFiniteOrUndefined(rect.x),
@@ -38,12 +44,31 @@ export class NodeGeometryCache {
     }
   }
 
-  private toEntry = (node: Node): NodeGeometryEntry => ({
-    node,
-    rect: getNodeRect(node, this.nodeSize),
-    aabb: getNodeAABB(node, this.nodeSize),
-    rotation: typeof node.rotation === 'number' ? node.rotation : 0
-  })
+  private toEntry = (node: Node): NodeGeometryEntry => (
+    node.type === 'group'
+      ? {
+          node,
+          rect: {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0
+          },
+          aabb: {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0
+          },
+          rotation: 0
+        }
+      : {
+          node,
+          rect: getNodeRect(node, this.nodeSize),
+          aabb: getNodeAABB(node, this.nodeSize),
+          rotation: typeof node.rotation === 'number' ? node.rotation : 0
+        }
+  )
 
   update = (node: Node): boolean => {
     const state = this.toStateTuple(node)

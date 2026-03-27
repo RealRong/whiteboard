@@ -2,7 +2,7 @@ import {
   memo
 } from 'react'
 import type { Guide } from '@whiteboard/core/node'
-import type { NodeId, Rect } from '@whiteboard/core/types'
+import type { NodeId, NodeType, Rect } from '@whiteboard/core/types'
 import {
   useInternalInstance,
   useFrameScope,
@@ -114,7 +114,7 @@ const EMPTY_NODE_IDS: readonly NodeId[] = []
 
 const resolveFrameTitle = (
   node: {
-    type: string
+    type: NodeType
     data?: Record<string, unknown>
   }
 ) => {

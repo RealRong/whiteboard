@@ -10,10 +10,8 @@ export default defineConfig({
     'edge/index': 'src/edge/index.ts',
     'schema/index': 'src/schema/index.ts',
     'kernel/index': 'src/kernel/index.ts',
-    'runtime/index': 'src/runtime/index.ts',
     'config/index': 'src/config/index.ts',
-    'document/index': 'src/document/index.ts',
-    'read/index': 'src/read/index.ts'
+    'document/index': 'src/document/index.ts'
   },
   format: ['esm', 'cjs'],
   dts: true,

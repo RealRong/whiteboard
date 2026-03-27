@@ -1,11 +1,12 @@
 import type {
   ChangeSet,
-  DispatchFailure,
   Document,
   EdgeId,
   NodeId,
   Operation,
-  Origin
+  Origin,
+  Result,
+  ResultCode
 } from '../types'
 
 export type KernelContext = {
@@ -35,12 +36,11 @@ export type KernelReadImpact = {
   }
 }
 
-export type KernelReduceResult =
-  | {
-      ok: true
-      doc: Document
-      changes: ChangeSet
-      inverse: readonly Operation[]
-      read: KernelReadImpact
-    }
-  | DispatchFailure
+export type KernelReduceData = {
+  doc: Document
+  changes: ChangeSet
+  inverse: readonly Operation[]
+  read: KernelReadImpact
+}
+
+export type KernelReduceResult = Result<KernelReduceData, ResultCode>

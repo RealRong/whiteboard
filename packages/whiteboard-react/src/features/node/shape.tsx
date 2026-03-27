@@ -4,7 +4,7 @@ import {
   readShapeKind,
   type ShapeKind
 } from '@whiteboard/core/node'
-import type { Node, NodeInput } from '@whiteboard/core/types'
+import type { Node, SpatialNodeInput } from '@whiteboard/core/types'
 import type { NodeMeta } from '../../types/node'
 export {
   isShapeKind,
@@ -482,7 +482,7 @@ export const readShapeMeta = (
 
 export const createShapeNodeInput = (
   kind: ShapeKind
-): Omit<NodeInput, 'position'> => {
+): Omit<SpatialNodeInput, 'position'> => {
   const spec = readShapeSpec(kind)
 
   return {
