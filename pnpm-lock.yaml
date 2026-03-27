@@ -38,6 +38,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
+      yjs:
+        specifier: ^13.6.27
+        version: 13.6.30
     devDependencies:
       '@types/react':
         specifier: ^19.2.5
@@ -77,6 +80,9 @@ importers:
 
   packages/whiteboard-react:
     dependencies:
+      '@whiteboard/collab':
+        specifier: workspace:*
+        version: link:../whiteboard-collab
       '@whiteboard/core':
         specifier: workspace:*
         version: link:../whiteboard-core
@@ -89,6 +95,9 @@ importers:
       react:
         specifier: '>=18'
         version: 19.2.4
+      yjs:
+        specifier: ^13.6.27
+        version: 13.6.30
 
 packages:
 

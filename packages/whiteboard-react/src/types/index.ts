@@ -1,6 +1,7 @@
 export type {
   Size,
   ViewportConfig,
+  WhiteboardCollabOptions,
   WhiteboardOptions,
   EdgeConfig,
   HistoryOptions,

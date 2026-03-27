@@ -12,7 +12,10 @@ import type {
 import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
 import type { GestureDown } from '../input/pointer'
-import type { View as SelectionView } from './state'
+import {
+  isSelectionBoxInteractive,
+  type View as SelectionView
+} from './state'
 
 type ModifierEventLike = {
   altKey: boolean
@@ -496,11 +499,7 @@ export const readSelectionPressContext = (
     nodeIds: selection.target.nodeIds,
     edgeIds: selection.target.edgeIds,
     box: selection.box,
-    boxInteractive: Boolean(selection.box)
-      && (
-        selection.items.count > 1
-        || selection.transform.resize === 'scale'
-      )
+    boxInteractive: isSelectionBoxInteractive(selection)
   }
 })
 

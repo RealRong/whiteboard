@@ -5,6 +5,7 @@ import type { NodeRegistry } from '../node'
 import type { MindmapLayoutConfig } from '../mindmap'
 import type { Tool } from '../../runtime/tool'
 import type { Size, ViewportConfig, EdgeConfig, NodeConfig } from './base'
+import type { WhiteboardCollabOptions } from './collab'
 import type { ShortcutOverrides } from './shortcut'
 
 export type HistoryOptions = Partial<KernelHistoryConfig>
@@ -28,5 +29,6 @@ export type WhiteboardProps = {
   onDocumentChange: (document: Document) => void
   coreRegistries?: CoreRegistries
   nodeRegistry?: NodeRegistry
+  collab?: WhiteboardCollabOptions
   options?: WhiteboardOptions
 }

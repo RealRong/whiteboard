@@ -6,6 +6,7 @@ export { useSelection } from './features/node/selection'
 export { createNodeRegistry, createDefaultNodeRegistry } from './features/node/registry'
 
 export type { WhiteboardOptions, HistoryOptions, WhiteboardProps } from './types/common'
+export type { WhiteboardCollabOptions } from './types/common'
 export type { WhiteboardInstance, Tool } from './runtime/instance'
 export type {
   ControlId,

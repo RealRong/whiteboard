@@ -1,6 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
+import {
+  createYjsSession,
+  type CollabSession
+} from '@whiteboard/collab'
 import { createDefaultNodeRegistry } from './features/node/registry'
 import type { WhiteboardProps } from './types/common'
 import {
@@ -141,12 +145,18 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     onDocumentChange,
     coreRegistries,
     nodeRegistry,
+    collab,
     options
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onDocumentChangeRef = useRef(onDocumentChange)
+  const onCollabSessionRef = useRef(collab?.onSession)
+  const onCollabStatusChangeRef = useRef(collab?.onStatusChange)
+  const lastCollabSessionCallbackRef = useRef(collab?.onSession)
+  const lastCollabStatusCallbackRef = useRef(collab?.onStatusChange)
+  const collabSessionRef = useRef<CollabSession | null>(null)
   const resolvedConfig = useMemo(
     () => normalizeConfig(options),
     [options]
@@ -161,6 +171,8 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   )
   const lastOutboundDocumentRef = useRef<Document>(inputDocument)
   onDocumentChangeRef.current = onDocumentChange
+  onCollabSessionRef.current = collab?.onSession
+  onCollabStatusChangeRef.current = collab?.onStatusChange
 
   const engineInstanceRef = useRef<EngineInstance | null>(null)
   if (!engineInstanceRef.current) {
@@ -210,6 +222,65 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
     lastOutboundDocumentRef.current = inputDocument
     instance.commands.document.replace(inputDocument)
   }, [inputDocument, instance])
+
+  useEffect(() => {
+    if (!collab) {
+      return
+    }
+
+    const session = createYjsSession({
+      engine: engineInstance,
+      doc: collab.doc,
+      provider: collab.provider,
+      bootstrap: collab.bootstrap
+    })
+    collabSessionRef.current = session
+    onCollabSessionRef.current?.(session)
+    onCollabStatusChangeRef.current?.(session.status.get())
+
+    const unsubscribeStatus = session.status.subscribe(() => {
+      onCollabStatusChangeRef.current?.(session.status.get())
+    })
+
+    if (collab.autoConnect ?? true) {
+      session.connect()
+    }
+
+    return () => {
+      unsubscribeStatus()
+      collabSessionRef.current = null
+      onCollabSessionRef.current?.(null)
+      session.destroy()
+    }
+  }, [
+    collab?.autoConnect,
+    collab?.bootstrap,
+    collab?.doc,
+    collab?.provider,
+    engineInstance
+  ])
+
+  useEffect(() => {
+    if (lastCollabSessionCallbackRef.current === collab?.onSession) {
+      return
+    }
+    lastCollabSessionCallbackRef.current = collab?.onSession
+    if (!collab?.onSession || !collabSessionRef.current) {
+      return
+    }
+    collab.onSession(collabSessionRef.current)
+  }, [collab?.onSession])
+
+  useEffect(() => {
+    if (lastCollabStatusCallbackRef.current === collab?.onStatusChange) {
+      return
+    }
+    lastCollabStatusCallbackRef.current = collab?.onStatusChange
+    if (!collab?.onStatusChange || !collabSessionRef.current) {
+      return
+    }
+    collab.onStatusChange(collabSessionRef.current.status.get())
+  }, [collab?.onStatusChange])
 
   const runtimeConfig = useMemo(
     () => ({

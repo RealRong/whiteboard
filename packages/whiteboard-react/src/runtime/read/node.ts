@@ -5,13 +5,19 @@ import type {
   KeyedReadStore,
   NodeItem
 } from '@whiteboard/engine'
-import type {
-  NodeRectHitOptions,
-  TransformSelectionTargets
+import {
+  getNodeOutlineBounds,
+  getNodeOutlineRect,
+  type NodeRectHitOptions,
+  type TransformSelectionTargets
 } from '@whiteboard/core/node'
 import type { Node, NodeId, NodeType, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeDefinition, NodeRegistry, NodeRole } from '../../types/node'
+import {
+  getAABBFromPoints,
+  getRotatedCorners
+} from '@whiteboard/core/geometry'
 import {
   projectNodeItem,
   type NodeSessionReader
@@ -65,6 +71,38 @@ const isNodeItemEqual = (
     && left?.rect.height === right?.rect.height
   )
 )
+
+const readNodeRotation = (
+  node: NodeItem['node']
+) => (
+  node.type === 'group'
+    ? 0
+    : (typeof node.rotation === 'number' ? node.rotation : 0)
+)
+
+const readNodeItemBounds = (
+  item: NodeItem
+): Rect => {
+  const rotation = readNodeRotation(item.node)
+
+  if (item.node.type === 'group') {
+    return item.rect
+  }
+
+  if (item.node.type === 'shape') {
+    return getNodeOutlineBounds(item.node, item.rect, rotation)
+  }
+
+  return rotation === 0
+    ? item.rect
+    : getAABBFromPoints(getRotatedCorners(item.rect, rotation))
+}
+
+const readNodeItemFrame = (
+  item: NodeItem
+): Rect => item.node.type === 'shape'
+  ? getNodeOutlineRect(item.node, item.rect)
+  : item.rect
 
 export type NodeRead = {
   list: EngineRead['node']['list']
@@ -128,8 +166,18 @@ export const createNodeRead = ({
     list: read.node.list,
     item,
     owner: read.node.owner,
-    bounds: read.node.bounds,
-    frame: read.node.frame,
+    bounds: (nodeId) => {
+      const nextItem = item.get(nodeId)
+      return nextItem
+        ? readNodeItemBounds(nextItem)
+        : undefined
+    },
+    frame: (nodeId) => {
+      const nextItem = item.get(nodeId)
+      return nextItem
+        ? readNodeItemFrame(nextItem)
+        : undefined
+    },
     role,
     transform,
     connect,

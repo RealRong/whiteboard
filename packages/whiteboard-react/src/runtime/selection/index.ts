@@ -1,6 +1,7 @@
 export {
   applySource,
   createState,
+  isSelectionBoxInteractive,
   isSourceEqual,
   toSource,
   type Commands,

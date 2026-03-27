@@ -1,8 +1,15 @@
-import type { Document, Edge, MindmapTree, Node } from '@whiteboard/core/types'
+import type {
+  Document,
+  Edge,
+  MindmapTree,
+  Node,
+  SpatialNode
+} from '@whiteboard/core/types'
 import { createDocument } from '@whiteboard/core/types'
 
 type Scenario = {
   id: string
+  documentId: string
   label: string
   description: string
   create: () => Document
@@ -19,7 +26,7 @@ const toNodeEnd = (nodeId: string) => ({
 })
 
 const createShapeNode = (
-  input: Omit<Node, 'type'> & {
+  input: Omit<SpatialNode, 'type'> & {
     kind: string
     text: string
   }
@@ -54,8 +61,7 @@ const createBasicDocument = (): Document => {
     {
       id: groupId,
       type: 'group',
-      position: { x: -260, y: -160 },
-      size: { width: 620, height: 380 },
+      children: ['node-1', 'node-2', 'node-3'],
       data: { title: '基础分组', collapsed: false, autoFit: 'expand-only', padding: 24 }
     },
     {
@@ -63,7 +69,6 @@ const createBasicDocument = (): Document => {
       type: 'shape',
       position: { x: -200, y: -80 },
       size: { width: 160, height: 100 },
-      groupId,
       data: { kind: 'rect', text: 'Start' }
     },
     {
@@ -71,7 +76,6 @@ const createBasicDocument = (): Document => {
       type: 'shape',
       position: { x: 140, y: -40 },
       size: { width: 180, height: 120 },
-      groupId,
       data: { kind: 'rect', text: 'Process' }
     },
     {
@@ -79,7 +83,6 @@ const createBasicDocument = (): Document => {
       type: 'text',
       position: { x: -120, y: 140 },
       size: { width: 200, height: 120 },
-      groupId,
       data: { text: '双击编辑文本' }
     },
     {
@@ -328,24 +331,28 @@ const createShapesDocument = (): Document => {
 export const scenarios: Scenario[] = [
   {
     id: 'basic',
+    documentId: 'demo-basic',
     label: '基础流程',
     description: '常规节点 + 连线 + 分组',
     create: createBasicDocument
   },
   {
     id: 'dense',
+    documentId: 'demo-dense',
     label: '超多节点',
     description: '大规模节点渲染压力测试',
     create: createDenseDocument
   },
   {
     id: 'mindmap',
+    documentId: 'demo-mindmap',
     label: '思维导图',
     description: '内置 Mindmap 树与交互',
     create: createMindmapDocument
   },
   {
     id: 'shapes',
+    documentId: 'demo-shapes',
     label: '图形节点',
     description: '第一批 shape / sticker 节点',
     create: createShapesDocument

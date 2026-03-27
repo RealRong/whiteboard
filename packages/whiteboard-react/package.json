@@ -16,9 +16,11 @@
     "dist"
   ],
   "dependencies": {
+    "@whiteboard/collab": "workspace:*",
     "@whiteboard/core": "workspace:*",
     "@whiteboard/engine": "workspace:*",
-    "lucide-react": "^0.577.0"
+    "lucide-react": "^0.577.0",
+    "yjs": "^13.6.27"
   },
   "peerDependencies": {
     "react": ">=18"

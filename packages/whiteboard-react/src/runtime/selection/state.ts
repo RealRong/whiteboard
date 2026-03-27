@@ -136,6 +136,26 @@ export const isViewEqual = (
   && isRectEqual(left.box, right.box)
 )
 
+export const isSelectionBoxInteractive = (
+  selection: Pick<View, 'box' | 'kind' | 'transform' | 'items'>
+) => {
+  if (!selection.box) {
+    return false
+  }
+
+  if (selection.items.count > 1) {
+    return true
+  }
+
+  return (
+    selection.transform.resize === 'scale'
+    && !(
+      selection.kind === 'node'
+      && selection.items.primaryNode?.type === 'group'
+    )
+  )
+}
+
 export const toSource = (
   input: Input
 ): Source => {

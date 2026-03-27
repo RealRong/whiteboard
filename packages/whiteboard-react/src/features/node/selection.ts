@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
-import type { View as SelectionView } from '../../runtime/selection'
+import {
+  isSelectionBoxInteractive,
+  type View as SelectionView
+} from '../../runtime/selection'
 import type { Node, Rect } from '@whiteboard/core/types'
 import type { NodeMeta } from '../../types/node'
 import type { EditTarget } from '../../runtime/edit'
@@ -61,7 +64,7 @@ export const resolveSelectionBoxView = (
 
   return {
     box,
-    interactive: Boolean(box) && (selection.items.count > 1 || canResize),
+    interactive: isSelectionBoxInteractive(selection),
     frame: Boolean(box) && selection.items.nodeCount > 0,
     handles: Boolean(box) && canResize,
     canResize
