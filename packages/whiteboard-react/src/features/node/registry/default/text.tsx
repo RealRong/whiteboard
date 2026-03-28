@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
-import type { NodeRecordMutation, NodeUpdateInput } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
 import {
   useEdit,
   useInternalInstance
 } from '../../../../runtime/hooks'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
-import { toNodeFieldUpdate } from '../../patch'
-import {
-  clearNodeSessionPatch,
-  writeNodeSessionPatch
-} from '../../session/node'
 import {
   focusEditableEnd,
   isTextContentEmpty,
@@ -110,8 +104,7 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = nextSize
-    writeNodeSessionPatch(
-      instance.internals.node.session,
+    instance.internals.node.patch.write(
       node.id,
       nextSize ? { size: nextSize } : undefined
     )
@@ -124,7 +117,7 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = null
-    clearNodeSessionPatch(instance.internals.node.session, node.id)
+    instance.internals.node.patch.clear(node.id)
     instance.internals.node.session.flush()
   }, [instance, isSticky, node.id])
 
@@ -235,19 +228,18 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = null
-    clearNodeSessionPatch(instance.internals.node.session, node.id)
+    instance.internals.node.patch.clear(node.id)
     instance.internals.node.session.flush()
   }, [instance, isSticky, node.id])
 
   const commit = (nextDraft = draft) => {
     if (isSticky) {
       if (nextDraft !== text) {
-        write.update(
-          toNodeFieldUpdate(
-            { scope: 'data', path: 'text' },
-            nextDraft
-          )
-        )
+        instance.commands.node.text.commit({
+          nodeId: node.id,
+          field: 'text',
+          value: nextDraft
+        })
       }
       instance.commands.edit.clear()
       return
@@ -262,23 +254,17 @@ const TextNodeRenderer = ({
     }
 
     const nextSize = resolveTextSize(nextDraft)
-    const update: NodeUpdateInput = {}
+    const measuredSize = !isSameSize(nextSize, committedRect)
+      ? nextSize
+      : undefined
 
-    if (nextDraft !== text) {
-      update.records = toNodeFieldUpdate(
-        { scope: 'data', path: 'text' },
-        nextDraft
-      ).records
-    }
-
-    if (!isSameSize(nextSize, committedRect)) {
-      update.fields = {
-        size: nextSize
-      }
-    }
-
-    if (update.fields || update.records?.length) {
-      write.update(update)
+    if (nextDraft !== text || measuredSize) {
+      instance.commands.node.text.commit({
+        nodeId: node.id,
+        field: 'text',
+        value: nextDraft,
+        measuredSize
+      })
     }
 
     clearTextPreview()

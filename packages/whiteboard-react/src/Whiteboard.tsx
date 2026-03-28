@@ -37,9 +37,9 @@ import { MindmapSceneLayer } from './features/mindmap/components/MindmapSceneLay
 import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
 import {
-  createInstance,
-  type WhiteboardInstance,
-  type InternalInstance
+  createEditor,
+  type Editor,
+  type InternalEditor
 } from './runtime/instance'
 
 const isMirroredDocumentFromEngine = (
@@ -139,7 +139,7 @@ const WhiteboardCanvas = ({
   )
 }
 
-const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(function WhiteboardInner(
+const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function WhiteboardInner(
   {
     document,
     onDocumentChange,
@@ -188,9 +188,9 @@ const WhiteboardInner = forwardRef<WhiteboardInstance | null, WhiteboardProps>(f
   }
   const engineInstance = engineInstanceRef.current!
 
-  const instanceRef = useRef<InternalInstance | null>(null)
+  const instanceRef = useRef<InternalEditor | null>(null)
   if (!instanceRef.current) {
-    instanceRef.current = createInstance({
+    instanceRef.current = createEditor({
       engine: engineInstance,
       initialTool: resolvedConfig.tool,
       initialViewport: resolvedConfig.viewport.initial,

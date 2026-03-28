@@ -5,7 +5,7 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { InternalInstance } from '../../runtime/instance'
+import type { InternalEditor } from '../../runtime/instance/types'
 import type { MindmapDown } from '../../runtime/input/pointer'
 import type { MindmapDragState } from './session/drag'
 import {
@@ -18,6 +18,13 @@ type ActiveMindmapDragSession = MindmapDragSession
 export type MindmapDragController = {
   down: (input: MindmapDown) => boolean
   cancel: () => void
+}
+
+type MindmapDragSessionDeps = Pick<
+  InternalEditor,
+  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+> & {
+  internals: Pick<InternalEditor['internals'], 'mindmapDrag'>
 }
 
 const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
@@ -42,7 +49,7 @@ const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
 }
 
 export const createMindmapDragSession = (
-  instance: InternalInstance
+  instance: MindmapDragSessionDeps
 ): MindmapDragController => {
   let active: ActiveMindmapDragSession | null = null
   let session: ReturnType<typeof instance.interaction.start> = null

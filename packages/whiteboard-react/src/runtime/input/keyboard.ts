@@ -2,4 +2,4 @@ export {
   createShortcutMap,
   readShortcut,
   resolveShortcutBindings
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/input'

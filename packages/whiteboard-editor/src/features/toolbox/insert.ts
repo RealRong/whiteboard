@@ -4,7 +4,7 @@ import type {
   SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import type { WhiteboardInstance } from '../../runtime/instance'
+import type { Editor } from '../../runtime/instance/types'
 import { moveMindmapRoot } from '../mindmap/commands'
 import type {
   InsertPlacement,
@@ -18,6 +18,8 @@ export type InsertResult = {
     field: EditField
   }
 }
+
+type InsertInstance = Pick<Editor, 'commands' | 'read'>
 
 const placeNodeInput = (
   world: Point,
@@ -39,7 +41,7 @@ const placeNodeInput = (
 }
 
 const insertNodePreset = (
-  instance: WhiteboardInstance,
+  instance: InsertInstance,
   preset: Extract<InsertPreset, { kind: 'node' }>,
   world: Point,
   ownerId?: NodeId
@@ -66,7 +68,7 @@ const insertNodePreset = (
 }
 
 const insertMindmapPreset = (
-  instance: WhiteboardInstance,
+  instance: InsertInstance,
   preset: Extract<InsertPreset, { kind: 'mindmap' }>,
   world: Point
 ): InsertResult | undefined => {
@@ -113,7 +115,7 @@ export const insertPreset = ({
   world,
   ownerId
 }: {
-  instance: WhiteboardInstance
+  instance: InsertInstance
   preset: InsertPreset
   world: Point
   ownerId?: NodeId

@@ -8,7 +8,7 @@ import {
 } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import { GestureTuning } from '../../runtime/interaction'
-import type { InternalInstance } from '../../runtime/instance'
+import type { InternalEditor } from '../../runtime/instance/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../runtime/viewport'
 
@@ -51,6 +51,11 @@ export type MarqueeSession = {
   cancel: () => void
 }
 
+type MarqueeSessionDeps = Pick<
+  InternalEditor,
+  'interaction' | 'read' | 'viewport'
+>
+
 const toItemsKey = (
   items: MarqueeItems
 ) => [
@@ -59,7 +64,7 @@ const toItemsKey = (
 ].join('::')
 
 const projectWorldRect = (
-  instance: InternalInstance,
+  instance: MarqueeSessionDeps,
   worldRect: Rect
 ): Rect => {
   const topLeft = instance.viewport.worldToScreen({
@@ -75,7 +80,7 @@ const projectWorldRect = (
 }
 
 export const createMarqueeSession = (
-  instance: InternalInstance
+  instance: MarqueeSessionDeps
 ): MarqueeSession => {
   const worldRect = createValueStore<Rect | undefined>(undefined)
   const activeMatch = createValueStore<MarqueeMatch | undefined>(undefined)

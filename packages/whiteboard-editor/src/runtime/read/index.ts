@@ -11,6 +11,7 @@ import type { Source as SelectionSource } from '../selection'
 import type { Tool } from '../tool'
 import {
   createNodeRead,
+  createNodeInteractionRead,
   createNodeItemRead,
   resolveNodeTransform,
   type NodeRead
@@ -63,6 +64,9 @@ export const createRuntimeRead = ({
     read: engineRead,
     session: node.session
   })
+  const nodeInteraction = createNodeInteractionRead({
+    session: node.session
+  })
   const edgeRead = createEdgeRead({
     read: engineRead,
     nodeItem,
@@ -71,7 +75,8 @@ export const createRuntimeRead = ({
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
     registry,
-    item: nodeItem
+    item: nodeItem,
+    interaction: nodeInteraction
   })
   const readRuntimeNodes = () => engineRead.node.list.get()
     .map((nodeId) => nodeItem.get(nodeId)?.node)

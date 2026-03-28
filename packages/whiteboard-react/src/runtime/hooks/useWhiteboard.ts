@@ -1,12 +1,13 @@
 import { createContext, useContext } from 'react'
-import type { EditTarget } from '../edit'
-import type { FrameScope } from '../frame'
-import type { WhiteboardInstance, InternalInstance } from '../instance/types'
-import type { InteractionState } from '../interaction'
-import type { Tool } from '../tool'
+import type { Editor, InternalEditor } from '../instance/types'
 import { useStoreValue } from './useStoreValue'
 
-const InstanceContext = createContext<InternalInstance | null>(null)
+type EditTarget = ReturnType<Editor['state']['edit']['get']>
+type Tool = ReturnType<Editor['state']['tool']['get']>
+type FrameScope = ReturnType<Editor['state']['frame']['get']>
+type InteractionState = ReturnType<Editor['state']['interaction']['get']>
+
+const InstanceContext = createContext<InternalEditor | null>(null)
 
 export const InstanceProvider = InstanceContext.Provider
 
@@ -18,7 +19,7 @@ export const useInternalInstance = () => {
   return instance
 }
 
-export const useWhiteboard = (): WhiteboardInstance => useInternalInstance()
+export const useWhiteboard = (): Editor => useInternalInstance()
 
 export const useEdit = (): EditTarget => {
   const instance = useWhiteboard()

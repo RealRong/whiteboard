@@ -8,7 +8,7 @@ import type {
   EdgeType,
   NodeId
 } from '@whiteboard/core/types'
-import type { InternalInstance } from '../../runtime/instance'
+import type { InternalEditor } from '../../runtime/instance/types'
 import type {
   EdgeCreateDown,
   EdgeDown
@@ -35,15 +35,22 @@ type ConnectPointer = ViewportPointer & {
   pointerId: number
 }
 
-type ConnectNodeEntry = NonNullable<
-  ReturnType<InternalInstance['read']['index']['node']['get']>
->
-
 export type EdgeConnectSession = {
   create: (input: EdgeCreateDown) => boolean
   reconnect: (input: EdgeDown) => boolean
   cancel: () => void
 }
+
+type EdgeConnectSessionDeps = Pick<
+  InternalEditor,
+  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+> & {
+  internals: Pick<InternalEditor['internals'], 'edge' | 'snap'>
+}
+
+type ConnectNodeEntry = NonNullable<
+  ReturnType<EdgeConnectSessionDeps['read']['index']['node']['get']>
+>
 
 const readCaptureTarget = (
   event: Pick<PointerEvent, 'currentTarget' | 'target'>
@@ -56,7 +63,7 @@ const readCaptureTarget = (
 )
 
 export const createEdgeConnectSession = (
-  instance: InternalInstance
+  instance: EdgeConnectSessionDeps
 ): EdgeConnectSession => {
   let active: EdgeConnectState | null = null
   let session: ReturnType<typeof instance.interaction.start> = null

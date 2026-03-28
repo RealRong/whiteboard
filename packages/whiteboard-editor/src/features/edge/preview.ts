@@ -52,6 +52,17 @@ type EdgeHintStore =
 export type EdgePreview = {
   patch: EdgePatchStore
   hint: EdgeHintStore
+  emptyPatch: EdgePatch
+  writePatch: (
+    edgeId: EdgeId,
+    patch: CoreEdgePatch,
+    activeRouteIndex?: number
+  ) => void
+  writeRoute: (
+    edgeId: EdgeId,
+    points: readonly Point[],
+    activeRouteIndex?: number
+  ) => void
   clear: () => void
 }
 
@@ -197,9 +208,39 @@ export const createEdgePreview = (): EdgePreview => {
     })
   }, { fallback: 'microtask' })
 
+  const writePatch: EdgePreview['writePatch'] = (
+    edgeId,
+    nextPatch,
+    activeRouteIndex
+  ) => {
+    patch.write([
+      toEdgePreviewEntry(edgeId, nextPatch, activeRouteIndex)
+    ])
+  }
+
+  const writeRoute: EdgePreview['writeRoute'] = (
+    edgeId,
+    points,
+    activeRouteIndex
+  ) => {
+    writePatch(
+      edgeId,
+      {
+        route: {
+          kind: 'manual',
+          points: [...points]
+        }
+      },
+      activeRouteIndex
+    )
+  }
+
   return {
     patch,
     hint,
+    emptyPatch: EMPTY_PATCH,
+    writePatch,
+    writeRoute,
     clear: () => {
       task.cancel()
       patch.clear()

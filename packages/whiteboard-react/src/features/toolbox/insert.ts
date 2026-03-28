@@ -1,6 +1,6 @@
 export {
   insertPreset
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/toolbox'
 export type {
   InsertResult
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/toolbox'

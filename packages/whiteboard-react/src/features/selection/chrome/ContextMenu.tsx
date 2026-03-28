@@ -5,7 +5,7 @@ import {
   restoreContextMenuSelection,
   snapshotContextMenuSelection,
   type ContextMenuSelectionSnapshot
-} from '@whiteboard/editor'
+} from './contextMenuModel'
 import {
   useElementSize,
   useInternalInstance
@@ -22,9 +22,9 @@ import {
 } from '../../node/components/SelectionSummaryHeader'
 import { resolveNodeMeta } from '../../node/registry'
 import {
-  type NodeMenuGroup,
-  type NodeMenuItem
-} from './menuModel'
+  type ContextMenuGroup,
+  type ContextMenuItem
+} from './contextMenuTypes'
 import {
   isDuplicateMenuOpen,
   readContextMenuPlacement
@@ -54,7 +54,7 @@ const ContextMenuItemView = ({
   item,
   state
 }: {
-  item: NodeMenuItem
+  item: ContextMenuItem
   state: ContextMenuRenderState
 }) => {
   const open = state.submenuKey === item.key
@@ -126,7 +126,7 @@ const ContextMenuGroupView = ({
   group,
   state
 }: {
-  group: NodeMenuGroup
+  group: ContextMenuGroup
   state: ContextMenuRenderState
 }) => (
   <div className="wb-context-menu-section">

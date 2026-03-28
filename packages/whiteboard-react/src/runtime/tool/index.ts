@@ -12,7 +12,7 @@ export {
   matchTool,
   normalizeTool,
   readEdgeType
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/tool'
 export type {
   DrawBrushKind,
   DrawKind,
@@ -24,4 +24,4 @@ export type {
   InsertTool,
   SelectTool as SelectToolType,
   Tool
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/tool'

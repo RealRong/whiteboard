@@ -1,19 +1,7 @@
-import type { MarqueeSession } from '@whiteboard/editor'
-import {
-  createMarqueeSession
-} from '@whiteboard/editor'
+import type { InternalEditor } from '../../runtime/instance'
 import { useStoreValue } from '../../runtime/hooks'
 
-export {
-  createMarqueeSession
-}
-export type {
-  MarqueeEnd,
-  MarqueeItems,
-  MarqueeMatch,
-  MarqueeSession,
-  MarqueeStartInput
-} from '@whiteboard/editor'
+export type MarqueeSession = InternalEditor['internals']['selection']['marquee']
 
 export const Marquee = ({
   marquee

@@ -1,7 +1,9 @@
 import { useEffect, type RefObject } from 'react'
-import type { InternalInstance } from '../instance'
+import type { InternalEditor } from '../instance'
 import { createRafTask } from '../utils/rafTask'
-import type { ContainerRect, WheelInput } from '@whiteboard/editor'
+
+type ContainerRect = Parameters<InternalEditor['internals']['viewport']['setRect']>[0]
+type WheelInput = Parameters<InternalEditor['internals']['viewport']['input']['wheel']>[0]
 
 export type ViewportInputOptions = {
   panEnabled: boolean
@@ -57,7 +59,7 @@ export const useBindViewportInput = ({
   containerRef,
   options
 }: {
-  instance: InternalInstance
+  instance: InternalEditor
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportInputOptions
 }) => {

@@ -56,7 +56,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const patch = useOptionalKeyedStoreValue(
     instance.internals.edge.preview.patch,
     edgeId,
-    EMPTY_PATCH
+    instance.internals.edge.preview.emptyPatch ?? EMPTY_PATCH
   )
 
   return useMemo(() => {

@@ -1,23 +1,24 @@
-import type {
-  Slice,
-  SliceExportResult,
-  SliceRoots
-} from '@whiteboard/core/document'
+import type { SliceRoots } from '@whiteboard/core/document'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../../runtime/instance'
+import type { Editor } from '../../../runtime/instance/types'
+import type {
+  ClipboardPort,
+  ClipboardRuntime
+} from '../../../runtime/host/clipboard'
+import {
+  createClipboardPacket,
+  parseClipboardPacket,
+  readClipboardPacketFromEvent,
+  serializeClipboardPacket,
+  writeClipboardPacketToEvent
+} from '../../../runtime/host/clipboard'
 
-const ClipboardPacketType = 'whiteboard/slice'
-const ClipboardPacketVersion = 1
-const ClipboardMime = 'application/x-whiteboard-slice'
-const PasteOffsetScreen = 24
+type ClipboardInstance = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
-type ClipboardInstance = Pick<WhiteboardInstance, 'commands' | 'read' | 'state' | 'viewport'>
-
-type ClipboardPacket = {
-  type: typeof ClipboardPacketType
-  version: typeof ClipboardPacketVersion
-  slice: Slice
-  roots?: SliceRoots
+type ClipboardDeps = {
+  instance: ClipboardInstance
+  runtime: ClipboardRuntime
+  port: ClipboardPort
 }
 
 export type ClipboardTarget =
@@ -27,145 +28,55 @@ export type ClipboardTarget =
       edgeIds?: readonly EdgeId[]
     }
 
-let memoryPacket: ClipboardPacket | null = null
-let lastPasteKey: string | null = null
-let lastPasteCount = 0
-
-const toPacket = (
-  exported: SliceExportResult
-): ClipboardPacket => ({
-  type: ClipboardPacketType,
-  version: ClipboardPacketVersion,
-  slice: exported.slice,
-  roots: exported.roots
-})
-
-const serializePacket = (packet: ClipboardPacket) => JSON.stringify(packet)
-
-const parsePacket = (value: string): ClipboardPacket | undefined => {
-  try {
-    const parsed = JSON.parse(value) as Partial<ClipboardPacket> | null
-    if (!parsed || parsed.type !== ClipboardPacketType || parsed.version !== ClipboardPacketVersion) {
-      return undefined
-    }
-    if (!parsed.slice || parsed.slice.version !== 1) {
-      return undefined
-    }
-    return {
-      type: ClipboardPacketType,
-      version: ClipboardPacketVersion,
-      slice: parsed.slice,
-      roots: parsed.roots
-        ? {
-            nodeIds: [...parsed.roots.nodeIds],
-            edgeIds: [...parsed.roots.edgeIds]
-          }
-        : undefined
-    }
-  } catch {
-    return undefined
-  }
-}
-
-const writePacketToClipboardEvent = (
-  packet: ClipboardPacket,
-  event: ClipboardEvent
-) => {
-  event.clipboardData?.setData(ClipboardMime, serializePacket(packet))
-  event.clipboardData?.setData('text/plain', serializePacket(packet))
-}
-
 const writePacket = async (
-  packet: ClipboardPacket,
+  deps: ClipboardDeps,
+  packet: ReturnType<typeof createClipboardPacket>,
   event?: ClipboardEvent
 ) => {
-  memoryPacket = packet
+  deps.runtime.remember(packet)
 
   if (event?.clipboardData) {
-    writePacketToClipboardEvent(packet, event)
+    writeClipboardPacketToEvent(packet, event)
     return true
   }
 
-  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-    return true
-  }
-
-  try {
-    await navigator.clipboard.writeText(serializePacket(packet))
-    return true
-  } catch {
-    return true
-  }
-}
-
-const readPacketFromClipboardEvent = (
-  event: ClipboardEvent
-): ClipboardPacket | undefined => {
-  const custom = event.clipboardData?.getData(ClipboardMime)
-  if (custom) {
-    const parsed = parsePacket(custom)
-    if (parsed) return parsed
-  }
-
-  const text = event.clipboardData?.getData('text/plain')
-  if (text) {
-    const parsed = parsePacket(text)
-    if (parsed) return parsed
-  }
-
-  return undefined
+  await deps.port.writeText(serializeClipboardPacket(packet))
+  return true
 }
 
 const readPacket = async (
+  deps: ClipboardDeps,
   event?: ClipboardEvent
-): Promise<ClipboardPacket | undefined> => {
-  const fromEvent = event ? readPacketFromClipboardEvent(event) : undefined
+): Promise<ReturnType<typeof createClipboardPacket> | undefined> => {
+  const fromEvent = event ? readClipboardPacketFromEvent(event) : undefined
   if (fromEvent) {
-    memoryPacket = fromEvent
+    deps.runtime.remember(fromEvent)
     return fromEvent
   }
 
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
-    try {
-      const text = await navigator.clipboard.readText()
-      const parsed = parsePacket(text)
-      if (parsed) {
-        memoryPacket = parsed
-        return parsed
-      }
-    } catch {
-      // Ignore clipboard read failures and fall back to memory.
+  const text = await deps.port.readText()
+  if (text) {
+    const parsed = parseClipboardPacket(text)
+    if (parsed) {
+      deps.runtime.remember(parsed)
+      return parsed
     }
   }
 
-  return memoryPacket ?? undefined
+  return deps.runtime.recall() ?? undefined
 }
 
 const readPasteAt = (
-  instance: ClipboardInstance,
+  deps: ClipboardDeps,
+  packet: ReturnType<typeof createClipboardPacket>,
   at?: Point
 ) => {
-  const base = at ?? { ...instance.viewport.get().center }
-  const packetKey = memoryPacket ? serializePacket(memoryPacket) : null
-
-  if (!packetKey) {
-    return base
-  }
-
-  if (lastPasteKey === packetKey) {
-    lastPasteCount += 1
-  } else {
-    lastPasteKey = packetKey
-    lastPasteCount = 0
-  }
-
-  const zoom = Math.max(0.0001, instance.viewport.get().zoom)
-  const offset = (lastPasteCount * PasteOffsetScreen) / zoom
-
-  return {
-    x: base.x + offset,
-    y: base.y + offset
-  }
+  const base = at ?? { ...deps.instance.viewport.get().center }
+  return deps.runtime.readPastePoint({
+    base,
+    packet,
+    zoom: deps.instance.viewport.get().zoom
+  })
 }
 
 const applyInsertedRoots = (
@@ -231,42 +142,42 @@ const readSliceExport = (
 }
 
 export const copy = async (
-  instance: ClipboardInstance,
+  deps: ClipboardDeps,
   target: ClipboardTarget = 'selection',
   event?: ClipboardEvent
 ) => {
-  const exported = readSliceExport(instance, target)
+  const exported = readSliceExport(deps.instance, target)
   if (!exported) {
     return false
   }
 
-  return writePacket(toPacket(exported), event)
+  return writePacket(deps, createClipboardPacket(exported), event)
 }
 
 export const cut = async (
-  instance: ClipboardInstance,
+  deps: ClipboardDeps,
   target: ClipboardTarget = 'selection',
   event?: ClipboardEvent
 ) => {
-  const resolved = resolveClipboardTarget(instance, target)
+  const resolved = resolveClipboardTarget(deps.instance, target)
   if (!resolved) {
     return false
   }
 
-  const copied = await copy(instance, resolved, event)
+  const copied = await copy(deps, resolved, event)
   if (!copied) {
     return false
   }
 
   if (resolved.edgeIds?.length) {
-    const result = instance.commands.edge.delete([...resolved.edgeIds])
+    const result = deps.instance.commands.edge.delete([...resolved.edgeIds])
     if (!result.ok) {
       return false
     }
   }
 
   if (resolved.nodeIds?.length) {
-    const result = instance.commands.node.deleteCascade([...resolved.nodeIds])
+    const result = deps.instance.commands.node.deleteCascade([...resolved.nodeIds])
     if (!result.ok) {
       return false
     }
@@ -276,24 +187,28 @@ export const cut = async (
 }
 
 export const paste = async (
-  instance: ClipboardInstance,
+  deps: ClipboardDeps,
   options?: {
     at?: Point
     event?: ClipboardEvent
     ownerId?: NodeId
   }
 ) => {
-  const packet = await readPacket(options?.event)
-  if (!packet) return false
+  const packet = await readPacket(deps, options?.event)
+  if (!packet) {
+    return false
+  }
 
-  const at = readPasteAt(instance, options?.at)
-  const inserted = instance.commands.document.insert(packet.slice, {
+  const at = readPasteAt(deps, packet, options?.at)
+  const inserted = deps.instance.commands.document.insert(packet.slice, {
     at,
     ownerId: options?.ownerId,
     roots: packet.roots
   })
-  if (!inserted.ok) return false
+  if (!inserted.ok) {
+    return false
+  }
 
-  applyInsertedRoots(instance, inserted.data)
+  applyInsertedRoots(deps.instance, inserted.data)
   return true
 }

@@ -1,11 +1,8 @@
 import type {
   Node,
-  NodeUpdateInput,
   NodeSchema,
-  NodeType,
-  Rect
+  NodeType
 } from '@whiteboard/core/types'
-import type { CSSProperties, ReactNode } from 'react'
 
 export type NodeRole = 'content' | 'frame' | 'group'
 export type NodeHit = 'box' | 'path'
@@ -20,18 +17,6 @@ export type NodeMeta = {
   controls: readonly ControlId[]
 }
 
-export type NodeWrite = {
-  update: (update: NodeUpdateInput) => void
-}
-
-export type NodeRenderProps = {
-  node: Node
-  rect: Rect
-  selected: boolean
-  hovered: boolean
-  write: NodeWrite
-}
-
 export type NodeDefinition = {
   type: NodeType
   meta: NodeMeta
@@ -41,8 +26,6 @@ export type NodeDefinition = {
   connect?: boolean
   schema?: NodeSchema
   defaultData?: Record<string, unknown>
-  render: (props: NodeRenderProps) => ReactNode
-  style?: (props: NodeRenderProps) => CSSProperties
   canRotate?: boolean
   canResize?: boolean
   autoMeasure?: boolean

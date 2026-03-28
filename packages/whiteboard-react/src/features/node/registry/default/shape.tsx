@@ -21,7 +21,6 @@ import {
   readEditableText,
   TEXT_DEFAULT_FONT_SIZE
 } from '../../text'
-import { toNodeFieldUpdate } from '../../patch'
 import {
   createSchema,
   createTextField,
@@ -107,12 +106,11 @@ const ShapeLabel = ({
 
   const commit = (value = draft) => {
     if (value !== text) {
-      write.update(
-        toNodeFieldUpdate(
-          { scope: 'data', path: 'text' },
-          value
-        )
-      )
+      instance.commands.node.text.commit({
+        nodeId: node.id,
+        field: 'text',
+        value
+      })
     }
     instance.commands.edit.clear()
   }

@@ -11,6 +11,8 @@ import type {
 } from './types'
 import type { ViewportInputRuntime } from '../viewport'
 import { createAutoPan } from './autoPan'
+import type { PointerContinuation } from '../host/pointerContinuation'
+import type { DocumentSelectionLock } from '../host/selectionLock'
 
 type ActiveInteraction = Readonly<{
   id: number
@@ -20,9 +22,13 @@ type ActiveInteraction = Readonly<{
 }>
 
 export const createInteractionCoordinator = ({
-  getViewport
+  getViewport,
+  pointerContinuation,
+  selectionLock
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
+  pointerContinuation: PointerContinuation
+  selectionLock: DocumentSelectionLock
 }): InteractionCoordinator => {
   const active = createValueStore<ActiveInteraction | null>(null)
   const space = createValueStore(false)
@@ -52,7 +58,7 @@ export const createInteractionCoordinator = ({
     )
   })
   let nextId = 1
-  let releaseWindow = () => {}
+  let stopPointerContinuation = () => {}
   let releaseDocumentSelection = () => {}
   let endCurrent: (() => void) | null = null
   let currentInput: InteractionStartInput | null = null
@@ -61,97 +67,14 @@ export const createInteractionCoordinator = ({
     getViewport
   })
 
-  const clearWindow = () => {
-    releaseWindow()
-    releaseWindow = () => {}
+  const clearPointerContinuation = () => {
+    stopPointerContinuation()
+    stopPointerContinuation = () => {}
   }
 
   const clearDocumentSelection = () => {
     releaseDocumentSelection()
     releaseDocumentSelection = () => {}
-  }
-
-  const releaseCapture = (
-    target: Element | null | undefined,
-    pointerId: number | undefined
-  ) => {
-    if (!target || pointerId === undefined) {
-      return
-    }
-
-    const release = (target as Element & {
-      releasePointerCapture?: (pointerId: number) => void
-    }).releasePointerCapture
-
-    if (typeof release !== 'function') {
-      return
-    }
-
-    try {
-      release.call(target, pointerId)
-    } catch {
-      // Ignore pointer release failures.
-    }
-  }
-
-  const capturePointer = (
-    target: Element | null | undefined,
-    pointerId: number | undefined
-  ) => {
-    if (!target || pointerId === undefined) {
-      return
-    }
-
-    const capture = (target as Element & {
-      setPointerCapture?: (pointerId: number) => void
-    }).setPointerCapture
-
-    if (typeof capture !== 'function') {
-      return
-    }
-
-    try {
-      capture.call(target, pointerId)
-    } catch {
-      // Ignore pointer capture failures.
-    }
-  }
-
-  const lockDocumentSelection = () => {
-    if (typeof document === 'undefined') {
-      return
-    }
-
-    const root = document.documentElement
-    const body = document.body
-    const previousRootUserSelect = root.style.userSelect
-    const previousBodyUserSelect = body?.style.userSelect ?? ''
-    const previousRootWebkitUserSelect = root.style.webkitUserSelect
-    const previousBodyWebkitUserSelect = body?.style.webkitUserSelect ?? ''
-    const preventDefault = (event: Event) => {
-      event.preventDefault()
-    }
-
-    root.style.userSelect = 'none'
-    root.style.webkitUserSelect = 'none'
-    if (body) {
-      body.style.userSelect = 'none'
-      body.style.webkitUserSelect = 'none'
-    }
-
-    document.addEventListener('selectstart', preventDefault, true)
-    document.addEventListener('dragstart', preventDefault, true)
-
-    releaseDocumentSelection = () => {
-      document.removeEventListener('selectstart', preventDefault, true)
-      document.removeEventListener('dragstart', preventDefault, true)
-      root.style.userSelect = previousRootUserSelect
-      root.style.webkitUserSelect = previousRootWebkitUserSelect
-      if (body) {
-        body.style.userSelect = previousBodyUserSelect
-        body.style.webkitUserSelect = previousBodyWebkitUserSelect
-      }
-    }
   }
 
   const matchesPointer = (
@@ -169,9 +92,8 @@ export const createInteractionCoordinator = ({
     }
 
     autoPan.stop()
-    clearWindow()
+    clearPointerContinuation()
     clearDocumentSelection()
-    releaseCapture(input.capture, current.pointerId)
     active.set(null)
     endCurrent = null
     currentInput = null
@@ -300,24 +222,18 @@ export const createInteractionCoordinator = ({
         session.cancel()
       }
 
-      if (typeof window !== 'undefined') {
-        window.addEventListener('pointermove', onPointerMove)
-        window.addEventListener('pointerup', onPointerUp)
-        window.addEventListener('pointercancel', onPointerCancel)
-
-        releaseWindow = () => {
-          window.removeEventListener('pointermove', onPointerMove)
-          window.removeEventListener('pointerup', onPointerUp)
-          window.removeEventListener('pointercancel', onPointerCancel)
-        }
-      }
-
       active.set(current)
       endCurrent = end
       currentInput = input
       currentSession = session
-      lockDocumentSelection()
-      capturePointer(input.capture, input.pointerId)
+      stopPointerContinuation = pointerContinuation.start({
+        pointerId: input.pointerId,
+        capture: input.capture,
+        move: onPointerMove,
+        up: onPointerUp,
+        cancel: onPointerCancel
+      })
+      releaseDocumentSelection = selectionLock.lock()
 
       if (input.pan) {
         autoPan.start(input.pan, session)

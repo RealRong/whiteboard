@@ -10,10 +10,6 @@ import {
   readPointerSamples,
   type EraserDown
 } from '../../runtime/input/pointer'
-import {
-  clearNodeSessionHidden,
-  writeNodeSessionHidden
-} from '../node/session/node'
 
 const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001
@@ -29,14 +25,11 @@ export const useEraserInput = () => {
 
   const syncHidden = useCallback((active: ActiveErase | null) => {
     if (!active) {
-      clearNodeSessionHidden(instance.internals.node.session)
+      instance.internals.node.hidden.clear()
       return
     }
 
-    writeNodeSessionHidden(
-      instance.internals.node.session,
-      [...active.ids]
-    )
+    instance.internals.node.hidden.write([...active.ids])
   }, [instance])
 
   const collectRect = useCallback((active: ActiveErase, rect: Rect) => {
@@ -77,7 +70,7 @@ export const useEraserInput = () => {
 
   const clear = useCallback(() => {
     activeRef.current = null
-    clearNodeSessionHidden(instance.internals.node.session)
+    instance.internals.node.hidden.clear()
   }, [instance])
 
   useEffect(() => clear, [clear])

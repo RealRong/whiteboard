@@ -1,7 +1,47 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { Pick } from '../pick'
-import { toPickKey } from '../pick'
 import { useInternalInstance } from './useWhiteboard'
+
+type InternalInstance = ReturnType<typeof useInternalInstance>
+type Pick = Parameters<InternalInstance['internals']['pick']['bind']>[1]
+
+const toPickKey = (
+  pick: Pick
+) => {
+  switch (pick.kind) {
+    case 'background':
+      return 'background'
+    case 'selection-box':
+      return [
+        'selection-box',
+        pick.part,
+        pick.handle?.id ?? '',
+        pick.handle?.direction ?? ''
+      ].join(':')
+    case 'node':
+      return [
+        'node',
+        pick.id,
+        pick.part,
+        pick.handle?.id ?? '',
+        pick.side ?? ''
+      ].join(':')
+    case 'edge':
+      return [
+        'edge',
+        pick.id,
+        pick.part,
+        pick.end ?? '',
+        pick.index ?? '',
+        pick.insert ?? ''
+      ].join(':')
+    case 'mindmap':
+      return [
+        'mindmap',
+        pick.treeId,
+        pick.nodeId
+      ].join(':')
+  }
+}
 
 export const usePickRef = (
   pick: Pick

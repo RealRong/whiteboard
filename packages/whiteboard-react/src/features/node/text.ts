@@ -22,7 +22,7 @@ export {
   TEXT_START_SIZE,
   createStickyNodeInput,
   createTextNodeInput
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/node'
 
 export type TextMeasureSize = {
   width: number

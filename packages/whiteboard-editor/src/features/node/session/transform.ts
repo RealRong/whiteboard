@@ -14,13 +14,16 @@ import {
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { CanvasFrameDown } from '../../../../runtime/input/pointer'
-import type { InternalInstance } from '../../../../runtime/instance'
-import { resolveSelectionBoxView } from '../../selection'
+import type { CanvasFrameDown } from '../../../runtime/input/pointer'
+import type { InternalEditor } from '../../../runtime/instance/types'
+import {
+  isSelectionBoxInteractive,
+  type View as SelectionView
+} from '../../../runtime/selection'
 import {
   clearNodeSessionPreview,
   writeNodeSessionPreview
-} from '../../session/node'
+} from './node'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -77,6 +80,33 @@ type TransformPointerEvent = Pick<
   | 'stopPropagation'
 >
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
+
+const resolveSelectionBoxView = (
+  selection: SelectionView
+) => {
+  const box = selection.box
+  const canResize = selection.transform.resize === 'scale'
+
+  return {
+    box,
+    interactive: isSelectionBoxInteractive(selection),
+    frame: Boolean(box) && selection.items.nodeCount > 0,
+    handles: Boolean(box) && canResize,
+    canResize
+  }
+}
+
+export type NodeTransformSession = {
+  cancel: () => void
+  down: (input: CanvasFrameDown) => boolean
+}
+
+type TransformSessionDeps = Pick<
+  InternalEditor,
+  'commands' | 'interaction' | 'read' | 'viewport'
+> & {
+  internals: Pick<InternalEditor['internals'], 'node' | 'snap'>
+}
 
 const createResizeDrag = (options: {
   pointerId: number
@@ -153,8 +183,8 @@ const toPatch = (
 }
 
 export const createTransformSession = (
-  instance: InternalInstance
-) => {
+  instance: TransformSessionDeps
+): NodeTransformSession => {
   let active: ActiveTransform | null = null
   let session: ReturnType<typeof instance.interaction.start> = null
 
@@ -309,7 +339,7 @@ export const createTransformSession = (
       return
     }
 
-    instance.commands.node.updateMany(updates)
+    instance.commands.node.raw.updateMany(updates)
   }
 
   const canStart = () => !active

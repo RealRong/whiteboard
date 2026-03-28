@@ -12,7 +12,9 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from '../../runtime/instance/types'
+import type { Editor } from '../../runtime/instance/types'
+
+type MindmapCommandInstance = Pick<Editor, 'commands' | 'read'>
 
 const DEFAULT_MINDMAP_SIDE: 'left' | 'right' = 'right'
 const DEFAULT_ROOT_MOVE_THRESHOLD = 0.5
@@ -29,7 +31,7 @@ const createLayoutHint = (
 })
 
 const readNodePosition = (
-  instance: WhiteboardInstance,
+  instance: MindmapCommandInstance,
   nodeId: NodeId
 ) => {
   const node = instance.read.index.node.get(nodeId)?.node
@@ -48,7 +50,7 @@ export const insertMindmapByPlacement = ({
   layout,
   payload
 }: {
-  instance: WhiteboardInstance
+  instance: MindmapCommandInstance
   id: NodeId
   tree: MindmapTree
   targetNodeId: MindmapNodeId
@@ -118,7 +120,7 @@ export const moveMindmapByDrop = ({
   nodeSize,
   layout
 }: {
-  instance: WhiteboardInstance
+  instance: MindmapCommandInstance
   id: NodeId
   nodeId: MindmapNodeId
   drop: {
@@ -157,7 +159,7 @@ export const moveMindmapRoot = ({
   origin,
   threshold = DEFAULT_ROOT_MOVE_THRESHOLD
 }: {
-  instance: WhiteboardInstance
+  instance: MindmapCommandInstance
   nodeId: NodeId
   position: Point
   origin?: Point
@@ -172,7 +174,7 @@ export const moveMindmapRoot = ({
     return undefined
   }
 
-  return instance.commands.node.update(nodeId, {
+  return instance.commands.node.raw.update(nodeId, {
     fields: {
       position: {
         x: position.x,

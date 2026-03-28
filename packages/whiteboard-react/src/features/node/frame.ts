@@ -6,4 +6,4 @@ export {
   FRAME_DEFAULT_TITLE,
   FRAME_START_SIZE,
   createFrameNodeInput
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/node'

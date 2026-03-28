@@ -9,8 +9,8 @@ export {
   readContextTarget,
   readEditableFieldTarget,
   resolveContextTarget
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/input'
 export type {
   ContextResolved,
   ContextTarget
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/input'

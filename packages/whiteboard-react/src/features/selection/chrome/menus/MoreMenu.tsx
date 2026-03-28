@@ -8,27 +8,14 @@ import {
   SelectionTypeFilterStrip
 } from '../../../node/components/SelectionSummaryHeader'
 import type { NodeSummary, NodeTypeSummary } from '../../../node/summary'
-
-export type MoreMenuItem = {
-  key: string
-  label: string
-  disabled?: boolean
-  tone?: 'danger'
-  onClick: () => void
-}
-
-export type MoreMenuSection = {
-  key: string
-  title: string
-  items: readonly MoreMenuItem[]
-}
+import type { SelectionMoreMenuSection } from '../selectionMenu'
 
 export const MoreMenu = ({
   sections,
   summary,
   filter
 }: {
-  sections: readonly MoreMenuSection[]
+  sections: readonly SelectionMoreMenuSection[]
   summary?: NodeSummary
   filter?: {
     types: readonly NodeTypeSummary[]

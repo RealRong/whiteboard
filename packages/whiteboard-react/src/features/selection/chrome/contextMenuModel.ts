@@ -5,37 +5,36 @@ import type {
   NodeSchema,
   Point
 } from '@whiteboard/core/types'
-import type { ContextResolved } from '../../../runtime/input/pointer'
-import type { InternalInstance } from '../../../runtime/instance'
+import type { ContextResolved } from '../../../runtime/input/target'
+import type { InternalEditor } from '../../../runtime/instance/types'
 import type { NodeMeta } from '../../../types/node'
-import { createNodeSelectionActions } from '../../node/actions'
-import { toNodeStyleUpdates } from '../../node/patch'
-import type { NodeSummary } from '../../node/summary'
-import { insertPreset } from '../../toolbox/insert'
-import { CREATE_PRESETS } from '../../toolbox/presets'
 import {
-  copy,
-  cut,
-  paste
-} from '../actions/clipboard'
+  resolveNodeSelectionCan,
+  summarizeNodes,
+  type NodeSummary
+} from '../../node/summary'
+import { CREATE_PRESETS } from '../../toolbox/presets'
 import {
   COLOR_OPTIONS,
   DRAW_STROKE_WIDTHS,
   OPACITY_OPTIONS,
   STROKE_WIDTHS
-} from './options'
+} from './menus/options'
 import {
-  bindNodeMenuGroup,
-  readNodeContextMenuGroups,
-  readNodeMenuFilter,
-  type NodeMenuFilter,
-  type NodeMenuGroup
-} from './menuModel'
+  resolveSelectionContextMenuGroups,
+  resolveSelectionFilter,
+  runMenuAction,
+  type SelectionMenuFilter
+} from './selectionMenu'
+import type {
+  ContextMenuGroup,
+  ContextMenuItem
+} from './contextMenuTypes'
 
 export type ContextMenuView = {
   summary?: NodeSummary
-  filter?: NodeMenuFilter
-  groups: readonly NodeMenuGroup[]
+  filter?: SelectionMenuFilter
+  groups: readonly ContextMenuGroup[]
 }
 
 export type ContextMenuSelectionSnapshot = {
@@ -48,7 +47,7 @@ export type ContextMenuResolveMeta = (
 ) => NodeMeta | undefined
 
 type ContextMenuInstance = Pick<
-  InternalInstance,
+  InternalEditor,
   'commands' | 'read' | 'state' | 'registry' | 'viewport'
 >
 
@@ -61,7 +60,7 @@ export const snapshotContextMenuSelection = (
 })
 
 export const restoreContextMenuSelection = (
-  instance: Pick<InternalInstance, 'commands'>,
+  instance: Pick<InternalEditor, 'commands'>,
   selection: ContextMenuSelectionSnapshot
 ) => {
   if (selection.nodeIds.length > 0 || selection.edgeIds.length > 0) {
@@ -105,11 +104,13 @@ const withCurrentLabel = (
 
 const buildStrokeStyleGroup = ({
   instance,
-  nodes
+  nodes,
+  close
 }: {
   instance: Pick<ContextMenuInstance, 'registry' | 'commands'>
+  close: () => void
   nodes: readonly WhiteboardNode[]
-}): NodeMenuGroup | undefined => {
+}): ContextMenuGroup | undefined => {
   if (!nodes.length) {
     return undefined
   }
@@ -138,6 +139,17 @@ const buildStrokeStyleGroup = ({
     ? primary.style.opacity
     : 1
 
+  const bindChild = (
+    item: Omit<ContextMenuItem, 'onClick'> & {
+      onClick?: () => unknown
+    }
+  ): ContextMenuItem => ({
+    ...item,
+    onClick: item.onClick
+      ? runMenuAction(item.onClick, close)
+      : undefined
+  })
+
   return {
     key: 'style',
     title: 'Style',
@@ -145,12 +157,13 @@ const buildStrokeStyleGroup = ({
       {
         key: 'style.stroke',
         label: 'Stroke',
-        children: COLOR_OPTIONS.map((option) => ({
+        children: COLOR_OPTIONS.map((option) => bindChild({
           key: `style.stroke.${option.label.toLowerCase()}`,
           label: withCurrentLabel(option.label, stroke === option.value),
           onClick: () => {
-            instance.commands.node.updateMany(
-              toNodeStyleUpdates(nodes, { stroke: option.value })
+            instance.commands.node.appearance.setStroke(
+              nodes.map((node) => node.id),
+              option.value
             )
           }
         }))
@@ -158,12 +171,13 @@ const buildStrokeStyleGroup = ({
       {
         key: 'style.width',
         label: 'Width',
-        children: strokeWidths.map((value) => ({
+        children: strokeWidths.map((value) => bindChild({
           key: `style.width.${value}`,
           label: withCurrentLabel(`${value}`, strokeWidth === value),
           onClick: () => {
-            instance.commands.node.updateMany(
-              toNodeStyleUpdates(nodes, { strokeWidth: value })
+            instance.commands.node.appearance.setStrokeWidth(
+              nodes.map((node) => node.id),
+              value
             )
           }
         }))
@@ -173,12 +187,13 @@ const buildStrokeStyleGroup = ({
             {
               key: 'style.opacity',
               label: 'Opacity',
-              children: OPACITY_OPTIONS.map((option) => ({
+              children: OPACITY_OPTIONS.map((option) => bindChild({
                 key: `style.opacity.${option.label}`,
                 label: withCurrentLabel(option.label, opacity === option.value),
                 onClick: () => {
-                  instance.commands.node.updateMany(
-                    toNodeStyleUpdates(nodes, { opacity: option.value })
+                  instance.commands.node.appearance.setOpacity(
+                    nodes.map((node) => node.id),
+                    option.value
                   )
                 }
               }))
@@ -202,61 +217,59 @@ const readCanvasMenuView = ({
 
   return {
     groups: [
-      bindNodeMenuGroup({
+      {
         key: 'edit',
         title: 'Edit',
         items: [
           {
             key: 'edit.paste',
             label: 'Paste',
-            onClick: () => paste(instance, {
+            onClick: runMenuAction(() => instance.commands.clipboard.paste({
               at: world,
               ownerId: frame.id
-            })
+            }), close)
           }
         ]
-      }, close),
-      bindNodeMenuGroup({
+      },
+      {
         key: 'create',
         title: 'Create',
         items: CREATE_PRESETS.map((preset) => ({
           key: preset.key,
           label: preset.label,
-          onClick: () => insertPreset({
-            instance,
-            preset,
-            world,
+          onClick: runMenuAction(() => instance.commands.insert.preset(preset.key, {
+            at: world,
             ownerId: frame.id
-          })
+          }), close)
         }))
-      }, close),
-      bindNodeMenuGroup({
+      },
+      {
         key: 'history',
         title: 'History',
         items: [
           {
             key: 'history.undo',
             label: 'Undo',
-            onClick: () => instance.commands.history.undo()
+            onClick: runMenuAction(() => instance.commands.history.undo(), close)
           },
           {
             key: 'history.redo',
             label: 'Redo',
-            onClick: () => instance.commands.history.redo()
+            onClick: runMenuAction(() => instance.commands.history.redo(), close)
           }
         ]
-      }, close),
-      bindNodeMenuGroup({
+      },
+      {
         key: 'selection',
         title: 'Selection',
         items: [
           {
             key: 'selection.select-all',
             label: 'Select all',
-            onClick: () => instance.commands.selection.selectAll()
+            onClick: runMenuAction(() => instance.commands.selection.selectAll(), close)
           }
         ]
-      }, close)
+      }
     ]
   }
 }
@@ -272,27 +285,37 @@ const readNodeMenuView = ({
   close: () => void
   resolveMeta?: ContextMenuResolveMeta
 }): ContextMenuView => {
-  const nodeIds = nodes.map((node) => node.id)
-  const actions = createNodeSelectionActions(instance, nodes, {
-    onCopy: () => copy(instance, {
-      nodeIds
-    }),
-    onCut: () => cut(instance, {
-      nodeIds
-    }),
+  const summary = summarizeNodes(nodes, {
+    resolveMeta
+  })
+  const can = resolveNodeSelectionCan(nodes, {
     resolveMeta
   })
   const styleGroup = buildStrokeStyleGroup({
     instance,
-    nodes
+    nodes,
+    close
   })
 
   return {
-    summary: nodes.length > 1 ? actions.summary : undefined,
-    filter: readNodeMenuFilter(actions, close),
+    summary: nodes.length > 1 ? summary : undefined,
+    filter: resolveSelectionFilter({
+      instance,
+      nodes,
+      summary,
+      can,
+      resolveMeta,
+      close
+    }),
     groups: [
-      ...(styleGroup ? [bindNodeMenuGroup(styleGroup, close)] : []),
-      ...readNodeContextMenuGroups(actions, close)
+      ...(styleGroup ? [styleGroup] : []),
+      ...resolveSelectionContextMenuGroups({
+        instance,
+        nodes,
+        summary,
+        can,
+        close
+      })
     ]
   }
 }
@@ -307,31 +330,31 @@ const readEdgeMenuView = ({
   close: () => void
 }): ContextMenuView => ({
   groups: [
-    bindNodeMenuGroup({
+    {
       key: 'edge.actions',
       items: [
         {
           key: 'edge.copy',
           label: 'Copy',
-          onClick: () => copy(instance, {
+          onClick: runMenuAction(() => instance.commands.clipboard.copy({
             edgeIds: [edgeId]
-          })
+          }), close)
         },
         {
           key: 'edge.cut',
           label: 'Cut',
-          onClick: () => cut(instance, {
+          onClick: runMenuAction(() => instance.commands.clipboard.cut({
             edgeIds: [edgeId]
-          })
+          }), close)
         },
         {
           key: 'edge.delete',
           label: 'Delete',
           tone: 'danger',
-          onClick: () => instance.commands.edge.delete([edgeId])
+          onClick: runMenuAction(() => instance.commands.edge.delete([edgeId]), close)
         }
       ]
-    }, close)
+    }
   ]
 })
 

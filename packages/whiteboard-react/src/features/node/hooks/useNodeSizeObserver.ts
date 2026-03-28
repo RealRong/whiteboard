@@ -99,7 +99,7 @@ export const useNodeSizeObserver = () => {
       nextState.pendingSizeById.clear()
 
       if (!updates.length) return
-      instance.commands.node.updateMany(updates, { origin: 'system' })
+      instance.commands.node.raw.updateMany(updates, { origin: 'system' })
     }
 
     nextState = {

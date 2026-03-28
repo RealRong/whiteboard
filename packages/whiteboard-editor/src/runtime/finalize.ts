@@ -1,6 +1,6 @@
 import { isContainerNode } from '@whiteboard/core/node'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { WhiteboardInstance } from './instance'
+import type { Editor } from './instance/types'
 import {
   createState as createFrameState,
   hasEdge,
@@ -61,7 +61,7 @@ export const finalize = ({
   selection,
   edit
 }: {
-  read: Pick<WhiteboardInstance['read'], 'node' | 'edge'>
+  read: Pick<Editor['read'], 'node' | 'edge'>
   frame: ReturnType<typeof createFrameState>
   selection: SelectionStore
   edit: EditState

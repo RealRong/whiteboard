@@ -20,12 +20,20 @@ import {
 } from '@whiteboard/core/geometry'
 import {
   projectNodeItem,
+  type NodeSession,
   type NodeSessionReader
 } from '../../features/node/session/node'
 
 export type NodeTransform = {
   resize: boolean
   rotate: boolean
+}
+
+export type NodeInteraction = {
+  hovered: boolean
+  hidden: boolean
+  hasPatch: boolean
+  hasResizePreview: boolean
 }
 
 const resolveNodeConnect = (
@@ -72,6 +80,16 @@ const isNodeItemEqual = (
   )
 )
 
+const isNodeInteractionEqual = (
+  left: NodeInteraction,
+  right: NodeInteraction
+) => (
+  left.hovered === right.hovered
+  && left.hidden === right.hidden
+  && left.hasPatch === right.hasPatch
+  && left.hasResizePreview === right.hasResizePreview
+)
+
 const readNodeRotation = (
   node: NodeItem['node']
 ) => (
@@ -104,9 +122,19 @@ const readNodeItemFrame = (
   ? getNodeOutlineRect(item.node, item.rect)
   : item.rect
 
+const toNodeInteraction = (
+  session: NodeSession
+): NodeInteraction => ({
+  hovered: session.hovered,
+  hidden: session.hidden,
+  hasPatch: Boolean(session.patch),
+  hasResizePreview: Boolean(session.patch?.size)
+})
+
 export type NodeRead = {
   list: EngineRead['node']['list']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
+  interaction: KeyedReadStore<NodeId, NodeInteraction>
   owner: (nodeId: NodeId) => NodeId | undefined
   bounds: (nodeId: NodeId) => Rect | undefined
   frame: (nodeId: NodeId) => Rect | undefined
@@ -140,14 +168,27 @@ export const createNodeItemRead = ({
   isEqual: isNodeItemEqual
 })
 
+export const createNodeInteractionRead = ({
+  session
+}: {
+  session: NodeSessionReader
+}): NodeRead['interaction'] => createKeyedDerivedStore({
+  get: (readStore, nodeId: NodeId) => toNodeInteraction(
+    readStore(session, nodeId)
+  ),
+  isEqual: isNodeInteractionEqual
+})
+
 export const createNodeRead = ({
   read,
   registry,
-  item
+  item,
+  interaction
 }: {
   read: EngineRead
   registry: NodeRegistry
   item: KeyedReadStore<NodeId, NodeItem | undefined>
+  interaction: KeyedReadStore<NodeId, NodeInteraction>
 }): NodeRead => {
   const role = (node: Pick<Node, 'type'> | NodeType) => resolveNodeRole(
     registry.get(readNodeType(node))
@@ -165,6 +206,7 @@ export const createNodeRead = ({
   return {
     list: read.node.list,
     item,
+    interaction,
     owner: read.node.owner,
     bounds: (nodeId) => {
       const nextItem = item.get(nodeId)

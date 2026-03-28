@@ -1,11 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useInternalInstance } from '../runtime/hooks'
 import {
-  copy,
-  cut,
-  paste
-} from '../features/selection/actions/clipboard'
-import {
   isEditableTarget,
   isInputIgnoredTarget
 } from '../runtime/input/target'
@@ -41,7 +36,9 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void copy(instance, 'selection', event)
+      void instance.commands.clipboard.copy('selection', {
+        event
+      })
     }
 
     const onCut = (event: ClipboardEvent) => {
@@ -51,7 +48,9 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void cut(instance, 'selection', event)
+      void instance.commands.clipboard.cut('selection', {
+        event
+      })
     }
 
     const onPaste = (event: ClipboardEvent) => {
@@ -61,7 +60,7 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void paste(instance, {
+      void instance.commands.clipboard.paste({
         event,
         at: lastPointerWorldRef.current ?? undefined
       })

@@ -7,7 +7,7 @@ import {
   GestureTuning
 } from '../../runtime/interaction'
 import type { GestureDown } from '../../runtime/input/pointer'
-import type { InternalInstance } from '../../runtime/instance'
+import type { InternalEditor } from '../../runtime/instance/types'
 import type { Input as SelectionInput } from '../../runtime/selection'
 import {
   readSelectionPressContext,
@@ -23,6 +23,13 @@ export type SelectionGesture = {
   cancel: () => void
 }
 
+type SelectionGestureDeps = Pick<
+  InternalEditor,
+  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+> & {
+  internals: Pick<InternalEditor['internals'], 'edge' | 'node' | 'pick' | 'snap'>
+}
+
 const isEmptySelection = (
   selection: SelectionInput
 ) => (
@@ -31,7 +38,7 @@ const isEmptySelection = (
 )
 
 const buildSelectionWriter = (
-  instance: InternalInstance,
+  instance: SelectionGestureDeps,
   base: SelectionInput,
   mode: SelectionMode
 ) => {
@@ -56,7 +63,7 @@ const buildSelectionWriter = (
 }
 
 const matchesTapTarget = (
-  instance: InternalInstance,
+  instance: SelectionGestureDeps,
   match: SelectionTapMatch,
   event: PointerEvent
 ) => {
@@ -83,7 +90,7 @@ const stopPointerDown = (
 }
 
 export const createSelectionGesture = (
-  instance: InternalInstance,
+  instance: SelectionGestureDeps,
   marquee: MarqueeSession
 ): SelectionGesture => {
   const press = createPressRuntime(instance.interaction)

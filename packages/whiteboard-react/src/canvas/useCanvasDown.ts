@@ -1,18 +1,13 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   type RefObject
 } from 'react'
 import { useDrawInput } from '../features/draw/useDrawInput'
 import { useEraserInput } from '../features/draw/useEraserInput'
 import { useEdgeInput } from '../features/edge/hooks/useEdgeInput'
 import { useMindmapDrag } from '../features/mindmap/hooks/drag/useMindmapDrag'
-import { createSelectionGesture } from '../features/selection/gesture'
-import { createTransformSession } from '../features/node/hooks/transform/session'
-import {
-  createMarqueeSession
-} from '../features/selection/Marquee'
+import { type MarqueeSession } from '../features/selection/Marquee'
 import { useInsertDown } from '../features/toolbox/useInsertDown'
 import { useInternalInstance } from '../runtime/hooks'
 import {
@@ -27,19 +22,9 @@ export const useCanvasDown = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const instance = useInternalInstance()
-  const marqueeRef = useRef<ReturnType<typeof createMarqueeSession> | null>(null)
-  const gestureRef = useRef<ReturnType<typeof createSelectionGesture> | null>(null)
-  const transformRef = useRef<ReturnType<typeof createTransformSession> | null>(null)
-
-  const marquee =
-    marqueeRef.current
-    ?? (marqueeRef.current = createMarqueeSession(instance))
-  const gesture =
-    gestureRef.current
-    ?? (gestureRef.current = createSelectionGesture(instance, marquee))
-  const transform =
-    transformRef.current
-    ?? (transformRef.current = createTransformSession(instance))
+  const marquee: MarqueeSession = instance.internals.selection.marquee
+  const gesture = instance.internals.selection.gesture
+  const transform = instance.internals.node.transform
   const edge = useEdgeInput({
     containerRef
   })

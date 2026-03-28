@@ -9,3 +9,5 @@ coverage
 *.tsbuildinfo
 .tmp
 .bench
+docs/*
+docs

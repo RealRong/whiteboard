@@ -3,38 +3,24 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import type { EdgeConnectCandidate } from '@whiteboard/core/edge'
 import type { EngineInstance } from '@whiteboard/engine'
 import type {
-  WhiteboardInstance,
-  InternalInstance,
+  Editor,
+  EditorHostBridge,
+  InternalEditor,
 } from './types'
 import type { Tool } from '../tool'
 import {
-  DEFAULT_DRAW_KIND,
-  DEFAULT_EDGE_PRESET_KEY,
-  HandTool,
-  SelectTool,
-  createDrawTool,
-  createEdgeTool,
-  isDrawBrushKind,
   isSameTool,
   normalizeTool
 } from '../tool'
 import {
-  createState as createFrameState,
-  hasEdge
+  createState as createFrameState
 } from '../frame'
 import {
-  createState as createEditState,
-  type Commands as EditCommands
+  createState as createEditState
 } from '../edit'
 import {
-  applySource,
   createState as createSelectionState,
-  isSourceEqual,
-  toSource
 } from '../selection'
-import type {
-  ViewportCommands
-} from '../viewport'
 import { createViewport } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
 import {
@@ -42,16 +28,29 @@ import {
   createSnapRuntime,
   type InteractionCoordinator
 } from '../interaction'
+import {
+  createBrowserClipboardPort,
+  createClipboardRuntime
+} from '../host/clipboard'
+import { createBrowserDocumentSelectionLock } from '../host/selectionLock'
+import { createBrowserPointerContinuation } from '../host/pointerContinuation'
 import { createPickRuntime } from '../pick'
 import { createNodeFeatureRuntime } from '../../features/node/session/node'
 import { createEdgePreview } from '../../features/edge/preview'
 import { createMindmapDragStore } from '../../features/mindmap/session/drag'
+import { createMindmapDragSession } from '../../features/mindmap/dragSession'
+import { createMarqueeSession } from '../../features/selection/marquee'
+import { createSelectionGesture } from '../../features/selection/gesture'
+import { createTransformSession } from '../../features/node/session/transform'
+import { createEdgeConnectSession } from '../../features/edge/connectSession'
+import { createEditorCommands } from '../commands'
 import { createRuntimeRead } from '../read'
-import type { Viewport } from '@whiteboard/core/types'
+import type {
+  Viewport
+} from '@whiteboard/core/types'
 import { finalize } from '../finalize'
 import {
-  createDrawState,
-  readDrawSlot
+  createDrawState
 } from '../../features/draw/state'
 
 type InstanceStores = {
@@ -72,7 +71,7 @@ type InstanceInternals = {
   mindmapDrag: ReturnType<typeof createMindmapDragStore>
 }
 
-const createInstanceStores = ({
+const createEditorStores = ({
   engine,
   initialTool,
   interaction,
@@ -88,8 +87,8 @@ const createInstanceStores = ({
   viewport: ReturnType<typeof createViewport>['read']
 }): {
   stores: InstanceStores
-  state: WhiteboardInstance['state']
-  read: WhiteboardInstance['read']
+  state: Editor['state']
+  read: Editor['read']
   internals: InstanceInternals
 } => {
   const tool = createValueStore<Tool>(normalizeTool(initialTool))
@@ -142,199 +141,13 @@ const createInstanceStores = ({
   }
 }
 
-const createCommands = ({
-  engine,
-  tool,
-  history,
-  edit,
-  selection,
-  frame,
-  viewport,
-  draw
-}: {
-  engine: EngineInstance
-  tool: ReturnType<typeof createValueStore<Tool>>
-  history: ReturnType<typeof createValueStore<HistoryState>>
-  edit: EditCommands
-  selection: ReturnType<typeof createSelectionState>
-  frame: ReturnType<typeof createFrameState>
-  viewport: ViewportCommands
-  draw: ReturnType<typeof createDrawState>
-}): WhiteboardInstance['commands'] => {
-  const setTool = (nextTool: Tool) => {
-    const normalized = normalizeTool(nextTool)
-    if (normalized.type === 'draw') {
-      edit.clear()
-      selection.commands.clear()
-    }
-    if (isSameTool(tool.get(), normalized)) return
-    tool.set(normalized)
-  }
-  const syncHistory = () => {
-    history.set(engine.commands.history.get())
-  }
-
-  const writeSelection = (
-    next: ReturnType<typeof selection.source.get>,
-    write: () => void
-  ) => {
-    if (isSourceEqual(selection.source.get(), next)) {
-      return
-    }
-
-    edit.clear()
-    write()
-  }
-
-  const selectionCommands: WhiteboardInstance['commands']['selection'] = {
-    replace: (input) => {
-      writeSelection(toSource(input), () => {
-        selection.commands.replace(input)
-      })
-    },
-    add: (input) => {
-      writeSelection(
-        applySource(selection.source.get(), input, 'add'),
-        () => {
-          selection.commands.add(input)
-        }
-      )
-    },
-    remove: (input) => {
-      writeSelection(
-        applySource(selection.source.get(), input, 'subtract'),
-        () => {
-          selection.commands.remove(input)
-        }
-      )
-    },
-    toggle: (input) => {
-      writeSelection(
-        applySource(selection.source.get(), input, 'toggle'),
-        () => {
-          selection.commands.toggle(input)
-        }
-      )
-    },
-    selectAll: () => {
-      const activeFrame = frame.store.get()
-      const next = toSource({
-        nodeIds:
-          activeFrame.id
-            ? [...activeFrame.ids]
-            : [...engine.read.node.list.get()],
-        edgeIds:
-          activeFrame.id
-            ? engine.read.edge.list.get().filter((edgeId) => {
-              const edge = engine.read.edge.item.get(edgeId)?.edge
-              return edge ? hasEdge(activeFrame, edge) : false
-            })
-            : [...engine.read.edge.list.get()]
-      })
-      writeSelection(next, () => {
-        selection.commands.replace(next)
-      })
-    },
-    clear: () => {
-      writeSelection(toSource({}), () => {
-        selection.commands.clear()
-      })
-    }
-  }
-
-  const frameCommands: WhiteboardInstance['commands']['frame'] = {
-    enter: (nodeId) => {
-      selectionCommands.clear()
-      frame.commands.enter(nodeId)
-    },
-    exit: () => {
-      selectionCommands.clear()
-      frame.commands.exit()
-    },
-    clear: () => {
-      selectionCommands.clear()
-      frame.commands.clear()
-    }
-  }
-
-  const drawCommands: WhiteboardInstance['commands']['draw'] = {
-    slot: (slot) => {
-      const current = tool.get()
-      if (current.type !== 'draw' || !isDrawBrushKind(current.kind)) {
-        return
-      }
-
-      draw.commands.slot(current.kind, slot)
-    },
-    patch: (patch) => {
-      const current = tool.get()
-      if (current.type !== 'draw' || !isDrawBrushKind(current.kind)) {
-        return
-      }
-
-      draw.commands.patch(
-        current.kind,
-        readDrawSlot(draw.store.get(), current.kind),
-        patch
-      )
-    }
-  }
-
-  return {
-    ...engine.commands,
-    history: {
-      get: engine.commands.history.get,
-      clear: () => {
-        engine.commands.history.clear()
-        syncHistory()
-      },
-      undo: () => {
-        const result = engine.commands.history.undo()
-        syncHistory()
-        return result
-      },
-      redo: () => {
-        const result = engine.commands.history.redo()
-        syncHistory()
-        return result
-      }
-    },
-    tool: {
-      set: setTool,
-      select: () => {
-        setTool(SelectTool)
-      },
-      hand: () => {
-        setTool(HandTool)
-      },
-      edge: (preset = DEFAULT_EDGE_PRESET_KEY) => {
-        setTool(createEdgeTool(preset))
-      },
-      insert: (preset) => {
-        setTool({
-          type: 'insert',
-          preset
-        })
-      },
-      draw: (kind = DEFAULT_DRAW_KIND) => {
-        setTool(createDrawTool(kind))
-      }
-    },
-    draw: drawCommands,
-    edit,
-    selection: selectionCommands,
-    frame: frameCommands,
-    viewport,
-    edge: engine.commands.edge
-  }
-}
-
-export const createInstance = ({
+export const createEditor = ({
   engine,
   initialTool,
   initialViewport,
   viewportLimits,
   registry,
+  host,
 }: {
   engine: EngineInstance
   initialTool: Tool
@@ -344,13 +157,20 @@ export const createInstance = ({
     maxZoom: number
   }
   registry: NodeRegistry
-}): InternalInstance => {
+  host?: EditorHostBridge
+}): InternalEditor => {
+  const clipboardRuntime = createClipboardRuntime()
+  const clipboardPort = host?.clipboard ?? createBrowserClipboardPort()
+  const selectionLock = host?.selectionLock ?? createBrowserDocumentSelectionLock()
+  const pointerContinuation = host?.pointerContinuation ?? createBrowserPointerContinuation()
   const viewport = createViewport({
     initialViewport,
     limits: viewportLimits
   })
   const interaction = createInteractionCoordinator({
-    getViewport: () => viewport.input
+    getViewport: () => viewport.input,
+    pointerContinuation,
+    selectionLock
   })
   const pick = createPickRuntime()
   const snap = createSnapRuntime({
@@ -394,7 +214,7 @@ export const createInstance = ({
     state,
     read,
     internals
-  } = createInstanceStores({
+  } = createEditorStores({
     engine,
     initialTool,
     interaction,
@@ -436,23 +256,50 @@ export const createInstance = ({
     })
   })
 
-  const commands = createCommands({
+  const commands = createEditorCommands({
     engine,
+    read,
+    state,
     tool: stores.tool,
     history: stores.history,
     edit: stores.edit.commands,
     selection: stores.selection,
     frame: stores.frame,
-    viewport: viewport.commands,
-    draw: stores.draw
+    viewportCommands: viewport.commands,
+    viewportRead: viewport.read,
+    draw: stores.draw,
+    clipboardRuntime,
+    clipboardPort
   })
 
-  return {
+  const instance = {
     engine,
     internals: {
+      host: {
+        clipboard: {
+          runtime: clipboardRuntime,
+          port: clipboardPort
+        },
+        selectionLock,
+        pointerContinuation
+      },
       viewport,
+      pick,
       snap,
-      ...internals
+      selection: {
+        marquee: null as unknown as InternalEditor['internals']['selection']['marquee'],
+        gesture: null as unknown as InternalEditor['internals']['selection']['gesture']
+      },
+      node: {
+        ...internals.node,
+        transform: null as unknown as InternalEditor['internals']['node']['transform']
+      },
+      edge: {
+        ...internals.edge,
+        connect: null as unknown as InternalEditor['internals']['edge']['connect']
+      },
+      mindmapDrag: internals.mindmapDrag,
+      mindmapDragController: null as unknown as InternalEditor['internals']['mindmapDragController']
     },
     interaction,
     registry,
@@ -478,5 +325,16 @@ export const createInstance = ({
       resetUiSessionState()
       engine.dispose()
     }
-  }
+  } satisfies InternalEditor
+
+  instance.internals.selection.marquee = createMarqueeSession(instance)
+  instance.internals.selection.gesture = createSelectionGesture(
+    instance,
+    instance.internals.selection.marquee
+  )
+  instance.internals.node.transform = createTransformSession(instance)
+  instance.internals.edge.connect = createEdgeConnectSession(instance)
+  instance.internals.mindmapDragController = createMindmapDragSession(instance)
+
+  return instance
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ShapeKind } from '@whiteboard/editor'
+import type { ShapeKind } from '@whiteboard/editor/node'
 
 export {
   SHAPE_MENU_SECTIONS,
@@ -13,7 +13,7 @@ export {
   type ShapeGroup,
   type ShapeKind,
   type ShapeSpec
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/node'
 
 type ShapeColors = {
   fill: string

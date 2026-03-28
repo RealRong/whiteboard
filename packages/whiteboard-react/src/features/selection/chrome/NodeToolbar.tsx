@@ -6,7 +6,7 @@ import {
   useState,
   type RefObject
 } from 'react'
-import type { Node, NodeSchema, NodeUpdateInput, Point } from '@whiteboard/core/types'
+import type { Node, NodeSchema, Point } from '@whiteboard/core/types'
 import {
   useElementSize,
   useInternalInstance,
@@ -14,21 +14,9 @@ import {
 } from '../../../runtime/hooks'
 import { useSelectionPresentation } from '../../node/selection'
 import {
-  toNodeDataPatch,
-  toNodeFieldUpdate,
-  toNodeStylePatch,
-  toNodeStyleRemovalPatch,
-  toNodeStyleUpdates
-} from '../../node/patch'
-import {
-  createNodeSelectionActions,
-  type NodeSelectionActions
-} from '../../node/actions'
-import {
-  closeAfter,
-  readNodeMenuFilter,
-  readNodeMoreMenuSections
-} from './menuModel'
+  type NodeSelectionCan,
+  type NodeSummary
+} from '../../node/summary'
 import {
   buildToolbarItem,
   buildToolbarMenuStyle,
@@ -43,10 +31,7 @@ import {
   type ToolbarItemKey,
   type ToolbarPlacement
 } from './layout'
-import {
-  copy,
-  cut
-} from '../actions/clipboard'
+import { resolveNodeMeta } from '../../node/registry'
 import {
   TEXT_DEFAULT_FONT_SIZE,
   TEXT_PLACEHOLDER,
@@ -58,6 +43,13 @@ import { MoreMenu } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
+import {
+  resolveSelectionFilter,
+  resolveSelectionLayoutActions,
+  resolveSelectionMoreMenuSections,
+  type SelectionLayoutActions,
+  type SelectionMenuFilter
+} from './selectionMenu'
 
 type ToolbarMenuKey = ToolbarItemKey
 
@@ -70,8 +62,9 @@ type ToolbarIconState = {
 
 type ToolbarModel = {
   items: readonly ToolbarItem[]
-  actions: NodeSelectionActions
   nodes: readonly Node[]
+  summary: NodeSummary
+  can: NodeSelectionCan
   primaryNode: Node
   primarySchema?: NodeSchema
   placement: ToolbarPlacement
@@ -201,13 +194,12 @@ const updateToolbarTextNode = ({
   field: 'title' | 'text'
   value: string
 }) => {
-  const update: NodeUpdateInput = toNodeFieldUpdate(
-    { scope: 'data', path: field },
-    value
-  )
-
   if (node.type !== 'text') {
-    instance.commands.node.update(node.id, update)
+    instance.commands.node.text.commit({
+      nodeId: node.id,
+      field,
+      value
+    })
     return
   }
 
@@ -227,17 +219,17 @@ const updateToolbarTextNode = ({
       })
     : undefined
 
-  if (
-    size
-    && committedRect
-    && (size.width !== committedRect.width || size.height !== committedRect.height)
-  ) {
-    update.fields = {
+  instance.commands.node.text.commit({
+    nodeId: node.id,
+    field,
+    value,
+    measuredSize:
       size
-    }
-  }
-
-  instance.commands.node.update(node.id, update)
+      && committedRect
+      && (size.width !== committedRect.width || size.height !== committedRect.height)
+        ? size
+        : undefined
+  })
 }
 
 const updateToolbarTextFontSize = ({
@@ -253,24 +245,6 @@ const updateToolbarTextFontSize = ({
   field: 'title' | 'text'
   value: number | undefined
 }) => {
-  if (node.type !== 'text') {
-    if (value === undefined) {
-      instance.commands.node.update(
-        node.id,
-        toNodeStyleRemovalPatch(node, 'fontSize')
-      )
-      return
-    }
-    instance.commands.node.update(
-      node.id,
-      toNodeStylePatch(node, { fontSize: value })
-    )
-    return
-  }
-
-  const update = value === undefined
-    ? toNodeStyleRemovalPatch(node, 'fontSize')
-    : toNodeStylePatch(node, { fontSize: value })
   const source = queryNodeTextSource({
     container,
     nodeId: node.id,
@@ -291,17 +265,18 @@ const updateToolbarTextFontSize = ({
       })
     : undefined
 
-  if (
-    size
-    && committedRect
-    && (size.width !== committedRect.width || size.height !== committedRect.height)
-  ) {
-    update.fields = {
+  instance.commands.node.text.setFontSize({
+    nodeIds: [node.id],
+    value,
+    measuredSizeById:
       size
-    }
-  }
-
-  instance.commands.node.update(node.id, update)
+      && committedRect
+      && (size.width !== committedRect.width || size.height !== committedRect.height)
+        ? {
+            [node.id]: size
+          }
+        : undefined
+  })
 }
 
 export const NodeToolbar = ({
@@ -331,17 +306,7 @@ export const NodeToolbar = ({
   let toolbar: ToolbarModel | undefined
 
   if (rect && primaryNode && nodes.length) {
-    const actions = createNodeSelectionActions(instance, nodes, {
-      summary,
-      can: selection.can,
-      onCopy: () => copy(instance, {
-        nodeIds: nodes.map((node) => node.id)
-      }),
-      onCut: () => cut(instance, {
-        nodeIds: nodes.map((node) => node.id)
-      })
-    })
-    const items = resolveToolbarItemKeys(actions, nodes.length).map((key) => buildToolbarItem(key))
+    const items = resolveToolbarItemKeys(selection.can, nodes.length).map((key) => buildToolbarItem(key))
 
     if (items.length) {
       const { placement, anchor } = resolveToolbarPlacement({
@@ -351,8 +316,9 @@ export const NodeToolbar = ({
 
       toolbar = {
         items,
-        actions,
         nodes,
+        summary,
+        can: selection.can,
         primaryNode,
         primarySchema: instance.registry.get(primaryNode.type)?.schema,
         placement,
@@ -426,7 +392,27 @@ export const NodeToolbar = ({
       })
     : undefined
 
-  const actions = toolbar.actions
+  const layoutActions: SelectionLayoutActions = resolveSelectionLayoutActions({
+    instance,
+    nodes: toolbar.nodes,
+    can: toolbar.can,
+    close: closeMenu
+  })
+  const filter: SelectionMenuFilter | undefined = resolveSelectionFilter({
+    instance,
+    nodes: toolbar.nodes,
+    summary: toolbar.summary,
+    can: toolbar.can,
+    resolveMeta: (node) => resolveNodeMeta(instance.registry, node),
+    close: closeMenu
+  })
+  const moreSections = resolveSelectionMoreMenuSections({
+    instance,
+    nodes: toolbar.nodes,
+    summary: toolbar.summary,
+    can: toolbar.can,
+    close: closeMenu
+  })
   const primarySchema = toolbar.primarySchema
   const fillValue = typeof toolbar.primaryNode.style?.fill === 'string'
     ? toolbar.primaryNode.style.fill
@@ -477,17 +463,10 @@ export const NodeToolbar = ({
           <FillMenu
             value={fillValue}
             onChange={(value) => {
-              instance.commands.node.updateMany(
-                toNodeStyleUpdates(toolbar.nodes, { fill: value })
+              instance.commands.node.appearance.setFill(
+                toolbar.nodes.map((node) => node.id),
+                value
               )
-              const stickyNodes = toolbar.nodes.filter((node) => node.type === 'sticky')
-              if (!stickyNodes.length) {
-                return
-              }
-              instance.commands.node.updateMany(stickyNodes.map((node) => ({
-                id: node.id,
-                update: toNodeDataPatch(node, { background: value })
-              })))
             }}
           />
         )
@@ -499,18 +478,21 @@ export const NodeToolbar = ({
             strokeWidth={strokeWidthValue}
             opacity={strokeOpacityValue}
             onStrokeChange={(value) => {
-              instance.commands.node.updateMany(
-                toNodeStyleUpdates(toolbar.nodes, { stroke: value })
+              instance.commands.node.appearance.setStroke(
+                toolbar.nodes.map((node) => node.id),
+                value
               )
             }}
             onStrokeWidthChange={(value) => {
-              instance.commands.node.updateMany(
-                toNodeStyleUpdates(toolbar.nodes, { strokeWidth: value })
+              instance.commands.node.appearance.setStrokeWidth(
+                toolbar.nodes.map((node) => node.id),
+                value
               )
             }}
             onOpacityChange={showStrokeOpacitySection ? (value) => {
-              instance.commands.node.updateMany(
-                toNodeStyleUpdates(toolbar.nodes, { opacity: value })
+              instance.commands.node.appearance.setOpacity(
+                toolbar.nodes.map((node) => node.id),
+                value
               )
             } : undefined}
           />
@@ -534,9 +516,9 @@ export const NodeToolbar = ({
               })
             } : undefined}
             onColorChange={showTextColorSection ? (value) => {
-              instance.commands.node.update(
-                toolbar.primaryNode.id,
-                toNodeStylePatch(toolbar.primaryNode, { color: value })
+              instance.commands.node.text.setColor(
+                [toolbar.primaryNode.id],
+                value
               )
             } : undefined}
             onFontSizeChange={showTextFontSizeSection ? (value) => {
@@ -553,13 +535,13 @@ export const NodeToolbar = ({
       case 'layout':
         return (
           <LayoutMenu
-            canAlign={actions.layout.canAlign}
-            canDistribute={actions.layout.canDistribute}
+            canAlign={layoutActions.canAlign}
+            canDistribute={layoutActions.canDistribute}
             onAlign={(mode) => {
-              closeAfter(actions.layout.onAlign(mode), closeMenu)
+              layoutActions.onAlign(mode)
             }}
             onDistribute={(mode) => {
-              closeAfter(actions.layout.onDistribute(mode), closeMenu)
+              layoutActions.onDistribute(mode)
             }}
           />
         )
@@ -567,10 +549,10 @@ export const NodeToolbar = ({
         return (
           <MoreMenu
             summary={toolbar.nodes.length > 1
-              ? actions.summary
+              ? toolbar.summary
               : undefined}
-            filter={readNodeMenuFilter(actions, closeMenu)}
-            sections={readNodeMoreMenuSections(actions, closeMenu)}
+            filter={filter}
+            sections={moreSections}
           />
         )
     }

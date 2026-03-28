@@ -7,7 +7,7 @@ import {
   type MoveSet
 } from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { InternalInstance } from '../../../runtime/instance'
+import type { InternalEditor } from '../../../runtime/instance/types'
 import {
   toEdgePreviewEntry
 } from '../../edge/preview'
@@ -47,8 +47,15 @@ export type NodeDragSession = {
   cancel: () => void
 }
 
+type NodeDragSessionDeps = Pick<
+  InternalEditor,
+  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+> & {
+  internals: Pick<InternalEditor['internals'], 'edge' | 'node' | 'snap'>
+}
+
 export const createNodeDragSession = (
-  instance: InternalInstance
+  instance: NodeDragSessionDeps
 ): NodeDragSession => {
   let active: ActiveDrag | null = null
   let session: ReturnType<typeof instance.interaction.start> = null

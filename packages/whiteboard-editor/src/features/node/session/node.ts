@@ -32,6 +32,21 @@ type NodeSessionWrite =
     hiddenIds?: readonly NodeId[]
   }
 
+type NodeSessionPatchRuntime = {
+  write: (nodeId: NodeId, patch?: NodePatch) => void
+  clear: (nodeId: NodeId) => void
+}
+
+type NodeSessionPreviewRuntime = {
+  write: (write: NodeSessionPreviewWrite) => void
+  clear: () => void
+}
+
+type NodeSessionHiddenRuntime = {
+  write: (hiddenIds: readonly NodeId[]) => void
+  clear: () => void
+}
+
 export type NodeSession = {
   patch?: NodePatch
   hovered: boolean
@@ -46,6 +61,9 @@ export type NodeSessionReader =
 
 export type NodeFeatureRuntime = {
   session: NodeSessionStore
+  patch: NodeSessionPatchRuntime
+  preview: NodeSessionPreviewRuntime
+  hidden: NodeSessionHiddenRuntime
   clear: () => void
 }
 
@@ -164,6 +182,30 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
 
   return {
     session,
+    patch: {
+      write: (nodeId, patch) => {
+        writeNodeSessionPatch(session, nodeId, patch)
+      },
+      clear: (nodeId) => {
+        clearNodeSessionPatch(session, nodeId)
+      }
+    },
+    preview: {
+      write: (write) => {
+        writeNodeSessionPreview(session, write)
+      },
+      clear: () => {
+        clearNodeSessionPreview(session)
+      }
+    },
+    hidden: {
+      write: (hiddenIds) => {
+        writeNodeSessionHidden(session, hiddenIds)
+      },
+      clear: () => {
+        clearNodeSessionHidden(session)
+      }
+    },
     clear: () => {
       task.cancel()
       session.clear()

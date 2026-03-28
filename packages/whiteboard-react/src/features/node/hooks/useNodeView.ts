@@ -2,14 +2,10 @@ import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
-import type { InternalInstance } from '../../../runtime/instance'
+import type { InternalEditor } from '../../../runtime/instance'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
-import {
-  useNodeSession,
-  type NodeSession
-} from '../session/node'
 
 const buildNodeTransformStyle = (
   rect: NodeItem['rect'],
@@ -57,8 +53,15 @@ export type NodeOverlayView = {
   canRotate: NodeView['canRotate']
 }
 
+const EMPTY_NODE_INTERACTION: ReturnType<InternalEditor['read']['node']['interaction']['get']> = {
+  hovered: false,
+  hidden: false,
+  hasPatch: false,
+  hasResizePreview: false
+}
+
 const resolveNodeOverlayViewState = (
-  instance: Pick<InternalInstance, 'registry' | 'read'>,
+  instance: Pick<InternalEditor, 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem
 ): NodeOverlayView => {
@@ -83,31 +86,31 @@ const resolveNodeOverlayViewState = (
 }
 
 const resolveNodeViewState = (
-  instance: Pick<InternalInstance, 'commands' | 'registry' | 'read'>,
+  instance: Pick<InternalEditor, 'commands' | 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
-  session: NodeSession,
+  interaction: ReturnType<InternalEditor['read']['node']['interaction']['get']>,
   selected: boolean
 ): NodeView => {
   const resolvedNode = item.node
   const rect = item.rect
   const frameRect = instance.read.node.frame(nodeId) ?? rect
-  const hidden = session.hidden
-  const hasResizePreview = Boolean(session.patch?.size)
+  const hidden = interaction.hidden
+  const hasResizePreview = interaction.hasResizePreview
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
   const definition = instance.registry.get(resolvedNode.type)
   const write: NodeWrite = {
     update: (update) => {
-      instance.commands.node.update(nodeId, update)
+      instance.commands.node.raw.update(nodeId, update)
     }
   }
   const renderProps: NodeRenderProps = {
     node: resolvedNode,
     rect,
     selected,
-    hovered: session.hovered,
+    hovered: interaction.hovered,
     write
   }
   const capability = instance.read.node.transform(resolvedNode)
@@ -148,7 +151,11 @@ export const useNodeView = (
     nodeId,
     undefined
   )
-  const session = useNodeSession(instance.internals.node.session, nodeId)
+  const interaction = useOptionalKeyedStoreValue(
+    instance.read.node.interaction,
+    nodeId,
+    EMPTY_NODE_INTERACTION
+  )
 
   return useMemo(
     () => {
@@ -156,9 +163,9 @@ export const useNodeView = (
         return undefined
       }
 
-      return resolveNodeViewState(instance, nodeId, item, session, selected)
+      return resolveNodeViewState(instance, nodeId, item, interaction, selected)
     },
-    [instance, item, nodeId, selected, session]
+    [instance, interaction, item, nodeId, selected]
   )
 }
 

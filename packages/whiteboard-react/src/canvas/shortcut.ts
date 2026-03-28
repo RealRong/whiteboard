@@ -2,7 +2,7 @@ import type {
   ShortcutAction,
   ShortcutBinding
 } from '../types/common/shortcut'
-import type { InternalInstance } from '../runtime/instance'
+import type { InternalEditor } from '../runtime/instance'
 import { resolveNodeMeta } from '../features/node/registry'
 import { resolveNodeSelectionCan } from '../features/node/summary'
 
@@ -22,7 +22,7 @@ export const DefaultShortcutBindings: readonly ShortcutBinding[] = [
 type ShortcutState = ReturnType<typeof readShortcutState>
 
 const readShortcutState = (
-  instance: InternalInstance
+  instance: InternalEditor
 ) => {
   const selection = instance.read.selection.get()
   const can = resolveNodeSelectionCan(selection.items.nodes, {
@@ -38,7 +38,7 @@ const readShortcutState = (
 }
 
 const canRunShortcut = (
-  instance: InternalInstance,
+  instance: InternalEditor,
   action: ShortcutAction,
   state: ShortcutState
 ) => {
@@ -68,7 +68,7 @@ const canRunShortcut = (
 }
 
 export const runShortcut = (
-  instance: InternalInstance,
+  instance: InternalEditor,
   action: ShortcutAction
 ) => {
   const state = readShortcutState(instance)
