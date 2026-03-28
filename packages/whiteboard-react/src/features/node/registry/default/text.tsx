@@ -96,7 +96,7 @@ const TextNodeRenderer = ({
     ? (editingFontSize ?? displayFontSize)
     : displayFontSize
   const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-  const committedRect = instance.engine.read.node.item.get(node.id)?.rect ?? rect
+  const committedRect = instance.read.node.committedItem.get(node.id)?.rect ?? rect
 
   const writeTextPreview = useCallback((nextSize: TextSize | null) => {
     if (isSticky || isSameSize(previewSizeRef.current, nextSize)) {
@@ -104,11 +104,11 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = nextSize
-    instance.internals.node.patch.write(
+    instance.host.node.patch.write(
       node.id,
       nextSize ? { size: nextSize } : undefined
     )
-    instance.internals.node.session.flush()
+    instance.host.node.session.flush()
   }, [instance, isSticky, node.id])
 
   const clearTextPreview = useCallback(() => {
@@ -117,8 +117,8 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = null
-    instance.internals.node.patch.clear(node.id)
-    instance.internals.node.session.flush()
+    instance.host.node.patch.clear(node.id)
+    instance.host.node.session.flush()
   }, [instance, isSticky, node.id])
 
   const resolveTextSize = (content: string) => {
@@ -228,8 +228,8 @@ const TextNodeRenderer = ({
     }
 
     previewSizeRef.current = null
-    instance.internals.node.patch.clear(node.id)
-    instance.internals.node.session.flush()
+    instance.host.node.patch.clear(node.id)
+    instance.host.node.session.flush()
   }, [instance, isSticky, node.id])
 
   const commit = (nextDraft = draft) => {

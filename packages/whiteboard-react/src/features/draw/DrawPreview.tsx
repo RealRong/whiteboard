@@ -1,4 +1,4 @@
-import type { DrawPreview as DrawPreviewValue } from './state'
+import type { DrawPreview as DrawPreviewValue } from '@whiteboard/editor'
 import { DrawStrokeShape } from './stroke'
 
 export const DrawPreview = ({

@@ -13,24 +13,17 @@ import {
   resolveNodeTransform
 } from './node'
 import {
-  isViewEqual,
+  isSelectionSnapshotEqual,
   resolveView,
-  type Source as SelectionSource,
-  type View as SelectionView
+  type SelectionSnapshot,
+  type SelectionTarget
 } from '../selection/state'
-import {
-  readSelectionPressPlan,
-  type SelectionPressContext,
-  type SelectionPressPlan
-} from '../selection/policy'
 
-export type SelectionRead = ReadStore<SelectionView> & {
-  press: (ctx: SelectionPressContext) => SelectionPressPlan | undefined
-}
+export type SelectionRead = ReadStore<SelectionSnapshot>
 
 const trackSelectionBoundsDependencies = (
   readStore: ReadFn,
-  source: SelectionSource,
+  source: SelectionTarget,
   nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>,
   tree: KeyedReadStore<NodeId, readonly NodeId[]>
 ) => {
@@ -52,25 +45,21 @@ export const createSelectionRead = ({
   edgeItem,
   bounds,
   tree,
-  nodeFrame,
-  nodeOwner,
   registry,
   resolveNodeTransform: readNodeTransform = resolveNodeTransform
 }: {
-  source: ReadStore<SelectionSource>
+  source: ReadStore<SelectionTarget>
   nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
   edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
   bounds: (input: TargetBoundsInput) => Rect | undefined
   tree: KeyedReadStore<NodeId, readonly NodeId[]>
-  nodeFrame: (nodeId: NodeId) => Rect | undefined
-  nodeOwner: (nodeId: NodeId) => NodeId | undefined
   registry: NodeRegistry
   resolveNodeTransform?: typeof resolveNodeTransform
 }): SelectionRead => {
   const getNodeRole = (node: Node) => resolveNodeRole(
     registry.get(node.type)
   )
-  const store = createDerivedStore<SelectionView>({
+  return createDerivedStore<SelectionSnapshot>({
     get: (readStore) => {
       const selectionSource = readStore(source)
 
@@ -92,14 +81,6 @@ export const createSelectionRead = ({
         )
       })
     },
-    isEqual: isViewEqual
-  })
-  return Object.assign(store, {
-    press: (ctx: SelectionPressContext) => readSelectionPressPlan({
-      getNode: (nodeId) => nodeItem.get(nodeId)?.node,
-      getOwnerId: nodeOwner,
-      getNodeFrame: nodeFrame,
-      getNodeRole
-    }, ctx)
+    isEqual: isSelectionSnapshotEqual
   })
 }

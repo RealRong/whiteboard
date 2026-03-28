@@ -4,7 +4,6 @@ import type { EdgeId, EdgePatch, Point } from '@whiteboard/core/types'
 import { useCallback } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import type { EdgeDown } from '../../../runtime/input/pointer'
-import { writeEdgePreviewPatch } from '../preview'
 import {
   type PointerSourceEvent,
   useEdgePatchSession
@@ -37,11 +36,11 @@ export const useEdgeDragInput = () => {
     patch: EdgePatch | undefined
   ) => {
     if (!patch) {
-      instance.internals.edge.preview.patch.clear()
+      instance.host.edge.preview.patch.clear()
       return
     }
 
-    writeEdgePreviewPatch(instance.internals.edge.preview, edgeId, patch)
+    instance.host.edge.preview.writePatch(edgeId, patch)
   }, [instance])
 
   const session = useEdgePatchSession<ActiveDrag>({

@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Node } from '@whiteboard/core/types'
-import type { NodeDefinition, NodeWrite } from '../../../../types/node'
-import {
-  useEdit,
-  useInternalInstance,
-  usePickRef
-} from '../../../../runtime/hooks'
 import {
   FRAME_DEFAULT_FILL,
   FRAME_DEFAULT_STROKE,
   FRAME_DEFAULT_STROKE_WIDTH,
   FRAME_DEFAULT_TEXT_COLOR,
   FRAME_DEFAULT_TITLE
-} from '../../frame'
+} from '@whiteboard/editor/node'
+import type { NodeDefinition, NodeWrite } from '../../../../types/node'
+import {
+  useEdit,
+  useInternalInstance,
+  usePickRef
+} from '../../../../runtime/hooks'
 import {
   createSchema,
   createTextField,

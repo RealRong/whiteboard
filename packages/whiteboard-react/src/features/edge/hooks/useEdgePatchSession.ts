@@ -60,12 +60,12 @@ export const useEdgePatchSession = <Active,>({
 } => {
   const instance = useInternalInstance()
   const activeRef = useRef<Active | null>(null)
-  const sessionRef = useRef<ReturnType<typeof instance.interaction.start>>(null)
+  const sessionRef = useRef<ReturnType<typeof instance.host.interaction.start>>(null)
 
   const clear = useCallback(() => {
     activeRef.current = null
     sessionRef.current = null
-    instance.internals.edge.preview.patch.clear()
+    instance.host.edge.preview.patch.clear()
   }, [instance])
 
   const cancel = useCallback(() => {
@@ -96,7 +96,7 @@ export const useEdgePatchSession = <Active,>({
   }, [cancel, update])
 
   const start = useCallback((input: PatchSessionStartInput<Active>) => {
-    const nextSession = instance.interaction.start({
+    const nextSession = instance.host.interaction.start({
       mode,
       pointerId: input.event.pointerId,
       capture: input.capture,

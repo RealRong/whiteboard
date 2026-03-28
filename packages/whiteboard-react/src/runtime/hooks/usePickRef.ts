@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useInternalInstance } from './useWhiteboard'
 
 type InternalInstance = ReturnType<typeof useInternalInstance>
-type Pick = Parameters<InternalInstance['internals']['pick']['bind']>[1]
+type Pick = Parameters<InternalInstance['host']['pick']['bind']>[1]
 
 const toPickKey = (
   pick: Pick
@@ -61,7 +61,7 @@ export const usePickRef = (
     elementRef.current = element
 
     if (element) {
-      releaseRef.current = instance.internals.pick.bind(element, pick)
+      releaseRef.current = instance.host.pick.bind(element, pick)
     }
   }, [instance, key])
 
@@ -72,7 +72,7 @@ export const usePickRef = (
     }
 
     releaseRef.current?.()
-    releaseRef.current = instance.internals.pick.bind(element, pick)
+    releaseRef.current = instance.host.pick.bind(element, pick)
 
     return () => {
       releaseRef.current?.()

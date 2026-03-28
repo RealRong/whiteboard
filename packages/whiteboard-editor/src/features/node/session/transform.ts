@@ -339,7 +339,7 @@ export const createTransformSession = (
       return
     }
 
-    instance.commands.node.raw.updateMany(updates)
+    instance.commands.node.document.updateMany(updates)
   }
 
   const canStart = () => !active

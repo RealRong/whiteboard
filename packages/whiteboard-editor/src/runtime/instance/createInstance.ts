@@ -20,6 +20,7 @@ import {
 } from '../edit'
 import {
   createState as createSelectionState,
+  readSelectionPressPlan,
 } from '../selection'
 import { createViewport } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
@@ -71,6 +72,25 @@ type InstanceInternals = {
   mindmapDrag: ReturnType<typeof createMindmapDragStore>
 }
 
+const createDeferredInstance = () => {
+  let current: InternalEditor | null = null
+
+  return {
+    bind: (instance: InternalEditor) => {
+      current = instance
+    },
+    instance: new Proxy({} as InternalEditor, {
+      get: (_target, property) => {
+        if (!current) {
+          throw new Error('Editor instance is not initialized')
+        }
+
+        return current[property as keyof InternalEditor]
+      }
+    })
+  }
+}
+
 const createEditorStores = ({
   engine,
   initialTool,
@@ -108,6 +128,7 @@ const createEditorStores = ({
     tool,
     history,
     selection: selection.source,
+    frame: frame.store,
     pick,
     viewport,
     node,
@@ -271,9 +292,51 @@ export const createEditor = ({
     clipboardRuntime,
     clipboardPort
   })
+  const deferredInstance = createDeferredInstance()
+  const marquee = createMarqueeSession(deferredInstance.instance)
+  const gesture = createSelectionGesture(
+    deferredInstance.instance,
+    marquee
+  )
+  const transform = createTransformSession(deferredInstance.instance)
+  const edgeConnect = createEdgeConnectSession(deferredInstance.instance)
+  const mindmapDragController = createMindmapDragSession(deferredInstance.instance)
+  const planSelectionPress: Editor['host']['selection']['planPress'] = (ctx) => (
+    readSelectionPressPlan({
+      getNode: (nodeId) => read.node.item.get(nodeId)?.node,
+      getOwnerId: read.node.owner,
+      getNodeFrame: read.node.frame,
+      getNodeRole: (node) => read.node.role(node)
+    }, ctx)
+  )
+  const editorHost: Editor['host'] = {
+    registry,
+    interaction,
+    viewport,
+    pick,
+    snap,
+    selection: {
+      marquee,
+      gesture,
+      planPress: planSelectionPress
+    },
+    node: {
+      ...internals.node,
+      transform
+    },
+    edge: {
+      ...internals.edge,
+      connect: edgeConnect
+    },
+    mindmap: {
+      drag: internals.mindmapDrag,
+      controller: mindmapDragController
+    }
+  }
 
   const instance = {
     engine,
+    host: editorHost,
     internals: {
       host: {
         clipboard: {
@@ -287,19 +350,13 @@ export const createEditor = ({
       pick,
       snap,
       selection: {
-        marquee: null as unknown as InternalEditor['internals']['selection']['marquee'],
-        gesture: null as unknown as InternalEditor['internals']['selection']['gesture']
+        marquee,
+        gesture
       },
-      node: {
-        ...internals.node,
-        transform: null as unknown as InternalEditor['internals']['node']['transform']
-      },
-      edge: {
-        ...internals.edge,
-        connect: null as unknown as InternalEditor['internals']['edge']['connect']
-      },
+      node: editorHost.node,
+      edge: editorHost.edge,
       mindmapDrag: internals.mindmapDrag,
-      mindmapDragController: null as unknown as InternalEditor['internals']['mindmapDragController']
+      mindmapDragController
     },
     interaction,
     registry,
@@ -326,15 +383,7 @@ export const createEditor = ({
       engine.dispose()
     }
   } satisfies InternalEditor
-
-  instance.internals.selection.marquee = createMarqueeSession(instance)
-  instance.internals.selection.gesture = createSelectionGesture(
-    instance,
-    instance.internals.selection.marquee
-  )
-  instance.internals.node.transform = createTransformSession(instance)
-  instance.internals.edge.connect = createEdgeConnectSession(instance)
-  instance.internals.mindmapDragController = createMindmapDragSession(instance)
+  deferredInstance.bind(instance)
 
   return instance
 }

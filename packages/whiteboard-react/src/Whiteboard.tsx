@@ -19,9 +19,7 @@ import {
   useStoreValue,
   useTool
 } from './runtime/hooks'
-import {
-  useBindViewportInput
-} from './runtime/viewport'
+import { useBindViewportInput } from './runtime/viewport/useBindViewportInput'
 import { CanvasBackground } from './canvas/CanvasBackground'
 import { CanvasChrome } from './canvas/CanvasChrome'
 import { useCanvasClipboard } from './canvas/useCanvasClipboard'
@@ -38,8 +36,7 @@ import { NodeOverlayLayer } from './features/node/components/NodeOverlayLayer'
 import { EdgeOverlayLayer } from './features/edge/components/EdgeOverlayLayer'
 import {
   createEditor,
-  type Editor,
-  type InternalEditor
+  type Editor
 } from './runtime/instance'
 
 const isMirroredDocumentFromEngine = (
@@ -188,7 +185,7 @@ const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function Whit
   }
   const engineInstance = engineInstanceRef.current!
 
-  const instanceRef = useRef<InternalEditor | null>(null)
+  const instanceRef = useRef<Editor | null>(null)
   if (!instanceRef.current) {
     instanceRef.current = createEditor({
       engine: engineInstance,

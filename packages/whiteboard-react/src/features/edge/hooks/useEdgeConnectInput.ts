@@ -7,7 +7,7 @@ import { useInternalInstance, useTool } from '../../../runtime/hooks'
 export const useEdgeConnectInput = () => {
   const instance = useInternalInstance()
   const tool = useTool()
-  const sessionRef = useRef(instance.internals.edge.connect)
+  const sessionRef = useRef(instance.host.edge.connect)
   const session = sessionRef.current
 
   useEffect(() => {

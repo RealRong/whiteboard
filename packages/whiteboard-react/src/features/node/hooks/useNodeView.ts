@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
-import type { InternalEditor } from '../../../runtime/instance'
+import type { Editor } from '../../../runtime/instance'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
@@ -53,7 +53,7 @@ export type NodeOverlayView = {
   canRotate: NodeView['canRotate']
 }
 
-const EMPTY_NODE_INTERACTION: ReturnType<InternalEditor['read']['node']['interaction']['get']> = {
+const EMPTY_NODE_INTERACTION: ReturnType<Editor['read']['node']['interaction']['get']> = {
   hovered: false,
   hidden: false,
   hasPatch: false,
@@ -61,7 +61,7 @@ const EMPTY_NODE_INTERACTION: ReturnType<InternalEditor['read']['node']['interac
 }
 
 const resolveNodeOverlayViewState = (
-  instance: Pick<InternalEditor, 'registry' | 'read'>,
+  instance: Pick<Editor, 'read'>,
   nodeId: NodeId,
   item: NodeItem
 ): NodeOverlayView => {
@@ -86,10 +86,10 @@ const resolveNodeOverlayViewState = (
 }
 
 const resolveNodeViewState = (
-  instance: Pick<InternalEditor, 'commands' | 'registry' | 'read'>,
+  instance: Pick<Editor, 'commands' | 'host' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
-  interaction: ReturnType<InternalEditor['read']['node']['interaction']['get']>,
+  interaction: ReturnType<Editor['read']['node']['interaction']['get']>,
   selected: boolean
 ): NodeView => {
   const resolvedNode = item.node
@@ -100,10 +100,10 @@ const resolveNodeViewState = (
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
-  const definition = instance.registry.get(resolvedNode.type)
+  const definition = instance.host.registry.get(resolvedNode.type) as NodeDefinition | undefined
   const write: NodeWrite = {
     update: (update) => {
-      instance.commands.node.raw.update(nodeId, update)
+      instance.commands.node.document.update(nodeId, update)
     }
   }
   const renderProps: NodeRenderProps = {

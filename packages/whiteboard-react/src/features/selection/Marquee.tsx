@@ -1,7 +1,7 @@
-import type { InternalEditor } from '../../runtime/instance'
+import type { Editor } from '../../runtime/instance'
 import { useStoreValue } from '../../runtime/hooks'
 
-export type MarqueeSession = InternalEditor['internals']['selection']['marquee']
+export type MarqueeSession = Editor['host']['selection']['marquee']
 
 export const Marquee = ({
   marquee

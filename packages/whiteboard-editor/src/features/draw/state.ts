@@ -19,7 +19,8 @@ export type DrawBrush = Readonly<{
   slots: Readonly<Record<DrawSlot, BrushStyle>>
 }>
 
-export type DrawState = Readonly<Record<DrawBrushKind, DrawBrush>>
+export type DrawPreferences = Readonly<Record<DrawBrushKind, DrawBrush>>
+export type DrawState = DrawPreferences
 
 export type ResolvedDrawStyle = Readonly<{
   kind: DrawBrushKind
@@ -45,7 +46,7 @@ export type DrawCommands = {
 
 export const DRAW_SLOTS = ['1', '2', '3'] as const satisfies readonly DrawSlot[]
 
-const DEFAULT_DRAW_STATE: DrawState = {
+const DEFAULT_DRAW_PREFERENCES: DrawPreferences = {
   pen: {
     slot: '1',
     slots: {
@@ -92,7 +93,7 @@ const normalizeStyle = (
 ): BrushStyle => ({
   color: typeof value.color === 'string' && value.color.trim()
     ? value.color
-    : DEFAULT_DRAW_STATE.pen.slots['1'].color,
+    : DEFAULT_DRAW_PREFERENCES.pen.slots['1'].color,
   width: Number.isFinite(value.width)
     ? Math.max(1, value.width)
     : 1
@@ -117,38 +118,38 @@ const isSameBrush = (
   )
 )
 
-const createInitialState = (): DrawState => ({
+const createInitialState = (): DrawPreferences => ({
   pen: {
-    slot: DEFAULT_DRAW_STATE.pen.slot,
+    slot: DEFAULT_DRAW_PREFERENCES.pen.slot,
     slots: {
-      '1': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['1']),
-      '2': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['2']),
-      '3': normalizeStyle(DEFAULT_DRAW_STATE.pen.slots['3'])
+      '1': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['1']),
+      '2': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['2']),
+      '3': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['3'])
     }
   },
   highlighter: {
-    slot: DEFAULT_DRAW_STATE.highlighter.slot,
+    slot: DEFAULT_DRAW_PREFERENCES.highlighter.slot,
     slots: {
-      '1': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['1']),
-      '2': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['2']),
-      '3': normalizeStyle(DEFAULT_DRAW_STATE.highlighter.slots['3'])
+      '1': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['1']),
+      '2': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['2']),
+      '3': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['3'])
     }
   }
 })
 
 export const readDrawSlot = (
-  state: DrawState,
+  state: DrawPreferences,
   kind: DrawBrushKind
 ): DrawSlot => state[kind].slot
 
 export const readDrawBrushStyle = (
-  state: DrawState,
+  state: DrawPreferences,
   kind: DrawBrushKind,
   slot: DrawSlot = state[kind].slot
 ): BrushStyle => state[kind].slots[slot]
 
 export const readDrawStyle = (
-  state: DrawState,
+  state: DrawPreferences,
   kind: DrawBrushKind
 ): ResolvedDrawStyle => {
   const style = readDrawBrushStyle(state, kind)
@@ -162,10 +163,10 @@ export const readDrawStyle = (
 }
 
 export const createDrawState = (): {
-  store: ValueStore<DrawState>
+  store: ValueStore<DrawPreferences>
   commands: DrawCommands
 } => {
-  const store = createValueStore<DrawState>(createInitialState())
+  const store = createValueStore<DrawPreferences>(createInitialState())
 
   return {
     store,

@@ -1,12 +1,11 @@
 import {
-  type ReactNode,
   useCallback,
   useEffect,
   useRef,
   useState,
   type RefObject
 } from 'react'
-import type { Node, NodeSchema, Point } from '@whiteboard/core/types'
+import type { Point } from '@whiteboard/core/types'
 import {
   useElementSize,
   useInternalInstance,
@@ -14,29 +13,12 @@ import {
 } from '../../../runtime/hooks'
 import { useSelectionPresentation } from '../../node/selection'
 import {
-  type NodeSelectionCan,
-  type NodeSummary
-} from '../../node/summary'
-import {
-  buildToolbarItem,
   buildToolbarMenuStyle,
   buildToolbarStyle,
-  hasSchemaField,
   readMenuAnchor,
-  readTextFieldKey,
-  readTextValue,
-  resolveToolbarItemKeys,
-  resolveToolbarPlacement,
-  type ToolbarItem,
-  type ToolbarItemKey,
-  type ToolbarPlacement
+  type ToolbarItemKey
 } from './layout'
 import { resolveNodeMeta } from '../../node/registry'
-import {
-  TEXT_DEFAULT_FONT_SIZE,
-  TEXT_PLACEHOLDER,
-  measureTextNodeSize,
-} from '../../node/text'
 import { FillMenu } from './menus/FillMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'
@@ -50,234 +32,14 @@ import {
   type SelectionLayoutActions,
   type SelectionMenuFilter
 } from './selectionMenu'
+import { ToolbarIcon } from './nodeToolbarIcon'
+import { resolveNodeToolbarModel } from './nodeToolbarModel'
+import {
+  commitNodeToolbarText,
+  updateNodeToolbarTextFontSize
+} from './nodeToolbarText'
 
 type ToolbarMenuKey = ToolbarItemKey
-
-type ToolbarIconState = {
-  fill?: string
-  stroke?: string
-  strokeWidth?: number
-  opacity?: number
-}
-
-type ToolbarModel = {
-  items: readonly ToolbarItem[]
-  nodes: readonly Node[]
-  summary: NodeSummary
-  can: NodeSelectionCan
-  primaryNode: Node
-  primarySchema?: NodeSchema
-  placement: ToolbarPlacement
-  anchor: Point
-}
-
-const SvgIcon = ({
-  children,
-  viewBox = '0 0 24 24'
-}: {
-  children: ReactNode
-  viewBox?: string
-}) => (
-  <svg
-    viewBox={viewBox}
-    aria-hidden="true"
-    className="wb-node-toolbar-icon"
-    fill="none"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    {children}
-  </svg>
-)
-
-const IconStrokeWidth = 1
-
-const resolveToolbarStrokePreviewWidth = (
-  value?: number
-) => {
-  if (!Number.isFinite(value)) {
-    return 2
-  }
-
-  return Math.min(4.5, Math.max(1.5, value as number))
-}
-
-const renderToolbarIcon = (
-  key: ToolbarItemKey,
-  state: ToolbarIconState
-): ReactNode => {
-  switch (key) {
-    case 'fill':
-      return (
-        <SvgIcon>
-          <path d="M8 5.5h6l3.5 3.5v1L11 17.5 6.5 13l7-7.5Z" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <path
-            d="M5.5 19.5h13"
-            stroke={state.fill ?? 'currentColor'}
-            strokeWidth={2}
-            strokeLinecap="round"
-          />
-        </SvgIcon>
-      )
-    case 'stroke':
-      return (
-        <SvgIcon>
-          <path
-            d="M5 18.5h14"
-            stroke={state.stroke ?? 'currentColor'}
-            strokeOpacity={state.opacity ?? 1}
-            strokeWidth={resolveToolbarStrokePreviewWidth(state.strokeWidth)}
-            strokeLinecap="round"
-          />
-          <path d="M5 7h14" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-        </SvgIcon>
-      )
-    case 'text':
-      return (
-        <SvgIcon>
-          <path d="M7 6.5h10" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <path d="M12 6.5v11" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-        </SvgIcon>
-      )
-    case 'layout':
-      return (
-        <SvgIcon>
-          <path d="M4.5 7h15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <path d="M12 4.5v15" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <rect x="6" y="9" width="4" height="3" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-          <rect x="14" y="9" width="4" height="6" rx="0.75" stroke="currentColor" strokeWidth={IconStrokeWidth} />
-        </SvgIcon>
-      )
-    case 'more':
-      return (
-        <SvgIcon>
-          <circle cx="7" cy="12" r="1.15" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
-          <circle cx="17" cy="12" r="1.15" fill="currentColor" stroke="none" />
-        </SvgIcon>
-      )
-  }
-}
-
-const queryNodeTextSource = ({
-  container,
-  nodeId,
-  field
-}: {
-  container: HTMLDivElement | null
-  nodeId: string
-  field: 'title' | 'text'
-}) => {
-  if (!container) {
-    return undefined
-  }
-
-  const element = container.querySelector(
-    `[data-node-id="${nodeId}"] [data-node-editable-field="${field}"]`
-  )
-
-  return element instanceof HTMLElement
-    ? element
-    : undefined
-}
-
-const updateToolbarTextNode = ({
-  instance,
-  container,
-  node,
-  field,
-  value
-}: {
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands' | 'engine'>
-  container: HTMLDivElement | null
-  node: Node
-  field: 'title' | 'text'
-  value: string
-}) => {
-  if (node.type !== 'text') {
-    instance.commands.node.text.commit({
-      nodeId: node.id,
-      field,
-      value
-    })
-    return
-  }
-
-  const source = queryNodeTextSource({
-    container,
-    nodeId: node.id,
-    field
-  })
-  const committedRect = instance.engine.read.node.item.get(node.id)?.rect
-  const size = source && committedRect
-    ? measureTextNodeSize({
-        node,
-        content: value,
-        placeholder: TEXT_PLACEHOLDER,
-        source,
-        width: committedRect.width
-      })
-    : undefined
-
-  instance.commands.node.text.commit({
-    nodeId: node.id,
-    field,
-    value,
-    measuredSize:
-      size
-      && committedRect
-      && (size.width !== committedRect.width || size.height !== committedRect.height)
-        ? size
-        : undefined
-  })
-}
-
-const updateToolbarTextFontSize = ({
-  instance,
-  container,
-  node,
-  field,
-  value
-}: {
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands' | 'engine'>
-  container: HTMLDivElement | null
-  node: Node
-  field: 'title' | 'text'
-  value: number | undefined
-}) => {
-  const source = queryNodeTextSource({
-    container,
-    nodeId: node.id,
-    field
-  })
-  const committedRect = instance.engine.read.node.item.get(node.id)?.rect
-  const textValue = typeof node.data?.[field] === 'string'
-    ? node.data[field] as string
-    : ''
-  const size = source && committedRect
-    ? measureTextNodeSize({
-        node,
-        content: textValue,
-        placeholder: TEXT_PLACEHOLDER,
-        source,
-        width: committedRect.width,
-        fontSize: value ?? TEXT_DEFAULT_FONT_SIZE
-      })
-    : undefined
-
-  instance.commands.node.text.setFontSize({
-    nodeIds: [node.id],
-    value,
-    measuredSizeById:
-      size
-      && committedRect
-      && (size.width !== committedRect.width || size.height !== committedRect.height)
-        ? {
-            [node.id]: size
-          }
-        : undefined
-  })
-}
 
 export const NodeToolbar = ({
   containerRef
@@ -299,33 +61,11 @@ export const NodeToolbar = ({
   const closeMenu = useCallback(() => {
     setActiveMenuKey(null)
   }, [])
-  const rect = selection.box
-  const nodes = selection.items.nodes
-  const primaryNode = selection.items.primaryNode
-  const summary = selection.summary
-  let toolbar: ToolbarModel | undefined
-
-  if (rect && primaryNode && nodes.length) {
-    const items = resolveToolbarItemKeys(selection.can, nodes.length).map((key) => buildToolbarItem(key))
-
-    if (items.length) {
-      const { placement, anchor } = resolveToolbarPlacement({
-        worldToScreen,
-        rect
-      })
-
-      toolbar = {
-        items,
-        nodes,
-        summary,
-        can: selection.can,
-        primaryNode,
-        primarySchema: instance.registry.get(primaryNode.type)?.schema,
-        placement,
-        anchor
-      }
-    }
-  }
+  const toolbar = resolveNodeToolbarModel({
+    instance,
+    selection,
+    worldToScreen
+  })
 
   const showsNodeToolbar = presentation.showToolbar
 
@@ -403,7 +143,7 @@ export const NodeToolbar = ({
     nodes: toolbar.nodes,
     summary: toolbar.summary,
     can: toolbar.can,
-    resolveMeta: (node) => resolveNodeMeta(instance.registry, node),
+    resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node),
     close: closeMenu
   })
   const moreSections = resolveSelectionMoreMenuSections({
@@ -413,46 +153,6 @@ export const NodeToolbar = ({
     can: toolbar.can,
     close: closeMenu
   })
-  const primarySchema = toolbar.primarySchema
-  const fillValue = typeof toolbar.primaryNode.style?.fill === 'string'
-    ? toolbar.primaryNode.style.fill
-    : toolbar.primaryNode.type === 'sticky' && typeof toolbar.primaryNode.data?.background === 'string'
-      ? toolbar.primaryNode.data.background
-      : undefined
-  const strokeValue = typeof toolbar.primaryNode.style?.stroke === 'string'
-    ? toolbar.primaryNode.style.stroke
-    : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-  const strokeWidthValue = typeof toolbar.primaryNode.style?.strokeWidth === 'number'
-    ? toolbar.primaryNode.style.strokeWidth
-    : 1
-  const strokeOpacityValue = typeof toolbar.primaryNode.style?.opacity === 'number'
-    ? toolbar.primaryNode.style.opacity
-    : undefined
-  const textValue = readTextValue(toolbar.primaryNode, primarySchema)
-  const textFieldKey = readTextFieldKey(toolbar.primaryNode, primarySchema)
-  const textColor = typeof toolbar.primaryNode.style?.color === 'string'
-    ? toolbar.primaryNode.style.color
-    : 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-  const textFontSize = typeof toolbar.primaryNode.style?.fontSize === 'number'
-    ? toolbar.primaryNode.style.fontSize
-    : undefined
-  const showTextSection = !primarySchema
-    || hasSchemaField(primarySchema, 'data', 'text')
-    || hasSchemaField(primarySchema, 'data', 'title')
-  const showTextColorSection = !primarySchema
-    || hasSchemaField(primarySchema, 'style', 'color')
-  const showTextFontSizeSection = !primarySchema
-    || hasSchemaField(primarySchema, 'style', 'fontSize')
-  const showStrokeOpacitySection =
-    hasSchemaField(primarySchema, 'style', 'opacity')
-    || typeof toolbar.primaryNode.style?.opacity === 'number'
-  const drawOnlyStrokeMenu = toolbar.nodes.every((node) => node.type === 'draw')
-  const toolbarIconState: ToolbarIconState = {
-    fill: fillValue,
-    stroke: strokeValue,
-    strokeWidth: strokeWidthValue,
-    opacity: strokeOpacityValue
-  }
 
   const renderMenu = () => {
     if (!activeMenuKey) return null
@@ -461,7 +161,7 @@ export const NodeToolbar = ({
       case 'fill':
         return (
           <FillMenu
-            value={fillValue}
+            value={toolbar.fillValue}
             onChange={(value) => {
               instance.commands.node.appearance.setFill(
                 toolbar.nodes.map((node) => node.id),
@@ -473,10 +173,10 @@ export const NodeToolbar = ({
       case 'stroke':
         return (
           <StrokeMenu
-            widths={drawOnlyStrokeMenu ? DRAW_STROKE_WIDTHS : undefined}
-            stroke={strokeValue}
-            strokeWidth={strokeWidthValue}
-            opacity={strokeOpacityValue}
+            widths={toolbar.drawOnlyStrokeMenu ? DRAW_STROKE_WIDTHS : undefined}
+            stroke={toolbar.strokeValue}
+            strokeWidth={toolbar.strokeWidthValue}
+            opacity={toolbar.strokeOpacityValue}
             onStrokeChange={(value) => {
               instance.commands.node.appearance.setStroke(
                 toolbar.nodes.map((node) => node.id),
@@ -489,7 +189,7 @@ export const NodeToolbar = ({
                 value
               )
             }}
-            onOpacityChange={showStrokeOpacitySection ? (value) => {
+            onOpacityChange={toolbar.showStrokeOpacitySection ? (value) => {
               instance.commands.node.appearance.setOpacity(
                 toolbar.nodes.map((node) => node.id),
                 value
@@ -500,33 +200,33 @@ export const NodeToolbar = ({
       case 'text':
         return (
           <TextMenu
-            value={textValue}
-            color={textColor}
-            fontSize={textFontSize}
-            showText={showTextSection}
-            showColor={showTextColorSection}
-            showFontSize={showTextFontSizeSection}
-            onTextCommit={showTextSection ? (value) => {
-              updateToolbarTextNode({
+            value={toolbar.textValue}
+            color={toolbar.textColor}
+            fontSize={toolbar.textFontSize}
+            showText={toolbar.showTextSection}
+            showColor={toolbar.showTextColorSection}
+            showFontSize={toolbar.showTextFontSizeSection}
+            onTextCommit={toolbar.showTextSection ? (value) => {
+              commitNodeToolbarText({
                 instance,
                 container: containerRef.current,
                 node: toolbar.primaryNode,
-                field: textFieldKey,
+                field: toolbar.textFieldKey,
                 value
               })
             } : undefined}
-            onColorChange={showTextColorSection ? (value) => {
+            onColorChange={toolbar.showTextColorSection ? (value) => {
               instance.commands.node.text.setColor(
                 [toolbar.primaryNode.id],
                 value
               )
             } : undefined}
-            onFontSizeChange={showTextFontSizeSection ? (value) => {
-              updateToolbarTextFontSize({
+            onFontSizeChange={toolbar.showTextFontSizeSection ? (value) => {
+              updateNodeToolbarTextFontSize({
                 instance,
                 container: containerRef.current,
                 node: toolbar.primaryNode,
-                field: textFieldKey,
+                field: toolbar.textFieldKey,
                 value
               })
             } : undefined}
@@ -591,7 +291,7 @@ export const NodeToolbar = ({
                 setActiveMenuKey((current) => current === item.key ? null : item.key)
               }}
             >
-              {renderToolbarIcon(item.key, toolbarIconState)}
+              <ToolbarIcon itemKey={item.key} state={toolbar.iconState} />
             </button>
           )
         })}

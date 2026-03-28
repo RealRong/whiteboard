@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useSelection } from '../../node/selection'
-import { EMPTY_PATCH } from '../preview'
 
 export type EdgeView = NonNullable<
   ReturnType<ReturnType<typeof useInternalInstance>['read']['edge']['view']['get']>
@@ -53,10 +52,11 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
     ? selection.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
+  const emptyPatch = instance.host.edge.preview.emptyPatch
   const patch = useOptionalKeyedStoreValue(
-    instance.internals.edge.preview.patch,
+    instance.host.edge.preview.patch,
     edgeId,
-    instance.internals.edge.preview.emptyPatch ?? EMPTY_PATCH
+    emptyPatch
   )
 
   return useMemo(() => {

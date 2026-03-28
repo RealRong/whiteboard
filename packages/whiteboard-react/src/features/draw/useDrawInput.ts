@@ -4,6 +4,11 @@ import {
 } from '@whiteboard/core/node'
 import type { NodeId, Point } from '@whiteboard/core/types'
 import {
+  readDrawStyle,
+  type DrawPreview,
+  type ResolvedDrawStyle
+} from '@whiteboard/editor'
+import {
   useCallback,
   useEffect,
   useRef,
@@ -15,11 +20,6 @@ import { readPointerSamples } from '../../runtime/input/pointer'
 import {
   type DrawBrushKind
 } from '../../runtime/tool'
-import {
-  readDrawStyle,
-  type DrawPreview,
-  type ResolvedDrawStyle
-} from './state'
 
 type ActiveStroke = {
   ownerId?: NodeId
@@ -206,7 +206,7 @@ export const useDrawInput = () => {
       lengthScreen: 0
     }
 
-    const session = instance.interaction.start({
+    const session = instance.host.interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,

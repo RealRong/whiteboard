@@ -1,6 +1,7 @@
 export { createEditor } from './createInstance'
 export type {
   Editor,
+  EditorHost,
   EditorRead,
   EditorState,
   EditorViewport,

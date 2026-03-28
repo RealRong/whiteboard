@@ -25,7 +25,7 @@ export type SelectionGesture = {
 
 type SelectionGestureDeps = Pick<
   InternalEditor,
-  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+  'commands' | 'config' | 'host' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: Pick<InternalEditor['internals'], 'edge' | 'node' | 'pick' | 'snap'>
 }
@@ -221,7 +221,7 @@ export const createSelectionGesture = (
         input,
         instance.read.selection.get()
       )
-      const plan = instance.read.selection.press(ctx)
+      const plan = instance.host.selection.planPress(ctx)
       if (!plan) {
         return false
       }

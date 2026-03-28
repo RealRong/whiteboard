@@ -3,12 +3,14 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import {
   getTargetBounds
 } from '@whiteboard/core/node'
+import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
 import type { ReadStore } from '@whiteboard/engine'
-import type { Source as SelectionSource } from '../selection'
+import type { SelectionTarget } from '../selection'
 import type { Tool } from '../tool'
+import type { FrameScope } from '../frame'
 import {
   createNodeRead,
   createNodeInteractionRead,
@@ -28,6 +30,10 @@ import {
 } from './pick'
 import type { PickRuntime } from '../pick'
 import type { ViewportRead } from '../viewport'
+import {
+  hasEdge,
+  hasNode
+} from '../frame'
 
 export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   history: ReadStore<HistoryState>
@@ -37,6 +43,11 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   selection: SelectionRead
   tool: ToolRead
   pick: PickRead
+  frame: {
+    scope: ReadStore<FrameScope>
+    hasNode: (nodeId: NodeId) => boolean
+    hasEdge: (edge: Parameters<typeof hasEdge>[1]) => boolean
+  }
 }
 
 export const createRuntimeRead = ({
@@ -45,6 +56,7 @@ export const createRuntimeRead = ({
   tool,
   history,
   selection,
+  frame,
   pick,
   viewport,
   node,
@@ -54,7 +66,8 @@ export const createRuntimeRead = ({
   registry: NodeRegistry
   tool: ReadStore<Tool>
   history: ReadStore<HistoryState>
-  selection: ReadStore<SelectionSource>
+  selection: ReadStore<SelectionTarget>
+  frame: ReadStore<FrameScope>
   pick: PickRuntime
   viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session'>
@@ -96,8 +109,6 @@ export const createRuntimeRead = ({
     edgeItem: edgeRead.item,
     bounds: bounds.targets,
     tree: engineRead.tree,
-    nodeFrame: nodeRead.frame,
-    nodeOwner: nodeRead.owner,
     registry,
     resolveNodeTransform
   })
@@ -108,6 +119,11 @@ export const createRuntimeRead = ({
     history,
     node: nodeRead,
     edge: edgeRead,
+    frame: {
+      scope: frame,
+      hasNode: (nodeId) => hasNode(frame.get(), nodeId),
+      hasEdge: (edge) => hasEdge(frame.get(), edge)
+    },
     mindmap: engineRead.mindmap,
     selection: selectionRead,
     tree: engineRead.tree,

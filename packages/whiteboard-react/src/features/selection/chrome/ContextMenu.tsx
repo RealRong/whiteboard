@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import type { Point } from '@whiteboard/core/types'
+import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import { isContextMenuIgnoredTarget } from '@whiteboard/editor/input'
 import {
-  readContextMenuView,
-  restoreContextMenuSelection,
-  snapshotContextMenuSelection,
-  type ContextMenuSelectionSnapshot
-} from './contextMenuModel'
+  readContextMenuView
+} from './contextMenuView'
 import {
   useElementSize,
   useInternalInstance
 } from '../../../runtime/hooks'
-import { isContextMenuIgnoredTarget } from '../../../runtime/input/target'
 import {
   readContextOpen,
   resolveContextTarget,
@@ -36,6 +33,11 @@ type ContextMenuSession = {
   selection: ContextMenuSelectionSnapshot
 } | null
 
+type ContextMenuSelectionSnapshot = {
+  nodeIds: readonly NodeId[]
+  edgeIds: readonly EdgeId[]
+}
+
 type ContextMenuSide = 'left' | 'right'
 type ContextMenuRenderState = {
   submenuKey: string | null
@@ -49,6 +51,29 @@ const MenuIgnoreAttrs = {
   'data-selection-ignore': '',
   'data-input-ignore': ''
 } as const
+
+const snapshotContextMenuSelection = (
+  nodeIds: readonly NodeId[],
+  edgeIds: readonly EdgeId[]
+): ContextMenuSelectionSnapshot => ({
+  nodeIds,
+  edgeIds
+})
+
+const restoreContextMenuSelection = (
+  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
+  selection: ContextMenuSelectionSnapshot
+) => {
+  if (selection.nodeIds.length > 0 || selection.edgeIds.length > 0) {
+    instance.commands.selection.replace({
+      nodeIds: selection.nodeIds,
+      edgeIds: selection.edgeIds
+    })
+    return
+  }
+
+  instance.commands.selection.clear()
+}
 
 const ContextMenuItemView = ({
   item,
@@ -214,7 +239,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (instance.interaction.busy.get()) return
+      if (instance.host.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -223,7 +248,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (instance.interaction.busy.get()) return
+      if (instance.host.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -257,7 +282,7 @@ export const ContextMenu = ({
       instance,
       target,
       close: dismissAction,
-      resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+      resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node)
     })
     if (!menu) {
       return undefined

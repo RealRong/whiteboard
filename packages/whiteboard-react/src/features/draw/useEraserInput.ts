@@ -25,11 +25,11 @@ export const useEraserInput = () => {
 
   const syncHidden = useCallback((active: ActiveErase | null) => {
     if (!active) {
-      instance.internals.node.hidden.clear()
+      instance.host.node.hidden.clear()
       return
     }
 
-    instance.internals.node.hidden.write([...active.ids])
+    instance.host.node.hidden.write([...active.ids])
   }, [instance])
 
   const collectRect = useCallback((active: ActiveErase, rect: Rect) => {
@@ -70,7 +70,7 @@ export const useEraserInput = () => {
 
   const clear = useCallback(() => {
     activeRef.current = null
-    instance.internals.node.hidden.clear()
+    instance.host.node.hidden.clear()
   }, [instance])
 
   useEffect(() => clear, [clear])
@@ -84,7 +84,7 @@ export const useEraserInput = () => {
     }
     collectPoint(active, input.point.world)
 
-    const session = instance.interaction.start({
+    const session = instance.host.interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,

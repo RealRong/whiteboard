@@ -22,9 +22,9 @@ export const useCanvasDown = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const instance = useInternalInstance()
-  const marquee: MarqueeSession = instance.internals.selection.marquee
-  const gesture = instance.internals.selection.gesture
-  const transform = instance.internals.node.transform
+  const marquee: MarqueeSession = instance.host.selection.marquee
+  const gesture = instance.host.selection.gesture
+  const transform = instance.host.node.transform
   const edge = useEdgeInput({
     containerRef
   })

@@ -60,13 +60,13 @@ export const createNodeCommands = ({
 }: {
   engine: EngineInstance
 }): Editor['commands']['node'] => {
-  const raw: Editor['commands']['node']['raw'] = {
+  const document: Editor['commands']['node']['document'] = {
     update: engine.commands.node.update,
     updateMany: engine.commands.node.updateMany
   }
 
   const appearance: Editor['commands']['node']['appearance'] = {
-    setFill: (nodeIds, fill) => raw.updateMany(
+    setFill: (nodeIds, fill) => document.updateMany(
       nodeIds.map((id) => {
         const node = engine.read.node.item.get(id)?.node
         return {
@@ -93,25 +93,25 @@ export const createNodeCommands = ({
         }
       })
     ),
-    setStroke: (nodeIds, stroke) => raw.updateMany(
+    setStroke: (nodeIds, stroke) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: styleUpdate('stroke', stroke)
       }))
     ),
-    setStrokeWidth: (nodeIds, width) => raw.updateMany(
+    setStrokeWidth: (nodeIds, width) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: styleUpdate('strokeWidth', width)
       }))
     ),
-    setOpacity: (nodeIds, opacity) => raw.updateMany(
+    setOpacity: (nodeIds, opacity) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: styleUpdate('opacity', opacity)
       }))
     ),
-    setTextColor: (nodeIds, color) => raw.updateMany(
+    setTextColor: (nodeIds, color) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: styleUpdate('color', color)
@@ -125,7 +125,7 @@ export const createNodeCommands = ({
       field,
       value,
       measuredSize
-    }) => raw.update(
+    }) => document.update(
       nodeId,
       mergeNodeUpdates(
         dataUpdate(field, value),
@@ -144,7 +144,7 @@ export const createNodeCommands = ({
       nodeIds,
       value,
       measuredSizeById
-    }) => raw.updateMany(
+    }) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: mergeNodeUpdates(
@@ -162,7 +162,7 @@ export const createNodeCommands = ({
   }
 
   const lock: Editor['commands']['node']['lock'] = {
-    set: (nodeIds, locked) => raw.updateMany(
+    set: (nodeIds, locked) => document.updateMany(
       nodeIds.map((id) => ({
         id,
         update: {
@@ -188,7 +188,7 @@ export const createNodeCommands = ({
     duplicate: engine.commands.node.duplicate,
     group: engine.commands.node.group,
     order: engine.commands.node.order,
-    raw,
+    document,
     lock,
     text,
     appearance

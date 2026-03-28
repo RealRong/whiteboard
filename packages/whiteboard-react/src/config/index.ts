@@ -3,12 +3,12 @@ import {
   DEFAULT_BOARD_CONFIG,
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
-import { DEFAULT_VIEWPORT } from '../runtime/viewport'
 import {
   SelectTool,
   normalizeTool
 } from '../runtime/tool'
 import type { WhiteboardOptions } from '../types/common'
+import { DEFAULT_VIEWPORT } from './defaultViewport'
 import type { ResolvedConfig } from './types'
 
 const ZOOM_EPSILON = 0.0001

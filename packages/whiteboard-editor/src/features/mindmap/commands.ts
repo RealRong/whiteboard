@@ -174,7 +174,7 @@ export const moveMindmapRoot = ({
     return undefined
   }
 
-  return instance.commands.node.raw.update(nodeId, {
+  return instance.commands.node.document.update(nodeId, {
     fields: {
       position: {
         x: position.x,

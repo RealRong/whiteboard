@@ -5,36 +5,24 @@ import {
   readPointerSamples,
   resolveContextTarget
 } from '@whiteboard/editor/input'
-import type { InternalEditor as EditorInternalEditor } from '@whiteboard/editor'
-import type { InternalEditor } from '../instance'
+import type { Editor } from '../instance'
 
 export const readCanvasDown = (
-  instance: InternalEditor,
+  instance: Editor,
   container: HTMLDivElement,
   event: PointerEvent
-) => readCanvasDownBase(
-  instance as unknown as EditorInternalEditor,
-  container,
-  event
-)
+) => readCanvasDownBase(instance, container, event)
 
 export const dispatchCanvasDown = (
-  instance: Pick<InternalEditor, 'commands' | 'read' | 'state' | 'interaction'>,
+  instance: Pick<Editor, 'commands' | 'read' | 'state' | 'host'>,
   input: import('@whiteboard/editor/input').CanvasDown,
   handlers: import('@whiteboard/editor/input').CanvasDownHandlers
-) => dispatchCanvasDownBase(
-  instance as unknown as EditorInternalEditor,
-  input,
-  handlers
-)
+) => dispatchCanvasDownBase(instance, input, handlers)
 
 export const readContextOpen = (
-  instance: Pick<InternalEditor, 'commands' | 'read' | 'state' | 'viewport'>,
-  input: ReturnType<InternalEditor['read']['pick']['from']>
-) => readContextOpenBase(
-  instance as unknown as EditorInternalEditor,
-  input
-)
+  instance: Pick<Editor, 'read' | 'state'>,
+  input: ReturnType<Editor['read']['pick']['from']>
+) => readContextOpenBase(instance, input)
 
 export {
   readPointerSamples,

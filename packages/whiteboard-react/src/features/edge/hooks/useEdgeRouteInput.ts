@@ -6,7 +6,6 @@ import {
 } from 'react'
 import { useInternalInstance } from '../../../runtime/hooks'
 import type { EdgeDown } from '../../../runtime/input/pointer'
-import { writeEdgePreviewRoute } from '../preview'
 import type { SelectedEdgeRoutePointView } from './useEdgeView'
 import {
   type PointerSourceEvent,
@@ -106,8 +105,7 @@ export const useEdgeRouteInput = () => {
     points: readonly Point[],
     activeRouteIndex?: number
   ) => {
-    writeEdgePreviewRoute(
-      instance.internals.edge.preview,
+    instance.host.edge.preview.writeRoute(
       edgeId,
       points,
       activeRouteIndex

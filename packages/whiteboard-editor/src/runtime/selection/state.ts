@@ -21,21 +21,24 @@ import {
   isRectEqual
 } from '../utils/equality'
 
-export type Input = {
+export type SelectionInput = {
   nodeIds?: readonly NodeId[]
   edgeIds?: readonly EdgeId[]
 }
 
-export type Source = {
+export type SelectionTarget = {
   nodeIds: readonly NodeId[]
   edgeIds: readonly EdgeId[]
 }
 
+export type Input = SelectionInput
+export type Source = SelectionTarget
+
 export type Commands = {
-  replace: (input: Input) => void
-  add: (input: Input) => void
-  remove: (input: Input) => void
-  toggle: (input: Input) => void
+  replace: (input: SelectionInput) => void
+  add: (input: SelectionInput) => void
+  remove: (input: SelectionInput) => void
+  toggle: (input: SelectionInput) => void
   clear: () => void
 }
 
@@ -44,7 +47,7 @@ export type Transform = {
   resize: 'none' | 'resize' | 'scale'
 }
 
-export type View = {
+export type SelectionSnapshot = {
   kind: 'none' | 'node' | 'nodes' | 'edge' | 'edges' | 'mixed'
   target: {
     nodeIds: readonly NodeId[]
@@ -66,8 +69,10 @@ export type View = {
   box?: Rect
 }
 
+export type View = SelectionSnapshot
+
 export type Store = {
-  source: ValueStore<Source>
+  source: ValueStore<SelectionTarget>
   commands: Commands
 }
 
@@ -77,7 +82,7 @@ const EMPTY_EDGE_IDS: readonly EdgeId[] = []
 const EMPTY_EDGE_SET: ReadonlySet<EdgeId> = new Set<EdgeId>()
 const EMPTY_NODES: readonly Node[] = []
 const EMPTY_EDGES: readonly Edge[] = []
-const EMPTY_SOURCE: Source = {
+const EMPTY_SELECTION_TARGET: SelectionTarget = {
   nodeIds: EMPTY_NODE_IDS,
   edgeIds: EMPTY_EDGE_IDS
 }
@@ -109,16 +114,18 @@ const readEdgeItems = (
   .filter((item): item is EdgeItem => Boolean(item))
 
 export const isSourceEqual = (
-  left: Source,
-  right: Source
+  left: SelectionTarget,
+  right: SelectionTarget
 ) => (
   isOrderedArrayEqual(left.nodeIds, right.nodeIds)
   && isOrderedArrayEqual(left.edgeIds, right.edgeIds)
 )
 
+export const isSelectionTargetEqual = isSourceEqual
+
 export const isViewEqual = (
-  left: View,
-  right: View
+  left: SelectionSnapshot,
+  right: SelectionSnapshot
 ) => (
   left.kind === right.kind
   && left.target.edgeId === right.target.edgeId
@@ -136,8 +143,10 @@ export const isViewEqual = (
   && isRectEqual(left.box, right.box)
 )
 
+export const isSelectionSnapshotEqual = isViewEqual
+
 export const isSelectionBoxInteractive = (
-  selection: Pick<View, 'box' | 'kind' | 'transform' | 'items'>
+  selection: Pick<SelectionSnapshot, 'box' | 'kind' | 'transform' | 'items'>
 ) => {
   if (!selection.box) {
     return false
@@ -157,13 +166,13 @@ export const isSelectionBoxInteractive = (
 }
 
 export const toSource = (
-  input: Input
-): Source => {
+  input: SelectionInput
+): SelectionTarget => {
   const nodeIds = [...new Set(input.nodeIds ?? EMPTY_NODE_IDS)]
   const edgeIds = [...new Set(input.edgeIds ?? EMPTY_EDGE_IDS)]
 
   if (!nodeIds.length && !edgeIds.length) {
-    return EMPTY_SOURCE
+    return EMPTY_SELECTION_TARGET
   }
 
   return {
@@ -171,6 +180,8 @@ export const toSource = (
     edgeIds
   }
 }
+
+export const toSelectionTarget = toSource
 
 export const resolveView = ({
   source,
@@ -180,7 +191,7 @@ export const resolveView = ({
   resolveNodeRole,
   readBounds
 }: {
-  source: Source
+  source: SelectionTarget
   readNode: (nodeId: NodeId) => NodeItem | undefined
   readEdge: (edgeId: EdgeId) => EdgeItem | undefined
   resolveNodeTransform: (node: Node) => {
@@ -189,7 +200,7 @@ export const resolveView = ({
   }
   resolveNodeRole: (node: Node) => NodeRole
   readBounds: (input: TargetBoundsInput) => Rect | undefined
-}): View => {
+}): SelectionSnapshot => {
   const nodeItems = readNodeItems(readNode, source.nodeIds)
   const edgeItems = readEdgeItems(readEdge, source.edgeIds)
   const nodes = nodeItems.length > 0
@@ -280,9 +291,11 @@ export const resolveView = ({
   }
 }
 
+export const resolveSelectionSnapshot = resolveView
+
 export const applySource = (
-  current: Source,
-  input: Input,
+  current: SelectionTarget,
+  input: SelectionInput,
   mode: SelectionMode
 ) => toSource({
   nodeIds: [...applySelection(
@@ -297,12 +310,14 @@ export const applySource = (
   )]
 })
 
+export const applySelectionTarget = applySource
+
 export const createState = (): Store => {
-  const source = createValueStore<Source>(EMPTY_SOURCE, {
+  const source = createValueStore<SelectionTarget>(EMPTY_SELECTION_TARGET, {
     isEqual: isSourceEqual
   })
   const readSource = () => source.get()
-  const writeSource = (next: Source) => {
+  const writeSource = (next: SelectionTarget) => {
     if (isSourceEqual(readSource(), next)) {
       return
     }
@@ -325,7 +340,7 @@ export const createState = (): Store => {
         writeSource(applySource(readSource(), input, 'toggle'))
       },
       clear: () => {
-        writeSource(EMPTY_SOURCE)
+        writeSource(EMPTY_SELECTION_TARGET)
       }
     }
   }

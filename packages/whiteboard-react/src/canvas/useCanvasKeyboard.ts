@@ -1,14 +1,12 @@
 import { useEffect, useMemo, type RefObject } from 'react'
-import type { ShortcutOverrides } from '../types/common/shortcut'
-import { useInternalInstance } from '../runtime/hooks'
-import {
-  isKeyboardIgnoredTarget
-} from '../runtime/input/target'
 import {
   createShortcutMap,
+  isKeyboardIgnoredTarget,
   readShortcut,
   resolveShortcutBindings
-} from '../runtime/input/keyboard'
+} from '@whiteboard/editor/input'
+import type { ShortcutOverrides } from '../types/common/shortcut'
+import { useInternalInstance } from '../runtime/hooks'
 import {
   DefaultShortcutBindings,
   runShortcut
@@ -57,7 +55,7 @@ export const useCanvasKeyboard = ({
         return
       }
 
-      if (instance.interaction.handleKeyDown(event)) {
+      if (instance.host.interaction.handleKeyDown(event)) {
         if (event.cancelable) {
           event.preventDefault()
         }
@@ -82,13 +80,13 @@ export const useCanvasKeyboard = ({
         event.defaultPrevented
         || isKeyboardIgnoredTarget(event.target)
       ) {
-        if (event.code === 'Space' && instance.interaction.space.get()) {
-          instance.interaction.handleKeyUp(event)
+        if (event.code === 'Space' && instance.host.interaction.space.get()) {
+          instance.host.interaction.handleKeyUp(event)
         }
         return
       }
 
-      if (!instance.interaction.handleKeyUp(event)) {
+      if (!instance.host.interaction.handleKeyUp(event)) {
         return
       }
 
@@ -99,7 +97,7 @@ export const useCanvasKeyboard = ({
     }
 
     const onBlur = () => {
-      instance.interaction.handleBlur()
+      instance.host.interaction.handleBlur()
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)

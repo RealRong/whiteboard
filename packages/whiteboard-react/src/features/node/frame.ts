@@ -1,9 +1,0 @@
-export {
-  FRAME_DEFAULT_FILL,
-  FRAME_DEFAULT_STROKE,
-  FRAME_DEFAULT_STROKE_WIDTH,
-  FRAME_DEFAULT_TEXT_COLOR,
-  FRAME_DEFAULT_TITLE,
-  FRAME_START_SIZE,
-  createFrameNodeInput
-} from '@whiteboard/editor/node'

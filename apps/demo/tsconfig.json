@@ -5,6 +5,9 @@
     "baseUrl": ".",
     "types": ["vite/client"],
     "paths": {
+      "@whiteboard/collab": ["../../packages/whiteboard-collab/src/index.ts"],
+      "@whiteboard/editor": ["../../packages/whiteboard-editor/src/index.ts"],
+      "@whiteboard/editor/*": ["../../packages/whiteboard-editor/src/*.ts"],
       "@whiteboard/react": ["../../packages/whiteboard-react/src/index.ts"],
       "@whiteboard/engine": ["../../packages/whiteboard-engine/src/index.ts"],
       "@engine-types": ["../../packages/whiteboard-engine/src/types/index.ts"],

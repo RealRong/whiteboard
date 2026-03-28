@@ -133,6 +133,7 @@ const toNodeInteraction = (
 
 export type NodeRead = {
   list: EngineRead['node']['list']
+  committedItem: EngineRead['node']['item']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
   interaction: KeyedReadStore<NodeId, NodeInteraction>
   owner: (nodeId: NodeId) => NodeId | undefined
@@ -205,6 +206,7 @@ export const createNodeRead = ({
 
   return {
     list: read.node.list,
+    committedItem: read.node.item,
     item,
     interaction,
     owner: read.node.owner,

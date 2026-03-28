@@ -1,9 +1,9 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { useInternalInstance } from '../runtime/hooks'
 import {
   isEditableTarget,
   isInputIgnoredTarget
-} from '../runtime/input/target'
+} from '@whiteboard/editor/input'
+import { useInternalInstance } from '../runtime/hooks'
 
 export const useCanvasClipboard = ({
   containerRef

@@ -13,8 +13,10 @@ import type {
   FrameScope
 } from '../frame'
 import type {
-  Input as SelectionInput,
-  Source as SelectionSource
+  SelectionInput,
+  SelectionPressContext,
+  SelectionPressPlan,
+  SelectionTarget
 } from '../selection'
 import type {
   ViewportCommands,
@@ -47,7 +49,7 @@ import type { EditField, EditTarget } from '../edit'
 import type {
   BrushStylePatch,
   DrawSlot,
-  DrawState
+  DrawPreferences
 } from '../../features/draw/state'
 import type { PickRuntime } from '../pick'
 import type { ShapeKind } from '../../features/node/shape'
@@ -84,9 +86,9 @@ export type EditorInsertResult = {
 
 export type EditorState = {
   tool: ReadStore<Tool>
-  draw: ReadStore<DrawState>
+  draw: ReadStore<DrawPreferences>
   edit: ReadStore<EditTarget>
-  selection: ReadStore<SelectionSource>
+  selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
   interaction: ReadStore<InteractionState>
 }
@@ -100,7 +102,7 @@ export type EditorHostBridge = {
   pointerContinuation?: PointerContinuation
 }
 
-export type EditorNodeRawCommands = {
+export type EditorNodeDocumentCommands = {
   update: EngineNodeCommands['update']
   updateMany: EngineNodeCommands['updateMany']
 }
@@ -134,7 +136,7 @@ export type EditorNodeAppearanceCommands = {
 }
 
 export type EditorNodeCommands = Omit<EngineNodeCommands, 'update' | 'updateMany'> & {
-  raw: EditorNodeRawCommands
+  document: EditorNodeDocumentCommands
   lock: EditorNodeLockCommands
   text: EditorNodeTextCommands
   appearance: EditorNodeAppearanceCommands
@@ -251,11 +253,37 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   }
 }
 
+export type EditorHost = {
+  registry: NodeRegistry
+  interaction: InteractionCoordinator
+  viewport: ViewportRuntime
+  pick: PickRuntime
+  snap: SnapRuntime
+  selection: {
+    marquee: MarqueeSession
+    gesture: SelectionGesture
+    planPress: (ctx: SelectionPressContext) => SelectionPressPlan | undefined
+  }
+  node: NodeFeatureRuntime & {
+    transform: NodeTransformSession
+  }
+  edge: {
+    preview: EdgePreview
+    connect: EdgeConnectSession
+  }
+  mindmap: {
+    drag: MindmapDragStore
+    controller: MindmapDragController
+  }
+}
+
 export type Editor = {
+  config: Readonly<EngineBoardConfig>
   read: EditorRead
   state: EditorState
   commands: EditorCommands
   viewport: EditorViewport
+  host: EditorHost
   configure: (config: {
     tool: Tool
     viewport: {
@@ -269,7 +297,6 @@ export type Editor = {
 }
 
 export type InternalEditor = Editor & {
-  config: Readonly<EngineBoardConfig>
   engine: EngineInstance
   interaction: InteractionCoordinator
   registry: NodeRegistry

@@ -1,5 +1,5 @@
 import { DrawPreview } from './DrawPreview'
-import type { DrawPreview as DrawPreviewValue } from './state'
+import type { DrawPreview as DrawPreviewValue } from '@whiteboard/editor'
 
 export const DrawLayer = ({
   preview

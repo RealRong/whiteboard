@@ -8,7 +8,7 @@ import {
   hasNode,
   type FrameScope
 } from '../frame'
-import type { InternalEditor } from '../instance/types'
+import type { Editor } from '../instance/types'
 import type { PointerPick } from '../pick'
 import type { Tool } from '../tool'
 import {
@@ -91,10 +91,10 @@ export type ContextOpen = {
   leaveFrame: boolean
 }
 
-type CanvasFrameDeps = Pick<InternalEditor, 'commands' | 'read' | 'state'>
+type CanvasFrameDeps = Pick<Editor, 'commands' | 'read' | 'state'>
 
 export const readCanvasDown = (
-  instance: InternalEditor,
+  instance: Pick<Editor, 'read'>,
   container: HTMLDivElement,
   event: PointerEvent
 ): CanvasDown => {
@@ -243,7 +243,9 @@ const isSelectTool = (
 )
 
 export const dispatchCanvasDown = (
-  instance: CanvasFrameDeps & Pick<InternalEditor, 'interaction'>,
+  instance: CanvasFrameDeps & {
+    host: Pick<Editor['host'], 'interaction'>
+  },
   input: CanvasDown,
   handlers: CanvasDownHandlers
 ) => {
@@ -254,7 +256,7 @@ export const dispatchCanvasDown = (
   if (
     next.event.defaultPrevented
     || next.event.button !== 0
-    || instance.interaction.busy.get()
+    || instance.host.interaction.busy.get()
   ) {
     return false
   }
@@ -297,7 +299,7 @@ export const dispatchCanvasDown = (
 }
 
 export const readContextOpen = (
-  instance: Pick<InternalEditor, 'read' | 'state'>,
+  instance: Pick<Editor, 'read' | 'state'>,
   input: PointerPick
 ): ContextOpen | undefined => {
   const frame = instance.state.frame.get()
@@ -357,7 +359,7 @@ export const readContextOpen = (
 }
 
 export const resolveContextTarget = (
-  instance: Pick<InternalEditor, 'read'>,
+  instance: Pick<Editor, 'read'>,
   target: ContextTarget
 ): ContextResolved | undefined => resolveInputContextTarget({
   getNode: (nodeId) => instance.read.node.item.get(nodeId)?.node,

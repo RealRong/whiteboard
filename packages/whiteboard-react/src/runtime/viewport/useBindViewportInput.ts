@@ -1,9 +1,9 @@
 import { useEffect, type RefObject } from 'react'
-import type { InternalEditor } from '../instance'
+import type { Editor } from '../instance'
 import { createRafTask } from '../utils/rafTask'
 
-type ContainerRect = Parameters<InternalEditor['internals']['viewport']['setRect']>[0]
-type WheelInput = Parameters<InternalEditor['internals']['viewport']['input']['wheel']>[0]
+type ContainerRect = Parameters<Editor['host']['viewport']['setRect']>[0]
+type WheelInput = Parameters<Editor['host']['viewport']['input']['wheel']>[0]
 
 export type ViewportInputOptions = {
   panEnabled: boolean
@@ -59,7 +59,7 @@ export const useBindViewportInput = ({
   containerRef,
   options
 }: {
-  instance: InternalEditor
+  instance: Editor
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportInputOptions
 }) => {
@@ -68,8 +68,8 @@ export const useBindViewportInput = ({
     if (!element) {
       return
     }
-    const viewport = instance.internals.viewport
-    const interaction = instance.interaction
+    const viewport = instance.host.viewport
+    const interaction = instance.host.interaction
 
     let pan: PanState | null = null
     let panSession: ReturnType<typeof interaction.start> = null

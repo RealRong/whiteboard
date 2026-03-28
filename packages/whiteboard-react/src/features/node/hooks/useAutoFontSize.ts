@@ -93,7 +93,7 @@ export const useAutoFontSize = ({
       return
     }
 
-    const viewportSize = instance.internals.viewport.input.size()
+    const viewportSize = instance.host.viewport.input.size()
     const topLeft = instance.viewport.worldToScreen({
       x: rect.x,
       y: rect.y

@@ -25,31 +25,31 @@ export const useEdgeInput = ({
 }) => {
   const instance = useInternalInstance()
   const tool = useTool()
-  const mode = useStoreValue(instance.interaction.mode)
+  const mode = useStoreValue(instance.host.interaction.mode)
   const hoverPointRef = useRef<ReturnType<typeof instance.viewport.pointer>['world'] | null>(null)
   const hoverTaskRef = useRef(createRafTask(() => {
     if (!instance.read.tool.is('edge')) {
-      instance.internals.edge.preview.hint.clear()
+      instance.host.edge.preview.hint.clear()
       return
     }
 
-    const activeMode = instance.interaction.mode.get()
+    const activeMode = instance.host.interaction.mode.get()
     if (activeMode === 'edge-connect') {
       return
     }
     if (activeMode !== 'idle') {
-      instance.internals.edge.preview.hint.clear()
+      instance.host.edge.preview.hint.clear()
       return
     }
 
     const hoverPoint = hoverPointRef.current
     if (!hoverPoint) {
-      instance.internals.edge.preview.hint.clear()
+      instance.host.edge.preview.hint.clear()
       return
     }
 
-    const target = instance.internals.snap.edge.connect(hoverPoint)
-    instance.internals.edge.preview.hint.set(
+    const target = instance.host.snap.edge.connect(hoverPoint)
+    instance.host.edge.preview.hint.set(
       target
         ? { snap: target.pointWorld }
         : undefined
@@ -82,11 +82,11 @@ export const useEdgeInput = ({
       hoverTaskRef.current.schedule()
     }
 
-    const handlePointerLeave = () => {
+      const handlePointerLeave = () => {
       hoverTaskRef.current.cancel()
       hoverPointRef.current = null
-      if (instance.interaction.mode.get() !== 'edge-connect') {
-        instance.internals.edge.preview.hint.clear()
+      if (instance.host.interaction.mode.get() !== 'edge-connect') {
+        instance.host.edge.preview.hint.clear()
       }
     }
 
@@ -95,8 +95,8 @@ export const useEdgeInput = ({
     return () => {
       hoverTaskRef.current.cancel()
       hoverPointRef.current = null
-      if (instance.interaction.mode.get() !== 'edge-connect') {
-        instance.internals.edge.preview.hint.clear()
+      if (instance.host.interaction.mode.get() !== 'edge-connect') {
+        instance.host.edge.preview.hint.clear()
       }
       container.removeEventListener('pointermove', handlePointerMove)
       container.removeEventListener('pointerleave', handlePointerLeave)
@@ -105,12 +105,12 @@ export const useEdgeInput = ({
 
   useEffect(() => {
     if (tool.type !== 'edge') {
-      instance.internals.edge.preview.hint.clear()
+      instance.host.edge.preview.hint.clear()
       return
     }
 
     if (mode !== 'idle' && mode !== 'edge-connect') {
-      instance.internals.edge.preview.hint.clear()
+      instance.host.edge.preview.hint.clear()
     }
   }, [instance, mode, tool.type])
 

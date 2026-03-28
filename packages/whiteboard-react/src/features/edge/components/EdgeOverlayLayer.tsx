@@ -17,7 +17,7 @@ import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {
   const instance = useInternalInstance()
-  const hint = useStoreValue(instance.internals.edge.preview.hint)
+  const hint = useStoreValue(instance.host.edge.preview.hint)
   const { line, snap } = hint
   const zoom = instance.viewport.get().zoom
   const pointRadius = 4 / Math.max(zoom, 0.0001)

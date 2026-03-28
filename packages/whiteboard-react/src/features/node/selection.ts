@@ -14,20 +14,20 @@ import {
   useTool
 } from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import type { InternalEditor } from '../../runtime/instance'
+import type { Editor } from '../../runtime/instance'
 
-type EditTarget = ReturnType<InternalEditor['state']['edit']['get']>
-type InteractionMode = ReturnType<InternalEditor['interaction']['mode']['get']>
-type SelectionView = ReturnType<InternalEditor['read']['selection']['get']>
-type Tool = ReturnType<InternalEditor['state']['tool']['get']>
+type EditTarget = ReturnType<Editor['state']['edit']['get']>
+type InteractionMode = ReturnType<Editor['host']['interaction']['mode']['get']>
+type BaseSelection = ReturnType<Editor['read']['selection']['get']>
+type Tool = ReturnType<Editor['state']['tool']['get']>
 
-export type NodeSelectionView = SelectionView & {
+type SelectionView = BaseSelection & {
   summary: NodeSummary
   can: NodeSelectionCan
-  selectionBox: SelectionBoxView
+  boxState: SelectionBoxState
 }
 
-export type SelectionBoxView = {
+type SelectionBoxState = {
   box?: Rect
   interactive: boolean
   frame: boolean
@@ -35,15 +35,15 @@ export type SelectionBoxView = {
   canResize: boolean
 }
 
-export type NodeChromeView = {
+type SelectionChrome = {
   toolbar: boolean
   transform: boolean
   connect: boolean
 }
 
-export type SelectionPresentation = {
-  selection: NodeSelectionView
-  chrome: NodeChromeView
+type SelectionPresentation = {
+  selection: SelectionView
+  chrome: SelectionChrome
   showToolbar: boolean
   singleTransformNodeId?: string
   showSelectionFrame: boolean
@@ -56,7 +56,7 @@ const EMPTY_SUMMARY = summarizeNodes([])
 const EMPTY_CAN = resolveNodeSelectionCan([])
 
 const isSelectionBoxInteractive = (
-  selection: Pick<SelectionView, 'box' | 'kind' | 'transform' | 'items'>
+  selection: Pick<BaseSelection, 'box' | 'kind' | 'transform' | 'items'>
 ) => {
   if (!selection.box) {
     return false
@@ -75,9 +75,9 @@ const isSelectionBoxInteractive = (
   )
 }
 
-export const resolveSelectionBoxView = (
-  selection: SelectionView
-): SelectionBoxView => {
+const resolveSelectionBoxState = (
+  selection: BaseSelection
+): SelectionBoxState => {
   const box = selection.box
   const canResize = selection.transform.resize === 'scale'
 
@@ -90,7 +90,7 @@ export const resolveSelectionBoxView = (
   }
 }
 
-export const resolveNodeChromeView = ({
+const resolveSelectionChrome = ({
   tool,
   edit,
   selection,
@@ -99,10 +99,10 @@ export const resolveNodeChromeView = ({
 }: {
   tool: Tool
   edit: EditTarget
-  selection: SelectionView
+  selection: BaseSelection
   mode: InteractionMode
   chrome: boolean
-}): NodeChromeView => {
+}): SelectionChrome => {
   const editing = edit !== null
   const pureNodeSelection =
     (selection.kind === 'node' || selection.kind === 'nodes')
@@ -130,9 +130,9 @@ export const resolveNodeChromeView = ({
   }
 }
 
-export const resolveSelectionPresentation = (
-  selection: NodeSelectionView,
-  chrome: NodeChromeView
+const resolveSelectionPresentation = (
+  selection: SelectionView,
+  chrome: SelectionChrome
 ): SelectionPresentation => ({
   selection,
   chrome,
@@ -141,10 +141,10 @@ export const resolveSelectionPresentation = (
     selection.kind === 'node'
       ? selection.target.nodeIds[0]
       : undefined,
-  showSelectionFrame: selection.selectionBox.frame,
+  showSelectionFrame: selection.boxState.frame,
   showSelectionHandles:
     chrome.transform
-    && selection.selectionBox.handles,
+    && selection.boxState.handles,
   hideSelectionFrameForSingleShape:
     selection.kind === 'node'
     && selection.items.nodeCount === 1
@@ -155,14 +155,14 @@ export const resolveSelectionPresentation = (
       : []
 })
 
-export const resolveNodeSelectionView = (
-  selection: SelectionView,
+const resolveSelectionView = (
+  selection: BaseSelection,
   options?: {
     resolveMeta?: (node: Node) => NodeMeta | undefined
   }
-): NodeSelectionView => {
+): SelectionView => {
   const nodes = selection.items.nodes
-  const box = resolveSelectionBoxView(selection)
+  const boxState = resolveSelectionBoxState(selection)
 
   return {
     ...selection,
@@ -176,42 +176,36 @@ export const resolveNodeSelectionView = (
           resolveMeta: options?.resolveMeta
         })
       : EMPTY_CAN,
-    selectionBox: box
+    boxState
   }
 }
 
-export const useSelection = (): NodeSelectionView => {
+export const useSelection = () => {
   const instance = useInternalInstance()
   const selection = useStoreValue(instance.read.selection)
 
-  return useMemo(() => resolveNodeSelectionView(selection, {
-    resolveMeta: (node) => resolveNodeMeta(instance.registry, node)
+  return useMemo(() => resolveSelectionView(selection, {
+    resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node)
   }), [instance, selection])
 }
 
-export const useNodeChrome = (): NodeChromeView => {
+export const useSelectionPresentation = () => {
   const instance = useInternalInstance()
+  const selection = useSelection()
   const tool = useTool()
   const edit = useEdit()
-  const selection = useStoreValue(instance.read.selection)
-  const mode = useStoreValue(instance.interaction.mode)
+  const mode = useStoreValue(instance.host.interaction.mode)
   const interaction = useStoreValue(instance.state.interaction)
 
-  return useMemo(() => resolveNodeChromeView({
-    tool,
-    edit,
-    selection,
-    mode,
-    chrome: interaction.chrome
-  }), [edit, interaction.chrome, mode, selection, tool])
-}
+  return useMemo(() => {
+    const chrome = resolveSelectionChrome({
+      tool,
+      edit,
+      selection,
+      mode,
+      chrome: interaction.chrome
+    })
 
-export const useSelectionPresentation = (): SelectionPresentation => {
-  const selection = useSelection()
-  const chrome = useNodeChrome()
-
-  return useMemo(
-    () => resolveSelectionPresentation(selection, chrome),
-    [chrome, selection]
-  )
+    return resolveSelectionPresentation(selection, chrome)
+  }, [edit, interaction.chrome, mode, selection, tool])
 }

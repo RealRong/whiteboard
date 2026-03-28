@@ -155,15 +155,15 @@ const SelectionFrameOverlay = ({
 }: {
   presentation: ReturnType<typeof useSelectionPresentation>
 }) => {
-  const interactive = presentation.selection.selectionBox.interactive
+  const interactive = presentation.selection.boxState.interactive
   const ref = usePickRef({
     kind: 'selection-box',
     part: 'body'
   })
 
   if (
-    !presentation.selection.selectionBox.frame
-    || !presentation.selection.selectionBox.box
+    !presentation.selection.boxState.frame
+    || !presentation.selection.boxState.box
   ) {
     return null
   }
@@ -174,9 +174,9 @@ const SelectionFrameOverlay = ({
       className="wb-selection-transform-box"
       style={{
         pointerEvents: interactive ? 'auto' : 'none',
-        transform: `translate(${presentation.selection.selectionBox.box.x}px, ${presentation.selection.selectionBox.box.y}px)`,
-        width: presentation.selection.selectionBox.box.width,
-        height: presentation.selection.selectionBox.box.height
+        transform: `translate(${presentation.selection.boxState.box.x}px, ${presentation.selection.boxState.box.y}px)`,
+        width: presentation.selection.boxState.box.width,
+        height: presentation.selection.boxState.box.height
       }}
     />
   )
@@ -188,17 +188,17 @@ const SelectionHandlesOverlay = ({
   presentation: ReturnType<typeof useSelectionPresentation>
 }) => {
   if (
-    !presentation.selection.selectionBox.handles
-    || !presentation.selection.selectionBox.box
+    !presentation.selection.boxState.handles
+    || !presentation.selection.boxState.box
   ) {
     return null
   }
 
   return (
     <TransformHandles
-      rect={presentation.selection.selectionBox.box}
+      rect={presentation.selection.boxState.box}
       rotation={0}
-      canResize={presentation.selection.selectionBox.canResize}
+      canResize={presentation.selection.boxState.canResize}
       canRotate={false}
     />
   )
@@ -207,7 +207,7 @@ const SelectionHandlesOverlay = ({
 export const NodeOverlayLayer = () => {
   const instance = useInternalInstance()
   const frame = useFrameScope()
-  const guides = useStoreValue(instance.internals.snap.node.guides)
+  const guides = useStoreValue(instance.host.snap.node.guides)
   const presentation = useSelectionPresentation()
   const activeFrameNode = useNodeOverlayView(frame.id)
 
