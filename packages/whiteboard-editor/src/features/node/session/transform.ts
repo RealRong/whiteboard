@@ -14,12 +14,14 @@ import {
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { CanvasFrameDown } from '../../../runtime/input/pointer'
+import type { InteractionStart } from '../../../runtime/input/pointer'
 import type { InternalEditor } from '../../../runtime/instance/types'
 import {
-  isSelectionBoxInteractive,
-  type View as SelectionView
+  type SelectionSnapshot
 } from '../../../runtime/selection'
+import {
+  isTransformInteractionStart
+} from './transformStart'
 import {
   clearNodeSessionPreview,
   writeNodeSessionPreview
@@ -82,14 +84,14 @@ type TransformPointerEvent = Pick<
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const resolveSelectionBoxView = (
-  selection: SelectionView
+  selection: SelectionSnapshot
 ) => {
   const box = selection.box
   const canResize = selection.transform.resize === 'scale'
 
   return {
     box,
-    interactive: isSelectionBoxInteractive(selection),
+    interactive: selection.boxInteractive,
     frame: Boolean(box) && selection.items.nodeCount > 0,
     handles: Boolean(box) && canResize,
     canResize
@@ -98,7 +100,7 @@ const resolveSelectionBoxView = (
 
 export type NodeTransformSession = {
   cancel: () => void
-  down: (input: CanvasFrameDown) => boolean
+  down: (input: InteractionStart) => boolean
 }
 
 type TransformSessionDeps = Pick<
@@ -493,21 +495,19 @@ export const createTransformSession = (
       clear()
     },
     down: (
-      input: CanvasFrameDown
+      input: InteractionStart
     ) => {
-      const { event } = input
-
       if (!canStart()) {
         return false
       }
 
-      const pick = input.pick
+      if (!isTransformInteractionStart(input)) {
+        return false
+      }
 
-      if (
-        pick.kind === 'node'
-        && pick.part === 'transform'
-        && pick.handle
-      ) {
+      const { event, pick } = input
+
+      if (pick.kind === 'node') {
         const next = createNodeActive(pick.id, pick.handle, event)
         if (!next) {
           return false
@@ -516,11 +516,7 @@ export const createTransformSession = (
         return start(next, event, input.capture)
       }
 
-      if (
-        pick.kind === 'selection-box'
-        && pick.part === 'transform'
-        && pick.handle
-      ) {
+      if (pick.kind === 'selection-box') {
         const next = createSelectionActive(pick.handle, event)
         if (!next) {
           return false

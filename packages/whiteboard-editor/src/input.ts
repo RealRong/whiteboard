@@ -1,25 +1,18 @@
 export {
-  dispatchCanvasDown,
-  readCanvasDown,
+  handlePointerDown,
+  readInteractionStart,
   readContextOpen,
   readPointerSamples,
+  runInteractionDecision,
+  resolveInteractionDecision,
   resolveContextTarget
 } from './runtime/input/pointer'
 export type {
-  CanvasDown,
-  CanvasDownHandlers,
-  CanvasFrameDown,
   ContextOpen,
   ContextResolved,
   ContextTarget,
-  DrawDown,
-  EdgeCreateDown,
-  EdgeDown,
-  EraserDown,
-  GestureDown,
-  InsertDown,
-  MindmapDown,
-  TransformDown
+  InteractionDecision,
+  InteractionStart
 } from './runtime/input/pointer'
 export {
   CanvasContentIgnoreSelector,

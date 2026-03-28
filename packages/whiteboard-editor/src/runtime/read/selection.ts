@@ -14,7 +14,7 @@ import {
 } from './node'
 import {
   isSelectionSnapshotEqual,
-  resolveView,
+  resolveSelectionSnapshot,
   type SelectionSnapshot,
   type SelectionTarget
 } from '../selection/state'
@@ -70,7 +70,7 @@ export const createSelectionRead = ({
         tree
       )
 
-      return resolveView({
+      return resolveSelectionSnapshot({
         source: selectionSource,
         readNode: (nodeId) => readStore(nodeItem, nodeId),
         readEdge: (edgeId) => readStore(edgeItem, edgeId),

@@ -55,26 +55,6 @@ type SelectionPresentation = {
 const EMPTY_SUMMARY = summarizeNodes([])
 const EMPTY_CAN = resolveNodeSelectionCan([])
 
-const isSelectionBoxInteractive = (
-  selection: Pick<BaseSelection, 'box' | 'kind' | 'transform' | 'items'>
-) => {
-  if (!selection.box) {
-    return false
-  }
-
-  if (selection.items.count > 1) {
-    return true
-  }
-
-  return (
-    selection.transform.resize === 'scale'
-    && !(
-      selection.kind === 'node'
-      && selection.items.primaryNode?.type === 'group'
-    )
-  )
-}
-
 const resolveSelectionBoxState = (
   selection: BaseSelection
 ): SelectionBoxState => {
@@ -83,7 +63,7 @@ const resolveSelectionBoxState = (
 
   return {
     box,
-    interactive: isSelectionBoxInteractive(selection),
+    interactive: selection.boxInteractive,
     frame: Boolean(box) && selection.items.nodeCount > 0,
     handles: Boolean(box) && canResize,
     canResize

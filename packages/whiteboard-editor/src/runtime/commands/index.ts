@@ -41,6 +41,7 @@ export const createEditorCommands = ({
   viewportCommands,
   viewportRead,
   draw,
+  context,
   clipboardRuntime,
   clipboardPort
 }: {
@@ -60,6 +61,7 @@ export const createEditorCommands = ({
   viewportCommands: ViewportCommands
   viewportRead: Editor['viewport']
   draw: ReturnType<typeof createDrawState>
+  context: Editor['commands']['context']
   clipboardRuntime: ClipboardRuntime
   clipboardPort: ClipboardPort
 }): Editor['commands'] => {
@@ -124,6 +126,7 @@ export const createEditorCommands = ({
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,
+    context,
     clipboard: clipboardCommands,
     insert: insertCommands
   }

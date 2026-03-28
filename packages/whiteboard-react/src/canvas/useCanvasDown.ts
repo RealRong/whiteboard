@@ -3,17 +3,10 @@ import {
   useEffect,
   type RefObject
 } from 'react'
-import { useDrawInput } from '../features/draw/useDrawInput'
-import { useEraserInput } from '../features/draw/useEraserInput'
-import { useEdgeInput } from '../features/edge/hooks/useEdgeInput'
-import { useMindmapDrag } from '../features/mindmap/hooks/drag/useMindmapDrag'
 import { type MarqueeSession } from '../features/selection/Marquee'
-import { useInsertDown } from '../features/toolbox/useInsertDown'
 import { useInternalInstance } from '../runtime/hooks'
 import {
-  dispatchCanvasDown,
-  readCanvasDown,
-  type CanvasDown
+  handlePointerDown
 } from '../runtime/input/pointer'
 
 export const useCanvasDown = ({
@@ -25,36 +18,16 @@ export const useCanvasDown = ({
   const marquee: MarqueeSession = instance.host.selection.marquee
   const gesture = instance.host.selection.gesture
   const transform = instance.host.node.transform
-  const edge = useEdgeInput({
-    containerRef
-  })
-  const eraser = useEraserInput()
-  const draw = useDrawInput()
-  const insert = useInsertDown()
-  const mindmap = useMindmapDrag()
+  const draw = instance.host.draw
+  const edgeInput = instance.host.edge.input
 
   useEffect(() => () => {
+    draw.cancel()
+    edgeInput.cancel()
     marquee.cancel()
     gesture.cancel()
     transform.cancel()
-  }, [gesture, marquee, transform])
-
-  const handleDown = useCallback((input: CanvasDown) => {
-    return dispatchCanvasDown(
-      instance,
-      input,
-      {
-        edgeCreate: edge.create,
-        eraser: eraser.down,
-        draw: draw.down,
-        insert: insert.down,
-        transform: transform.down,
-        edge: edge.down,
-        mindmap: mindmap.down,
-        gesture: gesture.down
-      }
-    )
-  }, [draw, edge, eraser, gesture, insert, instance, mindmap, transform])
+  }, [draw, edgeInput, gesture, marquee, transform])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
     const container = containerRef.current
@@ -62,9 +35,8 @@ export const useCanvasDown = ({
       return false
     }
 
-    const input = readCanvasDown(instance, container, event)
-    return handleDown(input)
-  }, [containerRef, handleDown, instance])
+    return handlePointerDown(instance, container, event)
+  }, [containerRef, instance])
 
   useEffect(() => {
     const container = containerRef.current
@@ -75,16 +47,24 @@ export const useCanvasDown = ({
     const handlePointerDown = (event: PointerEvent) => {
       onPointerDown(event)
     }
+    const handlePointerMove = (event: PointerEvent) => {
+      edgeInput.pointerMove(event)
+    }
+    const handlePointerLeave = () => {
+      edgeInput.pointerLeave()
+    }
 
     container.addEventListener('pointerdown', handlePointerDown, true)
+    container.addEventListener('pointermove', handlePointerMove)
+    container.addEventListener('pointerleave', handlePointerLeave)
     return () => {
       container.removeEventListener('pointerdown', handlePointerDown, true)
+      container.removeEventListener('pointermove', handlePointerMove)
+      container.removeEventListener('pointerleave', handlePointerLeave)
     }
-  }, [containerRef, onPointerDown])
+  }, [containerRef, edgeInput, onPointerDown])
 
   return {
-    marquee,
-    drawPreview: draw.preview,
-    edgeRouteKeyDown: edge.keyDown
+    marquee
   }
 }

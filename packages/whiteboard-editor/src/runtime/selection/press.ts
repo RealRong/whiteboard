@@ -11,10 +11,13 @@ import type {
 } from '@whiteboard/core/types'
 import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
-import type { GestureDown } from '../input/pointer'
+import type { InteractionStart } from '../input/pointer'
+import type {
+  SelectionSnapshot,
+  SelectionTarget
+} from './state'
 import {
-  isSelectionBoxInteractive,
-  type View as SelectionView
+  toSelectionTarget
 } from './state'
 
 type ModifierEventLike = {
@@ -24,24 +27,14 @@ type ModifierEventLike = {
   metaKey: boolean
 }
 
-export type SelectionIds = {
-  nodeIds?: readonly NodeId[]
-  edgeIds?: readonly EdgeId[]
+type PolicyDeps = {
+  getNode: (nodeId: NodeId) => Node | undefined
+  getOwnerId: (nodeId: NodeId) => NodeId | undefined
+  getNodeFrame: (nodeId: NodeId) => Rect | undefined
+  getNodeRole: (node: Node) => NodeRole
 }
 
-export type SelectionPressSelection = {
-  nodeIds: readonly NodeId[]
-  edgeIds: readonly EdgeId[]
-  box?: Rect
-  boxInteractive: boolean
-}
-
-export type SelectionTapMatch = {
-  nodeId: NodeId
-  hitNodeId: NodeId
-}
-
-export type SelectionPressTarget =
+type SelectionPressTarget =
   | { kind: 'background' }
   | { kind: 'selection-box' }
   | {
@@ -56,53 +49,43 @@ export type SelectionPressTarget =
       nodeId: NodeId
     }
 
-export type SelectionPressIntent =
+export type SelectionTapAction =
   | { kind: 'clear' }
   | {
       kind: 'select'
-      selection: SelectionIds
-      match?: SelectionTapMatch
+      target: SelectionTarget
+      verifyNodeIds?: readonly NodeId[]
     }
   | {
       kind: 'edit'
       nodeId: NodeId
       field: EditField
-      match: SelectionTapMatch
+      verifyNodeIds: readonly NodeId[]
     }
+
+export type SelectionDragAction =
   | {
       kind: 'move'
       frame: Rect
       anchorId: NodeId
-      nodeIds: readonly NodeId[]
-      edgeIds: readonly EdgeId[]
-      select?: SelectionIds
+      target: SelectionTarget
+      nextSelection?: SelectionTarget
     }
   | {
       kind: 'marquee'
       match: 'touch' | 'contain'
       mode: SelectionMode
-      base: SelectionIds
+      base: SelectionTarget
     }
 
 export type SelectionPressPlan = {
   chrome: boolean
-  tap?: SelectionPressIntent
-  drag?: SelectionPressIntent
-  hold?: SelectionPressIntent
+  tap?: SelectionTapAction
+  drag?: SelectionDragAction
+  allowHold: boolean
 }
 
-export type SelectionPressContext = {
-  input: GestureDown
-  mode: SelectionMode
-  selected: SelectionPressSelection
-}
-
-type PolicyDeps = {
-  getNode: (nodeId: NodeId) => Node | undefined
-  getOwnerId: (nodeId: NodeId) => NodeId | undefined
-  getNodeFrame: (nodeId: NodeId) => Rect | undefined
-  getNodeRole: (node: Node) => NodeRole
-}
+const EMPTY_SELECTION = toSelectionTarget({})
 
 const resolveSelectionMode = (
   modifiers: ModifierEventLike
@@ -111,11 +94,6 @@ const resolveSelectionMode = (
   if (modifiers.metaKey || modifiers.ctrlKey) return 'toggle'
   if (modifiers.shiftKey) return 'add'
   return 'replace'
-}
-
-const EMPTY_SELECTION: SelectionIds = {
-  nodeIds: [],
-  edgeIds: []
 }
 
 const isSingleSelectedNode = (
@@ -133,7 +111,7 @@ const isSelectedNode = (
 
 const toNodeSelection = (
   nodeIds: readonly NodeId[]
-): SelectionIds => ({
+): SelectionTarget => ({
   nodeIds,
   edgeIds: []
 })
@@ -143,7 +121,7 @@ const applyNodeTapSelection = (
   selectedEdgeIds: readonly EdgeId[],
   nodeId: NodeId,
   mode: SelectionMode
-): SelectionIds => ({
+): SelectionTarget => ({
   nodeIds: [
     ...applySelection(
       new Set(selectedNodeIds),
@@ -161,18 +139,20 @@ const applyNodeTapSelection = (
 })
 
 const getCurrentSelection = (
-  selected: SelectionPressSelection
-): SelectionIds => ({
-  nodeIds: selected.nodeIds,
-  edgeIds: selected.edgeIds
+  selection: SelectionSnapshot
+): SelectionTarget => ({
+  nodeIds: selection.target.nodeIds,
+  edgeIds: selection.target.edgeIds
 })
 
-const createContainHoldIntent = (): SelectionPressIntent => ({
-  kind: 'marquee',
-  match: 'contain',
-  mode: 'replace',
-  base: EMPTY_SELECTION
-})
+const toVerifyNodeIds = (
+  nodeId: NodeId,
+  hitNodeId: NodeId
+): readonly NodeId[] => (
+  nodeId === hitNodeId
+    ? [nodeId]
+    : [nodeId, hitNodeId]
+)
 
 const findSelectedGroupId = (
   deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
@@ -230,7 +210,7 @@ const resolvePressNodeId = (
 const readPressNodeTarget = (
   deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
   input: {
-    pick: GestureDown['pick']
+    pick: InteractionStart['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -250,7 +230,7 @@ const readPressNodeTarget = (
 const readSelectionPressTarget = (
   deps: PolicyDeps,
   input: {
-    pick: GestureDown['pick']
+    pick: InteractionStart['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -301,57 +281,51 @@ const readSelectionPressTarget = (
 }
 
 const planBackgroundPress = (
-  input: {
-    mode: SelectionMode
-    selected: SelectionPressSelection
-  }
+  selection: SelectionSnapshot,
+  mode: SelectionMode
 ): SelectionPressPlan => ({
   chrome: false,
-  tap: input.mode === 'replace'
+  tap: mode === 'replace'
     ? { kind: 'clear' }
     : undefined,
   drag: {
     kind: 'marquee',
     match: 'touch',
-    mode: input.mode,
-    base: getCurrentSelection(input.selected)
-  }
+    mode,
+    base: getCurrentSelection(selection)
+  },
+  allowHold: false
 })
 
 const planSelectionBoxPress = (
-  input: {
-    selected: SelectionPressSelection
-  }
+  selection: SelectionSnapshot
 ): SelectionPressPlan | undefined => {
-  if (!input.selected.nodeIds.length && !input.selected.edgeIds.length) {
+  if (!selection.target.nodeIds.length && !selection.target.edgeIds.length) {
     return undefined
   }
 
-  if (!input.selected.boxInteractive || !input.selected.box) {
+  if (!selection.boxInteractive || !selection.box) {
     return undefined
   }
 
   return {
     chrome: true,
-    drag: input.selected.nodeIds.length > 0
+    drag: selection.target.nodeIds.length > 0
       ? {
           kind: 'move',
-          frame: input.selected.box,
-          anchorId: input.selected.nodeIds[0]!,
-          nodeIds: input.selected.nodeIds,
-          edgeIds: input.selected.edgeIds
+          frame: selection.box,
+          anchorId: selection.target.nodeIds[0]!,
+          target: getCurrentSelection(selection)
         }
       : undefined,
-    hold: createContainHoldIntent()
+    allowHold: true
   }
 }
 
 const planNodePress = (
   deps: Pick<PolicyDeps, 'getNode' | 'getNodeFrame'>,
-  input: {
-    mode: SelectionMode
-    selected: SelectionPressSelection
-  },
+  selection: SelectionSnapshot,
+  mode: SelectionMode,
   target: Extract<SelectionPressTarget, { kind: 'node' }>
 ): SelectionPressPlan | undefined => {
   const {
@@ -365,21 +339,19 @@ const planNodePress = (
     return undefined
   }
 
-  const selectedNodeIds = input.selected.nodeIds
-  const selectedEdgeIds = input.selected.edgeIds
+  const selectedNodeIds = selection.target.nodeIds
+  const selectedEdgeIds = selection.target.edgeIds
   const selected = isSelectedNode(node.id, selectedNodeIds)
-  const repeat =
-    input.mode === 'replace'
-    && isSingleSelectedNode(node.id, selectedNodeIds)
+  const repeat = mode === 'replace' && isSingleSelectedNode(node.id, selectedNodeIds)
   const dragCurrentSelection = Boolean(
-    input.mode === 'replace'
+    mode === 'replace'
     && target.selectedGroupId
   )
-  const select = applyNodeTapSelection(
+  const nextSelection = applyNodeTapSelection(
     selectedNodeIds,
     selectedEdgeIds,
     node.id,
-    input.mode
+    mode
   )
   const dragNodeIds = repeat
     ? selectedNodeIds
@@ -387,27 +359,24 @@ const planNodePress = (
       ? selectedNodeIds
       : selected
         ? selectedNodeIds
-        : (select.nodeIds ?? [])
+        : nextSelection.nodeIds
   const dragEdgeIds =
     repeat || dragCurrentSelection || selected
       ? selectedEdgeIds
       : []
   const dragFrame =
-    dragCurrentSelection && input.selected.box
-      ? input.selected.box
+    dragCurrentSelection && selection.box
+      ? selection.box
       : frame
-  const match: SelectionTapMatch = {
-    nodeId: node.id,
-    hitNodeId
-  }
+  const verifyNodeIds = toVerifyNodeIds(node.id, hitNodeId)
 
   return {
     chrome: selected || dragCurrentSelection,
     tap: node.locked
       ? {
           kind: 'select',
-          selection: select,
-          match
+          target: nextSelection,
+          verifyNodeIds
         }
       : repeat
         ? (
@@ -416,14 +385,14 @@ const planNodePress = (
                 kind: 'edit',
                 nodeId: node.id,
                 field,
-                match
+                verifyNodeIds
               }
             : undefined
         )
         : {
             kind: 'select',
-            selection: select,
-            match
+            target: nextSelection,
+            verifyNodeIds
           },
     drag: {
       kind: 'move',
@@ -431,22 +400,22 @@ const planNodePress = (
       anchorId: dragCurrentSelection
         ? dragNodeIds[0]!
         : node.id,
-      nodeIds: dragNodeIds,
-      edgeIds: dragEdgeIds,
-      select: dragCurrentSelection
+      target: {
+        nodeIds: dragNodeIds,
+        edgeIds: dragEdgeIds
+      },
+      nextSelection: dragCurrentSelection
         ? undefined
         : toNodeSelection(dragNodeIds)
     },
-    hold: createContainHoldIntent()
+    allowHold: true
   }
 }
 
 const planGroupShellPress = (
   deps: Pick<PolicyDeps, 'getNode' | 'getNodeFrame'>,
-  input: {
-    mode: SelectionMode
-    selected: SelectionPressSelection
-  },
+  selection: SelectionSnapshot,
+  mode: SelectionMode,
   nodeId: NodeId
 ): SelectionPressPlan | undefined => {
   const node = deps.getNode(nodeId)
@@ -455,63 +424,52 @@ const planGroupShellPress = (
     return undefined
   }
 
-  const selected = isSelectedNode(node.id, input.selected.nodeIds)
-  const repeat = input.mode === 'replace' && selected
-  const select = applyNodeTapSelection(
-    input.selected.nodeIds,
-    input.selected.edgeIds,
+  const selected = isSelectedNode(node.id, selection.target.nodeIds)
+  const repeat = mode === 'replace' && selected
+  const nextSelection = applyNodeTapSelection(
+    selection.target.nodeIds,
+    selection.target.edgeIds,
     node.id,
-    input.mode
+    mode
   )
 
   return {
     chrome: selected,
     tap: {
       kind: 'select',
-      selection: select
+      target: nextSelection
     },
     drag: repeat
       ? {
           kind: 'move',
           frame,
           anchorId: node.id,
-          nodeIds: input.selected.nodeIds,
-          edgeIds: input.selected.edgeIds,
-          select: toNodeSelection(input.selected.nodeIds)
+          target: getCurrentSelection(selection),
+          nextSelection: toNodeSelection(selection.target.nodeIds)
         }
       : {
           kind: 'marquee',
           match: 'touch',
-          mode: input.mode,
-          base: getCurrentSelection(input.selected)
+          mode,
+          base: getCurrentSelection(selection)
         },
-    hold: createContainHoldIntent()
+    allowHold: true
   }
 }
 
-export const readSelectionPressContext = (
-  input: GestureDown,
-  selection: SelectionView
-): SelectionPressContext => ({
-  input,
-  mode: resolveSelectionMode(input.event),
-  selected: {
-    nodeIds: selection.target.nodeIds,
-    edgeIds: selection.target.edgeIds,
-    box: selection.box,
-    boxInteractive: isSelectionBoxInteractive(selection)
-  }
-})
-
-export const readSelectionPressPlan = (
+export const resolveSelectionPressPlan = (
   deps: PolicyDeps,
-  ctx: SelectionPressContext
+  input: {
+    start: InteractionStart
+    snapshot: SelectionSnapshot
+  }
 ): SelectionPressPlan | undefined => {
+  const mode = resolveSelectionMode(input.start.event)
   const target = readSelectionPressTarget(deps, {
-    pick: ctx.input.pick,
-    field: ctx.input.field,
-    mode: ctx.mode,
-    selectedNodeIds: ctx.selected.nodeIds
+    pick: input.start.pick,
+    field: input.start.field,
+    mode,
+    selectedNodeIds: input.snapshot.target.nodeIds
   })
   if (!target) {
     return undefined
@@ -519,12 +477,12 @@ export const readSelectionPressPlan = (
 
   switch (target.kind) {
     case 'background':
-      return planBackgroundPress(ctx)
+      return planBackgroundPress(input.snapshot, mode)
     case 'selection-box':
-      return planSelectionBoxPress(ctx)
+      return planSelectionBoxPress(input.snapshot)
     case 'node':
-      return planNodePress(deps, ctx, target)
+      return planNodePress(deps, input.snapshot, mode, target)
     case 'group-shell':
-      return planGroupShellPress(deps, ctx, target.nodeId)
+      return planGroupShellPress(deps, input.snapshot, mode, target.nodeId)
   }
 }

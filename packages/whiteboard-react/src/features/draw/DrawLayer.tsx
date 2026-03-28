@@ -1,10 +1,12 @@
 import { DrawPreview } from './DrawPreview'
-import type { DrawPreview as DrawPreviewValue } from '@whiteboard/editor'
+import {
+  useInternalInstance,
+  useStoreValue
+} from '../../runtime/hooks'
 
-export const DrawLayer = ({
-  preview
-}: {
-  preview: DrawPreviewValue | null
-}) => {
+export const DrawLayer = () => {
+  const instance = useInternalInstance()
+  const preview = useStoreValue(instance.host.draw.preview)
+
   return <DrawPreview preview={preview} />
 }

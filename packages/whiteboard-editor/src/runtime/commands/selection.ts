@@ -6,10 +6,10 @@ import {
   hasEdge
 } from '../frame'
 import {
-  applySource,
+  applySelectionTarget,
   createState as createSelectionState,
-  isSourceEqual,
-  toSource
+  isSelectionTargetEqual,
+  toSelectionTarget
 } from '../selection'
 
 export const createSelectionCommands = ({
@@ -27,7 +27,7 @@ export const createSelectionCommands = ({
     next: ReturnType<typeof selection.source.get>,
     write: () => void
   ) => {
-    if (isSourceEqual(selection.source.get(), next)) {
+    if (isSelectionTargetEqual(selection.source.get(), next)) {
       return
     }
 
@@ -37,13 +37,13 @@ export const createSelectionCommands = ({
 
   return {
     replace: (input) => {
-      writeSelection(toSource(input), () => {
+      writeSelection(toSelectionTarget(input), () => {
         selection.commands.replace(input)
       })
     },
     add: (input) => {
       writeSelection(
-        applySource(selection.source.get(), input, 'add'),
+        applySelectionTarget(selection.source.get(), input, 'add'),
         () => {
           selection.commands.add(input)
         }
@@ -51,7 +51,7 @@ export const createSelectionCommands = ({
     },
     remove: (input) => {
       writeSelection(
-        applySource(selection.source.get(), input, 'subtract'),
+        applySelectionTarget(selection.source.get(), input, 'subtract'),
         () => {
           selection.commands.remove(input)
         }
@@ -59,7 +59,7 @@ export const createSelectionCommands = ({
     },
     toggle: (input) => {
       writeSelection(
-        applySource(selection.source.get(), input, 'toggle'),
+        applySelectionTarget(selection.source.get(), input, 'toggle'),
         () => {
           selection.commands.toggle(input)
         }
@@ -67,7 +67,7 @@ export const createSelectionCommands = ({
     },
     selectAll: () => {
       const activeFrame = frame.store.get()
-      const next = toSource({
+      const next = toSelectionTarget({
         nodeIds:
           activeFrame.id
             ? [...activeFrame.ids]
@@ -85,7 +85,7 @@ export const createSelectionCommands = ({
       })
     },
     clear: () => {
-      writeSelection(toSource({}), () => {
+      writeSelection(toSelectionTarget({}), () => {
         selection.commands.clear()
       })
     }

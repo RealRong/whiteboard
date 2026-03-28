@@ -6,8 +6,11 @@ import {
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import type { InternalEditor } from '../../runtime/instance/types'
-import type { MindmapDown } from '../../runtime/input/pointer'
+import type { InteractionStart } from '../../runtime/input/pointer'
 import type { MindmapDragState } from './session/drag'
+import {
+  isMindmapInteractionStart
+} from './interactionStart'
 import {
   moveMindmapByDrop,
   moveMindmapRoot
@@ -16,7 +19,7 @@ import {
 type ActiveMindmapDragSession = MindmapDragSession
 
 export type MindmapDragController = {
-  down: (input: MindmapDown) => boolean
+  down: (input: InteractionStart) => boolean
   cancel: () => void
 }
 
@@ -202,6 +205,10 @@ export const createMindmapDragSession = (
   return {
     down: (input) => {
       if (active) {
+        return false
+      }
+
+      if (!isMindmapInteractionStart(input)) {
         return false
       }
 

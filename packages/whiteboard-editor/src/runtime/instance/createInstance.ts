@@ -20,7 +20,6 @@ import {
 } from '../edit'
 import {
   createState as createSelectionState,
-  readSelectionPressPlan,
 } from '../selection'
 import { createViewport } from '../viewport/createViewport'
 import type { NodeRegistry } from '../../types/node'
@@ -53,6 +52,12 @@ import { finalize } from '../finalize'
 import {
   createDrawState
 } from '../../features/draw/state'
+import { createDrawInputRuntime } from '../../features/draw/input'
+import { createEdgeInputRuntime } from '../../features/edge/input'
+import {
+  createContextRuntime,
+  type ContextMenuView
+} from '../context'
 
 type InstanceStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
@@ -96,6 +101,7 @@ const createEditorStores = ({
   initialTool,
   interaction,
   registry,
+  contextMenu,
   pick,
   viewport
 }: {
@@ -103,6 +109,7 @@ const createEditorStores = ({
   initialTool: Tool
   interaction: InteractionCoordinator
   registry: NodeRegistry
+  contextMenu: ReturnType<typeof createValueStore<ContextMenuView | null>>
   pick: ReturnType<typeof createPickRuntime>
   viewport: ReturnType<typeof createViewport>['read']
 }): {
@@ -129,6 +136,7 @@ const createEditorStores = ({
     history,
     selection: selection.source,
     frame: frame.store,
+    contextMenu,
     pick,
     viewport,
     node,
@@ -184,6 +192,8 @@ export const createEditor = ({
   const clipboardPort = host?.clipboard ?? createBrowserClipboardPort()
   const selectionLock = host?.selectionLock ?? createBrowserDocumentSelectionLock()
   const pointerContinuation = host?.pointerContinuation ?? createBrowserPointerContinuation()
+  const deferredInstance = createDeferredInstance()
+  const contextMenu = createValueStore<ContextMenuView | null>(null)
   const viewport = createViewport({
     initialViewport,
     limits: viewportLimits
@@ -240,20 +250,27 @@ export const createEditor = ({
     initialTool,
     interaction,
     registry,
+    contextMenu,
     pick,
     viewport: viewport.read
   })
-
-  const resetUiSessionState = () => {
-    interaction.cancel()
-    stores.edit.commands.clear()
-    stores.selection.commands.clear()
-    stores.frame.commands.clear()
-    snap.node.clear()
-    internals.node.clear()
-    internals.edge.preview.clear()
-    internals.mindmapDrag.clear()
-  }
+  const marquee = createMarqueeSession(deferredInstance.instance)
+  const gesture = createSelectionGesture(
+    deferredInstance.instance,
+    marquee
+  )
+  const draw = createDrawInputRuntime(deferredInstance.instance)
+  const transform = createTransformSession(deferredInstance.instance)
+  const edgeConnect = createEdgeConnectSession(deferredInstance.instance)
+  const edgeInput = createEdgeInputRuntime(
+    deferredInstance.instance,
+    edgeConnect
+  )
+  const mindmapDragController = createMindmapDragSession(deferredInstance.instance)
+  const context = createContextRuntime(
+    deferredInstance.instance,
+    contextMenu
+  )
   const syncHistory = () => {
     stores.history.set(engine.commands.history.get())
   }
@@ -289,26 +306,21 @@ export const createEditor = ({
     viewportCommands: viewport.commands,
     viewportRead: viewport.read,
     draw: stores.draw,
+    context,
     clipboardRuntime,
     clipboardPort
   })
-  const deferredInstance = createDeferredInstance()
-  const marquee = createMarqueeSession(deferredInstance.instance)
-  const gesture = createSelectionGesture(
-    deferredInstance.instance,
-    marquee
-  )
-  const transform = createTransformSession(deferredInstance.instance)
-  const edgeConnect = createEdgeConnectSession(deferredInstance.instance)
-  const mindmapDragController = createMindmapDragSession(deferredInstance.instance)
-  const planSelectionPress: Editor['host']['selection']['planPress'] = (ctx) => (
-    readSelectionPressPlan({
-      getNode: (nodeId) => read.node.item.get(nodeId)?.node,
-      getOwnerId: read.node.owner,
-      getNodeFrame: read.node.frame,
-      getNodeRole: (node) => read.node.role(node)
-    }, ctx)
-  )
+  const resetUiSessionState = () => {
+    interaction.cancel()
+    context.clear()
+    stores.edit.commands.clear()
+    stores.selection.commands.clear()
+    stores.frame.commands.clear()
+    snap.node.clear()
+    internals.node.clear()
+    internals.edge.preview.clear()
+    internals.mindmapDrag.clear()
+  }
   const editorHost: Editor['host'] = {
     registry,
     interaction,
@@ -317,16 +329,17 @@ export const createEditor = ({
     snap,
     selection: {
       marquee,
-      gesture,
-      planPress: planSelectionPress
+      gesture
     },
+    draw,
     node: {
       ...internals.node,
       transform
     },
     edge: {
       ...internals.edge,
-      connect: edgeConnect
+      connect: edgeConnect,
+      input: edgeInput
     },
     mindmap: {
       drag: internals.mindmapDrag,
@@ -353,6 +366,7 @@ export const createEditor = ({
         marquee,
         gesture
       },
+      draw,
       node: editorHost.node,
       edge: editorHost.edge,
       mindmapDrag: internals.mindmapDrag,

@@ -12,4 +12,16 @@ export type {
   EditorInsertResult,
   InternalEditor
 } from './types'
+export type {
+  ContextDismissMode,
+  ContextMenuFilterView,
+  ContextMenuGroupView,
+  ContextMenuItemView,
+  ContextMenuView,
+  ContextNodeSummary,
+  ContextNodeTypeSummary,
+  ContextOpenInput,
+  ContextOpenSource,
+  ContextSelectionCan
+} from '../context'
 export type { Tool } from '../tool'

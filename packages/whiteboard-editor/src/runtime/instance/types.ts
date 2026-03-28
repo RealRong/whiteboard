@@ -14,8 +14,6 @@ import type {
 } from '../frame'
 import type {
   SelectionInput,
-  SelectionPressContext,
-  SelectionPressPlan,
   SelectionTarget
 } from '../selection'
 import type {
@@ -58,6 +56,12 @@ import type { MarqueeSession } from '../../features/selection/marquee'
 import type { EdgeConnectSession } from '../../features/edge/connectSession'
 import type { NodeTransformSession } from '../../features/node/session/transform'
 import type { MindmapNodeData, MindmapNodeId, MindmapTree } from '@whiteboard/core/types'
+import type { DrawInputRuntime } from '../../features/draw/input'
+import type { EdgeInputRuntime } from '../../features/edge/input'
+import type {
+  ContextDismissMode,
+  ContextOpenInput
+} from '../context'
 
 type EngineCommands = EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -209,6 +213,10 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
+  context: {
+    open: (input: ContextOpenInput) => boolean
+    dismiss: (mode: ContextDismissMode) => void
+  }
   clipboard: {
     copy: (
       target?: EditorClipboardTarget,
@@ -262,14 +270,15 @@ export type EditorHost = {
   selection: {
     marquee: MarqueeSession
     gesture: SelectionGesture
-    planPress: (ctx: SelectionPressContext) => SelectionPressPlan | undefined
   }
+  draw: DrawInputRuntime
   node: NodeFeatureRuntime & {
     transform: NodeTransformSession
   }
   edge: {
     preview: EdgePreview
     connect: EdgeConnectSession
+    input: EdgeInputRuntime
   }
   mindmap: {
     drag: MindmapDragStore
@@ -316,12 +325,14 @@ export type InternalEditor = Editor & {
       marquee: MarqueeSession
       gesture: SelectionGesture
     }
+    draw: DrawInputRuntime
     node: NodeFeatureRuntime & {
       transform: NodeTransformSession
     }
     edge: {
       preview: EdgePreview
       connect: EdgeConnectSession
+      input: EdgeInputRuntime
     }
     mindmapDrag: MindmapDragStore
     mindmapDragController: MindmapDragController

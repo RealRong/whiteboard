@@ -1,42 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import type {
+  ContextMenuGroupView as EditorContextMenuGroupView,
+  ContextMenuItemView as EditorContextMenuItemView
+} from '@whiteboard/editor'
 import { isContextMenuIgnoredTarget } from '@whiteboard/editor/input'
 import {
-  readContextMenuView
-} from './contextMenuView'
-import {
   useElementSize,
-  useInternalInstance
+  useInternalInstance,
+  useStoreValue
 } from '../../../runtime/hooks'
-import {
-  readContextOpen,
-  resolveContextTarget,
-  type ContextTarget
-} from '../../../runtime/input/pointer'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
 } from '../../node/components/SelectionSummaryHeader'
-import { resolveNodeMeta } from '../../node/registry'
-import {
-  type ContextMenuGroup,
-  type ContextMenuItem
-} from './contextMenuTypes'
 import {
   isDuplicateMenuOpen,
   readContextMenuPlacement
 } from './layout'
-
-type ContextMenuSession = {
-  screen: Point
-  target: ContextTarget
-  selection: ContextMenuSelectionSnapshot
-} | null
-
-type ContextMenuSelectionSnapshot = {
-  nodeIds: readonly NodeId[]
-  edgeIds: readonly EdgeId[]
-}
 
 type ContextMenuSide = 'left' | 'right'
 type ContextMenuRenderState = {
@@ -52,34 +32,11 @@ const MenuIgnoreAttrs = {
   'data-input-ignore': ''
 } as const
 
-const snapshotContextMenuSelection = (
-  nodeIds: readonly NodeId[],
-  edgeIds: readonly EdgeId[]
-): ContextMenuSelectionSnapshot => ({
-  nodeIds,
-  edgeIds
-})
-
-const restoreContextMenuSelection = (
-  instance: Pick<ReturnType<typeof useInternalInstance>, 'commands'>,
-  selection: ContextMenuSelectionSnapshot
-) => {
-  if (selection.nodeIds.length > 0 || selection.edgeIds.length > 0) {
-    instance.commands.selection.replace({
-      nodeIds: selection.nodeIds,
-      edgeIds: selection.edgeIds
-    })
-    return
-  }
-
-  instance.commands.selection.clear()
-}
-
 const ContextMenuItemView = ({
   item,
   state
 }: {
-  item: ContextMenuItem
+  item: EditorContextMenuItemView
   state: ContextMenuRenderState
 }) => {
   const open = state.submenuKey === item.key
@@ -94,7 +51,7 @@ const ContextMenuItemView = ({
         data-tone={item.tone === 'danger' ? 'danger' : undefined}
         disabled={item.disabled}
         data-context-menu-item={item.key}
-        onClick={item.onClick}
+        onClick={item.onSelect}
         onPointerEnter={state.clearSubmenu}
         onFocus={state.clearSubmenu}
         {...MenuIgnoreAttrs}
@@ -151,7 +108,7 @@ const ContextMenuGroupView = ({
   group,
   state
 }: {
-  group: ContextMenuGroup
+  group: EditorContextMenuGroupView
   state: ContextMenuRenderState
 }) => (
   <div className="wb-context-menu-section">
@@ -177,64 +134,42 @@ export const ContextMenu = ({
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const [session, setSession] = useState<ContextMenuSession>(null)
+  const view = useStoreValue(instance.read.context.menu)
   const [submenuKey, setSubmenuKey] = useState<string | null>(null)
 
   const dismiss = useCallback((mode: 'dismiss' | 'action') => {
-    setSession((current) => {
-      if (mode === 'dismiss' && current) {
-        restoreContextMenuSelection(instance, current.selection)
-      }
-      return null
-    })
+    instance.commands.context.dismiss(mode)
     setSubmenuKey(null)
   }, [instance])
 
-  const dismissAction = useCallback(() => {
-    dismiss('action')
-  }, [dismiss])
-
-  const open = useCallback((result: {
-    target: ContextTarget
-    leaveFrame: boolean
-    screen: Point
-  }) => {
-    if (result.leaveFrame) {
-      instance.commands.frame.exit()
-    }
-
-    const selection = instance.read.selection.get()
-    setSession({
-      screen: result.screen,
-      target: result.target,
-      selection: snapshotContextMenuSelection(
-        selection.target.nodeIds,
-        selection.target.edgeIds
-      )
-    })
+  useEffect(() => {
     setSubmenuKey(null)
-  }, [instance])
+  }, [view])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const openFromEvent = (
+      source: 'secondary-press' | 'context-menu',
       event: Pick<MouseEvent | PointerEvent, 'target' | 'clientX' | 'clientY'>
     ) => {
-      const input = instance.read.pick.from(event, container)
-      const result = readContextOpen(instance, input)
-      if (!result) return
+      const pointer = instance.read.pick.from(event, container)
+      const opened = instance.commands.context.open({
+        source,
+        pointer
+      })
+      if (!opened) {
+        return false
+      }
 
+      setSubmenuKey(null)
       lastOpenRef.current = {
         x: event.clientX,
         y: event.clientY,
         time: Date.now()
       }
-      open({
-        ...result,
-        screen: input.point.screen
-      })
+      return true
     }
 
     const onPointerDown = (event: PointerEvent) => {
@@ -244,7 +179,7 @@ export const ContextMenu = ({
 
       event.preventDefault()
       event.stopPropagation()
-      openFromEvent(event)
+      openFromEvent('secondary-press', event)
     }
 
     const onContextMenu = (event: MouseEvent) => {
@@ -262,7 +197,7 @@ export const ContextMenu = ({
         return
       }
 
-      openFromEvent(event)
+      openFromEvent('context-menu', event)
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)
@@ -272,33 +207,7 @@ export const ContextMenu = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [containerRef, instance, open])
-
-  const view = useMemo(() => {
-    if (!session) return undefined
-
-    const target = resolveContextTarget(instance, session.target)
-    const menu = readContextMenuView({
-      instance,
-      target,
-      close: dismissAction,
-      resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node)
-    })
-    if (!menu) {
-      return undefined
-    }
-
-    return {
-      placement: readContextMenuPlacement({
-        screen: session.screen,
-        containerWidth: surface.width,
-        containerHeight: surface.height
-      }),
-      summary: menu.summary,
-      filter: menu.filter,
-      groups: menu.groups
-    }
-  }, [dismissAction, instance, session, surface.height, surface.width])
+  }, [containerRef, instance])
 
   useEffect(() => {
     if (!view) return
@@ -326,14 +235,19 @@ export const ContextMenu = ({
 
   if (!view) return null
 
+  const placement = readContextMenuPlacement({
+    screen: view.screen,
+    containerWidth: surface.width,
+    containerHeight: surface.height
+  })
   const menuStyle = {
-    left: view.placement.left,
-    top: view.placement.top,
-    transform: view.placement.transform
+    left: placement.left,
+    top: placement.top,
+    transform: placement.transform
   }
   const renderState: ContextMenuRenderState = {
     submenuKey,
-    submenuSide: view.placement.submenuSide,
+    submenuSide: placement.submenuSide,
     openSubmenu: (key) => {
       setSubmenuKey(key)
     },

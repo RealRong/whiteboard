@@ -1,6 +1,5 @@
 import type {
-  CSSProperties,
-  KeyboardEvent as ReactKeyboardEvent
+  CSSProperties
 } from 'react'
 import {
   useInteraction,
@@ -112,15 +111,11 @@ const EdgeEndpointHandle = ({
 }
 
 const EdgeRoutePointHandle = ({
-  point,
-  onKeyDown
+  point
 }: {
   point: SelectedEdgeRoutePointView
-  onKeyDown: (
-    event: ReactKeyboardEvent<HTMLDivElement>,
-    point: Extract<SelectedEdgeRoutePointView, { kind: 'anchor' }>
-  ) => void
 }) => {
+  const instance = useInternalInstance()
   const ref = usePickRef(
     point.kind === 'anchor'
       ? {
@@ -146,7 +141,13 @@ const EdgeRoutePointHandle = ({
       data-active={point.active ? 'true' : undefined}
       onKeyDown={point.kind === 'anchor'
         ? (event) => {
-            onKeyDown(event, point)
+            if (event.key !== 'Backspace' && event.key !== 'Delete') {
+              return
+            }
+
+            instance.commands.edge.route.remove(point.edgeId, point.index)
+            event.preventDefault()
+            event.stopPropagation()
           }
         : undefined}
       style={{
@@ -160,14 +161,9 @@ const EdgeRoutePointHandle = ({
 }
 
 const EdgeSelectedOverlay = ({
-  view,
-  onRoutePointKeyDown
+  view
 }: {
   view: SelectedEdgeView
-  onRoutePointKeyDown: (
-    event: ReactKeyboardEvent<HTMLDivElement>,
-    point: Extract<SelectedEdgeRoutePointView, { kind: 'anchor' }>
-  ) => void
 }) => (
   <>
     <div className="wb-edge-endpoint-layer">
@@ -188,7 +184,6 @@ const EdgeSelectedOverlay = ({
           <EdgeRoutePointHandle
             key={point.key}
             point={point}
-            onKeyDown={onRoutePointKeyDown}
           />
         ))}
       </div>
@@ -196,14 +191,7 @@ const EdgeSelectedOverlay = ({
   </>
 )
 
-export const EdgeOverlayLayer = ({
-  onRoutePointKeyDown
-}: {
-  onRoutePointKeyDown: (
-    event: ReactKeyboardEvent<HTMLDivElement>,
-    point: Extract<SelectedEdgeView['routePoints'][number], { kind: 'anchor' }>
-  ) => void
-}) => {
+export const EdgeOverlayLayer = () => {
   const interaction = useInteraction()
   const tool = useTool()
   const selectedEdgeView = useSelectedEdgeView()
@@ -217,7 +205,6 @@ export const EdgeOverlayLayer = ({
       {showEdgeControls && selectedEdgeView ? (
         <EdgeSelectedOverlay
           view={selectedEdgeView}
-          onRoutePointKeyDown={onRoutePointKeyDown}
         />
       ) : null}
       <EdgeHintOverlay />

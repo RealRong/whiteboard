@@ -1,8 +1,4 @@
 import { isPointInRect } from '@whiteboard/core/geometry'
-import type {
-  Point,
-  Rect
-} from '@whiteboard/core/types'
 import {
   hasEdge,
   hasNode,
@@ -18,86 +14,121 @@ import {
   type ContextTarget
 } from './target'
 import {
-  isDrawBrushKind,
-  type DrawBrushKind,
-  type DrawTool,
-  type EdgeTool,
-  type InsertTool,
-  type SelectTool
-} from '../tool'
+  isDrawInteractionStart,
+  isEraseInteractionStart
+} from '../../features/draw/interactionStart'
+import {
+  isEdgeCreateInteractionStart,
+  isEdgeInteractionStart
+} from '../../features/edge/interactionStart'
+import {
+  isMindmapInteractionStart
+} from '../../features/mindmap/interactionStart'
+import {
+  isTransformInteractionStart
+} from '../../features/node/session/transformStart'
+import {
+  isSelectionInteractionStart
+} from '../../features/selection/interactionStart'
+import {
+  isInsertInteractionStart
+} from '../../features/toolbox/interactionStart'
 
-export type CanvasDown = PointerPick & {
+export type InteractionStart = PointerPick & {
   container: HTMLDivElement
   event: PointerEvent
   capture: Element
   tool: Tool
-}
-
-export type CanvasFrameDown = CanvasDown & {
   frame: FrameScope
 }
 
-type PickOf<TKind extends CanvasFrameDown['pick']['kind']> = Extract<
-  CanvasFrameDown['pick'],
-  { kind: TKind }
->
-
-type WithHandle<TPick extends { handle?: unknown }> = TPick & {
-  handle: NonNullable<TPick['handle']>
-}
-
-type Down<TTool, TPick = CanvasFrameDown['pick']> = CanvasFrameDown & {
-  tool: TTool
-  pick: TPick
-}
-
-type SelectDown<TPick = CanvasFrameDown['pick']> = Down<SelectTool, TPick>
-
-type TransformPick = WithHandle<
-  Extract<CanvasFrameDown['pick'], {
-    part: 'transform'
-  }>
->
-
-export type EdgeCreateDown = Down<EdgeTool>
-
-export type EraserDown = Down<
-  DrawTool & { kind: 'eraser' }
->
-
-export type DrawDown = Down<
-  DrawTool & { kind: DrawBrushKind }
->
-
-export type InsertDown = Down<InsertTool>
-export type TransformDown = SelectDown<TransformPick>
-export type EdgeDown = SelectDown<PickOf<'edge'>>
-export type MindmapDown = SelectDown<PickOf<'mindmap'>>
-export type GestureDown = SelectDown
-
-export type CanvasDownHandlers = {
-  edgeCreate: (input: EdgeCreateDown) => boolean
-  eraser: (input: EraserDown) => boolean
-  draw: (input: DrawDown) => boolean
-  insert: (input: InsertDown) => boolean
-  transform: (input: TransformDown) => boolean
-  edge: (input: EdgeDown) => boolean
-  mindmap: (input: MindmapDown) => boolean
-  gesture: (input: GestureDown) => boolean
-}
+export type InteractionDecision =
+  | { kind: 'reject' }
+  | { kind: 'edge-create'; start: InteractionStart }
+  | { kind: 'erase'; start: InteractionStart }
+  | { kind: 'draw'; start: InteractionStart }
+  | { kind: 'insert'; start: InteractionStart }
+  | { kind: 'transform'; start: InteractionStart }
+  | { kind: 'edge'; start: InteractionStart }
+  | { kind: 'mindmap'; start: InteractionStart }
+  | { kind: 'selection'; start: InteractionStart }
 
 export type ContextOpen = {
   target: ContextTarget
   leaveFrame: boolean
 }
 
-type CanvasFrameDeps = Pick<Editor, 'commands' | 'read' | 'state'>
+type InteractionDecisionDeps = Pick<Editor, 'commands' | 'read' | 'state'> & {
+  host: Pick<Editor['host'], 'interaction'>
+}
 
-export const readCanvasDown = (
-  instance: Pick<Editor, 'read'>,
+type InteractionRunnerDeps = Pick<Editor, 'commands' | 'read'> & {
+  host: Pick<Editor['host'], 'draw' | 'edge' | 'mindmap' | 'node' | 'selection'>
+}
+
+type RoutedDecisionKind = Exclude<InteractionDecision['kind'], 'reject'>
+
+type InteractionRoute = {
+  kind: RoutedDecisionKind
+  match: (start: InteractionStart) => boolean
+}
+
+const DRAW_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+  {
+    kind: 'erase',
+    match: isEraseInteractionStart
+  },
+  {
+    kind: 'draw',
+    match: isDrawInteractionStart
+  }
+]
+
+const EDGE_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+  {
+    kind: 'edge-create',
+    match: isEdgeCreateInteractionStart
+  }
+]
+
+const INSERT_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+  {
+    kind: 'insert',
+    match: isInsertInteractionStart
+  }
+]
+
+const SELECT_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+  {
+    kind: 'transform',
+    match: isTransformInteractionStart
+  },
+  {
+    kind: 'edge',
+    match: isEdgeInteractionStart
+  },
+  {
+    kind: 'mindmap',
+    match: isMindmapInteractionStart
+  },
+  {
+    kind: 'selection',
+    match: isSelectionInteractionStart
+  }
+]
+
+const INTERACTION_ROUTES_BY_TOOL_TYPE: Partial<Record<Tool['type'], readonly InteractionRoute[]>> = {
+  draw: DRAW_INTERACTION_ROUTES,
+  edge: EDGE_INTERACTION_ROUTES,
+  insert: INSERT_INTERACTION_ROUTES,
+  select: SELECT_INTERACTION_ROUTES
+}
+
+export const readInteractionStart = (
+  instance: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
-): CanvasDown => {
+): InteractionStart => {
   const input = instance.read.pick.from(event, container)
 
   return {
@@ -105,7 +136,8 @@ export const readCanvasDown = (
     container,
     event,
     capture: input.element ?? container,
-    tool: instance.read.tool.get()
+    tool: instance.read.tool.get(),
+    frame: instance.state.frame.get()
   }
 }
 
@@ -121,17 +153,17 @@ export const readPointerSamples = (
 }
 
 const clearFrame = (
-  instance: CanvasFrameDeps
+  instance: Pick<Editor, 'commands' | 'state'>
 ) => {
   instance.commands.frame.exit()
   return instance.state.frame.get()
 }
 
-const normalizeCanvasFrame = (
-  instance: CanvasFrameDeps,
-  input: CanvasDown
+const normalizeInteractionFrame = (
+  instance: Pick<Editor, 'commands' | 'read' | 'state'>,
+  start: InteractionStart
 ): FrameScope => {
-  const frame = instance.state.frame.get()
+  const frame = start.frame
   if (!frame.id) {
     return frame
   }
@@ -143,26 +175,26 @@ const normalizeCanvasFrame = (
 
   const frameRect = instance.read.index.node.get(frame.id)?.rect
 
-  switch (input.pick.kind) {
+  switch (start.pick.kind) {
     case 'background':
-      return frameRect && isPointInRect(input.point.world, frameRect)
+      return frameRect && isPointInRect(start.point.world, frameRect)
         ? frame
         : clearFrame(instance)
     case 'selection-box':
       return frame
     case 'node':
-      if (input.pick.id === frame.id) {
+      if (start.pick.id === frame.id) {
         return frame
       }
-      return hasNode(frame, input.pick.id)
+      return hasNode(frame, start.pick.id)
         ? frame
         : clearFrame(instance)
     case 'mindmap':
-      return hasNode(frame, input.pick.treeId)
+      return hasNode(frame, start.pick.treeId)
         ? frame
         : clearFrame(instance)
     case 'edge': {
-      const edge = instance.read.edge.item.get(input.pick.id)?.edge
+      const edge = instance.read.edge.item.get(start.pick.id)?.edge
       if (!edge) {
         return clearFrame(instance)
       }
@@ -174,129 +206,117 @@ const normalizeCanvasFrame = (
   }
 }
 
-const isTransformPick = (
-  input: CanvasFrameDown
-): input is TransformDown => (
-  (input.pick.kind === 'node' || input.pick.kind === 'selection-box')
-  && input.pick.part === 'transform'
-  && Boolean(input.pick.handle)
-)
+const withNormalizedFrame = (
+  instance: Pick<Editor, 'commands' | 'read' | 'state'>,
+  start: InteractionStart
+): InteractionStart => ({
+  ...start,
+  frame: normalizeInteractionFrame(instance, start)
+})
 
-const isEdgePick = (
-  input: CanvasFrameDown
-): input is EdgeDown => input.pick.kind === 'edge'
-
-const isMindmapPick = (
-  input: CanvasFrameDown
-): input is MindmapDown => input.pick.kind === 'mindmap'
-
-const allowsCanvasContent = (
-  input: CanvasFrameDown
-) => (
-  !input.editable
-  && !input.ignoreInput
-  && !input.ignoreSelection
-)
-
-const allowsDraw = (
-  input: CanvasFrameDown
-): input is DrawDown => (
-  input.tool.type === 'draw'
-  && isDrawBrushKind(input.tool.kind)
-  && allowsCanvasContent(input)
-)
-
-const allowsErase = (
-  input: CanvasFrameDown
-): input is EraserDown => (
-  input.tool.type === 'draw'
-  && input.tool.kind === 'eraser'
-  && !input.editable
-  && !input.ignoreInput
-)
-
-const allowsEdgeCreate = (
-  input: CanvasFrameDown
-): input is EdgeCreateDown => (
-  input.tool.type === 'edge'
-  && (
-    (
-      input.pick.kind === 'node'
-      && input.pick.part === 'connect'
-      && Boolean(input.pick.side)
-    )
-    || allowsCanvasContent(input)
-  )
-)
-
-const allowsInsert = (
-  input: CanvasFrameDown
-): input is InsertDown => (
-  input.tool.type === 'insert'
-  && allowsCanvasContent(input)
-)
-
-const isSelectTool = (
-  input: CanvasFrameDown
-): input is SelectDown => (
-  input.tool.type === 'select'
-)
-
-export const dispatchCanvasDown = (
-  instance: CanvasFrameDeps & {
-    host: Pick<Editor['host'], 'interaction'>
-  },
-  input: CanvasDown,
-  handlers: CanvasDownHandlers
-) => {
-  const next: CanvasFrameDown = {
-    ...input,
-    frame: normalizeCanvasFrame(instance, input)
+const resolveRoutedInteractionDecision = (
+  start: InteractionStart,
+  routes: readonly InteractionRoute[]
+): InteractionDecision => {
+  for (const route of routes) {
+    if (route.match(start)) {
+      return {
+        kind: route.kind,
+        start
+      }
+    }
   }
+
+  return {
+    kind: 'reject'
+  }
+}
+
+export const resolveInteractionDecision = (
+  instance: InteractionDecisionDeps,
+  input: InteractionStart
+): InteractionDecision => {
+  const start = withNormalizedFrame(instance, input)
+
   if (
-    next.event.defaultPrevented
-    || next.event.button !== 0
+    start.event.defaultPrevented
+    || start.event.button !== 0
     || instance.host.interaction.busy.get()
   ) {
-    return false
+    return { kind: 'reject' }
   }
 
-  if (allowsEdgeCreate(next)) {
-    return handlers.edgeCreate(next)
-  }
-
-  if (allowsErase(next)) {
-    return handlers.eraser(next)
-  }
-
-  if (allowsDraw(next)) {
-    return handlers.draw(next)
-  }
-
-  if (allowsInsert(next)) {
-    return handlers.insert(next)
-  }
-
-  if (!isSelectTool(next)) {
-    return false
-  }
-
-  if (isTransformPick(next)) {
-    return handlers.transform(next)
-  }
-
-  if (isEdgePick(next)) {
-    return handlers.edge(next)
-  }
-
-  if (isMindmapPick(next) && allowsCanvasContent(next)) {
-    return handlers.mindmap(next)
-  }
-
-  return allowsCanvasContent(next)
-    ? handlers.gesture(next)
-    : false
+  return resolveRoutedInteractionDecision(
+    start,
+    INTERACTION_ROUTES_BY_TOOL_TYPE[start.tool.type] ?? []
+  )
 }
+
+const runInsertInteraction = (
+  instance: Pick<Editor, 'commands' | 'read'>,
+  input: InteractionStart
+) => {
+  if (input.tool.type !== 'insert') {
+    return false
+  }
+
+  const presetKey = input.tool.preset
+  if (!presetKey || input.pick.kind !== 'background') {
+    return false
+  }
+
+  const frameTargetId = input.frame.id ?? instance.read.node.frameAt(input.point.world)
+  const result = instance.commands.insert.preset(presetKey, {
+    at: input.point.world,
+    ownerId: input.frame.id ?? frameTargetId
+  })
+  if (!result) {
+    return false
+  }
+
+  instance.commands.tool.select()
+  input.event.preventDefault()
+  input.event.stopPropagation()
+  return true
+}
+
+export const runInteractionDecision = (
+  instance: InteractionRunnerDeps,
+  decision: InteractionDecision
+) => {
+  switch (decision.kind) {
+    case 'edge-create':
+      return instance.host.edge.connect.create(decision.start)
+    case 'erase':
+      return instance.host.draw.down(decision.start)
+    case 'draw':
+      return instance.host.draw.down(decision.start)
+    case 'insert':
+      return runInsertInteraction(instance, decision.start)
+    case 'transform':
+      return instance.host.node.transform.down(decision.start)
+    case 'edge':
+      return instance.host.edge.input.down(decision.start)
+    case 'mindmap':
+      return instance.host.mindmap.controller.down(decision.start)
+    case 'selection':
+      return instance.host.selection.gesture.down(decision.start)
+    case 'reject':
+      return false
+  }
+}
+
+export const handlePointerDown = (
+  instance: InteractionDecisionDeps & InteractionRunnerDeps,
+  container: HTMLDivElement,
+  event: PointerEvent
+) => runInteractionDecision(
+  instance,
+  resolveInteractionDecision(
+    instance,
+    readInteractionStart(instance, container, event)
+  )
+)
 
 export const readContextOpen = (
   instance: Pick<Editor, 'read' | 'state'>,

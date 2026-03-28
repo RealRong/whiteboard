@@ -10,9 +10,12 @@ import type {
 } from '@whiteboard/core/types'
 import type { InternalEditor } from '../../runtime/instance/types'
 import type {
-  EdgeCreateDown,
-  EdgeDown
+  InteractionStart
 } from '../../runtime/input/pointer'
+import {
+  isEdgeCreateInteractionStart,
+  isEdgeInteractionStart
+} from './interactionStart'
 import { readEdgeType } from '../../runtime/tool'
 import type { ViewportPointer } from '../../runtime/viewport'
 import {
@@ -36,8 +39,8 @@ type ConnectPointer = ViewportPointer & {
 }
 
 export type EdgeConnectSession = {
-  create: (input: EdgeCreateDown) => boolean
-  reconnect: (input: EdgeDown) => boolean
+  create: (input: InteractionStart) => boolean
+  reconnect: (input: InteractionStart) => boolean
   cancel: () => void
 }
 
@@ -91,7 +94,7 @@ export const createEdgeConnectSession = (
   }
 
   const readCreateState = (
-    input: EdgeCreateDown,
+    input: InteractionStart,
     pointer: ConnectPointer,
     edgeType: EdgeType
   ): EdgeConnectState => {
@@ -326,6 +329,10 @@ export const createEdgeConnectSession = (
         return false
       }
 
+      if (!isEdgeCreateInteractionStart(input)) {
+        return false
+      }
+
       const edgeType = readEdgeType(input.tool.preset)
       const state = readCreateState(
         input,
@@ -337,6 +344,10 @@ export const createEdgeConnectSession = (
     },
     reconnect: (input) => {
       if (active) {
+        return false
+      }
+
+      if (!isEdgeInteractionStart(input)) {
         return false
       }
 

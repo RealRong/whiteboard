@@ -33,3 +33,15 @@ export type {
   SelectionSnapshot,
   SelectionTarget
 } from './runtime/selection'
+export type {
+  ContextDismissMode,
+  ContextMenuFilterView,
+  ContextMenuGroupView,
+  ContextMenuItemView,
+  ContextMenuView,
+  ContextNodeSummary,
+  ContextNodeTypeSummary,
+  ContextOpenInput,
+  ContextOpenSource,
+  ContextSelectionCan
+} from './runtime/context'

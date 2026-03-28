@@ -122,10 +122,8 @@ const WhiteboardCanvas = ({
         <MindmapSceneLayer />
         <ContainerChromeLayer />
         <NodeOverlayLayer />
-        <EdgeOverlayLayer
-          onRoutePointKeyDown={canvasInput.edgeRouteKeyDown}
-        />
-        <DrawLayer preview={canvasInput.drawPreview} />
+        <EdgeOverlayLayer />
+        <DrawLayer />
       </div>
       <CanvasChrome
         containerRef={containerRef}
