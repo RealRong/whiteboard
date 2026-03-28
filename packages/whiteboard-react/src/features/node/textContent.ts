@@ -1,33 +1,3 @@
-import type { Node } from '@whiteboard/core/types'
-
-export type TextWidthMode = 'auto' | 'fixed'
-
-const TEXT_WIDTH_MODE_KEY = 'widthMode'
-
-export const isTextNode = (
-  node: Pick<Node, 'type' | 'data'>
-): node is Pick<Node, 'type' | 'data'> & { type: 'text' } => node.type === 'text'
-
-export const readTextWidthMode = (
-  node: Pick<Node, 'type' | 'data'>
-): TextWidthMode => (
-  isTextNode(node) && node.data?.[TEXT_WIDTH_MODE_KEY] === 'fixed'
-    ? 'fixed'
-    : 'auto'
-)
-
-export const setTextWidthMode = (
-  node: Pick<Node, 'data'>,
-  mode: TextWidthMode
-) => ({
-  ...(node.data ?? {}),
-  [TEXT_WIDTH_MODE_KEY]: mode
-})
-
-export const isTextContentEmpty = (
-  value: string
-) => value.trim().length === 0
-
 export const readEditableText = (
   element: HTMLDivElement
 ) => {

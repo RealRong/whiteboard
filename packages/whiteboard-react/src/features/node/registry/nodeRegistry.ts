@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react'
-import { createContext, useContext } from 'react'
 import type { Node } from '@whiteboard/core/types'
 import type { NodeDefinition, NodeMeta, NodeRegistry } from '../../../types/node'
 
@@ -12,26 +10,6 @@ export const createNodeRegistry = (definitions: NodeDefinition[] = []): NodeRegi
       map.set(definition.type, definition)
     }
   }
-}
-
-const NodeRegistryContext = createContext<NodeRegistry | null>(null)
-
-export const NodeRegistryProvider = ({
-  registry,
-  children
-}: {
-  registry: NodeRegistry
-  children: ReactNode
-}) => {
-  return <NodeRegistryContext.Provider value={registry}>{children}</NodeRegistryContext.Provider>
-}
-
-export const useNodeRegistry = () => {
-  const registry = useContext(NodeRegistryContext)
-  if (!registry) {
-    throw new Error('NodeRegistryProvider is missing.')
-  }
-  return registry
 }
 
 export const resolveNodeMeta = (

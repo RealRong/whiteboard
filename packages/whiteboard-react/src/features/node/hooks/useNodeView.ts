@@ -2,8 +2,8 @@ import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
-import type { Editor } from '../../../runtime/instance'
-import { useInternalInstance } from '../../../runtime/hooks'
+import type { Editor } from '../../../runtime/editor'
+import { useEditor } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
 
@@ -61,17 +61,17 @@ const EMPTY_NODE_INTERACTION: ReturnType<Editor['read']['node']['interaction']['
 }
 
 const resolveNodeOverlayViewState = (
-  instance: Pick<Editor, 'read'>,
+  editor: Pick<Editor, 'read'>,
   nodeId: NodeId,
   item: NodeItem
 ): NodeOverlayView => {
   const node = item.node
   const rect = item.rect
-  const frameRect = instance.read.node.frame(nodeId) ?? rect
+  const frameRect = editor.read.node.frame(nodeId) ?? rect
   const rotation = node.type === 'group'
     ? 0
     : (typeof node.rotation === 'number' ? node.rotation : 0)
-  const capability = instance.read.node.transform(node)
+  const capability = editor.read.node.transform(node)
 
   return {
     nodeId,
@@ -79,14 +79,14 @@ const resolveNodeOverlayViewState = (
     rect,
     frameRect,
     rotation,
-    canConnect: instance.read.node.connect(node),
+    canConnect: editor.read.node.connect(node),
     canResize: capability.resize,
     canRotate: capability.rotate
   }
 }
 
 const resolveNodeViewState = (
-  instance: Pick<Editor, 'commands' | 'host' | 'read'>,
+  editor: Pick<Editor, 'commands' | 'host' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
   interaction: ReturnType<Editor['read']['node']['interaction']['get']>,
@@ -94,16 +94,16 @@ const resolveNodeViewState = (
 ): NodeView => {
   const resolvedNode = item.node
   const rect = item.rect
-  const frameRect = instance.read.node.frame(nodeId) ?? rect
+  const frameRect = editor.read.node.frame(nodeId) ?? rect
   const hidden = interaction.hidden
   const hasResizePreview = interaction.hasResizePreview
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
-  const definition = instance.host.registry.get(resolvedNode.type) as NodeDefinition | undefined
+  const definition = editor.host.registry.get(resolvedNode.type) as NodeDefinition | undefined
   const write: NodeWrite = {
     update: (update) => {
-      instance.commands.node.document.update(nodeId, update)
+      editor.commands.node.document.update(nodeId, update)
     }
   }
   const renderProps: NodeRenderProps = {
@@ -113,7 +113,7 @@ const resolveNodeViewState = (
     hovered: interaction.hovered,
     write
   }
-  const capability = instance.read.node.transform(resolvedNode)
+  const capability = editor.read.node.transform(resolvedNode)
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}
@@ -127,7 +127,7 @@ const resolveNodeViewState = (
     rotation,
     hidden,
     hasResizePreview,
-    canConnect: instance.read.node.connect(resolvedNode),
+    canConnect: editor.read.node.connect(resolvedNode),
     canResize: capability.resize,
     canRotate: capability.rotate,
     nodeStyle,
@@ -145,14 +145,14 @@ export const useNodeView = (
     selected?: boolean
   } = {}
 ): NodeView | undefined => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const item = useOptionalKeyedStoreValue(
-    instance.read.node.item,
+    editor.read.node.item,
     nodeId,
     undefined
   )
   const interaction = useOptionalKeyedStoreValue(
-    instance.read.node.interaction,
+    editor.read.node.interaction,
     nodeId,
     EMPTY_NODE_INTERACTION
   )
@@ -163,18 +163,18 @@ export const useNodeView = (
         return undefined
       }
 
-      return resolveNodeViewState(instance, nodeId, item, interaction, selected)
+      return resolveNodeViewState(editor, nodeId, item, interaction, selected)
     },
-    [instance, interaction, item, nodeId, selected]
+    [editor, interaction, item, nodeId, selected]
   )
 }
 
 export const useNodeOverlayView = (
   nodeId: NodeId | undefined
 ): NodeOverlayView | undefined => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const item = useOptionalKeyedStoreValue(
-    instance.read.node.item,
+    editor.read.node.item,
     nodeId,
     undefined
   )
@@ -185,8 +185,8 @@ export const useNodeOverlayView = (
         return undefined
       }
 
-      return resolveNodeOverlayViewState(instance, nodeId, item)
+      return resolveNodeOverlayViewState(editor, nodeId, item)
     },
-    [instance, item, nodeId]
+    [editor, item, nodeId]
   )
 }

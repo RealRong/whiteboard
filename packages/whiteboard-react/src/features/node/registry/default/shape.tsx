@@ -8,7 +8,7 @@ import {
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
 import {
   useEdit,
-  useInternalInstance
+  useEditor
 } from '../../../../runtime/hooks'
 import {
   ShapeGlyph,
@@ -65,7 +65,7 @@ const ShapeLabel = ({
   color: string
   fontSize: number
 }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const edit = useEdit()
   const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = typeof node.data?.text === 'string' ? node.data.text : ''
@@ -101,18 +101,17 @@ const ShapeLabel = ({
 
   const cancel = () => {
     setDraft(text)
-    instance.commands.edit.clear()
+    editor.commands.node.text.cancel({
+      nodeId: node.id
+    })
   }
 
   const commit = (value = draft) => {
-    if (value !== text) {
-      instance.commands.node.text.commit({
-        nodeId: node.id,
-        field: 'text',
-        value
-      })
-    }
-    instance.commands.edit.clear()
+    editor.commands.node.text.commit({
+      nodeId: node.id,
+      field: 'text',
+      value
+    })
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

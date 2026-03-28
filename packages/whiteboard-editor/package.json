@@ -16,10 +16,10 @@
       "import": "./dist/tool.js",
       "require": "./dist/tool.cjs"
     },
-    "./input": {
-      "types": "./dist/input.d.ts",
-      "import": "./dist/input.js",
-      "require": "./dist/input.cjs"
+    "./shortcut": {
+      "types": "./dist/shortcut.d.ts",
+      "import": "./dist/shortcut.js",
+      "require": "./dist/shortcut.cjs"
     },
     "./node": {
       "types": "./dist/node.d.ts",

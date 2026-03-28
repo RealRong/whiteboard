@@ -1,17 +1,16 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, type RefObject } from 'react'
 import {
   isEditableTarget,
   isInputIgnoredTarget
-} from '@whiteboard/editor/input'
-import { useInternalInstance } from '../runtime/hooks'
+} from './domTargets'
+import { useEditor } from '../runtime/hooks'
 
-export const useCanvasClipboard = ({
+export const useClipboard = ({
   containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const instance = useInternalInstance()
-  const lastPointerWorldRef = useRef<{ x: number; y: number } | null>(null)
+  const editor = useEditor()
 
   useEffect(() => {
     const container = containerRef.current
@@ -21,12 +20,8 @@ export const useCanvasClipboard = ({
       isEditableTarget(target) || isInputIgnoredTarget(target)
 
     const hasSelectionTarget = () => {
-      const selection = instance.read.selection.get()
+      const selection = editor.read.selection.get()
       return selection.items.count > 0
-    }
-
-    const onPointerMove = (event: PointerEvent) => {
-      lastPointerWorldRef.current = instance.viewport.pointer(event).world
     }
 
     const onCopy = (event: ClipboardEvent) => {
@@ -36,7 +31,7 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void instance.commands.clipboard.copy('selection', {
+      void editor.commands.clipboard.copy('selection', {
         event
       })
     }
@@ -48,7 +43,7 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void instance.commands.clipboard.cut('selection', {
+      void editor.commands.clipboard.cut('selection', {
         event
       })
     }
@@ -60,22 +55,19 @@ export const useCanvasClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void instance.commands.clipboard.paste({
-        event,
-        at: lastPointerWorldRef.current ?? undefined
+      void editor.commands.clipboard.paste({
+        event
       })
     }
 
-    container.addEventListener('pointermove', onPointerMove, true)
     container.addEventListener('copy', onCopy)
     container.addEventListener('cut', onCut)
     container.addEventListener('paste', onPaste)
 
     return () => {
-      container.removeEventListener('pointermove', onPointerMove, true)
       container.removeEventListener('copy', onCopy)
       container.removeEventListener('cut', onCut)
       container.removeEventListener('paste', onPaste)
     }
-  }, [containerRef, instance])
+  }, [containerRef, editor])
 }

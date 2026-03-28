@@ -3,7 +3,7 @@ import type {
 } from 'react'
 import {
   useInteraction,
-  useInternalInstance,
+  useEditor,
   usePickRef,
   useStoreValue,
   useTool
@@ -15,10 +15,10 @@ import type {
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {
-  const instance = useInternalInstance()
-  const hint = useStoreValue(instance.host.edge.preview.hint)
+  const editor = useEditor()
+  const hint = useStoreValue(editor.host.edge.preview.hint)
   const { line, snap } = hint
-  const zoom = instance.viewport.get().zoom
+  const zoom = editor.viewport.get().zoom
   const pointRadius = 4 / Math.max(zoom, 0.0001)
   const snapRadius = 6 / Math.max(zoom, 0.0001)
   const strokeWidth = 2 / Math.max(zoom, 0.0001)
@@ -115,7 +115,7 @@ const EdgeRoutePointHandle = ({
 }: {
   point: SelectedEdgeRoutePointView
 }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const ref = usePickRef(
     point.kind === 'anchor'
       ? {
@@ -145,7 +145,7 @@ const EdgeRoutePointHandle = ({
               return
             }
 
-            instance.commands.edge.route.remove(point.edgeId, point.index)
+            editor.commands.edge.route.remove(point.edgeId, point.index)
             event.preventDefault()
             event.stopPropagation()
           }

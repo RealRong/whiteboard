@@ -4,7 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/tool.ts',
-    'src/input.ts',
+    'src/shortcut.ts',
     'src/node.ts',
     'src/toolbox.ts',
     'src/types.ts'

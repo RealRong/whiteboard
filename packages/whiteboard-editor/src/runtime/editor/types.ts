@@ -88,6 +88,27 @@ export type EditorInsertResult = {
   }
 }
 
+export type EditorPointerInput = {
+  container: HTMLDivElement
+  event: PointerEvent
+}
+
+export type EditorPointerDownInput = EditorPointerInput
+
+export type EditorKeyboardInput = {
+  event: KeyboardEvent
+}
+
+export type EditorInputCommands = {
+  pointerDown: (input: EditorPointerInput) => boolean
+  pointerMove: (input: EditorPointerInput) => void
+  pointerLeave: () => void
+  cancel: () => void
+  keyDown: (input: EditorKeyboardInput) => boolean
+  keyUp: (input: EditorKeyboardInput) => boolean
+  blur: () => void
+}
+
 export type EditorState = {
   tool: ReadStore<Tool>
   draw: ReadStore<DrawPreferences>
@@ -117,17 +138,29 @@ export type EditorNodeLockCommands = {
 }
 
 export type EditorNodeTextCommands = {
+  preview: (input: {
+    nodeId: NodeId
+    value: string
+    source: HTMLElement
+  }) => void
+  clearPreview: (nodeId: NodeId) => void
+  cancel: (input: {
+    nodeId: NodeId
+  }) => void
   commit: (input: {
     nodeId: NodeId
     field: 'text' | 'title'
     value: string
+    source?: HTMLElement
     measuredSize?: Size
-  }) => CommandResult
+  }) => CommandResult | undefined
   setColor: (nodeIds: readonly NodeId[], color: string) => CommandResult
   setFontSize: (input: {
     nodeIds: readonly NodeId[]
+    field?: 'text' | 'title'
     value?: number
     measuredSizeById?: Readonly<Record<NodeId, Size>>
+    sourceById?: Readonly<Record<NodeId, HTMLElement | undefined>>
   }) => CommandResult
 }
 
@@ -213,6 +246,7 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
+  input: EditorInputCommands
   context: {
     open: (input: ContextOpenInput) => boolean
     dismiss: (mode: ContextDismissMode) => void
@@ -305,7 +339,7 @@ export type Editor = {
   dispose: () => void
 }
 
-export type InternalEditor = Editor & {
+export type EditorRuntime = Editor & {
   engine: EngineInstance
   interaction: InteractionCoordinator
   registry: NodeRegistry

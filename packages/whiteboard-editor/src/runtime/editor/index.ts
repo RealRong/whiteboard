@@ -1,4 +1,4 @@
-export { createEditor } from './createInstance'
+export { createEditor } from './createEditor'
 export type {
   Editor,
   EditorHost,
@@ -9,10 +9,24 @@ export type {
   EditorClipboardOptions,
   EditorClipboardTarget,
   EditorCommands,
+  EditorInputCommands,
+  EditorKeyboardInput,
+  EditorPointerInput,
   EditorInsertResult,
-  InternalEditor
+  EditorPointerDownInput,
+  EditorRuntime
 } from './types'
 export type {
+  SelectionCan,
+  SelectionLayoutView,
+  SelectionMenuFilterView,
+  SelectionMenuGroupView,
+  SelectionMenuItemView,
+  SelectionMenuView,
+  SelectionMoreMenuItemView,
+  SelectionMoreMenuSectionView,
+  SelectionNodeSummary,
+  SelectionNodeTypeSummary,
   ContextDismissMode,
   ContextMenuFilterView,
   ContextMenuGroupView,

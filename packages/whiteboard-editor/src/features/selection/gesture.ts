@@ -7,7 +7,7 @@ import {
   GestureTuning
 } from '../../runtime/interaction'
 import type { InteractionStart } from '../../runtime/input/pointer'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import {
   toSelectionTarget,
   type SelectionTarget
@@ -27,21 +27,21 @@ export type SelectionGesture = {
 }
 
 type SelectionGestureDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'edge' | 'node' | 'pick' | 'snap'>
+  internals: Pick<EditorRuntime['internals'], 'edge' | 'node' | 'pick' | 'snap'>
 }
 
 const EMPTY_SELECTION = toSelectionTarget({})
 
 const buildSelectionWriter = (
-  instance: SelectionGestureDeps,
+  editor: SelectionGestureDeps,
   base: SelectionTarget,
   mode: SelectionMode
 ) => {
   return (matched: SelectionTarget) => {
-    instance.commands.selection.replace({
+    editor.commands.selection.replace({
       nodeIds: [
         ...applySelection(
           new Set(base.nodeIds),
@@ -61,7 +61,7 @@ const buildSelectionWriter = (
 }
 
 const matchesTapTarget = (
-  instance: SelectionGestureDeps,
+  editor: SelectionGestureDeps,
   verifyNodeIds: readonly NodeId[] | undefined,
   event: PointerEvent
 ) => {
@@ -69,7 +69,7 @@ const matchesTapTarget = (
     return true
   }
 
-  const targetPick = instance.internals.pick.element(
+  const targetPick = editor.internals.pick.element(
     event.target instanceof Element ? event.target : null
   )
 
@@ -89,11 +89,11 @@ const stopPointerDown = (
 }
 
 export const createSelectionGesture = (
-  instance: SelectionGestureDeps,
+  editor: SelectionGestureDeps,
   marquee: MarqueeSession
 ): SelectionGesture => {
-  const press = createPressRuntime(instance.interaction)
-  const drag = createNodeDragSession(instance)
+  const press = createPressRuntime(editor.interaction)
+  const drag = createNodeDragSession(editor)
 
   const cancel = () => {
     press.cancel()
@@ -106,11 +106,11 @@ export const createSelectionGesture = (
     action: Extract<SelectionDragAction, { kind: 'marquee' }>,
     moveEvent?: PointerEvent
   ) => {
-    const applyMatched = buildSelectionWriter(instance, action.base, action.mode)
+    const applyMatched = buildSelectionWriter(editor, action.base, action.mode)
     const started = marquee.start({
       pointerId: start.event.pointerId,
       capture: start.capture,
-      start: instance.viewport.pointer({
+      start: editor.viewport.pointer({
         clientX: start.event.clientX,
         clientY: start.event.clientY
       }),
@@ -136,7 +136,7 @@ export const createSelectionGesture = (
   const startContainMarquee = (
     start: InteractionStart
   ) => {
-    instance.commands.selection.clear()
+    editor.commands.selection.clear()
 
     startMarquee(start, {
       kind: 'marquee',
@@ -152,7 +152,7 @@ export const createSelectionGesture = (
     event: PointerEvent
   ) => {
     if (action.nextSelection) {
-      instance.commands.selection.replace(action.nextSelection)
+      editor.commands.selection.replace(action.nextSelection)
     }
 
     drag.start({
@@ -173,21 +173,21 @@ export const createSelectionGesture = (
   ) => {
     switch (action.kind) {
       case 'clear':
-        instance.commands.selection.clear()
+        editor.commands.selection.clear()
         return
       case 'select':
-        if (!matchesTapTarget(instance, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(editor, action.verifyNodeIds, event)) {
           return
         }
 
-        instance.commands.selection.replace(action.target)
+        editor.commands.selection.replace(action.target)
         return
       case 'edit':
-        if (!matchesTapTarget(instance, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(editor, action.verifyNodeIds, event)) {
           return
         }
 
-        instance.commands.edit.start(action.nodeId, action.field)
+        editor.commands.edit.start(action.nodeId, action.field)
         return
     }
   }
@@ -210,13 +210,13 @@ export const createSelectionGesture = (
   return {
     down: (input) => {
       const plan = resolveSelectionPressPlan({
-        getNode: (nodeId) => instance.read.node.item.get(nodeId)?.node,
-        getOwnerId: instance.read.node.owner,
-        getNodeFrame: instance.read.node.frame,
-        getNodeRole: (node) => instance.read.node.role(node)
+        getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
+        getOwnerId: editor.read.node.owner,
+        getNodeFrame: editor.read.node.frame,
+        getNodeRole: (node) => editor.read.node.role(node)
       }, {
         start: input,
-        snapshot: instance.read.selection.get()
+        snapshot: editor.read.selection.get()
       })
       if (!plan) {
         return false

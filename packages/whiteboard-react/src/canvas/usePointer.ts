@@ -3,31 +3,18 @@ import {
   useEffect,
   type RefObject
 } from 'react'
-import { type MarqueeSession } from '../features/selection/Marquee'
-import { useInternalInstance } from '../runtime/hooks'
-import {
-  handlePointerDown
-} from '../runtime/input/pointer'
+import { useEditor } from '../runtime/hooks'
 
-export const useCanvasDown = ({
+export const usePointer = ({
   containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const instance = useInternalInstance()
-  const marquee: MarqueeSession = instance.host.selection.marquee
-  const gesture = instance.host.selection.gesture
-  const transform = instance.host.node.transform
-  const draw = instance.host.draw
-  const edgeInput = instance.host.edge.input
+  const editor = useEditor()
 
   useEffect(() => () => {
-    draw.cancel()
-    edgeInput.cancel()
-    marquee.cancel()
-    gesture.cancel()
-    transform.cancel()
-  }, [draw, edgeInput, gesture, marquee, transform])
+    editor.commands.input.cancel()
+  }, [editor])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
     const container = containerRef.current
@@ -35,8 +22,27 @@ export const useCanvasDown = ({
       return false
     }
 
-    return handlePointerDown(instance, container, event)
-  }, [containerRef, instance])
+    return editor.commands.input.pointerDown({
+      container,
+      event
+    })
+  }, [containerRef, editor])
+
+  const onPointerMove = useCallback((event: PointerEvent) => {
+    const container = containerRef.current
+    if (!container) {
+      return
+    }
+
+    editor.commands.input.pointerMove({
+      container,
+      event
+    })
+  }, [containerRef, editor])
+
+  const onPointerLeave = useCallback(() => {
+    editor.commands.input.pointerLeave()
+  }, [editor])
 
   useEffect(() => {
     const container = containerRef.current
@@ -48,10 +54,10 @@ export const useCanvasDown = ({
       onPointerDown(event)
     }
     const handlePointerMove = (event: PointerEvent) => {
-      edgeInput.pointerMove(event)
+      onPointerMove(event)
     }
     const handlePointerLeave = () => {
-      edgeInput.pointerLeave()
+      onPointerLeave()
     }
 
     container.addEventListener('pointerdown', handlePointerDown, true)
@@ -62,9 +68,5 @@ export const useCanvasDown = ({
       container.removeEventListener('pointermove', handlePointerMove)
       container.removeEventListener('pointerleave', handlePointerLeave)
     }
-  }, [containerRef, edgeInput, onPointerDown])
-
-  return {
-    marquee
-  }
+  }, [containerRef, onPointerDown, onPointerLeave, onPointerMove])
 }

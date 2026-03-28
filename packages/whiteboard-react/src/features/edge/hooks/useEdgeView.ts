@@ -1,12 +1,12 @@
 import type { EdgeHandle } from '@whiteboard/core/edge'
 import type { EdgeId } from '@whiteboard/core/types'
 import { useMemo } from 'react'
-import { useInternalInstance } from '../../../runtime/hooks'
+import { useEditor } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useSelection } from '../../node/selection'
 
 export type EdgeView = NonNullable<
-  ReturnType<ReturnType<typeof useInternalInstance>['read']['edge']['view']['get']>
+  ReturnType<ReturnType<typeof useEditor>['read']['edge']['view']['get']>
 >
 
 export type SelectedEdgeRoutePointView =
@@ -36,25 +36,25 @@ export type SelectedEdgeView = {
 export const useEdgeView = (
   edgeId: EdgeId | undefined
 ): EdgeView | undefined => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
 
   return useOptionalKeyedStoreValue(
-    instance.read.edge.view,
+    editor.read.edge.view,
     edgeId,
     undefined
   )
 }
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const selection = useSelection()
   const edgeId = selection.kind === 'edge' && selection.items.count === 1
     ? selection.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
-  const emptyPatch = instance.host.edge.preview.emptyPatch
+  const emptyPatch = editor.host.edge.preview.emptyPatch
   const patch = useOptionalKeyedStoreValue(
-    instance.host.edge.preview.patch,
+    editor.host.edge.preview.patch,
     edgeId,
     emptyPatch
   )

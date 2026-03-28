@@ -6,8 +6,12 @@ export type {
   EditorViewport,
   EditorClipboardOptions,
   EditorClipboardTarget,
-  EditorInsertResult
-} from './runtime/instance'
+  EditorInputCommands,
+  EditorKeyboardInput,
+  EditorInsertResult,
+  EditorPointerInput,
+  EditorPointerDownInput
+} from './runtime/editor'
 export type {
   ControlId,
   NodeDefinition,

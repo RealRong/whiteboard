@@ -1,5 +1,9 @@
 import type { ReadStore } from '@whiteboard/engine'
 import type {
+  NodeAlignMode,
+  NodeDistributeMode
+} from '@whiteboard/core/node'
+import type {
   Node,
   NodeId
 } from '@whiteboard/core/types'
@@ -24,22 +28,22 @@ export type ContextDismissMode =
   | 'dismiss'
   | 'action'
 
-export type ContextMenuItemView = {
+export type SelectionMenuItemView = {
   key: string
   label: string
   tone?: 'danger'
   disabled?: boolean
   onSelect?: () => unknown
-  children?: readonly ContextMenuItemView[]
+  children?: readonly SelectionMenuItemView[]
 }
 
-export type ContextMenuGroupView = {
+export type SelectionMenuGroupView = {
   key: string
   title?: string
-  items: readonly ContextMenuItemView[]
+  items: readonly SelectionMenuItemView[]
 }
 
-export type ContextNodeTypeSummary = {
+export type SelectionNodeTypeSummary = {
   key: string
   name: string
   family: NodeFamily
@@ -47,16 +51,16 @@ export type ContextNodeTypeSummary = {
   count: number
 }
 
-export type ContextNodeSummary = {
+export type SelectionNodeSummary = {
   ids: readonly NodeId[]
   count: number
   hasGroup: boolean
   lock: 'none' | 'mixed' | 'all'
-  types: readonly ContextNodeTypeSummary[]
+  types: readonly SelectionNodeTypeSummary[]
   mixed: boolean
 }
 
-export type ContextSelectionCan = {
+export type SelectionCan = {
   fill: boolean
   stroke: boolean
   text: boolean
@@ -74,10 +78,47 @@ export type ContextSelectionCan = {
   delete: boolean
 }
 
-export type ContextMenuFilterView = {
-  types: readonly ContextNodeTypeSummary[]
+export type SelectionMenuFilterView = {
+  types: readonly SelectionNodeTypeSummary[]
   onSelect: (key: string) => unknown
 }
+
+export type SelectionMoreMenuItemView = {
+  key: string
+  label: string
+  disabled?: boolean
+  tone?: 'danger'
+  onSelect: () => unknown
+}
+
+export type SelectionMoreMenuSectionView = {
+  key: string
+  title: string
+  items: readonly SelectionMoreMenuItemView[]
+}
+
+export type SelectionLayoutView = {
+  canAlign: boolean
+  canDistribute: boolean
+  onAlign: (mode: NodeAlignMode) => unknown
+  onDistribute: (mode: NodeDistributeMode) => unknown
+}
+
+export type SelectionMenuView = {
+  summary: SelectionNodeSummary
+  can: SelectionCan
+  filter?: SelectionMenuFilterView
+  groups: readonly SelectionMenuGroupView[]
+  moreSections: readonly SelectionMoreMenuSectionView[]
+  layout: SelectionLayoutView
+}
+
+export type ContextMenuItemView = SelectionMenuItemView
+export type ContextMenuGroupView = SelectionMenuGroupView
+export type ContextNodeTypeSummary = SelectionNodeTypeSummary
+export type ContextNodeSummary = SelectionNodeSummary
+export type ContextSelectionCan = SelectionCan
+export type ContextMenuFilterView = SelectionMenuFilterView
 
 export type ContextMenuView = {
   screen: PointerPick['point']['screen']
@@ -94,6 +135,7 @@ export type ContextMenuSession = {
 
 export type ContextRuntime = {
   menu: ReadStore<ContextMenuView | null>
+  selection: ReadStore<SelectionMenuView | null>
   open: (input: ContextOpenInput) => boolean
   dismiss: (mode: ContextDismissMode) => void
   clear: () => void

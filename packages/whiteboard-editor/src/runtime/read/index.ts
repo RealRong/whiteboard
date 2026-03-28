@@ -11,7 +11,10 @@ import type { ReadStore } from '@whiteboard/engine'
 import type { SelectionTarget } from '../selection'
 import type { Tool } from '../tool'
 import type { FrameScope } from '../frame'
-import type { ContextMenuView } from '../context'
+import type {
+  ContextMenuView,
+  SelectionMenuView
+} from '../context'
 import {
   createNodeRead,
   createNodeInteractionRead,
@@ -46,6 +49,7 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   pick: PickRead
   context: {
     menu: ReadStore<ContextMenuView | null>
+    selection: ReadStore<SelectionMenuView | null>
   }
   frame: {
     scope: ReadStore<FrameScope>
@@ -62,6 +66,7 @@ export const createRuntimeRead = ({
   selection,
   frame,
   contextMenu,
+  contextSelection,
   pick,
   viewport,
   node,
@@ -74,6 +79,7 @@ export const createRuntimeRead = ({
   selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
   contextMenu: ReadStore<ContextMenuView | null>
+  contextSelection: ReadStore<SelectionMenuView | null>
   pick: PickRuntime
   viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session'>
@@ -126,7 +132,8 @@ export const createRuntimeRead = ({
     node: nodeRead,
     edge: edgeRead,
     context: {
-      menu: contextMenu
+      menu: contextMenu,
+      selection: contextSelection
     },
     frame: {
       scope: frame,

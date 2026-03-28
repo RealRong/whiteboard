@@ -1,5 +1,9 @@
 export { createContextRuntime } from './runtime'
 export {
+  createSelectionMenuRead,
+  readSelectionMenuView
+} from './selection'
+export {
   readContextLockLabel,
   resolveContextNodeMeta,
   resolveContextSelectionCan,
@@ -20,5 +24,15 @@ export type {
   ContextOpenSource,
   ContextResolveMeta,
   ContextRuntime,
-  ContextSelectionCan
+  ContextSelectionCan,
+  SelectionCan,
+  SelectionLayoutView,
+  SelectionMenuFilterView,
+  SelectionMenuGroupView,
+  SelectionMenuItemView,
+  SelectionMenuView,
+  SelectionMoreMenuItemView,
+  SelectionMoreMenuSectionView,
+  SelectionNodeSummary,
+  SelectionNodeTypeSummary
 } from './types'

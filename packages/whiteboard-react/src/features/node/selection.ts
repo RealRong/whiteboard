@@ -1,20 +1,17 @@
 import { useMemo } from 'react'
-import type { Node, Rect } from '@whiteboard/core/types'
-import type { NodeMeta } from '../../types/node'
+import type { Rect } from '@whiteboard/core/types'
+import type { SelectionMenuView } from '@whiteboard/editor'
 import {
-  resolveNodeSelectionCan,
-  summarizeNodes,
   type NodeSelectionCan,
   type NodeSummary
 } from './summary'
-import { resolveNodeMeta } from './registry'
 import {
   useEdit,
-  useInternalInstance,
+  useEditor,
   useTool
 } from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import type { Editor } from '../../runtime/instance'
+import type { Editor } from '../../runtime/editor'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
 type InteractionMode = ReturnType<Editor['host']['interaction']['mode']['get']>
@@ -22,6 +19,7 @@ type BaseSelection = ReturnType<Editor['read']['selection']['get']>
 type Tool = ReturnType<Editor['state']['tool']['get']>
 
 type SelectionView = BaseSelection & {
+  menu?: SelectionMenuView
   summary: NodeSummary
   can: NodeSelectionCan
   boxState: SelectionBoxState
@@ -52,8 +50,31 @@ type SelectionPresentation = {
   connectNodeIds: readonly string[]
 }
 
-const EMPTY_SUMMARY = summarizeNodes([])
-const EMPTY_CAN = resolveNodeSelectionCan([])
+const EMPTY_SUMMARY: NodeSummary = {
+  ids: [],
+  count: 0,
+  hasGroup: false,
+  lock: 'none',
+  types: [],
+  mixed: false
+}
+const EMPTY_CAN: NodeSelectionCan = {
+  fill: false,
+  stroke: false,
+  text: false,
+  group: false,
+  align: false,
+  distribute: false,
+  makeGroup: false,
+  ungroup: false,
+  order: false,
+  filter: false,
+  lock: false,
+  copy: false,
+  cut: false,
+  duplicate: false,
+  delete: false
+}
 
 const resolveSelectionBoxState = (
   selection: BaseSelection
@@ -137,45 +158,34 @@ const resolveSelectionPresentation = (
 
 const resolveSelectionView = (
   selection: BaseSelection,
-  options?: {
-    resolveMeta?: (node: Node) => NodeMeta | undefined
-  }
+  menu: SelectionMenuView | null
 ): SelectionView => {
-  const nodes = selection.items.nodes
   const boxState = resolveSelectionBoxState(selection)
 
   return {
     ...selection,
-    summary: nodes.length > 0
-      ? summarizeNodes(nodes, {
-          resolveMeta: options?.resolveMeta
-        })
-      : EMPTY_SUMMARY,
-    can: nodes.length > 0
-      ? resolveNodeSelectionCan(nodes, {
-          resolveMeta: options?.resolveMeta
-        })
-      : EMPTY_CAN,
+    menu: menu ?? undefined,
+    summary: menu?.summary ?? EMPTY_SUMMARY,
+    can: menu?.can ?? EMPTY_CAN,
     boxState
   }
 }
 
 export const useSelection = () => {
-  const instance = useInternalInstance()
-  const selection = useStoreValue(instance.read.selection)
+  const editor = useEditor()
+  const selection = useStoreValue(editor.read.selection)
+  const menu = useStoreValue(editor.read.context.selection)
 
-  return useMemo(() => resolveSelectionView(selection, {
-    resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node)
-  }), [instance, selection])
+  return useMemo(() => resolveSelectionView(selection, menu), [menu, selection])
 }
 
 export const useSelectionPresentation = () => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const selection = useSelection()
   const tool = useTool()
   const edit = useEdit()
-  const mode = useStoreValue(instance.host.interaction.mode)
-  const interaction = useStoreValue(instance.state.interaction)
+  const mode = useStoreValue(editor.host.interaction.mode)
+  const interaction = useStoreValue(editor.state.interaction)
 
   return useMemo(() => {
     const chrome = resolveSelectionChrome({

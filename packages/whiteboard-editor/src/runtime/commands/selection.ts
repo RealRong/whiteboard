@@ -1,5 +1,5 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import type { Commands as EditCommands } from '../edit'
 import {
   createState as createFrameState,

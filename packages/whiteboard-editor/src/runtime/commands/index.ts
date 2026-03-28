@@ -1,6 +1,7 @@
 import type { HistoryState } from '@whiteboard/core/kernel'
+import type { Point } from '@whiteboard/core/types'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import type { Tool } from '../tool'
 import type { ViewportCommands } from '../viewport'
 import {
@@ -13,6 +14,7 @@ import {
   createState as createSelectionState
 } from '../selection'
 import { createDrawState } from '../../features/draw/state'
+import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type {
   ClipboardPort,
   ClipboardRuntime
@@ -41,9 +43,12 @@ export const createEditorCommands = ({
   viewportCommands,
   viewportRead,
   draw,
+  nodeRuntime,
+  input,
   context,
   clipboardRuntime,
-  clipboardPort
+  clipboardPort,
+  readPointerWorld
 }: {
   engine: EngineInstance
   read: Editor['read']
@@ -61,9 +66,12 @@ export const createEditorCommands = ({
   viewportCommands: ViewportCommands
   viewportRead: Editor['viewport']
   draw: ReturnType<typeof createDrawState>
+  nodeRuntime: NodeFeatureRuntime
+  input: Editor['commands']['input']
   context: Editor['commands']['context']
   clipboardRuntime: ClipboardRuntime
   clipboardPort: ClipboardPort
+  readPointerWorld: () => Point | undefined
 }): Editor['commands'] => {
   let commands!: Editor['commands']
   const commandHost: EditorCommandHost = {
@@ -99,7 +107,11 @@ export const createEditorCommands = ({
     draw
   })
   const nodeCommands = createNodeCommands({
-    engine
+    engine,
+    read,
+    runtime: nodeRuntime,
+    edit,
+    selection: selectionCommands
   })
   const mindmapCommands = createMindmapCommands({
     engine,
@@ -108,7 +120,8 @@ export const createEditorCommands = ({
   const clipboardCommands = createClipboardCommands({
     commandHost,
     runtime: clipboardRuntime,
-    port: clipboardPort
+    port: clipboardPort,
+    readPointerWorld
   })
   const insertCommands = createInsertCommands({
     commandHost
@@ -126,6 +139,7 @@ export const createEditorCommands = ({
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,
+    input,
     context,
     clipboard: clipboardCommands,
     insert: insertCommands

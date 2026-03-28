@@ -1,25 +1,25 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import {
   createShortcutMap,
-  isKeyboardIgnoredTarget,
   readShortcut,
   resolveShortcutBindings
-} from '@whiteboard/editor/input'
+} from '@whiteboard/editor'
 import type { ShortcutOverrides } from '../types/common/shortcut'
-import { useInternalInstance } from '../runtime/hooks'
+import { useEditor } from '../runtime/hooks'
+import { isKeyboardIgnoredTarget } from './domTargets'
 import {
   DefaultShortcutBindings,
   runShortcut
 } from './shortcut'
 
-export const useCanvasKeyboard = ({
+export const useKeyboard = ({
   containerRef,
   shortcuts
 }: {
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
 }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const bindings = useMemo(
     () => resolveShortcutBindings(DefaultShortcutBindings, shortcuts),
     [shortcuts]
@@ -55,7 +55,7 @@ export const useCanvasKeyboard = ({
         return
       }
 
-      if (instance.host.interaction.handleKeyDown(event)) {
+      if (editor.commands.input.keyDown({ event })) {
         if (event.cancelable) {
           event.preventDefault()
         }
@@ -67,7 +67,7 @@ export const useCanvasKeyboard = ({
 
       const action = readShortcut(event, shortcutMap)
       if (!action) return
-      if (!runShortcut(instance, action)) return
+      if (!runShortcut(editor, action)) return
 
       if (event.cancelable) {
         event.preventDefault()
@@ -80,13 +80,13 @@ export const useCanvasKeyboard = ({
         event.defaultPrevented
         || isKeyboardIgnoredTarget(event.target)
       ) {
-        if (event.code === 'Space' && instance.host.interaction.space.get()) {
-          instance.host.interaction.handleKeyUp(event)
+        if (event.code === 'Space' && editor.host.interaction.space.get()) {
+          editor.commands.input.keyUp({ event })
         }
         return
       }
 
-      if (!instance.host.interaction.handleKeyUp(event)) {
+      if (!editor.commands.input.keyUp({ event })) {
         return
       }
 
@@ -97,7 +97,7 @@ export const useCanvasKeyboard = ({
     }
 
     const onBlur = () => {
-      instance.host.interaction.handleBlur()
+      editor.commands.input.blur()
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)
@@ -115,5 +115,5 @@ export const useCanvasKeyboard = ({
         window.removeEventListener('blur', onBlur)
       }
     }
-  }, [containerRef, instance, shortcutMap])
+  }, [containerRef, editor, shortcutMap])
 }

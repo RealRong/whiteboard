@@ -2,12 +2,24 @@ import {
   compileNodeFieldUpdate,
   compileNodeFieldUpdates
 } from '@whiteboard/core/schema'
-import type { Size } from '@whiteboard/core/types'
+import { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
+import type { NodeId, Size } from '@whiteboard/core/types'
 import type {
   NodeUpdateInput
 } from '@whiteboard/core/types'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../instance/types'
+import {
+  TEXT_PLACEHOLDER
+} from '../../features/node/templates'
+import {
+  isTextContentEmpty,
+  measureTextNodeSize
+} from '../../features/node/text'
+import type {
+  NodeFeatureRuntime,
+  NodePatch
+} from '../../features/node/session/node'
+import type { Editor } from '../editor/types'
 
 const mergeNodeUpdates = (
   ...updates: Array<NodeUpdateInput | undefined>
@@ -55,10 +67,158 @@ const dataUpdate = (
   value
 )
 
+const isSameSize = (
+  left: Size | null | undefined,
+  right: Size | null | undefined
+) => (
+  left?.width === right?.width
+  && left?.height === right?.height
+)
+
+const mergeTextPreviewPatch = (
+  patch: NodePatch | undefined,
+  size?: Size
+): NodePatch | undefined => {
+  if (!patch && !size) {
+    return undefined
+  }
+
+  const next: NodePatch = {
+    position: patch?.position,
+    rotation: patch?.rotation,
+    size
+  }
+
+  if (!next.position && next.rotation === undefined && !next.size) {
+    return undefined
+  }
+
+  return next
+}
+
+const writeTextPreview = (
+  runtime: NodeFeatureRuntime,
+  nodeId: NodeId,
+  size?: Size
+) => {
+  const current = runtime.session.get(nodeId).patch
+  const next = mergeTextPreviewPatch(current, size)
+
+  if (isSameSize(current?.size, next?.size)) {
+    return
+  }
+
+  if (next) {
+    runtime.patch.write(nodeId, next)
+  } else {
+    runtime.patch.clear(nodeId)
+  }
+  runtime.session.flush()
+}
+
+const clearTextPreview = (
+  runtime: NodeFeatureRuntime,
+  nodeId: NodeId
+) => {
+  const current = runtime.session.get(nodeId).patch
+  if (!current?.size) {
+    return
+  }
+
+  const next = mergeTextPreviewPatch(current, undefined)
+  if (next) {
+    runtime.patch.write(nodeId, next)
+  } else {
+    runtime.patch.clear(nodeId)
+  }
+  runtime.session.flush()
+}
+
+const resolveTextCommitSize = ({
+  read,
+  runtime,
+  nodeId,
+  value,
+  source,
+  measuredSize
+}: {
+  read: Editor['read']
+  runtime: NodeFeatureRuntime
+  nodeId: NodeId
+  value: string
+  source?: HTMLElement
+  measuredSize?: Size
+}) => {
+  if (measuredSize) {
+    return measuredSize
+  }
+
+  if (!source) {
+    return runtime.session.get(nodeId).patch?.size
+  }
+
+  const item = read.node.item.get(nodeId)
+  if (!item) {
+    return runtime.session.get(nodeId).patch?.size
+  }
+
+  return measureTextNodeSize({
+    node: item.node,
+    content: value,
+    placeholder: TEXT_PLACEHOLDER,
+    source,
+    width: item.rect.width
+  }) ?? runtime.session.get(nodeId).patch?.size
+}
+
+const resolveFontSizeMeasure = ({
+  read,
+  nodeId,
+  field,
+  source,
+  value
+}: {
+  read: Editor['read']
+  nodeId: NodeId
+  field: 'text' | 'title'
+  source?: HTMLElement
+  value?: number
+}) => {
+  if (!source) {
+    return undefined
+  }
+
+  const item = read.node.item.get(nodeId)
+  if (!item) {
+    return undefined
+  }
+
+  const content = typeof item.node.data?.[field] === 'string'
+    ? item.node.data[field] as string
+    : ''
+
+  return measureTextNodeSize({
+    node: item.node,
+    content,
+    placeholder: TEXT_PLACEHOLDER,
+    source,
+    width: item.rect.width,
+    fontSize: value ?? TEXT_DEFAULT_FONT_SIZE
+  })
+}
+
 export const createNodeCommands = ({
-  engine
+  engine,
+  read,
+  runtime,
+  edit,
+  selection
 }: {
   engine: EngineInstance
+  read: Editor['read']
+  runtime: NodeFeatureRuntime
+  edit: Editor['commands']['edit']
+  selection: Editor['commands']['selection']
 }): Editor['commands']['node'] => {
   const document: Editor['commands']['node']['document'] = {
     update: engine.commands.node.update,
@@ -120,44 +280,138 @@ export const createNodeCommands = ({
   }
 
   const text: Editor['commands']['node']['text'] = {
+    preview: ({
+      nodeId,
+      value,
+      source
+    }) => {
+      const item = read.node.item.get(nodeId)
+      if (!item || item.node.type !== 'text') {
+        return
+      }
+
+      const nextSize = measureTextNodeSize({
+        node: item.node,
+        content: value,
+        placeholder: TEXT_PLACEHOLDER,
+        source,
+        width: item.rect.width,
+        minWidth: item.rect.width
+      })
+
+      if (!nextSize) {
+        return
+      }
+
+      writeTextPreview(runtime, nodeId, nextSize)
+    },
+    clearPreview: (nodeId) => {
+      clearTextPreview(runtime, nodeId)
+    },
+    cancel: ({
+      nodeId
+    }) => {
+      clearTextPreview(runtime, nodeId)
+      edit.clear()
+    },
     commit: ({
       nodeId,
       field,
       value,
+      source,
       measuredSize
-    }) => document.update(
-      nodeId,
-      mergeNodeUpdates(
-        dataUpdate(field, value),
-        measuredSize
-          ? {
-              fields: {
-                size: measuredSize
-              }
-            }
-          : undefined
-      )
-    ),
-    setColor: (nodeIds, color) =>
-      appearance.setTextColor(nodeIds, color),
-    setFontSize: ({
-      nodeIds,
-      value,
-      measuredSizeById
-    }) => document.updateMany(
-      nodeIds.map((id) => ({
-        id,
-        update: mergeNodeUpdates(
-          styleUpdate('fontSize', value),
-          measuredSizeById?.[id]
+    }) => {
+      const committed = read.node.committedItem.get(nodeId)
+      if (!committed) {
+        clearTextPreview(runtime, nodeId)
+        edit.clear()
+        return undefined
+      }
+
+      const nextValue = value
+      const currentValue = typeof committed.node.data?.[field] === 'string'
+        ? committed.node.data[field] as string
+        : ''
+      const nextMeasuredSize = committed.node.type === 'text' && field === 'text'
+        ? resolveTextCommitSize({
+            read,
+            runtime,
+            nodeId,
+            value: nextValue,
+            source,
+            measuredSize
+          })
+        : measuredSize
+      const sizeUpdate = nextMeasuredSize && !isSameSize(nextMeasuredSize, committed.rect)
+        ? nextMeasuredSize
+        : undefined
+
+      clearTextPreview(runtime, nodeId)
+      edit.clear()
+
+      if (
+        committed.node.type === 'text'
+        && field === 'text'
+        && isTextContentEmpty(nextValue)
+      ) {
+        selection.clear()
+        return engine.commands.node.deleteCascade([nodeId])
+      }
+
+      if (nextValue === currentValue && !sizeUpdate) {
+        return undefined
+      }
+
+      return document.update(
+        nodeId,
+        mergeNodeUpdates(
+          dataUpdate(field, nextValue),
+          sizeUpdate
             ? {
                 fields: {
-                  size: measuredSizeById[id] as Size
+                  size: sizeUpdate
                 }
               }
             : undefined
         )
-      }))
+      )
+    },
+    setColor: (nodeIds, color) =>
+      appearance.setTextColor(nodeIds, color),
+    setFontSize: ({
+      nodeIds,
+      field = 'text',
+      value,
+      measuredSizeById,
+      sourceById
+    }) => document.updateMany(
+      nodeIds.map((id) => {
+        const committed = read.node.committedItem.get(id)
+        const nextMeasuredSize = measuredSizeById?.[id] ?? resolveFontSizeMeasure({
+          read,
+          nodeId: id,
+          field,
+          source: sourceById?.[id],
+          value
+        })
+        const sizeUpdate = committed && nextMeasuredSize && !isSameSize(nextMeasuredSize, committed.rect)
+          ? nextMeasuredSize
+          : undefined
+
+        return {
+          id,
+          update: mergeNodeUpdates(
+            styleUpdate('fontSize', value),
+            sizeUpdate
+              ? {
+                  fields: {
+                    size: sizeUpdate
+                  }
+                }
+              : undefined
+          )
+        }
+      })
     )
   }
 

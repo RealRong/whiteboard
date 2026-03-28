@@ -8,7 +8,7 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import {
-  useInternalInstance,
+  useEditor,
   usePickRef,
   useStoreValue
 } from '../../../runtime/hooks'
@@ -222,17 +222,17 @@ const ContainerChromeItem = memo(({
 ContainerChromeItem.displayName = 'ContainerChromeItem'
 
 export const FrameLayer = () => {
-  const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.read.node.list)
+  const editor = useEditor()
+  const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const frameIds = useMemo(
-    () => instance.read.node.filter(nodeIds, 'frame'),
-    [instance, nodeIds]
+    () => editor.read.node.filter(nodeIds, 'frame'),
+    [editor, nodeIds]
   )
   const groupIds = useMemo(
-    () => instance.read.node.filter(nodeIds, 'group'),
-    [instance, nodeIds]
+    () => editor.read.node.filter(nodeIds, 'group'),
+    [editor, nodeIds]
   )
 
   if (!frameIds.length && !groupIds.length) {
@@ -259,11 +259,11 @@ export const FrameLayer = () => {
 }
 
 export const ContainerChromeLayer = () => {
-  const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.read.node.list)
+  const editor = useEditor()
+  const nodeIds = useStoreValue(editor.read.node.list)
   const frameIds = useMemo(
-    () => instance.read.node.filter(nodeIds, 'frame'),
-    [instance, nodeIds]
+    () => editor.read.node.filter(nodeIds, 'frame'),
+    [editor, nodeIds]
   )
 
   if (!frameIds.length) {

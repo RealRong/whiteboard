@@ -11,7 +11,7 @@ import {
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
 import {
   useEdit,
-  useInternalInstance,
+  useEditor,
   usePickRef
 } from '../../../../runtime/hooks'
 import {
@@ -50,7 +50,7 @@ export const FrameNodeChrome = ({
   node,
   write
 }: FrameNodeChromeProps) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const edit = useEdit()
   const title = getDataString(node, 'title') || FRAME_DEFAULT_TITLE
   const editing = edit?.nodeId === node.id && edit.field === 'title'
@@ -68,14 +68,11 @@ export const FrameNodeChrome = ({
 
   const commit = () => {
     const nextTitle = draft.trim() || FRAME_DEFAULT_TITLE
-    if (nextTitle !== title) {
-      instance.commands.node.text.commit({
-        nodeId: node.id,
-        field: 'title',
-        value: nextTitle
-      })
-    }
-    instance.commands.edit.clear()
+    editor.commands.node.text.commit({
+      nodeId: node.id,
+      field: 'title',
+      value: nextTitle
+    })
   }
 
   return (
@@ -104,7 +101,9 @@ export const FrameNodeChrome = ({
             if (event.key === 'Escape') {
               event.preventDefault()
               setDraft(title)
-              instance.commands.edit.clear()
+              editor.commands.node.text.cancel({
+                nodeId: node.id
+              })
             }
           }}
           className="wb-frame-input"

@@ -18,6 +18,15 @@ export {
   createTextNodeInput
 } from './features/node/templates'
 export {
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_MIN_WIDTH,
+  isTextContentEmpty,
+  isTextNode,
+  measureTextNodeSize,
+  readTextWidthMode,
+  setTextWidthMode
+} from './features/node/text'
+export {
   SHAPE_SPECS,
   SHAPE_MENU_SECTIONS,
   createShapeNodeInput,
@@ -33,3 +42,7 @@ export type {
   ShapeLabelInset,
   ShapeSpec
 } from './features/node/shape'
+export type {
+  TextMeasureSize,
+  TextWidthMode
+} from './features/node/text'

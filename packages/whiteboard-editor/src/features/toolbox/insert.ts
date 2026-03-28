@@ -4,7 +4,7 @@ import type {
   SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import type { Editor } from '../../runtime/instance/types'
+import type { Editor } from '../../runtime/editor/types'
 import { moveMindmapRoot } from '../mindmap/commands'
 import type {
   InsertPlacement,
@@ -19,7 +19,7 @@ export type InsertResult = {
   }
 }
 
-type InsertInstance = Pick<Editor, 'commands' | 'read'>
+type InsertEditor = Pick<Editor, 'commands' | 'read'>
 
 const placeNodeInput = (
   world: Point,
@@ -41,12 +41,12 @@ const placeNodeInput = (
 }
 
 const insertNodePreset = (
-  instance: InsertInstance,
+  editor: InsertEditor,
   preset: Extract<InsertPreset, { kind: 'node' }>,
   world: Point,
   ownerId?: NodeId
 ): InsertResult | undefined => {
-  const result = instance.commands.node.create(
+  const result = editor.commands.node.create(
     placeNodeInput(world, {
       ...preset.input(world),
       ownerId
@@ -68,11 +68,11 @@ const insertNodePreset = (
 }
 
 const insertMindmapPreset = (
-  instance: InsertInstance,
+  editor: InsertEditor,
   preset: Extract<InsertPreset, { kind: 'mindmap' }>,
   world: Point
 ): InsertResult | undefined => {
-  const result = instance.commands.mindmap.create({
+  const result = editor.commands.mindmap.create({
     rootData: preset.template.root
   })
   if (!result.ok) {
@@ -80,7 +80,7 @@ const insertMindmapPreset = (
   }
 
   preset.template.children?.forEach((child) => {
-    instance.commands.mindmap.insert(result.data.mindmapId, {
+    editor.commands.mindmap.insert(result.data.mindmapId, {
       kind: 'child',
       parentId: result.data.rootId,
       payload: child.data,
@@ -90,12 +90,12 @@ const insertMindmapPreset = (
     })
   })
 
-  const rect = instance.read.index.node.get(result.data.mindmapId)?.rect
+  const rect = editor.read.index.node.get(result.data.mindmapId)?.rect
   const width = rect?.width ?? 260
   const height = rect?.height ?? 180
 
   moveMindmapRoot({
-    instance,
+    editor,
     nodeId: result.data.mindmapId,
     position: {
       x: world.x - width / 2,
@@ -110,34 +110,34 @@ const insertMindmapPreset = (
 }
 
 export const insertPreset = ({
-  instance,
+  editor,
   preset,
   world,
   ownerId
 }: {
-  instance: InsertInstance
+  editor: InsertEditor
   preset: InsertPreset
   world: Point
   ownerId?: NodeId
 }) => {
   const result = preset.kind === 'node'
     ? insertNodePreset(
-        instance,
+        editor,
         preset,
         world,
         preset.canNest === false ? undefined : ownerId
       )
-    : insertMindmapPreset(instance, preset, world)
+    : insertMindmapPreset(editor, preset, world)
 
   if (!result) {
     return undefined
   }
 
-  instance.commands.selection.replace({
+  editor.commands.selection.replace({
     nodeIds: [result.nodeId]
   })
   if (result.edit) {
-    instance.commands.edit.start(result.edit.nodeId, result.edit.field)
+    editor.commands.edit.start(result.edit.nodeId, result.edit.field)
   }
 
   return result

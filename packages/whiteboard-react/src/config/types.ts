@@ -1,13 +1,13 @@
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
-import type { MindmapLayoutConfig } from '../types/mindmap'
-import type { Tool } from '../runtime/tool'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
+import type { Tool } from '@whiteboard/editor'
 import type {
   Size,
   ViewportConfig,
   EdgeConfig,
   NodeConfig
-} from '../types/common'
-import type { WhiteboardOptions } from '../types/common'
+} from '../types/common/base'
+import type { WhiteboardOptions } from '../types/common/board'
 
 export type ResolvedHistoryConfig = KernelHistoryConfig
 export type ResolvedViewportConfig = Required<ViewportConfig>

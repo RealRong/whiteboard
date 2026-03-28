@@ -15,7 +15,7 @@ export {
   readInsertPresetGroup,
   readShapePresetKind,
   readStickyInsertTone
-} from '@whiteboard/editor/toolbox'
+} from '@whiteboard/editor'
 export type {
   InsertPlacement,
   InsertPreset,
@@ -24,4 +24,4 @@ export type {
   MindmapTemplate,
   NodeInsertPreset,
   StickyTone
-} from '@whiteboard/editor/toolbox'
+} from '@whiteboard/editor'

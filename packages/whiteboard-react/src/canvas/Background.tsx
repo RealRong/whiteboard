@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react'
-import { useInternalInstance, useStoreValue } from '../runtime/hooks'
+import { useEditor, useStoreValue } from '../runtime/hooks'
 
 const BASE_STEP = 24
 const MIN_STEP = 14
@@ -15,10 +15,10 @@ const resolveStep = (zoom: number) => {
   return step
 }
 
-export const CanvasBackground = () => {
-  const instance = useInternalInstance()
-  const background = useStoreValue(instance.read.document.background)
-  const viewport = useStoreValue(instance.viewport)
+export const Background = () => {
+  const editor = useEditor()
+  const background = useStoreValue(editor.read.document.background)
+  const viewport = useStoreValue(editor.viewport)
   const mode = background?.type ?? 'none'
 
   const style = useMemo<CSSProperties>(() => {

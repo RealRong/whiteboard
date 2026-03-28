@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
-import { useWhiteboard } from '../../../runtime/hooks'
+import { useEditor } from '../../../runtime/hooks'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 
 type Size = {
@@ -54,7 +54,7 @@ const readEntrySize = (entry: ResizeObserverEntry): Size => {
 }
 
 export const useNodeSizeObserver = () => {
-  const instance = useWhiteboard()
+  const editor = useEditor()
 
   const state = useMemo(() => {
     let nextState!: NodeSizeObserverState
@@ -71,7 +71,7 @@ export const useNodeSizeObserver = () => {
       const updates: Array<{ id: NodeId; update: { fields: { size: Size } } }> = []
 
       nextState.pendingSizeById.forEach((size, nodeId) => {
-        const current = instance.read.index.node.get(nodeId)
+        const current = editor.read.index.node.get(nodeId)
         if (!current || !isValidSize(size)) return
 
         const committedSize = {
@@ -99,7 +99,7 @@ export const useNodeSizeObserver = () => {
       nextState.pendingSizeById.clear()
 
       if (!updates.length) return
-      instance.commands.node.document.updateMany(updates, { origin: 'system' })
+      editor.commands.node.document.updateMany(updates, { origin: 'system' })
     }
 
     nextState = {
@@ -152,7 +152,7 @@ export const useNodeSizeObserver = () => {
     }
 
     return nextState
-  }, [instance])
+  }, [editor])
 
   useEffect(() => () => {
     state.flushTask.cancel()

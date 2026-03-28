@@ -1,4 +1,4 @@
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import type { EngineInstance } from '@whiteboard/engine'
 import {
   insertMindmapByPlacement,
@@ -17,15 +17,15 @@ export const createMindmapCommands = ({
 }): Editor['commands']['mindmap'] => ({
   ...engine.commands.mindmap,
   insertByPlacement: (input) => insertMindmapByPlacement({
-    instance: commandHost,
+    editor: commandHost,
     ...input
   }),
   moveByDrop: (input) => moveMindmapByDrop({
-    instance: commandHost,
+    editor: commandHost,
     ...input
   }),
   moveRoot: (input) => moveMindmapRoot({
-    instance: commandHost,
+    editor: commandHost,
     ...input
   })
 })

@@ -8,7 +8,7 @@ import {
 } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import { GestureTuning } from '../../runtime/interaction'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../runtime/viewport'
 
@@ -52,7 +52,7 @@ export type MarqueeSession = {
 }
 
 type MarqueeSessionDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'interaction' | 'read' | 'viewport'
 >
 
@@ -64,14 +64,14 @@ const toItemsKey = (
 ].join('::')
 
 const projectWorldRect = (
-  instance: MarqueeSessionDeps,
+  editor: MarqueeSessionDeps,
   worldRect: Rect
 ): Rect => {
-  const topLeft = instance.viewport.worldToScreen({
+  const topLeft = editor.viewport.worldToScreen({
     x: worldRect.x,
     y: worldRect.y
   })
-  const bottomRight = instance.viewport.worldToScreen({
+  const bottomRight = editor.viewport.worldToScreen({
     x: worldRect.x + worldRect.width,
     y: worldRect.y + worldRect.height
   })
@@ -80,18 +80,18 @@ const projectWorldRect = (
 }
 
 export const createMarqueeSession = (
-  instance: MarqueeSessionDeps
+  editor: MarqueeSessionDeps
 ): MarqueeSession => {
   const worldRect = createValueStore<Rect | undefined>(undefined)
   const activeMatch = createValueStore<MarqueeMatch | undefined>(undefined)
   const rect = createDerivedStore<Rect | undefined>({
     get: (read) => {
       const nextWorldRect = read(worldRect)
-      read(instance.viewport)
+      read(editor.viewport)
       if (!nextWorldRect) {
         return undefined
       }
-      return projectWorldRect(instance, nextWorldRect)
+      return projectWorldRect(editor, nextWorldRect)
     },
     isEqual: (left, right) => (
       left === right
@@ -104,16 +104,16 @@ export const createMarqueeSession = (
     )
   })
   let active: ActiveMarquee | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const readMatchedItems = (
     queryRect: Rect,
     match: MarqueeMatch
   ): MarqueeItems => {
-    const nodeIds = instance.read.node.idsInRect(queryRect, {
+    const nodeIds = editor.read.node.idsInRect(queryRect, {
       match
     })
-    const edgeIds = instance.read.edge.idsInRect(queryRect, {
+    const edgeIds = editor.read.edge.idsInRect(queryRect, {
       match
     })
 
@@ -157,7 +157,7 @@ export const createMarqueeSession = (
       return false
     }
 
-    const current = instance.viewport.pointer(input)
+    const current = editor.viewport.pointer(input)
     const dx = Math.abs(current.screen.x - active.start.screen.x)
     const dy = Math.abs(current.screen.y - active.start.screen.y)
 
@@ -189,11 +189,11 @@ export const createMarqueeSession = (
       onChange,
       onEnd
     }) => {
-      if (active || instance.interaction.busy.get()) {
+      if (active || editor.interaction.busy.get()) {
         return false
       }
 
-      const nextSession = instance.interaction.start({
+      const nextSession = editor.interaction.start({
         mode: 'marquee',
         pointerId,
         capture,
@@ -218,7 +218,7 @@ export const createMarqueeSession = (
           }
 
           if (active.latest !== undefined) {
-            const current = instance.viewport.pointer(upEvent)
+            const current = editor.viewport.pointer(upEvent)
             active.latest = readMatchedItems(
               rectFromPoints(active.start.world, current.world),
               active.match

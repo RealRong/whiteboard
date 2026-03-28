@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react'
-import type { Editor } from '../instance'
+import type { Editor } from '../editor'
 import { createRafTask } from '../utils/rafTask'
 
 type ContainerRect = Parameters<Editor['host']['viewport']['setRect']>[0]
@@ -55,11 +55,11 @@ const readContainerRect = (
 }
 
 export const useBindViewportInput = ({
-  instance,
+  editor,
   containerRef,
   options
 }: {
-  instance: Editor
+  editor: Editor
   containerRef: RefObject<HTMLDivElement | null>
   options: ViewportInputOptions
 }) => {
@@ -68,8 +68,8 @@ export const useBindViewportInput = ({
     if (!element) {
       return
     }
-    const viewport = instance.host.viewport
-    const interaction = instance.host.interaction
+    const viewport = editor.host.viewport
+    const interaction = editor.host.interaction
 
     let pan: PanState | null = null
     let panSession: ReturnType<typeof interaction.start> = null
@@ -163,7 +163,7 @@ export const useBindViewportInput = ({
       const middleDrag = event.button === 1 || (event.buttons & 4) === 4
       const leftDrag =
         (event.button === 0 || (event.buttons & 1) === 1)
-        && (interaction.space.get() || instance.read.tool.is('hand'))
+        && (interaction.space.get() || editor.read.tool.is('hand'))
       if (!middleDrag && !leftDrag) return
 
       const nextSession = interaction.start({
@@ -250,5 +250,5 @@ export const useBindViewportInput = ({
       panSession?.cancel()
       clearWheelFrame()
     }
-  }, [containerRef, instance, options])
+  }, [containerRef, editor, options])
 }

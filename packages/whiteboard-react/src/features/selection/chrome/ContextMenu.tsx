@@ -3,12 +3,13 @@ import type {
   ContextMenuGroupView as EditorContextMenuGroupView,
   ContextMenuItemView as EditorContextMenuItemView
 } from '@whiteboard/editor'
-import { isContextMenuIgnoredTarget } from '@whiteboard/editor/input'
 import {
   useElementSize,
-  useInternalInstance,
+  useEditor,
   useStoreValue
 } from '../../../runtime/hooks'
+import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
+import { isContextMenuIgnoredTarget } from '../../../canvas/domTargets'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
@@ -130,17 +131,17 @@ export const ContextMenu = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const view = useStoreValue(instance.read.context.menu)
+  const view = useStoreValue(editor.read.context.menu)
   const [submenuKey, setSubmenuKey] = useState<string | null>(null)
 
   const dismiss = useCallback((mode: 'dismiss' | 'action') => {
-    instance.commands.context.dismiss(mode)
+    editor.commands.context.dismiss(mode)
     setSubmenuKey(null)
-  }, [instance])
+  }, [editor])
 
   useEffect(() => {
     setSubmenuKey(null)
@@ -154,8 +155,8 @@ export const ContextMenu = ({
       source: 'secondary-press' | 'context-menu',
       event: Pick<MouseEvent | PointerEvent, 'target' | 'clientX' | 'clientY'>
     ) => {
-      const pointer = instance.read.pick.from(event, container)
-      const opened = instance.commands.context.open({
+      const pointer = editor.read.pick.from(event, container)
+      const opened = editor.commands.context.open({
         source,
         pointer
       })
@@ -174,7 +175,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (instance.host.interaction.busy.get()) return
+      if (editor.host.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -183,7 +184,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (instance.host.interaction.busy.get()) return
+      if (editor.host.interaction.busy.get()) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -207,31 +208,15 @@ export const ContextMenu = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [containerRef, instance])
+  }, [containerRef, editor])
 
-  useEffect(() => {
-    if (!view) return
-
-    const onPointerDown = (event: PointerEvent) => {
-      const root = rootRef.current
-      if (root && event.target instanceof Node && root.contains(event.target)) {
-        return
-      }
+  useOverlayDismiss({
+    enabled: view !== null,
+    rootRef,
+    onDismiss: () => {
       dismiss('dismiss')
     }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      dismiss('dismiss')
-    }
-
-    window.addEventListener('pointerdown', onPointerDown, true)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [dismiss, view])
+  })
 
   if (!view) return null
 

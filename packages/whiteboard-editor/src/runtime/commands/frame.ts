@@ -1,4 +1,4 @@
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import { createState as createFrameState } from '../frame'
 
 export const createFrameCommands = ({

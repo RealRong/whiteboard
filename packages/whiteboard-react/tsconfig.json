@@ -10,9 +10,7 @@
       "@whiteboard/editor/*": ["../whiteboard-editor/src/*.ts"],
       "@whiteboard/engine": ["../whiteboard-engine/src/index.ts"],
       "@engine-types": ["../whiteboard-engine/src/types/index.ts"],
-      "@engine-types/*": ["../whiteboard-engine/src/types/*"],
-      "types": ["src/types/index.ts"],
-      "types/*": ["src/types/*"]
+      "@engine-types/*": ["../whiteboard-engine/src/types/*"]
     }
   },
   "include": ["src"]

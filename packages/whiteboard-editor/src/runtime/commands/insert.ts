@@ -1,4 +1,4 @@
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_STICKY_PRESET_KEY,
@@ -30,7 +30,7 @@ export const createInsertCommands = ({
     }
 
     return insertPresetAction({
-      instance: commandHost,
+      editor: commandHost,
       preset,
       world: options.at,
       ownerId: options.ownerId

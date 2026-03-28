@@ -1,4 +1,5 @@
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
+import type { Point } from '@whiteboard/core/types'
 import type {
   ClipboardPort,
   ClipboardRuntime
@@ -14,28 +15,35 @@ type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'
 export const createClipboardCommands = ({
   commandHost,
   runtime,
-  port
+  port,
+  readPointerWorld
 }: {
   commandHost: EditorCommandHost
   runtime: ClipboardRuntime
   port: ClipboardPort
+  readPointerWorld: () => Point | undefined
 }): Editor['commands']['clipboard'] => ({
   copy: (target = 'selection', options) =>
     copy({
-      instance: commandHost,
+      editor: commandHost,
       runtime,
       port
     }, target, options?.event),
   cut: (target = 'selection', options) =>
     cut({
-      instance: commandHost,
+      editor: commandHost,
       runtime,
       port
     }, target, options?.event),
   paste: (options) =>
     paste({
-      instance: commandHost,
+      editor: commandHost,
       runtime,
       port
-    }, options)
+    }, options?.at
+      ? options
+      : {
+          ...(options ?? {}),
+          at: readPointerWorld()
+        })
 })

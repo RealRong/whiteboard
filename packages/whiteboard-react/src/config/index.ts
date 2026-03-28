@@ -6,8 +6,8 @@ import {
 import {
   SelectTool,
   normalizeTool
-} from '../runtime/tool'
-import type { WhiteboardOptions } from '../types/common'
+} from '@whiteboard/editor'
+import type { WhiteboardOptions } from '../types/common/board'
 import { DEFAULT_VIEWPORT } from './defaultViewport'
 import type { ResolvedConfig } from './types'
 

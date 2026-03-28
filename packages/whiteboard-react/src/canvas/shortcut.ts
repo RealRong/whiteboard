@@ -2,9 +2,7 @@ import type {
   ShortcutAction,
   ShortcutBinding
 } from '../types/common/shortcut'
-import type { Editor } from '../runtime/instance'
-import { resolveNodeMeta } from '../features/node/registry'
-import { resolveNodeSelectionCan } from '../features/node/summary'
+import type { Editor } from '../runtime/editor'
 
 export const DefaultShortcutBindings: readonly ShortcutBinding[] = [
   { key: 'Mod+G', action: 'group.create' },
@@ -22,12 +20,10 @@ export const DefaultShortcutBindings: readonly ShortcutBinding[] = [
 type ShortcutState = ReturnType<typeof readShortcutState>
 
 const readShortcutState = (
-  instance: Editor
+  editor: Editor
 ) => {
-  const selection = instance.read.selection.get()
-  const can = resolveNodeSelectionCan(selection.items.nodes, {
-    resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node)
-  })
+  const selection = editor.read.selection.get()
+  const can = editor.read.context.selection.get()?.can
 
   return {
     selection,
@@ -38,27 +34,27 @@ const readShortcutState = (
 }
 
 const canRunShortcut = (
-  instance: Editor,
+  editor: Editor,
   action: ShortcutAction,
   state: ShortcutState
 ) => {
   switch (action) {
     case 'group.create':
-      return state.pureNode && state.can.makeGroup
+      return state.pureNode && Boolean(state.can?.makeGroup)
     case 'group.ungroup':
-      return state.pureNode && state.can.ungroup
+      return state.pureNode && Boolean(state.can?.ungroup)
     case 'selection.selectAll':
       return true
     case 'selection.clear':
       return (
         state.hasSelection
-        || instance.read.frame.scope.get().id !== undefined
-        || !instance.read.tool.is('select')
+        || editor.read.frame.scope.get().id !== undefined
+        || !editor.read.tool.is('select')
       )
     case 'selection.delete':
       return state.hasSelection
     case 'selection.duplicate':
-      return state.pureNode && state.can.duplicate
+      return state.pureNode && Boolean(state.can?.duplicate)
     case 'history.undo':
     case 'history.redo':
       return true
@@ -68,11 +64,11 @@ const canRunShortcut = (
 }
 
 export const runShortcut = (
-  instance: Editor,
+  editor: Editor,
   action: ShortcutAction
 ) => {
-  const state = readShortcutState(instance)
-  if (!canRunShortcut(instance, action, state)) {
+  const state = readShortcutState(editor)
+  if (!canRunShortcut(editor, action, state)) {
     return false
   }
 
@@ -80,24 +76,24 @@ export const runShortcut = (
 
   switch (action) {
     case 'selection.selectAll':
-      instance.commands.selection.selectAll()
+      editor.commands.selection.selectAll()
       return true
     case 'selection.clear':
-      if (!instance.read.tool.is('select')) {
-        instance.commands.tool.select()
+      if (!editor.read.tool.is('select')) {
+        editor.commands.tool.select()
       }
-      instance.commands.frame.exit()
+      editor.commands.frame.exit()
       return true
     case 'selection.delete':
       if (selection.target.edgeIds.length > 0) {
-        const result = instance.commands.edge.delete([...selection.target.edgeIds])
+        const result = editor.commands.edge.delete([...selection.target.edgeIds])
         if (!result.ok) {
           return false
         }
       }
 
       if (selection.target.nodeIds.length > 0) {
-        const result = instance.commands.node.deleteCascade([...selection.target.nodeIds])
+        const result = editor.commands.node.deleteCascade([...selection.target.nodeIds])
         if (!result.ok) {
           return false
         }
@@ -105,23 +101,23 @@ export const runShortcut = (
 
       return true
     case 'selection.duplicate': {
-      const result = instance.commands.node.duplicate([...selection.target.nodeIds])
+      const result = editor.commands.node.duplicate([...selection.target.nodeIds])
       if (!result.ok || result.data.nodeIds.length <= 0) {
         return false
       }
 
-      instance.commands.selection.replace({
+      editor.commands.selection.replace({
         nodeIds: result.data.nodeIds
       })
       return true
     }
     case 'group.create': {
-      const result = instance.commands.node.group.create([...selection.target.nodeIds])
+      const result = editor.commands.node.group.create([...selection.target.nodeIds])
       if (!result.ok) {
         return false
       }
 
-      instance.commands.selection.replace({
+      editor.commands.selection.replace({
         nodeIds: [result.data.groupId]
       })
       return true
@@ -130,20 +126,20 @@ export const runShortcut = (
       const groupIds = selection.target.nodeIds.filter((nodeId) =>
         selection.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
       )
-      const result = instance.commands.node.group.ungroupMany(groupIds)
+      const result = editor.commands.node.group.ungroupMany(groupIds)
       if (!result.ok) {
         return false
       }
 
-      instance.commands.selection.replace({
+      editor.commands.selection.replace({
         nodeIds: result.data.nodeIds
       })
       return true
     }
     case 'history.undo':
-      return instance.commands.history.undo().ok
+      return editor.commands.history.undo().ok
     case 'history.redo':
-      return instance.commands.history.redo().ok
+      return editor.commands.history.redo().ok
     default:
       return false
   }

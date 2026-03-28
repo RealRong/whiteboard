@@ -1,12 +1,11 @@
 export {
-  InstanceProvider,
-  useWhiteboard,
-  useInternalInstance,
+  EditorProvider,
+  useEditor,
   useEdit,
   useFrameScope,
   useInteraction,
   useTool
-} from './useWhiteboard'
+} from './useEditor'
 export { useStoreValue } from './useStoreValue'
 export { usePickRef } from './usePickRef'
 export { useElementSize } from './useElementSize'

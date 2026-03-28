@@ -4,7 +4,7 @@ import {
   hasNode,
   type FrameScope
 } from '../frame'
-import type { Editor } from '../instance/types'
+import type { Editor } from '../editor/types'
 import type { PointerPick } from '../pick'
 import type { Tool } from '../tool'
 import {
@@ -125,19 +125,19 @@ const INTERACTION_ROUTES_BY_TOOL_TYPE: Partial<Record<Tool['type'], readonly Int
 }
 
 export const readInteractionStart = (
-  instance: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
 ): InteractionStart => {
-  const input = instance.read.pick.from(event, container)
+  const input = editor.read.pick.from(event, container)
 
   return {
     ...input,
     container,
     event,
     capture: input.element ?? container,
-    tool: instance.read.tool.get(),
-    frame: instance.state.frame.get()
+    tool: editor.read.tool.get(),
+    frame: editor.state.frame.get()
   }
 }
 
@@ -153,14 +153,14 @@ export const readPointerSamples = (
 }
 
 const clearFrame = (
-  instance: Pick<Editor, 'commands' | 'state'>
+  editor: Pick<Editor, 'commands' | 'state'>
 ) => {
-  instance.commands.frame.exit()
-  return instance.state.frame.get()
+  editor.commands.frame.exit()
+  return editor.state.frame.get()
 }
 
 const normalizeInteractionFrame = (
-  instance: Pick<Editor, 'commands' | 'read' | 'state'>,
+  editor: Pick<Editor, 'commands' | 'read' | 'state'>,
   start: InteractionStart
 ): FrameScope => {
   const frame = start.frame
@@ -168,18 +168,18 @@ const normalizeInteractionFrame = (
     return frame
   }
 
-  const frameNode = instance.read.node.item.get(frame.id)?.node
-  if (!frameNode || instance.read.node.role(frameNode) !== 'frame') {
-    return clearFrame(instance)
+  const frameNode = editor.read.node.item.get(frame.id)?.node
+  if (!frameNode || editor.read.node.role(frameNode) !== 'frame') {
+    return clearFrame(editor)
   }
 
-  const frameRect = instance.read.index.node.get(frame.id)?.rect
+  const frameRect = editor.read.index.node.get(frame.id)?.rect
 
   switch (start.pick.kind) {
     case 'background':
       return frameRect && isPointInRect(start.point.world, frameRect)
         ? frame
-        : clearFrame(instance)
+        : clearFrame(editor)
     case 'selection-box':
       return frame
     case 'node':
@@ -188,30 +188,30 @@ const normalizeInteractionFrame = (
       }
       return hasNode(frame, start.pick.id)
         ? frame
-        : clearFrame(instance)
+        : clearFrame(editor)
     case 'mindmap':
       return hasNode(frame, start.pick.treeId)
         ? frame
-        : clearFrame(instance)
+        : clearFrame(editor)
     case 'edge': {
-      const edge = instance.read.edge.item.get(start.pick.id)?.edge
+      const edge = editor.read.edge.item.get(start.pick.id)?.edge
       if (!edge) {
-        return clearFrame(instance)
+        return clearFrame(editor)
       }
 
       return hasEdge(frame, edge)
         ? frame
-        : clearFrame(instance)
+        : clearFrame(editor)
     }
   }
 }
 
 const withNormalizedFrame = (
-  instance: Pick<Editor, 'commands' | 'read' | 'state'>,
+  editor: Pick<Editor, 'commands' | 'read' | 'state'>,
   start: InteractionStart
 ): InteractionStart => ({
   ...start,
-  frame: normalizeInteractionFrame(instance, start)
+  frame: normalizeInteractionFrame(editor, start)
 })
 
 const resolveRoutedInteractionDecision = (
@@ -233,15 +233,15 @@ const resolveRoutedInteractionDecision = (
 }
 
 export const resolveInteractionDecision = (
-  instance: InteractionDecisionDeps,
+  editor: InteractionDecisionDeps,
   input: InteractionStart
 ): InteractionDecision => {
-  const start = withNormalizedFrame(instance, input)
+  const start = withNormalizedFrame(editor, input)
 
   if (
     start.event.defaultPrevented
     || start.event.button !== 0
-    || instance.host.interaction.busy.get()
+    || editor.host.interaction.busy.get()
   ) {
     return { kind: 'reject' }
   }
@@ -253,7 +253,7 @@ export const resolveInteractionDecision = (
 }
 
 const runInsertInteraction = (
-  instance: Pick<Editor, 'commands' | 'read'>,
+  editor: Pick<Editor, 'commands' | 'read'>,
   input: InteractionStart
 ) => {
   if (input.tool.type !== 'insert') {
@@ -265,8 +265,8 @@ const runInsertInteraction = (
     return false
   }
 
-  const frameTargetId = input.frame.id ?? instance.read.node.frameAt(input.point.world)
-  const result = instance.commands.insert.preset(presetKey, {
+  const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
+  const result = editor.commands.insert.preset(presetKey, {
     at: input.point.world,
     ownerId: input.frame.id ?? frameTargetId
   })
@@ -274,56 +274,56 @@ const runInsertInteraction = (
     return false
   }
 
-  instance.commands.tool.select()
+  editor.commands.tool.select()
   input.event.preventDefault()
   input.event.stopPropagation()
   return true
 }
 
 export const runInteractionDecision = (
-  instance: InteractionRunnerDeps,
+  editor: InteractionRunnerDeps,
   decision: InteractionDecision
 ) => {
   switch (decision.kind) {
     case 'edge-create':
-      return instance.host.edge.connect.create(decision.start)
+      return editor.host.edge.connect.create(decision.start)
     case 'erase':
-      return instance.host.draw.down(decision.start)
+      return editor.host.draw.down(decision.start)
     case 'draw':
-      return instance.host.draw.down(decision.start)
+      return editor.host.draw.down(decision.start)
     case 'insert':
-      return runInsertInteraction(instance, decision.start)
+      return runInsertInteraction(editor, decision.start)
     case 'transform':
-      return instance.host.node.transform.down(decision.start)
+      return editor.host.node.transform.down(decision.start)
     case 'edge':
-      return instance.host.edge.input.down(decision.start)
+      return editor.host.edge.input.down(decision.start)
     case 'mindmap':
-      return instance.host.mindmap.controller.down(decision.start)
+      return editor.host.mindmap.controller.down(decision.start)
     case 'selection':
-      return instance.host.selection.gesture.down(decision.start)
+      return editor.host.selection.gesture.down(decision.start)
     case 'reject':
       return false
   }
 }
 
 export const handlePointerDown = (
-  instance: InteractionDecisionDeps & InteractionRunnerDeps,
+  editor: InteractionDecisionDeps & InteractionRunnerDeps,
   container: HTMLDivElement,
   event: PointerEvent
 ) => runInteractionDecision(
-  instance,
+  editor,
   resolveInteractionDecision(
-    instance,
-    readInteractionStart(instance, container, event)
+    editor,
+    readInteractionStart(editor, container, event)
   )
 )
 
 export const readContextOpen = (
-  instance: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read' | 'state'>,
   input: PointerPick
 ): ContextOpen | undefined => {
-  const frame = instance.state.frame.get()
-  const selection = instance.read.selection.get()
+  const frame = editor.state.frame.get()
+  const selection = editor.read.selection.get()
   const world = input.point.world
   const pick = input.pick
   const target = readContextTarget({
@@ -353,7 +353,7 @@ export const readContextOpen = (
   }
 
   if (target.kind === 'edge') {
-    const entry = instance.read.edge.item.get(target.edgeId)
+    const entry = editor.read.edge.item.get(target.edgeId)
     if (!entry) {
       return undefined
     }
@@ -365,7 +365,7 @@ export const readContextOpen = (
   }
 
   const activeRect = frame.id
-    ? instance.read.index.node.get(frame.id)?.rect
+    ? editor.read.index.node.get(frame.id)?.rect
     : undefined
   const insideActiveFrame = Boolean(activeRect && isPointInRect(world, activeRect))
 
@@ -379,11 +379,11 @@ export const readContextOpen = (
 }
 
 export const resolveContextTarget = (
-  instance: Pick<Editor, 'read'>,
+  editor: Pick<Editor, 'read'>,
   target: ContextTarget
 ): ContextResolved | undefined => resolveInputContextTarget({
-  getNode: (nodeId) => instance.read.node.item.get(nodeId)?.node,
-  hasEdge: (edgeId) => Boolean(instance.read.edge.item.get(edgeId))
+  getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
+  hasEdge: (edgeId) => Boolean(editor.read.edge.item.get(edgeId))
 }, target)
 
 export type {

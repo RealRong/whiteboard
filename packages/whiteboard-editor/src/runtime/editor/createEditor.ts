@@ -5,7 +5,7 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type {
   Editor,
   EditorHostBridge,
-  InternalEditor,
+  EditorRuntime,
 } from './types'
 import type { Tool } from '../tool'
 import {
@@ -44,6 +44,7 @@ import { createSelectionGesture } from '../../features/selection/gesture'
 import { createTransformSession } from '../../features/node/session/transform'
 import { createEdgeConnectSession } from '../../features/edge/connectSession'
 import { createEditorCommands } from '../commands'
+import { createInputCommands } from '../commands/input'
 import { createRuntimeRead } from '../read'
 import type {
   Viewport
@@ -56,10 +57,13 @@ import { createDrawInputRuntime } from '../../features/draw/input'
 import { createEdgeInputRuntime } from '../../features/edge/input'
 import {
   createContextRuntime,
-  type ContextMenuView
+  createSelectionMenuRead,
+  type ContextMenuView,
+  type SelectionMenuView
 } from '../context'
+import type { PointerSnapshot } from '../input/pointerSnapshot'
 
-type InstanceStores = {
+type EditorStores = {
   tool: ReturnType<typeof createValueStore<Tool>>
   history: ReturnType<typeof createValueStore<HistoryState>>
   draw: ReturnType<typeof createDrawState>
@@ -68,7 +72,7 @@ type InstanceStores = {
   selection: ReturnType<typeof createSelectionState>
 }
 
-type InstanceInternals = {
+type EditorInternals = {
   pick: ReturnType<typeof createPickRuntime>
   node: ReturnType<typeof createNodeFeatureRuntime>
   edge: {
@@ -77,20 +81,20 @@ type InstanceInternals = {
   mindmapDrag: ReturnType<typeof createMindmapDragStore>
 }
 
-const createDeferredInstance = () => {
-  let current: InternalEditor | null = null
+const createDeferredEditor = () => {
+  let current: EditorRuntime | null = null
 
   return {
-    bind: (instance: InternalEditor) => {
-      current = instance
+    bind: (editor: EditorRuntime) => {
+      current = editor
     },
-    instance: new Proxy({} as InternalEditor, {
+    editor: new Proxy({} as EditorRuntime, {
       get: (_target, property) => {
         if (!current) {
-          throw new Error('Editor instance is not initialized')
+          throw new Error('Editor is not initialized')
         }
 
-        return current[property as keyof InternalEditor]
+        return current[property as keyof EditorRuntime]
       }
     })
   }
@@ -101,6 +105,7 @@ const createEditorStores = ({
   initialTool,
   interaction,
   registry,
+  editor,
   contextMenu,
   pick,
   viewport
@@ -109,14 +114,15 @@ const createEditorStores = ({
   initialTool: Tool
   interaction: InteractionCoordinator
   registry: NodeRegistry
+  editor: Pick<EditorRuntime, 'commands' | 'host'>
   contextMenu: ReturnType<typeof createValueStore<ContextMenuView | null>>
   pick: ReturnType<typeof createPickRuntime>
   viewport: ReturnType<typeof createViewport>['read']
 }): {
-  stores: InstanceStores
+  stores: EditorStores
   state: Editor['state']
   read: Editor['read']
-  internals: InstanceInternals
+  internals: EditorInternals
 } => {
   const tool = createValueStore<Tool>(normalizeTool(initialTool))
   const history = createValueStore(engine.commands.history.get())
@@ -129,6 +135,7 @@ const createEditorStores = ({
     preview: createEdgePreview()
   }
   const mindmapDrag = createMindmapDragStore()
+  const contextSelection = createValueStore<SelectionMenuView | null>(null)
   const read = createRuntimeRead({
     engineRead: engine.read,
     registry,
@@ -137,10 +144,15 @@ const createEditorStores = ({
     selection: selection.source,
     frame: frame.store,
     contextMenu,
+    contextSelection,
     pick,
     viewport,
     node,
     edge: edge.preview
+  })
+  read.context.selection = createSelectionMenuRead({
+    editor,
+    selection: read.selection
   })
 
   return {
@@ -187,13 +199,14 @@ export const createEditor = ({
   }
   registry: NodeRegistry
   host?: EditorHostBridge
-}): InternalEditor => {
+}): EditorRuntime => {
   const clipboardRuntime = createClipboardRuntime()
   const clipboardPort = host?.clipboard ?? createBrowserClipboardPort()
   const selectionLock = host?.selectionLock ?? createBrowserDocumentSelectionLock()
   const pointerContinuation = host?.pointerContinuation ?? createBrowserPointerContinuation()
-  const deferredInstance = createDeferredInstance()
+  const deferredEditor = createDeferredEditor()
   const contextMenu = createValueStore<ContextMenuView | null>(null)
+  const pointer = createValueStore<PointerSnapshot | null>(null)
   const viewport = createViewport({
     initialViewport,
     limits: viewportLimits
@@ -250,27 +263,32 @@ export const createEditor = ({
     initialTool,
     interaction,
     registry,
+    editor: deferredEditor.editor,
     contextMenu,
     pick,
     viewport: viewport.read
   })
-  const marquee = createMarqueeSession(deferredInstance.instance)
+  const marquee = createMarqueeSession(deferredEditor.editor)
   const gesture = createSelectionGesture(
-    deferredInstance.instance,
+    deferredEditor.editor,
     marquee
   )
-  const draw = createDrawInputRuntime(deferredInstance.instance)
-  const transform = createTransformSession(deferredInstance.instance)
-  const edgeConnect = createEdgeConnectSession(deferredInstance.instance)
+  const draw = createDrawInputRuntime(deferredEditor.editor)
+  const transform = createTransformSession(deferredEditor.editor)
+  const edgeConnect = createEdgeConnectSession(deferredEditor.editor)
   const edgeInput = createEdgeInputRuntime(
-    deferredInstance.instance,
+    deferredEditor.editor,
     edgeConnect
   )
-  const mindmapDragController = createMindmapDragSession(deferredInstance.instance)
+  const mindmapDragController = createMindmapDragSession(deferredEditor.editor)
   const context = createContextRuntime(
-    deferredInstance.instance,
+    deferredEditor.editor,
     contextMenu
   )
+  const input = createInputCommands({
+    editor: deferredEditor.editor,
+    pointer
+  })
   const syncHistory = () => {
     stores.history.set(engine.commands.history.get())
   }
@@ -306,11 +324,15 @@ export const createEditor = ({
     viewportCommands: viewport.commands,
     viewportRead: viewport.read,
     draw: stores.draw,
+    nodeRuntime: internals.node,
+    input,
     context,
     clipboardRuntime,
-    clipboardPort
+    clipboardPort,
+    readPointerWorld: () => pointer.get()?.world
   })
   const resetUiSessionState = () => {
+    input.cancel()
     interaction.cancel()
     context.clear()
     stores.edit.commands.clear()
@@ -347,7 +369,7 @@ export const createEditor = ({
     }
   }
 
-  const instance = {
+  const editor = {
     engine,
     host: editorHost,
     internals: {
@@ -396,8 +418,8 @@ export const createEditor = ({
       resetUiSessionState()
       engine.dispose()
     }
-  } satisfies InternalEditor
-  deferredInstance.bind(instance)
+  } satisfies EditorRuntime
+  deferredEditor.bind(editor)
 
-  return instance
+  return editor
 }

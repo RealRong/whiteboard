@@ -1,6 +1,6 @@
 import { isContainerNode } from '@whiteboard/core/node'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { Editor } from './instance/types'
+import type { Editor } from './editor/types'
 import {
   createState as createFrameState,
   hasEdge,

@@ -8,52 +8,56 @@ import {
 import type { Point } from '@whiteboard/core/types'
 import {
   useElementSize,
-  useInternalInstance,
+  useEditor,
   useStoreValue
 } from '../../../runtime/hooks'
+import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
 import { useSelectionPresentation } from '../../node/selection'
+import { resolveNodeTextSource } from '../../node/textSource'
 import {
   buildToolbarMenuStyle,
   buildToolbarStyle,
   readMenuAnchor,
   type ToolbarItemKey
 } from './layout'
-import { resolveNodeMeta } from '../../node/registry'
 import { FillMenu } from './menus/FillMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'
 import { DRAW_STROKE_WIDTHS } from './menus/options'
 import { StrokeMenu } from './menus/StrokeMenu'
 import { TextMenu } from './menus/TextMenu'
-import {
-  resolveSelectionFilter,
-  resolveSelectionLayoutActions,
-  resolveSelectionMoreMenuSections,
-  type SelectionLayoutActions,
-  type SelectionMenuFilter
-} from './selectionMenu'
 import { ToolbarIcon } from './nodeToolbarIcon'
 import { resolveNodeToolbarModel } from './nodeToolbarModel'
-import {
-  commitNodeToolbarText,
-  updateNodeToolbarTextFontSize
-} from './nodeToolbarText'
 
 type ToolbarMenuKey = ToolbarItemKey
+
+const bindMenuClose = <Args extends unknown[]>(
+  action: (...args: Args) => unknown,
+  close: () => void
+) => (...args: Args) => {
+  const result = action(...args)
+
+  if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+    return Promise.resolve(result).finally(close)
+  }
+
+  close()
+  return result
+}
 
 export const NodeToolbar = ({
   containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const surface = useElementSize(containerRef)
-  const viewport = useStoreValue(instance.viewport)
+  const viewport = useStoreValue(editor.viewport)
   const presentation = useSelectionPresentation()
   const selection = presentation.selection
   const worldToScreen = useCallback(
-    (point: Point) => instance.viewport.worldToScreen(point),
-    [instance, viewport.center.x, viewport.center.y, viewport.zoom]
+    (point: Point) => editor.viewport.worldToScreen(point),
+    [editor, viewport.center.x, viewport.center.y, viewport.zoom]
   )
   const rootRef = useRef<HTMLDivElement | null>(null)
   const buttonRefByKey = useRef<Partial<Record<ToolbarMenuKey, HTMLButtonElement | null>>>({})
@@ -62,7 +66,7 @@ export const NodeToolbar = ({
     setActiveMenuKey(null)
   }, [])
   const toolbar = resolveNodeToolbarModel({
-    instance,
+    editor,
     selection,
     worldToScreen
   })
@@ -84,29 +88,11 @@ export const NodeToolbar = ({
       closeMenu()
     }
   }, [closeMenu, showsNodeToolbar])
-
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const root = rootRef.current
-      if (!root) return
-      if (event.target instanceof Node && root.contains(event.target)) {
-        return
-      }
-      closeMenu()
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      closeMenu()
-    }
-
-    window.addEventListener('pointerdown', onPointerDown, true)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [closeMenu])
+  useOverlayDismiss({
+    enabled: activeMenuKey !== null,
+    rootRef,
+    onDismiss: closeMenu
+  })
 
   if (!showsNodeToolbar || !toolbar) return null
 
@@ -131,28 +117,20 @@ export const NodeToolbar = ({
         containerHeight: surface.height
       })
     : undefined
-
-  const layoutActions: SelectionLayoutActions = resolveSelectionLayoutActions({
-    instance,
-    nodes: toolbar.nodes,
-    can: toolbar.can,
-    close: closeMenu
-  })
-  const filter: SelectionMenuFilter | undefined = resolveSelectionFilter({
-    instance,
-    nodes: toolbar.nodes,
-    summary: toolbar.summary,
-    can: toolbar.can,
-    resolveMeta: (node) => resolveNodeMeta(instance.host.registry, node),
-    close: closeMenu
-  })
-  const moreSections = resolveSelectionMoreMenuSections({
-    instance,
-    nodes: toolbar.nodes,
-    summary: toolbar.summary,
-    can: toolbar.can,
-    close: closeMenu
-  })
+  const menu = selection.menu
+  const filter = menu?.filter
+    ? {
+        types: menu.filter.types,
+        onSelect: bindMenuClose(menu.filter.onSelect, closeMenu)
+      }
+    : undefined
+  const moreSections = menu?.moreSections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({
+      ...item,
+      onSelect: bindMenuClose(item.onSelect, closeMenu)
+    }))
+  })) ?? []
 
   const renderMenu = () => {
     if (!activeMenuKey) return null
@@ -163,7 +141,7 @@ export const NodeToolbar = ({
           <FillMenu
             value={toolbar.fillValue}
             onChange={(value) => {
-              instance.commands.node.appearance.setFill(
+              editor.commands.node.appearance.setFill(
                 toolbar.nodes.map((node) => node.id),
                 value
               )
@@ -178,19 +156,19 @@ export const NodeToolbar = ({
             strokeWidth={toolbar.strokeWidthValue}
             opacity={toolbar.strokeOpacityValue}
             onStrokeChange={(value) => {
-              instance.commands.node.appearance.setStroke(
+              editor.commands.node.appearance.setStroke(
                 toolbar.nodes.map((node) => node.id),
                 value
               )
             }}
             onStrokeWidthChange={(value) => {
-              instance.commands.node.appearance.setStrokeWidth(
+              editor.commands.node.appearance.setStrokeWidth(
                 toolbar.nodes.map((node) => node.id),
                 value
               )
             }}
             onOpacityChange={toolbar.showStrokeOpacitySection ? (value) => {
-              instance.commands.node.appearance.setOpacity(
+              editor.commands.node.appearance.setOpacity(
                 toolbar.nodes.map((node) => node.id),
                 value
               )
@@ -207,27 +185,39 @@ export const NodeToolbar = ({
             showColor={toolbar.showTextColorSection}
             showFontSize={toolbar.showTextFontSizeSection}
             onTextCommit={toolbar.showTextSection ? (value) => {
-              commitNodeToolbarText({
-                instance,
-                container: containerRef.current,
-                node: toolbar.primaryNode,
+              editor.commands.node.text.commit({
+                nodeId: toolbar.primaryNode.id,
                 field: toolbar.textFieldKey,
-                value
+                value,
+                source: resolveNodeTextSource({
+                  editor,
+                  nodeId: toolbar.primaryNode.id,
+                  field: toolbar.textFieldKey
+                })
               })
             } : undefined}
             onColorChange={toolbar.showTextColorSection ? (value) => {
-              instance.commands.node.text.setColor(
+              editor.commands.node.text.setColor(
                 [toolbar.primaryNode.id],
                 value
               )
             } : undefined}
             onFontSizeChange={toolbar.showTextFontSizeSection ? (value) => {
-              updateNodeToolbarTextFontSize({
-                instance,
-                container: containerRef.current,
-                node: toolbar.primaryNode,
+              const source = resolveNodeTextSource({
+                editor,
+                nodeId: toolbar.primaryNode.id,
+                field: toolbar.textFieldKey
+              })
+
+              editor.commands.node.text.setFontSize({
+                nodeIds: [toolbar.primaryNode.id],
                 field: toolbar.textFieldKey,
-                value
+                value,
+                sourceById: source
+                  ? {
+                      [toolbar.primaryNode.id]: source
+                    }
+                  : undefined
               })
             } : undefined}
           />
@@ -235,13 +225,13 @@ export const NodeToolbar = ({
       case 'layout':
         return (
           <LayoutMenu
-            canAlign={layoutActions.canAlign}
-            canDistribute={layoutActions.canDistribute}
+            canAlign={Boolean(menu?.layout.canAlign)}
+            canDistribute={Boolean(menu?.layout.canDistribute)}
             onAlign={(mode) => {
-              layoutActions.onAlign(mode)
+              menu?.layout && bindMenuClose(menu.layout.onAlign, closeMenu)(mode)
             }}
             onDistribute={(mode) => {
-              layoutActions.onDistribute(mode)
+              menu?.layout && bindMenuClose(menu.layout.onDistribute, closeMenu)(mode)
             }}
           />
         )

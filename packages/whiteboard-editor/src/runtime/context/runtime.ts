@@ -1,5 +1,5 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { InternalEditor } from '../instance/types'
+import type { EditorRuntime } from '../editor/types'
 import {
   readContextOpen,
   resolveContextTarget
@@ -13,25 +13,25 @@ import type {
   ContextRuntime
 } from './types'
 
-type ContextRuntimeHost = Pick<InternalEditor, 'commands' | 'host' | 'read' | 'state'>
+type ContextRuntimeHost = Pick<EditorRuntime, 'commands' | 'host' | 'read' | 'state'>
 
 const writeSelection = (
-  instance: Pick<InternalEditor, 'commands'>,
+  editor: Pick<EditorRuntime, 'commands'>,
   target: ContextMenuSession['restoreSelection']
 ) => {
   if (target.nodeIds.length > 0 || target.edgeIds.length > 0) {
-    instance.commands.selection.replace({
+    editor.commands.selection.replace({
       nodeIds: target.nodeIds,
       edgeIds: target.edgeIds
     })
     return
   }
 
-  instance.commands.selection.clear()
+  editor.commands.selection.clear()
 }
 
 export const createContextRuntime = (
-  instance: ContextRuntimeHost,
+  editor: ContextRuntimeHost,
   menu: ValueStore<ContextMenuView | null>
 ): ContextRuntime => {
   let session: ContextMenuSession | null = null
@@ -48,28 +48,28 @@ export const createContextRuntime = (
     clear()
 
     if (mode === 'dismiss' && current) {
-      writeSelection(instance, current.restoreSelection)
+      writeSelection(editor, current.restoreSelection)
     }
   }
 
   const open = (
     input: ContextOpenInput
   ) => {
-    const result = readContextOpen(instance, input.pointer)
+    const result = readContextOpen(editor, input.pointer)
     if (!result) {
       clear()
       return false
     }
 
-    const selection = instance.read.selection.get().target
+    const selection = editor.read.selection.get().target
 
     if (result.leaveFrame) {
-      instance.commands.frame.exit()
+      editor.commands.frame.exit()
     }
 
-    const target = resolveContextTarget(instance, result.target)
+    const target = resolveContextTarget(editor, result.target)
     const view = readContextMenuView({
-      instance,
+      editor,
       target,
       screen: input.pointer.point.screen,
       close: () => dismiss('action')
@@ -91,6 +91,7 @@ export const createContextRuntime = (
 
   return {
     menu,
+    selection: editor.read.context.selection,
     open,
     dismiss,
     clear

@@ -6,7 +6,7 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import type { InteractionStart } from '../../runtime/input/pointer'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask } from '../../runtime/utils/rafTask'
 import type { EdgeConnectSession } from './connectSession'
 import {
@@ -14,10 +14,10 @@ import {
 } from './interactionStart'
 
 type EdgeInputRuntimeDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'edge' | 'snap'>
+  internals: Pick<EditorRuntime['internals'], 'edge' | 'snap'>
 }
 
 type ActiveDrag = {
@@ -109,7 +109,7 @@ const isEdgeRoutePick = (
 )
 
 const createEdgePatchSession = <Active,>(
-  instance: EdgeInputRuntimeDeps,
+  editor: EdgeInputRuntimeDeps,
   mode: PatchSessionMode,
   update: (
     active: Active,
@@ -121,12 +121,12 @@ const createEdgePatchSession = <Active,>(
   commit: (active: Active) => void
 ): EdgePatchSession<Active> => {
   let active: Active | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const clear = () => {
     active = null
     session = null
-    instance.internals.edge.preview.patch.clear()
+    editor.internals.edge.preview.patch.clear()
   }
 
   const cancel = () => {
@@ -160,7 +160,7 @@ const createEdgePatchSession = <Active,>(
     cancel,
     isActive: () => active !== null,
     start: (input) => {
-      const nextSession = instance.interaction.start({
+      const nextSession = editor.interaction.start({
         mode,
         pointerId: input.event.pointerId,
         capture: input.capture,
@@ -198,22 +198,22 @@ const createEdgePatchSession = <Active,>(
 }
 
 export const createEdgeInputRuntime = (
-  instance: EdgeInputRuntimeDeps,
+  editor: EdgeInputRuntimeDeps,
   connect: Pick<EdgeConnectSession, 'cancel' | 'reconnect'>
 ): EdgeInputRuntime => {
   let hoverPoint: Point | null = null
 
   const clearHint = () => {
-    instance.internals.edge.preview.hint.clear()
+    editor.internals.edge.preview.hint.clear()
   }
 
   const hoverTask = createRafTask(() => {
-    if (!instance.read.tool.is('edge')) {
+    if (!editor.read.tool.is('edge')) {
       clearHint()
       return
     }
 
-    const mode = instance.interaction.mode.get()
+    const mode = editor.interaction.mode.get()
     if (mode === 'edge-connect') {
       return
     }
@@ -227,8 +227,8 @@ export const createEdgeInputRuntime = (
       return
     }
 
-    const target = instance.internals.snap.edge.connect(hoverPoint)
-    instance.internals.edge.preview.hint.set(
+    const target = editor.internals.snap.edge.connect(hoverPoint)
+    editor.internals.edge.preview.hint.set(
       target
         ? { snap: target.pointWorld }
         : undefined
@@ -239,7 +239,7 @@ export const createEdgeInputRuntime = (
     edgeId: EdgeId,
     delta: Point
   ): EdgePatch | undefined => {
-    const view = instance.read.edge.view.get(edgeId)
+    const view = editor.read.edge.view.get(edgeId)
     if (!view?.can.move) {
       return undefined
     }
@@ -252,16 +252,16 @@ export const createEdgeInputRuntime = (
     patch: EdgePatch | undefined
   ) => {
     if (!patch) {
-      instance.internals.edge.preview.patch.clear()
+      editor.internals.edge.preview.patch.clear()
       return
     }
 
-    instance.internals.edge.preview.writePatch(edgeId, patch)
+    editor.internals.edge.preview.writePatch(edgeId, patch)
   }
 
   const readRouteView = (
     edgeId: EdgeId
-  ) => instance.read.edge.view.get(edgeId)
+  ) => editor.read.edge.view.get(edgeId)
 
   const readRoutePoints = (
     edgeId: EdgeId
@@ -330,7 +330,7 @@ export const createEdgeInputRuntime = (
     points: readonly Point[],
     activeRouteIndex?: number
   ) => {
-    instance.internals.edge.preview.writeRoute(
+    editor.internals.edge.preview.writeRoute(
       edgeId,
       points,
       activeRouteIndex
@@ -338,10 +338,10 @@ export const createEdgeInputRuntime = (
   }
 
   const dragSession = createEdgePatchSession<ActiveDrag>(
-    instance,
+    editor,
     'edge-drag',
     (active, input) => {
-      const { world } = instance.viewport.pointer(input)
+      const { world } = editor.viewport.pointer(input)
       const delta = {
         x: world.x - active.start.x,
         y: world.y - active.start.y
@@ -360,14 +360,14 @@ export const createEdgeInputRuntime = (
     },
     (active) => {
       if (!isPointEqual(active.delta, { x: 0, y: 0 })) {
-        instance.commands.edge.move(active.edgeId, active.delta)
-        instance.commands.selection.clear()
+        editor.commands.edge.move(active.edgeId, active.delta)
+        editor.commands.selection.clear()
       }
     }
   )
 
   const routeSession = createEdgePatchSession<ActiveRoute>(
-    instance,
+    editor,
     'edge-route',
     (active, input) => {
       const points = readRoutePoints(active.edgeId)
@@ -375,7 +375,7 @@ export const createEdgeInputRuntime = (
         return 'cancel'
       }
 
-      const { world } = instance.viewport.pointer(input)
+      const { world } = editor.viewport.pointer(input)
       const point = {
         x: active.origin.x + (world.x - active.start.x),
         y: active.origin.y + (world.y - active.start.y)
@@ -398,7 +398,7 @@ export const createEdgeInputRuntime = (
         readRouteView(active.edgeId)?.can.editRoute
         && !isPointEqual(active.point, active.origin)
       ) {
-        instance.commands.edge.route.move(active.edgeId, active.index, active.point)
+        editor.commands.edge.route.move(active.edgeId, active.index, active.point)
       }
     }
   )
@@ -408,7 +408,7 @@ export const createEdgeInputRuntime = (
     edgeId: EdgeId,
     capture: Element
   ) => {
-    const view = instance.read.edge.view.get(edgeId)
+    const view = editor.read.edge.view.get(edgeId)
     if (!view?.can.move) {
       return false
     }
@@ -419,7 +419,7 @@ export const createEdgeInputRuntime = (
       active: {
         edgeId,
         pointerId: event.pointerId,
-        start: instance.viewport.pointer(event).world,
+        start: editor.viewport.pointer(event).world,
         delta: { x: 0, y: 0 }
       }
     })
@@ -440,7 +440,7 @@ export const createEdgeInputRuntime = (
         edgeId,
         index,
         pointerId: event.pointerId,
-        start: instance.viewport.pointer(event).world,
+        start: editor.viewport.pointer(event).world,
         origin,
         point: origin
       }
@@ -462,7 +462,7 @@ export const createEdgeInputRuntime = (
     }
 
     const edgeId = input.pick.id
-    const view = instance.read.edge.view.get(edgeId)
+    const view = editor.read.edge.view.get(edgeId)
     if (!view) {
       return false
     }
@@ -472,9 +472,9 @@ export const createEdgeInputRuntime = (
         return false
       }
 
-      const point = instance.viewport.pointer(event).world
-      instance.commands.edge.route.insert(edgeId, point)
-      instance.commands.selection.replace({
+      const point = editor.viewport.pointer(event).world
+      editor.commands.edge.route.insert(edgeId, point)
+      editor.commands.selection.replace({
         edgeIds: [edgeId]
       })
       event.preventDefault()
@@ -482,7 +482,7 @@ export const createEdgeInputRuntime = (
       return true
     }
 
-    instance.commands.selection.replace({
+    editor.commands.selection.replace({
       edgeIds: [edgeId]
     })
     const started = startEdgeDrag(event, edgeId, input.capture)
@@ -509,8 +509,8 @@ export const createEdgeInputRuntime = (
     }
 
     if (routePoint.kind === 'insert') {
-      const worldPoint = instance.viewport.pointer(event).world
-      const result = instance.commands.edge.route.insert(routePoint.edgeId, worldPoint)
+      const worldPoint = editor.viewport.pointer(event).world
+      const result = editor.commands.edge.route.insert(routePoint.edgeId, worldPoint)
       if (!result.ok) {
         return false
       }
@@ -531,7 +531,7 @@ export const createEdgeInputRuntime = (
     }
 
     if (event.detail >= 2) {
-      instance.commands.edge.route.remove(routePoint.edgeId, routePoint.index)
+      editor.commands.edge.route.remove(routePoint.edgeId, routePoint.index)
       event.preventDefault()
       event.stopPropagation()
       return true
@@ -570,13 +570,13 @@ export const createEdgeInputRuntime = (
       )
     },
     pointerMove: (event) => {
-      hoverPoint = instance.viewport.pointer(event).world
+      hoverPoint = editor.viewport.pointer(event).world
       hoverTask.schedule()
     },
     pointerLeave: () => {
       hoverTask.cancel()
       hoverPoint = null
-      if (instance.interaction.mode.get() !== 'edge-connect') {
+      if (editor.interaction.mode.get() !== 'edge-connect') {
         clearHint()
       }
     },

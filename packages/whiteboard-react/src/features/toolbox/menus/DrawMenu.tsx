@@ -14,8 +14,8 @@ import {
 import type {
   DrawBrushKind,
   DrawKind
-} from '../../../runtime/tool'
-import { isDrawBrushKind } from '../../../runtime/tool'
+} from '@whiteboard/editor'
+import { isDrawBrushKind } from '@whiteboard/editor'
 import {
   ColorSwatch,
   MenuSection

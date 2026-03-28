@@ -1,3 +1,7 @@
+import type {
+  SelectionMenuFilterView,
+  SelectionMoreMenuSectionView
+} from '@whiteboard/editor'
 import {
   MenuItem,
   MenuList,
@@ -7,20 +11,16 @@ import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
 } from '../../../node/components/SelectionSummaryHeader'
-import type { NodeSummary, NodeTypeSummary } from '../../../node/summary'
-import type { SelectionMoreMenuSection } from '../selectionMenu'
+import type { NodeSummary } from '../../../node/summary'
 
 export const MoreMenu = ({
   sections,
   summary,
   filter
 }: {
-  sections: readonly SelectionMoreMenuSection[]
+  sections: readonly SelectionMoreMenuSectionView[]
   summary?: NodeSummary
-  filter?: {
-    types: readonly NodeTypeSummary[]
-    onSelect: (key: string) => void
-  }
+  filter?: SelectionMenuFilterView
 }) => (
   <>
     {summary ? (
@@ -42,7 +42,7 @@ export const MoreMenu = ({
               key={item.key}
               disabled={item.disabled}
               tone={item.tone}
-              onClick={item.onClick}
+              onClick={item.onSelect}
             >
               {item.label}
             </MenuItem>

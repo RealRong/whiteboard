@@ -1,12 +1,14 @@
 import { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
 import type { Node } from '@whiteboard/core/types'
-import { readTextWidthMode } from './textContent'
+
+export type TextWidthMode = 'auto' | 'fixed'
 
 export type TextMeasureSize = {
   width: number
   height: number
 }
 
+const TEXT_WIDTH_MODE_KEY = 'widthMode'
 const TEXT_DEFAULT_LINE_HEIGHT_RATIO = 1.4
 const EMPTY_LINE = '\u00A0'
 
@@ -20,6 +22,30 @@ let textMeasureElements: TextMeasureElements | null = null
 
 export const TEXT_MIN_WIDTH = 24
 export const TEXT_AUTO_MAX_WIDTH = 360
+
+export const isTextNode = (
+  node: Pick<Node, 'type' | 'data'>
+): node is Pick<Node, 'type' | 'data'> & { type: 'text' } => node.type === 'text'
+
+export const readTextWidthMode = (
+  node: Pick<Node, 'type' | 'data'>
+): TextWidthMode => (
+  isTextNode(node) && node.data?.[TEXT_WIDTH_MODE_KEY] === 'fixed'
+    ? 'fixed'
+    : 'auto'
+)
+
+export const setTextWidthMode = (
+  node: Pick<Node, 'data'>,
+  mode: TextWidthMode
+) => ({
+  ...(node.data ?? {}),
+  [TEXT_WIDTH_MODE_KEY]: mode
+})
+
+export const isTextContentEmpty = (
+  value: string
+) => value.trim().length === 0
 
 const readPx = (
   value: string,
@@ -179,8 +205,7 @@ const measureTextSizeFromSource = ({
     lineHeight: resolvedLineHeight
   })
 
-  const normalizedLineContent = normalizeMeasureContent(measuredContent)
-  elements.line.textContent = normalizedLineContent
+  elements.line.textContent = normalizeMeasureContent(measuredContent)
   elements.line.style.maxWidth = `${resolvedMaxWidth}px`
 
   const singleLineWidth = Math.ceil(elements.line.getBoundingClientRect().width + caretWidth)

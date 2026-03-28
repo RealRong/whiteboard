@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useInternalInstance } from './useWhiteboard'
+import { useEditor } from './useEditor'
 
-type InternalInstance = ReturnType<typeof useInternalInstance>
-type Pick = Parameters<InternalInstance['host']['pick']['bind']>[1]
+type EditorValue = ReturnType<typeof useEditor>
+type Pick = Parameters<EditorValue['host']['pick']['bind']>[1]
 
 const toPickKey = (
   pick: Pick
@@ -46,7 +46,7 @@ const toPickKey = (
 export const usePickRef = (
   pick: Pick
 ) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const elementRef = useRef<Element | null>(null)
   const releaseRef = useRef<(() => void) | null>(null)
   const key = toPickKey(pick)
@@ -61,9 +61,9 @@ export const usePickRef = (
     elementRef.current = element
 
     if (element) {
-      releaseRef.current = instance.host.pick.bind(element, pick)
+      releaseRef.current = editor.host.pick.bind(element, pick)
     }
-  }, [instance, key])
+  }, [editor, key])
 
   useEffect(() => {
     const element = elementRef.current
@@ -72,13 +72,13 @@ export const usePickRef = (
     }
 
     releaseRef.current?.()
-    releaseRef.current = instance.host.pick.bind(element, pick)
+    releaseRef.current = editor.host.pick.bind(element, pick)
 
     return () => {
       releaseRef.current?.()
       releaseRef.current = null
     }
-  }, [instance, key])
+  }, [editor, key])
 
   return bind
 }

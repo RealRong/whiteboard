@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId, Rect } from '@whiteboard/core/types'
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import { useEditor, useStoreValue } from '../../../runtime/hooks'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 
 type MindmapLineView = {
@@ -62,13 +62,13 @@ export type MindmapTreeViewData = {
 export const useMindmapTreeView = (
   treeId: NodeId
 ): MindmapTreeViewData | undefined => {
-  const instance = useInternalInstance()
-  const treeView = useKeyedStoreValue(instance.read.mindmap.item, treeId)
-  const drag = useStoreValue(instance.host.mindmap.drag)
+  const editor = useEditor()
+  const treeView = useKeyedStoreValue(editor.read.mindmap.item, treeId)
+  const drag = useStoreValue(editor.host.mindmap.drag)
   const tree = treeView?.tree
   const root = treeView?.node
   const layout = treeView?.layout
-  const nodeSize = instance.config.mindmapNodeSize
+  const nodeSize = editor.config.mindmapNodeSize
 
   const onAddChild = useCallback(
     (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {
@@ -76,7 +76,7 @@ export const useMindmapTreeView = (
         return
       }
 
-      instance.commands.mindmap.insertByPlacement({
+      editor.commands.mindmap.insertByPlacement({
         id: root.id,
         tree,
         targetNodeId: nodeId,
@@ -86,7 +86,7 @@ export const useMindmapTreeView = (
         payload: { kind: 'text', text: '' }
       })
     },
-    [instance, layout, nodeSize, root?.id, tree]
+    [editor, layout, nodeSize, root?.id, tree]
   )
 
   return useMemo(

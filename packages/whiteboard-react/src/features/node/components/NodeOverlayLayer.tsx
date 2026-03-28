@@ -4,7 +4,7 @@ import {
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, NodeType, Rect } from '@whiteboard/core/types'
 import {
-  useInternalInstance,
+  useEditor,
   useFrameScope,
   usePickRef,
   useStoreValue
@@ -205,9 +205,9 @@ const SelectionHandlesOverlay = ({
 }
 
 export const NodeOverlayLayer = () => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const frame = useFrameScope()
-  const guides = useStoreValue(instance.host.snap.node.guides)
+  const guides = useStoreValue(editor.host.snap.node.guides)
   const presentation = useSelectionPresentation()
   const activeFrameNode = useNodeOverlayView(frame.id)
 

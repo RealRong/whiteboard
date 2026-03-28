@@ -1,4 +1,4 @@
-import type { EdgePresetKey } from '../../../runtime/tool'
+import type { EdgePresetKey } from '@whiteboard/editor'
 import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 
 type EdgeOption = {

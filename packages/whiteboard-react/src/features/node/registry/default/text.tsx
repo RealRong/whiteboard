@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
 import {
   useEdit,
-  useInternalInstance
+  useEditor
 } from '../../../../runtime/hooks'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
 import {
   focusEditableEnd,
-  isTextContentEmpty,
-  measureTextNodeSize,
   readEditableText,
   STICKY_DEFAULT_FILL,
   STICKY_PLACEHOLDER,
   TEXT_PLACEHOLDER
 } from '../../text'
+import { bindNodeTextSource } from '../../textSource'
 import {
   createSchema,
   createTextField,
@@ -38,19 +37,6 @@ const stickySchema = createSchema('sticky', 'Sticky', [
   styleField('strokeWidth', 'Stroke width', 'number', { min: 0, step: 1 })
 ])
 
-type TextSize = {
-  width: number
-  height: number
-}
-
-const isSameSize = (
-  left: TextSize | null | undefined,
-  right: TextSize | null | undefined
-) => (
-  left?.width === right?.width
-  && left?.height === right?.height
-)
-
 const readStickyFill = (
   node: NodeRenderProps['node']
 ) => (
@@ -70,15 +56,21 @@ const TextNodeRenderer = ({
   selected,
   variant
 }: NodeRenderProps & { variant: 'text' | 'sticky' }) => {
-  const instance = useInternalInstance()
+  const editor = useEditor()
   const edit = useEdit()
   const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = typeof node.data?.text === 'string' ? node.data.text : ''
   const [draft, setDraft] = useState(text)
   const isSticky = variant === 'sticky'
   const sourceRef = useRef<HTMLDivElement | null>(null)
-  const previewSizeRef = useRef<TextSize | null>(null)
   const setSourceRef = (element: HTMLDivElement | null) => {
+    bindNodeTextSource({
+      editor,
+      nodeId: node.id,
+      field: 'text',
+      current: sourceRef.current,
+      next: element
+    })
     sourceRef.current = element
   }
   const manualFontSize = getStyleNumber(node, 'fontSize')
@@ -96,55 +88,6 @@ const TextNodeRenderer = ({
     ? (editingFontSize ?? displayFontSize)
     : displayFontSize
   const color = getStyleString(node, 'color') ?? 'hsl(var(--ui-text-primary, 40 2.1% 28%))'
-  const committedRect = instance.read.node.committedItem.get(node.id)?.rect ?? rect
-
-  const writeTextPreview = useCallback((nextSize: TextSize | null) => {
-    if (isSticky || isSameSize(previewSizeRef.current, nextSize)) {
-      return
-    }
-
-    previewSizeRef.current = nextSize
-    instance.host.node.patch.write(
-      node.id,
-      nextSize ? { size: nextSize } : undefined
-    )
-    instance.host.node.session.flush()
-  }, [instance, isSticky, node.id])
-
-  const clearTextPreview = useCallback(() => {
-    if (isSticky || previewSizeRef.current === null) {
-      return
-    }
-
-    previewSizeRef.current = null
-    instance.host.node.patch.clear(node.id)
-    instance.host.node.session.flush()
-  }, [instance, isSticky, node.id])
-
-  const resolveTextSize = (content: string) => {
-    if (isSticky) {
-      return undefined
-    }
-
-    const source = sourceRef.current
-    if (!source) {
-      return previewSizeRef.current ?? {
-        width: rect.width,
-        height: rect.height
-      }
-    }
-
-    return measureTextNodeSize({
-      node,
-      content,
-      placeholder,
-      source,
-      width: rect.width,
-    }) ?? previewSizeRef.current ?? {
-      width: rect.width,
-      height: rect.height
-    }
-  }
 
   useEffect(() => {
     setDraft(text)
@@ -199,7 +142,7 @@ const TextNodeRenderer = ({
 
   useLayoutEffect(() => {
     if (!editing || isSticky) {
-      clearTextPreview()
+      editor.commands.node.text.clearPreview(node.id)
       return
     }
 
@@ -208,73 +151,31 @@ const TextNodeRenderer = ({
       return
     }
 
-    const nextSize = measureTextNodeSize({
-      node,
-      content: draft,
-      placeholder,
-      source,
-      width: rect.width,
-      minWidth: rect.width
+    editor.commands.node.text.preview({
+      nodeId: node.id,
+      value: draft,
+      source
     })
-
-    if (nextSize) {
-      writeTextPreview(nextSize)
-    }
-  }, [clearTextPreview, draft, editing, isSticky, node, placeholder, rect.width, writeTextPreview])
+  }, [draft, editing, editor, isSticky, node.id])
 
   useEffect(() => () => {
-    if (previewSizeRef.current === null || isSticky) {
-      return
-    }
-
-    previewSizeRef.current = null
-    instance.host.node.patch.clear(node.id)
-    instance.host.node.session.flush()
-  }, [instance, isSticky, node.id])
+    editor.commands.node.text.clearPreview(node.id)
+  }, [editor, node.id])
 
   const commit = (nextDraft = draft) => {
-    if (isSticky) {
-      if (nextDraft !== text) {
-        instance.commands.node.text.commit({
-          nodeId: node.id,
-          field: 'text',
-          value: nextDraft
-        })
-      }
-      instance.commands.edit.clear()
-      return
-    }
-
-    if (isTextContentEmpty(nextDraft)) {
-      clearTextPreview()
-      instance.commands.edit.clear()
-      instance.commands.selection.clear()
-      instance.commands.node.deleteCascade([node.id])
-      return
-    }
-
-    const nextSize = resolveTextSize(nextDraft)
-    const measuredSize = !isSameSize(nextSize, committedRect)
-      ? nextSize
-      : undefined
-
-    if (nextDraft !== text || measuredSize) {
-      instance.commands.node.text.commit({
-        nodeId: node.id,
-        field: 'text',
-        value: nextDraft,
-        measuredSize
-      })
-    }
-
-    clearTextPreview()
-    instance.commands.edit.clear()
+    editor.commands.node.text.commit({
+      nodeId: node.id,
+      field: 'text',
+      value: nextDraft,
+      source: sourceRef.current ?? undefined
+    })
   }
 
   const cancel = () => {
     setDraft(text)
-    clearTextPreview()
-    instance.commands.edit.clear()
+    editor.commands.node.text.cancel({
+      nodeId: node.id
+    })
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

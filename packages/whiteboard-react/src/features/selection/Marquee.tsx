@@ -1,13 +1,11 @@
-import type { Editor } from '../../runtime/instance'
-import { useStoreValue } from '../../runtime/hooks'
+import {
+  useEditor,
+  useStoreValue
+} from '../../runtime/hooks'
 
-export type MarqueeSession = Editor['host']['selection']['marquee']
-
-export const Marquee = ({
-  marquee
-}: {
-  marquee: MarqueeSession
-}) => {
+export const Marquee = () => {
+  const editor = useEditor()
+  const marquee = editor.host.selection.marquee
   const rect = useStoreValue(marquee.rect)
   const match = useStoreValue(marquee.match)
 

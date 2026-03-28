@@ -7,26 +7,26 @@ export {
   STICKY_DEFAULT_TEXT_COLOR,
   STICKY_PLACEHOLDER,
   STICKY_START_SIZE,
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_MIN_WIDTH,
   TEXT_PLACEHOLDER,
   TEXT_START_SIZE,
   createStickyNodeInput,
-  createTextNodeInput
-} from '@whiteboard/editor/node'
-export type { TextWidthMode } from './textContent'
-export {
-  focusEditableEnd,
+  createTextNodeInput,
   isTextContentEmpty,
   isTextNode,
-  readEditableText,
+  measureTextNodeSize,
   readTextWidthMode,
   setTextWidthMode
-} from './textContent'
-export type { TextMeasureSize } from './textMeasure'
+} from '@whiteboard/editor/node'
+export type {
+  TextMeasureSize,
+  TextWidthMode
+} from '@whiteboard/editor/node'
 export {
-  TEXT_AUTO_MAX_WIDTH,
-  TEXT_MIN_WIDTH,
-  measureTextNodeSize
-} from './textMeasure'
+  focusEditableEnd,
+  readEditableText
+} from './textContent'
 export type { TextAutoFontTask } from './textAutoFont'
 export {
   createTextAutoFontTask,

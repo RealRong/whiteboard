@@ -5,7 +5,7 @@ import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/engine'
 import {
-  useInternalInstance,
+  useEditor,
   usePickRef,
   useStoreValue
 } from '../../../runtime/hooks'
@@ -121,8 +121,8 @@ export const TransformHandles = ({
   canResize,
   canRotate
 }: TransformHandlesProps) => {
-  const instance = useInternalInstance()
-  const zoom = useStoreValue(instance.viewport).zoom
+  const editor = useEditor()
+  const zoom = useStoreValue(editor.viewport).zoom
 
   const handles = buildTransformHandles({
     rect,

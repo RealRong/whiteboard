@@ -6,7 +6,7 @@ import {
   Undo2,
   type LucideIcon
 } from 'lucide-react'
-import { useInternalInstance, useStoreValue } from '../../runtime/hooks'
+import { useEditor, useStoreValue } from '../../runtime/hooks'
 
 const ZOOM_FACTOR = 1.2
 
@@ -25,16 +25,16 @@ const ToolIcon = ({
 const formatZoom = (zoom: number) => `${Math.round(zoom * 100)}%`
 
 export const ViewportDock = () => {
-  const instance = useInternalInstance()
-  const viewport = useStoreValue(instance.viewport)
-  const history = useStoreValue(instance.read.history)
+  const editor = useEditor()
+  const viewport = useStoreValue(editor.viewport)
+  const history = useStoreValue(editor.read.history)
 
   const fitToScreen = () => {
-    const bounds = instance.read.bounds.canvas()
+    const bounds = editor.read.bounds.canvas()
     if (!bounds) {
       return
     }
-    instance.commands.viewport.fit(bounds)
+    editor.commands.viewport.fit(bounds)
   }
 
   return (
@@ -49,7 +49,7 @@ export const ViewportDock = () => {
             type="button"
             className="wb-canvas-dock-button"
             onClick={() => {
-              instance.commands.history.undo()
+              editor.commands.history.undo()
             }}
             disabled={!history.canUndo || history.isApplying}
             title="Undo"
@@ -62,7 +62,7 @@ export const ViewportDock = () => {
             type="button"
             className="wb-canvas-dock-button"
             onClick={() => {
-              instance.commands.history.redo()
+              editor.commands.history.redo()
             }}
             disabled={!history.canRedo || history.isApplying}
             title="Redo"
@@ -91,7 +91,7 @@ export const ViewportDock = () => {
             type="button"
             className="wb-canvas-dock-button"
             onClick={() => {
-              instance.commands.viewport.zoomTo(viewport.zoom / ZOOM_FACTOR)
+              editor.commands.viewport.zoomTo(viewport.zoom / ZOOM_FACTOR)
             }}
             title="Zoom out"
             data-selection-ignore
@@ -103,7 +103,7 @@ export const ViewportDock = () => {
             type="button"
             className="wb-canvas-dock-zoom"
             onClick={() => {
-              instance.commands.viewport.zoomTo(1)
+              editor.commands.viewport.zoomTo(1)
             }}
             title="Reset zoom"
             data-selection-ignore
@@ -115,7 +115,7 @@ export const ViewportDock = () => {
             type="button"
             className="wb-canvas-dock-button"
             onClick={() => {
-              instance.commands.viewport.zoomTo(viewport.zoom * ZOOM_FACTOR)
+              editor.commands.viewport.zoomTo(viewport.zoom * ZOOM_FACTOR)
             }}
             title="Zoom in"
             data-selection-ignore

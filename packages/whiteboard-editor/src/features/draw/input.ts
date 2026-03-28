@@ -13,7 +13,7 @@ import {
   type StagedValueStore
 } from '@whiteboard/engine'
 import type { InteractionStart } from '../../runtime/input/pointer'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
 import type { DrawBrushKind } from '../../runtime/tool'
 import {
@@ -48,10 +48,10 @@ type DrawPreviewStore = Pick<
 >
 
 type DrawInputRuntimeDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'interaction' | 'read' | 'state' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'node'>
+  internals: Pick<EditorRuntime['internals'], 'node'>
 }
 
 export type DrawInputRuntime = {
@@ -107,17 +107,17 @@ const createDrawPreviewStore = (): DrawPreviewStore => {
 }
 
 export const createDrawInputRuntime = (
-  instance: DrawInputRuntimeDeps
+  editor: DrawInputRuntimeDeps
 ): DrawInputRuntime => {
   const previewStore = createDrawPreviewStore()
   let activeStroke: ActiveStroke | null = null
   let activeErase: ActiveErase | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const resolvePoints = (
     points: readonly Point[]
   ) => {
-    const zoom = instance.viewport.get().zoom
+    const zoom = editor.viewport.get().zoom
     return resolveDrawPoints({
       points,
       zoom
@@ -154,11 +154,11 @@ export const createDrawInputRuntime = (
     active: ActiveErase | null
   ) => {
     if (!active) {
-      instance.internals.node.hidden.clear()
+      editor.internals.node.hidden.clear()
       return
     }
 
-    instance.internals.node.hidden.write([...active.ids])
+    editor.internals.node.hidden.write([...active.ids])
   }
 
   const clear = () => {
@@ -183,7 +183,7 @@ export const createDrawInputRuntime = (
     event: PointerEvent,
     force = false
   ) => {
-    const pointer = instance.viewport.pointer(event)
+    const pointer = editor.viewport.pointer(event)
     const previous = active.points[active.points.length - 1]
 
     if (
@@ -251,7 +251,7 @@ export const createDrawInputRuntime = (
       return
     }
 
-    instance.commands.node.create({
+    editor.commands.node.create({
       type: 'draw',
       ownerId: active.ownerId,
       position: stroke.position,
@@ -272,13 +272,13 @@ export const createDrawInputRuntime = (
     active: ActiveErase,
     rect: Rect
   ) => {
-    const nodeIds = instance.read.node.idsInRect(rect, {
+    const nodeIds = editor.read.node.idsInRect(rect, {
       match: 'touch'
     })
     let changed = false
 
     nodeIds.forEach((nodeId) => {
-      const item = instance.read.node.item.get(nodeId)
+      const item = editor.read.node.item.get(nodeId)
       if (!item || item.node.type !== 'draw' || active.ids.has(nodeId)) {
         return
       }
@@ -296,7 +296,7 @@ export const createDrawInputRuntime = (
     active: ActiveErase,
     world: Point
   ) => {
-    const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(instance.viewport.get().zoom, ZOOM_EPSILON)
+    const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(editor.viewport.get().zoom, ZOOM_EPSILON)
     collectRect(active, getSegmentBounds(active.lastWorld, world, halfWorld))
     active.lastWorld = world
   }
@@ -308,7 +308,7 @@ export const createDrawInputRuntime = (
     const samples = readPointerSamples(event)
 
     for (let index = 0; index < samples.length; index += 1) {
-      const pointer = instance.viewport.pointer(samples[index]!)
+      const pointer = editor.viewport.pointer(samples[index]!)
       collectPoint(active, pointer.world)
     }
   }
@@ -324,17 +324,17 @@ export const createDrawInputRuntime = (
       return false
     }
 
-    const frameTargetId = input.frame.id ?? instance.read.node.frameAt(input.point.world)
+    const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
     const active: ActiveStroke = {
       ownerId: input.frame.id ?? frameTargetId,
       kind: input.tool.kind,
-      style: readDrawStyle(instance.state.draw.get(), input.tool.kind),
+      style: readDrawStyle(editor.state.draw.get(), input.tool.kind),
       points: [input.point.world],
       lastScreen: input.point.screen,
       lengthScreen: 0
     }
 
-    const nextSession = instance.interaction.start({
+    const nextSession = editor.interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,
@@ -383,7 +383,7 @@ export const createDrawInputRuntime = (
     }
     collectPoint(active, input.point.world)
 
-    const nextSession = instance.interaction.start({
+    const nextSession = editor.interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,
@@ -402,7 +402,7 @@ export const createDrawInputRuntime = (
 
         collectEvent(activeErase, upEvent)
         if (activeErase.ids.size > 0) {
-          instance.commands.node.delete([...activeErase.ids])
+          editor.commands.node.delete([...activeErase.ids])
         }
         interactionSession.finish()
       },

@@ -5,7 +5,7 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import type { InteractionStart } from '../../runtime/input/pointer'
 import type { MindmapDragState } from './session/drag'
 import {
@@ -24,10 +24,10 @@ export type MindmapDragController = {
 }
 
 type MindmapDragSessionDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'mindmapDrag'>
+  internals: Pick<EditorRuntime['internals'], 'mindmapDrag'>
 }
 
 const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
@@ -52,15 +52,15 @@ const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
 }
 
 export const createMindmapDragSession = (
-  instance: MindmapDragSessionDeps
+  editor: MindmapDragSessionDeps
 ): MindmapDragController => {
   let active: ActiveMindmapDragSession | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const clear = () => {
     active = null
     session = null
-    instance.internals.mindmapDrag.clear()
+    editor.internals.mindmapDrag.clear()
   }
 
   const updatePreview = (
@@ -73,19 +73,19 @@ export const createMindmapDragSession = (
       return
     }
 
-    const { world } = instance.viewport.pointer(input)
+    const { world } = editor.viewport.pointer(input)
     const next = projectMindmapDrag({
       active,
       world,
       treeView:
         active.kind === 'subtree'
-          ? instance.read.mindmap.item.get(active.treeId)
+          ? editor.read.mindmap.item.get(active.treeId)
           : undefined
     })
     active = {
       ...next
     }
-    instance.internals.mindmapDrag.write(toMindmapDragState(next))
+    editor.internals.mindmapDrag.write(toMindmapDragState(next))
   }
 
   const start = (
@@ -94,12 +94,12 @@ export const createMindmapDragSession = (
     treeId: NodeId,
     nodeId: MindmapNodeId
   ) => {
-    const treeView = instance.read.mindmap.item.get(treeId)
+    const treeView = editor.read.mindmap.item.get(treeId)
     if (!treeView) {
       return false
     }
 
-    const nextSession = instance.interaction.start({
+    const nextSession = editor.interaction.start({
       mode: 'mindmap-drag',
       pointerId: event.pointerId,
       capture,
@@ -124,7 +124,7 @@ export const createMindmapDragSession = (
 
         if (active.kind === 'root') {
           moveMindmapRoot({
-            instance,
+            editor,
             nodeId: active.treeId,
             position: active.position,
             origin: active.origin
@@ -135,7 +135,7 @@ export const createMindmapDragSession = (
 
         if (active.drop) {
           moveMindmapByDrop({
-            instance,
+            editor,
             id: active.treeId,
             nodeId: active.nodeId,
             drop: {
@@ -147,7 +147,7 @@ export const createMindmapDragSession = (
               parentId: active.originParentId,
               index: active.originIndex
             },
-            nodeSize: instance.config.mindmapNodeSize,
+            nodeSize: editor.config.mindmapNodeSize,
             layout: active.layout
           })
         }
@@ -159,7 +159,7 @@ export const createMindmapDragSession = (
       return false
     }
 
-    const { world } = instance.viewport.pointer(event)
+    const { world } = editor.viewport.pointer(event)
     const position = treeView.node.position
     if (!position) {
       nextSession.cancel()
@@ -196,7 +196,7 @@ export const createMindmapDragSession = (
       ...next
     }
     session = nextSession
-    instance.internals.mindmapDrag.write(toMindmapDragState(next))
+    editor.internals.mindmapDrag.write(toMindmapDragState(next))
     event.preventDefault()
     event.stopPropagation()
     return true

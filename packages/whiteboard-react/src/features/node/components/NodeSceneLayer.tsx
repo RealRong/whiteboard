@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import {
-  useInternalInstance,
+  useEditor,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
@@ -8,14 +8,14 @@ import { useSelection } from '../selection'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = () => {
-  const instance = useInternalInstance()
-  const nodeIds = useStoreValue(instance.read.node.list)
+  const editor = useEditor()
+  const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
   const contentNodeIds = useMemo(
-    () => instance.read.node.filter(nodeIds, 'content'),
-    [instance, nodeIds]
+    () => editor.read.node.filter(nodeIds, 'content'),
+    [editor, nodeIds]
   )
 
   return (

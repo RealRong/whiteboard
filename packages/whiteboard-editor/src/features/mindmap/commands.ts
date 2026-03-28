@@ -12,9 +12,9 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { Editor } from '../../runtime/instance/types'
+import type { Editor } from '../../runtime/editor/types'
 
-type MindmapCommandInstance = Pick<Editor, 'commands' | 'read'>
+type MindmapCommandEditor = Pick<Editor, 'commands' | 'read'>
 
 const DEFAULT_MINDMAP_SIDE: 'left' | 'right' = 'right'
 const DEFAULT_ROOT_MOVE_THRESHOLD = 0.5
@@ -31,17 +31,17 @@ const createLayoutHint = (
 })
 
 const readNodePosition = (
-  instance: MindmapCommandInstance,
+  editor: MindmapCommandEditor,
   nodeId: NodeId
 ) => {
-  const node = instance.read.index.node.get(nodeId)?.node
+  const node = editor.read.index.node.get(nodeId)?.node
   return node && 'position' in node
     ? node.position
     : undefined
 }
 
 export const insertMindmapByPlacement = ({
-  instance,
+  editor,
   id,
   tree,
   targetNodeId,
@@ -50,7 +50,7 @@ export const insertMindmapByPlacement = ({
   layout,
   payload
 }: {
-  instance: MindmapCommandInstance
+  editor: MindmapCommandEditor
   id: NodeId
   tree: MindmapTree
   targetNodeId: MindmapNodeId
@@ -73,7 +73,7 @@ export const insertMindmapByPlacement = ({
   })
 
   if (plan.mode === 'child') {
-    return instance.commands.mindmap.insert(id, {
+    return editor.commands.mindmap.insert(id, {
       kind: 'child',
       parentId: plan.parentId,
       payload: normalizedPayload,
@@ -86,7 +86,7 @@ export const insertMindmapByPlacement = ({
   }
 
   if (plan.mode === 'sibling') {
-    return instance.commands.mindmap.insert(id, {
+    return editor.commands.mindmap.insert(id, {
       kind: 'sibling',
       nodeId: plan.nodeId,
       position: plan.position,
@@ -98,7 +98,7 @@ export const insertMindmapByPlacement = ({
   }
 
   if (plan.mode === 'towardRoot') {
-    return instance.commands.mindmap.insert(id, {
+    return editor.commands.mindmap.insert(id, {
       kind: 'parent',
       nodeId: plan.nodeId,
       payload: normalizedPayload,
@@ -112,7 +112,7 @@ export const insertMindmapByPlacement = ({
 }
 
 export const moveMindmapByDrop = ({
-  instance,
+  editor,
   id,
   nodeId,
   drop,
@@ -120,7 +120,7 @@ export const moveMindmapByDrop = ({
   nodeSize,
   layout
 }: {
-  instance: MindmapCommandInstance
+  editor: MindmapCommandEditor
   id: NodeId
   nodeId: MindmapNodeId
   drop: {
@@ -143,7 +143,7 @@ export const moveMindmapByDrop = ({
     return undefined
   }
 
-  return instance.commands.mindmap.moveSubtree(id, {
+  return editor.commands.mindmap.moveSubtree(id, {
     nodeId,
     parentId: drop.parentId,
     index: drop.index,
@@ -153,19 +153,19 @@ export const moveMindmapByDrop = ({
 }
 
 export const moveMindmapRoot = ({
-  instance,
+  editor,
   nodeId,
   position,
   origin,
   threshold = DEFAULT_ROOT_MOVE_THRESHOLD
 }: {
-  instance: MindmapCommandInstance
+  editor: MindmapCommandEditor
   nodeId: NodeId
   position: Point
   origin?: Point
   threshold?: number
 }) => {
-  const previous = origin ?? readNodePosition(instance, nodeId)
+  const previous = origin ?? readNodePosition(editor, nodeId)
   if (
     previous
     && Math.abs(previous.x - position.x) < threshold
@@ -174,7 +174,7 @@ export const moveMindmapRoot = ({
     return undefined
   }
 
-  return instance.commands.node.document.update(nodeId, {
+  return editor.commands.node.document.update(nodeId, {
     fields: {
       position: {
         x: position.x,

@@ -15,7 +15,7 @@ import {
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { InteractionStart } from '../../../runtime/input/pointer'
-import type { InternalEditor } from '../../../runtime/instance/types'
+import type { EditorRuntime } from '../../../runtime/editor/types'
 import {
   type SelectionSnapshot
 } from '../../../runtime/selection'
@@ -104,10 +104,10 @@ export type NodeTransformSession = {
 }
 
 type TransformSessionDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'node' | 'snap'>
+  internals: Pick<EditorRuntime['internals'], 'node' | 'snap'>
 }
 
 const createResizeDrag = (options: {
@@ -185,22 +185,22 @@ const toPatch = (
 }
 
 export const createTransformSession = (
-  instance: TransformSessionDeps
+  editor: TransformSessionDeps
 ): NodeTransformSession => {
   let active: ActiveTransform | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const clear = () => {
     active = null
     session = null
-    clearNodeSessionPreview(instance.internals.node.session)
-    instance.internals.snap.node.clear()
+    clearNodeSessionPreview(editor.internals.node.session)
+    editor.internals.snap.node.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    writeNodeSessionPreview(instance.internals.node.session, {
+    writeNodeSessionPreview(editor.internals.node.session, {
       patches
     })
   }
@@ -228,7 +228,7 @@ export const createTransformSession = (
     })
     const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-    return instance.internals.snap.node.resize({
+    return editor.internals.snap.node.resize({
       rect: rawRect.rect,
       source: {
         x: sourceX,
@@ -251,7 +251,7 @@ export const createTransformSession = (
         x: event.clientX,
         y: event.clientY
       },
-      zoom: instance.viewport.get().zoom,
+      zoom: editor.viewport.get().zoom,
       altKey: event.altKey,
       shiftKey: event.shiftKey,
       excludeNodeIds: next.targets.map((target) => target.id)
@@ -277,10 +277,10 @@ export const createTransformSession = (
     drag: RotateDragState,
     event: PointerEvent
   ) => {
-    instance.internals.snap.node.clear()
+    editor.internals.snap.node.clear()
     const rotation = computeNextRotation({
       center: drag.center,
-      currentPoint: instance.viewport.pointer(event).world,
+      currentPoint: editor.viewport.pointer(event).world,
       startAngle: drag.startAngle,
       startRotation: drag.startRotation,
       shiftKey: event.shiftKey
@@ -341,7 +341,7 @@ export const createTransformSession = (
       return
     }
 
-    instance.commands.node.document.updateMany(updates)
+    editor.commands.node.document.updateMany(updates)
   }
 
   const canStart = () => !active
@@ -351,7 +351,7 @@ export const createTransformSession = (
     event: TransformPointerEvent,
     capture: Element
   ) => {
-    const nextSession = instance.interaction.start({
+    const nextSession = editor.interaction.start({
       mode: 'node-transform',
       pointerId: event.pointerId,
       capture,
@@ -377,8 +377,8 @@ export const createTransformSession = (
 
     active = next
     session = nextSession
-    clearNodeSessionPreview(instance.internals.node.session)
-    instance.internals.snap.node.clear()
+    clearNodeSessionPreview(editor.internals.node.session)
+    editor.internals.snap.node.clear()
     event.preventDefault()
     event.stopPropagation()
     return true
@@ -389,12 +389,12 @@ export const createTransformSession = (
     handle: TransformPickHandle,
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
-    const nodeRect = instance.read.index.node.get(nodeId)
+    const nodeRect = editor.read.index.node.get(nodeId)
     if (!nodeRect || nodeRect.node.locked) {
       return
     }
 
-    const transform = instance.read.node.transform(nodeRect.node)
+    const transform = editor.read.node.transform(nodeRect.node)
     const target: TransformTarget = {
       id: nodeRect.node.id,
       node: nodeRect.node,
@@ -431,7 +431,7 @@ export const createTransformSession = (
         pointerId: event.pointerId,
         rect: nodeRect.rect,
         rotation: nodeRect.rotation,
-        start: instance.viewport.pointer(event).world
+        start: editor.viewport.pointer(event).world
       })
     }
   }
@@ -439,7 +439,7 @@ export const createTransformSession = (
   const createSelectionScaleTargets = (
     selectionNodeIds: readonly NodeId[]
   ) => {
-    const resolved = instance.read.node.transformTargets(selectionNodeIds)
+    const resolved = editor.read.node.transformTargets(selectionNodeIds)
     if (!resolved?.targets.length) {
       return undefined
     }
@@ -454,7 +454,7 @@ export const createTransformSession = (
     handle: TransformPickHandle,
     event: TransformPointerEvent
   ): ActiveTransform | undefined => {
-    const selection = instance.read.selection.get()
+    const selection = editor.read.selection.get()
     const selectionBox = resolveSelectionBoxView(selection)
     if (
       !selectionBox.box

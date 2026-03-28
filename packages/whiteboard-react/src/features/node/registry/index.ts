@@ -1,7 +1,5 @@
 export {
   createNodeRegistry,
-  NodeRegistryProvider,
-  resolveNodeMeta,
-  useNodeRegistry
+  resolveNodeMeta
 } from './nodeRegistry'
 export { createDefaultNodeRegistry } from './default'

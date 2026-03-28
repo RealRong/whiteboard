@@ -1,13 +1,17 @@
 import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
-export { useWhiteboard } from './runtime/hooks'
-export { useSelection } from './features/node/selection'
+export { useEditor } from './runtime/hooks'
 export { createNodeRegistry, createDefaultNodeRegistry } from './features/node/registry'
 
-export type { WhiteboardOptions, HistoryOptions, WhiteboardProps } from './types/common'
-export type { WhiteboardCollabOptions } from './types/common'
-export type { Editor, Tool } from './runtime/instance'
+export type {
+  WhiteboardOptions,
+  HistoryOptions,
+  WhiteboardProps
+} from './types/common/board'
+export type { WhiteboardCollabOptions } from './types/common/collab'
+export type { WhiteboardInstance } from './runtime/editor'
+export type { Tool } from '@whiteboard/editor'
 export type {
   ControlId,
   NodeDefinition,

@@ -8,7 +8,7 @@ import type {
   EdgeType,
   NodeId
 } from '@whiteboard/core/types'
-import type { InternalEditor } from '../../runtime/instance/types'
+import type { EditorRuntime } from '../../runtime/editor/types'
 import type {
   InteractionStart
 } from '../../runtime/input/pointer'
@@ -45,10 +45,10 @@ export type EdgeConnectSession = {
 }
 
 type EdgeConnectSessionDeps = Pick<
-  InternalEditor,
+  EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<InternalEditor['internals'], 'edge' | 'snap'>
+  internals: Pick<EditorRuntime['internals'], 'edge' | 'snap'>
 }
 
 type ConnectNodeEntry = NonNullable<
@@ -66,27 +66,27 @@ const readCaptureTarget = (
 )
 
 export const createEdgeConnectSession = (
-  instance: EdgeConnectSessionDeps
+  editor: EdgeConnectSessionDeps
 ): EdgeConnectSession => {
   let active: EdgeConnectState | null = null
-  let session: ReturnType<typeof instance.interaction.start> = null
+  let session: ReturnType<typeof editor.interaction.start> = null
 
   const readPointer = (
     event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
   ): ConnectPointer => ({
     pointerId: event.pointerId,
-    ...instance.viewport.pointer(event)
+    ...editor.viewport.pointer(event)
   })
 
   const clearPatch = () => {
-    instance.internals.edge.preview.patch.clear()
+    editor.internals.edge.preview.patch.clear()
   }
 
   const readConnectNode = (
     nodeId: NodeId
   ): ConnectNodeEntry | undefined => {
-    const entry = instance.read.index.node.get(nodeId)
-    if (!entry || !instance.read.node.connect(entry.node)) {
+    const entry = editor.read.index.node.get(nodeId)
+    if (!entry || !editor.read.node.connect(entry.node)) {
       return undefined
     }
 
@@ -132,8 +132,8 @@ export const createEdgeConnectSession = (
           rect: entry.rect,
           rotation: entry.rotation,
           pointWorld: pointer.world,
-          zoom: instance.viewport.get().zoom,
-          config: instance.config.edge
+          zoom: editor.viewport.get().zoom,
+          config: editor.config.edge
         })
 
         return startEdgeCreate({
@@ -163,7 +163,7 @@ export const createEdgeConnectSession = (
     end: 'source' | 'target',
     pointer: ConnectPointer
   ): EdgeConnectState | undefined => {
-    const view = instance.read.edge.view.get(edgeId)
+    const view = editor.read.edge.view.get(edgeId)
     if (!view) {
       return undefined
     }
@@ -198,7 +198,7 @@ export const createEdgeConnectSession = (
       return undefined
     }
 
-    const snap = instance.internals.snap.edge.connect(pointer.world)
+    const snap = editor.internals.snap.edge.connect(pointer.world)
     return setEdgeConnectTarget(
       state,
       toEdgeDraftEnd(pointer.world, snap)
@@ -212,7 +212,7 @@ export const createEdgeConnectSession = (
     }
 
     if (commit.kind === 'reconnect') {
-      instance.commands.edge.reconnect(
+      editor.commands.edge.reconnect(
         commit.edgeId,
         commit.end,
         commit.target
@@ -220,11 +220,11 @@ export const createEdgeConnectSession = (
       return
     }
 
-    instance.commands.edge.create(commit.input)
+    editor.commands.edge.create(commit.input)
   }
 
   const writeStateHint = (state: EdgeConnectState) => {
-    instance.internals.edge.preview.hint.set(toEdgeConnectHint(state))
+    editor.internals.edge.preview.hint.set(toEdgeConnectHint(state))
   }
 
   const writeStatePatch = (state: EdgeConnectState) => {
@@ -240,7 +240,7 @@ export const createEdgeConnectSession = (
     }
 
     writeEdgePreviewPatch(
-      instance.internals.edge.preview,
+      editor.internals.edge.preview,
       state.edgeId,
       patch
     )
@@ -269,7 +269,7 @@ export const createEdgeConnectSession = (
   const clear = () => {
     active = null
     session = null
-    instance.internals.edge.preview.clear()
+    editor.internals.edge.preview.clear()
   }
 
   const startConnectSession = (
@@ -277,7 +277,7 @@ export const createEdgeConnectSession = (
     state: EdgeConnectState,
     capture?: Element | null
   ) => {
-    const nextSession = instance.interaction.start({
+    const nextSession = editor.interaction.start({
       mode: 'edge-connect',
       pointerId: event.pointerId,
       capture: capture ?? readCaptureTarget(event),
@@ -366,7 +366,7 @@ export const createEdgeConnectSession = (
         return false
       }
 
-      instance.commands.selection.replace({
+      editor.commands.selection.replace({
         edgeIds: [edgeId]
       })
 

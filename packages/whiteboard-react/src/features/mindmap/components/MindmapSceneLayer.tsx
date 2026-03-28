@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
-import { useInternalInstance, useStoreValue } from '../../../runtime/hooks'
+import { useEditor, useStoreValue } from '../../../runtime/hooks'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'
 
@@ -16,8 +16,8 @@ const MindmapTreeById = ({
 }
 
 export const MindmapSceneLayer = () => {
-  const instance = useInternalInstance()
-  const treeIds = useStoreValue(instance.read.mindmap.list)
+  const editor = useEditor()
+  const treeIds = useStoreValue(editor.read.mindmap.list)
 
   if (!treeIds.length) return null
 

@@ -1,6 +1,6 @@
 import type { SliceRoots } from '@whiteboard/core/document'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { Editor } from '../../../runtime/instance/types'
+import type { Editor } from '../../../runtime/editor/types'
 import type {
   ClipboardPort,
   ClipboardRuntime
@@ -13,10 +13,10 @@ import {
   writeClipboardPacketToEvent
 } from '../../../runtime/host/clipboard'
 
-type ClipboardInstance = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
+type ClipboardEditor = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
 type ClipboardDeps = {
-  instance: ClipboardInstance
+  editor: ClipboardEditor
   runtime: ClipboardRuntime
   port: ClipboardPort
 }
@@ -71,16 +71,16 @@ const readPasteAt = (
   packet: ReturnType<typeof createClipboardPacket>,
   at?: Point
 ) => {
-  const base = at ?? { ...deps.instance.viewport.get().center }
+  const base = at ?? { ...deps.editor.viewport.get().center }
   return deps.runtime.readPastePoint({
     base,
     packet,
-    zoom: deps.instance.viewport.get().zoom
+    zoom: deps.editor.viewport.get().zoom
   })
 }
 
 const applyInsertedRoots = (
-  instance: ClipboardInstance,
+  editor: ClipboardEditor,
   inserted: {
     roots: SliceRoots
     allNodeIds: readonly NodeId[]
@@ -95,20 +95,20 @@ const applyInsertedRoots = (
     : inserted.allEdgeIds
 
   if (nodeIds.length > 0 || edgeIds.length > 0) {
-    instance.commands.selection.replace({
+    editor.commands.selection.replace({
       nodeIds,
       edgeIds
     })
     return
   }
 
-  instance.commands.selection.clear()
+  editor.commands.selection.clear()
 }
 
 const readSelectionTarget = (
-  instance: ClipboardInstance
+  editor: ClipboardEditor
 ): Exclude<ClipboardTarget, 'selection'> | undefined => {
-  const selection = instance.read.selection.get()
+  const selection = editor.read.selection.get()
 
   if (selection.items.count > 0) {
     return {
@@ -121,24 +121,24 @@ const readSelectionTarget = (
 }
 
 const resolveClipboardTarget = (
-  instance: ClipboardInstance,
+  editor: ClipboardEditor,
   target: ClipboardTarget
 ): Exclude<ClipboardTarget, 'selection'> | undefined => (
   target === 'selection'
-    ? readSelectionTarget(instance)
+    ? readSelectionTarget(editor)
     : target
 )
 
 const readSliceExport = (
-  instance: ClipboardInstance,
+  editor: ClipboardEditor,
   target: ClipboardTarget
 ) => {
-  const resolved = resolveClipboardTarget(instance, target)
+  const resolved = resolveClipboardTarget(editor, target)
   if (!resolved) {
     return undefined
   }
 
-  return instance.read.slice.fromSelection(resolved)
+  return editor.read.slice.fromSelection(resolved)
 }
 
 export const copy = async (
@@ -146,7 +146,7 @@ export const copy = async (
   target: ClipboardTarget = 'selection',
   event?: ClipboardEvent
 ) => {
-  const exported = readSliceExport(deps.instance, target)
+  const exported = readSliceExport(deps.editor, target)
   if (!exported) {
     return false
   }
@@ -159,7 +159,7 @@ export const cut = async (
   target: ClipboardTarget = 'selection',
   event?: ClipboardEvent
 ) => {
-  const resolved = resolveClipboardTarget(deps.instance, target)
+  const resolved = resolveClipboardTarget(deps.editor, target)
   if (!resolved) {
     return false
   }
@@ -170,14 +170,14 @@ export const cut = async (
   }
 
   if (resolved.edgeIds?.length) {
-    const result = deps.instance.commands.edge.delete([...resolved.edgeIds])
+    const result = deps.editor.commands.edge.delete([...resolved.edgeIds])
     if (!result.ok) {
       return false
     }
   }
 
   if (resolved.nodeIds?.length) {
-    const result = deps.instance.commands.node.deleteCascade([...resolved.nodeIds])
+    const result = deps.editor.commands.node.deleteCascade([...resolved.nodeIds])
     if (!result.ok) {
       return false
     }
@@ -200,7 +200,7 @@ export const paste = async (
   }
 
   const at = readPasteAt(deps, packet, options?.at)
-  const inserted = deps.instance.commands.document.insert(packet.slice, {
+  const inserted = deps.editor.commands.document.insert(packet.slice, {
     at,
     ownerId: options?.ownerId,
     roots: packet.roots
@@ -209,6 +209,6 @@ export const paste = async (
     return false
   }
 
-  applyInsertedRoots(deps.instance, inserted.data)
+  applyInsertedRoots(deps.editor, inserted.data)
   return true
 }
