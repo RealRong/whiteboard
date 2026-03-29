@@ -12,14 +12,14 @@ import {
   createBrowserPointerContinuation,
   type PointerContinuation
 } from '../host/pointerContinuation'
-import type { EditorHostBridge } from '../../types/public/editor'
+import type { EditorPlatformBridge } from '../../types/public/editor'
 import type { EditorPlatform } from '../../types/internal/editor'
 
-export const createEditorPlatform = (
-  host?: EditorHostBridge
+export const createPlatform = (
+  platform?: EditorPlatformBridge
 ): EditorPlatform => ({
   clipboardRuntime: createClipboardRuntime(),
-  clipboardPort: host?.clipboard ?? createBrowserClipboardPort(),
-  selectionLock: host?.selectionLock ?? createBrowserDocumentSelectionLock(),
-  pointerContinuation: host?.pointerContinuation ?? createBrowserPointerContinuation()
+  clipboardPort: platform?.clipboard ?? createBrowserClipboardPort(),
+  selectionLock: platform?.selectionLock ?? createBrowserDocumentSelectionLock(),
+  pointerContinuation: platform?.pointerContinuation ?? createBrowserPointerContinuation()
 })

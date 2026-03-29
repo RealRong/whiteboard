@@ -28,9 +28,9 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
     ? selection.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
-  const emptyPatch = editor.host.edge.preview.emptyPatch
+  const emptyPatch = editor.projection.edge.emptyPatch
   const patch = useOptionalKeyedStoreValue(
-    editor.host.edge.preview.patch,
+    editor.projection.edge.patch,
     edgeId,
     emptyPatch
   )

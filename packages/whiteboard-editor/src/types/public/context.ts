@@ -4,6 +4,7 @@ import type {
   NodeDistributeMode
 } from '@whiteboard/core/node'
 import type {
+  EdgeId,
   Node,
   NodeId
 } from '@whiteboard/core/types'
@@ -49,6 +50,7 @@ export type SelectionNodeTypeSummary = {
   family: NodeFamily
   icon: string
   count: number
+  nodeIds: readonly NodeId[]
 }
 
 export type SelectionNodeSummary = {
@@ -83,6 +85,17 @@ export type SelectionMenuFilterView = {
   onSelect: (key: string) => unknown
 }
 
+export type SelectionTypeFilter = {
+  types: readonly SelectionNodeTypeSummary[]
+}
+
+export type SelectionStyleSummary = {
+  stroke: string
+  strokeWidth: number
+  strokeWidthPreset: 'default' | 'draw'
+  opacity?: number
+}
+
 export type SelectionMoreMenuItemView = {
   key: string
   label: string
@@ -113,12 +126,32 @@ export type SelectionMenuView = {
   layout: SelectionLayoutView
 }
 
-export type ContextMenuView = {
-  screen: PointerPick['point']['screen']
-  summary?: SelectionNodeSummary
-  filter?: SelectionMenuFilterView
-  groups: readonly SelectionMenuGroupView[]
-}
+export type ContextMenuView =
+  | {
+      kind: 'canvas'
+      screen: PointerPick['point']['screen']
+      canvas: {
+        world: PointerPick['point']['world']
+        ownerId?: NodeId
+      }
+    }
+  | {
+      kind: 'selection'
+      screen: PointerPick['point']['screen']
+      selection: {
+        summary: SelectionNodeSummary
+        can: SelectionCan
+        filter?: SelectionTypeFilter
+        style?: SelectionStyleSummary
+      }
+    }
+  | {
+      kind: 'edge'
+      screen: PointerPick['point']['screen']
+      edge: {
+        id: EdgeId
+      }
+    }
 
 export type ContextMenuSession = {
   target: ContextTarget

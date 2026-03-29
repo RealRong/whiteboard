@@ -14,7 +14,6 @@ import type { MindmapLayoutConfig } from '../mindmap'
 import type { SelectionInput, SelectionTarget } from '../internal/selection'
 import type {
   BrushStylePatch,
-  DrawPreferences,
   DrawSlot
 } from './draw'
 import type {
@@ -29,11 +28,8 @@ import type {
   ViewportCommands,
   ViewportRead
 } from '../../runtime/viewport'
-import type { NodeRegistry } from '../node'
-import type { InteractionState } from '../../runtime/interaction/types'
 import type {
-  ClipboardPort,
-  ClipboardRuntime
+  ClipboardPort
 } from '../../runtime/host/clipboard'
 import type { DocumentSelectionLock } from '../../runtime/host/selectionLock'
 import type { PointerContinuation } from '../../runtime/host/pointerContinuation'
@@ -43,6 +39,11 @@ import type {
   ContextDismissMode,
   ContextOpenInput
 } from './context'
+import type { DrawInputRuntime } from '../../features/draw/input'
+import type { EdgeProjection } from '../../features/edge/projection'
+import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
+import type { MarqueeSession } from '../../features/selection/marquee'
+import type { SnapRuntime } from '../../runtime/interaction'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -78,10 +79,20 @@ export type EditorKeyboardInput = {
   event: KeyboardEvent
 }
 
+export type EditorWheelInput = {
+  deltaX: number
+  deltaY: number
+  ctrlKey: boolean
+  metaKey: boolean
+  clientX: number
+  clientY: number
+}
+
 export type EditorInput = {
   pointerDown: (input: EditorPointerInput) => boolean
   pointerMove: (input: EditorPointerInput) => void
   pointerLeave: () => void
+  wheel: (input: EditorWheelInput) => boolean
   cancel: () => void
   keyDown: (input: EditorKeyboardInput) => boolean
   keyUp: (input: EditorKeyboardInput) => boolean
@@ -90,17 +101,27 @@ export type EditorInput = {
 
 export type EditorState = {
   tool: ReadStore<Tool>
-  draw: ReadStore<DrawPreferences>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
-  interaction: ReadStore<InteractionState>
+}
+
+export type EditorProjection = {
+  marquee: Pick<MarqueeSession, 'rect' | 'match'>
+  draw: Pick<DrawInputRuntime['preview'], 'get' | 'subscribe'>
+  edge: {
+    patch: Pick<EdgeProjection['patch'], 'get' | 'subscribe'>
+    hint: Pick<EdgeProjection['hint'], 'get' | 'subscribe'>
+    emptyPatch: EdgeProjection['emptyPatch']
+  }
+  mindmapDrag: Pick<MindmapDragProjectionStore, 'get' | 'subscribe'>
+  snap: SnapRuntime['node']['guides']
 }
 
 export type EditorRead = RuntimeRead
 export type EditorViewport = ViewportRead
 
-export type EditorHostBridge = {
+export type EditorPlatformBridge = {
   clipboard?: ClipboardPort
   selectionLock?: DocumentSelectionLock
   pointerContinuation?: PointerContinuation
@@ -280,11 +301,15 @@ export type Editor = {
   commands: EditorCommands
   input: EditorInput
   viewport: EditorViewport
+  projection: EditorProjection
   configure: (config: {
     tool: Tool
     viewport: {
       minZoom: number
       maxZoom: number
+      enablePan: boolean
+      enableWheel: boolean
+      wheelSensitivity: number
     }
     mindmapLayout: MindmapLayoutConfig
     history?: KernelHistoryConfig

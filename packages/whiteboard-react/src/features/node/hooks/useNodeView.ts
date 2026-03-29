@@ -86,7 +86,7 @@ const resolveNodeOverlayViewState = (
 }
 
 const resolveNodeViewState = (
-  editor: Pick<Editor, 'commands' | 'host' | 'read'>,
+  editor: Pick<Editor, 'commands' | 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
   interaction: ReturnType<Editor['read']['node']['interaction']['get']>,
@@ -100,7 +100,7 @@ const resolveNodeViewState = (
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
-  const definition = editor.host.registry.get(resolvedNode.type) as NodeDefinition | undefined
+  const definition = editor.registry.get(resolvedNode.type) as NodeDefinition | undefined
   const write: NodeWrite = {
     update: (update) => {
       editor.commands.node.document.update(nodeId, update)

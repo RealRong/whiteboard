@@ -207,7 +207,7 @@ const SelectionHandlesOverlay = ({
 export const NodeOverlayLayer = () => {
   const editor = useEditorRuntime()
   const frame = useFrameScope()
-  const guides = useStoreValue(editor.host.snap.node.guides)
+  const guides = useStoreValue(editor.projection.snap)
   const presentation = useSelectionPresentation()
   const activeFrameNode = useNodeOverlayView(frame.id)
 

@@ -1,795 +1,963 @@
-# Whiteboard Editor 瘦脸方案
+# Whiteboard Editor 内部瘦身与整理方案
 
 ## 1. 文档目标
 
 这份文档只回答一个问题：
 
-**`packages/whiteboard-editor` 应该怎么继续收口，才能让 editor 本身更薄、更稳、更像真正的 runtime 单点。**
+**在不主动改变 `whiteboard-editor` 功能语义的前提下，怎样系统性地整理内部结构，让它更薄、更统一、更容易读，也更容易继续演进。**
 
-这里说的“瘦脸”，不是简单删文件，也不是把实现拆得更碎，而是同时解决下面四类问题：
+这里说的“瘦身”不是简单删代码，也不是把大文件粗暴拆成很多碎文件，而是同时解决下面几类问题：
 
-1. editor 公共 API 面过宽，暴露了太多 runtime 细节。
-2. editor 组装层过厚，`createEditor.ts` 承担了过多 wiring 和生命周期职责。
-3. 输入链、`read`、`commands` 仍然是散件拼装，跨域依赖太多。
-4. 根导出面仍把部分内部类型和 feature 状态直接暴露给外部。
+1. 架构边界不够清楚。
+2. 命名体系漂移，读文件名时无法稳定判断职责。
+3. 少数热点文件承担了过多职责，成为后续修改的高噪音落点。
+4. 一些样板逻辑在多个 feature 中重复出现。
+5. editor 内部导出面和类型聚合方式仍然偏重，阅读成本较高。
 
 这份方案默认当前方向不变：
 
-- `whiteboard-react` 继续做 DOM 绑定和 UI 组合。
-- `whiteboard-editor` 继续做行为决策、交互 session、业务 view model 和命令收口。
-- 不优先追求兼容期“双轨保留”，优先明确长期最优边界。
+1. `whiteboard-react` 继续做 DOM 绑定和 UI 组合。
+2. `whiteboard-editor` 继续做输入决策、交互 session、业务行为和 preview。
+3. 当前已落地的 `input router + passive processor + interaction driver registry` 方向继续保留。
 
 ---
 
-## 2. 结论
+## 2. 核心结论
 
-当前 editor 最重的问题，不是某一个 feature 文件太大，而是 **editor 的“脸”太宽**：
+当前 `whiteboard-editor` 的主要问题，不是“文件数太多”，也不是“总行数太大”，而是：
 
-- 公共 `Editor` 暴露了 `host`。
-- `EditorRuntime` 继续暴露 `engine / interaction / registry / internals`。
-- `createEditor.ts` 同时做平台桥接、状态创建、read 组装、session 创建、commands 组装、commit 生命周期、reset/dispose。
-- 输入链虽然已经从 React 收回 editor，但内部仍然保留了偏厚的“读输入 -> 判定 -> 路由到 feature session”总装逻辑。
-- `read` 和 `commands` 还是 God factory，参数一长串，说明 editor 还缺更高层的 domain runtime 边界。
+**内部职责虽然已经开始成型，但文件组织方式还没有完全跟上新的架构。**
 
-长期最优的 editor，公共形态应该只保留：
+更具体地说，现在的问题主要集中在四个层面：
 
-```ts
-type Editor = {
-  read: EditorRead
-  state: EditorState
-  commands: EditorCommands
-  input: EditorInput
-  viewport: EditorViewport
-  configure: (config: EditorConfig) => void
-  dispose: () => void
-}
-```
+1. `runtime` 和 `features` 的边界还不够干净。
+2. 命名系统没有统一，`input / gesture / runtime / session / driver / processor` 混用。
+3. 几个热点文件明显过厚，且把多层职责压在一起。
+4. 一些通用样板已经重复出现，适合抽成轻量基础设施。
 
-其中：
+所以长期最优方向不是继续堆抽象，而是：
 
-- `commands` 只负责语义写入和显式行为命令。
-- `input` 只负责宿主输入入口。
-- `read/state` 只负责读事实。
-- `host/internals/engine/registry/interaction` 都不应该继续属于公共 editor 脸面。
+**先统一边界和命名，再把热点文件拆成单职责模块，最后再做轻量复用收口。**
 
 一句话说：
 
-**editor 的瘦脸，不是优先删 feature，而是优先把“公共 editor”“内部 runtime”“平台桥接”“输入路由”这四层重新切开。**
+**现在最值得做的不是“重写”，而是“整理”。**
 
 ---
 
-## 3. 当前 editor 为什么胖
+## 3. 当前结构快照
 
-## 3.1 `createEditor.ts` 是第一胖点
+按当前代码分布，`packages/whiteboard-editor/src` 的热点大致如下：
 
-`packages/whiteboard-editor/src/runtime/editor/createEditor.ts` 当前同时承担了这些职责：
+### 3.1 文件密度最高的区域
 
-- 创建浏览器默认 host bridge：clipboard、selection lock、pointer continuation
-- 创建 viewport / interaction / pick / snap
-- 创建 stores / state / read / internals
-- 创建 feature sessions：marquee、selection gesture、draw、transform、edge connect、edge input、mindmap drag、context
-- 创建 input commands
-- 创建 editor commands
-- 订阅 engine commit 并执行 finalize
-- 负责 `resetUiSessionState`
-- 负责 `dispose`
-- 最终总装 `editor.host`、`editor.internals`、`editor` 本体
+- `runtime/commands`
+- `runtime/read`
+- `runtime/interaction`
+- `runtime/input`
+- `runtime/editor`
+- `features/node`
+- `features/edge`
 
-对应代码可以直接看到：
+这说明系统的复杂度确实主要集中在：
 
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:185`
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:315`
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:334`
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:346`
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:372`
+1. editor kernel 级装配与输入流转。
+2. node / edge / selection 这几个核心 feature。
 
-这说明现在的 `createEditor.ts` 不是“入口文件”，而是“整个 editor runtime 的总装配车间”。一旦任何一个域增加依赖，第一落点就是这里。
+### 3.2 当前最厚的文件
 
-## 3.2 `createDeferredEditor()` 说明组装边界还不干净
+按当前统计，行数最高的一批文件包括：
 
-`createEditor.ts` 里还有一个明显信号：
+- `runtime/context/selection.ts` 约 670 行
+- `features/edge/input.ts` 约 553 行
+- `features/node/session/transform.ts` 约 537 行
+- `runtime/selection/press.ts` 约 456 行
+- `runtime/commands/node.ts` 约 450 行
+- `features/draw/input.ts` 约 450 行
+- `runtime/editor/createEditor.ts` 约 402 行
+- `runtime/input/pointer.ts` 约 373 行
 
-- `createDeferredEditor()` 通过 `Proxy` 先造一个假的 `EditorRuntime`
-- 再把这个 deferred editor 传给各类 session
-- 最后 editor 完整创建后再 `bind`
+这些文件并不是都“有问题”，但它们几乎都具备同一个特征：
 
-对应位置：
+**不只是长，而是把 2 到 4 层职责叠在了一起。**
 
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:84`
+### 3.3 当前命名漂移的典型例子
 
-这类 deferred proxy 的本质是：
+- `features/draw/input.ts`
+  实际更像 draw driver，而不是原始输入层。
+- `features/edge/input.ts`
+  实际更像 edge edit driver + patch session 装配，而不是通用 input。
+- `features/selection/gesture.ts`
+  实际是 selection press driver，不是通用 gesture engine。
+- `features/mindmap/dragSession.ts`
+  对外暴露的是 `start/cancel`，职责更像 driver；真正的 store 在 `features/mindmap/session/drag.ts`。
+- `runtime/input/interactionStart.ts`
+  当前不再是旧意义上的 “interactionStart”，而是在创建 interaction drivers。
+- `runtime/input/runtime.ts`
+  当前实际职责更接近 input router / input dispatcher。
 
-- session 初始化时需要 editor
-- editor 初始化时又需要 session
+这类命名问题本身不会导致 bug，但会持续拉高阅读和维护成本。
 
-也就是说，现在很多 feature session 依赖的是“整个 editor”，而不是它们实际需要的最小 runtime context。这会继续放大 editor 的表面积，也让装配顺序更脆。
+---
 
-## 3.3 公共 `Editor` 和内部 `EditorRuntime` 没切开
+## 4. 当前结构的主要问题
 
-`packages/whiteboard-editor/src/runtime/editor/types.ts` 当前有两个明显问题：
+## 4.1 `runtime` 与 `features` 边界还不够清楚
 
-第一，公共 `Editor` 还带着 `host`：
+理论上，`runtime` 应该只承载 editor kernel 级基础设施：
 
-- `packages/whiteboard-editor/src/runtime/editor/types.ts:323`
+- input
+- interaction
+- viewport
+- pick
+- frame
+- commands
+- editor composition
 
-第二，`EditorRuntime` 继续暴露：
+而 `features` 应该承载业务语义：
 
-- `engine`
-- `interaction`
-- `registry`
-- `internals`
+- draw
+- edge
+- node
+- selection
+- mindmap
+- context menu
 
-对应位置：
+但当前仍有几类业务逻辑被放进了 `runtime`：
 
-- `packages/whiteboard-editor/src/runtime/editor/types.ts:342`
+- `runtime/context/selection.ts`
+  本质是 selection context menu 视图组装。
+- `runtime/selection/press.ts`
+  本质是 selection press planner。
 
-更具体地说，`EditorHost` 本身就已经很重：
+这些模块虽然“服务于 runtime”，但并不属于通用 runtime kernel。它们属于 selection 这个 feature 的业务规则。
 
-- `interaction`
-- `viewport`
-- `pick`
-- `snap`
-- `selection.marquee`
-- `selection.gesture`
-- `draw`
-- `node.transform`
-- `edge.preview/connect/input`
-- `mindmap.drag/controller`
+## 4.2 命名词汇没有稳定收敛
 
-对应位置：
+当前交互相关文件同时使用了：
 
-- `packages/whiteboard-editor/src/runtime/editor/types.ts:298`
-
-这意味着外部如果拿到 `editor`，实际上拿到的是“半个 runtime 内脏”，而不是一个干净的 editor 门面。
-
-## 3.4 `commands.input` 暗示输入边界还没真正定型
-
-当前输入入口还放在 `commands` 名下：
-
-- `packages/whiteboard-editor/src/runtime/editor/types.ts:102`
-- `packages/whiteboard-editor/src/runtime/commands/input.ts:11`
-
-但 `input` 的语义本质上不是“命令写入”，而是“宿主事件入口”：
-
-- `pointerDown`
-- `pointerMove`
-- `pointerLeave`
-- `keyDown`
-- `keyUp`
-- `blur`
-- `cancel`
-
-这类 API 更适合顶层 `editor.input.*`，而不是 `editor.commands.input.*`。否则 `commands` 语义会继续混杂：
-
-- 一部分是真正的 document/selection/tool/viewport 命令
-- 一部分只是 host event ingress
-
-从长期看，这会让 editor 的概念边界继续发胖。
-
-## 3.5 输入链已经进步，但概念仍偏多
-
-`packages/whiteboard-editor/src/runtime/input/pointer.ts` 现在已经从之前的 if/else 巨链收成了 route table，但仍然保留了偏厚的概念层：
-
-- `InteractionStart`
-- `InteractionDecision`
-- `InteractionRoute`
-- `ContextOpen`
-- `readInteractionStart`
-- `resolveInteractionDecision`
-- `runInteractionDecision`
-
-对应位置：
-
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:37`
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:45`
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:71`
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:127`
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:235`
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts:283`
-
-而且判定依然是 feature-specific 的：
-
-- `isDrawInteractionStart`
-- `isEraseInteractionStart`
-- `isEdgeCreateInteractionStart`
-- `isEdgeInteractionStart`
-- `isMindmapInteractionStart`
-- `isTransformInteractionStart`
-- `isSelectionInteractionStart`
-- `isInsertInteractionStart`
-
-这条链已经比以前更清晰，但还没有压到“单一输入、单一决策、单一 action owner”的最简形态。
-
-## 3.6 `createEditorCommands()` 还是散件拼装
-
-`packages/whiteboard-editor/src/runtime/commands/index.ts` 当前创建 commands 时，仍需要一长串离散依赖：
-
-- `engine`
-- `read`
-- `state`
-- `tool`
-- `history`
-- `edit`
-- `selection`
-- `frame`
-- `viewportCommands`
-- `viewportRead`
-- `draw`
-- `nodeRuntime`
 - `input`
-- `context`
-- `clipboardRuntime`
-- `clipboardPort`
-- `readPointerWorld`
-
-对应位置：
-
-- `packages/whiteboard-editor/src/runtime/commands/index.ts:34`
-
-这说明 `commands` 还不是按 domain runtime 装配，而是靠一个“超级工厂”把散件串起来。只要 editor 再多一个能力，这个构造函数还会继续横向变宽。
-
-## 3.7 `createRuntimeRead()` 也是总装型厚读层
-
-`packages/whiteboard-editor/src/runtime/read/index.ts` 当前同时负责：
-
-- node item projection
-- node interaction read
-- edge projection
-- bounds 派生
-- selection read 派生
-- context read 聚合
-- frame read 聚合
-- pick read 聚合
-- tool read 聚合
-
-对应位置：
-
-- `packages/whiteboard-editor/src/runtime/read/index.ts:61`
-
-这不是“read 多一点没关系”，而是说明 editor 目前缺少更上层的 domain read runtime。于是所有 read 派生都被压回一个大组装文件。
-
-## 3.8 `context.selection` 的接线仍有回填感
-
-`createEditorStores()` 里目前先造：
-
-```ts
-const contextSelection = createValueStore<SelectionMenuView | null>(null)
-```
-
-然后再：
-
-```ts
-read.context.selection = createSelectionMenuRead({
-  editor,
-  selection: read.selection
-})
-```
-
-对应位置：
-
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:138`
-- `packages/whiteboard-editor/src/runtime/editor/createEditor.ts:153`
-
-这说明 read 组合还不够纯：
-
-- 先占位
-- 再回填
-
-这类接法短期可用，但长期会放大装配顺序耦合，也会让“read 到底是不是纯读层”变得不够稳定。
-
-## 3.9 根导出面还在暴露过多内部概念
-
-`packages/whiteboard-editor/src/index.ts` 现在仍然直接导出：
-
-- `EditorHost`
-- `EditorPointerDownInput`
-- `features/draw/state` 的一批状态和 helper
-- `runtime/selection` 的内部状态类型
-- `runtime/context` 的完整 view type 集
-
-对应位置：
-
-- `packages/whiteboard-editor/src/index.ts:1`
-
-尤其 `draw/state.ts` 这一类 feature 内部状态，用户之前已经明确指出过导出过多，这里的问题依然成立：
-
-- 包根导出面承载了过多 feature 内部建模
-- 外部更容易依赖到本不该稳定的类型
-- editor 自己想继续收口时，会被历史导出反向拖住
-
----
-
-## 4. 瘦脸的设计原则
-
-## 4.1 先收边界，再收实现
-
-第一步不是改算法，也不是删 feature，而是先把下面几层边界切开：
-
-1. 公共 editor API
-2. editor 内部 runtime
-3. browser host bridge
-4. feature session
-
-如果边界没先收好，任何“拆文件”最后都只是把复杂度摊开，而不是减少复杂度。
-
-## 4.2 `commands` 和 `input` 必须分家
-
-长期最优里：
-
-- `commands` = 显式语义写入
-- `input` = 宿主输入入口
-
-也就是说：
-
-- `editor.commands.selection.replace()` 是合理的
-- `editor.commands.node.delete()` 是合理的
-- `editor.input.pointerDown()` 是合理的
-- `editor.commands.input.pointerDown()` 则是语义混杂
-
-这不是命名洁癖，而是为了避免 editor 把“输入绑定协议”和“业务命令协议”继续混在一起。
-
-## 4.3 公共 editor 不能再暴露 session/host 内脏
-
-长期最优里，不应该通过公共 `editor` 直接触达这些对象：
-
-- `marquee`
 - `gesture`
-- `transform`
-- `edgeInput`
-- `edgeConnect`
-- `snap`
-- `pick`
-- `interaction`
+- `runtime`
+- `session`
+- `driver`
+- `processor`
 
-这些都属于 runtime 内部协作对象，不属于宿主依赖的稳定 API。
+问题不在于这些词不能共存，而在于：
 
-## 4.4 输入决策只决定“谁接手”，不决定整套 feature 概念树
+**同一层职责没有稳定使用同一套词。**
 
-最简输入模型里，pointer 主链应尽量收成三步：
+当文件名无法反映职责时，就会出现两个问题：
 
-1. 读取统一的 `PointerStart`
-2. 解析出一个 `PointerAction`
-3. 把控制权交给该 action owner
+1. 读代码前必须先打开文件确认它到底干什么。
+2. 后续新增模块时，命名会继续漂移。
 
-关键点是：
+## 4.3 少数大文件承担了过多职责
 
-- 决策层只判断“这次由谁接手”
-- action 自己负责启动 session
-- 不在 dispatcher 里塞 feature-specific 的次级概念树
+典型例子：
 
-这也和前面的 selection 最简思路一致：
+### A. `runtime/context/selection.ts`
 
-- `hold` 不应该被建成复杂协议
-- selection action 自己内部只需明确：
-  `hold = clear selection + contain marquee`
+它同时承担了：
 
-## 4.5 `read/commands` 要按 domain runtime 装配，不要继续靠超长参数列表
+1. menu item 常量定义
+2. action bind helper
+3. selection operations
+4. groups 组装
+5. more sections 组装
+6. 最终 read store 产物
 
-后续 editor 内部应当逐步形成更稳定的 domain runtime，例如：
+这不是一个“selection read 文件”，而是四五种职责被压在一起的拼装文件。
 
-- `documentRuntime`
-- `selectionRuntime`
-- `nodeRuntime`
-- `edgeRuntime`
-- `drawRuntime`
-- `contextRuntime`
-- `inputRuntime`
+### B. `features/edge/input.ts`
 
-这样 `createEditorCommands()` 和 `createRuntimeRead()` 依赖的是几个收好的 domain object，而不是十几项散件。
+它同时承担了：
 
-## 4.6 根导出只保留稳定公共概念
+1. edge patch session 抽象
+2. body drag
+3. route edit
+4. preview patch 写入
+5. active session lifecycle
 
-包根的职责不是“哪里方便就 export 哪里”，而是只暴露那些长期愿意维护稳定的概念。
+从结构上看，它已经不是一个单纯的 feature 入口文件，而是一个把子模块全部内联进去的实现文件。
 
-对于 editor 来说，长期稳定的通常只有：
+### C. `features/node/session/transform.ts`
 
-- editor 创建入口
-- editor 公共类型
-- tool / shortcut / toolbox 的公共能力
-- 少量明确公共的 context view 类型
+它同时承担了：
 
-凡是带内部 session、内部 state、内部 wiring 痕迹的类型，都应该退出根导出。
+1. transform drag state 定义
+2. resize / rotate preview 计算
+3. commit patch 编译
+4. active interaction 启动
+5. node / selection-box 两种入口分支
+
+### D. `runtime/input/pointer.ts`
+
+它同时承担了：
+
+1. pointer 相关类型定义
+2. pointer down / move / up resolver
+3. frame exit 规则
+4. context open 解析
+
+这些职责之间有关系，但不适合永久堆在一个文件里。
+
+## 4.4 复用点已经出现，但还没收成基础设施
+
+当前明显重复的一类模式是：
+
+1. `createStagedValueStore` 或 `createStagedKeyedStore`
+2. `createRafTask`
+3. `flush / clear / cancel` 封装
+
+这套模式反复出现在：
+
+- draw preview
+- edge preview
+- node session store
+- mindmap drag store
+- snap guides
+
+说明这里已经形成了一种成熟模式，适合抽一层很薄的工具，而不是继续在每个 feature 里手写样板。
+
+## 4.5 `createEditor.ts` 仍然偏厚
+
+`runtime/editor/createEditor.ts` 当前虽然已经回到“最终装配层”的位置，但它仍然同时做了：
+
+1. platform 创建
+2. stores / read / commands 创建
+3. feature session 创建
+4. input policy / interaction registry / passive runtime 装配
+5. editor session views 组装
+6. lifecycle 组装
+7. editor 本体总装
+
+它现在不是逻辑脏，而是职责太集中，像一个全系统的汇编入口。
+
+这类文件一旦继续增长，会产生两个问题：
+
+1. 任何领域增加依赖都会先把它变胖。
+2. 很难在 review 中快速看出“这次只是调整输入装配”还是“这次改了 editor 基础结构”。
 
 ---
 
-## 5. editor 的目标形态
+## 5. 这轮整理的总体原则
 
-## 5.1 公共 API 目标
+## 5.1 目标是“少噪音”，不是“多抽象”
 
-建议把公共 `Editor` 收成：
+这轮整理不应该引入新的 mega framework，也不应该为了统一而统一。
+
+判断标准只有一个：
+
+**整理后，是否能让阅读路径更短、修改影响面更小、diff 更容易审。**
+
+## 5.2 先拆职责，再搬目录
+
+很多人会先移动文件再拆逻辑，这样会让 diff 噪音非常大。
+
+更合理的顺序是：
+
+1. 先在原文件中拆出纯 helper / 子模块。
+2. 等职责边界稳定后，再做目录归位和命名收敛。
+
+这样：
+
+1. 每一步都可审。
+2. 每一步都容易回归验证。
+3. 不会把“逻辑重构”和“路径重构”混成一坨。
+
+## 5.3 不主动改变 public API
+
+这次内部瘦身的目标不是对外 API 改版。
+
+所以默认约束是：
+
+1. `@whiteboard/editor` 对外导出面尽量保持不变。
+2. `whiteboard-react` 调 editor 的外部形状尽量不变。
+3. 变化优先收敛在 editor 内部 import 和内部模块结构。
+
+## 5.4 单文件只保留一个主要原因被修改
+
+这轮整理的最终标准不是“每个文件不超过多少行”，而是：
+
+**一个文件应该只有一个主要理由被修改。**
+
+比如：
+
+- `selection press plan` 变了，不应该波及 `context menu groups` 文件。
+- `edge route edit` 变了，不应该波及 `edge body drag` 文件。
+- `input pointer resolver` 变了，不应该波及 `context open` 解析文件。
+
+## 5.5 公共工具只抽“稳定样板”，不抽“伪统一逻辑”
+
+适合抽的：
+
+- staged store + raf flush
+- onSelect / close bind helper
+- 小型 item builder
+
+不适合现在抽的：
+
+- 所有交互共用的万能 session 工厂
+- 所有 feature 共用的万能 driver 框架
+- 所有 preview 共用的万能 reducer
+
+原因很简单：
+
+这些高层语义虽然相似，但行为差异仍然很大，过早统一只会产生第二层噪音。
+
+---
+
+## 6. 建议统一的命名词汇
+
+我建议内部统一使用下面这套词。
+
+## 6.1 `runtime`
+
+只留给 editor kernel 级模块：
+
+- input kernel
+- interaction kernel
+- viewport kernel
+- pick kernel
+- editor composition
+- command composition
+
+如果一个模块属于某个具体 feature 的业务规则，就不应该再叫 `runtime`。
+
+## 6.2 `driver`
+
+用于：
+
+1. 决定某个 feature 是否启动。
+2. 提供 `start / cancel` 一类 feature 交互入口。
+
+适合命名：
+
+- `drawDriver`
+- `selectionPressDriver`
+- `mindmapDragDriver`
+- `edgeEditDriver`
+
+## 6.3 `session`
+
+用于：
+
+1. 一次 active interaction 的生命周期。
+2. 持有本次交互状态。
+3. 接收 move / up / cancel。
+
+适合命名：
+
+- `marqueeSession`
+- `edgeConnectSession`
+- `nodeTransformSession`
+
+## 6.4 `plan`
+
+用于纯规划、纯判定、不直接写状态的逻辑。
+
+适合命名：
+
+- `selectionPressPlan`
+- `contextOpenPlan`
+
+## 6.5 `resolver`
+
+用于原始输入或低层输入事实解析。
+
+适合命名：
+
+- `pointerResolver`
+- `contextTargetResolver`
+
+## 6.6 `processor`
+
+用于 passive / idle 输入处理器。
+
+适合命名：
+
+- `edgeHoverProcessor`
+
+## 6.7 `store`
+
+用于 staged store、preview store、session store。
+
+适合命名：
+
+- `mindmapDragStore`
+- `edgePreviewStore`
+- `nodeSessionStore`
+
+## 6.8 `preview`
+
+用于临时投影数据或 preview 写入逻辑。
+
+适合命名：
+
+- `edgePreview`
+- `drawPreviewStore`
+
+## 6.9 应该避免的命名
+
+以下命名在当前项目里最容易制造歧义：
+
+1. feature 级文件叫 `input.ts`
+2. feature 级文件叫 `runtime.ts`
+3. 泛称 `gesture.ts`
+
+因为这些词在当前工程里已经被更底层的系统使用了。
+
+---
+
+## 7. 推荐的最终目录边界
+
+下面不是要求一次性搬完，而是建议的长期目标结构。
 
 ```ts
-type Editor = {
-  read: EditorRead
-  state: EditorState
-  commands: EditorCommands
-  input: EditorInput
-  viewport: EditorViewport
-  configure: (config: EditorConfig) => void
-  dispose: () => void
-}
+src/
+  runtime/
+    editor/
+    input/
+      pointerTypes.ts
+      pointerResolver.ts
+      contextResolver.ts
+      router.ts
+      passive.ts
+    interaction/
+    viewport/
+    pick/
+    commands/
+    frame/
+    utils/
+
+  features/
+    draw/
+      driver.ts
+      state.ts
+      previewStore.ts
+
+    edge/
+      connectSession.ts
+      hoverProcessor.ts
+      previewStore.ts
+      edit/
+        driver.ts
+        patchSession.ts
+        bodyEdit.ts
+        routeEdit.ts
+
+    node/
+      session/
+        store.ts
+      transform/
+        session.ts
+        commit.ts
+        preview.ts
+        types.ts
+
+    selection/
+      marqueeSession.ts
+      press/
+        driver.ts
+        plan.ts
+        target.ts
+      contextMenu/
+        schema.ts
+        operations.ts
+        read.ts
+
+    mindmap/
+      drag/
+        driver.ts
+        store.ts
+      commands.ts
 ```
 
-这里最重要的变化有两点：
+这个结构的意义不是“看起来整齐”，而是：
 
-1. 增加顶层 `input`
-2. 删除公共 `host`
-
-如果迁移期需要兼容，可以短期保留：
-
-```ts
-editor.commands.input === editor.input
-```
-
-但这只能作为过渡，不应该成为最终形态。
-
-## 5.2 内部 runtime 目标
-
-editor 内部仍然可以保留更丰富的 runtime 对象，但它应该明确成为内部装配结构，而不是外部公开 API：
-
-```ts
-type EditorRuntime = {
-  engine: EngineInstance
-  registry: NodeRegistry
-  platform: EditorPlatform
-  runtime: {
-    interaction: InteractionCoordinator
-    pick: PickRuntime
-    snap: SnapRuntime
-    clipboard: ClipboardRuntime
-    context: ContextRuntime
-    input: EditorInputRuntime
-    selection: SelectionRuntime
-    node: NodeRuntime
-    edge: EdgeRuntime
-    draw: DrawRuntime
-    mindmap: MindmapRuntime
-  }
-}
-```
-
-重点不是字段名，而是原则：
-
-- runtime 可以厚
-- public editor 必须薄
-
-## 5.3 `createEditor.ts` 的目标职责
-
-最终 `createEditor.ts` 应只保留：
-
-1. 读取参数
-2. 调用几个子装配器
-3. 返回公共 editor
-
-建议拆成类似这些层：
-
-- `runtime/editor/createEditorPlatform.ts`
-- `runtime/editor/createEditorStores.ts`
-- `runtime/editor/createEditorRead.ts`
-- `runtime/editor/createEditorCommands.ts`
-- `runtime/editor/createEditorInput.ts`
-- `runtime/editor/createEditorLifecycle.ts`
-- `runtime/editor/createEditorPublic.ts`
-
-这样 `createEditor.ts` 本体应该接近“目录页”，而不是逻辑主战场。
-
-## 5.4 输入模型目标
-
-pointer 主链建议收成：
-
-```ts
-readPointerStart(editor, container, event)
-resolvePointerAction(editor, start)
-runPointerAction(editor, action)
-```
-
-其中：
-
-- `PointerStart` 是统一输入
-- `PointerAction` 是单一动作决策
-- `runPointerAction` 只是把控制权交给 owner
-
-长期最优里，不再鼓励：
-
-- 每个 feature 发明自己的专属 input 类型
-- 在 dispatcher 层维护过多 feature-specific `Decision` 概念
-- 让 React 或宿主知道 `edgeInput / gesture / marquee / transform` 这些内部 session 名字
-
-## 5.5 `read` 目标分层
-
-长期最优建议把 editor read 收到下面几类稳定域：
-
-- `read.document`
-- `read.node`
-- `read.edge`
-- `read.selection`
-- `read.context`
-- `read.tool`
-- `read.viewport`
-- `read.frame`
-- `read.pick`
-
-重点不是 namespace 数量，而是每个 namespace 都应有明确 owner，不要继续让 `runtime/read/index.ts` 负责把全部派生逻辑混在一起。
-
-## 5.6 `commands` 目标分层
-
-长期最优建议 `commands` 收敛为这些域：
-
-- `commands.document`
-- `commands.selection`
-- `commands.node`
-- `commands.edge`
-- `commands.draw`
-- `commands.tool`
-- `commands.viewport`
-- `commands.clipboard`
-- `commands.context`
-- `commands.insert`
-
-并把 `input` 从 `commands` 中拿出来，变成顶层 `editor.input`。
+1. runtime 只放 kernel。
+2. feature 的业务逻辑回到 feature 自己目录下。
+3. 文件名能直接表达职责。
 
 ---
 
-## 6. 分阶段落地方案
+## 8. 逐文件整理建议
 
-当前进度（2026-03-29）：
+## 8.1 `runtime/editor/createEditor.ts`
 
-- 阶段 1 已完成
-- 阶段 2 已完成
-- 阶段 3 已完成
-- 阶段 4 已完成
-- 阶段 5 已完成
-- 阶段 6 已完成
-- 阶段 7 已完成
+### 当前问题
 
-## 阶段 1：先收公共 API 脸面（已完成）
+这个文件已经是最终装配层，但仍然太厚。
 
-目标：
+### 最佳方向
 
-- 让 React 和其他宿主只依赖稳定的 editor 门面
-- 停止把 runtime 内脏继续扩散到外部
+保留它作为最终 composition layer，但把内部装配分解为几个 helper：
 
-具体动作：
+- `createEditorCoreServices`
+- `createEditorFeatureDrivers`
+- `createEditorSessionViews`
+- `createEditorInputInternals`
 
-1. 在 editor 顶层建立 `editor.input`
-2. 删除 `commands.input`，不再保留兼容别名
-3. 从公共 `Editor` 类型中移除 `host`
-4. `EditorRuntime` 改为 internal-only，不再从包根导出
-5. `EditorHost` 改为 internal-only
-6. React 侧只允许依赖：
-   - `editor.read`
-   - `editor.state`
-   - `editor.commands`
-   - `editor.input`
-   - `editor.viewport`
-   - `editor.dispose`
+### 结果目标
 
-这一阶段做完，editor 至少先“脸面变窄”。
+`createEditor.ts` 自己只保留：
 
-当前结果：
+1. 初始化顺序
+2. 依赖流向
+3. 最终 `editor` 对象组装
 
-- public `Editor` 已只暴露 `read/state/commands/input/viewport/configure/dispose`
-- React public 层已切到 `useEditor()`，内部临时 runtime 访问改为 internal hook
-- canvas 输入入口已统一走 `editor.input.*`
+也就是说，它应该像 wiring file，而不是半个 runtime 实现文件。
 
-## 阶段 2：拆薄 `createEditor.ts`（已完成）
+## 8.2 `runtime/input/pointer.ts`
 
-目标：
+### 当前问题
 
-- 去掉总装大文件
-- 让 platform / runtime / public editor / lifecycle 各归各位
+它同时放了：
 
-具体动作：
+1. pointer types
+2. pointer down / move / up resolver
+3. frame resolution
+4. context open resolution
 
-1. 把 browser host bridge 创建移到 `createEditorPlatform`
-2. 把 stores/state/read 创建拆出
-3. 把 feature session 创建拆到专门的 runtime 装配层
-4. 把 `finalize` 订阅、`resetUiSessionState`、`dispose` 拆到 lifecycle 层
-5. 让 `createEditor.ts` 只做 orchestration
+### 最佳方向
 
-建议顺手解决的点：
+拆成三块：
 
-- 把所有 `cancel/clear/reset` 收到统一 lifecycle runtime
-- `dispose()` 内部统一完成 session cancel、subscription cleanup、engine dispose
+- `pointerTypes.ts`
+- `pointerResolver.ts`
+- `contextResolver.ts`
 
-当前结果：
+### 结果目标
 
-- `createEditor.ts` 已主要退化为 orchestration
-- `createEditorPlatform` / `createEditorStores` / `createEditorLifecycle` / `createEditorHost` 已拆出
-- editor 平台桥接、store/read 创建、lifecycle、host 组装已经各归各位
+以后如果改：
 
-## 阶段 3：去掉 deferred editor proxy（已完成）
+- pointer 标准化字段
+- frame exit 规则
+- context open 规则
 
-目标：
+三类修改不会再落到同一个文件上。
 
-- 让 feature session 只依赖最小 runtime context
-- 去掉 `Proxy` 式延迟绑定
+## 8.3 `runtime/context/selection.ts`
 
-具体动作：
+### 当前问题
 
-1. 识别各 session 真正依赖的最小能力
-2. 为 session 提供最小 runtime context，而不是整块 `EditorRuntime`
-3. 去掉 `createDeferredEditor()`
+文件过厚，而且本质上是 selection context menu 业务视图层，不属于 runtime kernel。
 
-这一阶段很关键，因为它会直接迫使 editor 内部边界变清楚。只要 deferred proxy 还存在，就说明内部依赖图还在绕。
+### 最佳方向
 
-当前结果：
+移动到 selection feature 下，并拆成：
 
-- `createDeferredEditor()` 已删除
-- `context` / `selectionMenuRead` 已改成显式依赖 `commands/read/registry`
-- `createEditorStores()` 不再依赖 deferred editor
-- 多个交互 session 已把 `internals` 依赖从 `EditorRuntime['internals']` 收窄为真实最小字段
+- `schema.ts`
+  静态 item 定义、文案和排序常量
+- `operations.ts`
+  对 selection 的业务操作封装
+- `groups.ts`
+  groups / moreSections 组装
+- `read.ts`
+  `readSelectionMenuView` 与 `createSelectionMenuRead`
 
-## 阶段 4：统一输入链（已完成）
+### 额外收益
 
-目标：
+这里还能顺手抽掉一部分重复样板：
 
-- 输入层只做统一读入和 action owner 分发
-- 不再让 dispatcher 维护一棵 feature-specific 概念树
+- `bindAction`
+- `bindActionWithArgs`
+- menu item builder
 
-具体动作：
+## 8.4 `runtime/selection/press.ts`
 
-1. 把 `InteractionStart` 收口为统一 `PointerStart`
-2. 把 `InteractionDecision` 收口为单一 `PointerAction`
-3. 把 `resolveInteractionDecision()` 改成 `resolvePointerAction()`
-4. 把 `runInteractionDecision()` 改成 `runPointerAction()`
-5. 把“谁负责处理这次 pointer”作为唯一决策结果
-6. selection action 内部自己处理 `tap / drag / hold`
+### 当前问题
 
-这里要强调：
+它是 selection feature 的纯 planner，但目录上挂在 runtime 下。
 
-- `hold` 不应该再作为一层复杂协议扩散出去
-- 只需在 selection action 内明确：
-  `hold = clear selection + contain marquee`
+### 最佳方向
 
-当前结果：
+直接归位到 selection feature，并拆成：
 
-- `InteractionStart` 已收口为统一 `PointerStart`
-- `InteractionDecision` 已收口为单一 `PointerAction | undefined`
-- `resolveInteractionDecision()` / `runInteractionDecision()` 已改成 `resolvePointerAction()` / `runPointerAction()`
-- pointer 输入层不再保留 `reject` 这种中间伪状态，只保留“无 action”或“唯一 action owner”
-- selection 仍作为单独 action owner，`tap / drag / hold` 继续内聚在 selection gesture 内部
+- `mode.ts`
+- `target.ts`
+- `plan.ts`
 
-## 阶段 5：按 domain runtime 重组 `commands`（已完成）
+### 结果目标
 
-目标：
+selection press 的纯规划逻辑和 selection press 的 driver 形成明确分层：
 
-- 让 `createEditorCommands()` 不再接十几项离散依赖
+- `plan`
+  只做纯判定
+- `driver`
+  负责启动具体动作
 
-具体动作：
+## 8.5 `features/selection/gesture.ts`
 
-1. 建立 `documentRuntime`
-2. 建立 `selectionRuntime`
-3. 建立 `nodeRuntime`
-4. 建立 `edgeRuntime`
-5. 建立 `drawRuntime`
-6. 建立 `contextRuntime`
-7. 建立 `clipboardRuntime`
+### 当前问题
 
-然后由 `createEditorCommands()` 依赖这些 runtime，而不是直接依赖所有底层 store/session/port。
+文件名已经落后于职责。
 
-当前结果：
+### 最佳方向
 
-- 已新增内部 `commands/runtime.ts`，把 `document / selection / tool / draw / node / clipboard` 收成显式 command runtime
-- `createEditorCommands()` 已改成只接收单一 `runtime` 参数，不再接十几项离散依赖
-- `createEditor.ts` 现在先组装 command runtime，再创建 public commands
-- `clipboard / insert / mindmap` 共用的 `EditorCommandHost` 已集中，不再各自重复定义
+重命名为更明确的 `pressDriver.ts` 或 `selectionPressDriver.ts`。
 
-## 阶段 6：按 domain runtime 重组 `read`（已完成）
+它现在本质上做的是：
 
-目标：
+1. 消费 `resolveSelectionPressPlan`
+2. 持有 `press runtime`
+3. 决定启动 marquee / node drag / tap action
 
-- 让 read 派生不再全挤在 `runtime/read/index.ts`
-- 去掉“先占位、再回填”的组装味道
+这已经不是泛义 `gesture`，而是 feature 自己的 interaction driver。
 
-具体动作：
+## 8.6 `features/draw/input.ts`
 
-1. 把 node/edge/selection/context/frame/pick/tool 的 read 组合拆为各自装配器
-2. `read.context.selection` 改为直接派生，不再先造空 store 再回填
-3. 明确哪些 read 依赖 engine，哪些 read 依赖 runtime session
-4. 让 `createRuntimeRead()` 退化为薄壳组合层
+### 当前问题
 
-当前结果：
+从职责上讲，它现在是 draw feature 的交互 driver，不是底层 input。
 
-- 已新增 `read/bounds.ts`、`read/context.ts`、`read/frame.ts`，把 bounds/context/frame 从大组装文件拆出
-- `createBaseRuntimeRead()` 现在负责组合纯事实 read，`createRuntimeRead()` 只负责把 `context.selection` 合入，已经退化为薄壳
-- `createEditorStores()` 不再产出最终 `read`，而是先产出 `baseRead`
-- `createEditor.ts` 现在先用 `baseRead` 创建 commands，再直接派生 `context.selection`，最后合成完整 `read`
-- `read.context.selection` 已不再通过空 store 占位后回填，而是直接由 `createSelectionMenuRead()` 派生
+### 最佳方向
 
-## 阶段 7：清理根导出面
+最终命名应改成 `driver.ts`，并把 preview store 提出去：
 
-目标：
+- `driver.ts`
+- `previewStore.ts`
+- `stroke.ts`
+- `erase.ts`
 
-- 停止把内部 feature state 和 runtime 类型继续暴露到包根
+### 结果目标
 
-具体动作：
+主文件只保留：
 
-1. `src/index.ts` 只保留稳定公共导出
-2. `EditorRuntime`、`EditorHost` 退出根导出
-3. `draw/state.ts` 的公共类型迁到更清晰的公共入口，避免直接暴露 feature 内部文件
-4. `runtime/selection` 的内部状态类型不再从包根直接导出
-5. `runtime/context` 里只保留真正需要给 React/宿主消费的 view type
+1. driver 入口
+2. active session 生命周期
+3. 子能力装配
 
-当前结果：
+## 8.7 `features/edge/input.ts`
 
-- 已新增 `@whiteboard/editor/draw` 和 `@whiteboard/editor/context` 两个显式 public 入口
-- `src/index.ts` 已移除 draw/context/selection internal state 的根导出，包根只保留 editor/tool/shortcut/toolbox/node/types 这类稳定概念
-- `runtime/selection` 的 `SelectionInput` / `SelectionSnapshot` / `SelectionTarget` 已退出包根 public surface
-- `whiteboard-react` 已切到 `@whiteboard/editor/draw` / `@whiteboard/editor/context`，不再从包根吸附这些 domain 类型
-- `runtime/editor/index.ts` 已不再顺带转发 `context/tool` 类型，editor 二级入口只保留 editor 自身创建与类型
+### 当前问题
+
+它是当前 editor 内部最明显该拆的业务文件之一。
+
+### 最佳方向
+
+直接拆成：
+
+- `edit/patchSession.ts`
+- `edit/bodyEdit.ts`
+- `edit/routeEdit.ts`
+- `edit/driver.ts`
+
+### 拆分原则
+
+- `patchSession`
+  只抽通用 active session 模板
+- `bodyEdit`
+  只关心 edge body drag
+- `routeEdit`
+  只关心 route point 编辑
+- `driver`
+  只负责 `startBody / startRoute / cancel`
+
+### 结果目标
+
+以后改 route edit 时，不需要打开 body drag 逻辑。
+
+## 8.8 `features/node/session/transform.ts`
+
+### 当前问题
+
+它同时承载类型、preview 更新、commit 编译和 session 启动。
+
+### 最佳方向
+
+拆成：
+
+- `types.ts`
+- `preview.ts`
+- `commit.ts`
+- `session.ts`
+
+### 结果目标
+
+`session.ts` 只做 active interaction 入口与状态机；
+preview 和 commit 逻辑各自独立。
+
+## 8.9 `features/mindmap/dragSession.ts`
+
+### 当前问题
+
+命名不够稳定。
+
+### 最佳方向
+
+最终应改成：
+
+- `drag/driver.ts`
+- `drag/store.ts`
+
+因为对外暴露的是 feature driver，而持久化临时状态的是 store。
+
+## 8.10 `types/internal/editor.ts`
+
+### 当前问题
+
+这个文件已经成为 editor 内部类型总枢纽，容易继续膨胀。
+
+### 最佳方向
+
+拆成几个明确领域：
+
+- `editorPlatformTypes.ts`
+- `editorInputTypes.ts`
+- `editorRuntimeTypes.ts`
+- `editorCommandTypes.ts`
+
+### 结果目标
+
+把“平台桥接”“输入 internals”“runtime 本体”“command host 类型”分开，不再挤在一个文件里。
 
 ---
 
-## 7. 哪些先不要动
+## 9. 推荐优先抽取的公共复用
 
-为了避免“看起来做很多，实际上只是换位置”，下面这些不是第一优先级：
+## 9.1 Staged Store + RAF Flush
 
-## 7.1 不要一上来大规模合并 feature
+这是当前最成熟、也最适合低风险抽出的重复模式。
 
-当前最大问题不是 feature 文件数量，而是 editor 边界太宽。先把 API 和组装层收好，再决定 feature 内部是否继续合并。
+建议抽成很薄的工具：
 
-## 7.2 不要先改成更抽象的输入框架
+- `createRafValueStore`
+- `createRafKeyedStore`
 
-例如一上来引入一套更重的 interaction DSL、通用状态机框架，通常只会让 editor 更胖。现在真正需要的是减少概念，不是增加抽象层。
+适用范围：
 
-## 7.3 不要继续让 React 反向依赖 editor internals
+- draw preview
+- edge preview hint
+- node session store
+- mindmap drag store
+- snap guides
 
-只要 React 还读 `host`、`internals` 或 feature session，editor 就不可能真正瘦下来。React 这边已经基本收口，后续不要再倒退。
+这里的关键是“薄”：
 
-## 7.4 不要把 browser host bridge 直接做成公共 editor 能力
+只抽 store 调度样板，不抽业务比较逻辑和 build 逻辑。
 
-`clipboard port`、`selection lock`、`pointer continuation` 这些应该属于 editor 的 platform/runtime 内部，而不是宿主看到的公共 editor API。
+## 9.2 Action Binder
 
----
+`context menu` 里有大量：
 
-## 8. 建议的执行顺序
+- `bindAction`
+- `bindActionWithArgs`
+- `?? (() => undefined)`
 
-如果按“收益最大、回归最小”的顺序推进，建议这样做：
+这类样板可以抽成小工具，但只限 context menu 场景内部使用，不必提升到全局 runtime。
 
-1. 先建立顶层 `editor.input`，同时把 React 全部切到这个入口
-2. 隐藏 `EditorHost / EditorRuntime` 的公共导出
-3. 拆薄 `createEditor.ts`
-4. 去掉 deferred editor proxy
-5. 收口 pointer 主链为 `PointerStart -> PointerAction -> run`
-6. 重组 `commands`
-7. 重组 `read`
-8. 最后清理包根导出面和 feature 公共入口
+## 9.3 静态 Menu Schema
 
-这个顺序的好处是：
+像 `ORDER_ITEMS / ALIGN_ITEMS / DISTRIBUTE_ITEMS` 这类纯 schema 常量，应独立成 schema 文件。
 
-- 先收公共边界，避免外部继续依赖旧内脏
-- 再改内部 wiring，不容易反复返工
-- 最后再做导出清理，破坏面最可控
+这样：
 
----
-
-## 9. 完成后的判断标准
-
-editor 是否真的瘦下来，可以用下面几个标准判断：
-
-1. `Editor` 公共类型里不再出现 `host`、`internals`、`engine`、`registry`
-2. React 不再依赖任何 editor 内部 session 名字
-3. `createEditor.ts` 只剩薄组装逻辑
-4. `commands` 不再含 `input`
-5. `pointer` 决策层只负责把控制权交给 action owner
-6. `createEditorCommands()` 和 `createRuntimeRead()` 的参数量明显下降
-7. 包根导出面不再直接暴露内部 feature state/runtime 类型
-
-只要这七条还没成立，就说明 editor 还没有真正瘦脸完成。
+1. 文案修改不再碰业务逻辑。
+2. UI 组合逻辑更短。
 
 ---
 
-## 10. 最终判断
+## 10. 这轮整理不建议做的事
 
-当前阶段，`whiteboard-react` 基本已经进入“继续局部打磨”的状态，而 `whiteboard-editor` 仍然是下一阶段最值得收口的主战场。
+## 10.1 不建议引入新的“超级统一框架”
 
-最重要的不是继续在 editor 上叠 feature，而是先把下面三件事做实：
+例如：
 
-1. 公共 editor 变薄
-2. `createEditor.ts` 变薄
-3. 输入、`read`、`commands` 的装配边界变清楚
+- 万能 interaction session factory
+- 万能 feature runtime 基类
+- 万能 preview reducer
 
-如果这三件事做到位，后续无论是继续简化 pointer -> selection 主链，还是继续压缩 draw / edge / node / context 的内部复杂度，都会顺很多。
+这些抽象现在都太早，会把“局部清晰”重新换成“全局抽象但更难懂”。
 
-如果这三件事不先做，后面每加一个能力，editor 都只会继续横向长胖。
+## 10.2 不建议先大范围移动目录
+
+如果先做：
+
+1. 改路径
+2. 改命名
+3. 拆逻辑
+
+那 diff 会非常吵，也很难 review。
+
+正确顺序是：
+
+1. 先拆逻辑
+2. 再统一命名
+3. 最后归位目录
+
+## 10.3 不建议把所有内部模块都加 barrel
+
+barrel 不是越多越好。
+
+内部 barrel 太多会带来两个问题：
+
+1. 跳转路径模糊
+2. 依赖方向更难看清
+
+只在下面两类边界使用 barrel：
+
+1. package 对外入口
+2. feature 边界入口
+
+内部细粒度模块之间，优先显式路径。
+
+---
+
+## 11. 最优实施顺序
+
+如果目标是“尽量不影响功能的前提下减少代码和噪音”，我建议按下面顺序推进。
+
+## 第 1 阶段：拆热点文件，不改外部形状
+
+优先处理：
+
+1. `runtime/context/selection.ts`
+2. `runtime/selection/press.ts`
+3. `features/edge/input.ts`
+4. `features/node/session/transform.ts`
+5. `runtime/input/pointer.ts`
+
+阶段目标：
+
+1. 先切职责。
+2. 不急着大改路径。
+3. 不主动改 public export。
+
+这是收益最高、风险最低的一步。
+
+## 第 2 阶段：统一命名
+
+把下面这类名字收敛：
+
+1. feature 级 `input.ts` -> `driver.ts`
+2. feature 级 `gesture.ts` -> `pressDriver.ts`
+3. `interactionStart.ts` -> `drivers.ts` 或 `createDefaultDrivers.ts`
+4. `runtime/input/runtime.ts` -> `router.ts`
+
+阶段目标：
+
+1. 文件名直接表达职责。
+2. 新增模块时，团队有统一模板可遵守。
+
+## 第 3 阶段：业务模块从 runtime 归位到 features
+
+优先归位：
+
+1. selection press planner
+2. selection context menu read
+
+阶段目标：
+
+1. runtime 只留 kernel。
+2. business logic 回到 feature 目录。
+
+## 第 4 阶段：抽轻量公共工具
+
+优先抽：
+
+1. `createRafValueStore`
+2. `createRafKeyedStore`
+3. context menu action binder
+
+阶段目标：
+
+1. 去掉重复样板。
+2. 不增加新的概念层。
+
+## 第 5 阶段：压薄 `createEditor.ts`
+
+当上面边界都稳定后，再拆：
+
+1. core services assembly
+2. feature drivers assembly
+3. session views assembly
+4. input internals assembly
+
+阶段目标：
+
+`createEditor.ts` 最终只保留 editor 启动顺序和总装配关系。
+
+---
+
+## 12. 建议的最终命名规则
+
+为了让后续新增代码不再继续漂移，我建议明确写死下面几条规则。
+
+### 12.1 Feature 目录命名规则
+
+一个 feature 里只允许出现下面这些职责名：
+
+- `driver`
+- `session`
+- `store`
+- `preview`
+- `plan`
+- `resolver`
+- `processor`
+- `commands`
+- `state`
+
+### 12.2 Runtime 目录命名规则
+
+`runtime/` 里只允许出现：
+
+- kernel 级能力
+- editor composition
+- cross-feature shared infrastructure
+
+如果一个文件明显依赖某个 feature 业务语义，就不应该继续放在 `runtime/`。
+
+### 12.3 文件名规则
+
+优先：
+
+- `driver.ts`
+- `session.ts`
+- `plan.ts`
+- `store.ts`
+- `preview.ts`
+
+尽量避免：
+
+- `input.ts`
+- `runtime.ts`
+- `gesture.ts`
+
+除非它真的属于输入内核或运行时内核。
+
+---
+
+## 13. 这轮整理完成后的理想状态
+
+理想状态下，`whiteboard-editor` 应该具备下面几个特征：
+
+1. 看目录就能看出 kernel 与 feature 的边界。
+2. 看文件名就能猜到它是 driver、session、plan 还是 store。
+3. 修改 selection press 不会再碰 context menu 读层。
+4. 修改 edge route edit 不会再碰 edge body drag。
+5. 修改 pointer resolver 不会再碰 context open 逻辑。
+6. `createEditor.ts` 只负责总装，不再继续变成超级实现文件。
+7. 各 feature 中重复的 store/preview 样板显著减少。
+
+如果能做到这些，即使总行数没有大幅下降，代码的“噪音密度”也会明显下降。
+
+这才是这轮瘦身最重要的结果。
+
+---
+
+## 14. 最终建议
+
+如果只给一个最实际的建议，那就是：
+
+**不要把这轮工作理解成“重构整个 editor”，而要理解成“把已成型的架构边界补上文件组织和命名”。**
+
+因为现在真正缺的不是能力，而是：
+
+1. 边界归位
+2. 命名收敛
+3. 热点文件拆分
+4. 重复样板压薄
+
+按这个顺序做，风险最低，收益最大，也最符合“尽量不影响功能的情况下减少代码和噪音”这个目标。

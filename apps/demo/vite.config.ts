@@ -28,7 +28,7 @@ export default defineConfig({
         replacement: path.join(editorSrc, 'index.ts')
       },
       {
-        find: /^@whiteboard\/editor\/(tool|input|node|toolbox|types)$/,
+        find: /^@whiteboard\/editor\/(.+)$/,
         replacement: `${editorSrc}/$1.ts`
       },
       {

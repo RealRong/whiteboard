@@ -1,12 +1,13 @@
 export type {
   Editor,
+  EditorProjection,
   EditorClipboardOptions,
   EditorClipboardTarget,
   EditorCommands,
-  EditorHostBridge,
   EditorInput,
   EditorInsertResult,
   EditorKeyboardInput,
+  EditorPlatformBridge,
   EditorMindmapCommands,
   EditorNodeAppearanceCommands,
   EditorNodeCommands,
@@ -14,22 +15,23 @@ export type {
   EditorNodeLockCommands,
   EditorNodeTextCommands,
   EditorPointerInput,
+  EditorWheelInput,
   EditorRead,
   EditorState,
   EditorViewport
 } from '../../types/public/editor'
 export type {
-  EditorCommandClipboardRuntime,
-  EditorCommandDocumentRuntime,
-  EditorCommandDrawRuntime,
+  DrawFeatureState,
+  EditorBaseState,
+  EditorClipboardRuntime,
   EditorCommandHost,
-  EditorCommandNodeRuntime,
-  EditorCommandRuntime,
-  EditorCommandSelectionRuntime,
-  EditorCommandToolRuntime,
-  EditorHost,
-  EditorInternals,
+  EditorInputInternals,
+  EditorKernel,
   EditorPlatform,
+  EditorProjectionGraph,
+  EditorRuntimeConfig,
+  EditorRuntimeInternals,
   EditorRuntime,
-  EditorStores
+  EditorViewportRuntime,
 } from '../../types/internal/editor'
+export type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'

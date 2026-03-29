@@ -5,7 +5,7 @@ import {
 
 export const Marquee = () => {
   const editor = useEditorRuntime()
-  const marquee = editor.host.selection.marquee
+  const marquee = editor.projection.marquee
   const rect = useStoreValue(marquee.rect)
   const match = useStoreValue(marquee.match)
 

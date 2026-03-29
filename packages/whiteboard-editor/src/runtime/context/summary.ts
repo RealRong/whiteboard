@@ -80,6 +80,7 @@ export const summarizeContextNodes = ({
     family: NodeMeta['family']
     icon: string
     count: number
+    nodeIds: NodeId[]
   }>()
 
   nodes.forEach((node) => {
@@ -88,6 +89,7 @@ export const summarizeContextNodes = ({
     const current = typeCountByKey.get(key)
     if (current) {
       current.count += 1
+      current.nodeIds.push(node.id)
       return
     }
 
@@ -96,7 +98,8 @@ export const summarizeContextNodes = ({
       name: meta.name,
       family: meta.family,
       icon: meta.icon,
-      count: 1
+      count: 1,
+      nodeIds: [node.id]
     })
   })
 

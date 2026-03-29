@@ -1,15 +1,18 @@
 export { createEditor } from './createEditor'
 export type {
   Editor,
+  EditorProjection,
   EditorRead,
   EditorState,
   EditorViewport,
-  EditorHostBridge,
   EditorClipboardOptions,
   EditorClipboardTarget,
   EditorCommands,
   EditorInput,
   EditorKeyboardInput,
+  EditorPlatformBridge,
   EditorPointerInput,
-  EditorInsertResult
+  EditorWheelInput,
+  EditorInsertResult,
+  EditorRuntime
 } from './types'

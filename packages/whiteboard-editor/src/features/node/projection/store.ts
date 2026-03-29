@@ -6,7 +6,7 @@ import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId, Point, Rect } from '@whiteboard/core/types'
 import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 
-type NodeSessionMap = ReadonlyMap<NodeId, NodeSession>
+type NodeProjectionMap = ReadonlyMap<NodeId, NodeProjection>
 
 export type NodePatch = {
   position?: Point
@@ -17,74 +17,74 @@ export type NodePatch = {
   rotation?: number
 }
 
-type NodeSessionWritePatch =
+type NodeProjectionWritePatch =
   NodePatch & {
     id: NodeId
   }
 
-type NodeSessionPreviewWrite = {
-  patches: readonly NodeSessionWritePatch[]
+type NodeProjectionPreviewWrite = {
+  patches: readonly NodeProjectionWritePatch[]
   hoveredContainerId?: NodeId
 }
 
-type NodeSessionWrite =
-  NodeSessionPreviewWrite & {
+type NodeProjectionWrite =
+  NodeProjectionPreviewWrite & {
     hiddenIds?: readonly NodeId[]
   }
 
-type NodeSessionPatchRuntime = {
+type NodeProjectionPatchRuntime = {
   write: (nodeId: NodeId, patch?: NodePatch) => void
   clear: (nodeId: NodeId) => void
 }
 
-type NodeSessionPreviewRuntime = {
-  write: (write: NodeSessionPreviewWrite) => void
+type NodeProjectionPreviewRuntime = {
+  write: (write: NodeProjectionPreviewWrite) => void
   clear: () => void
 }
 
-type NodeSessionHiddenRuntime = {
+type NodeProjectionHiddenRuntime = {
   write: (hiddenIds: readonly NodeId[]) => void
   clear: () => void
 }
 
-export type NodeSession = {
+export type NodeProjection = {
   patch?: NodePatch
   hovered: boolean
   hidden: boolean
 }
 
-export type NodeSessionStore =
-  Pick<StagedKeyedStore<NodeId, NodeSession, NodeSessionWrite>, 'get' | 'all' | 'subscribe' | 'write' | 'clear' | 'flush'>
+export type NodeProjectionStore =
+  Pick<StagedKeyedStore<NodeId, NodeProjection, NodeProjectionWrite>, 'get' | 'all' | 'subscribe' | 'write' | 'clear' | 'flush'>
 
-export type NodeSessionReader =
-  Pick<NodeSessionStore, 'get' | 'subscribe'>
+export type NodeProjectionReader =
+  Pick<NodeProjectionStore, 'get' | 'subscribe'>
 
-export type NodeFeatureRuntime = {
-  session: NodeSessionStore
-  patch: NodeSessionPatchRuntime
-  preview: NodeSessionPreviewRuntime
-  hidden: NodeSessionHiddenRuntime
+export type NodeProjectionRuntime = {
+  store: NodeProjectionStore
+  patch: NodeProjectionPatchRuntime
+  preview: NodeProjectionPreviewRuntime
+  hidden: NodeProjectionHiddenRuntime
   clear: () => void
 }
 
-const EMPTY_NODE_SESSION: NodeSession = {
+const EMPTY_NODE_PROJECTION: NodeProjection = {
   hovered: false,
   hidden: false
 }
 
-const EMPTY_NODE_MAP: NodeSessionMap =
-  new Map<NodeId, NodeSession>()
+const EMPTY_NODE_MAP: NodeProjectionMap =
+  new Map<NodeId, NodeProjection>()
 
-const toNodeSessionMap = ({
+const toNodeProjectionMap = ({
   patches,
   hoveredContainerId,
   hiddenIds = []
-}: NodeSessionWrite): NodeSessionMap => {
+}: NodeProjectionWrite): NodeProjectionMap => {
   if (!patches.length && hoveredContainerId === undefined && hiddenIds.length === 0) {
     return EMPTY_NODE_MAP
   }
 
-  const next = new Map<NodeId, NodeSession>()
+  const next = new Map<NodeId, NodeProjection>()
   const hiddenIdSet = new Set(hiddenIds)
 
   patches.forEach((patch) => {
@@ -120,24 +120,24 @@ const toNodeSessionMap = ({
   return next
 }
 
-const toNodeSessionWrite = (
-  sessions: ReadonlyMap<NodeId, NodeSession>
-): NodeSessionWrite => {
-  const patches: NodeSessionWritePatch[] = []
+const toNodeProjectionWrite = (
+  projections: ReadonlyMap<NodeId, NodeProjection>
+): NodeProjectionWrite => {
+  const patches: NodeProjectionWritePatch[] = []
   let hoveredContainerId: NodeId | undefined
   const hiddenIds: NodeId[] = []
 
-  sessions.forEach((session, nodeId) => {
-    if (session.patch) {
+  projections.forEach((projection, nodeId) => {
+    if (projection.patch) {
       patches.push({
         id: nodeId,
-        ...session.patch
+        ...projection.patch
       })
     }
-    if (session.hovered) {
+    if (projection.hovered) {
       hoveredContainerId = nodeId
     }
-    if (session.hidden) {
+    if (projection.hidden) {
       hiddenIds.push(nodeId)
     }
   })
@@ -149,13 +149,13 @@ const toNodeSessionWrite = (
   }
 }
 
-export const createNodeSessionStore = (
+export const createNodeProjectionStore = (
   schedule: () => void
 ) => createStagedKeyedStore({
   schedule,
   emptyState: EMPTY_NODE_MAP,
-  emptyValue: EMPTY_NODE_SESSION,
-  build: toNodeSessionMap,
+  emptyValue: EMPTY_NODE_PROJECTION,
+  build: toNodeProjectionMap,
   isEqual: (left, right) => (
     left.patch === right.patch
     && left.hovered === right.hovered
@@ -163,16 +163,16 @@ export const createNodeSessionStore = (
   )
 })
 
-export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
+export const createNodeProjectionRuntime = (): NodeProjectionRuntime => {
   const flushAll: Array<() => void> = []
   let task!: RafTask
   const schedule = () => {
     task.schedule()
   }
 
-  const session = createNodeSessionStore(schedule)
+  const store = createNodeProjectionStore(schedule)
 
-  flushAll.push(session.flush)
+  flushAll.push(store.flush)
 
   task = createRafTask(() => {
     flushAll.forEach((flush) => {
@@ -181,40 +181,40 @@ export const createNodeFeatureRuntime = (): NodeFeatureRuntime => {
   }, { fallback: 'microtask' })
 
   return {
-    session,
+    store,
     patch: {
       write: (nodeId, patch) => {
-        writeNodeSessionPatch(session, nodeId, patch)
+        writeNodeProjectionPatch(store, nodeId, patch)
       },
       clear: (nodeId) => {
-        clearNodeSessionPatch(session, nodeId)
+        clearNodeProjectionPatch(store, nodeId)
       }
     },
     preview: {
       write: (write) => {
-        writeNodeSessionPreview(session, write)
+        writeNodeProjectionPreview(store, write)
       },
       clear: () => {
-        clearNodeSessionPreview(session)
+        clearNodeProjectionPreview(store)
       }
     },
     hidden: {
       write: (hiddenIds) => {
-        writeNodeSessionHidden(session, hiddenIds)
+        writeNodeProjectionHidden(store, hiddenIds)
       },
       clear: () => {
-        clearNodeSessionHidden(session)
+        clearNodeProjectionHidden(store)
       }
     },
     clear: () => {
       task.cancel()
-      session.clear()
+      store.clear()
     }
   }
 }
 
-export const writeNodeSessionPatch = (
-  store: NodeSessionStore,
+export const writeNodeProjectionPatch = (
+  store: NodeProjectionStore,
   nodeId: NodeId,
   patch: NodePatch | undefined
 ) => {
@@ -241,24 +241,24 @@ export const writeNodeSessionPatch = (
     next.delete(nodeId)
   }
 
-  store.write(toNodeSessionWrite(next))
+  store.write(toNodeProjectionWrite(next))
 }
 
-export const clearNodeSessionPatch = (
-  store: NodeSessionStore,
+export const clearNodeProjectionPatch = (
+  store: NodeProjectionStore,
   nodeId: NodeId
 ) => {
-  writeNodeSessionPatch(store, nodeId, undefined)
+  writeNodeProjectionPatch(store, nodeId, undefined)
 }
 
 const mergePreviewState = (
-  sessions: ReadonlyMap<NodeId, NodeSession>,
-  write: NodeSessionPreviewWrite
-): NodeSessionMap => {
-  const next = new Map<NodeId, NodeSession>()
+  projections: ReadonlyMap<NodeId, NodeProjection>,
+  write: NodeProjectionPreviewWrite
+): NodeProjectionMap => {
+  const next = new Map<NodeId, NodeProjection>()
 
-  sessions.forEach((session, nodeId) => {
-    if (session.hidden) {
+  projections.forEach((projection, nodeId) => {
+    if (projection.hidden) {
       next.set(nodeId, {
         hovered: false,
         hidden: true
@@ -280,7 +280,7 @@ const mergePreviewState = (
   })
 
   if (write.hoveredContainerId !== undefined && !next.has(write.hoveredContainerId)) {
-    const current = sessions.get(write.hoveredContainerId)
+    const current = projections.get(write.hoveredContainerId)
     next.set(write.hoveredContainerId, {
       hovered: true,
       hidden: current?.hidden ?? false
@@ -290,37 +290,37 @@ const mergePreviewState = (
   return next
 }
 
-export const writeNodeSessionPreview = (
-  store: NodeSessionStore,
-  write: NodeSessionPreviewWrite
+export const writeNodeProjectionPreview = (
+  store: NodeProjectionStore,
+  write: NodeProjectionPreviewWrite
 ) => {
-  store.write(toNodeSessionWrite(mergePreviewState(store.all(), write)))
+  store.write(toNodeProjectionWrite(mergePreviewState(store.all(), write)))
 }
 
-export const clearNodeSessionPreview = (
-  store: NodeSessionStore
+export const clearNodeProjectionPreview = (
+  store: NodeProjectionStore
 ) => {
-  writeNodeSessionPreview(store, {
+  writeNodeProjectionPreview(store, {
     patches: []
   })
 }
 
-export const writeNodeSessionHidden = (
-  store: NodeSessionStore,
+export const writeNodeProjectionHidden = (
+  store: NodeProjectionStore,
   hiddenIds: readonly NodeId[]
 ) => {
   const hiddenIdSet = new Set(hiddenIds)
-  const next = new Map<NodeId, NodeSession>()
+  const next = new Map<NodeId, NodeProjection>()
 
-  store.all().forEach((session, nodeId) => {
+  store.all().forEach((projection, nodeId) => {
     const hidden = hiddenIdSet.has(nodeId)
-    if (!hidden && !session.patch && !session.hovered) {
+    if (!hidden && !projection.patch && !projection.hovered) {
       return
     }
 
     next.set(nodeId, {
-      patch: session.patch,
-      hovered: session.hovered,
+      patch: projection.patch,
+      hovered: projection.hovered,
       hidden
     })
   })
@@ -336,13 +336,13 @@ export const writeNodeSessionHidden = (
     })
   })
 
-  store.write(toNodeSessionWrite(next))
+  store.write(toNodeProjectionWrite(next))
 }
 
-export const clearNodeSessionHidden = (
-  store: NodeSessionStore
+export const clearNodeProjectionHidden = (
+  store: NodeProjectionStore
 ) => {
-  writeNodeSessionHidden(store, [])
+  writeNodeProjectionHidden(store, [])
 }
 
 const applyRectPatch = (
@@ -394,9 +394,9 @@ const applyNodePatch = (
 
 export const projectNodeItem = (
   item: NodeItem,
-  session: NodeSession
+  projection: NodeProjection
 ): NodeItem => {
-  const patch = session.patch
+  const patch = projection.patch
   if (!patch) {
     return item
   }

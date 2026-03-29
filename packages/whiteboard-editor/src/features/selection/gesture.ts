@@ -7,7 +7,7 @@ import {
   GestureTuning,
   type SnapRuntime
 } from '../../runtime/interaction'
-import type { PointerStart } from '../../runtime/input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
 import type { PickRuntime } from '../../runtime/pick'
 import {
@@ -22,23 +22,27 @@ import {
 import type { MarqueeSession } from './marquee'
 import { createNodeDragSession } from '../node/drag/session'
 import type { NodeId } from '@whiteboard/core/types'
-import type { EdgePreview } from '../edge/preview'
-import type { NodeFeatureRuntime } from '../node/session/node'
+import type { EdgeProjection } from '../edge/projection'
+import type { NodeProjectionRuntime } from '../node/projection/store'
 
-export type SelectionGesture = {
-  down: (input: PointerStart) => boolean
+export type SelectionPressRuntime = {
+  start: (input: PointerDown) => boolean
   cancel: () => void
 }
 
-type SelectionGestureDeps = Pick<
+type SelectionPressRuntimeDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    edge: {
-      preview: Pick<EdgePreview, 'patch'>
+    projections: {
+      model: {
+        node: Pick<NodeProjectionRuntime, 'store'>
+      }
+      overlay: {
+        edge: Pick<EdgeProjection, 'patch'>
+      }
     }
-    node: Pick<NodeFeatureRuntime, 'session'>
     pick: PickRuntime
     snap: Pick<SnapRuntime, 'node'>
   }
@@ -47,7 +51,7 @@ type SelectionGestureDeps = Pick<
 const EMPTY_SELECTION = toSelectionTarget({})
 
 const buildSelectionWriter = (
-  editor: SelectionGestureDeps,
+  editor: SelectionPressRuntimeDeps,
   base: SelectionTarget,
   mode: SelectionMode
 ) => {
@@ -72,7 +76,7 @@ const buildSelectionWriter = (
 }
 
 const matchesTapTarget = (
-  editor: SelectionGestureDeps,
+  editor: SelectionPressRuntimeDeps,
   verifyNodeIds: readonly NodeId[] | undefined,
   event: PointerEvent
 ) => {
@@ -99,10 +103,10 @@ const stopPointerDown = (
   event.stopPropagation()
 }
 
-export const createSelectionGesture = (
-  editor: SelectionGestureDeps,
+export const createSelectionPressRuntime = (
+  editor: SelectionPressRuntimeDeps,
   marquee: MarqueeSession
-): SelectionGesture => {
+): SelectionPressRuntime => {
   const press = createPressRuntime(editor.interaction)
   const drag = createNodeDragSession(editor)
 
@@ -113,7 +117,7 @@ export const createSelectionGesture = (
   }
 
   const startMarquee = (
-    start: PointerStart,
+    start: PointerDown,
     action: Extract<SelectionDragAction, { kind: 'marquee' }>,
     moveEvent?: PointerEvent
   ) => {
@@ -145,7 +149,7 @@ export const createSelectionGesture = (
   }
 
   const startContainMarquee = (
-    start: PointerStart
+    start: PointerDown
   ) => {
     editor.commands.selection.clear()
 
@@ -158,7 +162,7 @@ export const createSelectionGesture = (
   }
 
   const startMove = (
-    start: PointerStart,
+    start: PointerDown,
     action: Extract<SelectionDragAction, { kind: 'move' }>,
     event: PointerEvent
   ) => {
@@ -204,7 +208,7 @@ export const createSelectionGesture = (
   }
 
   const runDragAction = (
-    start: PointerStart,
+    start: PointerDown,
     action: SelectionDragAction,
     event: PointerEvent
   ) => {
@@ -219,7 +223,7 @@ export const createSelectionGesture = (
   }
 
   return {
-    down: (input) => {
+    start: (input) => {
       const plan = resolveSelectionPressPlan({
         getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
         getOwnerId: editor.read.node.owner,

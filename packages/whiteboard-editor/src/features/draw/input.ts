@@ -12,11 +12,11 @@ import {
   type ReadStore,
   type StagedValueStore
 } from '@whiteboard/engine'
-import type { PointerStart } from '../../runtime/input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
 import type { DrawBrushKind } from '../../types/public/tool'
-import type { NodeFeatureRuntime } from '../node/session/node'
+import type { NodeProjectionRuntime } from '../node/projection/store'
 import {
   readDrawStyle,
   type DrawPreview,
@@ -50,16 +50,21 @@ type DrawPreviewStore = Pick<
 
 type DrawInputRuntimeDeps = Pick<
   EditorRuntime,
-  'commands' | 'interaction' | 'read' | 'state' | 'viewport'
+  'commands' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    node: Pick<NodeFeatureRuntime, 'hidden'>
+    projections: {
+      model: {
+        node: Pick<NodeProjectionRuntime, 'hidden'>
+      }
+    }
   }
 }
 
 export type DrawInputRuntime = {
   preview: ReadStore<DrawPreview | null>
-  down: (input: PointerStart) => boolean
+  startStroke: (input: PointerDown) => boolean
+  startErase: (input: PointerDown) => boolean
   cancel: () => void
 }
 
@@ -157,11 +162,11 @@ export const createDrawInputRuntime = (
     active: ActiveErase | null
   ) => {
     if (!active) {
-      editor.internals.node.hidden.clear()
+      editor.internals.projections.model.node.hidden.clear()
       return
     }
 
-    editor.internals.node.hidden.write([...active.ids])
+    editor.internals.projections.model.node.hidden.write([...active.ids])
   }
 
   const clear = () => {
@@ -316,8 +321,8 @@ export const createDrawInputRuntime = (
     }
   }
 
-  const startDraw = (
-    input: PointerStart
+  const startStroke = (
+    input: PointerDown
   ) => {
     if (
       input.tool.type !== 'draw'
@@ -331,7 +336,7 @@ export const createDrawInputRuntime = (
     const active: ActiveStroke = {
       ownerId: input.frame.id ?? frameTargetId,
       kind: input.tool.kind,
-      style: readDrawStyle(editor.state.draw.get(), input.tool.kind),
+      style: readDrawStyle(editor.read.draw.preferences.get(), input.tool.kind),
       points: [input.point.world],
       lastScreen: input.point.screen,
       lengthScreen: 0
@@ -374,7 +379,7 @@ export const createDrawInputRuntime = (
   }
 
   const startErase = (
-    input: PointerStart
+    input: PointerDown
   ) => {
     if (input.tool.type !== 'draw' || input.tool.kind !== 'eraser') {
       return false
@@ -430,12 +435,19 @@ export const createDrawInputRuntime = (
       get: previewStore.get,
       subscribe: previewStore.subscribe
     },
-    down: (input) => {
+    startStroke: (input) => {
       if (activeStroke || activeErase || session) {
         return false
       }
 
-      return startErase(input) || startDraw(input)
+      return startStroke(input)
+    },
+    startErase: (input) => {
+      if (activeStroke || activeErase || session) {
+        return false
+      }
+
+      return startErase(input)
     },
     cancel
   }

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type {
-  SelectionMenuGroupView as EditorContextMenuGroupView,
-  SelectionMenuItemView as EditorContextMenuItemView
+  ContextMenuView as EditorContextMenuView,
+  SelectionNodeTypeSummary,
+  SelectionStyleSummary
 } from '@whiteboard/editor/context'
+import { CREATE_PRESETS } from '@whiteboard/editor/toolbox'
 import {
   useElementSize,
   useEditorRuntime,
@@ -27,17 +29,471 @@ type ContextMenuRenderState = {
   clearSubmenu: () => void
 }
 
+type MenuItem = {
+  key: string
+  label: string
+  tone?: 'danger'
+  disabled?: boolean
+  onSelect?: () => unknown
+  children?: readonly MenuItem[]
+}
+
+type MenuGroup = {
+  key: string
+  title?: string
+  items: readonly MenuItem[]
+}
+
+const COLOR_OPTIONS = [
+  { label: 'Ink', value: 'hsl(var(--ui-text-primary, 40 2.1% 28%))' },
+  { label: 'White', value: 'hsl(var(--ui-surface, 0 0% 100%))' },
+  { label: 'Gray', value: 'hsl(var(--ui-surface-muted, 40 9.1% 93.5%))' },
+  { label: 'Yellow', value: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))' },
+  { label: 'Red', value: 'hsl(var(--tag-red-background, 5.7 77.8% 94.7%))' },
+  { label: 'Blue', value: 'hsl(var(--tag-blue-background, 206.1 79.3% 94.3%))' },
+  { label: 'Green', value: 'hsl(var(--tag-green-background, 146.7 24.3% 92.7%))' },
+  { label: 'Purple', value: 'hsl(var(--tag-purple-background, 274.3 53.8% 94.9%))' },
+  { label: 'Pink', value: 'hsl(var(--tag-pink-background, 331.8 63% 94.7%))' },
+  { label: 'Slate', value: 'hsl(var(--ui-text-secondary, 37.5 3.3% 47.5%))' },
+  { label: 'Danger', value: 'hsl(var(--ui-danger, 4 58.4% 54.7%))' },
+  { label: 'Orange', value: 'hsl(var(--tag-orange-foreground, 28.4 64.7% 50%))' },
+  { label: 'Forest', value: 'hsl(var(--tag-green-foreground, 146.5 29.8% 44.7%))' },
+  { label: 'Accent', value: 'hsl(var(--ui-accent, 209.8 76.7% 51.2%))' },
+  { label: 'Violet', value: 'hsl(var(--tag-purple-foreground, 278.6 32.7% 56.3%))' }
+] as const
+
+const STROKE_WIDTHS = [1, 2, 4, 6, 8, 12] as const
+const DRAW_STROKE_WIDTHS = [2, 4, 8, 12] as const
+const OPACITY_OPTIONS = [
+  { label: '100%', value: 1 },
+  { label: '70%', value: 0.7 },
+  { label: '50%', value: 0.5 },
+  { label: '35%', value: 0.35 }
+] as const
+const ORDER_ITEMS = [
+  { key: 'order.front', label: 'Bring to front', mode: 'front' },
+  { key: 'order.forward', label: 'Bring forward', mode: 'forward' },
+  { key: 'order.backward', label: 'Send backward', mode: 'backward' },
+  { key: 'order.back', label: 'Send to back', mode: 'back' }
+] as const
+const ALIGN_ITEMS = [
+  { key: 'layout.align.top', label: 'Align top', mode: 'top' },
+  { key: 'layout.align.left', label: 'Align left', mode: 'left' },
+  { key: 'layout.align.right', label: 'Align right', mode: 'right' },
+  { key: 'layout.align.bottom', label: 'Align bottom', mode: 'bottom' },
+  { key: 'layout.align.horizontal', label: 'Align horizontal center', mode: 'horizontal' },
+  { key: 'layout.align.vertical', label: 'Align vertical center', mode: 'vertical' }
+] as const
+const DISTRIBUTE_ITEMS = [
+  { key: 'layout.distribute.horizontal', label: 'Distribute horizontally', mode: 'horizontal' },
+  { key: 'layout.distribute.vertical', label: 'Distribute vertically', mode: 'vertical' }
+] as const
+
 const MenuIgnoreAttrs = {
   'data-context-menu-ignore': '',
   'data-selection-ignore': '',
   'data-input-ignore': ''
 } as const
 
+const withCurrentLabel = (
+  label: string,
+  active: boolean
+) => active ? `${label} (Current)` : label
+
+const bindMenuAction = (
+  action: () => unknown,
+  dismiss: (mode: 'dismiss' | 'action') => void
+) => () => {
+  const result = action()
+
+  if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+    return Promise.resolve(result).finally(() => {
+      dismiss('action')
+    })
+  }
+
+  dismiss('action')
+  return result
+}
+
+const readSelectionStyleGroup = ({
+  editor,
+  style,
+  nodeIds,
+  dismiss
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  style: SelectionStyleSummary | undefined
+  nodeIds: readonly string[]
+  dismiss: (mode: 'dismiss' | 'action') => void
+}): MenuGroup | undefined => {
+  if (!style || !nodeIds.length) {
+    return undefined
+  }
+
+  const strokeWidths = style.strokeWidthPreset === 'draw'
+    ? DRAW_STROKE_WIDTHS
+    : STROKE_WIDTHS
+
+  return {
+    key: 'style',
+    title: 'Style',
+    items: [
+      {
+        key: 'style.stroke',
+        label: 'Stroke',
+        children: COLOR_OPTIONS.map((option) => ({
+          key: `style.stroke.${option.label.toLowerCase()}`,
+          label: withCurrentLabel(option.label, style.stroke === option.value),
+          onSelect: bindMenuAction(() => {
+            editor.commands.node.appearance.setStroke(nodeIds, option.value)
+          }, dismiss)
+        }))
+      },
+      {
+        key: 'style.width',
+        label: 'Width',
+        children: strokeWidths.map((value) => ({
+          key: `style.width.${value}`,
+          label: withCurrentLabel(`${value}`, style.strokeWidth === value),
+          onSelect: bindMenuAction(() => {
+            editor.commands.node.appearance.setStrokeWidth(nodeIds, value)
+          }, dismiss)
+        }))
+      },
+      ...(style.opacity !== undefined
+        ? [
+            {
+              key: 'style.opacity',
+              label: 'Opacity',
+              children: OPACITY_OPTIONS.map((option) => ({
+                key: `style.opacity.${option.label}`,
+                label: withCurrentLabel(option.label, style.opacity === option.value),
+                onSelect: bindMenuAction(() => {
+                  editor.commands.node.appearance.setOpacity(nodeIds, option.value)
+                }, dismiss)
+              }))
+            }
+          ]
+        : [])
+    ]
+  }
+}
+
+const readCanvasGroups = ({
+  editor,
+  view,
+  dismiss
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  view: Extract<EditorContextMenuView, { kind: 'canvas' }>
+  dismiss: (mode: 'dismiss' | 'action') => void
+}): readonly MenuGroup[] => [
+  {
+    key: 'edit',
+    title: 'Edit',
+    items: [
+      {
+        key: 'edit.paste',
+        label: 'Paste',
+        onSelect: bindMenuAction(() => editor.commands.clipboard.paste({
+          at: view.canvas.world,
+          ownerId: view.canvas.ownerId
+        }), dismiss)
+      }
+    ]
+  },
+  {
+    key: 'create',
+    title: 'Create',
+    items: CREATE_PRESETS.map((preset) => ({
+      key: preset.key,
+      label: preset.label,
+      onSelect: bindMenuAction(() => editor.commands.insert.preset(preset.key, {
+        at: view.canvas.world,
+        ownerId: view.canvas.ownerId
+      }), dismiss)
+    }))
+  },
+  {
+    key: 'history',
+    title: 'History',
+    items: [
+      {
+        key: 'history.undo',
+        label: 'Undo',
+        onSelect: bindMenuAction(() => editor.commands.history.undo(), dismiss)
+      },
+      {
+        key: 'history.redo',
+        label: 'Redo',
+        onSelect: bindMenuAction(() => editor.commands.history.redo(), dismiss)
+      }
+    ]
+  },
+  {
+    key: 'selection',
+    title: 'Selection',
+    items: [
+      {
+        key: 'selection.select-all',
+        label: 'Select all',
+        onSelect: bindMenuAction(() => editor.commands.selection.selectAll(), dismiss)
+      }
+    ]
+  }
+]
+
+const readEdgeGroups = ({
+  editor,
+  view,
+  dismiss
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  view: Extract<EditorContextMenuView, { kind: 'edge' }>
+  dismiss: (mode: 'dismiss' | 'action') => void
+}): readonly MenuGroup[] => [
+  {
+    key: 'edge.actions',
+    items: [
+      {
+        key: 'edge.copy',
+        label: 'Copy',
+        onSelect: bindMenuAction(() => editor.commands.clipboard.copy({
+          edgeIds: [view.edge.id]
+        }), dismiss)
+      },
+      {
+        key: 'edge.cut',
+        label: 'Cut',
+        onSelect: bindMenuAction(() => editor.commands.clipboard.cut({
+          edgeIds: [view.edge.id]
+        }), dismiss)
+      },
+      {
+        key: 'edge.delete',
+        label: 'Delete',
+        tone: 'danger' as const,
+        onSelect: bindMenuAction(() => editor.commands.edge.delete([view.edge.id]), dismiss)
+      }
+    ]
+  }
+]
+
+const readSelectionGroups = ({
+  editor,
+  view,
+  dismiss
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  view: Extract<EditorContextMenuView, { kind: 'selection' }>
+  dismiss: (mode: 'dismiss' | 'action') => void
+}): readonly MenuGroup[] => {
+  const { summary, can, style } = view.selection
+  const nodeIds = summary.ids
+  const groups: MenuGroup[] = []
+
+  const styleGroup = readSelectionStyleGroup({
+    editor,
+    style,
+    nodeIds,
+    dismiss
+  })
+  if (styleGroup) {
+    groups.push(styleGroup)
+  }
+
+  groups.push({
+    key: 'edit',
+    title: 'Edit',
+    items: [
+      ...(can.copy
+        ? [
+            {
+              key: 'edit.copy',
+              label: 'Copy',
+              onSelect: bindMenuAction(() => editor.commands.clipboard.copy({
+                nodeIds
+              }), dismiss)
+            }
+          ]
+        : []),
+      ...(can.cut
+        ? [
+            {
+              key: 'edit.cut',
+              label: 'Cut',
+              onSelect: bindMenuAction(() => editor.commands.clipboard.cut({
+                nodeIds
+              }), dismiss)
+            }
+          ]
+        : []),
+      ...(can.duplicate
+        ? [
+            {
+              key: 'edit.duplicate',
+              label: 'Duplicate',
+              onSelect: bindMenuAction(() => {
+                const result = editor.commands.node.duplicate([...nodeIds])
+                if (!result.ok || result.data.nodeIds.length <= 0) {
+                  return
+                }
+
+                editor.commands.selection.replace({
+                  nodeIds: result.data.nodeIds
+                })
+              }, dismiss)
+            }
+          ]
+        : []),
+      ...(can.delete
+        ? [
+            {
+              key: 'edit.delete',
+              label: 'Delete',
+              tone: 'danger' as const,
+              onSelect: bindMenuAction(() => editor.commands.node.deleteCascade([...nodeIds]), dismiss)
+            }
+          ]
+        : [])
+    ]
+  })
+
+  if (can.order) {
+    groups.push({
+      key: 'arrange',
+      title: 'Arrange',
+      items: [
+        {
+          key: 'arrange.order',
+          label: 'Layer',
+          children: ORDER_ITEMS.map((item) => ({
+            key: item.key,
+            label: item.label,
+            onSelect: bindMenuAction(() => {
+              if (item.mode === 'front') {
+                editor.commands.node.order.bringToFront([...nodeIds])
+                return
+              }
+              if (item.mode === 'forward') {
+                editor.commands.node.order.bringForward([...nodeIds])
+                return
+              }
+              if (item.mode === 'backward') {
+                editor.commands.node.order.sendBackward([...nodeIds])
+                return
+              }
+
+              editor.commands.node.order.sendToBack([...nodeIds])
+            }, dismiss)
+          }))
+        },
+        ...(can.makeGroup
+          ? [
+              {
+                key: 'arrange.group',
+                label: 'Group',
+                onSelect: bindMenuAction(() => {
+                  const result = editor.commands.node.group.create([...nodeIds])
+                  if (!result.ok) {
+                    return
+                  }
+
+                  editor.commands.selection.replace({
+                    nodeIds: [result.data.groupId]
+                  })
+                }, dismiss)
+              }
+            ]
+          : []),
+        ...(can.ungroup
+          ? [
+              {
+                key: 'arrange.ungroup',
+                label: 'Ungroup',
+                onSelect: bindMenuAction(() => {
+                  const groupIds = editor.read.selection.get().items.nodes
+                    .filter((node) => node.type === 'group')
+                    .map((node) => node.id)
+                  if (!groupIds.length) {
+                    return
+                  }
+
+                  const result = editor.commands.node.group.ungroupMany(groupIds)
+                  if (!result.ok) {
+                    return
+                  }
+
+                  editor.commands.selection.replace({
+                    nodeIds: result.data.nodeIds
+                  })
+                }, dismiss)
+              }
+            ]
+          : []),
+        ...(can.lock
+          ? [
+              {
+                key: 'arrange.lock',
+                label: summary.lock === 'all' ? 'Unlock selected' : 'Lock selected',
+                onSelect: bindMenuAction(() => {
+                  editor.commands.node.lock.set([...nodeIds], summary.lock !== 'all')
+                }, dismiss)
+              }
+            ]
+          : [])
+      ]
+    })
+  }
+
+  if (can.align || can.distribute) {
+    groups.push({
+      key: 'layout',
+      title: 'Layout',
+      items: [
+        ...(can.align
+          ? [
+              {
+                key: 'layout.align',
+                label: 'Align',
+                children: ALIGN_ITEMS.map((item) => ({
+                  key: item.key,
+                  label: item.label,
+                  onSelect: bindMenuAction(() => {
+                    editor.commands.node.align([...nodeIds], item.mode)
+                  }, dismiss)
+                }))
+              }
+            ]
+          : []),
+        ...(can.distribute
+          ? [
+              {
+                key: 'layout.distribute',
+                label: 'Distribute',
+                children: DISTRIBUTE_ITEMS.map((item) => ({
+                  key: item.key,
+                  label: item.label,
+                  onSelect: bindMenuAction(() => {
+                    editor.commands.node.distribute([...nodeIds], item.mode)
+                  }, dismiss)
+                }))
+              }
+            ]
+          : [])
+      ]
+    })
+  }
+
+  return groups
+}
+
 const ContextMenuItemView = ({
   item,
   state
 }: {
-  item: EditorContextMenuItemView
+  item: MenuItem
   state: ContextMenuRenderState
 }) => {
   const open = state.submenuKey === item.key
@@ -109,7 +565,7 @@ const ContextMenuGroupView = ({
   group,
   state
 }: {
-  group: EditorContextMenuGroupView
+  group: MenuGroup
   state: ContextMenuRenderState
 }) => (
   <div className="wb-context-menu-section">
@@ -124,6 +580,45 @@ const ContextMenuGroupView = ({
       />
     ))}
   </div>
+)
+
+const readMenuGroups = ({
+  editor,
+  view,
+  dismiss
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  view: EditorContextMenuView
+  dismiss: (mode: 'dismiss' | 'action') => void
+}): readonly MenuGroup[] => {
+  switch (view.kind) {
+    case 'canvas':
+      return readCanvasGroups({
+        editor,
+        view,
+        dismiss
+      })
+    case 'selection':
+      return readSelectionGroups({
+        editor,
+        view,
+        dismiss
+      })
+    case 'edge':
+      return readEdgeGroups({
+        editor,
+        view,
+        dismiss
+      })
+  }
+}
+
+const readFilterTypes = (
+  view: EditorContextMenuView
+): readonly SelectionNodeTypeSummary[] | undefined => (
+  view.kind === 'selection'
+    ? view.selection.filter?.types
+    : undefined
 )
 
 export const ContextMenu = ({
@@ -175,7 +670,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (editor.host.interaction.busy.get()) return
+      if (editor.interaction.state.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -184,7 +679,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (editor.host.interaction.busy.get()) return
+      if (editor.interaction.state.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -240,6 +735,12 @@ export const ContextMenu = ({
       setSubmenuKey(null)
     }
   }
+  const groups = readMenuGroups({
+    editor,
+    view,
+    dismiss
+  })
+  const filterTypes = readFilterTypes(view)
 
   return (
     <div className="wb-context-menu-layer" ref={rootRef} data-context-menu-ignore>
@@ -258,19 +759,29 @@ export const ContextMenu = ({
           renderState.clearSubmenu()
         }}
       >
-        {view.summary ? (
-          <SelectionSummaryHeader summary={view.summary} />
+        {view.kind === 'selection' ? (
+          <SelectionSummaryHeader summary={view.selection.summary} />
         ) : null}
-        {view.filter ? (
+        {filterTypes?.length ? (
           <div className="wb-context-menu-section">
             <div className="wb-context-menu-section-title">Filter</div>
             <SelectionTypeFilterStrip
-              types={view.filter.types}
-              onSelect={view.filter.onSelect}
+              types={filterTypes}
+              onSelect={(key) => {
+                const type = filterTypes.find((item) => item.key === key)
+                if (!type) {
+                  return
+                }
+
+                editor.commands.selection.replace({
+                  nodeIds: type.nodeIds
+                })
+                dismiss('action')
+              }}
             />
           </div>
         ) : null}
-        {view.groups.map((group) => (
+        {groups.map((group) => (
           <ContextMenuGroupView
             key={group.key}
             group={group}

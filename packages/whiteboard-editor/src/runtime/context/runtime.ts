@@ -74,8 +74,7 @@ export const createContextRuntime = (
     const view = readContextMenuView({
       editor,
       target,
-      screen: input.pointer.point.screen,
-      close: () => dismiss('action')
+      screen: input.pointer.point.screen
     })
 
     if (!view) {

@@ -1,6 +1,9 @@
 export { createInteractionCoordinator } from './coordinator'
+export { createInteractionRegistry } from './registry'
 export { createPressRuntime } from './press'
 export { createSnapRuntime } from './snap'
+export type { InteractionDriver } from './driver'
+export type { InteractionRegistry } from './registry'
 export type {
   InteractionCoordinator,
   InteractionMode,

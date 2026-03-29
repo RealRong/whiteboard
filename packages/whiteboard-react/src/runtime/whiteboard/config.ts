@@ -18,7 +18,10 @@ export const useWhiteboardConfig = (
       tool: resolvedConfig.tool,
       viewport: {
         minZoom: resolvedConfig.viewport.minZoom,
-        maxZoom: resolvedConfig.viewport.maxZoom
+        maxZoom: resolvedConfig.viewport.maxZoom,
+        enablePan: resolvedConfig.viewport.enablePan,
+        enableWheel: resolvedConfig.viewport.enableWheel,
+        wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
       },
       mindmapLayout: resolvedConfig.mindmapLayout,
       history: resolvedConfig.history

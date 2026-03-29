@@ -93,7 +93,7 @@ export const useAutoFontSize = ({
       return
     }
 
-    const viewportSize = editor.host.viewport.input.size()
+    const viewportSize = editor.viewport.input.size()
     const topLeft = editor.viewport.worldToScreen({
       x: rect.x,
       y: rect.y

@@ -8,7 +8,7 @@ import { useStoreValue } from './useStoreValue'
 type EditTarget = ReturnType<WhiteboardInstance['state']['edit']['get']>
 type Tool = ReturnType<WhiteboardInstance['state']['tool']['get']>
 type FrameScope = ReturnType<WhiteboardInstance['state']['frame']['get']>
-type InteractionState = ReturnType<WhiteboardInstance['state']['interaction']['get']>
+type InteractionState = ReturnType<WhiteboardInstance['interaction']['state']['get']>
 
 const EditorContext = createContext<WhiteboardRuntime | null>(null)
 
@@ -41,5 +41,5 @@ export const useFrameScope = (): FrameScope => {
 
 export const useInteraction = (): InteractionState => {
   const editor = useEditorRuntime()
-  return useStoreValue(editor.state.interaction)
+  return useStoreValue(editor.interaction.state)
 }

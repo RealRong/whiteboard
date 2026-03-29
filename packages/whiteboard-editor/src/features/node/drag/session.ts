@@ -10,14 +10,14 @@ import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EditorRuntime } from '../../../runtime/editor/types'
 import type { SnapRuntime } from '../../../runtime/interaction'
 import {
-  type EdgePreview,
-  toEdgePreviewEntry
-} from '../../edge/preview'
+  type EdgeProjection,
+  toEdgeProjectionEntry
+} from '../../edge/projection'
 import {
-  clearNodeSessionPreview,
-  writeNodeSessionPreview,
-  type NodeFeatureRuntime
-} from '../session/node'
+  clearNodeProjectionPreview,
+  writeNodeProjectionPreview,
+  type NodeProjectionRuntime
+} from '../projection/store'
 
 type ActiveDrag = {
   ids: readonly NodeId[]
@@ -55,10 +55,14 @@ type NodeDragSessionDeps = Pick<
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    edge: {
-      preview: Pick<EdgePreview, 'patch'>
+    projections: {
+      model: {
+        node: Pick<NodeProjectionRuntime, 'store'>
+      }
+      overlay: {
+        edge: Pick<EdgeProjection, 'patch'>
+      }
     }
-    node: Pick<NodeFeatureRuntime, 'session'>
     snap: Pick<SnapRuntime, 'node'>
   }
 }
@@ -74,9 +78,9 @@ export const createNodeDragSession = (
   const clear = () => {
     active = null
     session = null
-    clearNodeSessionPreview(editor.internals.node.session)
+    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
     editor.internals.snap.node.clear()
-    editor.internals.edge.preview.patch.clear()
+    editor.internals.projections.overlay.edge.patch.clear()
   }
 
   const commit = (draft: ActiveDrag) => {
@@ -158,14 +162,14 @@ export const createNodeDragSession = (
         return []
       }
 
-      return [toEdgePreviewEntry(edgeId, patch)]
+      return [toEdgeProjectionEntry(edgeId, patch)]
     })
 
-    writeNodeSessionPreview(editor.internals.node.session, {
+    writeNodeProjectionPreview(editor.internals.projections.model.node.store, {
       patches: preview.nodes,
       hoveredContainerId: preview.hoveredContainerId
     })
-    editor.internals.edge.preview.patch.write(
+    editor.internals.projections.overlay.edge.patch.write(
       [
         ...selectedEdgeUpdates,
         ...preview.edges.map(({ id, patch }) => ({
@@ -242,7 +246,7 @@ export const createNodeDragSession = (
         ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
       }
       session = nextSession
-      clearNodeSessionPreview(editor.internals.node.session)
+      clearNodeProjectionPreview(editor.internals.projections.model.node.store)
       editor.internals.snap.node.clear()
       nextSession.pan(input.event)
       updatePreview(input.event)

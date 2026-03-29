@@ -12,21 +12,36 @@ export const usePointer = ({
 }) => {
   const editor = useEditor()
 
+  const refreshContainerRect = useCallback((container: HTMLDivElement) => {
+    const rect = container.getBoundingClientRect()
+    editor.viewport.setRect({
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    })
+  }, [editor])
+
   useEffect(() => () => {
     editor.input.cancel()
   }, [editor])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
+    if (event.defaultPrevented) {
+      return false
+    }
+
     const container = containerRef.current
     if (!container) {
       return false
     }
 
+    refreshContainerRect(container)
     return editor.input.pointerDown({
       container,
       event
     })
-  }, [containerRef, editor])
+  }, [containerRef, editor, refreshContainerRect])
 
   const onPointerMove = useCallback((event: PointerEvent) => {
     const container = containerRef.current
@@ -34,11 +49,12 @@ export const usePointer = ({
       return
     }
 
+    refreshContainerRect(container)
     editor.input.pointerMove({
       container,
       event
     })
-  }, [containerRef, editor])
+  }, [containerRef, editor, refreshContainerRect])
 
   const onPointerLeave = useCallback(() => {
     editor.input.pointerLeave()

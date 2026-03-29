@@ -4,7 +4,7 @@ import {
   hasNode,
   type FrameScope
 } from '../frame'
-import type { Editor, EditorRuntime } from '../editor/types'
+import type { Editor } from '../editor/types'
 import type { PointerPick } from '../pick'
 import type { Tool } from '../tool'
 import {
@@ -13,48 +13,72 @@ import {
   type ContextResolved,
   type ContextTarget
 } from './target'
-import {
-  isDrawInteractionStart,
-  isEraseInteractionStart
-} from '../../features/draw/interactionStart'
-import {
-  isEdgeCreateInteractionStart,
-  isEdgeInteractionStart
-} from '../../features/edge/interactionStart'
-import {
-  isMindmapInteractionStart
-} from '../../features/mindmap/interactionStart'
-import {
-  isTransformInteractionStart
-} from '../../features/node/session/transformStart'
-import {
-  isSelectionInteractionStart
-} from '../../features/selection/interactionStart'
-import {
-  isInsertInteractionStart
-} from '../../features/toolbox/interactionStart'
 
-export type PointerStart = PointerPick & {
+export type PointerDown = PointerPick & {
+  phase: 'pointer/down'
   container: HTMLDivElement
   event: PointerEvent
   capture: Element
   tool: Tool
   frame: FrameScope
+  frameExit: boolean
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
 }
 
-export type PointerActionKind =
-  | 'edge-create'
-  | 'erase'
-  | 'draw'
-  | 'insert'
-  | 'transform'
-  | 'edge'
-  | 'mindmap'
-  | 'selection'
+export type PointerMove = PointerPick & {
+  phase: 'pointer/move'
+  container: HTMLDivElement
+  event: PointerEvent
+  capture: Element
+  tool: Tool
+  frame: FrameScope
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
+}
 
-export type PointerAction = {
-  kind: PointerActionKind
-  start: PointerStart
+export type PointerUp = PointerPick & {
+  phase: 'pointer/up'
+  container: HTMLDivElement
+  event: PointerEvent
+  capture: Element
+  tool: Tool
+  frame: FrameScope
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
+}
+
+export type ResolvedWheelInput = {
+  deltaX: number
+  deltaY: number
+  ctrlKey: boolean
+  metaKey: boolean
+  point: {
+    client: {
+      x: number
+      y: number
+    }
+    screen: {
+      x: number
+      y: number
+    }
+    world: {
+      x: number
+      y: number
+    }
+  }
 }
 
 export type ContextOpen = {
@@ -62,113 +86,55 @@ export type ContextOpen = {
   leaveFrame: boolean
 }
 
-type PointerActionResolverDeps = Pick<EditorRuntime, 'commands' | 'read' | 'state' | 'host'>
-
-type PointerActionRunnerDeps = Pick<EditorRuntime, 'commands' | 'read' | 'host'>
-
-type PointerActionRoute = {
-  kind: PointerActionKind
-  match: (start: PointerStart) => boolean
-}
-
-const DRAW_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
-  {
-    kind: 'erase',
-    match: isEraseInteractionStart
-  },
-  {
-    kind: 'draw',
-    match: isDrawInteractionStart
-  }
-]
-
-const EDGE_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
-  {
-    kind: 'edge-create',
-    match: isEdgeCreateInteractionStart
-  }
-]
-
-const INSERT_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
-  {
-    kind: 'insert',
-    match: isInsertInteractionStart
-  }
-]
-
-const SELECT_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
-  {
-    kind: 'transform',
-    match: isTransformInteractionStart
-  },
-  {
-    kind: 'edge',
-    match: isEdgeInteractionStart
-  },
-  {
-    kind: 'mindmap',
-    match: isMindmapInteractionStart
-  },
-  {
-    kind: 'selection',
-    match: isSelectionInteractionStart
-  }
-]
-
-const POINTER_ACTION_ROUTES_BY_TOOL_TYPE: Partial<Record<Tool['type'], readonly PointerActionRoute[]>> = {
-  draw: DRAW_POINTER_ACTION_ROUTES,
-  edge: EDGE_POINTER_ACTION_ROUTES,
-  insert: INSERT_POINTER_ACTION_ROUTES,
-  select: SELECT_POINTER_ACTION_ROUTES
-}
-
-export const readPointerStart = (
+const readPointerDown = (
   editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
-): PointerStart => {
+): Omit<PointerDown, 'frameExit'> => {
   const input = editor.read.pick.from(event, container)
 
   return {
     ...input,
+    phase: 'pointer/down',
     container,
     event,
     capture: input.element ?? container,
     tool: editor.read.tool.get(),
-    frame: editor.state.frame.get()
+    frame: editor.state.frame.get(),
+    modifiers: {
+      alt: event.altKey,
+      shift: event.shiftKey,
+      ctrl: event.ctrlKey,
+      meta: event.metaKey
+    }
   }
 }
 
-export const readPointerSamples = (
-  event: PointerEvent
-) => {
-  if (typeof event.getCoalescedEvents !== 'function') {
-    return [event]
-  }
-
-  const samples = event.getCoalescedEvents()
-  return samples.length > 0 ? samples : [event]
+const ROOT_FRAME: FrameScope = {
+  ids: []
 }
 
-const clearFrame = (
-  editor: Pick<Editor, 'commands' | 'state'>
-) => {
-  editor.commands.frame.exit()
-  return editor.state.frame.get()
-}
-
-const normalizeInteractionFrame = (
-  editor: Pick<Editor, 'commands' | 'read' | 'state'>,
-  start: PointerStart
-): FrameScope => {
+const resolveInteractionFrame = (
+  editor: Pick<Editor, 'read'>,
+  start: Pick<PointerDown, 'frame' | 'pick' | 'point'>
+): {
+  frame: FrameScope
+  exit: boolean
+} => {
   const frame = start.frame
   if (!frame.id) {
-    return frame
+    return {
+      frame,
+      exit: false
+    }
   }
 
   const frameNode = editor.read.node.item.get(frame.id)?.node
   if (!frameNode || editor.read.node.role(frameNode) !== 'frame') {
-    return clearFrame(editor)
+    return {
+      frame: ROOT_FRAME,
+      exit: true
+    }
   }
 
   const frameRect = editor.read.index.node.get(frame.id)?.rect
@@ -176,142 +142,162 @@ const normalizeInteractionFrame = (
   switch (start.pick.kind) {
     case 'background':
       return frameRect && isPointInRect(start.point.world, frameRect)
-        ? frame
-        : clearFrame(editor)
+        ? {
+            frame,
+            exit: false
+          }
+        : {
+            frame: ROOT_FRAME,
+            exit: true
+          }
     case 'selection-box':
-      return frame
+      return {
+        frame,
+        exit: false
+      }
     case 'node':
       if (start.pick.id === frame.id) {
-        return frame
+        return {
+          frame,
+          exit: false
+        }
       }
       return hasNode(frame, start.pick.id)
-        ? frame
-        : clearFrame(editor)
+        ? {
+            frame,
+            exit: false
+          }
+        : {
+            frame: ROOT_FRAME,
+            exit: true
+          }
     case 'mindmap':
       return hasNode(frame, start.pick.treeId)
-        ? frame
-        : clearFrame(editor)
+        ? {
+            frame,
+            exit: false
+          }
+        : {
+            frame: ROOT_FRAME,
+            exit: true
+          }
     case 'edge': {
       const edge = editor.read.edge.item.get(start.pick.id)?.edge
       if (!edge) {
-        return clearFrame(editor)
+        return {
+          frame: ROOT_FRAME,
+          exit: true
+        }
       }
 
       return hasEdge(frame, edge)
-        ? frame
-        : clearFrame(editor)
+        ? {
+            frame,
+            exit: false
+          }
+        : {
+            frame: ROOT_FRAME,
+            exit: true
+          }
     }
   }
 }
 
-const withNormalizedFrame = (
-  editor: Pick<Editor, 'commands' | 'read' | 'state'>,
-  start: PointerStart
-): PointerStart => ({
-  ...start,
-  frame: normalizeInteractionFrame(editor, start)
-})
-
-const resolveRoutedPointerAction = (
-  start: PointerStart,
-  routes: readonly PointerActionRoute[]
-): PointerAction | undefined => {
-  for (const route of routes) {
-    if (route.match(start)) {
-      return {
-        kind: route.kind,
-        start
-      }
-    }
-  }
-
-  return undefined
-}
-
-export const resolvePointerAction = (
-  editor: PointerActionResolverDeps,
-  input: PointerStart
-): PointerAction | undefined => {
-  const start = withNormalizedFrame(editor, input)
-
-  if (
-    start.event.defaultPrevented
-    || start.event.button !== 0
-    || editor.host.interaction.busy.get()
-  ) {
-    return undefined
-  }
-
-  return resolveRoutedPointerAction(
-    start,
-    POINTER_ACTION_ROUTES_BY_TOOL_TYPE[start.tool.type] ?? []
-  )
-}
-
-const runInsertPointerAction = (
-  editor: Pick<Editor, 'commands' | 'read'>,
-  input: PointerStart
-) => {
-  if (input.tool.type !== 'insert') {
-    return false
-  }
-
-  const presetKey = input.tool.preset
-  if (!presetKey || input.pick.kind !== 'background') {
-    return false
-  }
-
-  const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
-  const result = editor.commands.insert.preset(presetKey, {
-    at: input.point.world,
-    ownerId: input.frame.id ?? frameTargetId
-  })
-  if (!result) {
-    return false
-  }
-
-  editor.commands.tool.select()
-  input.event.preventDefault()
-  input.event.stopPropagation()
-  return true
-}
-
-const POINTER_ACTION_RUNNERS: Record<
-  PointerActionKind,
-  (editor: PointerActionRunnerDeps, start: PointerStart) => boolean
-> = {
-  'edge-create': (editor, start) => editor.host.edge.connect.create(start),
-  erase: (editor, start) => editor.host.draw.down(start),
-  draw: (editor, start) => editor.host.draw.down(start),
-  insert: (editor, start) => runInsertPointerAction(editor, start),
-  transform: (editor, start) => editor.host.node.transform.down(start),
-  edge: (editor, start) => editor.host.edge.input.down(start),
-  mindmap: (editor, start) => editor.host.mindmap.controller.down(start),
-  selection: (editor, start) => editor.host.selection.gesture.down(start)
-}
-
-export const runPointerAction = (
-  editor: PointerActionRunnerDeps,
-  action: PointerAction | undefined
-) => {
-  if (!action) {
-    return false
-  }
-
-  return POINTER_ACTION_RUNNERS[action.kind](editor, action.start)
-}
-
-export const handlePointerDown = (
-  editor: PointerActionResolverDeps & PointerActionRunnerDeps,
+export const resolvePointerDown = (
+  editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
-) => runPointerAction(
+): PointerDown => {
+  const start = readPointerDown(editor, container, event)
+  const frame = resolveInteractionFrame(editor, start)
+
+  return {
+    ...start,
+    frame: frame.frame,
+    frameExit: frame.exit
+  }
+}
+
+const readPointerEvent = (
+  editor: Pick<Editor, 'read' | 'state'>,
+  container: HTMLDivElement,
+  event: PointerEvent,
+  phase: PointerMove['phase'] | PointerUp['phase']
+): PointerMove | PointerUp => {
+  const input = editor.read.pick.from(event, container)
+  const frame = resolveInteractionFrame(editor, {
+    pick: input.pick,
+    point: input.point,
+    frame: editor.state.frame.get()
+  })
+
+  return {
+    ...input,
+    phase,
+    container,
+    event,
+    capture: input.element ?? container,
+    tool: editor.read.tool.get(),
+    frame: frame.frame,
+    modifiers: {
+      alt: event.altKey,
+      shift: event.shiftKey,
+      ctrl: event.ctrlKey,
+      meta: event.metaKey
+    }
+  }
+}
+
+export const resolvePointerMove = (
+  editor: Pick<Editor, 'read' | 'state'>,
+  container: HTMLDivElement,
+  event: PointerEvent
+): PointerMove => readPointerEvent(
   editor,
-  resolvePointerAction(
-    editor,
-    readPointerStart(editor, container, event)
-  )
-)
+  container,
+  event,
+  'pointer/move'
+) as PointerMove
+
+export const resolvePointerUp = (
+  editor: Pick<Editor, 'read' | 'state'>,
+  container: HTMLDivElement,
+  event: PointerEvent
+): PointerUp => readPointerEvent(
+  editor,
+  container,
+  event,
+  'pointer/up'
+) as PointerUp
+
+export const resolveWheelInput = (
+  editor: Pick<Editor, 'viewport'>,
+  event: {
+    clientX: number
+    clientY: number
+    deltaX: number
+    deltaY: number
+    ctrlKey: boolean
+    metaKey: boolean
+  }
+): ResolvedWheelInput => {
+  const point = editor.viewport.pointer(event)
+
+  return {
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    point: {
+      client: {
+        x: event.clientX,
+        y: event.clientY
+      },
+      screen: point.screen,
+      world: point.world
+    }
+  }
+}
 
 export const readContextOpen = (
   editor: Pick<Editor, 'read' | 'state'>,

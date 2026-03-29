@@ -58,7 +58,7 @@ export const resolveNodeToolbarModel = ({
   selection,
   worldToScreen
 }: {
-  editor: Pick<Editor, 'host'>
+  editor: Pick<Editor, 'registry'>
   selection: ToolbarSelection
   worldToScreen: (point: Point) => Point
 }): NodeToolbarModel | undefined => {
@@ -81,7 +81,7 @@ export const resolveNodeToolbarModel = ({
     worldToScreen,
     rect
   })
-  const primarySchema = editor.host.registry.get(primaryNode.type)?.schema
+  const primarySchema = editor.registry.get(primaryNode.type)?.schema
   const fillValue = typeof primaryNode.style?.fill === 'string'
     ? primaryNode.style.fill
     : primaryNode.type === 'sticky' && typeof primaryNode.data?.background === 'string'

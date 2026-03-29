@@ -12,5 +12,7 @@ export type {
   SelectionMoreMenuItemView,
   SelectionMoreMenuSectionView,
   SelectionNodeSummary,
+  SelectionStyleSummary,
+  SelectionTypeFilter,
   SelectionNodeTypeSummary
 } from './runtime/context'

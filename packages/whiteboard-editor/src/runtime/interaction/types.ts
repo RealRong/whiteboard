@@ -18,6 +18,7 @@ export type ActiveInteractionMode = Exclude<InteractionMode, 'idle'>
 export type InteractionState = Readonly<{
   busy: boolean
   chrome: boolean
+  mode: InteractionMode
   space: boolean
 }>
 
@@ -30,6 +31,7 @@ export type InteractionSession = Readonly<{
   finish: () => void
   cancel: () => void
   pan: (pointer: AutoPanPointer) => void
+  replace: (input: InteractionSessionInput) => InteractionSession | null
 }>
 
 export type AutoPanOptions = Readonly<{
@@ -41,7 +43,7 @@ export type AutoPanOptions = Readonly<{
   maxSpeed?: number
 }>
 
-export type InteractionStartInput = Readonly<{
+export type InteractionSessionInput = Readonly<{
   mode: ActiveInteractionMode
   pointerId?: number
   capture?: Element | null
@@ -73,7 +75,7 @@ export type InteractionCoordinator = {
   chrome: ReadStore<boolean>
   state: ReadStore<InteractionState>
   space: ReadStore<boolean>
-  start: (input: InteractionStartInput) => InteractionSession | null
+  start: (input: InteractionSessionInput) => InteractionSession | null
   cancel: () => void
   handleKeyDown: (event: KeyboardEvent) => boolean
   handleKeyUp: (event: KeyboardEvent) => boolean

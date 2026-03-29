@@ -20,9 +20,9 @@ import {
 } from '@whiteboard/core/geometry'
 import {
   projectNodeItem,
-  type NodeSession,
-  type NodeSessionReader
-} from '../../features/node/session/node'
+  type NodeProjection,
+  type NodeProjectionReader
+} from '../../features/node/projection/store'
 
 export type NodeTransform = {
   resize: boolean
@@ -123,12 +123,12 @@ const readNodeItemFrame = (
   : item.rect
 
 const toNodeInteraction = (
-  session: NodeSession
+  projection: NodeProjection
 ): NodeInteraction => ({
-  hovered: session.hovered,
-  hidden: session.hidden,
-  hasPatch: Boolean(session.patch),
-  hasResizePreview: Boolean(session.patch?.size)
+  hovered: projection.hovered,
+  hidden: projection.hidden,
+  hasPatch: Boolean(projection.patch),
+  hasResizePreview: Boolean(projection.patch?.size)
 })
 
 export type NodeRead = {
@@ -153,29 +153,29 @@ export type NodeRead = {
 
 export const createNodeItemRead = ({
   read,
-  session
+  projection
 }: {
   read: Pick<EngineRead, 'node'>
-  session: NodeSessionReader
+  projection: NodeProjectionReader
 }): NodeRead['item'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => {
     const item = readStore(read.node.item, nodeId)
     if (!item) {
       return undefined
     }
-    const sessionValue = readStore(session, nodeId)
-    return projectNodeItem(item, sessionValue)
+    const projectionValue = readStore(projection, nodeId)
+    return projectNodeItem(item, projectionValue)
   },
   isEqual: isNodeItemEqual
 })
 
 export const createNodeInteractionRead = ({
-  session
+  projection
 }: {
-  session: NodeSessionReader
+  projection: NodeProjectionReader
 }): NodeRead['interaction'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => toNodeInteraction(
-    readStore(session, nodeId)
+    readStore(projection, nodeId)
   ),
   isEqual: isNodeInteractionEqual
 })

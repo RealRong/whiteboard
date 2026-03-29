@@ -5,23 +5,21 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import type { PointerStart } from '../../runtime/input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
 import type { SnapRuntime } from '../../runtime/interaction'
-import { createRafTask } from '../../runtime/utils/rafTask'
-import type { EdgeConnectSession } from './connectSession'
-import type { EdgePreview } from './preview'
-import {
-  isEdgeInteractionStart
-} from './interactionStart'
+import type { EdgeConnectInteraction } from './connect/interaction'
+import type { EdgeProjection } from './projection'
 
 type EdgeInputRuntimeDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    edge: {
-      preview: Pick<EdgePreview, 'patch' | 'hint' | 'writePatch' | 'writeRoute'>
+    projections: {
+      overlay: {
+        edge: Pick<EdgeProjection, 'patch' | 'hint' | 'writePatch' | 'writeRoute'>
+      }
     }
     snap: Pick<SnapRuntime, 'edge'>
   }
@@ -57,7 +55,7 @@ type PointerSourceEvent = Pick<
   | 'target'
 >
 
-type EdgeRoutePick = Extract<PointerStart['pick'], {
+type EdgeRoutePick = Extract<PointerDown['pick'], {
   kind: 'edge'
 }> & {
   part: 'path'
@@ -92,9 +90,8 @@ type EdgePatchSession<Active> = {
 }
 
 export type EdgeInputRuntime = {
-  down: (input: PointerStart) => boolean
-  pointerMove: (event: PointerEvent) => void
-  pointerLeave: () => void
+  startBody: (input: PointerDown) => boolean
+  startRoute: (input: PointerDown) => boolean
   cancel: () => void
 }
 
@@ -109,7 +106,7 @@ const readCaptureTarget = (
 )
 
 const isEdgeRoutePick = (
-  pick: PointerStart['pick']
+  pick: PointerDown['pick']
 ): pick is EdgeRoutePick => (
   pick.kind === 'edge'
   && pick.part === 'path'
@@ -133,7 +130,7 @@ const createEdgePatchSession = <Active,>(
   const clear = () => {
     active = null
     session = null
-    editor.internals.edge.preview.patch.clear()
+    editor.internals.projections.overlay.edge.patch.clear()
   }
 
   const cancel = () => {
@@ -206,42 +203,8 @@ const createEdgePatchSession = <Active,>(
 
 export const createEdgeInputRuntime = (
   editor: EdgeInputRuntimeDeps,
-  connect: Pick<EdgeConnectSession, 'cancel' | 'reconnect'>
+  connect: Pick<EdgeConnectInteraction, 'cancel'>
 ): EdgeInputRuntime => {
-  let hoverPoint: Point | null = null
-
-  const clearHint = () => {
-    editor.internals.edge.preview.hint.clear()
-  }
-
-  const hoverTask = createRafTask(() => {
-    if (!editor.read.tool.is('edge')) {
-      clearHint()
-      return
-    }
-
-    const mode = editor.interaction.mode.get()
-    if (mode === 'edge-connect') {
-      return
-    }
-    if (mode !== 'idle') {
-      clearHint()
-      return
-    }
-
-    if (!hoverPoint) {
-      clearHint()
-      return
-    }
-
-    const target = editor.internals.snap.edge.connect(hoverPoint)
-    editor.internals.edge.preview.hint.set(
-      target
-        ? { snap: target.pointWorld }
-        : undefined
-    )
-  })
-
   const readMovePatch = (
     edgeId: EdgeId,
     delta: Point
@@ -259,11 +222,11 @@ export const createEdgeInputRuntime = (
     patch: EdgePatch | undefined
   ) => {
     if (!patch) {
-      editor.internals.edge.preview.patch.clear()
+      editor.internals.projections.overlay.edge.patch.clear()
       return
     }
 
-    editor.internals.edge.preview.writePatch(edgeId, patch)
+    editor.internals.projections.overlay.edge.writePatch(edgeId, patch)
   }
 
   const readRouteView = (
@@ -337,7 +300,7 @@ export const createEdgeInputRuntime = (
     points: readonly Point[],
     activeRouteIndex?: number
   ) => {
-    editor.internals.edge.preview.writeRoute(
+    editor.internals.projections.overlay.edge.writeRoute(
       edgeId,
       points,
       activeRouteIndex
@@ -461,7 +424,7 @@ export const createEdgeInputRuntime = (
   }
 
   const startEdgeBodyDown = (
-    input: PointerStart
+    input: PointerDown
   ) => {
     const { event } = input
     if (input.pick.kind !== 'edge' || input.pick.part !== 'body') {
@@ -503,7 +466,7 @@ export const createEdgeInputRuntime = (
   }
 
   const startEdgeRouteDown = (
-    input: PointerStart
+    input: PointerDown
   ) => {
     const { event } = input
     if (input.pick.kind !== 'edge' || !isEdgeRoutePick(input.pick)) {
@@ -554,7 +517,7 @@ export const createEdgeInputRuntime = (
   }
 
   return {
-    down: (input) => {
+    startBody: (input) => {
       if (
         dragSession.isActive()
         || routeSession.isActive()
@@ -562,38 +525,31 @@ export const createEdgeInputRuntime = (
         return false
       }
 
-      if (!isEdgeInteractionStart(input)) {
+      if (input.pick.kind !== 'edge' || input.pick.part !== 'body') {
         return false
       }
 
-      hoverTask.cancel()
-      hoverPoint = null
-      clearHint()
-
-      return (
-        startEdgeBodyDown(input)
-        || connect.reconnect(input)
-        || startEdgeRouteDown(input)
-      )
+      return startEdgeBodyDown(input)
     },
-    pointerMove: (event) => {
-      hoverPoint = editor.viewport.pointer(event).world
-      hoverTask.schedule()
-    },
-    pointerLeave: () => {
-      hoverTask.cancel()
-      hoverPoint = null
-      if (editor.interaction.mode.get() !== 'edge-connect') {
-        clearHint()
+    startRoute: (input) => {
+      if (
+        dragSession.isActive()
+        || routeSession.isActive()
+      ) {
+        return false
       }
+
+      if (!isEdgeRoutePick(input.pick)) {
+        return false
+      }
+
+      return startEdgeRouteDown(input)
     },
     cancel: () => {
-      hoverTask.cancel()
-      hoverPoint = null
       dragSession.cancel()
       routeSession.cancel()
       connect.cancel()
-      clearHint()
+      editor.internals.projections.overlay.edge.hint.clear()
     }
   }
 }

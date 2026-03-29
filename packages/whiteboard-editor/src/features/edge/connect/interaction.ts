@@ -8,17 +8,13 @@ import type {
   EdgeType,
   NodeId
 } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../runtime/editor/types'
-import type { SnapRuntime } from '../../runtime/interaction'
+import type { EditorRuntime } from '../../../runtime/editor/types'
+import type { SnapRuntime } from '../../../runtime/interaction'
 import type {
-  PointerStart
-} from '../../runtime/input/pointer'
-import {
-  isEdgeCreateInteractionStart,
-  isEdgeInteractionStart
-} from './interactionStart'
-import { readEdgeType } from '../../runtime/tool'
-import type { ViewportPointer } from '../../runtime/viewport'
+  PointerDown
+} from '../../../runtime/input/pointer'
+import { readEdgeType } from '../../../runtime/tool'
+import type { ViewportPointer } from '../../../runtime/viewport'
 import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
   resolveReconnectDraftEnd,
@@ -30,36 +26,38 @@ import {
   toEdgeConnectPatch,
   toEdgeDraftEnd,
   type EdgeConnectState
-} from './connect'
+} from '../connect'
 import {
-  writeEdgePreviewPatch,
-  type EdgePreview
-} from './preview'
+  writeEdgeProjectionPatch,
+  type EdgeProjection
+} from '../projection'
 
 type ConnectPointer = ViewportPointer & {
   pointerId: number
 }
 
-export type EdgeConnectSession = {
-  create: (input: PointerStart) => boolean
-  reconnect: (input: PointerStart) => boolean
+export type EdgeConnectInteraction = {
+  startCreate: (input: PointerDown) => boolean
+  startReconnect: (input: PointerDown) => boolean
   cancel: () => void
 }
 
-type EdgeConnectSessionDeps = Pick<
+type EdgeConnectInteractionDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    edge: {
-      preview: Pick<EdgePreview, 'patch' | 'hint' | 'clear'>
+    projections: {
+      overlay: {
+        edge: Pick<EdgeProjection, 'patch' | 'hint' | 'clear'>
+      }
     }
     snap: Pick<SnapRuntime, 'edge'>
   }
 }
 
 type ConnectNodeEntry = NonNullable<
-  ReturnType<EdgeConnectSessionDeps['read']['index']['node']['get']>
+  ReturnType<EdgeConnectInteractionDeps['read']['index']['node']['get']>
 >
 
 const readCaptureTarget = (
@@ -72,9 +70,9 @@ const readCaptureTarget = (
       : null
 )
 
-export const createEdgeConnectSession = (
-  editor: EdgeConnectSessionDeps
-): EdgeConnectSession => {
+export const createEdgeConnectInteraction = (
+  editor: EdgeConnectInteractionDeps
+): EdgeConnectInteraction => {
   let active: EdgeConnectState | null = null
   let session: ReturnType<typeof editor.interaction.start> = null
 
@@ -86,7 +84,7 @@ export const createEdgeConnectSession = (
   })
 
   const clearPatch = () => {
-    editor.internals.edge.preview.patch.clear()
+    editor.internals.projections.overlay.edge.patch.clear()
   }
 
   const readConnectNode = (
@@ -101,7 +99,7 @@ export const createEdgeConnectSession = (
   }
 
   const readCreateState = (
-    input: PointerStart,
+    input: PointerDown,
     pointer: ConnectPointer,
     edgeType: EdgeType
   ): EdgeConnectState => {
@@ -231,7 +229,7 @@ export const createEdgeConnectSession = (
   }
 
   const writeStateHint = (state: EdgeConnectState) => {
-    editor.internals.edge.preview.hint.set(toEdgeConnectHint(state))
+    editor.internals.projections.overlay.edge.hint.set(toEdgeConnectHint(state))
   }
 
   const writeStatePatch = (state: EdgeConnectState) => {
@@ -246,8 +244,8 @@ export const createEdgeConnectSession = (
       return
     }
 
-    writeEdgePreviewPatch(
-      editor.internals.edge.preview,
+    writeEdgeProjectionPatch(
+      editor.internals.projections.overlay.edge,
       state.edgeId,
       patch
     )
@@ -276,7 +274,7 @@ export const createEdgeConnectSession = (
   const clear = () => {
     active = null
     session = null
-    editor.internals.edge.preview.clear()
+    editor.internals.projections.overlay.edge.clear()
   }
 
   const startConnectSession = (
@@ -331,12 +329,12 @@ export const createEdgeConnectSession = (
   }
 
   return {
-    create: (input) => {
+    startCreate: (input) => {
       if (active) {
         return false
       }
 
-      if (!isEdgeCreateInteractionStart(input)) {
+      if (input.tool.type !== 'edge') {
         return false
       }
 
@@ -349,12 +347,8 @@ export const createEdgeConnectSession = (
 
       return startConnectSession(input.event, state, input.capture)
     },
-    reconnect: (input) => {
+    startReconnect: (input) => {
       if (active) {
-        return false
-      }
-
-      if (!isEdgeInteractionStart(input)) {
         return false
       }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { Pick } from '@whiteboard/editor/runtime/pick/index'
+import type { Pick } from '@whiteboard/editor'
 import { useEditorRuntime } from './useEditor'
 
 const toPickKey = (
@@ -59,7 +59,7 @@ export const usePickRef = (
     elementRef.current = element
 
     if (element) {
-      releaseRef.current = editor.host.pick.bind(element, pick)
+      releaseRef.current = editor.pick.bind(element, pick)
     }
   }, [editor, key])
 
@@ -70,7 +70,7 @@ export const usePickRef = (
     }
 
     releaseRef.current?.()
-    releaseRef.current = editor.host.pick.bind(element, pick)
+    releaseRef.current = editor.pick.bind(element, pick)
 
     return () => {
       releaseRef.current?.()

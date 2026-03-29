@@ -6,7 +6,7 @@ import {
 
 export const DrawLayer = () => {
   const editor = useEditorRuntime()
-  const preview = useStoreValue(editor.host.draw.preview)
+  const preview = useStoreValue(editor.projection.draw)
 
   return <DrawPreview preview={preview} />
 }

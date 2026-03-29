@@ -5,32 +5,35 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../runtime/editor/types'
-import type { PointerStart } from '../../runtime/input/pointer'
-import type { MindmapDragState } from './session/drag'
-import {
-  isMindmapInteractionStart
-} from './interactionStart'
+import type { EditorRuntime } from '../../../runtime/editor/types'
+import type { PointerDown } from '../../../runtime/input/pointer'
+import type { MindmapDragProjection } from './projection'
 import {
   moveMindmapByDrop,
   moveMindmapRoot
-} from './commands'
+} from '../commands'
 
 type ActiveMindmapDragSession = MindmapDragSession
 
-export type MindmapDragController = {
-  down: (input: PointerStart) => boolean
+export type MindmapDragInteraction = {
+  start: (input: PointerDown) => boolean
   cancel: () => void
 }
 
-type MindmapDragSessionDeps = Pick<
+type MindmapDragInteractionDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'mindmapDrag'>
+  internals: {
+    projections: {
+      overlay: Pick<EditorRuntime['internals']['projections']['overlay'], 'mindmapDrag'>
+    }
+  }
 }
 
-const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
+const toMindmapDragProjection = (
+  session: MindmapDragSession
+): MindmapDragProjection => {
   if (session.kind === 'root') {
     return {
       treeId: session.treeId,
@@ -51,19 +54,19 @@ const toMindmapDragState = (session: MindmapDragSession): MindmapDragState => {
   }
 }
 
-export const createMindmapDragSession = (
-  editor: MindmapDragSessionDeps
-): MindmapDragController => {
+export const createMindmapDragInteraction = (
+  editor: MindmapDragInteractionDeps
+): MindmapDragInteraction => {
   let active: ActiveMindmapDragSession | null = null
   let session: ReturnType<typeof editor.interaction.start> = null
 
   const clear = () => {
     active = null
     session = null
-    editor.internals.mindmapDrag.clear()
+    editor.internals.projections.overlay.mindmapDrag.clear()
   }
 
-  const updatePreview = (
+  const updateProjection = (
     input: {
       clientX: number
       clientY: number
@@ -85,7 +88,9 @@ export const createMindmapDragSession = (
     active = {
       ...next
     }
-    editor.internals.mindmapDrag.write(toMindmapDragState(next))
+    editor.internals.projections.overlay.mindmapDrag.write(
+      toMindmapDragProjection(next)
+    )
   }
 
   const start = (
@@ -105,7 +110,7 @@ export const createMindmapDragSession = (
       capture,
       pan: {
         frame: (pointer) => {
-          updatePreview(pointer)
+          updateProjection(pointer)
         }
       },
       cleanup: clear,
@@ -115,7 +120,7 @@ export const createMindmapDragSession = (
         }
 
         interactionSession.pan(moveEvent)
-        updatePreview(moveEvent)
+        updateProjection(moveEvent)
       },
       up: (_event, interactionSession) => {
         if (!active) {
@@ -196,19 +201,21 @@ export const createMindmapDragSession = (
       ...next
     }
     session = nextSession
-    editor.internals.mindmapDrag.write(toMindmapDragState(next))
+    editor.internals.projections.overlay.mindmapDrag.write(
+      toMindmapDragProjection(next)
+    )
     event.preventDefault()
     event.stopPropagation()
     return true
   }
 
   return {
-    down: (input) => {
+    start: (input) => {
       if (active) {
         return false
       }
 
-      if (!isMindmapInteractionStart(input)) {
+      if (input.pick.kind !== 'mindmap') {
         return false
       }
 

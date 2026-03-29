@@ -11,7 +11,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
-import type { PointerStart } from '../input/pointer'
+import type { PointerDown } from '../input/pointer'
 import type {
   SelectionDragAction,
   SelectionPressPlan,
@@ -19,7 +19,6 @@ import type {
   SelectionTarget,
   SelectionTapAction
 } from '../../types/internal/selection'
-import { toSelectionTarget } from './state'
 
 type ModifierEventLike = {
   altKey: boolean
@@ -49,8 +48,6 @@ type SelectionPressTarget =
       kind: 'group-shell'
       nodeId: NodeId
     }
-
-const EMPTY_SELECTION = toSelectionTarget({})
 
 const resolveSelectionMode = (
   modifiers: ModifierEventLike
@@ -175,7 +172,7 @@ const resolvePressNodeId = (
 const readPressNodeTarget = (
   deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
   input: {
-    pick: PointerStart['pick']
+    pick: PointerDown['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -195,7 +192,7 @@ const readPressNodeTarget = (
 const readSelectionPressTarget = (
   deps: PolicyDeps,
   input: {
-    pick: PointerStart['pick']
+    pick: PointerDown['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -425,7 +422,7 @@ const planGroupShellPress = (
 export const resolveSelectionPressPlan = (
   deps: PolicyDeps,
   input: {
-    start: PointerStart
+    start: PointerDown
     snapshot: SelectionSnapshot
   }
 ): SelectionPressPlan | undefined => {

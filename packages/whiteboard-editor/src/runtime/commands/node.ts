@@ -16,9 +16,9 @@ import {
   measureTextNodeSize
 } from '../../features/node/text'
 import type {
-  NodeFeatureRuntime,
+  NodeProjectionRuntime,
   NodePatch
-} from '../../features/node/session/node'
+} from '../../features/node/projection/store'
 import type { Editor } from '../editor/types'
 
 const mergeNodeUpdates = (
@@ -97,11 +97,11 @@ const mergeTextPreviewPatch = (
 }
 
 const writeTextPreview = (
-  runtime: NodeFeatureRuntime,
+  runtime: NodeProjectionRuntime,
   nodeId: NodeId,
   size?: Size
 ) => {
-  const current = runtime.session.get(nodeId).patch
+  const current = runtime.store.get(nodeId).patch
   const next = mergeTextPreviewPatch(current, size)
 
   if (isSameSize(current?.size, next?.size)) {
@@ -113,14 +113,14 @@ const writeTextPreview = (
   } else {
     runtime.patch.clear(nodeId)
   }
-  runtime.session.flush()
+  runtime.store.flush()
 }
 
 const clearTextPreview = (
-  runtime: NodeFeatureRuntime,
+  runtime: NodeProjectionRuntime,
   nodeId: NodeId
 ) => {
-  const current = runtime.session.get(nodeId).patch
+  const current = runtime.store.get(nodeId).patch
   if (!current?.size) {
     return
   }
@@ -131,7 +131,7 @@ const clearTextPreview = (
   } else {
     runtime.patch.clear(nodeId)
   }
-  runtime.session.flush()
+  runtime.store.flush()
 }
 
 const resolveTextCommitSize = ({
@@ -143,7 +143,7 @@ const resolveTextCommitSize = ({
   measuredSize
 }: {
   read: Editor['read']
-  runtime: NodeFeatureRuntime
+  runtime: NodeProjectionRuntime
   nodeId: NodeId
   value: string
   source?: HTMLElement
@@ -154,12 +154,12 @@ const resolveTextCommitSize = ({
   }
 
   if (!source) {
-    return runtime.session.get(nodeId).patch?.size
+    return runtime.store.get(nodeId).patch?.size
   }
 
   const item = read.node.item.get(nodeId)
   if (!item) {
-    return runtime.session.get(nodeId).patch?.size
+    return runtime.store.get(nodeId).patch?.size
   }
 
   return measureTextNodeSize({
@@ -168,7 +168,7 @@ const resolveTextCommitSize = ({
     placeholder: TEXT_PLACEHOLDER,
     source,
     width: item.rect.width
-  }) ?? runtime.session.get(nodeId).patch?.size
+  }) ?? runtime.store.get(nodeId).patch?.size
 }
 
 const resolveFontSizeMeasure = ({
@@ -216,7 +216,7 @@ export const createNodeCommands = ({
 }: {
   engine: EngineInstance
   read: Editor['read']
-  runtime: NodeFeatureRuntime
+  runtime: NodeProjectionRuntime
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
 }): Editor['commands']['node'] => {

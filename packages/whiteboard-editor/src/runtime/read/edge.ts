@@ -16,8 +16,8 @@ import {
 } from '@whiteboard/engine'
 import {
   projectEdgeItem,
-  type EdgePatchReader
-} from '../../features/edge/preview'
+  type EdgeProjectionPatchReader
+} from '../../features/edge/projection'
 
 type RuntimeEdgeView = CoreEdgeView & {
   edge: EdgeItem['edge']
@@ -71,7 +71,7 @@ export const createEdgeRead = ({
 }: {
   read: Pick<EngineRead, 'edge'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  patch: EdgePatchReader
+  patch: EdgeProjectionPatchReader
 }): {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>

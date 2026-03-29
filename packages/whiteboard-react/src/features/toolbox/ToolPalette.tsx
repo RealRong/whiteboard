@@ -127,7 +127,7 @@ export const ToolPalette = ({
   const buttonRefByKey = useRef<Partial<Record<ToolPaletteMenuKey, HTMLButtonElement | null>>>({})
   const [openMenu, setOpenMenu] = useState<ToolPaletteMenuKey | null>(null)
   const [drawPanelOpen, setDrawPanelOpen] = useState(false)
-  const drawState = useStoreValue(editor.state.draw)
+  const drawState = useStoreValue(editor.read.draw.preferences)
   const palette = readToolPaletteView({
     tool,
     drawState,

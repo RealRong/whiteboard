@@ -65,6 +65,11 @@ export const useWhiteboardRuntime = ({
         minZoom: resolvedConfig.viewport.minZoom,
         maxZoom: resolvedConfig.viewport.maxZoom
       },
+      inputPolicy: {
+        panEnabled: resolvedConfig.viewport.enablePan,
+        wheelEnabled: resolvedConfig.viewport.enableWheel,
+        wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
+      },
       registry: nodeRegistry ?? createDefaultNodeRegistry()
     })
   }

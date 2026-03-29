@@ -14,20 +14,17 @@ import {
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { PointerStart } from '../../../runtime/input/pointer'
+import type { PointerDown } from '../../../runtime/input/pointer'
 import type { EditorRuntime } from '../../../runtime/editor/types'
 import type { SnapRuntime } from '../../../runtime/interaction'
 import {
   type SelectionSnapshot
 } from '../../../runtime/selection'
 import {
-  isTransformInteractionStart
-} from './transformStart'
-import {
-  clearNodeSessionPreview,
-  writeNodeSessionPreview,
-  type NodeFeatureRuntime
-} from './node'
+  clearNodeProjectionPreview,
+  writeNodeProjectionPreview,
+  type NodeProjectionRuntime
+} from '../projection/store'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -100,17 +97,21 @@ const resolveSelectionBoxView = (
   }
 }
 
-export type NodeTransformSession = {
+export type NodeTransformInteraction = {
   cancel: () => void
-  down: (input: PointerStart) => boolean
+  start: (input: PointerDown) => boolean
 }
 
-type TransformSessionDeps = Pick<
+type NodeTransformInteractionDeps = Pick<
   EditorRuntime,
   'commands' | 'interaction' | 'read' | 'viewport'
 > & {
   internals: {
-    node: Pick<NodeFeatureRuntime, 'session'>
+    projections: {
+      model: {
+        node: Pick<NodeProjectionRuntime, 'store'>
+      }
+    }
     snap: Pick<SnapRuntime, 'node'>
   }
 }
@@ -189,23 +190,23 @@ const toPatch = (
   return patch
 }
 
-export const createTransformSession = (
-  editor: TransformSessionDeps
-): NodeTransformSession => {
+export const createNodeTransformInteraction = (
+  editor: NodeTransformInteractionDeps
+): NodeTransformInteraction => {
   let active: ActiveTransform | null = null
   let session: ReturnType<typeof editor.interaction.start> = null
 
   const clear = () => {
     active = null
     session = null
-    clearNodeSessionPreview(editor.internals.node.session)
+    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
     editor.internals.snap.node.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    writeNodeSessionPreview(editor.internals.node.session, {
+    writeNodeProjectionPreview(editor.internals.projections.model.node.store, {
       patches
     })
   }
@@ -382,7 +383,7 @@ export const createTransformSession = (
 
     active = next
     session = nextSession
-    clearNodeSessionPreview(editor.internals.node.session)
+    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
     editor.internals.snap.node.clear()
     event.preventDefault()
     event.stopPropagation()
@@ -499,20 +500,20 @@ export const createTransformSession = (
       }
       clear()
     },
-    down: (
-      input: PointerStart
+    start: (
+      input: PointerDown
     ) => {
       if (!canStart()) {
         return false
       }
 
-      if (!isTransformInteractionStart(input)) {
-        return false
-      }
-
       const { event, pick } = input
 
-      if (pick.kind === 'node') {
+      if (
+        pick.kind === 'node'
+        && pick.part === 'transform'
+        && pick.handle
+      ) {
         const next = createNodeActive(pick.id, pick.handle, event)
         if (!next) {
           return false
@@ -521,7 +522,11 @@ export const createTransformSession = (
         return start(next, event, input.capture)
       }
 
-      if (pick.kind === 'selection-box') {
+      if (
+        pick.kind === 'selection-box'
+        && pick.part === 'transform'
+        && pick.handle
+      ) {
         const next = createSelectionActive(pick.handle, event)
         if (!next) {
           return false

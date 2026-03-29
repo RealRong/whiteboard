@@ -8,14 +8,14 @@ import {
 import {
   useEdit,
   useEditor,
-  useEditorRuntime,
+  useInteraction,
   useTool
 } from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
-type InteractionMode = ReturnType<Editor['host']['interaction']['mode']['get']>
+type InteractionMode = ReturnType<Editor['interaction']['state']['get']>['mode']
 type BaseSelection = ReturnType<Editor['read']['selection']['get']>
 type Tool = ReturnType<Editor['state']['tool']['get']>
 
@@ -181,22 +181,20 @@ export const useSelection = () => {
 }
 
 export const useSelectionPresentation = () => {
-  const editor = useEditorRuntime()
   const selection = useSelection()
   const tool = useTool()
   const edit = useEdit()
-  const mode = useStoreValue(editor.host.interaction.mode)
-  const interaction = useStoreValue(editor.state.interaction)
+  const interaction = useInteraction()
 
   return useMemo(() => {
     const chrome = resolveSelectionChrome({
       tool,
       edit,
       selection,
-      mode,
+      mode: interaction.mode,
       chrome: interaction.chrome
     })
 
     return resolveSelectionPresentation(selection, chrome)
-  }, [edit, interaction.chrome, mode, selection, tool])
+  }, [edit, interaction.chrome, interaction.mode, selection, tool])
 }

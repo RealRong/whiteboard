@@ -1,8 +1,9 @@
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
-import type { NodeFeatureRuntime } from '../../features/node/session/node'
-import type { EdgePreview } from '../../features/edge/preview'
+import type { DrawPreferences } from '../../types/public/draw'
+import type { NodeProjectionRuntime } from '../../features/node/projection/store'
+import type { EdgeProjection } from '../../features/edge/projection'
 import type { SelectionTarget } from '../selection'
 import type { Tool } from '../tool'
 import type { FrameScope } from '../frame'
@@ -46,6 +47,9 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
     selection: ReadStore<SelectionMenuView | null>
   }
   frame: ReturnType<typeof createFrameRead>
+  draw: {
+    preferences: ReadStore<DrawPreferences>
+  }
 }
 
 export type RuntimeBaseRead = Omit<RuntimeRead, 'context'> & {
@@ -57,6 +61,7 @@ export const createBaseRuntimeRead = ({
   registry,
   tool,
   history,
+  drawPreferences,
   selection,
   frame,
   contextMenu,
@@ -69,20 +74,21 @@ export const createBaseRuntimeRead = ({
   registry: NodeRegistry
   tool: ReadStore<Tool>
   history: ReadStore<HistoryState>
+  drawPreferences: ReadStore<DrawPreferences>
   selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
   contextMenu: ReadStore<ContextMenuView | null>
   pick: PickRuntime
   viewport: ViewportRead
-  node: Pick<NodeFeatureRuntime, 'session'>
-  edge: Pick<EdgePreview, 'patch'>
+  node: Pick<NodeProjectionRuntime, 'store'>
+  edge: Pick<EdgeProjection, 'patch'>
 }): RuntimeBaseRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
-    session: node.session
+    projection: node.store
   })
   const nodeInteraction = createNodeInteractionRead({
-    session: node.session
+    projection: node.store
   })
   const edgeRead = createEdgeRead({
     read: engineRead,
@@ -137,7 +143,10 @@ export const createBaseRuntimeRead = ({
     slice: engineRead.slice,
     pick: pickRead,
     index: engineRead.index,
-    tool: toolRead
+    tool: toolRead,
+    draw: {
+      preferences: drawPreferences
+    }
   }
 }
 

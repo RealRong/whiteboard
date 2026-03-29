@@ -34,17 +34,11 @@ export const Surface = ({
   const editor = useEditorRuntime()
   const viewport = useStoreValue(editor.viewport)
   const tool = useTool()
-  const inputPolicy = useMemo(
+  const viewportInput = useMemo(
     () => ({
-      panEnabled: resolvedConfig.viewport.enablePan,
-      wheelEnabled: resolvedConfig.viewport.enableWheel,
-      wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
+      wheelEnabled: resolvedConfig.viewport.enableWheel
     }),
-    [
-      resolvedConfig.viewport.enablePan,
-      resolvedConfig.viewport.enableWheel,
-      resolvedConfig.viewport.wheelSensitivity
-    ]
+    [resolvedConfig.viewport.enableWheel]
   )
   const transformStyle = useMemo(
     () => ({
@@ -65,7 +59,7 @@ export const Surface = ({
   useBindViewportInput({
     editor,
     containerRef,
-    options: inputPolicy
+    options: viewportInput
   })
   usePointer({
     containerRef

@@ -2,18 +2,11 @@ import { useEffect, type RefObject } from 'react'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import { createRafTask } from '../utils/rafTask'
 
-type ContainerRect = Parameters<Editor['host']['viewport']['setRect']>[0]
-type WheelInput = Parameters<Editor['host']['viewport']['input']['wheel']>[0]
+type ContainerRect = Parameters<Editor['viewport']['setRect']>[0]
+type WheelInput = Parameters<Editor['viewport']['input']['wheel']>[0]
 
 type ViewportInputOptions = {
-  panEnabled: boolean
   wheelEnabled: boolean
-  wheelSensitivity: number
-}
-
-type PanState = {
-  lastX: number
-  lastY: number
 }
 
 const isTextInputElement = (target: EventTarget | null) => {
@@ -38,9 +31,6 @@ const isTextInputElement = (target: EventTarget | null) => {
     || type === 'week'
   )
 }
-
-const isIgnoredPointerTarget = (target: EventTarget | null) =>
-  target instanceof Element && Boolean(target.closest('[data-input-ignore]'))
 
 const readContainerRect = (
   element: HTMLDivElement
@@ -68,25 +58,14 @@ export const useBindViewportInput = ({
     if (!element) {
       return
     }
-    const viewport = editor.host.viewport
-    const interaction = editor.host.interaction
-
-    let pan: PanState | null = null
-    let panSession: ReturnType<typeof interaction.start> = null
+    const viewport = editor.viewport
     let pendingWheelInput: WheelInput | null = null
-
-    const isViewportInputBlocked = () => interaction.busy.get()
 
     const refreshContainerRect = () => {
       viewport.setRect(readContainerRect(element))
     }
 
     refreshContainerRect()
-
-    const clearPan = () => {
-      pan = null
-      panSession = null
-    }
 
     const clearWheelFrame = () => {
       pendingWheelInput = null
@@ -103,12 +82,9 @@ export const useBindViewportInput = ({
       if (!options.wheelEnabled) {
         return
       }
-      if (isViewportInputBlocked()) {
-        return
-      }
 
       refreshContainerRect()
-      viewport.input.wheel(input, options.wheelSensitivity)
+      editor.input.wheel(input)
     }
     const wheelTask = createRafTask(flushWheel)
 
@@ -131,15 +107,6 @@ export const useBindViewportInput = ({
       if (!options.wheelEnabled) return
       if (isTextInputElement(event.target)) return
 
-      if (isViewportInputBlocked()) {
-        clearWheelFrame()
-        if (event.cancelable) {
-          event.preventDefault()
-        }
-        event.stopPropagation()
-        return
-      }
-
       refreshContainerRect()
       scheduleWheel({
         deltaX: event.deltaX,
@@ -149,70 +116,6 @@ export const useBindViewportInput = ({
         clientX: event.clientX,
         clientY: event.clientY
       })
-
-      if (event.cancelable) {
-        event.preventDefault()
-      }
-      event.stopPropagation()
-    }
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (!options.panEnabled) return
-      if (isIgnoredPointerTarget(event.target)) return
-
-      const middleDrag = event.button === 1 || (event.buttons & 4) === 4
-      const leftDrag =
-        (event.button === 0 || (event.buttons & 1) === 1)
-        && (interaction.space.get() || editor.read.tool.is('hand'))
-      if (!middleDrag && !leftDrag) return
-
-      const nextSession = interaction.start({
-        mode: 'viewport-pan',
-        pointerId: event.pointerId,
-        capture: element,
-        cleanup: clearPan,
-        move: (event) => {
-          if (!pan) {
-            return
-          }
-
-          const deltaX = event.clientX - pan.lastX
-          const deltaY = event.clientY - pan.lastY
-          if (deltaX === 0 && deltaY === 0) {
-            return
-          }
-
-          pan.lastX = event.clientX
-          pan.lastY = event.clientY
-          viewport.input.panScreenBy({
-            x: -deltaX,
-            y: -deltaY
-          })
-
-          if (event.cancelable) {
-            event.preventDefault()
-          }
-        },
-        up: (event, session) => {
-          if (!pan) {
-            return
-          }
-
-          session.finish()
-          if (event.cancelable) {
-            event.preventDefault()
-          }
-        }
-      })
-      if (!nextSession) return
-
-      refreshContainerRect()
-      clearWheelFrame()
-      panSession = nextSession
-      pan = {
-        lastX: event.clientX,
-        lastY: event.clientY
-      }
 
       if (event.cancelable) {
         event.preventDefault()
@@ -235,19 +138,16 @@ export const useBindViewportInput = ({
     }
 
     element.addEventListener('wheel', onWheel, { passive: false })
-    element.addEventListener('pointerdown', onPointerDown, true)
     if (typeof window !== 'undefined') {
       window.addEventListener('blur', onBlur)
     }
 
     return () => {
       element.removeEventListener('wheel', onWheel)
-      element.removeEventListener('pointerdown', onPointerDown, true)
       if (typeof window !== 'undefined') {
         window.removeEventListener('blur', onBlur)
       }
       observer?.disconnect()
-      panSession?.cancel()
       clearWheelFrame()
     }
   }, [containerRef, editor, options])

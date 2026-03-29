@@ -8,7 +8,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
 import type { EditField } from '../../runtime/edit'
-import type { PointerStart } from '../../runtime/input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
 
 export type SelectionInput = {
   nodeIds?: readonly NodeId[]
@@ -98,6 +98,6 @@ export type SelectionPressPlan = {
 }
 
 export type SelectionPolicyInput = {
-  start: PointerStart
+  start: PointerDown
   snapshot: SelectionSnapshot
 }

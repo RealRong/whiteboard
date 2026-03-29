@@ -2,17 +2,16 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import type { Point } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
 import type { DrawInputRuntime } from '../../features/draw/input'
-import type { EdgeConnectSession } from '../../features/edge/connectSession'
-import type { EdgePreview } from '../../features/edge/preview'
-import type { EdgeInputRuntime } from '../../features/edge/input'
-import type { MindmapDragController } from '../../features/mindmap/dragSession'
-import type { MindmapDragStore } from '../../features/mindmap/session/drag'
-import type { NodeFeatureRuntime } from '../../features/node/session/node'
-import type { NodeTransformSession } from '../../features/node/session/transform'
+import type { EdgeProjection } from '../../features/edge/projection'
+import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
+import type { NodeProjectionRuntime } from '../../features/node/projection/store'
 import type { MarqueeSession } from '../../features/selection/marquee'
-import type { SelectionGesture } from '../../features/selection/gesture'
 import type { DrawCommands, DrawPreferences } from '../public/draw'
-import type { Editor, EditorHostBridge } from '../public/editor'
+import type {
+  Editor,
+  EditorPlatformBridge,
+  EditorProjection
+} from '../public/editor'
 import type { Tool } from '../public/tool'
 import type { SelectionStore } from './selection'
 import type { NodeRegistry } from '../node'
@@ -24,10 +23,15 @@ import type { DocumentSelectionLock } from '../../runtime/host/selectionLock'
 import type { PointerContinuation } from '../../runtime/host/pointerContinuation'
 import type { PickRuntime } from '../../runtime/pick'
 import type { InteractionCoordinator } from '../../runtime/interaction'
+import type { InteractionRegistry } from '../../runtime/interaction/registry'
 import type { SnapRuntime } from '../../runtime/interaction/snap'
+import type { PassiveInputRuntime } from '../../runtime/input/passive'
 import type { ViewportRuntime } from '../../runtime/viewport/createViewport'
 import type { State as EditState } from '../../runtime/edit'
 import { createState as createFrameState } from '../../runtime/frame'
+import type { EditorFeatureCapsule } from '../runtime/editor/capsule'
+
+type EngineInstance = import('@whiteboard/engine').EngineInstance
 
 export type EditorPlatform = {
   clipboardRuntime: ClipboardRuntime
@@ -36,136 +40,96 @@ export type EditorPlatform = {
   pointerContinuation: PointerContinuation
 }
 
-export type EditorStores = {
+export type EditorBaseState = {
   tool: ValueStore<Tool>
-  history: ValueStore<HistoryState>
-  draw: {
-    store: ValueStore<DrawPreferences>
-    commands: DrawCommands
-  }
   edit: EditState
   frame: ReturnType<typeof createFrameState>
   selection: SelectionStore
 }
 
-export type EditorInternals = {
-  pick: PickRuntime
-  node: NodeFeatureRuntime
-  edge: {
-    preview: EdgePreview
-  }
-  mindmapDrag: MindmapDragStore
+export type DrawFeatureState = {
+  store: ValueStore<DrawPreferences>
+  commands: DrawCommands
 }
 
-export type EditorHost = {
-  registry: NodeRegistry
-  interaction: InteractionCoordinator
-  viewport: ViewportRuntime
-  pick: PickRuntime
-  snap: SnapRuntime
-  selection: {
-    marquee: MarqueeSession
-    gesture: SelectionGesture
-  }
-  draw: DrawInputRuntime
-  node: NodeFeatureRuntime & {
-    transform: NodeTransformSession
-  }
-  edge: {
-    preview: EdgePreview
-    connect: EdgeConnectSession
-    input: EdgeInputRuntime
-  }
-  mindmap: {
-    drag: MindmapDragStore
-    controller: MindmapDragController
-  }
+export type EditorInputPolicy = {
+  panEnabled: boolean
+  wheelEnabled: boolean
+  wheelSensitivity: number
 }
 
-export type EditorRuntime = Editor & {
-  engine: import('@whiteboard/engine').EngineInstance
-  host: EditorHost
+export type EditorRuntimeConfig = {
+  inputPolicy: ValueStore<EditorInputPolicy>
+}
+
+export type EditorKernel = {
+  document: {
+    engine: EngineInstance
+    registry: NodeRegistry
+    history: ValueStore<HistoryState>
+  }
   interaction: InteractionCoordinator
-  registry: NodeRegistry
-  internals: {
-    host: {
-      clipboard: {
-        runtime: ClipboardRuntime
-        port: ClipboardPort
-      }
-      selectionLock: DocumentSelectionLock
-      pointerContinuation: PointerContinuation
-    }
+  spatial: {
     viewport: ViewportRuntime
     pick: PickRuntime
     snap: SnapRuntime
-    selection: {
-      marquee: MarqueeSession
-      gesture: SelectionGesture
-    }
-    draw: DrawInputRuntime
-    node: NodeFeatureRuntime & {
-      transform: NodeTransformSession
-    }
-    edge: {
-      preview: EdgePreview
-      connect: EdgeConnectSession
-      input: EdgeInputRuntime
-    }
-    mindmapDrag: MindmapDragStore
-    mindmapDragController: MindmapDragController
   }
+  host: EditorPlatform
+  state: EditorBaseState
+  config: EditorRuntimeConfig
+}
+
+export type EditorProjectionGraph = {
+  model: {
+    node: NodeProjectionRuntime
+  }
+  overlay: {
+    marquee: Pick<MarqueeSession, 'rect' | 'match'>
+    draw: Pick<DrawInputRuntime['preview'], 'get' | 'subscribe'>
+    edge: EdgeProjection
+    mindmapDrag: MindmapDragProjectionStore
+    snap: SnapRuntime['node']['guides']
+  }
+}
+
+export type EditorInputInternals = {
+  interactions: InteractionRegistry
+  passive: PassiveInputRuntime
+  policy: ValueStore<EditorInputPolicy>
+}
+
+export type EditorViewportRuntime =
+  Editor['viewport'] & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>
+
+export type EditorRuntimeInternals = {
+  kernel: EditorKernel
+  projections: EditorProjectionGraph
+  capsules: readonly EditorFeatureCapsule[]
+  input: EditorInputInternals
+}
+
+export type EditorRuntime = Editor & {
+  interaction: InteractionCoordinator
+  registry: NodeRegistry
+  pick: PickRuntime
+  projection: EditorProjection
+  viewport: EditorViewportRuntime
+  internals: EditorRuntimeInternals
 }
 
 export type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
-export type EditorCommandDocumentRuntime = {
-  engine: import('@whiteboard/engine').EngineInstance
-  read: Editor['read']
-  state: Editor['state']
-  history: {
-    set: (value: HistoryState) => void
-  }
-  viewport: {
-    commands: import('../../runtime/viewport').ViewportCommands
-    read: Editor['viewport']
-  }
-}
-
-export type EditorCommandSelectionRuntime = {
-  edit: EditState['commands']
-  selection: SelectionStore
-  frame: ReturnType<typeof createFrameState>
-}
-
-export type EditorCommandToolRuntime = {
-  tool: {
-    get: () => Tool
-    set: (tool: Tool) => void
-  }
-}
-
-export type EditorCommandDrawRuntime = {
-  draw: EditorStores['draw']
-}
-
-export type EditorCommandNodeRuntime = {
-  runtime: NodeFeatureRuntime
-}
-
-export type EditorCommandClipboardRuntime = {
+export type EditorClipboardRuntime = {
   runtime: ClipboardRuntime
   port: ClipboardPort
   readPointerWorld: () => Point | undefined
 }
 
-export type EditorCommandRuntime = {
-  document: EditorCommandDocumentRuntime
-  selection: EditorCommandSelectionRuntime
-  tool: EditorCommandToolRuntime
-  draw: EditorCommandDrawRuntime
-  node: EditorCommandNodeRuntime
-  clipboard: EditorCommandClipboardRuntime
+export type {
+  DrawInputRuntime,
+  EdgeProjection,
+  MindmapDragProjectionStore,
+  NodeProjectionRuntime,
+  MarqueeSession,
+  EditorPlatformBridge
 }
-
-export type { EditorHostBridge }
