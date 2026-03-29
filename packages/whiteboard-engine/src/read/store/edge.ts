@@ -16,7 +16,7 @@ import {
   isSameRectWithRotationTuple
 } from '@whiteboard/core/utils'
 import { createValueStore } from '../../store'
-import type { ReadSnapshot } from './types'
+import type { ReadSnapshot } from '@engine-types/internal/read'
 import { createTrackedRead } from './tracked'
 
 type EdgeCacheEntry = {

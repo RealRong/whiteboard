@@ -6,6 +6,11 @@ import {
   type MindmapNodeId,
   type MindmapTree
 } from './types'
+import type {
+  MindmapConnectionLine,
+  MindmapInsertPlacement,
+  MindmapInsertPlan
+} from '../types/mindmap'
 import { layoutMindmap, layoutMindmapTidy } from './layout'
 import { getMindmapTreeFromNode } from './helpers'
 import {
@@ -20,33 +25,6 @@ import type {
   Size,
   SpatialNode
 } from '../types/core'
-
-export type MindmapLine = {
-  id: string
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-}
-
-export type MindmapInsertPlacement = 'left' | 'right' | 'up' | 'down'
-
-export type MindmapInsertPlan =
-  | {
-      mode: 'child'
-      parentId: MindmapNodeId
-      index?: number
-      side?: 'left' | 'right'
-    }
-  | {
-      mode: 'sibling'
-      nodeId: MindmapNodeId
-      position: 'before' | 'after'
-    }
-  | {
-      mode: 'towardRoot'
-      nodeId: MindmapNodeId
-    }
 
 const computeConnectionLine = (
   parent: { x: number; y: number; width: number; height: number },
@@ -331,8 +309,8 @@ export const createMindmapUpdateOps = ({
 export const buildMindmapLines = (
   tree: MindmapTree,
   computed: MindmapLayout
-): MindmapLine[] => {
-  const result: MindmapLine[] = []
+): MindmapConnectionLine[] => {
+  const result: MindmapConnectionLine[] = []
   Object.entries(tree.children).forEach(([parentId, childIds]) => {
     const parent = computed.node[parentId]
     if (!parent) return

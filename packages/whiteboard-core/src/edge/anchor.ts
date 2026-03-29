@@ -2,17 +2,9 @@ import type { EdgeAnchor, Node, Point, Rect } from '../types'
 import { isPointEqual } from '../geometry'
 import {
   getAutoNodeAnchor,
-  getNodeAnchorFromPoint,
-  type NodeOutlineAnchorOptions
+  getNodeAnchorFromPoint
 } from '../node/outline'
-
-export type AnchorSnapOptions = NodeOutlineAnchorOptions
-
-export type EdgeConnectTarget = {
-  nodeId: string
-  anchor?: EdgeAnchor
-  pointWorld?: Point
-}
+import type { AnchorSnapOptions, EdgeConnectTarget } from '../types/edge'
 
 export const isSameConnectTarget = (
   left?: EdgeConnectTarget,

@@ -1,5 +1,42 @@
 # Whiteboard 类型审计与收口清单
 
+## 0. 当前落地状态（2026-03-29）
+
+下面这些项已经完成落地，文档后面的“现状数据”和“建议清单”更多表示治理启动时的审计基线，不再代表当前代码状态。
+
+已完成的高价值收口包括：
+
+1. `whiteboard-collab`
+   - `src/types.ts` 已拆成固定目录 `src/types/*`
+   - `YjsSessionOptions` 已改为 `CreateYjsSessionOptions`
+   - `RemoteDocumentChange` 已降为 internal
+
+2. `whiteboard-engine`
+   - 已删除独立 `WriteOrigin`，统一复用 `core.Origin`
+   - 读层 internal 类型已收进 `src/types/internal/*`
+   - 投影层不再复制 `ResolvedEdgeEnd / EdgeEnds / MindmapLine`
+
+3. `whiteboard-editor`
+   - public/internal 类型已收进 `src/types/public/*` 和 `src/types/internal/*`
+   - context 里的 1:1 alias 噪音已删除
+
+4. `whiteboard-react`
+   - feature view model 和 runtime 类型已收进 `src/types/*`
+   - 多个纯噪音 alias / 单文件 export 已删除
+
+5. `whiteboard-core`
+   - 已新增固定类型入口：
+   - `packages/whiteboard-core/src/types/edge.ts`
+   - `packages/whiteboard-core/src/types/document.ts`
+   - `packages/whiteboard-core/src/types/kernel.ts`
+   - `packages/whiteboard-core/src/types/mindmap.ts`
+   - `edge` 域公共类型已从实现文件迁到固定类型目录
+   - `document` 的 slice 公共类型已从 `document/slice.ts` 收回固定类型目录
+   - `kernel` 的 history / reduce 公共类型已从 `kernel/history.ts`、`kernel/types.ts` 收回固定类型目录
+   - `MindmapAttachPayload` 已改名为 `MindmapInsertPayload`
+   - `MindmapLine` 已改名为 `MindmapConnectionLine`
+   - `engine` 已直接复用 core 的 edge / mindmap 投影类型，不再保留平行复制
+
 ## 1. 结论
 
 当前仓库的类型问题，核心不是“没有类型目录”，而是下面四件事同时存在：

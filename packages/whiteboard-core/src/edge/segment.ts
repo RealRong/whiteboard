@@ -1,6 +1,6 @@
 import type { Point } from '../types'
 import { distancePointToSegment } from '../geometry'
-import type { EdgePathSegment } from './types'
+import type { EdgePathSegment } from '../types/edge'
 
 export const getNearestEdgeInsertIndex = (
   pointWorld: Point,

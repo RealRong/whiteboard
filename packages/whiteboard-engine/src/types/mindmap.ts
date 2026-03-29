@@ -1,8 +1,8 @@
 import type {
-  MindmapAttachPayload,
   MindmapCloneSubtreeInput as CoreMindmapCloneSubtreeInput,
   MindmapCommandOptions,
   MindmapId,
+  MindmapInsertPayload,
   MindmapNodeData,
   MindmapNodeId,
   MindmapMoveSubtreeInput as CoreMindmapMoveSubtreeInput,
@@ -24,20 +24,20 @@ export type MindmapInsertOptions =
   | {
       kind: 'child'
       parentId: MindmapNodeId
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
       options?: MindmapCommandOptions
     }
   | {
       kind: 'sibling'
       nodeId: MindmapNodeId
       position: 'before' | 'after'
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
       options?: Pick<MindmapCommandOptions, 'layout'>
     }
   | {
       kind: 'parent'
       nodeId: MindmapNodeId
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
       options?: Pick<MindmapCommandOptions, 'side' | 'layout'>
     }
 

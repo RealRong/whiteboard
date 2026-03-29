@@ -1,11 +1,11 @@
 import { useEffect, type RefObject } from 'react'
-import type { Editor } from '../editor'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import { createRafTask } from '../utils/rafTask'
 
 type ContainerRect = Parameters<Editor['host']['viewport']['setRect']>[0]
 type WheelInput = Parameters<Editor['host']['viewport']['input']['wheel']>[0]
 
-export type ViewportInputOptions = {
+type ViewportInputOptions = {
   panEnabled: boolean
   wheelEnabled: boolean
   wheelSensitivity: number

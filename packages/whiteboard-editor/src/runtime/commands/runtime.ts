@@ -19,57 +19,14 @@ import type {
   ClipboardPort,
   ClipboardRuntime
 } from '../host/clipboard'
-
-export type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
-
-export type EditorCommandDocumentRuntime = {
-  engine: EngineInstance
-  read: Editor['read']
-  state: Editor['state']
-  history: {
-    set: (value: HistoryState) => void
-  }
-  viewport: {
-    commands: ViewportCommands
-    read: Editor['viewport']
-  }
-}
-
-export type EditorCommandSelectionRuntime = {
-  edit: ReturnType<typeof createEditState>['commands']
-  selection: ReturnType<typeof createSelectionState>
-  frame: ReturnType<typeof createFrameState>
-}
-
-export type EditorCommandToolRuntime = {
-  tool: {
-    get: () => Tool
-    set: (tool: Tool) => void
-  }
-}
-
-export type EditorCommandDrawRuntime = {
-  draw: ReturnType<typeof createDrawState>
-}
-
-export type EditorCommandNodeRuntime = {
-  runtime: NodeFeatureRuntime
-}
-
-export type EditorCommandClipboardRuntime = {
-  runtime: ClipboardRuntime
-  port: ClipboardPort
-  readPointerWorld: () => Point | undefined
-}
-
-export type EditorCommandRuntime = {
-  document: EditorCommandDocumentRuntime
-  selection: EditorCommandSelectionRuntime
-  tool: EditorCommandToolRuntime
-  draw: EditorCommandDrawRuntime
-  node: EditorCommandNodeRuntime
-  clipboard: EditorCommandClipboardRuntime
-}
+import type {
+  EditorCommandDocumentRuntime,
+  EditorCommandDrawRuntime,
+  EditorCommandNodeRuntime,
+  EditorCommandRuntime,
+  EditorCommandSelectionRuntime,
+  EditorCommandToolRuntime
+} from '../../types/internal/editor'
 
 export const createEditorCommandRuntime = ({
   engine,
@@ -134,3 +91,14 @@ export const createEditorCommandRuntime = ({
     readPointerWorld
   }
 })
+
+export type {
+  EditorCommandClipboardRuntime,
+  EditorCommandDocumentRuntime,
+  EditorCommandDrawRuntime,
+  EditorCommandHost,
+  EditorCommandNodeRuntime,
+  EditorCommandRuntime,
+  EditorCommandSelectionRuntime,
+  EditorCommandToolRuntime
+} from '../../types/internal/editor'

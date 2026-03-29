@@ -1,40 +1,14 @@
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
 import type { CSSProperties } from 'react'
+import type {
+  ContextMenuPlacement,
+  MenuOpenSnapshot,
+  ToolbarItem,
+  ToolbarItemKey,
+  ToolbarMenuAnchor,
+  ToolbarPlacement
+} from '../../../types/selection'
 import type { NodeSelectionCan } from '../../node/summary'
-
-export type ToolbarItemKey =
-  | 'fill'
-  | 'stroke'
-  | 'text'
-  | 'layout'
-  | 'more'
-
-export type ToolbarPlacement = 'top' | 'bottom'
-
-export type ToolbarItem = {
-  key: ToolbarItemKey
-  label: string
-  active: boolean
-}
-
-export type ToolbarMenuAnchor = {
-  top: number
-  bottom: number
-  centerX: number
-}
-
-export type MenuOpenSnapshot = {
-  x: number
-  y: number
-  time: number
-}
-
-export type ContextMenuPlacement = {
-  left: number
-  top: number
-  transform: string
-  submenuSide: 'left' | 'right'
-}
 
 const SAFE_MARGIN = 12
 const MENU_WIDTH = 220

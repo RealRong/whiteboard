@@ -10,7 +10,7 @@ export type {
   EditorKeyboardInput,
   EditorInsertResult,
   EditorPointerInput
-} from './runtime/editor'
+} from './types/public/editor'
 export type {
   ControlId,
   NodeDefinition,

@@ -1,17 +1,13 @@
 import {
   readDrawSlot,
   readDrawStyle,
-  type DrawBrush,
   type DrawPreferences as DrawState,
-  type DrawSlot,
-  type ResolvedDrawStyle
 } from '@whiteboard/editor/draw'
 import {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,
   isDrawBrushKind,
-  type DrawBrushKind,
   type DrawKind,
   type EdgePresetKey,
   type Tool
@@ -22,38 +18,12 @@ import {
   DEFAULT_STICKY_PRESET_KEY,
   readInsertPresetGroup,
   readShapePresetKind,
-  readStickyInsertTone,
-  type InsertPresetGroup,
-  type StickyTone
+  readStickyInsertTone
 } from './presets'
-import type { ShapeKind } from '../node/shape'
-
-export type ToolPaletteMenuKey =
-  | 'draw'
-  | 'edge'
-  | 'sticky'
-  | 'shape'
-  | 'mindmap'
-
-export type ToolPaletteBrushState = {
-  brushKind: DrawBrushKind
-  brush: DrawBrush
-  slot: DrawSlot
-}
-
-export type ToolPaletteView = {
-  insertGroup?: InsertPresetGroup
-  stickyPreset: string
-  stickyTone?: StickyTone
-  shapePreset: string
-  shapeKind?: ShapeKind
-  mindmapPreset: string
-  edgePreset: EdgePresetKey
-  drawKind: DrawKind
-  drawBrush: ToolPaletteBrushState
-  drawStyle: ResolvedDrawStyle
-  drawButtonStyle?: ResolvedDrawStyle
-}
+import type {
+  ToolPaletteBrushState,
+  ToolPaletteView
+} from '../../types/toolbox'
 
 const readToolPaletteBrushState = (
   state: DrawState,

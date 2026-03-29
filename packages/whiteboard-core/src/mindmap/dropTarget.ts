@@ -7,6 +7,12 @@ import type {
   MindmapNodeId,
   MindmapTree
 } from './types'
+import type {
+  MindmapDragSession,
+  RootMindmapDrag,
+  SubtreeDropTargetOptions,
+  SubtreeMindmapDrag
+} from '../types/mindmap'
 import {
   getSide,
   getSubtreeIds
@@ -27,48 +33,6 @@ const DEFAULT_DROP_SNAP_THRESHOLD = 24
 const DEFAULT_SIDE: 'left' | 'right' = 'right'
 const DEFAULT_REORDER_LINE_GAP = 6
 const DEFAULT_REORDER_LINE_OVERFLOW = 12
-
-export type SubtreeDropTargetOptions = {
-  tree: MindmapTree
-  nodeRects: Map<MindmapNodeId, Rect>
-  ghost: Rect
-  dragNodeId: MindmapNodeId
-  dragExcludeIds: Set<MindmapNodeId>
-  layoutOptions?: MindmapLayoutOptions
-  snapThreshold?: number
-  defaultSide?: 'left' | 'right'
-  reorderLineGap?: number
-  reorderLineOverflow?: number
-}
-
-export type RootMindmapDrag = {
-  kind: 'root'
-  treeId: NodeId
-  pointerId: number
-  start: Point
-  origin: Point
-  position: Point
-}
-
-export type SubtreeMindmapDrag = {
-  kind: 'subtree'
-  treeId: NodeId
-  pointerId: number
-  nodeId: MindmapNodeId
-  originParentId?: MindmapNodeId
-  originIndex?: number
-  baseOffset: Point
-  offset: Point
-  rect: Rect
-  ghost: Rect
-  excludeIds: MindmapNodeId[]
-  layout: MindmapLayoutConfig
-  drop?: MindmapDragDropTarget
-}
-
-export type MindmapDragSession =
-  | RootMindmapDrag
-  | SubtreeMindmapDrag
 
 type MindmapTreeView = {
   id: NodeId

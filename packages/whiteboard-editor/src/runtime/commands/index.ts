@@ -7,9 +7,12 @@ import { createInsertCommands } from './insert'
 import { createMindmapCommands } from './mindmap'
 import { createNodeCommands } from './node'
 import {
-  type EditorCommandHost,
-  type EditorCommandRuntime
+  createEditorCommandRuntime
 } from './runtime'
+import type {
+  EditorCommandHost,
+  EditorCommandRuntime
+} from '../../types/internal/editor'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
 

@@ -1,5 +1,4 @@
 import type {
-  MindmapAttachPayload,
   MindmapDataMutation,
   MindmapInsertInput,
   MindmapCloneSubtreeInput,
@@ -14,9 +13,9 @@ import type {
   MindmapId,
   MindmapLayoutOptions
 } from '../mindmap/types'
+import type { MindmapInsertPayload } from './mindmap'
 
 export type {
-  MindmapAttachPayload,
   MindmapDataMutation,
   MindmapInsertInput,
   MindmapCloneSubtreeInput,
@@ -31,6 +30,7 @@ export type {
   MindmapId,
   MindmapLayoutOptions
 } from '../mindmap/types'
+export type { MindmapInsertPayload } from './mindmap'
 
 export type DocumentId = string
 export type NodeId = string

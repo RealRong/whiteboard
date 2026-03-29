@@ -1,5 +1,10 @@
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
-import type { Editor } from '../../../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../../../types/runtime'
+import type {
+  ToolbarIconState,
+  ToolbarItem,
+  ToolbarPlacement
+} from '../../../types/selection'
 import type {
   NodeSelectionCan,
   NodeSummary
@@ -10,11 +15,8 @@ import {
   readTextFieldKey,
   readTextValue,
   resolveToolbarItemKeys,
-  resolveToolbarPlacement,
-  type ToolbarItem,
-  type ToolbarPlacement
+  resolveToolbarPlacement
 } from './layout'
-import type { ToolbarIconState } from './nodeToolbarIcon'
 
 type ToolbarSelection = {
   box?: Rect
@@ -26,7 +28,7 @@ type ToolbarSelection = {
   }
 }
 
-export type NodeToolbarModel = {
+type NodeToolbarModel = {
   items: readonly ToolbarItem[]
   nodes: readonly Node[]
   summary: NodeSummary

@@ -7,10 +7,12 @@ import type {
   EdgeId,
   EdgeInput,
   EdgePatch,
-  Operation,
-  Point,
-  Result
+  Point
 } from '../types'
+import type {
+  EdgeCreateOperationResult,
+  InsertRoutePointResult
+} from '../types/edge'
 import {
   hasEdge,
   hasNode,
@@ -18,18 +20,6 @@ import {
   isNodeEdgeEnd,
   isPointEdgeEnd
 } from '../types'
-
-export type EdgeCreateOperationResult =
-  Result<{
-    operation: Extract<Operation, { type: 'edge.create' }>
-    edgeId: EdgeId
-  }, 'invalid'>
-
-export type InsertRoutePointResult =
-  Result<{
-    patch: EdgePatch
-    index: number
-  }, 'invalid'>
 
 type BuildEdgeCreateOperationInput = {
   payload: EdgeInput

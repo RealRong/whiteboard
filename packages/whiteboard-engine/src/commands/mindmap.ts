@@ -1,5 +1,6 @@
 import type { Apply } from '@engine-types/write'
-import type { EngineCommands, WriteCommandMap, WriteOrigin } from '@engine-types/command'
+import type { EngineCommands, WriteCommandMap } from '@engine-types/command'
+import type { Origin } from '@whiteboard/core/types'
 
 type MindmapCommand = WriteCommandMap['mindmap']
 
@@ -10,7 +11,7 @@ export const mindmap = ({
 }): EngineCommands['mindmap'] => {
   const run = <C extends MindmapCommand>(
     command: C,
-    origin: WriteOrigin = 'user'
+    origin: Origin = 'user'
   ) =>
     apply({
       domain: 'mindmap',

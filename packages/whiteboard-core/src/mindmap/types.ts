@@ -1,4 +1,7 @@
 import type { Result } from '../types'
+import type { MindmapInsertPayload } from '../types/mindmap'
+
+export type { MindmapInsertPayload } from '../types/mindmap'
 
 export type MindmapId = string
 export type MindmapNodeId = string
@@ -84,7 +87,7 @@ export type MindmapInsertInput =
   | {
       kind: 'child'
       parentId: MindmapNodeId
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
       options?: {
         index?: number
         side?: 'left' | 'right'
@@ -94,12 +97,12 @@ export type MindmapInsertInput =
       kind: 'sibling'
       nodeId: MindmapNodeId
       position: 'before' | 'after'
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
     }
   | {
       kind: 'parent'
       nodeId: MindmapNodeId
-      payload?: MindmapNodeData | MindmapAttachPayload
+      payload?: MindmapNodeData | MindmapInsertPayload
       options?: {
         side?: 'left' | 'right'
       }
@@ -148,13 +151,3 @@ export type MindmapDragDropTarget = {
 export type MindmapCommandResult<T extends object = {}> = Result<{
   tree: MindmapTree
 } & T, 'invalid'>
-
-export type MindmapAttachPayload = {
-  kind: 'file' | 'text' | 'link' | 'ref' | 'custom'
-  fileId?: string
-  text?: string
-  url?: string
-  title?: string
-  ref?: { type: 'whiteboard-node' | 'object'; id: string }
-  [key: string]: unknown
-}

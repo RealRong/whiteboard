@@ -1,5 +1,6 @@
 import type { BoardConfig } from '@engine-types/instance'
 import type { WriteCommandMap, WriteDomain, WriteInput, WriteOutput } from '@engine-types/command'
+import type { TranslateResult } from '@engine-types/internal/translate'
 import { buildInsertSliceOperations } from '@whiteboard/core/document'
 import type {
   CoreRegistries,
@@ -9,7 +10,6 @@ import type {
   MindmapNodeId,
   NodeId
 } from '@whiteboard/core/types'
-import type { TranslateResult } from './result'
 import { cancelled, invalid, success } from './result'
 import { translateNode } from './node'
 import { translateEdge } from './edge'

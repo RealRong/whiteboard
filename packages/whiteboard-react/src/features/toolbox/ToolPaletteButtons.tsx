@@ -15,17 +15,17 @@ import {
   type Tool
 } from '@whiteboard/editor'
 import type { Dispatch, SetStateAction } from 'react'
-import type { Editor } from '../../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import type {
+  ToolPaletteMenuKey,
+  ToolPaletteView
+} from '../../types/toolbox'
 import {
   ShapeGlyph,
   readShapePreviewFill
 } from '../node/shape'
 import { EdgePresetGlyph } from './menus/EdgeMenu'
 import { TEXT_INSERT_PRESET } from './presets'
-import type {
-  ToolPaletteMenuKey,
-  ToolPaletteView
-} from './model'
 
 const ToolIcon = ({
   icon: Icon

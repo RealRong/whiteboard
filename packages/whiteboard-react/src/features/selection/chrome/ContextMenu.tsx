@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type {
-  ContextMenuGroupView as EditorContextMenuGroupView,
-  ContextMenuItemView as EditorContextMenuItemView
+  SelectionMenuGroupView as EditorContextMenuGroupView,
+  SelectionMenuItemView as EditorContextMenuItemView
 } from '@whiteboard/editor/context'
 import {
   useElementSize,

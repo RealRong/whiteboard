@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ToolbarItemKey } from './layout'
-
-export type ToolbarIconState = {
-  fill?: string
-  stroke?: string
-  strokeWidth?: number
-  opacity?: number
-}
+import type { ToolbarIconState, ToolbarItemKey } from '../../../types/selection'
 
 const SvgIcon = ({
   children,

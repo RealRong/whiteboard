@@ -5,9 +5,11 @@ import {
   rectIntersects
 } from '../geometry'
 import type { Point, Rect } from '../types'
-import type { EdgePathResult, EdgePathSegment } from './types'
-
-export type EdgeRectHitMode = 'touch' | 'contain'
+import type {
+  EdgePathResult,
+  EdgePathSegment,
+  EdgeRectHitMode
+} from '../types/edge'
 
 const toSegmentPoints = (
   segment: EdgePathSegment

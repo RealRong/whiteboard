@@ -15,7 +15,7 @@ import {
 import type { PointerStart } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
-import type { DrawBrushKind } from '../../runtime/tool'
+import type { DrawBrushKind } from '../../types/public/tool'
 import type { NodeFeatureRuntime } from '../node/session/node'
 import {
   readDrawStyle,

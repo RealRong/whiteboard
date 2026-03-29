@@ -1,60 +1,27 @@
-import type { Edge, EdgeAnchor, EdgeRoute, Point } from '../types/core'
-import type { ResolvedEdgeEnd } from './endpoints'
-
-export type EdgePathEnd = {
-  point: Point
-  side?: EdgeAnchor['side']
-}
-
-export type EdgePathInput = {
-  edge: Edge
-  source: EdgePathEnd
-  target: EdgePathEnd
-}
-
-export type EdgePathSegment = {
-  from: Point
-  to: Point
-  insertIndex: number
-  insertPoint?: Point
-  hitPoints?: readonly Point[]
-}
-
-export type EdgePathResult = {
-  points: Point[]
-  segments: EdgePathSegment[]
-  svgPath: string
-  label?: Point
-}
-
-export type EdgeRouter = (input: EdgePathInput) => EdgePathResult
-
-export type EdgeHandle =
-  | {
-      kind: 'end'
-      end: 'source' | 'target'
-      point: Point
-    }
-  | {
-      kind: 'anchor'
-      index: number
-      point: Point
-      mode: 'fixed' | 'grow'
-    }
-  | {
-      kind: 'insert'
-      insertIndex: number
-      point: Point
-    }
-
-export type EdgeView = {
-  ends: {
-    source: ResolvedEdgeEnd
-    target: ResolvedEdgeEnd
-  }
-  path: EdgePathResult
-  handles: readonly EdgeHandle[]
-}
+import type { EdgeRoute, Point } from '../types/core'
+export type {
+  AnchorSnapOptions,
+  EdgeConnectCandidate,
+  EdgeConnectConfig,
+  EdgeConnectResult,
+  EdgeConnectTarget,
+  EdgeCreateOperationResult,
+  EdgeHandle,
+  EdgePathEnd,
+  EdgePathInput,
+  EdgePathResult,
+  EdgePathSegment,
+  EdgeRectHitMode,
+  EdgeRelations,
+  EdgeRouter,
+  EdgeView,
+  InsertRoutePointResult,
+  ResolveEdgeEndsInput,
+  ResolveEdgePathFromRectsInput,
+  ResolvedEdgeEnd,
+  ResolvedEdgeEnds,
+  ResolvedEdgePathFromRects
+} from '../types/edge'
 
 export const readEdgeRoutePoints = (
   route: EdgeRoute | undefined

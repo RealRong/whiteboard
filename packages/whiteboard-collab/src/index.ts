@@ -10,5 +10,5 @@ export type {
   CollabProvider,
   CollabSession,
   CollabStatus,
-  YjsSessionOptions
+  CreateYjsSessionOptions
 } from './types'

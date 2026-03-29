@@ -4,7 +4,7 @@ import type {
   NodeUpdateManyOptions,
   WriteCommandMap
 } from '@engine-types/command'
-import type { EngineCommands, WriteOrigin } from '@engine-types/command'
+import type { EngineCommands } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   NodeAlignMode,
@@ -13,7 +13,8 @@ import type {
 import type {
   NodeId,
   NodeInput,
-  NodeUpdateInput
+  NodeUpdateInput,
+  Origin
 } from '@whiteboard/core/types'
 
 type NodeCommand = WriteCommandMap['node']
@@ -25,7 +26,7 @@ export const node = ({
 }): EngineCommands['node'] => {
   const run = <C extends NodeCommand>(
     command: C,
-    origin: WriteOrigin = 'user'
+    origin: Origin = 'user'
   ) =>
     apply({
       domain: 'node',

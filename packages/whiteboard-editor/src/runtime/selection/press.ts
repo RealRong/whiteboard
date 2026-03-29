@@ -13,12 +13,13 @@ import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
 import type { PointerStart } from '../input/pointer'
 import type {
+  SelectionDragAction,
+  SelectionPressPlan,
   SelectionSnapshot,
-  SelectionTarget
-} from './state'
-import {
-  toSelectionTarget
-} from './state'
+  SelectionTarget,
+  SelectionTapAction
+} from '../../types/internal/selection'
+import { toSelectionTarget } from './state'
 
 type ModifierEventLike = {
   altKey: boolean
@@ -48,42 +49,6 @@ type SelectionPressTarget =
       kind: 'group-shell'
       nodeId: NodeId
     }
-
-export type SelectionTapAction =
-  | { kind: 'clear' }
-  | {
-      kind: 'select'
-      target: SelectionTarget
-      verifyNodeIds?: readonly NodeId[]
-    }
-  | {
-      kind: 'edit'
-      nodeId: NodeId
-      field: EditField
-      verifyNodeIds: readonly NodeId[]
-    }
-
-export type SelectionDragAction =
-  | {
-      kind: 'move'
-      frame: Rect
-      anchorId: NodeId
-      target: SelectionTarget
-      nextSelection?: SelectionTarget
-    }
-  | {
-      kind: 'marquee'
-      match: 'touch' | 'contain'
-      mode: SelectionMode
-      base: SelectionTarget
-    }
-
-export type SelectionPressPlan = {
-  chrome: boolean
-  tap?: SelectionTapAction
-  drag?: SelectionDragAction
-  allowHold: boolean
-}
 
 const EMPTY_SELECTION = toSelectionTarget({})
 
@@ -486,3 +451,9 @@ export const resolveSelectionPressPlan = (
       return planGroupShellPress(deps, input.snapshot, mode, target.nodeId)
   }
 }
+
+export type {
+  SelectionDragAction,
+  SelectionPressPlan,
+  SelectionTapAction
+} from '../../types/internal/selection'

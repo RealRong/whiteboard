@@ -1,5 +1,5 @@
 import { MindmapNodeItem } from './MindmapNodeItem'
-import type { MindmapTreeViewData } from '../hooks/useMindmapTreeView'
+import type { MindmapTreeViewData } from '../../../types/mindmap'
 
 type MindmapTreeViewProps = {
   view: MindmapTreeViewData

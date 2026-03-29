@@ -1,48 +1,16 @@
 import type { EdgeType } from '@whiteboard/core/types'
-
-export type EdgePresetKey =
-  | 'edge.straight'
-  | 'edge.elbow'
-  | 'edge.curve'
-
-export type InsertPresetKey = string
-export type DrawBrushKind =
-  | 'pen'
-  | 'highlighter'
-
-export type DrawKind =
-  | DrawBrushKind
-  | 'eraser'
-
-export type SelectTool = {
-  type: 'select'
-}
-
-export type HandTool = {
-  type: 'hand'
-}
-
-export type EdgeTool = {
-  type: 'edge'
-  preset: EdgePresetKey
-}
-
-export type InsertTool = {
-  type: 'insert'
-  preset: InsertPresetKey
-}
-
-export type DrawTool = {
-  type: 'draw'
-  kind: DrawKind
-}
-
-export type Tool =
-  | SelectTool
-  | HandTool
-  | EdgeTool
-  | InsertTool
-  | DrawTool
+import type {
+  DrawBrushKind,
+  DrawKind,
+  DrawTool,
+  EdgePresetKey,
+  EdgeTool,
+  HandTool as HandToolType,
+  InsertPresetKey,
+  InsertTool,
+  SelectTool as SelectToolType,
+  Tool
+} from '../../types/public/tool'
 
 const EDGE_PRESET_TO_TYPE = {
   'edge.straight': 'linear',
@@ -54,11 +22,11 @@ export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
 export const DEFAULT_DRAW_BRUSH_KIND: DrawBrushKind = 'pen'
 export const DEFAULT_DRAW_KIND: DrawKind = DEFAULT_DRAW_BRUSH_KIND
 
-export const SelectTool: SelectTool = {
+export const SelectTool: SelectToolType = {
   type: 'select'
 }
 
-export const HandTool: HandTool = {
+export const HandTool: HandToolType = {
   type: 'hand'
 }
 
@@ -190,3 +158,14 @@ export const normalizeTool = (
       return SelectTool
   }
 }
+
+export type {
+  DrawBrushKind,
+  DrawKind,
+  DrawTool,
+  EdgePresetKey,
+  EdgeTool,
+  InsertPresetKey,
+  InsertTool,
+  Tool
+} from '../../types/public/tool'

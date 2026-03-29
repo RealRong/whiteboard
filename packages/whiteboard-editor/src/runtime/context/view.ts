@@ -10,9 +10,9 @@ import type { NodeRegistry } from '../../types/node'
 import type { ContextResolved } from '../input/target'
 import { readSelectionMenuView } from './selection'
 import type {
-  ContextMenuGroupView,
-  ContextMenuItemView,
-  ContextMenuView
+  ContextMenuView,
+  SelectionMenuGroupView,
+  SelectionMenuItemView
 } from './types'
 
 type ContextMenuHost = Pick<Editor, 'commands' | 'read'> & {
@@ -96,7 +96,7 @@ const buildSelectionStyleGroup = ({
   editor: ContextMenuHost
   nodes: readonly Node[]
   close: () => void
-}): ContextMenuGroupView | undefined => {
+}): SelectionMenuGroupView | undefined => {
   if (!nodes.length) {
     return undefined
   }
@@ -126,10 +126,10 @@ const buildSelectionStyleGroup = ({
     : 1
   const nodeIds = nodes.map((node) => node.id)
   const bindChild = (
-    item: Omit<ContextMenuItemView, 'onSelect'> & {
+    item: Omit<SelectionMenuItemView, 'onSelect'> & {
       onSelect?: () => unknown
     }
-  ): ContextMenuItemView => ({
+  ): SelectionMenuItemView => ({
     ...item,
     onSelect: item.onSelect
       ? runMenuAction(item.onSelect, close)

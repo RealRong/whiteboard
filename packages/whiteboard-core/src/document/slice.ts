@@ -32,6 +32,13 @@ import type {
   Size,
   SpatialNode
 } from '../types'
+import type {
+  Slice,
+  SliceExportResult,
+  SliceInsertOptions,
+  SliceInsertResult,
+  SliceRoots
+} from '../types/document'
 import {
   getEdge,
   getNode,
@@ -39,37 +46,6 @@ import {
   listEdges,
   listNodes
 } from '../types'
-
-export type Slice = {
-  version: 1
-  nodes: Node[]
-  edges: Edge[]
-}
-
-export type SliceRoots = {
-  nodeIds: readonly NodeId[]
-  edgeIds: readonly EdgeId[]
-}
-
-export type SliceExportResult = {
-  slice: Slice
-  roots: SliceRoots
-  bounds: Rect
-}
-
-export type SliceInsertOptions = {
-  at?: Point
-  offset?: Point
-  ownerId?: NodeId
-  roots?: SliceRoots
-}
-
-export type SliceInsertResult = {
-  operations: Operation[]
-  roots: SliceRoots
-  allNodeIds: readonly NodeId[]
-  allEdgeIds: readonly EdgeId[]
-}
 
 type ExportNodesInput = {
   doc: Document

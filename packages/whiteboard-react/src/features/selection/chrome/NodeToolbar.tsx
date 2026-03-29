@@ -17,9 +17,9 @@ import { resolveNodeTextSource } from '../../node/textSource'
 import {
   buildToolbarMenuStyle,
   buildToolbarStyle,
-  readMenuAnchor,
-  type ToolbarItemKey
+  readMenuAnchor
 } from './layout'
+import type { ToolbarItemKey } from '../../../types/selection'
 import { FillMenu } from './menus/FillMenu'
 import { LayoutMenu } from './menus/LayoutMenu'
 import { MoreMenu } from './menus/MoreMenu'

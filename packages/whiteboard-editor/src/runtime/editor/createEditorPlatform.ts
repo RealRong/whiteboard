@@ -12,14 +12,8 @@ import {
   createBrowserPointerContinuation,
   type PointerContinuation
 } from '../host/pointerContinuation'
-import type { EditorHostBridge } from './types'
-
-export type EditorPlatform = {
-  clipboardRuntime: ClipboardRuntime
-  clipboardPort: ClipboardPort
-  selectionLock: DocumentSelectionLock
-  pointerContinuation: PointerContinuation
-}
+import type { EditorHostBridge } from '../../types/public/editor'
+import type { EditorPlatform } from '../../types/internal/editor'
 
 export const createEditorPlatform = (
   host?: EditorHostBridge

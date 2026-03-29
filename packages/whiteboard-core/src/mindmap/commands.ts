@@ -1,7 +1,6 @@
 import { err, ok } from '../types'
 import { applyPathMutation } from '../utils'
 import type {
-  MindmapAttachPayload,
   MindmapCommandResult,
   MindmapCloneSubtreeInput,
   MindmapDataMutation,
@@ -16,6 +15,7 @@ import type {
   MindmapTree,
   MindmapUpdateNodeInput
 } from './types'
+import type { MindmapInsertPayload } from '../types/mindmap'
 import { createId } from '../utils/id'
 
 type TreeDraft = MindmapTree
@@ -128,7 +128,7 @@ export const createMindmap = (
 export const addChild = (
   tree: MindmapTree,
   parentId: MindmapNodeId,
-  payload?: MindmapNodeData | MindmapAttachPayload,
+  payload?: MindmapNodeData | MindmapInsertPayload,
   options?: { index?: number; side?: 'left' | 'right'; idGenerator?: MindmapIdGenerator }
 ): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   if (!ensureNode(tree, parentId)) {
@@ -166,7 +166,7 @@ export const addSibling = (
   tree: MindmapTree,
   nodeId: MindmapNodeId,
   position: 'before' | 'after',
-  payload?: MindmapNodeData | MindmapAttachPayload,
+  payload?: MindmapNodeData | MindmapInsertPayload,
   options?: { idGenerator?: MindmapIdGenerator }
 ): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   const node = ensureNode(tree, nodeId)
@@ -184,7 +184,7 @@ export const addSibling = (
 export const insertParent = (
   tree: MindmapTree,
   nodeId: MindmapNodeId,
-  payload?: MindmapNodeData | MindmapAttachPayload,
+  payload?: MindmapNodeData | MindmapInsertPayload,
   options?: { side?: 'left' | 'right'; idGenerator?: MindmapIdGenerator }
 ): MindmapCommandResult<{ nodeId: MindmapNodeId }> => {
   if (nodeId === tree.rootId) return createFailure('Root node cannot be wrapped.')

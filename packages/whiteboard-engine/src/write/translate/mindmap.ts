@@ -10,8 +10,8 @@ import type {
   MindmapRemoveSubtreeInput,
   MindmapUpdateNodeInput
 } from '@engine-types/mindmap'
+import type { TranslateResult } from '@engine-types/internal/translate'
 import type { WriteTranslateContext } from './index'
-import type { TranslateResult } from './result'
 import { invalid, success } from './result'
 import { getNode } from '@whiteboard/core/types'
 import type {

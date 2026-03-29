@@ -1,7 +1,5 @@
 import type {
-  EdgeAnchor,
   Node,
-  NodeId,
   Point,
   Rect,
   Size
@@ -11,26 +9,12 @@ import {
   rectFromPoint,
   resolveScreenDistanceWorld
 } from '../snap'
+import type {
+  EdgeConnectCandidate,
+  EdgeConnectConfig,
+  EdgeConnectResult
+} from '../types/edge'
 import { getAnchorFromPoint } from './anchor'
-
-export type EdgeConnectConfig = {
-  anchorSnapMin: number
-  anchorSnapRatio: number
-}
-
-export type EdgeConnectCandidate = {
-  nodeId: NodeId
-  node: Pick<Node, 'type' | 'data'>
-  rect: Rect
-  aabb: Rect
-  rotation: number
-}
-
-export type EdgeConnectResult = {
-  nodeId: NodeId
-  anchor: EdgeAnchor
-  pointWorld: Point
-}
 
 type ScoredConnectTarget = EdgeConnectResult & {
   distance: number

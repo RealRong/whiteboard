@@ -3,7 +3,7 @@ import type { NodeItem } from '@engine-types/projection'
 import type { ReadStore } from '@engine-types/store'
 import type { NodeId } from '@whiteboard/core/types'
 import { createValueStore } from '../../store'
-import type { ReadSnapshot } from './types'
+import type { ReadSnapshot } from '@engine-types/internal/read'
 import { createTrackedRead } from './tracked'
 
 export const createNodeProjection = (initialSnapshot: ReadSnapshot) => {

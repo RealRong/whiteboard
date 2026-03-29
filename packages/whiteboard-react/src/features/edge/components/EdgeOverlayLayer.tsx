@@ -11,7 +11,7 @@ import {
 import type {
   SelectedEdgeRoutePointView,
   SelectedEdgeView
-} from '../hooks/useEdgeView'
+} from '../../../types/edge'
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {

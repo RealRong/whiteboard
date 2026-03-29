@@ -4,7 +4,7 @@ import type {
   EdgePathResult,
   EdgePathSegment,
   EdgeRouter
-} from './types'
+} from '../types/edge'
 import { readEdgeRoutePoints } from './types'
 
 const DEFAULT_ORTHO_OFFSET = 50

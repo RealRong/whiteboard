@@ -1,6 +1,6 @@
 import type { EdgeWriteOutput, WriteCommandMap } from '@engine-types/command'
+import type { TranslateResult } from '@engine-types/internal/translate'
 import type { WriteTranslateContext } from './index'
-import type { TranslateResult } from './result'
 import { cancelled, invalid, fromOp, success } from './result'
 import {
   buildEdgeCreateOperation,

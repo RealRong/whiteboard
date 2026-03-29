@@ -1,37 +1,13 @@
-import type { EdgeHandle } from '@whiteboard/core/edge'
 import type { EdgeId } from '@whiteboard/core/types'
 import { useMemo } from 'react'
 import { useEditorRuntime } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import type {
+  EdgeView,
+  SelectedEdgeRoutePointView,
+  SelectedEdgeView
+} from '../../../types/edge'
 import { useSelection } from '../../node/selection'
-
-export type EdgeView = NonNullable<
-  ReturnType<ReturnType<typeof useEditor>['read']['edge']['view']['get']>
->
-
-export type SelectedEdgeRoutePointView =
-  | {
-      key: string
-      kind: 'anchor'
-      edgeId: EdgeId
-      index: number
-      point: EdgeHandle['point']
-      active: boolean
-    }
-  | {
-      key: string
-      kind: 'insert'
-      edgeId: EdgeId
-      insertIndex: number
-      point: EdgeHandle['point']
-      active: false
-    }
-
-export type SelectedEdgeView = {
-  edgeId: EdgeId
-  ends: EdgeView['ends']
-  routePoints: readonly SelectedEdgeRoutePointView[]
-}
 
 export const useEdgeView = (
   edgeId: EdgeId | undefined
@@ -97,3 +73,9 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
     }
   }, [edgeId, entry, patch.activeRouteIndex])
 }
+
+export type {
+  EdgeView,
+  SelectedEdgeRoutePointView,
+  SelectedEdgeView
+} from '../../../types/edge'

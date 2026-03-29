@@ -11,7 +11,7 @@ import type {
   Operation
 } from '@whiteboard/core/types'
 import { assertDocument } from '@whiteboard/core/types'
-import type { RemoteDocumentChange } from '../types'
+import type { RemoteDocumentChange } from '../types/internal'
 import {
   cloneJsonValue,
   hasOwn,

@@ -1,18 +1,7 @@
 import type { Operation } from '@whiteboard/core/types'
 import type { CommandFailure } from '@engine-types/result'
+import type { TranslateResult } from '@engine-types/internal/translate'
 import { cancelled as cancelledResult, failure, invalid as invalidResult } from '../../result'
-
-export type TranslateFailure = CommandFailure
-
-export type TranslateSuccess<T = void> = {
-  ok: true
-  operations: readonly Operation[]
-  output: T
-}
-
-export type TranslateResult<T = void> =
-  | TranslateSuccess<T>
-  | TranslateFailure
 
 export function success(operations: readonly Operation[]): TranslateResult<void>
 export function success<T>(operations: readonly Operation[], output: T): TranslateResult<T>
@@ -24,10 +13,10 @@ export function success<T>(operations: readonly Operation[], output?: T): Transl
   }
 }
 
-export const invalid = (message: string, details?: unknown): TranslateFailure =>
+export const invalid = (message: string, details?: unknown): CommandFailure =>
   invalidResult(message, details)
 
-export const cancelled = (message?: string, details?: unknown): TranslateFailure =>
+export const cancelled = (message?: string, details?: unknown): CommandFailure =>
   cancelledResult(message, details)
 
 export const append = <T>(

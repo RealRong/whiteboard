@@ -1,4 +1,4 @@
-import type { Editor } from '../../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 
 type TextField = 'text' | 'title'
 

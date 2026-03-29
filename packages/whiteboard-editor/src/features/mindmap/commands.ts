@@ -4,7 +4,7 @@ import {
   type MindmapLayoutConfig
 } from '@whiteboard/core/mindmap'
 import type {
-  MindmapAttachPayload,
+  MindmapInsertPayload,
   MindmapNodeData,
   MindmapNodeId,
   MindmapTree,
@@ -57,9 +57,9 @@ export const insertMindmapByPlacement = ({
   placement: MindmapInsertPlacement
   nodeSize: Size
   layout: MindmapLayoutConfig
-  payload?: MindmapNodeData | MindmapAttachPayload
+  payload?: MindmapNodeData | MindmapInsertPayload
 }) => {
-  const normalizedPayload: MindmapNodeData | MindmapAttachPayload = payload ?? {
+  const normalizedPayload: MindmapNodeData | MindmapInsertPayload = payload ?? {
     kind: 'text',
     text: ''
   }

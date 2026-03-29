@@ -21,6 +21,7 @@ import type {
   Node,
   NodeId,
   Operation,
+  Origin,
   Point,
   Rect
 } from '@whiteboard/core/types'
@@ -34,7 +35,7 @@ import type { CommandResult } from './result'
 export type { BoardConfig } from '@whiteboard/core/config'
 
 export type ApplyOperationsOptions = {
-  origin?: 'user' | 'system' | 'remote'
+  origin?: Origin
 }
 
 export type EngineReadIndex = {

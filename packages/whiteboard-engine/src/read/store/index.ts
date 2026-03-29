@@ -41,7 +41,7 @@ import { createReadModel } from './model'
 import { createMindmapProjection } from './mindmap'
 import { createNodeProjection } from './node'
 import { createTreeProjection } from './tree'
-import type { ReadSnapshot } from './types'
+import type { ReadSnapshot } from '@engine-types/internal/read'
 
 export const createRead = ({
   document,

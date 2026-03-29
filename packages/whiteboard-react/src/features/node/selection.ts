@@ -12,7 +12,7 @@ import {
   useTool
 } from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import type { Editor } from '../../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
 type InteractionMode = ReturnType<Editor['host']['interaction']['mode']['get']>

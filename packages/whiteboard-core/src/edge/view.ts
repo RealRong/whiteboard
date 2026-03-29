@@ -1,13 +1,7 @@
 import { getEdgePath } from './path'
-import {
-  resolveEdgeEnds,
-  type ResolveEdgeEndsInput
-} from './endpoints'
-import {
-  readEdgeRoutePoints,
-  type EdgeHandle,
-  type EdgeView
-} from './types'
+import { resolveEdgeEnds } from './endpoints'
+import { readEdgeRoutePoints } from './types'
+import type { EdgeHandle, EdgeView, ResolveEdgeEndsInput } from '../types/edge'
 
 const buildEdgeHandles = (
   ends: NonNullable<ReturnType<typeof resolveEdgeEnds>>,

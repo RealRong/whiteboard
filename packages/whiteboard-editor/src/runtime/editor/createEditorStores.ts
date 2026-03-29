@@ -35,24 +35,10 @@ import {
 } from '../read'
 import type { ContextMenuView } from '../context'
 import { createDrawState } from '../../features/draw/state'
-
-export type EditorStores = {
-  tool: ReturnType<typeof createValueStore<Tool>>
-  history: ReturnType<typeof createValueStore<HistoryState>>
-  draw: ReturnType<typeof createDrawState>
-  edit: ReturnType<typeof createEditState>
-  frame: ReturnType<typeof createFrameState>
-  selection: ReturnType<typeof createSelectionState>
-}
-
-export type EditorInternals = {
-  pick: PickRuntime
-  node: NodeFeatureRuntime
-  edge: {
-    preview: EdgePreview
-  }
-  mindmapDrag: MindmapDragStore
-}
+import type {
+  EditorInternals,
+  EditorStores
+} from '../../types/internal/editor'
 
 export const createEditorStores = ({
   engine,

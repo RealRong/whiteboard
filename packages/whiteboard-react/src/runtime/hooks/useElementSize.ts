@@ -3,20 +3,16 @@ import {
   useState,
   type RefObject
 } from 'react'
+import type { Size } from '../../types/common/base'
 
-export type ElementSize = {
-  width: number
-  height: number
-}
-
-const EmptySize: ElementSize = {
+const EmptySize: Size = {
   width: 0,
   height: 0
 }
 
 const readElementSize = (
   element: HTMLElement | null
-): ElementSize => ({
+): Size => ({
   width: element?.clientWidth ?? 0,
   height: element?.clientHeight ?? 0
 })
@@ -24,7 +20,7 @@ const readElementSize = (
 export const useElementSize = (
   ref: RefObject<HTMLElement | null>
 ) => {
-  const [size, setSize] = useState<ElementSize>(EmptySize)
+  const [size, setSize] = useState<Size>(EmptySize)
 
   useEffect(() => {
     const element = ref.current

@@ -1,15 +1,15 @@
 import type { EdgePresetKey } from '@whiteboard/editor'
 import type { Dispatch, SetStateAction } from 'react'
-import type { Editor } from '../../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import type {
+  ToolPaletteMenuKey,
+  ToolPaletteView
+} from '../../types/toolbox'
 import { DrawMenu } from './menus/DrawMenu'
 import { EdgeMenu } from './menus/EdgeMenu'
 import { MindmapMenu } from './menus/MindmapMenu'
 import { ShapeMenu } from './menus/ShapeMenu'
 import { StickyMenu } from './menus/StickyMenu'
-import type {
-  ToolPaletteMenuKey,
-  ToolPaletteView
-} from './model'
 
 type ToolPaletteMenuPlacement = {
   left: number

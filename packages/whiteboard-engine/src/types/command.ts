@@ -9,6 +9,7 @@ import type {
   NodeId,
   NodeInput,
   NodeUpdateInput,
+  Origin,
   Point
 } from '@whiteboard/core/types'
 import type {
@@ -32,11 +33,6 @@ import type {
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { CommandResult } from './result'
 
-export type WriteOrigin =
-  | 'system'
-  | 'user'
-  | 'remote'
-
 export type NodeBatchUpdate = {
   id: NodeId
   update: NodeUpdateInput
@@ -48,7 +44,7 @@ export type NodeMoveInput = {
 }
 
 export type NodeUpdateManyOptions = {
-  origin?: WriteOrigin
+  origin?: Origin
 }
 
 export type DocumentWriteCommand =
@@ -173,7 +169,7 @@ export type WriteInput<
 > = {
   domain: D
   command: C
-  origin?: WriteOrigin
+  origin?: Origin
 }
 
 export type DocumentWriteOutput<C extends DocumentWriteCommand = DocumentWriteCommand> =

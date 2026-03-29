@@ -5,7 +5,7 @@ import type {
   CollabBootstrapMode,
   CollabStatus,
   CollabSession,
-  YjsSessionOptions
+  CreateYjsSessionOptions
 } from './types'
 import { applyOperationsToYjsDocument } from './yjs/apply'
 import {
@@ -33,7 +33,7 @@ export const createYjsSession = ({
   doc,
   provider,
   bootstrap = 'auto'
-}: YjsSessionOptions): CollabSession => {
+}: CreateYjsSessionOptions): CollabSession => {
   const status = createValueStore<CollabStatus>('idle')
   const localOrigin = {
     source: '@whiteboard/collab'

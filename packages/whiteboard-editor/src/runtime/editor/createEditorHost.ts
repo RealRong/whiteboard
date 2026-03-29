@@ -10,7 +10,7 @@ import type { EdgeConnectSession } from '../../features/edge/connectSession'
 import type { EdgeInputRuntime } from '../../features/edge/input'
 import type { MindmapDragController } from '../../features/mindmap/dragSession'
 import type { EditorRuntime } from './types'
-import type { EditorInternals } from './createEditorStores'
+import type { EditorInternals } from '../../types/internal/editor'
 
 export const createEditorHost = ({
   registry,

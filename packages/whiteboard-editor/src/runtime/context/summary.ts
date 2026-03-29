@@ -5,14 +5,14 @@ import type {
   NodeRegistry
 } from '../../types/node'
 import type {
-  ContextNodeSummary,
-  ContextSelectionCan
+  SelectionCan,
+  SelectionNodeSummary
 } from './types'
 
 const EMPTY_IDS: readonly NodeId[] = []
-const EMPTY_TYPES: ContextNodeSummary['types'] = []
+const EMPTY_TYPES: SelectionNodeSummary['types'] = []
 const EMPTY_CONTROLS: readonly ControlId[] = []
-const EMPTY_CAN: ContextSelectionCan = {
+const EMPTY_CAN: SelectionCan = {
   fill: false,
   stroke: false,
   text: false,
@@ -66,7 +66,7 @@ export const summarizeContextNodes = ({
 }: {
   nodes: readonly Node[]
   resolveMeta: (node: Node) => NodeMeta
-}): ContextNodeSummary => {
+}): SelectionNodeSummary => {
   const ids = nodes.length > 0 ? nodes.map((node) => node.id) : EMPTY_IDS
   const count = ids.length
   const hasGroup = nodes.some((node) => node.type === 'group')
@@ -128,7 +128,7 @@ export const resolveContextSelectionCan = ({
 }: {
   nodes: readonly Node[]
   resolveMeta: (node: Node) => NodeMeta
-}): ContextSelectionCan => {
+}): SelectionCan => {
   const count = nodes.length
 
   if (!count) {
@@ -161,7 +161,7 @@ export const resolveContextSelectionCan = ({
 }
 
 export const readContextLockLabel = (
-  summary: ContextNodeSummary
+  summary: SelectionNodeSummary
 ) => (
   summary.lock === 'all'
     ? (summary.count > 1 ? 'Unlock selected' : 'Unlock')

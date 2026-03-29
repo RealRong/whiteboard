@@ -1,38 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
+import type { Pick } from '@whiteboard/editor/runtime/pick/index'
 import { useEditorRuntime } from './useEditor'
-
-type Pick =
-  | { kind: 'background' }
-  | {
-      kind: 'selection-box'
-      part: 'body' | 'transform'
-      handle?: {
-        id: string
-        direction?: string
-      }
-    }
-  | {
-      kind: 'node'
-      id: string
-      part: 'body' | 'shell' | 'transform' | 'connect'
-      handle?: {
-        id: string
-      }
-      side?: string
-    }
-  | {
-      kind: 'edge'
-      id: string
-      part: 'body' | 'end' | 'path'
-      end?: 'source' | 'target'
-      index?: number
-      insert?: number
-    }
-  | {
-      kind: 'mindmap'
-      treeId: string
-      nodeId: string
-    }
 
 const toPickKey = (
   pick: Pick

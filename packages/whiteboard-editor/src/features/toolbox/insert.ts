@@ -4,7 +4,7 @@ import type {
   SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import type { Editor } from '../../runtime/editor/types'
+import type { Editor } from '../../types/public/editor'
 import { moveMindmapRoot } from '../mindmap/commands'
 import type {
   InsertPlacement,

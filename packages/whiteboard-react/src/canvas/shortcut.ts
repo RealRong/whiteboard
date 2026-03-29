@@ -2,7 +2,7 @@ import type {
   ShortcutAction,
   ShortcutBinding
 } from '../types/common/shortcut'
-import type { Editor } from '../runtime/editor'
+import type { WhiteboardRuntime as Editor } from '../types/runtime'
 
 export const DefaultShortcutBindings: readonly ShortcutBinding[] = [
   { key: 'Mod+G', action: 'group.create' },

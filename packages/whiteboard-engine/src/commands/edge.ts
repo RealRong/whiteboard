@@ -2,13 +2,14 @@ import type {
   EdgeBatchUpdate,
   WriteCommandMap
 } from '@engine-types/command'
-import type { EngineCommands, WriteOrigin } from '@engine-types/command'
+import type { EngineCommands } from '@engine-types/command'
 import type { Apply } from '@engine-types/write'
 import type {
   EdgeEnd,
   EdgeId,
   EdgeInput,
   EdgePatch,
+  Origin,
   Point
 } from '@whiteboard/core/types'
 
@@ -21,7 +22,7 @@ export const edge = ({
 }): EngineCommands['edge'] => {
   const run = <C extends EdgeCommand>(
     command: C,
-    origin: WriteOrigin = 'user'
+    origin: Origin = 'user'
   ) =>
     apply({
       domain: 'edge',

@@ -12,17 +12,14 @@ export {
   DEFAULT_BOARD_CONFIG
 } from './config'
 
-export type { EngineCommands, WriteOrigin } from './types/command'
+export type { EngineCommands } from './types/command'
 export type { Commit } from './types/commit'
 export type { CommandResult } from './types/result'
 export type {
   CanvasNode,
-  EdgeEnds,
   EdgeItem,
   MindmapItem,
-  MindmapLine,
-  NodeItem,
-  ResolvedEdgeEnd
+  NodeItem
 } from './types/projection'
 export type {
   KeyedReadStore,

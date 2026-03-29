@@ -16,61 +16,18 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import type { NodeRole } from '../../types/node'
+import type {
+  SelectionCommands,
+  SelectionInput,
+  SelectionSnapshot,
+  SelectionStore as Store,
+  SelectionTarget,
+  SelectionTransform as Transform
+} from '../../types/internal/selection'
 import {
   isOrderedArrayEqual,
   isRectEqual
 } from '../utils/equality'
-
-export type SelectionInput = {
-  nodeIds?: readonly NodeId[]
-  edgeIds?: readonly EdgeId[]
-}
-
-export type SelectionTarget = {
-  nodeIds: readonly NodeId[]
-  edgeIds: readonly EdgeId[]
-}
-
-export type Commands = {
-  replace: (input: SelectionInput) => void
-  add: (input: SelectionInput) => void
-  remove: (input: SelectionInput) => void
-  toggle: (input: SelectionInput) => void
-  clear: () => void
-}
-
-export type Transform = {
-  move: boolean
-  resize: 'none' | 'resize' | 'scale'
-}
-
-export type SelectionSnapshot = {
-  kind: 'none' | 'node' | 'nodes' | 'edge' | 'edges' | 'mixed'
-  target: {
-    nodeIds: readonly NodeId[]
-    nodeSet: ReadonlySet<NodeId>
-    edgeIds: readonly EdgeId[]
-    edgeSet: ReadonlySet<EdgeId>
-    edgeId?: EdgeId
-  }
-  items: {
-    nodes: readonly Node[]
-    edges: readonly Edge[]
-    primaryNode?: Node
-    primaryEdge?: Edge
-    count: number
-    nodeCount: number
-    edgeCount: number
-  }
-  transform: Transform
-  box?: Rect
-  boxInteractive: boolean
-}
-
-export type Store = {
-  source: ValueStore<SelectionTarget>
-  commands: Commands
-}
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 const EMPTY_NODE_SET: ReadonlySet<NodeId> = new Set<NodeId>()
@@ -335,3 +292,12 @@ export const createState = (): Store => {
     }
   }
 }
+
+export type {
+  SelectionCommands as Commands,
+  SelectionInput,
+  SelectionSnapshot,
+  SelectionTarget,
+  SelectionTransform as Transform,
+  SelectionStore as Store
+} from '../../types/internal/selection'

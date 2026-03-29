@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react'
 import type {
   WhiteboardInstance,
   WhiteboardRuntime
-} from '../editor'
+} from '../../types/runtime'
 import { useStoreValue } from './useStoreValue'
 
 type EditTarget = ReturnType<WhiteboardInstance['state']['edit']['get']>
@@ -22,7 +22,7 @@ export const useEditorRuntime = (): WhiteboardRuntime => {
   return editor
 }
 
-export const useEditor = (): WhiteboardInstance => useEditorRuntime()
+export const useEditor = (): WhiteboardRuntime => useEditorRuntime()
 
 export const useEdit = (): EditTarget => {
   const editor = useEditorRuntime()

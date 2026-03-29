@@ -1,11 +1,6 @@
 import type { Edge, EdgeId, NodeId } from '../types/core'
 import { isNodeEdgeEnd } from '../types/core'
-
-export type EdgeRelations = {
-  edgeById: Map<EdgeId, Edge>
-  edgeIds: EdgeId[]
-  nodeToEdgeIds: Map<NodeId, Set<EdgeId>>
-}
+import type { EdgeRelations } from '../types/edge'
 
 const linkNodeEdge = (
   nodeToEdgeIds: Map<NodeId, Set<EdgeId>>,

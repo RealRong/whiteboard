@@ -3,7 +3,7 @@ import type { Editor } from './types'
 import type { InteractionCoordinator, SnapRuntime } from '../interaction'
 import type { ContextRuntime } from '../context'
 import { finalize } from '../finalize'
-import type { EditorInternals, EditorStores } from './createEditorStores'
+import type { EditorInternals, EditorStores } from '../../types/internal/editor'
 
 export const createEditorLifecycle = ({
   engine,

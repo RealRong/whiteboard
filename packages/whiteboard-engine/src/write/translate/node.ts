@@ -1,6 +1,6 @@
 import type { NodeWriteOutput, WriteCommandMap } from '@engine-types/command'
+import type { TranslateResult } from '@engine-types/internal/translate'
 import type { WriteTranslateContext } from './index'
-import type { TranslateResult } from './result'
 import { cancelled, invalid, fromOps, success } from './result'
 import {
   applyNodeUpdate,

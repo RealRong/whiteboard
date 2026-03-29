@@ -1,48 +1,11 @@
 import type { Operation, Origin } from '../types'
-
-export type HistoryState = {
-  canUndo: boolean
-  canRedo: boolean
-  undoDepth: number
-  redoDepth: number
-  isApplying: boolean
-  lastUpdatedAt?: number
-}
-
-export type HistoryConfig = {
-  enabled: boolean
-  capacity: number
-  captureSystem: boolean
-  captureRemote: boolean
-}
-
-export type HistoryCapture<
-  TOperation = Operation,
-  TOrigin extends string = Origin
-> = {
-  forward: readonly TOperation[]
-  inverse: readonly TOperation[]
-  origin?: TOrigin
-}
-
-export type HistoryReplay<
-  TOperation = Operation,
-  TReplayResult = boolean
-> = (operations: readonly TOperation[]) => TReplayResult | false
-
-export type HistoryApi<
-  TOperation = Operation,
-  TOrigin extends string = Origin,
-  TReplayResult = boolean
-> = {
-  get: () => HistoryState
-  subscribe: (listener: (state: HistoryState) => void) => () => void
-  configure: (config: Partial<HistoryConfig>) => void
-  clear: () => void
-  capture: (entry: HistoryCapture<TOperation, TOrigin>) => void
-  undo: () => TReplayResult | false
-  redo: () => TReplayResult | false
-}
+import type {
+  HistoryApi,
+  HistoryCapture,
+  HistoryConfig,
+  HistoryReplay,
+  HistoryState
+} from '../types/kernel'
 
 const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
   enabled: true,

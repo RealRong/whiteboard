@@ -21,9 +21,9 @@ import { useOverlayDismiss } from '../../runtime/overlay/useOverlayDismiss'
 import { ToolPaletteButtons } from './ToolPaletteButtons'
 import { ToolPaletteMenu } from './ToolPaletteMenu'
 import {
-  readToolPaletteView,
-  type ToolPaletteMenuKey
+  readToolPaletteView
 } from './model'
+import type { ToolPaletteMenuKey } from '../../types/toolbox'
 
 type ToolPaletteMenuPlacement = {
   left: number

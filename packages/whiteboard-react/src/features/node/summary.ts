@@ -10,7 +10,7 @@ export type {
   SelectionNodeTypeSummary as NodeTypeSummary
 } from '@whiteboard/editor/context'
 
-export type NodeSummaryView = {
+type NodeSummaryView = {
   types: readonly NodeTypeSummary[]
   overflow: number
   title: string

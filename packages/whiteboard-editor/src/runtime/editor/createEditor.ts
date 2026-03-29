@@ -3,9 +3,9 @@ import type { EdgeConnectCandidate } from '@whiteboard/core/edge'
 import type { EngineInstance } from '@whiteboard/engine'
 import type {
   Editor,
-  EditorHostBridge,
-  EditorRuntime,
-} from './types'
+  EditorHostBridge
+} from '../../types/public/editor'
+import type { EditorRuntime } from '../../types/internal/editor'
 import type { Tool } from '../tool'
 import {
   isSameTool,

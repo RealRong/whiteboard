@@ -6,14 +6,12 @@ import {
 } from '../../node/shape'
 import { readShapePresetKind } from '../presets'
 
-export type ShapeMenuValue = string
-
 export const ShapeMenu = ({
   value,
   onChange
 }: {
-  value?: ShapeMenuValue
-  onChange: (value: ShapeMenuValue) => void
+  value?: string
+  onChange: (value: string) => void
 }) => {
   const activeKind = readShapePresetKind(value)
 
