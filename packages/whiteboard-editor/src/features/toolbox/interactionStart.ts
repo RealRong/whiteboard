@@ -1,13 +1,13 @@
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 
-type InsertInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type InsertInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'insert'
   }>
 }
 
 const allowsCanvasContent = (
-  start: InteractionStart
+  start: PointerStart
 ) => (
   !start.editable
   && !start.ignoreInput
@@ -15,7 +15,7 @@ const allowsCanvasContent = (
 )
 
 export const isInsertInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is InsertInteractionStart => (
   start.tool.type === 'insert'
   && allowsCanvasContent(start)

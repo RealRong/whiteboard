@@ -11,7 +11,7 @@ import type {
 } from '@whiteboard/core/types'
 import type { NodeRole } from '../../types/node'
 import type { EditField } from '../edit'
-import type { InteractionStart } from '../input/pointer'
+import type { PointerStart } from '../input/pointer'
 import type {
   SelectionSnapshot,
   SelectionTarget
@@ -210,7 +210,7 @@ const resolvePressNodeId = (
 const readPressNodeTarget = (
   deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
   input: {
-    pick: InteractionStart['pick']
+    pick: PointerStart['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -230,7 +230,7 @@ const readPressNodeTarget = (
 const readSelectionPressTarget = (
   deps: PolicyDeps,
   input: {
-    pick: InteractionStart['pick']
+    pick: PointerStart['pick']
     field?: EditField
     mode: SelectionMode
     selectedNodeIds: readonly NodeId[]
@@ -460,7 +460,7 @@ const planGroupShellPress = (
 export const resolveSelectionPressPlan = (
   deps: PolicyDeps,
   input: {
-    start: InteractionStart
+    start: PointerStart
     snapshot: SelectionSnapshot
   }
 ): SelectionPressPlan | undefined => {

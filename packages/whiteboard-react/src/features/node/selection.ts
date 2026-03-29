@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Rect } from '@whiteboard/core/types'
-import type { SelectionMenuView } from '@whiteboard/editor'
+import type { SelectionMenuView } from '@whiteboard/editor/context'
 import {
   type NodeSelectionCan,
   type NodeSummary
@@ -8,6 +8,7 @@ import {
 import {
   useEdit,
   useEditor,
+  useEditorRuntime,
   useTool
 } from '../../runtime/hooks'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
@@ -180,7 +181,7 @@ export const useSelection = () => {
 }
 
 export const useSelectionPresentation = () => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const selection = useSelection()
   const tool = useTool()
   const edit = useEdit()

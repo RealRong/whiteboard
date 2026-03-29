@@ -7,10 +7,10 @@ import type {
   BrushStyle,
   BrushStylePatch,
   DrawSlot
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/draw'
 import {
   DRAW_SLOTS
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/draw'
 import type {
   DrawBrushKind,
   DrawKind

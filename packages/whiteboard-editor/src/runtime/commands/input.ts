@@ -14,7 +14,7 @@ export const createInputCommands = ({
 }: {
   editor: Pick<EditorRuntime, 'commands' | 'read' | 'state' | 'host' | 'viewport'>
   pointer: PointerSnapshotStore
-}): Editor['commands']['input'] => {
+}): Editor['input'] => {
   const cancel = () => {
     pointer.set(null)
     editor.host.draw.cancel()

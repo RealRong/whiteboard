@@ -1,7 +1,7 @@
 import type {
   SelectionMenuFilterView,
   SelectionMoreMenuSectionView
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/context'
 import {
   MenuItem,
   MenuList,

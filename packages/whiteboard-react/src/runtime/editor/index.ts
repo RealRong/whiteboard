@@ -11,15 +11,17 @@ type CreateEditorInput = Omit<Parameters<typeof createEditorBase>[0], 'registry'
 
 export const createEditor = (
   input: CreateEditorInput
-): WhiteboardInstance => createEditorBase({
+): WhiteboardRuntime => createEditorBase({
   ...input,
   registry: input.registry as unknown as EditorNodeRegistry
-}) as WhiteboardInstance
+}) as WhiteboardRuntime
 
-export type WhiteboardInstance = Omit<EditorBase, 'host'> & {
-  host: Omit<EditorBase['host'], 'registry'> & {
+export type WhiteboardInstance = EditorBase
+
+export type WhiteboardRuntime = WhiteboardInstance & {
+  host: {
     registry: NodeRegistry
-  }
+  } & any
 }
 
-export type Editor = WhiteboardInstance
+export type Editor = WhiteboardRuntime

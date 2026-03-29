@@ -6,11 +6,10 @@ export type {
   EditorViewport,
   EditorClipboardOptions,
   EditorClipboardTarget,
-  EditorInputCommands,
+  EditorInput,
   EditorKeyboardInput,
   EditorInsertResult,
-  EditorPointerInput,
-  EditorPointerDownInput
+  EditorPointerInput
 } from './runtime/editor'
 export type {
   ControlId,

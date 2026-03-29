@@ -8,12 +8,15 @@ import {
 } from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EditorRuntime } from '../../../runtime/editor/types'
+import type { SnapRuntime } from '../../../runtime/interaction'
 import {
+  type EdgePreview,
   toEdgePreviewEntry
 } from '../../edge/preview'
 import {
   clearNodeSessionPreview,
-  writeNodeSessionPreview
+  writeNodeSessionPreview,
+  type NodeFeatureRuntime
 } from '../session/node'
 
 type ActiveDrag = {
@@ -51,7 +54,13 @@ type NodeDragSessionDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'edge' | 'node' | 'snap'>
+  internals: {
+    edge: {
+      preview: Pick<EdgePreview, 'patch'>
+    }
+    node: Pick<NodeFeatureRuntime, 'session'>
+    snap: Pick<SnapRuntime, 'node'>
+  }
 }
 
 export const createNodeDragSession = (

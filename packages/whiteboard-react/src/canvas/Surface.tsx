@@ -1,5 +1,9 @@
 import { useMemo, type CSSProperties, type RefObject } from 'react'
-import { useEditor, useStoreValue, useTool } from '../runtime/hooks'
+import {
+  useEditorRuntime,
+  useStoreValue,
+  useTool
+} from '../runtime/hooks'
 import { useBindViewportInput } from '../runtime/viewport/useBindViewportInput'
 import { Background } from './Background'
 import { Chrome } from './Chrome'
@@ -27,7 +31,7 @@ export const Surface = ({
   containerRef: RefObject<HTMLDivElement | null>
   containerStyle?: CSSProperties
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const viewport = useStoreValue(editor.viewport)
   const tool = useTool()
   const inputPolicy = useMemo(

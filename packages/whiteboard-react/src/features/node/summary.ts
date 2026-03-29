@@ -2,13 +2,13 @@ import type {
   SelectionCan as NodeSelectionCan,
   SelectionNodeSummary as NodeSummary,
   SelectionNodeTypeSummary as NodeTypeSummary
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/context'
 
 export type {
   SelectionCan as NodeSelectionCan,
   SelectionNodeSummary as NodeSummary,
   SelectionNodeTypeSummary as NodeTypeSummary
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/context'
 
 export type NodeSummaryView = {
   types: readonly NodeTypeSummary[]

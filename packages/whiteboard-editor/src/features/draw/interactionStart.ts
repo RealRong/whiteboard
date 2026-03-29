@@ -1,14 +1,14 @@
 import { isDrawBrushKind } from '../../runtime/tool'
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 
-type DrawInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type DrawInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'draw'
   }>
 }
 
 const allowsCanvasContent = (
-  start: InteractionStart
+  start: PointerStart
 ) => (
   !start.editable
   && !start.ignoreInput
@@ -16,7 +16,7 @@ const allowsCanvasContent = (
 )
 
 export const isDrawInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is DrawInteractionStart => (
   start.tool.type === 'draw'
   && isDrawBrushKind(start.tool.kind)
@@ -24,7 +24,7 @@ export const isDrawInteractionStart = (
 )
 
 export const isEraseInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is DrawInteractionStart => (
   start.tool.type === 'draw'
   && start.tool.kind === 'eraser'

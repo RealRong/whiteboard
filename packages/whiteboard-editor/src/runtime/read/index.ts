@@ -1,13 +1,8 @@
-import type { EngineRead } from '@whiteboard/engine'
+import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
-import {
-  getTargetBounds
-} from '@whiteboard/core/node'
-import type { NodeId } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { NodeFeatureRuntime } from '../../features/node/session/node'
 import type { EdgePreview } from '../../features/edge/preview'
-import type { ReadStore } from '@whiteboard/engine'
 import type { SelectionTarget } from '../selection'
 import type { Tool } from '../tool'
 import type { FrameScope } from '../frame'
@@ -22,22 +17,21 @@ import {
   resolveNodeTransform,
   type NodeRead
 } from './node'
+import { createBoundsRead } from './bounds'
+import { createContextRead } from './context'
 import { createEdgeRead } from './edge'
-import { createToolRead, type ToolRead } from './tool'
-import {
-  createSelectionRead,
-  type SelectionRead
-} from './selection'
+import { createFrameRead } from './frame'
 import {
   createPickRead,
   type PickRead
 } from './pick'
+import {
+  createSelectionRead,
+  type SelectionRead
+} from './selection'
+import { createToolRead, type ToolRead } from './tool'
 import type { PickRuntime } from '../pick'
 import type { ViewportRead } from '../viewport'
-import {
-  hasEdge,
-  hasNode
-} from '../frame'
 
 export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   history: ReadStore<HistoryState>
@@ -51,14 +45,14 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
     menu: ReadStore<ContextMenuView | null>
     selection: ReadStore<SelectionMenuView | null>
   }
-  frame: {
-    scope: ReadStore<FrameScope>
-    hasNode: (nodeId: NodeId) => boolean
-    hasEdge: (edge: Parameters<typeof hasEdge>[1]) => boolean
-  }
+  frame: ReturnType<typeof createFrameRead>
 }
 
-export const createRuntimeRead = ({
+export type RuntimeBaseRead = Omit<RuntimeRead, 'context'> & {
+  context: Pick<RuntimeRead['context'], 'menu'>
+}
+
+export const createBaseRuntimeRead = ({
   engineRead,
   registry,
   tool,
@@ -66,7 +60,6 @@ export const createRuntimeRead = ({
   selection,
   frame,
   contextMenu,
-  contextSelection,
   pick,
   viewport,
   node,
@@ -79,12 +72,11 @@ export const createRuntimeRead = ({
   selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
   contextMenu: ReadStore<ContextMenuView | null>
-  contextSelection: ReadStore<SelectionMenuView | null>
   pick: PickRuntime
   viewport: ViewportRead
   node: Pick<NodeFeatureRuntime, 'session'>
   edge: Pick<EdgePreview, 'patch'>
-}): RuntimeRead => {
+}): RuntimeBaseRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
     session: node.session
@@ -103,18 +95,12 @@ export const createRuntimeRead = ({
     item: nodeItem,
     interaction: nodeInteraction
   })
-  const readRuntimeNodes = () => engineRead.node.list.get()
-    .map((nodeId) => nodeItem.get(nodeId)?.node)
-    .filter((node): node is NonNullable<typeof node> => Boolean(node))
-  const bounds: EngineRead['bounds'] = {
-    canvas: engineRead.bounds.canvas,
-    targets: (input) => getTargetBounds({
-      input,
-      nodes: readRuntimeNodes(),
-      readNodeBounds: nodeRead.bounds,
-      readEdgeBounds: edgeRead.bounds
-    })
-  }
+  const bounds = createBoundsRead({
+    engineRead,
+    nodeRead,
+    nodeItem,
+    edgeRead
+  })
   const selectionRead = createSelectionRead({
     source: selection,
     nodeItem,
@@ -124,6 +110,16 @@ export const createRuntimeRead = ({
     registry,
     resolveNodeTransform
   })
+  const frameRead = createFrameRead({
+    scope: frame
+  })
+  const pickRead = createPickRead({
+    registry: pick,
+    viewport
+  })
+  const toolRead = createToolRead({
+    tool
+  })
 
   return {
     document: engineRead.document,
@@ -132,25 +128,29 @@ export const createRuntimeRead = ({
     node: nodeRead,
     edge: edgeRead,
     context: {
-      menu: contextMenu,
-      selection: contextSelection
+      menu: contextMenu
     },
-    frame: {
-      scope: frame,
-      hasNode: (nodeId) => hasNode(frame.get(), nodeId),
-      hasEdge: (edge) => hasEdge(frame.get(), edge)
-    },
+    frame: frameRead,
     mindmap: engineRead.mindmap,
     selection: selectionRead,
     tree: engineRead.tree,
     slice: engineRead.slice,
-    pick: createPickRead({
-      registry: pick,
-      viewport
-    }),
+    pick: pickRead,
     index: engineRead.index,
-    tool: createToolRead({
-      tool
-    })
+    tool: toolRead
   }
 }
+
+export const createRuntimeRead = ({
+  base,
+  contextSelection
+}: {
+  base: RuntimeBaseRead
+  contextSelection: ReadStore<SelectionMenuView | null>
+}): RuntimeRead => ({
+  ...base,
+  context: createContextRead({
+    menu: base.context.menu,
+    selection: contextSelection
+  })
+})

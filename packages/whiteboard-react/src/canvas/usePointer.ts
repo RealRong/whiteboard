@@ -13,7 +13,7 @@ export const usePointer = ({
   const editor = useEditor()
 
   useEffect(() => () => {
-    editor.commands.input.cancel()
+    editor.input.cancel()
   }, [editor])
 
   const onPointerDown = useCallback((event: PointerEvent) => {
@@ -22,7 +22,7 @@ export const usePointer = ({
       return false
     }
 
-    return editor.commands.input.pointerDown({
+    return editor.input.pointerDown({
       container,
       event
     })
@@ -34,14 +34,14 @@ export const usePointer = ({
       return
     }
 
-    editor.commands.input.pointerMove({
+    editor.input.pointerMove({
       container,
       event
     })
   }, [containerRef, editor])
 
   const onPointerLeave = useCallback(() => {
-    editor.commands.input.pointerLeave()
+    editor.input.pointerLeave()
   }, [editor])
 
   useEffect(() => {

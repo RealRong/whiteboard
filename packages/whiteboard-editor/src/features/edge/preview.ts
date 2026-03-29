@@ -262,7 +262,7 @@ export const toEdgePreviewEntry = (
 })
 
 export const writeEdgePreviewPatch = (
-  preview: EdgePreview,
+  preview: Pick<EdgePreview, 'patch'>,
   edgeId: EdgeId,
   patch: CoreEdgePatch,
   activeRouteIndex?: number
@@ -273,7 +273,7 @@ export const writeEdgePreviewPatch = (
 }
 
 export const writeEdgePreviewRoute = (
-  preview: EdgePreview,
+  preview: Pick<EdgePreview, 'patch'>,
   edgeId: EdgeId,
   points: readonly Point[],
   activeRouteIndex?: number

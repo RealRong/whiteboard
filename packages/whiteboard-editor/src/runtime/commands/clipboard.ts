@@ -4,13 +4,12 @@ import type {
   ClipboardPort,
   ClipboardRuntime
 } from '../host/clipboard'
+import type { EditorCommandHost } from './runtime'
 import {
   copy,
   cut,
   paste
 } from '../../features/selection/actions/clipboard'
-
-type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
 export const createClipboardCommands = ({
   commandHost,

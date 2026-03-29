@@ -1,19 +1,19 @@
-import type { InteractionStart } from '../../../runtime/input/pointer'
+import type { PointerStart } from '../../../runtime/input/pointer'
 
-type TransformInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type TransformInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'select'
   }>
-  pick: Extract<InteractionStart['pick'], {
+  pick: Extract<PointerStart['pick'], {
     kind: 'node' | 'selection-box'
   }> & {
     part: 'transform'
-    handle: NonNullable<InteractionStart['pick'] extends { handle?: infer T } ? T : never>
+    handle: NonNullable<PointerStart['pick'] extends { handle?: infer T } ? T : never>
   }
 }
 
 export const isTransformInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is TransformInteractionStart => (
   start.tool.type === 'select'
   && (start.pick.kind === 'node' || start.pick.kind === 'selection-box')

@@ -5,10 +5,12 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
+import type { SnapRuntime } from '../../runtime/interaction'
 import { createRafTask } from '../../runtime/utils/rafTask'
 import type { EdgeConnectSession } from './connectSession'
+import type { EdgePreview } from './preview'
 import {
   isEdgeInteractionStart
 } from './interactionStart'
@@ -17,7 +19,12 @@ type EdgeInputRuntimeDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'edge' | 'snap'>
+  internals: {
+    edge: {
+      preview: Pick<EdgePreview, 'patch' | 'hint' | 'writePatch' | 'writeRoute'>
+    }
+    snap: Pick<SnapRuntime, 'edge'>
+  }
 }
 
 type ActiveDrag = {
@@ -50,7 +57,7 @@ type PointerSourceEvent = Pick<
   | 'target'
 >
 
-type EdgeRoutePick = Extract<InteractionStart['pick'], {
+type EdgeRoutePick = Extract<PointerStart['pick'], {
   kind: 'edge'
 }> & {
   part: 'path'
@@ -85,7 +92,7 @@ type EdgePatchSession<Active> = {
 }
 
 export type EdgeInputRuntime = {
-  down: (input: InteractionStart) => boolean
+  down: (input: PointerStart) => boolean
   pointerMove: (event: PointerEvent) => void
   pointerLeave: () => void
   cancel: () => void
@@ -102,7 +109,7 @@ const readCaptureTarget = (
 )
 
 const isEdgeRoutePick = (
-  pick: InteractionStart['pick']
+  pick: PointerStart['pick']
 ): pick is EdgeRoutePick => (
   pick.kind === 'edge'
   && pick.part === 'path'
@@ -454,7 +461,7 @@ export const createEdgeInputRuntime = (
   }
 
   const startEdgeBodyDown = (
-    input: InteractionStart
+    input: PointerStart
   ) => {
     const { event } = input
     if (input.pick.kind !== 'edge' || input.pick.part !== 'body') {
@@ -496,7 +503,7 @@ export const createEdgeInputRuntime = (
   }
 
   const startEdgeRouteDown = (
-    input: InteractionStart
+    input: PointerStart
   ) => {
     const { event } = input
     if (input.pick.kind !== 'edge' || !isEdgeRoutePick(input.pick)) {

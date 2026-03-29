@@ -1,4 +1,5 @@
 import type { Editor } from '../editor/types'
+import type { EditorCommandHost } from './runtime'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_STICKY_PRESET_KEY,
@@ -9,8 +10,6 @@ import {
 import {
   insertPreset as insertPresetAction
 } from '../../features/toolbox/insert'
-
-type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
 export const createInsertCommands = ({
   commandHost

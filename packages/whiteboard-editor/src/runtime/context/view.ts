@@ -5,7 +5,8 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import { CREATE_PRESETS } from '../../features/toolbox/presets'
-import type { EditorRuntime } from '../editor/types'
+import type { Editor } from '../editor/types'
+import type { NodeRegistry } from '../../types/node'
 import type { ContextResolved } from '../input/target'
 import { readSelectionMenuView } from './selection'
 import type {
@@ -14,7 +15,9 @@ import type {
   ContextMenuView
 } from './types'
 
-type ContextMenuHost = Pick<EditorRuntime, 'commands' | 'host' | 'read'>
+type ContextMenuHost = Pick<Editor, 'commands' | 'read'> & {
+  registry: Pick<NodeRegistry, 'get'>
+}
 
 const COLOR_OPTIONS = [
   { label: 'Ink', value: 'hsl(var(--ui-text-primary, 40 2.1% 28%))' },
@@ -100,7 +103,7 @@ const buildSelectionStyleGroup = ({
 
   const sources = nodes.map((node) => ({
     node,
-    schema: editor.host.registry.get(node.type)?.schema
+    schema: editor.registry.get(node.type)?.schema
   }))
   const supportsStroke = sources.every(({ node, schema }) => canEditStrokeStyle(node, schema))
   if (!supportsStroke) {
@@ -263,7 +266,10 @@ const readNodeMenuView = ({
   close: () => void
 }): ContextMenuView => {
   const selectionMenu = readSelectionMenuView({
-    editor,
+    editor: {
+      commands: () => editor.commands,
+      registry: editor.registry
+    },
     nodes,
     close
   })

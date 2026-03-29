@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type {
   ContextMenuGroupView as EditorContextMenuGroupView,
   ContextMenuItemView as EditorContextMenuItemView
-} from '@whiteboard/editor'
+} from '@whiteboard/editor/context'
 import {
   useElementSize,
-  useEditor,
+  useEditorRuntime,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
@@ -131,7 +131,7 @@ export const ContextMenu = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)

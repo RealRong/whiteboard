@@ -3,7 +3,7 @@ import type {
 } from 'react'
 import {
   useInteraction,
-  useEditor,
+  useEditorRuntime,
   usePickRef,
   useStoreValue,
   useTool
@@ -15,7 +15,7 @@ import type {
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const hint = useStoreValue(editor.host.edge.preview.hint)
   const { line, snap } = hint
   const zoom = editor.viewport.get().zoom
@@ -115,7 +115,7 @@ const EdgeRoutePointHandle = ({
 }: {
   point: SelectedEdgeRoutePointView
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const ref = usePickRef(
     point.kind === 'anchor'
       ? {

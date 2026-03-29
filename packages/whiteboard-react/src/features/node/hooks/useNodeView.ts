@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { Editor } from '../../../runtime/editor'
-import { useEditor } from '../../../runtime/hooks'
+import { useEditorRuntime } from '../../../runtime/hooks'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
 
@@ -145,7 +145,7 @@ export const useNodeView = (
     selected?: boolean
   } = {}
 ): NodeView | undefined => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const item = useOptionalKeyedStoreValue(
     editor.read.node.item,
     nodeId,
@@ -172,7 +172,7 @@ export const useNodeView = (
 export const useNodeOverlayView = (
   nodeId: NodeId | undefined
 ): NodeOverlayView | undefined => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const item = useOptionalKeyedStoreValue(
     editor.read.node.item,
     nodeId,

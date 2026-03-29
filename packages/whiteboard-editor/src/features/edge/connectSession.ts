@@ -9,8 +9,9 @@ import type {
   NodeId
 } from '@whiteboard/core/types'
 import type { EditorRuntime } from '../../runtime/editor/types'
+import type { SnapRuntime } from '../../runtime/interaction'
 import type {
-  InteractionStart
+  PointerStart
 } from '../../runtime/input/pointer'
 import {
   isEdgeCreateInteractionStart,
@@ -31,7 +32,8 @@ import {
   type EdgeConnectState
 } from './connect'
 import {
-  writeEdgePreviewPatch
+  writeEdgePreviewPatch,
+  type EdgePreview
 } from './preview'
 
 type ConnectPointer = ViewportPointer & {
@@ -39,8 +41,8 @@ type ConnectPointer = ViewportPointer & {
 }
 
 export type EdgeConnectSession = {
-  create: (input: InteractionStart) => boolean
-  reconnect: (input: InteractionStart) => boolean
+  create: (input: PointerStart) => boolean
+  reconnect: (input: PointerStart) => boolean
   cancel: () => void
 }
 
@@ -48,7 +50,12 @@ type EdgeConnectSessionDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'edge' | 'snap'>
+  internals: {
+    edge: {
+      preview: Pick<EdgePreview, 'patch' | 'hint' | 'clear'>
+    }
+    snap: Pick<SnapRuntime, 'edge'>
+  }
 }
 
 type ConnectNodeEntry = NonNullable<
@@ -94,7 +101,7 @@ export const createEdgeConnectSession = (
   }
 
   const readCreateState = (
-    input: InteractionStart,
+    input: PointerStart,
     pointer: ConnectPointer,
     edgeType: EdgeType
   ): EdgeConnectState => {

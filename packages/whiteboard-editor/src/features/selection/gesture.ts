@@ -4,10 +4,12 @@ import {
 } from '@whiteboard/core/node'
 import {
   createPressRuntime,
-  GestureTuning
+  GestureTuning,
+  type SnapRuntime
 } from '../../runtime/interaction'
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
+import type { PickRuntime } from '../../runtime/pick'
 import {
   toSelectionTarget,
   type SelectionTarget
@@ -20,9 +22,11 @@ import {
 import type { MarqueeSession } from './marquee'
 import { createNodeDragSession } from '../node/drag/session'
 import type { NodeId } from '@whiteboard/core/types'
+import type { EdgePreview } from '../edge/preview'
+import type { NodeFeatureRuntime } from '../node/session/node'
 
 export type SelectionGesture = {
-  down: (input: InteractionStart) => boolean
+  down: (input: PointerStart) => boolean
   cancel: () => void
 }
 
@@ -30,7 +34,14 @@ type SelectionGestureDeps = Pick<
   EditorRuntime,
   'commands' | 'config' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'edge' | 'node' | 'pick' | 'snap'>
+  internals: {
+    edge: {
+      preview: Pick<EdgePreview, 'patch'>
+    }
+    node: Pick<NodeFeatureRuntime, 'session'>
+    pick: PickRuntime
+    snap: Pick<SnapRuntime, 'node'>
+  }
 }
 
 const EMPTY_SELECTION = toSelectionTarget({})
@@ -102,7 +113,7 @@ export const createSelectionGesture = (
   }
 
   const startMarquee = (
-    start: InteractionStart,
+    start: PointerStart,
     action: Extract<SelectionDragAction, { kind: 'marquee' }>,
     moveEvent?: PointerEvent
   ) => {
@@ -134,7 +145,7 @@ export const createSelectionGesture = (
   }
 
   const startContainMarquee = (
-    start: InteractionStart
+    start: PointerStart
   ) => {
     editor.commands.selection.clear()
 
@@ -147,7 +158,7 @@ export const createSelectionGesture = (
   }
 
   const startMove = (
-    start: InteractionStart,
+    start: PointerStart,
     action: Extract<SelectionDragAction, { kind: 'move' }>,
     event: PointerEvent
   ) => {
@@ -193,7 +204,7 @@ export const createSelectionGesture = (
   }
 
   const runDragAction = (
-    start: InteractionStart,
+    start: PointerStart,
     action: SelectionDragAction,
     event: PointerEvent
   ) => {

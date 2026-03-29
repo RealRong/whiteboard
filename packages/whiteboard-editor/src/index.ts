@@ -3,7 +3,6 @@ export {
 } from './runtime/editor'
 export type {
   Editor,
-  EditorHost,
   EditorRead,
   EditorState,
   EditorViewport,
@@ -11,13 +10,10 @@ export type {
   EditorClipboardOptions,
   EditorClipboardTarget,
   EditorCommands,
-  EditorInputCommands,
+  EditorInput,
   EditorKeyboardInput,
   EditorPointerInput,
   EditorInsertResult
-} from './runtime/editor'
-export type {
-  EditorPointerDownInput
 } from './runtime/editor'
 export {
   DEFAULT_DRAW_BRUSH_KIND,
@@ -84,26 +80,6 @@ export type {
   StickyTone
 } from './toolbox'
 export type {
-  BrushStyle,
-  BrushStylePatch,
-  DrawBrush,
-  DrawPreferences,
-  DrawPreview,
-  DrawSlot,
-  ResolvedDrawStyle
-} from './features/draw/state'
-export {
-  DRAW_SLOTS,
-  readDrawBrushStyle,
-  readDrawSlot,
-  readDrawStyle
-} from './features/draw/state'
-export type {
-  SelectionInput,
-  SelectionSnapshot,
-  SelectionTarget
-} from './runtime/selection'
-export type {
   ControlId,
   NodeDefinition,
   NodeRegistry,
@@ -112,25 +88,3 @@ export type {
   NodeMeta,
   NodeFamily
 } from './types'
-export type {
-  SelectionCan,
-  SelectionLayoutView,
-  SelectionMenuFilterView,
-  SelectionMenuGroupView,
-  SelectionMenuItemView,
-  SelectionMenuView,
-  SelectionMoreMenuItemView,
-  SelectionMoreMenuSectionView,
-  SelectionNodeSummary,
-  SelectionNodeTypeSummary,
-  ContextDismissMode,
-  ContextMenuFilterView,
-  ContextMenuGroupView,
-  ContextMenuItemView,
-  ContextMenuView,
-  ContextNodeSummary,
-  ContextNodeTypeSummary,
-  ContextOpenInput,
-  ContextOpenSource,
-  ContextSelectionCan
-} from './runtime/context'

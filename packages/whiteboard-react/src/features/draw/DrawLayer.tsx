@@ -1,11 +1,11 @@
 import { DrawPreview } from './DrawPreview'
 import {
-  useEditor,
+  useEditorRuntime,
   useStoreValue
 } from '../../runtime/hooks'
 
 export const DrawLayer = () => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const preview = useStoreValue(editor.host.draw.preview)
 
   return <DrawPreview preview={preview} />

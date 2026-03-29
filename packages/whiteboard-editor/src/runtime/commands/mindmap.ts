@@ -1,12 +1,11 @@
 import type { Editor } from '../editor/types'
 import type { EngineInstance } from '@whiteboard/engine'
+import type { EditorCommandHost } from './runtime'
 import {
   insertMindmapByPlacement,
   moveMindmapByDrop,
   moveMindmapRoot
 } from '../../features/mindmap/commands'
-
-type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
 export const createMindmapCommands = ({
   engine,

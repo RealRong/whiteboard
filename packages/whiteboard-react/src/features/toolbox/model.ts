@@ -4,7 +4,9 @@ import {
   type DrawBrush,
   type DrawPreferences as DrawState,
   type DrawSlot,
-  type ResolvedDrawStyle,
+  type ResolvedDrawStyle
+} from '@whiteboard/editor/draw'
+import {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,

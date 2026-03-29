@@ -8,7 +8,7 @@ import {
 import type { Point } from '@whiteboard/core/types'
 import {
   useElementSize,
-  useEditor,
+  useEditorRuntime,
   useStoreValue
 } from '../../../runtime/hooks'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
@@ -50,7 +50,7 @@ export const NodeToolbar = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const surface = useElementSize(containerRef)
   const viewport = useStoreValue(editor.viewport)
   const presentation = useSelectionPresentation()

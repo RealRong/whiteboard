@@ -4,7 +4,7 @@ import {
   hasNode,
   type FrameScope
 } from '../frame'
-import type { Editor } from '../editor/types'
+import type { Editor, EditorRuntime } from '../editor/types'
 import type { PointerPick } from '../pick'
 import type { Tool } from '../tool'
 import {
@@ -34,7 +34,7 @@ import {
   isInsertInteractionStart
 } from '../../features/toolbox/interactionStart'
 
-export type InteractionStart = PointerPick & {
+export type PointerStart = PointerPick & {
   container: HTMLDivElement
   event: PointerEvent
   capture: Element
@@ -42,38 +42,36 @@ export type InteractionStart = PointerPick & {
   frame: FrameScope
 }
 
-export type InteractionDecision =
-  | { kind: 'reject' }
-  | { kind: 'edge-create'; start: InteractionStart }
-  | { kind: 'erase'; start: InteractionStart }
-  | { kind: 'draw'; start: InteractionStart }
-  | { kind: 'insert'; start: InteractionStart }
-  | { kind: 'transform'; start: InteractionStart }
-  | { kind: 'edge'; start: InteractionStart }
-  | { kind: 'mindmap'; start: InteractionStart }
-  | { kind: 'selection'; start: InteractionStart }
+export type PointerActionKind =
+  | 'edge-create'
+  | 'erase'
+  | 'draw'
+  | 'insert'
+  | 'transform'
+  | 'edge'
+  | 'mindmap'
+  | 'selection'
+
+export type PointerAction = {
+  kind: PointerActionKind
+  start: PointerStart
+}
 
 export type ContextOpen = {
   target: ContextTarget
   leaveFrame: boolean
 }
 
-type InteractionDecisionDeps = Pick<Editor, 'commands' | 'read' | 'state'> & {
-  host: Pick<Editor['host'], 'interaction'>
+type PointerActionResolverDeps = Pick<EditorRuntime, 'commands' | 'read' | 'state' | 'host'>
+
+type PointerActionRunnerDeps = Pick<EditorRuntime, 'commands' | 'read' | 'host'>
+
+type PointerActionRoute = {
+  kind: PointerActionKind
+  match: (start: PointerStart) => boolean
 }
 
-type InteractionRunnerDeps = Pick<Editor, 'commands' | 'read'> & {
-  host: Pick<Editor['host'], 'draw' | 'edge' | 'mindmap' | 'node' | 'selection'>
-}
-
-type RoutedDecisionKind = Exclude<InteractionDecision['kind'], 'reject'>
-
-type InteractionRoute = {
-  kind: RoutedDecisionKind
-  match: (start: InteractionStart) => boolean
-}
-
-const DRAW_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+const DRAW_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
   {
     kind: 'erase',
     match: isEraseInteractionStart
@@ -84,21 +82,21 @@ const DRAW_INTERACTION_ROUTES: readonly InteractionRoute[] = [
   }
 ]
 
-const EDGE_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+const EDGE_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
   {
     kind: 'edge-create',
     match: isEdgeCreateInteractionStart
   }
 ]
 
-const INSERT_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+const INSERT_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
   {
     kind: 'insert',
     match: isInsertInteractionStart
   }
 ]
 
-const SELECT_INTERACTION_ROUTES: readonly InteractionRoute[] = [
+const SELECT_POINTER_ACTION_ROUTES: readonly PointerActionRoute[] = [
   {
     kind: 'transform',
     match: isTransformInteractionStart
@@ -117,18 +115,18 @@ const SELECT_INTERACTION_ROUTES: readonly InteractionRoute[] = [
   }
 ]
 
-const INTERACTION_ROUTES_BY_TOOL_TYPE: Partial<Record<Tool['type'], readonly InteractionRoute[]>> = {
-  draw: DRAW_INTERACTION_ROUTES,
-  edge: EDGE_INTERACTION_ROUTES,
-  insert: INSERT_INTERACTION_ROUTES,
-  select: SELECT_INTERACTION_ROUTES
+const POINTER_ACTION_ROUTES_BY_TOOL_TYPE: Partial<Record<Tool['type'], readonly PointerActionRoute[]>> = {
+  draw: DRAW_POINTER_ACTION_ROUTES,
+  edge: EDGE_POINTER_ACTION_ROUTES,
+  insert: INSERT_POINTER_ACTION_ROUTES,
+  select: SELECT_POINTER_ACTION_ROUTES
 }
 
-export const readInteractionStart = (
+export const readPointerStart = (
   editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
-): InteractionStart => {
+): PointerStart => {
   const input = editor.read.pick.from(event, container)
 
   return {
@@ -161,7 +159,7 @@ const clearFrame = (
 
 const normalizeInteractionFrame = (
   editor: Pick<Editor, 'commands' | 'read' | 'state'>,
-  start: InteractionStart
+  start: PointerStart
 ): FrameScope => {
   const frame = start.frame
   if (!frame.id) {
@@ -208,16 +206,16 @@ const normalizeInteractionFrame = (
 
 const withNormalizedFrame = (
   editor: Pick<Editor, 'commands' | 'read' | 'state'>,
-  start: InteractionStart
-): InteractionStart => ({
+  start: PointerStart
+): PointerStart => ({
   ...start,
   frame: normalizeInteractionFrame(editor, start)
 })
 
-const resolveRoutedInteractionDecision = (
-  start: InteractionStart,
-  routes: readonly InteractionRoute[]
-): InteractionDecision => {
+const resolveRoutedPointerAction = (
+  start: PointerStart,
+  routes: readonly PointerActionRoute[]
+): PointerAction | undefined => {
   for (const route of routes) {
     if (route.match(start)) {
       return {
@@ -227,15 +225,13 @@ const resolveRoutedInteractionDecision = (
     }
   }
 
-  return {
-    kind: 'reject'
-  }
+  return undefined
 }
 
-export const resolveInteractionDecision = (
-  editor: InteractionDecisionDeps,
-  input: InteractionStart
-): InteractionDecision => {
+export const resolvePointerAction = (
+  editor: PointerActionResolverDeps,
+  input: PointerStart
+): PointerAction | undefined => {
   const start = withNormalizedFrame(editor, input)
 
   if (
@@ -243,18 +239,18 @@ export const resolveInteractionDecision = (
     || start.event.button !== 0
     || editor.host.interaction.busy.get()
   ) {
-    return { kind: 'reject' }
+    return undefined
   }
 
-  return resolveRoutedInteractionDecision(
+  return resolveRoutedPointerAction(
     start,
-    INTERACTION_ROUTES_BY_TOOL_TYPE[start.tool.type] ?? []
+    POINTER_ACTION_ROUTES_BY_TOOL_TYPE[start.tool.type] ?? []
   )
 }
 
-const runInsertInteraction = (
+const runInsertPointerAction = (
   editor: Pick<Editor, 'commands' | 'read'>,
-  input: InteractionStart
+  input: PointerStart
 ) => {
   if (input.tool.type !== 'insert') {
     return false
@@ -280,41 +276,40 @@ const runInsertInteraction = (
   return true
 }
 
-export const runInteractionDecision = (
-  editor: InteractionRunnerDeps,
-  decision: InteractionDecision
+const POINTER_ACTION_RUNNERS: Record<
+  PointerActionKind,
+  (editor: PointerActionRunnerDeps, start: PointerStart) => boolean
+> = {
+  'edge-create': (editor, start) => editor.host.edge.connect.create(start),
+  erase: (editor, start) => editor.host.draw.down(start),
+  draw: (editor, start) => editor.host.draw.down(start),
+  insert: (editor, start) => runInsertPointerAction(editor, start),
+  transform: (editor, start) => editor.host.node.transform.down(start),
+  edge: (editor, start) => editor.host.edge.input.down(start),
+  mindmap: (editor, start) => editor.host.mindmap.controller.down(start),
+  selection: (editor, start) => editor.host.selection.gesture.down(start)
+}
+
+export const runPointerAction = (
+  editor: PointerActionRunnerDeps,
+  action: PointerAction | undefined
 ) => {
-  switch (decision.kind) {
-    case 'edge-create':
-      return editor.host.edge.connect.create(decision.start)
-    case 'erase':
-      return editor.host.draw.down(decision.start)
-    case 'draw':
-      return editor.host.draw.down(decision.start)
-    case 'insert':
-      return runInsertInteraction(editor, decision.start)
-    case 'transform':
-      return editor.host.node.transform.down(decision.start)
-    case 'edge':
-      return editor.host.edge.input.down(decision.start)
-    case 'mindmap':
-      return editor.host.mindmap.controller.down(decision.start)
-    case 'selection':
-      return editor.host.selection.gesture.down(decision.start)
-    case 'reject':
-      return false
+  if (!action) {
+    return false
   }
+
+  return POINTER_ACTION_RUNNERS[action.kind](editor, action.start)
 }
 
 export const handlePointerDown = (
-  editor: InteractionDecisionDeps & InteractionRunnerDeps,
+  editor: PointerActionResolverDeps & PointerActionRunnerDeps,
   container: HTMLDivElement,
   event: PointerEvent
-) => runInteractionDecision(
+) => runPointerAction(
   editor,
-  resolveInteractionDecision(
+  resolvePointerAction(
     editor,
-    readInteractionStart(editor, container, event)
+    readPointerStart(editor, container, event)
   )
 )
 

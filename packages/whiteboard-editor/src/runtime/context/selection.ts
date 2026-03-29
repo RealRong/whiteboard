@@ -10,7 +10,8 @@ import type {
   Node,
   NodeId
 } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../editor/types'
+import type { Editor } from '../editor/types'
+import type { NodeRegistry } from '../../types/node'
 import type { SelectionSnapshot } from '../selection'
 import {
   readContextLockLabel,
@@ -29,7 +30,10 @@ import type {
   SelectionMoreMenuSectionView
 } from './types'
 
-type SelectionMenuHost = Pick<EditorRuntime, 'commands' | 'host'>
+type SelectionMenuHost = {
+  commands: () => Editor['commands']
+  registry: Pick<NodeRegistry, 'get'>
+}
 type SelectionOrderMode = 'front' | 'forward' | 'backward' | 'back'
 
 const ORDER_ITEMS: ReadonlyArray<{
@@ -176,7 +180,7 @@ const createSelectionOperations = ({
     .filter((node) => node.type === 'group')
     .map((node) => node.id)
   const replaceSelection = (nextNodeIds: readonly NodeId[]) => {
-    editor.commands.selection.replace({
+    editor.commands().selection.replace({
       nodeIds: nextNodeIds
     })
   }
@@ -186,7 +190,7 @@ const createSelectionOperations = ({
       const filteredNodeIds = readFilteredNodeIds(
         nodes,
         key,
-        (node) => resolveContextNodeMeta(editor.host.registry, node)
+        (node) => resolveContextNodeMeta(editor.registry, node)
       )
       if (!filteredNodeIds.length) {
         return
@@ -200,40 +204,40 @@ const createSelectionOperations = ({
       }
 
       if (mode === 'front') {
-        editor.commands.node.order.bringToFront([...nodeIds])
+        editor.commands().node.order.bringToFront([...nodeIds])
         return
       }
       if (mode === 'forward') {
-        editor.commands.node.order.bringForward([...nodeIds])
+        editor.commands().node.order.bringForward([...nodeIds])
         return
       }
       if (mode === 'backward') {
-        editor.commands.node.order.sendBackward([...nodeIds])
+        editor.commands().node.order.sendBackward([...nodeIds])
         return
       }
 
-      editor.commands.node.order.sendToBack([...nodeIds])
+      editor.commands().node.order.sendToBack([...nodeIds])
     },
     align: (mode: NodeAlignMode) => {
       if (nodeIds.length < 2) {
         return
       }
 
-      editor.commands.node.align([...nodeIds], mode)
+      editor.commands().node.align([...nodeIds], mode)
     },
     distribute: (mode: NodeDistributeMode) => {
       if (nodeIds.length < 3) {
         return
       }
 
-      editor.commands.node.distribute([...nodeIds], mode)
+      editor.commands().node.distribute([...nodeIds], mode)
     },
     group: () => {
       if (nodeIds.length < 2) {
         return
       }
 
-      const result = editor.commands.node.group.create([...nodeIds])
+      const result = editor.commands().node.group.create([...nodeIds])
       if (!result.ok) {
         return
       }
@@ -245,7 +249,7 @@ const createSelectionOperations = ({
         return
       }
 
-      const result = editor.commands.node.group.ungroupMany([...groupIds])
+      const result = editor.commands().node.group.ungroupMany([...groupIds])
       if (!result.ok) {
         return
       }
@@ -257,14 +261,14 @@ const createSelectionOperations = ({
         return
       }
 
-      editor.commands.node.lock.set([...nodeIds], locked)
+      editor.commands().node.lock.set([...nodeIds], locked)
     },
     copy: () => {
       if (!nodeIds.length) {
         return
       }
 
-      return editor.commands.clipboard.copy({
+      return editor.commands().clipboard.copy({
         nodeIds
       })
     },
@@ -273,7 +277,7 @@ const createSelectionOperations = ({
         return
       }
 
-      return editor.commands.clipboard.cut({
+      return editor.commands().clipboard.cut({
         nodeIds
       })
     },
@@ -282,7 +286,7 @@ const createSelectionOperations = ({
         return
       }
 
-      const result = editor.commands.node.duplicate([...nodeIds])
+      const result = editor.commands().node.duplicate([...nodeIds])
       if (!result.ok || result.data.nodeIds.length <= 0) {
         return
       }
@@ -294,7 +298,7 @@ const createSelectionOperations = ({
         return
       }
 
-      editor.commands.node.deleteCascade([...nodeIds])
+      editor.commands().node.deleteCascade([...nodeIds])
     }
   }
 }
@@ -607,7 +611,7 @@ export const readSelectionMenuView = ({
     return undefined
   }
 
-  const resolveMeta = (node: Node) => resolveContextNodeMeta(editor.host.registry, node)
+  const resolveMeta = (node: Node) => resolveContextNodeMeta(editor.registry, node)
   const summary = summarizeContextNodes({
     nodes,
     resolveMeta

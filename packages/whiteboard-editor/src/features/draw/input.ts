@@ -12,10 +12,11 @@ import {
   type ReadStore,
   type StagedValueStore
 } from '@whiteboard/engine'
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 import type { EditorRuntime } from '../../runtime/editor/types'
 import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
 import type { DrawBrushKind } from '../../runtime/tool'
+import type { NodeFeatureRuntime } from '../node/session/node'
 import {
   readDrawStyle,
   type DrawPreview,
@@ -51,12 +52,14 @@ type DrawInputRuntimeDeps = Pick<
   EditorRuntime,
   'commands' | 'interaction' | 'read' | 'state' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'node'>
+  internals: {
+    node: Pick<NodeFeatureRuntime, 'hidden'>
+  }
 }
 
 export type DrawInputRuntime = {
   preview: ReadStore<DrawPreview | null>
-  down: (input: InteractionStart) => boolean
+  down: (input: PointerStart) => boolean
   cancel: () => void
 }
 
@@ -314,7 +317,7 @@ export const createDrawInputRuntime = (
   }
 
   const startDraw = (
-    input: InteractionStart
+    input: PointerStart
   ) => {
     if (
       input.tool.type !== 'draw'
@@ -371,7 +374,7 @@ export const createDrawInputRuntime = (
   }
 
   const startErase = (
-    input: InteractionStart
+    input: PointerStart
   ) => {
     if (input.tool.type !== 'draw' || input.tool.kind !== 'eraser') {
       return false

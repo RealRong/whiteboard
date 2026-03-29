@@ -1,5 +1,6 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { EditorRuntime } from '../editor/types'
+import type { Editor } from '../editor/types'
+import type { NodeRegistry } from '../../types/node'
 import {
   readContextOpen,
   resolveContextTarget
@@ -13,10 +14,12 @@ import type {
   ContextRuntime
 } from './types'
 
-type ContextRuntimeHost = Pick<EditorRuntime, 'commands' | 'host' | 'read' | 'state'>
+type ContextRuntimeHost = Pick<Editor, 'commands' | 'read' | 'state'> & {
+  registry: Pick<NodeRegistry, 'get'>
+}
 
 const writeSelection = (
-  editor: Pick<EditorRuntime, 'commands'>,
+  editor: Pick<Editor, 'commands'>,
   target: ContextMenuSession['restoreSelection']
 ) => {
   if (target.nodeIds.length > 0 || target.edgeIds.length > 0) {

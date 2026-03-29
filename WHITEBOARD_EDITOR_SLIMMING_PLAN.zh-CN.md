@@ -532,7 +532,17 @@ runPointerAction(editor, action)
 
 ## 6. 分阶段落地方案
 
-## 阶段 1：先收公共 API 脸面
+当前进度（2026-03-29）：
+
+- 阶段 1 已完成
+- 阶段 2 已完成
+- 阶段 3 已完成
+- 阶段 4 已完成
+- 阶段 5 已完成
+- 阶段 6 已完成
+- 阶段 7 已完成
+
+## 阶段 1：先收公共 API 脸面（已完成）
 
 目标：
 
@@ -542,7 +552,7 @@ runPointerAction(editor, action)
 具体动作：
 
 1. 在 editor 顶层建立 `editor.input`
-2. 把 `commands.input` 标记为兼容别名，后续删除
+2. 删除 `commands.input`，不再保留兼容别名
 3. 从公共 `Editor` 类型中移除 `host`
 4. `EditorRuntime` 改为 internal-only，不再从包根导出
 5. `EditorHost` 改为 internal-only
@@ -556,7 +566,13 @@ runPointerAction(editor, action)
 
 这一阶段做完，editor 至少先“脸面变窄”。
 
-## 阶段 2：拆薄 `createEditor.ts`
+当前结果：
+
+- public `Editor` 已只暴露 `read/state/commands/input/viewport/configure/dispose`
+- React public 层已切到 `useEditor()`，内部临时 runtime 访问改为 internal hook
+- canvas 输入入口已统一走 `editor.input.*`
+
+## 阶段 2：拆薄 `createEditor.ts`（已完成）
 
 目标：
 
@@ -576,7 +592,13 @@ runPointerAction(editor, action)
 - 把所有 `cancel/clear/reset` 收到统一 lifecycle runtime
 - `dispose()` 内部统一完成 session cancel、subscription cleanup、engine dispose
 
-## 阶段 3：去掉 deferred editor proxy
+当前结果：
+
+- `createEditor.ts` 已主要退化为 orchestration
+- `createEditorPlatform` / `createEditorStores` / `createEditorLifecycle` / `createEditorHost` 已拆出
+- editor 平台桥接、store/read 创建、lifecycle、host 组装已经各归各位
+
+## 阶段 3：去掉 deferred editor proxy（已完成）
 
 目标：
 
@@ -591,7 +613,14 @@ runPointerAction(editor, action)
 
 这一阶段很关键，因为它会直接迫使 editor 内部边界变清楚。只要 deferred proxy 还存在，就说明内部依赖图还在绕。
 
-## 阶段 4：统一输入链
+当前结果：
+
+- `createDeferredEditor()` 已删除
+- `context` / `selectionMenuRead` 已改成显式依赖 `commands/read/registry`
+- `createEditorStores()` 不再依赖 deferred editor
+- 多个交互 session 已把 `internals` 依赖从 `EditorRuntime['internals']` 收窄为真实最小字段
+
+## 阶段 4：统一输入链（已完成）
 
 目标：
 
@@ -613,7 +642,15 @@ runPointerAction(editor, action)
 - 只需在 selection action 内明确：
   `hold = clear selection + contain marquee`
 
-## 阶段 5：按 domain runtime 重组 `commands`
+当前结果：
+
+- `InteractionStart` 已收口为统一 `PointerStart`
+- `InteractionDecision` 已收口为单一 `PointerAction | undefined`
+- `resolveInteractionDecision()` / `runInteractionDecision()` 已改成 `resolvePointerAction()` / `runPointerAction()`
+- pointer 输入层不再保留 `reject` 这种中间伪状态，只保留“无 action”或“唯一 action owner”
+- selection 仍作为单独 action owner，`tap / drag / hold` 继续内聚在 selection gesture 内部
+
+## 阶段 5：按 domain runtime 重组 `commands`（已完成）
 
 目标：
 
@@ -631,7 +668,14 @@ runPointerAction(editor, action)
 
 然后由 `createEditorCommands()` 依赖这些 runtime，而不是直接依赖所有底层 store/session/port。
 
-## 阶段 6：按 domain runtime 重组 `read`
+当前结果：
+
+- 已新增内部 `commands/runtime.ts`，把 `document / selection / tool / draw / node / clipboard` 收成显式 command runtime
+- `createEditorCommands()` 已改成只接收单一 `runtime` 参数，不再接十几项离散依赖
+- `createEditor.ts` 现在先组装 command runtime，再创建 public commands
+- `clipboard / insert / mindmap` 共用的 `EditorCommandHost` 已集中，不再各自重复定义
+
+## 阶段 6：按 domain runtime 重组 `read`（已完成）
 
 目标：
 
@@ -644,6 +688,14 @@ runPointerAction(editor, action)
 2. `read.context.selection` 改为直接派生，不再先造空 store 再回填
 3. 明确哪些 read 依赖 engine，哪些 read 依赖 runtime session
 4. 让 `createRuntimeRead()` 退化为薄壳组合层
+
+当前结果：
+
+- 已新增 `read/bounds.ts`、`read/context.ts`、`read/frame.ts`，把 bounds/context/frame 从大组装文件拆出
+- `createBaseRuntimeRead()` 现在负责组合纯事实 read，`createRuntimeRead()` 只负责把 `context.selection` 合入，已经退化为薄壳
+- `createEditorStores()` 不再产出最终 `read`，而是先产出 `baseRead`
+- `createEditor.ts` 现在先用 `baseRead` 创建 commands，再直接派生 `context.selection`，最后合成完整 `read`
+- `read.context.selection` 已不再通过空 store 占位后回填，而是直接由 `createSelectionMenuRead()` 派生
 
 ## 阶段 7：清理根导出面
 
@@ -658,6 +710,14 @@ runPointerAction(editor, action)
 3. `draw/state.ts` 的公共类型迁到更清晰的公共入口，避免直接暴露 feature 内部文件
 4. `runtime/selection` 的内部状态类型不再从包根直接导出
 5. `runtime/context` 里只保留真正需要给 React/宿主消费的 view type
+
+当前结果：
+
+- 已新增 `@whiteboard/editor/draw` 和 `@whiteboard/editor/context` 两个显式 public 入口
+- `src/index.ts` 已移除 draw/context/selection internal state 的根导出，包根只保留 editor/tool/shortcut/toolbox/node/types 这类稳定概念
+- `runtime/selection` 的 `SelectionInput` / `SelectionSnapshot` / `SelectionTarget` 已退出包根 public surface
+- `whiteboard-react` 已切到 `@whiteboard/editor/draw` / `@whiteboard/editor/context`，不再从包根吸附这些 domain 类型
+- `runtime/editor/index.ts` 已不再顺带转发 `context/tool` 类型，editor 二级入口只保留 editor 自身创建与类型
 
 ---
 

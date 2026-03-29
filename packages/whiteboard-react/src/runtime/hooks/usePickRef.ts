@@ -1,8 +1,38 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useEditor } from './useEditor'
+import { useEditorRuntime } from './useEditor'
 
-type EditorValue = ReturnType<typeof useEditor>
-type Pick = Parameters<EditorValue['host']['pick']['bind']>[1]
+type Pick =
+  | { kind: 'background' }
+  | {
+      kind: 'selection-box'
+      part: 'body' | 'transform'
+      handle?: {
+        id: string
+        direction?: string
+      }
+    }
+  | {
+      kind: 'node'
+      id: string
+      part: 'body' | 'shell' | 'transform' | 'connect'
+      handle?: {
+        id: string
+      }
+      side?: string
+    }
+  | {
+      kind: 'edge'
+      id: string
+      part: 'body' | 'end' | 'path'
+      end?: 'source' | 'target'
+      index?: number
+      insert?: number
+    }
+  | {
+      kind: 'mindmap'
+      treeId: string
+      nodeId: string
+    }
 
 const toPickKey = (
   pick: Pick
@@ -46,7 +76,7 @@ const toPickKey = (
 export const usePickRef = (
   pick: Pick
 ) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const elementRef = useRef<Element | null>(null)
   const releaseRef = useRef<(() => void) | null>(null)
   const key = toPickKey(pick)

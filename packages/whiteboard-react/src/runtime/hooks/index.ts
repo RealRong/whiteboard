@@ -1,6 +1,7 @@
 export {
   EditorProvider,
   useEditor,
+  useEditorRuntime,
   useEdit,
   useFrameScope,
   useInteraction,

@@ -1,22 +1,22 @@
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 
-type EdgeToolInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type EdgeToolInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'edge'
   }>
 }
 
-type SelectEdgeInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type SelectEdgeInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'select'
   }>
-  pick: Extract<InteractionStart['pick'], {
+  pick: Extract<PointerStart['pick'], {
     kind: 'edge'
   }>
 }
 
 export const isEdgeCreateInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is EdgeToolInteractionStart => (
   start.tool.type === 'edge'
   && (
@@ -34,7 +34,7 @@ export const isEdgeCreateInteractionStart = (
 )
 
 export const isEdgeInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is SelectEdgeInteractionStart => (
   start.tool.type === 'select'
   && start.pick.kind === 'edge'

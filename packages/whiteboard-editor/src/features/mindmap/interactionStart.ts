@@ -1,16 +1,16 @@
-import type { InteractionStart } from '../../runtime/input/pointer'
+import type { PointerStart } from '../../runtime/input/pointer'
 
-type MindmapInteractionStart = InteractionStart & {
-  tool: Extract<InteractionStart['tool'], {
+type MindmapInteractionStart = PointerStart & {
+  tool: Extract<PointerStart['tool'], {
     type: 'select'
   }>
-  pick: Extract<InteractionStart['pick'], {
+  pick: Extract<PointerStart['pick'], {
     kind: 'mindmap'
   }>
 }
 
 const allowsCanvasContent = (
-  start: InteractionStart
+  start: PointerStart
 ) => (
   !start.editable
   && !start.ignoreInput
@@ -18,7 +18,7 @@ const allowsCanvasContent = (
 )
 
 export const isMindmapInteractionStart = (
-  start: InteractionStart
+  start: PointerStart
 ): start is MindmapInteractionStart => (
   start.tool.type === 'select'
   && start.pick.kind === 'mindmap'

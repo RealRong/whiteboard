@@ -14,8 +14,9 @@ import {
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { InteractionStart } from '../../../runtime/input/pointer'
+import type { PointerStart } from '../../../runtime/input/pointer'
 import type { EditorRuntime } from '../../../runtime/editor/types'
+import type { SnapRuntime } from '../../../runtime/interaction'
 import {
   type SelectionSnapshot
 } from '../../../runtime/selection'
@@ -24,7 +25,8 @@ import {
 } from './transformStart'
 import {
   clearNodeSessionPreview,
-  writeNodeSessionPreview
+  writeNodeSessionPreview,
+  type NodeFeatureRuntime
 } from './node'
 
 const RESIZE_MIN_SIZE = {
@@ -100,14 +102,17 @@ const resolveSelectionBoxView = (
 
 export type NodeTransformSession = {
   cancel: () => void
-  down: (input: InteractionStart) => boolean
+  down: (input: PointerStart) => boolean
 }
 
 type TransformSessionDeps = Pick<
   EditorRuntime,
   'commands' | 'interaction' | 'read' | 'viewport'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'node' | 'snap'>
+  internals: {
+    node: Pick<NodeFeatureRuntime, 'session'>
+    snap: Pick<SnapRuntime, 'node'>
+  }
 }
 
 const createResizeDrag = (options: {
@@ -495,7 +500,7 @@ export const createTransformSession = (
       clear()
     },
     down: (
-      input: InteractionStart
+      input: PointerStart
     ) => {
       if (!canStart()) {
         return false

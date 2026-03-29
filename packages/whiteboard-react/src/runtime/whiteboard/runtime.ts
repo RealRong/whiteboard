@@ -3,7 +3,7 @@ import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type { Document } from '@whiteboard/core/types'
 import { createEngine, normalizeDocument } from '@whiteboard/engine'
 import { createDefaultNodeRegistry } from '../../features/node/registry'
-import { createEditor, type WhiteboardInstance as Editor } from '../editor'
+import { createEditor, type WhiteboardRuntime as Editor } from '../editor'
 import type { WhiteboardProps } from '../../types/common/board'
 import type { ResolvedConfig } from '../../config/types'
 

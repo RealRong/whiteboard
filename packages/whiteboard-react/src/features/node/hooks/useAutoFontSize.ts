@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type RefObject } from 'react'
 import type { Rect } from '@whiteboard/core/types'
-import { useEditor } from '../../../runtime/hooks'
+import { useEditorRuntime } from '../../../runtime/hooks'
 import {
   TEXT_DEFAULT_FONT_SIZE,
   type TextVariant,
@@ -48,7 +48,7 @@ export const useAutoFontSize = ({
   manualFontSize?: number
   sourceRef: RefObject<HTMLElement | null>
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const initialAutoFontSize = useMemo(
     () => estimateTextAutoFont({
       variant,

@@ -5,7 +5,7 @@ import {
   resolveShortcutBindings
 } from '@whiteboard/editor'
 import type { ShortcutOverrides } from '../types/common/shortcut'
-import { useEditor } from '../runtime/hooks'
+import { useEditorRuntime } from '../runtime/hooks'
 import { isKeyboardIgnoredTarget } from './domTargets'
 import {
   DefaultShortcutBindings,
@@ -19,7 +19,7 @@ export const useKeyboard = ({
   containerRef: RefObject<HTMLDivElement | null>
   shortcuts?: ShortcutOverrides
 }) => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const bindings = useMemo(
     () => resolveShortcutBindings(DefaultShortcutBindings, shortcuts),
     [shortcuts]
@@ -55,7 +55,7 @@ export const useKeyboard = ({
         return
       }
 
-      if (editor.commands.input.keyDown({ event })) {
+      if (editor.input.keyDown({ event })) {
         if (event.cancelable) {
           event.preventDefault()
         }
@@ -81,12 +81,12 @@ export const useKeyboard = ({
         || isKeyboardIgnoredTarget(event.target)
       ) {
         if (event.code === 'Space' && editor.host.interaction.space.get()) {
-          editor.commands.input.keyUp({ event })
+          editor.input.keyUp({ event })
         }
         return
       }
 
-      if (!editor.commands.input.keyUp({ event })) {
+      if (!editor.input.keyUp({ event })) {
         return
       }
 
@@ -97,7 +97,7 @@ export const useKeyboard = ({
     }
 
     const onBlur = () => {
-      editor.commands.input.blur()
+      editor.input.blur()
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)

@@ -1,10 +1,10 @@
 import {
-  useEditor,
+  useEditorRuntime,
   useStoreValue
 } from '../../runtime/hooks'
 
 export const Marquee = () => {
-  const editor = useEditor()
+  const editor = useEditorRuntime()
   const marquee = editor.host.selection.marquee
   const rect = useStoreValue(marquee.rect)
   const match = useStoreValue(marquee.match)

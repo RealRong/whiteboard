@@ -7,6 +7,8 @@ export default defineConfig({
     'src/shortcut.ts',
     'src/node.ts',
     'src/toolbox.ts',
+    'src/draw.ts',
+    'src/context.ts',
     'src/types.ts'
   ],
   format: ['esm', 'cjs'],

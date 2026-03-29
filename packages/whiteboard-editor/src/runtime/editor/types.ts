@@ -93,13 +93,11 @@ export type EditorPointerInput = {
   event: PointerEvent
 }
 
-export type EditorPointerDownInput = EditorPointerInput
-
 export type EditorKeyboardInput = {
   event: KeyboardEvent
 }
 
-export type EditorInputCommands = {
+export type EditorInput = {
   pointerDown: (input: EditorPointerInput) => boolean
   pointerMove: (input: EditorPointerInput) => void
   pointerLeave: () => void
@@ -246,7 +244,6 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
-  input: EditorInputCommands
   context: {
     open: (input: ContextOpenInput) => boolean
     dismiss: (mode: ContextDismissMode) => void
@@ -325,8 +322,8 @@ export type Editor = {
   read: EditorRead
   state: EditorState
   commands: EditorCommands
+  input: EditorInput
   viewport: EditorViewport
-  host: EditorHost
   configure: (config: {
     tool: Tool
     viewport: {
@@ -341,6 +338,7 @@ export type Editor = {
 
 export type EditorRuntime = Editor & {
   engine: EngineInstance
+  host: EditorHost
   interaction: InteractionCoordinator
   registry: NodeRegistry
   internals: {
