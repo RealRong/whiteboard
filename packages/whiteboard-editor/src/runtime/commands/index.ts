@@ -25,7 +25,6 @@ export const createEditorCommands = ({
   read,
   state,
   tool,
-  history,
   edit,
   selection,
   frame,
@@ -41,9 +40,6 @@ export const createEditorCommands = ({
   tool: {
     get: () => ReturnType<Editor['state']['tool']['get']>
     set: (tool: ReturnType<Editor['state']['tool']['get']>) => void
-  }
-  history: {
-    set: (value: ReturnType<EngineInstance['commands']['history']['get']>) => void
   }
   edit: EditCommands
   selection: SelectionStore
@@ -65,8 +61,7 @@ export const createEditorCommands = ({
   }
 
   const historyCommands = createHistoryCommands({
-    engine,
-    history
+    engine
   })
   const selectionCommands = createSelectionCommands({
     engine,

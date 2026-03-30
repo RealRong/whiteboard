@@ -1,12 +1,32 @@
 import {
   estimateTextAutoFont as estimateTextAutoFontValue,
+  readTextWidthMode,
   resolveTextAutoFont,
   resolveTextContentBox,
-  TEXT_FIT_VERTICAL_MARGIN
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_DEFAULT_FONT_SIZE,
+  TEXT_FIT_VERTICAL_MARGIN,
+  TEXT_MIN_WIDTH,
+  TEXT_PLACEHOLDER,
+  type TextContentBox,
+  type TextVariant
 } from '@whiteboard/core/node'
-import type { TextContentBox, TextVariant } from '@whiteboard/core/node'
-import type { Rect } from '@whiteboard/core/types'
+import type {
+  Node,
+  NodeId,
+  Rect,
+  Size
+} from '@whiteboard/core/types'
 import { createRafTask } from '@whiteboard/engine'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+
+type TextField = 'text' | 'title'
+
+type TextSizeMeasureElements = {
+  host: HTMLDivElement
+  line: HTMLDivElement
+  block: HTMLDivElement
+}
 
 type TextAutoFontInput = {
   signature: string
@@ -48,7 +68,7 @@ type TextAutoFontTypography = Pick<
   | 'overflowWrap'
 >
 
-type TextMeasureElements = {
+type TextAutoFontMeasureElements = {
   host: HTMLDivElement
   frame: HTMLDivElement
   content: HTMLDivElement
@@ -66,19 +86,55 @@ export type TextAutoFontTask = {
   input: Omit<TextAutoFontInput, 'priority'>
 }
 
+const registryByEditor = new WeakMap<Editor, Map<string, HTMLElement>>()
+
 const TEXT_DEFAULT_LINE_HEIGHT_RATIO = 1.4
+const EMPTY_LINE = '\u00A0'
 const FIT_EPSILON = 0
 const MAX_AUTO_FONT_TASKS_PER_FRAME = 8
 
-let textMeasureElements: TextMeasureElements | null = null
+let textSizeMeasureElements: TextSizeMeasureElements | null = null
+let textAutoFontMeasureElements: TextAutoFontMeasureElements | null = null
 const textAutoFontCache = new Map<string, number>()
 const textAutoFontQueue: TextAutoFontQueueTask[] = []
+
+const toSourceKey = (
+  nodeId: NodeId,
+  field: TextField
+) => `${nodeId}:${field}`
+
+const readRegistry = (
+  editor: Editor
+) => {
+  let registry = registryByEditor.get(editor)
+  if (!registry) {
+    registry = new Map<string, HTMLElement>()
+    registryByEditor.set(editor, registry)
+  }
+  return registry
+}
+
+const resolveNodeTextSource = (
+  editor: Editor,
+  nodeId: NodeId,
+  field: TextField
+) => registryByEditor.get(editor)?.get(toSourceKey(nodeId, field))
 
 const readNumber = (
   value: string
 ) => {
   const parsed = Number.parseFloat(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+const readPx = (
+  value: string,
+  fallback: number
+) => {
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : fallback
 }
 
 const normalizeLineHeight = (
@@ -100,6 +156,53 @@ const normalizeLineHeight = (
   return `${Math.round(ratio * 1000) / 1000}`
 }
 
+const readLineHeightPx = (
+  lineHeight: string,
+  sourceFontSize: number,
+  fontSize: number
+) => {
+  if (lineHeight === 'normal') {
+    return fontSize * TEXT_DEFAULT_LINE_HEIGHT_RATIO
+  }
+
+  const parsed = Number.parseFloat(lineHeight)
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed * (sourceFontSize > 0 ? fontSize / sourceFontSize : 1)
+    : fontSize * TEXT_DEFAULT_LINE_HEIGHT_RATIO
+}
+
+const normalizeMeasureContent = (
+  value: string
+) => {
+  if (!value) {
+    return EMPTY_LINE
+  }
+
+  return value.endsWith('\n')
+    ? `${value}${EMPTY_LINE}`
+    : value
+}
+
+const applyTextSizeTypography = (
+  element: HTMLDivElement,
+  style: CSSStyleDeclaration,
+  {
+    fontSize,
+    lineHeight
+  }: {
+    fontSize: number
+    lineHeight: number
+  }
+) => {
+  element.style.fontFamily = style.fontFamily
+  element.style.fontSize = `${fontSize}px`
+  element.style.fontStyle = style.fontStyle
+  element.style.fontWeight = style.fontWeight
+  element.style.lineHeight = `${lineHeight}px`
+  element.style.letterSpacing = style.letterSpacing
+  element.style.textTransform = style.textTransform
+}
+
 const applyAutoFontTypography = (
   element: HTMLDivElement,
   input: TextAutoFontTypography
@@ -115,13 +218,70 @@ const applyAutoFontTypography = (
   element.style.overflowWrap = input.overflowWrap
 }
 
-const ensureAutoFontElements = (): TextMeasureElements | null => {
+const ensureTextSizeMeasureElements = (): TextSizeMeasureElements | null => {
   if (typeof document === 'undefined') {
     return null
   }
 
-  if (textMeasureElements) {
-    return textMeasureElements
+  if (textSizeMeasureElements) {
+    return textSizeMeasureElements
+  }
+
+  const host = document.createElement('div')
+  const line = document.createElement('div')
+  const block = document.createElement('div')
+
+  host.setAttribute('data-wb-text-measure', 'true')
+  host.style.position = 'fixed'
+  host.style.left = '-100000px'
+  host.style.top = '-100000px'
+  host.style.visibility = 'hidden'
+  host.style.pointerEvents = 'none'
+  host.style.zIndex = '-1'
+  host.style.contain = 'layout style paint'
+
+  line.style.display = 'inline-block'
+  line.style.width = 'auto'
+  line.style.minWidth = '0'
+  line.style.margin = '0'
+  line.style.padding = '0'
+  line.style.border = '0'
+  line.style.boxSizing = 'border-box'
+  line.style.whiteSpace = 'pre'
+  line.style.wordBreak = 'normal'
+  line.style.overflowWrap = 'normal'
+
+  block.style.display = 'block'
+  block.style.width = 'auto'
+  block.style.minWidth = '0'
+  block.style.margin = '0'
+  block.style.padding = '0'
+  block.style.border = '0'
+  block.style.boxSizing = 'border-box'
+  block.style.whiteSpace = 'pre-wrap'
+  block.style.wordBreak = 'break-word'
+  block.style.overflowWrap = 'break-word'
+
+  host.appendChild(line)
+  host.appendChild(block)
+  document.body.appendChild(host)
+
+  textSizeMeasureElements = {
+    host,
+    line,
+    block
+  }
+
+  return textSizeMeasureElements
+}
+
+const ensureAutoFontMeasureElements = (): TextAutoFontMeasureElements | null => {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  if (textAutoFontMeasureElements) {
+    return textAutoFontMeasureElements
   }
 
   const host = document.createElement('div')
@@ -158,19 +318,82 @@ const ensureAutoFontElements = (): TextMeasureElements | null => {
   host.appendChild(frame)
   document.body.appendChild(host)
 
-  textMeasureElements = {
+  textAutoFontMeasureElements = {
     host,
     frame,
     content
   }
 
-  return textMeasureElements
+  return textAutoFontMeasureElements
+}
+
+const measureTextSize = ({
+  content,
+  placeholder,
+  source,
+  minWidth,
+  maxWidth,
+  fontSize,
+  caretWidth = 2
+}: {
+  content: string
+  placeholder: string
+  source: HTMLElement
+  minWidth: number
+  maxWidth: number
+  fontSize?: number
+  caretWidth?: number
+}): Size | undefined => {
+  const elements = ensureTextSizeMeasureElements()
+  if (!elements) {
+    return undefined
+  }
+
+  const sourceStyle = window.getComputedStyle(source)
+  const sourceFontSize = readPx(sourceStyle.fontSize, TEXT_DEFAULT_FONT_SIZE)
+  const resolvedFontSize = fontSize ?? sourceFontSize
+  const resolvedLineHeight = readLineHeightPx(
+    sourceStyle.lineHeight,
+    sourceFontSize,
+    resolvedFontSize
+  )
+  const minHeight = Math.ceil(resolvedLineHeight)
+  const resolvedMinWidth = Math.max(1, Math.ceil(minWidth))
+  const resolvedMaxWidth = Math.max(resolvedMinWidth, Math.ceil(maxWidth))
+  const measuredContent = content || placeholder
+
+  applyTextSizeTypography(elements.line, sourceStyle, {
+    fontSize: resolvedFontSize,
+    lineHeight: resolvedLineHeight
+  })
+  applyTextSizeTypography(elements.block, sourceStyle, {
+    fontSize: resolvedFontSize,
+    lineHeight: resolvedLineHeight
+  })
+
+  elements.line.textContent = normalizeMeasureContent(measuredContent)
+  elements.line.style.maxWidth = `${resolvedMaxWidth}px`
+
+  const singleLineWidth = Math.ceil(elements.line.getBoundingClientRect().width + caretWidth)
+  const width = Math.min(
+    resolvedMaxWidth,
+    Math.max(resolvedMinWidth, singleLineWidth)
+  )
+
+  elements.block.textContent = normalizeMeasureContent(measuredContent)
+  elements.block.style.width = `${width}px`
+  const measuredHeight = Math.ceil(elements.block.getBoundingClientRect().height)
+
+  return {
+    width,
+    height: Math.max(minHeight, measuredHeight)
+  }
 }
 
 const measureAutoFontSize = (
   input: TextAutoFontInput
 ) => {
-  const elements = ensureAutoFontElements()
+  const elements = ensureAutoFontMeasureElements()
   if (!elements) {
     return input.min
   }
@@ -255,6 +478,121 @@ const flushAutoFontQueue = () => {
 const textAutoFontQueueTask = createRafTask(flushAutoFontQueue, {
   fallback: 'microtask'
 })
+
+export const bindNodeTextSource = ({
+  editor,
+  nodeId,
+  field,
+  current,
+  next
+}: {
+  editor: Editor
+  nodeId: NodeId
+  field: TextField
+  current: HTMLElement | null
+  next: HTMLElement | null
+}) => {
+  const registry = readRegistry(editor)
+  const key = toSourceKey(nodeId, field)
+
+  if (current && registry.get(key) === current) {
+    registry.delete(key)
+  }
+
+  if (next) {
+    registry.set(key, next)
+  }
+}
+
+export const measureTextNodeSize = ({
+  node,
+  rect,
+  content,
+  placeholder,
+  source,
+  minWidth,
+  maxWidth,
+  fontSize
+}: {
+  node: Pick<Node, 'type' | 'data'>
+  rect: Pick<Rect, 'width'>
+  content: string
+  placeholder: string
+  source: HTMLElement
+  minWidth?: number
+  maxWidth?: number
+  fontSize?: number
+}): Size | undefined => {
+  const mode = readTextWidthMode(node)
+  const resolvedWidth = Math.max(TEXT_MIN_WIDTH, Math.ceil(rect.width))
+
+  if (mode === 'fixed') {
+    return measureTextSize({
+      content,
+      placeholder,
+      source,
+      minWidth: resolvedWidth,
+      maxWidth: resolvedWidth,
+      fontSize
+    })
+  }
+
+  const resolvedMinWidth = Math.max(
+    TEXT_MIN_WIDTH,
+    Math.ceil(minWidth ?? TEXT_MIN_WIDTH)
+  )
+  const resolvedMaxWidth = Math.max(
+    resolvedWidth,
+    TEXT_AUTO_MAX_WIDTH,
+    Math.ceil(maxWidth ?? TEXT_AUTO_MAX_WIDTH)
+  )
+
+  return measureTextSize({
+    content,
+    placeholder,
+    source,
+    minWidth: resolvedMinWidth,
+    maxWidth: resolvedMaxWidth,
+    fontSize
+  })
+}
+
+export const measureBoundTextNodeSize = ({
+  editor,
+  nodeId,
+  value,
+  fontSize,
+  minWidth,
+  maxWidth
+}: {
+  editor: Editor
+  nodeId: NodeId
+  value: string
+  fontSize?: number
+  minWidth?: number
+  maxWidth?: number
+}) => {
+  const item = editor.read.node.item.get(nodeId)
+  if (!item || item.node.type !== 'text') {
+    return undefined
+  }
+
+  const source = resolveNodeTextSource(editor, nodeId, 'text')
+  if (!source) {
+    return undefined
+  }
+
+  return measureTextNodeSize({
+    node: item.node,
+    rect: item.rect,
+    content: value,
+    placeholder: TEXT_PLACEHOLDER,
+    source,
+    minWidth,
+    maxWidth,
+    fontSize
+  })
+}
 
 export const estimateTextAutoFont = ({
   variant,

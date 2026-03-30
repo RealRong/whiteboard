@@ -7,7 +7,10 @@ import type {
   MindmapItem,
   NodeItem
 } from './projection'
-import type { HistoryConfig } from '@whiteboard/core/kernel'
+import type {
+  HistoryConfig,
+  HistoryState
+} from '@whiteboard/core/kernel'
 import type { SnapCandidate } from '@whiteboard/core/node'
 import type {
   NodeRectHitOptions,
@@ -114,6 +117,7 @@ export type EngineInstance = {
     get: () => Document
   }
   read: EngineRead
+  history: ReadStore<HistoryState>
   commit: ReadStore<Commit | null>
   commands: EngineCommands
   applyOperations: (

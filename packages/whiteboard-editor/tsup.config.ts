@@ -5,7 +5,6 @@ export default defineConfig({
     'src/index.ts',
     'src/tool.ts',
     'src/shortcut.ts',
-    'src/node.ts',
     'src/toolbox.ts',
     'src/draw.ts',
     'src/types.ts'

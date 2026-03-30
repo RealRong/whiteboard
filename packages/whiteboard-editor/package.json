@@ -21,11 +21,6 @@
       "import": "./dist/shortcut.js",
       "require": "./dist/shortcut.cjs"
     },
-    "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js",
-      "require": "./dist/node.cjs"
-    },
     "./toolbox": {
       "types": "./dist/toolbox.d.ts",
       "import": "./dist/toolbox.js",

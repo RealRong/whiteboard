@@ -7,13 +7,14 @@ import {
 } from '../../../../runtime/hooks'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
 import {
+  bindNodeTextSource,
   focusEditableEnd,
+  measureTextNodeSize,
   readEditableText,
   STICKY_DEFAULT_FILL,
   STICKY_PLACEHOLDER,
   TEXT_PLACEHOLDER
 } from '../../text'
-import { bindNodeTextSource } from '../../textSource'
 import {
   createSchema,
   createTextField,
@@ -151,10 +152,21 @@ const TextNodeRenderer = ({
       return
     }
 
+    const size = measureTextNodeSize({
+      node,
+      rect,
+      content: draft,
+      placeholder,
+      source,
+      minWidth: rect.width
+    })
+    if (!size) {
+      return
+    }
+
     editor.commands.node.text.preview({
       nodeId: node.id,
-      value: draft,
-      source
+      size
     })
   }, [draft, editing, editor, isSticky, node.id])
 
@@ -162,12 +174,25 @@ const TextNodeRenderer = ({
     editor.commands.node.text.clearPreview(node.id)
   }, [editor, node.id])
 
-  const commit = (nextDraft = draft) => {
+  const commit = (
+    nextDraft = draft,
+    source: HTMLElement | null = sourceRef.current
+  ) => {
+    const size = !isSticky && source
+      ? measureTextNodeSize({
+          node,
+          rect,
+          content: nextDraft,
+          placeholder,
+          source
+        })
+      : undefined
+
     editor.commands.node.text.commit({
       nodeId: node.id,
       field: 'text',
       value: nextDraft,
-      source: sourceRef.current ?? undefined
+      size
     })
   }
 
@@ -210,7 +235,7 @@ const TextNodeRenderer = ({
         }}
         onKeyDown={onKeyDown}
         onBlur={(event) => {
-          commit(readEditableText(event.currentTarget))
+          commit(readEditableText(event.currentTarget), event.currentTarget)
         }}
         style={{
           fontSize,

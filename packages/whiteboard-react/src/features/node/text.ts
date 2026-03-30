@@ -22,18 +22,15 @@ export type {
   TextWidthMode
 } from '@whiteboard/core/node'
 export {
-  measureTextNodeSize
-} from '@whiteboard/editor/node'
-export type {
-  TextMeasureSize
-} from '@whiteboard/editor/node'
-export {
   focusEditableEnd,
   readEditableText
 } from './textContent'
-export type { TextAutoFontTask } from './textAutoFont'
+export type { TextAutoFontTask } from './textLayout'
 export {
+  bindNodeTextSource,
   createTextAutoFontTask,
   estimateTextAutoFont,
+  measureBoundTextNodeSize,
+  measureTextNodeSize,
   scheduleTextAutoFont
-} from './textAutoFont'
+} from './textLayout'

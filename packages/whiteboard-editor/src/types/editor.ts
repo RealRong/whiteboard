@@ -136,8 +136,7 @@ export type EditorNodeLockCommands = {
 export type EditorNodeTextCommands = {
   preview: (input: {
     nodeId: NodeId
-    value: string
-    source: HTMLElement
+    size: Size
   }) => void
   clearPreview: (nodeId: NodeId) => void
   cancel: (input: {
@@ -147,16 +146,13 @@ export type EditorNodeTextCommands = {
     nodeId: NodeId
     field: 'text' | 'title'
     value: string
-    source?: HTMLElement
-    measuredSize?: Size
+    size?: Size
   }) => CommandResult | undefined
   setColor: (nodeIds: readonly NodeId[], color: string) => CommandResult
   setFontSize: (input: {
     nodeIds: readonly NodeId[]
-    field?: 'text' | 'title'
     value?: number
-    measuredSizeById?: Readonly<Record<NodeId, Size>>
-    sourceById?: Readonly<Record<NodeId, HTMLElement | undefined>>
+    sizeById?: Readonly<Record<NodeId, Size>>
   }) => CommandResult
 }
 

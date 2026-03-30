@@ -114,6 +114,13 @@ export const createEngine = ({
     }
   }
 
+  const history = {
+    get: writer.history.get,
+    subscribe: (listener: () => void) => writer.history.subscribe(() => {
+      listener()
+    })
+  }
+
   const applyOperations: EngineInstance['applyOperations'] = (
     operations,
     options
@@ -150,6 +157,7 @@ export const createEngine = ({
       get: documentSource.get
     },
     read: readControl.read,
+    history,
     commit,
     commands,
     applyOperations,

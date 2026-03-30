@@ -13,7 +13,10 @@ import {
 } from '../../../runtime/hooks'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
 import { useSelectionPresentation } from '../../node/selection'
-import { resolveNodeTextSource } from '../../node/textSource'
+import {
+  measureBoundTextNodeSize,
+  TEXT_DEFAULT_FONT_SIZE
+} from '../../node/text'
 import {
   buildToolbarMenuStyle,
   buildToolbarStyle,
@@ -185,15 +188,19 @@ export const NodeToolbar = ({
             showColor={toolbar.showTextColorSection}
             showFontSize={toolbar.showTextFontSizeSection}
             onTextCommit={toolbar.showTextSection ? (value) => {
+              const size = toolbar.primaryNode.type === 'text' && toolbar.textFieldKey === 'text'
+                ? measureBoundTextNodeSize({
+                    editor,
+                    nodeId: toolbar.primaryNode.id,
+                    value
+                  })
+                : undefined
+
               editor.commands.node.text.commit({
                 nodeId: toolbar.primaryNode.id,
                 field: toolbar.textFieldKey,
                 value,
-                source: resolveNodeTextSource({
-                  editor,
-                  nodeId: toolbar.primaryNode.id,
-                  field: toolbar.textFieldKey
-                })
+                size
               })
             } : undefined}
             onColorChange={toolbar.showTextColorSection ? (value) => {
@@ -203,19 +210,21 @@ export const NodeToolbar = ({
               )
             } : undefined}
             onFontSizeChange={toolbar.showTextFontSizeSection ? (value) => {
-              const source = resolveNodeTextSource({
-                editor,
-                nodeId: toolbar.primaryNode.id,
-                field: toolbar.textFieldKey
-              })
+              const size = toolbar.primaryNode.type === 'text' && toolbar.textFieldKey === 'text'
+                ? measureBoundTextNodeSize({
+                    editor,
+                    nodeId: toolbar.primaryNode.id,
+                    value: toolbar.textValue,
+                    fontSize: value ?? TEXT_DEFAULT_FONT_SIZE
+                  })
+                : undefined
 
               editor.commands.node.text.setFontSize({
                 nodeIds: [toolbar.primaryNode.id],
-                field: toolbar.textFieldKey,
                 value,
-                sourceById: source
+                sizeById: size
                   ? {
-                      [toolbar.primaryNode.id]: source
+                      [toolbar.primaryNode.id]: size
                     }
                   : undefined
               })

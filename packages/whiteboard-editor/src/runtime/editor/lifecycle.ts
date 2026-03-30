@@ -16,10 +16,6 @@ export const createLifecycle = ({
     dispose: () => void
   }
 }) => {
-  const syncHistory = () => {
-    kernel.history.set(kernel.engine.commands.history.get())
-  }
-
   const resetUiProjectionState = () => {
     input.cancel()
     kernel.edit.commands.clear()
@@ -29,7 +25,6 @@ export const createLifecycle = ({
   }
 
   const unsubscribeCommit = kernel.engine.commit.subscribe(() => {
-    syncHistory()
     const commit = kernel.engine.commit.get()
     if (!commit) {
       return
@@ -49,7 +44,6 @@ export const createLifecycle = ({
   })
 
   return {
-    syncHistory,
     resetUiProjectionState,
     dispose: () => {
       unsubscribeCommit()

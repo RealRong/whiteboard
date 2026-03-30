@@ -1,4 +1,3 @@
-import type { HistoryState } from '@whiteboard/core/kernel'
 import type { Point } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
 import type { DrawCommands, DrawPreferences } from '../draw'
@@ -48,7 +47,6 @@ export type EditorInputPolicy = {
 export type EditorKernel = {
   engine: EngineInstance
   registry: NodeRegistry
-  history: ValueStore<HistoryState>
   viewport: ViewportRuntime
   pick: PickRuntime
   interaction: InteractionCoordinator

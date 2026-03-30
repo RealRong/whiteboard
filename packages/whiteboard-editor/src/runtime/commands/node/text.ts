@@ -1,12 +1,5 @@
-import {
-  TEXT_DEFAULT_FONT_SIZE,
-  TEXT_PLACEHOLDER
-} from '@whiteboard/core/node'
+import { isTextContentEmpty } from '@whiteboard/core/node'
 import type { NodeId, Size } from '@whiteboard/core/types'
-import {
-  isTextContentEmpty,
-  measureTextNodeSize
-} from '../../../features/node/text'
 import type {
   NodeProjectionRuntime,
   NodePatch
@@ -90,79 +83,6 @@ const clearTextPreview = (
   runtime.flush()
 }
 
-const resolveTextCommitSize = ({
-  read,
-  runtime,
-  nodeId,
-  value,
-  source,
-  measuredSize
-}: {
-  read: Editor['read']
-  runtime: NodeProjectionRuntime
-  nodeId: NodeId
-  value: string
-  source?: HTMLElement
-  measuredSize?: Size
-}) => {
-  if (measuredSize) {
-    return measuredSize
-  }
-
-  if (!source) {
-    return runtime.get(nodeId).patch?.size
-  }
-
-  const item = read.node.item.get(nodeId)
-  if (!item) {
-    return runtime.get(nodeId).patch?.size
-  }
-
-  return measureTextNodeSize({
-    node: item.node,
-    content: value,
-    placeholder: TEXT_PLACEHOLDER,
-    source,
-    width: item.rect.width
-  }) ?? runtime.get(nodeId).patch?.size
-}
-
-const resolveFontSizeMeasure = ({
-  read,
-  nodeId,
-  field,
-  source,
-  value
-}: {
-  read: Editor['read']
-  nodeId: NodeId
-  field: 'text' | 'title'
-  source?: HTMLElement
-  value?: number
-}) => {
-  if (!source) {
-    return undefined
-  }
-
-  const item = read.node.item.get(nodeId)
-  if (!item) {
-    return undefined
-  }
-
-  const content = typeof item.node.data?.[field] === 'string'
-    ? item.node.data[field] as string
-    : ''
-
-  return measureTextNodeSize({
-    node: item.node,
-    content,
-    placeholder: TEXT_PLACEHOLDER,
-    source,
-    width: item.rect.width,
-    fontSize: value ?? TEXT_DEFAULT_FONT_SIZE
-  })
-}
-
 export const createNodeTextCommands = ({
   read,
   runtime,
@@ -182,28 +102,14 @@ export const createNodeTextCommands = ({
 }): EditorNodeTextCommands => ({
   preview: ({
     nodeId,
-    value,
-    source
+    size
   }) => {
     const item = read.node.item.get(nodeId)
     if (!item || item.node.type !== 'text') {
       return
     }
 
-    const nextSize = measureTextNodeSize({
-      node: item.node,
-      content: value,
-      placeholder: TEXT_PLACEHOLDER,
-      source,
-      width: item.rect.width,
-      minWidth: item.rect.width
-    })
-
-    if (!nextSize) {
-      return
-    }
-
-    writeTextPreview(runtime, nodeId, nextSize)
+    writeTextPreview(runtime, nodeId, size)
   },
   clearPreview: (nodeId) => {
     clearTextPreview(runtime, nodeId)
@@ -218,8 +124,7 @@ export const createNodeTextCommands = ({
     nodeId,
     field,
     value,
-    source,
-    measuredSize
+    size
   }) => {
     const committed = read.node.committedItem.get(nodeId)
     if (!committed) {
@@ -233,15 +138,8 @@ export const createNodeTextCommands = ({
       ? committed.node.data[field] as string
       : ''
     const nextMeasuredSize = committed.node.type === 'text' && field === 'text'
-      ? resolveTextCommitSize({
-          read,
-          runtime,
-          nodeId,
-          value: nextValue,
-          source,
-          measuredSize
-        })
-      : measuredSize
+      ? size ?? runtime.get(nodeId).patch?.size
+      : undefined
     const sizeUpdate = nextMeasuredSize && !isSameSize(nextMeasuredSize, committed.rect)
       ? nextMeasuredSize
       : undefined
@@ -280,20 +178,14 @@ export const createNodeTextCommands = ({
     appearance.setTextColor(nodeIds, color),
   setFontSize: ({
     nodeIds,
-    field = 'text',
     value,
-    measuredSizeById,
-    sourceById
+    sizeById
   }) => document.updateMany(
     nodeIds.map((id) => {
       const committed = read.node.committedItem.get(id)
-      const nextMeasuredSize = measuredSizeById?.[id] ?? resolveFontSizeMeasure({
-        read,
-        nodeId: id,
-        field,
-        source: sourceById?.[id],
-        value
-      })
+      const nextMeasuredSize = committed?.node.type === 'text'
+        ? sizeById?.[id]
+        : undefined
       const sizeUpdate = committed && nextMeasuredSize && !isSameSize(nextMeasuredSize, committed.rect)
         ? nextMeasuredSize
         : undefined

@@ -207,6 +207,9 @@ export const createWrite = ({
     replace,
     history: {
       get: history.get,
+      subscribe: (listener) => history.subscribe(() => {
+        listener()
+      }),
       configure: history.configure,
       clear: history.clear,
       undo: history.undo,

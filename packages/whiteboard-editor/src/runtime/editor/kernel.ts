@@ -67,7 +67,6 @@ export const createKernel = ({
   const pick = createPickRuntime()
 
   const tool = createValueStore<Tool>(normalizeTool(initialTool))
-  const history = createValueStore(engine.commands.history.get())
   const edit = createEditState()
   const frame = createFrameState(engine.read)
   const selection = createSelectionState()
@@ -75,7 +74,6 @@ export const createKernel = ({
   const kernel: EditorKernel = {
     engine,
     registry,
-    history,
     viewport,
     pick,
     interaction,

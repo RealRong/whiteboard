@@ -73,7 +73,7 @@ export const createEditor = ({
     engineRead: engine.read,
     registry,
     tool: kernel.tool,
-    history: kernel.history,
+    history: engine.history,
     drawPreferences: draw.store,
     selection: kernel.selection.source,
     frame: kernel.frame.store,
@@ -100,7 +100,6 @@ export const createEditor = ({
     read,
     state,
     tool: kernel.tool,
-    history: kernel.history,
     edit: kernel.edit.commands,
     selection: kernel.selection,
     frame: kernel.frame,
@@ -183,7 +182,6 @@ export const createEditor = ({
         mindmapLayout: config.mindmapLayout,
         history: config.history
       })
-      lifecycle.syncHistory()
     },
     dispose: lifecycle.dispose
   } satisfies EditorRuntime

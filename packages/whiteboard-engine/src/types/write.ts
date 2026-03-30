@@ -59,6 +59,7 @@ export type WriteControl = {
   history: {
     configure: (config: Partial<HistoryConfig>) => void
     get: EngineCommands['history']['get']
+    subscribe: (listener: () => void) => () => void
     clear: EngineCommands['history']['clear']
     undo: () => WriteResult | false
     redo: () => WriteResult | false
