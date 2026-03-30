@@ -1,463 +1,298 @@
-# Whiteboard Editor Runtime 文件结构优化方案
+# Whiteboard Editor Runtime 最终结构优化方案
+
+## 结论先行
+
+这次不是做“runtime 目录整理”，而是做一次 ownership 对齐。
+
+最终目标很明确：
+
+- `@whiteboard/core` 负责纯领域模型、纯数学、纯文档协议、纯规则推导。
+- `@whiteboard/editor` runtime 只负责状态、输入路由、session、平台适配、feature 组装。
+- browser / DOM / Pointer / Clipboard API 适配留在 editor 的 platform 层，不进 core。
+
+这意味着 runtime 里当前有一批代码不只是命名不佳，而是本来就放错层了。最典型的 4 块是：
+
+- viewport 纯数学
+- frame scope membership
+- selection target / summary 纯模型
+- clipboard packet 协议
+
+这些都应该下沉到 `whiteboard-core`。
+
+文档以下内容按“最终应该怎么改”来写，不保留兼容层，不讨论过渡态。
 
 ## 目标
 
-这份文档只讨论 `packages/whiteboard-editor/src/runtime`。
+最终结构要同时满足 5 个条件：
 
-目标不是做表层重命名，而是把 runtime 调整成长期可维护的结构：
+- runtime 目录只保留真正的运行时模块，不再混入纯规则和纯协议。
+- `core` 不再只是 node/edge/geometry 的局部集合，而是 editor 领域规则的唯一底层归属。
+- `editor/runtime` 的文件名直接表达职责，不再泛滥 `index.ts` / `runtime.ts` / `types.ts` / `logic.ts` / `state.ts`。
+- 单文件目录壳去掉，大文件按职责拆开。
+- 对外边界稳定，内部实现不再依赖 `ReturnType<typeof createXxx>` 作为长期契约。
 
-- 目录只在真的存在稳定子域时保留，去掉纯壳目录。
-- 文件名直接表达职责，避免 `index.ts` / `runtime.ts` / `types.ts` / `logic.ts` / `state.ts` 这种低信息量命名泛滥。
-- store、predicate、resolver、adapter、router、controller 各归其位，不再混在一个文件里。
-- internal type 依赖回到 canonical type module，不再通过实现文件的 `ReturnType<typeof createXxx>` 和 type-forwarder 串起来。
-- runtime 保持“输入 -> 解析 -> 路由 -> interaction/session -> 输出”的清晰链路，不把 feature 细节倒灌回输入层。
+## 最终 ownership 规则
 
-## 调研结论摘要
+### 应该放到 core 的
 
-截至当前，`runtime` 目录共有：
+满足下面任一条件，就应该放到 `@whiteboard/core`：
 
-- 72 个文件
-- 14 个一级子目录
-- 约 8682 行代码
+- 输入是 plain data，输出是 plain data
+- 不依赖 DOM / browser / window / document / event
+- 不依赖 engine store / editor store / session 状态机
+- 表达的是文档规则、几何规则、选择规则、frame 规则、序列化协议
 
-明显信号有两类：
+### 应该留在 editor runtime 的
 
-- 目录过轻：`edit`、`pick`、`tool` 只是单文件目录；`frame` 只有 `index.ts + state.ts`；`viewport` 只有 `index.ts + createViewport.ts + logic.ts`
-- 文件过重：`context/selection.ts` 670 行，`selection/press.ts` 456 行，`commands/node.ts` 450 行，`editor/features.ts` 376 行，`input/pointer.ts` 373 行，`selection/state.ts` 303 行
+满足下面任一条件，就应该留在 `@whiteboard/editor` runtime：
 
-这说明 runtime 当前同时存在两种噪音：
+- 需要 `PointerEvent` / `KeyboardEvent` / DOM target
+- 需要 interaction session / capture / cancel / blur / auto-pan
+- 需要 platform bridge 或 browser adapter
+- 需要把 feature runtime 组装成 editor 的公共 API
 
-- 过度拆目录，形成大量“跳一层才能到真正实现”的壳
-- 过度合文件，把多个职责塞进一个大文件
+### 应该留在 editor platform 的
 
-所以最优方向不是“统一全部扁平化”，而是：
+满足下面任一条件，就应该归到 platform：
 
-- 去掉没有子域价值的目录壳
-- 保留真实子域目录
-- 把混在一起的大文件按语义拆开
+- `navigator.clipboard`
+- `window.addEventListener`
+- `document.style`
+- `setPointerCapture` / `releasePointerCapture`
 
-## 核心判断
+## 这次要把什么下沉到 whiteboard-core
 
-### 1. 哪些目录应该直接去掉
+### 1. viewport 纯数学全部下沉到 `@whiteboard/core/geometry`
 
-这些目录现在没有保留价值，应该直接降成顶层单文件：
+当前 editor 里 [logic.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/viewport/logic.ts) 这批函数本质都是纯数学：
 
-- `packages/whiteboard-editor/src/runtime/edit/index.ts` -> `packages/whiteboard-editor/src/runtime/edit.ts`
-- `packages/whiteboard-editor/src/runtime/pick/index.ts` -> `packages/whiteboard-editor/src/runtime/pick.ts`
-- `packages/whiteboard-editor/src/runtime/tool/index.ts` -> `packages/whiteboard-editor/src/runtime/tool.ts`
+- `normalizeViewportLimits`
+- `normalizeViewport`
+- `clientToScreenPoint`
+- `screenToWorldPoint`
+- `worldToScreenPoint`
+- `applyScreenPan`
+- `fitViewportToRect`
+- `applyWheelInput`
 
-原因很简单：
+`@whiteboard/core` 已经有基础视口函数，位置在 [viewport.ts](/Users/realrong/whiteboard/packages/whiteboard-core/src/geometry/viewport.ts)。最终不应该 editor 自己再维护一套扩展版。
 
-- 每个目录只有一个实现文件
-- 没有真实的子模块边界
-- 目录名和文件名都在重复表达同一件事
-- 增加 import 跳转成本，没有带来结构收益
+最终改法：
 
-### 2. `frame` 目录不该保留，但也不该机械改成单文件
+- 扩展 `packages/whiteboard-core/src/geometry/viewport.ts`
+- `packages/whiteboard-core/src/geometry/index.ts` 统一导出这些能力
+- `packages/whiteboard-editor/src/runtime/viewport.ts` 只保留 store/runtime 封装
 
-`packages/whiteboard-editor/src/runtime/frame` 当前只有：
+editor 里不再保留 `viewport/logic.ts`。
 
-- `index.ts`
-- `state.ts`
+### 2. frame scope 规则下沉到 `@whiteboard/core/document`
 
-但 `state.ts` 里面实际上混了两类职责：
+当前 [state.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/frame/state.ts) 混了两类东西：
 
-- frame store / commands
-- frame membership predicate
+- frame state store
+- frame membership rule
 
-具体就是：
+其中真正该进 core 的是：
 
-- `createState`
+- `FrameScope`
 - `hasNode`
 - `filterNodeIds`
 - `hasEdge`
 
-这里最关键的判断是：
+这些不是 runtime state，而是文档 scope 规则。
 
-- `hasEdge` 不该放到 editor
-- `hasNode` / `hasEdge` / `filterNodeIds` 也不该继续放在 `state.ts`
+最终改法：
 
-它们的本质是“frame scope membership helper”，不是：
-
-- editor composition root concern
-- state/store concern
-
-最优落位应该是：
-
-- `packages/whiteboard-editor/src/runtime/frame.ts`
-  - 只负责 `createFrameState`、`FrameCommands`、frame source/store
-- `packages/whiteboard-editor/src/runtime/frameScope.ts`
-  - 只负责 `FrameScope`
+- 新增 `packages/whiteboard-core/src/document/frameScope.ts`
+- `packages/whiteboard-core/src/document/index.ts` 导出：
+  - `FrameScope`
+  - `ROOT_FRAME_SCOPE`
   - `isNodeInFrameScope`
   - `filterNodeIdsInFrameScope`
   - `isEdgeInFrameScope`
+- editor runtime 的 `frame` 只保留：
+  - `createFrameState`
+  - `FrameState`
+  - `FrameCommands`
 
-也就是说，`frame` 目录应该去掉，但应该变成两个顶层文件，而不是继续把所有内容揉成一个 `frame.ts`。
+明确结论：
 
-### 3. `viewport` 目录也偏轻，应该收平
+- `hasEdge` 不放 editor
+- `hasEdge` 也不留在 `state.ts`
+- `hasEdge` 最终进入 core/document/frameScope
 
-当前：
+### 3. selection 纯模型下沉到 `@whiteboard/core/selection`
 
-- `packages/whiteboard-editor/src/runtime/viewport/index.ts`
-- `packages/whiteboard-editor/src/runtime/viewport/createViewport.ts`
-- `packages/whiteboard-editor/src/runtime/viewport/logic.ts`
+当前 editor 里这批能力已经纯到可以下沉：
 
-这里的问题不是逻辑错，而是命名太抽象：
+- [selection/state.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/selection/state.ts) 里的 `SelectionInput`
+- `SelectionTarget`
+- `toSelectionTarget`
+- `applySelectionTarget`
 
-- `createViewport.ts` 表达的是主模块
-- `logic.ts` 完全不说明里面是 math、limits、normalize、coordinate transform
-- `index.ts` 只是为了补 export
+这层不依赖 DOM，也不依赖 runtime session。它本质是 editor 领域模型，不该藏在 `editor/types/internal`。
 
-更优结构是：
+最终改法：
 
-- `packages/whiteboard-editor/src/runtime/viewport.ts`
-  - `createViewport`
-  - `ViewportRuntime`
-  - `ViewportRead`
-  - `ViewportCommands`
-- `packages/whiteboard-editor/src/runtime/viewportMath.ts`
-  - `normalizeViewport`
-  - `normalizeViewportLimits`
-  - `clientToScreenPoint`
-  - `screenToWorldPoint`
-  - `worldToScreenPoint`
-  - `applyWheelInput`
-  - `fitViewportToRect`
+- 新增 `packages/whiteboard-core/src/selection/index.ts`
+- `packages/whiteboard-core/package.json` 新增 `./selection` export
+- 在 core/selection 中定义：
+  - `SelectionInput`
+  - `SelectionTarget`
+  - `normalizeSelectionTarget`
+  - `applySelectionTarget`
 
-这里不建议保留 `logic.ts` 这种命名。
+这里不建议继续塞到 `core/node`，因为它天然是 node + edge 的联合选择模型，不是纯 node 子域。
 
-## 对 `hasEdge` 的明确结论
+### 4. selection summary 推导也要下沉到 `@whiteboard/core/selection`
 
-`packages/whiteboard-editor/src/runtime/frame/state.ts` 里的 `hasEdge` 不该放到 editor。
+当前 [selection/state.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/selection/state.ts) 里的 `resolveSelectionSnapshot` 本质上也是纯推导逻辑，但还绑着 editor/engine 的读取方式。
 
-原因不是“editor 不该有工具函数”这么简单，而是 ownership 不对。
+最终不是把当前函数原样搬走，而是先把 contract 调整成纯输入，再下沉。
 
-`hasEdge(frame, edge)` 回答的问题是：
+最终目标不是 `SelectionSnapshot`，而是更准确的命名：
 
-- 某条 edge 是否属于当前 frame scope
+- `SelectionSummary`
+- `deriveSelectionSummary`
 
-它是 frame domain 的共享谓词，已经被多个子系统共同依赖：
+输入应该是纯数据和纯回调，例如：
 
-- selection command
-- finalize
-- read/frame
-- input/pointer
-- context / target 决策链
+- 已选 node 列表
+- 已选 edge 列表
+- `readBounds`
+- `resolveNodeTransformCapability`
+- `isNodeScalable`
 
-所以它最优的位置是：
+最终改法：
 
-- frame scope helper
+- 新增 `packages/whiteboard-core/src/selection/summary.ts`
+- editor runtime 的 `read/selection.ts` 只负责把 engine/read 的世界翻译成 core 需要的输入
 
-而不是：
+### 5. clipboard packet 协议下沉到 `@whiteboard/core/document`
 
-- editor root helper
-- editor internals
-- `state.ts`
+当前 [clipboard.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/host/clipboard.ts) 里混了三类东西：
 
-结论可以直接定死：
+- 文档切片协议
+- runtime 内存态
+- browser clipboard 适配
 
-- `hasEdge` 留在 frame 语义域
-- 但从 `state.ts` 迁出
-- 命名改成 `isEdgeInFrameScope`
+真正该进 core 的是协议部分：
 
-## runtime 当前的系统性问题
+- `ClipboardPacket`
+- `createClipboardPacket`
+- `serializeClipboardPacket`
+- `parseClipboardPacket`
 
-### 1. 低信息量命名太多
+最终改法：
 
-现在 runtime 里有大量文件名不能表达真实职责：
+- 新增 `packages/whiteboard-core/src/document/clipboard.ts`
+- `packages/whiteboard-core/src/document/index.ts` 导出这些协议能力
 
-- `index.ts`
-- `types.ts`
-- `runtime.ts`
-- `logic.ts`
-- `state.ts`
+留在 editor platform 的只有：
 
-这些命名只有在非常局部、并且语义完全稳定时才成立；现在的问题是很多文件都不是这种情况。
+- `ClipboardPort`
+- `createBrowserClipboardPort`
+- `writeClipboardPacketToEvent`
+- `readClipboardPacketFromEvent`
+- `createClipboardRuntime`
 
-最典型的例子：
+其中 `createClipboardRuntime.readPastePoint` 属于 editor 行为策略，不进 core。
 
-- `input/runtime.ts` 实际上是输入路由器，不是 generic runtime
-- `input/interactionStart.ts` 实际上是 driver registry / start driver factory
-- `context/selection.ts` 实际上是 selection menu read + action binding + view assembly
-- `context/view.ts` 实际上是 context menu view resolver
-- `finalize.ts` 实际上是 editor lifecycle finalizer
-- `pick/index.ts` 导出的核心类型名叫 `Pick`，直接和 TypeScript 内建 `Pick<T, K>` 撞名
+### 6. equality helper 回到 core，不再在 runtime 自己维护一份
 
-建议统一规则：
+当前 editor runtime 有 [equality.ts](/Users/realrong/whiteboard/packages/whiteboard-editor/src/runtime/utils/equality.ts)，而 core 也有 [equality.ts](/Users/realrong/whiteboard/packages/whiteboard-core/src/utils/equality.ts)。
 
-- `runtime.ts` 只给真正的长生命周期协调器使用
-- `state.ts` 只给 source store + commands 使用
-- `logic.ts` 禁用，必须改成语义名
-- `types.ts` 只允许存在于“本目录自己拥有的类型文件”，不能做跨目录 re-export hub
-- 不再导出 `Pick`、`State`、`Commands`、`Store` 这类无领域前缀的公共类型名
+这不是“合理分层”，而是底层模型没对齐。
 
-### 2. type-forwarder / barrel 过多
+最终改法：
 
-当前最典型的壳文件有：
+- 扩展 core 的 `packages/whiteboard-core/src/utils/equality.ts`
+- 覆盖 editor runtime 需要的几类比较：
+  - ordered ref/id array compare
+  - rect tuple compare
+  - box tuple compare
+- 删除 `packages/whiteboard-editor/src/runtime/utils/equality.ts`
 
-- `packages/whiteboard-editor/src/runtime/commands/runtime.ts`
-- `packages/whiteboard-editor/src/runtime/context/types.ts`
-- `packages/whiteboard-editor/src/runtime/editor/types.ts`
+## 不应该放到 core 的
 
-其中：
+这些东西即使写得很纯，也不应该进 core：
 
-- `commands/runtime.ts` 只是把 `EditorCommandHost`、`EditorClipboardRuntime` 从 `types/internal/editor` 再转一层
-- `context/types.ts` 只是从 `types/public/context` 转一层
-- `editor/types.ts` 同时聚合 public 和 internal types，方便是方便，但把 type ownership 模糊掉了
+- `packages/whiteboard-editor/src/runtime/input/*`
+  - 这层是输入解析和 editor 交互入口，不是文档规则
+- `packages/whiteboard-editor/src/runtime/context/*`
+  - 这是 editor UI 语义
+- `packages/whiteboard-editor/src/runtime/pick/*`
+  - 这是 editor 命中模型，不是文档模型
+- `packages/whiteboard-editor/src/runtime/tool/*`
+  - 这是 editor 产品语义
+- `packages/whiteboard-editor/src/runtime/interaction/*`
+  - 这是 session / coordinator / runtime 控制层
+- browser 平台适配
+  - pointer continuation
+  - selection lock
+  - clipboard port
 
-这些文件的问题不在“多一层 import”本身，而在：
+一句话：
 
-- 看不出真正类型归属
-- 很容易继续长成新的依赖汇合点
-- 运行时实现和类型边界互相缠住
+- core 管规则
+- editor 管 runtime
+- platform 管 browser
 
-建议：
+## whiteboard-core 最终目标结构
 
-- 直接删除 `commands/runtime.ts`
-- runtime 内部直接从 canonical type module import
-- `context/types.ts` 删除
-- `editor/types.ts` 不再作为 runtime 内部总入口
-- runtime 内部禁止新增类似转发壳
+最终 `whiteboard-core` 要补这 3 个模块，扩这 2 个模块。
 
-### 3. `createState` 命名导致大量 alias import
+### 新增模块
 
-当前 runtime 内多处都导出 `createState`：
+```text
+packages/whiteboard-core/src
+├── document
+│   ├── clipboard.ts
+│   ├── frameScope.ts
+│   ├── index.ts
+│   └── slice.ts
+├── selection
+│   ├── index.ts
+│   ├── summary.ts
+│   └── target.ts
+```
 
-- edit
-- frame
-- selection
+### 扩展模块
 
-结果使用方必须到处写：
+```text
+packages/whiteboard-core/src
+├── geometry
+│   ├── index.ts
+│   └── viewport.ts
+└── utils
+    ├── equality.ts
+    └── index.ts
+```
 
-- `createState as createFrameState`
-- `createState as createEditState`
-- `createState as createSelectionState`
+### package exports 最终应该补齐
 
-这不是 import 风格问题，而是源头命名太弱。
+最终 `packages/whiteboard-core/package.json` 增加：
 
-建议一步到位改成语义名：
+- `./selection`
 
-- `createEditState`
-- `createFrameState`
-- `createSelectionState`
+不新增 `./frame` 顶层 export，frame scope 归在 `./document` 下。
 
-对应类型也同步收敛成：
+## whiteboard-editor runtime 最终目标结构
 
-- `EditState`
-- `EditCommands`
-- `EditStore`
-- `FrameState`
-- `FrameCommands`
-- `SelectionState`
+在 core ownership 对齐之后，editor runtime 应该只剩真正运行时模块。
 
-这样可以直接去掉一批 alias import，也会让 `kernel.ts`、`commands/index.ts`、`finalize.ts` 的类型关系更清晰。
+这里有一个额外原则必须明确：
 
-### 4. 类型契约过度依赖实现文件的 `ReturnType<typeof createXxx>`
+- 同一领域如果已经需要 2 个以上文件，就应该升成子目录
+- 不应该在同一层继续堆 `nodeAppearance.ts`、`nodeText.ts`、`menuView.ts` 这种“前缀模拟目录”的文件名
 
-当前有不少地方把 factory 返回值直接拿来当跨模块契约，例如：
+也就是说：
 
-- `commands/index.ts`
-- `commands/frame.ts`
-- `commands/selection.ts`
-- `finalize.ts`
-- `types/internal/editor.ts`
-
-这会导致：
-
-- 类型依赖绑定到实现文件
-- 一个文件只是改 factory 结构，也可能扩散到很多地方
-- 让 type ownership 继续向 runtime 实现层漂移
-
-建议：
-
-- runtime 侧只导出显式命名的 state / runtime contract type
-- 其他模块依赖这些显式类型
-- 不再把 `ReturnType<typeof createXxx>` 作为长期契约
-
-### 5. `input` 和 `context` 的边界仍然混
-
-当前 `packages/whiteboard-editor/src/runtime/input/target.ts` 同时做了两件完全不同的事情：
-
-- DOM event target 判定
-  - editable target
-  - input ignored target
-  - selection ignored target
-  - context-menu ignored target
-- context target model
-  - `ContextTarget`
-  - `ContextResolved`
-  - `readContextTarget`
-  - `resolveContextTarget`
-
-这是明显的边界错位。
-
-更合理的拆法是：
-
-- `packages/whiteboard-editor/src/runtime/input/domTarget.ts`
-  - editable / ignored / keyboard ignore 这些 DOM 判定
-- `packages/whiteboard-editor/src/runtime/context/target.ts`
-  - `ContextTarget`
-  - `ContextResolved`
-  - `readContextTarget`
-  - `resolveContextTarget`
-- `packages/whiteboard-editor/src/runtime/context/open.ts`
-  - `readContextOpen`
-
-对应地：
-
-- `input/pointer.ts` 只做 pointer normalize、frame gate、wheel normalize
-- `context/runtime.ts` 不再依赖 input 层导出的 context helper
-
-这一步很重要，因为它会把“输入设备解析”和“上下文菜单语义”真正拆开。
-
-### 6. `input/runtime.ts` 和 `interactionStart.ts` 的命名不准
-
-这两个文件其实已经在朝对的方向走，但命名落后于模型：
-
-- `input/runtime.ts` 更像 `router.ts`
-- `input/interactionStart.ts` 更像 `drivers.ts` 或 `startDrivers.ts`
-
-原因是它们做的事分别是：
-
-- 输入事件入口路由
-- feature start driver 的注册与装配
-
-不是 generic runtime。
-
-建议直接改成：
-
-- `packages/whiteboard-editor/src/runtime/input/router.ts`
-- `packages/whiteboard-editor/src/runtime/input/drivers.ts`
-
-### 7. 有几个大文件是“多职责热点”
-
-这些不是简单改名能解决的：
-
-- `packages/whiteboard-editor/src/runtime/context/selection.ts`
-  - 同时做 selection menu action binding、filter/order/layout 等 operations、view assembly、read store 构建
-- `packages/whiteboard-editor/src/runtime/selection/press.ts`
-  - 同时做 press target 解析、mode 决策、group 规则、tap/drag plan 生成
-- `packages/whiteboard-editor/src/runtime/commands/node.ts`
-  - 同时做 document update、appearance、text preview/commit、lock 逻辑
-- `packages/whiteboard-editor/src/runtime/input/pointer.ts`
-  - 同时做 pointer normalize、frame gate、wheel normalize、context open 相关逻辑
-- `packages/whiteboard-editor/src/runtime/editor/features.ts`
-  - 同时做 feature runtime create、driver create、capsule assembly、projection/lifecycle wiring
-
-建议拆法：
-
-- `context/selection.ts`
-  - `selectionActions.ts`
-  - `selectionView.ts`
-  - `selectionRead.ts`
-- `selection/press.ts`
-  - `pressTarget.ts`
-  - `pressPlan.ts`
-  - `pressRules.ts`
-- `commands/node.ts`
-  - `nodeDocument.ts`
-  - `nodeAppearance.ts`
-  - `nodeText.ts`
-  - `nodeLock.ts`
-  - 保留一个 `node.ts` 作为 assemble 文件
-- `input/pointer.ts`
-  - `pointer.ts`
-  - `frameGate.ts`
-  - context 相关全部迁到 `context/*`
-- `editor/features.ts`
-  - 至少拆成 `createFeatureRuntimes.ts` 和 `createFeatureCapsules.ts`
-
-### 8. `finalize.ts` 的位置不对
-
-`packages/whiteboard-editor/src/runtime/finalize.ts` 当前只被 `packages/whiteboard-editor/src/runtime/editor/lifecycle.ts` 使用。
-
-这说明它不是 runtime 根层公共模块，而是 editor lifecycle 的一部分。
-
-建议移动到：
-
-- `packages/whiteboard-editor/src/runtime/editor/finalize.ts`
-
-或者更明确地命名为：
-
-- `packages/whiteboard-editor/src/runtime/editor/finalizer.ts`
-
-### 9. `host` 和 `platform` 术语没有对齐
-
-当前同时存在：
-
-- `packages/whiteboard-editor/src/runtime/host/*`
-- `packages/whiteboard-editor/src/runtime/editor/platform.ts`
-
-但这两层表达的其实都是平台适配边界。
-
-更优做法是统一术语：
-
-- 要么把 `host` 改成 `platform`
-- 要么把 `editor/platform.ts` 改成 `composePlatform.ts`
-
-如果追求长期一致性，我更建议：
-
-- `runtime/host` 改成 `runtime/platform`
-- `runtime/editor/platform.ts` 改成 `runtime/editor/composePlatform.ts`
-
-这样 `EditorPlatformBridge`、`EditorPlatform`、browser adapter 的命名就统一了。
-
-### 10. 存在未使用死文件
-
-`packages/whiteboard-editor/src/runtime/utils/recordPatch.ts` 当前没有使用方。
-
-这种文件不应该继续保留在 runtime 公共 util 下：
-
-- 如果确实不再需要，直接删除
-- 如果未来某个模块需要 patch merge helper，就把它 colocate 到对应模块附近
-
-runtime 的 `utils` 应该只保留明确被多处复用、且语义稳定的工具。
-
-### 11. 还有少量“为拆而拆”的超薄文件
-
-例如：
-
-- `packages/whiteboard-editor/src/runtime/interaction/driver.ts`
-
-它当前只承载一个 `InteractionDriver` 类型，文件太薄，而且语义上本来就属于 interaction contract。
-
-更合理的做法是：
-
-- 直接并入 `packages/whiteboard-editor/src/runtime/interaction/types.ts`
-
-这里要强调的不是“所有小文件都要删”，而是：
-
-- 只有当小文件代表一个稳定边界时才值得单独存在
-- 单个类型、单个转发、单个薄包装通常不值得单独占一个文件
-
-## 哪些目录应该保留
-
-这些目录目前有真实子域价值，不应该为了“看起来更平”就硬拆掉：
-
-- `commands`
-- `context`
-- `editor`
-- `input`
-- `interaction`
-- `read`
-- `selection`
-- `utils`
-
-这些目录保留的理由不是“文件数量够多”，而是：
-
-- 里面已经形成了稳定的子语义
-- 目录名本身就是一个真实模块
-- 后续继续收敛时仍然能在目录内做局部重构
-
-其中：
-
-- `selection` 虽然只有 3 个文件，但确实同时承载 selection store 和 selection press plan
-- `input` 也应该保留，因为它是输入解析层，不该被打散到各 feature
-- `context` 应该保留，因为 context menu 不是单一 helper，而是一个完整子域
-
-## 建议的目标结构
-
-下面是我认为更接近长期最优的 runtime 目录结构。
+- `commands/node/*` 应该是目录
+- `context/menu/*` 应该是目录
+- `context/selection/*` 应该是目录
+- `editor/features/*` 应该是目录
+- `input/pointer/*` 应该是目录
 
 ```text
 packages/whiteboard-editor/src/runtime
@@ -469,46 +304,51 @@ packages/whiteboard-editor/src/runtime
 │   ├── index.ts
 │   ├── insert.ts
 │   ├── mindmap.ts
-│   ├── node.ts
-│   ├── nodeAppearance.ts
-│   ├── nodeDocument.ts
-│   ├── nodeLock.ts
-│   ├── nodeText.ts
+│   ├── node
+│   │   ├── appearance.ts
+│   │   ├── document.ts
+│   │   ├── index.ts
+│   │   ├── lock.ts
+│   │   └── text.ts
 │   ├── selection.ts
 │   └── tool.ts
 ├── context
 │   ├── index.ts
-│   ├── menuRuntime.ts
-│   ├── menuView.ts
-│   ├── open.ts
-│   ├── selectionActions.ts
-│   ├── selectionRead.ts
-│   ├── selectionView.ts
-│   ├── summary.ts
-│   └── target.ts
+│   ├── menu
+│   │   ├── open.ts
+│   │   ├── runtime.ts
+│   │   ├── target.ts
+│   │   └── view.ts
+│   └── selection
+│       ├── actions.ts
+│       ├── read.ts
+│       ├── summary.ts
+│       └── view.ts
 ├── editor
 │   ├── composeCommands.ts
 │   ├── composeInput.ts
 │   ├── composeProjection.ts
 │   ├── composeRead.ts
+│   ├── composePlatform.ts
 │   ├── createEditor.ts
-│   ├── createFeatureCapsules.ts
-│   ├── createFeatureRuntimes.ts
+│   ├── features
+│   │   ├── capsules.ts
+│   │   └── runtimes.ts
 │   ├── finalize.ts
 │   ├── index.ts
 │   ├── kernel.ts
 │   ├── lifecycle.ts
-│   ├── composePlatform.ts
 │   ├── projectionGraph.ts
 │   └── public.ts
 ├── input
 │   ├── domTarget.ts
 │   ├── drivers.ts
-│   ├── frameGate.ts
 │   ├── keyboard.ts
 │   ├── passive.ts
-│   ├── pointer.ts
-│   ├── pointerSnapshot.ts
+│   ├── pointer
+│   │   ├── gate.ts
+│   │   ├── index.ts
+│   │   └── snapshot.ts
 │   └── router.ts
 ├── interaction
 │   ├── autoPan.ts
@@ -540,61 +380,282 @@ packages/whiteboard-editor/src/runtime
 │   ├── pressTarget.ts
 │   └── store.ts
 ├── utils
-│   ├── equality.ts
 │   └── rafTask.ts
 ├── edit.ts
 ├── frame.ts
-├── frameScope.ts
 ├── pick.ts
 ├── tool.ts
-├── viewport.ts
-└── viewportMath.ts
+└── viewport.ts
 ```
 
-这个结构背后的原则是：
+注意：
 
-- 单模块领域直接做顶层单文件
-- 多模块领域保留目录
-- 目录内的文件名必须表达职责
-- 不再依赖目录 + `index.ts` 去兜底语义
+- 不再保留 `runtime/frame/index.ts`
+- 不再保留 `runtime/edit/index.ts`
+- 不再保留 `runtime/pick/index.ts`
+- 不再保留 `runtime/tool/index.ts`
+- 不再保留 `runtime/viewport/index.ts`
+- 不再保留 `runtime/viewport/logic.ts`
+- 不再保留 `runtime/host`
+- 不再保留 `runtime/utils/equality.ts`
+- 不再保留 `runtime/utils/recordPatch.ts`
 
-## 一步到位的执行顺序
+## 现有文件最终迁移映射
 
-不考虑兼容层时，建议直接按下面顺序做：
+### A. viewport
 
-1. 删除纯壳和死文件。
-2. `edit` / `pick` / `tool` 收平为单文件。
-3. `frame` 拆成 `frame.ts + frameScope.ts`。
-4. `viewport` 收平成 `viewport.ts + viewportMath.ts`。
-5. 删除 `commands/runtime.ts`、`context/types.ts`，停止内部依赖 `editor/types.ts`。
-6. 把所有 `createState`、`State`、`Commands`、`Store` 改成领域化命名。
-7. 拆 `input/target.ts`，把 context target 相关逻辑迁到 `context`。
-8. `input/runtime.ts` 改成 `router.ts`，`input/interactionStart.ts` 改成 `drivers.ts`。
-9. 移动 `finalize.ts` 到 `editor` 子域。
-10. 拆 `context/selection.ts`、`selection/press.ts`、`commands/node.ts`、`input/pointer.ts`、`editor/features.ts`。
-11. 统一 `host/platform` 术语。
+- `packages/whiteboard-editor/src/runtime/viewport/logic.ts`
+  - 纯数学全部迁到 `packages/whiteboard-core/src/geometry/viewport.ts`
+- `packages/whiteboard-editor/src/runtime/viewport/createViewport.ts`
+  - 收敛成 `packages/whiteboard-editor/src/runtime/viewport.ts`
+- `packages/whiteboard-editor/src/runtime/viewport/index.ts`
+  - 删除
+
+### B. frame
+
+- `packages/whiteboard-editor/src/runtime/frame/state.ts`
+  - store / commands 留在 editor，成为 `packages/whiteboard-editor/src/runtime/frame.ts`
+  - `FrameScope` / `hasNode` / `filterNodeIds` / `hasEdge` 迁到 `packages/whiteboard-core/src/document/frameScope.ts`
+- `packages/whiteboard-editor/src/runtime/frame/index.ts`
+  - 删除
+
+### C. selection
+
+- `packages/whiteboard-editor/src/runtime/selection/state.ts`
+  - `SelectionInput` / `SelectionTarget` / `toSelectionTarget` / `applySelectionTarget`
+    - 迁到 `packages/whiteboard-core/src/selection/target.ts`
+  - `resolveSelectionSnapshot`
+    - 改名为 `deriveSelectionSummary`
+    - 迁到 `packages/whiteboard-core/src/selection/summary.ts`
+  - store / commands 留在 editor，变成 `packages/whiteboard-editor/src/runtime/selection/store.ts`
+- `packages/whiteboard-editor/src/runtime/selection/press.ts`
+  - 拆成：
+    - `pressTarget.ts`
+    - `pressPlan.ts`
+    - `pressRules.ts`
+- `packages/whiteboard-editor/src/runtime/selection/index.ts`
+  - 只做本目录内部聚合，不能再充当跨层 type hub
+
+### D. clipboard / platform
+
+- `packages/whiteboard-editor/src/runtime/host/clipboard.ts`
+  - packet protocol 迁到 `packages/whiteboard-core/src/document/clipboard.ts`
+  - browser port 和 runtime memory 留在 `packages/whiteboard-editor/src/runtime/platform/clipboard.ts`
+- `packages/whiteboard-editor/src/runtime/host/pointerContinuation.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/platform/pointerContinuation.ts`
+- `packages/whiteboard-editor/src/runtime/host/selectionLock.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/platform/selectionLock.ts`
+- `packages/whiteboard-editor/src/runtime/editor/platform.ts`
+  - 改名为 `packages/whiteboard-editor/src/runtime/editor/composePlatform.ts`
+
+### E. input / context
+
+- `packages/whiteboard-editor/src/runtime/input/runtime.ts`
+  - 改名为 `packages/whiteboard-editor/src/runtime/input/router.ts`
+- `packages/whiteboard-editor/src/runtime/input/interactionStart.ts`
+  - 改名为 `packages/whiteboard-editor/src/runtime/input/drivers.ts`
+- `packages/whiteboard-editor/src/runtime/input/target.ts`
+  - DOM target 相关留下，迁到 `packages/whiteboard-editor/src/runtime/input/domTarget.ts`
+  - context target 相关迁到：
+    - `packages/whiteboard-editor/src/runtime/context/menu/target.ts`
+    - `packages/whiteboard-editor/src/runtime/context/menu/open.ts`
+- `packages/whiteboard-editor/src/runtime/input/pointer.ts`
+  - 拆成：
+    - `packages/whiteboard-editor/src/runtime/input/pointer/index.ts`
+    - `packages/whiteboard-editor/src/runtime/input/pointer/gate.ts`
+  - `index.ts` 只保留 pointer normalize、wheel normalize
+  - context open 相关逻辑移出
+- `packages/whiteboard-editor/src/runtime/input/pointerSnapshot.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/input/pointer/snapshot.ts`
+- `packages/whiteboard-editor/src/runtime/context/runtime.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/context/menu/runtime.ts`
+- `packages/whiteboard-editor/src/runtime/context/view.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/context/menu/view.ts`
+- `packages/whiteboard-editor/src/runtime/context/summary.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/context/selection/summary.ts`
+- `packages/whiteboard-editor/src/runtime/context/selection.ts`
+  - 拆成：
+    - `packages/whiteboard-editor/src/runtime/context/selection/actions.ts`
+    - `packages/whiteboard-editor/src/runtime/context/selection/read.ts`
+    - `packages/whiteboard-editor/src/runtime/context/selection/view.ts`
+
+### F. editor lifecycle / features
+
+- `packages/whiteboard-editor/src/runtime/finalize.ts`
+  - 迁到 `packages/whiteboard-editor/src/runtime/editor/finalize.ts`
+- `packages/whiteboard-editor/src/runtime/editor/features.ts`
+  - 拆成：
+    - `packages/whiteboard-editor/src/runtime/editor/features/runtimes.ts`
+    - `packages/whiteboard-editor/src/runtime/editor/features/capsules.ts`
+
+### G. 单文件目录壳
+
+- `packages/whiteboard-editor/src/runtime/edit/index.ts`
+  - 改成 `packages/whiteboard-editor/src/runtime/edit.ts`
+- `packages/whiteboard-editor/src/runtime/pick/index.ts`
+  - 改成 `packages/whiteboard-editor/src/runtime/pick.ts`
+- `packages/whiteboard-editor/src/runtime/tool/index.ts`
+  - 改成 `packages/whiteboard-editor/src/runtime/tool.ts`
+- `packages/whiteboard-editor/src/runtime/commands/node.ts`
+  - 拆成 `packages/whiteboard-editor/src/runtime/commands/node/index.ts` 及子文件：
+    - `appearance.ts`
+    - `document.ts`
+    - `lock.ts`
+    - `text.ts`
+
+### H. 薄壳和死文件
+
+- `packages/whiteboard-editor/src/runtime/commands/runtime.ts`
+  - 删除
+- `packages/whiteboard-editor/src/runtime/context/types.ts`
+  - 删除
+- `packages/whiteboard-editor/src/runtime/editor/types.ts`
+  - 不再作为 runtime 内部总入口
+- `packages/whiteboard-editor/src/runtime/interaction/driver.ts`
+  - 并入 `packages/whiteboard-editor/src/runtime/interaction/types.ts`
+- `packages/whiteboard-editor/src/runtime/utils/equality.ts`
+  - 删除，统一用 core/utils
+- `packages/whiteboard-editor/src/runtime/utils/recordPatch.ts`
+  - 删除
+
+## 命名最终统一规则
+
+### 文件命名
+
+- 目录只在存在真实子域时保留
+- 同一领域一旦拆成 2 个以上文件，就升级为子目录
+- 不允许用前缀文件名模拟目录，例如 `nodeAppearance.ts`、`nodeText.ts`、`menuView.ts`
+- `logic.ts` 禁用
+- `runtime.ts` 只给真正的 runtime coordinator 使用
+- `types.ts` 只允许承载本目录自己拥有的类型，禁止做跨层 re-export
+- `index.ts` 只允许作为同目录局部聚合，不允许再承载语义
+
+### symbol 命名
+
+不要再导出这种低信息量名字：
+
+- `createState`
+- `State`
+- `Commands`
+- `Store`
+- `Pick`
+
+最终统一成领域名：
+
+- `createEditState`
+- `createFrameState`
+- `createSelectionState`
+- `EditState`
+- `FrameState`
+- `SelectionState`
+- `EditorPick`
+
+### 类型契约
+
+最终不再允许用下面这种模式做长期边界：
+
+- `ReturnType<typeof createXxx>`
+
+跨模块契约必须写成显式命名类型。
+
+## 一步到位的实际修改顺序
+
+这是建议的最终实施顺序，不保留兼容。
+
+### 第 1 步：先补 core
+
+先完成 `whiteboard-core`：
+
+1. 扩展 `geometry/viewport.ts`
+2. 新增 `document/frameScope.ts`
+3. 新增 `document/clipboard.ts`
+4. 新增 `selection/target.ts`
+5. 新增 `selection/summary.ts`
+6. 扩展 `utils/equality.ts`
+7. 更新 `document/index.ts`
+8. 更新 `geometry/index.ts`
+9. 更新 `utils/index.ts`
+10. 更新 `package.json` exports
+
+原因很明确：
+
+- editor runtime 的大量整理依赖这些新的 canonical module
+- 如果 core 不先补齐，editor 侧只能继续互相转发和 alias import
+
+### 第 2 步：再瘦身 runtime 顶层
+
+然后直接做顶层去壳：
+
+1. `edit/index.ts` -> `edit.ts`
+2. `pick/index.ts` -> `pick.ts`
+3. `tool/index.ts` -> `tool.ts`
+4. `frame/index.ts + state.ts` -> `frame.ts`
+5. `viewport/createViewport.ts + index.ts` -> `viewport.ts`
+
+### 第 3 步：拆 ownership 混乱文件
+
+然后处理混边界文件：
+
+1. `host/clipboard.ts`
+2. `input/target.ts`
+3. `selection/state.ts`
+4. `input/pointer.ts`
+5. `finalize.ts`
+
+这一步之后，runtime 的“纯规则”和“运行时逻辑”会真正分开。
+
+### 第 4 步：拆大文件
+
+最后拆真正的大文件：
+
+1. `context/selection.ts`
+2. `selection/press.ts`
+3. `commands/node.ts`
+4. `editor/features.ts`
+
+## 最终不该再出现的情况
+
+做完以后，下面这些情况都不应该再存在：
+
+- editor runtime 自己维护 viewport 数学
+- editor runtime 自己维护 frame membership predicate
+- selection target 类型藏在 editor internal types
+- clipboard packet 协议放在 platform/runtime 文件里
+- `state.ts` 同时装 store 和纯规则
+- `input` 模块里混入 context menu 语义
+- `editor/types.ts` 这种内部总转发入口继续扩大
+- `createState as createFrameState` 这种 alias import 到处出现
 
 ## 最终结论
 
-这次 runtime 优化的关键不在“把多少文件改成单文件”，而在于把 ownership 理顺。
+这份方案的核心不是“runtime 目录瘦身”，而是：
 
-最重要的几个决定是：
+- 先把真正属于 core 的东西下沉
+- 再把 editor runtime 收缩回 runtime 本职
 
-- `edit`、`pick`、`tool` 直接去目录壳
-- `frame` 去目录壳，但拆成 `frame.ts + frameScope.ts`
-- `hasEdge` 不放 editor，放 frame scope helper
-- `viewport` 收平成 `viewport.ts + viewportMath.ts`
-- 删除 type-forwarder 壳和未使用 util
-- 拆开 `input` 和 `context` 的混合边界
-- 对大文件按职责拆分，而不是继续依赖抽象命名硬撑
+最终应该形成下面这个稳定分层：
 
-如果只允许先做最有收益的一批，我会优先做这 6 件事：
+- `@whiteboard/core`
+  - 几何
+  - 文档协议
+  - frame scope
+  - selection 模型与推导
+- `@whiteboard/editor/runtime`
+  - 状态
+  - 输入路由
+  - interaction session
+  - feature runtime 组装
+  - read / commands 组装
+- `@whiteboard/editor/platform`
+  - browser adapter
 
-- `edit` / `pick` / `tool` 收平
-- `frame` 重构
-- `viewport` 重构
-- 删 `commands/runtime.ts`
-- 拆 `input/target.ts`
-- 移动 `finalize.ts`
+如果只抓最关键的 6 件事，这次必须一次做完的是：
 
-这 6 件事完成后，runtime 的结构噪音会立刻下降一个层级，后面的命名统一和大文件拆分也会自然很多。
+1. viewport 数学下沉到 core
+2. frame scope 下沉到 core/document
+3. selection target 和 summary 下沉到 core/selection
+4. clipboard packet 下沉到 core/document
+5. runtime 顶层去目录壳
+6. input/context/platform/editor 边界重新切干净
+
+这 6 件事做完，runtime 才算真正进入长期可维护状态。

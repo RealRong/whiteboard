@@ -4,8 +4,8 @@ import {
   isInputIgnoredTarget,
   isSelectionIgnoredTarget,
   readEditableFieldTarget
-} from '../input/target'
-import type { Pick as CanvasPick, PickRuntime, PointerPick } from '../pick'
+} from '../input/domTarget'
+import type { EditorPick, PickRuntime, PointerPick } from '../pick'
 import type { ViewportRead } from '../viewport'
 
 type PointerPickInput = {
@@ -21,7 +21,7 @@ export type PickRead = {
   ) => PointerPick
 }
 
-const BackgroundPick: CanvasPick = {
+const BackgroundPick: EditorPick = {
   kind: 'background'
 }
 

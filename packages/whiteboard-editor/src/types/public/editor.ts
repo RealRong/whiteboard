@@ -1,5 +1,7 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
+import type { FrameScope } from '@whiteboard/core/document'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
+import type { SelectionInput, SelectionTarget } from '@whiteboard/core/selection'
 import type { CommandResult, ReadStore } from '@whiteboard/engine'
 import type {
   EdgeId,
@@ -11,7 +13,6 @@ import type {
   Size
 } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from '../mindmap'
-import type { SelectionInput, SelectionTarget } from '../internal/selection'
 import type {
   BrushStylePatch,
   DrawSlot
@@ -23,16 +24,15 @@ import type {
   Tool
 } from './tool'
 import type { RuntimeRead } from '../../runtime/read'
-import type { FrameScope } from '../../runtime/frame'
 import type {
   ViewportCommands,
   ViewportRead
 } from '../../runtime/viewport'
 import type {
   ClipboardPort
-} from '../../runtime/host/clipboard'
-import type { DocumentSelectionLock } from '../../runtime/host/selectionLock'
-import type { PointerContinuation } from '../../runtime/host/pointerContinuation'
+} from '../../runtime/platform/clipboard'
+import type { DocumentSelectionLock } from '../../runtime/platform/selectionLock'
+import type { PointerContinuation } from '../../runtime/platform/pointerContinuation'
 import type { EditField, EditTarget } from '../../runtime/edit'
 import type { ShapeKind } from '../../features/node/shape'
 import type {

@@ -13,6 +13,6 @@ export type {
   EditorPlatformBridge,
   EditorPointerInput,
   EditorWheelInput,
-  EditorInsertResult,
-  EditorRuntime
-} from './types'
+  EditorInsertResult
+} from '../../types/public/editor'
+export type { EditorRuntime } from '../../types/internal/editor'

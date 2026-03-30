@@ -1,5 +1,5 @@
 import type { PointerDown } from '../input/pointer'
-import type { InteractionDriver } from './driver'
+import type { InteractionDriver } from './types'
 
 const byPriorityDesc = (
   left: InteractionDriver,
@@ -39,4 +39,3 @@ export const createInteractionRegistry = (
     }
   }
 }
-

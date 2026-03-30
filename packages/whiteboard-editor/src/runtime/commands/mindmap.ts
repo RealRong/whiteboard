@@ -1,6 +1,6 @@
-import type { Editor } from '../editor/types'
+import type { Editor } from '../../types/public/editor'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { EditorCommandHost } from './runtime'
+import type { EditorCommandHost } from '../../types/internal/editor'
 import {
   insertMindmapByPlacement,
   moveMindmapByDrop,

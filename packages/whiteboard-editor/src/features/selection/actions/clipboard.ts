@@ -1,18 +1,22 @@
-import type { SliceRoots } from '@whiteboard/core/document'
+import type {
+  ClipboardPacket,
+  SliceRoots
+} from '@whiteboard/core/document'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { Editor } from '../../../runtime/editor/types'
+import type { Editor } from '../../../types/public/editor'
 import type {
   ClipboardPort,
   ClipboardRuntime
-} from '../../../runtime/host/clipboard'
+} from '../../../runtime/platform/clipboard'
 import {
   createClipboardPacket,
   parseClipboardPacket,
+  serializeClipboardPacket
+} from '@whiteboard/core/document'
+import {
   readClipboardPacketFromEvent,
-  serializeClipboardPacket,
   writeClipboardPacketToEvent
-} from '../../../runtime/host/clipboard'
-
+} from '../../../runtime/platform/clipboard'
 type ClipboardEditor = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
 
 type ClipboardDeps = {
@@ -30,7 +34,7 @@ export type ClipboardTarget =
 
 const writePacket = async (
   deps: ClipboardDeps,
-  packet: ReturnType<typeof createClipboardPacket>,
+  packet: ClipboardPacket,
   event?: ClipboardEvent
 ) => {
   deps.runtime.remember(packet)
@@ -47,7 +51,7 @@ const writePacket = async (
 const readPacket = async (
   deps: ClipboardDeps,
   event?: ClipboardEvent
-): Promise<ReturnType<typeof createClipboardPacket> | undefined> => {
+): Promise<ClipboardPacket | undefined> => {
   const fromEvent = event ? readClipboardPacketFromEvent(event) : undefined
   if (fromEvent) {
     deps.runtime.remember(fromEvent)
@@ -68,7 +72,7 @@ const readPacket = async (
 
 const readPasteAt = (
   deps: ClipboardDeps,
-  packet: ReturnType<typeof createClipboardPacket>,
+  packet: ClipboardPacket,
   at?: Point
 ) => {
   const base = at ?? { ...deps.editor.viewport.get().center }

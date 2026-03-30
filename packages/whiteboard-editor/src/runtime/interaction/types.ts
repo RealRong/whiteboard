@@ -1,4 +1,5 @@
 import type { ReadStore } from '@whiteboard/engine'
+import type { PointerDown } from '../input/pointer'
 
 export type InteractionMode =
   | 'idle'
@@ -80,4 +81,14 @@ export type InteractionCoordinator = {
   handleKeyDown: (event: KeyboardEvent) => boolean
   handleKeyUp: (event: KeyboardEvent) => boolean
   handleBlur: () => void
+}
+
+export type InteractionDriver<
+  Start = PointerDown
+> = {
+  kind: string
+  priority?: number
+  resolve: (input: PointerDown) => Start | null
+  start: (input: Start) => boolean
+  cancel?: () => void
 }

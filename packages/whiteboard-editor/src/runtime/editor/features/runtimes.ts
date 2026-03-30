@@ -1,25 +1,35 @@
 import type { ValueStore } from '@whiteboard/engine'
-import { createDrawInputRuntime } from '../../features/draw/input'
-import { createEdgeHoverProcessor } from '../../features/edge/hoverProcessor'
-import { createEdgeInputRuntime } from '../../features/edge/input'
-import type { EdgeProjection } from '../../features/edge/projection'
-import { createEdgeConnectInteraction } from '../../features/edge/connect/interaction'
-import { createMindmapDragInteraction } from '../../features/mindmap/drag/interaction'
-import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
-import { createNodeTransformInteraction } from '../../features/node/transform/interaction'
-import type { NodeProjectionRuntime } from '../../features/node/projection/store'
-import { createSelectionPressRuntime } from '../../features/selection/gesture'
-import { createMarqueeSession } from '../../features/selection/marquee'
+import type { InteractionDriver } from '../../interaction'
+import type { PassiveInputProcessor } from '../../input/passive'
+import { createDrawInputRuntime } from '../../../features/draw/input'
+import { createEdgeHoverProcessor } from '../../../features/edge/hoverProcessor'
+import { createEdgeInputRuntime } from '../../../features/edge/input'
+import type { EdgeProjection } from '../../../features/edge/projection'
+import { createEdgeConnectInteraction } from '../../../features/edge/connect/interaction'
+import { createMindmapDragInteraction } from '../../../features/mindmap/drag/interaction'
+import type { MindmapDragProjectionStore } from '../../../features/mindmap/drag/projection'
+import { createNodeTransformInteraction } from '../../../features/node/transform/interaction'
+import type { NodeProjectionRuntime } from '../../../features/node/projection/store'
+import { createSelectionPressRuntime } from '../../../features/selection/gesture'
+import { createMarqueeSession } from '../../../features/selection/marquee'
+import type { DrawInputRuntime } from '../../../features/draw/input'
+import type { EdgeInputRuntime } from '../../../features/edge/input'
+import type { EdgeConnectInteraction } from '../../../features/edge/connect/interaction'
+import type { MindmapDragInteraction } from '../../../features/mindmap/drag/interaction'
+import type { NodeTransformInteraction } from '../../../features/node/transform/interaction'
+import type { SelectionPressRuntime } from '../../../features/selection/gesture'
+import type { MarqueeSession } from '../../../features/selection/marquee'
 import type {
   DrawFeatureState,
   EditorKernel,
   EditorViewportRuntime
-} from '../../types/internal/editor'
-import type { Editor } from '../../types/public/editor'
+} from '../../../types/internal/editor'
+import type { Editor } from '../../../types/public/editor'
 import {
   createContextRuntime,
   type ContextMenuView
-} from '../context'
+} from '../../context'
+import type { ContextRuntime } from '../../../types/public/context'
 import {
   createDrawEraseDriver,
   createDrawStrokeDriver,
@@ -31,22 +41,10 @@ import {
   createMindmapDragDriver,
   createNodeTransformDriver,
   createSelectionPressDriver
-} from '../input/interactionStart'
-import { createViewportPanDriver } from '../../features/viewport/panDriver'
-import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
+} from '../../input/drivers'
+import { createViewportPanDriver } from '../../../features/viewport/panDriver'
 
-export const createFeatures = ({
-  kernel,
-  read,
-  state,
-  commands,
-  viewport,
-  draw,
-  nodeProjection,
-  edgeProjection,
-  mindmapDragProjection,
-  contextMenu
-}: {
+export type FeatureCompositionInput = {
   kernel: EditorKernel
   read: Editor['read']
   state: Editor['state']
@@ -57,9 +55,43 @@ export const createFeatures = ({
   edgeProjection: EdgeProjection
   mindmapDragProjection: MindmapDragProjectionStore
   contextMenu: ValueStore<ContextMenuView | null>
-}): {
-  capsules: readonly EditorFeatureCapsule[]
-} => {
+}
+
+export type EditorFeatureRuntimes = {
+  marquee: MarqueeSession
+  drawInput: DrawInputRuntime
+  transform: NodeTransformInteraction
+  edgeConnect: EdgeConnectInteraction
+  edgeInput: EdgeInputRuntime
+  mindmapDrag: MindmapDragInteraction
+  selectionPress: SelectionPressRuntime
+  context: ContextRuntime
+  viewportPanDriver: InteractionDriver
+  insertPresetDriver: InteractionDriver
+  drawEraseDriver: InteractionDriver
+  drawStrokeDriver: InteractionDriver
+  nodeTransformDriver: InteractionDriver
+  selectionPressDriver: InteractionDriver
+  edgeCreateDriver: InteractionDriver
+  edgeReconnectDriver: InteractionDriver
+  edgeRouteDriver: InteractionDriver
+  edgeBodyDriver: InteractionDriver
+  edgeHover: PassiveInputProcessor
+  mindmapDragDriver: InteractionDriver
+}
+
+export const createFeatureRuntimes = ({
+  kernel,
+  read,
+  state,
+  commands,
+  viewport,
+  draw,
+  nodeProjection,
+  edgeProjection,
+  mindmapDragProjection,
+  contextMenu
+}: FeatureCompositionInput): EditorFeatureRuntimes => {
   const runtimeDeps = {
     commands,
     config: kernel.document.engine.config,
@@ -164,213 +196,44 @@ export const createFeatures = ({
     contextMenu
   )
 
-  const capsules: readonly EditorFeatureCapsule[] = [
-    {
-      key: 'viewport',
-      drivers: [
-        createViewportPanDriver({
-          interaction: kernel.interaction,
-          read,
-          viewport,
-          policy: kernel.config.inputPolicy
-        })
-      ]
-    },
-    {
-      key: 'insert',
-      drivers: [
-        createInsertPresetDriver({
-          commands,
-          read
-        })
-      ]
-    },
-    {
-      key: 'draw',
-      drivers: [
-        createDrawEraseDriver(drawInput),
-        createDrawStrokeDriver(drawInput)
-      ],
-      read: {
-        draw: {
-          preferences: draw.store
-        }
-      },
-      projections: {
-        overlay: {
-          draw: drawInput.preview
-        }
-      },
-      projection: {
-        draw: drawInput.preview
-      },
-      lifecycle: {
-        reset: drawInput.cancel,
-        dispose: drawInput.cancel
-      }
-    },
-    {
-      key: 'node',
-      drivers: [
-        createNodeTransformDriver(transform)
-      ],
-      projections: {
-        model: {
-          node: nodeProjection
-        }
-      },
-      lifecycle: {
-        reset: () => {
-          transform.cancel()
-          nodeProjection.clear()
-        },
-        dispose: () => {
-          transform.cancel()
-          nodeProjection.clear()
-        }
-      }
-    },
-    {
-      key: 'selection',
-      drivers: [
-        createSelectionPressDriver(selectionPress)
-      ],
-      projections: {
-        overlay: {
-          marquee: {
-            rect: marquee.rect,
-            match: marquee.match
-          }
-        }
-      },
-      projection: {
-        marquee: {
-          rect: marquee.rect,
-          match: marquee.match
-        }
-      },
-      lifecycle: {
-        reset: () => {
-          selectionPress.cancel()
-          marquee.cancel()
-        },
-        dispose: () => {
-          selectionPress.cancel()
-          marquee.cancel()
-        }
-      }
-    },
-    {
-      key: 'edge',
-      drivers: [
-        createEdgeCreateDriver(edgeConnect),
-        createEdgeReconnectDriver(edgeConnect),
-        createEdgeRouteDriver(edgeInput),
-        createEdgeBodyDriver(edgeInput)
-      ],
-      passive: [
-        createEdgeHoverProcessor({
-          interaction: kernel.interaction,
-          internals: {
-            projections: {
-              overlay: {
-                edge: edgeProjection
-              }
-            },
-            snap: kernel.spatial.snap
-          }
-        })
-      ],
-      projections: {
-        overlay: {
-          edge: edgeProjection
-        }
-      },
-      projection: {
-        edge: {
-          patch: {
-            get: edgeProjection.patch.get,
-            subscribe: edgeProjection.patch.subscribe
-          },
-          hint: {
-            get: edgeProjection.hint.get,
-            subscribe: edgeProjection.hint.subscribe
-          },
-          emptyPatch: edgeProjection.emptyPatch
-        }
-      },
-      lifecycle: {
-        reset: () => {
-          edgeInput.cancel()
-          edgeConnect.cancel()
-          edgeProjection.clear()
-        },
-        dispose: () => {
-          edgeInput.cancel()
-          edgeConnect.cancel()
-          edgeProjection.clear()
-        }
-      }
-    },
-    {
-      key: 'mindmap',
-      drivers: [
-        createMindmapDragDriver(mindmapDrag)
-      ],
-      projections: {
-        overlay: {
-          mindmapDrag: mindmapDragProjection
-        }
-      },
-      projection: {
-        mindmapDrag: mindmapDragProjection
-      },
-      lifecycle: {
-        reset: mindmapDrag.cancel,
-        dispose: mindmapDrag.cancel
-      }
-    },
-    {
-      key: 'snap',
-      projections: {
-        overlay: {
-          snap: kernel.spatial.snap.node.guides
-        }
-      },
-      projection: {
-        snap: kernel.spatial.snap.node.guides
-      },
-      lifecycle: {
-        reset: () => {
-          kernel.spatial.snap.node.clear()
-        },
-        dispose: () => {
-          kernel.spatial.snap.node.clear()
-        }
-      }
-    },
-    {
-      key: 'context',
-      read: {
-        context: {
-          menu: context.menu,
-          selection: context.selection
-        }
-      },
-      commands: {
-        context: {
-          open: context.open,
-          dismiss: context.dismiss
-        }
-      },
-      lifecycle: {
-        reset: context.clear,
-        dispose: context.clear
-      }
-    }
-  ]
-
   return {
-    capsules
+    marquee,
+    drawInput,
+    transform,
+    edgeConnect,
+    edgeInput,
+    mindmapDrag,
+    selectionPress,
+    context,
+    viewportPanDriver: createViewportPanDriver({
+      interaction: kernel.interaction,
+      read,
+      viewport,
+      policy: kernel.config.inputPolicy
+    }),
+    insertPresetDriver: createInsertPresetDriver({
+      commands,
+      read
+    }),
+    drawEraseDriver: createDrawEraseDriver(drawInput),
+    drawStrokeDriver: createDrawStrokeDriver(drawInput),
+    nodeTransformDriver: createNodeTransformDriver(transform),
+    selectionPressDriver: createSelectionPressDriver(selectionPress),
+    edgeCreateDriver: createEdgeCreateDriver(edgeConnect),
+    edgeReconnectDriver: createEdgeReconnectDriver(edgeConnect),
+    edgeRouteDriver: createEdgeRouteDriver(edgeInput),
+    edgeBodyDriver: createEdgeBodyDriver(edgeInput),
+    edgeHover: createEdgeHoverProcessor({
+      interaction: kernel.interaction,
+      internals: {
+        projections: {
+          overlay: {
+            edge: edgeProjection
+          }
+        },
+        snap: kernel.spatial.snap
+      }
+    }),
+    mindmapDragDriver: createMindmapDragDriver(mindmapDrag)
   }
 }

@@ -13,13 +13,14 @@ import {
   type TransformHandle,
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
+import type { SelectionSummary } from '@whiteboard/core/selection'
 import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerDown } from '../../../runtime/input/pointer'
-import type { EditorRuntime } from '../../../runtime/editor/types'
-import type { SnapRuntime } from '../../../runtime/interaction'
+import type { EditorRuntime } from '../../../types/internal/editor'
 import {
-  type SelectionSnapshot
-} from '../../../runtime/selection'
+  createInteractionSessionSlot,
+  type SnapRuntime
+} from '../../../runtime/interaction'
 import {
   clearNodeProjectionPreview,
   writeNodeProjectionPreview,
@@ -83,7 +84,7 @@ type TransformPointerEvent = Pick<
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const resolveSelectionBoxView = (
-  selection: SelectionSnapshot
+  selection: SelectionSummary
 ) => {
   const box = selection.box
   const canResize = selection.transform.resize === 'scale'
@@ -193,14 +194,20 @@ const toPatch = (
 export const createNodeTransformInteraction = (
   editor: NodeTransformInteractionDeps
 ): NodeTransformInteraction => {
-  let active: ActiveTransform | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<ActiveTransform>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      clearNodeProjectionPreview(editor.internals.projections.model.node.store)
+      editor.internals.snap.node.clear()
+    }
+  })
 
-  const clear = () => {
-    active = null
-    session = null
-    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
-    editor.internals.snap.node.clear()
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: ActiveTransform | null
+  ) => {
+    interaction.setActive(next)
   }
 
   const writePreview = (
@@ -350,25 +357,26 @@ export const createNodeTransformInteraction = (
     editor.commands.node.document.updateMany(updates)
   }
 
-  const canStart = () => !active
+  const canStart = () => !interaction.hasActive()
 
   const start = (
     next: ActiveTransform,
     event: TransformPointerEvent,
     capture: Element
   ) => {
-    const nextSession = editor.interaction.start({
+    const nextSession = interaction.start({
       mode: 'node-transform',
       pointerId: event.pointerId,
       capture,
-      cleanup: clear,
       move: (event) => {
+        const active = readActive()
         if (!active) {
           return
         }
         updatePreview(active, event)
       },
       up: (_event, session) => {
+        const active = readActive()
         if (!active) {
           return
         }
@@ -381,8 +389,7 @@ export const createNodeTransformInteraction = (
       return false
     }
 
-    active = next
-    session = nextSession
+    writeActive(next)
     clearNodeProjectionPreview(editor.internals.projections.model.node.store)
     editor.internals.snap.node.clear()
     event.preventDefault()
@@ -494,11 +501,7 @@ export const createNodeTransformInteraction = (
 
   return {
     cancel: () => {
-      if (session) {
-        session.cancel()
-        return
-      }
-      clear()
+      interaction.cancel()
     },
     start: (
       input: PointerDown

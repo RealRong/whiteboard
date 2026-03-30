@@ -1,4 +1,4 @@
-import type { Editor } from './types'
+import type { Editor } from '../../types/public/editor'
 import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
 
 const mergeCommandAugment = (

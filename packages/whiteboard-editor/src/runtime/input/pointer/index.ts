@@ -1,18 +1,8 @@
-import { isPointInRect } from '@whiteboard/core/geometry'
-import {
-  hasEdge,
-  hasNode,
-  type FrameScope
-} from '../frame'
-import type { Editor } from '../editor/types'
-import type { PointerPick } from '../pick'
-import type { Tool } from '../tool'
-import {
-  readContextTarget,
-  resolveContextTarget as resolveInputContextTarget,
-  type ContextResolved,
-  type ContextTarget
-} from './target'
+import type { FrameScope } from '@whiteboard/core/document'
+import type { Editor } from '../../../types/public/editor'
+import type { PointerPick } from '../../pick'
+import type { Tool } from '../../tool'
+import { resolvePointerFrameGate } from './gate'
 
 export type PointerDown = PointerPick & {
   phase: 'pointer/down'
@@ -81,11 +71,6 @@ export type ResolvedWheelInput = {
   }
 }
 
-export type ContextOpen = {
-  target: ContextTarget
-  leaveFrame: boolean
-}
-
 const readPointerDown = (
   editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
@@ -110,106 +95,13 @@ const readPointerDown = (
   }
 }
 
-const ROOT_FRAME: FrameScope = {
-  ids: []
-}
-
-const resolveInteractionFrame = (
-  editor: Pick<Editor, 'read'>,
-  start: Pick<PointerDown, 'frame' | 'pick' | 'point'>
-): {
-  frame: FrameScope
-  exit: boolean
-} => {
-  const frame = start.frame
-  if (!frame.id) {
-    return {
-      frame,
-      exit: false
-    }
-  }
-
-  const frameNode = editor.read.node.item.get(frame.id)?.node
-  if (!frameNode || editor.read.node.role(frameNode) !== 'frame') {
-    return {
-      frame: ROOT_FRAME,
-      exit: true
-    }
-  }
-
-  const frameRect = editor.read.index.node.get(frame.id)?.rect
-
-  switch (start.pick.kind) {
-    case 'background':
-      return frameRect && isPointInRect(start.point.world, frameRect)
-        ? {
-            frame,
-            exit: false
-          }
-        : {
-            frame: ROOT_FRAME,
-            exit: true
-          }
-    case 'selection-box':
-      return {
-        frame,
-        exit: false
-      }
-    case 'node':
-      if (start.pick.id === frame.id) {
-        return {
-          frame,
-          exit: false
-        }
-      }
-      return hasNode(frame, start.pick.id)
-        ? {
-            frame,
-            exit: false
-          }
-        : {
-            frame: ROOT_FRAME,
-            exit: true
-          }
-    case 'mindmap':
-      return hasNode(frame, start.pick.treeId)
-        ? {
-            frame,
-            exit: false
-          }
-        : {
-            frame: ROOT_FRAME,
-            exit: true
-          }
-    case 'edge': {
-      const edge = editor.read.edge.item.get(start.pick.id)?.edge
-      if (!edge) {
-        return {
-          frame: ROOT_FRAME,
-          exit: true
-        }
-      }
-
-      return hasEdge(frame, edge)
-        ? {
-            frame,
-            exit: false
-          }
-        : {
-            frame: ROOT_FRAME,
-            exit: true
-          }
-    }
-  }
-}
-
 export const resolvePointerDown = (
   editor: Pick<Editor, 'read' | 'state'>,
   container: HTMLDivElement,
   event: PointerEvent
 ): PointerDown => {
   const start = readPointerDown(editor, container, event)
-  const frame = resolveInteractionFrame(editor, start)
+  const frame = resolvePointerFrameGate(editor, start)
 
   return {
     ...start,
@@ -225,7 +117,7 @@ const readPointerEvent = (
   phase: PointerMove['phase'] | PointerUp['phase']
 ): PointerMove | PointerUp => {
   const input = editor.read.pick.from(event, container)
-  const frame = resolveInteractionFrame(editor, {
+  const frame = resolvePointerFrameGate(editor, {
     pick: input.pick,
     point: input.point,
     frame: editor.state.frame.get()
@@ -298,76 +190,3 @@ export const resolveWheelInput = (
     }
   }
 }
-
-export const readContextOpen = (
-  editor: Pick<Editor, 'read' | 'state'>,
-  input: PointerPick
-): ContextOpen | undefined => {
-  const frame = editor.state.frame.get()
-  const selection = editor.read.selection.get()
-  const world = input.point.world
-  const pick = input.pick
-  const target = readContextTarget({
-    pick,
-    world,
-    selectionNodeIds: selection.target.nodeIds,
-    selectionNodeSet: selection.target.nodeSet,
-    selectionCount: selection.items.count
-  })
-
-  if (target.kind === 'nodes') {
-    return {
-      target,
-      leaveFrame: pick.kind === 'selection-box'
-        ? false
-        : pick.kind === 'node'
-          ? !hasNode(frame, pick.id)
-          : false
-    }
-  }
-
-  if (target.kind === 'node') {
-    return {
-      target,
-      leaveFrame: !hasNode(frame, target.nodeId)
-    }
-  }
-
-  if (target.kind === 'edge') {
-    const entry = editor.read.edge.item.get(target.edgeId)
-    if (!entry) {
-      return undefined
-    }
-
-    return {
-      target,
-      leaveFrame: !hasEdge(frame, entry.edge)
-    }
-  }
-
-  const activeRect = frame.id
-    ? editor.read.index.node.get(frame.id)?.rect
-    : undefined
-  const insideActiveFrame = Boolean(activeRect && isPointInRect(world, activeRect))
-
-  return {
-    target: {
-      kind: 'canvas',
-      world
-    },
-    leaveFrame: Boolean(frame.id && !insideActiveFrame)
-  }
-}
-
-export const resolveContextTarget = (
-  editor: Pick<Editor, 'read'>,
-  target: ContextTarget
-): ContextResolved | undefined => resolveInputContextTarget({
-  getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
-  hasEdge: (edgeId) => Boolean(editor.read.edge.item.get(edgeId))
-}, target)
-
-export type {
-  ContextResolved,
-  ContextTarget
-} from './target'

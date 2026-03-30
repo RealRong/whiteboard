@@ -52,6 +52,11 @@
       "types": "./dist/document/index.d.ts",
       "import": "./dist/document/index.js",
       "require": "./dist/document/index.cjs"
+    },
+    "./selection": {
+      "types": "./dist/selection/index.d.ts",
+      "import": "./dist/selection/index.js",
+      "require": "./dist/selection/index.cjs"
     }
   },
   "files": [

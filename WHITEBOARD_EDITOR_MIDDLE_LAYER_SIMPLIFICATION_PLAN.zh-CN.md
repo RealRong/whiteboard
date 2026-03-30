@@ -918,4 +918,17 @@ kernel
 4. 文件命名、目录结构和底层模型会重新对齐
 5. React 和 editor 的边界也会更稳
 
+当前实现层面，interaction 这一段最适合落地的，不是“万能 session factory”，而是一个很薄的 `runtime/interaction/sessionSlot`：
+
+1. 只统一 `active / session / start / cancel / cleanup`
+2. 不接管 projection 写入
+3. 不接管业务 update / commit 逻辑
+4. 不把 feature 交互过程抽成公共基类
+
+这样做的好处是：
+
+1. `edge / node / marquee / draw / viewport / press` 这一类重复骨架可以明显收敛
+2. 业务计算仍然留在 feature 本地，可读性不会因为抽象而下降
+3. 它是在强化 active interaction session 的边界，而不是重新把 session 和 projection 混回去
+
 这才是当前阶段最符合长期最优的 simplification。

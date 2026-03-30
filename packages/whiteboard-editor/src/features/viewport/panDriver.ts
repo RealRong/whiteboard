@@ -1,6 +1,9 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { EditorRuntime } from '../../runtime/editor/types'
-import type { InteractionDriver } from '../../runtime/interaction/driver'
+import type { EditorRuntime } from '../../types/internal/editor'
+import {
+  createInteractionSessionSlot,
+  type InteractionDriver
+} from '../../runtime/interaction'
 import type { PointerDown } from '../../runtime/input/pointer'
 
 type ViewportInputPolicy = {
@@ -17,16 +20,14 @@ type ViewportPanDriverDeps = Pick<
 export const createViewportPanDriver = (
   editor: ViewportPanDriverDeps
 ): InteractionDriver<PointerDown> => {
-  let pan: {
+  const interaction = createInteractionSessionSlot<{
     lastX: number
     lastY: number
-  } | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  }>({
+    interaction: editor.interaction
+  })
 
-  const clear = () => {
-    pan = null
-    session = null
-  }
+  const readPan = () => interaction.getActive()
 
   return {
     kind: 'viewport.pan',
@@ -50,12 +51,12 @@ export const createViewportPanDriver = (
         : null
     },
     start: (input) => {
-      const nextSession = editor.interaction.start({
+      const nextSession = interaction.start({
         mode: 'viewport-pan',
         pointerId: input.event.pointerId,
         capture: input.container,
-        cleanup: clear,
         move: (event) => {
+          const pan = readPan()
           if (!pan) {
             return
           }
@@ -78,6 +79,7 @@ export const createViewportPanDriver = (
           }
         },
         up: (event, interactionSession) => {
+          const pan = readPan()
           if (!pan) {
             return
           }
@@ -92,11 +94,10 @@ export const createViewportPanDriver = (
         return false
       }
 
-      pan = {
+      interaction.setActive({
         lastX: input.event.clientX,
         lastY: input.event.clientY
-      }
-      session = nextSession
+      })
 
       if (input.event.cancelable) {
         input.event.preventDefault()
@@ -105,10 +106,7 @@ export const createViewportPanDriver = (
       return true
     },
     cancel: () => {
-      session?.cancel()
-      if (!session) {
-        clear()
-      }
+      interaction.cancel()
     }
   }
 }

@@ -1,249 +1,31 @@
-import {
-  applySelection,
-  findGroupAncestor,
-  type SelectionMode
-} from '@whiteboard/core/node'
+import type { SelectionMode } from '@whiteboard/core/node'
+import type { SelectionSummary } from '@whiteboard/core/selection'
 import type {
-  EdgeId,
-  Node,
   NodeId,
-  Rect
 } from '@whiteboard/core/types'
-import type { NodeRole } from '../../types/node'
-import type { EditField } from '../edit'
 import type { PointerDown } from '../input/pointer'
 import type {
   SelectionDragAction,
   SelectionPressPlan,
-  SelectionSnapshot,
-  SelectionTarget,
   SelectionTapAction
 } from '../../types/internal/selection'
-
-type ModifierEventLike = {
-  altKey: boolean
-  shiftKey: boolean
-  ctrlKey: boolean
-  metaKey: boolean
-}
-
-type PolicyDeps = {
-  getNode: (nodeId: NodeId) => Node | undefined
-  getOwnerId: (nodeId: NodeId) => NodeId | undefined
-  getNodeFrame: (nodeId: NodeId) => Rect | undefined
-  getNodeRole: (node: Node) => NodeRole
-}
-
-type SelectionPressTarget =
-  | { kind: 'background' }
-  | { kind: 'selection-box' }
-  | {
-      kind: 'node'
-      nodeId: NodeId
-      hitNodeId: NodeId
-      selectedGroupId?: NodeId
-      field?: EditField
-    }
-  | {
-      kind: 'group-shell'
-      nodeId: NodeId
-    }
-
-const resolveSelectionMode = (
-  modifiers: ModifierEventLike
-): SelectionMode => {
-  if (modifiers.altKey) return 'subtract'
-  if (modifiers.metaKey || modifiers.ctrlKey) return 'toggle'
-  if (modifiers.shiftKey) return 'add'
-  return 'replace'
-}
-
-const isSingleSelectedNode = (
-  nodeId: NodeId,
-  selectedNodeIds: readonly NodeId[]
-) => (
-  selectedNodeIds.length === 1
-  && selectedNodeIds[0] === nodeId
-)
-
-const isSelectedNode = (
-  nodeId: NodeId,
-  selectedNodeIds: readonly NodeId[]
-) => selectedNodeIds.includes(nodeId)
-
-const toNodeSelection = (
-  nodeIds: readonly NodeId[]
-): SelectionTarget => ({
-  nodeIds,
-  edgeIds: []
-})
-
-const applyNodeTapSelection = (
-  selectedNodeIds: readonly NodeId[],
-  selectedEdgeIds: readonly EdgeId[],
-  nodeId: NodeId,
-  mode: SelectionMode
-): SelectionTarget => ({
-  nodeIds: [
-    ...applySelection(
-      new Set(selectedNodeIds),
-      [nodeId],
-      mode
-    )
-  ],
-  edgeIds: [
-    ...applySelection(
-      new Set(selectedEdgeIds),
-      [],
-      mode
-    )
-  ]
-})
-
-const getCurrentSelection = (
-  selection: SelectionSnapshot
-): SelectionTarget => ({
-  nodeIds: selection.target.nodeIds,
-  edgeIds: selection.target.edgeIds
-})
-
-const toVerifyNodeIds = (
-  nodeId: NodeId,
-  hitNodeId: NodeId
-): readonly NodeId[] => (
-  nodeId === hitNodeId
-    ? [nodeId]
-    : [nodeId, hitNodeId]
-)
-
-const findSelectedGroupId = (
-  deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
-  nodeId: NodeId,
-  selectedNodeIds: readonly NodeId[]
-) => findGroupAncestor(
-  nodeId,
-  deps.getNode,
-  deps.getOwnerId,
-  (groupId) => selectedNodeIds.includes(groupId)
-)
-
-const resolvePressNodeId = (
-  deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
-  input: {
-    mode: SelectionMode
-    selectedNodeIds: readonly NodeId[]
-  },
-  nodeId: NodeId
-) => {
-  if (input.mode !== 'replace') {
-    return nodeId
-  }
-
-  const node = deps.getNode(nodeId)
-  if (!node || node.type === 'group') {
-    return nodeId
-  }
-
-  const groupId = findGroupAncestor(nodeId, deps.getNode, deps.getOwnerId)
-  if (!groupId) {
-    return nodeId
-  }
-
-  const selectedNodeIds = input.selectedNodeIds
-  if (
-    selectedNodeIds.includes(nodeId)
-    || selectedNodeIds.includes(groupId)
-  ) {
-    return nodeId
-  }
-
-  return selectedNodeIds.some((selectedNodeId) =>
-    Boolean(findGroupAncestor(
-      selectedNodeId,
-      deps.getNode,
-      deps.getOwnerId,
-      (currentId) => currentId === groupId
-    ))
-  )
-    ? nodeId
-    : groupId
-}
-
-const readPressNodeTarget = (
-  deps: Pick<PolicyDeps, 'getNode' | 'getOwnerId'>,
-  input: {
-    pick: PointerDown['pick']
-    field?: EditField
-    mode: SelectionMode
-    selectedNodeIds: readonly NodeId[]
-  },
-  nodeId: NodeId
-): SelectionPressTarget => ({
-  kind: 'node',
-  nodeId: resolvePressNodeId(deps, input, nodeId),
-  hitNodeId: nodeId,
-  selectedGroupId:
-    input.mode === 'replace'
-      ? findSelectedGroupId(deps, nodeId, input.selectedNodeIds)
-      : undefined,
-  field: input.field
-})
-
-const readSelectionPressTarget = (
-  deps: PolicyDeps,
-  input: {
-    pick: PointerDown['pick']
-    field?: EditField
-    mode: SelectionMode
-    selectedNodeIds: readonly NodeId[]
-  }
-): SelectionPressTarget | undefined => {
-  const { pick } = input
-
-  switch (pick.kind) {
-    case 'background':
-      return { kind: 'background' }
-    case 'selection-box':
-      return pick.part === 'body'
-        ? { kind: 'selection-box' }
-        : undefined
-    case 'node':
-      if (pick.part === 'body') {
-        return readPressNodeTarget(deps, input, pick.id)
-      }
-
-      if (pick.part !== 'shell') {
-        return undefined
-      }
-
-      const node = deps.getNode(pick.id)
-      const role = node
-        ? deps.getNodeRole(node)
-        : undefined
-
-      if (role === 'frame') {
-        return {
-          kind: 'node',
-          nodeId: pick.id,
-          hitNodeId: pick.id,
-          field: input.field
-        }
-      }
-
-      return role === 'group'
-        ? {
-            kind: 'group-shell',
-            nodeId: pick.id
-          }
-        : undefined
-    case 'edge':
-    case 'mindmap':
-      return undefined
-  }
-}
+import {
+  applyNodeTapSelection,
+  getCurrentSelection,
+  isSelectedNode,
+  isSingleSelectedNode,
+  resolveSelectionMode,
+  toNodeSelection,
+  toVerifyNodeIds,
+  type SelectionPressPolicyDeps
+} from './pressRules'
+import {
+  readSelectionPressTarget,
+  type SelectionPressTarget
+} from './pressTarget'
 
 const planBackgroundPress = (
-  selection: SelectionSnapshot,
+  selection: SelectionSummary,
   mode: SelectionMode
 ): SelectionPressPlan => ({
   chrome: false,
@@ -260,7 +42,7 @@ const planBackgroundPress = (
 })
 
 const planSelectionBoxPress = (
-  selection: SelectionSnapshot
+  selection: SelectionSummary
 ): SelectionPressPlan | undefined => {
   if (!selection.target.nodeIds.length && !selection.target.edgeIds.length) {
     return undefined
@@ -285,8 +67,8 @@ const planSelectionBoxPress = (
 }
 
 const planNodePress = (
-  deps: Pick<PolicyDeps, 'getNode' | 'getNodeFrame'>,
-  selection: SelectionSnapshot,
+  deps: Pick<SelectionPressPolicyDeps, 'getNode' | 'getNodeFrame'>,
+  selection: SelectionSummary,
   mode: SelectionMode,
   target: Extract<SelectionPressTarget, { kind: 'node' }>
 ): SelectionPressPlan | undefined => {
@@ -375,8 +157,8 @@ const planNodePress = (
 }
 
 const planGroupShellPress = (
-  deps: Pick<PolicyDeps, 'getNode' | 'getNodeFrame'>,
-  selection: SelectionSnapshot,
+  deps: Pick<SelectionPressPolicyDeps, 'getNode' | 'getNodeFrame'>,
+  selection: SelectionSummary,
   mode: SelectionMode,
   nodeId: NodeId
 ): SelectionPressPlan | undefined => {
@@ -420,10 +202,10 @@ const planGroupShellPress = (
 }
 
 export const resolveSelectionPressPlan = (
-  deps: PolicyDeps,
+  deps: SelectionPressPolicyDeps,
   input: {
     start: PointerDown
-    snapshot: SelectionSnapshot
+    selection: SelectionSummary
   }
 ): SelectionPressPlan | undefined => {
   const mode = resolveSelectionMode(input.start.event)
@@ -431,7 +213,7 @@ export const resolveSelectionPressPlan = (
     pick: input.start.pick,
     field: input.start.field,
     mode,
-    selectedNodeIds: input.snapshot.target.nodeIds
+    selectedNodeIds: input.selection.target.nodeIds
   })
   if (!target) {
     return undefined
@@ -439,13 +221,13 @@ export const resolveSelectionPressPlan = (
 
   switch (target.kind) {
     case 'background':
-      return planBackgroundPress(input.snapshot, mode)
+      return planBackgroundPress(input.selection, mode)
     case 'selection-box':
-      return planSelectionBoxPress(input.snapshot)
+      return planSelectionBoxPress(input.selection)
     case 'node':
-      return planNodePress(deps, input.snapshot, mode, target)
+      return planNodePress(deps, input.selection, mode, target)
     case 'group-shell':
-      return planGroupShellPress(deps, input.snapshot, mode, target.nodeId)
+      return planGroupShellPress(deps, input.selection, mode, target.nodeId)
   }
 }
 

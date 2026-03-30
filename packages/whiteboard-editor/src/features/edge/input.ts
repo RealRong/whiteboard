@@ -6,8 +6,11 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { EditorRuntime } from '../../runtime/editor/types'
-import type { SnapRuntime } from '../../runtime/interaction'
+import type { EditorRuntime } from '../../types/internal/editor'
+import {
+  createInteractionSessionSlot,
+  type SnapRuntime
+} from '../../runtime/interaction'
 import type { EdgeConnectInteraction } from './connect/interaction'
 import type { EdgeProjection } from './projection'
 
@@ -124,22 +127,27 @@ const createEdgePatchSession = <Active,>(
   ) => PatchSessionUpdateResult | void,
   commit: (active: Active) => void
 ): EdgePatchSession<Active> => {
-  let active: Active | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<Active>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      editor.internals.projections.overlay.edge.patch.clear()
+    }
+  })
+
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: Active | null
+  ) => {
+    interaction.setActive(next)
+  }
 
   const clear = () => {
-    active = null
-    session = null
-    editor.internals.projections.overlay.edge.patch.clear()
+    interaction.clear()
   }
 
   const cancel = () => {
-    if (session) {
-      session.cancel()
-      return
-    }
-
-    clear()
+    interaction.cancel()
   }
 
   const runUpdate = (
@@ -148,6 +156,7 @@ const createEdgePatchSession = <Active,>(
       clientY: number
     }
   ) => {
+    const active = readActive()
     if (!active) {
       return false
     }
@@ -162,9 +171,9 @@ const createEdgePatchSession = <Active,>(
 
   return {
     cancel,
-    isActive: () => active !== null,
+    isActive: () => interaction.hasActive(),
     start: (input) => {
-      const nextSession = editor.interaction.start({
+      const nextSession = interaction.start({
         mode,
         pointerId: input.event.pointerId,
         capture: input.capture,
@@ -173,7 +182,6 @@ const createEdgePatchSession = <Active,>(
             runUpdate(pointer)
           }
         },
-        cleanup: clear,
         move: (moveEvent, interactionSession) => {
           if (!runUpdate(moveEvent)) {
             return
@@ -182,6 +190,7 @@ const createEdgePatchSession = <Active,>(
           interactionSession.pan(moveEvent)
         },
         up: (_upEvent, interactionSession) => {
+          const active = readActive()
           if (!active) {
             return
           }
@@ -194,8 +203,7 @@ const createEdgePatchSession = <Active,>(
         return false
       }
 
-      active = input.active
-      session = nextSession
+      writeActive(input.active)
       return true
     }
   }

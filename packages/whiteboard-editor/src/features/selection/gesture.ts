@@ -1,4 +1,8 @@
 import {
+  normalizeSelectionTarget,
+  type SelectionTarget
+} from '@whiteboard/core/selection'
+import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
@@ -8,17 +12,13 @@ import {
   type SnapRuntime
 } from '../../runtime/interaction'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { EditorRuntime } from '../../runtime/editor/types'
+import type { EditorRuntime } from '../../types/internal/editor'
 import type { PickRuntime } from '../../runtime/pick'
-import {
-  toSelectionTarget,
-  type SelectionTarget
-} from '../../runtime/selection'
 import {
   resolveSelectionPressPlan,
   type SelectionDragAction,
   type SelectionTapAction
-} from '../../runtime/selection/press'
+} from '../../runtime/selection/pressPlan'
 import type { MarqueeSession } from './marquee'
 import { createNodeDragSession } from '../node/drag/session'
 import type { NodeId } from '@whiteboard/core/types'
@@ -48,7 +48,7 @@ type SelectionPressRuntimeDeps = Pick<
   }
 }
 
-const EMPTY_SELECTION = toSelectionTarget({})
+const EMPTY_SELECTION = normalizeSelectionTarget({})
 
 const buildSelectionWriter = (
   editor: SelectionPressRuntimeDeps,
@@ -231,7 +231,7 @@ export const createSelectionPressRuntime = (
         getNodeRole: (node) => editor.read.node.role(node)
       }, {
         start: input,
-        snapshot: editor.read.selection.get()
+        selection: editor.read.selection.get()
       })
       if (!plan) {
         return false

@@ -1,10 +1,10 @@
-import type { Editor } from '../editor/types'
+import type { Editor } from '../../types/public/editor'
 import type { Point } from '@whiteboard/core/types'
 import type {
   ClipboardPort,
   ClipboardRuntime
-} from '../host/clipboard'
-import type { EditorCommandHost } from './runtime'
+} from '../platform/clipboard'
+import type { EditorCommandHost } from '../../types/internal/editor'
 import {
   copy,
   cut,

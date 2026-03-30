@@ -7,8 +7,11 @@ import {
   type MoveSet
 } from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../runtime/editor/types'
-import type { SnapRuntime } from '../../../runtime/interaction'
+import type { EditorRuntime } from '../../../types/internal/editor'
+import {
+  createInteractionSessionSlot,
+  type SnapRuntime
+} from '../../../runtime/interaction'
 import {
   type EdgeProjection,
   toEdgeProjectionEntry
@@ -70,18 +73,24 @@ type NodeDragSessionDeps = Pick<
 export const createNodeDragSession = (
   editor: NodeDragSessionDeps
 ): NodeDragSession => {
-  let active: ActiveDrag | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<ActiveDrag>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      clearNodeProjectionPreview(editor.internals.projections.model.node.store)
+      editor.internals.snap.node.clear()
+      editor.internals.projections.overlay.edge.patch.clear()
+    }
+  })
+
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: ActiveDrag | null
+  ) => {
+    interaction.setActive(next)
+  }
 
   const readCanvasNodes = () => editor.read.index.node.all().map((entry) => entry.node)
-
-  const clear = () => {
-    active = null
-    session = null
-    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
-    editor.internals.snap.node.clear()
-    editor.internals.projections.overlay.edge.patch.clear()
-  }
 
   const commit = (draft: ActiveDrag) => {
     if (draft.last.x !== 0 || draft.last.y !== 0) {
@@ -117,6 +126,7 @@ export const createNodeDragSession = (
     clientX: number
     clientY: number
   }) => {
+    const active = readActive()
     if (!active) {
       return
     }
@@ -193,15 +203,15 @@ export const createNodeDragSession = (
         return false
       }
 
-      const nextSession = editor.interaction.start({
+      const nextSession = interaction.start({
         mode: 'node-drag',
         pointerId: input.pointerId,
         capture: input.capture,
         pan: {
           frame: updatePreview
         },
-        cleanup: clear,
         move: (event, currentSession) => {
+          const active = readActive()
           if (!active) {
             return
           }
@@ -211,6 +221,7 @@ export const createNodeDragSession = (
           updatePreview(event)
         },
         up: (_event, currentSession) => {
+          const active = readActive()
           if (!active) {
             return
           }
@@ -223,7 +234,7 @@ export const createNodeDragSession = (
         return false
       }
 
-      active = {
+      writeActive({
         ids,
         move,
         startWorld: input.start,
@@ -244,8 +255,7 @@ export const createNodeDragSession = (
         relatedEdgeIds: editor.read.edge.related(
           move.members.map((member) => member.id)
         ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
-      }
-      session = nextSession
+      })
       clearNodeProjectionPreview(editor.internals.projections.model.node.store)
       editor.internals.snap.node.clear()
       nextSession.pan(input.event)
@@ -258,7 +268,7 @@ export const createNodeDragSession = (
       return true
     },
     cancel: () => {
-      session?.cancel()
+      interaction.cancel()
     }
   }
 }

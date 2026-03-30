@@ -5,7 +5,8 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../runtime/editor/types'
+import type { EditorRuntime } from '../../../types/internal/editor'
+import { createInteractionSessionSlot } from '../../../runtime/interaction'
 import type { PointerDown } from '../../../runtime/input/pointer'
 import type { MindmapDragProjection } from './projection'
 import {
@@ -57,13 +58,19 @@ const toMindmapDragProjection = (
 export const createMindmapDragInteraction = (
   editor: MindmapDragInteractionDeps
 ): MindmapDragInteraction => {
-  let active: ActiveMindmapDragSession | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<ActiveMindmapDragSession>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      editor.internals.projections.overlay.mindmapDrag.clear()
+    }
+  })
 
-  const clear = () => {
-    active = null
-    session = null
-    editor.internals.projections.overlay.mindmapDrag.clear()
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: ActiveMindmapDragSession | null
+  ) => {
+    interaction.setActive(next)
   }
 
   const updateProjection = (
@@ -72,6 +79,7 @@ export const createMindmapDragInteraction = (
       clientY: number
     }
   ) => {
+    const active = readActive()
     if (!active) {
       return
     }
@@ -85,9 +93,9 @@ export const createMindmapDragInteraction = (
           ? editor.read.mindmap.item.get(active.treeId)
           : undefined
     })
-    active = {
+    writeActive({
       ...next
-    }
+    })
     editor.internals.projections.overlay.mindmapDrag.write(
       toMindmapDragProjection(next)
     )
@@ -104,7 +112,7 @@ export const createMindmapDragInteraction = (
       return false
     }
 
-    const nextSession = editor.interaction.start({
+    const nextSession = interaction.start({
       mode: 'mindmap-drag',
       pointerId: event.pointerId,
       capture,
@@ -113,8 +121,8 @@ export const createMindmapDragInteraction = (
           updateProjection(pointer)
         }
       },
-      cleanup: clear,
       move: (moveEvent, interactionSession) => {
+        const active = readActive()
         if (!active) {
           return
         }
@@ -123,6 +131,7 @@ export const createMindmapDragInteraction = (
         updateProjection(moveEvent)
       },
       up: (_event, interactionSession) => {
+        const active = readActive()
         if (!active) {
           return
         }
@@ -197,10 +206,9 @@ export const createMindmapDragInteraction = (
       return false
     }
 
-    active = {
+    writeActive({
       ...next
-    }
-    session = nextSession
+    })
     editor.internals.projections.overlay.mindmapDrag.write(
       toMindmapDragProjection(next)
     )
@@ -211,7 +219,7 @@ export const createMindmapDragInteraction = (
 
   return {
     start: (input) => {
-      if (active) {
+      if (interaction.hasActive()) {
         return false
       }
 
@@ -227,12 +235,7 @@ export const createMindmapDragInteraction = (
       )
     },
     cancel: () => {
-      if (session) {
-        session.cancel()
-        return
-      }
-
-      clear()
+      interaction.cancel()
     }
   }
 }

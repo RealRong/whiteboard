@@ -2,6 +2,7 @@ import type {
   InteractionCoordinator,
   InteractionSession
 } from './types'
+import { createInteractionSessionSlot } from './sessionSlot'
 
 export type PressStartInput = {
   pointerId: number
@@ -26,8 +27,12 @@ export type PressRuntime = {
 export const createPressRuntime = (
   interaction: InteractionCoordinator
 ): PressRuntime => {
-  let session: InteractionSession | null = null
-  let current: PressStartInput | null = null
+  const session = createInteractionSessionSlot<PressStartInput>({
+    interaction,
+    cleanup: () => {
+      clearHoldTimer()
+    }
+  })
   let holdTimer: number | null = null
 
   const clearHoldTimer = () => {
@@ -39,27 +44,20 @@ export const createPressRuntime = (
     holdTimer = null
   }
 
-  const clear = () => {
-    clearHoldTimer()
-    session = null
-    current = null
-  }
-
   return {
     start: (input) => {
-      if (session || interaction.busy.get()) {
+      if (session.getSession() || interaction.busy.get()) {
         return null
       }
 
       const threshold = Math.max(1, input.threshold ?? 1)
-      const nextSession = interaction.start({
+      const nextSession = session.start({
         mode: 'press',
         pointerId: input.pointerId,
         capture: input.capture,
         chrome: input.chrome,
-        cleanup: clear,
         move: (event, currentSession) => {
-          const active = current
+          const active = session.getActive()
           if (!active) {
             return
           }
@@ -75,7 +73,7 @@ export const createPressRuntime = (
           onDragStart?.(event)
         },
         up: (event, currentSession) => {
-          const active = current
+          const active = session.getActive()
           if (!active) {
             return
           }
@@ -88,8 +86,7 @@ export const createPressRuntime = (
         return null
       }
 
-      session = nextSession
-      current = input
+      session.setActive(input)
 
       if (
         input.holdDelay !== undefined
@@ -97,11 +94,11 @@ export const createPressRuntime = (
         && typeof window !== 'undefined'
       ) {
         holdTimer = window.setTimeout(() => {
-          if (current !== input || !session) {
+          if (session.getActive() !== input || !session.getSession()) {
             return
           }
 
-          session.finish()
+          session.getSession()?.finish()
           input.onHold?.()
         }, input.holdDelay)
       }
@@ -109,7 +106,7 @@ export const createPressRuntime = (
       return nextSession
     },
     cancel: () => {
-      session?.cancel()
+      session.cancel()
     }
   }
 }

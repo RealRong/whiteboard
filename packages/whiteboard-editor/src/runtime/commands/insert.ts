@@ -1,5 +1,5 @@
-import type { Editor } from '../editor/types'
-import type { EditorCommandHost } from './runtime'
+import type { Editor } from '../../types/public/editor'
+import type { EditorCommandHost } from '../../types/internal/editor'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_STICKY_PRESET_KEY,

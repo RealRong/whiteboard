@@ -1,7 +1,9 @@
 import type {
-  Editor,
+  Editor
+} from '../../types/public/editor'
+import type {
   EditorRuntime
-} from '../editor/types'
+} from '../../types/internal/editor'
 import {
   resolvePointerDown,
   resolvePointerMove,
@@ -10,9 +12,9 @@ import {
 import {
   readPointerSnapshot,
   type PointerSnapshotStore
-} from './pointerSnapshot'
+} from './pointer/snapshot'
 
-type InputRuntimeDeps = Pick<
+type InputRouterDeps = Pick<
   EditorRuntime,
   'commands' | 'interaction' | 'read' | 'state' | 'viewport'
 > & {
@@ -26,11 +28,11 @@ const readPassiveContext = (
   tool: editor.read.tool.get()
 })
 
-export const createInputRuntime = ({
+export const createInputRouter = ({
   editor,
   pointer
 }: {
-  editor: InputRuntimeDeps
+  editor: InputRouterDeps
   pointer: PointerSnapshotStore
 }): Editor['input'] => ({
   cancel: () => {

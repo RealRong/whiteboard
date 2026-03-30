@@ -11,8 +11,8 @@ import type {
 } from './types'
 import type { ViewportInputRuntime } from '../viewport'
 import { createAutoPan } from './autoPan'
-import type { PointerContinuation } from '../host/pointerContinuation'
-import type { DocumentSelectionLock } from '../host/selectionLock'
+import type { PointerContinuation } from '../platform/pointerContinuation'
+import type { DocumentSelectionLock } from '../platform/selectionLock'
 
 type ActiveInteraction = Readonly<{
   id: number

@@ -1,5 +1,5 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../editor/types'
+import type { Editor } from '../../types/public/editor'
 import type { ViewportCommands } from '../viewport'
 import { createClipboardCommands } from './clipboard'
 import { createDrawCommands } from './draw'
@@ -15,12 +15,8 @@ import type {
   NodeProjectionRuntime
 } from '../../types/internal/editor'
 import type { SelectionStore } from '../../types/internal/selection'
-import {
-  createState as createFrameState
-} from '../frame'
-import {
-  createState as createEditState
-} from '../edit'
+import type { FrameState } from '../frame'
+import type { EditCommands } from '../edit'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
 
@@ -49,9 +45,9 @@ export const createEditorCommands = ({
   history: {
     set: (value: ReturnType<EngineInstance['commands']['history']['get']>) => void
   }
-  edit: ReturnType<typeof createEditState>['commands']
+  edit: EditCommands
   selection: SelectionStore
-  frame: ReturnType<typeof createFrameState>
+  frame: FrameState
   viewportCommands: ViewportCommands
   viewportRead: Editor['viewport']
   draw: DrawFeatureState

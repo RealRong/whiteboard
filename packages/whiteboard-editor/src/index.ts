@@ -18,7 +18,7 @@ export type {
   EditorInsertResult,
   EditorRuntime
 } from './runtime/editor'
-export type { Pick } from './runtime/pick'
+export type { EditorPick } from './runtime/pick'
 export {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,

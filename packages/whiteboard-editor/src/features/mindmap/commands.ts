@@ -12,7 +12,7 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { Editor } from '../../runtime/editor/types'
+import type { Editor } from '../../types/public/editor'
 
 type MindmapCommandEditor = Pick<Editor, 'commands' | 'read'>
 

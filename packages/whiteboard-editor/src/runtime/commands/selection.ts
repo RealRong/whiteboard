@@ -1,16 +1,15 @@
-import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../editor/types'
-import type { Commands as EditCommands } from '../edit'
-import {
-  createState as createFrameState,
-  hasEdge
-} from '../frame'
+import { isEdgeInFrameScope } from '@whiteboard/core/document'
 import {
   applySelectionTarget,
-  createState as createSelectionState,
   isSelectionTargetEqual,
-  toSelectionTarget
-} from '../selection'
+  normalizeSelectionTarget,
+  type SelectionTarget
+} from '@whiteboard/core/selection'
+import type { EngineInstance } from '@whiteboard/engine'
+import type { Editor } from '../../types/public/editor'
+import type { EditCommands } from '../edit'
+import type { FrameState } from '../frame'
+import type { SelectionState } from '../selection/store'
 
 export const createSelectionCommands = ({
   engine,
@@ -20,11 +19,11 @@ export const createSelectionCommands = ({
 }: {
   engine: EngineInstance
   edit: Pick<EditCommands, 'clear'>
-  selection: ReturnType<typeof createSelectionState>
-  frame: ReturnType<typeof createFrameState>
+  selection: SelectionState
+  frame: FrameState
 }): Editor['commands']['selection'] => {
   const writeSelection = (
-    next: ReturnType<typeof selection.source.get>,
+    next: SelectionTarget,
     write: () => void
   ) => {
     if (isSelectionTargetEqual(selection.source.get(), next)) {
@@ -37,7 +36,7 @@ export const createSelectionCommands = ({
 
   return {
     replace: (input) => {
-      writeSelection(toSelectionTarget(input), () => {
+      writeSelection(normalizeSelectionTarget(input), () => {
         selection.commands.replace(input)
       })
     },
@@ -67,7 +66,7 @@ export const createSelectionCommands = ({
     },
     selectAll: () => {
       const activeFrame = frame.store.get()
-      const next = toSelectionTarget({
+      const next = normalizeSelectionTarget({
         nodeIds:
           activeFrame.id
             ? [...activeFrame.ids]
@@ -76,7 +75,7 @@ export const createSelectionCommands = ({
           activeFrame.id
             ? engine.read.edge.list.get().filter((edgeId) => {
               const edge = engine.read.edge.item.get(edgeId)?.edge
-              return edge ? hasEdge(activeFrame, edge) : false
+              return edge ? isEdgeInFrameScope(activeFrame, edge) : false
             })
             : [...engine.read.edge.list.get()]
       })
@@ -85,7 +84,7 @@ export const createSelectionCommands = ({
       })
     },
     clear: () => {
-      writeSelection(toSelectionTarget({}), () => {
+      writeSelection(normalizeSelectionTarget({}), () => {
         selection.commands.clear()
       })
     }

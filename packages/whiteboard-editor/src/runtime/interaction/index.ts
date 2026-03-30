@@ -1,12 +1,16 @@
 export { createInteractionCoordinator } from './coordinator'
 export { createInteractionRegistry } from './registry'
 export { createPressRuntime } from './press'
+export { createInteractionSessionSlot } from './sessionSlot'
 export { createSnapRuntime } from './snap'
-export type { InteractionDriver } from './driver'
+export { GestureTuning } from './config'
 export type { InteractionRegistry } from './registry'
+export type { InteractionSessionSlot } from './sessionSlot'
 export type {
+  InteractionDriver,
   InteractionCoordinator,
   InteractionMode,
+  InteractionSession,
   InteractionState
 } from './types'
 export type {
@@ -17,8 +21,3 @@ export type {
   ResizeSnapSource,
   SnapRuntime
 } from './snap'
-
-export const GestureTuning = {
-  dragMinDistance: 3,
-  holdDelay: 700
-} as const

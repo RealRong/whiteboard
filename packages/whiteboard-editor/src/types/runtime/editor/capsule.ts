@@ -4,7 +4,7 @@ import type {
 } from '../../public/editor'
 import type { EditorProjectionGraph } from '../../internal/editor'
 import type { PassiveInputProcessor } from '../../../runtime/input/passive'
-import type { InteractionDriver } from '../../../runtime/interaction/driver'
+import type { InteractionDriver } from '../../../runtime/interaction'
 import type { RuntimeRead } from '../../../runtime/read'
 
 export type EditorFeatureCapsule = {

@@ -1,13 +1,13 @@
 import { isContainerNode } from '@whiteboard/core/node'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import type { Editor } from './editor/types'
 import {
-  createState as createFrameState,
-  hasEdge,
-  hasNode
-} from './frame'
-import type { State as EditState } from './edit'
-import type { Store as SelectionStore } from './selection'
+  isEdgeInFrameScope,
+  isNodeInFrameScope
+} from '@whiteboard/core/document'
+import type { Editor } from '../../types/public/editor'
+import type { FrameState } from '../frame'
+import type { EditState } from '../edit'
+import type { SelectionStore } from '../selection/store'
 
 const uniqueNodeIds = (nodeIds: readonly NodeId[]) => {
   const seen = new Set<NodeId>()
@@ -62,7 +62,7 @@ export const finalize = ({
   edit
 }: {
   read: Pick<Editor['read'], 'node' | 'edge'>
-  frame: ReturnType<typeof createFrameState>
+  frame: FrameState
   selection: SelectionStore
   edit: EditState
 }) => {
@@ -90,7 +90,7 @@ export const finalize = ({
       return false
     }
     return activeFrame.id
-      ? hasEdge(activeFrame, edge)
+      ? isEdgeInFrameScope(activeFrame, edge)
       : true
   }))
 
@@ -118,7 +118,7 @@ export const finalize = ({
     return
   }
 
-  if (activeFrame.id && !hasNode(activeFrame, currentEdit.nodeId)) {
+  if (activeFrame.id && !isNodeInFrameScope(activeFrame, currentEdit.nodeId)) {
     edit.commands.clear()
   }
 }

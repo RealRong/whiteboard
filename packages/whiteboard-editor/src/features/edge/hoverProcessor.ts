@@ -1,5 +1,5 @@
 import type { Point } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../runtime/editor/types'
+import type { EditorRuntime } from '../../types/internal/editor'
 import type { SnapRuntime } from '../../runtime/interaction'
 import type { PassiveInputProcessor } from '../../runtime/input/passive'
 import { createRafTask } from '../../runtime/utils/rafTask'

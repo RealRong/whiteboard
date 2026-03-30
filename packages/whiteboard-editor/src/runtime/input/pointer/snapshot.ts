@@ -1,6 +1,6 @@
 import type { Point } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
-import type { ViewportRead } from '../viewport'
+import type { ViewportRead } from '../../viewport'
 
 export type PointerSnapshot = {
   client: Point

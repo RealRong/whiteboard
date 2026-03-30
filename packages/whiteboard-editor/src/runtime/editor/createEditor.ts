@@ -6,6 +6,7 @@ import { createEdgeProjection } from '../../features/edge/projection'
 import { createMindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
 import { createNodeProjectionRuntime } from '../../features/node/projection/store'
 import type { NodeRegistry } from '../../types/node'
+import type { Tool } from '../tool'
 import type {
   Editor,
   EditorPlatformBridge
@@ -16,7 +17,7 @@ import {
   type ContextMenuView
 } from '../context'
 import { createEditorCommands } from '../commands'
-import type { PointerSnapshot } from '../input/pointerSnapshot'
+import type { PointerSnapshot } from '../input/pointer/snapshot'
 import {
   createBaseRuntimeRead,
   createRuntimeRead
@@ -25,7 +26,7 @@ import { composeCommands } from './composeCommands'
 import { composeInput } from './composeInput'
 import { composeProjection } from './composeProjection'
 import { composeRead } from './composeRead'
-import { createFeatures } from './features'
+import { createFeatureCapsules } from './features/capsules'
 import { createKernel } from './kernel'
 import { createLifecycle } from './lifecycle'
 import { createProjectionGraph } from './projectionGraph'
@@ -41,7 +42,7 @@ export const createEditor = ({
   platform: platformBridge,
 }: {
   engine: EngineInstance
-  initialTool: Parameters<typeof createKernel>[0]['initialTool']
+  initialTool: Tool
   initialViewport: Viewport
   viewportLimits: {
     minZoom: number
@@ -114,13 +115,13 @@ export const createEditor = ({
     draw,
     nodeProjection,
     clipboard: {
-      runtime: kernel.host.clipboardRuntime,
-      port: kernel.host.clipboardPort,
+      runtime: kernel.platform.clipboardRuntime,
+      port: kernel.platform.clipboardPort,
       readPointerWorld: () => pointer.get()?.world
     }
   })
 
-  const { capsules } = createFeatures({
+  const { capsules } = createFeatureCapsules({
     kernel,
     read,
     state,

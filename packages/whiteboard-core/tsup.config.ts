@@ -11,7 +11,8 @@ export default defineConfig({
     'schema/index': 'src/schema/index.ts',
     'kernel/index': 'src/kernel/index.ts',
     'config/index': 'src/config/index.ts',
-    'document/index': 'src/document/index.ts'
+    'document/index': 'src/document/index.ts',
+    'selection/index': 'src/selection/index.ts'
   },
   format: ['esm', 'cjs'],
   dts: true,

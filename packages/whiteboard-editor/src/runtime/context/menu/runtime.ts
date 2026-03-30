@@ -1,10 +1,8 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { Editor } from '../editor/types'
-import type { NodeRegistry } from '../../types/node'
-import {
-  readContextOpen,
-  resolveContextTarget
-} from '../input/pointer'
+import type { Editor } from '../../../types/public/editor'
+import type { NodeRegistry } from '../../../types/node'
+import { readContextOpen } from './open'
+import { resolveContextTarget } from './target'
 import { readContextMenuView } from './view'
 import type {
   ContextDismissMode,
@@ -12,7 +10,7 @@ import type {
   ContextMenuView,
   ContextOpenInput,
   ContextRuntime
-} from './types'
+} from '../../../types/public/context'
 
 type ContextRuntimeHost = Pick<Editor, 'commands' | 'read' | 'state'> & {
   registry: Pick<NodeRegistry, 'get'>
@@ -70,7 +68,10 @@ export const createContextRuntime = (
       editor.commands.frame.exit()
     }
 
-    const target = resolveContextTarget(editor, result.target)
+    const target = resolveContextTarget({
+      getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
+      hasEdge: (edgeId) => Boolean(editor.read.edge.item.get(edgeId))
+    }, result.target)
     const view = readContextMenuView({
       editor,
       target,

@@ -7,8 +7,11 @@ import {
   type ReadStore
 } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
-import { GestureTuning } from '../../runtime/interaction'
-import type { EditorRuntime } from '../../runtime/editor/types'
+import {
+  createInteractionSessionSlot,
+  GestureTuning
+} from '../../runtime/interaction'
+import type { EditorRuntime } from '../../types/internal/editor'
 import { createRafTask } from '../../runtime/utils/rafTask'
 import type { ViewportPointer } from '../../runtime/viewport'
 
@@ -103,8 +106,22 @@ export const createMarqueeSession = (
       )
     )
   })
-  let active: ActiveMarquee | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<ActiveMarquee>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      flushTask.cancel()
+      activeMatch.set(undefined)
+      worldRect.set(undefined)
+    }
+  })
+
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: ActiveMarquee | null
+  ) => {
+    interaction.setActive(next)
+  }
 
   const readMatchedItems = (
     queryRect: Rect,
@@ -124,6 +141,7 @@ export const createMarqueeSession = (
   }
 
   const flushChange = () => {
+    const active = readActive()
     if (!active || active.latest === undefined) {
       return
     }
@@ -139,20 +157,13 @@ export const createMarqueeSession = (
 
   const flushTask = createRafTask(flushChange)
 
-  const clear = () => {
-    active = null
-    session = null
-    flushTask.cancel()
-    activeMatch.set(undefined)
-    worldRect.set(undefined)
-  }
-
   const update = (
     input: {
       clientX: number
       clientY: number
     }
   ) => {
+    const active = readActive()
     if (!active) {
       return false
     }
@@ -189,16 +200,17 @@ export const createMarqueeSession = (
       onChange,
       onEnd
     }) => {
-      if (active || editor.interaction.busy.get()) {
+      if (interaction.hasActive() || editor.interaction.busy.get()) {
         return false
       }
 
-      const nextSession = editor.interaction.start({
+      const nextSession = interaction.start({
         mode: 'marquee',
         pointerId,
         capture,
         pan: {
           frame: (pointer) => {
+            const active = readActive()
             if (!active || active.latest === undefined) {
               return
             }
@@ -206,13 +218,13 @@ export const createMarqueeSession = (
             update(pointer)
           }
         },
-        cleanup: clear,
         move: (moveEvent, interactionSession) => {
           if (update(moveEvent)) {
             interactionSession.pan(moveEvent)
           }
         },
         up: (upEvent, interactionSession) => {
+          const active = readActive()
           if (!active) {
             return
           }
@@ -244,25 +256,20 @@ export const createMarqueeSession = (
         return false
       }
 
-      active = {
+      writeActive({
         pointerId,
         start,
         match,
         emittedKey: '',
         onChange,
         onEnd
-      }
-      session = nextSession
+      })
       activeMatch.set(match)
       worldRect.set(undefined)
       return true
     },
     cancel: () => {
-      if (session) {
-        session.cancel()
-        return
-      }
-      clear()
+      interaction.cancel()
     }
   }
 }

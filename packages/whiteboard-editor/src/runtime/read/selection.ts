@@ -1,25 +1,25 @@
 import {
+  deriveSelectionSummary,
+  isSelectionSummaryEqual,
+  type SelectionSummary,
+  type SelectionTarget
+} from '@whiteboard/core/selection'
+import {
   createDerivedStore,
   type KeyedReadStore,
   type ReadFn,
   type ReadStore
 } from '@whiteboard/engine'
 import type { EdgeItem, NodeItem } from '@whiteboard/engine'
-import type { EdgeId, NodeId, Node, Rect } from '@whiteboard/core/types'
+import type { Edge, EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { TargetBoundsInput } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import {
   resolveNodeRole,
   resolveNodeTransform
 } from './node'
-import {
-  isSelectionSnapshotEqual,
-  resolveSelectionSnapshot,
-  type SelectionSnapshot,
-  type SelectionTarget
-} from '../selection/state'
 
-export type SelectionRead = ReadStore<SelectionSnapshot>
+export type SelectionRead = ReadStore<SelectionSummary>
 
 const trackSelectionBoundsDependencies = (
   readStore: ReadFn,
@@ -59,7 +59,7 @@ export const createSelectionRead = ({
   const getNodeRole = (node: Node) => resolveNodeRole(
     registry.get(node.type)
   )
-  return createDerivedStore<SelectionSnapshot>({
+  return createDerivedStore<SelectionSummary>({
     get: (readStore) => {
       const selectionSource = readStore(source)
 
@@ -70,17 +70,28 @@ export const createSelectionRead = ({
         tree
       )
 
-      return resolveSelectionSnapshot({
-        source: selectionSource,
-        readNode: (nodeId) => readStore(nodeItem, nodeId),
-        readEdge: (edgeId) => readStore(edgeItem, edgeId),
-        readBounds: bounds,
-        resolveNodeRole: getNodeRole,
-        resolveNodeTransform: (node) => readNodeTransform(
+      return deriveSelectionSummary({
+        target: selectionSource,
+        nodes: selectionSource.nodeIds
+          .map((nodeId) => readStore(nodeItem, nodeId)?.node)
+          .filter((node): node is Node => Boolean(node)),
+        edges: selectionSource.edgeIds
+          .map((edgeId) => readStore(edgeItem, edgeId)?.edge)
+          .filter((edge): edge is Edge => Boolean(edge)),
+        readBounds: (target) => bounds({
+          nodeIds: target.nodeIds,
+          edgeIds: target.edgeIds,
+          groups: 'content'
+        }),
+        isNodeScalable: (node) => (
+          !node.locked
+          && getNodeRole(node) !== 'frame'
+        ),
+        resolveNodeTransformCapability: (node) => readNodeTransform(
           registry.get(node.type)
         )
       })
     },
-    isEqual: isSelectionSnapshotEqual
+    isEqual: isSelectionSummaryEqual
   })
 }

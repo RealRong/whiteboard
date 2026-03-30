@@ -1,12 +1,12 @@
+import type { FrameScope } from '@whiteboard/core/document'
+import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/public/draw'
 import type { NodeProjectionRuntime } from '../../features/node/projection/store'
 import type { EdgeProjection } from '../../features/edge/projection'
-import type { SelectionTarget } from '../selection'
 import type { Tool } from '../tool'
-import type { FrameScope } from '../frame'
 import type {
   ContextMenuView,
   SelectionMenuView
@@ -20,8 +20,14 @@ import {
 } from './node'
 import { createBoundsRead } from './bounds'
 import { createContextRead } from './context'
-import { createEdgeRead } from './edge'
-import { createFrameRead } from './frame'
+import {
+  createEdgeRead,
+  type EdgeRead
+} from './edge'
+import {
+  createFrameRead,
+  type FrameRead
+} from './frame'
 import {
   createPickRead,
   type PickRead
@@ -38,7 +44,7 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   history: ReadStore<HistoryState>
   bounds: EngineRead['bounds']
   node: NodeRead
-  edge: ReturnType<typeof createEdgeRead>
+  edge: EdgeRead
   selection: SelectionRead
   tool: ToolRead
   pick: PickRead
@@ -46,7 +52,7 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
     menu: ReadStore<ContextMenuView | null>
     selection: ReadStore<SelectionMenuView | null>
   }
-  frame: ReturnType<typeof createFrameRead>
+  frame: FrameRead
   draw: {
     preferences: ReadStore<DrawPreferences>
   }

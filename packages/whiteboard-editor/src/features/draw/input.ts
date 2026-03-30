@@ -8,13 +8,13 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import {
-  createStagedValueStore,
   type ReadStore,
   type StagedValueStore
 } from '@whiteboard/engine'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { EditorRuntime } from '../../runtime/editor/types'
-import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
+import { createInteractionSessionSlot } from '../../runtime/interaction'
+import type { EditorRuntime } from '../../types/internal/editor'
+import { createRafValueStore } from '../../runtime/utils/rafStore'
 import type { DrawBrushKind } from '../../types/public/tool'
 import type { NodeProjectionRuntime } from '../node/projection/store'
 import {
@@ -42,6 +42,16 @@ type ActiveErase = {
   ids: Set<NodeId>
   lastWorld: Point
 }
+
+type ActiveDraw =
+  | {
+      kind: 'stroke'
+      value: ActiveStroke
+    }
+  | {
+      kind: 'erase'
+      value: ActiveErase
+    }
 
 type DrawPreviewStore = Pick<
   StagedValueStore<DrawPreview | null>,
@@ -89,27 +99,16 @@ const hasMovedEnough = (
 }
 
 const createDrawPreviewStore = (): DrawPreviewStore => {
-  let task!: RafTask
-  const preview = createStagedValueStore<DrawPreview | null>({
-    schedule: () => {
-      task.schedule()
-    },
+  const preview = createRafValueStore<DrawPreview | null>({
     initial: null,
     isEqual: (left, right) => left === right
   })
-
-  task = createRafTask(() => {
-    preview.flush()
-  }, { fallback: 'microtask' })
 
   return {
     get: preview.get,
     subscribe: preview.subscribe,
     write: preview.write,
-    clear: () => {
-      task.cancel()
-      preview.clear()
-    },
+    clear: preview.clear,
     flush: preview.flush
   }
 }
@@ -118,9 +117,45 @@ export const createDrawInputRuntime = (
   editor: DrawInputRuntimeDeps
 ): DrawInputRuntime => {
   const previewStore = createDrawPreviewStore()
-  let activeStroke: ActiveStroke | null = null
-  let activeErase: ActiveErase | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<ActiveDraw>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      writePreview(null)
+      syncHidden(null)
+    }
+  })
+
+  const readActiveStroke = (): ActiveStroke | null => {
+    const active = interaction.getActive()
+    return active?.kind === 'stroke'
+      ? active.value
+      : null
+  }
+
+  const readActiveErase = (): ActiveErase | null => {
+    const active = interaction.getActive()
+    return active?.kind === 'erase'
+      ? active.value
+      : null
+  }
+
+  const writeActiveStroke = (
+    active: ActiveStroke | null
+  ) => {
+    interaction.setActive(active ? {
+      kind: 'stroke',
+      value: active
+    } : null)
+  }
+
+  const writeActiveErase = (
+    active: ActiveErase | null
+  ) => {
+    interaction.setActive(active ? {
+      kind: 'erase',
+      value: active
+    } : null)
+  }
 
   const resolvePoints = (
     points: readonly Point[]
@@ -167,23 +202,6 @@ export const createDrawInputRuntime = (
     }
 
     editor.internals.projections.model.node.hidden.write([...active.ids])
-  }
-
-  const clear = () => {
-    activeStroke = null
-    activeErase = null
-    session = null
-    writePreview(null)
-    syncHidden(null)
-  }
-
-  const cancel = () => {
-    if (session) {
-      session.cancel()
-      return
-    }
-
-    clear()
   }
 
   const pushPoint = (
@@ -342,11 +360,12 @@ export const createDrawInputRuntime = (
       lengthScreen: 0
     }
 
-    const nextSession = editor.interaction.start({
+    const nextSession = interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,
       move: (moveEvent) => {
+        const activeStroke = readActiveStroke()
         if (!activeStroke) {
           return
         }
@@ -354,6 +373,7 @@ export const createDrawInputRuntime = (
         pushEventPoints(activeStroke, moveEvent)
       },
       up: (upEvent, interactionSession) => {
+        const activeStroke = readActiveStroke()
         if (!activeStroke) {
           interactionSession.finish()
           return
@@ -362,17 +382,13 @@ export const createDrawInputRuntime = (
         pushEventPoints(activeStroke, upEvent, true)
         commitStroke(activeStroke)
         interactionSession.finish()
-      },
-      cleanup: clear
+      }
     })
     if (!nextSession) {
-      clear()
       return false
     }
 
-    activeStroke = active
-    activeErase = null
-    session = nextSession
+    writeActiveStroke(active)
     input.event.preventDefault()
     input.event.stopPropagation()
     return true
@@ -391,11 +407,12 @@ export const createDrawInputRuntime = (
     }
     collectPoint(active, input.point.world)
 
-    const nextSession = editor.interaction.start({
+    const nextSession = interaction.start({
       mode: 'draw',
       pointerId: input.event.pointerId,
       capture: input.capture,
       move: (moveEvent) => {
+        const activeErase = readActiveErase()
         if (!activeErase) {
           return
         }
@@ -403,6 +420,7 @@ export const createDrawInputRuntime = (
         collectEvent(activeErase, moveEvent)
       },
       up: (upEvent, interactionSession) => {
+        const activeErase = readActiveErase()
         if (!activeErase) {
           interactionSession.finish()
           return
@@ -413,17 +431,13 @@ export const createDrawInputRuntime = (
           editor.commands.node.delete([...activeErase.ids])
         }
         interactionSession.finish()
-      },
-      cleanup: clear
+      }
     })
     if (!nextSession) {
-      clear()
       return false
     }
 
-    activeStroke = null
-    activeErase = active
-    session = nextSession
+    writeActiveErase(active)
     syncHidden(active)
     input.event.preventDefault()
     input.event.stopPropagation()
@@ -436,19 +450,21 @@ export const createDrawInputRuntime = (
       subscribe: previewStore.subscribe
     },
     startStroke: (input) => {
-      if (activeStroke || activeErase || session) {
+      if (interaction.hasActive()) {
         return false
       }
 
       return startStroke(input)
     },
     startErase: (input) => {
-      if (activeStroke || activeErase || session) {
+      if (interaction.hasActive()) {
         return false
       }
 
       return startErase(input)
     },
-    cancel
+    cancel: () => {
+      interaction.cancel()
+    }
   }
 }

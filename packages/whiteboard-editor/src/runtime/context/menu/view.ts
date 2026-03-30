@@ -4,18 +4,18 @@ import type {
   NodeSchema,
   Point
 } from '@whiteboard/core/types'
-import type { Editor } from '../editor/types'
-import type { NodeRegistry } from '../../types/node'
-import type { ContextResolved } from '../input/target'
+import type { Editor } from '../../../types/public/editor'
+import type { NodeRegistry } from '../../../types/node'
+import type { ContextResolved } from './target'
 import {
   resolveContextNodeMeta,
   resolveContextSelectionCan,
   summarizeContextNodes
-} from './summary'
+} from '../selection/summary'
 import type {
   ContextMenuView,
   SelectionStyleSummary
-} from './types'
+} from '../../../types/public/context'
 
 type ContextMenuHost = Pick<Editor, 'read'> & {
   registry: Pick<NodeRegistry, 'get'>

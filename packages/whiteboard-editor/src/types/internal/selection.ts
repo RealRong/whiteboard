@@ -1,8 +1,17 @@
 import type { SelectionMode } from '@whiteboard/core/node'
+export type {
+  SelectionInput,
+  SelectionSummary,
+  SelectionTarget,
+  SelectionTransform
+} from '@whiteboard/core/selection'
 import type {
-  Edge,
-  EdgeId,
-  Node,
+  SelectionInput,
+  SelectionSummary,
+  SelectionTarget,
+  SelectionTransform
+} from '@whiteboard/core/selection'
+import type {
   NodeId,
   Rect
 } from '@whiteboard/core/types'
@@ -10,50 +19,12 @@ import type { ValueStore } from '@whiteboard/engine'
 import type { EditField } from '../../runtime/edit'
 import type { PointerDown } from '../../runtime/input/pointer'
 
-export type SelectionInput = {
-  nodeIds?: readonly NodeId[]
-  edgeIds?: readonly EdgeId[]
-}
-
-export type SelectionTarget = {
-  nodeIds: readonly NodeId[]
-  edgeIds: readonly EdgeId[]
-}
-
 export type SelectionCommands = {
   replace: (input: SelectionInput) => void
   add: (input: SelectionInput) => void
   remove: (input: SelectionInput) => void
   toggle: (input: SelectionInput) => void
   clear: () => void
-}
-
-export type SelectionTransform = {
-  move: boolean
-  resize: 'none' | 'resize' | 'scale'
-}
-
-export type SelectionSnapshot = {
-  kind: 'none' | 'node' | 'nodes' | 'edge' | 'edges' | 'mixed'
-  target: {
-    nodeIds: readonly NodeId[]
-    nodeSet: ReadonlySet<NodeId>
-    edgeIds: readonly EdgeId[]
-    edgeSet: ReadonlySet<EdgeId>
-    edgeId?: EdgeId
-  }
-  items: {
-    nodes: readonly Node[]
-    edges: readonly Edge[]
-    primaryNode?: Node
-    primaryEdge?: Edge
-    count: number
-    nodeCount: number
-    edgeCount: number
-  }
-  transform: SelectionTransform
-  box?: Rect
-  boxInteractive: boolean
 }
 
 export type SelectionStore = {
@@ -99,5 +70,5 @@ export type SelectionPressPlan = {
 
 export type SelectionPolicyInput = {
   start: PointerDown
-  snapshot: SelectionSnapshot
+  selection: SelectionSummary
 }

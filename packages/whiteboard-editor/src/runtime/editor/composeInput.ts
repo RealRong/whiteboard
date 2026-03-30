@@ -11,9 +11,9 @@ import {
 } from '../interaction'
 import { createPassiveInputRuntime } from '../input/passive'
 import {
-  createInputRuntime
-} from '../input/runtime'
-import type { PointerSnapshotStore } from '../input/pointerSnapshot'
+  createInputRouter
+} from '../input/router'
+import type { PointerSnapshotStore } from '../input/pointer/snapshot'
 import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
 
 export const composeInput = ({
@@ -51,7 +51,7 @@ export const composeInput = ({
     policy
   }
 
-  const input = createInputRuntime({
+  const input = createInputRouter({
     editor: {
       commands,
       read,

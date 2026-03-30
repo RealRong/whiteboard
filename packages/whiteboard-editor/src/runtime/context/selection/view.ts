@@ -1,24 +1,22 @@
-import {
-  createDerivedStore,
-  type ReadStore
-} from '@whiteboard/engine'
 import type {
   NodeAlignMode,
   NodeDistributeMode
 } from '@whiteboard/core/node'
-import type {
-  Node,
-  NodeId
-} from '@whiteboard/core/types'
-import type { Editor } from '../editor/types'
-import type { NodeRegistry } from '../../types/node'
-import type { SelectionSnapshot } from '../selection'
+import type { Node } from '@whiteboard/core/types'
 import {
   readContextLockLabel,
   resolveContextNodeMeta,
   resolveContextSelectionCan,
   summarizeContextNodes
 } from './summary'
+import {
+  bindAction,
+  bindActionWithArgs,
+  createSelectionOperations,
+  type SelectionMenuHost,
+  type SelectionMenuOperations,
+  type SelectionOrderMode
+} from './actions'
 import type {
   SelectionCan,
   SelectionLayoutView,
@@ -27,14 +25,9 @@ import type {
   SelectionMenuItemView,
   SelectionMenuView,
   SelectionMoreMenuItemView,
-  SelectionMoreMenuSectionView
-} from './types'
-
-type SelectionMenuHost = {
-  commands: () => Editor['commands']
-  registry: Pick<NodeRegistry, 'get'>
-}
-type SelectionOrderMode = 'front' | 'forward' | 'backward' | 'back'
+  SelectionMoreMenuSectionView,
+  SelectionNodeSummary
+} from '../../../types/public/context'
 
 const ORDER_ITEMS: ReadonlyArray<{
   key: string
@@ -117,192 +110,6 @@ const DISTRIBUTE_ITEMS: ReadonlyArray<{
   }
 ] as const
 
-const bindAction = (
-  action: (() => unknown) | undefined,
-  close?: () => void
-) => {
-  if (!action) {
-    return undefined
-  }
-  if (!close) {
-    return action
-  }
-
-  return () => {
-    const result = action()
-
-    if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
-      return Promise.resolve(result).finally(close)
-    }
-
-    close()
-    return result
-  }
-}
-
-const bindActionWithArgs = <Args extends unknown[]>(
-  action: (...args: Args) => unknown,
-  close?: () => void
-) => {
-  if (!close) {
-    return action
-  }
-
-  return (...args: Args) => {
-    const result = action(...args)
-
-    if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
-      return Promise.resolve(result).finally(close)
-    }
-
-    close()
-    return result
-  }
-}
-
-const readFilteredNodeIds = (
-  nodes: readonly Node[],
-  key: string,
-  resolveMeta: (node: Node) => { key?: string }
-) => nodes
-  .filter((node) => (resolveMeta(node).key ?? node.type) === key)
-  .map((node) => node.id)
-
-const createSelectionOperations = ({
-  editor,
-  nodes
-}: {
-  editor: SelectionMenuHost
-  nodes: readonly Node[]
-}) => {
-  const nodeIds = nodes.map((node) => node.id)
-  const groupIds = nodes
-    .filter((node) => node.type === 'group')
-    .map((node) => node.id)
-  const replaceSelection = (nextNodeIds: readonly NodeId[]) => {
-    editor.commands().selection.replace({
-      nodeIds: nextNodeIds
-    })
-  }
-
-  return {
-    filter: (key: string) => {
-      const filteredNodeIds = readFilteredNodeIds(
-        nodes,
-        key,
-        (node) => resolveContextNodeMeta(editor.registry, node)
-      )
-      if (!filteredNodeIds.length) {
-        return
-      }
-
-      replaceSelection(filteredNodeIds)
-    },
-    order: (mode: SelectionOrderMode) => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      if (mode === 'front') {
-        editor.commands().node.order.bringToFront([...nodeIds])
-        return
-      }
-      if (mode === 'forward') {
-        editor.commands().node.order.bringForward([...nodeIds])
-        return
-      }
-      if (mode === 'backward') {
-        editor.commands().node.order.sendBackward([...nodeIds])
-        return
-      }
-
-      editor.commands().node.order.sendToBack([...nodeIds])
-    },
-    align: (mode: NodeAlignMode) => {
-      if (nodeIds.length < 2) {
-        return
-      }
-
-      editor.commands().node.align([...nodeIds], mode)
-    },
-    distribute: (mode: NodeDistributeMode) => {
-      if (nodeIds.length < 3) {
-        return
-      }
-
-      editor.commands().node.distribute([...nodeIds], mode)
-    },
-    group: () => {
-      if (nodeIds.length < 2) {
-        return
-      }
-
-      const result = editor.commands().node.group.create([...nodeIds])
-      if (!result.ok) {
-        return
-      }
-
-      replaceSelection([result.data.groupId])
-    },
-    ungroup: () => {
-      if (!groupIds.length) {
-        return
-      }
-
-      const result = editor.commands().node.group.ungroupMany([...groupIds])
-      if (!result.ok) {
-        return
-      }
-
-      replaceSelection(result.data.nodeIds)
-    },
-    lock: (locked: boolean) => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      editor.commands().node.lock.set([...nodeIds], locked)
-    },
-    copy: () => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      return editor.commands().clipboard.copy({
-        nodeIds
-      })
-    },
-    cut: () => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      return editor.commands().clipboard.cut({
-        nodeIds
-      })
-    },
-    duplicate: () => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      const result = editor.commands().node.duplicate([...nodeIds])
-      if (!result.ok || result.data.nodeIds.length <= 0) {
-        return
-      }
-
-      replaceSelection(result.data.nodeIds)
-    },
-    delete: () => {
-      if (!nodeIds.length) {
-        return
-      }
-
-      editor.commands().node.deleteCascade([...nodeIds])
-    }
-  }
-}
-
 const readLayerGroupItems = ({
   can,
   order,
@@ -371,8 +178,8 @@ const readSelectionGroups = ({
   close
 }: {
   can: SelectionCan
-  summary: ReturnType<typeof summarizeContextNodes>
-  operations: ReturnType<typeof createSelectionOperations>
+  summary: SelectionNodeSummary
+  operations: SelectionMenuOperations
   close?: () => void
 }): SelectionMenuGroupView[] => {
   const groups: SelectionMenuGroupView[] = []
@@ -500,8 +307,8 @@ const readSelectionMoreSections = ({
   close
 }: {
   can: SelectionCan
-  summary: ReturnType<typeof summarizeContextNodes>
-  operations: ReturnType<typeof createSelectionOperations>
+  summary: SelectionNodeSummary
+  operations: SelectionMenuOperations
   close?: () => void
 }): SelectionMoreMenuSectionView[] => {
   const sections: SelectionMoreMenuSectionView[] = []
@@ -655,16 +462,3 @@ export const readSelectionMenuView = ({
     } satisfies SelectionLayoutView
   }
 }
-
-export const createSelectionMenuRead = ({
-  editor,
-  selection
-}: {
-  editor: SelectionMenuHost
-  selection: ReadStore<SelectionSnapshot>
-}): ReadStore<SelectionMenuView | null> => createDerivedStore({
-  get: (read) => readSelectionMenuView({
-    editor,
-    nodes: read(selection).items.nodes
-  }) ?? null
-})

@@ -1,3 +1,4 @@
+import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { ReadStore } from '@whiteboard/engine'
 import type {
   NodeAlignMode,
@@ -12,8 +13,7 @@ import type {
   NodeFamily,
   NodeMeta
 } from '../node'
-import type { SelectionTarget } from '../internal/selection'
-import type { ContextTarget } from '../../runtime/input/target'
+import type { ContextTarget } from '../../runtime/context/menu/target'
 import type { PointerPick } from '../../runtime/pick'
 
 export type ContextOpenSource =

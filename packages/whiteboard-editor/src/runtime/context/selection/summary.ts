@@ -3,11 +3,11 @@ import type {
   ControlId,
   NodeMeta,
   NodeRegistry
-} from '../../types/node'
+} from '../../../types/node'
 import type {
   SelectionCan,
   SelectionNodeSummary
-} from './types'
+} from '../../../types/public/context'
 
 const EMPTY_IDS: readonly NodeId[] = []
 const EMPTY_TYPES: SelectionNodeSummary['types'] = []

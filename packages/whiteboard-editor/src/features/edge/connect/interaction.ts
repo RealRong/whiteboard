@@ -8,8 +8,11 @@ import type {
   EdgeType,
   NodeId
 } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../runtime/editor/types'
-import type { SnapRuntime } from '../../../runtime/interaction'
+import type { EditorRuntime } from '../../../types/internal/editor'
+import {
+  createInteractionSessionSlot,
+  type SnapRuntime
+} from '../../../runtime/interaction'
 import type {
   PointerDown
 } from '../../../runtime/input/pointer'
@@ -73,8 +76,20 @@ const readCaptureTarget = (
 export const createEdgeConnectInteraction = (
   editor: EdgeConnectInteractionDeps
 ): EdgeConnectInteraction => {
-  let active: EdgeConnectState | null = null
-  let session: ReturnType<typeof editor.interaction.start> = null
+  const interaction = createInteractionSessionSlot<EdgeConnectState>({
+    interaction: editor.interaction,
+    cleanup: () => {
+      editor.internals.projections.overlay.edge.clear()
+    }
+  })
+
+  const readActive = () => interaction.getActive()
+
+  const writeActive = (
+    next: EdgeConnectState | null
+  ) => {
+    interaction.setActive(next)
+  }
 
   const readPointer = (
     event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
@@ -257,6 +272,7 @@ export const createEdgeConnectInteraction = (
   }
 
   const updateActive = (pointer: ConnectPointer) => {
+    const active = readActive()
     if (!active) {
       return false
     }
@@ -266,15 +282,9 @@ export const createEdgeConnectInteraction = (
       return false
     }
 
-    active = next
+    writeActive(next)
     writeStatePreview(next)
     return true
-  }
-
-  const clear = () => {
-    active = null
-    session = null
-    editor.internals.projections.overlay.edge.clear()
   }
 
   const startConnectSession = (
@@ -282,12 +292,13 @@ export const createEdgeConnectInteraction = (
     state: EdgeConnectState,
     capture?: Element | null
   ) => {
-    const nextSession = editor.interaction.start({
+    const nextSession = interaction.start({
       mode: 'edge-connect',
       pointerId: event.pointerId,
       capture: capture ?? readCaptureTarget(event),
       pan: {
         frame: (pointer) => {
+          const active = readActive()
           if (!active) {
             return
           }
@@ -298,7 +309,6 @@ export const createEdgeConnectInteraction = (
           }))
         }
       },
-      cleanup: clear,
       move: (moveEvent, interactionSession) => {
         if (!updateActive(readPointer(moveEvent))) {
           return
@@ -307,6 +317,7 @@ export const createEdgeConnectInteraction = (
         interactionSession.pan(moveEvent)
       },
       up: (_upEvent, interactionSession) => {
+        const active = readActive()
         if (!active) {
           return
         }
@@ -319,8 +330,7 @@ export const createEdgeConnectInteraction = (
       return false
     }
 
-    active = state
-    session = nextSession
+    writeActive(state)
     writeStatePreview(state)
 
     event.preventDefault()
@@ -330,7 +340,7 @@ export const createEdgeConnectInteraction = (
 
   return {
     startCreate: (input) => {
-      if (active) {
+      if (interaction.hasActive()) {
         return false
       }
 
@@ -348,7 +358,7 @@ export const createEdgeConnectInteraction = (
       return startConnectSession(input.event, state, input.capture)
     },
     startReconnect: (input) => {
-      if (active) {
+      if (interaction.hasActive()) {
         return false
       }
 
@@ -374,12 +384,7 @@ export const createEdgeConnectInteraction = (
       return startConnectSession(input.event, state, input.capture)
     },
     cancel: () => {
-      if (session) {
-        session.cancel()
-        return
-      }
-
-      clear()
+      interaction.cancel()
     }
   }
 }

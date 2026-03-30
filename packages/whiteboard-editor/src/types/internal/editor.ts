@@ -18,22 +18,22 @@ import type { NodeRegistry } from '../node'
 import type {
   ClipboardPort,
   ClipboardRuntime
-} from '../../runtime/host/clipboard'
-import type { DocumentSelectionLock } from '../../runtime/host/selectionLock'
-import type { PointerContinuation } from '../../runtime/host/pointerContinuation'
+} from '../../runtime/platform/clipboard'
+import type { DocumentSelectionLock } from '../../runtime/platform/selectionLock'
+import type { PointerContinuation } from '../../runtime/platform/pointerContinuation'
 import type { PickRuntime } from '../../runtime/pick'
 import type { InteractionCoordinator } from '../../runtime/interaction'
 import type { InteractionRegistry } from '../../runtime/interaction/registry'
 import type { SnapRuntime } from '../../runtime/interaction/snap'
 import type { PassiveInputRuntime } from '../../runtime/input/passive'
-import type { ViewportRuntime } from '../../runtime/viewport/createViewport'
-import type { State as EditState } from '../../runtime/edit'
-import { createState as createFrameState } from '../../runtime/frame'
+import type { ViewportRuntime } from '../../runtime/viewport'
+import type { EditState } from '../../runtime/edit'
+import type { FrameState } from '../../runtime/frame'
 import type { EditorFeatureCapsule } from '../runtime/editor/capsule'
 
 type EngineInstance = import('@whiteboard/engine').EngineInstance
 
-export type EditorPlatform = {
+export type EditorPlatformRuntime = {
   clipboardRuntime: ClipboardRuntime
   clipboardPort: ClipboardPort
   selectionLock: DocumentSelectionLock
@@ -43,7 +43,7 @@ export type EditorPlatform = {
 export type EditorBaseState = {
   tool: ValueStore<Tool>
   edit: EditState
-  frame: ReturnType<typeof createFrameState>
+  frame: FrameState
   selection: SelectionStore
 }
 
@@ -74,7 +74,7 @@ export type EditorKernel = {
     pick: PickRuntime
     snap: SnapRuntime
   }
-  host: EditorPlatform
+  platform: EditorPlatformRuntime
   state: EditorBaseState
   config: EditorRuntimeConfig
 }

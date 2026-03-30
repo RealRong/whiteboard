@@ -64,15 +64,7 @@ const resolveEdgeCan = (
   editRoute: true
 })
 
-export const createEdgeRead = ({
-  read,
-  nodeItem,
-  patch
-}: {
-  read: Pick<EngineRead, 'edge'>
-  nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  patch: EdgeProjectionPatchReader
-}): {
+export type EdgeRead = {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
   view: KeyedReadStore<EdgeId, RuntimeEdgeView | undefined>
@@ -81,7 +73,17 @@ export const createEdgeRead = ({
   idsInRect: (rect: Rect, options?: {
     match?: 'touch' | 'contain'
   }) => EdgeId[]
-} => {
+}
+
+export const createEdgeRead = ({
+  read,
+  nodeItem,
+  patch
+}: {
+  read: Pick<EngineRead, 'edge'>
+  nodeItem: KeyedReadStore<string, NodeItem | undefined>
+  patch: EdgeProjectionPatchReader
+}): EdgeRead => {
   const item = createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
       const entry = readStore(read.edge.item, edgeId)

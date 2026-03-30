@@ -1,5 +1,5 @@
 import { isDrawBrushKind } from '../tool'
-import type { Editor } from '../editor/types'
+import type { Editor } from '../../types/public/editor'
 import type { InteractionDriver } from '../interaction'
 import type { PointerDown } from './pointer'
 import type { DrawInputRuntime } from '../../features/draw/input'

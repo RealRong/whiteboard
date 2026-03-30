@@ -3,6 +3,8 @@ type XYPointLike = {
   y: number
 }
 
+type Equal<T> = (left: T, right: T) => boolean
+
 type RectTupleLike = {
   x?: number
   y?: number
@@ -30,6 +32,23 @@ export const isSameRefOrder = <T,>(left: readonly T[], right: readonly T[]) => {
   return true
 }
 
+const isStrictEqual = <T>(
+  left: T,
+  right: T
+) => left === right
+
+export const isOrderedArrayEqual = <T>(
+  left: readonly T[],
+  right: readonly T[],
+  isEqual: Equal<T> = isStrictEqual
+) => (
+  left === right
+  || (
+    left.length === right.length
+    && left.every((item, index) => isEqual(item, right[index]!))
+  )
+)
+
 export const isSameRectTuple = (
   left: RectTupleLike,
   right: RectTupleLike
@@ -45,6 +64,18 @@ export const isSameRectWithRotationTuple = (
 ) =>
   isSameRectTuple(left, right)
   && left.rotation === right.rotation
+
+export const isSameOptionalRectTuple = (
+  left: RectTupleLike | undefined,
+  right: RectTupleLike | undefined
+) => (
+  left === right
+  || (
+    left !== undefined
+    && right !== undefined
+    && isSameRectTuple(left, right)
+  )
+)
 
 export const isSameBoxTuple = (
   left: BoxTupleLike,

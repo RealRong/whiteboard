@@ -6,28 +6,22 @@ import type { NodeRegistry } from '../../types/node'
 import type { EditorPlatformBridge } from '../../types/public/editor'
 import type { Tool } from '../tool'
 import { normalizeTool } from '../tool'
-import {
-  createState as createFrameState
-} from '../frame'
-import {
-  createState as createEditState
-} from '../edit'
-import {
-  createState as createSelectionState
-} from '../selection'
+import { createFrameState } from '../frame'
+import { createEditState } from '../edit'
+import { createSelectionState } from '../selection'
 import {
   createInteractionCoordinator,
   createSnapRuntime
 } from '../interaction'
 import { createPickRuntime } from '../pick'
-import { createViewport } from '../viewport/createViewport'
+import { createViewport } from '../viewport'
 import type {
   EditorInputPolicy,
   EditorKernel,
   EditorViewportRuntime
 } from '../../types/internal/editor'
 import type { Editor } from '../../types/public/editor'
-import { createPlatform } from './platform'
+import { composePlatform } from './composePlatform'
 
 export const createKernel = ({
   engine,
@@ -53,7 +47,7 @@ export const createKernel = ({
   state: Editor['state']
   viewport: EditorViewportRuntime
 } => {
-  const platform = createPlatform(platformBridge)
+  const platform = composePlatform(platformBridge)
   const inputPolicy = createValueStore<EditorInputPolicy>({
     panEnabled: initialInputPolicy.panEnabled,
     wheelEnabled: initialInputPolicy.wheelEnabled,
@@ -124,7 +118,7 @@ export const createKernel = ({
       pick,
       snap
     },
-    host: platform,
+    platform,
     state: {
       tool,
       edit,

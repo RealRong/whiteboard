@@ -1,11 +1,11 @@
-import type { Editor } from '../editor/types'
-import { createState as createFrameState } from '../frame'
+import type { Editor } from '../../types/public/editor'
+import type { FrameState } from '../frame'
 
 export const createFrameCommands = ({
   frame,
   selection
 }: {
-  frame: ReturnType<typeof createFrameState>
+  frame: FrameState
   selection: Pick<Editor['commands']['selection'], 'clear'>
 }): Editor['commands']['frame'] => ({
   enter: (nodeId) => {

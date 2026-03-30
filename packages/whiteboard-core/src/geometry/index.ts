@@ -41,9 +41,26 @@ export {
 } from './equality'
 
 export {
+  DEFAULT_VIEWPORT_FIT_PADDING,
+  DEFAULT_VIEWPORT_LIMITS,
+  EMPTY_CONTAINER_RECT,
+  applyScreenPan,
+  applyWheelInput,
+  clientToScreenPoint,
+  copyViewport,
+  fitViewportToRect,
   viewportScreenToWorld,
   viewportWorldToScreen,
+  normalizeViewport,
+  normalizeViewportLimits,
   panViewport,
+  screenToWorldPoint,
   zoomViewport,
+  worldToScreenPoint,
   isSameViewport
+} from './viewport'
+export type {
+  ContainerRect,
+  ViewportLimits,
+  WheelInput
 } from './viewport'

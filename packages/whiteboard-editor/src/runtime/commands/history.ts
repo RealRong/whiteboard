@@ -1,6 +1,6 @@
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../editor/types'
+import type { Editor } from '../../types/public/editor'
 
 export const createHistoryCommands = ({
   engine,

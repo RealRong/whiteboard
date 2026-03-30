@@ -1,5 +1,5 @@
-import type { Editor } from './types'
-import { finalize } from '../finalize'
+import type { Editor } from '../../types/public/editor'
+import { finalize } from './finalize'
 import type { EditorKernel } from '../../types/internal/editor'
 import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
 
