@@ -1,4 +1,6 @@
 import {
+  createRafKeyedStore,
+  createRafValueStore,
   type StagedKeyedStore,
   type StagedValueStore
 } from '@whiteboard/engine'
@@ -16,11 +18,6 @@ import type {
   EdgePatch as CoreEdgePatch,
   Point
 } from '@whiteboard/core/types'
-import {
-  createRafKeyedStore,
-  createRafValueStore
-} from '../../runtime/utils/rafStore'
-
 type EdgeProjectionPatchMap = ReadonlyMap<EdgeId, EdgeProjectionPatch>
 
 type EdgeProjectionPatchStore =

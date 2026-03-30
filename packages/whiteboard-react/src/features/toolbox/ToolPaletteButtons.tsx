@@ -14,6 +14,7 @@ import {
   type DrawKind,
   type Tool
 } from '@whiteboard/editor'
+import { readShapePreviewFill } from '@whiteboard/core/node'
 import type { Dispatch, SetStateAction } from 'react'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import type {
@@ -21,8 +22,7 @@ import type {
   ToolPaletteView
 } from '../../types/toolbox'
 import {
-  ShapeGlyph,
-  readShapePreviewFill
+  ShapeGlyph
 } from '../node/shape'
 import { EdgePresetGlyph } from './menus/EdgeMenu'
 import { TEXT_INSERT_PRESET } from './presets'

@@ -3,7 +3,7 @@ import type {
   SliceRoots
 } from '@whiteboard/core/document'
 import type { EdgeId, NodeId, Point } from '@whiteboard/core/types'
-import type { Editor } from '../../../types/public/editor'
+import type { Editor } from '../../../types/editor'
 import type {
   ClipboardPort,
   ClipboardRuntime
@@ -114,7 +114,7 @@ const readSelectionTarget = (
 ): Exclude<ClipboardTarget, 'selection'> | undefined => {
   const selection = editor.read.selection.get()
 
-  if (selection.items.count > 0) {
+  if (selection.summary.items.count > 0) {
     return {
       nodeIds: selection.target.nodeIds,
       edgeIds: selection.target.edgeIds

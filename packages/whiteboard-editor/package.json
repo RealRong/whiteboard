@@ -36,11 +36,6 @@
       "import": "./dist/draw.js",
       "require": "./dist/draw.cjs"
     },
-    "./context": {
-      "types": "./dist/context.d.ts",
-      "import": "./dist/context.js",
-      "require": "./dist/context.cjs"
-    },
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js",

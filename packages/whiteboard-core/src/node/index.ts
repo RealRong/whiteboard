@@ -188,10 +188,43 @@ export {
   type NodeStylePatch
 } from './updateHelpers'
 export {
+  SHAPE_MENU_SECTIONS,
+  SHAPE_SPECS,
+  createShapeNodeInput,
   isShapeKind,
   readShapeKind,
+  readShapeMeta,
+  readShapePreviewFill,
+  readShapeSpec,
   type ShapeKind
 } from './shape'
+export type {
+  ShapeControlId,
+  ShapeGroup,
+  ShapeLabelInset,
+  ShapeMenuSection,
+  ShapeMeta,
+  ShapeSpec
+} from './shape'
+export {
+  FRAME_DEFAULT_FILL,
+  FRAME_DEFAULT_STROKE,
+  FRAME_DEFAULT_STROKE_WIDTH,
+  FRAME_DEFAULT_TEXT_COLOR,
+  FRAME_DEFAULT_TITLE,
+  FRAME_START_SIZE,
+  STICKY_DEFAULT_FILL,
+  STICKY_DEFAULT_STROKE,
+  STICKY_DEFAULT_STROKE_WIDTH,
+  STICKY_DEFAULT_TEXT_COLOR,
+  STICKY_PLACEHOLDER,
+  STICKY_START_SIZE,
+  TEXT_PLACEHOLDER,
+  TEXT_START_SIZE,
+  createFrameNodeInput,
+  createStickyNodeInput,
+  createTextNodeInput
+} from './templates'
 export type {
   NodeAlignMode,
   NodeDistributeMode,

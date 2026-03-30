@@ -1,5 +1,5 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import type { ViewportCommands } from '../viewport'
 import { createClipboardCommands } from './clipboard'
 import { createDrawCommands } from './draw'
@@ -11,14 +11,14 @@ import { createNodeCommands } from './node'
 import type {
   DrawFeatureState,
   EditorClipboardRuntime,
-  EditorCommandHost,
-  NodeProjectionRuntime
+  EditorCommandHost
 } from '../../types/internal/editor'
 import type { SelectionStore } from '../../types/internal/selection'
 import type { FrameState } from '../frame'
 import type { EditCommands } from '../edit'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
+import type { NodeProjectionRuntime } from '../../features/node/projection/store'
 
 export const createEditorCommands = ({
   engine,
@@ -55,10 +55,6 @@ export const createEditorCommands = ({
   clipboard: EditorClipboardRuntime
 }): Editor['commands'] => {
   let commands!: Editor['commands']
-  const contextCommands: Editor['commands']['context'] = {
-    open: () => false,
-    dismiss: () => undefined
-  }
   const commandHost: EditorCommandHost = {
     get commands() {
       return commands
@@ -124,7 +120,6 @@ export const createEditorCommands = ({
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,
-    context: contextCommands,
     clipboard: clipboardCommands,
     insert: insertCommands
   }

@@ -14,5 +14,5 @@ export type {
   EditorPointerInput,
   EditorWheelInput,
   EditorInsertResult
-} from '../../types/public/editor'
+} from '../../types/editor'
 export type { EditorRuntime } from '../../types/internal/editor'

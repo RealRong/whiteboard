@@ -6,7 +6,7 @@ import {
 } from '@whiteboard/core/node'
 import type { TextContentBox, TextVariant } from '@whiteboard/core/node'
 import type { Rect } from '@whiteboard/core/types'
-import { createRafTask } from '../../runtime/utils/rafTask'
+import { createRafTask } from '@whiteboard/engine'
 
 type TextAutoFontInput = {
   signature: string

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import type {
-  ContextMenuView as EditorContextMenuView,
-  SelectionNodeTypeSummary,
-  SelectionStyleSummary
-} from '@whiteboard/editor/context'
+import { isPointInRect } from '@whiteboard/core/geometry'
+import {
+  isEdgeInFrameScope,
+  isNodeInFrameScope
+} from '@whiteboard/core/document'
+import type { Point } from '@whiteboard/core/types'
+import type { SelectionStyleSnapshot } from '@whiteboard/editor'
 import { CREATE_PRESETS } from '@whiteboard/editor/toolbox'
 import {
   useElementSize,
-  useEditorRuntime,
-  useStoreValue
+  useEditorRuntime
 } from '../../../runtime/hooks'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
 import { isContextMenuIgnoredTarget } from '../../../canvas/domTargets'
@@ -16,6 +17,16 @@ import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
 } from '../../node/components/SelectionSummaryHeader'
+import type {
+  NodeSelectionCan,
+  NodeSummary,
+  NodeTypeSummary
+} from '../../node/summary'
+import {
+  readNodeLockLabel,
+  readNodeSelectionCan,
+  readNodeSummary
+} from '../../node/summary'
 import {
   isDuplicateMenuOpen,
   readContextMenuPlacement
@@ -43,6 +54,37 @@ type MenuGroup = {
   title?: string
   items: readonly MenuItem[]
 }
+
+type ContextSelectionFilter = {
+  types: readonly NodeTypeSummary[]
+}
+
+type ContextMenuView =
+  | {
+      kind: 'canvas'
+      screen: Point
+      canvas: {
+        world: Point
+        ownerId?: string
+      }
+    }
+  | {
+      kind: 'selection'
+      screen: Point
+      selection: {
+        summary: NodeSummary
+        can: NodeSelectionCan
+        filter?: ContextSelectionFilter
+        style?: SelectionStyleSnapshot
+      }
+    }
+  | {
+      kind: 'edge'
+      screen: Point
+      edge: {
+        id: string
+      }
+    }
 
 const COLOR_OPTIONS = [
   { label: 'Ink', value: 'hsl(var(--ui-text-primary, 40 2.1% 28%))' },
@@ -102,18 +144,183 @@ const withCurrentLabel = (
 
 const bindMenuAction = (
   action: () => unknown,
-  dismiss: (mode: 'dismiss' | 'action') => void
+  dismiss: () => void
 ) => () => {
   const result = action()
 
   if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
-    return Promise.resolve(result).finally(() => {
-      dismiss('action')
-    })
+    return Promise.resolve(result).finally(dismiss)
   }
 
-  dismiss('action')
+  dismiss()
   return result
+}
+
+const syncNodeSelection = (
+  editor: ReturnType<typeof useEditorRuntime>,
+  nodeIds: readonly string[]
+) => {
+  const current = editor.read.selection.get()
+  const sameNodeIds =
+    current.target.nodeIds.length === nodeIds.length
+    && current.target.nodeIds.every((nodeId, index) => nodeId === nodeIds[index])
+
+  if (sameNodeIds && current.target.edgeIds.length === 0) {
+    return
+  }
+
+  editor.commands.selection.replace({
+    nodeIds
+  })
+}
+
+const syncEdgeSelection = (
+  editor: ReturnType<typeof useEditorRuntime>,
+  edgeId: string
+) => {
+  const current = editor.read.selection.get()
+
+  if (
+    current.target.nodeIds.length === 0
+    && current.target.edgeIds.length === 1
+    && current.target.edgeIds[0] === edgeId
+  ) {
+    return
+  }
+
+  editor.commands.selection.replace({
+    edgeIds: [edgeId]
+  })
+}
+
+const maybeExitFrame = (
+  editor: ReturnType<typeof useEditorRuntime>,
+  point: ReturnType<ReturnType<typeof useEditorRuntime>['read']['pick']['from']>
+) => {
+  const frame = editor.state.frame.get()
+  if (!frame.id) {
+    return
+  }
+
+  switch (point.pick.kind) {
+    case 'selection-box':
+      return
+    case 'node':
+      if (!isNodeInFrameScope(frame, point.pick.id)) {
+        editor.commands.frame.exit()
+      }
+      return
+    case 'edge': {
+      const edge = editor.read.edge.item.get(point.pick.id)?.edge
+      if (edge && !isEdgeInFrameScope(frame, edge)) {
+        editor.commands.frame.exit()
+      }
+      return
+    }
+    case 'background':
+    case 'mindmap': {
+      const activeRect = editor.read.index.node.get(frame.id)?.rect
+      if (activeRect && !isPointInRect(point.point.world, activeRect)) {
+        editor.commands.frame.exit()
+      }
+    }
+  }
+}
+
+const readSelectionContextView = (
+  editor: ReturnType<typeof useEditorRuntime>,
+  screen: Point
+): Extract<ContextMenuView, { kind: 'selection' }> | undefined => {
+  const selection = editor.read.selection.get()
+  if (
+    selection.summary.items.nodeCount === 0
+    || selection.summary.items.edgeCount > 0
+  ) {
+    return undefined
+  }
+
+  const summary = readNodeSummary({
+    selection,
+    registry: editor.registry
+  })
+  const can = readNodeSelectionCan(selection.capabilities)
+
+  return {
+    kind: 'selection',
+    screen,
+    selection: {
+      summary,
+      can,
+      filter: can.filter
+        ? {
+            types: summary.types
+          }
+        : undefined,
+      style: selection.style ?? undefined
+    }
+  }
+}
+
+const readContextMenuView = ({
+  editor,
+  point
+}: {
+  editor: ReturnType<typeof useEditorRuntime>
+  point: ReturnType<ReturnType<typeof useEditorRuntime>['read']['pick']['from']>
+}): ContextMenuView | null => {
+  maybeExitFrame(editor, point)
+
+  switch (point.pick.kind) {
+    case 'selection-box': {
+      const selection = editor.read.selection.get()
+      if (
+        selection.target.nodeIds.length > 0
+        && selection.target.edgeIds.length === 0
+      ) {
+        return readSelectionContextView(editor, point.point.screen) ?? null
+      }
+
+      return {
+        kind: 'canvas',
+        screen: point.point.screen,
+        canvas: {
+          world: point.point.world,
+          ownerId: editor.read.frame.scope.get().id
+        }
+      }
+    }
+    case 'node': {
+      const selection = editor.read.selection.get()
+      const reuseCurrentSelection =
+        selection.target.nodeSet.has(point.pick.id)
+        && selection.target.edgeIds.length === 0
+      const nodeIds = reuseCurrentSelection
+        ? selection.target.nodeIds
+        : [point.pick.id]
+
+      syncNodeSelection(editor, nodeIds)
+      return readSelectionContextView(editor, point.point.screen) ?? null
+    }
+    case 'edge':
+      syncEdgeSelection(editor, point.pick.id)
+      return {
+        kind: 'edge',
+        screen: point.point.screen,
+        edge: {
+          id: point.pick.id
+        }
+      }
+    case 'background':
+    case 'mindmap':
+      return {
+        kind: 'canvas',
+        screen: point.point.screen,
+        canvas: {
+          world: point.point.world,
+          ownerId: editor.read.frame.scope.get().id
+        }
+      }
+  }
 }
 
 const readSelectionStyleGroup = ({
@@ -123,9 +330,9 @@ const readSelectionStyleGroup = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  style: SelectionStyleSummary | undefined
+  style: SelectionStyleSnapshot | undefined
   nodeIds: readonly string[]
-  dismiss: (mode: 'dismiss' | 'action') => void
+  dismiss: () => void
 }): MenuGroup | undefined => {
   if (!style || !nodeIds.length) {
     return undefined
@@ -186,8 +393,8 @@ const readCanvasGroups = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  view: Extract<EditorContextMenuView, { kind: 'canvas' }>
-  dismiss: (mode: 'dismiss' | 'action') => void
+  view: Extract<ContextMenuView, { kind: 'canvas' }>
+  dismiss: () => void
 }): readonly MenuGroup[] => [
   {
     key: 'edit',
@@ -250,8 +457,8 @@ const readEdgeGroups = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  view: Extract<EditorContextMenuView, { kind: 'edge' }>
-  dismiss: (mode: 'dismiss' | 'action') => void
+  view: Extract<ContextMenuView, { kind: 'edge' }>
+  dismiss: () => void
 }): readonly MenuGroup[] => [
   {
     key: 'edge.actions',
@@ -286,8 +493,8 @@ const readSelectionGroups = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  view: Extract<EditorContextMenuView, { kind: 'selection' }>
-  dismiss: (mode: 'dismiss' | 'action') => void
+  view: Extract<ContextMenuView, { kind: 'selection' }>
+  dismiss: () => void
 }): readonly MenuGroup[] => {
   const { summary, can, style } = view.selection
   const nodeIds = summary.ids
@@ -413,7 +620,7 @@ const readSelectionGroups = ({
                 key: 'arrange.ungroup',
                 label: 'Ungroup',
                 onSelect: bindMenuAction(() => {
-                  const groupIds = editor.read.selection.get().items.nodes
+                  const groupIds = editor.read.selection.get().summary.items.nodes
                     .filter((node) => node.type === 'group')
                     .map((node) => node.id)
                   if (!groupIds.length) {
@@ -436,7 +643,7 @@ const readSelectionGroups = ({
           ? [
               {
                 key: 'arrange.lock',
-                label: summary.lock === 'all' ? 'Unlock selected' : 'Lock selected',
+                label: readNodeLockLabel(summary),
                 onSelect: bindMenuAction(() => {
                   editor.commands.node.lock.set([...nodeIds], summary.lock !== 'all')
                 }, dismiss)
@@ -588,8 +795,8 @@ const readMenuGroups = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  view: EditorContextMenuView
-  dismiss: (mode: 'dismiss' | 'action') => void
+  view: ContextMenuView
+  dismiss: () => void
 }): readonly MenuGroup[] => {
   switch (view.kind) {
     case 'canvas':
@@ -614,8 +821,8 @@ const readMenuGroups = ({
 }
 
 const readFilterTypes = (
-  view: EditorContextMenuView
-): readonly SelectionNodeTypeSummary[] | undefined => (
+  view: ContextMenuView
+): readonly NodeTypeSummary[] | undefined => (
   view.kind === 'selection'
     ? view.selection.filter?.types
     : undefined
@@ -630,13 +837,13 @@ export const ContextMenu = ({
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const lastOpenRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const view = useStoreValue(editor.read.context.menu)
+  const [view, setView] = useState<ContextMenuView | null>(null)
   const [submenuKey, setSubmenuKey] = useState<string | null>(null)
 
-  const dismiss = useCallback((mode: 'dismiss' | 'action') => {
-    editor.commands.context.dismiss(mode)
+  const dismiss = useCallback(() => {
+    setView(null)
     setSubmenuKey(null)
-  }, [editor])
+  }, [])
 
   useEffect(() => {
     setSubmenuKey(null)
@@ -647,18 +854,23 @@ export const ContextMenu = ({
     if (!container) return
 
     const openFromEvent = (
-      source: 'secondary-press' | 'context-menu',
       event: Pick<MouseEvent | PointerEvent, 'target' | 'clientX' | 'clientY'>
     ) => {
-      const pointer = editor.read.pick.from(event, container)
-      const opened = editor.commands.context.open({
-        source,
-        pointer
-      })
-      if (!opened) {
+      const point = editor.read.pick.from(event, container)
+      if (point.ignoreContextMenu) {
         return false
       }
 
+      const nextView = readContextMenuView({
+        editor,
+        point
+      })
+      if (!nextView) {
+        dismiss()
+        return false
+      }
+
+      setView(nextView)
       setSubmenuKey(null)
       lastOpenRef.current = {
         x: event.clientX,
@@ -675,7 +887,7 @@ export const ContextMenu = ({
 
       event.preventDefault()
       event.stopPropagation()
-      openFromEvent('secondary-press', event)
+      openFromEvent(event)
     }
 
     const onContextMenu = (event: MouseEvent) => {
@@ -693,7 +905,7 @@ export const ContextMenu = ({
         return
       }
 
-      openFromEvent('context-menu', event)
+      openFromEvent(event)
     }
 
     container.addEventListener('pointerdown', onPointerDown, true)
@@ -703,14 +915,12 @@ export const ContextMenu = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [containerRef, editor])
+  }, [containerRef, dismiss, editor])
 
   useOverlayDismiss({
     enabled: view !== null,
     rootRef,
-    onDismiss: () => {
-      dismiss('dismiss')
-    }
+    onDismiss: dismiss
   })
 
   if (!view) return null
@@ -760,26 +970,36 @@ export const ContextMenu = ({
         }}
       >
         {view.kind === 'selection' ? (
-          <SelectionSummaryHeader summary={view.selection.summary} />
-        ) : null}
-        {filterTypes?.length ? (
-          <div className="wb-context-menu-section">
-            <div className="wb-context-menu-section-title">Filter</div>
-            <SelectionTypeFilterStrip
-              types={filterTypes}
-              onSelect={(key) => {
-                const type = filterTypes.find((item) => item.key === key)
-                if (!type) {
-                  return
-                }
+          <>
+            <SelectionSummaryHeader summary={view.selection.summary} />
+            {filterTypes?.length ? (
+              <div className="wb-context-menu-section">
+                <div className="wb-context-menu-section-title">Filter</div>
+                <SelectionTypeFilterStrip
+                  types={filterTypes}
+                  onSelect={(key) => {
+                    const selection = editor.read.selection.get()
+                    const filteredNodeIds = selection.summary.items.nodes
+                      .filter((node) => {
+                        const meta = editor.registry.get(node.type)?.describe?.(node)
+                          ?? editor.registry.get(node.type)?.meta
+                        return (meta?.key ?? node.type) === key
+                      })
+                      .map((node) => node.id)
 
-                editor.commands.selection.replace({
-                  nodeIds: type.nodeIds
-                })
-                dismiss('action')
-              }}
-            />
-          </div>
+                    if (!filteredNodeIds.length) {
+                      return
+                    }
+
+                    editor.commands.selection.replace({
+                      nodeIds: filteredNodeIds
+                    })
+                    dismiss()
+                  }}
+                />
+              </div>
+            ) : null}
+          </>
         ) : null}
         {groups.map((group) => (
           <ContextMenuGroupView

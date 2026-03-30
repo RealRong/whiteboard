@@ -16,16 +16,12 @@ import {
   type InteractionPointerInput,
   type InteractionRegistration,
   type RuntimeSession,
-  type SnapRuntime
 } from '../../runtime/interaction'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { EditorRuntime } from '../../types/internal/editor'
-import type { PickRuntime } from '../../runtime/pick'
+import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import type { MarqueeEnd, MarqueeInteraction } from './marquee'
 import { createNodeDragInteraction, type NodeDragStart } from '../node/drag/interaction'
 import type { NodeId } from '@whiteboard/core/types'
-import type { EdgeProjection } from '../edge/projection'
-import type { NodeProjectionRuntime } from '../node/projection/store'
 
 export type SelectionPressInteraction = {
   interaction: InteractionRegistration<SelectionPressState>
@@ -44,32 +40,19 @@ type SelectionPressState = {
 }
 
 type SelectionPressInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      model: {
-        node: Pick<NodeProjectionRuntime, 'preview'>
-      }
-      overlay: {
-        edge: Pick<EdgeProjection, 'clearPatch' | 'writeEntries'>
-      }
-    }
-    pick: PickRuntime
-    snap: Pick<SnapRuntime, 'node'>
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+>
 
 const EMPTY_SELECTION = normalizeSelectionTarget({})
 
 const buildSelectionWriter = (
-  editor: SelectionPressInteractionDeps,
+  ctx: SelectionPressInteractionDeps,
   base: SelectionTarget,
   mode: SelectionMode
 ) => {
   return (matched: SelectionTarget) => {
-    editor.commands.selection.replace({
+    ctx.commands.selection.replace({
       nodeIds: [
         ...applySelection(
           new Set(base.nodeIds),
@@ -89,7 +72,7 @@ const buildSelectionWriter = (
 }
 
 const matchesTapTarget = (
-  editor: SelectionPressInteractionDeps,
+  ctx: SelectionPressInteractionDeps,
   verifyNodeIds: readonly NodeId[] | undefined,
   event: PointerEvent
 ) => {
@@ -97,7 +80,7 @@ const matchesTapTarget = (
     return true
   }
 
-  const targetPick = editor.internals.pick.element(
+  const targetPick = ctx.spatial.pick.element(
     event.target instanceof Element ? event.target : null
   )
 
@@ -128,7 +111,7 @@ const clearHoldTimer = (
 }
 
 const toSelectionPressSubject = (
-  editor: SelectionPressInteractionDeps,
+  ctx: SelectionPressInteractionDeps,
   input: PointerDown
 ): SelectionPressSubject<SelectionPressField> | undefined => {
   switch (input.pick.kind) {
@@ -154,9 +137,9 @@ const toSelectionPressSubject = (
       }
 
       if (input.pick.part === 'shell') {
-        const node = editor.read.node.item.get(input.pick.id)?.node
+        const node = ctx.read.node.item.get(input.pick.id)?.node
         subject.shell = node
-          ? editor.read.node.role(node)
+          ? ctx.read.node.role(node)
           : 'content'
       }
 
@@ -169,10 +152,10 @@ const toSelectionPressSubject = (
 }
 
 export const createSelectionPressInteraction = (
-  editor: SelectionPressInteractionDeps,
+  ctx: SelectionPressInteractionDeps,
   marquee: MarqueeInteraction
 ): SelectionPressInteraction => {
-  const drag = createNodeDragInteraction(editor)
+  const drag = createNodeDragInteraction(ctx)
 
   const clear = () => {
     marquee.clear()
@@ -186,11 +169,11 @@ export const createSelectionPressInteraction = (
       onStart?: () => void
     }
   ) => {
-    const applyMatched = buildSelectionWriter(editor, action.base, action.mode)
+    const applyMatched = buildSelectionWriter(ctx, action.base, action.mode)
     return {
       pointerId: start.event.pointerId,
       capture: start.capture,
-      start: editor.viewport.pointer({
+      start: ctx.viewport.pointer({
         clientX: start.event.clientX,
         clientY: start.event.clientY
       }),
@@ -242,7 +225,7 @@ export const createSelectionPressInteraction = (
       base: EMPTY_SELECTION
     }, undefined, {
       onStart: () => {
-        editor.commands.selection.clear()
+        ctx.commands.selection.clear()
       }
     })
   }
@@ -264,7 +247,7 @@ export const createSelectionPressInteraction = (
       event,
       onStart: action.nextSelection
         ? () => {
-            editor.commands.selection.replace(action.nextSelection!)
+            ctx.commands.selection.replace(action.nextSelection!)
           }
         : undefined
     }
@@ -286,21 +269,21 @@ export const createSelectionPressInteraction = (
   ) => {
     switch (action.kind) {
       case 'clear':
-        editor.commands.selection.clear()
+        ctx.commands.selection.clear()
         return
       case 'select':
-        if (!matchesTapTarget(editor, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(ctx, action.verifyNodeIds, event)) {
           return
         }
 
-        editor.commands.selection.replace(action.target)
+        ctx.commands.selection.replace(action.target)
         return
       case 'edit':
-        if (!matchesTapTarget(editor, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(ctx, action.verifyNodeIds, event)) {
           return
         }
 
-        editor.commands.edit.start(action.nodeId, action.field)
+        ctx.commands.edit.start(action.nodeId, action.field)
         return
     }
   }
@@ -322,18 +305,18 @@ export const createSelectionPressInteraction = (
         return null
       }
 
-      const subject = toSelectionPressSubject(editor, input)
+      const subject = toSelectionPressSubject(ctx, input)
       if (!subject) {
         return null
       }
 
       const plan = resolveSelectionPressPlan({
-        getNode: (nodeId) => editor.read.node.item.get(nodeId)?.node,
-        getOwnerId: editor.read.node.owner,
-        getNodeFrame: editor.read.node.frame
+        getNode: (nodeId) => ctx.read.node.item.get(nodeId)?.node,
+        getOwnerId: ctx.read.node.owner,
+        getNodeFrame: ctx.read.node.frame
       }, {
         modifiers: input.modifiers,
-        selection: editor.read.selection.get(),
+        selection: ctx.read.selection.get().summary,
         subject
       })
       if (!plan) {

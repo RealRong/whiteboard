@@ -8,19 +8,22 @@ import type {
   Point,
   Rect
 } from '@whiteboard/core/types'
-import type { ReadStore } from '@whiteboard/engine'
+import {
+  createRafValueStore,
+  type ReadStore
+} from '@whiteboard/engine'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../runtime/interaction'
-import type { EditorRuntime } from '../../types/internal/editor'
-import { createRafValueStore } from '../../runtime/utils/rafStore'
-import type { DrawBrushKind } from '../../types/public/tool'
-import type { NodeProjectionRuntime } from '../node/projection/store'
+import type { DrawBrushKind } from '../../types/tool'
+import type {
+  DrawPreview,
+  ResolvedDrawStyle
+} from '../../types/draw'
+import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import {
-  readDrawStyle,
-  type DrawPreview,
-  type ResolvedDrawStyle
+  readDrawStyle
 } from './state'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
@@ -43,17 +46,9 @@ type EraseState = {
 }
 
 type DrawInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      model: {
-        node: Pick<NodeProjectionRuntime, 'hidden'>
-      }
-    }
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'viewport' | 'projection'
+>
 
 export type DrawInteraction = {
   preview: ReadStore<DrawPreview | null>
@@ -82,7 +77,7 @@ const hasMovedEnough = (
 }
 
 export const createDrawInteraction = (
-  editor: DrawInteractionDeps
+  ctx: DrawInteractionDeps
 ): DrawInteraction => {
   const previewStore = createRafValueStore<DrawPreview | null>({
     initial: null,
@@ -92,7 +87,7 @@ export const createDrawInteraction = (
   const resolvePoints = (
     points: readonly Point[]
   ) => {
-    const zoom = editor.viewport.get().zoom
+    const zoom = ctx.viewport.get().zoom
     return resolveDrawPoints({
       points,
       zoom
@@ -129,11 +124,11 @@ export const createDrawInteraction = (
     state: EraseState | null
   ) => {
     if (!state) {
-      editor.internals.projections.model.node.hidden.clear()
+      ctx.projection.node.hidden.clear()
       return
     }
 
-    editor.internals.projections.model.node.hidden.write([...state.ids])
+    ctx.projection.node.hidden.write([...state.ids])
   }
 
   const clear = () => {
@@ -146,7 +141,7 @@ export const createDrawInteraction = (
     event: PointerEvent,
     force = false
   ) => {
-    const pointer = editor.viewport.pointer(event)
+    const pointer = ctx.viewport.pointer(event)
     const previous = state.points[state.points.length - 1]
 
     if (
@@ -214,7 +209,7 @@ export const createDrawInteraction = (
       return
     }
 
-    editor.commands.node.create({
+    ctx.commands.node.create({
       type: 'draw',
       ownerId: state.ownerId,
       position: stroke.position,
@@ -235,13 +230,13 @@ export const createDrawInteraction = (
     state: EraseState,
     rect: Rect
   ) => {
-    const nodeIds = editor.read.node.idsInRect(rect, {
+    const nodeIds = ctx.read.node.idsInRect(rect, {
       match: 'touch'
     })
     let changed = false
 
     nodeIds.forEach((nodeId) => {
-      const item = editor.read.node.item.get(nodeId)
+      const item = ctx.read.node.item.get(nodeId)
       if (!item || item.node.type !== 'draw' || state.ids.has(nodeId)) {
         return
       }
@@ -259,7 +254,7 @@ export const createDrawInteraction = (
     state: EraseState,
     world: Point
   ) => {
-    const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(editor.viewport.get().zoom, ZOOM_EPSILON)
+    const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(ctx.viewport.get().zoom, ZOOM_EPSILON)
     collectRect(state, getSegmentBounds(state.lastWorld, world, halfWorld))
     state.lastWorld = world
   }
@@ -271,7 +266,7 @@ export const createDrawInteraction = (
     const samples = readPointerSamples(input.raw)
 
     for (let index = 0; index < samples.length; index += 1) {
-      const pointer = editor.viewport.pointer(samples[index]!)
+      const pointer = ctx.viewport.pointer(samples[index]!)
       collectPoint(state, pointer.world)
     }
   }
@@ -292,11 +287,11 @@ export const createDrawInteraction = (
         return null
       }
 
-      const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
+      const frameTargetId = input.frame.id ?? ctx.read.node.frameAt(input.point.world)
       return {
         ownerId: input.frame.id ?? frameTargetId,
         kind: input.tool.kind,
-        style: readDrawStyle(editor.read.draw.preferences.get(), input.tool.kind),
+        style: readDrawStyle(ctx.read.draw.preferences.get(), input.tool.kind),
         points: [input.point.world],
         lastScreen: input.point.screen,
         lengthScreen: 0
@@ -350,7 +345,7 @@ export const createDrawInteraction = (
     up: ({ state, session }, input) => {
       collectEvent(state, input)
       if (state.ids.size > 0) {
-        editor.commands.node.delete([...state.ids])
+        ctx.commands.node.delete([...state.ids])
       }
       session.finish()
     },

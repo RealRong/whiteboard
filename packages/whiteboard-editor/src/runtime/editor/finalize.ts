@@ -4,7 +4,7 @@ import {
   isEdgeInFrameScope,
   isNodeInFrameScope
 } from '@whiteboard/core/document'
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import type { FrameState } from '../frame'
 import type { EditState } from '../edit'
 import type { SelectionStore } from '../selection/store'

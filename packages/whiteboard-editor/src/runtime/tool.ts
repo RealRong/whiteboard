@@ -10,7 +10,7 @@ import type {
   InsertTool,
   SelectTool as SelectToolType,
   Tool
-} from '../types/public/tool'
+} from '../types/tool'
 
 const EDGE_PRESET_TO_TYPE = {
   'edge.straight': 'linear',
@@ -168,4 +168,4 @@ export type {
   InsertPresetKey,
   InsertTool,
   Tool
-} from '../types/public/tool'
+} from '../types/tool'

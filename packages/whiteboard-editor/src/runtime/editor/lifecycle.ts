@@ -1,36 +1,36 @@
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import { finalize } from './finalize'
 import type { EditorKernel } from '../../types/internal/editor'
-import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
 
 export const createLifecycle = ({
   kernel,
   read,
   input,
-  capsules
+  featureLifecycle
 }: {
   kernel: EditorKernel
   read: Editor['read']
   input: Editor['input']
-  capsules: readonly EditorFeatureCapsule[]
+  featureLifecycle: {
+    reset: () => void
+    dispose: () => void
+  }
 }) => {
   const syncHistory = () => {
-    kernel.document.history.set(kernel.document.engine.commands.history.get())
+    kernel.history.set(kernel.engine.commands.history.get())
   }
 
   const resetUiProjectionState = () => {
     input.cancel()
-    kernel.state.edit.commands.clear()
-    kernel.state.selection.commands.clear()
-    kernel.state.frame.commands.clear()
-    capsules.forEach((capsule) => {
-      capsule.lifecycle?.reset?.()
-    })
+    kernel.edit.commands.clear()
+    kernel.selection.commands.clear()
+    kernel.frame.commands.clear()
+    featureLifecycle.reset()
   }
 
-  const unsubscribeCommit = kernel.document.engine.commit.subscribe(() => {
+  const unsubscribeCommit = kernel.engine.commit.subscribe(() => {
     syncHistory()
-    const commit = kernel.document.engine.commit.get()
+    const commit = kernel.engine.commit.get()
     if (!commit) {
       return
     }
@@ -42,9 +42,9 @@ export const createLifecycle = ({
 
     finalize({
       read,
-      frame: kernel.state.frame,
-      selection: kernel.state.selection,
-      edit: kernel.state.edit
+      frame: kernel.frame,
+      selection: kernel.selection,
+      edit: kernel.edit
     })
   })
 
@@ -54,10 +54,8 @@ export const createLifecycle = ({
     dispose: () => {
       unsubscribeCommit()
       resetUiProjectionState()
-      capsules.forEach((capsule) => {
-        capsule.lifecycle?.dispose?.()
-      })
-      kernel.document.engine.dispose()
+      featureLifecycle.dispose()
+      kernel.engine.dispose()
     }
   }
 }

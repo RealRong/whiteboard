@@ -5,11 +5,11 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../types/internal/editor'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
+import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 import type { MindmapDragProjection } from './projection'
 import {
   moveMindmapByDrop,
@@ -24,20 +24,9 @@ export type MindmapDragInteraction = {
 }
 
 type MindmapDragInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'config' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      overlay: {
-        mindmapDrag: Pick<
-          EditorRuntime['internals']['projections']['overlay']['mindmapDrag'],
-          'set' | 'clear'
-        >
-      }
-    }
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'config' | 'viewport' | 'projection'
+>
 
 const toMindmapDragProjection = (
   session: MindmapDragSession
@@ -63,10 +52,10 @@ const toMindmapDragProjection = (
 }
 
 export const createMindmapDragInteraction = (
-  editor: MindmapDragInteractionDeps
+  ctx: MindmapDragInteractionDeps
 ): MindmapDragInteraction => {
   const clear = () => {
-    editor.internals.projections.overlay.mindmapDrag.clear()
+    ctx.projection.mindmapDrag.clear()
   }
 
   const projectState = (
@@ -81,11 +70,11 @@ export const createMindmapDragInteraction = (
       world,
       treeView:
         state.kind === 'subtree'
-          ? editor.read.mindmap.item.get(state.treeId)
+          ? ctx.read.mindmap.item.get(state.treeId)
           : undefined
     })
 
-    editor.internals.projections.overlay.mindmapDrag.set(
+    ctx.projection.mindmapDrag.set(
       toMindmapDragProjection(next)
     )
     return {
@@ -108,7 +97,7 @@ export const createMindmapDragInteraction = (
         return null
       }
 
-      const treeView = editor.read.mindmap.item.get(input.pick.treeId)
+      const treeView = ctx.read.mindmap.item.get(input.pick.treeId)
       if (!treeView) {
         return null
       }
@@ -143,13 +132,13 @@ export const createMindmapDragInteraction = (
       frame: (pointer) => {
         const next = projectState(
           state,
-          editor.viewport.pointer(pointer).world
+          ctx.viewport.pointer(pointer).world
         )
         Object.assign(state, next)
       }
     }),
     start: ({ input, state }) => {
-      editor.internals.projections.overlay.mindmapDrag.set(
+      ctx.projection.mindmapDrag.set(
         toMindmapDragProjection(state)
       )
       input.event.preventDefault()
@@ -164,7 +153,7 @@ export const createMindmapDragInteraction = (
     up: ({ state, session }) => {
       if (state.kind === 'root') {
         moveMindmapRoot({
-          editor,
+          editor: ctx,
           nodeId: state.treeId,
           position: state.position,
           origin: state.origin
@@ -175,7 +164,7 @@ export const createMindmapDragInteraction = (
 
       if (state.drop) {
         moveMindmapByDrop({
-          editor,
+          editor: ctx,
           id: state.treeId,
           nodeId: state.nodeId,
           drop: {
@@ -187,7 +176,7 @@ export const createMindmapDragInteraction = (
             parentId: state.originParentId,
             index: state.originIndex
           },
-          nodeSize: editor.config.mindmapNodeSize,
+          nodeSize: ctx.config.mindmapNodeSize,
           layout: state.layout
         })
       }

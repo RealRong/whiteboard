@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { Pick } from '@whiteboard/editor'
+import type { EditorPick } from '@whiteboard/editor'
 import { useEditorRuntime } from './useEditor'
 
 const toPickKey = (
-  pick: Pick
+  pick: EditorPick
 ) => {
   switch (pick.kind) {
     case 'background':
@@ -42,7 +42,7 @@ const toPickKey = (
 }
 
 export const usePickRef = (
-  pick: Pick
+  pick: EditorPick
 ) => {
   const editor = useEditorRuntime()
   const elementRef = useRef<Element | null>(null)

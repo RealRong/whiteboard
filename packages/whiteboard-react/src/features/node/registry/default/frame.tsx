@@ -7,7 +7,7 @@ import {
   FRAME_DEFAULT_STROKE_WIDTH,
   FRAME_DEFAULT_TEXT_COLOR,
   FRAME_DEFAULT_TITLE
-} from '@whiteboard/editor/node'
+} from '@whiteboard/core/node'
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
 import {
   useEdit,

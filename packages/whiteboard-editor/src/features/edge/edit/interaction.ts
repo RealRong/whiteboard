@@ -6,18 +6,16 @@ import type {
   Point
 } from '@whiteboard/core/types'
 import type { PointerDown } from '../../../runtime/input/pointer'
-import type { EditorRuntime } from '../../../types/internal/editor'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
+import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 import type { EdgeConnectInteraction } from '../connect/interaction'
 import {
   clearEdgeProjectionHint,
   clearEdgeProjectionPatch,
-  type EdgeProjection
 } from '../projection'
-import type { SnapRuntime } from '../../../runtime/interaction'
 
 type BodyMoveState = {
   kind: 'move'
@@ -84,21 +82,9 @@ export type EdgeEditInteraction = {
 }
 
 type EdgeEditInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'config' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      overlay: {
-        edge: Pick<
-          EdgeProjection,
-          'clearHint' | 'clearPatch' | 'writePatch' | 'writeRoute'
-        >
-      }
-    }
-    snap: Pick<SnapRuntime, 'edge'>
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'viewport' | 'projection' | 'spatial'
+>
 
 const isEdgeRoutePick = (
   pick: PointerDown['pick']
@@ -108,12 +94,12 @@ const isEdgeRoutePick = (
 )
 
 export const createEdgeEditInteraction = (
-  editor: EdgeEditInteractionDeps,
+  ctx: EdgeEditInteractionDeps,
   connect: Pick<EdgeConnectInteraction, 'clear'>
 ): EdgeEditInteraction => {
   const clear = () => {
-    clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
-    clearEdgeProjectionHint(editor.internals.projections.overlay.edge)
+    clearEdgeProjectionPatch(ctx.projection.edge)
+    clearEdgeProjectionHint(ctx.projection.edge)
     connect.clear()
   }
 
@@ -121,7 +107,7 @@ export const createEdgeEditInteraction = (
     edgeId: EdgeId,
     delta: Point
   ): EdgePatch | undefined => {
-    const view = editor.read.edge.view.get(edgeId)
+    const view = ctx.read.edge.view.get(edgeId)
     if (!view?.can.move) {
       return undefined
     }
@@ -134,16 +120,16 @@ export const createEdgeEditInteraction = (
     patch: EdgePatch | undefined
   ) => {
     if (!patch) {
-      clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
+      clearEdgeProjectionPatch(ctx.projection.edge)
       return
     }
 
-    editor.internals.projections.overlay.edge.writePatch(edgeId, patch)
+    ctx.projection.edge.writePatch(edgeId, patch)
   }
 
   const readRouteView = (
     edgeId: EdgeId
-  ) => editor.read.edge.view.get(edgeId)
+  ) => ctx.read.edge.view.get(edgeId)
 
   const readRoutePoints = (
     edgeId: EdgeId
@@ -212,7 +198,7 @@ export const createEdgeEditInteraction = (
     points: readonly Point[],
     activeRouteIndex?: number
   ) => {
-    editor.internals.projections.overlay.edge.writeRoute(
+    ctx.projection.edge.writeRoute(
       edgeId,
       points,
       activeRouteIndex
@@ -226,7 +212,7 @@ export const createEdgeEditInteraction = (
       clientY: number
     }
   ) => {
-    const { world } = editor.viewport.pointer(input)
+    const { world } = ctx.viewport.pointer(input)
     const delta = {
       x: world.x - state.start.x,
       y: world.y - state.start.y
@@ -248,8 +234,8 @@ export const createEdgeEditInteraction = (
     state: BodyMoveState
   ) => {
     if (!isPointEqual(state.delta, { x: 0, y: 0 })) {
-      editor.commands.edge.move(state.edgeId, state.delta)
-      editor.commands.selection.clear()
+      ctx.commands.edge.move(state.edgeId, state.delta)
+      ctx.commands.selection.clear()
     }
   }
 
@@ -265,7 +251,7 @@ export const createEdgeEditInteraction = (
       return false
     }
 
-    const { world } = editor.viewport.pointer(input)
+    const { world } = ctx.viewport.pointer(input)
     const point = {
       x: state.origin.x + (world.x - state.start.x),
       y: state.origin.y + (world.y - state.start.y)
@@ -292,7 +278,7 @@ export const createEdgeEditInteraction = (
       readRouteView(state.edgeId)?.can.editRoute
       && !isPointEqual(state.point, state.origin)
     ) {
-      editor.commands.edge.route.move(state.edgeId, state.index, state.point)
+      ctx.commands.edge.route.move(state.edgeId, state.index, state.point)
     }
   }
 
@@ -318,7 +304,7 @@ export const createEdgeEditInteraction = (
         return null
       }
 
-      const view = editor.read.edge.view.get(input.pick.id)
+      const view = ctx.read.edge.view.get(input.pick.id)
       if (!view) {
         return null
       }
@@ -345,12 +331,12 @@ export const createEdgeEditInteraction = (
       }
     },
     start: ({ input, state, session }) => {
-      editor.commands.selection.replace({
+      ctx.commands.selection.replace({
         edgeIds: [state.edgeId]
       })
 
       if (state.kind === 'insert') {
-        editor.commands.edge.route.insert(state.edgeId, input.point.world)
+        ctx.commands.edge.route.insert(state.edgeId, input.point.world)
         input.event.preventDefault()
         input.event.stopPropagation()
         session.finish()
@@ -376,7 +362,7 @@ export const createEdgeEditInteraction = (
       session.finish()
     },
     cleanup: () => {
-      clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
+      clearEdgeProjectionPatch(ctx.projection.edge)
     }
   }
 
@@ -434,7 +420,7 @@ export const createEdgeEditInteraction = (
     },
     start: ({ input, state, session }) => {
       if (state.kind === 'remove') {
-        editor.commands.edge.route.remove(state.edgeId, state.index)
+        ctx.commands.edge.route.remove(state.edgeId, state.index)
         input.event.preventDefault()
         input.event.stopPropagation()
         session.finish()
@@ -442,7 +428,7 @@ export const createEdgeEditInteraction = (
       }
 
       if (state.kind === 'insert') {
-        const result = editor.commands.edge.route.insert(state.edgeId, state.worldPoint)
+        const result = ctx.commands.edge.route.insert(state.edgeId, state.worldPoint)
         if (!result.ok) {
           session.finish()
           return
@@ -486,7 +472,7 @@ export const createEdgeEditInteraction = (
       session.finish()
     },
     cleanup: () => {
-      clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
+      clearEdgeProjectionPatch(ctx.projection.edge)
     }
   }
 

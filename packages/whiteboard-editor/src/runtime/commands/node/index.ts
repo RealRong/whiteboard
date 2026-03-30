@@ -1,6 +1,6 @@
 import type { EngineInstance } from '@whiteboard/engine'
 import type { NodeProjectionRuntime } from '../../../features/node/projection/store'
-import type { Editor } from '../../../types/public/editor'
+import type { Editor } from '../../../types/editor'
 import { createNodeAppearanceCommands } from './appearance'
 import { createNodeDocumentCommands } from './document'
 import { createNodeLockCommands } from './lock'

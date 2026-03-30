@@ -8,14 +8,11 @@ import {
   type MoveSet
 } from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../types/internal/editor'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
-import type { SnapRuntime } from '../../../runtime/interaction'
-import type { EdgeProjection } from '../../edge/projection'
-import type { NodeProjectionRuntime } from '../projection/store'
+import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 
 type ActiveDrag = {
   ids: readonly NodeId[]
@@ -51,43 +48,31 @@ export type NodeDragInteraction = {
 }
 
 type NodeDragInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'config' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      model: {
-        node: Pick<NodeProjectionRuntime, 'preview'>
-      }
-      overlay: {
-        edge: Pick<EdgeProjection, 'clearPatch' | 'writeEntries'>
-      }
-    }
-    snap: Pick<SnapRuntime, 'node'>
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+>
 
 export const createNodeDragInteraction = (
-  editor: NodeDragInteractionDeps
+  ctx: NodeDragInteractionDeps
 ): NodeDragInteraction => {
   const clear = () => {
-    editor.internals.projections.model.node.preview.clear()
-    editor.internals.snap.node.clear()
-    editor.internals.projections.overlay.edge.clearPatch()
+    ctx.projection.node.preview.clear()
+    ctx.spatial.snap.node.clear()
+    ctx.projection.edge.clearPatch()
   }
 
-  const readCanvasNodes = () => editor.read.index.node.all().map((entry) => entry.node)
+  const readCanvasNodes = () => ctx.read.index.node.all().map((entry) => entry.node)
 
   const commit = (state: ActiveDrag) => {
     if (state.last.x !== 0 || state.last.y !== 0) {
-      editor.commands.node.move({
+      ctx.commands.node.move({
         ids: state.ids,
         delta: state.last
       })
     }
 
     const edgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = editor.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -104,7 +89,7 @@ export const createNodeDragInteraction = (
     })
 
     if (edgeUpdates.length) {
-      editor.commands.edge.updateMany(edgeUpdates)
+      ctx.commands.edge.updateMany(edgeUpdates)
     }
   }
 
@@ -115,12 +100,12 @@ export const createNodeDragInteraction = (
       clientY: number
     }
   ) => {
-    const world = editor.viewport.pointer(input).world
+    const world = ctx.viewport.pointer(input).world
     const rawPosition = {
       x: state.origin.x + (world.x - state.startWorld.x),
       y: state.origin.y + (world.y - state.startWorld.y)
     }
-    const snapped = editor.internals.snap.node.move({
+    const snapped = ctx.spatial.snap.node.move({
       rect: {
         x: rawPosition.x,
         y: rawPosition.y,
@@ -129,7 +114,7 @@ export const createNodeDragInteraction = (
       },
       excludeIds: state.move.members.map((member) => member.id),
       allowCross: state.allowCross,
-      disabled: !editor.read.tool.is('select')
+      disabled: !ctx.read.tool.is('select')
     })
     const delta = {
       x: snapped.x - state.origin.x,
@@ -138,15 +123,15 @@ export const createNodeDragInteraction = (
     const preview = resolveMoveEffect({
       nodes: readCanvasNodes(),
       edges: state.relatedEdgeIds
-        .map((edgeId) => editor.read.edge.view.get(edgeId)?.edge)
+        .map((edgeId) => ctx.read.edge.view.get(edgeId)?.edge)
         .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge)),
       move: state.move,
       delta,
-      nodeSize: editor.config.nodeSize
+      nodeSize: ctx.config.nodeSize
     })
     state.last = delta
     const selectedEdgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = editor.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -159,11 +144,11 @@ export const createNodeDragInteraction = (
       return [toEdgeProjectionPatchEntry(edgeId, patch)]
     })
 
-    editor.internals.projections.model.node.preview.write({
+    ctx.projection.node.preview.write({
       patches: preview.nodes,
       hoveredContainerId: preview.hoveredContainerId
     })
-    editor.internals.projections.overlay.edge.writeEntries(
+    ctx.projection.edge.writeEntries(
       [
         ...selectedEdgeUpdates,
         ...preview.edges.map(({ id, patch }) => ({
@@ -206,7 +191,7 @@ export const createNodeDragInteraction = (
       },
       allowCross: input.event.altKey,
       selectedEdgeIds: input.edgeIds ?? [],
-      relatedEdgeIds: editor.read.edge.related(
+      relatedEdgeIds: ctx.read.edge.related(
         move.members.map((member) => member.id)
       ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
     }

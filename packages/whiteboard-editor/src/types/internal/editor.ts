@@ -1,18 +1,12 @@
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { Point } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
-import type { DrawInteraction } from '../../features/draw/interaction'
-import type { EdgeProjection } from '../../features/edge/projection'
-import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
-import type { NodeProjectionRuntime } from '../../features/node/projection/store'
-import type { MarqueeInteraction } from '../../features/selection/marquee'
-import type { DrawCommands, DrawPreferences } from '../public/draw'
+import type { DrawCommands, DrawPreferences } from '../draw'
 import type {
   Editor,
-  EditorPlatformBridge,
-  EditorProjection
-} from '../public/editor'
-import type { Tool } from '../public/tool'
+  EditorPlatformBridge
+} from '../editor'
+import type { Tool } from '../tool'
 import type { SelectionStore } from './selection'
 import type { NodeRegistry } from '../node'
 import type {
@@ -26,12 +20,10 @@ import type {
   InteractionCoordinator,
   InteractionRegistry
 } from '../../runtime/interaction/types'
-import type { SnapRuntime } from '../../runtime/interaction/snap'
 import type { PassiveInputRuntime } from '../../runtime/input/passive'
 import type { ViewportRuntime } from '../../runtime/viewport'
 import type { EditState } from '../../runtime/edit'
 import type { FrameState } from '../../runtime/frame'
-import type { EditorFeatureCapsule } from '../runtime/editor/capsule'
 
 type EngineInstance = import('@whiteboard/engine').EngineInstance
 
@@ -40,13 +32,6 @@ export type EditorPlatformRuntime = {
   clipboardPort: ClipboardPort
   selectionLock: DocumentSelectionLock
   pointerContinuation: PointerContinuation
-}
-
-export type EditorBaseState = {
-  tool: ValueStore<Tool>
-  edit: EditState
-  frame: FrameState
-  selection: SelectionStore
 }
 
 export type DrawFeatureState = {
@@ -60,38 +45,22 @@ export type EditorInputPolicy = {
   wheelSensitivity: number
 }
 
-export type EditorRuntimeConfig = {
-  inputPolicy: ValueStore<EditorInputPolicy>
-}
-
 export type EditorKernel = {
-  document: {
-    engine: EngineInstance
-    registry: NodeRegistry
-    history: ValueStore<HistoryState>
-  }
+  engine: EngineInstance
+  registry: NodeRegistry
+  history: ValueStore<HistoryState>
+  viewport: ViewportRuntime
+  pick: PickRuntime
   interaction: InteractionCoordinator
-  spatial: {
-    viewport: ViewportRuntime
-    pick: PickRuntime
-    snap: SnapRuntime
+  clipboard: {
+    runtime: ClipboardRuntime
+    port: ClipboardPort
   }
-  platform: EditorPlatformRuntime
-  state: EditorBaseState
-  config: EditorRuntimeConfig
-}
-
-export type EditorProjectionGraph = {
-  model: {
-    node: NodeProjectionRuntime
-  }
-  overlay: {
-    marquee: Pick<MarqueeInteraction, 'rect' | 'match'>
-    draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
-    edge: EdgeProjection
-    mindmapDrag: MindmapDragProjectionStore
-    snap: SnapRuntime['node']['guides']
-  }
+  inputPolicy: ValueStore<EditorInputPolicy>
+  tool: ValueStore<Tool>
+  edit: EditState
+  frame: FrameState
+  selection: SelectionStore
 }
 
 export type EditorInputInternals = {
@@ -103,20 +72,11 @@ export type EditorInputInternals = {
 export type EditorViewportRuntime =
   Editor['viewport'] & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>
 
-export type EditorRuntimeInternals = {
-  kernel: EditorKernel
-  projections: EditorProjectionGraph
-  capsules: readonly EditorFeatureCapsule[]
-  input: EditorInputInternals
-}
-
 export type EditorRuntime = Editor & {
   interaction: InteractionCoordinator
   registry: NodeRegistry
   pick: PickRuntime
-  projection: EditorProjection
   viewport: EditorViewportRuntime
-  internals: EditorRuntimeInternals
 }
 
 export type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
@@ -128,10 +88,5 @@ export type EditorClipboardRuntime = {
 }
 
 export type {
-  DrawInteraction,
-  EdgeProjection,
-  MindmapDragProjectionStore,
-  NodeProjectionRuntime,
-  MarqueeInteraction,
   EditorPlatformBridge
 }

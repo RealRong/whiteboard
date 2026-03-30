@@ -1,4 +1,4 @@
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import type { DrawFeatureState } from '../../types/internal/editor'
 import type { Tool } from '../tool'
 import {

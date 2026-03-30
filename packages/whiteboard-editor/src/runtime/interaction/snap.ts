@@ -18,10 +18,10 @@ import {
   type VerticalResizeEdge
 } from '@whiteboard/core/node'
 import {
+  createRafValueStore,
   type ReadStore
 } from '@whiteboard/engine'
 import type { Point, Rect, Size } from '@whiteboard/core/types'
-import { createRafValueStore } from '../utils/rafStore'
 
 const EMPTY_GUIDES: readonly Guide[] = []
 const DEFAULT_MIN_SIZE: Size = {

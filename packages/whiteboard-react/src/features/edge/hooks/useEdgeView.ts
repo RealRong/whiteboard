@@ -24,7 +24,7 @@ export const useEdgeView = (
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const editor = useEditorRuntime()
   const selection = useSelection()
-  const edgeId = selection.kind === 'edge' && selection.items.count === 1
+  const edgeId = selection.summary.kind === 'edge' && selection.summary.items.count === 1
     ? selection.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)

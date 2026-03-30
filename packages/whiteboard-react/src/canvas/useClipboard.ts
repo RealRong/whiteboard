@@ -21,7 +21,7 @@ export const useClipboard = ({
 
     const hasSelectionTarget = () => {
       const selection = editor.read.selection.get()
-      return selection.items.count > 0
+      return selection.summary.items.count > 0
     }
 
     const onCopy = (event: ClipboardEvent) => {

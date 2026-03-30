@@ -1,19 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ShapeKind } from '@whiteboard/editor/node'
-
-export {
-  SHAPE_MENU_SECTIONS,
-  SHAPE_SPECS,
-  createShapeNodeInput,
-  isShapeKind,
-  readShapeKind,
-  readShapeMeta,
-  readShapePreviewFill,
-  readShapeSpec,
-  type ShapeGroup,
-  type ShapeKind,
-  type ShapeSpec
-} from '@whiteboard/editor/node'
+import type { ShapeKind } from '@whiteboard/core/node'
 
 type ShapeColors = {
   fill: string

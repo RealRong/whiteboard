@@ -23,13 +23,13 @@ const readShortcutState = (
   editor: Editor
 ) => {
   const selection = editor.read.selection.get()
-  const can = editor.read.context.selection.get()?.can
+  const can = selection.capabilities
 
   return {
     selection,
     can,
-    pureNode: selection.items.edgeCount === 0,
-    hasSelection: selection.items.count > 0
+    pureNode: selection.summary.items.edgeCount === 0,
+    hasSelection: selection.summary.items.count > 0
   }
 }
 
@@ -124,7 +124,7 @@ export const runShortcut = (
     }
     case 'group.ungroup': {
       const groupIds = selection.target.nodeIds.filter((nodeId) =>
-        selection.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
+        selection.summary.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
       )
       const result = editor.commands.node.group.ungroupMany(groupIds)
       if (!result.ok) {

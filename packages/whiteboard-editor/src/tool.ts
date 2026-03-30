@@ -24,4 +24,4 @@ export type {
   InsertTool,
   SelectTool as SelectToolType,
   Tool
-} from './types/public/tool'
+} from './types/tool'

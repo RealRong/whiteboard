@@ -1,3 +1,4 @@
+import type { ShapeKind } from '@whiteboard/core/node'
 import type {
   DrawBrush,
   DrawSlot,
@@ -9,7 +10,6 @@ import type {
   EdgePresetKey
 } from '@whiteboard/editor'
 import type { InsertPresetGroup, StickyTone } from '../features/toolbox/presets'
-import type { ShapeKind } from '../features/node/shape'
 
 export type ToolPaletteMenuKey =
   | 'draw'

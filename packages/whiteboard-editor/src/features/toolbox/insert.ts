@@ -4,14 +4,14 @@ import type {
 import type {
   InteractionRegistration
 } from '../../runtime/interaction'
-import type { InsertPresetKey } from '../../types/public/tool'
+import type { InsertPresetKey } from '../../types/tool'
 import type {
   NodeId,
   Point,
   SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import { moveMindmapRoot } from '../mindmap/commands'
 import type {
   InsertPlacement,

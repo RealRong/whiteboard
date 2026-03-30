@@ -1,35 +1,24 @@
+import { createRafTask } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../types/internal/editor'
-import type { SnapRuntime } from '../../runtime/interaction'
 import type { PassiveInputProcessor } from '../../runtime/input/passive'
-import { createRafTask } from '../../runtime/utils/rafTask'
+import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import {
   clearEdgeProjectionHint,
-  writeEdgeProjectionHint,
-  type EdgeProjection
+  writeEdgeProjectionHint
 } from './projection'
 
 type EdgeHoverProcessorDeps = Pick<
-  EditorRuntime,
-  'interaction'
-> & {
-  internals: {
-    projections: {
-      overlay: {
-        edge: Pick<EdgeProjection, 'clearHint' | 'writeHint'>
-      }
-    }
-    snap: Pick<SnapRuntime, 'edge'>
-  }
-}
+  EditorFeatureContext,
+  'interaction' | 'projection' | 'spatial'
+>
 
 export const createEdgeHoverProcessor = (
-  editor: EdgeHoverProcessorDeps
+  ctx: EdgeHoverProcessorDeps
 ): PassiveInputProcessor => {
   let hoverPoint: Point | null = null
 
   const clearHint = () => {
-    clearEdgeProjectionHint(editor.internals.projections.overlay.edge)
+    clearEdgeProjectionHint(ctx.projection.edge)
   }
 
   const hoverTask = createRafTask(() => {
@@ -38,14 +27,14 @@ export const createEdgeHoverProcessor = (
       return
     }
 
-    if (editor.interaction.mode.get() !== 'idle') {
+    if (ctx.interaction.mode.get() !== 'idle') {
       clearHint()
       return
     }
 
-    const target = editor.internals.snap.edge.connect(hoverPoint)
+    const target = ctx.spatial.snap.edge.connect(hoverPoint)
     writeEdgeProjectionHint(
-      editor.internals.projections.overlay.edge,
+      ctx.projection.edge,
       target
         ? { snap: target.pointWorld }
         : undefined

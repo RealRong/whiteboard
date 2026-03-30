@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import type { NodeId } from '@whiteboard/core/types'
+import {
+  createRafTask,
+  type RafTask
+} from '@whiteboard/engine'
 import { useEditor } from '../../../runtime/hooks'
-import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
 
 type Size = {
   width: number

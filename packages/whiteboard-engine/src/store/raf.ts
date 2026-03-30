@@ -1,10 +1,12 @@
 import {
   createStagedKeyedStore,
   createStagedValueStore,
-  type StagedKeyedStore,
-  type StagedValueStore
-} from '@whiteboard/engine'
-import { createRafTask } from './rafTask'
+} from './staged'
+import type {
+  StagedKeyedStore,
+  StagedValueStore
+} from '../types/store'
+import { createRafTask } from '../scheduler/raf'
 
 type RafFallback = 'microtask' | 'sync'
 

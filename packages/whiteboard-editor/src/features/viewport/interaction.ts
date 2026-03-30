@@ -1,9 +1,9 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { EditorRuntime } from '../../types/internal/editor'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../runtime/interaction'
+import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 
 type ViewportInputPolicy = {
   panEnabled: boolean
@@ -17,21 +17,19 @@ type ViewportPanState = {
 }
 
 type ViewportPanInteractionDeps = Pick<
-  EditorRuntime,
-  'interaction' | 'read' | 'viewport'
-> & {
-  policy: Pick<ValueStore<ViewportInputPolicy>, 'get'>
-}
+  EditorFeatureContext,
+  'interaction' | 'read' | 'viewport' | 'inputPolicy'
+>
 
 const allowsLeftDrag = (
-  editor: ViewportPanInteractionDeps
+  ctx: ViewportPanInteractionDeps
 ) => (
-  editor.interaction.state.get().space
-  || editor.read.tool.is('hand')
+  ctx.interaction.state.get().space
+  || ctx.read.tool.is('hand')
 )
 
 const updatePan = (
-  editor: ViewportPanInteractionDeps,
+  ctx: ViewportPanInteractionDeps,
   state: ViewportPanState,
   input: InteractionPointerInput
 ) => {
@@ -45,7 +43,7 @@ const updatePan = (
     x: input.client.x,
     y: input.client.y
   }
-  editor.viewport.input.panScreenBy({
+  ctx.viewport.input.panScreenBy({
     x: -deltaX,
     y: -deltaY
   })
@@ -56,13 +54,13 @@ const updatePan = (
 }
 
 export const createViewportPanInteraction = (
-  editor: ViewportPanInteractionDeps
+  ctx: ViewportPanInteractionDeps
 ): InteractionRegistration<ViewportPanState> => ({
   key: 'viewport.pan',
   priority: 1000,
   mode: 'viewport-pan',
   can: (input) => {
-    if (!editor.policy.get().panEnabled) {
+    if (!ctx.inputPolicy.get().panEnabled) {
       return null
     }
 
@@ -73,7 +71,7 @@ export const createViewportPanInteraction = (
     const middleDrag = input.event.button === 1 || (input.event.buttons & 4) === 4
     const leftDrag =
       (input.event.button === 0 || (input.event.buttons & 1) === 1)
-      && allowsLeftDrag(editor)
+      && allowsLeftDrag(ctx)
 
     if (!middleDrag && !leftDrag) {
       return null
@@ -94,7 +92,7 @@ export const createViewportPanInteraction = (
     input.event.stopPropagation()
   },
   move: ({ state }, input) => {
-    updatePan(editor, state, input)
+    updatePan(ctx, state, input)
   },
   up: ({ session }, input) => {
     session.finish()

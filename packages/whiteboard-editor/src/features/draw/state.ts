@@ -1,6 +1,6 @@
 import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
-import type { DrawBrushKind } from '../../types/public/tool'
+import type { DrawBrushKind } from '../../types/tool'
 import type {
   BrushStyle,
   BrushStylePatch,
@@ -10,7 +10,7 @@ import type {
   DrawPreview,
   DrawSlot,
   ResolvedDrawStyle
-} from '../../types/public/draw'
+} from '../../types/draw'
 
 export const DRAW_SLOTS = ['1', '2', '3'] as const satisfies readonly DrawSlot[]
 
@@ -187,14 +187,3 @@ export const createDrawState = (): {
     }
   }
 }
-
-export type {
-  BrushStyle,
-  BrushStylePatch,
-  DrawBrush,
-  DrawCommands,
-  DrawPreferences,
-  DrawPreview,
-  DrawSlot,
-  ResolvedDrawStyle
-} from '../../types/public/draw'

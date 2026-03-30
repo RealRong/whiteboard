@@ -4,10 +4,13 @@ export {
   createDerivedStore,
   createKeyedDerivedStore,
   createKeyedStore,
+  createRafKeyedStore,
+  createRafValueStore,
   createStagedKeyedStore,
   createStagedValueStore,
   createValueStore
 } from './store'
+export { createRafTask } from './scheduler/raf'
 export {
   DEFAULT_BOARD_CONFIG
 } from './config'
@@ -31,6 +34,7 @@ export type {
   StagedValueStore,
   ValueStore
 } from './types/store'
+export type { RafTask } from './scheduler/raf'
 export type {
   CreateEngineOptions,
   EngineInstance,

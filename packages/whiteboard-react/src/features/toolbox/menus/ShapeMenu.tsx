@@ -1,8 +1,10 @@
-import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
 import {
   SHAPE_MENU_SECTIONS,
-  ShapeGlyph,
   readShapePreviewFill
+} from '@whiteboard/core/node'
+import { MenuSection } from '../../selection/chrome/menus/MenuPrimitives'
+import {
+  ShapeGlyph
 } from '../../node/shape'
 import { readShapePresetKind } from '../presets'
 

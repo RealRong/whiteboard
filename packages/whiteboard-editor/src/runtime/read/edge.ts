@@ -1,13 +1,14 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import {
   applyEdgeProjectionPatch,
+  type EdgeConnectCandidate,
   getEdgePathBounds,
   matchEdgeRect,
   resolveEdgeView
 } from '@whiteboard/core/edge'
 import type { EdgeView as CoreEdgeView } from '@whiteboard/core/edge'
 import { isPointEdgeEnd } from '@whiteboard/core/types'
-import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
+import type { EdgeId, Node, NodeId, NodeType, Rect } from '@whiteboard/core/types'
 import {
   createKeyedDerivedStore,
   type EdgeItem,
@@ -62,10 +63,15 @@ const resolveEdgeCan = (
   editRoute: true
 })
 
+export type EdgeConnectRead = {
+  candidatesInRect: (rect: Rect) => readonly EdgeConnectCandidate[]
+}
+
 export type EdgeRead = {
   list: EngineRead['edge']['list']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
   view: KeyedReadStore<EdgeId, RuntimeEdgeView | undefined>
+  connect: EdgeConnectRead
   related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
   bounds: (edgeId: EdgeId) => Rect | undefined
   idsInRect: (rect: Rect, options?: {
@@ -76,11 +82,13 @@ export type EdgeRead = {
 export const createEdgeRead = ({
   read,
   nodeItem,
-  patch
+  patch,
+  connect
 }: {
-  read: Pick<EngineRead, 'edge'>
+  read: Pick<EngineRead, 'edge' | 'index'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
   patch: EdgeProjectionPatchReader
+  connect: (node: Pick<Node, 'type'> | NodeType) => boolean
 }): EdgeRead => {
   const item = createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
@@ -131,11 +139,37 @@ export const createEdgeRead = ({
   })
 
   const readEdgeView = (edgeId: EdgeId) => view.get(edgeId)
+  const readConnectCandidatesInRect: EdgeConnectRead['candidatesInRect'] = (
+    rect
+  ) => {
+    const nodeIds = read.index.node.idsInRect(rect)
+    const candidates: EdgeConnectCandidate[] = []
+
+    for (let index = 0; index < nodeIds.length; index += 1) {
+      const entry = read.index.node.get(nodeIds[index])
+      if (!entry || !connect(entry.node)) {
+        continue
+      }
+
+      candidates.push({
+        nodeId: entry.node.id,
+        node: entry.node,
+        rect: entry.rect,
+        aabb: entry.aabb,
+        rotation: entry.rotation
+      })
+    }
+
+    return candidates
+  }
 
   return {
     list: read.edge.list,
     item,
     view,
+    connect: {
+      candidatesInRect: readConnectCandidatesInRect
+    },
     related: read.edge.related,
     bounds: (edgeId) => {
       const nextView = readEdgeView(edgeId)

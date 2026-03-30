@@ -1,5 +1,6 @@
 import { rectFromPoints } from '@whiteboard/core/geometry'
 import {
+  createRafTask,
   createDerivedStore,
   createValueStore,
   type ReadStore
@@ -10,8 +11,7 @@ import {
   type InteractionPointerInput,
   type InteractionRegistration
 } from '../../runtime/interaction'
-import type { EditorRuntime } from '../../types/internal/editor'
-import { createRafTask } from '../../runtime/utils/rafTask'
+import type { Editor } from '../../types/editor'
 import type { ViewportPointer } from '../../runtime/viewport'
 
 export type MarqueeMatch = 'touch' | 'contain'
@@ -56,7 +56,7 @@ export type MarqueeInteraction = {
 }
 
 type MarqueeInteractionDeps = Pick<
-  EditorRuntime,
+  Editor,
   'read' | 'viewport'
 >
 

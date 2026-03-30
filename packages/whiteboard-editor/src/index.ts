@@ -18,6 +18,12 @@ export type {
   EditorInsertResult,
   EditorRuntime
 } from './runtime/editor'
+export type {
+  SelectionCapabilities,
+  SelectionReadModel,
+  SelectionStyleSnapshot,
+  SelectionTypeStat
+} from './types/selection'
 export type { EditorPick } from './runtime/pick'
 export {
   DEFAULT_DRAW_BRUSH_KIND,

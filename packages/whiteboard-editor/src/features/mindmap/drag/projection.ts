@@ -1,9 +1,9 @@
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
+  createRafValueStore,
   type StagedValueStore
 } from '@whiteboard/engine'
-import { createRafValueStore } from '../../../runtime/utils/rafStore'
 
 type MindmapDragPreview = {
   nodeId: MindmapNodeId

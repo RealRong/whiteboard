@@ -15,3 +15,7 @@ export {
   createStagedKeyedStore,
   createStagedValueStore
 } from './staged'
+export {
+  createRafKeyedStore,
+  createRafValueStore
+} from './raf'

@@ -1,4 +1,4 @@
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import type { EditorCommandHost } from '../../types/internal/editor'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,

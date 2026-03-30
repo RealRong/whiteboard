@@ -9,8 +9,10 @@ import {
 } from 'lucide-react'
 import {
   isShapeKind,
-  ShapeGlyph,
   readShapePreviewFill
+} from '@whiteboard/core/node'
+import {
+  ShapeGlyph
 } from '../shape'
 import {
   type NodeSummary,

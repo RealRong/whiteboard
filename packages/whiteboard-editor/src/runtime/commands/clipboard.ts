@@ -1,4 +1,4 @@
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import type { Point } from '@whiteboard/core/types'
 import type {
   ClipboardPort,

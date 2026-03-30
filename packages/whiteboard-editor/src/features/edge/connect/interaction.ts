@@ -18,20 +18,18 @@ import type {
   EdgeType,
   NodeId
 } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../types/internal/editor'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
 import type { PointerDown } from '../../../runtime/input/pointer'
+import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 import { readEdgeType } from '../../../runtime/tool'
 import {
   clearEdgeProjectionPatch,
   writeEdgeProjectionHint,
   writeEdgeProjectionPatch,
-  type EdgeProjection
 } from '../projection'
-import type { SnapRuntime } from '../../../runtime/interaction'
 
 type ConnectPointer = {
   pointerId: number
@@ -45,21 +43,9 @@ export type EdgeConnectInteraction = {
 }
 
 type EdgeConnectInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'config' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      overlay: {
-        edge: Pick<
-          EdgeProjection,
-          'clear' | 'clearPatch' | 'writeHint' | 'writeEntries'
-        >
-      }
-    }
-    snap: Pick<SnapRuntime, 'edge'>
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+>
 
 type ConnectNodeEntry = NonNullable<
   ReturnType<EdgeConnectInteractionDeps['read']['index']['node']['get']>
@@ -73,28 +59,28 @@ const syncState = (
 }
 
 export const createEdgeConnectInteraction = (
-  editor: EdgeConnectInteractionDeps
+  ctx: EdgeConnectInteractionDeps
 ): EdgeConnectInteraction => {
   const clear = () => {
-    editor.internals.projections.overlay.edge.clear()
+    ctx.projection.edge.clear()
   }
 
   const readPointer = (
     input: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
   ): ConnectPointer => ({
     pointerId: input.pointerId,
-    world: editor.viewport.pointer(input).world
+    world: ctx.viewport.pointer(input).world
   })
 
   const clearPatch = () => {
-    clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
+    clearEdgeProjectionPatch(ctx.projection.edge)
   }
 
   const readConnectNode = (
     nodeId: NodeId
   ): ConnectNodeEntry | undefined => {
-    const entry = editor.read.index.node.get(nodeId)
-    if (!entry || !editor.read.node.connect(entry.node)) {
+    const entry = ctx.read.index.node.get(nodeId)
+    if (!entry || !ctx.read.node.connect(entry.node)) {
       return undefined
     }
 
@@ -140,8 +126,8 @@ export const createEdgeConnectInteraction = (
           rect: entry.rect,
           rotation: entry.rotation,
           pointWorld: pointer.world,
-          zoom: editor.viewport.get().zoom,
-          config: editor.config.edge
+          zoom: ctx.viewport.get().zoom,
+          config: ctx.config.edge
         })
 
         return startEdgeCreate({
@@ -171,7 +157,7 @@ export const createEdgeConnectInteraction = (
     end: 'source' | 'target',
     pointer: ConnectPointer
   ): EdgeConnectState | undefined => {
-    const view = editor.read.edge.view.get(edgeId)
+    const view = ctx.read.edge.view.get(edgeId)
     if (!view) {
       return undefined
     }
@@ -206,7 +192,7 @@ export const createEdgeConnectInteraction = (
       return undefined
     }
 
-    const snap = editor.internals.snap.edge.connect(pointer.world)
+    const snap = ctx.spatial.snap.edge.connect(pointer.world)
     return setEdgeConnectTarget(
       state,
       toEdgeDraftEnd(pointer.world, snap)
@@ -220,7 +206,7 @@ export const createEdgeConnectInteraction = (
     }
 
     if (commit.kind === 'reconnect') {
-      editor.commands.edge.reconnect(
+      ctx.commands.edge.reconnect(
         commit.edgeId,
         commit.end,
         commit.target
@@ -228,12 +214,12 @@ export const createEdgeConnectInteraction = (
       return
     }
 
-    editor.commands.edge.create(commit.input)
+    ctx.commands.edge.create(commit.input)
   }
 
   const writeStateHint = (state: EdgeConnectState) => {
     writeEdgeProjectionHint(
-      editor.internals.projections.overlay.edge,
+      ctx.projection.edge,
       toEdgeConnectHint(state)
     )
   }
@@ -251,7 +237,7 @@ export const createEdgeConnectInteraction = (
     }
 
     writeEdgeProjectionPatch(
-      editor.internals.projections.overlay.edge,
+      ctx.projection.edge,
       state.edgeId,
       patch
     )
@@ -286,7 +272,7 @@ export const createEdgeConnectInteraction = (
       clientY: number
     }
   ) => {
-    const point = editor.viewport.pointer(pointer)
+    const point = ctx.viewport.pointer(pointer)
     const next = updateConnectState(state, {
       pointerId: state.pointerId,
       world: point.world
@@ -383,7 +369,7 @@ export const createEdgeConnectInteraction = (
         return
       }
 
-      editor.commands.selection.replace({
+      ctx.commands.selection.replace({
         edgeIds: [state.edgeId]
       })
       writeStatePreview(state)

@@ -19,13 +19,17 @@ import {
 } from './layout'
 
 type ToolbarSelection = {
-  box?: Rect
-  can: NodeSelectionCan
-  summary: NodeSummary
-  items: {
-    nodes: readonly Node[]
-    primaryNode?: Node
+  boxState: {
+    box?: Rect
   }
+  summary: {
+    items: {
+      nodes: readonly Node[]
+      primaryNode?: Node
+    }
+  }
+  nodeSummary: NodeSummary
+  nodeCan: NodeSelectionCan
 }
 
 type NodeToolbarModel = {
@@ -62,15 +66,15 @@ export const resolveNodeToolbarModel = ({
   selection: ToolbarSelection
   worldToScreen: (point: Point) => Point
 }): NodeToolbarModel | undefined => {
-  const rect = selection.box
-  const nodes = selection.items.nodes
-  const primaryNode = selection.items.primaryNode
+  const rect = selection.boxState.box
+  const nodes = selection.summary.items.nodes
+  const primaryNode = selection.summary.items.primaryNode
 
   if (!rect || !primaryNode || !nodes.length) {
     return undefined
   }
 
-  const items = resolveToolbarItemKeys(selection.can, nodes.length).map((key) => (
+  const items = resolveToolbarItemKeys(selection.nodeCan, nodes.length).map((key) => (
     buildToolbarItem(key)
   ))
   if (!items.length) {
@@ -108,8 +112,8 @@ export const resolveNodeToolbarModel = ({
   return {
     items,
     nodes,
-    summary: selection.summary,
-    can: selection.can,
+    summary: selection.nodeSummary,
+    can: selection.nodeCan,
     primaryNode,
     primarySchema,
     placement,

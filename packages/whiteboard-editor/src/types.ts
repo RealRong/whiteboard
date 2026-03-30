@@ -10,7 +10,13 @@ export type {
   EditorKeyboardInput,
   EditorInsertResult,
   EditorPointerInput
-} from './types/public/editor'
+} from './types/editor'
+export type {
+  SelectionCapabilities,
+  SelectionReadModel,
+  SelectionStyleSnapshot,
+  SelectionTypeStat
+} from './types/selection'
 export type {
   ControlId,
   NodeDefinition,

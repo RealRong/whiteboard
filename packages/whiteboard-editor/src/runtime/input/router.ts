@@ -1,9 +1,11 @@
 import type {
   Editor
-} from '../../types/public/editor'
+} from '../../types/editor'
 import type {
-  EditorRuntime
+  EditorInputInternals,
+  EditorViewportRuntime
 } from '../../types/internal/editor'
+import type { InteractionCoordinator } from '../interaction'
 import {
   resolvePointerDown,
   resolvePointerMove,
@@ -14,15 +16,16 @@ import {
   type PointerSnapshotStore
 } from './pointer/snapshot'
 
-type InputRouterDeps = Pick<
-  EditorRuntime,
-  'commands' | 'interaction' | 'read' | 'state' | 'viewport'
+type InputRouterHost = Pick<
+  Editor,
+  'commands' | 'read' | 'state'
 > & {
-  internals: Pick<EditorRuntime['internals'], 'input'>
+  interaction: InteractionCoordinator
+  viewport: EditorViewportRuntime
 }
 
 const readPassiveContext = (
-  editor: Pick<EditorRuntime, 'interaction' | 'read'>
+  editor: Pick<InputRouterHost, 'interaction' | 'read'>
 ) => ({
   mode: editor.interaction.mode.get(),
   tool: editor.read.tool.get()
@@ -30,14 +33,16 @@ const readPassiveContext = (
 
 export const createInputRouter = ({
   editor,
+  runtime,
   pointer
 }: {
-  editor: InputRouterDeps
+  editor: InputRouterHost
+  runtime: EditorInputInternals
   pointer: PointerSnapshotStore
 }): Editor['input'] => ({
   cancel: () => {
     pointer.set(null)
-    editor.internals.input.passive.cancel()
+    runtime.passive.cancel()
     editor.interaction.cancel()
   },
   pointerDown: (input) => {
@@ -57,7 +62,7 @@ export const createInputRouter = ({
       editor.commands.frame.exit()
     }
 
-    return editor.internals.input.interactions.start(resolved)
+    return runtime.interactions.start(resolved)
   },
   pointerMove: (input) => {
     pointer.set(readPointerSnapshot(editor.viewport, input.event))
@@ -72,19 +77,19 @@ export const createInputRouter = ({
       input.event
     )
 
-    editor.internals.input.passive.move(
+    runtime.passive.move(
       resolved,
       readPassiveContext(editor)
     )
   },
   pointerLeave: () => {
     pointer.set(null)
-    editor.internals.input.passive.leave(
+    runtime.passive.leave(
       readPassiveContext(editor)
     )
   },
   wheel: (input) => {
-    if (!editor.internals.input.policy.get().wheelEnabled) {
+    if (!runtime.policy.get().wheelEnabled) {
       return false
     }
 
@@ -99,7 +104,7 @@ export const createInputRouter = ({
       return true
     }
 
-    const handledByPassive = editor.internals.input.passive.wheel(
+    const handledByPassive = runtime.passive.wheel(
       resolved,
       readPassiveContext(editor)
     )
@@ -116,7 +121,7 @@ export const createInputRouter = ({
         clientX: resolved.point.client.x,
         clientY: resolved.point.client.y
       },
-      editor.internals.input.policy.get().wheelSensitivity
+      runtime.policy.get().wheelSensitivity
     )
     return true
   },
@@ -124,7 +129,7 @@ export const createInputRouter = ({
   keyUp: (input) => editor.interaction.handleKeyUp(input.event),
   blur: () => {
     pointer.set(null)
-    editor.internals.input.passive.blur(
+    runtime.passive.blur(
       readPassiveContext(editor)
     )
     editor.interaction.handleBlur()

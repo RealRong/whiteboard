@@ -14,14 +14,12 @@ import {
 } from '@whiteboard/core/node'
 import type { SelectionSummary } from '@whiteboard/core/selection'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../types/internal/editor'
 import type { PointerDown } from '../../../runtime/input/pointer'
 import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
-import type { SnapRuntime } from '../../../runtime/interaction'
-import type { NodeProjectionRuntime } from '../projection/store'
+import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -90,18 +88,9 @@ export type NodeTransformInteraction = {
 }
 
 type NodeTransformInteractionDeps = Pick<
-  EditorRuntime,
-  'commands' | 'read' | 'viewport'
-> & {
-  internals: {
-    projections: {
-      model: {
-        node: Pick<NodeProjectionRuntime, 'preview'>
-      }
-    }
-    snap: Pick<SnapRuntime, 'node'>
-  }
-}
+  EditorFeatureContext,
+  'read' | 'commands' | 'viewport' | 'projection' | 'spatial'
+>
 
 const createResizeDrag = (options: {
   pointerId: number
@@ -149,17 +138,17 @@ const getResizeStartRect = (
 })
 
 export const createNodeTransformInteraction = (
-  editor: NodeTransformInteractionDeps
+  ctx: NodeTransformInteractionDeps
 ): NodeTransformInteraction => {
   const clear = () => {
-    editor.internals.projections.model.node.preview.clear()
-    editor.internals.snap.node.clear()
+    ctx.projection.node.preview.clear()
+    ctx.spatial.snap.node.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    editor.internals.projections.model.node.preview.write({
+    ctx.projection.node.preview.write({
       patches
     })
   }
@@ -187,7 +176,7 @@ export const createNodeTransformInteraction = (
     })
     const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-    return editor.internals.snap.node.resize({
+    return ctx.spatial.snap.node.resize({
       rect: rawRect.rect,
       source: {
         x: sourceX,
@@ -207,7 +196,7 @@ export const createNodeTransformInteraction = (
     const update = buildResizeUpdate({
       drag,
       currentScreen: input.screen,
-      zoom: editor.viewport.get().zoom,
+      zoom: ctx.viewport.get().zoom,
       altKey: input.altKey,
       shiftKey: input.shiftKey,
       excludeNodeIds: state.targets.map((target) => target.id)
@@ -233,7 +222,7 @@ export const createNodeTransformInteraction = (
     drag: RotateDragState,
     input: InteractionPointerInput
   ) => {
-    editor.internals.snap.node.clear()
+    ctx.spatial.snap.node.clear()
     const rotation = computeNextRotation({
       center: drag.center,
       currentPoint: input.world,
@@ -297,7 +286,7 @@ export const createNodeTransformInteraction = (
       return
     }
 
-    editor.commands.node.document.updateMany(updates)
+    ctx.commands.node.document.updateMany(updates)
   }
 
   const createNodeActive = (
@@ -305,12 +294,12 @@ export const createNodeTransformInteraction = (
     handle: TransformPickHandle,
     event: PointerDown['event']
   ): ActiveTransform | undefined => {
-    const nodeRect = editor.read.index.node.get(nodeId)
+    const nodeRect = ctx.read.index.node.get(nodeId)
     if (!nodeRect || nodeRect.node.locked) {
       return undefined
     }
 
-    const transform = editor.read.node.transform(nodeRect.node)
+    const transform = ctx.read.node.transform(nodeRect.node)
     const target: TransformTarget = {
       id: nodeRect.node.id,
       node: nodeRect.node,
@@ -347,7 +336,7 @@ export const createNodeTransformInteraction = (
         pointerId: event.pointerId,
         rect: nodeRect.rect,
         rotation: nodeRect.rotation,
-        start: editor.viewport.pointer(event).world
+        start: ctx.viewport.pointer(event).world
       })
     }
   }
@@ -355,7 +344,7 @@ export const createNodeTransformInteraction = (
   const createSelectionScaleTargets = (
     selectionNodeIds: readonly NodeId[]
   ) => {
-    const resolved = editor.read.node.transformTargets(selectionNodeIds)
+    const resolved = ctx.read.node.transformTargets(selectionNodeIds)
     if (!resolved?.targets.length) {
       return undefined
     }
@@ -370,7 +359,7 @@ export const createNodeTransformInteraction = (
     handle: TransformPickHandle,
     event: PointerDown['event']
   ): ActiveTransform | undefined => {
-    const selection = editor.read.selection.get()
+    const selection = ctx.read.selection.get().summary
     const selectionBox = resolveSelectionBoxView(selection)
     if (
       !selectionBox.box

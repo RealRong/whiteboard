@@ -1,5 +1,3 @@
-export { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
-export type { TextVariant } from '@whiteboard/core/node'
 export {
   STICKY_DEFAULT_FILL,
   STICKY_DEFAULT_STROKE,
@@ -8,6 +6,7 @@ export {
   STICKY_PLACEHOLDER,
   STICKY_START_SIZE,
   TEXT_AUTO_MAX_WIDTH,
+  TEXT_DEFAULT_FONT_SIZE,
   TEXT_MIN_WIDTH,
   TEXT_PLACEHOLDER,
   TEXT_START_SIZE,
@@ -15,13 +14,18 @@ export {
   createTextNodeInput,
   isTextContentEmpty,
   isTextNode,
-  measureTextNodeSize,
   readTextWidthMode,
   setTextWidthMode
+} from '@whiteboard/core/node'
+export type {
+  TextVariant,
+  TextWidthMode
+} from '@whiteboard/core/node'
+export {
+  measureTextNodeSize
 } from '@whiteboard/editor/node'
 export type {
-  TextMeasureSize,
-  TextWidthMode
+  TextMeasureSize
 } from '@whiteboard/editor/node'
 export {
   focusEditableEnd,

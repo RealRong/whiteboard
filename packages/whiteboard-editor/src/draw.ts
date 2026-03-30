@@ -6,7 +6,7 @@ export type {
   DrawPreview,
   DrawSlot,
   ResolvedDrawStyle
-} from './types/public/draw'
+} from './types/draw'
 export {
   DRAW_SLOTS,
   readDrawBrushStyle,

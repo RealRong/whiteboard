@@ -1,4 +1,5 @@
 import {
+  createRafKeyedStore,
   type StagedKeyedStore
 } from '@whiteboard/engine'
 import type {
@@ -6,8 +7,6 @@ import type {
   TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
-import { createRafKeyedStore } from '../../../runtime/utils/rafStore'
-
 type NodeProjectionMap = ReadonlyMap<NodeId, NodeProjection>
 
 export type NodePatch = CoreNodeProjectionPatch

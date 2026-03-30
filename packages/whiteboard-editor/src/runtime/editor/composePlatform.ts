@@ -1,5 +1,5 @@
 import type { EditorPlatformRuntime } from '../../types/internal/editor'
-import type { EditorPlatformBridge } from '../../types/public/editor'
+import type { EditorPlatformBridge } from '../../types/editor'
 import {
   createBrowserClipboardPort,
   createClipboardRuntime

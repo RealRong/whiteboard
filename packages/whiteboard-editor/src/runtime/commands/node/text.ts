@@ -1,8 +1,8 @@
-import { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
-import type { NodeId, Size } from '@whiteboard/core/types'
 import {
+  TEXT_DEFAULT_FONT_SIZE,
   TEXT_PLACEHOLDER
-} from '../../../features/node/templates'
+} from '@whiteboard/core/node'
+import type { NodeId, Size } from '@whiteboard/core/types'
 import {
   isTextContentEmpty,
   measureTextNodeSize
@@ -16,7 +16,7 @@ import type {
   EditorNodeAppearanceCommands,
   EditorNodeDocumentCommands,
   EditorNodeTextCommands
-} from '../../../types/public/editor'
+} from '../../../types/editor'
 import {
   dataUpdate,
   mergeNodeUpdates,

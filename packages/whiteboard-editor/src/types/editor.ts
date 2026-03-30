@@ -12,7 +12,7 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { MindmapLayoutConfig } from '../mindmap'
+import type { MindmapLayoutConfig } from './mindmap'
 import type {
   BrushStylePatch,
   DrawSlot
@@ -23,27 +23,23 @@ import type {
   InsertPresetKey,
   Tool
 } from './tool'
-import type { RuntimeRead } from '../../runtime/read'
+import type { RuntimeRead } from '../runtime/read'
 import type {
   ViewportCommands,
   ViewportRead
-} from '../../runtime/viewport'
+} from '../runtime/viewport'
 import type {
   ClipboardPort
-} from '../../runtime/platform/clipboard'
-import type { DocumentSelectionLock } from '../../runtime/platform/selectionLock'
-import type { PointerContinuation } from '../../runtime/platform/pointerContinuation'
-import type { EditField, EditTarget } from '../../runtime/edit'
-import type { ShapeKind } from '../../features/node/shape'
-import type {
-  ContextDismissMode,
-  ContextOpenInput
-} from './context'
-import type { DrawInteraction } from '../../features/draw/interaction'
-import type { EdgeProjection } from '../../features/edge/projection'
-import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
-import type { MarqueeInteraction } from '../../features/selection/marquee'
-import type { SnapRuntime } from '../../runtime/interaction'
+} from '../runtime/platform/clipboard'
+import type { DocumentSelectionLock } from '../runtime/platform/selectionLock'
+import type { PointerContinuation } from '../runtime/platform/pointerContinuation'
+import type { EditField, EditTarget } from '../runtime/edit'
+import type { ShapeKind } from '@whiteboard/core/node'
+import type { DrawInteraction } from '../features/draw/interaction'
+import type { EdgeProjection } from '../features/edge/projection'
+import type { MindmapDragProjectionStore } from '../features/mindmap/drag/projection'
+import type { MarqueeInteraction } from '../features/selection/marquee'
+import type { SnapRuntime } from '../runtime/interaction'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -246,10 +242,6 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
-  context: {
-    open: (input: ContextOpenInput) => boolean
-    dismiss: (mode: ContextDismissMode) => void
-  }
   clipboard: {
     copy: (
       target?: EditorClipboardTarget,

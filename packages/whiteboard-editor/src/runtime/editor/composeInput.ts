@@ -2,19 +2,20 @@ import type { ValueStore } from '@whiteboard/engine'
 import type {
   EditorInputInternals,
   EditorInputPolicy,
-  EditorRuntime
+  EditorViewportRuntime
 } from '../../types/internal/editor'
-import type { Editor } from '../../types/public/editor'
+import type { Editor } from '../../types/editor'
 import {
   createInteractionRegistry,
-  type InteractionCoordinator
+  type InteractionCoordinator,
+  type InteractionRegistration
 } from '../interaction'
 import { createPassiveInputRuntime } from '../input/passive'
 import {
   createInputRouter
 } from '../input/router'
+import type { PassiveInputProcessor } from '../input/passive'
 import type { PointerSnapshotStore } from '../input/pointer/snapshot'
-import type { EditorFeatureCapsule } from '../../types/runtime/editor/capsule'
 
 export const composeInput = ({
   commands,
@@ -24,31 +25,25 @@ export const composeInput = ({
   interaction,
   policy,
   pointer,
-  capsules
+  interactions,
+  passive
 }: {
   commands: Editor['commands']
   read: Editor['read']
   state: Editor['state']
-  viewport: EditorRuntime['viewport']
+  viewport: EditorViewportRuntime
   interaction: InteractionCoordinator
   policy: ValueStore<EditorInputPolicy>
   pointer: PointerSnapshotStore
-  capsules: readonly EditorFeatureCapsule[]
-}): {
-  input: Editor['input']
-  internals: EditorInputInternals
-} => {
-  const interactions = createInteractionRegistry(
-    capsules.flatMap((capsule) => capsule.interactions ?? []),
-    interaction
-  )
-  const passive = createPassiveInputRuntime(
-    capsules.flatMap((capsule) => capsule.passive ?? [])
-  )
-
-  const internals: EditorInputInternals = {
-    interactions,
-    passive,
+  interactions: readonly InteractionRegistration[]
+  passive: readonly PassiveInputProcessor[]
+}): Editor['input'] => {
+  const runtime: EditorInputInternals = {
+    interactions: createInteractionRegistry(
+      interactions,
+      interaction
+    ),
+    passive: createPassiveInputRuntime(passive),
     policy
   }
 
@@ -58,16 +53,11 @@ export const composeInput = ({
       read,
       state,
       viewport,
-      interaction,
-      internals: {
-        input: internals
-      }
+      interaction
     },
+    runtime,
     pointer
   })
 
-  return {
-    input,
-    internals
-  }
+  return input
 }

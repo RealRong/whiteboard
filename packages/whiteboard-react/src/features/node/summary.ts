@@ -1,14 +1,47 @@
+import type { SelectionCapabilities, SelectionReadModel } from '@whiteboard/editor'
+import type { Node, NodeId } from '@whiteboard/core/types'
 import type {
-  SelectionCan as NodeSelectionCan,
-  SelectionNodeSummary as NodeSummary,
-  SelectionNodeTypeSummary as NodeTypeSummary
-} from '@whiteboard/editor/context'
+  ControlId,
+  NodeFamily,
+  NodeMeta,
+  NodeRegistry
+} from '../../types/node'
 
-export type {
-  SelectionCan as NodeSelectionCan,
-  SelectionNodeSummary as NodeSummary,
-  SelectionNodeTypeSummary as NodeTypeSummary
-} from '@whiteboard/editor/context'
+export type NodeTypeSummary = {
+  key: string
+  name: string
+  family: NodeFamily
+  icon: string
+  count: number
+  nodeIds: readonly NodeId[]
+}
+
+export type NodeSummary = {
+  ids: readonly NodeId[]
+  count: number
+  hasGroup: boolean
+  lock: 'none' | 'mixed' | 'all'
+  types: readonly NodeTypeSummary[]
+  mixed: boolean
+}
+
+export type NodeSelectionCan = {
+  fill: boolean
+  stroke: boolean
+  text: boolean
+  group: boolean
+  align: boolean
+  distribute: boolean
+  makeGroup: boolean
+  ungroup: boolean
+  order: boolean
+  filter: boolean
+  lock: boolean
+  copy: boolean
+  cut: boolean
+  duplicate: boolean
+  delete: boolean
+}
 
 type NodeSummaryView = {
   types: readonly NodeTypeSummary[]
@@ -19,6 +52,113 @@ type NodeSummaryView = {
 }
 
 const DEFAULT_PREVIEW_LIMIT = 3
+const EMPTY_CONTROLS: readonly ControlId[] = []
+
+const readNodeMeta = (
+  registry: Pick<NodeRegistry, 'get'>,
+  node: Node
+): NodeMeta => {
+  const definition = registry.get(node.type)
+  const meta = definition?.describe?.(node) ?? definition?.meta
+
+  if (meta) {
+    return meta
+  }
+
+  return {
+    key: node.type,
+    name: node.type,
+    family: 'shape',
+    icon: node.type,
+    controls: EMPTY_CONTROLS
+  }
+}
+
+export const readNodeSelectionCan = (
+  capabilities: SelectionCapabilities
+): NodeSelectionCan => ({
+  fill: capabilities.fill,
+  stroke: capabilities.stroke,
+  text: capabilities.text,
+  group: capabilities.group,
+  align: capabilities.align,
+  distribute: capabilities.distribute,
+  makeGroup: capabilities.makeGroup,
+  ungroup: capabilities.ungroup,
+  order: capabilities.order,
+  filter: capabilities.filterByType,
+  lock: capabilities.lock,
+  copy: capabilities.copy,
+  cut: capabilities.cut,
+  duplicate: capabilities.duplicate,
+  delete: capabilities.delete
+})
+
+export const readNodeSummary = ({
+  selection,
+  registry
+}: {
+  selection: SelectionReadModel
+  registry: Pick<NodeRegistry, 'get'>
+}): NodeSummary => {
+  const nodes = selection.summary.items.nodes
+  const ids = selection.target.nodeIds
+  const count = ids.length
+  const hasGroup = nodes.some((node) => node.type === 'group')
+  const lockedCount = nodes.reduce(
+    (total, node) => total + (node.locked ? 1 : 0),
+    0
+  )
+  const nodeById = new Map<NodeId, Node>()
+  nodes.forEach((node) => {
+    nodeById.set(node.id, node)
+  })
+
+  const types = selection.types.map((entry) => {
+    const node = nodeById.get(entry.nodeIds[0] as NodeId)
+    const meta = node
+      ? readNodeMeta(registry, node)
+      : {
+          key: entry.type,
+          name: entry.type,
+          family: 'shape' as const,
+          icon: entry.type
+        }
+
+    return {
+      key: meta.key ?? entry.type,
+      name: meta.name,
+      family: meta.family,
+      icon: meta.icon,
+      count: entry.count,
+      nodeIds: entry.nodeIds
+    }
+  })
+
+  return {
+    ids,
+    count,
+    hasGroup,
+    lock:
+      count === 0
+        ? 'none'
+        : lockedCount === count
+          ? 'all'
+          : lockedCount === 0
+            ? 'none'
+            : 'mixed',
+    types,
+    mixed: types.length > 1
+  }
+}
+
+export const readNodeLockLabel = (
+  summary: NodeSummary
+) => (
+  summary.lock === 'all'
+    ? (summary.count > 1 ? 'Unlock selected' : 'Unlock')
+    : (summary.count > 1 ? 'Lock selected' : 'Lock')
+)
 
 export const readNodeSummaryTitle = (
   summary: NodeSummary

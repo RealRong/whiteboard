@@ -1,20 +1,18 @@
+import {
+  createFrameNodeInput,
+  createShapeNodeInput,
+  createStickyNodeInput,
+  createTextNodeInput,
+  SHAPE_SPECS,
+  isShapeKind,
+  type ShapeKind
+} from '@whiteboard/core/node'
 import type {
   MindmapNodeData,
   Point,
   SpatialNodeInput
 } from '@whiteboard/core/types'
 import type { EditField } from '../../runtime/edit'
-import {
-  SHAPE_SPECS,
-  isShapeKind,
-  createShapeNodeInput,
-  type ShapeKind
-} from '../node/shape'
-import {
-  createFrameNodeInput,
-  createStickyNodeInput,
-  createTextNodeInput
-} from '../node/templates'
 
 export type InsertPresetGroup =
   | 'text'

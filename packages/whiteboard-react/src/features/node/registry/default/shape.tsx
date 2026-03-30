@@ -1,4 +1,9 @@
 import {
+  readShapeKind,
+  readShapeMeta,
+  readShapeSpec
+} from '@whiteboard/core/node'
+import {
   useEffect,
   useRef,
   useState,
@@ -11,10 +16,7 @@ import {
   useEditor
 } from '../../../../runtime/hooks'
 import {
-  ShapeGlyph,
-  readShapeKind,
-  readShapeMeta,
-  readShapeSpec
+  ShapeGlyph
 } from '../../shape'
 import {
   focusEditableEnd,

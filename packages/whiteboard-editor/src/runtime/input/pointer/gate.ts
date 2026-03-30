@@ -2,7 +2,7 @@ import {
   resolveFrameGateDecision,
   type FrameScope
 } from '@whiteboard/core/document'
-import type { Editor } from '../../../types/public/editor'
+import type { Editor } from '../../../types/editor'
 import type { PointerPick } from '../../pick'
 
 const toFrameGateSubject = (
