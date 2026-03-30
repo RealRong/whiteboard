@@ -1,25 +1,6 @@
 import {
-  resolveAnchorFromPoint
-} from '@whiteboard/core/edge'
-import { getNodeAnchorPoint } from '@whiteboard/core/node'
-import type {
-  EdgeAnchor,
-  EdgeId,
-  EdgeType,
-  NodeId
-} from '@whiteboard/core/types'
-import type { EditorRuntime } from '../../../types/internal/editor'
-import {
-  createInteractionSessionSlot,
-  type SnapRuntime
-} from '../../../runtime/interaction'
-import type {
-  PointerDown
-} from '../../../runtime/input/pointer'
-import { readEdgeType } from '../../../runtime/tool'
-import type { ViewportPointer } from '../../../runtime/viewport'
-import {
   DEFAULT_EDGE_ANCHOR_OFFSET,
+  resolveAnchorFromPoint,
   resolveReconnectDraftEnd,
   setEdgeConnectTarget,
   startEdgeCreate,
@@ -29,30 +10,51 @@ import {
   toEdgeConnectPatch,
   toEdgeDraftEnd,
   type EdgeConnectState
-} from '../connect'
+} from '@whiteboard/core/edge'
+import { getNodeAnchorPoint } from '@whiteboard/core/node'
+import type {
+  EdgeAnchor,
+  EdgeId,
+  EdgeType,
+  NodeId
+} from '@whiteboard/core/types'
+import type { EditorRuntime } from '../../../types/internal/editor'
+import type {
+  InteractionPointerInput,
+  InteractionRegistration
+} from '../../../runtime/interaction'
+import type { PointerDown } from '../../../runtime/input/pointer'
+import { readEdgeType } from '../../../runtime/tool'
 import {
+  clearEdgeProjectionPatch,
+  writeEdgeProjectionHint,
   writeEdgeProjectionPatch,
   type EdgeProjection
 } from '../projection'
+import type { SnapRuntime } from '../../../runtime/interaction'
 
-type ConnectPointer = ViewportPointer & {
+type ConnectPointer = {
   pointerId: number
+  world: PointerDown['point']['world']
 }
 
 export type EdgeConnectInteraction = {
-  startCreate: (input: PointerDown) => boolean
-  startReconnect: (input: PointerDown) => boolean
-  cancel: () => void
+  create: InteractionRegistration<EdgeConnectState>
+  reconnect: InteractionRegistration<EdgeConnectState>
+  clear: () => void
 }
 
 type EdgeConnectInteractionDeps = Pick<
   EditorRuntime,
-  'commands' | 'config' | 'interaction' | 'read' | 'viewport'
+  'commands' | 'config' | 'read' | 'viewport'
 > & {
   internals: {
     projections: {
       overlay: {
-        edge: Pick<EdgeProjection, 'patch' | 'hint' | 'clear'>
+        edge: Pick<
+          EdgeProjection,
+          'clear' | 'clearPatch' | 'writeHint' | 'writeEntries'
+        >
       }
     }
     snap: Pick<SnapRuntime, 'edge'>
@@ -63,43 +65,29 @@ type ConnectNodeEntry = NonNullable<
   ReturnType<EdgeConnectInteractionDeps['read']['index']['node']['get']>
 >
 
-const readCaptureTarget = (
-  event: Pick<PointerEvent, 'currentTarget' | 'target'>
-): Element | null => (
-  event.currentTarget instanceof Element
-    ? event.currentTarget
-    : event.target instanceof Element
-      ? event.target
-      : null
-)
+const syncState = (
+  state: EdgeConnectState,
+  next: EdgeConnectState
+) => {
+  Object.assign(state, next)
+}
 
 export const createEdgeConnectInteraction = (
   editor: EdgeConnectInteractionDeps
 ): EdgeConnectInteraction => {
-  const interaction = createInteractionSessionSlot<EdgeConnectState>({
-    interaction: editor.interaction,
-    cleanup: () => {
-      editor.internals.projections.overlay.edge.clear()
-    }
-  })
-
-  const readActive = () => interaction.getActive()
-
-  const writeActive = (
-    next: EdgeConnectState | null
-  ) => {
-    interaction.setActive(next)
+  const clear = () => {
+    editor.internals.projections.overlay.edge.clear()
   }
 
   const readPointer = (
-    event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
+    input: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
   ): ConnectPointer => ({
-    pointerId: event.pointerId,
-    ...editor.viewport.pointer(event)
+    pointerId: input.pointerId,
+    world: editor.viewport.pointer(input).world
   })
 
   const clearPatch = () => {
-    editor.internals.projections.overlay.edge.patch.clear()
+    clearEdgeProjectionPatch(editor.internals.projections.overlay.edge)
   }
 
   const readConnectNode = (
@@ -244,7 +232,10 @@ export const createEdgeConnectInteraction = (
   }
 
   const writeStateHint = (state: EdgeConnectState) => {
-    editor.internals.projections.overlay.edge.hint.set(toEdgeConnectHint(state))
+    writeEdgeProjectionHint(
+      editor.internals.projections.overlay.edge,
+      toEdgeConnectHint(state)
+    )
   }
 
   const writeStatePatch = (state: EdgeConnectState) => {
@@ -271,120 +262,153 @@ export const createEdgeConnectInteraction = (
     writeStatePatch(state)
   }
 
-  const updateActive = (pointer: ConnectPointer) => {
-    const active = readActive()
-    if (!active) {
-      return false
-    }
-
-    const next = updateConnectState(active, pointer)
+  const updateActive = (
+    state: EdgeConnectState,
+    input: InteractionPointerInput
+  ) => {
+    const next = updateConnectState(state, {
+      pointerId: input.pointerId,
+      world: input.world
+    })
     if (!next) {
       return false
     }
 
-    writeActive(next)
-    writeStatePreview(next)
+    syncState(state, next)
+    writeStatePreview(state)
     return true
   }
 
-  const startConnectSession = (
-    event: PointerEvent,
+  const updateActivePointer = (
     state: EdgeConnectState,
-    capture?: Element | null
+    pointer: {
+      clientX: number
+      clientY: number
+    }
   ) => {
-    const nextSession = interaction.start({
-      mode: 'edge-connect',
-      pointerId: event.pointerId,
-      capture: capture ?? readCaptureTarget(event),
-      pan: {
-        frame: (pointer) => {
-          const active = readActive()
-          if (!active) {
-            return
-          }
-
-          updateActive(readPointer({
-            pointerId: active.pointerId,
-            ...pointer
-          }))
-        }
-      },
-      move: (moveEvent, interactionSession) => {
-        if (!updateActive(readPointer(moveEvent))) {
-          return
-        }
-
-        interactionSession.pan(moveEvent)
-      },
-      up: (_upEvent, interactionSession) => {
-        const active = readActive()
-        if (!active) {
-          return
-        }
-
-        commitConnectState(active)
-        interactionSession.finish()
-      }
+    const point = editor.viewport.pointer(pointer)
+    const next = updateConnectState(state, {
+      pointerId: state.pointerId,
+      world: point.world
     })
-    if (!nextSession) {
+    if (!next) {
       return false
     }
 
-    writeActive(state)
+    syncState(state, next)
     writeStatePreview(state)
-
-    event.preventDefault()
-    event.stopPropagation()
     return true
   }
 
-  return {
-    startCreate: (input) => {
-      if (interaction.hasActive()) {
-        return false
+  const create: InteractionRegistration<EdgeConnectState> = {
+    key: 'edge.create',
+    priority: 500,
+    mode: 'edge-connect',
+    pan: (state) => ({
+      frame: (pointer) => {
+        updateActivePointer(state, pointer)
       }
-
+    }),
+    can: (input) => {
       if (input.tool.type !== 'edge') {
-        return false
+        return null
       }
 
-      const edgeType = readEdgeType(input.tool.preset)
-      const state = readCreateState(
-        input,
-        readPointer(input.event),
-        edgeType
-      )
-
-      return startConnectSession(input.event, state, input.capture)
-    },
-    startReconnect: (input) => {
-      if (interaction.hasActive()) {
-        return false
-      }
+      const canStartFromNodeHandle =
+        input.pick.kind === 'node'
+        && input.pick.part === 'connect'
+        && Boolean(input.pick.side)
 
       if (
-        input.pick.kind !== 'edge'
+        !canStartFromNodeHandle
+        && (input.editable || input.ignoreInput || input.ignoreSelection)
+      ) {
+        return null
+      }
+
+      return readCreateState(
+        input,
+        readPointer(input.event),
+        readEdgeType(input.tool.preset)
+      )
+    },
+    start: ({ input, state }) => {
+      writeStatePreview(state)
+      input.event.preventDefault()
+      input.event.stopPropagation()
+    },
+    move: ({ state, session }, input) => {
+      if (!updateActive(state, input)) {
+        return
+      }
+
+      session.pan(input.raw)
+    },
+    up: ({ state, session }) => {
+      commitConnectState(state)
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
+    }
+  }
+
+  const reconnect: InteractionRegistration<EdgeConnectState> = {
+    key: 'edge.reconnect',
+    priority: 390,
+    mode: 'edge-connect',
+    pan: (state) => ({
+      frame: (pointer) => {
+        updateActivePointer(state, pointer)
+      }
+    }),
+    can: (input) => {
+      if (
+        input.tool.type !== 'select'
+        || input.pick.kind !== 'edge'
         || input.pick.part !== 'end'
         || !input.pick.end
       ) {
-        return false
+        return null
       }
 
-      const edgeId = input.pick.id
-      const end = input.pick.end
-      const state = readReconnectState(edgeId, end, readPointer(input.event))
-      if (!state) {
-        return false
+      return readReconnectState(
+        input.pick.id,
+        input.pick.end,
+        readPointer(input.event)
+      ) ?? null
+    },
+    start: ({ input, state }) => {
+      if (state.kind !== 'reconnect') {
+        return
       }
 
       editor.commands.selection.replace({
-        edgeIds: [edgeId]
+        edgeIds: [state.edgeId]
       })
-
-      return startConnectSession(input.event, state, input.capture)
+      writeStatePreview(state)
+      input.event.preventDefault()
+      input.event.stopPropagation()
     },
-    cancel: () => {
-      interaction.cancel()
+    move: ({ state, session }, input) => {
+      if (!updateActive(state, input)) {
+        return
+      }
+
+      session.pan(input.raw)
+    },
+    up: ({ state, session }) => {
+      commitConnectState(state)
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
     }
+  }
+
+  return {
+    create,
+    reconnect,
+    clear
   }
 }

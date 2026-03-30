@@ -18,11 +18,10 @@ import {
   type VerticalResizeEdge
 } from '@whiteboard/core/node'
 import {
-  createStagedValueStore,
   type ReadStore
 } from '@whiteboard/engine'
 import type { Point, Rect, Size } from '@whiteboard/core/types'
-import { createRafTask, type RafTask } from '../utils/rafTask'
+import { createRafValueStore } from '../utils/rafStore'
 
 const EMPTY_GUIDES: readonly Guide[] = []
 const DEFAULT_MIN_SIZE: Size = {
@@ -100,12 +99,7 @@ const createNodeSnapRuntime = ({
   readZoom: () => number
   query: (rect: Rect) => readonly SnapCandidate[]
 }): NodeSnapRuntime => {
-  let task!: RafTask
-  const schedule = () => {
-    task.schedule()
-  }
-  const guides = createStagedValueStore({
-    schedule,
+  const guides = createRafValueStore({
     initial: EMPTY_GUIDES,
     isEqual: (left, right) => left === right
   })
@@ -115,7 +109,6 @@ const createNodeSnapRuntime = ({
   }
 
   const clear = () => {
-    task.cancel()
     guides.clear()
   }
 
@@ -123,10 +116,6 @@ const createNodeSnapRuntime = ({
     config,
     readZoom()
   )
-
-  task = createRafTask(() => {
-    guides.flush()
-  }, { fallback: 'microtask' })
 
   return {
     guides: {

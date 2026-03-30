@@ -2,6 +2,7 @@ import type { FrameScope } from '@whiteboard/core/document'
 import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
+import { resolveNodeTransform } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/public/draw'
 import type { NodeProjectionRuntime } from '../../features/node/projection/store'
@@ -15,7 +16,6 @@ import {
   createNodeRead,
   createNodeInteractionRead,
   createNodeItemRead,
-  resolveNodeTransform,
   type NodeRead
 } from './node'
 import { createBoundsRead } from './bounds'

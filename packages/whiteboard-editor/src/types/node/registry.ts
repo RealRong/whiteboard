@@ -1,10 +1,10 @@
+import type { NodeRole } from '@whiteboard/core/node'
 import type {
   Node,
   NodeSchema,
   NodeType
 } from '@whiteboard/core/types'
 
-export type NodeRole = 'content' | 'frame' | 'group'
 export type NodeHit = 'box' | 'path'
 export type NodeFamily = 'text' | 'shape' | 'container' | 'draw'
 export type ControlId = 'fill' | 'stroke' | 'text' | 'group'

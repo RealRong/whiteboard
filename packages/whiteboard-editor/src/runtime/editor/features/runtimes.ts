@@ -1,24 +1,24 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { InteractionDriver } from '../../interaction'
+import type { InteractionRegistration } from '../../interaction'
 import type { PassiveInputProcessor } from '../../input/passive'
-import { createDrawInputRuntime } from '../../../features/draw/input'
+import { createDrawInteraction } from '../../../features/draw/interaction'
 import { createEdgeHoverProcessor } from '../../../features/edge/hoverProcessor'
-import { createEdgeInputRuntime } from '../../../features/edge/input'
+import { createEdgeEditInteraction } from '../../../features/edge/edit/interaction'
 import type { EdgeProjection } from '../../../features/edge/projection'
 import { createEdgeConnectInteraction } from '../../../features/edge/connect/interaction'
 import { createMindmapDragInteraction } from '../../../features/mindmap/drag/interaction'
 import type { MindmapDragProjectionStore } from '../../../features/mindmap/drag/projection'
 import { createNodeTransformInteraction } from '../../../features/node/transform/interaction'
 import type { NodeProjectionRuntime } from '../../../features/node/projection/store'
-import { createSelectionPressRuntime } from '../../../features/selection/gesture'
-import { createMarqueeSession } from '../../../features/selection/marquee'
-import type { DrawInputRuntime } from '../../../features/draw/input'
-import type { EdgeInputRuntime } from '../../../features/edge/input'
+import { createSelectionPressInteraction } from '../../../features/selection/interaction'
+import { createMarqueeInteraction } from '../../../features/selection/marquee'
+import type { DrawInteraction } from '../../../features/draw/interaction'
+import type { EdgeEditInteraction } from '../../../features/edge/edit/interaction'
 import type { EdgeConnectInteraction } from '../../../features/edge/connect/interaction'
 import type { MindmapDragInteraction } from '../../../features/mindmap/drag/interaction'
 import type { NodeTransformInteraction } from '../../../features/node/transform/interaction'
-import type { SelectionPressRuntime } from '../../../features/selection/gesture'
-import type { MarqueeSession } from '../../../features/selection/marquee'
+import type { SelectionPressInteraction } from '../../../features/selection/interaction'
+import type { MarqueeInteraction } from '../../../features/selection/marquee'
 import type {
   DrawFeatureState,
   EditorKernel,
@@ -30,19 +30,8 @@ import {
   type ContextMenuView
 } from '../../context'
 import type { ContextRuntime } from '../../../types/public/context'
-import {
-  createDrawEraseDriver,
-  createDrawStrokeDriver,
-  createEdgeBodyDriver,
-  createEdgeCreateDriver,
-  createEdgeReconnectDriver,
-  createEdgeRouteDriver,
-  createInsertPresetDriver,
-  createMindmapDragDriver,
-  createNodeTransformDriver,
-  createSelectionPressDriver
-} from '../../input/drivers'
-import { createViewportPanDriver } from '../../../features/viewport/panDriver'
+import { createInsertPresetInteraction } from '../../../features/toolbox/insert'
+import { createViewportPanInteraction } from '../../../features/viewport/interaction'
 
 export type FeatureCompositionInput = {
   kernel: EditorKernel
@@ -58,26 +47,17 @@ export type FeatureCompositionInput = {
 }
 
 export type EditorFeatureRuntimes = {
-  marquee: MarqueeSession
-  drawInput: DrawInputRuntime
+  marquee: MarqueeInteraction
+  draw: DrawInteraction
   transform: NodeTransformInteraction
   edgeConnect: EdgeConnectInteraction
-  edgeInput: EdgeInputRuntime
+  edgeEdit: EdgeEditInteraction
   mindmapDrag: MindmapDragInteraction
-  selectionPress: SelectionPressRuntime
+  selectionPress: SelectionPressInteraction
   context: ContextRuntime
-  viewportPanDriver: InteractionDriver
-  insertPresetDriver: InteractionDriver
-  drawEraseDriver: InteractionDriver
-  drawStrokeDriver: InteractionDriver
-  nodeTransformDriver: InteractionDriver
-  selectionPressDriver: InteractionDriver
-  edgeCreateDriver: InteractionDriver
-  edgeReconnectDriver: InteractionDriver
-  edgeRouteDriver: InteractionDriver
-  edgeBodyDriver: InteractionDriver
+  viewportPan: InteractionRegistration
+  insertPreset: InteractionRegistration
   edgeHover: PassiveInputProcessor
-  mindmapDragDriver: InteractionDriver
 }
 
 export const createFeatureRuntimes = ({
@@ -86,7 +66,7 @@ export const createFeatureRuntimes = ({
   state,
   commands,
   viewport,
-  draw,
+  draw: drawState,
   nodeProjection,
   edgeProjection,
   mindmapDragProjection,
@@ -95,20 +75,17 @@ export const createFeatureRuntimes = ({
   const runtimeDeps = {
     commands,
     config: kernel.document.engine.config,
-    interaction: kernel.interaction,
     read,
     state,
     viewport
   }
 
-  const marquee = createMarqueeSession({
-    interaction: kernel.interaction,
+  const marquee = createMarqueeInteraction({
     read,
     viewport
   })
-  const drawInput = createDrawInputRuntime({
+  const draw = createDrawInteraction({
     commands,
-    interaction: kernel.interaction,
     read,
     viewport,
     internals: {
@@ -121,7 +98,6 @@ export const createFeatureRuntimes = ({
   })
   const transform = createNodeTransformInteraction({
     commands,
-    interaction: kernel.interaction,
     read,
     viewport,
     internals: {
@@ -144,7 +120,7 @@ export const createFeatureRuntimes = ({
       snap: kernel.spatial.snap
     }
   })
-  const edgeInput = createEdgeInputRuntime(
+  const edgeEdit = createEdgeEditInteraction(
     {
       ...runtimeDeps,
       internals: {
@@ -168,9 +144,10 @@ export const createFeatureRuntimes = ({
       }
     }
   })
-  const selectionPress = createSelectionPressRuntime(
+  const selectionPress = createSelectionPressInteraction(
     {
       ...runtimeDeps,
+      interaction: kernel.interaction,
       internals: {
         projections: {
           model: {
@@ -198,31 +175,23 @@ export const createFeatureRuntimes = ({
 
   return {
     marquee,
-    drawInput,
+    draw,
     transform,
     edgeConnect,
-    edgeInput,
+    edgeEdit,
     mindmapDrag,
     selectionPress,
     context,
-    viewportPanDriver: createViewportPanDriver({
+    viewportPan: createViewportPanInteraction({
       interaction: kernel.interaction,
       read,
       viewport,
       policy: kernel.config.inputPolicy
     }),
-    insertPresetDriver: createInsertPresetDriver({
+    insertPreset: createInsertPresetInteraction({
       commands,
       read
     }),
-    drawEraseDriver: createDrawEraseDriver(drawInput),
-    drawStrokeDriver: createDrawStrokeDriver(drawInput),
-    nodeTransformDriver: createNodeTransformDriver(transform),
-    selectionPressDriver: createSelectionPressDriver(selectionPress),
-    edgeCreateDriver: createEdgeCreateDriver(edgeConnect),
-    edgeReconnectDriver: createEdgeReconnectDriver(edgeConnect),
-    edgeRouteDriver: createEdgeRouteDriver(edgeInput),
-    edgeBodyDriver: createEdgeBodyDriver(edgeInput),
     edgeHover: createEdgeHoverProcessor({
       interaction: kernel.interaction,
       internals: {
@@ -233,7 +202,6 @@ export const createFeatureRuntimes = ({
         },
         snap: kernel.spatial.snap
       }
-    }),
-    mindmapDragDriver: createMindmapDragDriver(mindmapDrag)
+    })
   }
 }

@@ -4,6 +4,7 @@ import {
   type SelectionSummary,
   type SelectionTarget
 } from '@whiteboard/core/selection'
+import { resolveNodeRole, resolveNodeTransform } from '@whiteboard/core/node'
 import {
   createDerivedStore,
   type KeyedReadStore,
@@ -14,10 +15,6 @@ import type { EdgeItem, NodeItem } from '@whiteboard/engine'
 import type { Edge, EdgeId, Node, NodeId, Rect } from '@whiteboard/core/types'
 import type { TargetBoundsInput } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
-import {
-  resolveNodeRole,
-  resolveNodeTransform
-} from './node'
 
 export type SelectionRead = ReadStore<SelectionSummary>
 

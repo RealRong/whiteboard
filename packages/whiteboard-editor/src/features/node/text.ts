@@ -1,14 +1,30 @@
-import { TEXT_DEFAULT_FONT_SIZE } from '@whiteboard/core/node'
+import {
+  isTextContentEmpty,
+  isTextNode,
+  readTextWidthMode,
+  setTextWidthMode,
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_DEFAULT_FONT_SIZE,
+  TEXT_MIN_WIDTH,
+  type TextWidthMode
+} from '@whiteboard/core/node'
 import type { Node } from '@whiteboard/core/types'
 
-export type TextWidthMode = 'auto' | 'fixed'
+export {
+  isTextContentEmpty,
+  isTextNode,
+  readTextWidthMode,
+  setTextWidthMode,
+  TEXT_AUTO_MAX_WIDTH,
+  TEXT_MIN_WIDTH,
+  type TextWidthMode
+} from '@whiteboard/core/node'
 
 export type TextMeasureSize = {
   width: number
   height: number
 }
 
-const TEXT_WIDTH_MODE_KEY = 'widthMode'
 const TEXT_DEFAULT_LINE_HEIGHT_RATIO = 1.4
 const EMPTY_LINE = '\u00A0'
 
@@ -19,33 +35,6 @@ type TextMeasureElements = {
 }
 
 let textMeasureElements: TextMeasureElements | null = null
-
-export const TEXT_MIN_WIDTH = 24
-export const TEXT_AUTO_MAX_WIDTH = 360
-
-export const isTextNode = (
-  node: Pick<Node, 'type' | 'data'>
-): node is Pick<Node, 'type' | 'data'> & { type: 'text' } => node.type === 'text'
-
-export const readTextWidthMode = (
-  node: Pick<Node, 'type' | 'data'>
-): TextWidthMode => (
-  isTextNode(node) && node.data?.[TEXT_WIDTH_MODE_KEY] === 'fixed'
-    ? 'fixed'
-    : 'auto'
-)
-
-export const setTextWidthMode = (
-  node: Pick<Node, 'data'>,
-  mode: TextWidthMode
-) => ({
-  ...(node.data ?? {}),
-  [TEXT_WIDTH_MODE_KEY]: mode
-})
-
-export const isTextContentEmpty = (
-  value: string
-) => value.trim().length === 0
 
 const readPx = (
   value: string,

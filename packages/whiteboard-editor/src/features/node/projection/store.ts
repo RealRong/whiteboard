@@ -1,26 +1,18 @@
 import {
-  createStagedKeyedStore,
   type StagedKeyedStore
 } from '@whiteboard/engine'
-import type { NodeItem } from '@whiteboard/engine'
-import type { NodeId, Point, Rect } from '@whiteboard/core/types'
-import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
+import type {
+  NodeProjectionPatch as CoreNodeProjectionPatch,
+  TransformPreviewPatch
+} from '@whiteboard/core/node'
+import type { NodeId } from '@whiteboard/core/types'
+import { createRafKeyedStore } from '../../../runtime/utils/rafStore'
 
 type NodeProjectionMap = ReadonlyMap<NodeId, NodeProjection>
 
-export type NodePatch = {
-  position?: Point
-  size?: {
-    width: number
-    height: number
-  }
-  rotation?: number
-}
+export type NodePatch = CoreNodeProjectionPatch
 
-type NodeProjectionWritePatch =
-  NodePatch & {
-    id: NodeId
-  }
+type NodeProjectionWritePatch = TransformPreviewPatch
 
 type NodeProjectionPreviewWrite = {
   patches: readonly NodeProjectionWritePatch[]
@@ -61,6 +53,8 @@ export type NodeProjectionReader =
 
 export type NodeProjectionRuntime = {
   store: NodeProjectionStore
+  get: (nodeId: NodeId) => NodeProjection
+  flush: () => void
   patch: NodeProjectionPatchRuntime
   preview: NodeProjectionPreviewRuntime
   hidden: NodeProjectionHiddenRuntime
@@ -150,9 +144,7 @@ const toNodeProjectionWrite = (
 }
 
 export const createNodeProjectionStore = (
-  schedule: () => void
-) => createStagedKeyedStore({
-  schedule,
+): NodeProjectionStore => createRafKeyedStore({
   emptyState: EMPTY_NODE_MAP,
   emptyValue: EMPTY_NODE_PROJECTION,
   build: toNodeProjectionMap,
@@ -164,24 +156,12 @@ export const createNodeProjectionStore = (
 })
 
 export const createNodeProjectionRuntime = (): NodeProjectionRuntime => {
-  const flushAll: Array<() => void> = []
-  let task!: RafTask
-  const schedule = () => {
-    task.schedule()
-  }
-
-  const store = createNodeProjectionStore(schedule)
-
-  flushAll.push(store.flush)
-
-  task = createRafTask(() => {
-    flushAll.forEach((flush) => {
-      flush()
-    })
-  }, { fallback: 'microtask' })
+  const store = createNodeProjectionStore()
 
   return {
     store,
+    get: store.get,
+    flush: store.flush,
     patch: {
       write: (nodeId, patch) => {
         writeNodeProjectionPatch(store, nodeId, patch)
@@ -207,7 +187,6 @@ export const createNodeProjectionRuntime = (): NodeProjectionRuntime => {
       }
     },
     clear: () => {
-      task.cancel()
       store.clear()
     }
   }
@@ -343,73 +322,4 @@ export const clearNodeProjectionHidden = (
   store: NodeProjectionStore
 ) => {
   writeNodeProjectionHidden(store, [])
-}
-
-const applyRectPatch = (
-  rect: Rect,
-  patch: NodePatch | undefined
-): Rect => {
-  if (!patch?.position && !patch?.size) {
-    return rect
-  }
-
-  return {
-    x: patch.position?.x ?? rect.x,
-    y: patch.position?.y ?? rect.y,
-    width: patch.size?.width ?? rect.width,
-    height: patch.size?.height ?? rect.height
-  }
-}
-
-const applyNodePatch = (
-  node: NodeItem['node'],
-  patch: NodePatch | undefined
-): NodeItem['node'] => {
-  if (!patch || node.type === 'group') {
-    return node
-  }
-
-  const position = patch.position ?? node.position
-  const size = patch.size ?? node.size
-  const rotation =
-    typeof patch.rotation === 'number'
-      ? patch.rotation
-      : node.rotation
-
-  if (
-    position === node.position
-    && size === node.size
-    && rotation === node.rotation
-  ) {
-    return node
-  }
-
-  return {
-    ...node,
-    position,
-    size,
-    rotation
-  }
-}
-
-export const projectNodeItem = (
-  item: NodeItem,
-  projection: NodeProjection
-): NodeItem => {
-  const patch = projection.patch
-  if (!patch) {
-    return item
-  }
-
-  const node = applyNodePatch(item.node, patch)
-  const rect = applyRectPatch(item.rect, patch)
-
-  if (node === item.node && rect === item.rect) {
-    return item
-  }
-
-  return {
-    node,
-    rect
-  }
 }

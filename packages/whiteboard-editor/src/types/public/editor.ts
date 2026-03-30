@@ -39,10 +39,10 @@ import type {
   ContextDismissMode,
   ContextOpenInput
 } from './context'
-import type { DrawInputRuntime } from '../../features/draw/input'
+import type { DrawInteraction } from '../../features/draw/interaction'
 import type { EdgeProjection } from '../../features/edge/projection'
 import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
-import type { MarqueeSession } from '../../features/selection/marquee'
+import type { MarqueeInteraction } from '../../features/selection/marquee'
 import type { SnapRuntime } from '../../runtime/interaction'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
@@ -107,8 +107,8 @@ export type EditorState = {
 }
 
 export type EditorProjection = {
-  marquee: Pick<MarqueeSession, 'rect' | 'match'>
-  draw: Pick<DrawInputRuntime['preview'], 'get' | 'subscribe'>
+  marquee: Pick<MarqueeInteraction, 'rect' | 'match'>
+  draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
   edge: {
     patch: Pick<EdgeProjection['patch'], 'get' | 'subscribe'>
     hint: Pick<EdgeProjection['hint'], 'get' | 'subscribe'>

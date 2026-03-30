@@ -1,5 +1,17 @@
-import type { Node, NodeId, Point, Rect, Size } from '../types'
-import { getRectCenter, rotatePoint } from '../geometry'
+import type {
+  Node,
+  NodeFieldPatch,
+  NodeId,
+  Point,
+  Rect,
+  Size
+} from '../types'
+import {
+  getRectCenter,
+  isPointEqual,
+  isSizeEqual,
+  rotatePoint
+} from '../geometry'
 import {
   getGroupDescendants,
   isContainerNode
@@ -83,6 +95,35 @@ export const getResizeSourceEdges = (
 
 export const rotateVector = (vector: Point, rotation: number) =>
   rotatePoint(vector, { x: 0, y: 0 }, rotation)
+
+export const toTransformCommitPatch = (
+  node: Node,
+  preview: Pick<TransformPreviewPatch, 'position' | 'size' | 'rotation'>
+): NodeFieldPatch | undefined => {
+  const patch: NodeFieldPatch = {}
+  const position = node.type === 'group' ? undefined : node.position
+  const size = node.type === 'group' ? undefined : node.size
+  const rotation = node.type === 'group' ? undefined : node.rotation
+
+  if (preview.position && !isPointEqual(preview.position, position)) {
+    patch.position = preview.position
+  }
+  if (preview.size && !isSizeEqual(preview.size, size)) {
+    patch.size = preview.size
+  }
+  if (
+    typeof preview.rotation === 'number'
+    && preview.rotation !== (rotation ?? 0)
+  ) {
+    patch.rotation = preview.rotation
+  }
+
+  if (!patch.position && !patch.size && patch.rotation === undefined) {
+    return undefined
+  }
+
+  return patch
+}
 
 export const buildTransformHandles = (options: {
   rect: Rect

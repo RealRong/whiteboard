@@ -1,38 +1,25 @@
 import {
-  createStagedKeyedStore,
-  createStagedValueStore,
   type StagedKeyedStore,
   type StagedValueStore
 } from '@whiteboard/engine'
-import { isPointEqual } from '@whiteboard/core/geometry'
-import type { EdgeItem } from '@whiteboard/engine'
+import {
+  EMPTY_EDGE_PROJECTION_PATCH,
+  isEdgeProjectionHintEqual,
+  isEdgeProjectionPatchEqual,
+  toEdgeProjectionPatchEntry,
+  type EdgeProjectionHint,
+  type EdgeProjectionPatch,
+  type EdgeProjectionPatchEntry
+} from '@whiteboard/core/edge'
 import type {
-  EdgeEnd,
   EdgeId,
   EdgePatch as CoreEdgePatch,
   Point
 } from '@whiteboard/core/types'
-import { createRafTask, type RafTask } from '../../runtime/utils/rafTask'
-
-export type EdgeProjectionHint = {
-  line?: {
-    from: Point
-    to: Point
-  }
-  snap?: Point
-}
-
-export type EdgeProjectionPatch = {
-  source?: EdgeItem['edge']['source']
-  target?: EdgeItem['edge']['target']
-  route?: EdgeItem['edge']['route']
-  activeRouteIndex?: number
-}
-
-type EdgeProjectionPatchEntry =
-  EdgeProjectionPatch & {
-    id: EdgeId
-  }
+import {
+  createRafKeyedStore,
+  createRafValueStore
+} from '../../runtime/utils/rafStore'
 
 type EdgeProjectionPatchMap = ReadonlyMap<EdgeId, EdgeProjectionPatch>
 
@@ -53,6 +40,10 @@ export type EdgeProjection = {
   patch: EdgeProjectionPatchStore
   hint: EdgeProjectionHintStore
   emptyPatch: EdgeProjectionPatch
+  writeEntries: (
+    entries: readonly EdgeProjectionPatchEntry[]
+  ) => void
+  clearPatch: () => void
   writePatch: (
     edgeId: EdgeId,
     patch: CoreEdgePatch,
@@ -63,22 +54,14 @@ export type EdgeProjection = {
     points: readonly Point[],
     activeRouteIndex?: number
   ) => void
+  writeHint: (next?: EdgeProjectionHint) => void
+  clearHint: () => void
   clear: () => void
 }
 
 const EMPTY_HINT: EdgeProjectionHint = {}
-export const EMPTY_EDGE_PROJECTION_PATCH: EdgeProjectionPatch = {}
 const EMPTY_PATCH_MAP: EdgeProjectionPatchMap =
   new Map<EdgeId, EdgeProjectionPatch>()
-
-const isHintEqual = (
-  left: EdgeProjectionHint,
-  right: EdgeProjectionHint
-) => (
-  isPointEqual(left.line?.from, right.line?.from)
-  && isPointEqual(left.line?.to, right.line?.to)
-  && isPointEqual(left.snap, right.snap)
-)
 
 const toPatchMap = (
   entries: readonly EdgeProjectionPatchEntry[]
@@ -99,79 +82,10 @@ const toPatchMap = (
   return next
 }
 
-const isEdgeEndPatchEqual = (
-  left: EdgeEnd | undefined,
-  right: EdgeEnd | undefined
-) => {
-  if (left === right) {
-    return true
-  }
-  if (!left || !right) {
-    return left === right
-  }
-  if (left.kind !== right.kind) {
-    return false
-  }
-  if (left.kind === 'point' && right.kind === 'point') {
-    return isPointEqual(left.point, right.point)
-  }
-  if (left.kind === 'node' && right.kind === 'node') {
-    return left.nodeId === right.nodeId
-      && left.anchor?.side === right.anchor?.side
-      && left.anchor?.offset === right.anchor?.offset
-  }
-  return false
-}
-
-const applyPatch = (
-  edge: EdgeItem['edge'],
-  patch: EdgeProjectionPatch
-): EdgeItem['edge'] => {
-  let next = edge
-
-  if (patch.source && patch.source !== next.source) {
-    next = {
-      ...next,
-      source: patch.source
-    }
-  }
-
-  if (patch.target && patch.target !== next.target) {
-    next = {
-      ...next,
-      target: patch.target
-    }
-  }
-
-  if (patch.route && patch.route !== next.route) {
-    next = {
-      ...next,
-      route:
-        patch.route.kind === 'manual'
-          ? {
-              kind: 'manual',
-              points: [...patch.route.points]
-            }
-          : {
-              kind: 'auto'
-            }
-    }
-  }
-
-  return next
-}
-
 export const createEdgeProjection = (): EdgeProjection => {
-  const flushAll: Array<() => void> = []
-  let task!: RafTask
-  const schedule = () => {
-    task.schedule()
-  }
-
-  const hintValue = createStagedValueStore({
-    schedule,
+  const hintValue = createRafValueStore({
     initial: EMPTY_HINT,
-    isEqual: isHintEqual
+    isEqual: isEdgeProjectionHintEqual
   })
   const hint: EdgeProjectionHintStore = {
     get: hintValue.get,
@@ -187,34 +101,30 @@ export const createEdgeProjection = (): EdgeProjection => {
       hintValue.write(next)
     }
   }
-  const patch = createStagedKeyedStore({
-    schedule,
+  const patch = createRafKeyedStore({
     emptyState: EMPTY_PATCH_MAP,
     emptyValue: EMPTY_EDGE_PROJECTION_PATCH,
     build: toPatchMap,
-    isEqual: (left, right) => (
-      isEdgeEndPatchEqual(left.source, right.source)
-      && isEdgeEndPatchEqual(left.target, right.target)
-      && left.route === right.route
-      && left.activeRouteIndex === right.activeRouteIndex
-    )
+    isEqual: isEdgeProjectionPatchEqual
   })
 
-  flushAll.push(hint.flush, patch.flush)
+  const writeEntries: EdgeProjection['writeEntries'] = (
+    entries
+  ) => {
+    patch.write(entries)
+  }
 
-  task = createRafTask(() => {
-    flushAll.forEach((flush) => {
-      flush()
-    })
-  }, { fallback: 'microtask' })
+  const clearPatch: EdgeProjection['clearPatch'] = () => {
+    patch.clear()
+  }
 
   const writePatch: EdgeProjection['writePatch'] = (
     edgeId,
     nextPatch,
     activeRouteIndex
   ) => {
-    patch.write([
-      toEdgeProjectionEntry(edgeId, nextPatch, activeRouteIndex)
+    writeEntries([
+      toEdgeProjectionPatchEntry(edgeId, nextPatch, activeRouteIndex)
     ])
   }
 
@@ -235,45 +145,51 @@ export const createEdgeProjection = (): EdgeProjection => {
     )
   }
 
+  const writeHint: EdgeProjection['writeHint'] = (
+    next
+  ) => {
+    if (!next) {
+      hint.clear()
+      return
+    }
+
+    hint.set(next)
+  }
+
+  const clearHint: EdgeProjection['clearHint'] = () => {
+    hint.clear()
+  }
+
   return {
     patch,
     hint,
     emptyPatch: EMPTY_EDGE_PROJECTION_PATCH,
+    writeEntries,
+    clearPatch,
     writePatch,
     writeRoute,
+    writeHint,
+    clearHint,
     clear: () => {
-      task.cancel()
-      patch.clear()
-      hint.clear()
+      clearPatch()
+      clearHint()
     }
   }
 }
 
-export const toEdgeProjectionEntry = (
-  edgeId: EdgeId,
-  patch: CoreEdgePatch,
-  activeRouteIndex?: number
-): EdgeProjectionPatchEntry => ({
-  id: edgeId,
-  source: patch.source,
-  target: patch.target,
-  route: patch.route,
-  activeRouteIndex
-})
-
 export const writeEdgeProjectionPatch = (
-  projection: Pick<EdgeProjection, 'patch'>,
+  projection: Pick<EdgeProjection, 'writeEntries'>,
   edgeId: EdgeId,
   patch: CoreEdgePatch,
   activeRouteIndex?: number
 ) => {
-  projection.patch.write([
-    toEdgeProjectionEntry(edgeId, patch, activeRouteIndex)
+  projection.writeEntries([
+    toEdgeProjectionPatchEntry(edgeId, patch, activeRouteIndex)
   ])
 }
 
 export const writeEdgeProjectionRoute = (
-  projection: Pick<EdgeProjection, 'patch'>,
+  projection: Pick<EdgeProjection, 'writeEntries'>,
   edgeId: EdgeId,
   points: readonly Point[],
   activeRouteIndex?: number
@@ -291,17 +207,21 @@ export const writeEdgeProjectionRoute = (
   )
 }
 
-export const projectEdgeItem = (
-  item: EdgeItem,
-  patch: EdgeProjectionPatch
-): EdgeItem => {
-  const edge = applyPatch(item.edge, patch)
-  if (edge === item.edge) {
-    return item
-  }
+export const writeEdgeProjectionHint = (
+  projection: Pick<EdgeProjection, 'writeHint'>,
+  next?: EdgeProjectionHint
+) => {
+  projection.writeHint(next)
+}
 
-  return {
-    ...item,
-    edge
-  }
+export const clearEdgeProjectionPatch = (
+  projection: Pick<EdgeProjection, 'clearPatch'>
+) => {
+  projection.clearPatch()
+}
+
+export const clearEdgeProjectionHint = (
+  projection: Pick<EdgeProjection, 'clearHint'>
+) => {
+  projection.clearHint()
 }

@@ -1,7 +1,5 @@
 import {
-  getRectCenter,
-  isPointEqual,
-  isSizeEqual
+  getRectCenter
 } from '@whiteboard/core/geometry'
 import {
   computeNextRotation,
@@ -9,23 +7,21 @@ import {
   getResizeSourceEdges,
   getResizeUpdateRect,
   projectResizePatches,
+  toTransformCommitPatch,
   type ResizeDirection,
   type TransformHandle,
   type TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { SelectionSummary } from '@whiteboard/core/selection'
-import type { Node, NodeFieldPatch, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { PointerDown } from '../../../runtime/input/pointer'
+import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { EditorRuntime } from '../../../types/internal/editor'
-import {
-  createInteractionSessionSlot,
-  type SnapRuntime
+import type { PointerDown } from '../../../runtime/input/pointer'
+import type {
+  InteractionPointerInput,
+  InteractionRegistration
 } from '../../../runtime/interaction'
-import {
-  clearNodeProjectionPreview,
-  writeNodeProjectionPreview,
-  type NodeProjectionRuntime
-} from '../projection/store'
+import type { SnapRuntime } from '../../../runtime/interaction'
+import type { NodeProjectionRuntime } from '../projection/store'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -71,16 +67,6 @@ type ActiveTransform = {
   patches?: readonly TransformPreviewPatch[]
 }
 
-type TransformPointerEvent = Pick<
-  PointerEvent,
-  | 'altKey'
-  | 'clientX'
-  | 'clientY'
-  | 'pointerId'
-  | 'preventDefault'
-  | 'shiftKey'
-  | 'stopPropagation'
->
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const resolveSelectionBoxView = (
@@ -99,18 +85,18 @@ const resolveSelectionBoxView = (
 }
 
 export type NodeTransformInteraction = {
-  cancel: () => void
-  start: (input: PointerDown) => boolean
+  interaction: InteractionRegistration<ActiveTransform>
+  clear: () => void
 }
 
 type NodeTransformInteractionDeps = Pick<
   EditorRuntime,
-  'commands' | 'interaction' | 'read' | 'viewport'
+  'commands' | 'read' | 'viewport'
 > & {
   internals: {
     projections: {
       model: {
-        node: Pick<NodeProjectionRuntime, 'store'>
+        node: Pick<NodeProjectionRuntime, 'preview'>
       }
     }
     snap: Pick<SnapRuntime, 'node'>
@@ -162,58 +148,18 @@ const getResizeStartRect = (
   height: drag.startSize.height
 })
 
-const toPatch = (
-  node: Node,
-  preview: TransformPreviewPatch
-) => {
-  const patch: NodeFieldPatch = {}
-  const position = node.type === 'group' ? undefined : node.position
-  const size = node.type === 'group' ? undefined : node.size
-  const rotation = node.type === 'group' ? undefined : node.rotation
-
-  if (preview.position && !isPointEqual(preview.position, position)) {
-    patch.position = preview.position
-  }
-  if (preview.size && !isSizeEqual(preview.size, size)) {
-    patch.size = preview.size
-  }
-  if (
-    typeof preview.rotation === 'number'
-    && preview.rotation !== (rotation ?? 0)
-  ) {
-    patch.rotation = preview.rotation
-  }
-
-  if (!patch.position && !patch.size && patch.rotation === undefined) {
-    return undefined
-  }
-
-  return patch
-}
-
 export const createNodeTransformInteraction = (
   editor: NodeTransformInteractionDeps
 ): NodeTransformInteraction => {
-  const interaction = createInteractionSessionSlot<ActiveTransform>({
-    interaction: editor.interaction,
-    cleanup: () => {
-      clearNodeProjectionPreview(editor.internals.projections.model.node.store)
-      editor.internals.snap.node.clear()
-    }
-  })
-
-  const readActive = () => interaction.getActive()
-
-  const writeActive = (
-    next: ActiveTransform | null
-  ) => {
-    interaction.setActive(next)
+  const clear = () => {
+    editor.internals.projections.model.node.preview.clear()
+    editor.internals.snap.node.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    writeNodeProjectionPreview(editor.internals.projections.model.node.store, {
+    editor.internals.projections.model.node.preview.write({
       patches
     })
   }
@@ -254,80 +200,77 @@ export const createNodeTransformInteraction = (
   }
 
   const updateResizePreview = (
-    next: ActiveTransform,
+    state: ActiveTransform,
     drag: ResizeDragState,
-    event: PointerEvent
+    input: InteractionPointerInput
   ) => {
     const update = buildResizeUpdate({
       drag,
-      currentScreen: {
-        x: event.clientX,
-        y: event.clientY
-      },
+      currentScreen: input.screen,
       zoom: editor.viewport.get().zoom,
-      altKey: event.altKey,
-      shiftKey: event.shiftKey,
-      excludeNodeIds: next.targets.map((target) => target.id)
+      altKey: input.altKey,
+      shiftKey: input.shiftKey,
+      excludeNodeIds: state.targets.map((target) => target.id)
     })
 
-    next.patches = next.targets.length === 1
+    state.patches = state.targets.length === 1
       ? [{
-          id: next.targets[0]!.id,
+          id: state.targets[0]!.id,
           position: update.position,
           size: update.size
         }]
       : projectResizePatches({
           startRect: getResizeStartRect(drag),
           nextRect: getResizeUpdateRect(update),
-          members: next.targets
+          members: state.targets
         })
 
-    writePreview(next.patches)
+    writePreview(state.patches)
   }
 
   const updateRotatePreview = (
-    next: ActiveTransform,
+    state: ActiveTransform,
     drag: RotateDragState,
-    event: PointerEvent
+    input: InteractionPointerInput
   ) => {
     editor.internals.snap.node.clear()
     const rotation = computeNextRotation({
       center: drag.center,
-      currentPoint: editor.viewport.pointer(event).world,
+      currentPoint: input.world,
       startAngle: drag.startAngle,
       startRotation: drag.startRotation,
-      shiftKey: event.shiftKey
+      shiftKey: input.shiftKey
     })
-    next.patches = [{
-      id: next.targets[0]!.id,
+    state.patches = [{
+      id: state.targets[0]!.id,
       rotation
     }]
-    writePreview(next.patches)
+    writePreview(state.patches)
   }
 
   const updatePreview = (
-    next: ActiveTransform,
-    event: PointerEvent
+    state: ActiveTransform,
+    input: InteractionPointerInput
   ) => {
-    if (next.drag.mode === 'resize') {
-      updateResizePreview(next, next.drag, event)
+    if (state.drag.mode === 'resize') {
+      updateResizePreview(state, state.drag, input)
       return
     }
 
-    updateRotatePreview(next, next.drag, event)
+    updateRotatePreview(state, state.drag, input)
   }
 
-  const commit = (next: ActiveTransform) => {
-    if (!next.patches?.length) {
+  const commit = (state: ActiveTransform) => {
+    if (!state.patches?.length) {
       return
     }
 
-    const commitTargetIds = next.commitTargetIds
-      ?? new Set(next.targets.map((target) => target.id))
+    const commitTargetIds = state.commitTargetIds
+      ?? new Set(state.targets.map((target) => target.id))
     const targetById = new Map(
-      next.targets.map((target) => [target.id, target] as const)
+      state.targets.map((target) => [target.id, target] as const)
     )
-    const updates = next.patches.flatMap((preview) => {
+    const updates = state.patches.flatMap((preview) => {
       if (!commitTargetIds.has(preview.id)) {
         return []
       }
@@ -337,7 +280,7 @@ export const createNodeTransformInteraction = (
         return []
       }
 
-      const patch = toPatch(target.node, preview)
+      const patch = toTransformCommitPatch(target.node, preview)
       if (!patch) {
         return []
       }
@@ -357,54 +300,14 @@ export const createNodeTransformInteraction = (
     editor.commands.node.document.updateMany(updates)
   }
 
-  const canStart = () => !interaction.hasActive()
-
-  const start = (
-    next: ActiveTransform,
-    event: TransformPointerEvent,
-    capture: Element
-  ) => {
-    const nextSession = interaction.start({
-      mode: 'node-transform',
-      pointerId: event.pointerId,
-      capture,
-      move: (event) => {
-        const active = readActive()
-        if (!active) {
-          return
-        }
-        updatePreview(active, event)
-      },
-      up: (_event, session) => {
-        const active = readActive()
-        if (!active) {
-          return
-        }
-
-        commit(active)
-        session.finish()
-      }
-    })
-    if (!nextSession) {
-      return false
-    }
-
-    writeActive(next)
-    clearNodeProjectionPreview(editor.internals.projections.model.node.store)
-    editor.internals.snap.node.clear()
-    event.preventDefault()
-    event.stopPropagation()
-    return true
-  }
-
   const createNodeActive = (
     nodeId: NodeId,
     handle: TransformPickHandle,
-    event: TransformPointerEvent
+    event: PointerDown['event']
   ): ActiveTransform | undefined => {
     const nodeRect = editor.read.index.node.get(nodeId)
     if (!nodeRect || nodeRect.node.locked) {
-      return
+      return undefined
     }
 
     const transform = editor.read.node.transform(nodeRect.node)
@@ -420,7 +323,7 @@ export const createNodeTransformInteraction = (
 
     if (handle.kind === 'resize') {
       if (!handle.direction || !transform.resize) {
-        return
+        return undefined
       }
       return {
         targets: [target],
@@ -435,7 +338,7 @@ export const createNodeTransformInteraction = (
     }
 
     if (!transform.rotate) {
-      return
+      return undefined
     }
 
     return {
@@ -465,7 +368,7 @@ export const createNodeTransformInteraction = (
 
   const createSelectionActive = (
     handle: TransformPickHandle,
-    event: TransformPointerEvent
+    event: PointerDown['event']
   ): ActiveTransform | undefined => {
     const selection = editor.read.selection.get()
     const selectionBox = resolveSelectionBoxView(selection)
@@ -475,12 +378,12 @@ export const createNodeTransformInteraction = (
       || !handle.direction
       || !selectionBox.canResize
     ) {
-      return
+      return undefined
     }
 
     const scaleTargets = createSelectionScaleTargets(selection.target.nodeIds)
     if (!scaleTargets) {
-      return
+      return undefined
     }
 
     return {
@@ -499,46 +402,45 @@ export const createNodeTransformInteraction = (
     }
   }
 
-  return {
-    cancel: () => {
-      interaction.cancel()
+  const interaction: InteractionRegistration<ActiveTransform> = {
+    key: 'node.transform',
+    priority: 400,
+    mode: 'node-transform',
+    can: (input) => {
+      if (
+        input.tool.type !== 'select'
+        || (input.pick.kind !== 'node' && input.pick.kind !== 'selection-box')
+        || input.pick.part !== 'transform'
+        || !input.pick.handle
+      ) {
+        return null
+      }
+
+      if (input.pick.kind === 'node') {
+        return createNodeActive(input.pick.id, input.pick.handle, input.event) ?? null
+      }
+
+      return createSelectionActive(input.pick.handle, input.event) ?? null
     },
-    start: (
-      input: PointerDown
-    ) => {
-      if (!canStart()) {
-        return false
-      }
-
-      const { event, pick } = input
-
-      if (
-        pick.kind === 'node'
-        && pick.part === 'transform'
-        && pick.handle
-      ) {
-        const next = createNodeActive(pick.id, pick.handle, event)
-        if (!next) {
-          return false
-        }
-
-        return start(next, event, input.capture)
-      }
-
-      if (
-        pick.kind === 'selection-box'
-        && pick.part === 'transform'
-        && pick.handle
-      ) {
-        const next = createSelectionActive(pick.handle, event)
-        if (!next) {
-          return false
-        }
-
-        return start(next, event, input.capture)
-      }
-
-      return false
+    start: ({ input }) => {
+      clear()
+      input.event.preventDefault()
+      input.event.stopPropagation()
+    },
+    move: ({ state }, input) => {
+      updatePreview(state, input)
+    },
+    up: ({ state, session }) => {
+      commit(state)
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
     }
+  }
+
+  return {
+    interaction,
+    clear
   }
 }

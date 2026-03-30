@@ -931,4 +931,41 @@ kernel
 2. 业务计算仍然留在 feature 本地，可读性不会因为抽象而下降
 3. 它是在强化 active interaction session 的边界，而不是重新把 session 和 projection 混回去
 
+projection 这一段最适合落地的，也不是“万能 preview reducer”，而是很薄的 `runtime/utils/rafStore`：
+
+1. `createRafValueStore`
+2. `createRafKeyedStore`
+
+它们只统一：
+
+1. staged store 的 RAF 调度
+2. `clear` 时的 pending 取消
+3. value / keyed store 的公共样板
+
+它们不统一：
+
+1. preview 的业务结构
+2. patch / hint / hidden 的领域合并规则
+3. feature 自己的 projection 语义
+
+这样做的好处是：
+
+1. `draw / edge / node / mindmap / snap` 的 projection 调度样板可以明显减少
+2. projection graph 继续保持“公共骨架 + feature 本地语义”的边界
+3. 不会为了去重把 projection 层重新抽成难懂的中间框架
+
+projection 再往下一层，长期最优还需要一个边界：
+
+1. `projection store` 主要服务 read / subscribe
+2. `feature` 的写侧尽量只依赖 projection runtime 的显式方法
+3. 只有 read 层才应该稳定地知道 `store.get / store.subscribe`
+
+也就是说：
+
+1. `node` 应该写 `preview.write / patch.write / hidden.write`
+2. `edge` 应该写 `writePatch / writeRoute / writeHint / clearPatch / clearHint`
+3. `mindmap drag` 这类 overlay 应该写 `set / clear`
+
+而不是让 feature 到处直连底层 `store`、`patch.write`、`hint.set` 的内部结构。
+
 这才是当前阶段最符合长期最优的 simplification。

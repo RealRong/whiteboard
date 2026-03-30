@@ -3,7 +3,7 @@ import type { ViewportInputRuntime } from '../viewport'
 import type {
   AutoPanOptions,
   AutoPanPointer,
-  InteractionSession
+  RuntimeSession
 } from './types'
 
 type PanVector = Point
@@ -82,7 +82,7 @@ const resolvePanVector = ({
 type AutoPan = Readonly<{
   start: (
     options?: AutoPanOptions,
-    session?: InteractionSession
+    session?: RuntimeSession
   ) => void
   update: (pointer: AutoPanPointer) => void
   stop: () => void

@@ -1,11 +1,11 @@
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { Point } from '@whiteboard/core/types'
 import type { ValueStore } from '@whiteboard/engine'
-import type { DrawInputRuntime } from '../../features/draw/input'
+import type { DrawInteraction } from '../../features/draw/interaction'
 import type { EdgeProjection } from '../../features/edge/projection'
 import type { MindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
 import type { NodeProjectionRuntime } from '../../features/node/projection/store'
-import type { MarqueeSession } from '../../features/selection/marquee'
+import type { MarqueeInteraction } from '../../features/selection/marquee'
 import type { DrawCommands, DrawPreferences } from '../public/draw'
 import type {
   Editor,
@@ -22,8 +22,10 @@ import type {
 import type { DocumentSelectionLock } from '../../runtime/platform/selectionLock'
 import type { PointerContinuation } from '../../runtime/platform/pointerContinuation'
 import type { PickRuntime } from '../../runtime/pick'
-import type { InteractionCoordinator } from '../../runtime/interaction'
-import type { InteractionRegistry } from '../../runtime/interaction/registry'
+import type {
+  InteractionCoordinator,
+  InteractionRegistry
+} from '../../runtime/interaction/types'
 import type { SnapRuntime } from '../../runtime/interaction/snap'
 import type { PassiveInputRuntime } from '../../runtime/input/passive'
 import type { ViewportRuntime } from '../../runtime/viewport'
@@ -84,8 +86,8 @@ export type EditorProjectionGraph = {
     node: NodeProjectionRuntime
   }
   overlay: {
-    marquee: Pick<MarqueeSession, 'rect' | 'match'>
-    draw: Pick<DrawInputRuntime['preview'], 'get' | 'subscribe'>
+    marquee: Pick<MarqueeInteraction, 'rect' | 'match'>
+    draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
     edge: EdgeProjection
     mindmapDrag: MindmapDragProjectionStore
     snap: SnapRuntime['node']['guides']
@@ -126,10 +128,10 @@ export type EditorClipboardRuntime = {
 }
 
 export type {
-  DrawInputRuntime,
+  DrawInteraction,
   EdgeProjection,
   MindmapDragProjectionStore,
   NodeProjectionRuntime,
-  MarqueeSession,
+  MarqueeInteraction,
   EditorPlatformBridge
 }

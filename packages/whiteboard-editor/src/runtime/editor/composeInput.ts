@@ -39,7 +39,8 @@ export const composeInput = ({
   internals: EditorInputInternals
 } => {
   const interactions = createInteractionRegistry(
-    capsules.flatMap((capsule) => capsule.drivers ?? [])
+    capsules.flatMap((capsule) => capsule.interactions ?? []),
+    interaction
   )
   const passive = createPassiveInputRuntime(
     capsules.flatMap((capsule) => capsule.passive ?? [])

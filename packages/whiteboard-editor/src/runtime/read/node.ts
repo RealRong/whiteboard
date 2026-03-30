@@ -1,33 +1,35 @@
 import {
+  applyNodeProjectionPatch,
+  applyNodeProjectionRect,
+  getNodeOutlineBounds,
+  getNodeOutlineRect,
+  resolveNodeConnect,
+  resolveNodeEnter,
+  resolveNodeRole,
+  resolveNodeTransform,
+  type NodeRole,
+  type NodeTransform,
+  type NodeRectHitOptions,
+  type TransformSelectionTargets
+} from '@whiteboard/core/node'
+import {
   createKeyedDerivedStore
 } from '@whiteboard/engine'
 import type {
   KeyedReadStore,
   NodeItem
 } from '@whiteboard/engine'
-import {
-  getNodeOutlineBounds,
-  getNodeOutlineRect,
-  type NodeRectHitOptions,
-  type TransformSelectionTargets
-} from '@whiteboard/core/node'
 import type { Node, NodeId, NodeType, Point, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
-import type { NodeDefinition, NodeRegistry, NodeRole } from '../../types/node'
+import type { NodeDefinition, NodeRegistry } from '../../types/node'
 import {
   getAABBFromPoints,
   getRotatedCorners
 } from '@whiteboard/core/geometry'
 import {
-  projectNodeItem,
   type NodeProjection,
   type NodeProjectionReader
 } from '../../features/node/projection/store'
-
-export type NodeTransform = {
-  resize: boolean
-  rotate: boolean
-}
 
 export type NodeInteraction = {
   hovered: boolean
@@ -36,14 +38,6 @@ export type NodeInteraction = {
   hasResizePreview: boolean
 }
 
-const resolveNodeConnect = (
-  definition?: Pick<NodeDefinition, 'connect'>
-) => definition?.connect ?? true
-
-const resolveNodeEnter = (
-  definition?: Pick<NodeDefinition, 'enter'>
-) => definition?.enter ?? false
-
 const readNodeType = (
   node: Pick<Node, 'type'> | NodeType
 ) => (
@@ -51,20 +45,6 @@ const readNodeType = (
     ? node
     : node.type
 )
-
-export const resolveNodeRole = (
-  definition?: Pick<NodeDefinition, 'role'>
-): NodeRole => definition?.role ?? 'content'
-
-export const resolveNodeTransform = (
-  definition?: Pick<NodeDefinition, 'role' | 'canResize' | 'canRotate'>
-): NodeTransform => ({
-  resize: definition?.canResize ?? true,
-  rotate:
-    typeof definition?.canRotate === 'boolean'
-      ? definition.canRotate
-      : resolveNodeRole(definition) === 'content'
-})
 
 const isNodeItemEqual = (
   left: NodeItem | undefined,
@@ -164,7 +144,19 @@ export const createNodeItemRead = ({
       return undefined
     }
     const projectionValue = readStore(projection, nodeId)
-    return projectNodeItem(item, projectionValue)
+    const patch = projectionValue.patch
+    if (!patch) {
+      return item
+    }
+
+    const node = applyNodeProjectionPatch(item.node, patch)
+    const rect = applyNodeProjectionRect(item.rect, patch)
+    return node === item.node && rect === item.rect
+      ? item
+      : {
+          node,
+          rect
+        }
   },
   isEqual: isNodeItemEqual
 })

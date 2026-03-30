@@ -59,6 +59,7 @@ export const createKernel = ({
   })
   const interaction = createInteractionCoordinator({
     getViewport: () => viewport.input,
+    readPointer: viewport.read.pointer,
     pointerContinuation: platform.pointerContinuation,
     selectionLock: platform.selectionLock
   })

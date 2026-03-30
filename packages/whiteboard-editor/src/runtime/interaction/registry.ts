@@ -1,41 +1,51 @@
 import type { PointerDown } from '../input/pointer'
-import type { InteractionDriver } from './types'
+import type {
+  InteractionCoordinator,
+  InteractionRegistration,
+  InteractionRegistry
+} from './types'
 
 const byPriorityDesc = (
-  left: InteractionDriver,
-  right: InteractionDriver
+  left: InteractionRegistration,
+  right: InteractionRegistration
 ) => (right.priority ?? 0) - (left.priority ?? 0)
 
-export type InteractionRegistry = {
-  start: (input: PointerDown) => boolean
-  cancel: () => void
-}
-
 export const createInteractionRegistry = (
-  drivers: readonly InteractionDriver[]
+  registrations: readonly InteractionRegistration[],
+  interaction: Pick<InteractionCoordinator, 'start'>
 ): InteractionRegistry => {
-  const ordered = [...drivers].sort(byPriorityDesc)
+  const ordered = [...registrations].sort(byPriorityDesc)
 
-  return {
-    start: (input) => {
-      for (let index = 0; index < ordered.length; index += 1) {
-        const driver = ordered[index]!
-        const resolved = driver.resolve(input)
-        if (!resolved) {
-          continue
-        }
-
-        if (driver.start(resolved)) {
-          return true
-        }
+  const start = (
+    input: PointerDown
+  ) => {
+    for (let index = 0; index < ordered.length; index += 1) {
+      const registration = ordered[index]
+      if (!registration?.can) {
+        continue
       }
 
-      return false
-    },
-    cancel: () => {
-      ordered.forEach((driver) => {
-        driver.cancel?.()
+      const state = registration.can(input)
+      if (state === null) {
+        continue
+      }
+
+      const started = interaction.start({
+        registration,
+        input: registration.prepare
+          ? registration.prepare(state, input)
+          : input,
+        state
       })
+      if (started) {
+        return true
+      }
     }
+
+    return false
+  }
+
+  return {
+    start
   }
 }

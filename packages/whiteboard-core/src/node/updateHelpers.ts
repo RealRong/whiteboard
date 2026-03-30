@@ -2,9 +2,9 @@ import {
   compileNodeFieldUpdate,
   compileNodeFieldUpdates,
   type NodeSchemaFieldRef
-} from '@whiteboard/core/schema'
-import { hasValueByPath } from '@whiteboard/core/utils'
-import type { Node, NodeUpdateInput } from '@whiteboard/core/types'
+} from '../schema'
+import type { Node, NodeUpdateInput } from '../types'
+import { hasValueByPath } from '../utils'
 
 export type NodeStylePatch = Record<string, string | number>
 export type NodeDataPatch = Record<string, unknown>

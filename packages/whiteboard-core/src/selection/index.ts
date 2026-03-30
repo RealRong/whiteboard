@@ -12,3 +12,14 @@ export {
   type SelectionSummary,
   type SelectionTransform
 } from './summary'
+export {
+  resolveSelectionPressMode,
+  resolveSelectionPressPlan,
+  resolveSelectionPressTarget,
+  type SelectionDragAction,
+  type SelectionPressPlan,
+  type SelectionPressPolicyDeps,
+  type SelectionPressSubject,
+  type SelectionPressTarget,
+  type SelectionTapAction
+} from './press'

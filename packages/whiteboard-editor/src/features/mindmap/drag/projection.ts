@@ -1,10 +1,9 @@
 import type { MindmapDragDropTarget } from '@whiteboard/core/mindmap'
 import type { MindmapNodeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import {
-  createStagedValueStore,
   type StagedValueStore
 } from '@whiteboard/engine'
-import { createRafTask, type RafTask } from '../../../runtime/utils/rafTask'
+import { createRafValueStore } from '../../../runtime/utils/rafStore'
 
 type MindmapDragPreview = {
   nodeId: MindmapNodeId
@@ -23,31 +22,28 @@ type BaseMindmapDragProjectionStore =
   Pick<StagedValueStore<MindmapDragProjection | undefined>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
 
 export type MindmapDragProjectionStore =
-  Pick<BaseMindmapDragProjectionStore, 'get' | 'subscribe' | 'write'> & {
+  Pick<BaseMindmapDragProjectionStore, 'get' | 'subscribe'> & {
+    set: (next?: MindmapDragProjection) => void
     clear: () => void
   }
 
 export const createMindmapDragProjectionStore = (): MindmapDragProjectionStore => {
-  let task!: RafTask
-  const store = createStagedValueStore({
-    schedule: () => {
-      task.schedule()
-    },
+  const store = createRafValueStore({
     initial: undefined as MindmapDragProjection | undefined,
     isEqual: (left, right) => left === right
   })
 
-  task = createRafTask(() => {
-    store.flush()
-  }, { fallback: 'microtask' })
-
   return {
     get: store.get,
     subscribe: store.subscribe,
-    write: store.write,
-    clear: () => {
-      task.cancel()
-      store.clear()
-    }
+    set: (next) => {
+      if (!next) {
+        store.clear()
+        return
+      }
+
+      store.write(next)
+    },
+    clear: store.clear
   }
 }

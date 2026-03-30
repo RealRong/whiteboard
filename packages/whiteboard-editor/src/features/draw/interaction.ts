@@ -2,17 +2,17 @@ import {
   resolveDrawPoints,
   resolveDrawStroke
 } from '@whiteboard/core/node'
+import { getSegmentBounds } from '@whiteboard/core/geometry'
 import type {
   NodeId,
   Point,
   Rect
 } from '@whiteboard/core/types'
-import {
-  type ReadStore,
-  type StagedValueStore
-} from '@whiteboard/engine'
-import type { PointerDown } from '../../runtime/input/pointer'
-import { createInteractionSessionSlot } from '../../runtime/interaction'
+import type { ReadStore } from '@whiteboard/engine'
+import type {
+  InteractionPointerInput,
+  InteractionRegistration
+} from '../../runtime/interaction'
 import type { EditorRuntime } from '../../types/internal/editor'
 import { createRafValueStore } from '../../runtime/utils/rafStore'
 import type { DrawBrushKind } from '../../types/public/tool'
@@ -22,14 +22,13 @@ import {
   type DrawPreview,
   type ResolvedDrawStyle
 } from './state'
-import { getSegmentBounds } from '@whiteboard/core/geometry'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1
 const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001
 
-type ActiveStroke = {
+type StrokeState = {
   ownerId?: NodeId
   kind: DrawBrushKind
   style: ResolvedDrawStyle
@@ -38,29 +37,14 @@ type ActiveStroke = {
   lengthScreen: number
 }
 
-type ActiveErase = {
+type EraseState = {
   ids: Set<NodeId>
   lastWorld: Point
 }
 
-type ActiveDraw =
-  | {
-      kind: 'stroke'
-      value: ActiveStroke
-    }
-  | {
-      kind: 'erase'
-      value: ActiveErase
-    }
-
-type DrawPreviewStore = Pick<
-  StagedValueStore<DrawPreview | null>,
-  'clear' | 'flush' | 'get' | 'subscribe' | 'write'
->
-
-type DrawInputRuntimeDeps = Pick<
+type DrawInteractionDeps = Pick<
   EditorRuntime,
-  'commands' | 'interaction' | 'read' | 'viewport'
+  'commands' | 'read' | 'viewport'
 > & {
   internals: {
     projections: {
@@ -71,11 +55,10 @@ type DrawInputRuntimeDeps = Pick<
   }
 }
 
-export type DrawInputRuntime = {
+export type DrawInteraction = {
   preview: ReadStore<DrawPreview | null>
-  startStroke: (input: PointerDown) => boolean
-  startErase: (input: PointerDown) => boolean
-  cancel: () => void
+  interactions: readonly InteractionRegistration[]
+  clear: () => void
 }
 
 const readPointerSamples = (
@@ -98,64 +81,13 @@ const hasMovedEnough = (
   return (dx * dx) + (dy * dy) >= SAMPLE_DISTANCE_SCREEN * SAMPLE_DISTANCE_SCREEN
 }
 
-const createDrawPreviewStore = (): DrawPreviewStore => {
-  const preview = createRafValueStore<DrawPreview | null>({
+export const createDrawInteraction = (
+  editor: DrawInteractionDeps
+): DrawInteraction => {
+  const previewStore = createRafValueStore<DrawPreview | null>({
     initial: null,
     isEqual: (left, right) => left === right
   })
-
-  return {
-    get: preview.get,
-    subscribe: preview.subscribe,
-    write: preview.write,
-    clear: preview.clear,
-    flush: preview.flush
-  }
-}
-
-export const createDrawInputRuntime = (
-  editor: DrawInputRuntimeDeps
-): DrawInputRuntime => {
-  const previewStore = createDrawPreviewStore()
-  const interaction = createInteractionSessionSlot<ActiveDraw>({
-    interaction: editor.interaction,
-    cleanup: () => {
-      writePreview(null)
-      syncHidden(null)
-    }
-  })
-
-  const readActiveStroke = (): ActiveStroke | null => {
-    const active = interaction.getActive()
-    return active?.kind === 'stroke'
-      ? active.value
-      : null
-  }
-
-  const readActiveErase = (): ActiveErase | null => {
-    const active = interaction.getActive()
-    return active?.kind === 'erase'
-      ? active.value
-      : null
-  }
-
-  const writeActiveStroke = (
-    active: ActiveStroke | null
-  ) => {
-    interaction.setActive(active ? {
-      kind: 'stroke',
-      value: active
-    } : null)
-  }
-
-  const writeActiveErase = (
-    active: ActiveErase | null
-  ) => {
-    interaction.setActive(active ? {
-      kind: 'erase',
-      value: active
-    } : null)
-  }
 
   const resolvePoints = (
     points: readonly Point[]
@@ -179,42 +111,47 @@ export const createDrawInputRuntime = (
   }
 
   const syncStrokePreview = (
-    active: ActiveStroke | null
+    state: StrokeState | null
   ) => {
-    if (!active) {
+    if (!state) {
       writePreview(null)
       return
     }
 
     writePreview({
-      kind: active.kind,
-      style: active.style,
-      points: resolvePoints(active.points)
+      kind: state.kind,
+      style: state.style,
+      points: resolvePoints(state.points)
     })
   }
 
   const syncHidden = (
-    active: ActiveErase | null
+    state: EraseState | null
   ) => {
-    if (!active) {
+    if (!state) {
       editor.internals.projections.model.node.hidden.clear()
       return
     }
 
-    editor.internals.projections.model.node.hidden.write([...active.ids])
+    editor.internals.projections.model.node.hidden.write([...state.ids])
+  }
+
+  const clear = () => {
+    writePreview(null)
+    syncHidden(null)
   }
 
   const pushPoint = (
-    active: ActiveStroke,
+    state: StrokeState,
     event: PointerEvent,
     force = false
   ) => {
     const pointer = editor.viewport.pointer(event)
-    const previous = active.points[active.points.length - 1]
+    const previous = state.points[state.points.length - 1]
 
     if (
       !force
-      && !hasMovedEnough(active.lastScreen, pointer.screen)
+      && !hasMovedEnough(state.lastScreen, pointer.screen)
     ) {
       return false
     }
@@ -224,54 +161,54 @@ export const createDrawInputRuntime = (
       && previous.x === pointer.world.x
       && previous.y === pointer.world.y
     ) {
-      active.lastScreen = pointer.screen
+      state.lastScreen = pointer.screen
       return false
     }
 
-    active.points.push(pointer.world)
-    active.lengthScreen += Math.hypot(
-      pointer.screen.x - active.lastScreen.x,
-      pointer.screen.y - active.lastScreen.y
+    state.points.push(pointer.world)
+    state.lengthScreen += Math.hypot(
+      pointer.screen.x - state.lastScreen.x,
+      pointer.screen.y - state.lastScreen.y
     )
-    active.lastScreen = pointer.screen
+    state.lastScreen = pointer.screen
     return true
   }
 
   const pushEventPoints = (
-    active: ActiveStroke,
-    event: PointerEvent,
+    state: StrokeState,
+    input: InteractionPointerInput,
     force = false
   ) => {
     let changed = false
-    const samples = readPointerSamples(event)
+    const samples = readPointerSamples(input.raw)
 
     for (let index = 0; index < samples.length; index += 1) {
       changed = pushPoint(
-        active,
+        state,
         samples[index]!,
         force && index === samples.length - 1
       ) || changed
     }
 
     if (changed) {
-      syncStrokePreview(active)
+      syncStrokePreview(state)
     }
   }
 
   const commitStroke = (
-    active: ActiveStroke
+    state: StrokeState
   ) => {
     if (
-      active.points.length < 2
-      || active.lengthScreen < DRAW_MIN_LENGTH_SCREEN
+      state.points.length < 2
+      || state.lengthScreen < DRAW_MIN_LENGTH_SCREEN
     ) {
       return
     }
 
-    const points = resolvePoints(active.points)
+    const points = resolvePoints(state.points)
     const stroke = resolveDrawStroke({
       points,
-      width: active.style.width
+      width: state.style.width
     })
     if (!stroke) {
       return
@@ -279,7 +216,7 @@ export const createDrawInputRuntime = (
 
     editor.commands.node.create({
       type: 'draw',
-      ownerId: active.ownerId,
+      ownerId: state.ownerId,
       position: stroke.position,
       size: stroke.size,
       data: {
@@ -287,15 +224,15 @@ export const createDrawInputRuntime = (
         baseSize: stroke.size
       },
       style: {
-        stroke: active.style.color,
-        strokeWidth: active.style.width,
-        opacity: active.style.opacity
+        stroke: state.style.color,
+        strokeWidth: state.style.width,
+        opacity: state.style.opacity
       }
     })
   }
 
   const collectRect = (
-    active: ActiveErase,
+    state: EraseState,
     rect: Rect
   ) => {
     const nodeIds = editor.read.node.idsInRect(rect, {
@@ -305,143 +242,121 @@ export const createDrawInputRuntime = (
 
     nodeIds.forEach((nodeId) => {
       const item = editor.read.node.item.get(nodeId)
-      if (!item || item.node.type !== 'draw' || active.ids.has(nodeId)) {
+      if (!item || item.node.type !== 'draw' || state.ids.has(nodeId)) {
         return
       }
 
-      active.ids.add(nodeId)
+      state.ids.add(nodeId)
       changed = true
     })
 
     if (changed) {
-      syncHidden(active)
+      syncHidden(state)
     }
   }
 
   const collectPoint = (
-    active: ActiveErase,
+    state: EraseState,
     world: Point
   ) => {
     const halfWorld = ERASER_HIT_EPSILON_SCREEN / Math.max(editor.viewport.get().zoom, ZOOM_EPSILON)
-    collectRect(active, getSegmentBounds(active.lastWorld, world, halfWorld))
-    active.lastWorld = world
+    collectRect(state, getSegmentBounds(state.lastWorld, world, halfWorld))
+    state.lastWorld = world
   }
 
   const collectEvent = (
-    active: ActiveErase,
-    event: PointerEvent
+    state: EraseState,
+    input: InteractionPointerInput
   ) => {
-    const samples = readPointerSamples(event)
+    const samples = readPointerSamples(input.raw)
 
     for (let index = 0; index < samples.length; index += 1) {
       const pointer = editor.viewport.pointer(samples[index]!)
-      collectPoint(active, pointer.world)
+      collectPoint(state, pointer.world)
     }
   }
 
-  const startStroke = (
-    input: PointerDown
-  ) => {
-    if (
-      input.tool.type !== 'draw'
-      || input.tool.kind === 'eraser'
-      || input.pick.kind !== 'background'
-    ) {
-      return false
-    }
-
-    const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
-    const active: ActiveStroke = {
-      ownerId: input.frame.id ?? frameTargetId,
-      kind: input.tool.kind,
-      style: readDrawStyle(editor.read.draw.preferences.get(), input.tool.kind),
-      points: [input.point.world],
-      lastScreen: input.point.screen,
-      lengthScreen: 0
-    }
-
-    const nextSession = interaction.start({
-      mode: 'draw',
-      pointerId: input.event.pointerId,
-      capture: input.capture,
-      move: (moveEvent) => {
-        const activeStroke = readActiveStroke()
-        if (!activeStroke) {
-          return
-        }
-
-        pushEventPoints(activeStroke, moveEvent)
-      },
-      up: (upEvent, interactionSession) => {
-        const activeStroke = readActiveStroke()
-        if (!activeStroke) {
-          interactionSession.finish()
-          return
-        }
-
-        pushEventPoints(activeStroke, upEvent, true)
-        commitStroke(activeStroke)
-        interactionSession.finish()
+  const stroke: InteractionRegistration<StrokeState> = {
+    key: 'draw.stroke',
+    priority: 600,
+    mode: 'draw',
+    can: (input) => {
+      if (
+        input.tool.type !== 'draw'
+        || input.tool.kind === 'eraser'
+        || input.pick.kind !== 'background'
+        || input.editable
+        || input.ignoreInput
+        || input.ignoreSelection
+      ) {
+        return null
       }
-    })
-    if (!nextSession) {
-      return false
-    }
 
-    writeActiveStroke(active)
-    input.event.preventDefault()
-    input.event.stopPropagation()
-    return true
+      const frameTargetId = input.frame.id ?? editor.read.node.frameAt(input.point.world)
+      return {
+        ownerId: input.frame.id ?? frameTargetId,
+        kind: input.tool.kind,
+        style: readDrawStyle(editor.read.draw.preferences.get(), input.tool.kind),
+        points: [input.point.world],
+        lastScreen: input.point.screen,
+        lengthScreen: 0
+      }
+    },
+    start: ({ input }) => {
+      input.event.preventDefault()
+      input.event.stopPropagation()
+    },
+    move: ({ state }, input) => {
+      pushEventPoints(state, input)
+    },
+    up: ({ state, session }, input) => {
+      pushEventPoints(state, input, true)
+      commitStroke(state)
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
+    }
   }
 
-  const startErase = (
-    input: PointerDown
-  ) => {
-    if (input.tool.type !== 'draw' || input.tool.kind !== 'eraser') {
-      return false
-    }
-
-    const active: ActiveErase = {
-      ids: new Set<NodeId>(),
-      lastWorld: input.point.world
-    }
-    collectPoint(active, input.point.world)
-
-    const nextSession = interaction.start({
-      mode: 'draw',
-      pointerId: input.event.pointerId,
-      capture: input.capture,
-      move: (moveEvent) => {
-        const activeErase = readActiveErase()
-        if (!activeErase) {
-          return
-        }
-
-        collectEvent(activeErase, moveEvent)
-      },
-      up: (upEvent, interactionSession) => {
-        const activeErase = readActiveErase()
-        if (!activeErase) {
-          interactionSession.finish()
-          return
-        }
-
-        collectEvent(activeErase, upEvent)
-        if (activeErase.ids.size > 0) {
-          editor.commands.node.delete([...activeErase.ids])
-        }
-        interactionSession.finish()
+  const erase: InteractionRegistration<EraseState> = {
+    key: 'draw.erase',
+    priority: 610,
+    mode: 'draw',
+    can: (input) => {
+      if (
+        input.tool.type !== 'draw'
+        || input.tool.kind !== 'eraser'
+        || input.editable
+        || input.ignoreInput
+      ) {
+        return null
       }
-    })
-    if (!nextSession) {
-      return false
-    }
 
-    writeActiveErase(active)
-    syncHidden(active)
-    input.event.preventDefault()
-    input.event.stopPropagation()
-    return true
+      return {
+        ids: new Set<NodeId>(),
+        lastWorld: input.point.world
+      }
+    },
+    start: ({ input, state }) => {
+      collectPoint(state, input.point.world)
+      syncHidden(state)
+      input.event.preventDefault()
+      input.event.stopPropagation()
+    },
+    move: ({ state }, input) => {
+      collectEvent(state, input)
+    },
+    up: ({ state, session }, input) => {
+      collectEvent(state, input)
+      if (state.ids.size > 0) {
+        editor.commands.node.delete([...state.ids])
+      }
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
+    }
   }
 
   return {
@@ -449,22 +364,10 @@ export const createDrawInputRuntime = (
       get: previewStore.get,
       subscribe: previewStore.subscribe
     },
-    startStroke: (input) => {
-      if (interaction.hasActive()) {
-        return false
-      }
-
-      return startStroke(input)
-    },
-    startErase: (input) => {
-      if (interaction.hasActive()) {
-        return false
-      }
-
-      return startErase(input)
-    },
-    cancel: () => {
-      interaction.cancel()
-    }
+    interactions: [
+      erase,
+      stroke
+    ],
+    clear
   }
 }

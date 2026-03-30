@@ -3,7 +3,11 @@ import type { EditorRuntime } from '../../types/internal/editor'
 import type { SnapRuntime } from '../../runtime/interaction'
 import type { PassiveInputProcessor } from '../../runtime/input/passive'
 import { createRafTask } from '../../runtime/utils/rafTask'
-import type { EdgeProjection } from './projection'
+import {
+  clearEdgeProjectionHint,
+  writeEdgeProjectionHint,
+  type EdgeProjection
+} from './projection'
 
 type EdgeHoverProcessorDeps = Pick<
   EditorRuntime,
@@ -12,7 +16,7 @@ type EdgeHoverProcessorDeps = Pick<
   internals: {
     projections: {
       overlay: {
-        edge: Pick<EdgeProjection, 'hint'>
+        edge: Pick<EdgeProjection, 'clearHint' | 'writeHint'>
       }
     }
     snap: Pick<SnapRuntime, 'edge'>
@@ -25,7 +29,7 @@ export const createEdgeHoverProcessor = (
   let hoverPoint: Point | null = null
 
   const clearHint = () => {
-    editor.internals.projections.overlay.edge.hint.clear()
+    clearEdgeProjectionHint(editor.internals.projections.overlay.edge)
   }
 
   const hoverTask = createRafTask(() => {
@@ -40,7 +44,8 @@ export const createEdgeHoverProcessor = (
     }
 
     const target = editor.internals.snap.edge.connect(hoverPoint)
-    editor.internals.projections.overlay.edge.hint.set(
+    writeEdgeProjectionHint(
+      editor.internals.projections.overlay.edge,
       target
         ? { snap: target.pointWorld }
         : undefined

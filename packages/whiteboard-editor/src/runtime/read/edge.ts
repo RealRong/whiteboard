@@ -1,5 +1,6 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import {
+  applyEdgeProjectionPatch,
   getEdgePathBounds,
   matchEdgeRect,
   resolveEdgeView
@@ -14,10 +15,7 @@ import {
   type KeyedReadStore,
   type NodeItem
 } from '@whiteboard/engine'
-import {
-  projectEdgeItem,
-  type EdgeProjectionPatchReader
-} from '../../features/edge/projection'
+import type { EdgeProjectionPatchReader } from '../../features/edge/projection'
 
 type RuntimeEdgeView = CoreEdgeView & {
   edge: EdgeItem['edge']
@@ -91,7 +89,13 @@ export const createEdgeRead = ({
         return undefined
       }
 
-      return projectEdgeItem(entry, readStore(patch, edgeId))
+      const nextEdge = applyEdgeProjectionPatch(entry.edge, readStore(patch, edgeId))
+      return nextEdge === entry.edge
+        ? entry
+        : {
+            ...entry,
+            edge: nextEdge
+          }
     },
     isEqual: isEdgeItemEqual
   })

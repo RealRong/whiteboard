@@ -57,7 +57,7 @@ const writeTextPreview = (
   nodeId: NodeId,
   size?: Size
 ) => {
-  const current = runtime.store.get(nodeId).patch
+  const current = runtime.get(nodeId).patch
   const next = mergeTextPreviewPatch(current, size)
 
   if (isSameSize(current?.size, next?.size)) {
@@ -69,14 +69,14 @@ const writeTextPreview = (
   } else {
     runtime.patch.clear(nodeId)
   }
-  runtime.store.flush()
+  runtime.flush()
 }
 
 const clearTextPreview = (
   runtime: NodeProjectionRuntime,
   nodeId: NodeId
 ) => {
-  const current = runtime.store.get(nodeId).patch
+  const current = runtime.get(nodeId).patch
   if (!current?.size) {
     return
   }
@@ -87,7 +87,7 @@ const clearTextPreview = (
   } else {
     runtime.patch.clear(nodeId)
   }
-  runtime.store.flush()
+  runtime.flush()
 }
 
 const resolveTextCommitSize = ({
@@ -110,12 +110,12 @@ const resolveTextCommitSize = ({
   }
 
   if (!source) {
-    return runtime.store.get(nodeId).patch?.size
+    return runtime.get(nodeId).patch?.size
   }
 
   const item = read.node.item.get(nodeId)
   if (!item) {
-    return runtime.store.get(nodeId).patch?.size
+    return runtime.get(nodeId).patch?.size
   }
 
   return measureTextNodeSize({
@@ -124,7 +124,7 @@ const resolveTextCommitSize = ({
     placeholder: TEXT_PLACEHOLDER,
     source,
     width: item.rect.width
-  }) ?? runtime.store.get(nodeId).patch?.size
+  }) ?? runtime.get(nodeId).patch?.size
 }
 
 const resolveFontSizeMeasure = ({

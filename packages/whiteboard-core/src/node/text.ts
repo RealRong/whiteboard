@@ -1,6 +1,7 @@
 import type { Rect } from '../types'
 
 export type TextVariant = 'text' | 'sticky'
+export type TextWidthMode = 'auto' | 'fixed'
 
 export type TextContentBox = {
   width: number
@@ -28,6 +29,10 @@ export type TextAutoFont = {
 
 export const TEXT_DEFAULT_FONT_SIZE = 14
 export const TEXT_FIT_VERTICAL_MARGIN = 2
+export const TEXT_MIN_WIDTH = 24
+export const TEXT_AUTO_MAX_WIDTH = 360
+
+const TEXT_WIDTH_MODE_KEY = 'widthMode'
 
 const clampBoxSize = (
   size: number
@@ -45,6 +50,42 @@ const readFrameInset = (
   padding: variant === 'sticky' ? 16 : 0,
   border: 1
 })
+
+export const isTextNode = <
+  TNode extends {
+    type: string
+    data?: Record<string, unknown>
+  }
+>(
+  node: TNode
+): node is TNode & { type: 'text' } => node.type === 'text'
+
+export const readTextWidthMode = (
+  node: {
+    type: string
+    data?: Record<string, unknown>
+  }
+): TextWidthMode => (
+  isTextNode(node) && node.data?.[TEXT_WIDTH_MODE_KEY] === 'fixed'
+    ? 'fixed'
+    : 'auto'
+)
+
+export const setTextWidthMode = <
+  TData extends Record<string, unknown> | undefined
+>(
+  node: {
+    data?: TData
+  },
+  mode: TextWidthMode
+) => ({
+  ...(node.data ?? {}),
+  [TEXT_WIDTH_MODE_KEY]: mode
+})
+
+export const isTextContentEmpty = (
+  value: string
+) => value.trim().length === 0
 
 export const resolveTextBox = (
   variant: TextVariant,

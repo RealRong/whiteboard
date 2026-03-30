@@ -2,31 +2,120 @@ import {
   createDerivedStore,
   createValueStore
 } from '@whiteboard/engine'
+import type { Point } from '@whiteboard/core/types'
 import type {
   ActiveInteractionMode,
-  InteractionState,
+  InteractionActivation,
+  InteractionContext,
   InteractionCoordinator,
-  InteractionSession,
-  InteractionSessionInput
+  InteractionPointerInput,
+  InteractionRegistration,
+  InteractionState,
+  RuntimeSession
 } from './types'
-import type { ViewportInputRuntime } from '../viewport'
+import type {
+  ViewportInputRuntime,
+  ViewportPointer
+} from '../viewport'
 import { createAutoPan } from './autoPan'
 import type { PointerContinuation } from '../platform/pointerContinuation'
 import type { DocumentSelectionLock } from '../platform/selectionLock'
 
 type ActiveInteraction = Readonly<{
   id: number
+  key: string
   mode: ActiveInteractionMode
   pointerId?: number
   chrome?: boolean
 }>
 
+type RunningInteraction = {
+  id: number
+  key: string
+  mode: ActiveInteractionMode
+  pointerId?: number
+  chrome?: boolean
+  registration: InteractionRegistration<any, any>
+  input: any
+  state: any
+}
+
+const isRecord = (
+  value: unknown
+): value is Record<string, unknown> => (
+  typeof value === 'object'
+  && value !== null
+)
+
+const readDefaultPointerId = (
+  input: unknown
+) => {
+  if (!isRecord(input)) {
+    return undefined
+  }
+
+  if (typeof input.pointerId === 'number') {
+    return input.pointerId
+  }
+
+  const event = input.event
+  return event instanceof PointerEvent
+    ? event.pointerId
+    : undefined
+}
+
+const readDefaultCapture = (
+  input: unknown
+): Element | null => {
+  if (!isRecord(input)) {
+    return null
+  }
+
+  if (input.capture instanceof Element) {
+    return input.capture
+  }
+
+  const event = input.event
+  if (
+    event instanceof PointerEvent
+    && event.currentTarget instanceof Element
+  ) {
+    return event.currentTarget
+  }
+
+  return null
+}
+
+const toInteractionPointerInput = (
+  event: PointerEvent,
+  point: ViewportPointer
+): InteractionPointerInput => ({
+  pointerId: event.pointerId,
+  client: {
+    x: event.clientX,
+    y: event.clientY
+  },
+  screen: point.screen,
+  world: point.world,
+  altKey: event.altKey,
+  shiftKey: event.shiftKey,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
+  buttons: event.buttons,
+  raw: event
+})
+
 export const createInteractionCoordinator = ({
   getViewport,
+  readPointer,
   pointerContinuation,
   selectionLock
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
+  readPointer: (input: {
+    clientX: number
+    clientY: number
+  }) => ViewportPointer
   pointerContinuation: PointerContinuation
   selectionLock: DocumentSelectionLock
 }): InteractionCoordinator => {
@@ -62,9 +151,8 @@ export const createInteractionCoordinator = ({
   let nextId = 1
   let stopPointerContinuation = () => {}
   let releaseDocumentSelection = () => {}
-  let endCurrent: (() => void) | null = null
-  let currentInput: InteractionSessionInput | null = null
-  let currentSession: InteractionSession | null = null
+  let current: RunningInteraction | null = null
+  let currentSession: RuntimeSession | null = null
   const autoPan = createAutoPan({
     getViewport
   })
@@ -80,110 +168,227 @@ export const createInteractionCoordinator = ({
   }
 
   const matchesPointer = (
-    input: InteractionSessionInput,
+    pointerId: number | undefined,
     event: PointerEvent
-  ) => input.pointerId === undefined || event.pointerId === input.pointerId
+  ) => pointerId === undefined || event.pointerId === pointerId
 
-  const finish = (
-    input: InteractionSessionInput,
-    current: ActiveInteraction,
-    cleanup?: () => void
+  const cleanup = (
+    running: RunningInteraction
   ) => {
-    if (active.get()?.id !== current.id) {
-      return
-    }
-
     autoPan.stop()
     clearPointerContinuation()
     clearDocumentSelection()
     active.set(null)
-    endCurrent = null
-    currentInput = null
+    current = null
     currentSession = null
-    cleanup?.()
+    running.registration.cleanup?.({
+      input: running.input,
+      state: running.state
+    })
   }
 
-  const startSession = (
-    input: InteractionSessionInput
-  ): InteractionSession | null => {
+  const createContext = <
+    State,
+    Start
+  >(
+    running: RunningInteraction & {
+      state: State
+      input: Start
+      registration: InteractionRegistration<State, Start>
+    },
+    session: RuntimeSession
+  ): InteractionContext<State, Start> => ({
+    input: running.input,
+    state: running.state,
+    setState: (next) => {
+      running.state = next
+    },
+    session
+  })
+
+  const start = <
+    State,
+    Start
+  >(
+    activation: InteractionActivation<State, Start>
+  ): RuntimeSession | null => {
     if (active.get()) {
       return null
     }
 
-    const current: ActiveInteraction = {
+    const running: RunningInteraction = {
       id: nextId++,
-      mode: input.mode,
-      pointerId: input.pointerId,
-      chrome: input.chrome
+      key: activation.registration.key,
+      mode: activation.registration.mode,
+      pointerId: readDefaultPointerId(activation.input),
+      chrome: activation.registration.chrome?.(activation.state, activation.input),
+      registration: activation.registration,
+      input: activation.input,
+      state: activation.state
     }
     let done = false
 
-    const end = () => {
-      if (done) {
+    const finish = () => {
+      if (done || active.get()?.id !== running.id) {
         return
       }
+
       done = true
-      finish(input, current, input.cleanup)
+      cleanup(running)
     }
 
-    const replace = (
-      nextInput: InteractionSessionInput
-    ) => {
-      if (done || active.get()?.id !== current.id) {
-        return null
+    const cancel = () => {
+      if (done || active.get()?.id !== running.id) {
+        return
+      }
+
+      const session = currentSession
+      if (!session) {
+        done = true
+        cleanup(running)
+        return
+      }
+
+      running.registration.cancel?.(
+        createContext(
+          running as RunningInteraction & {
+            state: State
+            input: Start
+            registration: InteractionRegistration<State, Start>
+          },
+          session
+        )
+      )
+
+      if (done || active.get()?.id !== running.id) {
+        return
       }
 
       done = true
-      finish(input, current, input.cleanup)
-      return startSession(nextInput)
+      cleanup(running)
     }
 
-    const session: InteractionSession = {
-      finish: end,
-      cancel: end,
+    const replace: RuntimeSession['replace'] = (nextActivation) => {
+      if (done || active.get()?.id !== running.id) {
+        return false
+      }
+
+      done = true
+      cleanup(running)
+      return Boolean(start(nextActivation))
+    }
+
+    const session: RuntimeSession = {
+      finish,
+      cancel,
       pan: (pointer) => {
         autoPan.update(pointer)
       },
       replace
     }
 
-    const onPointerMove = (event: PointerEvent) => {
-      if (!matchesPointer(input, event)) {
+    const handleMove = (
+      event: PointerEvent
+    ) => {
+      if (!matchesPointer(running.pointerId, event) || !currentSession) {
         return
       }
-      input.move?.(event, session)
+
+      const activeInteraction = current
+      if (
+        !activeInteraction
+        || activeInteraction.id !== running.id
+      ) {
+        return
+      }
+
+      activeInteraction.registration.move?.(
+        createContext(
+          activeInteraction as RunningInteraction & {
+            state: State
+            input: Start
+            registration: InteractionRegistration<State, Start>
+          },
+          currentSession as RuntimeSession
+        ),
+        toInteractionPointerInput(event, readPointer(event))
+      )
     }
 
-    const onPointerUp = (event: PointerEvent) => {
-      if (!matchesPointer(input, event)) {
+    const handleUp = (
+      event: PointerEvent
+    ) => {
+      if (!matchesPointer(running.pointerId, event) || !currentSession) {
         return
       }
-      input.up?.(event, session)
+
+      const activeInteraction = current
+      if (
+        !activeInteraction
+        || activeInteraction.id !== running.id
+      ) {
+        return
+      }
+
+      activeInteraction.registration.up?.(
+        createContext(
+          activeInteraction as RunningInteraction & {
+            state: State
+            input: Start
+            registration: InteractionRegistration<State, Start>
+          },
+          currentSession as RuntimeSession
+        ),
+        toInteractionPointerInput(event, readPointer(event))
+      )
     }
 
-    const onPointerCancel = (event: PointerEvent) => {
-      if (!matchesPointer(input, event)) {
+    const handlePointerCancel = (
+      event: PointerEvent
+    ) => {
+      if (!matchesPointer(running.pointerId, event)) {
         return
       }
+
       session.cancel()
     }
 
-    active.set(current)
-    endCurrent = end
-    currentInput = input
+    active.set({
+      id: running.id,
+      key: running.key,
+      mode: running.mode,
+      pointerId: running.pointerId,
+      chrome: running.chrome
+    })
+    current = running
     currentSession = session
     stopPointerContinuation = pointerContinuation.start({
-      pointerId: input.pointerId,
-      capture: input.capture,
-      move: onPointerMove,
-      up: onPointerUp,
-      cancel: onPointerCancel
+      pointerId: running.pointerId,
+      capture: activation.registration.capture?.(activation.state, activation.input)
+        ?? readDefaultCapture(activation.input),
+      move: handleMove,
+      up: handleUp,
+      cancel: handlePointerCancel
     })
     releaseDocumentSelection = selectionLock.lock()
 
-    if (input.pan) {
-      autoPan.start(input.pan, session)
+    const panOptions = typeof activation.registration.pan === 'function'
+      ? activation.registration.pan(activation.state, activation.input)
+      : activation.registration.pan
+    if (panOptions) {
+      autoPan.start(panOptions, session)
     }
+
+    activation.registration.start?.(
+      createContext(
+        running as RunningInteraction & {
+          state: State
+          input: Start
+          registration: InteractionRegistration<State, Start>
+        },
+        session
+      )
+    )
 
     return session
   }
@@ -193,14 +398,19 @@ export const createInteractionCoordinator = ({
       space.set(false)
     }
 
-    const input = currentInput
+    const running = current
     const session = currentSession
-    if (!input || !session) {
+    if (!running || !session) {
       return
     }
 
-    if (input.blur) {
-      input.blur(session)
+    if (running.registration.blur) {
+      running.registration.blur(
+        createContext(
+          running,
+          session
+        )
+      )
       return
     }
 
@@ -217,14 +427,20 @@ export const createInteractionCoordinator = ({
       handled = true
     }
 
-    const input = currentInput
+    const running = current
     const session = currentSession
-    if (!input || !session) {
+    if (!running || !session) {
       return handled
     }
 
     handled = true
-    input.keydown?.(event, session)
+    running.registration.keydown?.(
+      createContext(
+        running,
+        session
+      ),
+      event
+    )
 
     if (active.get() && event.key === 'Escape') {
       session.cancel()
@@ -243,13 +459,19 @@ export const createInteractionCoordinator = ({
       handled = true
     }
 
-    const input = currentInput
+    const running = current
     const session = currentSession
-    if (!input || !session) {
+    if (!running || !session) {
       return handled
     }
 
-    input.keyup?.(event, session)
+    running.registration.keyup?.(
+      createContext(
+        running,
+        session
+      ),
+      event
+    )
     return true
   }
 
@@ -259,9 +481,9 @@ export const createInteractionCoordinator = ({
     chrome,
     state,
     space,
-    start: startSession,
+    start,
     cancel: () => {
-      endCurrent?.()
+      currentSession?.cancel()
     },
     handleKeyDown,
     handleKeyUp,

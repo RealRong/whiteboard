@@ -38,7 +38,6 @@ export const createInputRouter = ({
   cancel: () => {
     pointer.set(null)
     editor.internals.input.passive.cancel()
-    editor.internals.input.interactions.cancel()
     editor.interaction.cancel()
   },
   pointerDown: (input) => {

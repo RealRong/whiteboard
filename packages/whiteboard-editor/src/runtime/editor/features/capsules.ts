@@ -20,21 +20,20 @@ export const createFeatureCapsules = (
   const capsules: readonly EditorFeatureCapsule[] = [
     {
       key: 'viewport',
-      drivers: [
-        runtimes.viewportPanDriver
+      interactions: [
+        runtimes.viewportPan
       ]
     },
     {
       key: 'insert',
-      drivers: [
-        runtimes.insertPresetDriver
+      interactions: [
+        runtimes.insertPreset
       ]
     },
     {
       key: 'draw',
-      drivers: [
-        runtimes.drawEraseDriver,
-        runtimes.drawStrokeDriver
+      interactions: [
+        ...runtimes.draw.interactions
       ],
       read: {
         draw: {
@@ -43,21 +42,21 @@ export const createFeatureCapsules = (
       },
       projections: {
         overlay: {
-          draw: runtimes.drawInput.preview
+          draw: runtimes.draw.preview
         }
       },
       projection: {
-        draw: runtimes.drawInput.preview
+        draw: runtimes.draw.preview
       },
       lifecycle: {
-        reset: runtimes.drawInput.cancel,
-        dispose: runtimes.drawInput.cancel
+        reset: runtimes.draw.clear,
+        dispose: runtimes.draw.clear
       }
     },
     {
       key: 'node',
-      drivers: [
-        runtimes.nodeTransformDriver
+      interactions: [
+        runtimes.transform.interaction
       ],
       projections: {
         model: {
@@ -66,19 +65,19 @@ export const createFeatureCapsules = (
       },
       lifecycle: {
         reset: () => {
-          runtimes.transform.cancel()
+          runtimes.transform.clear()
           nodeProjection.clear()
         },
         dispose: () => {
-          runtimes.transform.cancel()
+          runtimes.transform.clear()
           nodeProjection.clear()
         }
       }
     },
     {
       key: 'selection',
-      drivers: [
-        runtimes.selectionPressDriver
+      interactions: [
+        runtimes.selectionPress.interaction
       ],
       projections: {
         overlay: {
@@ -96,22 +95,20 @@ export const createFeatureCapsules = (
       },
       lifecycle: {
         reset: () => {
-          runtimes.selectionPress.cancel()
-          runtimes.marquee.cancel()
+          runtimes.selectionPress.clear()
         },
         dispose: () => {
-          runtimes.selectionPress.cancel()
-          runtimes.marquee.cancel()
+          runtimes.selectionPress.clear()
         }
       }
     },
     {
       key: 'edge',
-      drivers: [
-        runtimes.edgeCreateDriver,
-        runtimes.edgeReconnectDriver,
-        runtimes.edgeRouteDriver,
-        runtimes.edgeBodyDriver
+      interactions: [
+        runtimes.edgeConnect.create,
+        runtimes.edgeConnect.reconnect,
+        runtimes.edgeEdit.route,
+        runtimes.edgeEdit.body
       ],
       passive: [
         runtimes.edgeHover
@@ -136,21 +133,17 @@ export const createFeatureCapsules = (
       },
       lifecycle: {
         reset: () => {
-          runtimes.edgeInput.cancel()
-          runtimes.edgeConnect.cancel()
-          edgeProjection.clear()
+          runtimes.edgeEdit.clear()
         },
         dispose: () => {
-          runtimes.edgeInput.cancel()
-          runtimes.edgeConnect.cancel()
-          edgeProjection.clear()
+          runtimes.edgeEdit.clear()
         }
       }
     },
     {
       key: 'mindmap',
-      drivers: [
-        runtimes.mindmapDragDriver
+      interactions: [
+        runtimes.mindmapDrag.interaction
       ],
       projections: {
         overlay: {
@@ -161,8 +154,8 @@ export const createFeatureCapsules = (
         mindmapDrag: mindmapDragProjection
       },
       lifecycle: {
-        reset: runtimes.mindmapDrag.cancel,
-        dispose: runtimes.mindmapDrag.cancel
+        reset: runtimes.mindmapDrag.clear,
+        dispose: runtimes.mindmapDrag.clear
       }
     },
     {

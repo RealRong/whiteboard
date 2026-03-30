@@ -90,6 +90,7 @@ export {
   resolveSelectionTransformTargets,
   getResizeSourceEdges,
   resizeHandleMap,
+  toTransformCommitPatch,
   rotateVector
 } from './transform'
 export type {
@@ -140,7 +141,13 @@ export {
 } from './layout'
 export {
   estimateTextAutoFont,
+  isTextContentEmpty,
+  isTextNode,
+  readTextWidthMode,
+  setTextWidthMode,
+  TEXT_AUTO_MAX_WIDTH,
   TEXT_FIT_VERTICAL_MARGIN,
+  TEXT_MIN_WIDTH,
   resolveTextAutoFont,
   resolveTextBox,
   resolveTextContentBox,
@@ -150,12 +157,36 @@ export type {
   TextAutoFont,
   TextContentBox,
   TextFrameMetrics,
-  TextVariant
+  TextVariant,
+  TextWidthMode
 } from './text'
 export {
   applySelection,
   getTargetBounds
 } from './selection'
+export {
+  applyNodeProjectionPatch,
+  applyNodeProjectionRect,
+  type NodeProjectionPatch
+} from './projection'
+export {
+  resolveNodeConnect,
+  resolveNodeEnter,
+  resolveNodeRole,
+  resolveNodeTransform,
+  type NodeRole,
+  type NodeTransform
+} from './capability'
+export {
+  toNodeDataPatch,
+  toNodeFieldRemovalPatch,
+  toNodeFieldUpdate,
+  toNodeStylePatch,
+  toNodeStyleRemovalPatch,
+  toNodeStyleUpdates,
+  type NodeDataPatch,
+  type NodeStylePatch
+} from './updateHelpers'
 export {
   isShapeKind,
   readShapeKind,

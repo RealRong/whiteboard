@@ -1,6 +1,4 @@
-import {
-  rectFromPoints
-} from '@whiteboard/core/geometry'
+import { rectFromPoints } from '@whiteboard/core/geometry'
 import {
   createDerivedStore,
   createValueStore,
@@ -8,8 +6,9 @@ import {
 } from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
 import {
-  createInteractionSessionSlot,
-  GestureTuning
+  GestureTuning,
+  type InteractionPointerInput,
+  type InteractionRegistration
 } from '../../runtime/interaction'
 import type { EditorRuntime } from '../../types/internal/editor'
 import { createRafTask } from '../../runtime/utils/rafTask'
@@ -33,6 +32,7 @@ export type MarqueeStartInput = {
   capture: Element
   start: ViewportPointer
   match: MarqueeMatch
+  onStart?: () => void
   onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
 }
@@ -47,16 +47,17 @@ type ActiveMarquee = {
   onEnd?: (result: MarqueeEnd) => void
 }
 
-export type MarqueeSession = {
+export type MarqueeInteraction = {
   rect: ReadStore<Rect | undefined>
   match: ReadStore<MarqueeMatch | undefined>
-  start: (input: MarqueeStartInput) => boolean
-  cancel: () => void
+  interaction: InteractionRegistration<ActiveMarquee, MarqueeStartInput>
+  createState: (input: MarqueeStartInput) => ActiveMarquee
+  clear: () => void
 }
 
-type MarqueeSessionDeps = Pick<
+type MarqueeInteractionDeps = Pick<
   EditorRuntime,
-  'interaction' | 'read' | 'viewport'
+  'read' | 'viewport'
 >
 
 const toItemsKey = (
@@ -67,7 +68,7 @@ const toItemsKey = (
 ].join('::')
 
 const projectWorldRect = (
-  editor: MarqueeSessionDeps,
+  editor: MarqueeInteractionDeps,
   worldRect: Rect
 ): Rect => {
   const topLeft = editor.viewport.worldToScreen({
@@ -82,9 +83,9 @@ const projectWorldRect = (
   return rectFromPoints(topLeft, bottomRight)
 }
 
-export const createMarqueeSession = (
-  editor: MarqueeSessionDeps
-): MarqueeSession => {
+export const createMarqueeInteraction = (
+  editor: MarqueeInteractionDeps
+): MarqueeInteraction => {
   const worldRect = createValueStore<Rect | undefined>(undefined)
   const activeMatch = createValueStore<MarqueeMatch | undefined>(undefined)
   const rect = createDerivedStore<Rect | undefined>({
@@ -106,22 +107,6 @@ export const createMarqueeSession = (
       )
     )
   })
-  const interaction = createInteractionSessionSlot<ActiveMarquee>({
-    interaction: editor.interaction,
-    cleanup: () => {
-      flushTask.cancel()
-      activeMatch.set(undefined)
-      worldRect.set(undefined)
-    }
-  })
-
-  const readActive = () => interaction.getActive()
-
-  const writeActive = (
-    next: ActiveMarquee | null
-  ) => {
-    interaction.setActive(next)
-  }
 
   const readMatchedItems = (
     queryRect: Rect,
@@ -140,136 +125,139 @@ export const createMarqueeSession = (
     }
   }
 
-  const flushChange = () => {
-    const active = readActive()
-    if (!active || active.latest === undefined) {
+  const flushChange = (
+    state: ActiveMarquee
+  ) => {
+    if (state.latest === undefined) {
       return
     }
 
-    const nextKey = toItemsKey(active.latest)
-    if (nextKey === active.emittedKey) {
+    const nextKey = toItemsKey(state.latest)
+    if (nextKey === state.emittedKey) {
       return
     }
 
-    active.emittedKey = nextKey
-    active.onChange?.(active.latest)
+    state.emittedKey = nextKey
+    state.onChange?.(state.latest)
   }
 
-  const flushTask = createRafTask(flushChange)
+  const flushTask = createRafTask(() => {
+    const current = pendingFlush
+    if (!current) {
+      return
+    }
+
+    flushChange(current)
+  })
+  let pendingFlush: ActiveMarquee | null = null
+
+  const clear = () => {
+    pendingFlush = null
+    flushTask.cancel()
+    activeMatch.set(undefined)
+    worldRect.set(undefined)
+  }
+
+  const scheduleFlush = (
+    state: ActiveMarquee
+  ) => {
+    pendingFlush = state
+    flushTask.schedule()
+  }
 
   const update = (
+    state: ActiveMarquee,
     input: {
       clientX: number
       clientY: number
     }
   ) => {
-    const active = readActive()
-    if (!active) {
-      return false
-    }
-
     const current = editor.viewport.pointer(input)
-    const dx = Math.abs(current.screen.x - active.start.screen.x)
-    const dy = Math.abs(current.screen.y - active.start.screen.y)
+    const dx = Math.abs(current.screen.x - state.start.screen.x)
+    const dy = Math.abs(current.screen.y - state.start.screen.y)
 
     if (
-      active.latest === undefined
+      state.latest === undefined
       && dx < GestureTuning.dragMinDistance
       && dy < GestureTuning.dragMinDistance
     ) {
       return false
     }
 
-    active.latest = readMatchedItems(
-      rectFromPoints(active.start.world, current.world),
-      active.match
+    state.latest = readMatchedItems(
+      rectFromPoints(state.start.world, current.world),
+      state.match
     )
-    worldRect.set(rectFromPoints(active.start.world, current.world))
-    flushTask.schedule()
+    worldRect.set(rectFromPoints(state.start.world, current.world))
+    scheduleFlush(state)
     return true
+  }
+
+  const createState = (
+    input: MarqueeStartInput
+  ): ActiveMarquee => ({
+    pointerId: input.pointerId,
+    start: input.start,
+    match: input.match,
+    emittedKey: '',
+    onChange: input.onChange,
+    onEnd: input.onEnd
+  })
+
+  const interaction: InteractionRegistration<ActiveMarquee, MarqueeStartInput> = {
+    key: 'selection.marquee',
+    mode: 'marquee',
+    pan: (state) => ({
+      frame: (pointer) => {
+        if (state.latest === undefined) {
+          return
+        }
+
+        update(state, pointer)
+      }
+    }),
+    start: ({ input }) => {
+      input.onStart?.()
+      activeMatch.set(input.match)
+      worldRect.set(undefined)
+    },
+    move: ({ state, session }, input: InteractionPointerInput) => {
+      if (update(state, input.raw)) {
+        session.pan(input.raw)
+      }
+    },
+    up: ({ state, session }, input: InteractionPointerInput) => {
+      if (state.latest !== undefined) {
+        state.latest = readMatchedItems(
+          rectFromPoints(state.start.world, input.world),
+          state.match
+        )
+        flushChange(state)
+        state.onEnd?.({
+          moved: true,
+          nodeIds: state.latest.nodeIds,
+          edgeIds: state.latest.edgeIds
+        })
+      } else {
+        state.onEnd?.({
+          moved: false,
+          nodeIds: [],
+          edgeIds: []
+        })
+      }
+
+      session.finish()
+    },
+    cleanup: () => {
+      clear()
+    }
   }
 
   return {
     rect,
     match: activeMatch,
-    start: ({
-      pointerId,
-      capture,
-      start,
-      match,
-      onChange,
-      onEnd
-    }) => {
-      if (interaction.hasActive() || editor.interaction.busy.get()) {
-        return false
-      }
-
-      const nextSession = interaction.start({
-        mode: 'marquee',
-        pointerId,
-        capture,
-        pan: {
-          frame: (pointer) => {
-            const active = readActive()
-            if (!active || active.latest === undefined) {
-              return
-            }
-
-            update(pointer)
-          }
-        },
-        move: (moveEvent, interactionSession) => {
-          if (update(moveEvent)) {
-            interactionSession.pan(moveEvent)
-          }
-        },
-        up: (upEvent, interactionSession) => {
-          const active = readActive()
-          if (!active) {
-            return
-          }
-
-          if (active.latest !== undefined) {
-            const current = editor.viewport.pointer(upEvent)
-            active.latest = readMatchedItems(
-              rectFromPoints(active.start.world, current.world),
-              active.match
-            )
-            flushChange()
-            active.onEnd?.({
-              moved: true,
-              nodeIds: active.latest.nodeIds,
-              edgeIds: active.latest.edgeIds
-            })
-          } else {
-            active.onEnd?.({
-              moved: false,
-              nodeIds: [],
-              edgeIds: []
-            })
-          }
-
-          interactionSession.finish()
-        }
-      })
-      if (!nextSession) {
-        return false
-      }
-
-      writeActive({
-        pointerId,
-        start,
-        match,
-        emittedKey: '',
-        onChange,
-        onEnd
-      })
-      activeMatch.set(match)
-      worldRect.set(undefined)
-      return true
-    },
-    cancel: () => {
-      interaction.cancel()
-    }
+    interaction,
+    createState,
+    clear
   }
 }
