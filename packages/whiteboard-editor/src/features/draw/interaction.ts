@@ -16,6 +16,7 @@ import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../runtime/interaction'
+import type { EditorPointerSample } from '../../types/editor'
 import type { DrawBrushKind } from '../../types/tool'
 import type {
   DrawPreview,
@@ -24,7 +25,7 @@ import type {
 import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import {
   readDrawStyle
-} from './state'
+} from '../../runtime/draw'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1
@@ -54,17 +55,6 @@ export type DrawInteraction = {
   preview: ReadStore<DrawPreview | null>
   interactions: readonly InteractionRegistration[]
   clear: () => void
-}
-
-const readPointerSamples = (
-  event: PointerEvent
-) => {
-  if (typeof event.getCoalescedEvents !== 'function') {
-    return [event]
-  }
-
-  const samples = event.getCoalescedEvents()
-  return samples.length > 0 ? samples : [event]
 }
 
 const hasMovedEnough = (
@@ -138,34 +128,33 @@ export const createDrawInteraction = (
 
   const pushPoint = (
     state: StrokeState,
-    event: PointerEvent,
+    sample: EditorPointerSample,
     force = false
   ) => {
-    const pointer = ctx.viewport.pointer(event)
     const previous = state.points[state.points.length - 1]
 
     if (
       !force
-      && !hasMovedEnough(state.lastScreen, pointer.screen)
+      && !hasMovedEnough(state.lastScreen, sample.screen)
     ) {
       return false
     }
 
     if (
       previous
-      && previous.x === pointer.world.x
-      && previous.y === pointer.world.y
+      && previous.x === sample.world.x
+      && previous.y === sample.world.y
     ) {
-      state.lastScreen = pointer.screen
+      state.lastScreen = sample.screen
       return false
     }
 
-    state.points.push(pointer.world)
+    state.points.push(sample.world)
     state.lengthScreen += Math.hypot(
-      pointer.screen.x - state.lastScreen.x,
-      pointer.screen.y - state.lastScreen.y
+      sample.screen.x - state.lastScreen.x,
+      sample.screen.y - state.lastScreen.y
     )
-    state.lastScreen = pointer.screen
+    state.lastScreen = sample.screen
     return true
   }
 
@@ -175,7 +164,7 @@ export const createDrawInteraction = (
     force = false
   ) => {
     let changed = false
-    const samples = readPointerSamples(input.raw)
+    const samples = input.samples
 
     for (let index = 0; index < samples.length; index += 1) {
       changed = pushPoint(
@@ -263,11 +252,10 @@ export const createDrawInteraction = (
     state: EraseState,
     input: InteractionPointerInput
   ) => {
-    const samples = readPointerSamples(input.raw)
+    const samples = input.samples
 
     for (let index = 0; index < samples.length; index += 1) {
-      const pointer = ctx.viewport.pointer(samples[index]!)
-      collectPoint(state, pointer.world)
+      collectPoint(state, samples[index]!.world)
     }
   }
 
@@ -298,8 +286,7 @@ export const createDrawInteraction = (
       }
     },
     start: ({ input }) => {
-      input.event.preventDefault()
-      input.event.stopPropagation()
+      void input
     },
     move: ({ state }, input) => {
       pushEventPoints(state, input)
@@ -336,8 +323,6 @@ export const createDrawInteraction = (
     start: ({ input, state }) => {
       collectPoint(state, input.point.world)
       syncHidden(state)
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state }, input) => {
       collectEvent(state, input)

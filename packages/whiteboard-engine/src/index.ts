@@ -11,6 +11,7 @@ export {
   createValueStore
 } from './store'
 export { createRafTask } from './scheduler/raf'
+export { createTimeoutTask } from './scheduler/timeout'
 export {
   DEFAULT_BOARD_CONFIG
 } from './config'
@@ -35,6 +36,7 @@ export type {
   ValueStore
 } from './types/store'
 export type { RafTask } from './scheduler/raf'
+export type { TimeoutTask } from './scheduler/timeout'
 export type {
   CreateEngineOptions,
   EngineInstance,

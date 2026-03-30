@@ -8,8 +8,8 @@ import {
   normalizeTool
 } from '@whiteboard/editor'
 import type { WhiteboardOptions } from '../types/common/board'
+import type { ResolvedConfig } from '../types/common/config'
 import { DEFAULT_VIEWPORT } from './defaultViewport'
-import type { ResolvedConfig } from './types'
 
 const ZOOM_EPSILON = 0.0001
 

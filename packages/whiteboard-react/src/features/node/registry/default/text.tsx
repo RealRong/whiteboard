@@ -1,10 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
-import {
-  useEdit,
-  useEditor
-} from '../../../../runtime/hooks'
+import { useEdit, useEditor } from '../../../../runtime/hooks/useEditor'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
 import {
   bindNodeTextSource,

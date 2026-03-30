@@ -16,7 +16,7 @@ import {
   type KeyedReadStore,
   type NodeItem
 } from '@whiteboard/engine'
-import type { EdgeProjectionPatchReader } from '../../features/edge/projection'
+import type { EdgeProjectionPatchReader } from '../projection/edge'
 
 type RuntimeEdgeView = CoreEdgeView & {
   edge: EdgeItem['edge']

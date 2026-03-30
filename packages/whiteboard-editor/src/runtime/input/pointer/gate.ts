@@ -3,7 +3,7 @@ import {
   type FrameScope
 } from '@whiteboard/core/document'
 import type { Editor } from '../../../types/editor'
-import type { PointerPick } from '../../pick'
+import type { PointerPick } from '../../../types/runtime/pick'
 
 const toFrameGateSubject = (
   editor: Pick<Editor, 'read'>,

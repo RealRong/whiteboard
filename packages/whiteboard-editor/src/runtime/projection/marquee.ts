@@ -10,9 +10,9 @@ import {
   GestureTuning,
   type InteractionPointerInput,
   type InteractionRegistration
-} from '../../runtime/interaction'
+} from '../interaction'
 import type { Editor } from '../../types/editor'
-import type { ViewportPointer } from '../../runtime/viewport'
+import type { ViewportPointer } from '../viewport'
 
 export type MarqueeMatch = 'touch' | 'contain'
 
@@ -29,7 +29,6 @@ export type MarqueeEnd = {
 
 export type MarqueeStartInput = {
   pointerId: number
-  capture: Element
   start: ViewportPointer
   match: MarqueeMatch
   onStart?: () => void
@@ -47,7 +46,7 @@ type ActiveMarquee = {
   onEnd?: (result: MarqueeEnd) => void
 }
 
-export type MarqueeInteraction = {
+export type MarqueeRuntime = {
   rect: ReadStore<Rect | undefined>
   match: ReadStore<MarqueeMatch | undefined>
   interaction: InteractionRegistration<ActiveMarquee, MarqueeStartInput>
@@ -55,7 +54,7 @@ export type MarqueeInteraction = {
   clear: () => void
 }
 
-type MarqueeInteractionDeps = Pick<
+type MarqueeRuntimeDeps = Pick<
   Editor,
   'read' | 'viewport'
 >
@@ -68,7 +67,7 @@ const toItemsKey = (
 ].join('::')
 
 const projectWorldRect = (
-  editor: MarqueeInteractionDeps,
+  editor: MarqueeRuntimeDeps,
   worldRect: Rect
 ): Rect => {
   const topLeft = editor.viewport.worldToScreen({
@@ -83,9 +82,9 @@ const projectWorldRect = (
   return rectFromPoints(topLeft, bottomRight)
 }
 
-export const createMarqueeInteraction = (
-  editor: MarqueeInteractionDeps
-): MarqueeInteraction => {
+export const createMarqueeRuntime = (
+  editor: MarqueeRuntimeDeps
+): MarqueeRuntime => {
   const worldRect = createValueStore<Rect | undefined>(undefined)
   const activeMatch = createValueStore<MarqueeMatch | undefined>(undefined)
   const rect = createDerivedStore<Rect | undefined>({
@@ -222,8 +221,14 @@ export const createMarqueeInteraction = (
       worldRect.set(undefined)
     },
     move: ({ state, session }, input: InteractionPointerInput) => {
-      if (update(state, input.raw)) {
-        session.pan(input.raw)
+      if (update(state, {
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
+        session.pan({
+          clientX: input.client.x,
+          clientY: input.client.y
+        })
       }
     },
     up: ({ state, session }, input: InteractionPointerInput) => {

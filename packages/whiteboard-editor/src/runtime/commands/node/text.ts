@@ -3,7 +3,7 @@ import type { NodeId, Size } from '@whiteboard/core/types'
 import type {
   NodeProjectionRuntime,
   NodePatch
-} from '../../../features/node/projection/store'
+} from '../../projection/node'
 import type {
   Editor,
   EditorNodeAppearanceCommands,

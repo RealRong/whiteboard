@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { memo, useMemo } from 'react'
-import { usePickRef } from '../../../runtime/hooks'
+import { usePickRef } from '../../../runtime/hooks/usePickRef'
 import { EDGE_ARROW_END_ID, EDGE_ARROW_START_ID, EDGE_DASH_ANIMATION } from '../constants'
 import type { EdgeView } from '../../../types/edge'
 

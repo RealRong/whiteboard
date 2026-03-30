@@ -1,6 +1,11 @@
 import type { Point } from '@whiteboard/core/types'
 import type { ReadStore } from '@whiteboard/engine'
-import type { PointerDown } from '../input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type {
+  EditorKeyboardInput,
+  EditorPointerSample
+} from '../editor'
+import type { EditorPick } from './pick'
 
 export type InteractionMode =
   | 'idle'
@@ -31,16 +36,37 @@ export type AutoPanPointer = Readonly<{
 
 export type InteractionPointerInput = Readonly<{
   pointerId: number
+  button: number
   client: Point
   screen: Point
   world: Point
+  pick: EditorPick
+  detail: number
   altKey: boolean
   shiftKey: boolean
   ctrlKey: boolean
   metaKey: boolean
   buttons: number
-  raw: PointerEvent
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
+  samples: readonly EditorPointerSample[]
 }>
+
+export type InteractionKeyboardInput = Readonly<Pick<
+  EditorKeyboardInput,
+  | 'key'
+  | 'code'
+  | 'repeat'
+  | 'modifiers'
+  | 'altKey'
+  | 'shiftKey'
+  | 'ctrlKey'
+  | 'metaKey'
+>>
 
 export type InteractionActivation<
   State = any,
@@ -96,7 +122,6 @@ export type InteractionRegistration<
   priority?: number
   can?: (input: PointerDown) => State | null
   prepare?: (state: State, input: PointerDown) => Start
-  capture?: (state: State, input: Start) => Element | null
   chrome?: (state: State, input: Start) => boolean | undefined
   pan?: AutoPanOptions | ((state: State, input: Start) => AutoPanOptions | false)
   start?: (ctx: InteractionContext<State, Start>) => void
@@ -110,11 +135,11 @@ export type InteractionRegistration<
   ) => void
   keydown?: (
     ctx: InteractionContext<State, Start>,
-    event: KeyboardEvent
+    input: InteractionKeyboardInput
   ) => void
   keyup?: (
     ctx: InteractionContext<State, Start>,
-    event: KeyboardEvent
+    input: InteractionKeyboardInput
   ) => void
   blur?: (ctx: InteractionContext<State, Start>) => void
   cancel?: (ctx: InteractionContext<State, Start>) => void
@@ -130,9 +155,14 @@ export type InteractionCoordinator = {
   start: <State, Start = PointerDown>(
     input: InteractionActivation<State, Start>
   ) => RuntimeSession | null
+  handlePointerMove: (input: InteractionPointerInput) => boolean
+  handlePointerUp: (input: InteractionPointerInput) => boolean
+  handlePointerCancel: (input: {
+    pointerId: number
+  }) => boolean
   cancel: () => void
-  handleKeyDown: (event: KeyboardEvent) => boolean
-  handleKeyUp: (event: KeyboardEvent) => boolean
+  handleKeyDown: (input: InteractionKeyboardInput) => boolean
+  handleKeyUp: (input: InteractionKeyboardInput) => boolean
   handleBlur: () => void
 }
 

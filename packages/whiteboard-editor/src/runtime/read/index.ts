@@ -5,8 +5,8 @@ import type { HistoryState } from '@whiteboard/core/kernel'
 import { resolveNodeTransform } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
-import type { NodeProjectionRuntime } from '../../features/node/projection/store'
-import type { EdgeProjection } from '../../features/edge/projection'
+import type { NodeProjectionRuntime } from '../projection/node'
+import type { EdgeProjectionRuntime } from '../projection/edge'
 import type { Tool } from '../tool'
 import {
   createNodeRead,
@@ -24,16 +24,10 @@ import {
   type FrameRead
 } from './frame'
 import {
-  createPickRead,
-  type PickRead
-} from './pick'
-import {
   createSelectionRead,
   type SelectionRead
 } from './selection'
 import { createToolRead, type ToolRead } from './tool'
-import type { PickRuntime } from '../pick'
-import type { ViewportRead } from '../viewport'
 
 export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   history: ReadStore<HistoryState>
@@ -42,7 +36,6 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   edge: EdgeRead
   selection: SelectionRead
   tool: ToolRead
-  pick: PickRead
   frame: FrameRead
   draw: {
     preferences: ReadStore<DrawPreferences>
@@ -57,8 +50,6 @@ export const createRead = ({
   drawPreferences,
   selection,
   frame,
-  pick,
-  viewport,
   node,
   edge
 }: {
@@ -69,10 +60,8 @@ export const createRead = ({
   drawPreferences: ReadStore<DrawPreferences>
   selection: ReadStore<SelectionTarget>
   frame: ReadStore<FrameScope>
-  pick: PickRuntime
-  viewport: ViewportRead
   node: Pick<NodeProjectionRuntime, 'store'>
-  edge: Pick<EdgeProjection, 'patch'>
+  edge: Pick<EdgeProjectionRuntime, 'patch'>
 }): RuntimeRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
@@ -111,10 +100,6 @@ export const createRead = ({
   const frameRead = createFrameRead({
     scope: frame
   })
-  const pickRead = createPickRead({
-    registry: pick,
-    viewport
-  })
   const toolRead = createToolRead({
     tool
   })
@@ -130,7 +115,6 @@ export const createRead = ({
     selection: selectionRead,
     tree: engineRead.tree,
     slice: engineRead.slice,
-    pick: pickRead,
     index: engineRead.index,
     tool: toolRead,
     draw: {

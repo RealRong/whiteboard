@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { EditorPick } from '@whiteboard/editor'
-import { useEditorRuntime } from './useEditor'
+import { useHostRuntime } from './useHost'
 
 const toPickKey = (
   pick: EditorPick
@@ -44,7 +44,7 @@ const toPickKey = (
 export const usePickRef = (
   pick: EditorPick
 ) => {
-  const editor = useEditorRuntime()
+  const host = useHostRuntime()
   const elementRef = useRef<Element | null>(null)
   const releaseRef = useRef<(() => void) | null>(null)
   const key = toPickKey(pick)
@@ -59,9 +59,9 @@ export const usePickRef = (
     elementRef.current = element
 
     if (element) {
-      releaseRef.current = editor.pick.bind(element, pick)
+      releaseRef.current = host.pick.bind(element, pick)
     }
-  }, [editor, key])
+  }, [host, key])
 
   useEffect(() => {
     const element = elementRef.current
@@ -70,13 +70,13 @@ export const usePickRef = (
     }
 
     releaseRef.current?.()
-    releaseRef.current = editor.pick.bind(element, pick)
+    releaseRef.current = host.pick.bind(element, pick)
 
     return () => {
       releaseRef.current?.()
       releaseRef.current = null
     }
-  }, [editor, key])
+  }, [host, key])
 
   return bind
 }

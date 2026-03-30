@@ -1,5 +1,8 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
-import type { FrameScope } from '@whiteboard/core/document'
+import type {
+  ClipboardPacket,
+  FrameScope
+} from '@whiteboard/core/document'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { SelectionInput, SelectionTarget } from '@whiteboard/core/selection'
 import type { CommandResult, ReadStore } from '@whiteboard/engine'
@@ -28,18 +31,14 @@ import type {
   ViewportCommands,
   ViewportRead
 } from '../runtime/viewport'
-import type {
-  ClipboardPort
-} from '../runtime/platform/clipboard'
-import type { DocumentSelectionLock } from '../runtime/platform/selectionLock'
-import type { PointerContinuation } from '../runtime/platform/pointerContinuation'
 import type { EditField, EditTarget } from '../runtime/edit'
 import type { ShapeKind } from '@whiteboard/core/node'
 import type { DrawInteraction } from '../features/draw/interaction'
-import type { EdgeProjection } from '../features/edge/projection'
-import type { MindmapDragProjectionStore } from '../features/mindmap/drag/projection'
-import type { MarqueeInteraction } from '../features/selection/marquee'
+import type { EdgeProjectionRuntime } from '../runtime/projection/edge'
+import type { MindmapDragProjectionStore } from '../runtime/projection/mindmapDrag'
+import type { MarqueeRuntime } from '../runtime/projection/marquee'
 import type { SnapRuntime } from '../runtime/interaction'
+import type { EditorPick } from './runtime/pick'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -53,8 +52,7 @@ export type EditorClipboardTarget =
     }
 
 export type EditorClipboardOptions = {
-  event?: ClipboardEvent
-  at?: Point
+  origin?: Point
   ownerId?: NodeId
 }
 
@@ -66,13 +64,49 @@ export type EditorInsertResult = {
   }
 }
 
+export type EditorPointerSample = {
+  client: Point
+  screen: Point
+  world: Point
+}
+
 export type EditorPointerInput = {
-  container: HTMLDivElement
-  event: PointerEvent
+  pointerId: number
+  button: number
+  buttons: number
+  detail: number
+  client: Point
+  screen: Point
+  world: Point
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
+  pick: EditorPick
+  field?: EditField
+  editable: boolean
+  ignoreInput: boolean
+  ignoreSelection: boolean
+  ignoreContextMenu: boolean
+  coalesced?: readonly EditorPointerSample[]
 }
 
 export type EditorKeyboardInput = {
-  event: KeyboardEvent
+  key: string
+  code: string
+  repeat: boolean
+  modifiers: {
+    alt: boolean
+    shift: boolean
+    ctrl: boolean
+    meta: boolean
+  }
+  altKey: boolean
+  shiftKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
 }
 
 export type EditorWheelInput = {
@@ -80,13 +114,23 @@ export type EditorWheelInput = {
   deltaY: number
   ctrlKey: boolean
   metaKey: boolean
-  clientX: number
-  clientY: number
+  client: Point
+  screen: Point
+  world: Point
+}
+
+export type EditorPointerDispatchResult = {
+  handled: boolean
+  continuePointer: boolean
 }
 
 export type EditorInput = {
-  pointerDown: (input: EditorPointerInput) => boolean
-  pointerMove: (input: EditorPointerInput) => void
+  pointerDown: (input: EditorPointerInput) => EditorPointerDispatchResult
+  pointerMove: (input: EditorPointerInput) => boolean
+  pointerUp: (input: EditorPointerInput) => boolean
+  pointerCancel: (input: {
+    pointerId: number
+  }) => boolean
   pointerLeave: () => void
   wheel: (input: EditorWheelInput) => boolean
   cancel: () => void
@@ -103,12 +147,12 @@ export type EditorState = {
 }
 
 export type EditorProjection = {
-  marquee: Pick<MarqueeInteraction, 'rect' | 'match'>
+  marquee: Pick<MarqueeRuntime, 'rect' | 'match'>
   draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
   edge: {
-    patch: Pick<EdgeProjection['patch'], 'get' | 'subscribe'>
-    hint: Pick<EdgeProjection['hint'], 'get' | 'subscribe'>
-    emptyPatch: EdgeProjection['emptyPatch']
+    patch: Pick<EdgeProjectionRuntime['patch'], 'get' | 'subscribe'>
+    hint: Pick<EdgeProjectionRuntime['hint'], 'get' | 'subscribe'>
+    emptyPatch: EdgeProjectionRuntime['emptyPatch']
   }
   mindmapDrag: Pick<MindmapDragProjectionStore, 'get' | 'subscribe'>
   snap: SnapRuntime['node']['guides']
@@ -116,12 +160,6 @@ export type EditorProjection = {
 
 export type EditorRead = RuntimeRead
 export type EditorViewport = ViewportRead
-
-export type EditorPlatformBridge = {
-  clipboard?: ClipboardPort
-  selectionLock?: DocumentSelectionLock
-  pointerContinuation?: PointerContinuation
-}
 
 export type EditorNodeDocumentCommands = {
   update: EngineNodeCommands['update']
@@ -238,17 +276,6 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
-  clipboard: {
-    copy: (
-      target?: EditorClipboardTarget,
-      options?: Pick<EditorClipboardOptions, 'event'>
-    ) => Promise<boolean>
-    cut: (
-      target?: EditorClipboardTarget,
-      options?: Pick<EditorClipboardOptions, 'event'>
-    ) => Promise<boolean>
-    paste: (options?: EditorClipboardOptions) => Promise<boolean>
-  }
   insert: {
     preset: (
       preset: InsertPresetKey,
@@ -287,6 +314,14 @@ export type Editor = {
   read: EditorRead
   state: EditorState
   commands: EditorCommands
+  clipboard: {
+    export: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
+    cut: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
+    insert: (
+      packet: ClipboardPacket,
+      options?: EditorClipboardOptions
+    ) => boolean
+  }
   input: EditorInput
   viewport: EditorViewport
   projection: EditorProjection

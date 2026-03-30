@@ -5,7 +5,7 @@ import type { EditorFeatureContext } from '../../types/runtime/editor/featureCon
 import {
   clearEdgeProjectionHint,
   writeEdgeProjectionHint
-} from './projection'
+} from '../../runtime/projection/edge'
 
 type EdgeHoverProcessorDeps = Pick<
   EditorFeatureContext,

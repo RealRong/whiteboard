@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { WhiteboardRuntime as Editor } from '../../../types/runtime'
-import { useEditorRuntime } from '../../../runtime/hooks'
+import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
 

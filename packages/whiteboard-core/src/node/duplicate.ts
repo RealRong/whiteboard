@@ -76,7 +76,7 @@ export const buildNodeDuplicateOperations = ({
     registries,
     createNodeId,
     createEdgeId,
-    offset,
+    delta: offset,
     roots: exported.data.roots
   })
   if (!inserted.ok) {

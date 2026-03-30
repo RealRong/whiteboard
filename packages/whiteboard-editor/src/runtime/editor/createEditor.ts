@@ -1,20 +1,19 @@
 import { createValueStore } from '@whiteboard/engine'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import { createDrawState } from '../../features/draw/state'
-import { createEdgeProjection } from '../../features/edge/projection'
-import { createMindmapDragProjectionStore } from '../../features/mindmap/drag/projection'
-import { createNodeProjectionRuntime } from '../../features/node/projection/store'
+import { createDrawState } from '../../runtime/draw'
+import { createEdgeProjectionRuntime } from '../../runtime/projection/edge'
+import { createMindmapDragProjectionStore } from '../../runtime/projection/mindmapDrag'
+import { createNodeProjectionRuntime } from '../../runtime/projection/node'
 import type { NodeRegistry } from '../../types/node'
+import type { DrawPreferences } from '../../types/draw'
+import type { InsertPresetCatalog } from '../../types/toolbox'
 import {
   isSameTool,
   normalizeTool,
   type Tool
 } from '../tool'
-import type {
-  Editor,
-  EditorPlatformBridge
-} from '../../types/editor'
+import type { Editor } from '../../types/editor'
 import type {
   EditorInputPolicy,
   EditorRuntime
@@ -28,6 +27,7 @@ import { createInteractionFeatures } from './features/createInteractionFeatures'
 import { createKernel } from './kernel'
 import { createLifecycle } from './lifecycle'
 import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
+import { createClipboard } from '../clipboard'
 
 export const createEditor = ({
   engine,
@@ -36,7 +36,8 @@ export const createEditor = ({
   viewportLimits,
   inputPolicy: initialInputPolicy,
   registry,
-  platform: platformBridge,
+  insertPresetCatalog,
+  initialDrawPreferences
 }: {
   engine: EngineInstance
   initialTool: Tool
@@ -47,12 +48,13 @@ export const createEditor = ({
   }
   inputPolicy: EditorInputPolicy
   registry: NodeRegistry
-  platform?: EditorPlatformBridge
+  insertPresetCatalog: InsertPresetCatalog
+  initialDrawPreferences: DrawPreferences
 }): Editor => {
-  const draw = createDrawState()
+  const draw = createDrawState(initialDrawPreferences)
   const pointer = createValueStore<PointerSnapshot | null>(null)
   const nodeProjection = createNodeProjectionRuntime()
-  const edgeProjection = createEdgeProjection()
+  const edgeProjection = createEdgeProjectionRuntime()
   const mindmapDragProjection = createMindmapDragProjectionStore()
 
   const {
@@ -65,8 +67,7 @@ export const createEditor = ({
     initialViewport,
     viewportLimits,
     inputPolicy: initialInputPolicy,
-    registry,
-    platform: platformBridge
+    registry
   })
 
   const read = createRead({
@@ -77,8 +78,6 @@ export const createEditor = ({
     drawPreferences: draw.store,
     selection: kernel.selection.source,
     frame: kernel.frame.store,
-    pick: kernel.pick,
-    viewport: kernel.viewport.read,
     node: nodeProjection,
     edge: edgeProjection
   })
@@ -107,10 +106,13 @@ export const createEditor = ({
     viewportRead: kernel.viewport.read,
     draw,
     nodeProjection,
-    clipboard: {
-      runtime: kernel.clipboard.runtime,
-      port: kernel.clipboard.port,
-      readPointerWorld: () => pointer.get()?.world
+    insertPresetCatalog
+  })
+  const clipboard = createClipboard({
+    editor: {
+      commands,
+      read,
+      viewport: kernel.viewport.read
     }
   })
 
@@ -130,7 +132,6 @@ export const createEditor = ({
       mindmapDrag: mindmapDragProjection
     },
     spatial: {
-      pick: kernel.pick,
       snap
     }
   }
@@ -158,11 +159,11 @@ export const createEditor = ({
   const editor = {
     interaction: kernel.interaction,
     registry: kernel.registry,
-    pick: kernel.pick,
     config: kernel.engine.config,
     read,
     state,
     commands,
+    clipboard,
     input,
     viewport: editorViewport,
     projection: features.projection,

@@ -1,7 +1,7 @@
 import type { Editor } from '../../../types/editor'
 import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
+import type { InteractionRegistration } from '../../../types/runtime/interaction'
 import type { PassiveInputProcessor } from '../../input/passive'
-import type { InteractionRegistration } from '../../interaction/types'
 import { createDrawFeature } from './draw'
 import { createEdgeFeature } from './edge'
 import { createInsertFeature } from './insert'

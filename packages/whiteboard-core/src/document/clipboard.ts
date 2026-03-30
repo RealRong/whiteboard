@@ -3,6 +3,7 @@ import type {
   SliceExportResult,
   SliceRoots
 } from '../types/document'
+import { translateSlice } from './slice'
 
 const CLIPBOARD_PACKET_TYPE = 'whiteboard/slice'
 const CLIPBOARD_PACKET_VERSION = 1
@@ -19,7 +20,10 @@ export const createClipboardPacket = (
 ): ClipboardPacket => ({
   type: CLIPBOARD_PACKET_TYPE,
   version: CLIPBOARD_PACKET_VERSION,
-  slice: exported.slice,
+  slice: translateSlice(exported.slice, {
+    x: -exported.bounds.x,
+    y: -exported.bounds.y
+  }),
   roots: exported.roots
 })
 

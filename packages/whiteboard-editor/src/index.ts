@@ -1,6 +1,6 @@
 export {
   createEditor
-} from './runtime/editor'
+} from './runtime/editor/createEditor'
 export type {
   Editor,
   EditorProjection,
@@ -12,19 +12,21 @@ export type {
   EditorCommands,
   EditorInput,
   EditorKeyboardInput,
-  EditorPlatformBridge,
   EditorPointerInput,
+  EditorPointerSample,
   EditorWheelInput,
-  EditorInsertResult,
+  EditorInsertResult
+} from './types/editor'
+export type {
   EditorRuntime
-} from './runtime/editor'
+} from './types/internal/editor'
 export type {
   SelectionCapabilities,
   SelectionReadModel,
   SelectionStyleSnapshot,
   SelectionTypeStat
 } from './types/selection'
-export type { EditorPick } from './runtime/pick'
+export type { EditorPick } from './types/runtime/pick'
 export {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
@@ -60,27 +62,11 @@ export {
 export type {
   ShortcutAction,
   ShortcutBinding,
-  ShortcutOverrides
+  ShortcutOverrides,
+  ShortcutPlatform
 } from './shortcut'
-export {
-  getInsertPreset,
-  readInsertPresetGroup,
-  readShapePresetKind,
-  readStickyInsertTone,
-  CREATE_PRESETS,
-  DEFAULT_MINDMAP_PRESET_KEY,
-  DEFAULT_SHAPE_PRESET_KEY,
-  DEFAULT_STICKY_PRESET_KEY,
-  FRAME_INSERT_PRESET,
-  INSERT_PRESETS,
-  MINDMAP_INSERT_PRESETS,
-  MINDMAP_INSERT_TEMPLATES,
-  SHAPE_INSERT_PRESETS,
-  STICKY_INSERT_OPTIONS,
-  STICKY_INSERT_PRESETS,
-  TEXT_INSERT_PRESET
-} from './toolbox'
 export type {
+  InsertPresetCatalog,
   InsertPlacement,
   InsertPreset,
   InsertPresetGroup,

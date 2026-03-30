@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { Document } from '@whiteboard/core/types'
-import type { WhiteboardInstance as Editor } from '../editor'
+import type { WhiteboardInstance as Editor } from '../../types/runtime'
 import { isMirroredDocumentFromEngine } from './runtime'
 
 export const DocumentSync = ({

@@ -51,8 +51,8 @@ const translateDocument = <C extends DocumentCommand>(
         registries: ctx.registries,
         createNodeId: ctx.ids.node,
         createEdgeId: ctx.ids.edge,
-        at: command.options?.at,
-        offset: command.options?.offset,
+        origin: command.options?.origin,
+        delta: command.options?.delta,
         ownerId: command.options?.ownerId,
         roots: command.options?.roots
       })

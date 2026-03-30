@@ -1,55 +1,15 @@
 import { createValueStore, type ValueStore } from '@whiteboard/engine'
-import type { Point } from '@whiteboard/core/types'
-import type { DrawBrushKind } from '../../types/tool'
+import type { DrawBrushKind } from '../types/tool'
 import type {
   BrushStyle,
-  BrushStylePatch,
   DrawBrush,
   DrawCommands,
   DrawPreferences,
-  DrawPreview,
   DrawSlot,
   ResolvedDrawStyle
-} from '../../types/draw'
+} from '../types/draw'
 
 export const DRAW_SLOTS = ['1', '2', '3'] as const satisfies readonly DrawSlot[]
-
-const DEFAULT_DRAW_PREFERENCES: DrawPreferences = {
-  pen: {
-    slot: '1',
-    slots: {
-      '1': {
-        color: 'hsl(var(--ui-text-primary, 40 2.1% 28%))',
-        width: 2
-      },
-      '2': {
-        color: 'hsl(var(--tag-blue-foreground, 206.5 74.4% 52.5%))',
-        width: 4
-      },
-      '3': {
-        color: 'hsl(var(--tag-purple-foreground, 278.6 32.7% 56.3%))',
-        width: 8
-      }
-    }
-  },
-  highlighter: {
-    slot: '1',
-    slots: {
-      '1': {
-        color: 'hsl(var(--tag-yellow-background, 47.6 70.7% 92%))',
-        width: 12
-      },
-      '2': {
-        color: 'hsl(var(--tag-green-background, 146.7 24.3% 92.7%))',
-        width: 12
-      },
-      '3': {
-        color: 'hsl(var(--tag-pink-background, 331.8 63% 94.7%))',
-        width: 12
-      }
-    }
-  }
-}
 
 const DRAW_OPACITY: Readonly<Record<DrawBrushKind, number>> = {
   pen: 1,
@@ -61,11 +21,28 @@ const normalizeStyle = (
 ): BrushStyle => ({
   color: typeof value.color === 'string' && value.color.trim()
     ? value.color
-    : DEFAULT_DRAW_PREFERENCES.pen.slots['1'].color,
+    : 'currentColor',
   width: Number.isFinite(value.width)
     ? Math.max(1, value.width)
     : 1
 })
+
+const normalizeBrush = (
+  brush: DrawBrush
+): DrawBrush => {
+  const slot = DRAW_SLOTS.includes(brush.slot)
+    ? brush.slot
+    : DRAW_SLOTS[0]
+
+  return {
+    slot,
+    slots: {
+      '1': normalizeStyle(brush.slots['1']),
+      '2': normalizeStyle(brush.slots['2']),
+      '3': normalizeStyle(brush.slots['3'])
+    }
+  }
+}
 
 const isSameStyle = (
   left: BrushStyle,
@@ -86,23 +63,11 @@ const isSameBrush = (
   )
 )
 
-const createInitialState = (): DrawPreferences => ({
-  pen: {
-    slot: DEFAULT_DRAW_PREFERENCES.pen.slot,
-    slots: {
-      '1': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['1']),
-      '2': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['2']),
-      '3': normalizeStyle(DEFAULT_DRAW_PREFERENCES.pen.slots['3'])
-    }
-  },
-  highlighter: {
-    slot: DEFAULT_DRAW_PREFERENCES.highlighter.slot,
-    slots: {
-      '1': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['1']),
-      '2': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['2']),
-      '3': normalizeStyle(DEFAULT_DRAW_PREFERENCES.highlighter.slots['3'])
-    }
-  }
+export const normalizeDrawPreferences = (
+  value: DrawPreferences
+): DrawPreferences => ({
+  pen: normalizeBrush(value.pen),
+  highlighter: normalizeBrush(value.highlighter)
 })
 
 export const readDrawSlot = (
@@ -130,11 +95,15 @@ export const readDrawStyle = (
   }
 }
 
-export const createDrawState = (): {
+export const createDrawState = (
+  initialPreferences: DrawPreferences
+): {
   store: ValueStore<DrawPreferences>
   commands: DrawCommands
 } => {
-  const store = createValueStore<DrawPreferences>(createInitialState())
+  const store = createValueStore<DrawPreferences>(
+    normalizeDrawPreferences(initialPreferences)
+  )
 
   return {
     store,

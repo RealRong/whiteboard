@@ -7,13 +7,14 @@ export type {
   InteractionActivation,
   InteractionCleanupContext,
   InteractionContext,
+  InteractionKeyboardInput,
   InteractionMode,
   InteractionPointerInput,
   InteractionRegistration,
   InteractionRegistry,
   InteractionState,
   RuntimeSession
-} from './types'
+} from '../../types/runtime/interaction'
 export type {
   EdgeSnapRuntime,
   MoveSnapInput,

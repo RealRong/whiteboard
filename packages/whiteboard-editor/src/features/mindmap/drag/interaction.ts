@@ -10,11 +10,11 @@ import type {
   InteractionRegistration
 } from '../../../runtime/interaction'
 import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
-import type { MindmapDragProjection } from './projection'
+import type { MindmapDragProjection } from '../../../runtime/projection/mindmapDrag'
 import {
   moveMindmapByDrop,
   moveMindmapRoot
-} from '../commands'
+} from '../../../runtime/commands/mindmap'
 
 type ActiveMindmapDragSession = MindmapDragSession
 
@@ -115,7 +115,7 @@ export const createMindmapDragInteraction = (
       return input.pick.nodeId === treeView.tree.rootId
         ? createRootDrag({
             treeId: input.pick.treeId,
-            pointerId: input.event.pointerId,
+            pointerId: input.pointerId,
             start: input.point.world,
             origin: baseOffset
           })
@@ -123,7 +123,7 @@ export const createMindmapDragInteraction = (
             treeId: input.pick.treeId,
             treeView,
             nodeId: input.pick.nodeId,
-            pointerId: input.event.pointerId,
+            pointerId: input.pointerId,
             world: input.point.world,
             baseOffset
           }) ?? null
@@ -141,14 +141,15 @@ export const createMindmapDragInteraction = (
       ctx.projection.mindmapDrag.set(
         toMindmapDragProjection(state)
       )
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state, setState, session }, input) => {
       const next = projectState(state, input.world)
       Object.assign(state, next)
       setState(state)
-      session.pan(input.raw)
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       if (state.kind === 'root') {

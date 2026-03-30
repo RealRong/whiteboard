@@ -3,9 +3,13 @@ import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type { Document } from '@whiteboard/core/types'
 import { createEngine, normalizeDocument } from '@whiteboard/engine'
 import { createDefaultNodeRegistry } from '../../features/node/registry'
-import { createEditor, type WhiteboardRuntime as Editor } from '../editor'
+import { DEFAULT_DRAW_PREFERENCES } from '../../features/toolbox/drawPreferences'
+import { INSERT_PRESET_CATALOG } from '../../features/toolbox/presets'
 import type { WhiteboardProps } from '../../types/common/board'
-import type { ResolvedConfig } from '../../config/types'
+import type { ResolvedConfig } from '../../types/common/config'
+import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import { createEditor } from '../editor'
+import { createHostRuntime } from '../host/runtime'
 
 type EngineRuntime = ReturnType<typeof createEngine>
 
@@ -70,13 +74,21 @@ export const useWhiteboardRuntime = ({
         wheelEnabled: resolvedConfig.viewport.enableWheel,
         wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
       },
-      registry: nodeRegistry ?? createDefaultNodeRegistry()
+      registry: nodeRegistry ?? createDefaultNodeRegistry(),
+      insertPresetCatalog: INSERT_PRESET_CATALOG,
+      initialDrawPreferences: DEFAULT_DRAW_PREFERENCES
     })
   }
   const editor = editorRef.current!
+  const hostRef = useRef<ReturnType<typeof createHostRuntime> | null>(null)
+  if (!hostRef.current) {
+    hostRef.current = createHostRuntime()
+  }
+  const host = hostRef.current
 
   return {
     editor,
+    host,
     engine,
     inputDocument,
     lastOutboundDocumentRef,

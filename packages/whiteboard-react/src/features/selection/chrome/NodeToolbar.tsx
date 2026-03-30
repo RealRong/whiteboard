@@ -7,10 +7,10 @@ import {
 } from 'react'
 import type { Point } from '@whiteboard/core/types'
 import {
-  useElementSize,
-  useEditorRuntime,
-  useStoreValue
-} from '../../../runtime/hooks'
+  useEditorRuntime
+} from '../../../runtime/hooks/useEditor'
+import { useElementSize } from '../../../runtime/hooks/useElementSize'
+import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
 import { useSelectionPresentation } from '../../node/selection'
 import {

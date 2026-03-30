@@ -5,12 +5,14 @@ import {
   resolveShortcutBindings
 } from '@whiteboard/editor'
 import type { ShortcutOverrides } from '../types/common/shortcut'
-import { useEditorRuntime } from '../runtime/hooks'
-import { isKeyboardIgnoredTarget } from './domTargets'
+import { useEditorRuntime } from '../runtime/hooks/useEditor'
+import { isKeyboardIgnoredTarget } from '../runtime/host/domTargets'
 import {
   DefaultShortcutBindings,
   runShortcut
 } from './shortcut'
+import { resolveKeyboardInput } from '../runtime/host/input'
+import { detectShortcutPlatform } from '../runtime/host/keyboardPlatform'
 
 export const useKeyboard = ({
   containerRef,
@@ -25,7 +27,7 @@ export const useKeyboard = ({
     [shortcuts]
   )
   const shortcutMap = useMemo(
-    () => createShortcutMap(bindings),
+    () => createShortcutMap(bindings, detectShortcutPlatform()),
     [bindings]
   )
 
@@ -55,7 +57,9 @@ export const useKeyboard = ({
         return
       }
 
-      if (editor.input.keyDown({ event })) {
+      const input = resolveKeyboardInput(event)
+
+      if (editor.input.keyDown(input)) {
         if (event.cancelable) {
           event.preventDefault()
         }
@@ -65,7 +69,7 @@ export const useKeyboard = ({
 
       if (event.repeat) return
 
-      const action = readShortcut(event, shortcutMap)
+      const action = readShortcut(input, shortcutMap)
       if (!action) return
       if (!runShortcut(editor, action)) return
 
@@ -81,12 +85,12 @@ export const useKeyboard = ({
         || isKeyboardIgnoredTarget(event.target)
       ) {
         if (event.code === 'Space' && editor.interaction.state.get().space) {
-          editor.input.keyUp({ event })
+          editor.input.keyUp(resolveKeyboardInput(event))
         }
         return
       }
 
-      if (!editor.input.keyUp({ event })) {
+      if (!editor.input.keyUp(resolveKeyboardInput(event))) {
         return
       }
 

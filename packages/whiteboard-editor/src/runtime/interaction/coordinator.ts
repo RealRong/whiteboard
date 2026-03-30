@@ -2,24 +2,19 @@ import {
   createDerivedStore,
   createValueStore
 } from '@whiteboard/engine'
-import type { Point } from '@whiteboard/core/types'
 import type {
   ActiveInteractionMode,
   InteractionActivation,
   InteractionContext,
   InteractionCoordinator,
+  InteractionKeyboardInput,
   InteractionPointerInput,
   InteractionRegistration,
   InteractionState,
   RuntimeSession
-} from './types'
-import type {
-  ViewportInputRuntime,
-  ViewportPointer
-} from '../viewport'
+} from '../../types/runtime/interaction'
+import type { ViewportInputRuntime } from '../viewport'
 import { createAutoPan } from './autoPan'
-import type { PointerContinuation } from '../platform/pointerContinuation'
-import type { DocumentSelectionLock } from '../platform/selectionLock'
 
 type ActiveInteraction = Readonly<{
   id: number
@@ -54,70 +49,15 @@ const readDefaultPointerId = (
     return undefined
   }
 
-  if (typeof input.pointerId === 'number') {
-    return input.pointerId
-  }
-
-  const event = input.event
-  return event instanceof PointerEvent
-    ? event.pointerId
+  return typeof input.pointerId === 'number'
+    ? input.pointerId
     : undefined
 }
 
-const readDefaultCapture = (
-  input: unknown
-): Element | null => {
-  if (!isRecord(input)) {
-    return null
-  }
-
-  if (input.capture instanceof Element) {
-    return input.capture
-  }
-
-  const event = input.event
-  if (
-    event instanceof PointerEvent
-    && event.currentTarget instanceof Element
-  ) {
-    return event.currentTarget
-  }
-
-  return null
-}
-
-const toInteractionPointerInput = (
-  event: PointerEvent,
-  point: ViewportPointer
-): InteractionPointerInput => ({
-  pointerId: event.pointerId,
-  client: {
-    x: event.clientX,
-    y: event.clientY
-  },
-  screen: point.screen,
-  world: point.world,
-  altKey: event.altKey,
-  shiftKey: event.shiftKey,
-  ctrlKey: event.ctrlKey,
-  metaKey: event.metaKey,
-  buttons: event.buttons,
-  raw: event
-})
-
 export const createInteractionCoordinator = ({
-  getViewport,
-  readPointer,
-  pointerContinuation,
-  selectionLock
+  getViewport
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
-  readPointer: (input: {
-    clientX: number
-    clientY: number
-  }) => ViewportPointer
-  pointerContinuation: PointerContinuation
-  selectionLock: DocumentSelectionLock
 }): InteractionCoordinator => {
   const active = createValueStore<ActiveInteraction | null>(null)
   const space = createValueStore(false)
@@ -149,35 +89,23 @@ export const createInteractionCoordinator = ({
     )
   })
   let nextId = 1
-  let stopPointerContinuation = () => {}
-  let releaseDocumentSelection = () => {}
   let current: RunningInteraction | null = null
   let currentSession: RuntimeSession | null = null
   const autoPan = createAutoPan({
     getViewport
   })
 
-  const clearPointerContinuation = () => {
-    stopPointerContinuation()
-    stopPointerContinuation = () => {}
-  }
-
-  const clearDocumentSelection = () => {
-    releaseDocumentSelection()
-    releaseDocumentSelection = () => {}
-  }
-
   const matchesPointer = (
     pointerId: number | undefined,
-    event: PointerEvent
-  ) => pointerId === undefined || event.pointerId === pointerId
+    input: {
+      pointerId: number
+    }
+  ) => pointerId === undefined || input.pointerId === pointerId
 
   const cleanup = (
     running: RunningInteraction
   ) => {
     autoPan.stop()
-    clearPointerContinuation()
-    clearDocumentSelection()
     active.set(null)
     current = null
     currentSession = null
@@ -287,72 +215,6 @@ export const createInteractionCoordinator = ({
       replace
     }
 
-    const handleMove = (
-      event: PointerEvent
-    ) => {
-      if (!matchesPointer(running.pointerId, event) || !currentSession) {
-        return
-      }
-
-      const activeInteraction = current
-      if (
-        !activeInteraction
-        || activeInteraction.id !== running.id
-      ) {
-        return
-      }
-
-      activeInteraction.registration.move?.(
-        createContext(
-          activeInteraction as RunningInteraction & {
-            state: State
-            input: Start
-            registration: InteractionRegistration<State, Start>
-          },
-          currentSession as RuntimeSession
-        ),
-        toInteractionPointerInput(event, readPointer(event))
-      )
-    }
-
-    const handleUp = (
-      event: PointerEvent
-    ) => {
-      if (!matchesPointer(running.pointerId, event) || !currentSession) {
-        return
-      }
-
-      const activeInteraction = current
-      if (
-        !activeInteraction
-        || activeInteraction.id !== running.id
-      ) {
-        return
-      }
-
-      activeInteraction.registration.up?.(
-        createContext(
-          activeInteraction as RunningInteraction & {
-            state: State
-            input: Start
-            registration: InteractionRegistration<State, Start>
-          },
-          currentSession as RuntimeSession
-        ),
-        toInteractionPointerInput(event, readPointer(event))
-      )
-    }
-
-    const handlePointerCancel = (
-      event: PointerEvent
-    ) => {
-      if (!matchesPointer(running.pointerId, event)) {
-        return
-      }
-
-      session.cancel()
-    }
-
     active.set({
       id: running.id,
       key: running.key,
@@ -362,15 +224,6 @@ export const createInteractionCoordinator = ({
     })
     current = running
     currentSession = session
-    stopPointerContinuation = pointerContinuation.start({
-      pointerId: running.pointerId,
-      capture: activation.registration.capture?.(activation.state, activation.input)
-        ?? readDefaultCapture(activation.input),
-      move: handleMove,
-      up: handleUp,
-      cancel: handlePointerCancel
-    })
-    releaseDocumentSelection = selectionLock.lock()
 
     const panOptions = typeof activation.registration.pan === 'function'
       ? activation.registration.pan(activation.state, activation.input)
@@ -417,10 +270,64 @@ export const createInteractionCoordinator = ({
     session.cancel()
   }
 
-  const handleKeyDown = (event: KeyboardEvent) => {
+  const handlePointerMove = (
+    input: InteractionPointerInput
+  ) => {
+    const running = current
+    const session = currentSession
+    if (!running || !session || !matchesPointer(running.pointerId, input)) {
+      return false
+    }
+
+    running.registration.move?.(
+      createContext(
+        running,
+        session
+      ),
+      input
+    )
+    return true
+  }
+
+  const handlePointerUp = (
+    input: InteractionPointerInput
+  ) => {
+    const running = current
+    const session = currentSession
+    if (!running || !session || !matchesPointer(running.pointerId, input)) {
+      return false
+    }
+
+    running.registration.up?.(
+      createContext(
+        running,
+        session
+      ),
+      input
+    )
+    return true
+  }
+
+  const handlePointerCancel = (
+    input: {
+      pointerId: number
+    }
+  ) => {
+    const session = currentSession
+    if (!current || !session || !matchesPointer(current.pointerId, input)) {
+      return false
+    }
+
+    session.cancel()
+    return true
+  }
+
+  const handleKeyDown = (
+    input: InteractionKeyboardInput
+  ) => {
     let handled = false
 
-    if (event.code === 'Space') {
+    if (input.code === 'Space') {
       if (!space.get()) {
         space.set(true)
       }
@@ -439,20 +346,22 @@ export const createInteractionCoordinator = ({
         running,
         session
       ),
-      event
+      input
     )
 
-    if (active.get() && event.key === 'Escape') {
+    if (active.get() && input.key === 'Escape') {
       session.cancel()
     }
 
     return true
   }
 
-  const handleKeyUp = (event: KeyboardEvent) => {
+  const handleKeyUp = (
+    input: InteractionKeyboardInput
+  ) => {
     let handled = false
 
-    if (event.code === 'Space') {
+    if (input.code === 'Space') {
       if (space.get()) {
         space.set(false)
       }
@@ -470,7 +379,7 @@ export const createInteractionCoordinator = ({
         running,
         session
       ),
-      event
+      input
     )
     return true
   }
@@ -482,6 +391,9 @@ export const createInteractionCoordinator = ({
     state,
     space,
     start,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     cancel: () => {
       currentSession?.cancel()
     },

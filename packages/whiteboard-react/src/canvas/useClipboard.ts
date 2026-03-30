@@ -2,15 +2,15 @@ import { useEffect, type RefObject } from 'react'
 import {
   isEditableTarget,
   isInputIgnoredTarget
-} from './domTargets'
-import { useEditor } from '../runtime/hooks'
+} from '../runtime/host/domTargets'
+import { useClipboardActions } from '../runtime/host/useClipboardActions'
 
 export const useClipboard = ({
   containerRef
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const editor = useEditor()
+  const clipboard = useClipboardActions()
 
   useEffect(() => {
     const container = containerRef.current
@@ -19,31 +19,26 @@ export const useClipboard = ({
     const shouldIgnore = (target: EventTarget | null) =>
       isEditableTarget(target) || isInputIgnoredTarget(target)
 
-    const hasSelectionTarget = () => {
-      const selection = editor.read.selection.get()
-      return selection.summary.items.count > 0
-    }
-
     const onCopy = (event: ClipboardEvent) => {
-      if (event.defaultPrevented || shouldIgnore(event.target) || !hasSelectionTarget()) {
+      if (event.defaultPrevented || shouldIgnore(event.target)) {
         return
       }
 
       event.preventDefault()
       event.stopPropagation()
-      void editor.commands.clipboard.copy('selection', {
+      void clipboard.copy('selection', {
         event
       })
     }
 
     const onCut = (event: ClipboardEvent) => {
-      if (event.defaultPrevented || shouldIgnore(event.target) || !hasSelectionTarget()) {
+      if (event.defaultPrevented || shouldIgnore(event.target)) {
         return
       }
 
       event.preventDefault()
       event.stopPropagation()
-      void editor.commands.clipboard.cut('selection', {
+      void clipboard.cut('selection', {
         event
       })
     }
@@ -55,7 +50,7 @@ export const useClipboard = ({
 
       event.preventDefault()
       event.stopPropagation()
-      void editor.commands.clipboard.paste({
+      void clipboard.paste({
         event
       })
     }
@@ -69,5 +64,5 @@ export const useClipboard = ({
       container.removeEventListener('cut', onCut)
       container.removeEventListener('paste', onPaste)
     }
-  }, [containerRef, editor])
+  }, [clipboard, containerRef])
 }

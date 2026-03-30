@@ -1,9 +1,9 @@
 import { useMemo, type CSSProperties, type RefObject } from 'react'
 import {
   useEditorRuntime,
-  useStoreValue,
   useTool
-} from '../runtime/hooks'
+} from '../runtime/hooks/useEditor'
+import { useStoreValue } from '../runtime/hooks/useStoreValue'
 import { useBindViewportInput } from '../runtime/viewport/useBindViewportInput'
 import { Background } from './Background'
 import { Chrome } from './Chrome'
@@ -20,7 +20,7 @@ import {
 } from '../features/node/components/FrameLayer'
 import { NodeOverlayLayer } from '../features/node/components/NodeOverlayLayer'
 import { NodeSceneLayer } from '../features/node/components/NodeSceneLayer'
-import type { ResolvedConfig } from '../config/types'
+import type { ResolvedConfig } from '../types/common/config'
 
 export const Surface = ({
   resolvedConfig,

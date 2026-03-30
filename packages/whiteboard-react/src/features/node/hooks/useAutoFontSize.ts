@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type RefObject } from 'react'
 import type { Rect } from '@whiteboard/core/types'
-import { useEditorRuntime } from '../../../runtime/hooks'
+import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
 import {
   TEXT_DEFAULT_FONT_SIZE,
   type TextVariant,

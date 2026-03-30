@@ -9,12 +9,17 @@ import type { InteractionCoordinator } from '../interaction'
 import {
   resolvePointerDown,
   resolvePointerMove,
+  resolvePointerUp,
   resolveWheelInput
 } from './pointer'
 import {
-  readPointerSnapshot,
   type PointerSnapshotStore
 } from './pointer/snapshot'
+import type {
+  PointerDown,
+  PointerMove,
+  PointerUp
+} from './pointer'
 
 type InputRouterHost = Pick<
   Editor,
@@ -29,6 +34,25 @@ const readPassiveContext = (
 ) => ({
   mode: editor.interaction.mode.get(),
   tool: editor.read.tool.get()
+})
+
+const toInteractionPointerInput = (
+  input: PointerDown | PointerMove | PointerUp
+) => ({
+  pointerId: input.pointerId,
+  button: input.button,
+  buttons: input.buttons,
+  detail: input.detail,
+  client: input.point.client,
+  screen: input.point.screen,
+  world: input.point.world,
+  pick: input.pick,
+  altKey: input.altKey,
+  shiftKey: input.shiftKey,
+  ctrlKey: input.ctrlKey,
+  metaKey: input.metaKey,
+  modifiers: input.modifiers,
+  samples: input.samples
 })
 
 export const createInputRouter = ({
@@ -46,41 +70,72 @@ export const createInputRouter = ({
     editor.interaction.cancel()
   },
   pointerDown: (input) => {
-    pointer.set(readPointerSnapshot(editor.viewport, input.event))
+    pointer.set({
+      client: input.client,
+      screen: input.screen,
+      world: input.world
+    })
 
     if (editor.interaction.busy.get()) {
-      return false
+      return {
+        handled: false,
+        continuePointer: false
+      }
     }
 
-    const resolved = resolvePointerDown(
-      editor,
-      input.container,
-      input.event
-    )
+    const resolved = resolvePointerDown(editor, input)
 
     if (resolved.frameExit) {
       editor.commands.frame.exit()
     }
 
-    return runtime.interactions.start(resolved)
+    const handled = runtime.interactions.start(resolved)
+    return {
+      handled,
+      continuePointer: handled && editor.interaction.busy.get()
+    }
   },
   pointerMove: (input) => {
-    pointer.set(readPointerSnapshot(editor.viewport, input.event))
+    pointer.set({
+      client: input.client,
+      screen: input.screen,
+      world: input.world
+    })
 
     if (editor.interaction.busy.get()) {
-      return
+      const resolved = resolvePointerMove(editor, input)
+      return editor.interaction.handlePointerMove(
+        toInteractionPointerInput(resolved)
+      )
     }
 
-    const resolved = resolvePointerMove(
-      editor,
-      input.container,
-      input.event
-    )
+    const resolved = resolvePointerMove(editor, input)
 
     runtime.passive.move(
       resolved,
       readPassiveContext(editor)
     )
+    return false
+  },
+  pointerUp: (input) => {
+    pointer.set({
+      client: input.client,
+      screen: input.screen,
+      world: input.world
+    })
+
+    if (!editor.interaction.busy.get()) {
+      return false
+    }
+
+    const resolved = resolvePointerUp(editor, input)
+    return editor.interaction.handlePointerUp(
+      toInteractionPointerInput(resolved)
+    )
+  },
+  pointerCancel: (input) => {
+    pointer.set(null)
+    return editor.interaction.handlePointerCancel(input)
   },
   pointerLeave: () => {
     pointer.set(null)
@@ -95,9 +150,9 @@ export const createInputRouter = ({
 
     const resolved = resolveWheelInput(editor, input)
     pointer.set({
-      client: resolved.point.client,
-      screen: resolved.point.screen,
-      world: resolved.point.world
+      client: resolved.client,
+      screen: resolved.screen,
+      world: resolved.world
     })
 
     if (editor.interaction.busy.get()) {
@@ -118,15 +173,15 @@ export const createInputRouter = ({
         deltaY: resolved.deltaY,
         ctrlKey: resolved.ctrlKey,
         metaKey: resolved.metaKey,
-        clientX: resolved.point.client.x,
-        clientY: resolved.point.client.y
+        clientX: resolved.client.x,
+        clientY: resolved.client.y
       },
       runtime.policy.get().wheelSensitivity
     )
     return true
   },
-  keyDown: (input) => editor.interaction.handleKeyDown(input.event),
-  keyUp: (input) => editor.interaction.handleKeyUp(input.event),
+  keyDown: (input) => editor.interaction.handleKeyDown(input),
+  keyUp: (input) => editor.interaction.handleKeyUp(input),
   blur: () => {
     pointer.set(null)
     runtime.passive.blur(

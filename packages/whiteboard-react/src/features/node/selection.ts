@@ -19,9 +19,10 @@ import {
   useEditor,
   useInteraction,
   useTool
-} from '../../runtime/hooks'
+} from '../../runtime/hooks/useEditor'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import { useClipboardActions } from '../../runtime/host/useClipboardActions'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
 type InteractionMode = ReturnType<Editor['interaction']['state']['get']>['mode']
@@ -136,11 +137,13 @@ const bindAsyncClose = <Args extends unknown[]>(
 
 const readSelectionMenuView = ({
   editor,
+  clipboard,
   selection,
   summary,
   can
 }: {
   editor: Editor
+  clipboard: ReturnType<typeof useClipboardActions>
   selection: BaseSelection
   summary: NodeSummary
   can: NodeSelectionCan
@@ -306,7 +309,7 @@ const readSelectionMenuView = ({
                 return
               }
 
-              return editor.commands.clipboard.copy({
+              return clipboard.copy({
                 nodeIds
               })
             }
@@ -320,7 +323,7 @@ const readSelectionMenuView = ({
                 return
               }
 
-              return editor.commands.clipboard.cut({
+              return clipboard.cut({
                 nodeIds
               })
             }
@@ -466,7 +469,8 @@ const resolveSelectionPresentation = (
 
 const resolveSelectionView = (
   editor: Editor,
-  selection: BaseSelection
+  selection: BaseSelection,
+  clipboard: ReturnType<typeof useClipboardActions>
 ): SelectionView => {
   const boxState = resolveSelectionBoxState(selection)
   const pureNodeSelection =
@@ -487,6 +491,7 @@ const resolveSelectionView = (
     menu: pureNodeSelection
       ? readSelectionMenuView({
           editor,
+          clipboard,
           selection,
           summary: nodeSummary,
           can: nodeCan
@@ -500,9 +505,13 @@ const resolveSelectionView = (
 
 export const useSelection = () => {
   const editor = useEditor()
+  const clipboard = useClipboardActions()
   const selection = useStoreValue(editor.read.selection)
 
-  return useMemo(() => resolveSelectionView(editor, selection), [editor, selection])
+  return useMemo(
+    () => resolveSelectionView(editor, selection, clipboard),
+    [clipboard, editor, selection]
+  )
 }
 
 export const useSelectionPresentation = () => {

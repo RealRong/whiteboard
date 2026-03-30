@@ -1,23 +1,17 @@
-export type PointerContinuationInput = {
-  pointerId?: number
-  capture?: Element | null
-  move: (event: PointerEvent) => void
-  up: (event: PointerEvent) => void
-  cancel: (event: PointerEvent) => void
-}
-
-export type PointerContinuation = {
-  start: (input: PointerContinuationInput) => () => void
+export type PointerSession = {
+  start: (input: {
+    container: Element
+    pointerId: number
+    move: (event: PointerEvent) => void
+    up: (event: PointerEvent) => void
+    cancel: (event: PointerEvent) => void
+  }) => () => void
 }
 
 const releaseCapture = (
-  target: Element | null | undefined,
-  pointerId: number | undefined
+  target: Element,
+  pointerId: number
 ) => {
-  if (!target || pointerId === undefined) {
-    return
-  }
-
   const release = (target as Element & {
     releasePointerCapture?: (nextPointerId: number) => void
   }).releasePointerCapture
@@ -34,13 +28,9 @@ const releaseCapture = (
 }
 
 const capturePointer = (
-  target: Element | null | undefined,
-  pointerId: number | undefined
+  target: Element,
+  pointerId: number
 ) => {
-  if (!target || pointerId === undefined) {
-    return
-  }
-
   const capture = (target as Element & {
     setPointerCapture?: (nextPointerId: number) => void
   }).setPointerCapture
@@ -56,19 +46,19 @@ const capturePointer = (
   }
 }
 
-export const createBrowserPointerContinuation = (): PointerContinuation => ({
+export const createPointerSession = (): PointerSession => ({
   start: ({
+    container,
     pointerId,
-    capture,
     move,
     up,
     cancel
   }) => {
-    capturePointer(capture, pointerId)
+    capturePointer(container, pointerId)
 
     if (typeof window === 'undefined') {
       return () => {
-        releaseCapture(capture, pointerId)
+        releaseCapture(container, pointerId)
       }
     }
 
@@ -87,7 +77,7 @@ export const createBrowserPointerContinuation = (): PointerContinuation => ({
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', cancel)
-      releaseCapture(capture, pointerId)
+      releaseCapture(container, pointerId)
     }
   }
 })

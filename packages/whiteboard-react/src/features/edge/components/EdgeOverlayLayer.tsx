@@ -3,11 +3,11 @@ import type {
 } from 'react'
 import {
   useInteraction,
-  useEditorRuntime,
-  usePickRef,
-  useStoreValue,
   useTool
-} from '../../../runtime/hooks'
+} from '../../../runtime/hooks/useEditor'
+import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+import { usePickRef } from '../../../runtime/hooks/usePickRef'
+import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type {
   SelectedEdgeRoutePointView,
   SelectedEdgeView

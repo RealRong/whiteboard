@@ -1,7 +1,6 @@
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Editor } from '../../types/editor'
 import type { ViewportCommands } from '../viewport'
-import { createClipboardCommands } from './clipboard'
 import { createDrawCommands } from './draw'
 import { createFrameCommands } from './frame'
 import { createHistoryCommands } from './history'
@@ -10,7 +9,6 @@ import { createMindmapCommands } from './mindmap'
 import { createNodeCommands } from './node'
 import type {
   DrawFeatureState,
-  EditorClipboardRuntime,
   EditorCommandHost
 } from '../../types/internal/editor'
 import type { SelectionStore } from '../../types/internal/selection'
@@ -18,7 +16,8 @@ import type { FrameState } from '../frame'
 import type { EditCommands } from '../edit'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
-import type { NodeProjectionRuntime } from '../../features/node/projection/store'
+import type { NodeProjectionRuntime } from '../projection/node'
+import type { InsertPresetCatalog } from '../../types/toolbox'
 
 export const createEditorCommands = ({
   engine,
@@ -32,7 +31,7 @@ export const createEditorCommands = ({
   viewportRead,
   draw,
   nodeProjection,
-  clipboard
+  insertPresetCatalog
 }: {
   engine: EngineInstance
   read: Editor['read']
@@ -48,7 +47,7 @@ export const createEditorCommands = ({
   viewportRead: Editor['viewport']
   draw: DrawFeatureState
   nodeProjection: NodeProjectionRuntime
-  clipboard: EditorClipboardRuntime
+  insertPresetCatalog: InsertPresetCatalog
 }): Editor['commands'] => {
   let commands!: Editor['commands']
   const commandHost: EditorCommandHost = {
@@ -93,14 +92,9 @@ export const createEditorCommands = ({
     engine,
     commandHost
   })
-  const clipboardCommands = createClipboardCommands({
-    commandHost,
-    runtime: clipboard.runtime,
-    port: clipboard.port,
-    readPointerWorld: clipboard.readPointerWorld
-  })
   const insertCommands = createInsertCommands({
-    commandHost
+    commandHost,
+    catalog: insertPresetCatalog
   })
 
   commands = {
@@ -115,7 +109,6 @@ export const createEditorCommands = ({
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,
-    clipboard: clipboardCommands,
     insert: insertCommands
   }
 

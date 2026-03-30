@@ -29,7 +29,7 @@ import {
   clearEdgeProjectionPatch,
   writeEdgeProjectionHint,
   writeEdgeProjectionPatch,
-} from '../projection'
+} from '../../../runtime/projection/edge'
 
 type ConnectPointer = {
   pointerId: number
@@ -66,10 +66,13 @@ export const createEdgeConnectInteraction = (
   }
 
   const readPointer = (
-    input: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>
+    input: {
+      pointerId: number
+      world: PointerDown['point']['world']
+    }
   ): ConnectPointer => ({
     pointerId: input.pointerId,
-    world: ctx.viewport.pointer(input).world
+    world: input.world
   })
 
   const clearPatch = () => {
@@ -314,21 +317,25 @@ export const createEdgeConnectInteraction = (
 
       return readCreateState(
         input,
-        readPointer(input.event),
+        readPointer({
+          pointerId: input.pointerId,
+          world: input.point.world
+        }),
         readEdgeType(input.tool.preset)
       )
     },
     start: ({ input, state }) => {
       writeStatePreview(state)
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state, session }, input) => {
       if (!updateActive(state, input)) {
         return
       }
 
-      session.pan(input.raw)
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       commitConnectState(state)
@@ -361,7 +368,10 @@ export const createEdgeConnectInteraction = (
       return readReconnectState(
         input.pick.id,
         input.pick.end,
-        readPointer(input.event)
+        readPointer({
+          pointerId: input.pointerId,
+          world: input.point.world
+        })
       ) ?? null
     },
     start: ({ input, state }) => {
@@ -373,15 +383,16 @@ export const createEdgeConnectInteraction = (
         edgeIds: [state.edgeId]
       })
       writeStatePreview(state)
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state, session }, input) => {
       if (!updateActive(state, input)) {
         return
       }
 
-      session.pan(input.raw)
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       commitConnectState(state)

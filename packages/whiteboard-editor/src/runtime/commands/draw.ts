@@ -6,7 +6,7 @@ import {
 } from '../tool'
 import {
   readDrawSlot
-} from '../../features/draw/state'
+} from '../draw'
 
 export const createDrawCommands = ({
   tool,

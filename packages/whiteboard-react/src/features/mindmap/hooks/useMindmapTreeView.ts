@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import { useEditorRuntime, useStoreValue } from '../../../runtime/hooks'
+import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { MindmapTreeViewData } from '../../../types/mindmap'
 
 export const useMindmapTreeView = (

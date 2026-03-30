@@ -6,7 +6,8 @@ import {
   Undo2,
   type LucideIcon
 } from 'lucide-react'
-import { useEditor, useStoreValue } from '../../runtime/hooks'
+import { useEditor } from '../../runtime/hooks/useEditor'
+import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 const ZOOM_FACTOR = 1.2
 

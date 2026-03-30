@@ -11,10 +11,7 @@ import {
   type KeyboardEvent
 } from 'react'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
-import {
-  useEdit,
-  useEditor
-} from '../../../../runtime/hooks'
+import { useEdit, useEditor } from '../../../../runtime/hooks/useEditor'
 import {
   ShapeGlyph
 } from '../../shape'

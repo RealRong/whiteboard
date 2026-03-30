@@ -18,6 +18,7 @@ import type {
   EdgePatch as CoreEdgePatch,
   Point
 } from '@whiteboard/core/types'
+
 type EdgeProjectionPatchMap = ReadonlyMap<EdgeId, EdgeProjectionPatch>
 
 type EdgeProjectionPatchStore =
@@ -33,7 +34,7 @@ type EdgeProjectionHintStore =
     set: (next?: EdgeProjectionHint) => void
   }
 
-export type EdgeProjection = {
+export type EdgeProjectionRuntime = {
   patch: EdgeProjectionPatchStore
   hint: EdgeProjectionHintStore
   emptyPatch: EdgeProjectionPatch
@@ -79,7 +80,7 @@ const toPatchMap = (
   return next
 }
 
-export const createEdgeProjection = (): EdgeProjection => {
+export const createEdgeProjectionRuntime = (): EdgeProjectionRuntime => {
   const hintValue = createRafValueStore({
     initial: EMPTY_HINT,
     isEqual: isEdgeProjectionHintEqual
@@ -105,17 +106,17 @@ export const createEdgeProjection = (): EdgeProjection => {
     isEqual: isEdgeProjectionPatchEqual
   })
 
-  const writeEntries: EdgeProjection['writeEntries'] = (
+  const writeEntries: EdgeProjectionRuntime['writeEntries'] = (
     entries
   ) => {
     patch.write(entries)
   }
 
-  const clearPatch: EdgeProjection['clearPatch'] = () => {
+  const clearPatch: EdgeProjectionRuntime['clearPatch'] = () => {
     patch.clear()
   }
 
-  const writePatch: EdgeProjection['writePatch'] = (
+  const writePatch: EdgeProjectionRuntime['writePatch'] = (
     edgeId,
     nextPatch,
     activeRouteIndex
@@ -125,7 +126,7 @@ export const createEdgeProjection = (): EdgeProjection => {
     ])
   }
 
-  const writeRoute: EdgeProjection['writeRoute'] = (
+  const writeRoute: EdgeProjectionRuntime['writeRoute'] = (
     edgeId,
     points,
     activeRouteIndex
@@ -142,7 +143,7 @@ export const createEdgeProjection = (): EdgeProjection => {
     )
   }
 
-  const writeHint: EdgeProjection['writeHint'] = (
+  const writeHint: EdgeProjectionRuntime['writeHint'] = (
     next
   ) => {
     if (!next) {
@@ -153,7 +154,7 @@ export const createEdgeProjection = (): EdgeProjection => {
     hint.set(next)
   }
 
-  const clearHint: EdgeProjection['clearHint'] = () => {
+  const clearHint: EdgeProjectionRuntime['clearHint'] = () => {
     hint.clear()
   }
 
@@ -175,7 +176,7 @@ export const createEdgeProjection = (): EdgeProjection => {
 }
 
 export const writeEdgeProjectionPatch = (
-  projection: Pick<EdgeProjection, 'writeEntries'>,
+  projection: Pick<EdgeProjectionRuntime, 'writeEntries'>,
   edgeId: EdgeId,
   patch: CoreEdgePatch,
   activeRouteIndex?: number
@@ -186,7 +187,7 @@ export const writeEdgeProjectionPatch = (
 }
 
 export const writeEdgeProjectionRoute = (
-  projection: Pick<EdgeProjection, 'writeEntries'>,
+  projection: Pick<EdgeProjectionRuntime, 'writeEntries'>,
   edgeId: EdgeId,
   points: readonly Point[],
   activeRouteIndex?: number
@@ -205,20 +206,20 @@ export const writeEdgeProjectionRoute = (
 }
 
 export const writeEdgeProjectionHint = (
-  projection: Pick<EdgeProjection, 'writeHint'>,
+  projection: Pick<EdgeProjectionRuntime, 'writeHint'>,
   next?: EdgeProjectionHint
 ) => {
   projection.writeHint(next)
 }
 
 export const clearEdgeProjectionPatch = (
-  projection: Pick<EdgeProjection, 'clearPatch'>
+  projection: Pick<EdgeProjectionRuntime, 'clearPatch'>
 ) => {
   projection.clearPatch()
 }
 
 export const clearEdgeProjectionHint = (
-  projection: Pick<EdgeProjection, 'clearHint'>
+  projection: Pick<EdgeProjectionRuntime, 'clearHint'>
 ) => {
   projection.clearHint()
 }

@@ -47,10 +47,6 @@ const updatePan = (
     x: -deltaX,
     y: -deltaY
   })
-
-  if (input.raw.cancelable) {
-    input.raw.preventDefault()
-  }
 }
 
 export const createViewportPanInteraction = (
@@ -68,9 +64,9 @@ export const createViewportPanInteraction = (
       return null
     }
 
-    const middleDrag = input.event.button === 1 || (input.event.buttons & 4) === 4
+    const middleDrag = input.button === 1 || (input.buttons & 4) === 4
     const leftDrag =
-      (input.event.button === 0 || (input.event.buttons & 1) === 1)
+      (input.button === 0 || (input.buttons & 1) === 1)
       && allowsLeftDrag(ctx)
 
     if (!middleDrag && !leftDrag) {
@@ -79,25 +75,18 @@ export const createViewportPanInteraction = (
 
     return {
       lastClient: {
-        x: input.event.clientX,
-        y: input.event.clientY
+        x: input.point.client.x,
+        y: input.point.client.y
       }
     }
   },
-  capture: (_state, input) => input.container,
   start: ({ input }) => {
-    if (input.event.cancelable) {
-      input.event.preventDefault()
-    }
-    input.event.stopPropagation()
+    void input
   },
   move: ({ state }, input) => {
     updatePan(ctx, state, input)
   },
-  up: ({ session }, input) => {
+  up: ({ session }) => {
     session.finish()
-    if (input.raw.cancelable) {
-      input.raw.preventDefault()
-    }
   }
 })

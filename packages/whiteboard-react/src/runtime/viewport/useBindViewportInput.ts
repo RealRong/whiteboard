@@ -1,9 +1,10 @@
 import { useEffect, type RefObject } from 'react'
 import { createRafTask } from '@whiteboard/engine'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import { resolveWheelInput } from '../host/input'
 
 type ContainerRect = Parameters<Editor['viewport']['setRect']>[0]
-type WheelInput = Parameters<Editor['viewport']['input']['wheel']>[0]
+type WheelInput = Parameters<Editor['input']['wheel']>[0]
 
 type ViewportInputOptions = {
   wheelEnabled: boolean
@@ -92,8 +93,9 @@ export const useBindViewportInput = ({
       if (pendingWheelInput) {
         pendingWheelInput.deltaX += input.deltaX
         pendingWheelInput.deltaY += input.deltaY
-        pendingWheelInput.clientX = input.clientX
-        pendingWheelInput.clientY = input.clientY
+        pendingWheelInput.client = input.client
+        pendingWheelInput.screen = input.screen
+        pendingWheelInput.world = input.world
         pendingWheelInput.ctrlKey = pendingWheelInput.ctrlKey || input.ctrlKey
         pendingWheelInput.metaKey = pendingWheelInput.metaKey || input.metaKey
       } else {
@@ -108,14 +110,10 @@ export const useBindViewportInput = ({
       if (isTextInputElement(event.target)) return
 
       refreshContainerRect()
-      scheduleWheel({
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        clientX: event.clientX,
-        clientY: event.clientY
-      })
+      scheduleWheel(resolveWheelInput({
+        editor,
+        event
+      }))
 
       if (event.cancelable) {
         event.preventDefault()

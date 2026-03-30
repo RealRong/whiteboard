@@ -7,11 +7,9 @@ import {
 import type {
   NodeId
 } from '@whiteboard/core/types'
-import {
-  useEditor,
-  usePickRef,
-  useStoreValue
-} from '../../../runtime/hooks'
+import { useEditor } from '../../../runtime/hooks/useEditor'
+import { usePickRef } from '../../../runtime/hooks/usePickRef'
+import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useNodeView } from '../hooks/useNodeView'
 import { useSelection } from '../selection'
 import { FrameNodeChrome } from '../registry/default/frame'

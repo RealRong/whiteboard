@@ -6,21 +6,19 @@ import type {
   EditorInputPolicy,
   EditorViewportRuntime,
 } from '../../internal/editor'
-import type { EdgeProjection } from '../../../features/edge/projection'
-import type { MindmapDragProjectionStore } from '../../../features/mindmap/drag/projection'
-import type { NodeProjectionRuntime } from '../../../features/node/projection/store'
+import type { EdgeProjectionRuntime } from '../../../runtime/projection/edge'
+import type { MindmapDragProjectionStore } from '../../../runtime/projection/mindmapDrag'
+import type { NodeProjectionRuntime } from '../../../runtime/projection/node'
 import type { SnapRuntime } from '../../../runtime/interaction/snap'
-import type { InteractionCoordinator } from '../../../runtime/interaction/types'
-import type { PickRuntime } from '../../../runtime/pick'
+import type { InteractionCoordinator } from '../interaction'
 
 export type EditorFeatureProjectionSet = {
   node: NodeProjectionRuntime
-  edge: EdgeProjection
+  edge: EdgeProjectionRuntime
   mindmapDrag: MindmapDragProjectionStore
 }
 
 export type EditorFeatureSpatial = {
-  pick: PickRuntime
   snap: SnapRuntime
 }
 

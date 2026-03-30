@@ -29,7 +29,7 @@ import {
 import {
   type NodeProjection,
   type NodeProjectionReader
-} from '../../features/node/projection/store'
+} from '../projection/node'
 
 export type NodeInteraction = {
   hovered: boolean

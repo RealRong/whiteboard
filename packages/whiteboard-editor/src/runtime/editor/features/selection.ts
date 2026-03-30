@@ -1,11 +1,11 @@
 import { createSelectionPressInteraction } from '../../../features/selection/interaction'
-import { createMarqueeInteraction } from '../../../features/selection/marquee'
+import { createMarqueeRuntime } from '../../projection/marquee'
 import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 
 export const createSelectionFeature = (
   ctx: EditorFeatureContext
  ) => {
-  const marquee = createMarqueeInteraction({
+  const marquee = createMarqueeRuntime({
     read: ctx.read,
     viewport: ctx.viewport
   })

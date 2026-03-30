@@ -7,14 +7,15 @@ import type {
   TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
+
 type NodeProjectionMap = ReadonlyMap<NodeId, NodeProjection>
 
 export type NodePatch = CoreNodeProjectionPatch
 
-type NodeProjectionWritePatch = TransformPreviewPatch
+type NodeProjectionPreviewPatch = TransformPreviewPatch
 
 type NodeProjectionPreviewWrite = {
-  patches: readonly NodeProjectionWritePatch[]
+  patches: readonly NodeProjectionPreviewPatch[]
   hoveredContainerId?: NodeId
 }
 
@@ -116,7 +117,7 @@ const toNodeProjectionMap = ({
 const toNodeProjectionWrite = (
   projections: ReadonlyMap<NodeId, NodeProjection>
 ): NodeProjectionWrite => {
-  const patches: NodeProjectionWritePatch[] = []
+  const patches: NodeProjectionPreviewPatch[] = []
   let hoveredContainerId: NodeId | undefined
   const hiddenIds: NodeId[] = []
 
@@ -142,8 +143,7 @@ const toNodeProjectionWrite = (
   }
 }
 
-export const createNodeProjectionStore = (
-): NodeProjectionStore => createRafKeyedStore({
+export const createNodeProjectionStore = (): NodeProjectionStore => createRafKeyedStore({
   emptyState: EMPTY_NODE_MAP,
   emptyValue: EMPTY_NODE_PROJECTION,
   build: toNodeProjectionMap,

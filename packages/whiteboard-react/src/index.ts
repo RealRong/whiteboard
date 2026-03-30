@@ -1,7 +1,7 @@
 import './styles/whiteboard-react.css'
 
 export { Whiteboard } from './Whiteboard'
-export { useEditor } from './runtime/hooks'
+export { useEditor } from './runtime/hooks/useEditor'
 export { createNodeRegistry, createDefaultNodeRegistry } from './features/node/registry'
 
 export type {
@@ -10,7 +10,7 @@ export type {
   WhiteboardProps
 } from './types/common/board'
 export type { WhiteboardCollabOptions } from './types/common/collab'
-export type { WhiteboardInstance } from './runtime/editor'
+export type { WhiteboardInstance } from './types/runtime'
 export type { Tool } from '@whiteboard/editor'
 export type {
   ControlId,

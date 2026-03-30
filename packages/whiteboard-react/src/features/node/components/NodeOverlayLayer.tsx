@@ -4,11 +4,11 @@ import {
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId, NodeType, Rect } from '@whiteboard/core/types'
 import {
-  useEditorRuntime,
   useFrameScope,
-  usePickRef,
-  useStoreValue
-} from '../../../runtime/hooks'
+  useEditorRuntime
+} from '../../../runtime/hooks/useEditor'
+import { usePickRef } from '../../../runtime/hooks/usePickRef'
+import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useNodeOverlayView } from '../hooks/useNodeView'
 import { useSelectionPresentation } from '../selection'
 import { NodeConnectHandles } from './NodeConnectHandles'

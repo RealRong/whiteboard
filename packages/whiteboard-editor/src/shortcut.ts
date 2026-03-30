@@ -8,3 +8,4 @@ export type {
   ShortcutBinding,
   ShortcutOverrides
 } from './types/common/shortcut'
+export type { ShortcutPlatform } from './runtime/input/keyboard'

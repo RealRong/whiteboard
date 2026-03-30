@@ -9,11 +9,8 @@ import {
   FRAME_DEFAULT_TITLE
 } from '@whiteboard/core/node'
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
-import {
-  useEdit,
-  useEditor,
-  usePickRef
-} from '../../../../runtime/hooks'
+import { useEdit, useEditor } from '../../../../runtime/hooks/useEditor'
+import { usePickRef } from '../../../../runtime/hooks/usePickRef'
 import {
   createSchema,
   createTextField,

@@ -1,30 +1,19 @@
 import type { FrameScope } from '@whiteboard/core/document'
-import type { Editor } from '../../../types/editor'
-import type { PointerPick } from '../../pick'
+import type {
+  Editor,
+  EditorPointerInput,
+  EditorPointerSample,
+  EditorWheelInput
+} from '../../../types/editor'
+import type { PointerPick } from '../../../types/runtime/pick'
 import type { Tool } from '../../tool'
 import { resolvePointerFrameGate } from './gate'
 
-export type PointerDown = PointerPick & {
-  phase: 'pointer/down'
-  container: HTMLDivElement
-  event: PointerEvent
-  capture: Element
-  tool: Tool
-  frame: FrameScope
-  frameExit: boolean
-  modifiers: {
-    alt: boolean
-    shift: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-}
-
-export type PointerMove = PointerPick & {
-  phase: 'pointer/move'
-  container: HTMLDivElement
-  event: PointerEvent
-  capture: Element
+type PointerBase = PointerPick & {
+  pointerId: number
+  button: number
+  buttons: number
+  detail: number
   tool: Tool
   frame: FrameScope
   modifiers: {
@@ -33,160 +22,122 @@ export type PointerMove = PointerPick & {
     ctrl: boolean
     meta: boolean
   }
-}
-
-export type PointerUp = PointerPick & {
-  phase: 'pointer/up'
-  container: HTMLDivElement
-  event: PointerEvent
-  capture: Element
-  tool: Tool
-  frame: FrameScope
-  modifiers: {
-    alt: boolean
-    shift: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-}
-
-export type ResolvedWheelInput = {
-  deltaX: number
-  deltaY: number
+  altKey: boolean
+  shiftKey: boolean
   ctrlKey: boolean
   metaKey: boolean
-  point: {
-    client: {
-      x: number
-      y: number
-    }
-    screen: {
-      x: number
-      y: number
-    }
-    world: {
-      x: number
-      y: number
-    }
-  }
+  samples: readonly EditorPointerSample[]
 }
 
-const readPointerDown = (
+export type PointerDown = PointerBase & {
+  phase: 'pointer/down'
+  frameExit: boolean
+}
+
+export type PointerMove = PointerBase & {
+  phase: 'pointer/move'
+}
+
+export type PointerUp = PointerBase & {
+  phase: 'pointer/up'
+}
+
+export type ResolvedWheelInput = EditorWheelInput
+
+const BackgroundPick = {
+  kind: 'background'
+} as const
+
+const toSamples = (
+  input: EditorPointerInput
+): readonly EditorPointerSample[] => (
+  input.coalesced && input.coalesced.length > 0
+    ? input.coalesced
+    : [{
+        client: input.client,
+        screen: input.screen,
+        world: input.world
+      }]
+)
+
+const readPointerPick = (
+  input: EditorPointerInput
+): PointerPick => ({
+  pick: input.pick ?? BackgroundPick,
+  point: {
+    client: input.client,
+    screen: input.screen,
+    world: input.world
+  },
+  field: input.field,
+  editable: input.editable,
+  ignoreInput: input.ignoreInput,
+  ignoreSelection: input.ignoreSelection,
+  ignoreContextMenu: input.ignoreContextMenu
+})
+
+const readResolvedPointer = (
   editor: Pick<Editor, 'read' | 'state'>,
-  container: HTMLDivElement,
-  event: PointerEvent
-): Omit<PointerDown, 'frameExit'> => {
-  const input = editor.read.pick.from(event, container)
+  input: EditorPointerInput,
+  phase: PointerDown['phase'] | PointerMove['phase'] | PointerUp['phase']
+) => {
+  const pick = readPointerPick(input)
+  const frame = resolvePointerFrameGate(editor, {
+    pick: pick.pick,
+    point: pick.point,
+    frame: editor.state.frame.get()
+  })
 
   return {
-    ...input,
-    phase: 'pointer/down',
-    container,
-    event,
-    capture: input.element ?? container,
+    ...pick,
+    phase,
+    pointerId: input.pointerId,
+    button: input.button,
+    buttons: input.buttons,
+    detail: input.detail,
     tool: editor.read.tool.get(),
-    frame: editor.state.frame.get(),
-    modifiers: {
-      alt: event.altKey,
-      shift: event.shiftKey,
-      ctrl: event.ctrlKey,
-      meta: event.metaKey
-    }
+    frame: frame.frame,
+    modifiers: input.modifiers,
+    altKey: input.modifiers.alt,
+    shiftKey: input.modifiers.shift,
+    ctrlKey: input.modifiers.ctrl,
+    metaKey: input.modifiers.meta,
+    samples: toSamples(input)
   }
 }
 
 export const resolvePointerDown = (
   editor: Pick<Editor, 'read' | 'state'>,
-  container: HTMLDivElement,
-  event: PointerEvent
+  input: EditorPointerInput
 ): PointerDown => {
-  const start = readPointerDown(editor, container, event)
-  const frame = resolvePointerFrameGate(editor, start)
+  const resolved = readResolvedPointer(editor, input, 'pointer/down')
 
   return {
-    ...start,
-    frame: frame.frame,
-    frameExit: frame.exit
-  }
-}
-
-const readPointerEvent = (
-  editor: Pick<Editor, 'read' | 'state'>,
-  container: HTMLDivElement,
-  event: PointerEvent,
-  phase: PointerMove['phase'] | PointerUp['phase']
-): PointerMove | PointerUp => {
-  const input = editor.read.pick.from(event, container)
-  const frame = resolvePointerFrameGate(editor, {
-    pick: input.pick,
-    point: input.point,
-    frame: editor.state.frame.get()
-  })
-
-  return {
-    ...input,
-    phase,
-    container,
-    event,
-    capture: input.element ?? container,
-    tool: editor.read.tool.get(),
-    frame: frame.frame,
-    modifiers: {
-      alt: event.altKey,
-      shift: event.shiftKey,
-      ctrl: event.ctrlKey,
-      meta: event.metaKey
-    }
+    ...resolved,
+    phase: 'pointer/down',
+    frameExit: resolved.frame.id !== editor.state.frame.get().id
   }
 }
 
 export const resolvePointerMove = (
   editor: Pick<Editor, 'read' | 'state'>,
-  container: HTMLDivElement,
-  event: PointerEvent
-): PointerMove => readPointerEvent(
+  input: EditorPointerInput
+): PointerMove => readResolvedPointer(
   editor,
-  container,
-  event,
+  input,
   'pointer/move'
 ) as PointerMove
 
 export const resolvePointerUp = (
   editor: Pick<Editor, 'read' | 'state'>,
-  container: HTMLDivElement,
-  event: PointerEvent
-): PointerUp => readPointerEvent(
+  input: EditorPointerInput
+): PointerUp => readResolvedPointer(
   editor,
-  container,
-  event,
+  input,
   'pointer/up'
 ) as PointerUp
 
 export const resolveWheelInput = (
-  editor: Pick<Editor, 'viewport'>,
-  event: {
-    clientX: number
-    clientY: number
-    deltaX: number
-    deltaY: number
-    ctrlKey: boolean
-    metaKey: boolean
-  }
-): ResolvedWheelInput => {
-  const point = editor.viewport.pointer(event)
-
-  return {
-    deltaX: event.deltaX,
-    deltaY: event.deltaY,
-    ctrlKey: event.ctrlKey,
-    metaKey: event.metaKey,
-    point: {
-      client: {
-        x: event.clientX,
-        y: event.clientY
-      },
-      screen: point.screen,
-      world: point.world
-    }
-  }
-}
+  _editor: Pick<Editor, 'viewport'>,
+  input: EditorWheelInput
+): ResolvedWheelInput => input

@@ -8,6 +8,10 @@ import {
   type SelectionTarget
 } from '@whiteboard/core/selection'
 import {
+  createTimeoutTask,
+  type TimeoutTask
+} from '@whiteboard/engine'
+import {
   applySelection,
   type SelectionMode
 } from '@whiteboard/core/node'
@@ -19,7 +23,7 @@ import {
 } from '../../runtime/interaction'
 import type { PointerDown } from '../../runtime/input/pointer'
 import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
-import type { MarqueeEnd, MarqueeInteraction } from './marquee'
+import type { MarqueeEnd, MarqueeRuntime } from '../../runtime/projection/marquee'
 import { createNodeDragInteraction, type NodeDragStart } from '../node/drag/interaction'
 import type { NodeId } from '@whiteboard/core/types'
 
@@ -36,7 +40,7 @@ type SelectionPressState = {
     clientX: number
     clientY: number
   }
-  holdTimer: number | null
+  holdTask: TimeoutTask | null
 }
 
 type SelectionPressInteractionDeps = Pick<
@@ -72,42 +76,28 @@ const buildSelectionWriter = (
 }
 
 const matchesTapTarget = (
-  ctx: SelectionPressInteractionDeps,
   verifyNodeIds: readonly NodeId[] | undefined,
-  event: PointerEvent
+  input: InteractionPointerInput
 ) => {
   if (!verifyNodeIds?.length) {
     return true
   }
 
-  const targetPick = ctx.spatial.pick.element(
-    event.target instanceof Element ? event.target : null
-  )
-
   return (
-    targetPick?.kind === 'node'
-    && verifyNodeIds.includes(targetPick.id)
+    input.pick.kind === 'node'
+    && verifyNodeIds.includes(input.pick.id)
   )
 }
 
-const stopPointerDown = (
-  event: PointerEvent
-) => {
-  if (event.cancelable) {
-    event.preventDefault()
-  }
-  event.stopPropagation()
-}
-
-const clearHoldTimer = (
+const clearHoldTask = (
   state: SelectionPressState
 ) => {
-  if (state.holdTimer === null || typeof window === 'undefined') {
+  if (state.holdTask === null) {
     return
   }
 
-  window.clearTimeout(state.holdTimer)
-  state.holdTimer = null
+  state.holdTask.cancel()
+  state.holdTask = null
 }
 
 const toSelectionPressSubject = (
@@ -153,7 +143,7 @@ const toSelectionPressSubject = (
 
 export const createSelectionPressInteraction = (
   ctx: SelectionPressInteractionDeps,
-  marquee: MarqueeInteraction
+  marquee: MarqueeRuntime
 ): SelectionPressInteraction => {
   const drag = createNodeDragInteraction(ctx)
 
@@ -171,12 +161,11 @@ export const createSelectionPressInteraction = (
   ) => {
     const applyMatched = buildSelectionWriter(ctx, action.base, action.mode)
     return {
-      pointerId: start.event.pointerId,
-      capture: start.capture,
-      start: ctx.viewport.pointer({
-        clientX: start.event.clientX,
-        clientY: start.event.clientY
-      }),
+      pointerId: start.pointerId,
+      start: {
+        screen: start.point.screen,
+        world: start.point.world
+      },
       match: action.match,
       onStart: extra?.onStart,
       onChange: applyMatched,
@@ -197,7 +186,6 @@ export const createSelectionPressInteraction = (
     session: RuntimeSession,
     start: PointerDown,
     action: Extract<SelectionDragAction, { kind: 'marquee' }>,
-    moveEvent?: PointerEvent,
     extra?: {
       onStart?: () => void
     }
@@ -208,10 +196,7 @@ export const createSelectionPressInteraction = (
       input: nextInput,
       state: marquee.createState(nextInput)
     })
-
-    if (replaced && moveEvent?.cancelable) {
-      moveEvent.preventDefault()
-    }
+    return replaced
   }
 
   const replaceWithContainMarquee = (
@@ -223,7 +208,7 @@ export const createSelectionPressInteraction = (
       match: 'contain',
       mode: 'replace',
       base: EMPTY_SELECTION
-    }, undefined, {
+    }, {
       onStart: () => {
         ctx.commands.selection.clear()
       }
@@ -234,17 +219,17 @@ export const createSelectionPressInteraction = (
     session: RuntimeSession,
     start: PointerDown,
     action: Extract<SelectionDragAction, { kind: 'move' }>,
-    event: PointerEvent
+    input: InteractionPointerInput
   ) => {
     const nextInput: NodeDragStart = {
-      pointerId: start.event.pointerId,
-      capture: start.capture,
-      start: start.point.world,
+      pointerId: start.pointerId,
+      startWorld: start.point.world,
+      startClient: input.client,
       frame: action.frame,
       anchorId: action.anchorId,
       nodeIds: action.target.nodeIds,
       edgeIds: action.target.edgeIds,
-      event,
+      allowCross: input.altKey,
       onStart: action.nextSelection
         ? () => {
             ctx.commands.selection.replace(action.nextSelection!)
@@ -265,21 +250,21 @@ export const createSelectionPressInteraction = (
 
   const runTapAction = (
     action: SelectionTapAction<SelectionPressField>,
-    event: PointerEvent
+    input: InteractionPointerInput
   ) => {
     switch (action.kind) {
       case 'clear':
         ctx.commands.selection.clear()
         return
       case 'select':
-        if (!matchesTapTarget(ctx, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(action.verifyNodeIds, input)) {
           return
         }
 
         ctx.commands.selection.replace(action.target)
         return
       case 'edit':
-        if (!matchesTapTarget(ctx, action.verifyNodeIds, event)) {
+        if (!matchesTapTarget(action.verifyNodeIds, input)) {
           return
         }
 
@@ -326,26 +311,22 @@ export const createSelectionPressInteraction = (
       return {
         plan,
         start: {
-          clientX: input.event.clientX,
-          clientY: input.event.clientY
+          clientX: input.point.client.x,
+          clientY: input.point.client.y
         },
-        holdTimer: null
+        holdTask: null
       }
     },
     start: ({ input, state, session }) => {
-      stopPointerDown(input.event)
-
-      if (
-        !state.plan?.allowHold
-        || typeof window === 'undefined'
-      ) {
+      if (!state.plan?.allowHold) {
         return
       }
 
-      state.holdTimer = window.setTimeout(() => {
-        state.holdTimer = null
+      state.holdTask = createTimeoutTask(() => {
+        state.holdTask = null
         replaceWithContainMarquee(session, input)
-      }, GestureTuning.holdDelay)
+      })
+      state.holdTask.schedule(GestureTuning.holdDelay)
     },
     move: ({ input, state, session }, event: InteractionPointerInput) => {
       if (!state.plan) {
@@ -362,7 +343,7 @@ export const createSelectionPressInteraction = (
         return
       }
 
-      clearHoldTimer(state)
+      clearHoldTask(state)
 
       if (!state.plan.drag) {
         session.finish()
@@ -370,27 +351,27 @@ export const createSelectionPressInteraction = (
       }
 
       if (state.plan.drag.kind === 'move') {
-        replaceWithMove(session, input, state.plan.drag, event.raw)
+        replaceWithMove(session, input, state.plan.drag, event)
         return
       }
 
-      replaceWithMarquee(session, input, state.plan.drag, event.raw)
+      replaceWithMarquee(session, input, state.plan.drag)
     },
     up: ({ state, session }, event: InteractionPointerInput) => {
-      clearHoldTimer(state)
+      clearHoldTask(state)
 
       if (state.plan?.tap) {
-        runTapAction(state.plan.tap, event.raw)
+        runTapAction(state.plan.tap, event)
       }
 
       session.finish()
     },
     cancel: ({ state }) => {
-      clearHoldTimer(state)
+      clearHoldTask(state)
     },
     cleanup: ({ state }) => {
       if (state) {
-        clearHoldTimer(state)
+      clearHoldTask(state)
       }
     }
   }

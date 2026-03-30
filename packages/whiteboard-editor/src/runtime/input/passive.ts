@@ -2,8 +2,8 @@ import type {
   PointerMove,
   ResolvedWheelInput
 } from './pointer'
-import type { InteractionMode } from '../interaction/types'
 import type { Tool } from '../tool'
+import type { InteractionMode } from '../../types/runtime/interaction'
 
 export type PassiveInputContext = {
   mode: InteractionMode

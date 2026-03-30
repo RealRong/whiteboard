@@ -73,8 +73,8 @@ type InsertSliceInput = {
   registries: CoreRegistries
   createNodeId?: () => NodeId
   createEdgeId?: () => EdgeId
-  at?: Point
-  offset?: Point
+  origin?: Point
+  delta?: Point
   ownerId?: NodeId
   roots?: SliceRoots
 }
@@ -382,6 +382,56 @@ const mergeRects = (rects: readonly Rect[]): Rect | undefined => {
   }
 }
 
+const translateNode = (
+  node: Node,
+  delta: Point
+): Node => {
+  if (node.type === 'group') {
+    return cloneNode(node)
+  }
+
+  const cloned = cloneNode(node)
+  if (cloned.type === 'group') {
+    return cloned
+  }
+
+  return {
+    ...cloned,
+    position: offsetPoint(cloned.position, delta)
+  }
+}
+
+const translateEdge = (
+  edge: Edge,
+  delta: Point
+): Edge => ({
+  ...cloneEdge(edge),
+  source: isNodeEdgeEnd(edge.source)
+    ? cloneEdgeEnd(edge.source)
+    : {
+        kind: 'point',
+        point: offsetPoint(edge.source.point, delta)
+      },
+  target: isNodeEdgeEnd(edge.target)
+    ? cloneEdgeEnd(edge.target)
+    : {
+        kind: 'point',
+        point: offsetPoint(edge.target.point, delta)
+      },
+  route: remapEdgeRoute(edge.route, delta),
+  label: edge.label
+    ? {
+        ...cloneValue(edge.label),
+        offset: edge.label.offset
+          ? {
+              x: edge.label.offset.x,
+              y: edge.label.offset.y
+            }
+          : undefined
+      }
+    : undefined
+})
+
 export const getSliceBounds = (
   slice: Slice,
   nodeSize: Size
@@ -400,6 +450,25 @@ export const getSliceBounds = (
     ...(nodeBounds ? [nodeBounds] : []),
     ...edgeBounds
   ])
+}
+
+export const translateSlice = (
+  slice: Slice,
+  delta: Point
+): Slice => {
+  if (delta.x === 0 && delta.y === 0) {
+    return {
+      version: slice.version,
+      nodes: slice.nodes.map((node) => cloneNode(node)),
+      edges: slice.edges.map((edge) => cloneEdge(edge))
+    }
+  }
+
+  return {
+    version: slice.version,
+    nodes: slice.nodes.map((node) => translateNode(node, delta)),
+    edges: slice.edges.map((edge) => translateEdge(edge, delta))
+  }
 }
 
 const detachEdge = ({
@@ -785,8 +854,8 @@ export const buildInsertSliceOperations = ({
   registries,
   createNodeId = () => createId('node'),
   createEdgeId = () => createId('edge'),
-  at,
-  offset,
+  origin,
+  delta,
   ownerId,
   roots
 }: InsertSliceInput): Result<SliceInsertResult, 'invalid'> => {
@@ -799,13 +868,13 @@ export const buildInsertSliceOperations = ({
     return err('invalid', 'Slice bounds could not be resolved.')
   }
 
-  const delta = at
+  const translation = origin
     ? {
-      x: at.x - getRectCenter(bounds).x,
-      y: at.y - getRectCenter(bounds).y
-    }
-    : offset
-      ? cloneValue(offset)
+        x: origin.x - bounds.x,
+        y: origin.y - bounds.y
+      }
+    : delta
+      ? cloneValue(delta)
       : { x: 0, y: 0 }
 
   const normalizedRoots = toRoots(roots ?? readDefaultRoots(slice))
@@ -848,7 +917,7 @@ export const buildInsertSliceOperations = ({
         node: sourceNode,
         nextNodeId,
         nodeIdMap,
-        delta
+        delta: translation
       }),
       doc: withCreatedNodes(doc, duplicatedNodeOperations),
       registries,
@@ -892,7 +961,7 @@ export const buildInsertSliceOperations = ({
       edge: sourceEdge,
       nextEdgeId,
       nodeIdMap,
-      delta
+      delta: translation
     })
 
     if (!payload) {

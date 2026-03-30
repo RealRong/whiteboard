@@ -9,7 +9,7 @@ type SelectionStyleSnapshot = {
   bodyWebkitUserSelect: string
 }
 
-export const createBrowserDocumentSelectionLock = (): DocumentSelectionLock => {
+export const createDocumentSelectionLock = (): DocumentSelectionLock => {
   let activeCount = 0
   let snapshot: SelectionStyleSnapshot | null = null
 

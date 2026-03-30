@@ -12,11 +12,11 @@ import {
   useState
 } from 'react'
 import {
-  useElementSize,
   useEditor,
-  useStoreValue,
   useTool
-} from '../../runtime/hooks'
+} from '../../runtime/hooks/useEditor'
+import { useElementSize } from '../../runtime/hooks/useElementSize'
+import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 import { useOverlayDismiss } from '../../runtime/overlay/useOverlayDismiss'
 import { ToolPaletteButtons } from './ToolPaletteButtons'
 import { ToolPaletteMenu } from './ToolPaletteMenu'

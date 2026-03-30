@@ -4,7 +4,7 @@ import {
   createRafTask,
   type RafTask
 } from '@whiteboard/engine'
-import { useEditor } from '../../../runtime/hooks'
+import { useEditor } from '../../../runtime/hooks/useEditor'
 
 type Size = {
   width: number

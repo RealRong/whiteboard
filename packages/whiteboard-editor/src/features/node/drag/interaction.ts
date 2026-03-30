@@ -31,13 +31,13 @@ type ActiveDrag = {
 
 export type NodeDragStart = {
   pointerId: number
-  capture: Element
-  start: Point
+  startWorld: Point
+  startClient: Point
   frame: Rect
   anchorId: NodeId
   nodeIds: readonly NodeId[]
   edgeIds?: readonly EdgeId[]
-  event: PointerEvent
+  allowCross: boolean
   onStart?: () => void
 }
 
@@ -176,7 +176,7 @@ export const createNodeDragInteraction = (
     return {
       ids,
       move,
-      startWorld: input.start,
+      startWorld: input.startWorld,
       origin: {
         x: input.frame.x,
         y: input.frame.y
@@ -189,7 +189,7 @@ export const createNodeDragInteraction = (
         width: input.frame.width,
         height: input.frame.height
       },
-      allowCross: input.event.altKey,
+      allowCross: input.allowCross,
       selectedEdgeIds: input.edgeIds ?? [],
       relatedEdgeIds: ctx.read.edge.related(
         move.members.map((member) => member.id)
@@ -208,16 +208,25 @@ export const createNodeDragInteraction = (
     start: ({ input, state, session }) => {
       input.onStart?.()
       clear()
-      session.pan(input.event)
-      updatePreview(state, input.event)
-      if (input.event.cancelable) {
-        input.event.preventDefault()
-      }
+      session.pan({
+        clientX: input.startClient.x,
+        clientY: input.startClient.y
+      })
+      updatePreview(state, {
+        clientX: input.startClient.x,
+        clientY: input.startClient.y
+      })
     },
     move: ({ state, session }, input: InteractionPointerInput) => {
       state.allowCross = input.altKey
-      session.pan(input.raw)
-      updatePreview(state, input.raw)
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
+      updatePreview(state, {
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       commit(state)

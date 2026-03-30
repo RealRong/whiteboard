@@ -3,7 +3,7 @@ import type {
   InteractionCoordinator,
   InteractionRegistration,
   InteractionRegistry
-} from './types'
+} from '../../types/runtime/interaction'
 
 const byPriorityDesc = (
   left: InteractionRegistration,

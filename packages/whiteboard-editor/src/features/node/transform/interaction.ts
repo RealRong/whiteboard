@@ -292,7 +292,7 @@ export const createNodeTransformInteraction = (
   const createNodeActive = (
     nodeId: NodeId,
     handle: TransformPickHandle,
-    event: PointerDown['event']
+    input: PointerDown
   ): ActiveTransform | undefined => {
     const nodeRect = ctx.read.index.node.get(nodeId)
     if (!nodeRect || nodeRect.node.locked) {
@@ -306,8 +306,8 @@ export const createNodeTransformInteraction = (
       rect: nodeRect.rect
     }
     const startScreen = {
-      x: event.clientX,
-      y: event.clientY
+      x: input.point.client.x,
+      y: input.point.client.y
     }
 
     if (handle.kind === 'resize') {
@@ -317,7 +317,7 @@ export const createNodeTransformInteraction = (
       return {
         targets: [target],
         drag: createResizeDrag({
-          pointerId: event.pointerId,
+          pointerId: input.pointerId,
           handle: handle.direction,
           rect: nodeRect.rect,
           rotation: nodeRect.rotation,
@@ -333,10 +333,10 @@ export const createNodeTransformInteraction = (
     return {
       targets: [target],
       drag: createRotateDrag({
-        pointerId: event.pointerId,
+        pointerId: input.pointerId,
         rect: nodeRect.rect,
         rotation: nodeRect.rotation,
-        start: ctx.viewport.pointer(event).world
+        start: input.point.world
       })
     }
   }
@@ -357,7 +357,7 @@ export const createNodeTransformInteraction = (
 
   const createSelectionActive = (
     handle: TransformPickHandle,
-    event: PointerDown['event']
+    input: PointerDown
   ): ActiveTransform | undefined => {
     const selection = ctx.read.selection.get().summary
     const selectionBox = resolveSelectionBoxView(selection)
@@ -379,13 +379,13 @@ export const createNodeTransformInteraction = (
       targets: scaleTargets.targets,
       commitTargetIds: scaleTargets.commitTargetIds,
       drag: createResizeDrag({
-        pointerId: event.pointerId,
+        pointerId: input.pointerId,
         handle: handle.direction,
         rect: selectionBox.box,
         rotation: 0,
         startScreen: {
-          x: event.clientX,
-          y: event.clientY
+          x: input.point.client.x,
+          y: input.point.client.y
         }
       })
     }
@@ -406,15 +406,13 @@ export const createNodeTransformInteraction = (
       }
 
       if (input.pick.kind === 'node') {
-        return createNodeActive(input.pick.id, input.pick.handle, input.event) ?? null
+        return createNodeActive(input.pick.id, input.pick.handle, input) ?? null
       }
 
-      return createSelectionActive(input.pick.handle, input.event) ?? null
+      return createSelectionActive(input.pick.handle, input) ?? null
     },
     start: ({ input }) => {
       clear()
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state }, input) => {
       updatePreview(state, input)

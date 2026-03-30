@@ -15,7 +15,7 @@ import type { EdgeConnectInteraction } from '../connect/interaction'
 import {
   clearEdgeProjectionHint,
   clearEdgeProjectionPatch,
-} from '../projection'
+} from '../../../runtime/projection/edge'
 
 type BodyMoveState = {
   kind: 'move'
@@ -309,7 +309,7 @@ export const createEdgeEditInteraction = (
         return null
       }
 
-      if (input.event.shiftKey || input.event.detail >= 2) {
+      if (input.shiftKey || input.detail >= 2) {
         return view.can.editRoute
           ? {
               kind: 'insert',
@@ -325,7 +325,7 @@ export const createEdgeEditInteraction = (
       return {
         kind: 'move',
         edgeId: input.pick.id,
-        pointerId: input.event.pointerId,
+        pointerId: input.pointerId,
         start: input.point.world,
         delta: { x: 0, y: 0 }
       }
@@ -337,22 +337,23 @@ export const createEdgeEditInteraction = (
 
       if (state.kind === 'insert') {
         ctx.commands.edge.route.insert(state.edgeId, input.point.world)
-        input.event.preventDefault()
-        input.event.stopPropagation()
         session.finish()
         return
       }
-
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state, session }, input: InteractionPointerInput) => {
       if (state.kind !== 'move') {
         return
       }
 
-      updateBodyMove(state, input.raw)
-      session.pan(input.raw)
+      updateBodyMove(state, {
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       if (state.kind === 'move') {
@@ -400,7 +401,7 @@ export const createEdgeEditInteraction = (
         }
       }
 
-      if (input.event.detail >= 2) {
+      if (input.detail >= 2) {
         return {
           kind: 'remove',
           edgeId: routePoint.edgeId,
@@ -412,7 +413,7 @@ export const createEdgeEditInteraction = (
         kind: 'drag',
         edgeId: routePoint.edgeId,
         index: routePoint.index,
-        pointerId: input.event.pointerId,
+        pointerId: input.pointerId,
         start: input.point.world,
         origin: routePoint.point,
         point: routePoint.point
@@ -421,8 +422,6 @@ export const createEdgeEditInteraction = (
     start: ({ input, state, session }) => {
       if (state.kind === 'remove') {
         ctx.commands.edge.route.remove(state.edgeId, state.index)
-        input.event.preventDefault()
-        input.event.stopPropagation()
         session.finish()
         return
       }
@@ -438,7 +437,7 @@ export const createEdgeEditInteraction = (
         Object.assign(state, {
           kind: 'drag',
           index: result.data.index,
-          pointerId: input.event.pointerId,
+          pointerId: input.pointerId,
           start: input.point.world,
           origin,
           point: origin
@@ -448,21 +447,24 @@ export const createEdgeEditInteraction = (
       if (state.kind === 'drag') {
         writeRoutePreview(state.edgeId, readRoutePoints(state.edgeId), state.index)
       }
-
-      input.event.preventDefault()
-      input.event.stopPropagation()
     },
     move: ({ state, session }, input: InteractionPointerInput) => {
       if (state.kind !== 'drag') {
         return
       }
 
-      if (!updateRouteDrag(state, input.raw)) {
+      if (!updateRouteDrag(state, {
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
         session.cancel()
         return
       }
 
-      session.pan(input.raw)
+      session.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
     },
     up: ({ state, session }) => {
       if (state.kind === 'drag') {

@@ -1,4 +1,4 @@
-import { createInsertPresetInteraction } from '../../../features/toolbox/insert'
+import { createInsertPresetInteraction } from '../../../features/insert/interaction'
 import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
 
 export const createInsertFeature = (

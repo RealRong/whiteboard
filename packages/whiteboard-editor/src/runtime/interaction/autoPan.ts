@@ -1,10 +1,11 @@
+import { createRafTask } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
 import type { ViewportInputRuntime } from '../viewport'
 import type {
   AutoPanOptions,
   AutoPanPointer,
   RuntimeSession
-} from './types'
+} from '../../types/runtime/interaction'
 
 type PanVector = Point
 
@@ -94,39 +95,24 @@ export const createAutoPan = ({
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
 }): AutoPan => {
-  let frameId: number | null = null
   let lastFrameTime = 0
   let active: ActiveAutoPan | null = null
 
-  const stopFrame = () => {
-    if (
-      frameId !== null
-      && typeof window !== 'undefined'
-      && typeof window.cancelAnimationFrame === 'function'
-    ) {
-      window.cancelAnimationFrame(frameId)
-    }
-    frameId = null
-  }
+  const now = () => (
+    typeof performance !== 'undefined'
+    && typeof performance.now === 'function'
+  )
+    ? performance.now()
+    : Date.now()
 
   const clear = () => {
-    stopFrame()
+    frameTask.cancel()
     lastFrameTime = 0
     active = null
   }
 
-  const schedule = () => {
-    if (
-      frameId !== null
-      || typeof window === 'undefined'
-      || typeof window.requestAnimationFrame !== 'function'
-    ) {
-      return
-    }
-
-    frameId = window.requestAnimationFrame((timestamp) => {
-      frameId = null
-
+  const frameTask = createRafTask(() => {
+      const timestamp = now()
       const session = active
       if (!session || !session.pointer) {
         lastFrameTime = 0
@@ -167,7 +153,14 @@ export const createAutoPan = ({
       })
       session.frame?.(session.pointer)
       schedule()
-    })
+  })
+
+  const schedule = () => {
+    if (frameTask.isScheduled()) {
+      return
+    }
+
+    frameTask.schedule()
   }
 
   const update = (pointer: AutoPanPointer) => {
@@ -195,7 +188,7 @@ export const createAutoPan = ({
     })
 
     if (vector.x === 0 && vector.y === 0) {
-      if (frameId === null) {
+      if (!frameTask.isScheduled()) {
         lastFrameTime = 0
       }
       return
