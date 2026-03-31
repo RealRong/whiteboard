@@ -3,7 +3,7 @@ import type {
   EditorInputInternals,
   EditorInputPolicy,
   EditorViewportRuntime
-} from '../../types/internal/editor'
+} from './types'
 import type { Editor } from '../../types/editor'
 import {
   createInteractionRegistry,
@@ -18,9 +18,7 @@ import type { PassiveInputProcessor } from '../input/passive'
 import type { PointerSnapshotStore } from '../input/pointer/snapshot'
 
 export const composeInput = ({
-  commands,
   read,
-  state,
   viewport,
   interaction,
   policy,
@@ -28,9 +26,7 @@ export const composeInput = ({
   interactions,
   passive
 }: {
-  commands: Editor['commands']
   read: Editor['read']
-  state: Editor['state']
   viewport: EditorViewportRuntime
   interaction: InteractionCoordinator
   policy: ValueStore<EditorInputPolicy>
@@ -49,9 +45,7 @@ export const composeInput = ({
 
   const input = createInputRouter({
     editor: {
-      commands,
       read,
-      state,
       viewport,
       interaction
     },

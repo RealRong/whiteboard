@@ -172,7 +172,8 @@ const buildLayoutOperations = (
     projectMovePositions(
       buildMoveSet({
         nodes,
-        ids: [node.id]
+        ids: [node.id],
+        nodeSize
       }).members,
       delta
     ).forEach((entry) => {

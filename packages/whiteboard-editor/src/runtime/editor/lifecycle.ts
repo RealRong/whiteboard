@@ -1,6 +1,6 @@
 import type { Editor } from '../../types/editor'
 import { finalize } from './finalize'
-import type { EditorKernel } from '../../types/internal/editor'
+import type { EditorKernel } from './types'
 
 export const createLifecycle = ({
   kernel,
@@ -16,11 +16,10 @@ export const createLifecycle = ({
     dispose: () => void
   }
 }) => {
-  const resetUiProjectionState = () => {
+  const resetRuntimeState = () => {
     input.cancel()
-    kernel.edit.commands.clear()
-    kernel.selection.commands.clear()
-    kernel.frame.commands.clear()
+    kernel.edit.mutate.clear()
+    kernel.selection.mutate.clear()
     featureLifecycle.reset()
   }
 
@@ -31,23 +30,22 @@ export const createLifecycle = ({
     }
 
     if (commit.kind === 'replace') {
-      resetUiProjectionState()
+      resetRuntimeState()
       return
     }
 
     finalize({
       read,
-      frame: kernel.frame,
       selection: kernel.selection,
       edit: kernel.edit
     })
   })
 
   return {
-    resetUiProjectionState,
+    resetRuntimeState,
     dispose: () => {
       unsubscribeCommit()
-      resetUiProjectionState()
+      resetRuntimeState()
       featureLifecycle.dispose()
       kernel.engine.dispose()
     }

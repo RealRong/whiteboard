@@ -47,11 +47,7 @@ const canRunShortcut = (
     case 'selection.selectAll':
       return true
     case 'selection.clear':
-      return (
-        state.hasSelection
-        || editor.read.frame.scope.get().id !== undefined
-        || !editor.read.tool.is('select')
-      )
+      return state.hasSelection || !editor.read.tool.is('select')
     case 'selection.delete':
       return state.hasSelection
     case 'selection.duplicate':
@@ -83,7 +79,7 @@ export const runShortcut = (
       if (!editor.read.tool.is('select')) {
         editor.commands.tool.set(selectTool())
       }
-      editor.commands.frame.exit()
+      editor.commands.selection.clear()
       return true
     case 'selection.delete':
       if (selection.target.edgeIds.length > 0) {

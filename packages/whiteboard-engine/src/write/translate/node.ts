@@ -170,7 +170,8 @@ export const translateNode = <C extends NodeCommand>(
 
     const moveSet = buildMoveSet({
       nodes: listNodes(doc),
-      ids: command.ids
+      ids: command.ids,
+      nodeSize: ctx.config.nodeSize
     })
     if (!moveSet.members.length) {
       return cancelled('No movable nodes selected.')
@@ -184,21 +185,12 @@ export const translateNode = <C extends NodeCommand>(
       nodeSize: ctx.config.nodeSize
     })
 
-    const owner = buildOwnerOps({
-      document: doc,
-      changes: effect.owners
-    })
-    if (!owner.ok) {
-      return invalid(owner.error.message, owner.error.details)
-    }
-
     const operations = [
       ...effect.nodes.map((entry) =>
         createNodeFieldsUpdateOperation(entry.id, {
           position: entry.position
         })
       ),
-      ...owner.data,
       ...effect.edges.map((entry) => ({
         type: 'edge.update' as const,
         id: entry.id,
@@ -284,7 +276,11 @@ export const translateNode = <C extends NodeCommand>(
       return cancelled('No nodes selected.')
     }
 
-    const { expandedIds } = expandNodeSelection(listNodes(doc), command.ids)
+    const { expandedIds } = expandNodeSelection(
+      listNodes(doc),
+      command.ids,
+      ctx.config.nodeSize
+    )
     if (!expandedIds.size) {
       return cancelled('No nodes selected.')
     }

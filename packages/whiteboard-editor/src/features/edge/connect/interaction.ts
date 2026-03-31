@@ -6,7 +6,6 @@ import {
   startEdgeCreate,
   startEdgeReconnect,
   toEdgeConnectCommit,
-  toEdgeConnectHint,
   toEdgeConnectPatch,
   toEdgeDraftEnd,
   type EdgeConnectState
@@ -23,13 +22,9 @@ import type {
   InteractionRegistration
 } from '../../../runtime/interaction'
 import type { PointerDown } from '../../../runtime/input/pointer'
-import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
+import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
+import type { EdgeGuide } from '../../../runtime/feedback/edgeGuide'
 import { readEdgeType } from '../../../edge/preset'
-import {
-  clearEdgeProjectionPatch,
-  writeEdgeProjectionHint,
-  writeEdgeProjectionPatch,
-} from '../../../runtime/projection/edge'
 
 type ConnectPointer = {
   pointerId: number
@@ -43,12 +38,12 @@ export type EdgeConnectInteraction = {
 }
 
 type EdgeConnectInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 type ConnectNodeEntry = NonNullable<
-  ReturnType<EdgeConnectInteractionDeps['read']['index']['node']['get']>
+  ReturnType<EdgeConnectInteractionDeps['query']['read']['index']['node']['get']>
 >
 
 const syncState = (
@@ -62,7 +57,8 @@ export const createEdgeConnectInteraction = (
   ctx: EdgeConnectInteractionDeps
 ): EdgeConnectInteraction => {
   const clear = () => {
-    ctx.projection.edge.clear()
+    ctx.output.edge.clear()
+    ctx.output.edgeGuide.clear()
   }
 
   const readPointer = (
@@ -76,14 +72,39 @@ export const createEdgeConnectInteraction = (
   })
 
   const clearPatch = () => {
-    clearEdgeProjectionPatch(ctx.projection.edge)
+    ctx.output.edge.clear()
+  }
+
+  const toEdgeGuide = (
+    state: EdgeConnectState
+  ): EdgeGuide | undefined => {
+    const line =
+      state.kind === 'create' && state.to
+        ? {
+            from: state.from.point,
+            to: state.to.point
+          }
+        : undefined
+    const snap =
+      state.to?.kind === 'node'
+        ? state.to.point
+        : undefined
+
+    if (!line && !snap) {
+      return undefined
+    }
+
+    return {
+      line,
+      snap
+    }
   }
 
   const readConnectNode = (
     nodeId: NodeId
   ): ConnectNodeEntry | undefined => {
-    const entry = ctx.read.index.node.get(nodeId)
-    if (!entry || !ctx.read.node.connect(entry.node)) {
+    const entry = ctx.query.read.index.node.get(nodeId)
+    if (!entry || !ctx.query.read.node.connect(entry.node)) {
       return undefined
     }
 
@@ -130,7 +151,7 @@ export const createEdgeConnectInteraction = (
           rotation: entry.rotation,
           pointWorld: pointer.world,
           zoom: ctx.viewport.get().zoom,
-          config: ctx.config.edge
+          config: ctx.query.config.edge
         })
 
         return startEdgeCreate({
@@ -160,7 +181,7 @@ export const createEdgeConnectInteraction = (
     end: 'source' | 'target',
     pointer: ConnectPointer
   ): EdgeConnectState | undefined => {
-    const view = ctx.read.edge.view.get(edgeId)
+    const view = ctx.query.read.edge.view.get(edgeId)
     if (!view) {
       return undefined
     }
@@ -195,7 +216,7 @@ export const createEdgeConnectInteraction = (
       return undefined
     }
 
-    const snap = ctx.spatial.snap.edge.connect(pointer.world)
+    const snap = ctx.output.snap.edge.connect(pointer.world)
     return setEdgeConnectTarget(
       state,
       toEdgeDraftEnd(pointer.world, snap)
@@ -209,7 +230,7 @@ export const createEdgeConnectInteraction = (
     }
 
     if (commit.kind === 'reconnect') {
-      ctx.commands.edge.reconnect(
+      ctx.command.edge.reconnect(
         commit.edgeId,
         commit.end,
         commit.target
@@ -217,14 +238,11 @@ export const createEdgeConnectInteraction = (
       return
     }
 
-    ctx.commands.edge.create(commit.input)
+    ctx.command.edge.create(commit.input)
   }
 
   const writeStateHint = (state: EdgeConnectState) => {
-    writeEdgeProjectionHint(
-      ctx.projection.edge,
-      toEdgeConnectHint(state)
-    )
+    ctx.output.edgeGuide.set(toEdgeGuide(state))
   }
 
   const writeStatePatch = (state: EdgeConnectState) => {
@@ -239,11 +257,10 @@ export const createEdgeConnectInteraction = (
       return
     }
 
-    writeEdgeProjectionPatch(
-      ctx.projection.edge,
-      state.edgeId,
+    ctx.output.edge.set([{
+      id: state.edgeId,
       patch
-    )
+    }])
   }
 
   const writeStatePreview = (state: EdgeConnectState) => {
@@ -379,7 +396,7 @@ export const createEdgeConnectInteraction = (
         return
       }
 
-      ctx.commands.selection.replace({
+      ctx.command.selection.replace({
         edgeIds: [state.edgeId]
       })
       writeStatePreview(state)

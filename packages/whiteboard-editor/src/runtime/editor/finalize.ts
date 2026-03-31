@@ -1,13 +1,7 @@
-import { isContainerNode } from '@whiteboard/core/node'
 import type { EdgeId, NodeId } from '@whiteboard/core/types'
-import {
-  isEdgeInFrameScope,
-  isNodeInFrameScope
-} from '@whiteboard/core/document'
 import type { Editor } from '../../types/editor'
-import type { FrameState } from '../frame'
-import type { EditState } from '../edit'
-import type { SelectionStore } from '../selection/store'
+import type { EditState } from '../state/edit'
+import type { SelectionState } from '../state/selection'
 
 const uniqueNodeIds = (nodeIds: readonly NodeId[]) => {
   const seen = new Set<NodeId>()
@@ -57,68 +51,41 @@ const isOrderedEdgeEqual = (
 
 export const finalize = ({
   read,
-  frame,
   selection,
   edit
 }: {
   read: Pick<Editor['read'], 'node' | 'edge'>
-  frame: FrameState
-  selection: SelectionStore
+  selection: SelectionState
   edit: EditState
 }) => {
-  const activeFrameId = frame.source.get()
-  if (activeFrameId) {
-    const activeNode = read.node.item.get(activeFrameId)?.node
-    if (!activeNode || !isContainerNode(activeNode)) {
-      frame.commands.clear()
-    }
-  }
-
-  const activeFrame = frame.store.get()
   const currentSelection = selection.source.get()
-  const nextNodeIds = uniqueNodeIds(currentSelection.nodeIds.filter((nodeId) => {
-    if (!read.node.item.get(nodeId)) {
-      return false
-    }
-    return activeFrame.id
-      ? Boolean(activeFrame.set?.has(nodeId))
-      : true
-  }))
-  const nextEdgeIds = uniqueEdgeIds(currentSelection.edgeIds.filter((edgeId) => {
-    const edge = read.edge.item.get(edgeId)?.edge
-    if (!edge) {
-      return false
-    }
-    return activeFrame.id
-      ? isEdgeInFrameScope(activeFrame, edge)
-      : true
-  }))
+  const nextNodeIds = uniqueNodeIds(currentSelection.nodeIds.filter((nodeId) =>
+    Boolean(read.node.item.get(nodeId))
+  ))
+  const nextEdgeIds = uniqueEdgeIds(currentSelection.edgeIds.filter((edgeId) =>
+    Boolean(read.edge.item.get(edgeId))
+  ))
 
   if (
     !isOrderedEqual(nextNodeIds, currentSelection.nodeIds)
     || !isOrderedEdgeEqual(nextEdgeIds, currentSelection.edgeIds)
   ) {
     if (nextNodeIds.length > 0 || nextEdgeIds.length > 0) {
-      selection.commands.replace({
+      selection.mutate.replace({
         nodeIds: nextNodeIds,
         edgeIds: nextEdgeIds
       })
     } else {
-      selection.commands.clear()
+      selection.mutate.clear()
     }
   }
 
-  const currentEdit = edit.store.get()
+  const currentEdit = edit.source.get()
   if (!currentEdit) {
     return
   }
 
   if (!read.node.item.get(currentEdit.nodeId)) {
-    edit.commands.clear()
-    return
-  }
-
-  if (activeFrame.id && !isNodeInFrameScope(activeFrame, currentEdit.nodeId)) {
-    edit.commands.clear()
+    edit.mutate.clear()
   }
 }

@@ -3,16 +3,15 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type { Tool } from '../../types/tool'
-import { createFrameState } from '../frame'
-import { createEditState } from '../edit'
-import { createSelectionState } from '../selection'
+import { createEditState } from '../state/edit'
+import { createSelectionState } from '../state/selection'
 import { createInteractionCoordinator } from '../interaction'
 import { createViewport } from '../viewport'
 import type {
   EditorInputPolicy,
   EditorKernel,
   EditorViewportRuntime
-} from '../../types/internal/editor'
+} from './types'
 import type { Editor } from '../../types/editor'
 
 export const createKernel = ({
@@ -52,7 +51,6 @@ export const createKernel = ({
 
   const tool = createValueStore<Tool>(initialTool)
   const edit = createEditState()
-  const frame = createFrameState(engine.read)
   const selection = createSelectionState()
 
   const kernel: EditorKernel = {
@@ -63,15 +61,13 @@ export const createKernel = ({
     inputPolicy,
     tool,
     edit,
-    frame,
     selection
   }
 
   const state: Editor['state'] = {
     tool,
-    edit: edit.store,
-    selection: selection.source,
-    frame: frame.store
+    edit: edit.source,
+    selection: selection.source
   }
 
   const editorViewport: EditorViewportRuntime = {

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { NodeId, Point } from '@whiteboard/core/types'
+import type { Point } from '@whiteboard/core/types'
 import type { EditorClipboardTarget } from '@whiteboard/editor'
 import { useEditorRuntime } from '../hooks/useEditor'
 import { useHostRuntime } from '../hooks/useHost'
@@ -55,7 +55,6 @@ export const useClipboardActions = () => {
   const paste = useCallback(async (options?: {
     event?: ClipboardEvent
     origin?: Point
-    ownerId?: NodeId
   }) => {
     const packet = await host.clipboard.read(options?.event)
     if (!packet) {
@@ -63,8 +62,7 @@ export const useClipboardActions = () => {
     }
 
     return editor.clipboard.insert(packet, {
-      origin: options?.origin ?? readDefaultOrigin(),
-      ownerId: options?.ownerId
+      origin: options?.origin ?? readDefaultOrigin()
     })
   }, [editor, host, readDefaultOrigin])
 

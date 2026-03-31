@@ -1,7 +1,7 @@
 import type { NodeId, Point, SpatialNodeInput } from '@whiteboard/core/types'
 import type { Editor, EditorInsertResult } from '../../types/editor'
-import type { EditorCommandHost } from '../../types/internal/editor'
-import type { EditField } from '../edit'
+import type { EditorCommandHost } from '../editor/types'
+import type { EditField } from '../state/edit'
 import type {
   InsertPlacement,
   InsertPreset,

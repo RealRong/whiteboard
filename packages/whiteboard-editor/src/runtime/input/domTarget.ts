@@ -1,4 +1,4 @@
-import type { EditField } from '../edit'
+import type { EditField } from '../state/edit'
 
 export const CanvasContentIgnoreSelector = [
   '[data-selection-ignore]',

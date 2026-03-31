@@ -16,7 +16,7 @@ import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {
   const editor = useEditorRuntime()
-  const hint = useStoreValue(editor.projection.edge.hint)
+  const hint = useStoreValue(editor.feedback.edgeGuide)
   const { line, snap } = hint
   const zoom = editor.viewport.get().zoom
   const pointRadius = 4 / Math.max(zoom, 0.0001)

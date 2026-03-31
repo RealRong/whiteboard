@@ -19,7 +19,7 @@ import type {
   KeyedReadStore,
   NodeItem
 } from '@whiteboard/engine'
-import type { Node, NodeId, NodeType, Point, Rect } from '@whiteboard/core/types'
+import type { Node, NodeId, NodeType, Rect } from '@whiteboard/core/types'
 import type { EngineRead } from '@whiteboard/engine'
 import type { NodeDefinition, NodeRegistry } from '../../types/node'
 import {
@@ -27,9 +27,9 @@ import {
   getRotatedCorners
 } from '@whiteboard/core/geometry'
 import {
-  type NodeProjection,
-  type NodeProjectionReader
-} from '../projection/node'
+  type NodeTransientProjection,
+  type NodeTransientReader
+} from '../transient/node'
 
 export type NodeInteraction = {
   hovered: boolean
@@ -103,7 +103,7 @@ const readNodeItemFrame = (
   : item.rect
 
 const toNodeInteraction = (
-  projection: NodeProjection
+  projection: NodeTransientProjection
 ): NodeInteraction => ({
   hovered: projection.hovered,
   hidden: projection.hidden,
@@ -124,7 +124,6 @@ export type NodeRead = {
   connect: (node: Pick<Node, 'type'> | NodeType) => boolean
   enter: (node: Pick<Node, 'type'> | NodeType) => boolean
   filter: (nodeIds: readonly NodeId[], role: NodeRole) => readonly NodeId[]
-  frameAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
   transformTargets: (
     nodeIds: readonly NodeId[]
@@ -133,17 +132,17 @@ export type NodeRead = {
 
 export const createNodeItemRead = ({
   read,
-  projection
+  transient
 }: {
   read: Pick<EngineRead, 'node'>
-  projection: NodeProjectionReader
+  transient: NodeTransientReader
 }): NodeRead['item'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => {
     const item = readStore(read.node.item, nodeId)
     if (!item) {
       return undefined
     }
-    const projectionValue = readStore(projection, nodeId)
+    const projectionValue = readStore(transient, nodeId)
     const patch = projectionValue.patch
     if (!patch) {
       return item
@@ -162,12 +161,12 @@ export const createNodeItemRead = ({
 })
 
 export const createNodeInteractionRead = ({
-  projection
+  transient
 }: {
-  projection: NodeProjectionReader
+  transient: NodeTransientReader
 }): NodeRead['interaction'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => toNodeInteraction(
-    readStore(projection, nodeId)
+    readStore(transient, nodeId)
   ),
   isEqual: isNodeInteractionEqual
 })
@@ -226,7 +225,6 @@ export const createNodeRead = ({
 
       return role(nextItem.node) === expectedRole
     }),
-    frameAt: read.node.frameAt,
     idsInRect: read.node.idsInRect,
     transformTargets: read.node.transformTargets
   }

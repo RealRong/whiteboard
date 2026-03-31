@@ -2,21 +2,19 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type { Editor } from '../../types/editor'
 import type { ViewportCommands } from '../viewport'
 import { createDrawCommands } from './draw'
-import { createFrameCommands } from './frame'
 import { createHistoryCommands } from './history'
 import { createInsertCommands } from './insert'
 import { createMindmapCommands } from './mindmap'
 import { createNodeCommands } from './node'
 import type {
-  DrawFeatureState,
   EditorCommandHost
-} from '../../types/internal/editor'
-import type { SelectionStore } from '../../types/internal/selection'
-import type { FrameState } from '../frame'
-import type { EditCommands } from '../edit'
+} from '../editor/types'
+import type { DrawPreferencesRuntime } from '../../features/draw/preferences'
+import type { SelectionState } from '../state/selection'
+import type { EditMutate } from '../state/edit'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
-import type { NodeProjectionRuntime } from '../projection/node'
+import type { NodeTransientRuntime } from '../transient/node'
 import type { InsertPresetCatalog } from '../../types/insert'
 
 export const createEditorCommands = ({
@@ -25,10 +23,9 @@ export const createEditorCommands = ({
   tool,
   edit,
   selection,
-  frame,
   viewportCommands,
-  draw,
-  nodeProjection,
+  drawPreferences,
+  nodeTransient,
   insertPresetCatalog
 }: {
   engine: EngineInstance
@@ -37,12 +34,11 @@ export const createEditorCommands = ({
     get: () => ReturnType<Editor['state']['tool']['get']>
     set: (tool: ReturnType<Editor['state']['tool']['get']>) => void
   }
-  edit: EditCommands
-  selection: SelectionStore
-  frame: FrameState
+  edit: EditMutate
+  selection: SelectionState
   viewportCommands: ViewportCommands
-  draw: DrawFeatureState
-  nodeProjection: NodeProjectionRuntime
+  drawPreferences: DrawPreferencesRuntime
+  nodeTransient: NodeTransientRuntime
   insertPresetCatalog: InsertPresetCatalog
 }): Editor['commands'] => {
   let commands!: Editor['commands']
@@ -59,26 +55,21 @@ export const createEditorCommands = ({
   const selectionCommands = createSelectionCommands({
     engine,
     edit,
-    selection,
-    frame
-  })
-  const frameCommands = createFrameCommands({
-    frame,
-    selection: selectionCommands
+    selection
   })
   const toolCommands = createToolCommands({
     tool,
     edit,
-    selection: selection.commands
+    selection: selection.mutate
   })
   const drawCommands = createDrawCommands({
     tool,
-    draw
+    drawPreferences
   })
   const nodeCommands = createNodeCommands({
     engine,
     read,
-    runtime: nodeProjection,
+    runtime: nodeTransient,
     edit,
     selection: selectionCommands
   })
@@ -98,7 +89,6 @@ export const createEditorCommands = ({
     draw: drawCommands,
     edit,
     selection: selectionCommands,
-    frame: frameCommands,
     viewport: viewportCommands,
     edge: engine.commands.edge,
     node: nodeCommands,

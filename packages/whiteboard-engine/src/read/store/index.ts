@@ -8,9 +8,7 @@ import {
   getEdgePathBounds
 } from '@whiteboard/core/edge'
 import {
-  getNodeAABB,
-  getRectsBoundingRect,
-  isPointInRect
+  getRectsBoundingRect
 } from '@whiteboard/core/geometry'
 import {
   exportSliceFromSelection,
@@ -20,14 +18,18 @@ import {
 import {
   getNodeOutlineBounds,
   getNodeOutlineRect,
+  collectFrameMembers,
   filterNodeIdsInRect,
   resolveSelectionTransformTargets,
+  resolveFrameAtPoint,
+  resolveNodeFrame,
   matchCanvasNodeRect,
   getTargetBounds
 } from '@whiteboard/core/node'
 import {
   listNodes,
   type EdgeId,
+  type Node,
   type NodeId,
   type Point,
   type Rect
@@ -139,25 +141,56 @@ export const createRead = ({
       : canvasNode.rect
   }
 
+  const readOrderedNodes = (): Node[] => nodeProjection.list.get()
+    .map((nodeId) => index.node.get(nodeId)?.node)
+    .filter((node): node is Node => Boolean(node))
+
+  const readFrameRect = (
+    frameId: NodeId
+  ): Rect | undefined => {
+    const entry = index.node.get(frameId)
+    return entry?.node.type === 'frame'
+      ? entry.rect
+      : undefined
+  }
+
   const readFrameNodeAtPoint = (
     point: Point
-  ): NodeId | undefined => {
-    const nodeIds = nodeProjection.list.get()
+  ): NodeId | undefined => resolveFrameAtPoint({
+    nodes: readOrderedNodes(),
+    point,
+    getFrameRect: (node) => readFrameRect(node.id)
+  })
 
-    for (let offset = nodeIds.length - 1; offset >= 0; offset -= 1) {
-      const nodeId = nodeIds[offset]
-      const entry = index.node.get(nodeId)
-      if (!entry || entry.node.type !== 'frame') {
-        continue
-      }
+  const readNodeFrameId = (
+    nodeId: NodeId
+  ): NodeId | undefined => resolveNodeFrame({
+    nodes: readOrderedNodes(),
+    nodeId,
+    getNodeRect: (node) => (
+      node.type === 'group'
+        ? undefined
+        : readProjectedNodeBounds(node.id)
+    ),
+    getFrameRect: (node) => readFrameRect(node.id)
+  })
 
-      if (isPointInRect(point, entry.rect)) {
-        return nodeId
-      }
+  const readFrameMembers = (
+    frameId: NodeId,
+    options?: {
+      deep?: boolean
     }
-
-    return undefined
-  }
+  ): readonly NodeId[] => collectFrameMembers({
+    nodes: readOrderedNodes(),
+    frameId,
+    deep: options?.deep,
+    getNodeRect: (node) => (
+      node.type === 'group'
+        ? undefined
+        : readProjectedNodeBounds(node.id)
+    ),
+    getFrameRect: (node) => readFrameRect(node.id)
+  })
 
   const readNodeIdsInRect = (
     rect: Rect,
@@ -278,13 +311,23 @@ export const createRead = ({
         canvas: readCanvasBounds,
         targets: readTargetBounds
       },
+      frame: {
+        list: () => readOrderedNodes()
+          .filter((node) => node.type === 'frame')
+          .map((node) => node.id),
+        rect: readFrameRect,
+        at: readFrameNodeAtPoint,
+        of: readNodeFrameId,
+        members: readFrameMembers,
+        contains: (frameId, nodeId, options) => readFrameMembers(frameId, options)
+          .includes(nodeId)
+      },
       node: {
         list: nodeProjection.list,
         item: nodeProjection.item,
         owner: treeIndex.owner,
         bounds: readProjectedNodeBounds,
         frame: readProjectedNodeFrame,
-        frameAt: readFrameNodeAtPoint,
         idsInRect: readNodeIdsInRect,
         transformTargets: readNodeTransformTargets
       },

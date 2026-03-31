@@ -3,7 +3,7 @@ export {
 } from './runtime/editor/createEditor'
 export type {
   Editor,
-  EditorProjection,
+  EditorFeedback,
   EditorRead,
   EditorState,
   EditorViewport,

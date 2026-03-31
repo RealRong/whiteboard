@@ -2,9 +2,8 @@ import {
   memo
 } from 'react'
 import type { Guide } from '@whiteboard/core/node'
-import type { NodeId, NodeType, Rect } from '@whiteboard/core/types'
+import type { NodeId } from '@whiteboard/core/types'
 import {
-  useFrameScope,
   useEditorRuntime
 } from '../../../runtime/hooks/useEditor'
 import { usePickRef } from '../../../runtime/hooks/usePickRef'
@@ -112,44 +111,6 @@ NodeConnectOverlayItem.displayName = 'NodeConnectOverlayItem'
 
 const EMPTY_NODE_IDS: readonly NodeId[] = []
 
-const resolveFrameTitle = (
-  node: {
-    type: NodeType
-    data?: Record<string, unknown>
-  }
-) => {
-  const title = node.data?.title
-  if (typeof title === 'string' && title.trim()) {
-    return title.trim()
-  }
-  if (node.type === 'group') {
-    return 'Group'
-  }
-  if (node.type === 'frame') {
-    return 'Frame'
-  }
-  return node.type
-}
-
-const ActiveFrameOverlay = ({
-  rect,
-  title
-}: {
-  rect: Rect
-  title: string
-}) => (
-  <div
-    className="wb-container-scope-outline"
-    style={{
-      transform: `translate(${rect.x}px, ${rect.y}px)`,
-      width: rect.width,
-      height: rect.height
-    }}
-  >
-    <div className="wb-container-scope-badge">{`Editing: ${title}`}</div>
-  </div>
-)
-
 const SelectionFrameOverlay = ({
   presentation
 }: {
@@ -206,18 +167,8 @@ const SelectionHandlesOverlay = ({
 
 export const NodeOverlayLayer = () => {
   const editor = useEditorRuntime()
-  const frame = useFrameScope()
-  const guides = useStoreValue(editor.projection.snap)
+  const guides = useStoreValue(editor.feedback.snap)
   const presentation = useSelectionPresentation()
-  const activeFrameNode = useNodeOverlayView(frame.id)
-
-  const activeFrame =
-    frame.id && activeFrameNode
-      ? {
-          rect: activeFrameNode.rect,
-          title: resolveFrameTitle(activeFrameNode.node)
-        }
-      : undefined
   const connectNodeIds = presentation.connectNodeIds.length > 0
     ? presentation.connectNodeIds
     : EMPTY_NODE_IDS
@@ -225,12 +176,6 @@ export const NodeOverlayLayer = () => {
   return (
     <>
       <div className="wb-node-overlay-layer">
-        {activeFrame ? (
-          <ActiveFrameOverlay
-            rect={activeFrame.rect}
-            title={activeFrame.title}
-          />
-        ) : null}
         {presentation.singleTransformNodeId ? (
           <NodeTransformOverlayItem
             nodeId={presentation.singleTransformNodeId}

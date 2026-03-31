@@ -1,6 +1,6 @@
 import { isPointEqual } from '@whiteboard/core/geometry'
 import {
-  applyEdgeProjectionPatch,
+  applyEdgePatch,
   type EdgeConnectCandidate,
   getEdgePathBounds,
   matchEdgeRect,
@@ -16,10 +16,11 @@ import {
   type KeyedReadStore,
   type NodeItem
 } from '@whiteboard/engine'
-import type { EdgeProjectionPatchReader } from '../projection/edge'
+import type { EdgeTransientReader } from '../transient/edge'
 
 type RuntimeEdgeView = CoreEdgeView & {
   edge: EdgeItem['edge']
+  activeRouteIndex?: number
   can: {
     move: boolean
     reconnectSource: boolean
@@ -82,12 +83,12 @@ export type EdgeRead = {
 export const createEdgeRead = ({
   read,
   nodeItem,
-  patch,
+  transient,
   connect
 }: {
   read: Pick<EngineRead, 'edge' | 'index'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  patch: EdgeProjectionPatchReader
+  transient: EdgeTransientReader
   connect: (node: Pick<Node, 'type'> | NodeType) => boolean
 }): EdgeRead => {
   const item = createKeyedDerivedStore({
@@ -97,7 +98,10 @@ export const createEdgeRead = ({
         return undefined
       }
 
-      const nextEdge = applyEdgeProjectionPatch(entry.edge, readStore(patch, edgeId))
+      const nextEdge = applyEdgePatch(
+        entry.edge,
+        readStore(transient, edgeId).patch
+      )
       return nextEdge === entry.edge
         ? entry
         : {
@@ -111,6 +115,7 @@ export const createEdgeRead = ({
   const view = createKeyedDerivedStore({
     get: (readStore, edgeId: EdgeId) => {
       const entry = readStore(item, edgeId)
+      const edgeTransient = readStore(transient, edgeId)
       if (!entry) {
         return undefined
       }
@@ -131,6 +136,7 @@ export const createEdgeRead = ({
       })
 
       return {
+        activeRouteIndex: edgeTransient.activeRouteIndex,
         edge: entry.edge,
         can: resolveEdgeCan(entry.edge),
         ...resolved

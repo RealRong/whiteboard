@@ -1,6 +1,6 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { NodeProjectionRuntime } from '../../projection/node'
 import type { Editor } from '../../../types/editor'
+import type { NodeTransientRuntime } from '../../transient/node'
 import { createNodeAppearanceCommands } from './appearance'
 import { createNodeDocumentCommands } from './document'
 import { createNodeLockCommands } from './lock'
@@ -15,7 +15,7 @@ export const createNodeCommands = ({
 }: {
   engine: EngineInstance
   read: Editor['read']
-  runtime: NodeProjectionRuntime
+  runtime: NodeTransientRuntime
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
 }): Editor['commands']['node'] => {

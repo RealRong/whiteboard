@@ -1,26 +1,19 @@
 import type { ValueStore } from '@whiteboard/engine'
-import type { DrawCommands, DrawPreferences } from '../draw'
 import type {
   Editor
-} from '../editor'
-import type { Tool } from '../tool'
-import type { SelectionStore } from './selection'
-import type { NodeRegistry } from '../node'
+} from '../../types/editor'
+import type { Tool } from '../../types/tool'
+import type { NodeRegistry } from '../../types/node'
 import type {
   InteractionCoordinator,
   InteractionRegistry
-} from '../runtime/interaction'
-import type { PassiveInputRuntime } from '../../runtime/input/passive'
-import type { ViewportRuntime } from '../../runtime/viewport'
-import type { EditState } from '../../runtime/edit'
-import type { FrameState } from '../../runtime/frame'
+} from '../../types/runtime/interaction'
+import type { PassiveInputRuntime } from '../input/passive'
+import type { ViewportRuntime } from '../viewport'
+import type { EditState } from '../state/edit'
+import type { SelectionState } from '../state/selection'
 
 type EngineInstance = import('@whiteboard/engine').EngineInstance
-
-export type DrawFeatureState = {
-  store: ValueStore<DrawPreferences>
-  commands: DrawCommands
-}
 
 export type EditorInputPolicy = {
   panEnabled: boolean
@@ -36,8 +29,7 @@ export type EditorKernel = {
   inputPolicy: ValueStore<EditorInputPolicy>
   tool: ValueStore<Tool>
   edit: EditState
-  frame: FrameState
-  selection: SelectionStore
+  selection: SelectionState
 }
 
 export type EditorInputInternals = {

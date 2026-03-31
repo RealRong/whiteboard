@@ -11,7 +11,6 @@ import type {
 import { getNodeAABB } from '../geometry'
 import {
   findOwnerAncestor,
-  getOwnerChildrenMap,
   getOwnerDescendants
 } from './owner'
 
@@ -23,8 +22,7 @@ export const isContainerNode = <TNode extends Pick<Node, 'type'>>(
 
 export const isOwnerNode = <TNode extends Pick<Node, 'type'>>(
   node: TNode
-): node is TNode & (GroupNode | (SpatialNode & { type: 'frame' })) =>
-  node.type === 'group' || isContainerNode(node)
+): node is TNode & GroupNode => node.type === 'group'
 
 export const sanitizeGroupNode = (
   node: Node
@@ -126,20 +124,28 @@ export const getNodesBoundingRect = (
   }
 }
 
-export const getContainerChildrenMap = (
-  nodes: readonly Node[]
-): Map<NodeId, Node[]> =>
-  getOwnerChildrenMap(nodes, isContainerNode)
-
-export const getContainerDescendants = (
-  nodes: readonly Node[],
-  containerId: NodeId
-): Node[] => getOwnerDescendants(nodes, containerId)
-
 export const getGroupChildrenMap = <TNode extends OwnedNode>(
   nodes: readonly TNode[]
-): Map<NodeId, TNode[]> =>
-  getOwnerChildrenMap(nodes, (node) => node.type === 'group')
+): Map<NodeId, TNode[]> => {
+  const nodesById = new Map(nodes.map((node) => [node.id, node] as const))
+  const map = new Map<NodeId, TNode[]>()
+
+  nodes.forEach((node) => {
+    if (node.type !== 'group') {
+      return
+    }
+
+    const children = (node.children ?? [])
+      .map((childId) => nodesById.get(childId))
+      .filter((child): child is TNode => Boolean(child))
+
+    if (children.length > 0) {
+      map.set(node.id, children)
+    }
+  })
+
+  return map
+}
 
 export const getGroupDescendants = <TNode extends OwnedNode>(
   nodes: readonly TNode[],
@@ -199,34 +205,3 @@ export const rectEquals = (a: Rect, b: Rect, epsilon: number) => (
   Math.abs(a.width - b.width) <= epsilon &&
   Math.abs(a.height - b.height) <= epsilon
 )
-
-const pointInRect = (point: Point, rect: Rect) => (
-  point.x >= rect.x &&
-  point.y >= rect.y &&
-  point.x <= rect.x + rect.width &&
-  point.y <= rect.y + rect.height
-)
-
-export const findSmallestContainerAtPoint = (
-  nodes: readonly Node[],
-  fallbackSize: Size,
-  point: Point,
-  excludeId?: NodeId
-) => {
-  let best: { node: Node; area: number } | undefined
-
-  nodes.forEach((node) => {
-    if (node.type !== 'frame') return
-    if (excludeId && node.id === excludeId) return
-
-    const rect = getNodeAABB(node, fallbackSize)
-    if (!pointInRect(point, rect)) return
-
-    const area = rect.width * rect.height
-    if (!best || area < best.area) {
-      best = { node, area }
-    }
-  })
-
-  return best?.node
-}

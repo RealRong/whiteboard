@@ -18,8 +18,14 @@ import {
   getGroupDescendants,
   isOwnerNode
 } from './group'
+import { expandFrameSelection } from './frame'
+import { getNodeAABB } from '../geometry'
 
-export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[]) => {
+export const expandNodeSelection = (
+  nodes: readonly Node[],
+  selectedIds: NodeId[],
+  nodeSize: Size
+) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
   const expandedIds = new Set<NodeId>(selectedIds)
 
@@ -31,9 +37,24 @@ export const expandNodeSelection = (nodes: readonly Node[], selectedIds: NodeId[
     })
   })
 
+  const withFrames = expandFrameSelection({
+    nodes,
+    ids: [...expandedIds],
+    getNodeRect: (node) => (
+      node.type === 'group'
+        ? undefined
+        : getNodeAABB(node, nodeSize)
+    ),
+    getFrameRect: (node) => (
+      node.type === 'frame'
+        ? getNodeAABB(node, nodeSize)
+        : undefined
+    )
+  })
+
   return {
     nodeById,
-    expandedIds
+    expandedIds: withFrames
   }
 }
 

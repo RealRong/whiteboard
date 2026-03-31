@@ -10,14 +10,19 @@ import {
   createValueStore,
   type ValueStore
 } from '@whiteboard/engine'
-import type { SelectionCommands } from '../../types/internal/selection'
 
-export type SelectionStore = {
-  source: ValueStore<SelectionTarget>
-  commands: SelectionCommands
+export type SelectionMutate = {
+  replace: (input: SelectionInput) => void
+  add: (input: SelectionInput) => void
+  remove: (input: SelectionInput) => void
+  toggle: (input: SelectionInput) => void
+  clear: () => void
 }
 
-export type SelectionState = SelectionStore
+export type SelectionState = {
+  source: ValueStore<SelectionTarget>
+  mutate: SelectionMutate
+}
 
 export const createSelectionState = (): SelectionState => {
   const source = createValueStore<SelectionTarget>(EMPTY_SELECTION_TARGET, {
@@ -34,7 +39,7 @@ export const createSelectionState = (): SelectionState => {
 
   return {
     source,
-    commands: {
+    mutate: {
       replace: (input: SelectionInput) => {
         writeSource(normalizeSelectionTarget(input))
       },

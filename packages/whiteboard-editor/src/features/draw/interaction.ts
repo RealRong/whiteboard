@@ -22,7 +22,7 @@ import type {
   DrawPreview,
   ResolvedDrawStyle
 } from '../../types/draw'
-import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
+import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
 import {
   readDrawStyle
 } from '../../draw/model'
@@ -33,7 +33,6 @@ const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001
 
 type StrokeState = {
-  ownerId?: NodeId
   kind: DrawBrushKind
   style: ResolvedDrawStyle
   points: Point[]
@@ -47,8 +46,8 @@ type EraseState = {
 }
 
 type DrawInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'viewport' | 'projection'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 export type DrawInteraction = {
@@ -114,11 +113,21 @@ export const createDrawInteraction = (
     state: EraseState | null
   ) => {
     if (!state) {
-      ctx.projection.node.hidden.clear()
+      ctx.output.node.set((current) => (
+        current.hidden.length === 0
+          ? current
+          : {
+              ...current,
+              hidden: []
+            }
+      ))
       return
     }
 
-    ctx.projection.node.hidden.write([...state.ids])
+    ctx.output.node.set((current) => ({
+      ...current,
+      hidden: [...state.ids]
+    }))
   }
 
   const clear = () => {
@@ -198,9 +207,8 @@ export const createDrawInteraction = (
       return
     }
 
-    ctx.commands.node.create({
+    ctx.command.node.create({
       type: 'draw',
-      ownerId: state.ownerId,
       position: stroke.position,
       size: stroke.size,
       data: {
@@ -219,13 +227,13 @@ export const createDrawInteraction = (
     state: EraseState,
     rect: Rect
   ) => {
-    const nodeIds = ctx.read.node.idsInRect(rect, {
+    const nodeIds = ctx.query.read.node.idsInRect(rect, {
       match: 'touch'
     })
     let changed = false
 
     nodeIds.forEach((nodeId) => {
-      const item = ctx.read.node.item.get(nodeId)
+      const item = ctx.query.read.node.item.get(nodeId)
       if (!item || item.node.type !== 'draw' || state.ids.has(nodeId)) {
         return
       }
@@ -275,11 +283,9 @@ export const createDrawInteraction = (
         return null
       }
 
-      const frameTargetId = input.frame.id ?? ctx.read.node.frameAt(input.point.world)
       return {
-        ownerId: input.frame.id ?? frameTargetId,
         kind: input.tool.kind,
-        style: readDrawStyle(ctx.read.draw.preferences.get(), input.tool.kind),
+        style: readDrawStyle(ctx.query.read.draw.preferences.get(), input.tool.kind),
         points: [input.point.world],
         lastScreen: input.point.screen,
         lengthScreen: 0
@@ -330,7 +336,7 @@ export const createDrawInteraction = (
     up: ({ state, session }, input) => {
       collectEvent(state, input)
       if (state.ids.size > 0) {
-        ctx.commands.node.delete([...state.ids])
+        ctx.command.node.delete([...state.ids])
       }
       session.finish()
     },

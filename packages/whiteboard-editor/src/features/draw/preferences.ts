@@ -10,6 +10,11 @@ import type {
   DrawPreferences
 } from '../../types/draw'
 
+export type DrawPreferencesRuntime = {
+  store: ValueStore<DrawPreferences>
+  commands: DrawCommands
+}
+
 const normalizeStyle = (
   value: BrushStyle
 ): BrushStyle => ({
@@ -40,12 +45,9 @@ const isSameBrush = (
   )
 )
 
-export const createDrawState = (
+export const createDrawPreferences = (
   initialPreferences: DrawPreferences
-): {
-  store: ValueStore<DrawPreferences>
-  commands: DrawCommands
-} => {
+): DrawPreferencesRuntime => {
   const store = createValueStore<DrawPreferences>(
     normalizeDrawPreferences(initialPreferences)
   )

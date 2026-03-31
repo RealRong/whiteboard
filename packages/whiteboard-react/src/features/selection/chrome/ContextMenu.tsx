@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import { isPointInRect } from '@whiteboard/core/geometry'
-import {
-  isEdgeInFrameScope,
-  isNodeInFrameScope
-} from '@whiteboard/core/document'
 import type { Point } from '@whiteboard/core/types'
 import type { SelectionStyleSnapshot } from '@whiteboard/editor'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
@@ -66,12 +61,11 @@ type ContextSelectionFilter = {
 type ContextMenuView =
   | {
       kind: 'canvas'
-      screen: Point
-      canvas: {
-        world: Point
-        ownerId?: string
-      }
+    screen: Point
+    canvas: {
+      world: Point
     }
+  }
   | {
       kind: 'selection'
       screen: Point
@@ -197,40 +191,6 @@ const syncEdgeSelection = (
   })
 }
 
-const maybeExitFrame = (
-  editor: ReturnType<typeof useEditorRuntime>,
-  point: HostResolvedPoint
-) => {
-  const frame = editor.state.frame.get()
-  if (!frame.id) {
-    return
-  }
-
-  switch (point.pick.kind) {
-    case 'selection-box':
-      return
-    case 'node':
-      if (!isNodeInFrameScope(frame, point.pick.id)) {
-        editor.commands.frame.exit()
-      }
-      return
-    case 'edge': {
-      const edge = editor.read.edge.item.get(point.pick.id)?.edge
-      if (edge && !isEdgeInFrameScope(frame, edge)) {
-        editor.commands.frame.exit()
-      }
-      return
-    }
-    case 'background':
-    case 'mindmap': {
-      const activeRect = editor.read.index.node.get(frame.id)?.rect
-      if (activeRect && !isPointInRect(point.point.world, activeRect)) {
-        editor.commands.frame.exit()
-      }
-    }
-  }
-}
-
 const readSelectionContextView = (
   editor: ReturnType<typeof useEditorRuntime>,
   screen: Point
@@ -272,8 +232,6 @@ const readContextMenuView = ({
   editor: ReturnType<typeof useEditorRuntime>
   point: HostResolvedPoint
 }): ContextMenuView | null => {
-  maybeExitFrame(editor, point)
-
   switch (point.pick.kind) {
     case 'selection-box': {
       const selection = editor.read.selection.get()
@@ -288,8 +246,7 @@ const readContextMenuView = ({
         kind: 'canvas',
         screen: point.point.screen,
         canvas: {
-          world: point.point.world,
-          ownerId: editor.read.frame.scope.get().id
+          world: point.point.world
         }
       }
     }
@@ -320,8 +277,7 @@ const readContextMenuView = ({
         kind: 'canvas',
         screen: point.point.screen,
         canvas: {
-          world: point.point.world,
-          ownerId: editor.read.frame.scope.get().id
+          world: point.point.world
         }
       }
   }
@@ -410,8 +366,7 @@ const readCanvasGroups = ({
         key: 'edit.paste',
         label: 'Paste',
         onSelect: bindMenuAction(() => clipboard.paste({
-          origin: view.canvas.world,
-          ownerId: view.canvas.ownerId
+          origin: view.canvas.world
         }), dismiss)
       }
     ]
@@ -423,8 +378,7 @@ const readCanvasGroups = ({
       key: preset.key,
       label: preset.label,
       onSelect: bindMenuAction(() => editor.commands.insert.preset(preset.key, {
-        at: view.canvas.world,
-        ownerId: view.canvas.ownerId
+        at: view.canvas.world
       }), dismiss)
     }))
   },

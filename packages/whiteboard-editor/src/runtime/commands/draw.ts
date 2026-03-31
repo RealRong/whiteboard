@@ -1,5 +1,5 @@
 import type { Editor } from '../../types/editor'
-import type { DrawFeatureState } from '../../types/internal/editor'
+import type { DrawPreferencesRuntime } from '../../features/draw/preferences'
 import type { Tool } from '../../types/tool'
 import {
   isDrawBrushKind
@@ -10,12 +10,12 @@ import {
 
 export const createDrawCommands = ({
   tool,
-  draw
+  drawPreferences
 }: {
   tool: {
     get: () => Tool
   }
-  draw: DrawFeatureState
+  drawPreferences: DrawPreferencesRuntime
 }): Editor['commands']['draw'] => ({
   slot: (slot) => {
     const current = tool.get()
@@ -23,7 +23,7 @@ export const createDrawCommands = ({
       return
     }
 
-    draw.commands.slot(current.kind, slot)
+    drawPreferences.commands.slot(current.kind, slot)
   },
   patch: (patch) => {
     const current = tool.get()
@@ -31,9 +31,9 @@ export const createDrawCommands = ({
       return
     }
 
-    draw.commands.patch(
+    drawPreferences.commands.patch(
       current.kind,
-      readDrawSlot(draw.store.get(), current.kind),
+      readDrawSlot(drawPreferences.store.get(), current.kind),
       patch
     )
   }

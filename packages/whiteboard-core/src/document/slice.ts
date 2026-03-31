@@ -7,6 +7,7 @@ import {
   getNodesBoundingRect,
   isOwnerNode
 } from '../node/group'
+import { expandFrameSelection } from '../node/frame'
 import {
   getNodeOwnerMap,
   patchChildren
@@ -280,7 +281,8 @@ const remapSliceEdgeInput = ({
 
 const collectExpandedNodeIds = (
   nodes: readonly Node[],
-  selectedIds: readonly NodeId[]
+  selectedIds: readonly NodeId[],
+  nodeSize: Size
 ) => {
   const nodeById = new Map<NodeId, Node>(nodes.map((node) => [node.id, node]))
   const expandedIds = new Set<NodeId>()
@@ -302,7 +304,20 @@ const collectExpandedNodeIds = (
     })
   }
 
-  return expandedIds
+  return expandFrameSelection({
+    nodes,
+    ids: [...expandedIds],
+    getNodeRect: (node) => (
+      node.type === 'group'
+        ? undefined
+        : getNodeRect(node, nodeSize)
+    ),
+    getFrameRect: (node) => (
+      node.type === 'frame'
+        ? getNodeRect(node, nodeSize)
+        : undefined
+    )
+  })
 }
 
 const getEdgeBounds = ({
@@ -702,7 +717,7 @@ export const exportSliceFromNodes = ({
   }
 
   const orderedNodes = listNodes(doc)
-  const expandedIds = collectExpandedNodeIds(orderedNodes, selectedIds)
+  const expandedIds = collectExpandedNodeIds(orderedNodes, selectedIds, nodeSize)
   const rawNodes = orderedNodes
     .filter((node) => expandedIds.has(node.id))
     .map((node) => cloneNode(node))
@@ -792,7 +807,7 @@ export const exportSliceFromSelection = ({
   }
 
   const orderedNodes = listNodes(doc)
-  const expandedNodeIds = collectExpandedNodeIds(orderedNodes, selectedNodeIds)
+  const expandedNodeIds = collectExpandedNodeIds(orderedNodes, selectedNodeIds, nodeSize)
   const rawNodes = orderedNodes
     .filter((node) => expandedNodeIds.has(node.id))
     .map((node) => cloneNode(node))

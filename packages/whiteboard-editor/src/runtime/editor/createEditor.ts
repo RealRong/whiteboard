@@ -1,25 +1,27 @@
 import { createValueStore } from '@whiteboard/engine'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import { createDrawState } from '../../runtime/draw/state'
-import { createEdgeProjectionRuntime } from '../../runtime/projection/edge'
-import { createMindmapDragProjectionStore } from '../../runtime/projection/mindmapDrag'
-import { createNodeProjectionRuntime } from '../../runtime/projection/node'
+import { createDrawPreferences } from '../../features/draw/preferences'
+import { createEdgeGuide } from '../../runtime/feedback/edgeGuide'
+import { createMarqueeFeedback } from '../../runtime/feedback/marquee'
+import { createMindmapDragFeedback } from '../../runtime/feedback/mindmapDrag'
+import { createEdgeTransient } from '../../runtime/transient/edge'
+import { createNodeTransient } from '../../runtime/transient/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { InsertPresetCatalog } from '../../types/insert'
 import type { Tool } from '../../types/tool'
 import type { Editor } from '../../types/editor'
-import type { EditorInputPolicy } from '../../types/internal/editor'
+import type { EditorInputPolicy } from './types'
 import { createEditorCommands } from '../commands'
 import type { PointerSnapshot } from '../input/pointer/snapshot'
 import { createSnapRuntime } from '../interaction'
 import { createRead } from '../read'
+import { createFeatureRuntime } from './featureRuntime'
 import { composeInput } from './composeInput'
-import { createInteractionFeatures } from './features/createInteractionFeatures'
+import { assembleInteractions } from './assembleInteractions'
 import { createKernel } from './kernel'
 import { createLifecycle } from './lifecycle'
-import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import { createClipboard } from '../clipboard'
 
 export const createEditor = ({
@@ -44,11 +46,11 @@ export const createEditor = ({
   insertPresetCatalog: InsertPresetCatalog
   initialDrawPreferences: DrawPreferences
 }): Editor => {
-  const draw = createDrawState(initialDrawPreferences)
+  const drawPreferences = createDrawPreferences(initialDrawPreferences)
   const pointer = createValueStore<PointerSnapshot | null>(null)
-  const nodeProjection = createNodeProjectionRuntime()
-  const edgeProjection = createEdgeProjectionRuntime()
-  const mindmapDragProjection = createMindmapDragProjectionStore()
+  const nodeTransient = createNodeTransient()
+  const edgeTransient = createEdgeTransient()
+  const edgeGuide = createEdgeGuide()
 
   const {
     kernel,
@@ -62,17 +64,18 @@ export const createEditor = ({
     inputPolicy: initialInputPolicy,
     registry
   })
+  const marquee = createMarqueeFeedback(editorViewport)
+  const mindmapDrag = createMindmapDragFeedback()
 
   const read = createRead({
     engineRead: engine.read,
     registry,
     tool: kernel.tool,
     history: engine.history,
-    drawPreferences: draw.store,
+    drawPreferences: drawPreferences.store,
     selection: kernel.selection.source,
-    frame: kernel.frame.store,
-    node: nodeProjection,
-    edge: edgeProjection
+    node: nodeTransient.reader,
+    edge: edgeTransient.reader
   })
   const snap = createSnapRuntime({
     readZoom: () => editorViewport.get().zoom,
@@ -91,12 +94,11 @@ export const createEditor = ({
     engine,
     read,
     tool: kernel.tool,
-    edit: kernel.edit.commands,
+    edit: kernel.edit.mutate,
     selection: kernel.selection,
-    frame: kernel.frame,
     viewportCommands: kernel.viewport.commands,
-    draw,
-    nodeProjection,
+    drawPreferences,
+    nodeTransient: nodeTransient.runtime,
     insertPresetCatalog
   })
   const clipboard = createClipboard({
@@ -107,31 +109,27 @@ export const createEditor = ({
     }
   })
 
-  const featureContext: EditorFeatureContext = {
-    commands,
+  const featureRuntime = createFeatureRuntime({
+    command: commands,
     read,
-    state,
     config: kernel.engine.config,
     viewport: editorViewport,
     interaction: kernel.interaction,
     registry: kernel.registry,
     inputPolicy: kernel.inputPolicy,
-    draw,
-    projection: {
-      node: nodeProjection,
-      edge: edgeProjection,
-      mindmapDrag: mindmapDragProjection
-    },
-    spatial: {
+    output: {
+      edge: edgeTransient.runtime,
+      node: nodeTransient.runtime,
+      edgeGuide,
+      marquee,
+      mindmapDrag,
       snap
     }
-  }
-  const features = createInteractionFeatures(featureContext)
+  })
+  const features = assembleInteractions(featureRuntime)
 
   const input = composeInput({
-    commands,
     read,
-    state,
     viewport: editorViewport,
     interaction: kernel.interaction,
     policy: kernel.inputPolicy,
@@ -157,7 +155,7 @@ export const createEditor = ({
     clipboard,
     input,
     viewport: editorViewport,
-    projection: features.projection,
+    feedback: features.feedback,
     configure: (config) => {
       commands.tool.set(config.tool)
 

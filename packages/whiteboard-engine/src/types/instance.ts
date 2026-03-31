@@ -59,11 +59,30 @@ export type NodeRead = {
   owner: (nodeId: NodeId) => NodeId | undefined
   bounds: (nodeId: NodeId) => Rect | undefined
   frame: (nodeId: NodeId) => Rect | undefined
-  frameAt: (point: Point) => NodeId | undefined
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
   transformTargets: (
     nodeIds: readonly NodeId[]
   ) => TransformSelectionTargets<Node> | undefined
+}
+
+export type FrameRead = {
+  list: () => readonly NodeId[]
+  rect: (frameId: NodeId) => Rect | undefined
+  at: (point: Point) => NodeId | undefined
+  of: (nodeId: NodeId) => NodeId | undefined
+  members: (
+    frameId: NodeId,
+    options?: {
+      deep?: boolean
+    }
+  ) => readonly NodeId[]
+  contains: (
+    frameId: NodeId,
+    nodeId: NodeId,
+    options?: {
+      deep?: boolean
+    }
+  ) => boolean
 }
 
 export type EdgeRead = {
@@ -98,6 +117,7 @@ export type EngineRead = {
     background: ReadStore<Document['background'] | undefined>
   }
   bounds: BoundsRead
+  frame: FrameRead
   node: NodeRead
   edge: EdgeRead
   mindmap: MindmapRead

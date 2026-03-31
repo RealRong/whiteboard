@@ -3,20 +3,18 @@ import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export const Marquee = () => {
   const editor = useEditorRuntime()
-  const marquee = editor.projection.marquee
-  const rect = useStoreValue(marquee.rect)
-  const match = useStoreValue(marquee.match)
+  const marquee = useStoreValue(editor.feedback.marquee)
 
-  if (!rect || !match) return null
+  if (!marquee) return null
 
   return (
     <div
       className="wb-marquee-layer"
-      data-match={match}
+      data-match={marquee.match}
       style={{
-        transform: `translate(${rect.x}px, ${rect.y}px)`,
-        width: rect.width,
-        height: rect.height
+        transform: `translate(${marquee.rect.x}px, ${marquee.rect.y}px)`,
+        width: marquee.rect.width,
+        height: marquee.rect.height
       }}
     />
   )

@@ -22,8 +22,8 @@ import {
   type RuntimeSession,
 } from '../../runtime/interaction'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
-import type { MarqueeEnd, MarqueeRuntime } from '../../runtime/projection/marquee'
+import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
+import type { MarqueeEnd, MarqueeInteraction } from './marquee'
 import { createNodeDragInteraction, type NodeDragStart } from '../node/drag/interaction'
 import type { NodeId } from '@whiteboard/core/types'
 
@@ -44,8 +44,8 @@ type SelectionPressState = {
 }
 
 type SelectionPressInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 const EMPTY_SELECTION = normalizeSelectionTarget({})
@@ -56,7 +56,7 @@ const buildSelectionWriter = (
   mode: SelectionMode
 ) => {
   return (matched: SelectionTarget) => {
-    ctx.commands.selection.replace({
+    ctx.command.selection.replace({
       nodeIds: [
         ...applySelection(
           new Set(base.nodeIds),
@@ -127,9 +127,9 @@ const toSelectionPressSubject = (
       }
 
       if (input.pick.part === 'shell') {
-        const node = ctx.read.node.item.get(input.pick.id)?.node
+        const node = ctx.query.read.node.item.get(input.pick.id)?.node
         subject.shell = node
-          ? ctx.read.node.role(node)
+          ? ctx.query.read.node.role(node)
           : 'content'
       }
 
@@ -143,7 +143,7 @@ const toSelectionPressSubject = (
 
 export const createSelectionPressInteraction = (
   ctx: SelectionPressInteractionDeps,
-  marquee: MarqueeRuntime
+  marquee: MarqueeInteraction
 ): SelectionPressInteraction => {
   const drag = createNodeDragInteraction(ctx)
 
@@ -210,7 +210,7 @@ export const createSelectionPressInteraction = (
       base: EMPTY_SELECTION
     }, {
       onStart: () => {
-        ctx.commands.selection.clear()
+        ctx.command.selection.clear()
       }
     })
   }
@@ -232,7 +232,7 @@ export const createSelectionPressInteraction = (
       allowCross: input.altKey,
       onStart: action.nextSelection
         ? () => {
-            ctx.commands.selection.replace(action.nextSelection!)
+            ctx.command.selection.replace(action.nextSelection!)
           }
         : undefined
     }
@@ -254,21 +254,21 @@ export const createSelectionPressInteraction = (
   ) => {
     switch (action.kind) {
       case 'clear':
-        ctx.commands.selection.clear()
+        ctx.command.selection.clear()
         return
       case 'select':
         if (!matchesTapTarget(action.verifyNodeIds, input)) {
           return
         }
 
-        ctx.commands.selection.replace(action.target)
+        ctx.command.selection.replace(action.target)
         return
       case 'edit':
         if (!matchesTapTarget(action.verifyNodeIds, input)) {
           return
         }
 
-        ctx.commands.edit.start(action.nodeId, action.field)
+        ctx.command.edit.start(action.nodeId, action.field)
         return
     }
   }
@@ -296,12 +296,12 @@ export const createSelectionPressInteraction = (
       }
 
       const plan = resolveSelectionPressPlan({
-        getNode: (nodeId) => ctx.read.node.item.get(nodeId)?.node,
-        getOwnerId: ctx.read.node.owner,
-        getNodeFrame: ctx.read.node.frame
+        getNode: (nodeId) => ctx.query.read.node.item.get(nodeId)?.node,
+        getOwnerId: ctx.query.read.node.owner,
+        getNodeFrame: ctx.query.read.node.frame
       }, {
         modifiers: input.modifiers,
-        selection: ctx.read.selection.get().summary,
+        selection: ctx.query.read.selection.get().summary,
         subject
       })
       if (!plan) {

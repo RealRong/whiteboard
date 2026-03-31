@@ -1,4 +1,3 @@
-import type { FrameScope } from '@whiteboard/core/document'
 import type {
   Editor,
   EditorPointerInput,
@@ -7,7 +6,6 @@ import type {
 } from '../../../types/editor'
 import type { PointerPick } from '../../../types/pick'
 import type { Tool } from '../../../types/tool'
-import { resolvePointerFrameGate } from './gate'
 
 type PointerBase = PointerPick & {
   pointerId: number
@@ -15,7 +13,6 @@ type PointerBase = PointerPick & {
   buttons: number
   detail: number
   tool: Tool
-  frame: FrameScope
   modifiers: {
     alt: boolean
     shift: boolean
@@ -31,7 +28,6 @@ type PointerBase = PointerPick & {
 
 export type PointerDown = PointerBase & {
   phase: 'pointer/down'
-  frameExit: boolean
 }
 
 export type PointerMove = PointerBase & {
@@ -77,16 +73,11 @@ const readPointerPick = (
 })
 
 const readResolvedPointer = (
-  editor: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read'>,
   input: EditorPointerInput,
   phase: PointerDown['phase'] | PointerMove['phase'] | PointerUp['phase']
 ) => {
   const pick = readPointerPick(input)
-  const frame = resolvePointerFrameGate(editor, {
-    pick: pick.pick,
-    point: pick.point,
-    frame: editor.state.frame.get()
-  })
 
   return {
     ...pick,
@@ -96,7 +87,6 @@ const readResolvedPointer = (
     buttons: input.buttons,
     detail: input.detail,
     tool: editor.read.tool.get(),
-    frame: frame.frame,
     modifiers: input.modifiers,
     altKey: input.modifiers.alt,
     shiftKey: input.modifiers.shift,
@@ -107,20 +97,15 @@ const readResolvedPointer = (
 }
 
 export const resolvePointerDown = (
-  editor: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read'>,
   input: EditorPointerInput
-): PointerDown => {
-  const resolved = readResolvedPointer(editor, input, 'pointer/down')
-
-  return {
-    ...resolved,
-    phase: 'pointer/down',
-    frameExit: resolved.frame.id !== editor.state.frame.get().id
-  }
-}
+): PointerDown => ({
+  ...readResolvedPointer(editor, input, 'pointer/down'),
+  phase: 'pointer/down'
+})
 
 export const resolvePointerMove = (
-  editor: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read'>,
   input: EditorPointerInput
 ): PointerMove => readResolvedPointer(
   editor,
@@ -129,7 +114,7 @@ export const resolvePointerMove = (
 ) as PointerMove
 
 export const resolvePointerUp = (
-  editor: Pick<Editor, 'read' | 'state'>,
+  editor: Pick<Editor, 'read'>,
   input: EditorPointerInput
 ): PointerUp => readResolvedPointer(
   editor,

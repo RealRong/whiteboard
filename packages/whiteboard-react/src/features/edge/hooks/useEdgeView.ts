@@ -22,18 +22,11 @@ export const useEdgeView = (
 }
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
-  const editor = useEditorRuntime()
   const selection = useSelection()
   const edgeId = selection.summary.kind === 'edge' && selection.summary.items.count === 1
     ? selection.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
-  const emptyPatch = editor.projection.edge.emptyPatch
-  const patch = useOptionalKeyedStoreValue(
-    editor.projection.edge.patch,
-    edgeId,
-    emptyPatch
-  )
 
   return useMemo(() => {
     if (!edgeId || !entry) {
@@ -48,7 +41,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
           edgeId,
           index: handle.index,
           point: handle.point,
-          active: patch.activeRouteIndex === handle.index
+          active: entry.activeRouteIndex === handle.index
         }]
       }
 
@@ -71,7 +64,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
       ends: entry.ends,
       routePoints
     }
-  }, [edgeId, entry, patch.activeRouteIndex])
+  }, [edgeId, entry])
 }
 
 export type {

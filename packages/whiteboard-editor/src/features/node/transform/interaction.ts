@@ -19,7 +19,7 @@ import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
-import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
+import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -88,8 +88,8 @@ export type NodeTransformInteraction = {
 }
 
 type NodeTransformInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'viewport' | 'projection' | 'spatial'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 const createResizeDrag = (options: {
@@ -141,16 +141,33 @@ export const createNodeTransformInteraction = (
   ctx: NodeTransformInteractionDeps
 ): NodeTransformInteraction => {
   const clear = () => {
-    ctx.projection.node.preview.clear()
-    ctx.spatial.snap.node.clear()
+    ctx.output.node.set((current) => (
+      current.patches.length === 0 && current.hovered === undefined
+        ? current
+        : {
+            ...current,
+            patches: [],
+            hovered: undefined
+          }
+    ))
+    ctx.output.snap.node.clear()
   }
 
   const writePreview = (
     patches: readonly TransformPreviewPatch[]
   ) => {
-    ctx.projection.node.preview.write({
-      patches
-    })
+    ctx.output.node.set((current) => ({
+      ...current,
+      patches: patches.map(({ id, position, size, rotation }) => ({
+        id,
+        patch: {
+          position,
+          size,
+          rotation
+        }
+      })),
+      hovered: undefined
+    }))
   }
 
   const buildResizeUpdate = (options: {
@@ -176,7 +193,7 @@ export const createNodeTransformInteraction = (
     })
     const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-    return ctx.spatial.snap.node.resize({
+    return ctx.output.snap.node.resize({
       rect: rawRect.rect,
       source: {
         x: sourceX,
@@ -222,7 +239,7 @@ export const createNodeTransformInteraction = (
     drag: RotateDragState,
     input: InteractionPointerInput
   ) => {
-    ctx.spatial.snap.node.clear()
+    ctx.output.snap.node.clear()
     const rotation = computeNextRotation({
       center: drag.center,
       currentPoint: input.world,
@@ -286,7 +303,7 @@ export const createNodeTransformInteraction = (
       return
     }
 
-    ctx.commands.node.document.updateMany(updates)
+    ctx.command.node.document.updateMany(updates)
   }
 
   const createNodeActive = (
@@ -294,12 +311,12 @@ export const createNodeTransformInteraction = (
     handle: TransformPickHandle,
     input: PointerDown
   ): ActiveTransform | undefined => {
-    const nodeRect = ctx.read.index.node.get(nodeId)
+    const nodeRect = ctx.query.read.index.node.get(nodeId)
     if (!nodeRect || nodeRect.node.locked) {
       return undefined
     }
 
-    const transform = ctx.read.node.transform(nodeRect.node)
+    const transform = ctx.query.read.node.transform(nodeRect.node)
     const target: TransformTarget = {
       id: nodeRect.node.id,
       node: nodeRect.node,
@@ -344,7 +361,7 @@ export const createNodeTransformInteraction = (
   const createSelectionScaleTargets = (
     selectionNodeIds: readonly NodeId[]
   ) => {
-    const resolved = ctx.read.node.transformTargets(selectionNodeIds)
+    const resolved = ctx.query.read.node.transformTargets(selectionNodeIds)
     if (!resolved?.targets.length) {
       return undefined
     }
@@ -359,7 +376,7 @@ export const createNodeTransformInteraction = (
     handle: TransformPickHandle,
     input: PointerDown
   ): ActiveTransform | undefined => {
-    const selection = ctx.read.selection.get().summary
+    const selection = ctx.query.read.selection.get().summary
     const selectionBox = resolveSelectionBoxView(selection)
     if (
       !selectionBox.box

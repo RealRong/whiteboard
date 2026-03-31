@@ -11,25 +11,25 @@ type MindmapDragPreview = {
   drop?: MindmapDragDropTarget
 }
 
-export type MindmapDragProjection = {
+export type MindmapDragFeedback = {
   treeId: NodeId
   kind: 'root' | 'subtree'
   baseOffset: Point
   preview?: MindmapDragPreview
 }
 
-type BaseMindmapDragProjectionStore =
-  Pick<StagedValueStore<MindmapDragProjection | undefined>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+type BaseMindmapDragFeedbackStore =
+  Pick<StagedValueStore<MindmapDragFeedback | undefined>, 'get' | 'subscribe' | 'write' | 'clear'>
 
-export type MindmapDragProjectionStore =
-  Pick<BaseMindmapDragProjectionStore, 'get' | 'subscribe'> & {
-    set: (next?: MindmapDragProjection) => void
+export type MindmapDragFeedbackRuntime =
+  Pick<BaseMindmapDragFeedbackStore, 'get' | 'subscribe'> & {
+    set: (next?: MindmapDragFeedback) => void
     clear: () => void
   }
 
-export const createMindmapDragProjectionStore = (): MindmapDragProjectionStore => {
+export const createMindmapDragFeedback = (): MindmapDragFeedbackRuntime => {
   const store = createRafValueStore({
-    initial: undefined as MindmapDragProjection | undefined,
+    initial: undefined as MindmapDragFeedback | undefined,
     isEqual: (left, right) => left === right
   })
 

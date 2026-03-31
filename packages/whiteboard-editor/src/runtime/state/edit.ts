@@ -11,34 +11,34 @@ export type EditTarget = {
 
 export type EditStore = ValueStore<EditTarget>
 
-export type EditCommands = {
+export type EditMutate = {
   start: (nodeId: NodeId, field: EditField) => void
   clear: () => void
 }
 
 export type EditState = {
-  store: EditStore
-  commands: EditCommands
+  source: EditStore
+  mutate: EditMutate
 }
 
 export const createEditState = (): EditState => {
-  const store = createValueStore<EditTarget>(null)
+  const source = createValueStore<EditTarget>(null)
 
   return {
-    store,
-    commands: {
+    source,
+    mutate: {
       start: (nodeId, field) => {
-        store.set({
+        source.set({
           nodeId,
           field
         })
       },
       clear: () => {
-        if (store.get() === null) {
+        if (source.get() === null) {
           return
         }
 
-        store.set(null)
+        source.set(null)
       }
     }
   }

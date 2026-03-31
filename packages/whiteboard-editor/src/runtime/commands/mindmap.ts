@@ -14,7 +14,7 @@ import type {
   Size
 } from '@whiteboard/core/types'
 import type { Editor } from '../../types/editor'
-import type { EditorCommandHost } from '../../types/internal/editor'
+import type { EditorCommandHost } from '../editor/types'
 
 type MindmapCommandEditor = Pick<Editor, 'commands' | 'read'>
 

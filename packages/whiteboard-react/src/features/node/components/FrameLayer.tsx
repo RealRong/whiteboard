@@ -224,10 +224,7 @@ export const FrameLayer = () => {
   const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.target.nodeSet
-  const frameIds = useMemo(
-    () => editor.read.node.filter(nodeIds, 'frame'),
-    [editor, nodeIds]
-  )
+  const frameIds = useMemo(() => editor.read.frame.list(), [editor, nodeIds])
   const groupIds = useMemo(
     () => editor.read.node.filter(nodeIds, 'group'),
     [editor, nodeIds]
@@ -259,10 +256,7 @@ export const FrameLayer = () => {
 export const ContainerChromeLayer = () => {
   const editor = useEditor()
   const nodeIds = useStoreValue(editor.read.node.list)
-  const frameIds = useMemo(
-    () => editor.read.node.filter(nodeIds, 'frame'),
-    [editor, nodeIds]
-  )
+  const frameIds = useMemo(() => editor.read.frame.list(), [editor, nodeIds])
 
   if (!frameIds.length) {
     return null

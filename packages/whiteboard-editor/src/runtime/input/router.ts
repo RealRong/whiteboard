@@ -4,7 +4,7 @@ import type {
 import type {
   EditorInputInternals,
   EditorViewportRuntime
-} from '../../types/internal/editor'
+} from '../editor/types'
 import type { InteractionCoordinator } from '../interaction'
 import {
   resolvePointerDown,
@@ -23,7 +23,7 @@ import type {
 
 type InputRouterHost = Pick<
   Editor,
-  'commands' | 'read' | 'state'
+  'read'
 > & {
   interaction: InteractionCoordinator
   viewport: EditorViewportRuntime
@@ -84,11 +84,6 @@ export const createInputRouter = ({
     }
 
     const resolved = resolvePointerDown(editor, input)
-
-    if (resolved.frameExit) {
-      editor.commands.frame.exit()
-    }
-
     const handled = runtime.interactions.start(resolved)
     return {
       handled,

@@ -10,12 +10,7 @@ import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
-import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
-import type { EdgeConnectInteraction } from '../connect/interaction'
-import {
-  clearEdgeProjectionHint,
-  clearEdgeProjectionPatch,
-} from '../../../runtime/projection/edge'
+import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
 
 type BodyMoveState = {
   kind: 'move'
@@ -82,8 +77,8 @@ export type EdgeEditInteraction = {
 }
 
 type EdgeEditInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'viewport' | 'projection' | 'spatial'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 const isEdgeRoutePick = (
@@ -94,20 +89,18 @@ const isEdgeRoutePick = (
 )
 
 export const createEdgeEditInteraction = (
-  ctx: EdgeEditInteractionDeps,
-  connect: Pick<EdgeConnectInteraction, 'clear'>
+  ctx: EdgeEditInteractionDeps
 ): EdgeEditInteraction => {
   const clear = () => {
-    clearEdgeProjectionPatch(ctx.projection.edge)
-    clearEdgeProjectionHint(ctx.projection.edge)
-    connect.clear()
+    ctx.output.edge.clear()
+    ctx.output.edgeGuide.clear()
   }
 
   const readMovePatch = (
     edgeId: EdgeId,
     delta: Point
   ): EdgePatch | undefined => {
-    const view = ctx.read.edge.view.get(edgeId)
+    const view = ctx.query.read.edge.view.get(edgeId)
     if (!view?.can.move) {
       return undefined
     }
@@ -120,16 +113,19 @@ export const createEdgeEditInteraction = (
     patch: EdgePatch | undefined
   ) => {
     if (!patch) {
-      clearEdgeProjectionPatch(ctx.projection.edge)
+      ctx.output.edge.clear()
       return
     }
 
-    ctx.projection.edge.writePatch(edgeId, patch)
+    ctx.output.edge.set([{
+      id: edgeId,
+      patch
+    }])
   }
 
   const readRouteView = (
     edgeId: EdgeId
-  ) => ctx.read.edge.view.get(edgeId)
+  ) => ctx.query.read.edge.view.get(edgeId)
 
   const readRoutePoints = (
     edgeId: EdgeId
@@ -198,11 +194,16 @@ export const createEdgeEditInteraction = (
     points: readonly Point[],
     activeRouteIndex?: number
   ) => {
-    ctx.projection.edge.writeRoute(
-      edgeId,
-      points,
+    ctx.output.edge.set([{
+      id: edgeId,
+      patch: {
+        route: {
+          kind: 'manual',
+          points: [...points]
+        }
+      },
       activeRouteIndex
-    )
+    }])
   }
 
   const updateBodyMove = (
@@ -234,8 +235,8 @@ export const createEdgeEditInteraction = (
     state: BodyMoveState
   ) => {
     if (!isPointEqual(state.delta, { x: 0, y: 0 })) {
-      ctx.commands.edge.move(state.edgeId, state.delta)
-      ctx.commands.selection.clear()
+      ctx.command.edge.move(state.edgeId, state.delta)
+      ctx.command.selection.clear()
     }
   }
 
@@ -278,7 +279,7 @@ export const createEdgeEditInteraction = (
       readRouteView(state.edgeId)?.can.editRoute
       && !isPointEqual(state.point, state.origin)
     ) {
-      ctx.commands.edge.route.move(state.edgeId, state.index, state.point)
+      ctx.command.edge.route.move(state.edgeId, state.index, state.point)
     }
   }
 
@@ -304,7 +305,7 @@ export const createEdgeEditInteraction = (
         return null
       }
 
-      const view = ctx.read.edge.view.get(input.pick.id)
+      const view = ctx.query.read.edge.view.get(input.pick.id)
       if (!view) {
         return null
       }
@@ -331,12 +332,12 @@ export const createEdgeEditInteraction = (
       }
     },
     start: ({ input, state, session }) => {
-      ctx.commands.selection.replace({
+      ctx.command.selection.replace({
         edgeIds: [state.edgeId]
       })
 
       if (state.kind === 'insert') {
-        ctx.commands.edge.route.insert(state.edgeId, input.point.world)
+        ctx.command.edge.route.insert(state.edgeId, input.point.world)
         session.finish()
         return
       }
@@ -363,7 +364,7 @@ export const createEdgeEditInteraction = (
       session.finish()
     },
     cleanup: () => {
-      clearEdgeProjectionPatch(ctx.projection.edge)
+      ctx.output.edge.clear()
     }
   }
 
@@ -421,13 +422,13 @@ export const createEdgeEditInteraction = (
     },
     start: ({ input, state, session }) => {
       if (state.kind === 'remove') {
-        ctx.commands.edge.route.remove(state.edgeId, state.index)
+        ctx.command.edge.route.remove(state.edgeId, state.index)
         session.finish()
         return
       }
 
       if (state.kind === 'insert') {
-        const result = ctx.commands.edge.route.insert(state.edgeId, state.worldPoint)
+        const result = ctx.command.edge.route.insert(state.edgeId, state.worldPoint)
         if (!result.ok) {
           session.finish()
           return
@@ -474,7 +475,7 @@ export const createEdgeEditInteraction = (
       session.finish()
     },
     cleanup: () => {
-      clearEdgeProjectionPatch(ctx.projection.edge)
+      ctx.output.edge.clear()
     }
   }
 

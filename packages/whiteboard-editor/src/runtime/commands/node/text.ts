@@ -1,9 +1,10 @@
 import { isTextContentEmpty } from '@whiteboard/core/node'
 import type { NodeId, Size } from '@whiteboard/core/types'
 import type {
-  NodeProjectionRuntime,
-  NodePatch
-} from '../../projection/node'
+  NodePatch,
+  NodePatchEntry,
+  NodeTransientRuntime
+} from '../../transient/node'
 import type {
   Editor,
   EditorNodeAppearanceCommands,
@@ -45,42 +46,130 @@ const mergeTextPreviewPatch = (
   return next
 }
 
+const isSamePoint = (
+  left: { x: number, y: number } | undefined,
+  right: { x: number, y: number } | undefined
+) => (
+  left?.x === right?.x
+  && left?.y === right?.y
+)
+
+const isSameNodePatch = (
+  left: NodePatch | undefined,
+  right: NodePatch | undefined
+) => (
+  isSamePoint(left?.position, right?.position)
+  && isSameSize(left?.size, right?.size)
+  && left?.rotation === right?.rotation
+)
+
+const readTransientPatch = (
+  patches: readonly NodePatchEntry[],
+  nodeId: NodeId
+): NodePatch | undefined => {
+  for (let index = 0; index < patches.length; index += 1) {
+    const entry = patches[index]!
+    if (entry.id === nodeId) {
+      return entry.patch
+    }
+  }
+
+  return undefined
+}
+
+const replaceTransientPatch = (
+  patches: readonly NodePatchEntry[],
+  nodeId: NodeId,
+  patch: NodePatch | undefined
+): readonly NodePatchEntry[] => {
+  let changed = false
+  const next: NodePatchEntry[] = []
+
+  for (let index = 0; index < patches.length; index += 1) {
+    const entry = patches[index]!
+    if (entry.id !== nodeId) {
+      next.push(entry)
+      continue
+    }
+
+    if (!patch) {
+      changed = true
+      continue
+    }
+
+    if (isSameNodePatch(entry.patch, patch)) {
+      next.push(entry)
+      continue
+    }
+
+    next.push({
+      id: nodeId,
+      patch
+    })
+    changed = true
+  }
+
+  if (!patch) {
+    return changed
+      ? next
+      : patches
+  }
+
+  const hasPatch = patches.some((entry) => entry.id === nodeId)
+  if (hasPatch) {
+    return changed
+      ? next
+      : patches
+  }
+
+  return [
+    ...patches,
+    {
+      id: nodeId,
+      patch
+    }
+  ]
+}
+
 const writeTextPreview = (
-  runtime: NodeProjectionRuntime,
+  runtime: NodeTransientRuntime,
   nodeId: NodeId,
   size?: Size
 ) => {
-  const current = runtime.get(nodeId).patch
-  const next = mergeTextPreviewPatch(current, size)
+  runtime.set((current) => {
+    const patch = readTransientPatch(current.patches, nodeId)
+    const nextPatch = mergeTextPreviewPatch(patch, size)
 
-  if (isSameSize(current?.size, next?.size)) {
-    return
-  }
+    if (isSameSize(patch?.size, nextPatch?.size)) {
+      return current
+    }
 
-  if (next) {
-    runtime.patch.write(nodeId, next)
-  } else {
-    runtime.patch.clear(nodeId)
-  }
-  runtime.flush()
+    return {
+      ...current,
+      patches: replaceTransientPatch(current.patches, nodeId, nextPatch)
+    }
+  })
 }
 
 const clearTextPreview = (
-  runtime: NodeProjectionRuntime,
+  runtime: NodeTransientRuntime,
   nodeId: NodeId
 ) => {
-  const current = runtime.get(nodeId).patch
-  if (!current?.size) {
-    return
-  }
+  runtime.set((current) => {
+    const patch = readTransientPatch(current.patches, nodeId)
+    if (!patch?.size) {
+      return current
+    }
 
-  const next = mergeTextPreviewPatch(current, undefined)
-  if (next) {
-    runtime.patch.write(nodeId, next)
-  } else {
-    runtime.patch.clear(nodeId)
-  }
-  runtime.flush()
+    return {
+      ...current,
+      patches: replaceTransientPatch(
+        current.patches,
+        nodeId,
+        mergeTextPreviewPatch(patch, undefined)
+      )
+    }
+  })
 }
 
 export const createNodeTextCommands = ({
@@ -93,7 +182,7 @@ export const createNodeTextCommands = ({
   appearance
 }: {
   read: Editor['read']
-  runtime: NodeProjectionRuntime
+  runtime: NodeTransientRuntime
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
   deleteCascade: Editor['commands']['node']['deleteCascade']
@@ -137,8 +226,16 @@ export const createNodeTextCommands = ({
     const currentValue = typeof committed.node.data?.[field] === 'string'
       ? committed.node.data[field] as string
       : ''
+    const previewItem = read.node.item.get(nodeId)
     const nextMeasuredSize = committed.node.type === 'text' && field === 'text'
-      ? size ?? runtime.get(nodeId).patch?.size
+      ? size ?? (
+          previewItem
+            ? {
+                width: previewItem.rect.width,
+                height: previewItem.rect.height
+              }
+            : undefined
+        )
       : undefined
     const sizeUpdate = nextMeasuredSize && !isSameSize(nextMeasuredSize, committed.rect)
       ? nextMeasuredSize

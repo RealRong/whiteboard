@@ -6,7 +6,6 @@ import type {
 } from '@whiteboard/core/geometry'
 import type {
   ClipboardPacket,
-  FrameScope
 } from '@whiteboard/core/document'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { SelectionInput, SelectionTarget } from '@whiteboard/core/selection'
@@ -34,12 +33,12 @@ import type {
   ViewportCommands,
   ViewportRead
 } from '../runtime/viewport'
-import type { EditField, EditTarget } from '../runtime/edit'
+import type { EditField, EditTarget } from '../runtime/state/edit'
 import type { ShapeKind } from '@whiteboard/core/node'
 import type { DrawInteraction } from '../features/draw/interaction'
-import type { EdgeProjectionRuntime } from '../runtime/projection/edge'
-import type { MindmapDragProjectionStore } from '../runtime/projection/mindmapDrag'
-import type { MarqueeRuntime } from '../runtime/projection/marquee'
+import type { EdgeGuideRuntime } from '../runtime/feedback/edgeGuide'
+import type { MarqueeFeedbackRuntime } from '../runtime/feedback/marquee'
+import type { MindmapDragFeedbackRuntime } from '../runtime/feedback/mindmapDrag'
 import type { SnapRuntime } from '../runtime/interaction'
 import type { NodeRegistry } from './node'
 import type { EditorPick } from './pick'
@@ -147,18 +146,13 @@ export type EditorState = {
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionTarget>
-  frame: ReadStore<FrameScope>
 }
 
-export type EditorProjection = {
-  marquee: Pick<MarqueeRuntime, 'rect' | 'match'>
+export type EditorFeedback = {
   draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
-  edge: {
-    patch: Pick<EdgeProjectionRuntime['patch'], 'get' | 'subscribe'>
-    hint: Pick<EdgeProjectionRuntime['hint'], 'get' | 'subscribe'>
-    emptyPatch: EdgeProjectionRuntime['emptyPatch']
-  }
-  mindmapDrag: Pick<MindmapDragProjectionStore, 'get' | 'subscribe'>
+  edgeGuide: Pick<EdgeGuideRuntime, 'get' | 'subscribe'>
+  marquee: Pick<MarqueeFeedbackRuntime, 'get' | 'subscribe'>
+  mindmapDrag: Pick<MindmapDragFeedbackRuntime, 'get' | 'subscribe'>
   snap: SnapRuntime['node']['guides']
 }
 
@@ -296,11 +290,6 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
     selectAll: () => void
     clear: () => void
   }
-  frame: {
-    enter: (nodeId: NodeId) => void
-    exit: () => void
-    clear: () => void
-  }
   viewport: ViewportCommands
   edge: EngineCommands['edge']
   node: EditorNodeCommands
@@ -357,7 +346,7 @@ export type Editor = {
   }
   input: EditorInput
   viewport: EditorViewport
-  projection: EditorProjection
+  feedback: EditorFeedback
   configure: (config: {
     tool: Tool
     viewport: {

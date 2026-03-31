@@ -1,20 +1,15 @@
 import { rectFromPoints } from '@whiteboard/core/geometry'
-import {
-  createRafTask,
-  createDerivedStore,
-  createValueStore,
-  type ReadStore
-} from '@whiteboard/engine'
 import type { EdgeId, NodeId, Rect } from '@whiteboard/core/types'
+import { createRafTask } from '@whiteboard/engine'
 import {
   GestureTuning,
   type InteractionPointerInput,
   type InteractionRegistration
-} from '../interaction'
-import type { Editor } from '../../types/editor'
-import type { ViewportPointer } from '../viewport'
-
-export type MarqueeMatch = 'touch' | 'contain'
+} from '../../runtime/interaction'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
+import type { ViewportPointer } from '../../runtime/viewport'
+import type { MarqueeMatch } from '../../runtime/feedback/marquee'
 
 export type MarqueeItems = {
   nodeIds: readonly NodeId[]
@@ -46,17 +41,15 @@ type ActiveMarquee = {
   onEnd?: (result: MarqueeEnd) => void
 }
 
-export type MarqueeRuntime = {
-  rect: ReadStore<Rect | undefined>
-  match: ReadStore<MarqueeMatch | undefined>
+export type MarqueeInteraction = {
   interaction: InteractionRegistration<ActiveMarquee, MarqueeStartInput>
   createState: (input: MarqueeStartInput) => ActiveMarquee
   clear: () => void
 }
 
-type MarqueeRuntimeDeps = Pick<
-  Editor,
-  'read' | 'viewport'
+type MarqueeInteractionDeps = Pick<
+  FeatureRuntime,
+  'query' | 'viewport' | 'output'
 >
 
 const toItemsKey = (
@@ -66,63 +59,20 @@ const toItemsKey = (
   [...items.edgeIds].sort().join('|')
 ].join('::')
 
-const projectWorldRect = (
-  editor: MarqueeRuntimeDeps,
-  worldRect: Rect
-): Rect => {
-  const topLeft = editor.viewport.worldToScreen({
-    x: worldRect.x,
-    y: worldRect.y
-  })
-  const bottomRight = editor.viewport.worldToScreen({
-    x: worldRect.x + worldRect.width,
-    y: worldRect.y + worldRect.height
-  })
-
-  return rectFromPoints(topLeft, bottomRight)
-}
-
-export const createMarqueeRuntime = (
-  editor: MarqueeRuntimeDeps
-): MarqueeRuntime => {
-  const worldRect = createValueStore<Rect | undefined>(undefined)
-  const activeMatch = createValueStore<MarqueeMatch | undefined>(undefined)
-  const rect = createDerivedStore<Rect | undefined>({
-    get: (read) => {
-      const nextWorldRect = read(worldRect)
-      read(editor.viewport)
-      if (!nextWorldRect) {
-        return undefined
-      }
-      return projectWorldRect(editor, nextWorldRect)
-    },
-    isEqual: (left, right) => (
-      left === right
-      || (
-        left?.x === right?.x
-        && left?.y === right?.y
-        && left?.width === right?.width
-        && left?.height === right?.height
-      )
-    )
-  })
-
+export const createMarqueeInteraction = (
+  ctx: MarqueeInteractionDeps
+): MarqueeInteraction => {
   const readMatchedItems = (
     queryRect: Rect,
     match: MarqueeMatch
-  ): MarqueeItems => {
-    const nodeIds = editor.read.node.idsInRect(queryRect, {
+  ): MarqueeItems => ({
+    nodeIds: ctx.query.read.node.idsInRect(queryRect, {
+      match
+    }),
+    edgeIds: ctx.query.read.edge.idsInRect(queryRect, {
       match
     })
-    const edgeIds = editor.read.edge.idsInRect(queryRect, {
-      match
-    })
-
-    return {
-      nodeIds,
-      edgeIds
-    }
-  }
+  })
 
   const flushChange = (
     state: ActiveMarquee
@@ -153,8 +103,7 @@ export const createMarqueeRuntime = (
   const clear = () => {
     pendingFlush = null
     flushTask.cancel()
-    activeMatch.set(undefined)
-    worldRect.set(undefined)
+    ctx.output.marquee.clear()
   }
 
   const scheduleFlush = (
@@ -171,7 +120,7 @@ export const createMarqueeRuntime = (
       clientY: number
     }
   ) => {
-    const current = editor.viewport.pointer(input)
+    const current = ctx.viewport.pointer(input)
     const dx = Math.abs(current.screen.x - state.start.screen.x)
     const dy = Math.abs(current.screen.y - state.start.screen.y)
 
@@ -183,11 +132,12 @@ export const createMarqueeRuntime = (
       return false
     }
 
-    state.latest = readMatchedItems(
-      rectFromPoints(state.start.world, current.world),
-      state.match
-    )
-    worldRect.set(rectFromPoints(state.start.world, current.world))
+    const worldRect = rectFromPoints(state.start.world, current.world)
+    state.latest = readMatchedItems(worldRect, state.match)
+    ctx.output.marquee.set({
+      worldRect,
+      match: state.match
+    })
     scheduleFlush(state)
     return true
   }
@@ -217,8 +167,7 @@ export const createMarqueeRuntime = (
     }),
     start: ({ input }) => {
       input.onStart?.()
-      activeMatch.set(input.match)
-      worldRect.set(undefined)
+      ctx.output.marquee.clear()
     },
     move: ({ state, session }, input: InteractionPointerInput) => {
       if (update(state, {
@@ -259,8 +208,6 @@ export const createMarqueeRuntime = (
   }
 
   return {
-    rect,
-    match: activeMatch,
     interaction,
     createState,
     clear

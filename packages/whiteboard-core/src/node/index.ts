@@ -47,9 +47,6 @@ export type {
 } from './owner'
 export {
   findGroupAncestor,
-  findSmallestContainerAtPoint,
-  getContainerChildrenMap,
-  getContainerDescendants,
   expandGroupMembers,
   getGroupChildrenMap,
   getGroupDescendants,
@@ -61,12 +58,17 @@ export {
   sanitizeGroupPatch
 } from './group'
 export {
+  collectFrameMembers,
+  expandFrameSelection,
+  resolveFrameAtPoint,
+  resolveNodeFrame
+} from './frame'
+export {
   buildMoveSet,
   projectMovePositions,
   resolveMoveEffect
 } from './move'
 export type {
-  MoveOwnerChange,
   MoveEdgeChange,
   MoveEffect,
   MoveMember,

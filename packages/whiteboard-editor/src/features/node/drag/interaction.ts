@@ -1,7 +1,4 @@
-import {
-  moveEdge,
-  toEdgeProjectionPatchEntry
-} from '@whiteboard/core/edge'
+import { moveEdge } from '@whiteboard/core/edge'
 import {
   buildMoveSet,
   resolveMoveEffect,
@@ -12,7 +9,7 @@ import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../../runtime/interaction'
-import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
+import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
 
 type ActiveDrag = {
   ids: readonly NodeId[]
@@ -48,31 +45,39 @@ export type NodeDragInteraction = {
 }
 
 type NodeDragInteractionDeps = Pick<
-  EditorFeatureContext,
-  'read' | 'commands' | 'config' | 'viewport' | 'projection' | 'spatial'
+  FeatureRuntime,
+  'query' | 'command' | 'viewport' | 'output'
 >
 
 export const createNodeDragInteraction = (
   ctx: NodeDragInteractionDeps
 ): NodeDragInteraction => {
   const clear = () => {
-    ctx.projection.node.preview.clear()
-    ctx.spatial.snap.node.clear()
-    ctx.projection.edge.clearPatch()
+    ctx.output.node.set((current) => (
+      current.patches.length === 0 && current.hovered === undefined
+        ? current
+        : {
+            ...current,
+            patches: [],
+            hovered: undefined
+          }
+    ))
+    ctx.output.snap.node.clear()
+    ctx.output.edge.clear()
   }
 
-  const readCanvasNodes = () => ctx.read.index.node.all().map((entry) => entry.node)
+  const readCanvasNodes = () => ctx.query.read.index.node.all().map((entry) => entry.node)
 
   const commit = (state: ActiveDrag) => {
     if (state.last.x !== 0 || state.last.y !== 0) {
-      ctx.commands.node.move({
+      ctx.command.node.move({
         ids: state.ids,
         delta: state.last
       })
     }
 
     const edgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.query.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -89,7 +94,7 @@ export const createNodeDragInteraction = (
     })
 
     if (edgeUpdates.length) {
-      ctx.commands.edge.updateMany(edgeUpdates)
+      ctx.command.edge.updateMany(edgeUpdates)
     }
   }
 
@@ -105,7 +110,7 @@ export const createNodeDragInteraction = (
       x: state.origin.x + (world.x - state.startWorld.x),
       y: state.origin.y + (world.y - state.startWorld.y)
     }
-    const snapped = ctx.spatial.snap.node.move({
+    const snapped = ctx.output.snap.node.move({
       rect: {
         x: rawPosition.x,
         y: rawPosition.y,
@@ -114,7 +119,7 @@ export const createNodeDragInteraction = (
       },
       excludeIds: state.move.members.map((member) => member.id),
       allowCross: state.allowCross,
-      disabled: !ctx.read.tool.is('select')
+      disabled: !ctx.query.read.tool.is('select')
     })
     const delta = {
       x: snapped.x - state.origin.x,
@@ -123,37 +128,48 @@ export const createNodeDragInteraction = (
     const preview = resolveMoveEffect({
       nodes: readCanvasNodes(),
       edges: state.relatedEdgeIds
-        .map((edgeId) => ctx.read.edge.view.get(edgeId)?.edge)
+        .map((edgeId) => ctx.query.read.edge.view.get(edgeId)?.edge)
         .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge)),
       move: state.move,
       delta,
-      nodeSize: ctx.config.nodeSize
+      nodeSize: ctx.query.config.nodeSize
     })
     state.last = delta
     const selectedEdgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.query.read.edge.view.get(edgeId)?.edge
       if (!edge) {
         return []
       }
 
       const patch = moveEdge(edge, delta)
       if (!patch) {
-        return []
+      return []
       }
 
-      return [toEdgeProjectionPatchEntry(edgeId, patch)]
+      return [{
+        id: edgeId,
+        patch
+      }]
     })
 
-    ctx.projection.node.preview.write({
-      patches: preview.nodes,
-      hoveredContainerId: preview.hoveredContainerId
-    })
-    ctx.projection.edge.writeEntries(
+    ctx.output.node.set((current) => ({
+      ...current,
+      patches: preview.nodes.map(({ id, position }) => ({
+        id,
+        patch: {
+          position
+        }
+      })),
+      hovered: preview.hoveredContainerId
+    }))
+    ctx.output.edge.set(
       [
         ...selectedEdgeUpdates,
         ...preview.edges.map(({ id, patch }) => ({
           id,
-          route: patch.route
+          patch: {
+            route: patch.route
+          }
         }))
       ]
     )
@@ -167,7 +183,8 @@ export const createNodeDragInteraction = (
       : [input.anchorId]
     const move = buildMoveSet({
       nodes: readCanvasNodes(),
-      ids
+      ids,
+      nodeSize: ctx.query.config.nodeSize
     })
     if (!move.members.length) {
       return null
@@ -191,7 +208,7 @@ export const createNodeDragInteraction = (
       },
       allowCross: input.allowCross,
       selectedEdgeIds: input.edgeIds ?? [],
-      relatedEdgeIds: ctx.read.edge.related(
+      relatedEdgeIds: ctx.query.read.edge.related(
         move.members.map((member) => member.id)
       ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
     }

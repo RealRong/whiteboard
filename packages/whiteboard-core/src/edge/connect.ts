@@ -22,7 +22,6 @@ import type {
   EdgeConnectResult
 } from '../types/edge'
 import { getAnchorFromPoint } from './anchor'
-import type { EdgeProjectionHint } from './projection'
 
 type ScoredConnectTarget = EdgeConnectResult & {
   distance: number
@@ -305,31 +304,6 @@ export const setEdgeConnectTarget = (
   ...state,
   to
 })
-
-export const toEdgeConnectHint = (
-  state: EdgeConnectState
-): EdgeProjectionHint | undefined => {
-  const line =
-    state.kind === 'create' && state.to
-      ? {
-          from: state.from.point,
-          to: state.to.point
-        }
-      : undefined
-  const snap =
-    state.to?.kind === 'node'
-      ? state.to.point
-      : undefined
-
-  if (!line && !snap) {
-    return undefined
-  }
-
-  return {
-    line,
-    snap
-  }
-}
 
 export const toEdgeConnectPatch = (
   state: EdgeConnectState

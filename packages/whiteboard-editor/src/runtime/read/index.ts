@@ -1,12 +1,11 @@
-import type { FrameScope } from '@whiteboard/core/document'
 import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import { resolveNodeTransform } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
-import type { NodeProjectionRuntime } from '../projection/node'
-import type { EdgeProjectionRuntime } from '../projection/edge'
+import type { EdgeTransientReader } from '../transient/edge'
+import type { NodeTransientReader } from '../transient/node'
 import type { Tool } from '../../types/tool'
 import {
   createNodeRead,
@@ -20,10 +19,6 @@ import {
   type EdgeRead
 } from './edge'
 import {
-  createFrameRead,
-  type FrameRead
-} from './frame'
-import {
   createSelectionRead,
   type SelectionRead
 } from './selection'
@@ -36,7 +31,6 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
   edge: EdgeRead
   selection: SelectionRead
   tool: ToolRead
-  frame: FrameRead
   draw: {
     preferences: ReadStore<DrawPreferences>
   }
@@ -49,7 +43,6 @@ export const createRead = ({
   history,
   drawPreferences,
   selection,
-  frame,
   node,
   edge
 }: {
@@ -59,16 +52,15 @@ export const createRead = ({
   history: ReadStore<HistoryState>
   drawPreferences: ReadStore<DrawPreferences>
   selection: ReadStore<SelectionTarget>
-  frame: ReadStore<FrameScope>
-  node: Pick<NodeProjectionRuntime, 'store'>
-  edge: Pick<EdgeProjectionRuntime, 'patch'>
+  node: NodeTransientReader
+  edge: EdgeTransientReader
 }): RuntimeRead => {
   const nodeItem = createNodeItemRead({
     read: engineRead,
-    projection: node.store
+    transient: node
   })
   const nodeInteraction = createNodeInteractionRead({
-    projection: node.store
+    transient: node
   })
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
@@ -79,7 +71,7 @@ export const createRead = ({
   const edgeRead = createEdgeRead({
     read: engineRead,
     nodeItem,
-    patch: edge.patch,
+    transient: edge,
     connect: nodeRead.connect
   })
   const bounds = createBoundsRead({
@@ -97,9 +89,6 @@ export const createRead = ({
     registry,
     resolveNodeTransform
   })
-  const frameRead = createFrameRead({
-    scope: frame
-  })
   const toolRead = createToolRead({
     tool
   })
@@ -107,10 +96,10 @@ export const createRead = ({
   return {
     document: engineRead.document,
     bounds,
+    frame: engineRead.frame,
     history,
     node: nodeRead,
     edge: edgeRead,
-    frame: frameRead,
     mindmap: engineRead.mindmap,
     selection: selectionRead,
     tree: engineRead.tree,

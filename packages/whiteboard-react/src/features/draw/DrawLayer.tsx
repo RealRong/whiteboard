@@ -4,7 +4,7 @@ import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export const DrawLayer = () => {
   const editor = useEditorRuntime()
-  const preview = useStoreValue(editor.projection.draw)
+  const preview = useStoreValue(editor.feedback.draw)
 
   return <DrawPreview preview={preview} />
 }

@@ -3,7 +3,7 @@ import type {
   InteractionPointerInput,
   InteractionRegistration
 } from '../../runtime/interaction'
-import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
+import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
 
 type ViewportInputPolicy = {
   panEnabled: boolean
@@ -17,15 +17,15 @@ type ViewportPanState = {
 }
 
 type ViewportPanInteractionDeps = Pick<
-  EditorFeatureContext,
-  'interaction' | 'read' | 'viewport' | 'inputPolicy'
+  FeatureRuntime,
+  'query' | 'viewport'
 >
 
 const allowsLeftDrag = (
   ctx: ViewportPanInteractionDeps
 ) => (
-  ctx.interaction.state.get().space
-  || ctx.read.tool.is('hand')
+  ctx.query.interaction.state.get().space
+  || ctx.query.read.tool.is('hand')
 )
 
 const updatePan = (
@@ -56,7 +56,7 @@ export const createViewportPanInteraction = (
   priority: 1000,
   mode: 'viewport-pan',
   can: (input) => {
-    if (!ctx.inputPolicy.get().panEnabled) {
+    if (!ctx.query.inputPolicy.get().panEnabled) {
       return null
     }
 
