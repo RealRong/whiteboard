@@ -9,7 +9,7 @@ import { createNodeCommands } from './node'
 import type {
   EditorCommandHost
 } from '../editor/types'
-import type { DrawPreferencesRuntime } from '../../features/draw/preferences'
+import type { DrawPreferencesRuntime } from '../../interactions/drawPreferences'
 import type { SelectionState } from '../state/selection'
 import type { EditMutate } from '../state/edit'
 import { createSelectionCommands } from './selection'

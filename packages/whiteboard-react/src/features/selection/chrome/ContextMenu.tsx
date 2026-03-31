@@ -160,10 +160,10 @@ const syncNodeSelection = (
 ) => {
   const current = editor.read.selection.get()
   const sameNodeIds =
-    current.target.nodeIds.length === nodeIds.length
-    && current.target.nodeIds.every((nodeId, index) => nodeId === nodeIds[index])
+    current.summary.target.nodeIds.length === nodeIds.length
+    && current.summary.target.nodeIds.every((nodeId, index) => nodeId === nodeIds[index])
 
-  if (sameNodeIds && current.target.edgeIds.length === 0) {
+  if (sameNodeIds && current.summary.target.edgeIds.length === 0) {
     return
   }
 
@@ -179,9 +179,9 @@ const syncEdgeSelection = (
   const current = editor.read.selection.get()
 
   if (
-    current.target.nodeIds.length === 0
-    && current.target.edgeIds.length === 1
-    && current.target.edgeIds[0] === edgeId
+    current.summary.target.nodeIds.length === 0
+    && current.summary.target.edgeIds.length === 1
+    && current.summary.target.edgeIds[0] === edgeId
   ) {
     return
   }
@@ -207,7 +207,7 @@ const readSelectionContextView = (
     selection,
     registry: editor.registry
   })
-  const can = readNodeSelectionCan(selection.capabilities)
+  const can = readNodeSelectionCan(selection.can)
 
   return {
     kind: 'selection',
@@ -236,8 +236,8 @@ const readContextMenuView = ({
     case 'selection-box': {
       const selection = editor.read.selection.get()
       if (
-        selection.target.nodeIds.length > 0
-        && selection.target.edgeIds.length === 0
+        selection.summary.target.nodeIds.length > 0
+        && selection.summary.target.edgeIds.length === 0
       ) {
         return readSelectionContextView(editor, point.point.screen) ?? null
       }
@@ -253,10 +253,10 @@ const readContextMenuView = ({
     case 'node': {
       const selection = editor.read.selection.get()
       const reuseCurrentSelection =
-        selection.target.nodeSet.has(point.pick.id)
-        && selection.target.edgeIds.length === 0
+        selection.summary.target.nodeSet.has(point.pick.id)
+        && selection.summary.target.edgeIds.length === 0
       const nodeIds = reuseCurrentSelection
-        ? selection.target.nodeIds
+        ? selection.summary.target.nodeIds
         : [point.pick.id]
 
       syncNodeSelection(editor, nodeIds)

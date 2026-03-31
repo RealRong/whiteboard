@@ -32,7 +32,7 @@ export type NodeView = {
   frameRect: NodeItem['rect']
   rotation: number
   hidden: boolean
-  hasResizePreview: boolean
+  resizing: boolean
   canConnect: boolean
   canResize: boolean
   canRotate: boolean
@@ -53,11 +53,11 @@ export type NodeOverlayView = {
   canRotate: NodeView['canRotate']
 }
 
-const EMPTY_NODE_INTERACTION: ReturnType<Editor['read']['node']['interaction']['get']> = {
+const EMPTY_NODE_STATE: ReturnType<Editor['read']['node']['state']['get']> = {
   hovered: false,
   hidden: false,
-  hasPatch: false,
-  hasResizePreview: false
+  patched: false,
+  resizing: false
 }
 
 const resolveNodeOverlayViewState = (
@@ -67,11 +67,11 @@ const resolveNodeOverlayViewState = (
 ): NodeOverlayView => {
   const node = item.node
   const rect = item.rect
-  const frameRect = editor.read.node.frame(nodeId) ?? rect
+  const frameRect = editor.read.node.outline(nodeId) ?? rect
   const rotation = node.type === 'group'
     ? 0
     : (typeof node.rotation === 'number' ? node.rotation : 0)
-  const capability = editor.read.node.transform(node)
+  const capability = editor.read.node.capability(node)
 
   return {
     nodeId,
@@ -79,7 +79,7 @@ const resolveNodeOverlayViewState = (
     rect,
     frameRect,
     rotation,
-    canConnect: editor.read.node.connect(node),
+    canConnect: capability.connect,
     canResize: capability.resize,
     canRotate: capability.rotate
   }
@@ -89,14 +89,14 @@ const resolveNodeViewState = (
   editor: Pick<Editor, 'commands' | 'registry' | 'read'>,
   nodeId: NodeId,
   item: NodeItem,
-  interaction: ReturnType<Editor['read']['node']['interaction']['get']>,
+  state: ReturnType<Editor['read']['node']['state']['get']>,
   selected: boolean
 ): NodeView => {
   const resolvedNode = item.node
   const rect = item.rect
-  const frameRect = editor.read.node.frame(nodeId) ?? rect
-  const hidden = interaction.hidden
-  const hasResizePreview = interaction.hasResizePreview
+  const frameRect = editor.read.node.outline(nodeId) ?? rect
+  const hidden = state.hidden
+  const resizing = state.resizing
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
@@ -110,10 +110,10 @@ const resolveNodeViewState = (
     node: resolvedNode,
     rect,
     selected,
-    hovered: interaction.hovered,
+    hovered: state.hovered,
     write
   }
-  const capability = editor.read.node.transform(resolvedNode)
+  const capability = editor.read.node.capability(resolvedNode)
   const nodeStyle = definition?.style
     ? definition.style(renderProps)
     : {}
@@ -126,8 +126,8 @@ const resolveNodeViewState = (
     frameRect,
     rotation,
     hidden,
-    hasResizePreview,
-    canConnect: editor.read.node.connect(resolvedNode),
+    resizing,
+    canConnect: capability.connect,
     canResize: capability.resize,
     canRotate: capability.rotate,
     nodeStyle,
@@ -151,10 +151,10 @@ export const useNodeView = (
     nodeId,
     undefined
   )
-  const interaction = useOptionalKeyedStoreValue(
-    editor.read.node.interaction,
+  const state = useOptionalKeyedStoreValue(
+    editor.read.node.state,
     nodeId,
-    EMPTY_NODE_INTERACTION
+    EMPTY_NODE_STATE
   )
 
   return useMemo(
@@ -163,9 +163,9 @@ export const useNodeView = (
         return undefined
       }
 
-      return resolveNodeViewState(editor, nodeId, item, interaction, selected)
+      return resolveNodeViewState(editor, nodeId, item, state, selected)
     },
-    [editor, interaction, item, nodeId, selected]
+    [editor, state, item, nodeId, selected]
   )
 }
 

@@ -23,11 +23,9 @@ import {
   resolveSelectionTransformTargets,
   resolveFrameAtPoint,
   resolveNodeFrame,
-  matchCanvasNodeRect,
-  getTargetBounds
+  matchCanvasNodeRect
 } from '@whiteboard/core/node'
 import {
-  listNodes,
   type EdgeId,
   type Node,
   type NodeId,
@@ -260,7 +258,7 @@ export const createRead = ({
     }
   }
 
-  const readCanvasBounds = (): Rect | undefined => {
+  const readDocumentBounds = (): Rect | undefined => {
     const rects: Rect[] = nodeRectIndex.all().map((entry) => entry.aabb)
 
     edgeProjection.list.get().forEach((edgeId) => {
@@ -280,14 +278,6 @@ export const createRead = ({
     return getRectsBoundingRect(rects)
   }
 
-  const readTargetBounds = (input: Parameters<typeof getTargetBounds>[0]['input']) =>
-    getTargetBounds({
-      input,
-      nodes: listNodes(readDocument()),
-      readNodeBounds: readProjectedNodeBounds,
-      readEdgeBounds
-    })
-
   const applyImpact = (impact: KernelReadImpact) => {
     if (impact.reset || impact.document) {
       background.set(readDocument().background)
@@ -305,11 +295,8 @@ export const createRead = ({
   return {
     read: {
       document: {
-        background
-      },
-      bounds: {
-        canvas: readCanvasBounds,
-        targets: readTargetBounds
+        background,
+        bounds: readDocumentBounds
       },
       frame: {
         list: () => readOrderedNodes()

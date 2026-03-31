@@ -1,5 +1,5 @@
 import type { Editor } from '../../types/editor'
-import type { DrawPreferencesRuntime } from '../../features/draw/preferences'
+import type { DrawPreferencesRuntime } from '../../interactions/drawPreferences'
 import type { Tool } from '../../types/tool'
 import {
   isDrawBrushKind

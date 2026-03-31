@@ -163,8 +163,7 @@ export type {
   TextWidthMode
 } from './text'
 export {
-  applySelection,
-  getTargetBounds
+  applySelection
 } from './selection'
 export {
   applyNodeProjectionPatch,
@@ -245,6 +244,5 @@ export type {
   SnapThresholdConfig
 } from '../snap'
 export type {
-  SelectionMode,
-  TargetBoundsInput
+  SelectionMode
 } from './selection'

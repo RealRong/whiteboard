@@ -14,7 +14,6 @@ import type {
 import type { SnapCandidate } from '@whiteboard/core/node'
 import type {
   NodeRectHitOptions,
-  TargetBoundsInput,
   TransformSelectionTargets
 } from '@whiteboard/core/node'
 import type {
@@ -107,16 +106,11 @@ export type SliceRead = {
   }) => SliceExportResult | undefined
 }
 
-export type BoundsRead = {
-  canvas: () => Rect | undefined
-  targets: (input: TargetBoundsInput) => Rect | undefined
-}
-
 export type EngineRead = {
   document: {
     background: ReadStore<Document['background'] | undefined>
+    bounds: () => Rect | undefined
   }
-  bounds: BoundsRead
   frame: FrameRead
   node: NodeRead
   edge: EdgeRead

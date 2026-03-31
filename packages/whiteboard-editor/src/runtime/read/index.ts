@@ -1,7 +1,6 @@
 import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
-import { resolveNodeTransform } from '@whiteboard/core/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { EdgeTransientReader } from '../transient/edge'
@@ -9,11 +8,8 @@ import type { NodeTransientReader } from '../transient/node'
 import type { Tool } from '../../types/tool'
 import {
   createNodeRead,
-  createNodeInteractionRead,
-  createNodeItemRead,
   type NodeRead
 } from './node'
-import { createBoundsRead } from './bounds'
 import {
   createEdgeRead,
   type EdgeRead
@@ -23,10 +19,10 @@ import {
   type SelectionRead
 } from './selection'
 import { createToolRead, type ToolRead } from './tool'
+import { createTargetBoundsQuery } from '../query/targetBounds'
 
-export type RuntimeRead = Omit<EngineRead, 'node' | 'edge' | 'bounds'> & {
+export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
   history: ReadStore<HistoryState>
-  bounds: EngineRead['bounds']
   node: NodeRead
   edge: EdgeRead
   selection: SelectionRead
@@ -55,39 +51,27 @@ export const createRead = ({
   node: NodeTransientReader
   edge: EdgeTransientReader
 }): RuntimeRead => {
-  const nodeItem = createNodeItemRead({
-    read: engineRead,
-    transient: node
-  })
-  const nodeInteraction = createNodeInteractionRead({
-    transient: node
-  })
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
     registry,
-    item: nodeItem,
-    interaction: nodeInteraction
+    transient: node
   })
   const edgeRead = createEdgeRead({
     read: engineRead,
-    nodeItem,
+    nodeItem: nodeRead.item,
     transient: edge,
-    connect: nodeRead.connect
+    capability: nodeRead.capability
   })
-  const bounds = createBoundsRead({
-    engineRead,
-    nodeRead,
-    nodeItem,
-    edgeRead
+  const targetBounds = createTargetBoundsQuery({
+    node: nodeRead,
+    edge: edgeRead
   })
   const selectionRead = createSelectionRead({
     source: selection,
-    nodeItem,
-    edgeItem: edgeRead.item,
-    bounds: bounds.targets,
-    tree: engineRead.tree,
-    registry,
-    resolveNodeTransform
+    node: nodeRead,
+    edge: edgeRead,
+    targetBounds,
+    registry
   })
   const toolRead = createToolRead({
     tool
@@ -95,7 +79,6 @@ export const createRead = ({
 
   return {
     document: engineRead.document,
-    bounds,
     frame: engineRead.frame,
     history,
     node: nodeRead,

@@ -18,8 +18,8 @@ export type {
   EditorInsertResult
 } from './types/editor'
 export type {
-  SelectionCapabilities,
-  SelectionReadModel,
+  SelectionCan,
+  SelectionSnapshot,
   SelectionStyleSnapshot,
   SelectionTypeStat
 } from './types/selection'

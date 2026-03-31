@@ -20,11 +20,11 @@ import type {
 import type {
   InteractionPointerInput,
   InteractionRegistration
-} from '../../../runtime/interaction'
-import type { PointerDown } from '../../../runtime/input/pointer'
-import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
-import type { EdgeGuide } from '../../../runtime/feedback/edgeGuide'
-import { readEdgeType } from '../../../edge/preset'
+} from '../../runtime/interaction'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type { FeatureRuntime } from '../../runtime/editor/createEditor'
+import type { EdgeGuide } from '../../runtime/feedback/edgeGuide'
+import { readEdgeType } from '../../edge/preset'
 
 type ConnectPointer = {
   pointerId: number
@@ -104,7 +104,7 @@ export const createEdgeConnectInteraction = (
     nodeId: NodeId
   ): ConnectNodeEntry | undefined => {
     const entry = ctx.query.read.index.node.get(nodeId)
-    if (!entry || !ctx.query.read.node.connect(entry.node)) {
+    if (!entry || !ctx.query.read.node.capability(entry.node).connect) {
       return undefined
     }
 
@@ -181,20 +181,22 @@ export const createEdgeConnectInteraction = (
     end: 'source' | 'target',
     pointer: ConnectPointer
   ): EdgeConnectState | undefined => {
-    const view = ctx.query.read.edge.view.get(edgeId)
-    if (!view) {
+    const item = ctx.query.read.edge.item.get(edgeId)
+    const resolved = ctx.query.read.edge.resolved.get(edgeId)
+    if (!item || !resolved) {
       return undefined
     }
+    const capability = ctx.query.read.edge.capability(item.edge)
 
     if (
-      (end === 'source' && !view.can.reconnectSource)
-      || (end === 'target' && !view.can.reconnectTarget)
+      (end === 'source' && !capability.reconnectSource)
+      || (end === 'target' && !capability.reconnectTarget)
     ) {
       return undefined
     }
 
-    const edgeEnd = view.edge[end]
-    const resolvedEnd = view.ends[end]
+    const edgeEnd = item.edge[end]
+    const resolvedEnd = resolved.ends[end]
     return startEdgeReconnect({
       pointerId: pointer.pointerId,
       edgeId,

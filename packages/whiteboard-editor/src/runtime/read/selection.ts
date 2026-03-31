@@ -1,35 +1,35 @@
 import {
   deriveSelectionSummary,
   isSelectionSummaryEqual,
+  resolveSelectionBoxTarget,
   type SelectionTarget
 } from '@whiteboard/core/selection'
-import { resolveNodeRole, resolveNodeTransform } from '@whiteboard/core/node'
 import {
   createDerivedStore,
-  type KeyedReadStore,
   type ReadFn,
   type ReadStore
 } from '@whiteboard/engine'
-import type { EdgeItem, NodeItem } from '@whiteboard/engine'
-import type { Edge, EdgeId, Node, NodeId, NodeSchema, Rect } from '@whiteboard/core/types'
-import type { TargetBoundsInput } from '@whiteboard/core/node'
+import type { Edge, Node, NodeId, NodeSchema } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
 import type {
   ControlId,
   NodeMeta
 } from '../../types/node'
 import type {
-  SelectionCapabilities,
-  SelectionReadModel,
+  SelectionCan,
+  SelectionSnapshot,
   SelectionStyleSnapshot,
   SelectionTypeStat
 } from '../../types/selection'
+import type { EdgeRead } from './edge'
+import type { NodeRead } from './node'
+import type { TargetBoundsQuery } from '../query/targetBounds'
 
-export type SelectionRead = ReadStore<SelectionReadModel>
+export type SelectionRead = ReadStore<SelectionSnapshot>
 
 const EMPTY_TYPES: readonly SelectionTypeStat[] = []
 
-const EMPTY_CAPABILITIES: SelectionCapabilities = {
+const EMPTY_CAN: SelectionCan = {
   fill: false,
   stroke: false,
   text: false,
@@ -97,16 +97,16 @@ const hasControl = (
   control: ControlId
 ) => meta.controls.includes(control)
 
-const deriveSelectionCapabilities = ({
+const deriveSelectionCan = ({
   nodes,
   registry
 }: {
   nodes: readonly Node[]
   registry: NodeRegistry
-}): SelectionCapabilities => {
+}): SelectionCan => {
   const count = nodes.length
   if (!count) {
-    return EMPTY_CAPABILITIES
+    return EMPTY_CAN
   }
 
   const metas = nodes.map((node) => readNodeMeta(registry, node))
@@ -211,9 +211,9 @@ const deriveSelectionStyleSnapshot = ({
   }
 }
 
-const isSelectionCapabilitiesEqual = (
-  left: SelectionCapabilities,
-  right: SelectionCapabilities
+const isSelectionCanEqual = (
+  left: SelectionCan,
+  right: SelectionCan
 ) => (
   left.fill === right.fill
   && left.stroke === right.stroke
@@ -267,93 +267,70 @@ const isSelectionStyleSnapshotEqual = (
   )
 )
 
-const isSelectionReadModelEqual = (
-  left: SelectionReadModel,
-  right: SelectionReadModel
+const isSelectionSnapshotEqual = (
+  left: SelectionSnapshot,
+  right: SelectionSnapshot
 ) => (
   isSelectionSummaryEqual(left.summary, right.summary)
-  && isSelectionCapabilitiesEqual(left.capabilities, right.capabilities)
+  && isSelectionCanEqual(left.can, right.can)
   && isSelectionTypeStatsEqual(left.types, right.types)
   && isSelectionStyleSnapshotEqual(left.style, right.style)
 )
 
-const trackSelectionBoundsDependencies = (
-  readStore: ReadFn,
-  source: SelectionTarget,
-  nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>,
-  tree: KeyedReadStore<NodeId, readonly NodeId[]>
-) => {
-  source.nodeIds.forEach((nodeId) => {
-    const item = readStore(nodeItem, nodeId)
-    if (!item || item.node.type !== 'group') {
-      return
-    }
-
-    readStore(tree, nodeId).forEach((descendantId) => {
-      readStore(nodeItem, descendantId)
-    })
-  })
-}
+const readRuntimeNodes = (
+  node: Pick<NodeRead, 'item' | 'list'>,
+  readStore: ReadFn
+) => readStore(node.list)
+  .map((nodeId) => readStore(node.item, nodeId)?.node)
+  .filter((entry): entry is Node => Boolean(entry))
 
 export const createSelectionRead = ({
   source,
-  nodeItem,
-  edgeItem,
-  bounds,
-  tree,
-  registry,
-  resolveNodeTransform: readNodeTransform = resolveNodeTransform
+  node,
+  edge,
+  targetBounds,
+  registry
 }: {
   source: ReadStore<SelectionTarget>
-  nodeItem: KeyedReadStore<NodeId, Readonly<NodeItem> | undefined>
-  edgeItem: KeyedReadStore<EdgeId, Readonly<EdgeItem> | undefined>
-  bounds: (input: TargetBoundsInput) => Rect | undefined
-  tree: KeyedReadStore<NodeId, readonly NodeId[]>
+  node: NodeRead
+  edge: EdgeRead
+  targetBounds: TargetBoundsQuery
   registry: NodeRegistry
-  resolveNodeTransform?: typeof resolveNodeTransform
 }): SelectionRead => {
-  const getNodeRole = (node: Node) => resolveNodeRole(
-    registry.get(node.type)
-  )
-  return createDerivedStore<SelectionReadModel>({
+  return createDerivedStore<SelectionSnapshot>({
     get: (readStore) => {
       const selectionSource = readStore(source)
-
-      trackSelectionBoundsDependencies(
-        readStore,
-        selectionSource,
-        nodeItem,
-        tree
-      )
-
+      const runtimeNodes = readRuntimeNodes(node, readStore)
       const nodes = selectionSource.nodeIds
-        .map((nodeId) => readStore(nodeItem, nodeId)?.node)
+        .map((nodeId) => readStore(node.item, nodeId)?.node)
         .filter((node): node is Node => Boolean(node))
       const edges = selectionSource.edgeIds
-        .map((edgeId) => readStore(edgeItem, edgeId)?.edge)
+        .map((edgeId) => readStore(edge.item, edgeId)?.edge)
         .filter((edge): edge is Edge => Boolean(edge))
       const summary = deriveSelectionSummary({
         target: selectionSource,
         nodes,
         edges,
-        readBounds: (target) => bounds({
-          nodeIds: target.nodeIds,
-          edgeIds: target.edgeIds,
-          groups: 'content'
-        }),
-        isNodeScalable: (node) => (
-          !node.locked
-          && getNodeRole(node) !== 'frame'
+        readBounds: (target) => targetBounds.track(
+          readStore,
+          resolveSelectionBoxTarget(target, runtimeNodes)
         ),
-        resolveNodeTransformCapability: (node) => readNodeTransform(
-          registry.get(node.type)
-        )
+        isNodeScalable: (entry) => (
+          !entry.locked
+          && node.capability(entry).role !== 'frame'
+        ),
+        resolveNodeTransformCapability: (entry) => {
+          const capability = node.capability(entry)
+          return {
+            resize: capability.resize,
+            rotate: capability.rotate
+          }
+        }
       })
 
       return {
-        target: summary.target,
         summary,
-        capabilities: deriveSelectionCapabilities({
+        can: deriveSelectionCan({
           nodes,
           registry
         }),
@@ -365,6 +342,6 @@ export const createSelectionRead = ({
         })
       }
     },
-    isEqual: isSelectionReadModelEqual
+    isEqual: isSelectionSnapshotEqual
   })
 }

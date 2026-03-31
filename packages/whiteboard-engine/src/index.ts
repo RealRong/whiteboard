@@ -42,7 +42,6 @@ export type {
   EngineInstance,
   ApplyOperationsOptions,
   BoardConfig,
-  BoundsRead,
   EngineRuntimeOptions,
   EngineRead,
   EngineReadIndex,

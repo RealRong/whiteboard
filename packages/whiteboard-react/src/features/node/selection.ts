@@ -451,7 +451,7 @@ const resolveSelectionPresentation = (
   showToolbar: chrome.toolbar,
   singleTransformNodeId:
     selection.summary.kind === 'node'
-      ? selection.target.nodeIds[0]
+      ? selection.summary.target.nodeIds[0]
       : undefined,
   showSelectionFrame: selection.boxState.frame,
   showSelectionHandles:
@@ -463,7 +463,7 @@ const resolveSelectionPresentation = (
     && selection.summary.items.primaryNode?.type === 'shape',
   connectNodeIds:
     chrome.connect
-      ? selection.target.nodeIds
+      ? selection.summary.target.nodeIds
       : []
 })
 
@@ -483,7 +483,7 @@ const resolveSelectionView = (
       })
     : EMPTY_SUMMARY
   const nodeCan = pureNodeSelection
-    ? readNodeSelectionCan(selection.capabilities)
+    ? readNodeSelectionCan(selection.can)
     : EMPTY_CAN
 
   return {

@@ -25,13 +25,13 @@ export const NodeItem = memo(({
   const {
     node: resolvedNode,
     rect,
-    hasResizePreview,
+    resizing,
     nodeStyle,
     transformStyle,
     definition,
     renderProps
   } = view
-  const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !hasResizePreview
+  const shouldAutoMeasure = Boolean(definition?.autoMeasure) && !resizing
   const hit = definition?.hit ?? 'box'
   const setPickElement = usePickRef({
     kind: 'node',

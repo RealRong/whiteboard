@@ -5,12 +5,12 @@ import type {
   EdgePatch,
   Point
 } from '@whiteboard/core/types'
-import type { PointerDown } from '../../../runtime/input/pointer'
+import type { PointerDown } from '../../runtime/input/pointer'
 import type {
   InteractionPointerInput,
   InteractionRegistration
-} from '../../../runtime/interaction'
-import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
+} from '../../runtime/interaction'
+import type { FeatureRuntime } from '../../runtime/editor/createEditor'
 
 type BodyMoveState = {
   kind: 'move'
@@ -100,12 +100,12 @@ export const createEdgeEditInteraction = (
     edgeId: EdgeId,
     delta: Point
   ): EdgePatch | undefined => {
-    const view = ctx.query.read.edge.view.get(edgeId)
-    if (!view?.can.move) {
+    const item = ctx.query.read.edge.item.get(edgeId)
+    if (!item || !ctx.query.read.edge.capability(item.edge).move) {
       return undefined
     }
 
-    return moveEdge(view.edge, delta)
+    return moveEdge(item.edge, delta)
   }
 
   const writePreviewPatch = (
@@ -125,13 +125,22 @@ export const createEdgeEditInteraction = (
 
   const readRouteView = (
     edgeId: EdgeId
-  ) => ctx.query.read.edge.view.get(edgeId)
+  ) => ctx.query.read.edge.resolved.get(edgeId)
+
+  const readCapability = (
+    edgeId: EdgeId
+  ) => {
+    const item = ctx.query.read.edge.item.get(edgeId)
+    return item
+      ? ctx.query.read.edge.capability(item.edge)
+      : undefined
+  }
 
   const readRoutePoints = (
     edgeId: EdgeId
   ) => {
     const view = readRouteView(edgeId)
-    if (!view?.can.editRoute) {
+    if (!view || !readCapability(edgeId)?.editRoute) {
       return []
     }
 
@@ -151,7 +160,7 @@ export const createEdgeEditInteraction = (
     pick: EdgeRoutePick
   ): RoutePoint | undefined => {
     const view = readRouteView(pick.id)
-    if (!view?.can.editRoute) {
+    if (!view || !readCapability(pick.id)?.editRoute) {
       return undefined
     }
 
@@ -276,7 +285,7 @@ export const createEdgeEditInteraction = (
     state: RouteDragState
   ) => {
     if (
-      readRouteView(state.edgeId)?.can.editRoute
+      readCapability(state.edgeId)?.editRoute
       && !isPointEqual(state.point, state.origin)
     ) {
       ctx.command.edge.route.move(state.edgeId, state.index, state.point)
@@ -305,13 +314,13 @@ export const createEdgeEditInteraction = (
         return null
       }
 
-      const view = ctx.query.read.edge.view.get(input.pick.id)
-      if (!view) {
+      const capability = readCapability(input.pick.id)
+      if (!capability) {
         return null
       }
 
       if (input.shiftKey || input.detail >= 2) {
-        return view.can.editRoute
+        return capability.editRoute
           ? {
               kind: 'insert',
               edgeId: input.pick.id
@@ -319,7 +328,7 @@ export const createEdgeEditInteraction = (
           : null
       }
 
-      if (!view.can.move) {
+      if (!capability.move) {
         return null
       }
 

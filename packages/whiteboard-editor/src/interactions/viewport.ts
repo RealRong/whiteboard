@@ -2,8 +2,8 @@ import type { ValueStore } from '@whiteboard/engine'
 import type {
   InteractionPointerInput,
   InteractionRegistration
-} from '../../runtime/interaction'
-import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
+} from '../runtime/interaction'
+import type { FeatureRuntime } from '../runtime/editor/createEditor'
 
 type ViewportInputPolicy = {
   panEnabled: boolean

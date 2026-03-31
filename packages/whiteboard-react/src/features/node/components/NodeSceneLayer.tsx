@@ -9,10 +9,15 @@ export const NodeSceneLayer = () => {
   const editor = useEditor()
   const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
-  const selectedSet = selection.target.nodeSet
+  const selectedSet = selection.summary.target.nodeSet
   const registerMeasuredElement = useNodeSizeObserver()
   const contentNodeIds = useMemo(
-    () => editor.read.node.filter(nodeIds, 'content'),
+    () => nodeIds.filter((nodeId) => {
+      const node = editor.read.node.item.get(nodeId)?.node
+      return node
+        ? editor.read.node.capability(node).role === 'content'
+        : false
+    }),
     [editor, nodeIds]
   )
 

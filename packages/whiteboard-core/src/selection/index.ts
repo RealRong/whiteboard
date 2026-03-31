@@ -13,6 +13,11 @@ export {
   type SelectionTransform
 } from './summary'
 export {
+  getTargetBounds,
+  resolveSelectionBoxTarget,
+  type BoundsTarget
+} from './bounds'
+export {
   resolveSelectionPressMode,
   resolveSelectionPressPlan,
   resolveSelectionPressTarget,

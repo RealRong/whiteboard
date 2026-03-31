@@ -1,28 +1,70 @@
 import { createValueStore } from '@whiteboard/engine'
-import type { EngineInstance } from '@whiteboard/engine'
+import type { EngineInstance, ValueStore } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import { createDrawPreferences } from '../../features/draw/preferences'
-import { createEdgeGuide } from '../../runtime/feedback/edgeGuide'
-import { createMarqueeFeedback } from '../../runtime/feedback/marquee'
-import { createMindmapDragFeedback } from '../../runtime/feedback/mindmapDrag'
-import { createEdgeTransient } from '../../runtime/transient/edge'
-import { createNodeTransient } from '../../runtime/transient/node'
+import { createDrawPreferences } from '../../interactions/drawPreferences'
+import {
+  createEdgeGuide,
+  type EdgeGuideRuntime
+} from '../../runtime/feedback/edgeGuide'
+import {
+  createMarqueeFeedback,
+  type MarqueeFeedbackRuntime
+} from '../../runtime/feedback/marquee'
+import {
+  createMindmapDragFeedback,
+  type MindmapDragFeedbackRuntime
+} from '../../runtime/feedback/mindmapDrag'
+import {
+  createEdgeTransient,
+  type EdgeTransientRuntime
+} from '../../runtime/transient/edge'
+import {
+  createNodeTransient,
+  type NodeTransientRuntime
+} from '../../runtime/transient/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { InsertPresetCatalog } from '../../types/insert'
 import type { Tool } from '../../types/tool'
 import type { Editor } from '../../types/editor'
-import type { EditorInputPolicy } from './types'
+import type { EditorInputPolicy, EditorViewportRuntime } from './types'
 import { createEditorCommands } from '../commands'
 import type { PointerSnapshot } from '../input/pointer/snapshot'
-import { createSnapRuntime } from '../interaction'
+import {
+  createSnapRuntime,
+  type InteractionCoordinator,
+  type SnapRuntime
+} from '../interaction'
 import { createRead } from '../read'
-import { createFeatureRuntime } from './featureRuntime'
 import { composeInput } from './composeInput'
 import { assembleInteractions } from './assembleInteractions'
 import { createKernel } from './kernel'
 import { createLifecycle } from './lifecycle'
 import { createClipboard } from '../clipboard'
+
+export type FeatureQuery = {
+  read: Editor['read']
+  config: Editor['config']
+  registry: NodeRegistry
+  interaction: Pick<InteractionCoordinator, 'mode' | 'state'>
+  inputPolicy: ValueStore<EditorInputPolicy>
+}
+
+export type FeatureOutput = {
+  edge: EdgeTransientRuntime
+  node: NodeTransientRuntime
+  edgeGuide: EdgeGuideRuntime
+  marquee: MarqueeFeedbackRuntime
+  mindmapDrag: MindmapDragFeedbackRuntime
+  snap: SnapRuntime
+}
+
+export type FeatureRuntime = {
+  query: FeatureQuery
+  command: Editor['commands']
+  viewport: EditorViewportRuntime
+  output: FeatureOutput
+}
 
 export const createEditor = ({
   engine,
@@ -86,7 +128,7 @@ export const createEditor = ({
     edge: {
       config: engine.config.edge,
       nodeSize: engine.config.nodeSize,
-      query: read.edge.connect.candidatesInRect
+      query: read.edge.connectCandidates
     }
   })
 
@@ -109,14 +151,19 @@ export const createEditor = ({
     }
   })
 
-  const featureRuntime = createFeatureRuntime({
+  const featureRuntime: FeatureRuntime = {
+    query: {
+      read,
+      config: kernel.engine.config,
+      registry: kernel.registry,
+      interaction: {
+        mode: kernel.interaction.mode,
+        state: kernel.interaction.state
+      },
+      inputPolicy: kernel.inputPolicy
+    },
     command: commands,
-    read,
-    config: kernel.engine.config,
     viewport: editorViewport,
-    interaction: kernel.interaction,
-    registry: kernel.registry,
-    inputPolicy: kernel.inputPolicy,
     output: {
       edge: edgeTransient.runtime,
       node: nodeTransient.runtime,
@@ -125,7 +172,7 @@ export const createEditor = ({
       mindmapDrag,
       snap
     }
-  })
+  }
   const features = assembleInteractions(featureRuntime)
 
   const input = composeInput({

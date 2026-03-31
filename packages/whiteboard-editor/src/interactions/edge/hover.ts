@@ -1,7 +1,7 @@
 import { createRafTask } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
 import type { PassiveInputProcessor } from '../../runtime/input/passive'
-import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
+import type { FeatureRuntime } from '../../runtime/editor/createEditor'
 
 type EdgeHoverProcessorDeps = Pick<
   FeatureRuntime,

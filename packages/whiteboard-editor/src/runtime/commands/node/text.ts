@@ -215,7 +215,7 @@ export const createNodeTextCommands = ({
     value,
     size
   }) => {
-    const committed = read.node.committedItem.get(nodeId)
+    const committed = read.node.source.get(nodeId)
     if (!committed) {
       clearTextPreview(runtime, nodeId)
       edit.clear()
@@ -279,7 +279,7 @@ export const createNodeTextCommands = ({
     sizeById
   }) => document.updateMany(
     nodeIds.map((id) => {
-      const committed = read.node.committedItem.get(id)
+      const committed = read.node.source.get(id)
       const nextMeasuredSize = committed?.node.type === 'text'
         ? sizeById?.[id]
         : undefined

@@ -24,7 +24,7 @@ const readShortcutState = (
   editor: Editor
 ) => {
   const selection = editor.read.selection.get()
-  const can = selection.capabilities
+  const can = selection.can
 
   return {
     selection,
@@ -82,15 +82,15 @@ export const runShortcut = (
       editor.commands.selection.clear()
       return true
     case 'selection.delete':
-      if (selection.target.edgeIds.length > 0) {
-        const result = editor.commands.edge.delete([...selection.target.edgeIds])
+      if (selection.summary.target.edgeIds.length > 0) {
+        const result = editor.commands.edge.delete([...selection.summary.target.edgeIds])
         if (!result.ok) {
           return false
         }
       }
 
-      if (selection.target.nodeIds.length > 0) {
-        const result = editor.commands.node.deleteCascade([...selection.target.nodeIds])
+      if (selection.summary.target.nodeIds.length > 0) {
+        const result = editor.commands.node.deleteCascade([...selection.summary.target.nodeIds])
         if (!result.ok) {
           return false
         }
@@ -98,7 +98,7 @@ export const runShortcut = (
 
       return true
     case 'selection.duplicate': {
-      const result = editor.commands.node.duplicate([...selection.target.nodeIds])
+      const result = editor.commands.node.duplicate([...selection.summary.target.nodeIds])
       if (!result.ok || result.data.nodeIds.length <= 0) {
         return false
       }
@@ -109,7 +109,7 @@ export const runShortcut = (
       return true
     }
     case 'group.create': {
-      const result = editor.commands.node.group.create([...selection.target.nodeIds])
+      const result = editor.commands.node.group.create([...selection.summary.target.nodeIds])
       if (!result.ok) {
         return false
       }
@@ -120,7 +120,7 @@ export const runShortcut = (
       return true
     }
     case 'group.ungroup': {
-      const groupIds = selection.target.nodeIds.filter((nodeId) =>
+      const groupIds = selection.summary.target.nodeIds.filter((nodeId) =>
         selection.summary.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
       )
       const result = editor.commands.node.group.ungroupMany(groupIds)

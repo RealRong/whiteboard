@@ -223,10 +223,15 @@ export const FrameLayer = () => {
   const editor = useEditor()
   const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
-  const selectedSet = selection.target.nodeSet
+  const selectedSet = selection.summary.target.nodeSet
   const frameIds = useMemo(() => editor.read.frame.list(), [editor, nodeIds])
   const groupIds = useMemo(
-    () => editor.read.node.filter(nodeIds, 'group'),
+    () => nodeIds.filter((nodeId) => {
+      const node = editor.read.node.item.get(nodeId)?.node
+      return node
+        ? editor.read.node.capability(node).role === 'group'
+        : false
+    }),
     [editor, nodeIds]
   )
 

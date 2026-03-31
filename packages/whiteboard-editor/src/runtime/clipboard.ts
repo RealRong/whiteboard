@@ -46,8 +46,8 @@ const readSelectionTarget = (
 
   if (selection.summary.items.count > 0) {
     return {
-      nodeIds: selection.target.nodeIds,
-      edgeIds: selection.target.edgeIds
+      nodeIds: selection.summary.target.nodeIds,
+      edgeIds: selection.summary.target.edgeIds
     }
   }
 

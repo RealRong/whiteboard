@@ -8,8 +8,8 @@ import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type {
   InteractionPointerInput,
   InteractionRegistration
-} from '../../../runtime/interaction'
-import type { FeatureRuntime } from '../../../runtime/editor/featureRuntime'
+} from '../../runtime/interaction'
+import type { FeatureRuntime } from '../../runtime/editor/createEditor'
 
 type ActiveDrag = {
   ids: readonly NodeId[]
@@ -77,7 +77,7 @@ export const createNodeDragInteraction = (
     }
 
     const edgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.query.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.query.read.edge.item.get(edgeId)?.edge
       if (!edge) {
         return []
       }
@@ -128,7 +128,7 @@ export const createNodeDragInteraction = (
     const preview = resolveMoveEffect({
       nodes: readCanvasNodes(),
       edges: state.relatedEdgeIds
-        .map((edgeId) => ctx.query.read.edge.view.get(edgeId)?.edge)
+        .map((edgeId) => ctx.query.read.edge.item.get(edgeId)?.edge)
         .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge)),
       move: state.move,
       delta,
@@ -136,7 +136,7 @@ export const createNodeDragInteraction = (
     })
     state.last = delta
     const selectedEdgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.query.read.edge.view.get(edgeId)?.edge
+      const edge = ctx.query.read.edge.item.get(edgeId)?.edge
       if (!edge) {
         return []
       }

@@ -1,7 +1,7 @@
 import type { SelectionSummary } from '@whiteboard/core/selection'
 import type { NodeId } from '@whiteboard/core/types'
 
-export type SelectionCapabilities = {
+export type SelectionCan = {
   fill: boolean
   stroke: boolean
   text: boolean
@@ -32,10 +32,9 @@ export type SelectionStyleSnapshot = {
   opacity?: number
 }
 
-export type SelectionReadModel = {
-  target: SelectionSummary['target']
+export type SelectionSnapshot = {
   summary: SelectionSummary
-  capabilities: SelectionCapabilities
+  can: SelectionCan
   types: readonly SelectionTypeStat[]
   style: SelectionStyleSnapshot | null
 }

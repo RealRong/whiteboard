@@ -3,30 +3,57 @@ import { useMemo } from 'react'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type {
+  EdgeState,
   EdgeView,
   SelectedEdgeRoutePointView,
   SelectedEdgeView
 } from '../../../types/edge'
 import { useSelection } from '../../node/selection'
 
+const EMPTY_EDGE_STATE: EdgeState = {
+  patched: false,
+  activeRouteIndex: undefined
+}
+
 export const useEdgeView = (
   edgeId: EdgeId | undefined
 ): EdgeView | undefined => {
   const editor = useEditorRuntime()
-
-  return useOptionalKeyedStoreValue(
-    editor.read.edge.view,
+  const item = useOptionalKeyedStoreValue(
+    editor.read.edge.item,
     edgeId,
     undefined
   )
+  const resolved = useOptionalKeyedStoreValue(
+    editor.read.edge.resolved,
+    edgeId,
+    undefined
+  )
+
+  return useMemo(() => {
+    if (!item || !resolved) {
+      return undefined
+    }
+
+    return {
+      edge: item.edge,
+      ...resolved
+    }
+  }, [item, resolved])
 }
 
 export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
   const selection = useSelection()
   const edgeId = selection.summary.kind === 'edge' && selection.summary.items.count === 1
-    ? selection.target.edgeId
+    ? selection.summary.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
+  const editor = useEditorRuntime()
+  const state = useOptionalKeyedStoreValue(
+    editor.read.edge.state,
+    edgeId,
+    EMPTY_EDGE_STATE
+  )
 
   return useMemo(() => {
     if (!edgeId || !entry) {
@@ -41,7 +68,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
           edgeId,
           index: handle.index,
           point: handle.point,
-          active: entry.activeRouteIndex === handle.index
+          active: state.activeRouteIndex === handle.index
         }]
       }
 
@@ -64,10 +91,12 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
       ends: entry.ends,
       routePoints
     }
-  }, [edgeId, entry])
+  }, [edgeId, entry, state.activeRouteIndex])
 }
 
 export type {
+  EdgeResolved,
+  EdgeState,
   EdgeView,
   SelectedEdgeRoutePointView,
   SelectedEdgeView

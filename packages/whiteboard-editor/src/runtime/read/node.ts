@@ -4,38 +4,61 @@ import {
   getNodeOutlineBounds,
   getNodeOutlineRect,
   resolveNodeConnect,
-  resolveNodeEnter,
   resolveNodeRole,
   resolveNodeTransform,
   type NodeRole,
-  type NodeTransform,
   type NodeRectHitOptions,
   type TransformSelectionTargets
 } from '@whiteboard/core/node'
-import {
-  createKeyedDerivedStore
-} from '@whiteboard/engine'
+import { createKeyedDerivedStore } from '@whiteboard/engine'
 import type {
+  EngineRead,
   KeyedReadStore,
   NodeItem
 } from '@whiteboard/engine'
-import type { Node, NodeId, NodeType, Rect } from '@whiteboard/core/types'
-import type { EngineRead } from '@whiteboard/engine'
-import type { NodeDefinition, NodeRegistry } from '../../types/node'
+import type {
+  Node,
+  NodeId,
+  NodeType,
+  Rect
+} from '@whiteboard/core/types'
+import type { NodeRegistry } from '../../types/node'
 import {
   getAABBFromPoints,
   getRotatedCorners
 } from '@whiteboard/core/geometry'
-import {
-  type NodeTransientProjection,
-  type NodeTransientReader
+import type {
+  NodeTransientProjection,
+  NodeTransientReader
 } from '../transient/node'
 
-export type NodeInteraction = {
+export type NodeRuntimeState = {
   hovered: boolean
   hidden: boolean
-  hasPatch: boolean
-  hasResizePreview: boolean
+  patched: boolean
+  resizing: boolean
+}
+
+export type NodeCapability = {
+  role: NodeRole
+  connect: boolean
+  resize: boolean
+  rotate: boolean
+}
+
+export type NodeRead = {
+  list: EngineRead['node']['list']
+  source: EngineRead['node']['item']
+  item: KeyedReadStore<NodeId, NodeItem | undefined>
+  state: KeyedReadStore<NodeId, NodeRuntimeState>
+  owner: (nodeId: NodeId) => NodeId | undefined
+  bounds: (nodeId: NodeId) => Rect | undefined
+  outline: (nodeId: NodeId) => Rect | undefined
+  capability: (node: Pick<Node, 'type'> | NodeType) => NodeCapability
+  idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
+  transformTargets: (
+    nodeIds: readonly NodeId[]
+  ) => TransformSelectionTargets<Node> | undefined
 }
 
 const readNodeType = (
@@ -60,14 +83,14 @@ const isNodeItemEqual = (
   )
 )
 
-const isNodeInteractionEqual = (
-  left: NodeInteraction,
-  right: NodeInteraction
+const isNodeStateEqual = (
+  left: NodeRuntimeState,
+  right: NodeRuntimeState
 ) => (
   left.hovered === right.hovered
   && left.hidden === right.hidden
-  && left.hasPatch === right.hasPatch
-  && left.hasResizePreview === right.hasResizePreview
+  && left.patched === right.patched
+  && left.resizing === right.resizing
 )
 
 const readNodeRotation = (
@@ -78,7 +101,7 @@ const readNodeRotation = (
     : (typeof node.rotation === 'number' ? node.rotation : 0)
 )
 
-const readNodeItemBounds = (
+export const getNodeItemBounds = (
   item: NodeItem
 ): Rect => {
   const rotation = readNodeRotation(item.node)
@@ -96,41 +119,22 @@ const readNodeItemBounds = (
     : getAABBFromPoints(getRotatedCorners(item.rect, rotation))
 }
 
-const readNodeItemFrame = (
+const readNodeItemOutline = (
   item: NodeItem
 ): Rect => item.node.type === 'shape'
   ? getNodeOutlineRect(item.node, item.rect)
   : item.rect
 
-const toNodeInteraction = (
+const toNodeRuntimeState = (
   projection: NodeTransientProjection
-): NodeInteraction => ({
+): NodeRuntimeState => ({
   hovered: projection.hovered,
   hidden: projection.hidden,
-  hasPatch: Boolean(projection.patch),
-  hasResizePreview: Boolean(projection.patch?.size)
+  patched: Boolean(projection.patch),
+  resizing: Boolean(projection.patch?.size)
 })
 
-export type NodeRead = {
-  list: EngineRead['node']['list']
-  committedItem: EngineRead['node']['item']
-  item: KeyedReadStore<NodeId, NodeItem | undefined>
-  interaction: KeyedReadStore<NodeId, NodeInteraction>
-  owner: (nodeId: NodeId) => NodeId | undefined
-  bounds: (nodeId: NodeId) => Rect | undefined
-  frame: (nodeId: NodeId) => Rect | undefined
-  role: (node: Pick<Node, 'type'> | NodeType) => NodeRole
-  transform: (node: Pick<Node, 'type'> | NodeType) => NodeTransform
-  connect: (node: Pick<Node, 'type'> | NodeType) => boolean
-  enter: (node: Pick<Node, 'type'> | NodeType) => boolean
-  filter: (nodeIds: readonly NodeId[], role: NodeRole) => readonly NodeId[]
-  idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
-  transformTargets: (
-    nodeIds: readonly NodeId[]
-  ) => TransformSelectionTargets<Node> | undefined
-}
-
-export const createNodeItemRead = ({
+const createNodeItemStore = ({
   read,
   transient
 }: {
@@ -142,8 +146,8 @@ export const createNodeItemRead = ({
     if (!item) {
       return undefined
     }
-    const projectionValue = readStore(transient, nodeId)
-    const patch = projectionValue.patch
+
+    const patch = readStore(transient, nodeId).patch
     if (!patch) {
       return item
     }
@@ -160,71 +164,70 @@ export const createNodeItemRead = ({
   isEqual: isNodeItemEqual
 })
 
-export const createNodeInteractionRead = ({
+const createNodeStateStore = ({
   transient
 }: {
   transient: NodeTransientReader
-}): NodeRead['interaction'] => createKeyedDerivedStore({
-  get: (readStore, nodeId: NodeId) => toNodeInteraction(
+}): NodeRead['state'] => createKeyedDerivedStore({
+  get: (readStore, nodeId: NodeId) => toNodeRuntimeState(
     readStore(transient, nodeId)
   ),
-  isEqual: isNodeInteractionEqual
+  isEqual: isNodeStateEqual
 })
+
+const createNodeCapabilityResolver = (
+  registry: NodeRegistry
+): NodeRead['capability'] => (
+  node: Pick<Node, 'type'> | NodeType
+) => {
+  const definition = registry.get(readNodeType(node))
+  const transform = resolveNodeTransform(definition)
+
+  return {
+    role: resolveNodeRole(definition),
+    connect: resolveNodeConnect(definition),
+    resize: transform.resize,
+    rotate: transform.rotate
+  }
+}
 
 export const createNodeRead = ({
   read,
   registry,
-  item,
-  interaction
+  transient
 }: {
   read: EngineRead
   registry: NodeRegistry
-  item: KeyedReadStore<NodeId, NodeItem | undefined>
-  interaction: KeyedReadStore<NodeId, NodeInteraction>
+  transient: NodeTransientReader
 }): NodeRead => {
-  const role = (node: Pick<Node, 'type'> | NodeType) => resolveNodeRole(
-    registry.get(readNodeType(node))
-  )
-  const transform = (node: Pick<Node, 'type'> | NodeType) => resolveNodeTransform(
-    registry.get(readNodeType(node))
-  )
-  const connect = (node: Pick<Node, 'type'> | NodeType) => resolveNodeConnect(
-    registry.get(readNodeType(node))
-  )
-  const enter = (node: Pick<Node, 'type'> | NodeType) => resolveNodeEnter(
-    registry.get(readNodeType(node))
-  )
+  const item = createNodeItemStore({
+    read,
+    transient
+  })
+  const state = createNodeStateStore({
+    transient
+  })
+  const capability = createNodeCapabilityResolver(registry)
 
   return {
     list: read.node.list,
-    committedItem: read.node.item,
+    source: read.node.item,
     item,
-    interaction,
+    state,
     owner: read.node.owner,
     bounds: (nodeId) => {
       const nextItem = item.get(nodeId)
       return nextItem
-        ? readNodeItemBounds(nextItem)
+        ? getNodeItemBounds(nextItem)
         : undefined
     },
-    frame: (nodeId) => {
+    outline: (nodeId) => {
       const nextItem = item.get(nodeId)
       return nextItem
-        ? readNodeItemFrame(nextItem)
+        ? readNodeItemOutline(nextItem)
         : undefined
     },
-    role,
-    transform,
-    connect,
-    enter,
-    filter: (nodeIds, expectedRole) => nodeIds.filter((nodeId) => {
-      const nextItem = item.get(nodeId)
-      if (!nextItem) {
-        return false
-      }
-
-      return role(nextItem.node) === expectedRole
-    }),
+    capability,
     idsInRect: read.node.idsInRect,
     transformTargets: read.node.transformTargets
   }

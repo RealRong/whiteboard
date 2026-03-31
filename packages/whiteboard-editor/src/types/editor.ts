@@ -35,7 +35,7 @@ import type {
 } from '../runtime/viewport'
 import type { EditField, EditTarget } from '../runtime/state/edit'
 import type { ShapeKind } from '@whiteboard/core/node'
-import type { DrawInteraction } from '../features/draw/interaction'
+import type { DrawInteraction } from '../interactions/draw'
 import type { EdgeGuideRuntime } from '../runtime/feedback/edgeGuide'
 import type { MarqueeFeedbackRuntime } from '../runtime/feedback/marquee'
 import type { MindmapDragFeedbackRuntime } from '../runtime/feedback/mindmapDrag'

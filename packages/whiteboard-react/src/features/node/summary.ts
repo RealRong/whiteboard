@@ -1,4 +1,4 @@
-import type { SelectionCapabilities, SelectionReadModel } from '@whiteboard/editor'
+import type { SelectionCan, SelectionSnapshot } from '@whiteboard/editor'
 import type { Node, NodeId } from '@whiteboard/core/types'
 import type {
   ControlId,
@@ -75,34 +75,34 @@ const readNodeMeta = (
 }
 
 export const readNodeSelectionCan = (
-  capabilities: SelectionCapabilities
+  can: SelectionCan
 ): NodeSelectionCan => ({
-  fill: capabilities.fill,
-  stroke: capabilities.stroke,
-  text: capabilities.text,
-  group: capabilities.group,
-  align: capabilities.align,
-  distribute: capabilities.distribute,
-  makeGroup: capabilities.makeGroup,
-  ungroup: capabilities.ungroup,
-  order: capabilities.order,
-  filter: capabilities.filterByType,
-  lock: capabilities.lock,
-  copy: capabilities.copy,
-  cut: capabilities.cut,
-  duplicate: capabilities.duplicate,
-  delete: capabilities.delete
+  fill: can.fill,
+  stroke: can.stroke,
+  text: can.text,
+  group: can.group,
+  align: can.align,
+  distribute: can.distribute,
+  makeGroup: can.makeGroup,
+  ungroup: can.ungroup,
+  order: can.order,
+  filter: can.filterByType,
+  lock: can.lock,
+  copy: can.copy,
+  cut: can.cut,
+  duplicate: can.duplicate,
+  delete: can.delete
 })
 
 export const readNodeSummary = ({
   selection,
   registry
 }: {
-  selection: SelectionReadModel
+  selection: SelectionSnapshot
   registry: Pick<NodeRegistry, 'get'>
 }): NodeSummary => {
   const nodes = selection.summary.items.nodes
-  const ids = selection.target.nodeIds
+  const ids = selection.summary.target.nodeIds
   const count = ids.length
   const hasGroup = nodes.some((node) => node.type === 'group')
   const lockedCount = nodes.reduce(

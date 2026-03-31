@@ -1,8 +1,8 @@
-import type { PointerDown } from '../../runtime/input/pointer'
-import type { InteractionRegistration } from '../../runtime/interaction'
-import type { FeatureRuntime } from '../../runtime/editor/featureRuntime'
-import type { InsertPresetKey } from '../../types/tool'
-import { selectTool } from '../../tool/model'
+import type { PointerDown } from '../runtime/input/pointer'
+import type { InteractionRegistration } from '../runtime/interaction'
+import type { FeatureRuntime } from '../runtime/editor/createEditor'
+import type { InsertPresetKey } from '../types/tool'
+import { selectTool } from '../tool/model'
 
 export const createInsertPresetInteraction = (
   editor: Pick<FeatureRuntime, 'query' | 'command'>

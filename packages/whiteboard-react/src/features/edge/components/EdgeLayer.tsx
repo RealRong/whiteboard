@@ -35,7 +35,7 @@ const EdgeItemById = memo(
 export const EdgeLayer = () => {
   const editor = useEditor()
   const edgeIds = useStoreValue(editor.read.edge.list)
-  const selectedEdgeIds = useSelection().target.edgeSet
+  const selectedEdgeIds = useSelection().summary.target.edgeSet
   const hitTestThresholdScreen = editor.config.edge.hitTestThresholdScreen
 
   return (
