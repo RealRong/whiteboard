@@ -2,6 +2,7 @@ import type { PointerDown } from '../../runtime/input/pointer'
 import type { InteractionRegistration } from '../../runtime/interaction'
 import type { InsertPresetKey } from '../../types/tool'
 import type { Editor } from '../../types/editor'
+import { selectTool } from '../../tool/model'
 
 export const createInsertPresetInteraction = (
   editor: Pick<Editor, 'commands' | 'read'>
@@ -38,7 +39,7 @@ export const createInsertPresetInteraction = (
       return
     }
 
-    editor.commands.tool.select()
+    editor.commands.tool.set(selectTool())
     session.finish()
   }
 })

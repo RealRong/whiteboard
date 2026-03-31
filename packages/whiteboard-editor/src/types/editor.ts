@@ -1,5 +1,10 @@
 import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type {
+  ContainerRect,
+  ViewportLimits,
+  WheelInput
+} from '@whiteboard/core/geometry'
+import type {
   ClipboardPacket,
   FrameScope
 } from '@whiteboard/core/document'
@@ -21,8 +26,6 @@ import type {
   DrawSlot
 } from './draw'
 import type {
-  DrawKind,
-  EdgePresetKey,
   InsertPresetKey,
   Tool
 } from './tool'
@@ -38,7 +41,8 @@ import type { EdgeProjectionRuntime } from '../runtime/projection/edge'
 import type { MindmapDragProjectionStore } from '../runtime/projection/mindmapDrag'
 import type { MarqueeRuntime } from '../runtime/projection/marquee'
 import type { SnapRuntime } from '../runtime/interaction'
-import type { EditorPick } from './runtime/pick'
+import type { NodeRegistry } from './node'
+import type { EditorPick } from './pick'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -159,7 +163,37 @@ export type EditorProjection = {
 }
 
 export type EditorRead = RuntimeRead
-export type EditorViewport = ViewportRead
+export type EditorViewport = ViewportRead & {
+  input: {
+    screenPoint: (clientX: number, clientY: number) => Point
+    size: () => {
+      width: number
+      height: number
+    }
+    panScreenBy: (deltaScreen: Point) => void
+    wheel: (input: WheelInput, wheelSensitivity: number) => void
+  }
+  setRect: (rect: ContainerRect) => void
+  setLimits: (limits: ViewportLimits) => void
+}
+
+export type EditorInteractionState = Readonly<{
+  busy: boolean
+  chrome: boolean
+  mode:
+    | 'idle'
+    | 'press'
+    | 'draw'
+    | 'viewport-pan'
+    | 'marquee'
+    | 'node-drag'
+    | 'mindmap-drag'
+    | 'node-transform'
+    | 'edge-drag'
+    | 'edge-connect'
+    | 'edge-route'
+  space: boolean
+}>
 
 export type EditorNodeDocumentCommands = {
   update: EngineNodeCommands['update']
@@ -245,11 +279,6 @@ export type EditorMindmapCommands = EngineMindmapCommands & {
 export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport' | 'node' | 'mindmap'> & {
   tool: {
     set: (tool: Tool) => void
-    select: () => void
-    hand: () => void
-    edge: (preset?: EdgePresetKey) => void
-    insert: (preset: InsertPresetKey) => void
-    draw: (kind?: DrawKind) => void
   }
   draw: {
     slot: (slot: DrawSlot) => void
@@ -310,6 +339,10 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
 }
 
 export type Editor = {
+  interaction: {
+    state: ReadStore<EditorInteractionState>
+  }
+  registry: NodeRegistry
   config: Readonly<EngineBoardConfig>
   read: EditorRead
   state: EditorState

@@ -24,7 +24,7 @@ import type {
 } from '../../../runtime/interaction'
 import type { PointerDown } from '../../../runtime/input/pointer'
 import type { EditorFeatureContext } from '../../../types/runtime/editor/featureContext'
-import { readEdgeType } from '../../../runtime/tool'
+import { readEdgeType } from '../../../edge/preset'
 import {
   clearEdgeProjectionPatch,
   writeEdgeProjectionHint,

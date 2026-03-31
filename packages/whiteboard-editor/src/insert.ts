@@ -7,4 +7,4 @@ export type {
   MindmapTemplate,
   NodeInsertPreset,
   StickyTone
-} from './types/toolbox'
+} from './types/insert'

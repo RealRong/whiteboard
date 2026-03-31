@@ -1,4 +1,9 @@
-import type { EdgePresetKey } from '@whiteboard/editor'
+import {
+  drawTool,
+  edgeTool,
+  insertTool,
+  type EdgePresetKey
+} from '@whiteboard/editor'
 import type { Dispatch, SetStateAction } from 'react'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import type {
@@ -61,7 +66,7 @@ export const ToolPaletteMenu = ({
           panelOpen={drawPanelOpen}
           onKind={(value) => {
             setDrawPanelOpen(false)
-            editor.commands.tool.draw(value)
+            editor.commands.tool.set(drawTool(value))
           }}
           onSlot={(value) => {
             if (value === palette.drawBrush.slot) {
@@ -98,7 +103,7 @@ export const ToolPaletteMenu = ({
           onChange={(value) => {
             closeMenu()
             edgePresetRef.current = value
-            editor.commands.tool.edge(value)
+            editor.commands.tool.set(edgeTool(value))
           }}
         />
       ) : null}
@@ -107,7 +112,7 @@ export const ToolPaletteMenu = ({
           value={palette.stickyPreset}
           onChange={(value) => {
             closeMenu()
-            editor.commands.tool.insert(value)
+            editor.commands.tool.set(insertTool(value))
           }}
         />
       ) : null}
@@ -116,7 +121,7 @@ export const ToolPaletteMenu = ({
           value={palette.shapePreset}
           onChange={(value) => {
             closeMenu()
-            editor.commands.tool.insert(value)
+            editor.commands.tool.set(insertTool(value))
           }}
         />
       ) : null}
@@ -125,7 +130,7 @@ export const ToolPaletteMenu = ({
           value={palette.mindmapPreset}
           onChange={(value) => {
             closeMenu()
-            editor.commands.tool.insert(value)
+            editor.commands.tool.set(insertTool(value))
           }}
         />
       ) : null}

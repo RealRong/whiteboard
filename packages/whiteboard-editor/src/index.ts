@@ -18,63 +18,36 @@ export type {
   EditorInsertResult
 } from './types/editor'
 export type {
-  EditorRuntime
-} from './types/internal/editor'
-export type {
   SelectionCapabilities,
   SelectionReadModel,
   SelectionStyleSnapshot,
   SelectionTypeStat
 } from './types/selection'
-export type { EditorPick } from './types/runtime/pick'
+export type { EditorPick } from './types/pick'
 export {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
   DEFAULT_EDGE_PRESET_KEY,
-  HandTool,
-  SelectTool,
-  createDrawTool,
-  createEdgeTool,
+  drawTool,
+  edgeTool,
+  handTool,
+  insertTool,
   isDrawBrushKind,
   isDrawKind,
   isSameTool,
-  matchTool,
-  normalizeTool,
-  readEdgeType
-} from './tool'
+  selectTool
+} from './tool/model'
+export { readEdgeType } from './edge/preset'
 export type {
   DrawBrushKind,
   DrawKind,
   DrawTool,
   EdgePresetKey,
   EdgeTool,
-  HandToolType,
   InsertPresetKey,
   InsertTool,
-  SelectToolType,
   Tool
-} from './tool'
-export {
-  createShortcutMap,
-  readShortcut,
-  resolveShortcutBindings
-} from './shortcut'
-export type {
-  ShortcutAction,
-  ShortcutBinding,
-  ShortcutOverrides,
-  ShortcutPlatform
-} from './shortcut'
-export type {
-  InsertPresetCatalog,
-  InsertPlacement,
-  InsertPreset,
-  InsertPresetGroup,
-  MindmapInsertPreset,
-  MindmapTemplate,
-  NodeInsertPreset,
-  StickyTone
-} from './toolbox'
+} from './types/tool'
 export type {
   ControlId,
   NodeDefinition,
@@ -83,4 +56,4 @@ export type {
   NodeHit,
   NodeMeta,
   NodeFamily
-} from './types'
+} from './types/node'

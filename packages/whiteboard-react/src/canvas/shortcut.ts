@@ -2,6 +2,7 @@ import type {
   ShortcutAction,
   ShortcutBinding
 } from '../types/common/shortcut'
+import { selectTool } from '@whiteboard/editor'
 import type { WhiteboardRuntime as Editor } from '../types/runtime'
 
 export const DefaultShortcutBindings: readonly ShortcutBinding[] = [
@@ -80,7 +81,7 @@ export const runShortcut = (
       return true
     case 'selection.clear':
       if (!editor.read.tool.is('select')) {
-        editor.commands.tool.select()
+        editor.commands.tool.set(selectTool())
       }
       editor.commands.frame.exit()
       return true

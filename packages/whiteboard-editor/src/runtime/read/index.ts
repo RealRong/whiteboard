@@ -7,7 +7,7 @@ import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { NodeProjectionRuntime } from '../projection/node'
 import type { EdgeProjectionRuntime } from '../projection/edge'
-import type { Tool } from '../tool'
+import type { Tool } from '../../types/tool'
 import {
   createNodeRead,
   createNodeInteractionRead,

@@ -6,7 +6,7 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { EditField } from '../../runtime/edit'
+import type { EditField } from '../runtime/edit'
 
 export type EditorPick =
   | { kind: 'background' }

@@ -17,25 +17,22 @@ import type { EditCommands } from '../edit'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
 import type { NodeProjectionRuntime } from '../projection/node'
-import type { InsertPresetCatalog } from '../../types/toolbox'
+import type { InsertPresetCatalog } from '../../types/insert'
 
 export const createEditorCommands = ({
   engine,
   read,
-  state,
   tool,
   edit,
   selection,
   frame,
   viewportCommands,
-  viewportRead,
   draw,
   nodeProjection,
   insertPresetCatalog
 }: {
   engine: EngineInstance
   read: Editor['read']
-  state: Editor['state']
   tool: {
     get: () => ReturnType<Editor['state']['tool']['get']>
     set: (tool: ReturnType<Editor['state']['tool']['get']>) => void
@@ -44,7 +41,6 @@ export const createEditorCommands = ({
   selection: SelectionStore
   frame: FrameState
   viewportCommands: ViewportCommands
-  viewportRead: Editor['viewport']
   draw: DrawFeatureState
   nodeProjection: NodeProjectionRuntime
   insertPresetCatalog: InsertPresetCatalog
@@ -54,9 +50,7 @@ export const createEditorCommands = ({
     get commands() {
       return commands
     },
-    read,
-    state,
-    viewport: viewportRead
+    read
   }
 
   const historyCommands = createHistoryCommands({

@@ -1,12 +1,12 @@
 import type { Editor } from '../../types/editor'
 import type { DrawFeatureState } from '../../types/internal/editor'
-import type { Tool } from '../tool'
+import type { Tool } from '../../types/tool'
 import {
   isDrawBrushKind
-} from '../tool'
+} from '../../tool/model'
 import {
   readDrawSlot
-} from '../draw'
+} from '../../draw/model'
 
 export const createDrawCommands = ({
   tool,

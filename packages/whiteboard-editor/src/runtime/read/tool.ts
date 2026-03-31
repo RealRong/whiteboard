@@ -4,8 +4,7 @@ import type {
   EdgePresetKey,
   InsertPresetKey,
   Tool
-} from '../tool'
-import { matchTool } from '../tool'
+} from '../../types/tool'
 
 export type ToolRead = {
   get: () => Tool
@@ -24,6 +23,30 @@ const readPreset = (
       : undefined
 )
 
+const isTool = (
+  tool: Tool,
+  type: Tool['type'],
+  value?: string
+) => {
+  if (tool.type !== type) {
+    return false
+  }
+
+  if (value === undefined) {
+    return true
+  }
+
+  switch (tool.type) {
+    case 'edge':
+    case 'insert':
+      return tool.preset === value
+    case 'draw':
+      return tool.kind === value
+    default:
+      return false
+  }
+}
+
 export const createToolRead = ({
   tool
 }: {
@@ -32,5 +55,5 @@ export const createToolRead = ({
   get: () => tool.get(),
   type: () => tool.get().type,
   preset: () => readPreset(tool.get()),
-  is: (type, preset) => matchTool(tool.get(), type, preset)
+  is: (type, preset) => isTool(tool.get(), type, preset)
 })

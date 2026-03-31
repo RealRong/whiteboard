@@ -25,7 +25,7 @@ import type {
 import type { EditorFeatureContext } from '../../types/runtime/editor/featureContext'
 import {
   readDrawStyle
-} from '../../runtime/draw'
+} from '../../draw/model'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1

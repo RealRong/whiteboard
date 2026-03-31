@@ -11,6 +11,11 @@ import {
 } from 'lucide-react'
 import {
   DEFAULT_DRAW_KIND,
+  drawTool,
+  edgeTool,
+  handTool,
+  insertTool,
+  selectTool,
   type DrawKind,
   type Tool
 } from '@whiteboard/editor'
@@ -78,14 +83,14 @@ export const ToolPaletteButtons = ({
         onClick={() => {
           closeMenu()
           if (tool.type === 'hand') {
-            editor.commands.tool.select()
+            editor.commands.tool.set(selectTool())
             return
           }
           if (tool.type !== 'select') {
-            editor.commands.tool.select()
+            editor.commands.tool.set(selectTool())
             return
           }
-          editor.commands.tool.hand()
+          editor.commands.tool.set(handTool())
         }}
         data-selection-ignore
         data-input-ignore
@@ -103,7 +108,7 @@ export const ToolPaletteButtons = ({
         data-active={tool.type === 'edge' ? 'true' : undefined}
         onClick={() => {
           if (tool.type !== 'edge') {
-            editor.commands.tool.edge(palette.edgePreset)
+            editor.commands.tool.set(edgeTool(palette.edgePreset))
             setOpenMenu('edge')
             return
           }
@@ -146,7 +151,7 @@ export const ToolPaletteButtons = ({
         data-active={tool.type === 'insert' && tool.preset === TEXT_INSERT_PRESET.key ? 'true' : undefined}
         onClick={() => {
           closeMenu()
-          editor.commands.tool.insert(TEXT_INSERT_PRESET.key)
+          editor.commands.tool.set(insertTool(TEXT_INSERT_PRESET.key))
         }}
         data-selection-ignore
         data-input-ignore
@@ -190,7 +195,7 @@ export const ToolPaletteButtons = ({
         data-active={tool.type === 'draw' ? 'true' : undefined}
         onClick={() => {
           if (tool.type !== 'draw') {
-            editor.commands.tool.draw(palette.drawKind)
+            editor.commands.tool.set(drawTool(palette.drawKind))
             setDrawPanelOpen(false)
             setOpenMenu('draw')
             return

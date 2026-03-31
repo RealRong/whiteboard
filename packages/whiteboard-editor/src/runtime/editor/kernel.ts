@@ -2,8 +2,7 @@ import { createValueStore } from '@whiteboard/engine'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
 import type { NodeRegistry } from '../../types/node'
-import type { Tool } from '../tool'
-import { normalizeTool } from '../tool'
+import type { Tool } from '../../types/tool'
 import { createFrameState } from '../frame'
 import { createEditState } from '../edit'
 import { createSelectionState } from '../selection'
@@ -51,7 +50,7 @@ export const createKernel = ({
     getViewport: () => viewport.input
   })
 
-  const tool = createValueStore<Tool>(normalizeTool(initialTool))
+  const tool = createValueStore<Tool>(initialTool)
   const edit = createEditState()
   const frame = createFrameState(engine.read)
   const selection = createSelectionState()

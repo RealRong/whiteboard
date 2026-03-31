@@ -4,8 +4,7 @@ import {
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
 import {
-  SelectTool,
-  normalizeTool
+  selectTool
 } from '@whiteboard/editor'
 import type { WhiteboardOptions } from '../types/common/board'
 import type { ResolvedConfig } from '../types/common/config'
@@ -35,7 +34,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     captureSystem: true,
     captureRemote: false
   },
-  tool: SelectTool,
+  tool: selectTool(),
   shortcuts: undefined
 }
 
@@ -53,7 +52,7 @@ export const normalizeConfig = (
 
   return {
     ...merged,
-    tool: normalizeTool(merged.tool),
+    tool: merged.tool,
     viewport: {
       ...merged.viewport,
       initial: merged.viewport.initial ?? DEFAULT_VIEWPORT,

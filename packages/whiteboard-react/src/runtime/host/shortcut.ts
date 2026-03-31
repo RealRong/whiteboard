@@ -3,11 +3,18 @@ import type {
   ShortcutBinding,
   ShortcutOverrides
 } from '../../types/common/shortcut'
-import type { EditorKeyboardInput } from '../../types/editor'
 
 const ModifierOrder = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
 export type ShortcutPlatform = 'mac' | 'win' | 'linux'
+
+type ShortcutKeyInput = Readonly<{
+  key: string
+  ctrlKey: boolean
+  altKey: boolean
+  shiftKey: boolean
+  metaKey: boolean
+}>
 
 const normalizeKey = (value: string) => {
   if (value === ' ') return 'Space'
@@ -62,11 +69,19 @@ const normalizeBindingChord = (
   ].join('+')
 }
 
+export const detectShortcutPlatform = (): ShortcutPlatform => {
+  if (typeof navigator === 'undefined') {
+    return 'win'
+  }
+
+  const value = navigator.platform.toLowerCase()
+  if (value.includes('mac')) return 'mac'
+  if (value.includes('win')) return 'win'
+  return 'linux'
+}
+
 export const readShortcut = (
-  event: Pick<
-    EditorKeyboardInput,
-    'key' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'
-  >,
+  event: ShortcutKeyInput,
   shortcuts: ReadonlyMap<string, ShortcutAction>
 ): ShortcutAction | undefined => {
   const normalized = normalizeKey(event.key)

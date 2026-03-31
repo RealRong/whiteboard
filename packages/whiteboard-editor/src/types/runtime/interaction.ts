@@ -5,7 +5,7 @@ import type {
   EditorKeyboardInput,
   EditorPointerSample
 } from '../editor'
-import type { EditorPick } from './pick'
+import type { EditorPick } from '../pick'
 
 export type InteractionMode =
   | 'idle'

@@ -6,7 +6,7 @@ import type {
   InsertPlacement,
   InsertPreset,
   InsertPresetCatalog
-} from '../../types/toolbox'
+} from '../../types/insert'
 import { moveMindmapRoot } from './mindmap'
 
 type InsertCommandEditor = Pick<EditorCommandHost, 'commands' | 'read'>

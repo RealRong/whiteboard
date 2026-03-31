@@ -1,9 +1,10 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import {
   createShortcutMap,
+  detectShortcutPlatform,
   readShortcut,
   resolveShortcutBindings
-} from '@whiteboard/editor'
+} from '../runtime/host/shortcut'
 import type { ShortcutOverrides } from '../types/common/shortcut'
 import { useEditorRuntime } from '../runtime/hooks/useEditor'
 import { isKeyboardIgnoredTarget } from '../runtime/host/domTargets'
@@ -12,7 +13,6 @@ import {
   runShortcut
 } from './shortcut'
 import { resolveKeyboardInput } from '../runtime/host/input'
-import { detectShortcutPlatform } from '../runtime/host/keyboardPlatform'
 
 export const useKeyboard = ({
   containerRef,

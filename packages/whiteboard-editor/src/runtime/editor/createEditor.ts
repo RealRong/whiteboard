@@ -1,23 +1,16 @@
 import { createValueStore } from '@whiteboard/engine'
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import { createDrawState } from '../../runtime/draw'
+import { createDrawState } from '../../runtime/draw/state'
 import { createEdgeProjectionRuntime } from '../../runtime/projection/edge'
 import { createMindmapDragProjectionStore } from '../../runtime/projection/mindmapDrag'
 import { createNodeProjectionRuntime } from '../../runtime/projection/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
-import type { InsertPresetCatalog } from '../../types/toolbox'
-import {
-  isSameTool,
-  normalizeTool,
-  type Tool
-} from '../tool'
+import type { InsertPresetCatalog } from '../../types/insert'
+import type { Tool } from '../../types/tool'
 import type { Editor } from '../../types/editor'
-import type {
-  EditorInputPolicy,
-  EditorRuntime
-} from '../../types/internal/editor'
+import type { EditorInputPolicy } from '../../types/internal/editor'
 import { createEditorCommands } from '../commands'
 import type { PointerSnapshot } from '../input/pointer/snapshot'
 import { createSnapRuntime } from '../interaction'
@@ -97,13 +90,11 @@ export const createEditor = ({
   const commands = createEditorCommands({
     engine,
     read,
-    state,
     tool: kernel.tool,
     edit: kernel.edit.commands,
     selection: kernel.selection,
     frame: kernel.frame,
     viewportCommands: kernel.viewport.commands,
-    viewportRead: kernel.viewport.read,
     draw,
     nodeProjection,
     insertPresetCatalog
@@ -168,10 +159,7 @@ export const createEditor = ({
     viewport: editorViewport,
     projection: features.projection,
     configure: (config) => {
-      const nextTool = normalizeTool(config.tool)
-      if (!isSameTool(kernel.tool.get(), nextTool)) {
-        kernel.tool.set(nextTool)
-      }
+      commands.tool.set(config.tool)
 
       editorViewport.setLimits(config.viewport)
       kernel.inputPolicy.set({
@@ -185,7 +173,7 @@ export const createEditor = ({
       })
     },
     dispose: lifecycle.dispose
-  } satisfies EditorRuntime
+  } satisfies Editor
 
   return editor
 }

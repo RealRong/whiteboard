@@ -9,7 +9,9 @@ import type {
   EditorClipboardTarget
 } from '../types/editor'
 
-type ClipboardEditor = Pick<Editor, 'commands' | 'read' | 'viewport'>
+type ClipboardEditor = Pick<Editor, 'commands' | 'read'> & {
+  viewport: Pick<Editor['viewport'], 'get'>
+}
 
 const applyInsertedRoots = (
   editor: ClipboardEditor,

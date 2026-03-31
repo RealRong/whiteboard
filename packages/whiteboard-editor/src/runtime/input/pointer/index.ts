@@ -5,8 +5,8 @@ import type {
   EditorPointerSample,
   EditorWheelInput
 } from '../../../types/editor'
-import type { PointerPick } from '../../../types/runtime/pick'
-import type { Tool } from '../../tool'
+import type { PointerPick } from '../../../types/pick'
+import type { Tool } from '../../../types/tool'
 import { resolvePointerFrameGate } from './gate'
 
 type PointerBase = PointerPick & {

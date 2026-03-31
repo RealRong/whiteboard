@@ -1,5 +1,3 @@
-import type { EdgeType } from '@whiteboard/core/types'
-
 export type EdgePresetKey =
   | 'edge.straight'
   | 'edge.elbow'
@@ -44,5 +42,3 @@ export type Tool =
   | EdgeTool
   | InsertTool
   | DrawTool
-
-export type EdgePresetMap = Record<EdgePresetKey, EdgeType>

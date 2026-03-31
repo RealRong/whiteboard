@@ -49,10 +49,4 @@ export type EditorInputInternals = {
 export type EditorViewportRuntime =
   Editor['viewport'] & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>
 
-export type EditorRuntime = Editor & {
-  interaction: InteractionCoordinator
-  registry: NodeRegistry
-  viewport: EditorViewportRuntime
-}
-
-export type EditorCommandHost = Pick<Editor, 'commands' | 'read' | 'state' | 'viewport'>
+export type EditorCommandHost = Pick<Editor, 'commands' | 'read'>

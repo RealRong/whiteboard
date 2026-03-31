@@ -112,47 +112,47 @@ export const createAutoPan = ({
   }
 
   const frameTask = createRafTask(() => {
-      const timestamp = now()
-      const session = active
-      if (!session || !session.pointer) {
-        lastFrameTime = 0
-        return
-      }
+    const timestamp = now()
+    const session = active
+    if (!session || !session.pointer) {
+      lastFrameTime = 0
+      return
+    }
 
-      const viewport = getViewport()
-      if (!viewport) {
-        lastFrameTime = 0
-        return
-      }
+    const viewport = getViewport()
+    if (!viewport) {
+      lastFrameTime = 0
+      return
+    }
 
-      const screen = viewport.screenPoint(
-        session.pointer.clientX,
-        session.pointer.clientY
-      )
-      const vector = resolvePanVector({
-        point: screen,
-        size: viewport.size(),
-        threshold: session.threshold,
-        maxSpeed: session.maxSpeed
-      })
-      if (vector.x === 0 && vector.y === 0) {
-        lastFrameTime = 0
-        return
-      }
+    const screen = viewport.screenPoint(
+      session.pointer.clientX,
+      session.pointer.clientY
+    )
+    const vector = resolvePanVector({
+      point: screen,
+      size: viewport.size(),
+      threshold: session.threshold,
+      maxSpeed: session.maxSpeed
+    })
+    if (vector.x === 0 && vector.y === 0) {
+      lastFrameTime = 0
+      return
+    }
 
-      const deltaSeconds = clamp(
-        lastFrameTime === 0 ? 1 / 60 : (timestamp - lastFrameTime) / 1000,
-        1 / 120,
-        MAX_FRAME_SECONDS
-      )
-      lastFrameTime = timestamp
+    const deltaSeconds = clamp(
+      lastFrameTime === 0 ? 1 / 60 : (timestamp - lastFrameTime) / 1000,
+      1 / 120,
+      MAX_FRAME_SECONDS
+    )
+    lastFrameTime = timestamp
 
-      viewport.panScreenBy({
-        x: vector.x * deltaSeconds,
-        y: vector.y * deltaSeconds
-      })
-      session.frame?.(session.pointer)
-      schedule()
+    viewport.panScreenBy({
+      x: vector.x * deltaSeconds,
+      y: vector.y * deltaSeconds
+    })
+    session.frame?.(session.pointer)
+    schedule()
   })
 
   const schedule = () => {
