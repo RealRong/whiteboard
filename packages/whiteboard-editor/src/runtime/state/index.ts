@@ -2,8 +2,7 @@ import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
 import type { Tool } from '../../types/tool'
 import type { EditorRead, EditorState } from '../../types/editor'
-import type { PointerSample } from '../../types/input'
-import type { EditorInputPolicy, EditorViewportRuntime } from '../editor/types'
+import type { EditorViewportRuntime } from '../editor/types'
 import { createEditState, type EditState } from './edit'
 import {
   createSelectionState,
@@ -69,9 +68,6 @@ export type EditorRuntimeState = {
   selection: SelectionState
   edit: EditState
   viewport: ViewportRuntime
-  pointer: ValueStore<PointerSample | null>
-  space: ValueStore<boolean>
-  inputPolicy: ValueStore<EditorInputPolicy>
   drawPreferences: DrawPreferencesState
 }
 
@@ -89,13 +85,11 @@ export const createRuntimeState = ({
   initialTool,
   initialViewport,
   viewportLimits,
-  inputPolicy: initialInputPolicy,
   initialDrawPreferences
 }: {
   initialTool: Tool
   initialViewport: Viewport
   viewportLimits: ViewportLimits
-  inputPolicy: EditorInputPolicy
   initialDrawPreferences: DrawPreferences
 }): RuntimeStateController => {
   const tool = createValueStore<Tool>(initialTool)
@@ -104,13 +98,6 @@ export const createRuntimeState = ({
   const viewport = createViewport({
     initialViewport,
     limits: viewportLimits
-  })
-  const pointer = createValueStore<PointerSample | null>(null)
-  const space = createValueStore(false)
-  const inputPolicy = createValueStore<EditorInputPolicy>({
-    panEnabled: initialInputPolicy.panEnabled,
-    wheelEnabled: initialInputPolicy.wheelEnabled,
-    wheelSensitivity: initialInputPolicy.wheelSensitivity
   })
   const drawPreferences = createDrawPreferencesState(initialDrawPreferences)
 
@@ -137,9 +124,6 @@ export const createRuntimeState = ({
       selection,
       edit,
       viewport,
-      pointer,
-      space,
-      inputPolicy,
       drawPreferences
     },
     public: {
@@ -147,8 +131,6 @@ export const createRuntimeState = ({
       viewport: publicViewport
     },
     resetLocal: () => {
-      pointer.set(null)
-      space.set(false)
       edit.mutate.clear()
       selection.mutate.clear()
     },

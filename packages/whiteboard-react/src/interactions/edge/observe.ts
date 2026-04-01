@@ -1,5 +1,5 @@
 import { createRafTask } from '@whiteboard/engine'
-import type { InteractionObserve } from '../../runtime/interaction'
+import type { InteractionObserve } from '../runtime'
 import { clearEdgeGuide } from './overlay'
 import type { EdgeInteractionCtx } from './types'
 import { Point } from '@whiteboard/core/types'

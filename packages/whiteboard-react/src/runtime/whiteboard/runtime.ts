@@ -5,6 +5,7 @@ import { createEngine, normalizeDocument } from '@whiteboard/engine'
 import { createDefaultNodeRegistry } from '../../features/node/registry'
 import { DEFAULT_DRAW_PREFERENCES } from '../../features/toolbox/drawPreferences'
 import { INSERT_PRESET_CATALOG } from '../../features/toolbox/presets'
+import { createWhiteboardRuntime } from '../../interactions/createRuntime'
 import type { WhiteboardProps } from '../../types/common/board'
 import type { ResolvedConfig } from '../../types/common/config'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
@@ -62,7 +63,7 @@ export const useWhiteboardRuntime = ({
 
   const editorRef = useRef<Editor | null>(null)
   if (!editorRef.current) {
-    editorRef.current = createEditor({
+    const baseEditor = createEditor({
       engine,
       initialTool: resolvedConfig.tool,
       initialViewport: resolvedConfig.viewport.initial,
@@ -70,14 +71,19 @@ export const useWhiteboardRuntime = ({
         minZoom: resolvedConfig.viewport.minZoom,
         maxZoom: resolvedConfig.viewport.maxZoom
       },
+      registry: registryRef.current,
+      insertPresetCatalog: INSERT_PRESET_CATALOG,
+      initialDrawPreferences: DEFAULT_DRAW_PREFERENCES
+    })
+    editorRef.current = createWhiteboardRuntime({
+      editor: baseEditor,
+      engine,
+      boardConfig,
       inputPolicy: {
         panEnabled: resolvedConfig.viewport.enablePan,
         wheelEnabled: resolvedConfig.viewport.enableWheel,
         wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
-      },
-      registry: registryRef.current,
-      insertPresetCatalog: INSERT_PRESET_CATALOG,
-      initialDrawPreferences: DEFAULT_DRAW_PREFERENCES
+      }
     })
   }
   const editor = editorRef.current!

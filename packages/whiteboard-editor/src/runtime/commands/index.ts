@@ -69,6 +69,20 @@ export const createEditorCommands = ({
   })
   const viewportCommands = {
     ...runtime.state.viewport.commands,
+    panScreenBy: runtime.state.viewport.input.panScreenBy,
+    wheel: (
+      input: Parameters<Editor['commands']['viewport']['wheel']>[0],
+      wheelSensitivity: Parameters<Editor['commands']['viewport']['wheel']>[1]
+    ) => {
+      runtime.state.viewport.input.wheel({
+        deltaX: input.deltaX,
+        deltaY: input.deltaY,
+        clientX: input.client.x,
+        clientY: input.client.y,
+        ctrlKey: input.modifiers.ctrl,
+        metaKey: input.modifiers.meta
+      }, wheelSensitivity)
+    },
     setRect: runtime.state.viewport.setRect,
     setLimits: runtime.state.viewport.setLimits
   }

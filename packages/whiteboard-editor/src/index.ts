@@ -3,9 +3,11 @@ export {
 } from './runtime/editor/createEditor'
 export type {
   Editor,
+  EditorInteractionState,
   EditorOverlayRead,
   EditorRead,
   EditorState,
+  EditorTransient,
   EditorViewportRead,
   EditorClipboardOptions,
   EditorClipboardTarget,
@@ -13,6 +15,13 @@ export type {
   EditorInput,
   EditorInsertResult
 } from './types/editor'
+export type {
+  EdgeGuide,
+  EdgeOverlayEntry,
+  MarqueeOverlayState,
+  MindmapDragFeedback,
+  NodePatchEntry
+} from './runtime/overlay'
 export type {
   KeyboardInput,
   ModifierKeys,

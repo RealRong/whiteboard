@@ -1,14 +1,30 @@
 import type { BoardConfig } from '@whiteboard/core/config'
-import type { Editor } from '../../types/editor'
-import type { EditorOverlay } from '../overlay'
-import type { RuntimeStateController } from '../state'
+import type {
+  Editor as EditorRuntime,
+  EditorTransient
+} from '@whiteboard/editor'
+import type { ValueStore } from '@whiteboard/engine'
 import type { SnapRuntime } from './snap'
 
+export type InteractionInputPolicy = {
+  panEnabled: boolean
+  wheelEnabled: boolean
+  wheelSensitivity: number
+}
+
+export type InteractionLocalState = {
+  viewport: {
+    input: Pick<EditorRuntime['commands']['viewport'], 'panScreenBy'>
+  }
+  space: ValueStore<boolean>
+  inputPolicy: ValueStore<InteractionInputPolicy>
+}
+
 export type InteractionCtx = {
-  read: Editor['read']
-  state: RuntimeStateController['state']
+  read: EditorRuntime['read']
+  state: InteractionLocalState
   config: Readonly<BoardConfig>
-  commands: Editor['commands']
-  overlay: EditorOverlay
+  commands: EditorRuntime['commands']
+  overlay: EditorTransient
   snap: SnapRuntime
 }

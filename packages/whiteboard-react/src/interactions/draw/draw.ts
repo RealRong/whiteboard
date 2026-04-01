@@ -1,23 +1,30 @@
 import {
+  type DrawBrushKind
+} from '@whiteboard/editor'
+import type {
+  DrawPreview,
+  ResolvedDrawStyle
+} from '@whiteboard/editor/draw'
+import {
+  readDrawStyle
+} from '@whiteboard/editor/draw'
+import type {
+  PointerDownInput,
+  PointerSample
+} from '@whiteboard/editor'
+import type { InteractionCtx } from '../runtime/ctx'
+import {
   resolveDrawPoints,
   resolveDrawStroke
 } from '@whiteboard/core/node'
 import type { Point } from '@whiteboard/core/types'
-import type { PointerDownInput, PointerSample } from '../../types/input'
-import type { InteractionCtx } from '../../runtime/interaction/ctx'
-import type { DrawBrushKind } from '../../types/tool'
-import type {
-  DrawPreview,
-  ResolvedDrawStyle
-} from '../../types/draw'
-import { readDrawStyle } from '../../draw/model'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1
 
 type DrawInteractionCtx = Pick<
   InteractionCtx,
-  'read' | 'state' | 'commands' | 'overlay'
+  'read' | 'commands' | 'overlay'
 >
 
 type DrawPointer = {
@@ -41,7 +48,7 @@ const readStyle = (
   ctx: DrawInteractionCtx,
   kind: DrawBrushKind
 ) => readDrawStyle(
-  ctx.state.drawPreferences.store.get(),
+  ctx.read.draw.preferences.get(),
   kind
 )
 

@@ -4,8 +4,11 @@ import type {
   Point,
   Rect
 } from '@whiteboard/core/types'
-import type { PointerDownInput, PointerSample } from '../../types/input'
-import type { InteractionCtx } from '../../runtime/interaction/ctx'
+import type {
+  PointerDownInput,
+  PointerSample
+} from '@whiteboard/editor'
+import type { InteractionCtx } from '../runtime/ctx'
 
 const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001

@@ -2,12 +2,12 @@ import type {
   Guide,
   MoveStepResult
 } from '@whiteboard/core/node'
-import type { InteractionCtx } from '../../runtime/interaction'
 import type {
   EdgeOverlayEntry,
   MarqueeOverlayState,
   NodePatchEntry
-} from '../../runtime/overlay'
+} from '@whiteboard/editor'
+import type { InteractionCtx } from '../runtime'
 import type { TransformProjection } from '../transform/types'
 
 type SelectionOverlayCtx = Pick<InteractionCtx, 'overlay'>

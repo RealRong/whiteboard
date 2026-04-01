@@ -5,8 +5,8 @@ import type {
   TransformPreviewPatch
 } from '@whiteboard/core/node'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { ModifierKeys } from '../../types/input'
-import type { InteractionCtx } from '../../runtime/interaction'
+import type { ModifierKeys } from '@whiteboard/editor'
+import type { InteractionCtx } from '../runtime'
 
 export type TransformInteractionCtx = Pick<
   InteractionCtx,

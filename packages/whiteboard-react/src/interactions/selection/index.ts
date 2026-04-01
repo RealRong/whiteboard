@@ -1,7 +1,7 @@
 import type {
   InteractionFeature,
   InteractionCtx
-} from '../../runtime/interaction'
+} from '../runtime'
 import { clearSelectionTransient } from './overlay'
 import { createPressInteraction, resolveSelectionPressState } from './press'
 

@@ -15,8 +15,8 @@ import {
   GestureTuning,
   type InteractionCtx,
   type InteractionSession
-} from '../../runtime/interaction'
-import type { PointerDownInput } from '../../types/input'
+} from '../runtime'
+import type { PointerDownInput } from '@whiteboard/editor'
 import {
   writeSelectionMarquee
 } from './overlay'

@@ -103,7 +103,6 @@ export type EditorState = {
   tool: ReadStore<Tool>
   edit: ReadStore<EditTarget>
   selection: ReadStore<SelectionTarget>
-  interaction: ReadStore<EditorInteractionState>
   viewport: ReadStore<Viewport>
 }
 
@@ -121,7 +120,14 @@ export type EditorRead = RuntimeRead
 export type EditorViewportCommands = ViewportCommands & {
   setRect: (rect: ContainerRect) => void
   setLimits: (limits: ViewportLimits) => void
+  panScreenBy: (deltaScreen: Point) => void
+  wheel: (
+    input: WheelInput,
+    wheelSensitivity: number
+  ) => void
 }
+
+export type EditorTransient = EditorOverlay
 
 export type EditorNodeDocumentCommands = {
   update: EngineNodeCommands['update']
@@ -275,15 +281,12 @@ export type Editor = {
   read: EditorRead
   state: EditorState
   commands: EditorCommands
-  input: EditorInput
+  transient: EditorTransient
   configure: (config: {
     tool: Tool
     viewport: {
       minZoom: number
       maxZoom: number
-      enablePan: boolean
-      enableWheel: boolean
-      wheelSensitivity: number
     }
     mindmapLayout: MindmapLayoutConfig
     history?: KernelHistoryConfig

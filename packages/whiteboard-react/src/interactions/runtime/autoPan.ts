@@ -1,10 +1,9 @@
 import { createRafTask } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
-import type { ViewportInputRuntime } from '../viewport'
 import type {
   AutoPanOptions,
   AutoPanPointer
-} from '../../types/runtime/interaction'
+} from './types'
 
 type PanVector = Point
 
@@ -89,7 +88,14 @@ type AutoPan = Readonly<{
 export const createAutoPan = ({
   getViewport
 }: {
-  getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
+  getViewport: () => {
+    panScreenBy: (deltaScreen: Point) => void
+    screenPoint: (clientX: number, clientY: number) => Point
+    size: () => {
+      width: number
+      height: number
+    }
+  } | null
 }): AutoPan => {
   let lastFrameTime = 0
   let active: ActiveAutoPan | null = null

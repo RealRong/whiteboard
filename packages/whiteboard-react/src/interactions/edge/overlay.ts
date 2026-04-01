@@ -1,6 +1,13 @@
 import { resolveEdgeConnectPreview, type EdgeConnectState } from '@whiteboard/core/edge'
-import type { EdgeId, EdgePatch } from '@whiteboard/core/types'
-import type { EdgeGuide } from '../../runtime/overlay'
+import type {
+  EdgePatch
+} from '@whiteboard/core/types'
+import type {
+  EdgeId
+} from '@whiteboard/core/types'
+import type {
+  EdgeGuide
+} from '@whiteboard/editor'
 import type { EdgeInteractionCtx } from './types'
 
 export const clearEdgePatches = (

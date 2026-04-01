@@ -1,8 +1,8 @@
 import type {
   InteractionFeature,
   InteractionSession
-} from '../runtime/interaction'
-import type { InteractionCtx } from '../runtime/interaction/ctx'
+} from './runtime'
+import type { InteractionCtx } from './runtime/ctx'
 type PanState = {
   lastClient: {
     x: number

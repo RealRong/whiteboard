@@ -1,7 +1,9 @@
-import type { InteractionFeature } from '../runtime/interaction'
-import type { InteractionCtx } from '../runtime/interaction/ctx'
-import type { InsertPresetKey } from '../types/tool'
-import { selectTool } from '../tool/model'
+import {
+  selectTool,
+  type InsertPresetKey
+} from '@whiteboard/editor'
+import type { InteractionFeature } from './runtime'
+import type { InteractionCtx } from './runtime/ctx'
 
 export const createInsertInteraction = (
   editor: Pick<InteractionCtx, 'read' | 'commands'>

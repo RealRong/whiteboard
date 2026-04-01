@@ -1,7 +1,10 @@
 export { createInteractionRuntime } from './runtime'
 export { createSnapRuntime } from './snap'
 export { GestureTuning } from './config'
-export type { InteractionCtx } from './ctx'
+export type {
+  InteractionCtx,
+  InteractionInputPolicy
+} from './ctx'
 export type {
   InteractionControl,
   InteractionFeature,
@@ -14,7 +17,7 @@ export type {
   InteractionStartResult,
   InteractionSessionMode,
   InteractionState
-} from '../../types/runtime/interaction'
+} from './types'
 export type {
   EdgeSnapRuntime,
   MoveSnapResult,

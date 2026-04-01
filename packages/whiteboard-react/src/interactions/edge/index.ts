@@ -1,4 +1,4 @@
-import type { InteractionFeature } from '../../runtime/interaction'
+import type { InteractionFeature } from '../runtime'
 import { createEdgeObserve } from './observe'
 import { clearEdgeOverlay } from './overlay'
 import { startEdgeInteraction } from './start'

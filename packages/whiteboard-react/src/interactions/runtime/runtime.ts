@@ -10,14 +10,13 @@ import type {
   InteractionSession,
   InteractionSessionMode,
   InteractionState
-} from '../../types/runtime/interaction'
+} from './types'
 import type {
   PointerDownInput,
   PointerMoveInput,
   PointerUpInput,
   WheelInput
-} from '../../types/input'
-import type { ViewportInputRuntime } from '../viewport'
+} from '@whiteboard/editor'
 import { createAutoPan } from './autoPan'
 
 type SessionMeta = Readonly<{
@@ -64,7 +63,20 @@ export const createInteractionRuntime = ({
   getOwners,
   space
 }: {
-  getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
+  getViewport: () => {
+    panScreenBy: (deltaScreen: {
+      x: number
+      y: number
+    }) => void
+    screenPoint: (clientX: number, clientY: number) => {
+      x: number
+      y: number
+    }
+    size: () => {
+      width: number
+      height: number
+    }
+  } | null
   getOwners: () => readonly InteractionOwner[]
   space: {
     get: () => boolean
