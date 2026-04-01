@@ -11,11 +11,19 @@ import {
 } from '@whiteboard/core/edge'
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type { EdgeAnchor, EdgeType, NodeId } from '@whiteboard/core/types'
-import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
+import type {
+  InteractionControl,
+  InteractionSession,
+  InteractionStartResult
+} from '../../runtime/interaction'
 import type { PointerDownInput } from '../../types/input'
+import { readEdgeType } from '../../edge/preset'
 import { clearEdgeOverlay, writeConnectPreview } from './overlay'
-import type { ConnectNodeEntry, ConnectPointer, EdgeInteractionCtx } from './types'
-import { readViewport } from './types'
+import type { ConnectNodeEntry, EdgeInteractionCtx } from './types'
+
+const readViewport = (
+  ctx: EdgeInteractionCtx
+) => ctx.read.viewport
 
 const readConnectNode = (
   ctx: EdgeInteractionCtx,
@@ -29,10 +37,9 @@ const readConnectNode = (
   return entry
 }
 
-export const startEdgeCreateSession = (
+const createEdgeConnectState = (
   ctx: EdgeInteractionCtx,
   input: PointerDownInput,
-  pointer: ConnectPointer,
   edgeType: EdgeType
 ): EdgeConnectState => {
   const pick = input.pick
@@ -45,7 +52,7 @@ export const startEdgeCreateSession = (
       }
 
       return startEdgeCreate({
-        pointerId: pointer.pointerId,
+        pointerId: input.pointerId,
         edgeType,
         from: {
           kind: 'node',
@@ -53,7 +60,7 @@ export const startEdgeCreateSession = (
           anchor,
           point: getNodeAnchorPoint(entry.node, entry.rect, anchor, entry.rotation)
         },
-        to: toEdgeDraftEnd(pointer.world)
+        to: toEdgeDraftEnd(input.world)
       })
     }
   }
@@ -68,13 +75,13 @@ export const startEdgeCreateSession = (
         node: entry.node,
         rect: entry.rect,
         rotation: entry.rotation,
-        pointWorld: pointer.world,
+        pointWorld: input.world,
         zoom: readViewport(ctx).get().zoom,
         config: ctx.config.edge
       })
 
       return startEdgeCreate({
-        pointerId: pointer.pointerId,
+        pointerId: input.pointerId,
         edgeType,
         from: {
           kind: 'node',
@@ -82,24 +89,25 @@ export const startEdgeCreateSession = (
           anchor: resolved.anchor,
           point: resolved.point
         },
-        to: toEdgeDraftEnd(pointer.world)
+        to: toEdgeDraftEnd(input.world)
       })
     }
   }
 
   return startEdgeCreate({
-    pointerId: pointer.pointerId,
+    pointerId: input.pointerId,
     edgeType,
-    from: toEdgeDraftEnd(pointer.world),
-    to: toEdgeDraftEnd(pointer.world)
+    from: toEdgeDraftEnd(input.world),
+    to: toEdgeDraftEnd(input.world)
   })
 }
 
-export const startEdgeReconnectSession = (
+const createReconnectState = (
   ctx: EdgeInteractionCtx,
   edgeId: import('@whiteboard/core/types').EdgeId,
   end: 'source' | 'target',
-  pointer: ConnectPointer
+  pointerId: number,
+  world: PointerDownInput['world']
 ): EdgeConnectState | undefined => {
   const item = ctx.read.edge.item.get(edgeId)
   const resolved = ctx.read.edge.resolved.get(edgeId)
@@ -116,7 +124,7 @@ export const startEdgeReconnectSession = (
   }
 
   return startEdgeReconnect({
-    pointerId: pointer.pointerId,
+    pointerId,
     edgeId,
     end,
     from: resolveReconnectDraftEnd({
@@ -131,16 +139,19 @@ export const startEdgeReconnectSession = (
 const updateConnectState = (
   ctx: EdgeInteractionCtx,
   state: EdgeConnectState,
-  pointer: ConnectPointer
+  input: {
+    pointerId: number
+    world: PointerDownInput['world']
+  }
 ) => {
-  if (pointer.pointerId !== state.pointerId) {
+  if (input.pointerId !== state.pointerId) {
     return undefined
   }
 
-  const snap = ctx.snap.edge.connect(pointer.world)
+  const snap = ctx.snap.edge.connect(input.world)
   return setEdgeConnectTarget(
     state,
-    toEdgeDraftEnd(pointer.world, snap)
+    toEdgeDraftEnd(input.world, snap)
   )
 }
 
@@ -161,52 +172,113 @@ const commitConnectState = (
   ctx.commands.edge.create(commit.input)
 }
 
-export const createConnectInteraction = (
+const createConnectSession = (
   ctx: EdgeInteractionCtx,
-  state: EdgeConnectState,
+  initial: EdgeConnectState,
   control: InteractionControl
 ): InteractionSession => {
-  writeConnectPreview(ctx, state)
+  let session = initial
+  writeConnectPreview(ctx, session)
 
   return {
     mode: 'edge-connect',
-    pointerId: state.pointerId,
+    pointerId: session.pointerId,
     autoPan: {
       frame: (pointer) => {
-        const next = updateConnectState(ctx, state, {
-          pointerId: state.pointerId,
+        const next = updateConnectState(ctx, session, {
+          pointerId: session.pointerId,
           world: readViewport(ctx).pointer(pointer).world
         })
         if (!next) {
           return
         }
 
-        Object.assign(state, next)
-        writeConnectPreview(ctx, state)
+        session = next
+        writeConnectPreview(ctx, session)
       }
     },
-    move: (nextInput) => {
-      const next = updateConnectState(ctx, state, {
-        pointerId: nextInput.pointerId,
-        world: nextInput.world
+    move: (input) => {
+      const next = updateConnectState(ctx, session, {
+        pointerId: input.pointerId,
+        world: input.world
       })
       if (!next) {
         return
       }
 
-      Object.assign(state, next)
-      writeConnectPreview(ctx, state)
+      session = next
+      writeConnectPreview(ctx, session)
       control.pan({
-        clientX: nextInput.client.x,
-        clientY: nextInput.client.y
+        clientX: input.client.x,
+        clientY: input.client.y
       })
     },
     up: () => {
-      commitConnectState(ctx, state)
+      commitConnectState(ctx, session)
       control.finish()
     },
     cleanup: () => {
       clearEdgeOverlay(ctx)
     }
+  }
+}
+
+export const startEdgeConnectInteraction = (
+  ctx: EdgeInteractionCtx,
+  input: PointerDownInput,
+  control: InteractionControl
+): InteractionStartResult => {
+  const tool = ctx.read.tool.get()
+
+  if (tool.type === 'edge') {
+    const canStartFromNodeHandle =
+      input.pick.kind === 'node'
+      && input.pick.part === 'connect'
+      && Boolean(input.pick.side)
+
+    if (
+      !canStartFromNodeHandle
+      && (input.editable || input.ignoreInput || input.ignoreSelection)
+    ) {
+      return null
+    }
+
+    return {
+      kind: 'session',
+      session: createConnectSession(
+        ctx,
+        createEdgeConnectState(ctx, input, readEdgeType(tool.preset)),
+        control
+      )
+    }
+  }
+
+  if (
+    tool.type !== 'select'
+    || input.pick.kind !== 'edge'
+    || input.pick.part !== 'end'
+    || !input.pick.end
+  ) {
+    return null
+  }
+
+  const state = createReconnectState(
+    ctx,
+    input.pick.id,
+    input.pick.end,
+    input.pointerId,
+    input.world
+  )
+  if (!state || state.kind !== 'reconnect') {
+    return null
+  }
+
+  ctx.commands.selection.replace({
+    edgeIds: [state.edgeId]
+  })
+
+  return {
+    kind: 'session',
+    session: createConnectSession(ctx, state, control)
   }
 }

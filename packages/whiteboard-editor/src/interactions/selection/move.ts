@@ -10,79 +10,22 @@ import type {
   InteractionSession
 } from '../../runtime/interaction'
 import type {
-  PointerDownInput,
-  PointerMoveInput,
-  PointerUpInput
+  PointerDownInput
 } from '../../types/input'
+import {
+  clearSelectionPreview,
+  writeSelectionMovePreview
+} from './overlay'
 
 type SelectionInteractionCtx = Pick<
   InteractionCtx,
-  'read' | 'state' | 'config' | 'commands' | 'overlay' | 'snap'
+  'read' | 'config' | 'commands' | 'overlay' | 'snap'
 >
-
-type SessionPointer = PointerMoveInput | PointerUpInput
 
 type MoveInteractionInput = {
   start: PointerDownInput
-  pointer: SessionPointer
   target: SelectionTarget
   prepareSelection?: SelectionTarget
-}
-
-const clearMoveOverlay = (
-  ctx: SelectionInteractionCtx
-) => {
-  ctx.overlay.set((current) => (
-    (
-      current.selection.node.patches.length === 0
-      && current.selection.node.hovered === undefined
-      && current.selection.edge.length === 0
-      && current.selection.guides.length === 0
-    )
-      ? current
-      : {
-          ...current,
-          selection: {
-            ...current.selection,
-            node: {
-              patches: [],
-              hovered: undefined
-            },
-            edge: [],
-            guides: []
-          }
-        }
-  ))
-}
-
-const projectMoveOverlay = (
-  ctx: SelectionInteractionCtx,
-  input: ReturnType<typeof stepMoveSession>
-) => {
-  ctx.overlay.set((current) => ({
-    ...current,
-    selection: {
-      ...current.selection,
-      node: {
-        patches: input.preview.nodes.map(({ id, position }) => ({
-          id,
-          patch: {
-            position
-          }
-        })),
-        hovered: input.preview.hovered
-      },
-      edge: input.preview.edges.map(({ id, patch }) => ({
-        id,
-        patch: {
-          route: patch.route,
-          source: patch.source,
-          target: patch.target
-        }
-      })),
-      guides: input.guides
-    }
-  }))
 }
 
 export const createMoveInteraction = (
@@ -108,7 +51,7 @@ export const createMoveInteraction = (
   if (input.prepareSelection) {
     ctx.commands.selection.replace(input.prepareSelection)
   }
-  let allowCross = input.pointer.modifiers.alt
+  let allowCross = false
 
   const project = (
     world: {
@@ -132,11 +75,10 @@ export const createMoveInteraction = (
     })
 
     session = result.session
-    projectMoveOverlay(ctx, result)
+    writeSelectionMovePreview(ctx, result)
   }
 
-  clearMoveOverlay(ctx)
-  project(input.pointer.world, input.pointer.modifiers.alt)
+  clearSelectionPreview(ctx)
 
   return {
     mode: 'node-drag',
@@ -145,7 +87,7 @@ export const createMoveInteraction = (
     autoPan: {
       frame: (pointer) => {
         project(
-          ctx.state.viewport.read.pointer(pointer).world,
+          ctx.read.viewport.pointer(pointer).world,
           allowCross
         )
       }
@@ -168,7 +110,7 @@ export const createMoveInteraction = (
       }
     },
     cleanup: () => {
-      clearMoveOverlay(ctx)
+      clearSelectionPreview(ctx)
     }
   }
 }

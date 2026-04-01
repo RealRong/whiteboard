@@ -10,7 +10,6 @@ import {
   type NodeRectHitOptions,
   type TransformSelectionTargets
 } from '@whiteboard/core/node'
-import { createKeyedDerivedStore } from '@whiteboard/engine'
 import type {
   EngineRead,
   KeyedReadStore,
@@ -30,6 +29,10 @@ import {
 import type {
   NodeOverlayProjection
 } from '../overlay'
+import {
+  createOverlayStateStore,
+  createPatchedItemStore
+} from './keyed'
 
 export type NodeRuntimeState = {
   hovered: boolean
@@ -47,11 +50,9 @@ export type NodeCapability = {
 
 export type NodeRead = {
   list: EngineRead['node']['list']
-  source: EngineRead['node']['item']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
   state: KeyedReadStore<NodeId, NodeRuntimeState>
   owner: (nodeId: NodeId) => NodeId | undefined
-  bounds: (nodeId: NodeId) => Rect | undefined
   outline: (nodeId: NodeId) => Rect | undefined
   capability: (node: Pick<Node, 'type'> | NodeType) => NodeCapability
   idsInRect: (rect: Rect, options?: NodeRectHitOptions) => NodeId[]
@@ -139,14 +140,11 @@ const createNodeItemStore = ({
 }: {
   read: Pick<EngineRead, 'node'>
   overlay: KeyedReadStore<NodeId, NodeOverlayProjection>
-}): NodeRead['item'] => createKeyedDerivedStore({
-  get: (readStore, nodeId: NodeId) => {
-    const item = readStore(read.node.item, nodeId)
-    if (!item) {
-      return undefined
-    }
-
-    const patch = readStore(overlay, nodeId).patch
+}): NodeRead['item'] => createPatchedItemStore({
+  source: read.node.item,
+  overlay,
+  project: (item, projection) => {
+    const patch = projection.patch
     if (!patch) {
       return item
     }
@@ -167,10 +165,9 @@ const createNodeStateStore = ({
   overlay
 }: {
   overlay: KeyedReadStore<NodeId, NodeOverlayProjection>
-}): NodeRead['state'] => createKeyedDerivedStore({
-  get: (readStore, nodeId: NodeId) => toNodeRuntimeState(
-    readStore(overlay, nodeId)
-  ),
+}): NodeRead['state'] => createOverlayStateStore({
+  overlay,
+  project: toNodeRuntimeState,
   isEqual: isNodeStateEqual
 })
 
@@ -210,16 +207,9 @@ export const createNodeRead = ({
 
   return {
     list: read.node.list,
-    source: read.node.item,
     item,
     state,
     owner: read.node.owner,
-    bounds: (nodeId) => {
-      const nextItem = item.get(nodeId)
-      return nextItem
-        ? getNodeItemBounds(nextItem)
-        : undefined
-    },
     outline: (nodeId) => {
       const nextItem = item.get(nodeId)
       return nextItem

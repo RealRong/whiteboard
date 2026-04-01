@@ -4,18 +4,38 @@ import {
   moveRoutePoint
 } from '@whiteboard/core/edge'
 import type { EdgeId } from '@whiteboard/core/types'
-import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
-import type { PointerDownInput } from '../../types/input'
-import { clearEdgePatches, writeRoutePreview } from './overlay'
 import type {
-  BodyMoveState,
+  InteractionControl,
+  InteractionSession,
+  InteractionStartResult
+} from '../../runtime/interaction'
+import type { PointerDownInput } from '../../types/input'
+import {
+  clearEdgeOverlay,
+  clearEdgePatches,
+  writeEdgePatch
+} from './overlay'
+import type {
+  BodyMoveSession,
   EdgeInteractionCtx,
   EdgeRoutePick,
-  RouteDragState,
+  RouteDragSession,
   RoutePoint,
   RouteState
 } from './types'
-import { readViewport } from './types'
+
+const HANDLED: InteractionStartResult = {
+  kind: 'handled'
+}
+
+type PointerClient = {
+  clientX: number
+  clientY: number
+}
+
+const readViewport = (
+  ctx: EdgeInteractionCtx
+) => ctx.read.viewport
 
 const isEdgeRoutePick = (
   pick: PointerDownInput['pick']
@@ -102,101 +122,247 @@ const readRoutePoint = (
   }
 }
 
-const updateBodyMove = (
+const projectBodyMove = (
   ctx: EdgeInteractionCtx,
-  state: BodyMoveState,
-  input: {
-    clientX: number
-    clientY: number
-  }
+  session: BodyMoveSession,
+  input: PointerClient
 ) => {
+  const item = ctx.read.edge.item.get(session.edgeId)
+  if (!item || !ctx.read.edge.capability(item.edge).move) {
+    return {
+      ok: false as const,
+      session
+    }
+  }
+
   const { world } = readViewport(ctx).pointer(input)
   const delta = {
-    x: world.x - state.start.x,
-    y: world.y - state.start.y
+    x: world.x - session.start.x,
+    y: world.y - session.start.y
   }
-  if (isPointEqual(delta, state.delta)) {
-    return
-  }
-
-  state.delta = delta
-  const item = ctx.read.edge.item.get(state.edgeId)
-  if (!item || !ctx.read.edge.capability(item.edge).move) {
-    return
-  }
-
-  const patch = moveEdge(item.edge, delta)
-  if (!patch) {
-    return
-  }
-
-  ctx.overlay.set((current) => ({
-    ...current,
-    edge: {
-      ...current.edge,
-      interaction: [{
-        id: state.edgeId,
-        patch
-      }]
+  if (isPointEqual(delta, session.delta)) {
+    return {
+      ok: true as const,
+      session
     }
-  }))
+  }
+
+  return {
+    ok: true as const,
+    session: {
+      ...session,
+      delta
+    },
+    patch: moveEdge(item.edge, delta)
+  }
+}
+
+const writeBodyMovePreview = (
+  ctx: EdgeInteractionCtx,
+  edgeId: EdgeId,
+  patch: ReturnType<typeof moveEdge>
+) => {
+  writeEdgePatch(ctx, {
+    edgeId,
+    patch
+  })
 }
 
 const commitBodyMove = (
   ctx: EdgeInteractionCtx,
-  state: BodyMoveState
+  session: BodyMoveSession
 ) => {
-  if (!isPointEqual(state.delta, { x: 0, y: 0 })) {
-    ctx.commands.edge.move(state.edgeId, state.delta)
+  if (!isPointEqual(session.delta, { x: 0, y: 0 })) {
+    ctx.commands.edge.move(session.edgeId, session.delta)
     ctx.commands.selection.clear()
   }
 }
 
-const updateRouteDrag = (
+const createBodyMoveSession = (
   ctx: EdgeInteractionCtx,
-  state: RouteDragState,
-  input: {
-    clientX: number
-    clientY: number
+  initial: BodyMoveSession,
+  control: InteractionControl
+): InteractionSession => {
+  let session = initial
+
+  const step = (
+    input: PointerClient
+  ) => {
+    const result = projectBodyMove(ctx, session, input)
+    if (!result.ok) {
+      control.cancel()
+      return false
+    }
+
+    if (result.session !== session) {
+      session = result.session
+      writeBodyMovePreview(ctx, session.edgeId, result.patch)
+    }
+
+    return true
   }
+
+  return {
+    mode: 'edge-drag',
+    pointerId: session.pointerId,
+    autoPan: {
+      frame: (pointer) => {
+        step(pointer)
+      }
+    },
+    move: (input) => {
+      if (!step({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
+        return
+      }
+
+      control.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
+    },
+    up: (input) => {
+      if (!step({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
+        return
+      }
+
+      commitBodyMove(ctx, session)
+      control.finish()
+    },
+    cleanup: () => {
+      clearEdgePatches(ctx)
+    }
+  }
+}
+
+const projectRouteDrag = (
+  ctx: EdgeInteractionCtx,
+  session: RouteDragSession,
+  input: PointerClient
 ) => {
-  const item = ctx.read.edge.item.get(state.edgeId)
-  if (!item || !readCapability(ctx, state.edgeId)?.editRoute) {
-    return false
+  const item = ctx.read.edge.item.get(session.edgeId)
+  if (!item || !readCapability(ctx, session.edgeId)?.editRoute) {
+    return {
+      ok: false as const,
+      session
+    }
   }
 
   const { world } = readViewport(ctx).pointer(input)
   const point = {
-    x: state.origin.x + (world.x - state.start.x),
-    y: state.origin.y + (world.y - state.start.y)
+    x: session.origin.x + (world.x - session.start.x),
+    y: session.origin.y + (world.y - session.start.y)
   }
-  if (isPointEqual(point, state.point)) {
-    return true
-  }
-
-  state.point = point
-  const patch = moveRoutePoint(item.edge, state.index, point)
-  if (!patch) {
-    return false
+  if (isPointEqual(point, session.point)) {
+    return {
+      ok: true as const,
+      session
+    }
   }
 
-  writeRoutePreview(ctx, state.edgeId, patch, state.index)
-  return true
+  return {
+    ok: true as const,
+    session: {
+      ...session,
+      point
+    },
+    patch: moveRoutePoint(item.edge, session.index, point)
+  }
+}
+
+const writeRouteDragPreview = (
+  ctx: EdgeInteractionCtx,
+  session: RouteDragSession,
+  patch: ReturnType<typeof moveRoutePoint>
+) => {
+  writeEdgePatch(ctx, {
+    edgeId: session.edgeId,
+    patch,
+    activeRouteIndex: session.index
+  })
 }
 
 const commitRouteDrag = (
   ctx: EdgeInteractionCtx,
-  state: RouteDragState
+  session: RouteDragSession
 ) => {
   if (
-    readCapability(ctx, state.edgeId)?.editRoute
-    && !isPointEqual(state.point, state.origin)
+    readCapability(ctx, session.edgeId)?.editRoute
+    && !isPointEqual(session.point, session.origin)
   ) {
-    ctx.commands.edge.route.move(state.edgeId, state.index, state.point)
+    ctx.commands.edge.route.move(session.edgeId, session.index, session.point)
   }
 }
 
-export const startEdgeRouteSession = (
+const createRouteDragSession = (
+  ctx: EdgeInteractionCtx,
+  initial: RouteDragSession,
+  control: InteractionControl
+): InteractionSession => {
+  let session = initial
+  writeRouteDragPreview(ctx, session, undefined)
+
+  const step = (
+    input: PointerClient
+  ) => {
+    const result = projectRouteDrag(ctx, session, input)
+    if (!result.ok) {
+      control.cancel()
+      return false
+    }
+
+    if (result.session !== session) {
+      session = result.session
+      writeRouteDragPreview(ctx, session, result.patch)
+    }
+
+    return true
+  }
+
+  return {
+    mode: 'edge-route',
+    pointerId: session.pointerId,
+    autoPan: {
+      frame: (pointer) => {
+        step(pointer)
+      }
+    },
+    move: (input) => {
+      if (!step({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
+        return
+      }
+
+      control.pan({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })
+    },
+    up: (input) => {
+      if (!step({
+        clientX: input.client.x,
+        clientY: input.client.y
+      })) {
+        return
+      }
+
+      commitRouteDrag(ctx, session)
+      control.finish()
+    },
+    cleanup: () => {
+      clearEdgePatches(ctx)
+    }
+  }
+}
+
+const resolveRouteState = (
   ctx: EdgeInteractionCtx,
   input: PointerDownInput
 ): RouteState | null => {
@@ -232,112 +398,118 @@ export const startEdgeRouteSession = (
         }
 }
 
-export const createMoveBodyInteraction = (
+const startEdgeBodyInteraction = (
   ctx: EdgeInteractionCtx,
-  state: BodyMoveState,
-  control: InteractionControl
-): InteractionSession => ({
-  mode: 'edge-drag',
-  pointerId: state.pointerId,
-  autoPan: {
-    frame: (pointer) => {
-      updateBodyMove(ctx, state, pointer)
-    }
-  },
-  move: (nextInput) => {
-    updateBodyMove(ctx, state, {
-      clientX: nextInput.client.x,
-      clientY: nextInput.client.y
-    })
-    control.pan({
-      clientX: nextInput.client.x,
-      clientY: nextInput.client.y
-    })
-  },
-  up: () => {
-    commitBodyMove(ctx, state)
-    control.finish()
-  },
-  cleanup: () => {
-    clearEdgePatches(ctx)
-  }
-})
-
-export const createRouteInteraction = (
-  ctx: EdgeInteractionCtx,
-  session: RouteState,
   input: PointerDownInput,
   control: InteractionControl
-): InteractionSession => {
-  let routeState = session
+): InteractionStartResult => {
+  if (
+    ctx.read.tool.get().type !== 'select'
+    || input.pick.kind !== 'edge'
+    || input.pick.part !== 'body'
+  ) {
+    return null
+  }
+
+  const item = ctx.read.edge.item.get(input.pick.id)
+  const capability = item
+    ? ctx.read.edge.capability(item.edge)
+    : undefined
+  if (!capability) {
+    return null
+  }
+
+  if (input.modifiers.shift || input.detail >= 2) {
+    if (!capability.editRoute) {
+      return null
+    }
+
+    ctx.commands.selection.replace({
+      edgeIds: [input.pick.id]
+    })
+    ctx.commands.edge.route.insert(input.pick.id, input.world)
+    clearEdgeOverlay(ctx)
+    return HANDLED
+  }
+
+  if (!capability.move) {
+    return null
+  }
+
+  const session: BodyMoveSession = {
+    edgeId: input.pick.id,
+    pointerId: input.pointerId,
+    start: input.world,
+    delta: { x: 0, y: 0 }
+  }
+
+  ctx.commands.selection.replace({
+    edgeIds: [session.edgeId]
+  })
+
+  return {
+    kind: 'session',
+    session: createBodyMoveSession(ctx, session, control)
+  }
+}
+
+const startEdgePathInteraction = (
+  ctx: EdgeInteractionCtx,
+  input: PointerDownInput,
+  control: InteractionControl
+): InteractionStartResult => {
+  if (
+    ctx.read.tool.get().type !== 'select'
+    || input.pick.kind !== 'edge'
+    || input.pick.part !== 'path'
+  ) {
+    return null
+  }
+
+  const routeState = resolveRouteState(ctx, input)
+  if (!routeState) {
+    return null
+  }
 
   if (routeState.kind === 'remove') {
     ctx.commands.edge.route.remove(routeState.edgeId, routeState.index)
-    control.finish()
-
-    return {
-      mode: 'edge-route',
-      cleanup: () => {
-        clearEdgePatches(ctx)
-      }
-    }
+    clearEdgePatches(ctx)
+    return HANDLED
   }
 
   if (routeState.kind === 'insert') {
     const result = ctx.commands.edge.route.insert(routeState.edgeId, routeState.worldPoint)
     if (!result.ok) {
-      control.finish()
-
-      return {
-        mode: 'edge-route',
-        cleanup: () => {
-          clearEdgePatches(ctx)
-        }
-      }
+      clearEdgePatches(ctx)
+      return HANDLED
     }
 
     const origin = readRouteOrigin(ctx, routeState.edgeId, result.data.index) ?? routeState.worldPoint
-    routeState = {
-      kind: 'drag',
-      edgeId: routeState.edgeId,
-      index: result.data.index,
-      pointerId: input.pointerId,
-      start: input.world,
-      origin,
-      point: origin
+    return {
+      kind: 'session',
+      session: createRouteDragSession(ctx, {
+        kind: 'drag',
+        edgeId: routeState.edgeId,
+        index: result.data.index,
+        pointerId: input.pointerId,
+        start: input.world,
+        origin,
+        point: origin
+      }, control)
     }
   }
-
-  writeRoutePreview(ctx, routeState.edgeId, undefined, routeState.index)
 
   return {
-    mode: 'edge-route',
-    pointerId: routeState.pointerId,
-    autoPan: {
-      frame: (pointer) => {
-        updateRouteDrag(ctx, routeState, pointer)
-      }
-    },
-    move: (nextInput) => {
-      if (!updateRouteDrag(ctx, routeState, {
-        clientX: nextInput.client.x,
-        clientY: nextInput.client.y
-      })) {
-        control.cancel()
-        return
-      }
-
-      control.pan({
-        clientX: nextInput.client.x,
-        clientY: nextInput.client.y
-      })
-    },
-    up: () => {
-      commitRouteDrag(ctx, routeState)
-      control.finish()
-    },
-    cleanup: () => {
-      clearEdgePatches(ctx)
-    }
+    kind: 'session',
+    session: createRouteDragSession(ctx, routeState, control)
   }
 }
+
+export const startEdgeRouteInteraction = (
+  ctx: EdgeInteractionCtx,
+  input: PointerDownInput,
+  control: InteractionControl
+): InteractionStartResult => (
+  startEdgeBodyInteraction(ctx, input, control)
+  ?? startEdgePathInteraction(ctx, input, control)
+)

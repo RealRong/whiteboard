@@ -4,28 +4,22 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { InteractionOwner } from '../../runtime/interaction'
 import type { InteractionCtx } from '../../runtime/interaction/ctx'
 import type { PointerDownInput } from '../../types/input'
 
 export type EdgeInteractionCtx = Pick<
   InteractionCtx,
-  'read' | 'config' | 'commands' | 'state' | 'overlay' | 'snap'
+  'read' | 'config' | 'commands' | 'overlay' | 'snap'
 >
 
-export type ConnectPointer = {
-  pointerId: number
-  world: PointerDownInput['world']
-}
-
-export type BodyMoveState = {
+export type BodyMoveSession = {
   edgeId: EdgeId
   pointerId: number
   start: Point
   delta: Point
 }
 
-export type RouteDragState = {
+export type RouteDragSession = {
   kind: 'drag'
   edgeId: EdgeId
   index: number
@@ -36,7 +30,7 @@ export type RouteDragState = {
 }
 
 export type RouteState =
-  | RouteDragState
+  | RouteDragSession
   | {
       kind: 'insert'
       edgeId: EdgeId
@@ -46,24 +40,6 @@ export type RouteState =
       kind: 'remove'
       edgeId: EdgeId
       index: number
-    }
-
-export type EdgeSession =
-  | {
-      kind: 'connect'
-      state: EdgeConnectState
-    }
-  | {
-      kind: 'moveBody'
-      state: BodyMoveState
-    }
-  | {
-      kind: 'insertBodyRoute'
-      edgeId: EdgeId
-    }
-  | {
-      kind: 'route'
-      state: RouteState
     }
 
 export type EdgeRoutePick = Extract<PointerDownInput['pick'], {
@@ -89,19 +65,3 @@ export type RoutePoint =
 export type ConnectNodeEntry = NonNullable<
   ReturnType<EdgeInteractionCtx['read']['index']['node']['get']>
 >
-
-export type EdgeInteraction = {
-  owner: InteractionOwner
-  clear: () => void
-}
-
-export const readViewport = (
-  ctx: EdgeInteractionCtx
-) => ctx.state.viewport.read
-
-export const readPointer = (
-  input: ConnectPointer
-): ConnectPointer => ({
-  pointerId: input.pointerId,
-  world: input.world
-})

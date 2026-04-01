@@ -27,7 +27,6 @@ export type InteractionState = Readonly<{
   chrome: boolean
   mode: InteractionMode
   transforming: boolean
-  space: boolean
 }>
 
 export type AutoPanPointer = Readonly<{
@@ -67,6 +66,16 @@ export type InteractionSession = {
   cleanup?: () => void
 }
 
+export type InteractionStartResult =
+  | null
+  | {
+      kind: 'handled'
+    }
+  | {
+      kind: 'session'
+      session: InteractionSession
+    }
+
 export type InteractionObserve = {
   move?: (input: PointerMoveInput) => void
   leave?: () => void
@@ -81,8 +90,13 @@ export type InteractionOwner = {
   start?: (
     input: PointerDownInput,
     control: InteractionControl
-  ) => InteractionSession | null
+  ) => InteractionStartResult
   observe?: InteractionObserve
+}
+
+export type InteractionFeature = {
+  owner: InteractionOwner
+  clear?: () => void
 }
 
 export type InteractionRuntime = {
@@ -90,7 +104,6 @@ export type InteractionRuntime = {
   busy: ReadStore<boolean>
   chrome: ReadStore<boolean>
   state: ReadStore<InteractionState>
-  space: ReadStore<boolean>
   handlePointerDown: (input: PointerDownInput) => boolean
   handlePointerMove: (input: PointerMoveInput) => boolean
   handlePointerUp: (input: PointerUpInput) => boolean

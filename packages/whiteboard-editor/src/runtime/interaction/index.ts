@@ -4,12 +4,14 @@ export { GestureTuning } from './config'
 export type { InteractionCtx } from './ctx'
 export type {
   InteractionControl,
+  InteractionFeature,
   InteractionKeyboardInput,
   InteractionMode,
   InteractionObserve,
   InteractionOwner,
   InteractionRuntime,
   InteractionSession,
+  InteractionStartResult,
   InteractionSessionMode,
   InteractionState
 } from '../../types/runtime/interaction'

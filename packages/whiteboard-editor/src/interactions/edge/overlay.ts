@@ -83,20 +83,22 @@ export const writeConnectPreview = (
   }))
 }
 
-export const writeRoutePreview = (
+export const writeEdgePatch = (
   ctx: EdgeInteractionCtx,
-  edgeId: EdgeId,
-  patch?: EdgePatch,
-  activeRouteIndex?: number
+  input: {
+    edgeId: EdgeId
+    patch?: EdgePatch
+    activeRouteIndex?: number
+  }
 ) => {
   ctx.overlay.set((current) => ({
     ...current,
     edge: {
       ...current.edge,
       interaction: [{
-        id: edgeId,
-        patch,
-        activeRouteIndex
+        id: input.edgeId,
+        patch: input.patch,
+        activeRouteIndex: input.activeRouteIndex
       }]
     }
   }))

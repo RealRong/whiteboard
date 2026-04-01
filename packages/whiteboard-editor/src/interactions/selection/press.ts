@@ -1,6 +1,8 @@
 import {
   matchSelectionRelease,
   resolveSelectionPressDecision,
+  type SelectionDragDecision,
+  type SelectionMarqueeDecision,
   type SelectionPressDecision,
   type SelectionPressSubject,
   type SelectionPressTarget,
@@ -22,10 +24,10 @@ import { createMarqueeInteraction } from './marquee'
 import { createMoveInteraction } from './move'
 
 type SelectionPressField = NonNullable<PointerDownInput['field']>
-type SelectionPointer = PointerDownInput | PointerMoveInput | PointerUpInput
+type SelectionSubjectInput = Pick<PointerDownInput, 'pick' | 'field'>
 type SelectionInteractionCtx = Pick<
   InteractionCtx,
-  'read' | 'state' | 'config' | 'commands' | 'overlay' | 'snap'
+  'read' | 'config' | 'commands' | 'overlay' | 'snap'
 >
 
 export type SelectionPressState = {
@@ -58,7 +60,7 @@ const clearHoldTask = (
 
 const toSelectionPressSubject = (
   ctx: SelectionInteractionCtx,
-  input: SelectionPointer
+  input: SelectionSubjectInput
 ): SelectionPressSubject<SelectionPressField> | undefined => {
   switch (input.pick.kind) {
     case 'background':
@@ -168,34 +170,42 @@ export const resolveSelectionPressState = (
   }
 }
 
-const startDecisionDrag = (
+const createDragSession = (
   ctx: SelectionInteractionCtx,
   start: PointerDownInput,
-  state: SelectionPressState,
-  pointer: PointerMoveInput | undefined
+  drag: SelectionDragDecision | undefined,
+  pointer: PointerMoveInput
 ) => {
-  const drag = pointer
-    ? state.decision.drag
-    : state.decision.hold
   if (!drag) {
     return null
   }
 
   if (drag.kind === 'move') {
-    return pointer
-      ? createMoveInteraction(ctx, {
-          start,
-          pointer,
-          target: drag.target,
-          prepareSelection: drag.prepareSelection
-        })
-      : null
+    return createMoveInteraction(ctx, {
+      start,
+      target: drag.target,
+      prepareSelection: drag.prepareSelection
+    })
   }
 
   return createMarqueeInteraction(ctx, {
     start,
-    action: drag,
-    initialInput: pointer
+    action: drag
+  })
+}
+
+const createHoldSession = (
+  ctx: SelectionInteractionCtx,
+  start: PointerDownInput,
+  hold: SelectionMarqueeDecision | undefined
+) => {
+  if (!hold) {
+    return null
+  }
+
+  return createMarqueeInteraction(ctx, {
+    start,
+    action: hold
   })
 }
 
@@ -205,49 +215,68 @@ export const createPressInteraction = (
   pressState: SelectionPressState,
   control: InteractionControl
 ): InteractionSession => {
-  let phase: InteractionSession
+  let active: InteractionSession | null = null
 
-  const transition = (
-    next: InteractionSession,
-    options?: {
-      pan?: {
-        clientX: number
-        clientY: number
-      }
-    }
+  const activate = (
+    next: InteractionSession
   ) => {
-    phase = next
+    active = next
     control.update({
       mode: next.mode,
       chrome: next.chrome ?? false
     })
+  }
 
-    if (options?.pan) {
-      control.pan(options.pan)
+  const forwardMove = (
+    input: PointerMoveInput
+  ) => {
+    if (!active) {
+      return
+    }
+
+    active.move?.(input)
+
+    if (active.autoPan) {
+      control.pan(toPanPointer(input))
     }
   }
 
-  const pressPhase: InteractionSession = {
+  const pressSession: InteractionSession = {
     mode: 'press',
     pointerId: start.pointerId,
     chrome: pressState.decision.chrome,
+    autoPan: {
+      frame: (pointer) => {
+        active?.autoPan?.frame?.(pointer)
+      }
+    },
     move: (input) => {
+      if (active) {
+        forwardMove(input)
+        return
+      }
+
       if (!hasMovedEnough(pressState, input)) {
         return
       }
 
       clearHoldTask(pressState)
-      const next = startDecisionDrag(ctx, start, pressState, input)
+      const next = createDragSession(ctx, start, pressState.decision.drag, input)
       if (!next) {
         control.finish()
         return
       }
 
-      transition(next, {
-        pan: toPanPointer(input)
-      })
+      activate(next)
+      forwardMove(input)
     },
     up: (input) => {
+      if (active) {
+        active.up?.(input)
+        control.finish()
+        return
+      }
+
       clearHoldTask(pressState)
       const release = pressState.decision.release
       if (!release) {
@@ -260,34 +289,35 @@ export const createPressInteraction = (
       }
 
       runRelease(ctx, release)
+      control.finish()
     },
     cancel: () => {
       clearHoldTask(pressState)
+      active?.cancel?.()
     },
     cleanup: () => {
       clearHoldTask(pressState)
+      active?.cleanup?.()
     }
   }
-
-  phase = pressPhase
 
   if (pressState.decision.hold) {
     pressState.holdTask = createTimeoutTask(() => {
       pressState.holdTask = null
 
-      if (phase !== pressPhase) {
+      if (active) {
         return
       }
 
-      const next = startDecisionDrag(ctx, start, pressState, undefined)
+      const next = createHoldSession(ctx, start, pressState.decision.hold)
       if (!next) {
         return
       }
 
-      transition(next)
+      activate(next)
     })
     pressState.holdTask.schedule(GestureTuning.holdDelay)
   }
 
-  return pressPhase
+  return pressSession
 }

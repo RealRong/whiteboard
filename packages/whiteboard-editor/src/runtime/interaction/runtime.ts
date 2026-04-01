@@ -61,13 +61,17 @@ const readDefaultPointerId = (
 
 export const createInteractionRuntime = ({
   getViewport,
-  getOwners
+  getOwners,
+  space
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
   getOwners: () => readonly InteractionOwner[]
+  space: {
+    get: () => boolean
+    set: (value: boolean) => void
+  }
 }): InteractionRuntime => {
   const active = createValueStore<SessionMeta | null>(null)
-  const space = createValueStore(false)
   const busy = createDerivedStore({
     get: (read) => read(active) !== null
   })
@@ -86,15 +90,13 @@ export const createInteractionRuntime = ({
       busy: read(busy),
       chrome: read(chrome),
       mode: read(mode),
-      transforming: read(mode) === 'node-transform',
-      space: read(space)
+      transforming: read(mode) === 'node-transform'
     }),
     isEqual: (left, right) => (
       left.busy === right.busy
       && left.chrome === right.chrome
       && left.mode === right.mode
       && left.transforming === right.transforming
-      && left.space === right.space
     )
   })
   let nextId = 1
@@ -267,10 +269,16 @@ export const createInteractionRuntime = ({
         }
       }
 
-      const nextSession = owner.start(input, control)
-      if (!nextSession) {
+      const startResult = owner.start(input, control)
+      if (!startResult) {
         continue
       }
+
+      if (startResult.kind === 'handled') {
+        return true
+      }
+
+      const nextSession = startResult.session
 
       const resolvedSession: InteractionSession = {
         ...nextSession,
@@ -444,7 +452,6 @@ export const createInteractionRuntime = ({
     busy,
     chrome,
     state,
-    space,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

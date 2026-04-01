@@ -6,8 +6,8 @@ import {
 } from '@whiteboard/core/mindmap'
 import type { Point } from '@whiteboard/core/types'
 import type {
+  InteractionFeature,
   InteractionControl,
-  InteractionOwner,
   InteractionSession
 } from '../runtime/interaction'
 import type { InteractionCtx } from '../runtime/interaction'
@@ -16,7 +16,7 @@ import type { PointerDownInput } from '../types/input'
 
 type MindmapInteractionCtx = Pick<
   InteractionCtx,
-  'read' | 'state' | 'config' | 'commands' | 'overlay'
+  'read' | 'config' | 'commands' | 'overlay'
 >
 
 const toMindmapDragFeedback = (
@@ -105,41 +105,7 @@ const clearMindmapDrag = (
   ))
 }
 
-const projectMindmapState = (
-  ctx: MindmapInteractionCtx,
-  state: MindmapDragSession,
-  world: Point
-): MindmapDragSession => {
-  const next = projectMindmapDrag({
-    active: state,
-    world,
-    treeView:
-      state.kind === 'subtree'
-        ? ctx.read.mindmap.item.get(state.treeId)
-        : undefined
-  })
-
-  ctx.overlay.set((current) => ({
-    ...current,
-    mindmap: {
-      drag: toMindmapDragFeedback(next)
-    }
-  }))
-
-  return {
-    ...next
-  }
-}
-
-const projectMindmapInto = (
-  ctx: MindmapInteractionCtx,
-  state: MindmapDragSession,
-  world: Point
-) => {
-  Object.assign(state, projectMindmapState(ctx, state, world))
-}
-
-const startMindmapDrag = (
+const writeMindmapDrag = (
   ctx: MindmapInteractionCtx,
   state: MindmapDragSession
 ) => {
@@ -150,6 +116,19 @@ const startMindmapDrag = (
     }
   }))
 }
+
+const projectMindmapSession = (
+  ctx: MindmapInteractionCtx,
+  state: MindmapDragSession,
+  world: Point
+): MindmapDragSession => projectMindmapDrag({
+  active: state,
+  world,
+  treeView:
+    state.kind === 'subtree'
+      ? ctx.read.mindmap.item.get(state.treeId)
+      : undefined
+})
 
 const commitMindmapDrag = (
   ctx: MindmapInteractionCtx,
@@ -187,29 +166,32 @@ const commitMindmapDrag = (
 
 const createMindmapSession = (
   ctx: MindmapInteractionCtx,
-  state: MindmapDragSession,
+  initial: MindmapDragSession,
   control: InteractionControl
 ): InteractionSession => {
-  startMindmapDrag(ctx, state)
+  let session = initial
+  writeMindmapDrag(ctx, session)
 
   return {
     mode: 'mindmap-drag',
-    pointerId: state.pointerId,
+    pointerId: session.pointerId,
     chrome: false,
     autoPan: {
       frame: (pointer) => {
-        projectMindmapInto(
+        session = projectMindmapSession(
           ctx,
-          state,
-          ctx.state.viewport.read.pointer(pointer).world
+          session,
+          ctx.read.viewport.pointer(pointer).world
         )
+        writeMindmapDrag(ctx, session)
       }
     },
     move: (next) => {
-      projectMindmapInto(ctx, state, next.world)
+      session = projectMindmapSession(ctx, session, next.world)
+      writeMindmapDrag(ctx, session)
     },
     up: () => {
-      commitMindmapDrag(ctx, state)
+      commitMindmapDrag(ctx, session)
       control.finish()
     },
     cleanup: () => {
@@ -220,17 +202,17 @@ const createMindmapSession = (
 
 export const createMindmapInteraction = (
   ctx: MindmapInteractionCtx
-): {
-  owner: InteractionOwner
-  clear: () => void
-} => ({
+): InteractionFeature => ({
   owner: {
     key: 'mindmap',
     priority: 110,
     start: (input, control) => {
       const state = resolveMindmapDragSession(ctx, input)
       return state
-        ? createMindmapSession(ctx, state, control)
+        ? {
+            kind: 'session',
+            session: createMindmapSession(ctx, state, control)
+          }
         : null
     }
   },

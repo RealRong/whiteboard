@@ -9,7 +9,9 @@ export {
 export {
   deriveSelectionSummary,
   isSelectionSummaryEqual,
+  resolveSelectionTransformBox,
   type SelectionSummary,
+  type SelectionTransformBox,
   type SelectionTransform
 } from './summary'
 export {
@@ -35,6 +37,7 @@ export {
   resolveSelectionPressDecision,
   resolveSelectionPressTarget,
   type SelectionDragDecision,
+  type SelectionMarqueeDecision,
   type SelectionPressDecision,
   type SelectionPressPolicyDeps,
   type SelectionPressResolution,

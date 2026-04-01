@@ -1,8 +1,10 @@
 import {
   deriveSelectionSummary,
   isSelectionSummaryEqual,
+  resolveSelectionTransformBox,
   resolveSelectionBoxTarget,
   type SelectionSummary,
+  type SelectionTransformBox,
   type SelectionTarget
 } from '@whiteboard/core/selection'
 import {
@@ -18,6 +20,7 @@ import type { TargetBoundsQuery } from '../query/targetBounds'
 export type SelectionRead = {
   target: ReadStore<SelectionTarget>
   summary: ReadStore<SelectionSummary>
+  transformBox: ReadStore<SelectionTransformBox>
 }
 
 const readRuntimeNodes = (
@@ -26,6 +29,17 @@ const readRuntimeNodes = (
 ) => readStore(node.list)
   .map((nodeId) => readStore(node.item, nodeId)?.node)
   .filter((entry): entry is Node => Boolean(entry))
+
+const isSelectionTransformBoxEqual = (
+  left: SelectionTransformBox,
+  right: SelectionTransformBox
+) => (
+  left.canResize === right.canResize
+  && left.box?.x === right.box?.x
+  && left.box?.y === right.box?.y
+  && left.box?.width === right.box?.width
+  && left.box?.height === right.box?.height
+)
 
 export const createSelectionRead = ({
   source,
@@ -37,9 +51,8 @@ export const createSelectionRead = ({
   node: NodeRead
   edge: EdgeRead
   targetBounds: TargetBoundsQuery
-}): SelectionRead => ({
-  target: source,
-  summary: createDerivedStore<SelectionSummary>({
+}): SelectionRead => {
+  const summary = createDerivedStore<SelectionSummary>({
     get: (readStore) => {
       const selectionTarget = readStore(source)
       const runtimeNodes = readRuntimeNodes(node, readStore)
@@ -74,4 +87,16 @@ export const createSelectionRead = ({
     },
     isEqual: isSelectionSummaryEqual
   })
-})
+  const transformBox = createDerivedStore<SelectionTransformBox>({
+    get: (readStore) => resolveSelectionTransformBox(
+      readStore(summary)
+    ),
+    isEqual: isSelectionTransformBoxEqual
+  })
+
+  return {
+    target: source,
+    summary,
+    transformBox
+  }
+}

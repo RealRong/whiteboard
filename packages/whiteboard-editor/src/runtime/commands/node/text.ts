@@ -1,9 +1,7 @@
 import { isTextContentEmpty } from '@whiteboard/core/node'
 import type { NodeId, Size } from '@whiteboard/core/types'
-import type {
-  NodePatch,
-  NodePatchEntry
-} from '../../overlay'
+import type { EngineInstance } from '@whiteboard/engine'
+import type { NodePatch } from '../../overlay'
 import type {
   Editor,
   EditorNodeAppearanceCommands,
@@ -11,6 +9,11 @@ import type {
   EditorNodeTextCommands
 } from '../../../types/editor'
 import type { EditorOverlay } from '../../overlay'
+import {
+  isNodePatchEqual,
+  readNodePatchEntry,
+  replaceNodePatchEntry
+} from '../../overlay'
 import {
   dataUpdate,
   mergeNodeUpdates,
@@ -46,101 +49,16 @@ const mergeTextPreviewPatch = (
   return next
 }
 
-const isSamePoint = (
-  left: { x: number, y: number } | undefined,
-  right: { x: number, y: number } | undefined
-) => (
-  left?.x === right?.x
-  && left?.y === right?.y
-)
-
-const isSameNodePatch = (
-  left: NodePatch | undefined,
-  right: NodePatch | undefined
-) => (
-  isSamePoint(left?.position, right?.position)
-  && isSameSize(left?.size, right?.size)
-  && left?.rotation === right?.rotation
-)
-
-const readOverlayPatch = (
-  patches: readonly NodePatchEntry[],
-  nodeId: NodeId
-): NodePatch | undefined => {
-  for (let index = 0; index < patches.length; index += 1) {
-    const entry = patches[index]!
-    if (entry.id === nodeId) {
-      return entry.patch
-    }
-  }
-
-  return undefined
-}
-
-const replaceOverlayPatch = (
-  patches: readonly NodePatchEntry[],
-  nodeId: NodeId,
-  patch: NodePatch | undefined
-): readonly NodePatchEntry[] => {
-  let changed = false
-  const next: NodePatchEntry[] = []
-
-  for (let index = 0; index < patches.length; index += 1) {
-    const entry = patches[index]!
-    if (entry.id !== nodeId) {
-      next.push(entry)
-      continue
-    }
-
-    if (!patch) {
-      changed = true
-      continue
-    }
-
-    if (isSameNodePatch(entry.patch, patch)) {
-      next.push(entry)
-      continue
-    }
-
-    next.push({
-      id: nodeId,
-      patch
-    })
-    changed = true
-  }
-
-  if (!patch) {
-    return changed
-      ? next
-      : patches
-  }
-
-  const hasPatch = patches.some((entry) => entry.id === nodeId)
-  if (hasPatch) {
-    return changed
-      ? next
-      : patches
-  }
-
-  return [
-    ...patches,
-    {
-      id: nodeId,
-      patch
-    }
-  ]
-}
-
 const writeTextPreview = (
   overlay: Pick<EditorOverlay, 'set'>,
   nodeId: NodeId,
   size?: Size
 ) => {
   overlay.set((current) => {
-    const patch = readOverlayPatch(current.node.text.patches, nodeId)
+    const patch = readNodePatchEntry(current.node.text.patches, nodeId)
     const nextPatch = mergeTextPreviewPatch(patch, size)
 
-    if (isSameSize(patch?.size, nextPatch?.size)) {
+    if (isNodePatchEqual(patch, nextPatch)) {
       return current
     }
 
@@ -149,7 +67,7 @@ const writeTextPreview = (
       node: {
         ...current.node,
         text: {
-          patches: replaceOverlayPatch(current.node.text.patches, nodeId, nextPatch)
+          patches: replaceNodePatchEntry(current.node.text.patches, nodeId, nextPatch)
         }
       }
     }
@@ -161,20 +79,22 @@ const clearTextPreview = (
   nodeId: NodeId
 ) => {
   overlay.set((current) => {
-    const patch = readOverlayPatch(current.node.text.patches, nodeId)
+    const patch = readNodePatchEntry(current.node.text.patches, nodeId)
     if (!patch?.size) {
       return current
     }
+
+    const nextPatch = mergeTextPreviewPatch(patch, undefined)
 
     return {
       ...current,
       node: {
         ...current.node,
         text: {
-          patches: replaceOverlayPatch(
+          patches: replaceNodePatchEntry(
             current.node.text.patches,
             nodeId,
-            mergeTextPreviewPatch(patch, undefined)
+            nextPatch
           )
         }
       }
@@ -184,6 +104,7 @@ const clearTextPreview = (
 
 export const createNodeTextCommands = ({
   read,
+  committedNode,
   overlay,
   edit,
   selection,
@@ -192,6 +113,7 @@ export const createNodeTextCommands = ({
   appearance
 }: {
   read: Editor['read']
+  committedNode: EngineInstance['read']['node']['item']
   overlay: Pick<EditorOverlay, 'set'>
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
@@ -225,7 +147,7 @@ export const createNodeTextCommands = ({
     value,
     size
   }) => {
-    const committed = read.node.source.get(nodeId)
+    const committed = committedNode.get(nodeId)
     if (!committed) {
       clearTextPreview(overlay, nodeId)
       edit.clear()
@@ -289,7 +211,7 @@ export const createNodeTextCommands = ({
     sizeById
   }) => document.updateMany(
     nodeIds.map((id) => {
-      const committed = read.node.source.get(id)
+      const committed = committedNode.get(id)
       const nextMeasuredSize = committed?.node.type === 'text'
         ? sizeById?.[id]
         : undefined

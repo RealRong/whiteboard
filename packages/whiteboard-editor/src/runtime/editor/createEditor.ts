@@ -18,7 +18,7 @@ import {
   createSnapRuntime
 } from '../interaction'
 import type { InteractionCtx } from '../interaction/ctx'
-import type { InteractionOwner } from '../../types/runtime/interaction'
+import type { InteractionFeature } from '../../types/runtime/interaction'
 import { createDrawInteraction } from '../../interactions/draw'
 import { createEdgeInteraction } from '../../interactions/edge'
 import { createInsertInteraction } from '../../interactions/insert'
@@ -60,10 +60,11 @@ export const createEditor = ({
     inputPolicy: initialInputPolicy,
     initialDrawPreferences
   })
-  let owners: readonly InteractionOwner[] = []
+  let interactions: readonly InteractionFeature[] = []
   const interaction = createInteractionRuntime({
     getViewport: () => runtime.state.viewport.input,
-    getOwners: () => owners
+    getOwners: () => interactions.map((feature) => feature.owner),
+    space: runtime.state.space
   })
   const overlay = createOverlay({
     viewport: runtime.public.viewport
@@ -127,7 +128,7 @@ export const createEditor = ({
           mode === 'edge-drag'
           || mode === 'edge-connect'
           || mode === 'edge-route',
-        space: state.space
+        space: readStore(runtime.state.space)
       }
     },
     isEqual: (left, right) => (
@@ -150,11 +151,6 @@ export const createEditor = ({
     read,
     state: runtime.state,
     config: engine.config,
-    registry,
-    interaction: {
-      mode: interaction.mode,
-      state: interaction.state
-    },
     commands,
     overlay,
     snap
@@ -167,22 +163,20 @@ export const createEditor = ({
   const selectionInteraction = createSelectionInteraction(interactionCtx)
   const edgeInteraction = createEdgeInteraction(interactionCtx)
 
-  owners = [
+  interactions = [
     viewportInteraction,
     insertInteraction,
-    drawInteraction.owner,
-    transformInteraction.owner,
-    mindmapInteraction.owner,
-    selectionInteraction.owner,
-    edgeInteraction.owner
+    drawInteraction,
+    transformInteraction,
+    mindmapInteraction,
+    selectionInteraction,
+    edgeInteraction
   ]
 
   const clearInteractions = () => {
-    drawInteraction.clear()
-    transformInteraction.clear()
-    mindmapInteraction.clear()
-    selectionInteraction.clear()
-    edgeInteraction.clear()
+    for (let index = 0; index < interactions.length; index += 1) {
+      interactions[index]!.clear?.()
+    }
   }
 
   const writePointer = (input: {

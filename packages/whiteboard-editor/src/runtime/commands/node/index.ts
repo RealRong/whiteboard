@@ -26,6 +26,7 @@ export const createNodeCommands = ({
   })
   const text = createNodeTextCommands({
     read,
+    committedNode: engine.read.node.item,
     overlay,
     edit,
     selection,

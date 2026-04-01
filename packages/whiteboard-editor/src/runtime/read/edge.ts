@@ -2,7 +2,6 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import {
   applyEdgePatch,
   type EdgeConnectCandidate,
-  getEdgePathBounds,
   matchEdgeRect,
   resolveEdgeView,
   type EdgeView as CoreEdgeView
@@ -19,6 +18,10 @@ import {
 import type {
   EdgeOverlayProjection
 } from '../overlay'
+import {
+  createOverlayStateStore,
+  createPatchedItemStore
+} from './keyed'
 
 export type EdgeRuntimeState = {
   patched: boolean
@@ -69,13 +72,11 @@ const resolveEdgeCan = (
 
 export type EdgeRead = {
   list: EngineRead['edge']['list']
-  source: EngineRead['edge']['item']
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
   state: KeyedReadStore<EdgeId, EdgeRuntimeState>
   resolved: KeyedReadStore<EdgeId, CoreEdgeView | undefined>
   capability: (edge: EdgeItem['edge']) => EdgeCapability
   related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
-  bounds: (edgeId: EdgeId) => Rect | undefined
   idsInRect: (rect: Rect, options?: {
     match?: 'touch' | 'contain'
   }) => EdgeId[]
@@ -103,17 +104,11 @@ const createEdgeItemStore = ({
 }: {
   read: Pick<EngineRead, 'edge'>
   overlay: KeyedReadStore<EdgeId, EdgeOverlayProjection>
-}): EdgeRead['item'] => createKeyedDerivedStore({
-  get: (readStore, edgeId: EdgeId) => {
-    const entry = readStore(read.edge.item, edgeId)
-    if (!entry) {
-      return undefined
-    }
-
-    const nextEdge = applyEdgePatch(
-      entry.edge,
-      readStore(overlay, edgeId).patch
-    )
+}): EdgeRead['item'] => createPatchedItemStore({
+  source: read.edge.item,
+  overlay,
+  project: (entry, projection) => {
+    const nextEdge = applyEdgePatch(entry.edge, projection.patch)
     return nextEdge === entry.edge
       ? entry
       : {
@@ -128,10 +123,9 @@ const createEdgeStateStore = ({
   overlay
 }: {
   overlay: KeyedReadStore<EdgeId, EdgeOverlayProjection>
-}): EdgeRead['state'] => createKeyedDerivedStore({
-  get: (readStore, edgeId: EdgeId) => toEdgeRuntimeState(
-    readStore(overlay, edgeId)
-  ),
+}): EdgeRead['state'] => createOverlayStateStore({
+  overlay,
+  project: toEdgeRuntimeState,
   isEqual: isEdgeStateEqual
 })
 
@@ -217,18 +211,11 @@ export const createEdgeRead = ({
 
   return {
     list: read.edge.list,
-    source: read.edge.item,
     item,
     state,
     resolved,
     capability: resolveEdgeCan,
     related: read.edge.related,
-    bounds: (edgeId) => {
-      const nextResolved = readResolved(edgeId)
-      return nextResolved
-        ? getEdgePathBounds(nextResolved.path)
-        : undefined
-    },
     idsInRect: (rect, options) => read.edge.list.get().filter((edgeId) => {
       const nextResolved = readResolved(edgeId)
       if (!nextResolved) {

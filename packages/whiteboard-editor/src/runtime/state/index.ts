@@ -70,6 +70,7 @@ export type EditorRuntimeState = {
   edit: EditState
   viewport: ViewportRuntime
   pointer: ValueStore<PointerSample | null>
+  space: ValueStore<boolean>
   inputPolicy: ValueStore<EditorInputPolicy>
   drawPreferences: DrawPreferencesState
 }
@@ -105,6 +106,7 @@ export const createRuntimeState = ({
     limits: viewportLimits
   })
   const pointer = createValueStore<PointerSample | null>(null)
+  const space = createValueStore(false)
   const inputPolicy = createValueStore<EditorInputPolicy>({
     panEnabled: initialInputPolicy.panEnabled,
     wheelEnabled: initialInputPolicy.wheelEnabled,
@@ -136,6 +138,7 @@ export const createRuntimeState = ({
       edit,
       viewport,
       pointer,
+      space,
       inputPolicy,
       drawPreferences
     },
@@ -145,6 +148,7 @@ export const createRuntimeState = ({
     },
     resetLocal: () => {
       pointer.set(null)
+      space.set(false)
       edit.mutate.clear()
       selection.mutate.clear()
     },

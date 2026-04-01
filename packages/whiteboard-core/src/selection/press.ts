@@ -65,11 +65,16 @@ export type SelectionDragDecision =
       clearOnStart?: boolean
     }
 
+export type SelectionMarqueeDecision = Extract<
+  SelectionDragDecision,
+  { kind: 'marquee' }
+>
+
 export type SelectionPressDecision<TField extends string = string> = {
   chrome: boolean
   release?: SelectionReleaseDecision<TField>
   drag?: SelectionDragDecision
-  hold?: SelectionDragDecision
+  hold?: SelectionMarqueeDecision
 }
 
 export type SelectionPressResolution<TField extends string = string> = {
@@ -82,7 +87,7 @@ export type SelectionPressPolicyDeps = {
   getOwnerId: (nodeId: NodeId) => NodeId | undefined
 }
 
-const HOLD_TO_CONTAIN_MARQUEE: SelectionDragDecision = {
+const HOLD_TO_CONTAIN_MARQUEE: SelectionMarqueeDecision = {
   kind: 'marquee',
   match: 'contain',
   mode: 'replace',

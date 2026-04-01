@@ -36,6 +36,11 @@ export type SelectionSummary = {
   box?: Rect
 }
 
+export type SelectionTransformBox = {
+  box?: Rect
+  canResize: boolean
+}
+
 const EMPTY_TRANSFORM: SelectionTransform = {
   move: false,
   resize: 'none'
@@ -160,3 +165,10 @@ export const deriveSelectionSummary = ({
     box
   } satisfies SelectionSummary
 }
+
+export const resolveSelectionTransformBox = (
+  selection: SelectionSummary
+): SelectionTransformBox => ({
+  box: selection.box,
+  canResize: selection.transform.resize === 'scale'
+})
