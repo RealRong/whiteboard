@@ -194,6 +194,15 @@ export type EdgeConnectCommit =
       target: EdgeEnd
     }
 
+export type EdgeConnectPreview = {
+  line?: {
+    from: Point
+    to: Point
+  }
+  snap?: Point
+  patch?: EdgePatch
+}
+
 export const toPointDraftEnd = (
   point: Point
 ): EdgeDraftEnd => ({
@@ -340,5 +349,32 @@ export const toEdgeConnectCommit = (
       target: toEdgeEnd(state.to),
       type: state.edgeType
     }
+  }
+}
+
+export const resolveEdgeConnectPreview = (
+  state: EdgeConnectState
+): EdgeConnectPreview | undefined => {
+  const line =
+    state.kind === 'create' && state.to
+      ? {
+          from: state.from.point,
+          to: state.to.point
+        }
+      : undefined
+  const snap =
+    state.to?.kind === 'node'
+      ? state.to.point
+      : undefined
+  const patch = toEdgeConnectPatch(state)
+
+  if (!line && !snap && !patch) {
+    return undefined
+  }
+
+  return {
+    line,
+    snap,
+    patch
   }
 }

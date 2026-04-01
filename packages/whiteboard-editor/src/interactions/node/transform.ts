@@ -2,12 +2,13 @@ import {
   getRectCenter
 } from '@whiteboard/core/geometry'
 import {
+  buildTransformCommitUpdates,
   computeNextRotation,
   computeResizeRect,
   getResizeSourceEdges,
   getResizeUpdateRect,
-  projectResizePatches,
-  toTransformCommitPatch,
+  projectResizeTransformPatches,
+  projectRotateTransformPatches,
   type ResizeDirection,
   type TransformHandle,
   type TransformPreviewPatch
@@ -15,8 +16,11 @@ import {
 import type { SelectionSummary } from '@whiteboard/core/selection'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
 import type { PointerDown } from '../../runtime/input/pointer'
-import type { InteractionPointerInput } from '../../runtime/interaction'
-import type { FeatureRuntime } from '../../runtime/editor/createEditor'
+import type {
+  ActiveInteraction,
+  InteractionPointerInput
+} from '../../runtime/interaction'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -55,7 +59,7 @@ type TransformTarget = {
   rect: Rect
 }
 
-export type ActiveTransform = {
+type ActiveTransform = {
   targets: readonly TransformTarget[]
   commitTargetIds?: ReadonlySet<NodeId>
   drag: TransformDragState
@@ -64,9 +68,9 @@ export type ActiveTransform = {
 
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
-type NodeTransformRuntimeDeps = Pick<
-  FeatureRuntime,
-  'query' | 'command' | 'viewport' | 'output'
+type NodeTransformPhaseDeps = Pick<
+  InteractionHost,
+  'read' | 'commands' | 'viewport' | 'overlay' | 'snap'
 >
 
 const resolveSelectionBoxView = (
@@ -131,25 +135,28 @@ const getResizeStartRect = (
 })
 
 const writeTransformPreview = (
-  ctx: NodeTransformRuntimeDeps,
+  ctx: NodeTransformPhaseDeps,
   patches: readonly TransformPreviewPatch[]
 ) => {
-  ctx.output.node.set((current) => ({
+  ctx.overlay.set((current) => ({
     ...current,
-    patches: patches.map(({ id, position, size, rotation }) => ({
-      id,
-      patch: {
-        position,
-        size,
-        rotation
-      }
-    })),
-    hovered: undefined
+    node: {
+      ...current.node,
+      patches: patches.map(({ id, position, size, rotation }) => ({
+        id,
+        patch: {
+          position,
+          size,
+          rotation
+        }
+      })),
+      hovered: undefined
+    }
   }))
 }
 
 const buildResizeUpdate = (
-  ctx: NodeTransformRuntimeDeps,
+  ctx: NodeTransformPhaseDeps,
   options: {
     drag: ResizeDragState
     currentScreen: Point
@@ -174,7 +181,7 @@ const buildResizeUpdate = (
   })
   const { sourceX, sourceY } = getResizeSourceEdges(options.drag.handle)
 
-  return ctx.output.snap.node.resize({
+  const snapped = ctx.snap.node.resize({
     rect: rawRect.rect,
     source: {
       x: sourceX,
@@ -184,20 +191,30 @@ const buildResizeUpdate = (
     excludeIds: options.excludeNodeIds,
     disabled: options.altKey || options.drag.startRotation !== 0
   })
+
+  ctx.overlay.set((current) => ({
+    ...current,
+    guides: {
+      ...current.guides,
+      snap: snapped.guides
+    }
+  }))
+
+  return snapped.update
 }
 
 const createNodeActive = (
-  ctx: NodeTransformRuntimeDeps,
+  ctx: NodeTransformPhaseDeps,
   nodeId: NodeId,
   handle: TransformPickHandle,
   input: PointerDown
 ): ActiveTransform | undefined => {
-  const nodeRect = ctx.query.read.index.node.get(nodeId)
+  const nodeRect = ctx.read.index.node.get(nodeId)
   if (!nodeRect || nodeRect.node.locked) {
     return undefined
   }
 
-  const capability = ctx.query.read.node.capability(nodeRect.node)
+  const capability = ctx.read.node.capability(nodeRect.node)
   const target: TransformTarget = {
     id: nodeRect.node.id,
     node: nodeRect.node,
@@ -241,10 +258,10 @@ const createNodeActive = (
 }
 
 const createSelectionScaleTargets = (
-  ctx: NodeTransformRuntimeDeps,
+  ctx: NodeTransformPhaseDeps,
   selectionNodeIds: readonly NodeId[]
 ) => {
-  const resolved = ctx.query.read.node.transformTargets(selectionNodeIds)
+  const resolved = ctx.read.node.transformTargets(selectionNodeIds)
   if (!resolved?.targets.length) {
     return undefined
   }
@@ -256,11 +273,11 @@ const createSelectionScaleTargets = (
 }
 
 const createSelectionActive = (
-  ctx: NodeTransformRuntimeDeps,
+  ctx: NodeTransformPhaseDeps,
   handle: TransformPickHandle,
   input: PointerDown
 ): ActiveTransform | undefined => {
-  const selection = ctx.query.read.selection.get().summary
+  const selection = ctx.read.selection.get().summary
   const selectionBox = resolveSelectionBoxView(selection)
   if (
     !selectionBox.box
@@ -292,8 +309,8 @@ const createSelectionActive = (
   }
 }
 
-export const resolveNodeTransformState = (
-  ctx: NodeTransformRuntimeDeps,
+const resolveNodeTransformState = (
+  ctx: NodeTransformPhaseDeps,
   input: PointerDown
 ): ActiveTransform | null => {
   if (
@@ -312,130 +329,145 @@ export const resolveNodeTransformState = (
   return createSelectionActive(ctx, input.pick.handle, input) ?? null
 }
 
-export const createNodeTransformRuntime = (
-  ctx: NodeTransformRuntimeDeps
+const clearNodeTransform = (
+  ctx: NodeTransformPhaseDeps
 ) => {
-  const clear = () => {
-    ctx.output.node.set((current) => (
-      current.patches.length === 0 && current.hovered === undefined
-        ? current
-        : {
-            ...current,
+  ctx.overlay.set((current) => (
+    (
+      current.node.patches.length === 0
+      && current.node.hovered === undefined
+      && current.guides.snap.length === 0
+    )
+      ? current
+      : {
+          ...current,
+          node: {
+            ...current.node,
             patches: [],
             hovered: undefined
+          },
+          guides: {
+            ...current.guides,
+            snap: []
           }
-    ))
-    ctx.output.snap.node.clear()
-  }
-
-  const updateResizePreview = (
-    state: ActiveTransform,
-    drag: ResizeDragState,
-    input: InteractionPointerInput
-  ) => {
-    const update = buildResizeUpdate(ctx, {
-      drag,
-      currentScreen: input.screen,
-      zoom: ctx.viewport.get().zoom,
-      altKey: input.altKey,
-      shiftKey: input.shiftKey,
-      excludeNodeIds: state.targets.map((target) => target.id)
-    })
-
-    state.patches = state.targets.length === 1
-      ? [{
-          id: state.targets[0]!.id,
-          position: update.position,
-          size: update.size
-        }]
-      : projectResizePatches({
-          startRect: getResizeStartRect(drag),
-          nextRect: getResizeUpdateRect(update),
-          members: state.targets
-        })
-
-    writeTransformPreview(ctx, state.patches)
-  }
-
-  const updateRotatePreview = (
-    state: ActiveTransform,
-    drag: RotateDragState,
-    input: InteractionPointerInput
-  ) => {
-    ctx.output.snap.node.clear()
-
-    const rotation = computeNextRotation({
-      center: drag.center,
-      currentPoint: input.world,
-      startAngle: drag.startAngle,
-      startRotation: drag.startRotation,
-      shiftKey: input.shiftKey
-    })
-
-    state.patches = [{
-      id: state.targets[0]!.id,
-      rotation
-    }]
-    writeTransformPreview(ctx, state.patches)
-  }
-
-  const updatePreview = (
-    state: ActiveTransform,
-    input: InteractionPointerInput
-  ) => {
-    if (state.drag.mode === 'resize') {
-      updateResizePreview(state, state.drag, input)
-      return
-    }
-
-    updateRotatePreview(state, state.drag, input)
-  }
-
-  const commit = (
-    state: ActiveTransform
-  ) => {
-    if (!state.patches?.length) {
-      return
-    }
-
-    const commitTargetIds = state.commitTargetIds
-      ?? new Set(state.targets.map((target) => target.id))
-    const targetById = new Map(
-      state.targets.map((target) => [target.id, target] as const)
-    )
-    const updates = state.patches.flatMap((preview) => {
-      if (!commitTargetIds.has(preview.id)) {
-        return []
-      }
-
-      const target = targetById.get(preview.id)
-      if (!target) {
-        return []
-      }
-
-      const patch = toTransformCommitPatch(target.node, preview)
-      if (!patch) {
-        return []
-      }
-
-      return [{
-        id: target.id,
-        update: {
-          fields: patch
         }
-      }]
-    })
+  ))
+}
 
-    if (!updates.length) {
-      return
-    }
+const updateResizePreview = (
+  ctx: NodeTransformPhaseDeps,
+  state: ActiveTransform,
+  drag: ResizeDragState,
+  input: InteractionPointerInput
+) => {
+  const update = buildResizeUpdate(ctx, {
+    drag,
+    currentScreen: input.screen,
+    zoom: ctx.viewport.get().zoom,
+    altKey: input.altKey,
+    shiftKey: input.shiftKey,
+    excludeNodeIds: state.targets.map((target) => target.id)
+  })
 
-    ctx.command.node.document.updateMany(updates)
+  state.patches = projectResizeTransformPatches({
+    startRect: getResizeStartRect(drag),
+    nextRect: getResizeUpdateRect(update),
+    targets: state.targets
+  })
+
+  writeTransformPreview(ctx, state.patches)
+}
+
+const updateRotatePreview = (
+  ctx: NodeTransformPhaseDeps,
+  state: ActiveTransform,
+  drag: RotateDragState,
+  input: InteractionPointerInput
+) => {
+  ctx.overlay.set((current) => (
+    current.guides.snap.length === 0
+      ? current
+      : {
+          ...current,
+          guides: {
+            ...current.guides,
+            snap: []
+          }
+        }
+  ))
+
+  const rotation = computeNextRotation({
+    center: drag.center,
+    currentPoint: input.world,
+    startAngle: drag.startAngle,
+    startRotation: drag.startRotation,
+    shiftKey: input.shiftKey
+  })
+
+  state.patches = projectRotateTransformPatches({
+    targetId: state.targets[0]!.id,
+    rotation
+  })
+  writeTransformPreview(ctx, state.patches)
+}
+
+const updateTransformPreview = (
+  ctx: NodeTransformPhaseDeps,
+  state: ActiveTransform,
+  input: InteractionPointerInput
+) => {
+  if (state.drag.mode === 'resize') {
+    updateResizePreview(ctx, state, state.drag, input)
+    return
   }
+
+  updateRotatePreview(ctx, state, state.drag, input)
+}
+
+const commitTransform = (
+  ctx: NodeTransformPhaseDeps,
+  state: ActiveTransform
+) => {
+  if (!state.patches?.length) {
+    return
+  }
+
+  const updates = buildTransformCommitUpdates({
+    targets: state.targets,
+    patches: state.patches,
+    commitTargetIds: state.commitTargetIds
+  })
+
+  if (!updates.length) {
+    return
+  }
+
+  ctx.commands.node.document.updateMany(updates)
+}
+
+export const startNodeTransformPhase = (
+  ctx: NodeTransformPhaseDeps,
+  input: PointerDown
+): ActiveInteraction | null => {
+  const state = resolveNodeTransformState(ctx, input)
+  if (!state) {
+    return null
+  }
+
+  clearNodeTransform(ctx)
 
   return {
-    clear,
-    updatePreview,
-    commit
+    mode: 'node-transform',
+    pointerId: input.pointerId,
+    chrome: false,
+    move: (next) => {
+      updateTransformPreview(ctx, state, next)
+    },
+    up: () => {
+      commitTransform(ctx, state)
+    },
+    cleanup: () => {
+      clearNodeTransform(ctx)
+    }
   }
 }

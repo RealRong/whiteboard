@@ -3,20 +3,20 @@ import {
   createValueStore
 } from '@whiteboard/engine'
 import type {
+  ActiveInteraction as RunningActiveInteraction,
   ActiveInteractionMode,
-  InteractionActivation,
-  InteractionContext,
+  InteractionControl,
   InteractionCoordinator,
   InteractionKeyboardInput,
   InteractionPointerInput,
   InteractionRegistration,
-  InteractionState,
-  RuntimeSession
+  InteractionState
 } from '../../types/runtime/interaction'
+import type { PointerDown } from '../input/pointer'
 import type { ViewportInputRuntime } from '../viewport'
 import { createAutoPan } from './autoPan'
 
-type ActiveInteraction = Readonly<{
+type ActiveInteractionMeta = Readonly<{
   id: number
   key: string
   mode: ActiveInteractionMode
@@ -27,12 +27,8 @@ type ActiveInteraction = Readonly<{
 type RunningInteraction = {
   id: number
   key: string
-  mode: ActiveInteractionMode
   pointerId?: number
-  chrome?: boolean
-  registration: InteractionRegistration<any, any>
-  input: any
-  state: any
+  active: RunningActiveInteraction
 }
 
 const isRecord = (
@@ -59,7 +55,7 @@ export const createInteractionCoordinator = ({
 }: {
   getViewport: () => Pick<ViewportInputRuntime, 'panScreenBy' | 'screenPoint' | 'size'> | null
 }): InteractionCoordinator => {
-  const active = createValueStore<ActiveInteraction | null>(null)
+  const active = createValueStore<ActiveInteractionMeta | null>(null)
   const space = createValueStore(false)
   const busy = createDerivedStore({
     get: (read) => read(active) !== null
@@ -71,7 +67,7 @@ export const createInteractionCoordinator = ({
     get: (read) => {
       const current = read(active)
       return current === null
-        || (current.mode === 'press' && Boolean(current.chrome))
+        || Boolean(current.chrome)
     }
   })
   const state = createDerivedStore<InteractionState>({
@@ -79,18 +75,20 @@ export const createInteractionCoordinator = ({
       busy: read(busy),
       chrome: read(chrome),
       mode: read(mode),
+      transforming: read(mode) === 'node-transform',
       space: read(space)
     }),
     isEqual: (left, right) => (
       left.busy === right.busy
       && left.chrome === right.chrome
       && left.mode === right.mode
+      && left.transforming === right.transforming
       && left.space === right.space
     )
   })
   let nextId = 1
   let current: RunningInteraction | null = null
-  let currentSession: RuntimeSession | null = null
+  let currentControl: InteractionControl | null = null
   const autoPan = createAutoPan({
     getViewport
   })
@@ -102,62 +100,51 @@ export const createInteractionCoordinator = ({
     }
   ) => pointerId === undefined || input.pointerId === pointerId
 
-  const cleanup = (
-    running: RunningInteraction
-  ) => {
-    autoPan.stop()
-    active.set(null)
-    current = null
-    currentSession = null
-    running.registration.cleanup?.({
-      input: running.input,
-      state: running.state
+  const syncActive = (running: RunningInteraction | null) => {
+    if (!running) {
+      active.set(null)
+      return
+    }
+
+    active.set({
+      id: running.id,
+      key: running.key,
+      mode: running.active.mode,
+      pointerId: running.pointerId,
+      chrome: running.active.chrome
     })
   }
 
-  const createContext = <
-    State,
-    Start
-  >(
-    running: RunningInteraction & {
-      state: State
-      input: Start
-      registration: InteractionRegistration<State, Start>
-    },
-    session: RuntimeSession
-  ): InteractionContext<State, Start> => ({
-    input: running.input,
-    state: running.state,
-    setState: (next) => {
-      running.state = next
-    },
-    session
-  })
+  const cleanup = (running: RunningInteraction) => {
+    autoPan.stop()
+    current = null
+    currentControl = null
+    syncActive(null)
+    running.active.cleanup?.()
+  }
 
-  const start = <
-    State,
-    Start
-  >(
-    activation: InteractionActivation<State, Start>
-  ): RuntimeSession | null => {
+  const start = (
+    registration: InteractionRegistration,
+    input: PointerDown
+  ) => {
     if (active.get()) {
-      return null
+      return false
     }
 
-    const running: RunningInteraction = {
-      id: nextId++,
-      key: activation.registration.key,
-      mode: activation.registration.mode,
-      pointerId: readDefaultPointerId(activation.input),
-      chrome: activation.registration.chrome?.(activation.state, activation.input),
-      registration: activation.registration,
-      input: activation.input,
-      state: activation.state
-    }
+    const id = nextId++
     let done = false
+    let running: RunningInteraction | null = null
+    let pendingResult: 'finish' | 'cancel' | null = null
+    let pendingMode: ActiveInteractionMode | undefined
+    let pendingChrome: boolean | undefined
 
     const finish = () => {
-      if (done || active.get()?.id !== running.id) {
+      if (!running) {
+        pendingResult = 'finish'
+        return
+      }
+
+      if (done || active.get()?.id !== id || !running) {
         return
       }
 
@@ -166,29 +153,17 @@ export const createInteractionCoordinator = ({
     }
 
     const cancel = () => {
-      if (done || active.get()?.id !== running.id) {
+      if (!running) {
+        pendingResult = 'cancel'
         return
       }
 
-      const session = currentSession
-      if (!session) {
-        done = true
-        cleanup(running)
+      if (done || active.get()?.id !== id || !running) {
         return
       }
 
-      running.registration.cancel?.(
-        createContext(
-          running as RunningInteraction & {
-            state: State
-            input: Start
-            registration: InteractionRegistration<State, Start>
-          },
-          session
-        )
-      )
-
-      if (done || active.get()?.id !== running.id) {
+      running.active.cancel?.()
+      if (done || active.get()?.id !== id || !running) {
         return
       }
 
@@ -196,54 +171,82 @@ export const createInteractionCoordinator = ({
       cleanup(running)
     }
 
-    const replace: RuntimeSession['replace'] = (nextActivation) => {
-      if (done || active.get()?.id !== running.id) {
-        return false
-      }
-
-      done = true
-      cleanup(running)
-      return Boolean(start(nextActivation))
-    }
-
-    const session: RuntimeSession = {
+    const control: InteractionControl = {
       finish,
       cancel,
       pan: (pointer) => {
         autoPan.update(pointer)
       },
-      replace
+      update: (next) => {
+        if (!running) {
+          if (next.mode !== undefined) {
+            pendingMode = next.mode
+          }
+
+          if (next.chrome !== undefined) {
+            pendingChrome = next.chrome
+          }
+          return
+        }
+
+        if (done || active.get()?.id !== id || !running) {
+          return
+        }
+
+        running.active = {
+          ...running.active,
+          mode: next.mode ?? running.active.mode,
+          chrome:
+            next.chrome === undefined
+              ? running.active.chrome
+              : next.chrome
+        }
+        syncActive(running)
+      }
     }
 
-    active.set({
-      id: running.id,
-      key: running.key,
-      mode: running.mode,
-      pointerId: running.pointerId,
-      chrome: running.chrome
-    })
+    const nextActive = registration.start(input, control)
+    if (!nextActive) {
+      return false
+    }
+
+    const activeInteraction: any = nextActive
+    const resolvedActive: RunningActiveInteraction = {
+      ...activeInteraction,
+      mode: pendingMode ?? activeInteraction.mode,
+      chrome:
+        pendingChrome === undefined
+          ? activeInteraction.chrome
+          : pendingChrome
+    }
+
+    running = {
+      id,
+      key: registration.key,
+      pointerId: resolvedActive.pointerId ?? readDefaultPointerId(input),
+      active: resolvedActive
+    }
+
+    if (pendingResult === 'cancel') {
+      resolvedActive.cancel?.()
+      resolvedActive.cleanup?.()
+      return true
+    }
+
+    if (pendingResult === 'finish') {
+      resolvedActive.cleanup?.()
+      return true
+    }
+
     current = running
-    currentSession = session
+    currentControl = control
+    syncActive(running)
 
-    const panOptions = typeof activation.registration.pan === 'function'
-      ? activation.registration.pan(activation.state, activation.input)
-      : activation.registration.pan
-    if (panOptions) {
-      autoPan.start(panOptions, session)
+    if (resolvedActive.autoPan) {
+      autoPan.start(resolvedActive.autoPan)
     }
 
-    activation.registration.start?.(
-      createContext(
-        running as RunningInteraction & {
-          state: State
-          input: Start
-          registration: InteractionRegistration<State, Start>
-        },
-        session
-      )
-    )
-
-    return session
+    return true
   }
 
   const handleBlur = () => {
@@ -252,40 +255,27 @@ export const createInteractionCoordinator = ({
     }
 
     const running = current
-    const session = currentSession
-    if (!running || !session) {
+    if (!running) {
       return
     }
 
-    if (running.registration.blur) {
-      running.registration.blur(
-        createContext(
-          running,
-          session
-        )
-      )
+    if (running.active.blur) {
+      running.active.blur()
       return
     }
 
-    session.cancel()
+    currentControl?.cancel()
   }
 
   const handlePointerMove = (
     input: InteractionPointerInput
   ) => {
     const running = current
-    const session = currentSession
-    if (!running || !session || !matchesPointer(running.pointerId, input)) {
+    if (!running || !matchesPointer(running.pointerId, input)) {
       return false
     }
 
-    running.registration.move?.(
-      createContext(
-        running,
-        session
-      ),
-      input
-    )
+    running.active.move?.(input)
     return true
   }
 
@@ -293,18 +283,11 @@ export const createInteractionCoordinator = ({
     input: InteractionPointerInput
   ) => {
     const running = current
-    const session = currentSession
-    if (!running || !session || !matchesPointer(running.pointerId, input)) {
+    if (!running || !matchesPointer(running.pointerId, input)) {
       return false
     }
 
-    running.registration.up?.(
-      createContext(
-        running,
-        session
-      ),
-      input
-    )
+    running.active.up?.(input)
     return true
   }
 
@@ -313,12 +296,11 @@ export const createInteractionCoordinator = ({
       pointerId: number
     }
   ) => {
-    const session = currentSession
-    if (!current || !session || !matchesPointer(current.pointerId, input)) {
+    if (!current || !matchesPointer(current.pointerId, input)) {
       return false
     }
 
-    session.cancel()
+    currentControl?.cancel()
     return true
   }
 
@@ -335,22 +317,15 @@ export const createInteractionCoordinator = ({
     }
 
     const running = current
-    const session = currentSession
-    if (!running || !session) {
+    if (!running) {
       return handled
     }
 
     handled = true
-    running.registration.keydown?.(
-      createContext(
-        running,
-        session
-      ),
-      input
-    )
+    running.active.keydown?.(input)
 
     if (active.get() && input.key === 'Escape') {
-      session.cancel()
+      currentControl?.cancel()
     }
 
     return true
@@ -369,18 +344,11 @@ export const createInteractionCoordinator = ({
     }
 
     const running = current
-    const session = currentSession
-    if (!running || !session) {
+    if (!running) {
       return handled
     }
 
-    running.registration.keyup?.(
-      createContext(
-        running,
-        session
-      ),
-      input
-    )
+    running.active.keyup?.(input)
     return true
   }
 
@@ -395,7 +363,7 @@ export const createInteractionCoordinator = ({
     handlePointerUp,
     handlePointerCancel,
     cancel: () => {
-      currentSession?.cancel()
+      currentControl?.cancel()
     },
     handleKeyDown,
     handleKeyUp,

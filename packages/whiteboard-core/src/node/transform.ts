@@ -64,6 +64,13 @@ export type TransformSelectionTargets<TNode extends Pick<Node, 'id' | 'type' | '
   commitIds: ReadonlySet<NodeId>
 }
 
+export type TransformCommitUpdate = {
+  id: NodeId
+  update: {
+    fields: NodeFieldPatch
+  }
+}
+
 const ZOOM_EPSILON = 0.0001
 
 export const resizeHandleMap: Record<ResizeDirection, ResizeHandleMeta> = {
@@ -316,6 +323,38 @@ export const projectResizePatches = (options: {
   }))
 }
 
+export const projectResizeTransformPatches = (options: {
+  startRect: Rect
+  nextRect: Rect
+  targets: readonly TransformProjectionMember[]
+}): readonly TransformPreviewPatch[] => (
+  options.targets.length === 1
+    ? [{
+        id: options.targets[0]!.id,
+        position: {
+          x: options.nextRect.x,
+          y: options.nextRect.y
+        },
+        size: {
+          width: options.nextRect.width,
+          height: options.nextRect.height
+        }
+      }]
+    : projectResizePatches({
+        startRect: options.startRect,
+        nextRect: options.nextRect,
+        members: options.targets
+      })
+)
+
+export const projectRotateTransformPatches = (options: {
+  targetId: NodeId
+  rotation: number
+}): readonly TransformPreviewPatch[] => [{
+  id: options.targetId,
+  rotation: options.rotation
+}]
+
 export const resolveSelectionTransformTargets = <
   TNode extends Pick<Node, 'id' | 'type' | 'children'>
 >(
@@ -400,4 +439,46 @@ export const computeNextRotation = (options: {
     nextRotation = Math.round(nextRotation / rotateSnapStep) * rotateSnapStep
   }
   return nextRotation
+}
+
+export const buildTransformCommitUpdates = (options: {
+  targets: readonly {
+    id: NodeId
+    node: Node
+  }[]
+  patches: readonly TransformPreviewPatch[]
+  commitTargetIds?: ReadonlySet<NodeId>
+}): readonly TransformCommitUpdate[] => {
+  if (!options.patches.length || !options.targets.length) {
+    return []
+  }
+
+  const commitTargetIds = options.commitTargetIds
+    ?? new Set(options.targets.map((target) => target.id))
+  const targetById = new Map(
+    options.targets.map((target) => [target.id, target] as const)
+  )
+
+  return options.patches.flatMap((preview) => {
+    if (!commitTargetIds.has(preview.id)) {
+      return []
+    }
+
+    const target = targetById.get(preview.id)
+    if (!target) {
+      return []
+    }
+
+    const patch = toTransformCommitPatch(target.node, preview)
+    if (!patch) {
+      return []
+    }
+
+    return [{
+      id: target.id,
+      update: {
+        fields: patch
+      }
+    }]
+  })
 }

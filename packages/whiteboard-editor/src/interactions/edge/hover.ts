@@ -1,11 +1,11 @@
 import { createRafTask } from '@whiteboard/engine'
 import type { Point } from '@whiteboard/core/types'
 import type { PassiveInputProcessor } from '../../runtime/input/passive'
-import type { FeatureRuntime } from '../../runtime/editor/createEditor'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 type EdgeHoverProcessorDeps = Pick<
-  FeatureRuntime,
-  'query' | 'output'
+  InteractionHost,
+  'interaction' | 'overlay' | 'snap'
 >
 
 export const createEdgeHoverProcessor = (
@@ -14,7 +14,17 @@ export const createEdgeHoverProcessor = (
   let hoverPoint: Point | null = null
 
   const clearHint = () => {
-    ctx.output.edgeGuide.clear()
+    ctx.overlay.set((current) => (
+      current.guides.edge === undefined
+        ? current
+        : {
+            ...current,
+            guides: {
+              ...current.guides,
+              edge: undefined
+            }
+          }
+    ))
   }
 
   const hoverTask = createRafTask(() => {
@@ -23,17 +33,21 @@ export const createEdgeHoverProcessor = (
       return
     }
 
-    if (ctx.query.interaction.mode.get() !== 'idle') {
+    if (ctx.interaction.mode.get() !== 'idle') {
       clearHint()
       return
     }
 
-    const target = ctx.output.snap.edge.connect(hoverPoint)
-    ctx.output.edgeGuide.set(
-      target
-        ? { snap: target.pointWorld }
-        : undefined
-    )
+    const target = ctx.snap.edge.connect(hoverPoint)
+    ctx.overlay.set((current) => ({
+      ...current,
+      guides: {
+        ...current.guides,
+        edge: target
+          ? { snap: target.pointWorld }
+          : undefined
+      }
+    }))
   })
 
   return {

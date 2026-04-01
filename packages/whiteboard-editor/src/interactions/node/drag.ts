@@ -1,18 +1,28 @@
-import { moveEdge } from '@whiteboard/core/edge'
 import {
+  buildMoveCommit,
   buildMoveSet,
-  resolveMoveEffect,
+  projectMovePreview,
   type MoveSet
 } from '@whiteboard/core/node'
-import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
+import type { SelectionTarget } from '@whiteboard/core/selection'
 import type {
-  InteractionPointerInput,
-  InteractionRegistration
+  Edge,
+  EdgeId,
+  Node,
+  NodeId,
+  Point,
+  Rect
+} from '@whiteboard/core/types'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type {
+  ActiveInteraction,
+  InteractionPointerInput
 } from '../../runtime/interaction'
-import type { FeatureRuntime } from '../../runtime/editor/createEditor'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 type ActiveDrag = {
   ids: readonly NodeId[]
+  nodes: readonly Node[]
   move: MoveSet
   startWorld: Point
   origin: Point
@@ -22,241 +32,247 @@ type ActiveDrag = {
     height: number
   }
   allowCross: boolean
-  selectedEdgeIds: readonly EdgeId[]
-  relatedEdgeIds: readonly EdgeId[]
+  selectedEdges: readonly Edge[]
+  relatedEdges: readonly Edge[]
 }
 
-export type NodeDragStart = {
+type NodeDragStart = {
   pointerId: number
   startWorld: Point
-  startClient: Point
   frame: Rect
   anchorId: NodeId
   nodeIds: readonly NodeId[]
   edgeIds?: readonly EdgeId[]
   allowCross: boolean
-  onStart?: () => void
 }
 
-export type NodeDragInteraction = {
-  interaction: InteractionRegistration<ActiveDrag, NodeDragStart>
-  createState: (input: NodeDragStart) => ActiveDrag | null
-  clear: () => void
+export type NodeDragPhaseInput = {
+  start: PointerDown
+  input: InteractionPointerInput
+  frame: Rect
+  anchorId: NodeId
+  target: SelectionTarget
+  nextSelection?: SelectionTarget
 }
 
-type NodeDragInteractionDeps = Pick<
-  FeatureRuntime,
-  'query' | 'command' | 'viewport' | 'output'
+type NodeDragRuntimeDeps = Pick<
+  InteractionHost,
+  'read' | 'config' | 'commands' | 'viewport' | 'overlay' | 'snap'
 >
 
-export const createNodeDragInteraction = (
-  ctx: NodeDragInteractionDeps
-): NodeDragInteraction => {
-  const clear = () => {
-    ctx.output.node.set((current) => (
-      current.patches.length === 0 && current.hovered === undefined
-        ? current
-        : {
-            ...current,
+const clearNodeDrag = (
+  ctx: NodeDragRuntimeDeps
+): void => {
+  ctx.overlay.set((current) => (
+    (
+      current.node.patches.length === 0
+      && current.node.hovered === undefined
+      && current.edge.patches.length === 0
+      && current.guides.snap.length === 0
+    )
+      ? current
+      : {
+          ...current,
+          node: {
+            ...current.node,
             patches: [],
             hovered: undefined
+          },
+          edge: {
+            patches: []
+          },
+          guides: {
+            ...current.guides,
+            snap: []
           }
-    ))
-    ctx.output.snap.node.clear()
-    ctx.output.edge.clear()
+        }
+  ))
+}
+
+const commitNodeDrag = (
+  ctx: NodeDragRuntimeDeps,
+  state: ActiveDrag
+) => {
+  const result = buildMoveCommit({
+    delta: state.last,
+    selectedEdges: state.selectedEdges
+  })
+
+  if (result.delta) {
+    ctx.commands.node.move({
+      ids: state.ids,
+      delta: result.delta
+    })
   }
 
-  const readCanvasNodes = () => ctx.query.read.index.node.all().map((entry) => entry.node)
-
-  const commit = (state: ActiveDrag) => {
-    if (state.last.x !== 0 || state.last.y !== 0) {
-      ctx.command.node.move({
-        ids: state.ids,
-        delta: state.last
-      })
-    }
-
-    const edgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.query.read.edge.item.get(edgeId)?.edge
-      if (!edge) {
-        return []
-      }
-
-      const patch = moveEdge(edge, state.last)
-      if (!patch) {
-        return []
-      }
-
-      return [{
-        id: edgeId,
-        patch
-      }]
-    })
-
-    if (edgeUpdates.length) {
-      ctx.command.edge.updateMany(edgeUpdates)
-    }
+  if (result.edges.length) {
+    ctx.commands.edge.updateMany(result.edges)
   }
+}
 
-  const updatePreview = (
-    state: ActiveDrag,
-    input: {
-      clientX: number
-      clientY: number
-    }
-  ) => {
-    const world = ctx.viewport.pointer(input).world
-    const rawPosition = {
-      x: state.origin.x + (world.x - state.startWorld.x),
-      y: state.origin.y + (world.y - state.startWorld.y)
-    }
-    const snapped = ctx.output.snap.node.move({
-      rect: {
-        x: rawPosition.x,
-        y: rawPosition.y,
-        width: state.size.width,
-        height: state.size.height
-      },
-      excludeIds: state.move.members.map((member) => member.id),
-      allowCross: state.allowCross,
-      disabled: !ctx.query.read.tool.is('select')
-    })
-    const delta = {
-      x: snapped.x - state.origin.x,
-      y: snapped.y - state.origin.y
-    }
-    const preview = resolveMoveEffect({
-      nodes: readCanvasNodes(),
-      edges: state.relatedEdgeIds
-        .map((edgeId) => ctx.query.read.edge.item.get(edgeId)?.edge)
-        .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge)),
-      move: state.move,
-      delta,
-      nodeSize: ctx.query.config.nodeSize
-    })
-    state.last = delta
-    const selectedEdgeUpdates = state.selectedEdgeIds.flatMap((edgeId) => {
-      const edge = ctx.query.read.edge.item.get(edgeId)?.edge
-      if (!edge) {
-        return []
-      }
+const updateNodeDragPreview = (
+  ctx: NodeDragRuntimeDeps,
+  state: ActiveDrag,
+  input: {
+    clientX: number
+    clientY: number
+  }
+) => {
+  const world = ctx.viewport.pointer(input).world
+  const rawPosition = {
+    x: state.origin.x + (world.x - state.startWorld.x),
+    y: state.origin.y + (world.y - state.startWorld.y)
+  }
+  const snapped = ctx.snap.node.move({
+    rect: {
+      x: rawPosition.x,
+      y: rawPosition.y,
+      width: state.size.width,
+      height: state.size.height
+    },
+    excludeIds: state.move.members.map((member) => member.id),
+    allowCross: state.allowCross,
+    disabled: !ctx.read.tool.is('select')
+  })
+  const delta = {
+    x: snapped.rect.x - state.origin.x,
+    y: snapped.rect.y - state.origin.y
+  }
+  const preview = projectMovePreview({
+    nodes: state.nodes,
+    relatedEdges: state.relatedEdges,
+    selectedEdges: state.selectedEdges,
+    move: state.move,
+    delta,
+    nodeSize: ctx.config.nodeSize
+  })
+  state.last = delta
 
-      const patch = moveEdge(edge, delta)
-      if (!patch) {
-      return []
-      }
-
-      return [{
-        id: edgeId,
-        patch
-      }]
-    })
-
-    ctx.output.node.set((current) => ({
-      ...current,
+  ctx.overlay.set((current) => ({
+    ...current,
+    node: {
+      ...current.node,
       patches: preview.nodes.map(({ id, position }) => ({
         id,
         patch: {
           position
         }
       })),
-      hovered: preview.hoveredContainerId
-    }))
-    ctx.output.edge.set(
-      [
-        ...selectedEdgeUpdates,
-        ...preview.edges.map(({ id, patch }) => ({
-          id,
-          patch: {
-            route: patch.route
-          }
-        }))
-      ]
-    )
-  }
-
-  const createState = (
-    input: NodeDragStart
-  ) => {
-    const ids = input.nodeIds.includes(input.anchorId)
-      ? input.nodeIds
-      : [input.anchorId]
-    const move = buildMoveSet({
-      nodes: readCanvasNodes(),
-      ids,
-      nodeSize: ctx.query.config.nodeSize
-    })
-    if (!move.members.length) {
-      return null
-    }
-
-    return {
-      ids,
-      move,
-      startWorld: input.startWorld,
-      origin: {
-        x: input.frame.x,
-        y: input.frame.y
-      },
-      last: {
-        x: 0,
-        y: 0
-      },
-      size: {
-        width: input.frame.width,
-        height: input.frame.height
-      },
-      allowCross: input.allowCross,
-      selectedEdgeIds: input.edgeIds ?? [],
-      relatedEdgeIds: ctx.query.read.edge.related(
-        move.members.map((member) => member.id)
-      ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)),
-    }
-  }
-
-  const interaction: InteractionRegistration<ActiveDrag, NodeDragStart> = {
-    key: 'node.drag',
-    mode: 'node-drag',
-    pan: (state) => ({
-      frame: (pointer) => {
-        updatePreview(state, pointer)
-      }
-    }),
-    start: ({ input, state, session }) => {
-      input.onStart?.()
-      clear()
-      session.pan({
-        clientX: input.startClient.x,
-        clientY: input.startClient.y
-      })
-      updatePreview(state, {
-        clientX: input.startClient.x,
-        clientY: input.startClient.y
-      })
+      hovered: preview.hovered
     },
-    move: ({ state, session }, input: InteractionPointerInput) => {
-      state.allowCross = input.altKey
-      session.pan({
-        clientX: input.client.x,
-        clientY: input.client.y
-      })
-      updatePreview(state, {
-        clientX: input.client.x,
-        clientY: input.client.y
-      })
+    edge: {
+      patches: preview.edges.map(({ id, patch }) => ({
+        id,
+        patch: {
+          route: patch.route,
+          source: patch.source,
+          target: patch.target
+        }
+      }))
     },
-    up: ({ state, session }) => {
-      commit(state)
-      session.finish()
-    },
-    cleanup: () => {
-      clear()
+    guides: {
+      ...current.guides,
+      snap: snapped.guides
     }
+  }))
+}
+
+const createNodeDragState = (
+  ctx: NodeDragRuntimeDeps,
+  input: NodeDragStart
+): ActiveDrag | null => {
+  const nodes = ctx.read.index.node.all().map((entry) => entry.node)
+  const ids = input.nodeIds.includes(input.anchorId)
+    ? input.nodeIds
+    : [input.anchorId]
+  const move = buildMoveSet({
+    nodes,
+    ids,
+    nodeSize: ctx.config.nodeSize
+  })
+  if (!move.members.length) {
+    return null
   }
 
   return {
-    interaction,
-    createState,
-    clear
+    ids,
+    nodes,
+    move,
+    startWorld: input.startWorld,
+    origin: {
+      x: input.frame.x,
+      y: input.frame.y
+    },
+    last: {
+      x: 0,
+      y: 0
+    },
+    size: {
+      width: input.frame.width,
+      height: input.frame.height
+    },
+    allowCross: input.allowCross,
+    selectedEdges: (input.edgeIds ?? []).flatMap((edgeId) => {
+      const edge = ctx.read.edge.item.get(edgeId)?.edge
+      return edge ? [edge] : []
+    }),
+    relatedEdges: ctx.read.edge.related(
+      move.members.map((member) => member.id)
+    ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)).flatMap((edgeId) => {
+      const edge = ctx.read.edge.item.get(edgeId)?.edge
+      return edge ? [edge] : []
+    })
+  }
+}
+
+export const startNodeDragPhase = (
+  ctx: NodeDragRuntimeDeps,
+  input: NodeDragPhaseInput
+): ActiveInteraction | null => {
+  const state = createNodeDragState(ctx, {
+    pointerId: input.start.pointerId,
+    startWorld: input.start.point.world,
+    frame: input.frame,
+    anchorId: input.anchorId,
+    nodeIds: input.target.nodeIds,
+    edgeIds: input.target.edgeIds,
+    allowCross: input.input.altKey
+  })
+  if (!state) {
+    return null
+  }
+
+  if (input.nextSelection) {
+    ctx.commands.selection.replace(input.nextSelection)
+  }
+
+  clearNodeDrag(ctx)
+  updateNodeDragPreview(ctx, state, {
+    clientX: input.input.client.x,
+    clientY: input.input.client.y
+  })
+
+  return {
+    mode: 'node-drag',
+    pointerId: input.start.pointerId,
+    chrome: false,
+    autoPan: {
+      frame: (pointer) => {
+        updateNodeDragPreview(ctx, state, pointer)
+      }
+    },
+    move: (next) => {
+      state.allowCross = next.altKey
+      updateNodeDragPreview(ctx, state, {
+        clientX: next.client.x,
+        clientY: next.client.y
+      })
+    },
+    up: () => {
+      commitNodeDrag(ctx, state)
+    },
+    cleanup: () => {
+      clearNodeDrag(ctx)
+    }
   }
 }

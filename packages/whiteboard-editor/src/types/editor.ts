@@ -35,11 +35,7 @@ import type {
 } from '../runtime/viewport'
 import type { EditField, EditTarget } from '../runtime/state/edit'
 import type { ShapeKind } from '@whiteboard/core/node'
-import type { DrawInteraction } from '../interactions/draw'
-import type { EdgeGuideRuntime } from '../runtime/feedback/edgeGuide'
-import type { MarqueeFeedbackRuntime } from '../runtime/feedback/marquee'
-import type { MindmapDragFeedbackRuntime } from '../runtime/feedback/mindmapDrag'
-import type { SnapRuntime } from '../runtime/interaction'
+import type { EditorOverlay } from '../runtime/overlay'
 import type { NodeRegistry } from './node'
 import type { EditorPick } from './pick'
 
@@ -149,11 +145,11 @@ export type EditorState = {
 }
 
 export type EditorFeedback = {
-  draw: Pick<DrawInteraction['preview'], 'get' | 'subscribe'>
-  edgeGuide: Pick<EdgeGuideRuntime, 'get' | 'subscribe'>
-  marquee: Pick<MarqueeFeedbackRuntime, 'get' | 'subscribe'>
-  mindmapDrag: Pick<MindmapDragFeedbackRuntime, 'get' | 'subscribe'>
-  snap: SnapRuntime['node']['guides']
+  draw: EditorOverlay['selectors']['feedback']['draw']
+  edgeGuide: EditorOverlay['selectors']['feedback']['edgeGuide']
+  marquee: EditorOverlay['selectors']['feedback']['marquee']
+  mindmapDrag: EditorOverlay['selectors']['feedback']['mindmapDrag']
+  snap: EditorOverlay['selectors']['feedback']['snap']
 }
 
 export type EditorRead = RuntimeRead
@@ -174,18 +170,11 @@ export type EditorViewport = ViewportRead & {
 export type EditorInteractionState = Readonly<{
   busy: boolean
   chrome: boolean
-  mode:
-    | 'idle'
-    | 'press'
-    | 'draw'
-    | 'viewport-pan'
-    | 'marquee'
-    | 'node-drag'
-    | 'mindmap-drag'
-    | 'node-transform'
-    | 'edge-drag'
-    | 'edge-connect'
-    | 'edge-route'
+  transforming: boolean
+  drawing: boolean
+  panning: boolean
+  selecting: boolean
+  editingEdge: boolean
   space: boolean
 }>
 

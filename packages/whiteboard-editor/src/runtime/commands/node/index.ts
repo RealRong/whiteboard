@@ -1,6 +1,6 @@
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Editor } from '../../../types/editor'
-import type { NodeTransientRuntime } from '../../transient/node'
+import type { EditorOverlay } from '../../overlay'
 import { createNodeAppearanceCommands } from './appearance'
 import { createNodeDocumentCommands } from './document'
 import { createNodeLockCommands } from './lock'
@@ -9,13 +9,13 @@ import { createNodeTextCommands } from './text'
 export const createNodeCommands = ({
   engine,
   read,
-  runtime,
+  overlay,
   edit,
   selection
 }: {
   engine: EngineInstance
   read: Editor['read']
-  runtime: NodeTransientRuntime
+  overlay: Pick<EditorOverlay, 'set'>
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
 }): Editor['commands']['node'] => {
@@ -26,7 +26,7 @@ export const createNodeCommands = ({
   })
   const text = createNodeTextCommands({
     read,
-    runtime,
+    overlay,
     edit,
     selection,
     deleteCascade: engine.commands.node.deleteCascade,

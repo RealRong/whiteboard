@@ -2,15 +2,15 @@ import { isTextContentEmpty } from '@whiteboard/core/node'
 import type { NodeId, Size } from '@whiteboard/core/types'
 import type {
   NodePatch,
-  NodePatchEntry,
-  NodeTransientRuntime
-} from '../../transient/node'
+  NodePatchEntry
+} from '../../overlay'
 import type {
   Editor,
   EditorNodeAppearanceCommands,
   EditorNodeDocumentCommands,
   EditorNodeTextCommands
 } from '../../../types/editor'
+import type { EditorOverlay } from '../../overlay'
 import {
   dataUpdate,
   mergeNodeUpdates,
@@ -63,7 +63,7 @@ const isSameNodePatch = (
   && left?.rotation === right?.rotation
 )
 
-const readTransientPatch = (
+const readOverlayPatch = (
   patches: readonly NodePatchEntry[],
   nodeId: NodeId
 ): NodePatch | undefined => {
@@ -77,7 +77,7 @@ const readTransientPatch = (
   return undefined
 }
 
-const replaceTransientPatch = (
+const replaceOverlayPatch = (
   patches: readonly NodePatchEntry[],
   nodeId: NodeId,
   patch: NodePatch | undefined
@@ -132,12 +132,12 @@ const replaceTransientPatch = (
 }
 
 const writeTextPreview = (
-  runtime: NodeTransientRuntime,
+  overlay: Pick<EditorOverlay, 'set'>,
   nodeId: NodeId,
   size?: Size
 ) => {
-  runtime.set((current) => {
-    const patch = readTransientPatch(current.patches, nodeId)
+  overlay.set((current) => {
+    const patch = readOverlayPatch(current.node.patches, nodeId)
     const nextPatch = mergeTextPreviewPatch(patch, size)
 
     if (isSameSize(patch?.size, nextPatch?.size)) {
@@ -146,35 +146,41 @@ const writeTextPreview = (
 
     return {
       ...current,
-      patches: replaceTransientPatch(current.patches, nodeId, nextPatch)
+      node: {
+        ...current.node,
+        patches: replaceOverlayPatch(current.node.patches, nodeId, nextPatch)
+      }
     }
   })
 }
 
 const clearTextPreview = (
-  runtime: NodeTransientRuntime,
+  overlay: Pick<EditorOverlay, 'set'>,
   nodeId: NodeId
 ) => {
-  runtime.set((current) => {
-    const patch = readTransientPatch(current.patches, nodeId)
+  overlay.set((current) => {
+    const patch = readOverlayPatch(current.node.patches, nodeId)
     if (!patch?.size) {
       return current
     }
 
     return {
       ...current,
-      patches: replaceTransientPatch(
-        current.patches,
-        nodeId,
-        mergeTextPreviewPatch(patch, undefined)
-      )
+      node: {
+        ...current.node,
+        patches: replaceOverlayPatch(
+          current.node.patches,
+          nodeId,
+          mergeTextPreviewPatch(patch, undefined)
+        )
+      }
     }
   })
 }
 
 export const createNodeTextCommands = ({
   read,
-  runtime,
+  overlay,
   edit,
   selection,
   deleteCascade,
@@ -182,7 +188,7 @@ export const createNodeTextCommands = ({
   appearance
 }: {
   read: Editor['read']
-  runtime: NodeTransientRuntime
+  overlay: Pick<EditorOverlay, 'set'>
   edit: Editor['commands']['edit']
   selection: Editor['commands']['selection']
   deleteCascade: Editor['commands']['node']['deleteCascade']
@@ -198,15 +204,15 @@ export const createNodeTextCommands = ({
       return
     }
 
-    writeTextPreview(runtime, nodeId, size)
+    writeTextPreview(overlay, nodeId, size)
   },
   clearPreview: (nodeId) => {
-    clearTextPreview(runtime, nodeId)
+    clearTextPreview(overlay, nodeId)
   },
   cancel: ({
     nodeId
   }) => {
-    clearTextPreview(runtime, nodeId)
+    clearTextPreview(overlay, nodeId)
     edit.clear()
   },
   commit: ({
@@ -217,7 +223,7 @@ export const createNodeTextCommands = ({
   }) => {
     const committed = read.node.source.get(nodeId)
     if (!committed) {
-      clearTextPreview(runtime, nodeId)
+      clearTextPreview(overlay, nodeId)
       edit.clear()
       return undefined
     }
@@ -241,7 +247,7 @@ export const createNodeTextCommands = ({
       ? nextMeasuredSize
       : undefined
 
-    clearTextPreview(runtime, nodeId)
+    clearTextPreview(overlay, nodeId)
     edit.clear()
 
     if (

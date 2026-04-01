@@ -1,6 +1,6 @@
 import type { Editor } from '../../types/editor'
-import type { DrawPreferencesRuntime } from '../../interactions/drawPreferences'
 import type { Tool } from '../../types/tool'
+import type { DrawPreferencesState } from '../state/draw'
 import {
   isDrawBrushKind
 } from '../../tool/model'
@@ -15,7 +15,7 @@ export const createDrawCommands = ({
   tool: {
     get: () => Tool
   }
-  drawPreferences: DrawPreferencesRuntime
+  drawPreferences: DrawPreferencesState
 }): Editor['commands']['draw'] => ({
   slot: (slot) => {
     const current = tool.get()

@@ -1,70 +1,30 @@
-import { createValueStore } from '@whiteboard/engine'
-import type { EngineInstance, ValueStore } from '@whiteboard/engine'
+import {
+  createDerivedStore
+} from '@whiteboard/engine'
+import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import { createDrawPreferences } from '../../interactions/drawPreferences'
-import {
-  createEdgeGuide,
-  type EdgeGuideRuntime
-} from '../../runtime/feedback/edgeGuide'
-import {
-  createMarqueeFeedback,
-  type MarqueeFeedbackRuntime
-} from '../../runtime/feedback/marquee'
-import {
-  createMindmapDragFeedback,
-  type MindmapDragFeedbackRuntime
-} from '../../runtime/feedback/mindmapDrag'
-import {
-  createEdgeTransient,
-  type EdgeTransientRuntime
-} from '../../runtime/transient/edge'
-import {
-  createNodeTransient,
-  type NodeTransientRuntime
-} from '../../runtime/transient/node'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { InsertPresetCatalog } from '../../types/insert'
 import type { Tool } from '../../types/tool'
-import type { Editor } from '../../types/editor'
-import type { EditorInputPolicy, EditorViewportRuntime } from './types'
+import type {
+  Editor,
+  EditorInteractionState
+} from '../../types/editor'
+import type { EditorInputPolicy } from './types'
 import { createEditorCommands } from '../commands'
-import type { PointerSnapshot } from '../input/pointer/snapshot'
 import {
-  createSnapRuntime,
-  type InteractionCoordinator,
-  type SnapRuntime
+  createInteractionCoordinator,
+  createSnapRuntime
 } from '../interaction'
+import type { InteractionCtx } from '../interaction/ctx'
+import { createOverlay } from '../overlay'
 import { createRead } from '../read'
+import { createRuntimeState } from '../state'
 import { composeInput } from './composeInput'
 import { assembleInteractions } from './assembleInteractions'
-import { createKernel } from './kernel'
 import { createLifecycle } from './lifecycle'
 import { createClipboard } from '../clipboard'
-
-export type FeatureQuery = {
-  read: Editor['read']
-  config: Editor['config']
-  registry: NodeRegistry
-  interaction: Pick<InteractionCoordinator, 'mode' | 'state'>
-  inputPolicy: ValueStore<EditorInputPolicy>
-}
-
-export type FeatureOutput = {
-  edge: EdgeTransientRuntime
-  node: NodeTransientRuntime
-  edgeGuide: EdgeGuideRuntime
-  marquee: MarqueeFeedbackRuntime
-  mindmapDrag: MindmapDragFeedbackRuntime
-  snap: SnapRuntime
-}
-
-export type FeatureRuntime = {
-  query: FeatureQuery
-  command: Editor['commands']
-  viewport: EditorViewportRuntime
-  output: FeatureOutput
-}
 
 export const createEditor = ({
   engine,
@@ -88,39 +48,30 @@ export const createEditor = ({
   insertPresetCatalog: InsertPresetCatalog
   initialDrawPreferences: DrawPreferences
 }): Editor => {
-  const drawPreferences = createDrawPreferences(initialDrawPreferences)
-  const pointer = createValueStore<PointerSnapshot | null>(null)
-  const nodeTransient = createNodeTransient()
-  const edgeTransient = createEdgeTransient()
-  const edgeGuide = createEdgeGuide()
-
-  const {
-    kernel,
-    state,
-    viewport: editorViewport
-  } = createKernel({
+  const runtime = createRuntimeState({
     engine,
+    registry,
     initialTool,
     initialViewport,
     viewportLimits,
     inputPolicy: initialInputPolicy,
-    registry
+    initialDrawPreferences
   })
-  const marquee = createMarqueeFeedback(editorViewport)
-  const mindmapDrag = createMindmapDragFeedback()
-
+  const interaction = createInteractionCoordinator({
+    getViewport: () => runtime.state.viewport.input
+  })
+  const overlay = createOverlay({
+    viewport: runtime.public.viewport
+  })
   const read = createRead({
     engineRead: engine.read,
     registry,
-    tool: kernel.tool,
     history: engine.history,
-    drawPreferences: drawPreferences.store,
-    selection: kernel.selection.source,
-    node: nodeTransient.reader,
-    edge: edgeTransient.reader
+    runtime,
+    overlay
   })
   const snap = createSnapRuntime({
-    readZoom: () => editorViewport.get().zoom,
+    readZoom: () => runtime.public.viewport.get().zoom,
     node: {
       config: engine.config.node,
       query: engine.read.index.snap.inRect
@@ -131,88 +82,114 @@ export const createEditor = ({
       query: read.edge.connectCandidates
     }
   })
-
   const commands = createEditorCommands({
     engine,
     read,
-    tool: kernel.tool,
-    edit: kernel.edit.mutate,
-    selection: kernel.selection,
-    viewportCommands: kernel.viewport.commands,
-    drawPreferences,
-    nodeTransient: nodeTransient.runtime,
+    runtime,
+    overlay,
     insertPresetCatalog
   })
   const clipboard = createClipboard({
     editor: {
       commands,
       read,
-      viewport: kernel.viewport.read
+      viewport: runtime.public.viewport
     }
   })
 
-  const featureRuntime: FeatureRuntime = {
-    query: {
-      read,
-      config: kernel.engine.config,
-      registry: kernel.registry,
-      interaction: {
-        mode: kernel.interaction.mode,
-        state: kernel.interaction.state
-      },
-      inputPolicy: kernel.inputPolicy
+  const interactionCtx: InteractionCtx = {
+    read,
+    state: runtime.state,
+    config: engine.config,
+    registry,
+    interaction: {
+      mode: interaction.mode,
+      state: interaction.state
     },
-    command: commands,
-    viewport: editorViewport,
-    output: {
-      edge: edgeTransient.runtime,
-      node: nodeTransient.runtime,
-      edgeGuide,
-      marquee,
-      mindmapDrag,
-      snap
-    }
+    commands,
+    overlay,
+    snap
   }
-  const features = assembleInteractions(featureRuntime)
+  const features = assembleInteractions(interactionCtx)
 
   const input = composeInput({
     read,
-    viewport: editorViewport,
-    interaction: kernel.interaction,
-    policy: kernel.inputPolicy,
-    pointer,
+    viewport: runtime.public.viewport,
+    interaction,
+    policy: runtime.state.inputPolicy,
+    pointer: runtime.state.pointer,
     interactions: features.interactions,
     passive: features.passive
   })
 
   const lifecycle = createLifecycle({
-    kernel,
+    engine,
+    runtime,
+    overlay,
     read,
     input,
     featureLifecycle: features.lifecycle
   })
 
+  const interactionState = createDerivedStore<EditorInteractionState>({
+    get: (readStore) => {
+      const state = readStore(interaction.state)
+      const mode = readStore(interaction.mode)
+
+      return {
+        busy: state.busy,
+        chrome: state.chrome,
+        transforming: state.transforming,
+        drawing: mode === 'draw',
+        panning: mode === 'viewport-pan',
+        selecting:
+          mode === 'press'
+          || mode === 'marquee'
+          || mode === 'node-drag'
+          || mode === 'mindmap-drag'
+          || mode === 'node-transform',
+        editingEdge:
+          mode === 'edge-drag'
+          || mode === 'edge-connect'
+          || mode === 'edge-route',
+        space: state.space
+      }
+    },
+    isEqual: (left, right) => (
+      left.busy === right.busy
+      && left.chrome === right.chrome
+      && left.transforming === right.transforming
+      && left.drawing === right.drawing
+      && left.panning === right.panning
+      && left.selecting === right.selecting
+      && left.editingEdge === right.editingEdge
+      && left.space === right.space
+    )
+  })
+
   const editor = {
-    interaction: kernel.interaction,
-    registry: kernel.registry,
-    config: kernel.engine.config,
+    interaction: {
+      state: interactionState
+    },
+    registry,
+    config: engine.config,
     read,
-    state,
+    state: runtime.public.state,
     commands,
     clipboard,
     input,
-    viewport: editorViewport,
+    viewport: runtime.public.viewport,
     feedback: features.feedback,
     configure: (config) => {
       commands.tool.set(config.tool)
 
-      editorViewport.setLimits(config.viewport)
-      kernel.inputPolicy.set({
+      runtime.public.viewport.setLimits(config.viewport)
+      runtime.state.inputPolicy.set({
         panEnabled: config.viewport.enablePan,
         wheelEnabled: config.viewport.enableWheel,
         wheelSensitivity: config.viewport.wheelSensitivity
       })
-      kernel.engine.configure({
+      engine.configure({
         mindmapLayout: config.mindmapLayout,
         history: config.history
       })

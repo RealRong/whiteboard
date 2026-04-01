@@ -1,6 +1,5 @@
 import type { EngineInstance } from '@whiteboard/engine'
 import type { Editor } from '../../types/editor'
-import type { ViewportCommands } from '../viewport'
 import { createDrawCommands } from './draw'
 import { createHistoryCommands } from './history'
 import { createInsertCommands } from './insert'
@@ -9,36 +8,23 @@ import { createNodeCommands } from './node'
 import type {
   EditorCommandHost
 } from '../editor/types'
-import type { DrawPreferencesRuntime } from '../../interactions/drawPreferences'
-import type { SelectionState } from '../state/selection'
-import type { EditMutate } from '../state/edit'
+import type { EditorOverlay } from '../overlay'
+import type { RuntimeStateController } from '../state'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
-import type { NodeTransientRuntime } from '../transient/node'
 import type { InsertPresetCatalog } from '../../types/insert'
 
 export const createEditorCommands = ({
   engine,
   read,
-  tool,
-  edit,
-  selection,
-  viewportCommands,
-  drawPreferences,
-  nodeTransient,
+  runtime,
+  overlay,
   insertPresetCatalog
 }: {
   engine: EngineInstance
   read: Editor['read']
-  tool: {
-    get: () => ReturnType<Editor['state']['tool']['get']>
-    set: (tool: ReturnType<Editor['state']['tool']['get']>) => void
-  }
-  edit: EditMutate
-  selection: SelectionState
-  viewportCommands: ViewportCommands
-  drawPreferences: DrawPreferencesRuntime
-  nodeTransient: NodeTransientRuntime
+  runtime: Pick<RuntimeStateController, 'state'>
+  overlay: Pick<EditorOverlay, 'set'>
   insertPresetCatalog: InsertPresetCatalog
 }): Editor['commands'] => {
   let commands!: Editor['commands']
@@ -54,23 +40,23 @@ export const createEditorCommands = ({
   })
   const selectionCommands = createSelectionCommands({
     engine,
-    edit,
-    selection
+    edit: runtime.state.edit.mutate,
+    selection: runtime.state.selection
   })
   const toolCommands = createToolCommands({
-    tool,
-    edit,
-    selection: selection.mutate
+    tool: runtime.state.tool,
+    edit: runtime.state.edit.mutate,
+    selection: runtime.state.selection.mutate
   })
   const drawCommands = createDrawCommands({
-    tool,
-    drawPreferences
+    tool: runtime.state.tool,
+    drawPreferences: runtime.state.drawPreferences
   })
   const nodeCommands = createNodeCommands({
     engine,
     read,
-    runtime: nodeTransient,
-    edit,
+    overlay,
+    edit: runtime.state.edit.mutate,
     selection: selectionCommands
   })
   const mindmapCommands = createMindmapCommands({
@@ -87,9 +73,9 @@ export const createEditorCommands = ({
     history: historyCommands,
     tool: toolCommands,
     draw: drawCommands,
-    edit,
+    edit: runtime.state.edit.mutate,
     selection: selectionCommands,
-    viewport: viewportCommands,
+    viewport: runtime.state.viewport.commands,
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,

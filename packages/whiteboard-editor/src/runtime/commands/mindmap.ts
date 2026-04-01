@@ -1,6 +1,9 @@
 import type { EngineInstance } from '@whiteboard/engine'
 import {
+  DEFAULT_ROOT_MOVE_THRESHOLD,
   resolveInsertPlan,
+  shouldMoveMindmapRoot as shouldCommitMindmapRootMove,
+  shouldMoveMindmapSubtree,
   type MindmapInsertPlacement,
   type MindmapLayoutConfig
 } from '@whiteboard/core/mindmap'
@@ -19,8 +22,6 @@ import type { EditorCommandHost } from '../editor/types'
 type MindmapCommandEditor = Pick<Editor, 'commands' | 'read'>
 
 const DEFAULT_MINDMAP_SIDE: 'left' | 'right' = 'right'
-const DEFAULT_ROOT_MOVE_THRESHOLD = 0.5
-
 const createLayoutHint = (
   anchorId: MindmapNodeId,
   nodeSize: Size,
@@ -137,11 +138,10 @@ export const moveMindmapByDrop = ({
   nodeSize: Size
   layout: MindmapLayoutConfig
 }) => {
-  const shouldMove =
-    drop.parentId !== origin?.parentId
-    || drop.index !== origin?.index
-    || typeof drop.side !== 'undefined'
-  if (!shouldMove) {
+  if (!shouldMoveMindmapSubtree({
+    drop,
+    origin
+  })) {
     return undefined
   }
 
@@ -168,11 +168,11 @@ export const moveMindmapRoot = ({
   threshold?: number
 }) => {
   const previous = origin ?? readNodePosition(editor, nodeId)
-  if (
-    previous
-    && Math.abs(previous.x - position.x) < threshold
-    && Math.abs(previous.y - position.y) < threshold
-  ) {
+  if (!shouldCommitMindmapRootMove({
+    origin: previous,
+    position,
+    threshold
+  })) {
     return undefined
   }
 

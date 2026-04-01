@@ -25,7 +25,6 @@ import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import { useClipboardActions } from '../../runtime/host/useClipboardActions'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
-type InteractionMode = ReturnType<Editor['interaction']['state']['get']>['mode']
 type BaseSelection = ReturnType<Editor['read']['selection']['get']>
 type Tool = ReturnType<Editor['state']['tool']['get']>
 
@@ -406,13 +405,13 @@ const resolveSelectionChrome = ({
   tool,
   edit,
   selection,
-  mode,
+  transforming,
   chrome
 }: {
   tool: Tool
   edit: EditTarget
   selection: SelectionView
-  mode: InteractionMode
+  transforming: boolean
   chrome: boolean
 }): SelectionChrome => {
   const editing = edit !== null
@@ -431,7 +430,7 @@ const resolveSelectionChrome = ({
       && !editing
       && pureNodeSelection
       && (
-        mode === 'node-transform'
+        transforming
         || chrome
       ),
     connect:
@@ -525,10 +524,10 @@ export const useSelectionPresentation = () => {
       tool,
       edit,
       selection,
-      mode: interaction.mode,
+      transforming: interaction.transforming,
       chrome: interaction.chrome
     })
 
     return resolveSelectionPresentation(selection, chrome)
-  }, [edit, interaction.chrome, interaction.mode, selection, tool])
+  }, [edit, interaction.chrome, interaction.transforming, selection, tool])
 }

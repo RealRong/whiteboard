@@ -3,9 +3,9 @@ import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
-import type { EdgeTransientReader } from '../transient/edge'
-import type { NodeTransientReader } from '../transient/node'
 import type { Tool } from '../../types/tool'
+import type { EditorOverlay } from '../overlay'
+import type { RuntimeStateController } from '../state'
 import {
   createNodeRead,
   type NodeRead
@@ -35,31 +35,25 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
 export const createRead = ({
   engineRead,
   registry,
-  tool,
   history,
-  drawPreferences,
-  selection,
-  node,
-  edge
+  runtime,
+  overlay
 }: {
   engineRead: EngineRead
   registry: NodeRegistry
-  tool: ReadStore<Tool>
   history: ReadStore<HistoryState>
-  drawPreferences: ReadStore<DrawPreferences>
-  selection: ReadStore<SelectionTarget>
-  node: NodeTransientReader
-  edge: EdgeTransientReader
+  runtime: Pick<RuntimeStateController, 'state'>
+  overlay: Pick<EditorOverlay, 'selectors'>
 }): RuntimeRead => {
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
     registry,
-    transient: node
+    overlay: overlay.selectors.node
   })
   const edgeRead = createEdgeRead({
     read: engineRead,
     nodeItem: nodeRead.item,
-    transient: edge,
+    overlay: overlay.selectors.edge,
     capability: nodeRead.capability
   })
   const targetBounds = createTargetBoundsQuery({
@@ -67,14 +61,14 @@ export const createRead = ({
     edge: edgeRead
   })
   const selectionRead = createSelectionRead({
-    source: selection,
+    source: runtime.state.selection.source,
     node: nodeRead,
     edge: edgeRead,
     targetBounds,
     registry
   })
   const toolRead = createToolRead({
-    tool
+    tool: runtime.state.tool
   })
 
   return {
@@ -90,7 +84,7 @@ export const createRead = ({
     index: engineRead.index,
     tool: toolRead,
     draw: {
-      preferences: drawPreferences
+      preferences: runtime.state.drawPreferences.store
     }
   }
 }

@@ -17,10 +17,6 @@ import {
   type SnapThresholdConfig,
   type VerticalResizeEdge
 } from '@whiteboard/core/node'
-import {
-  createRafValueStore,
-  type ReadStore
-} from '@whiteboard/engine'
 import type { Point, Rect, Size } from '@whiteboard/core/types'
 
 const EMPTY_GUIDES: readonly Guide[] = []
@@ -49,11 +45,19 @@ export type ResizeSnapInput = {
   disabled?: boolean
 }
 
+export type MoveSnapResult = {
+  rect: Rect
+  guides: readonly Guide[]
+}
+
+export type ResizeSnapResult = {
+  update: ResizeUpdate
+  guides: readonly Guide[]
+}
+
 export type NodeSnapRuntime = {
-  guides: ReadStore<readonly Guide[]>
-  clear: () => void
-  move: (input: MoveSnapInput) => Rect
-  resize: (input: ResizeSnapInput) => ResizeUpdate
+  move: (input: MoveSnapInput) => MoveSnapResult
+  resize: (input: ResizeSnapInput) => ResizeSnapResult
 }
 
 export type EdgeSnapRuntime = {
@@ -99,30 +103,12 @@ const createNodeSnapRuntime = ({
   readZoom: () => number
   query: (rect: Rect) => readonly SnapCandidate[]
 }): NodeSnapRuntime => {
-  const guides = createRafValueStore({
-    initial: EMPTY_GUIDES,
-    isEqual: (left, right) => left === right
-  })
-
-  const writeGuides = (next: readonly Guide[]) => {
-    guides.write(next.length ? next : EMPTY_GUIDES)
-  }
-
-  const clear = () => {
-    guides.clear()
-  }
-
   const readThreshold = () => resolveSnapThresholdWorld(
     config,
     readZoom()
   )
 
   return {
-    guides: {
-      get: guides.get,
-      subscribe: guides.subscribe
-    },
-    clear,
     move: ({
       rect,
       excludeIds,
@@ -130,8 +116,10 @@ const createNodeSnapRuntime = ({
       disabled = false
     }) => {
       if (disabled) {
-        clear()
-        return rect
+        return {
+          rect,
+          guides: EMPTY_GUIDES
+        }
       }
 
       const threshold = readThreshold()
@@ -146,13 +134,16 @@ const createNodeSnapRuntime = ({
         { allowCross }
       )
 
-      writeGuides(result.guides)
-
       return {
-        x: rect.x + (result.dx ?? 0),
-        y: rect.y + (result.dy ?? 0),
-        width: rect.width,
-        height: rect.height
+        rect: {
+          x: rect.x + (result.dx ?? 0),
+          y: rect.y + (result.dy ?? 0),
+          width: rect.width,
+          height: rect.height
+        },
+        guides: result.guides.length > 0
+          ? result.guides
+          : EMPTY_GUIDES
       }
     },
     resize: ({
@@ -163,8 +154,10 @@ const createNodeSnapRuntime = ({
       disabled = false
     }) => {
       if (disabled || (!source.x && !source.y)) {
-        clear()
-        return toResizeUpdate(rect)
+        return {
+          update: toResizeUpdate(rect),
+          guides: EMPTY_GUIDES
+        }
       }
 
       const threshold = readThreshold()
@@ -182,8 +175,12 @@ const createNodeSnapRuntime = ({
         }
       })
 
-      writeGuides(result.guides)
-      return toResizeUpdate(result.rect)
+      return {
+        update: toResizeUpdate(result.rect),
+        guides: result.guides.length > 0
+          ? result.guides
+          : EMPTY_GUIDES
+      }
     }
   }
 }

@@ -5,30 +5,32 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import type {
-  InteractionPointerInput,
-  InteractionRegistration
-} from '../runtime/interaction'
-import type { FeatureRuntime } from '../runtime/editor/createEditor'
+  ActiveInteraction,
+  InteractionControl,
+  InteractionPointerInput
+} from '../../runtime/interaction'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001
 
-export type DrawEraseState = {
+type EraseState = {
   ids: Set<NodeId>
   lastWorld: Point
 }
 
-type DrawEraseInteractionDeps = {
+type ErasePhaseDeps = {
   readZoom: () => number
   queryDrawNodeIdsInRect: (rect: Rect) => readonly NodeId[]
-  deleteNodes: FeatureRuntime['command']['node']['delete']
+  deleteNodes: InteractionHost['commands']['node']['delete']
   writeHidden: (nodeIds: readonly NodeId[]) => void
   clearHidden: () => void
 }
 
 const collectEraseHitsInRect = (
-  deps: DrawEraseInteractionDeps,
-  state: DrawEraseState,
+  deps: ErasePhaseDeps,
+  state: EraseState,
   rect: Rect
 ) => {
   const nodeIds = deps.queryDrawNodeIdsInRect(rect)
@@ -50,8 +52,8 @@ const collectEraseHitsInRect = (
 }
 
 const collectErasePoint = (
-  deps: DrawEraseInteractionDeps,
-  state: DrawEraseState,
+  deps: ErasePhaseDeps,
+  state: EraseState,
   world: Point
 ) => {
   const halfWorld =
@@ -67,8 +69,8 @@ const collectErasePoint = (
 }
 
 const collectEraseInput = (
-  deps: DrawEraseInteractionDeps,
-  state: DrawEraseState,
+  deps: ErasePhaseDeps,
+  state: EraseState,
   input: InteractionPointerInput
 ) => {
   for (let index = 0; index < input.samples.length; index += 1) {
@@ -76,42 +78,42 @@ const collectEraseInput = (
   }
 }
 
-export const createDrawEraseInteraction = (
-  deps: DrawEraseInteractionDeps
-): InteractionRegistration<DrawEraseState> => ({
-  key: 'draw.erase',
-  priority: 610,
-  mode: 'draw',
-  can: (input) => {
-    if (
-      input.tool.type !== 'draw'
-      || input.tool.kind !== 'eraser'
-      || input.editable
-      || input.ignoreInput
-    ) {
-      return null
-    }
-
-    return {
-      ids: new Set<NodeId>(),
-      lastWorld: input.point.world
-    }
-  },
-  start: ({ input, state }) => {
-    collectErasePoint(deps, state, input.point.world)
-    deps.writeHidden([...state.ids])
-  },
-  move: ({ state }, input) => {
-    collectEraseInput(deps, state, input)
-  },
-  up: ({ state, session }, input) => {
-    collectEraseInput(deps, state, input)
-    if (state.ids.size > 0) {
-      deps.deleteNodes([...state.ids])
-    }
-    session.finish()
-  },
-  cleanup: () => {
-    deps.clearHidden()
+export const startErasePhase = (
+  deps: ErasePhaseDeps,
+  input: PointerDown,
+  control: InteractionControl
+): ActiveInteraction | null => {
+  if (
+    input.tool.type !== 'draw'
+    || input.tool.kind !== 'eraser'
+    || input.editable
+    || input.ignoreInput
+  ) {
+    return null
   }
-})
+
+  const state: EraseState = {
+    ids: new Set<NodeId>(),
+    lastWorld: input.point.world
+  }
+
+  collectErasePoint(deps, state, input.point.world)
+  deps.writeHidden([...state.ids])
+
+  return {
+    mode: 'draw',
+    move: (event) => {
+      collectEraseInput(deps, state, event)
+    },
+    up: (event) => {
+      collectEraseInput(deps, state, event)
+      if (state.ids.size > 0) {
+        deps.deleteNodes([...state.ids])
+      }
+      control.finish()
+    },
+    cleanup: () => {
+      deps.clearHidden()
+    }
+  }
+}

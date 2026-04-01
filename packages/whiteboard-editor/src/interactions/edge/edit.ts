@@ -1,4 +1,7 @@
-import { moveEdge } from '@whiteboard/core/edge'
+import {
+  moveEdge,
+  moveRoutePoint
+} from '@whiteboard/core/edge'
 import { isPointEqual } from '@whiteboard/core/geometry'
 import type {
   EdgeId,
@@ -7,10 +10,10 @@ import type {
 } from '@whiteboard/core/types'
 import type { PointerDown } from '../../runtime/input/pointer'
 import type {
-  InteractionPointerInput,
-  InteractionRegistration
+  ActiveInteraction,
+  InteractionControl,
 } from '../../runtime/interaction'
-import type { FeatureRuntime } from '../../runtime/editor/createEditor'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 type BodyMoveState = {
   kind: 'move'
@@ -70,15 +73,9 @@ type RoutePoint =
       point: Point
     }
 
-export type EdgeEditInteraction = {
-  body: InteractionRegistration<BodyState>
-  route: InteractionRegistration<RouteState>
-  clear: () => void
-}
-
 type EdgeEditInteractionDeps = Pick<
-  FeatureRuntime,
-  'query' | 'command' | 'viewport' | 'output'
+  InteractionHost,
+  'read' | 'commands' | 'viewport' | 'overlay'
 >
 
 const isEdgeRoutePick = (
@@ -88,409 +85,490 @@ const isEdgeRoutePick = (
   && pick.part === 'path'
 )
 
-export const createEdgeEditInteraction = (
-  ctx: EdgeEditInteractionDeps
-): EdgeEditInteraction => {
-  const clear = () => {
-    ctx.output.edge.clear()
-    ctx.output.edgeGuide.clear()
+const readMovePatch = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId,
+  delta: Point
+): EdgePatch | undefined => {
+  const item = ctx.read.edge.item.get(edgeId)
+  if (!item || !ctx.read.edge.capability(item.edge).move) {
+    return undefined
   }
 
-  const readMovePatch = (
-    edgeId: EdgeId,
-    delta: Point
-  ): EdgePatch | undefined => {
-    const item = ctx.query.read.edge.item.get(edgeId)
-    if (!item || !ctx.query.read.edge.capability(item.edge).move) {
-      return undefined
-    }
+  return moveEdge(item.edge, delta)
+}
 
-    return moveEdge(item.edge, delta)
-  }
-
-  const writePreviewPatch = (
-    edgeId: EdgeId,
-    patch: EdgePatch | undefined
-  ) => {
-    if (!patch) {
-      ctx.output.edge.clear()
-      return
-    }
-
-    ctx.output.edge.set([{
-      id: edgeId,
-      patch
-    }])
-  }
-
-  const readRouteView = (
-    edgeId: EdgeId
-  ) => ctx.query.read.edge.resolved.get(edgeId)
-
-  const readCapability = (
-    edgeId: EdgeId
-  ) => {
-    const item = ctx.query.read.edge.item.get(edgeId)
-    return item
-      ? ctx.query.read.edge.capability(item.edge)
-      : undefined
-  }
-
-  const readRoutePoints = (
-    edgeId: EdgeId
-  ) => {
-    const view = readRouteView(edgeId)
-    if (!view || !readCapability(edgeId)?.editRoute) {
-      return []
-    }
-
-    return view.handles.flatMap((handle) => (
-      handle.kind === 'anchor'
-        ? [handle.point]
-        : []
+const writePreviewPatch = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId,
+  patch: EdgePatch | undefined
+) => {
+  if (!patch) {
+    ctx.overlay.set((current) => (
+      current.edge.patches.length === 0
+        ? current
+        : {
+            ...current,
+            edge: {
+              patches: []
+            }
+          }
     ))
+    return
   }
 
-  const readRouteOrigin = (
-    edgeId: EdgeId,
-    index: number
-  ) => readRoutePoints(edgeId)[index]
-
-  const readRoutePoint = (
-    pick: EdgeRoutePick
-  ): RoutePoint | undefined => {
-    const view = readRouteView(pick.id)
-    if (!view || !readCapability(pick.id)?.editRoute) {
-      return undefined
+  ctx.overlay.set((current) => ({
+    ...current,
+    edge: {
+      patches: [{
+        id: edgeId,
+        patch
+      }]
     }
+  }))
+}
 
-    if (pick.index !== undefined) {
-      const handle = view.handles.find((entry) => (
-        entry.kind === 'anchor'
-        && entry.index === pick.index
-      ))
-      if (!handle || handle.kind !== 'anchor') {
-        return undefined
-      }
+const readRouteView = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId
+) => ctx.read.edge.resolved.get(edgeId)
 
-      return {
-        kind: 'anchor',
-        edgeId: pick.id,
-        index: handle.index,
-        point: handle.point
-      }
-    }
+const readCapability = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId
+) => {
+  const item = ctx.read.edge.item.get(edgeId)
+  return item
+    ? ctx.read.edge.capability(item.edge)
+    : undefined
+}
 
-    const insertIndex = pick.insert ?? 0
+const readRouteOrigin = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId,
+  index: number
+) => {
+  const view = readRouteView(ctx, edgeId)
+  if (!view || !readCapability(ctx, edgeId)?.editRoute) {
+    return undefined
+  }
+
+  const handle = view.handles.find((entry) => (
+    entry.kind === 'anchor'
+    && entry.index === index
+  ))
+
+  return handle?.kind === 'anchor'
+    ? handle.point
+    : undefined
+}
+
+const readRoutePoint = (
+  ctx: EdgeEditInteractionDeps,
+  pick: EdgeRoutePick
+): RoutePoint | undefined => {
+  const view = readRouteView(ctx, pick.id)
+  if (!view || !readCapability(ctx, pick.id)?.editRoute) {
+    return undefined
+  }
+
+  if (pick.index !== undefined) {
     const handle = view.handles.find((entry) => (
-      entry.kind === 'insert'
-      && entry.insertIndex === insertIndex
+      entry.kind === 'anchor'
+      && entry.index === pick.index
     ))
-    if (!handle || handle.kind !== 'insert') {
+    if (!handle || handle.kind !== 'anchor') {
       return undefined
     }
 
     return {
-      kind: 'insert',
+      kind: 'anchor',
       edgeId: pick.id,
-      insertIndex: handle.insertIndex,
+      index: handle.index,
       point: handle.point
     }
   }
 
-  const writeRoutePreview = (
-    edgeId: EdgeId,
-    points: readonly Point[],
-    activeRouteIndex?: number
-  ) => {
-    ctx.output.edge.set([{
-      id: edgeId,
-      patch: {
-        route: {
-          kind: 'manual',
-          points: [...points]
-        }
-      },
-      activeRouteIndex
-    }])
+  const insertIndex = pick.insert ?? 0
+  const handle = view.handles.find((entry) => (
+    entry.kind === 'insert'
+    && entry.insertIndex === insertIndex
+  ))
+  if (!handle || handle.kind !== 'insert') {
+    return undefined
   }
 
-  const updateBodyMove = (
-    state: BodyMoveState,
-    input: {
-      clientX: number
-      clientY: number
-    }
-  ) => {
-    const { world } = ctx.viewport.pointer(input)
-    const delta = {
-      x: world.x - state.start.x,
-      y: world.y - state.start.y
-    }
-    if (isPointEqual(delta, state.delta)) {
-      return
-    }
+  return {
+    kind: 'insert',
+    edgeId: pick.id,
+    insertIndex: handle.insertIndex,
+    point: handle.point
+  }
+}
 
-    state.delta = delta
-    const patch = readMovePatch(state.edgeId, delta)
-    if (!patch) {
-      return
+const writeRoutePreview = (
+  ctx: EdgeEditInteractionDeps,
+  edgeId: EdgeId,
+  patch?: EdgePatch,
+  activeRouteIndex?: number
+) => {
+  ctx.overlay.set((current) => ({
+    ...current,
+    edge: {
+      patches: [{
+        id: edgeId,
+        patch,
+        activeRouteIndex
+      }]
     }
+  }))
+}
 
-    writePreviewPatch(state.edgeId, patch)
+const updateBodyMove = (
+  ctx: EdgeEditInteractionDeps,
+  state: BodyMoveState,
+  input: {
+    clientX: number
+    clientY: number
+  }
+) => {
+  const { world } = ctx.viewport.pointer(input)
+  const delta = {
+    x: world.x - state.start.x,
+    y: world.y - state.start.y
+  }
+  if (isPointEqual(delta, state.delta)) {
+    return
   }
 
-  const commitBodyMove = (
-    state: BodyMoveState
-  ) => {
-    if (!isPointEqual(state.delta, { x: 0, y: 0 })) {
-      ctx.command.edge.move(state.edgeId, state.delta)
-      ctx.command.selection.clear()
-    }
+  state.delta = delta
+  const patch = readMovePatch(ctx, state.edgeId, delta)
+  if (!patch) {
+    return
   }
 
-  const updateRouteDrag = (
-    state: RouteDragState,
-    input: {
-      clientX: number
-      clientY: number
-    }
-  ) => {
-    const points = readRoutePoints(state.edgeId)
-    if (!points.length || state.index < 0 || state.index >= points.length) {
-      return false
-    }
+  writePreviewPatch(ctx, state.edgeId, patch)
+}
 
-    const { world } = ctx.viewport.pointer(input)
-    const point = {
-      x: state.origin.x + (world.x - state.start.x),
-      y: state.origin.y + (world.y - state.start.y)
-    }
-    if (isPointEqual(point, state.point)) {
-      return true
-    }
+const commitBodyMove = (
+  ctx: EdgeEditInteractionDeps,
+  state: BodyMoveState
+) => {
+  if (!isPointEqual(state.delta, { x: 0, y: 0 })) {
+    ctx.commands.edge.move(state.edgeId, state.delta)
+    ctx.commands.selection.clear()
+  }
+}
 
-    state.point = point
-    writeRoutePreview(
-      state.edgeId,
-      points.map((entryPoint, pointIndex) => (
-        pointIndex === state.index ? point : entryPoint
-      )),
-      state.index
-    )
+const updateRouteDrag = (
+  ctx: EdgeEditInteractionDeps,
+  state: RouteDragState,
+  input: {
+    clientX: number
+    clientY: number
+  }
+) => {
+  const item = ctx.read.edge.item.get(state.edgeId)
+  if (!item || !readCapability(ctx, state.edgeId)?.editRoute) {
+    return false
+  }
+
+  const { world } = ctx.viewport.pointer(input)
+  const point = {
+    x: state.origin.x + (world.x - state.start.x),
+    y: state.origin.y + (world.y - state.start.y)
+  }
+  if (isPointEqual(point, state.point)) {
     return true
   }
 
-  const commitRouteDrag = (
-    state: RouteDragState
-  ) => {
-    if (
-      readCapability(state.edgeId)?.editRoute
-      && !isPointEqual(state.point, state.origin)
-    ) {
-      ctx.command.edge.route.move(state.edgeId, state.index, state.point)
-    }
+  state.point = point
+  const patch = moveRoutePoint(item.edge, state.index, point)
+  if (!patch) {
+    return false
   }
 
-  const body: InteractionRegistration<BodyState> = {
-    key: 'edge.body',
-    priority: 370,
-    mode: 'edge-drag',
-    pan: (state) => (
-      state.kind === 'move'
-        ? {
-            frame: (pointer) => {
-              updateBodyMove(state, pointer)
+  writeRoutePreview(ctx, state.edgeId, patch, state.index)
+  return true
+}
+
+const commitRouteDrag = (
+  ctx: EdgeEditInteractionDeps,
+  state: RouteDragState
+) => {
+  if (
+    readCapability(ctx, state.edgeId)?.editRoute
+    && !isPointEqual(state.point, state.origin)
+  ) {
+    ctx.commands.edge.route.move(state.edgeId, state.index, state.point)
+  }
+}
+
+const createBodyActive = (
+  ctx: EdgeEditInteractionDeps,
+  state: BodyMoveState,
+  control: InteractionControl
+): ActiveInteraction => ({
+  mode: 'edge-drag',
+  pointerId: state.pointerId,
+  autoPan: {
+    frame: (pointer) => {
+      updateBodyMove(ctx, state, pointer)
+    }
+  },
+  move: (input) => {
+    updateBodyMove(ctx, state, {
+      clientX: input.client.x,
+      clientY: input.client.y
+    })
+    control.pan({
+      clientX: input.client.x,
+      clientY: input.client.y
+    })
+  },
+  up: () => {
+    commitBodyMove(ctx, state)
+    control.finish()
+  },
+  cleanup: () => {
+    ctx.overlay.set((current) => (
+      current.edge.patches.length === 0
+        ? current
+        : {
+            ...current,
+            edge: {
+              patches: []
             }
           }
-        : false
-    ),
-    can: (input) => {
-      if (
-        input.tool.type !== 'select'
-        || input.pick.kind !== 'edge'
-        || input.pick.part !== 'body'
-      ) {
-        return null
-      }
+    ))
+  }
+})
 
-      const capability = readCapability(input.pick.id)
-      if (!capability) {
-        return null
-      }
+const createRouteActive = (
+  ctx: EdgeEditInteractionDeps,
+  initialState: RouteState,
+  input: PointerDown,
+  control: InteractionControl
+): ActiveInteraction => {
+  let state = initialState
 
-      if (input.shiftKey || input.detail >= 2) {
-        return capability.editRoute
-          ? {
-              kind: 'insert',
-              edgeId: input.pick.id
-            }
-          : null
-      }
+  if (state.kind === 'remove') {
+    ctx.commands.edge.route.remove(state.edgeId, state.index)
+    control.finish()
 
-      if (!capability.move) {
-        return null
+    return {
+      mode: 'edge-route',
+      cleanup: () => {
+        ctx.overlay.set((current) => (
+          current.edge.patches.length === 0
+            ? current
+            : {
+                ...current,
+                edge: {
+                  patches: []
+                }
+              }
+        ))
       }
-
-      return {
-        kind: 'move',
-        edgeId: input.pick.id,
-        pointerId: input.pointerId,
-        start: input.point.world,
-        delta: { x: 0, y: 0 }
-      }
-    },
-    start: ({ input, state, session }) => {
-      ctx.command.selection.replace({
-        edgeIds: [state.edgeId]
-      })
-
-      if (state.kind === 'insert') {
-        ctx.command.edge.route.insert(state.edgeId, input.point.world)
-        session.finish()
-        return
-      }
-    },
-    move: ({ state, session }, input: InteractionPointerInput) => {
-      if (state.kind !== 'move') {
-        return
-      }
-
-      updateBodyMove(state, {
-        clientX: input.client.x,
-        clientY: input.client.y
-      })
-      session.pan({
-        clientX: input.client.x,
-        clientY: input.client.y
-      })
-    },
-    up: ({ state, session }) => {
-      if (state.kind === 'move') {
-        commitBodyMove(state)
-      }
-
-      session.finish()
-    },
-    cleanup: () => {
-      ctx.output.edge.clear()
     }
   }
 
-  const route: InteractionRegistration<RouteState> = {
-    key: 'edge.route',
-    priority: 380,
+  if (state.kind === 'insert') {
+    const result = ctx.commands.edge.route.insert(state.edgeId, state.worldPoint)
+    if (!result.ok) {
+      control.finish()
+
+      return {
+        mode: 'edge-route',
+        cleanup: () => {
+          ctx.overlay.set((current) => (
+            current.edge.patches.length === 0
+              ? current
+              : {
+                  ...current,
+                  edge: {
+                    patches: []
+                  }
+                }
+          ))
+        }
+      }
+    }
+
+    const origin = readRouteOrigin(ctx, state.edgeId, result.data.index) ?? state.worldPoint
+    state = {
+      kind: 'drag',
+      edgeId: state.edgeId,
+      index: result.data.index,
+      pointerId: input.pointerId,
+      start: input.point.world,
+      origin,
+      point: origin
+    }
+  }
+
+  if (state.kind === 'drag') {
+    writeRoutePreview(ctx, state.edgeId, undefined, state.index)
+  }
+
+  return {
     mode: 'edge-route',
-    pan: (state) => (
-      state.kind === 'drag'
-        ? {
-            frame: (pointer) => {
-              updateRouteDrag(state, pointer)
-            }
-          }
-        : false
-    ),
-    can: (input) => {
-      if (
-        input.tool.type !== 'select'
-        || !isEdgeRoutePick(input.pick)
-      ) {
-        return null
-      }
-
-      const routePoint = readRoutePoint(input.pick)
-      if (!routePoint) {
-        return null
-      }
-
-      if (routePoint.kind === 'insert') {
-        return {
-          kind: 'insert',
-          edgeId: routePoint.edgeId,
-          worldPoint: input.point.world
-        }
-      }
-
-      if (input.detail >= 2) {
-        return {
-          kind: 'remove',
-          edgeId: routePoint.edgeId,
-          index: routePoint.index
-        }
-      }
-
-      return {
-        kind: 'drag',
-        edgeId: routePoint.edgeId,
-        index: routePoint.index,
-        pointerId: input.pointerId,
-        start: input.point.world,
-        origin: routePoint.point,
-        point: routePoint.point
-      }
-    },
-    start: ({ input, state, session }) => {
-      if (state.kind === 'remove') {
-        ctx.command.edge.route.remove(state.edgeId, state.index)
-        session.finish()
-        return
-      }
-
-      if (state.kind === 'insert') {
-        const result = ctx.command.edge.route.insert(state.edgeId, state.worldPoint)
-        if (!result.ok) {
-          session.finish()
+    pointerId: state.kind === 'drag' ? state.pointerId : undefined,
+    autoPan: {
+      frame: (pointer) => {
+        if (state.kind !== 'drag') {
           return
         }
 
-        const origin = readRouteOrigin(state.edgeId, result.data.index) ?? state.worldPoint
-        Object.assign(state, {
-          kind: 'drag',
-          index: result.data.index,
-          pointerId: input.pointerId,
-          start: input.point.world,
-          origin,
-          point: origin
-        })
-      }
-
-      if (state.kind === 'drag') {
-        writeRoutePreview(state.edgeId, readRoutePoints(state.edgeId), state.index)
+        updateRouteDrag(ctx, state, pointer)
       }
     },
-    move: ({ state, session }, input: InteractionPointerInput) => {
+    move: (nextInput) => {
       if (state.kind !== 'drag') {
         return
       }
 
-      if (!updateRouteDrag(state, {
-        clientX: input.client.x,
-        clientY: input.client.y
+      if (!updateRouteDrag(ctx, state, {
+        clientX: nextInput.client.x,
+        clientY: nextInput.client.y
       })) {
-        session.cancel()
+        control.cancel()
         return
       }
 
-      session.pan({
-        clientX: input.client.x,
-        clientY: input.client.y
+      control.pan({
+        clientX: nextInput.client.x,
+        clientY: nextInput.client.y
       })
     },
-    up: ({ state, session }) => {
+    up: () => {
       if (state.kind === 'drag') {
-        commitRouteDrag(state)
+        commitRouteDrag(ctx, state)
       }
 
-      session.finish()
+      control.finish()
     },
     cleanup: () => {
-      ctx.output.edge.clear()
+      ctx.overlay.set((current) => (
+        current.edge.patches.length === 0
+          ? current
+          : {
+              ...current,
+              edge: {
+                patches: []
+              }
+            }
+      ))
+    }
+  }
+}
+
+export const startEdgeBodyPhase = (
+  ctx: EdgeEditInteractionDeps,
+  input: PointerDown,
+  control: InteractionControl
+): ActiveInteraction | null => {
+  if (
+    input.tool.type !== 'select'
+    || input.pick.kind !== 'edge'
+    || input.pick.part !== 'body'
+  ) {
+    return null
+  }
+
+  const capability = readCapability(ctx, input.pick.id)
+  if (!capability) {
+    return null
+  }
+
+  const state: BodyState | null =
+    input.shiftKey || input.detail >= 2
+      ? capability.editRoute
+        ? {
+            kind: 'insert',
+            edgeId: input.pick.id
+          }
+        : null
+      : capability.move
+        ? {
+            kind: 'move',
+            edgeId: input.pick.id,
+            pointerId: input.pointerId,
+            start: input.point.world,
+            delta: { x: 0, y: 0 }
+          }
+        : null
+  if (!state) {
+    return null
+  }
+
+  ctx.commands.selection.replace({
+    edgeIds: [state.edgeId]
+  })
+
+  if (state.kind === 'insert') {
+    ctx.commands.edge.route.insert(state.edgeId, input.point.world)
+    control.finish()
+
+    return {
+      mode: 'edge-drag',
+      cleanup: () => {
+        ctx.overlay.set((current) => (
+          current.edge.patches.length === 0
+            ? current
+            : {
+                ...current,
+                edge: {
+                  patches: []
+                }
+              }
+        ))
+      }
     }
   }
 
-  return {
-    body,
-    route,
-    clear
+  return createBodyActive(ctx, state, control)
+}
+
+export const startEdgeRoutePhase = (
+  ctx: EdgeEditInteractionDeps,
+  input: PointerDown,
+  control: InteractionControl
+): ActiveInteraction | null => {
+  if (
+    input.tool.type !== 'select'
+    || !isEdgeRoutePick(input.pick)
+  ) {
+    return null
   }
+
+  const routePoint = readRoutePoint(ctx, input.pick)
+  if (!routePoint) {
+    return null
+  }
+
+  const state: RouteState =
+    routePoint.kind === 'insert'
+      ? {
+          kind: 'insert',
+          edgeId: routePoint.edgeId,
+          worldPoint: input.point.world
+        }
+      : input.detail >= 2
+        ? {
+            kind: 'remove',
+            edgeId: routePoint.edgeId,
+            index: routePoint.index
+          }
+        : {
+            kind: 'drag',
+            edgeId: routePoint.edgeId,
+            index: routePoint.index,
+            pointerId: input.pointerId,
+            start: input.point.world,
+            origin: routePoint.point,
+            point: routePoint.point
+          }
+
+  return createRouteActive(ctx, state, input, control)
 }

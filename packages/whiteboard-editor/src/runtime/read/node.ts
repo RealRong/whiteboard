@@ -28,9 +28,8 @@ import {
   getRotatedCorners
 } from '@whiteboard/core/geometry'
 import type {
-  NodeTransientProjection,
-  NodeTransientReader
-} from '../transient/node'
+  NodeOverlayProjection
+} from '../overlay'
 
 export type NodeRuntimeState = {
   hovered: boolean
@@ -126,7 +125,7 @@ const readNodeItemOutline = (
   : item.rect
 
 const toNodeRuntimeState = (
-  projection: NodeTransientProjection
+  projection: NodeOverlayProjection
 ): NodeRuntimeState => ({
   hovered: projection.hovered,
   hidden: projection.hidden,
@@ -136,10 +135,10 @@ const toNodeRuntimeState = (
 
 const createNodeItemStore = ({
   read,
-  transient
+  overlay
 }: {
   read: Pick<EngineRead, 'node'>
-  transient: NodeTransientReader
+  overlay: KeyedReadStore<NodeId, NodeOverlayProjection>
 }): NodeRead['item'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => {
     const item = readStore(read.node.item, nodeId)
@@ -147,7 +146,7 @@ const createNodeItemStore = ({
       return undefined
     }
 
-    const patch = readStore(transient, nodeId).patch
+    const patch = readStore(overlay, nodeId).patch
     if (!patch) {
       return item
     }
@@ -165,12 +164,12 @@ const createNodeItemStore = ({
 })
 
 const createNodeStateStore = ({
-  transient
+  overlay
 }: {
-  transient: NodeTransientReader
+  overlay: KeyedReadStore<NodeId, NodeOverlayProjection>
 }): NodeRead['state'] => createKeyedDerivedStore({
   get: (readStore, nodeId: NodeId) => toNodeRuntimeState(
-    readStore(transient, nodeId)
+    readStore(overlay, nodeId)
   ),
   isEqual: isNodeStateEqual
 })
@@ -194,18 +193,18 @@ const createNodeCapabilityResolver = (
 export const createNodeRead = ({
   read,
   registry,
-  transient
+  overlay
 }: {
   read: EngineRead
   registry: NodeRegistry
-  transient: NodeTransientReader
+  overlay: KeyedReadStore<NodeId, NodeOverlayProjection>
 }): NodeRead => {
   const item = createNodeItemStore({
     read,
-    transient
+    overlay
   })
   const state = createNodeStateStore({
-    transient
+    overlay
   })
   const capability = createNodeCapabilityResolver(registry)
 

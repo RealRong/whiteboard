@@ -2,15 +2,15 @@ import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import {
   DRAW_SLOTS,
   normalizeDrawPreferences
-} from '../draw/model'
+} from '../../draw/model'
 import type {
   BrushStyle,
   DrawBrush,
   DrawCommands,
   DrawPreferences
-} from '../types/draw'
+} from '../../types/draw'
 
-export type DrawPreferencesRuntime = {
+export type DrawPreferencesState = {
   store: ValueStore<DrawPreferences>
   commands: DrawCommands
 }
@@ -45,9 +45,9 @@ const isSameBrush = (
   )
 )
 
-export const createDrawPreferences = (
+export const createDrawPreferencesState = (
   initialPreferences: DrawPreferences
-): DrawPreferencesRuntime => {
+): DrawPreferencesState => {
   const store = createValueStore<DrawPreferences>(
     normalizeDrawPreferences(initialPreferences)
   )

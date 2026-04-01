@@ -26,6 +26,7 @@ export type InteractionState = Readonly<{
   busy: boolean
   chrome: boolean
   mode: InteractionMode
+  transforming: boolean
   space: boolean
 }>
 
@@ -68,82 +69,43 @@ export type InteractionKeyboardInput = Readonly<Pick<
   | 'metaKey'
 >>
 
-export type InteractionActivation<
-  State = any,
-  Start = PointerDown
-> = Readonly<{
-  registration: InteractionRegistration<State, Start>
-  input: Start
-  state: State
-}>
-
-export type RuntimeSession = Readonly<{
+export type InteractionControl = Readonly<{
   finish: () => void
   cancel: () => void
   pan: (pointer: AutoPanPointer) => void
-  replace: <NextState, NextStart = PointerDown>(
-    next: InteractionActivation<NextState, NextStart>
-  ) => boolean
-}>
-
-export type InteractionContext<
-  State = any,
-  Start = PointerDown
-> = Readonly<{
-  input: Start
-  state: State
-  setState: (next: State) => void
-  session: RuntimeSession
-}>
-
-export type InteractionCleanupContext<
-  State = any,
-  Start = PointerDown
-> = Readonly<{
-  input: Start
-  state: State | null
+  update: (next: {
+    mode?: ActiveInteractionMode
+    chrome?: boolean
+  }) => void
 }>
 
 export type AutoPanOptions = Readonly<{
-  frame?: (
-    pointer: AutoPanPointer,
-    session: RuntimeSession
-  ) => void
+  frame?: (pointer: AutoPanPointer) => void
   threshold?: number
   maxSpeed?: number
 }>
 
-export type InteractionRegistration<
-  State = any,
-  Start = PointerDown
-> = {
-  key: string
+export type ActiveInteraction = {
   mode: ActiveInteractionMode
+  pointerId?: number
+  chrome?: boolean
+  autoPan?: AutoPanOptions
+  move?: (input: InteractionPointerInput) => void
+  up?: (input: InteractionPointerInput) => void
+  keydown?: (input: InteractionKeyboardInput) => void
+  keyup?: (input: InteractionKeyboardInput) => void
+  blur?: () => void
+  cancel?: () => void
+  cleanup?: () => void
+}
+
+export type InteractionRegistration = {
+  key: string
   priority?: number
-  can?: (input: PointerDown) => State | null
-  prepare?: (state: State, input: PointerDown) => Start
-  chrome?: (state: State, input: Start) => boolean | undefined
-  pan?: AutoPanOptions | ((state: State, input: Start) => AutoPanOptions | false)
-  start?: (ctx: InteractionContext<State, Start>) => void
-  move?: (
-    ctx: InteractionContext<State, Start>,
-    input: InteractionPointerInput
-  ) => void
-  up?: (
-    ctx: InteractionContext<State, Start>,
-    input: InteractionPointerInput
-  ) => void
-  keydown?: (
-    ctx: InteractionContext<State, Start>,
-    input: InteractionKeyboardInput
-  ) => void
-  keyup?: (
-    ctx: InteractionContext<State, Start>,
-    input: InteractionKeyboardInput
-  ) => void
-  blur?: (ctx: InteractionContext<State, Start>) => void
-  cancel?: (ctx: InteractionContext<State, Start>) => void
-  cleanup?: (ctx: InteractionCleanupContext<State, Start>) => void
+  start: (
+    input: PointerDown,
+    control: InteractionControl
+  ) => ActiveInteraction | null
 }
 
 export type InteractionCoordinator = {
@@ -152,9 +114,10 @@ export type InteractionCoordinator = {
   chrome: ReadStore<boolean>
   state: ReadStore<InteractionState>
   space: ReadStore<boolean>
-  start: <State, Start = PointerDown>(
-    input: InteractionActivation<State, Start>
-  ) => RuntimeSession | null
+  start: (
+    registration: InteractionRegistration,
+    input: PointerDown
+  ) => boolean
   handlePointerMove: (input: InteractionPointerInput) => boolean
   handlePointerUp: (input: InteractionPointerInput) => boolean
   handlePointerCancel: (input: {

@@ -1,14 +1,19 @@
 import type { Editor } from '../../types/editor'
-import { finalize } from './finalize'
-import type { EditorKernel } from './types'
+import type { EditorOverlay } from '../overlay'
+import type { RuntimeStateController } from '../state'
+import type { EngineInstance } from '@whiteboard/engine'
 
 export const createLifecycle = ({
-  kernel,
+  engine,
+  runtime,
+  overlay,
   read,
   input,
   featureLifecycle
 }: {
-  kernel: EditorKernel
+  engine: EngineInstance
+  runtime: RuntimeStateController
+  overlay: Pick<EditorOverlay, 'reset'>
   read: Editor['read']
   input: Editor['input']
   featureLifecycle: {
@@ -18,13 +23,13 @@ export const createLifecycle = ({
 }) => {
   const resetRuntimeState = () => {
     input.cancel()
-    kernel.edit.mutate.clear()
-    kernel.selection.mutate.clear()
+    overlay.reset()
+    runtime.resetLocal()
     featureLifecycle.reset()
   }
 
-  const unsubscribeCommit = kernel.engine.commit.subscribe(() => {
-    const commit = kernel.engine.commit.get()
+  const unsubscribeCommit = engine.commit.subscribe(() => {
+    const commit = engine.commit.get()
     if (!commit) {
       return
     }
@@ -34,11 +39,7 @@ export const createLifecycle = ({
       return
     }
 
-    finalize({
-      read,
-      selection: kernel.selection,
-      edit: kernel.edit
-    })
+    runtime.reconcileAfterCommit(read)
   })
 
   return {
@@ -47,7 +48,7 @@ export const createLifecycle = ({
       unsubscribeCommit()
       resetRuntimeState()
       featureLifecycle.dispose()
-      kernel.engine.dispose()
+      engine.dispose()
     }
   }
 }

@@ -17,9 +17,8 @@ import {
   type NodeItem
 } from '@whiteboard/engine'
 import type {
-  EdgeTransientProjection,
-  EdgeTransientReader
-} from '../transient/edge'
+  EdgeOverlayProjection
+} from '../overlay'
 
 export type EdgeRuntimeState = {
   patched: boolean
@@ -92,7 +91,7 @@ const isEdgeStateEqual = (
 )
 
 const toEdgeRuntimeState = (
-  projection: EdgeTransientProjection
+  projection: EdgeOverlayProjection
 ): EdgeRuntimeState => ({
   patched: Boolean(projection.patch),
   activeRouteIndex: projection.activeRouteIndex
@@ -100,10 +99,10 @@ const toEdgeRuntimeState = (
 
 const createEdgeItemStore = ({
   read,
-  transient
+  overlay
 }: {
   read: Pick<EngineRead, 'edge'>
-  transient: EdgeTransientReader
+  overlay: KeyedReadStore<EdgeId, EdgeOverlayProjection>
 }): EdgeRead['item'] => createKeyedDerivedStore({
   get: (readStore, edgeId: EdgeId) => {
     const entry = readStore(read.edge.item, edgeId)
@@ -113,7 +112,7 @@ const createEdgeItemStore = ({
 
     const nextEdge = applyEdgePatch(
       entry.edge,
-      readStore(transient, edgeId).patch
+      readStore(overlay, edgeId).patch
     )
     return nextEdge === entry.edge
       ? entry
@@ -126,12 +125,12 @@ const createEdgeItemStore = ({
 })
 
 const createEdgeStateStore = ({
-  transient
+  overlay
 }: {
-  transient: EdgeTransientReader
+  overlay: KeyedReadStore<EdgeId, EdgeOverlayProjection>
 }): EdgeRead['state'] => createKeyedDerivedStore({
   get: (readStore, edgeId: EdgeId) => toEdgeRuntimeState(
-    readStore(transient, edgeId)
+    readStore(overlay, edgeId)
   ),
   isEqual: isEdgeStateEqual
 })
@@ -169,22 +168,22 @@ const createEdgeResolvedStore = ({
 export const createEdgeRead = ({
   read,
   nodeItem,
-  transient,
+  overlay,
   capability
 }: {
   read: Pick<EngineRead, 'edge' | 'index'>
   nodeItem: KeyedReadStore<string, NodeItem | undefined>
-  transient: EdgeTransientReader
+  overlay: KeyedReadStore<EdgeId, EdgeOverlayProjection>
   capability: (node: Pick<Node, 'type'> | NodeType) => {
     connect: boolean
   }
 }): EdgeRead => {
   const item = createEdgeItemStore({
     read,
-    transient
+    overlay
   })
   const state = createEdgeStateStore({
-    transient
+    overlay
   })
   const resolved = createEdgeResolvedStore({
     item,

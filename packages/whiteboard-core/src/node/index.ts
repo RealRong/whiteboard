@@ -64,11 +64,14 @@ export {
   resolveNodeFrame
 } from './frame'
 export {
+  buildMoveCommit,
   buildMoveSet,
+  projectMovePreview,
   projectMovePositions,
   resolveMoveEffect
 } from './move'
 export type {
+  MoveCommit,
   MoveEdgeChange,
   MoveEffect,
   MoveMember,
@@ -84,11 +87,14 @@ export {
 } from './readModel'
 export type { NodeReadSlices } from './readModel'
 export {
+  buildTransformCommitUpdates,
   buildTransformHandles,
   computeNextRotation,
   computeResizeRect,
   getResizeUpdateRect,
   projectResizePatches,
+  projectResizeTransformPatches,
+  projectRotateTransformPatches,
   resolveSelectionTransformTargets,
   getResizeSourceEdges,
   resizeHandleMap,
@@ -99,6 +105,7 @@ export type {
   HorizontalResizeEdge,
   ResizeUpdate,
   ResizeDirection,
+  TransformCommitUpdate,
   TransformSelectionMember,
   TransformSelectionTargets,
   TransformPreviewPatch,

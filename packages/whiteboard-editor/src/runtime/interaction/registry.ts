@@ -21,22 +21,9 @@ export const createInteractionRegistry = (
   ) => {
     for (let index = 0; index < ordered.length; index += 1) {
       const registration = ordered[index]
-      if (!registration?.can) {
-        continue
-      }
-
-      const state = registration.can(input)
-      if (state === null) {
-        continue
-      }
-
-      const started = interaction.start({
-        registration,
-        input: registration.prepare
-          ? registration.prepare(state, input)
-          : input,
-        state
-      })
+      const started = registration
+        ? interaction.start(registration, input)
+        : false
       if (started) {
         return true
       }

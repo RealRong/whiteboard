@@ -1,36 +1,32 @@
-import type { ValueStore } from '@whiteboard/engine'
 import type {
+  ActiveInteraction,
   InteractionPointerInput,
   InteractionRegistration
 } from '../runtime/interaction'
-import type { FeatureRuntime } from '../runtime/editor/createEditor'
+import type { InteractionHost } from '../runtime/interaction/host'
 
-type ViewportInputPolicy = {
-  panEnabled: boolean
-}
-
-type ViewportPanState = {
+type PanState = {
   lastClient: {
     x: number
     y: number
   }
 }
 
-type ViewportPanInteractionDeps = Pick<
-  FeatureRuntime,
-  'query' | 'viewport'
+type ViewportInteractionDeps = Pick<
+  InteractionHost,
+  'read' | 'interaction' | 'inputPolicy' | 'viewport'
 >
 
 const allowsLeftDrag = (
-  ctx: ViewportPanInteractionDeps
+  ctx: ViewportInteractionDeps
 ) => (
-  ctx.query.interaction.state.get().space
-  || ctx.query.read.tool.is('hand')
+  ctx.interaction.state.get().space
+  || ctx.read.tool.is('hand')
 )
 
 const updatePan = (
-  ctx: ViewportPanInteractionDeps,
-  state: ViewportPanState,
+  ctx: ViewportInteractionDeps,
+  state: PanState,
   input: InteractionPointerInput
 ) => {
   const deltaX = input.client.x - state.lastClient.x
@@ -49,14 +45,13 @@ const updatePan = (
   })
 }
 
-export const createViewportPanInteraction = (
-  ctx: ViewportPanInteractionDeps
-): InteractionRegistration<ViewportPanState> => ({
+export const createViewportInteraction = (
+  ctx: ViewportInteractionDeps
+): InteractionRegistration => ({
   key: 'viewport.pan',
   priority: 1000,
-  mode: 'viewport-pan',
-  can: (input) => {
-    if (!ctx.query.inputPolicy.get().panEnabled) {
+  start: (input, control): ActiveInteraction | null => {
+    if (!ctx.inputPolicy.get().panEnabled) {
       return null
     }
 
@@ -73,20 +68,21 @@ export const createViewportPanInteraction = (
       return null
     }
 
-    return {
+    const state: PanState = {
       lastClient: {
         x: input.point.client.x,
         y: input.point.client.y
       }
     }
-  },
-  start: ({ input }) => {
-    void input
-  },
-  move: ({ state }, input) => {
-    updatePan(ctx, state, input)
-  },
-  up: ({ session }) => {
-    session.finish()
+
+    return {
+      mode: 'viewport-pan',
+      move: (event) => {
+        updatePan(ctx, state, event)
+      },
+      up: () => {
+        control.finish()
+      }
+    }
   }
 })

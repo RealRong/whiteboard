@@ -1,4 +1,7 @@
-import { moveEdgeRoute } from '../edge'
+import {
+  moveEdge,
+  moveEdgeRoute
+} from '../edge'
 import { getNodeAABB } from '../geometry'
 import type {
   Edge,
@@ -42,7 +45,12 @@ export type MoveEdgeChange = {
 export type MoveEffect = {
   nodes: readonly MoveNodePosition[]
   edges: readonly MoveEdgeChange[]
-  hoveredContainerId?: NodeId
+  hovered?: NodeId
+}
+
+export type MoveCommit = {
+  delta?: Point
+  edges: readonly MoveEdgeChange[]
 }
 
 const EMPTY_ROOT_IDS: readonly NodeId[] = []
@@ -227,6 +235,31 @@ const collectFollowEdgePatches = (options: {
   return changes.length > 0 ? changes : EMPTY_EDGES
 }
 
+const collectMovedEdgePatches = (options: {
+  edges: readonly Edge[]
+  delta: Point
+}): readonly MoveEdgeChange[] => {
+  if (!options.edges.length || (options.delta.x === 0 && options.delta.y === 0)) {
+    return EMPTY_EDGES
+  }
+
+  const changes: MoveEdgeChange[] = []
+
+  options.edges.forEach((edge) => {
+    const patch = moveEdge(edge, options.delta)
+    if (!patch) {
+      return
+    }
+
+    changes.push({
+      id: edge.id,
+      patch
+    })
+  })
+
+  return changes.length > 0 ? changes : EMPTY_EDGES
+}
+
 export const resolveMoveEffect = (options: {
   nodes: readonly Node[]
   edges?: readonly Edge[]
@@ -257,7 +290,7 @@ export const resolveMoveEffect = (options: {
       delta: options.delta,
       edges: options.edges ?? []
     }),
-    hoveredContainerId: hasStationaryFrame
+    hovered: hasStationaryFrame
       ? resolveSharedContainerTarget({
           rootIds: options.move.rootIds,
           positionById,
@@ -269,3 +302,49 @@ export const resolveMoveEffect = (options: {
       : undefined
   }
 }
+
+export const projectMovePreview = (options: {
+  nodes: readonly Node[]
+  relatedEdges?: readonly Edge[]
+  selectedEdges?: readonly Edge[]
+  move: MoveSet
+  delta: Point
+  nodeSize: Size
+}): MoveEffect => {
+  const effect = resolveMoveEffect({
+    nodes: options.nodes,
+    edges: options.relatedEdges,
+    move: options.move,
+    delta: options.delta,
+    nodeSize: options.nodeSize
+  })
+  const selectedEdgeChanges = collectMovedEdgePatches({
+    edges: options.selectedEdges ?? [],
+    delta: options.delta
+  })
+
+  return {
+    ...effect,
+    edges:
+      selectedEdgeChanges.length > 0
+        ? [
+            ...selectedEdgeChanges,
+            ...effect.edges
+          ]
+        : effect.edges
+  }
+}
+
+export const buildMoveCommit = (options: {
+  delta: Point
+  selectedEdges?: readonly Edge[]
+}): MoveCommit => ({
+  delta:
+    options.delta.x === 0 && options.delta.y === 0
+      ? undefined
+      : options.delta,
+  edges: collectMovedEdgePatches({
+    edges: options.selectedEdges ?? [],
+    delta: options.delta
+  })
+})

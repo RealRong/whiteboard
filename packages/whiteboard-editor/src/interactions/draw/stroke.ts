@@ -4,21 +4,23 @@ import {
 } from '@whiteboard/core/node'
 import type { Point } from '@whiteboard/core/types'
 import type {
-  InteractionPointerInput,
-  InteractionRegistration
-} from '../runtime/interaction'
-import type { EditorPointerSample } from '../types/editor'
-import type { DrawBrushKind } from '../types/tool'
+  ActiveInteraction,
+  InteractionControl,
+  InteractionPointerInput
+} from '../../runtime/interaction'
+import type { PointerDown } from '../../runtime/input/pointer'
+import type { EditorPointerSample } from '../../types/editor'
+import type { DrawBrushKind } from '../../types/tool'
 import type {
   DrawPreview,
   ResolvedDrawStyle
-} from '../types/draw'
-import type { FeatureRuntime } from '../runtime/editor/createEditor'
+} from '../../types/draw'
+import type { InteractionHost } from '../../runtime/interaction/host'
 
 const DRAW_MIN_LENGTH_SCREEN = 4
 const SAMPLE_DISTANCE_SCREEN = 1
 
-export type DrawStrokeState = {
+type StrokeState = {
   kind: DrawBrushKind
   style: ResolvedDrawStyle
   points: Point[]
@@ -26,10 +28,10 @@ export type DrawStrokeState = {
   lengthScreen: number
 }
 
-type DrawStrokeInteractionDeps = {
+type StrokePhaseDeps = {
   readZoom: () => number
   readStyle: (kind: DrawBrushKind) => ResolvedDrawStyle
-  createNode: FeatureRuntime['command']['node']['create']
+  createNode: InteractionHost['commands']['node']['create']
   writePreview: (preview: DrawPreview | null) => void
   clearPreview: () => void
 }
@@ -44,7 +46,7 @@ const hasMovedEnough = (
 }
 
 const resolveStrokePoints = (
-  deps: DrawStrokeInteractionDeps,
+  deps: StrokePhaseDeps,
   points: readonly Point[]
 ) => resolveDrawPoints({
   points,
@@ -52,8 +54,8 @@ const resolveStrokePoints = (
 })
 
 const writeStrokePreview = (
-  deps: DrawStrokeInteractionDeps,
-  state: DrawStrokeState
+  deps: StrokePhaseDeps,
+  state: StrokeState
 ) => {
   deps.writePreview({
     kind: state.kind,
@@ -63,7 +65,7 @@ const writeStrokePreview = (
 }
 
 const appendStrokeSample = (
-  state: DrawStrokeState,
+  state: StrokeState,
   sample: EditorPointerSample,
   force = false
 ) => {
@@ -92,8 +94,8 @@ const appendStrokeSample = (
 }
 
 const appendStrokeInput = (
-  deps: DrawStrokeInteractionDeps,
-  state: DrawStrokeState,
+  deps: StrokePhaseDeps,
+  state: StrokeState,
   input: InteractionPointerInput,
   force = false
 ) => {
@@ -113,8 +115,8 @@ const appendStrokeInput = (
 }
 
 const commitStroke = (
-  deps: DrawStrokeInteractionDeps,
-  state: DrawStrokeState
+  deps: StrokePhaseDeps,
+  state: StrokeState
 ) => {
   if (
     state.points.length < 2
@@ -147,41 +149,42 @@ const commitStroke = (
   })
 }
 
-export const createDrawStrokeInteraction = (
-  deps: DrawStrokeInteractionDeps
-): InteractionRegistration<DrawStrokeState> => ({
-  key: 'draw.stroke',
-  priority: 600,
-  mode: 'draw',
-  can: (input) => {
-    if (
-      input.tool.type !== 'draw'
-      || input.tool.kind === 'eraser'
-      || input.pick.kind !== 'background'
-      || input.editable
-      || input.ignoreInput
-      || input.ignoreSelection
-    ) {
-      return null
-    }
-
-    return {
-      kind: input.tool.kind,
-      style: deps.readStyle(input.tool.kind),
-      points: [input.point.world],
-      lastScreen: input.point.screen,
-      lengthScreen: 0
-    }
-  },
-  move: ({ state }, input) => {
-    appendStrokeInput(deps, state, input)
-  },
-  up: ({ state, session }, input) => {
-    appendStrokeInput(deps, state, input, true)
-    commitStroke(deps, state)
-    session.finish()
-  },
-  cleanup: () => {
-    deps.clearPreview()
+export const startStrokePhase = (
+  deps: StrokePhaseDeps,
+  input: PointerDown,
+  control: InteractionControl
+): ActiveInteraction | null => {
+  if (
+    input.tool.type !== 'draw'
+    || input.tool.kind === 'eraser'
+    || input.pick.kind !== 'background'
+    || input.editable
+    || input.ignoreInput
+    || input.ignoreSelection
+  ) {
+    return null
   }
-})
+
+  const state: StrokeState = {
+    kind: input.tool.kind,
+    style: deps.readStyle(input.tool.kind),
+    points: [input.point.world],
+    lastScreen: input.point.screen,
+    lengthScreen: 0
+  }
+
+  return {
+    mode: 'draw',
+    move: (event) => {
+      appendStrokeInput(deps, state, event)
+    },
+    up: (event) => {
+      appendStrokeInput(deps, state, event, true)
+      commitStroke(deps, state)
+      control.finish()
+    },
+    cleanup: () => {
+      deps.clearPreview()
+    }
+  }
+}

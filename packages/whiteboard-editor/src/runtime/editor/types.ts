@@ -10,26 +10,11 @@ import type {
 } from '../../types/runtime/interaction'
 import type { PassiveInputRuntime } from '../input/passive'
 import type { ViewportRuntime } from '../viewport'
-import type { EditState } from '../state/edit'
-import type { SelectionState } from '../state/selection'
-
-type EngineInstance = import('@whiteboard/engine').EngineInstance
 
 export type EditorInputPolicy = {
   panEnabled: boolean
   wheelEnabled: boolean
   wheelSensitivity: number
-}
-
-export type EditorKernel = {
-  engine: EngineInstance
-  registry: NodeRegistry
-  viewport: ViewportRuntime
-  interaction: InteractionCoordinator
-  inputPolicy: ValueStore<EditorInputPolicy>
-  tool: ValueStore<Tool>
-  edit: EditState
-  selection: SelectionState
 }
 
 export type EditorInputInternals = {

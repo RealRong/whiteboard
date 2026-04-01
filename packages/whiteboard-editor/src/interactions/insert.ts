@@ -1,18 +1,15 @@
 import type { PointerDown } from '../runtime/input/pointer'
-import type { InteractionRegistration } from '../runtime/interaction'
-import type { FeatureRuntime } from '../runtime/editor/createEditor'
+import type { ActiveInteraction, InteractionRegistration } from '../runtime/interaction'
+import type { InteractionCtx } from '../runtime/interaction/ctx'
 import type { InsertPresetKey } from '../types/tool'
 import { selectTool } from '../tool/model'
 
-export const createInsertPresetInteraction = (
-  editor: Pick<FeatureRuntime, 'query' | 'command'>
-): InteractionRegistration<{
-  presetKey: InsertPresetKey
-}> => ({
+export const createInsertInteraction = (
+  editor: Pick<InteractionCtx, 'read' | 'commands'>
+): InteractionRegistration => ({
   key: 'insert.preset',
   priority: 700,
-  mode: 'press',
-  can: (start: PointerDown) => {
+  start: (start: PointerDown, control): ActiveInteraction | null => {
     if (
       start.tool.type !== 'insert'
       || start.pick.kind !== 'background'
@@ -24,20 +21,21 @@ export const createInsertPresetInteraction = (
       return null
     }
 
-    return {
-      presetKey: start.tool.preset
-    }
-  },
-  start: ({ input, state, session }) => {
-    const result = editor.command.insert.preset(state.presetKey, {
-      at: input.point.world
+    const presetKey = start.tool.preset as InsertPresetKey
+    const result = editor.commands.insert.preset(presetKey, {
+      at: start.point.world
     })
     if (!result) {
-      session.finish()
-      return
+      control.finish()
+      return {
+        mode: 'press'
+      }
     }
 
-    editor.command.tool.set(selectTool())
-    session.finish()
+    editor.commands.tool.set(selectTool())
+    control.finish()
+    return {
+      mode: 'press'
+    }
   }
 })

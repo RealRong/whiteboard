@@ -3,8 +3,7 @@ import type { Point } from '@whiteboard/core/types'
 import type { ViewportInputRuntime } from '../viewport'
 import type {
   AutoPanOptions,
-  AutoPanPointer,
-  RuntimeSession
+  AutoPanPointer
 } from '../../types/runtime/interaction'
 
 type PanVector = Point
@@ -81,10 +80,7 @@ const resolvePanVector = ({
 }
 
 type AutoPan = Readonly<{
-  start: (
-    options?: AutoPanOptions,
-    session?: RuntimeSession
-  ) => void
+  start: (options?: AutoPanOptions) => void
   update: (pointer: AutoPanPointer) => void
   stop: () => void
   clear: () => void
@@ -205,18 +201,11 @@ export const createAutoPan = ({
   }
 
   return {
-    start: (options, session) => {
+    start: (options) => {
       clear()
       active = {
         pointer: null,
-        frame: options?.frame
-          ? (pointer) => {
-            if (!session) {
-              return
-            }
-            options.frame?.(pointer, session)
-          }
-          : undefined,
+        frame: options?.frame,
         threshold: options?.threshold,
         maxSpeed: options?.maxSpeed
       }

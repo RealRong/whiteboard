@@ -18,6 +18,12 @@ export {
   type BoundsTarget
 } from './bounds'
 export {
+  createMarqueeItemsKey,
+  createMarqueeRect,
+  hasMarqueeStarted,
+  type SelectionMarqueeItems
+} from './marquee'
+export {
   resolveSelectionPressMode,
   resolveSelectionPressPlan,
   resolveSelectionPressTarget,
