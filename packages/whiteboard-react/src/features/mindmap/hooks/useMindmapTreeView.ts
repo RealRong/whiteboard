@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+import { useResolvedConfig } from '../../../runtime/hooks/useEnvironment'
 import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type { MindmapTreeViewData } from '../../../types/mindmap'
@@ -9,12 +10,13 @@ export const useMindmapTreeView = (
   treeId: NodeId
 ): MindmapTreeViewData | undefined => {
   const editor = useEditorRuntime()
+  const config = useResolvedConfig()
   const treeView = useKeyedStoreValue(editor.read.mindmap.item, treeId)
-  const drag = useStoreValue(editor.feedback.mindmapDrag)
+  const drag = useStoreValue(editor.read.overlay.feedback.mindmapDrag)
   const tree = treeView?.tree
   const root = treeView?.node
   const layout = treeView?.layout
-  const nodeSize = editor.config.mindmapNodeSize
+  const nodeSize = config.mindmapNodeSize
 
   const onAddChild = useCallback(
     (nodeId: MindmapNodeId, placement: 'left' | 'right' | 'up' | 'down') => {

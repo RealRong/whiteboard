@@ -20,7 +20,7 @@ export const usePointer = ({
 
   const refreshContainerRect = useCallback((container: HTMLDivElement) => {
     const rect = container.getBoundingClientRect()
-    editor.viewport.setRect({
+    editor.commands.viewport.setRect({
       left: rect.left,
       top: rect.top,
       width: rect.width,
@@ -59,6 +59,7 @@ export const usePointer = ({
 
     refreshContainerRect(container)
     const input = resolvePointerInput({
+      phase: 'down',
       editor,
       pick: host.pick,
       container,
@@ -78,6 +79,7 @@ export const usePointer = ({
         move: (nextEvent) => {
           refreshContainerRect(container)
           const moveInput = resolvePointerInput({
+            phase: 'move',
             editor,
             pick: host.pick,
             container,
@@ -91,6 +93,7 @@ export const usePointer = ({
         up: (nextEvent) => {
           refreshContainerRect(container)
           const upInput = resolvePointerInput({
+            phase: 'up',
             editor,
             pick: host.pick,
             container,
@@ -129,6 +132,7 @@ export const usePointer = ({
 
     refreshContainerRect(container)
     const input = resolvePointerInput({
+      phase: 'move',
       editor,
       pick: host.pick,
       container,

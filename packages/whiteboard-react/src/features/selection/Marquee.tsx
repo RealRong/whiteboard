@@ -3,7 +3,7 @@ import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export const Marquee = () => {
   const editor = useEditorRuntime()
-  const marquee = useStoreValue(editor.feedback.marquee)
+  const marquee = useStoreValue(editor.read.overlay.feedback.marquee)
 
   if (!marquee) return null
 

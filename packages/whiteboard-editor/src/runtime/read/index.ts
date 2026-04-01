@@ -5,6 +5,7 @@ import type { NodeRegistry } from '../../types/node'
 import type { DrawPreferences } from '../../types/draw'
 import type { Tool } from '../../types/tool'
 import type { EditorOverlay } from '../overlay'
+import type { EditorViewportRuntime } from '../editor/types'
 import type { RuntimeStateController } from '../state'
 import {
   createNodeRead,
@@ -30,6 +31,17 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
   draw: {
     preferences: ReadStore<DrawPreferences>
   }
+  viewport: {
+    get: EditorViewportRuntime['get']
+    subscribe: EditorViewportRuntime['subscribe']
+    pointer: EditorViewportRuntime['pointer']
+    worldToScreen: EditorViewportRuntime['worldToScreen']
+    screenPoint: EditorViewportRuntime['input']['screenPoint']
+    size: EditorViewportRuntime['input']['size']
+  }
+  overlay: {
+    feedback: EditorOverlay['selectors']['feedback']
+  }
 }
 
 export const createRead = ({
@@ -37,13 +49,15 @@ export const createRead = ({
   registry,
   history,
   runtime,
-  overlay
+  overlay,
+  viewport
 }: {
   engineRead: EngineRead
   registry: NodeRegistry
   history: ReadStore<HistoryState>
   runtime: Pick<RuntimeStateController, 'state'>
   overlay: Pick<EditorOverlay, 'selectors'>
+  viewport: Pick<EditorViewportRuntime, 'get' | 'subscribe' | 'pointer' | 'worldToScreen' | 'input'>
 }): RuntimeRead => {
   const nodeRead: NodeRead = createNodeRead({
     read: engineRead,
@@ -85,6 +99,17 @@ export const createRead = ({
     tool: toolRead,
     draw: {
       preferences: runtime.state.drawPreferences.store
+    },
+    viewport: {
+      get: viewport.get,
+      subscribe: viewport.subscribe,
+      pointer: viewport.pointer,
+      worldToScreen: viewport.worldToScreen,
+      screenPoint: viewport.input.screenPoint,
+      size: viewport.input.size
+    },
+    overlay: {
+      feedback: overlay.selectors.feedback
     }
   }
 }

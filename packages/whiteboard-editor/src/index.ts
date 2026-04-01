@@ -3,20 +3,27 @@ export {
 } from './runtime/editor/createEditor'
 export type {
   Editor,
-  EditorFeedback,
+  EditorOverlayRead,
   EditorRead,
   EditorState,
-  EditorViewport,
+  EditorViewportRead,
   EditorClipboardOptions,
   EditorClipboardTarget,
   EditorCommands,
   EditorInput,
-  EditorKeyboardInput,
-  EditorPointerInput,
-  EditorPointerSample,
-  EditorWheelInput,
   EditorInsertResult
 } from './types/editor'
+export type {
+  KeyboardInput,
+  ModifierKeys,
+  PointerDownInput,
+  PointerInput,
+  PointerMoveInput,
+  PointerPhase,
+  PointerSample,
+  PointerUpInput,
+  WheelInput
+} from './types/input'
 export type {
   SelectionCan,
   SelectionSnapshot,

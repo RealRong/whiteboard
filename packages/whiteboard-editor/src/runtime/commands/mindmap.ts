@@ -16,10 +16,10 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { Editor } from '../../types/editor'
+import type { EditorCommands } from '../../types/editor'
 import type { EditorCommandHost } from '../editor/types'
 
-type MindmapCommandEditor = Pick<Editor, 'commands' | 'read'>
+type MindmapCommandEditor = EditorCommandHost
 
 const DEFAULT_MINDMAP_SIDE: 'left' | 'right' = 'right'
 const createLayoutHint = (
@@ -192,7 +192,7 @@ export const createMindmapCommands = ({
 }: {
   engine: EngineInstance
   commandHost: EditorCommandHost
-}): Editor['commands']['mindmap'] => ({
+}): EditorCommands['mindmap'] => ({
   ...engine.commands.mindmap,
   insertByPlacement: (input) => insertMindmapByPlacement({
     editor: commandHost,

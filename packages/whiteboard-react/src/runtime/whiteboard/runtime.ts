@@ -42,6 +42,7 @@ export const useWhiteboardRuntime = ({
   )
   const onDocumentChangeRef = useRef(onDocumentChange)
   const lastOutboundDocumentRef = useRef<Document>(inputDocument)
+  const registryRef = useRef(nodeRegistry ?? createDefaultNodeRegistry())
 
   onDocumentChangeRef.current = onDocumentChange
 
@@ -74,7 +75,7 @@ export const useWhiteboardRuntime = ({
         wheelEnabled: resolvedConfig.viewport.enableWheel,
         wheelSensitivity: resolvedConfig.viewport.wheelSensitivity
       },
-      registry: nodeRegistry ?? createDefaultNodeRegistry(),
+      registry: registryRef.current,
       insertPresetCatalog: INSERT_PRESET_CATALOG,
       initialDrawPreferences: DEFAULT_DRAW_PREFERENCES
     })
@@ -88,6 +89,7 @@ export const useWhiteboardRuntime = ({
 
   return {
     editor,
+    registry: registryRef.current,
     host,
     engine,
     inputDocument,

@@ -9,6 +9,7 @@ import type { Point } from '@whiteboard/core/types'
 import {
   useEditorRuntime
 } from '../../../runtime/hooks/useEditor'
+import { useNodeRegistry } from '../../../runtime/hooks/useEnvironment'
 import { useElementSize } from '../../../runtime/hooks/useElementSize'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
@@ -54,13 +55,14 @@ export const NodeToolbar = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const editor = useEditorRuntime()
+  const registry = useNodeRegistry()
   const surface = useElementSize(containerRef)
-  const viewport = useStoreValue(editor.viewport)
+  const viewport = useStoreValue(editor.state.viewport)
   const presentation = useSelectionPresentation()
   const selection = presentation.selection
   const worldToScreen = useCallback(
-    (point: Point) => editor.viewport.worldToScreen(point),
-    [editor, viewport.center.x, viewport.center.y, viewport.zoom]
+    (point: Point) => editor.read.viewport.worldToScreen(point),
+    [editor]
   )
   const rootRef = useRef<HTMLDivElement | null>(null)
   const buttonRefByKey = useRef<Partial<Record<ToolbarMenuKey, HTMLButtonElement | null>>>({})
@@ -69,7 +71,7 @@ export const NodeToolbar = ({
     setActiveMenuKey(null)
   }, [])
   const toolbar = resolveNodeToolbarModel({
-    editor,
+    registry,
     selection,
     worldToScreen
   })

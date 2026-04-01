@@ -1,8 +1,6 @@
-import type { BoardConfig as EngineBoardConfig } from '@whiteboard/core/config'
 import type {
   ContainerRect,
-  ViewportLimits,
-  WheelInput
+  ViewportLimits
 } from '@whiteboard/core/geometry'
 import type {
   ClipboardPacket,
@@ -17,7 +15,8 @@ import type {
   MindmapTree,
   NodeId,
   Point,
-  Size
+  Size,
+  Viewport
 } from '@whiteboard/core/types'
 import type { MindmapLayoutConfig } from './mindmap'
 import type {
@@ -25,19 +24,25 @@ import type {
   DrawSlot
 } from './draw'
 import type {
+  KeyboardInput,
+  PointerDownInput,
+  PointerMoveInput,
+  PointerUpInput,
+  WheelInput
+} from './input'
+import type {
   InsertPresetKey,
   Tool
 } from './tool'
 import type { RuntimeRead } from '../runtime/read'
 import type {
   ViewportCommands,
+  ViewportInputRuntime,
   ViewportRead
 } from '../runtime/viewport'
 import type { EditField, EditTarget } from '../runtime/state/edit'
 import type { ShapeKind } from '@whiteboard/core/node'
 import type { EditorOverlay } from '../runtime/overlay'
-import type { NodeRegistry } from './node'
-import type { EditorPick } from './pick'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -63,108 +68,24 @@ export type EditorInsertResult = {
   }
 }
 
-export type EditorPointerSample = {
-  client: Point
-  screen: Point
-  world: Point
-}
-
-export type EditorPointerInput = {
-  pointerId: number
-  button: number
-  buttons: number
-  detail: number
-  client: Point
-  screen: Point
-  world: Point
-  modifiers: {
-    alt: boolean
-    shift: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-  pick: EditorPick
-  field?: EditField
-  editable: boolean
-  ignoreInput: boolean
-  ignoreSelection: boolean
-  ignoreContextMenu: boolean
-  coalesced?: readonly EditorPointerSample[]
-}
-
-export type EditorKeyboardInput = {
-  key: string
-  code: string
-  repeat: boolean
-  modifiers: {
-    alt: boolean
-    shift: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-  altKey: boolean
-  shiftKey: boolean
-  ctrlKey: boolean
-  metaKey: boolean
-}
-
-export type EditorWheelInput = {
-  deltaX: number
-  deltaY: number
-  ctrlKey: boolean
-  metaKey: boolean
-  client: Point
-  screen: Point
-  world: Point
-}
-
 export type EditorPointerDispatchResult = {
   handled: boolean
   continuePointer: boolean
 }
 
 export type EditorInput = {
-  pointerDown: (input: EditorPointerInput) => EditorPointerDispatchResult
-  pointerMove: (input: EditorPointerInput) => boolean
-  pointerUp: (input: EditorPointerInput) => boolean
+  pointerDown: (input: PointerDownInput) => EditorPointerDispatchResult
+  pointerMove: (input: PointerMoveInput) => boolean
+  pointerUp: (input: PointerUpInput) => boolean
   pointerCancel: (input: {
     pointerId: number
   }) => boolean
   pointerLeave: () => void
-  wheel: (input: EditorWheelInput) => boolean
+  wheel: (input: WheelInput) => boolean
   cancel: () => void
-  keyDown: (input: EditorKeyboardInput) => boolean
-  keyUp: (input: EditorKeyboardInput) => boolean
+  keyDown: (input: KeyboardInput) => boolean
+  keyUp: (input: KeyboardInput) => boolean
   blur: () => void
-}
-
-export type EditorState = {
-  tool: ReadStore<Tool>
-  edit: ReadStore<EditTarget>
-  selection: ReadStore<SelectionTarget>
-}
-
-export type EditorFeedback = {
-  draw: EditorOverlay['selectors']['feedback']['draw']
-  edgeGuide: EditorOverlay['selectors']['feedback']['edgeGuide']
-  marquee: EditorOverlay['selectors']['feedback']['marquee']
-  mindmapDrag: EditorOverlay['selectors']['feedback']['mindmapDrag']
-  snap: EditorOverlay['selectors']['feedback']['snap']
-}
-
-export type EditorRead = RuntimeRead
-export type EditorViewport = ViewportRead & {
-  input: {
-    screenPoint: (clientX: number, clientY: number) => Point
-    size: () => {
-      width: number
-      height: number
-    }
-    panScreenBy: (deltaScreen: Point) => void
-    wheel: (input: WheelInput, wheelSensitivity: number) => void
-  }
-  setRect: (rect: ContainerRect) => void
-  setLimits: (limits: ViewportLimits) => void
 }
 
 export type EditorInteractionState = Readonly<{
@@ -177,6 +98,30 @@ export type EditorInteractionState = Readonly<{
   editingEdge: boolean
   space: boolean
 }>
+
+export type EditorState = {
+  tool: ReadStore<Tool>
+  edit: ReadStore<EditTarget>
+  selection: ReadStore<SelectionTarget>
+  interaction: ReadStore<EditorInteractionState>
+  viewport: ReadStore<Viewport>
+}
+
+export type EditorOverlayRead = {
+  feedback: EditorOverlay['selectors']['feedback']
+}
+
+export type EditorViewportRead = ViewportRead & Pick<
+  ViewportInputRuntime,
+  'screenPoint' | 'size'
+>
+
+export type EditorRead = RuntimeRead
+
+export type EditorViewportCommands = ViewportCommands & {
+  setRect: (rect: ContainerRect) => void
+  setLimits: (limits: ViewportLimits) => void
+}
 
 export type EditorNodeDocumentCommands = {
   update: EngineNodeCommands['update']
@@ -259,6 +204,15 @@ export type EditorMindmapCommands = EngineMindmapCommands & {
   }) => CommandResult | undefined
 }
 
+export type EditorClipboardCommands = {
+  export: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
+  cut: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
+  insert: (
+    packet: ClipboardPacket,
+    options?: EditorClipboardOptions
+  ) => boolean
+}
+
 export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'interaction' | 'edge' | 'viewport' | 'node' | 'mindmap'> & {
   tool: {
     set: (tool: Tool) => void
@@ -279,10 +233,11 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
     selectAll: () => void
     clear: () => void
   }
-  viewport: ViewportCommands
+  viewport: EditorViewportCommands
   edge: EngineCommands['edge']
   node: EditorNodeCommands
   mindmap: EditorMindmapCommands
+  clipboard: EditorClipboardCommands
   insert: {
     preset: (
       preset: InsertPresetKey,
@@ -317,25 +272,10 @@ export type EditorCommands = Omit<EngineCommands, 'tool' | 'selection' | 'intera
 }
 
 export type Editor = {
-  interaction: {
-    state: ReadStore<EditorInteractionState>
-  }
-  registry: NodeRegistry
-  config: Readonly<EngineBoardConfig>
   read: EditorRead
   state: EditorState
   commands: EditorCommands
-  clipboard: {
-    export: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
-    cut: (target?: EditorClipboardTarget) => ClipboardPacket | undefined
-    insert: (
-      packet: ClipboardPacket,
-      options?: EditorClipboardOptions
-    ) => boolean
-  }
   input: EditorInput
-  viewport: EditorViewport
-  feedback: EditorFeedback
   configure: (config: {
     tool: Tool
     viewport: {

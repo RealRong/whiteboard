@@ -3,7 +3,7 @@ import { createRafTask } from '@whiteboard/engine'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import { resolveWheelInput } from '../host/input'
 
-type ContainerRect = Parameters<Editor['viewport']['setRect']>[0]
+type ContainerRect = Parameters<Editor['commands']['viewport']['setRect']>[0]
 type WheelInput = Parameters<Editor['input']['wheel']>[0]
 
 type ViewportInputOptions = {
@@ -59,11 +59,10 @@ export const useBindViewportInput = ({
     if (!element) {
       return
     }
-    const viewport = editor.viewport
     let pendingWheelInput: WheelInput | null = null
 
     const refreshContainerRect = () => {
-      viewport.setRect(readContainerRect(element))
+      editor.commands.viewport.setRect(readContainerRect(element))
     }
 
     refreshContainerRect()
@@ -96,10 +95,17 @@ export const useBindViewportInput = ({
         pendingWheelInput.client = input.client
         pendingWheelInput.screen = input.screen
         pendingWheelInput.world = input.world
-        pendingWheelInput.ctrlKey = pendingWheelInput.ctrlKey || input.ctrlKey
-        pendingWheelInput.metaKey = pendingWheelInput.metaKey || input.metaKey
+        pendingWheelInput.modifiers.alt = pendingWheelInput.modifiers.alt || input.modifiers.alt
+        pendingWheelInput.modifiers.shift = pendingWheelInput.modifiers.shift || input.modifiers.shift
+        pendingWheelInput.modifiers.ctrl = pendingWheelInput.modifiers.ctrl || input.modifiers.ctrl
+        pendingWheelInput.modifiers.meta = pendingWheelInput.modifiers.meta || input.modifiers.meta
       } else {
-        pendingWheelInput = { ...input }
+        pendingWheelInput = {
+          ...input,
+          modifiers: {
+            ...input.modifiers
+          }
+        }
       }
 
       wheelTask.schedule()

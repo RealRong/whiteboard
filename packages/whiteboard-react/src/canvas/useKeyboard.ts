@@ -84,7 +84,7 @@ export const useKeyboard = ({
         event.defaultPrevented
         || isKeyboardIgnoredTarget(event.target)
       ) {
-        if (event.code === 'Space' && editor.interaction.state.get().space) {
+        if (event.code === 'Space' && editor.state.interaction.get().space) {
           editor.input.keyUp(resolveKeyboardInput(event))
         }
         return

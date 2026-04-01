@@ -21,7 +21,7 @@ export const useClipboardActions = () => {
       return clonePoint(pointer)
     }
 
-    return clonePoint(editor.viewport.get().center)
+    return clonePoint(editor.state.viewport.get().center)
   }, [editor, host])
 
   const copy = useCallback(async (
@@ -30,7 +30,7 @@ export const useClipboardActions = () => {
       event?: ClipboardEvent
     }
   ) => {
-    const packet = editor.clipboard.export(target)
+    const packet = editor.commands.clipboard.export(target)
     if (!packet) {
       return false
     }
@@ -44,7 +44,7 @@ export const useClipboardActions = () => {
       event?: ClipboardEvent
     }
   ) => {
-    const packet = editor.clipboard.cut(target)
+    const packet = editor.commands.clipboard.cut(target)
     if (!packet) {
       return false
     }
@@ -61,7 +61,7 @@ export const useClipboardActions = () => {
       return false
     }
 
-    return editor.clipboard.insert(packet, {
+    return editor.commands.clipboard.insert(packet, {
       origin: options?.origin ?? readDefaultOrigin()
     })
   }, [editor, host, readDefaultOrigin])

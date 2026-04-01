@@ -1,3 +1,4 @@
+import type { KeyboardInput } from '@whiteboard/editor'
 import type {
   ShortcutAction,
   ShortcutBinding,
@@ -8,13 +9,7 @@ const ModifierOrder = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const
 
 export type ShortcutPlatform = 'mac' | 'win' | 'linux'
 
-type ShortcutKeyInput = Readonly<{
-  key: string
-  ctrlKey: boolean
-  altKey: boolean
-  shiftKey: boolean
-  metaKey: boolean
-}>
+type ShortcutKeyInput = Pick<KeyboardInput, 'key' | 'modifiers'>
 
 const normalizeKey = (value: string) => {
   if (value === ' ') return 'Space'
@@ -95,10 +90,10 @@ export const readShortcut = (
   }
 
   const parts: string[] = []
-  if (event.ctrlKey) parts.push('Ctrl')
-  if (event.altKey) parts.push('Alt')
-  if (event.shiftKey) parts.push('Shift')
-  if (event.metaKey) parts.push('Meta')
+  if (event.modifiers.ctrl) parts.push('Ctrl')
+  if (event.modifiers.alt) parts.push('Alt')
+  if (event.modifiers.shift) parts.push('Shift')
+  if (event.modifiers.meta) parts.push('Meta')
   parts.push(normalized)
 
   return shortcuts.get(parts.join('+'))

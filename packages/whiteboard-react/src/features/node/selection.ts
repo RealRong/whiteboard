@@ -20,8 +20,10 @@ import {
   useInteraction,
   useTool
 } from '../../runtime/hooks/useEditor'
+import { useNodeRegistry } from '../../runtime/hooks/useEnvironment'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import type { NodeRegistry } from '../../types/node'
 import { useClipboardActions } from '../../runtime/host/useClipboardActions'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
@@ -139,13 +141,15 @@ const readSelectionMenuView = ({
   clipboard,
   selection,
   summary,
-  can
+  can,
+  registry
 }: {
   editor: Editor
   clipboard: ReturnType<typeof useClipboardActions>
   selection: BaseSelection
   summary: NodeSummary
   can: NodeSelectionCan
+  registry: Pick<NodeRegistry, 'get'>
 }): SelectionMenuView | undefined => {
   const nodes = selection.summary.items.nodes
   const nodeIds = summary.ids
@@ -163,8 +167,8 @@ const readSelectionMenuView = ({
         onSelect: bindAsyncClose((key: string) => {
           const filteredNodeIds = nodes
             .filter((node) => {
-              const meta = editor.registry.get(node.type)?.describe?.(node)
-                ?? editor.registry.get(node.type)?.meta
+              const meta = registry.get(node.type)?.describe?.(node)
+                ?? registry.get(node.type)?.meta
               return (meta?.key ?? node.type) === key
             })
             .map((node) => node.id)
@@ -469,7 +473,8 @@ const resolveSelectionPresentation = (
 const resolveSelectionView = (
   editor: Editor,
   selection: BaseSelection,
-  clipboard: ReturnType<typeof useClipboardActions>
+  clipboard: ReturnType<typeof useClipboardActions>,
+  registry: Pick<NodeRegistry, 'get'>
 ): SelectionView => {
   const boxState = resolveSelectionBoxState(selection)
   const pureNodeSelection =
@@ -477,8 +482,8 @@ const resolveSelectionView = (
     && selection.summary.items.edgeCount === 0
   const nodeSummary = pureNodeSelection
     ? readNodeSummary({
-        selection,
-        registry: editor.registry
+      selection,
+        registry
       })
     : EMPTY_SUMMARY
   const nodeCan = pureNodeSelection
@@ -493,7 +498,8 @@ const resolveSelectionView = (
           clipboard,
           selection,
           summary: nodeSummary,
-          can: nodeCan
+          can: nodeCan,
+          registry
         })
       : undefined,
     nodeSummary,
@@ -504,12 +510,13 @@ const resolveSelectionView = (
 
 export const useSelection = () => {
   const editor = useEditor()
+  const registry = useNodeRegistry()
   const clipboard = useClipboardActions()
   const selection = useStoreValue(editor.read.selection)
 
   return useMemo(
-    () => resolveSelectionView(editor, selection, clipboard),
-    [clipboard, editor, selection]
+    () => resolveSelectionView(editor, selection, clipboard, registry),
+    [clipboard, editor, registry, selection]
   )
 }
 

@@ -3,10 +3,8 @@ import type {
   EdgeAnchor,
   EdgeId,
   MindmapNodeId,
-  NodeId,
-  Point
+  NodeId
 } from '@whiteboard/core/types'
-import type { EditField } from '../runtime/state/edit'
 
 export type EditorPick =
   | { kind: 'background' }
@@ -43,17 +41,3 @@ export type EditorPick =
       treeId: NodeId
       nodeId: MindmapNodeId
     }
-
-export type PointerPick = {
-  pick: EditorPick
-  point: {
-    client: Point
-    screen: Point
-    world: Point
-  }
-  field?: EditField
-  editable: boolean
-  ignoreInput: boolean
-  ignoreSelection: boolean
-  ignoreContextMenu: boolean
-}

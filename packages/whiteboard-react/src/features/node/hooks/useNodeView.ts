@@ -4,8 +4,9 @@ import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
 import type { WhiteboardRuntime as Editor } from '../../../types/runtime'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+import { useNodeRegistry } from '../../../runtime/hooks/useEnvironment'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
-import type { NodeDefinition, NodeRenderProps, NodeWrite } from '../../../types/node'
+import type { NodeDefinition, NodeRegistry, NodeRenderProps, NodeWrite } from '../../../types/node'
 
 const buildNodeTransformStyle = (
   rect: NodeItem['rect'],
@@ -86,7 +87,8 @@ const resolveNodeOverlayViewState = (
 }
 
 const resolveNodeViewState = (
-  editor: Pick<Editor, 'commands' | 'registry' | 'read'>,
+  editor: Pick<Editor, 'commands' | 'read'>,
+  registry: Pick<NodeRegistry, 'get'>,
   nodeId: NodeId,
   item: NodeItem,
   state: ReturnType<Editor['read']['node']['state']['get']>,
@@ -100,7 +102,7 @@ const resolveNodeViewState = (
   const rotation = resolvedNode.type === 'group'
     ? 0
     : (typeof resolvedNode.rotation === 'number' ? resolvedNode.rotation : 0)
-  const definition = editor.registry.get(resolvedNode.type) as NodeDefinition | undefined
+  const definition = registry.get(resolvedNode.type)
   const write: NodeWrite = {
     update: (update) => {
       editor.commands.node.document.update(nodeId, update)
@@ -146,6 +148,7 @@ export const useNodeView = (
   } = {}
 ): NodeView | undefined => {
   const editor = useEditorRuntime()
+  const registry = useNodeRegistry()
   const item = useOptionalKeyedStoreValue(
     editor.read.node.item,
     nodeId,
@@ -163,9 +166,9 @@ export const useNodeView = (
         return undefined
       }
 
-      return resolveNodeViewState(editor, nodeId, item, state, selected)
+      return resolveNodeViewState(editor, registry, nodeId, item, state, selected)
     },
-    [editor, state, item, nodeId, selected]
+    [editor, registry, state, item, nodeId, selected]
   )
 }
 

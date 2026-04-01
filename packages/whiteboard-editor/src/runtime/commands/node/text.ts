@@ -137,7 +137,7 @@ const writeTextPreview = (
   size?: Size
 ) => {
   overlay.set((current) => {
-    const patch = readOverlayPatch(current.node.patches, nodeId)
+    const patch = readOverlayPatch(current.node.text.patches, nodeId)
     const nextPatch = mergeTextPreviewPatch(patch, size)
 
     if (isSameSize(patch?.size, nextPatch?.size)) {
@@ -148,7 +148,9 @@ const writeTextPreview = (
       ...current,
       node: {
         ...current.node,
-        patches: replaceOverlayPatch(current.node.patches, nodeId, nextPatch)
+        text: {
+          patches: replaceOverlayPatch(current.node.text.patches, nodeId, nextPatch)
+        }
       }
     }
   })
@@ -159,7 +161,7 @@ const clearTextPreview = (
   nodeId: NodeId
 ) => {
   overlay.set((current) => {
-    const patch = readOverlayPatch(current.node.patches, nodeId)
+    const patch = readOverlayPatch(current.node.text.patches, nodeId)
     if (!patch?.size) {
       return current
     }
@@ -168,11 +170,13 @@ const clearTextPreview = (
       ...current,
       node: {
         ...current.node,
-        patches: replaceOverlayPatch(
-          current.node.patches,
-          nodeId,
-          mergeTextPreviewPatch(patch, undefined)
-        )
+        text: {
+          patches: replaceOverlayPatch(
+            current.node.text.patches,
+            nodeId,
+            mergeTextPreviewPatch(patch, undefined)
+          )
+        }
       }
     }
   })

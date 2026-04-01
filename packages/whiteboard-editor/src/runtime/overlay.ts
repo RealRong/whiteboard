@@ -33,9 +33,18 @@ export type NodePatchEntry = {
   patch: NodePatch
 }
 
-export type NodeOverlayState = {
+export type NodeSelectionOverlayState = {
   patches: readonly NodePatchEntry[]
   hovered?: NodeId
+}
+
+export type NodeTextOverlayState = {
+  patches: readonly NodePatchEntry[]
+}
+
+export type NodeOverlayState = {
+  selection: NodeSelectionOverlayState
+  text: NodeTextOverlayState
   hidden: readonly NodeId[]
 }
 
@@ -54,6 +63,11 @@ export type EdgeOverlayEntry = {
 export type EdgeOverlayProjection = {
   patch?: EdgePatch
   activeRouteIndex?: number
+}
+
+export type EdgeOverlayState = {
+  selection: readonly EdgeOverlayEntry[]
+  interaction: readonly EdgeOverlayEntry[]
 }
 
 export type MarqueeMatch = 'touch' | 'contain'
@@ -91,9 +105,7 @@ export type EdgeGuide = {
 
 export type EditorOverlayState = {
   node: NodeOverlayState
-  edge: {
-    patches: readonly EdgeOverlayEntry[]
-  }
+  edge: EdgeOverlayState
   draw: {
     preview: DrawPreview | null
   }
@@ -136,16 +148,28 @@ const EMPTY_EDGE_PATCHES: readonly EdgeOverlayEntry[] = []
 const EMPTY_GUIDES: readonly Guide[] = []
 const EMPTY_EDGE_GUIDE: EdgeGuide = {}
 
+const EMPTY_NODE_SELECTION_OVERLAY: NodeSelectionOverlayState = {
+  patches: EMPTY_NODE_PATCHES
+}
+
+const EMPTY_NODE_TEXT_OVERLAY: NodeTextOverlayState = {
+  patches: EMPTY_NODE_PATCHES
+}
+
 const EMPTY_NODE_OVERLAY: NodeOverlayState = {
-  patches: EMPTY_NODE_PATCHES,
+  selection: EMPTY_NODE_SELECTION_OVERLAY,
+  text: EMPTY_NODE_TEXT_OVERLAY,
   hidden: EMPTY_NODE_HIDDEN
+}
+
+const EMPTY_EDGE_OVERLAY: EdgeOverlayState = {
+  selection: EMPTY_EDGE_PATCHES,
+  interaction: EMPTY_EDGE_PATCHES
 }
 
 const EMPTY_OVERLAY_STATE: EditorOverlayState = {
   node: EMPTY_NODE_OVERLAY,
-  edge: {
-    patches: EMPTY_EDGE_PATCHES
-  },
+  edge: EMPTY_EDGE_OVERLAY,
   draw: {
     preview: null
   },
@@ -186,8 +210,9 @@ const isSameNodeOverlayState = (
   left: NodeOverlayState,
   right: NodeOverlayState
 ) => (
-  left.patches === right.patches
-  && left.hovered === right.hovered
+  left.selection.patches === right.selection.patches
+  && left.selection.hovered === right.selection.hovered
+  && left.text.patches === right.text.patches
   && left.hidden === right.hidden
 )
 
@@ -219,21 +244,63 @@ const isEdgeGuideEmpty = (
 const normalizeNodeOverlayState = (
   state: NodeOverlayState
 ): NodeOverlayState => {
-  const patches = state.patches.length > 0
-    ? state.patches
+  const selectionPatches = state.selection.patches.length > 0
+    ? state.selection.patches
+    : EMPTY_NODE_PATCHES
+  const textPatches = state.text.patches.length > 0
+    ? state.text.patches
     : EMPTY_NODE_PATCHES
   const hidden = state.hidden.length > 0
     ? state.hidden
     : EMPTY_NODE_HIDDEN
 
-  if (patches === EMPTY_NODE_PATCHES && hidden === EMPTY_NODE_HIDDEN && state.hovered === undefined) {
+  if (
+    selectionPatches === EMPTY_NODE_PATCHES
+    && textPatches === EMPTY_NODE_PATCHES
+    && hidden === EMPTY_NODE_HIDDEN
+    && state.selection.hovered === undefined
+  ) {
     return EMPTY_NODE_OVERLAY
   }
 
   return {
-    patches,
-    hovered: state.hovered,
+    selection:
+      selectionPatches === EMPTY_NODE_PATCHES && state.selection.hovered === undefined
+        ? EMPTY_NODE_SELECTION_OVERLAY
+        : {
+            patches: selectionPatches,
+            hovered: state.selection.hovered
+          },
+    text:
+      textPatches === EMPTY_NODE_PATCHES
+        ? EMPTY_NODE_TEXT_OVERLAY
+        : {
+            patches: textPatches
+          },
     hidden
+  }
+}
+
+const normalizeEdgeOverlayState = (
+  state: EdgeOverlayState
+): EdgeOverlayState => {
+  const selection = state.selection.length > 0
+    ? state.selection
+    : EMPTY_EDGE_PATCHES
+  const interaction = state.interaction.length > 0
+    ? state.interaction
+    : EMPTY_EDGE_PATCHES
+
+  if (
+    selection === EMPTY_EDGE_PATCHES
+    && interaction === EMPTY_EDGE_PATCHES
+  ) {
+    return EMPTY_EDGE_OVERLAY
+  }
+
+  return {
+    selection,
+    interaction
   }
 }
 
@@ -241,9 +308,7 @@ const normalizeOverlayState = (
   state: EditorOverlayState
 ): EditorOverlayState => {
   const node = normalizeNodeOverlayState(state.node)
-  const edgePatches = state.edge.patches.length > 0
-    ? state.edge.patches
-    : EMPTY_EDGE_PATCHES
+  const edge = normalizeEdgeOverlayState(state.edge)
   const drawPreview = state.draw.preview ?? null
   const marquee = state.select.marquee
   const mindmapDrag = state.select.mindmapDrag
@@ -256,7 +321,7 @@ const normalizeOverlayState = (
 
   if (
     node === EMPTY_NODE_OVERLAY
-    && edgePatches === EMPTY_EDGE_PATCHES
+    && edge === EMPTY_EDGE_OVERLAY
     && drawPreview === null
     && marquee === undefined
     && mindmapDrag === undefined
@@ -268,9 +333,7 @@ const normalizeOverlayState = (
 
   return {
     node,
-    edge: {
-      patches: edgePatches
-    },
+    edge,
     draw: {
       preview: drawPreview
     },
@@ -304,7 +367,8 @@ const isSameOverlayState = (
   right: EditorOverlayState
 ) => (
   isSameNodeOverlayState(left.node, right.node)
-  && left.edge.patches === right.edge.patches
+  && left.edge.selection === right.edge.selection
+  && left.edge.interaction === right.edge.interaction
   && left.draw.preview === right.draw.preview
   && isSameMarquee(left.select.marquee, right.select.marquee)
   && left.select.mindmapDrag === right.select.mindmapDrag
@@ -316,9 +380,10 @@ const toNodeOverlayMap = (
   state: NodeOverlayState
 ) => {
   if (
-    state.patches.length === 0
+    state.selection.patches.length === 0
+    && state.text.patches.length === 0
     && state.hidden.length === 0
-    && state.hovered === undefined
+    && state.selection.hovered === undefined
   ) {
     return EMPTY_NODE_OVERLAY_MAP
   }
@@ -326,19 +391,36 @@ const toNodeOverlayMap = (
   const next = new Map<NodeId, NodeOverlayProjection>()
   const hiddenSet = new Set(state.hidden)
 
-  for (let index = 0; index < state.patches.length; index += 1) {
-    const entry = state.patches[index]!
+  for (let index = 0; index < state.text.patches.length; index += 1) {
+    const entry = state.text.patches[index]!
     next.set(entry.id, {
       patch: entry.patch,
-      hovered: state.hovered === entry.id,
+      hovered: false,
       hidden: hiddenSet.has(entry.id)
     })
   }
 
-  if (state.hovered !== undefined && !next.has(state.hovered)) {
-    next.set(state.hovered, {
+  for (let index = 0; index < state.selection.patches.length; index += 1) {
+    const entry = state.selection.patches[index]!
+    const current = next.get(entry.id)
+    next.set(entry.id, {
+      patch: current?.patch
+        ? {
+            ...current.patch,
+            ...entry.patch
+          }
+        : entry.patch,
+      hovered: state.selection.hovered === entry.id,
+      hidden: hiddenSet.has(entry.id)
+    })
+  }
+
+  if (state.selection.hovered !== undefined) {
+    const current = next.get(state.selection.hovered)
+    next.set(state.selection.hovered, {
+      patch: current?.patch,
       hovered: true,
-      hidden: hiddenSet.has(state.hovered)
+      hidden: hiddenSet.has(state.selection.hovered)
     })
   }
 
@@ -399,24 +481,45 @@ const createNodeOverlayStore = (): NodeOverlayStore => {
 }
 
 const toEdgeOverlayMap = (
-  entries: readonly EdgeOverlayEntry[]
+  state: EdgeOverlayState
 ) => {
-  if (!entries.length) {
+  if (
+    state.selection.length === 0
+    && state.interaction.length === 0
+  ) {
     return EMPTY_EDGE_OVERLAY_MAP
   }
 
   const next = new Map<EdgeId, EdgeOverlayProjection>()
 
-  for (let index = 0; index < entries.length; index += 1) {
-    const entry = entries[index]!
-    if (!entry.patch && entry.activeRouteIndex === undefined) {
-      continue
+  const writeEntry = (
+    entry: EdgeOverlayEntry
+  ) => {
+    const current = next.get(entry.id)
+    const patch = current?.patch
+      ? {
+          ...current.patch,
+          ...entry.patch
+        }
+      : entry.patch
+    const activeRouteIndex = entry.activeRouteIndex ?? current?.activeRouteIndex
+
+    if (!patch && activeRouteIndex === undefined) {
+      return
     }
 
     next.set(entry.id, {
-      patch: entry.patch,
-      activeRouteIndex: entry.activeRouteIndex
+      patch,
+      activeRouteIndex
     })
+  }
+
+  for (let index = 0; index < state.selection.length; index += 1) {
+    writeEntry(state.selection[index]!)
+  }
+
+  for (let index = 0; index < state.interaction.length; index += 1) {
+    writeEntry(state.interaction[index]!)
   }
 
   return next.size > 0
@@ -449,7 +552,7 @@ export const createOverlay = ({
     isEqual: isSameOverlayState
   })
   const nodeStore = createNodeOverlayStore()
-  const edgeStore = createRafKeyedStore<EdgeId, EdgeOverlayProjection, readonly EdgeOverlayEntry[]>({
+  const edgeStore = createRafKeyedStore<EdgeId, EdgeOverlayProjection, EdgeOverlayState>({
     emptyState: EMPTY_EDGE_OVERLAY_MAP,
     emptyValue: EMPTY_EDGE_OVERLAY_PROJECTION,
     build: toEdgeOverlayMap,
@@ -511,10 +614,10 @@ export const createOverlay = ({
       nodeStore.write(next.node)
     }
 
-    if (next.edge.patches === EMPTY_EDGE_PATCHES) {
+    if (next.edge === EMPTY_EDGE_OVERLAY) {
       edgeStore.clear()
     } else {
-      edgeStore.write(next.edge.patches)
+      edgeStore.write(next.edge)
     }
 
     if (next.draw.preview === null) {

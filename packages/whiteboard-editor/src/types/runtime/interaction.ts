@@ -1,11 +1,11 @@
-import type { Point } from '@whiteboard/core/types'
 import type { ReadStore } from '@whiteboard/engine'
-import type { PointerDown } from '../../runtime/input/pointer'
 import type {
-  EditorKeyboardInput,
-  EditorPointerSample
-} from '../editor'
-import type { EditorPick } from '../pick'
+  KeyboardInput,
+  PointerDownInput,
+  PointerMoveInput,
+  PointerUpInput,
+  WheelInput
+} from '../input'
 
 export type InteractionMode =
   | 'idle'
@@ -20,7 +20,7 @@ export type InteractionMode =
   | 'edge-connect'
   | 'edge-route'
 
-export type ActiveInteractionMode = Exclude<InteractionMode, 'idle'>
+export type InteractionSessionMode = Exclude<InteractionMode, 'idle'>
 
 export type InteractionState = Readonly<{
   busy: boolean
@@ -35,46 +35,14 @@ export type AutoPanPointer = Readonly<{
   clientY: number
 }>
 
-export type InteractionPointerInput = Readonly<{
-  pointerId: number
-  button: number
-  client: Point
-  screen: Point
-  world: Point
-  pick: EditorPick
-  detail: number
-  altKey: boolean
-  shiftKey: boolean
-  ctrlKey: boolean
-  metaKey: boolean
-  buttons: number
-  modifiers: {
-    alt: boolean
-    shift: boolean
-    ctrl: boolean
-    meta: boolean
-  }
-  samples: readonly EditorPointerSample[]
-}>
-
-export type InteractionKeyboardInput = Readonly<Pick<
-  EditorKeyboardInput,
-  | 'key'
-  | 'code'
-  | 'repeat'
-  | 'modifiers'
-  | 'altKey'
-  | 'shiftKey'
-  | 'ctrlKey'
-  | 'metaKey'
->>
+export type InteractionKeyboardInput = KeyboardInput
 
 export type InteractionControl = Readonly<{
   finish: () => void
   cancel: () => void
   pan: (pointer: AutoPanPointer) => void
   update: (next: {
-    mode?: ActiveInteractionMode
+    mode?: InteractionSessionMode
     chrome?: boolean
   }) => void
 }>
@@ -85,13 +53,13 @@ export type AutoPanOptions = Readonly<{
   maxSpeed?: number
 }>
 
-export type ActiveInteraction = {
-  mode: ActiveInteractionMode
+export type InteractionSession = {
+  mode: InteractionSessionMode
   pointerId?: number
   chrome?: boolean
   autoPan?: AutoPanOptions
-  move?: (input: InteractionPointerInput) => void
-  up?: (input: InteractionPointerInput) => void
+  move?: (input: PointerMoveInput) => void
+  up?: (input: PointerUpInput) => void
   keydown?: (input: InteractionKeyboardInput) => void
   keyup?: (input: InteractionKeyboardInput) => void
   blur?: () => void
@@ -99,36 +67,40 @@ export type ActiveInteraction = {
   cleanup?: () => void
 }
 
-export type InteractionRegistration = {
-  key: string
-  priority?: number
-  start: (
-    input: PointerDown,
-    control: InteractionControl
-  ) => ActiveInteraction | null
+export type InteractionObserve = {
+  move?: (input: PointerMoveInput) => void
+  leave?: () => void
+  blur?: () => void
+  cancel?: () => void
+  wheel?: (input: WheelInput) => boolean
 }
 
-export type InteractionCoordinator = {
+export type InteractionOwner = {
+  key: string
+  priority?: number
+  start?: (
+    input: PointerDownInput,
+    control: InteractionControl
+  ) => InteractionSession | null
+  observe?: InteractionObserve
+}
+
+export type InteractionRuntime = {
   mode: ReadStore<InteractionMode>
   busy: ReadStore<boolean>
   chrome: ReadStore<boolean>
   state: ReadStore<InteractionState>
   space: ReadStore<boolean>
-  start: (
-    registration: InteractionRegistration,
-    input: PointerDown
-  ) => boolean
-  handlePointerMove: (input: InteractionPointerInput) => boolean
-  handlePointerUp: (input: InteractionPointerInput) => boolean
+  handlePointerDown: (input: PointerDownInput) => boolean
+  handlePointerMove: (input: PointerMoveInput) => boolean
+  handlePointerUp: (input: PointerUpInput) => boolean
   handlePointerCancel: (input: {
     pointerId: number
   }) => boolean
+  handlePointerLeave: () => void
+  handleWheel: (input: WheelInput) => boolean
   cancel: () => void
   handleKeyDown: (input: InteractionKeyboardInput) => boolean
   handleKeyUp: (input: InteractionKeyboardInput) => boolean
   handleBlur: () => void
-}
-
-export type InteractionRegistry = {
-  start: (input: PointerDown) => boolean
 }

@@ -1,5 +1,5 @@
 import type { Node, NodeSchema, Point, Rect } from '@whiteboard/core/types'
-import type { WhiteboardRuntime as Editor } from '../../../types/runtime'
+import type { NodeRegistry } from '../../../types/node'
 import type {
   ToolbarIconState,
   ToolbarItem,
@@ -58,11 +58,11 @@ type NodeToolbarModel = {
 }
 
 export const resolveNodeToolbarModel = ({
-  editor,
+  registry,
   selection,
   worldToScreen
 }: {
-  editor: Pick<Editor, 'registry'>
+  registry: Pick<NodeRegistry, 'get'>
   selection: ToolbarSelection
   worldToScreen: (point: Point) => Point
 }): NodeToolbarModel | undefined => {
@@ -85,7 +85,7 @@ export const resolveNodeToolbarModel = ({
     worldToScreen,
     rect
   })
-  const primarySchema = editor.registry.get(primaryNode.type)?.schema
+  const primarySchema = registry.get(primaryNode.type)?.schema
   const fillValue = typeof primaryNode.style?.fill === 'string'
     ? primaryNode.style.fill
     : primaryNode.type === 'sticky' && typeof primaryNode.data?.background === 'string'

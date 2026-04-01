@@ -1,14 +1,3 @@
-export const CanvasContentIgnoreSelector = [
-  '[data-selection-ignore]',
-  '[data-input-ignore]',
-  'input',
-  'textarea',
-  'select',
-  'button',
-  'a[href]',
-  '[contenteditable]:not([contenteditable="false"])'
-].join(', ')
-
 export const readEditableFieldTarget = (
   target: EventTarget | null
 ): 'text' | 'title' | undefined => {
@@ -42,6 +31,3 @@ export const isContextMenuIgnoredTarget = (target: EventTarget | null) =>
 
 export const isKeyboardIgnoredTarget = (target: EventTarget | null) =>
   isEditableTarget(target) || isInputIgnoredTarget(target)
-
-export const isCanvasContentIgnoredTarget = (target: EventTarget | null) =>
-  target instanceof Element && Boolean(target.closest(CanvasContentIgnoreSelector))

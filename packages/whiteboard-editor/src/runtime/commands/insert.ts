@@ -1,5 +1,8 @@
 import type { NodeId, Point, SpatialNodeInput } from '@whiteboard/core/types'
-import type { Editor, EditorInsertResult } from '../../types/editor'
+import type {
+  EditorCommands,
+  EditorInsertResult
+} from '../../types/editor'
 import type { EditorCommandHost } from '../editor/types'
 import type { EditField } from '../state/edit'
 import type {
@@ -9,7 +12,7 @@ import type {
 } from '../../types/insert'
 import { moveMindmapRoot } from './mindmap'
 
-type InsertCommandEditor = Pick<EditorCommandHost, 'commands' | 'read'>
+type InsertCommandEditor = EditorCommandHost
 
 const placeNodeInput = (
   world: Point,
@@ -146,7 +149,7 @@ export const createInsertCommands = ({
 }: {
   commandHost: EditorCommandHost
   catalog: InsertPresetCatalog
-}): Editor['commands']['insert'] => {
+}): EditorCommands['insert'] => {
   const insertPresetByKey = (
     presetKey: string,
     options: {

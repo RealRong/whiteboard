@@ -32,7 +32,7 @@ export const Surface = ({
   containerStyle?: CSSProperties
 }) => {
   const editor = useEditorRuntime()
-  const viewport = useStoreValue(editor.viewport)
+  const viewport = useStoreValue(editor.state.viewport)
   const tool = useTool()
   const viewportInput = useMemo(
     () => ({

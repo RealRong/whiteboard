@@ -9,8 +9,9 @@ import type {
   EditorClipboardTarget
 } from '../types/editor'
 
-type ClipboardEditor = Pick<Editor, 'commands' | 'read'> & {
-  viewport: Pick<Editor['viewport'], 'get'>
+type ClipboardEditor = Pick<Editor, 'read'> & {
+  commands: Omit<Editor['commands'], 'clipboard'>
+  state: Pick<Editor['state'], 'viewport'>
 }
 
 const applyInsertedRoots = (
@@ -82,7 +83,7 @@ export const createClipboard = ({
   editor
 }: {
   editor: ClipboardEditor
-}): Editor['clipboard'] => ({
+}): Editor['commands']['clipboard'] => ({
   export: (target = 'selection') =>
     readClipboardPacket(editor, target),
   cut: (target = 'selection') => {
@@ -119,7 +120,7 @@ export const createClipboard = ({
       ownerId?: string
     }
   ) => {
-    const origin = options?.origin ?? { ...editor.viewport.get().center }
+    const origin = options?.origin ?? { ...editor.state.viewport.get().center }
     const inserted = editor.commands.document.insert(packet.slice, {
       origin,
       ownerId: options?.ownerId,

@@ -14,16 +14,19 @@ import type {
 import type { EditorInputPolicy } from './types'
 import { createEditorCommands } from '../commands'
 import {
-  createInteractionCoordinator,
+  createInteractionRuntime,
   createSnapRuntime
 } from '../interaction'
 import type { InteractionCtx } from '../interaction/ctx'
+import type { InteractionOwner } from '../../types/runtime/interaction'
+import { createDrawInteraction } from '../../interactions/draw'
+import { createEdgeInteraction } from '../../interactions/edge'
+import { createInsertInteraction } from '../../interactions/insert'
+import { createSelectionInteraction } from '../../interactions/selection'
+import { createViewportInteraction } from '../../interactions/viewport'
 import { createOverlay } from '../overlay'
 import { createRead } from '../read'
 import { createRuntimeState } from '../state'
-import { composeInput } from './composeInput'
-import { assembleInteractions } from './assembleInteractions'
-import { createLifecycle } from './lifecycle'
 import { createClipboard } from '../clipboard'
 
 export const createEditor = ({
@@ -49,16 +52,16 @@ export const createEditor = ({
   initialDrawPreferences: DrawPreferences
 }): Editor => {
   const runtime = createRuntimeState({
-    engine,
-    registry,
     initialTool,
     initialViewport,
     viewportLimits,
     inputPolicy: initialInputPolicy,
     initialDrawPreferences
   })
-  const interaction = createInteractionCoordinator({
-    getViewport: () => runtime.state.viewport.input
+  let owners: readonly InteractionOwner[] = []
+  const interaction = createInteractionRuntime({
+    getViewport: () => runtime.state.viewport.input,
+    getOwners: () => owners
   })
   const overlay = createOverlay({
     viewport: runtime.public.viewport
@@ -68,7 +71,8 @@ export const createEditor = ({
     registry,
     history: engine.history,
     runtime,
-    overlay
+    overlay,
+    viewport: runtime.public.viewport
   })
   const snap = createSnapRuntime({
     readZoom: () => runtime.public.viewport.get().zoom,
@@ -82,54 +86,23 @@ export const createEditor = ({
       query: read.edge.connectCandidates
     }
   })
-  const commands = createEditorCommands({
+  const baseCommands = createEditorCommands({
     engine,
     read,
     runtime,
     overlay,
     insertPresetCatalog
   })
-  const clipboard = createClipboard({
-    editor: {
-      commands,
-      read,
-      viewport: runtime.public.viewport
-    }
-  })
-
-  const interactionCtx: InteractionCtx = {
-    read,
-    state: runtime.state,
-    config: engine.config,
-    registry,
-    interaction: {
-      mode: interaction.mode,
-      state: interaction.state
-    },
-    commands,
-    overlay,
-    snap
-  }
-  const features = assembleInteractions(interactionCtx)
-
-  const input = composeInput({
-    read,
-    viewport: runtime.public.viewport,
-    interaction,
-    policy: runtime.state.inputPolicy,
-    pointer: runtime.state.pointer,
-    interactions: features.interactions,
-    passive: features.passive
-  })
-
-  const lifecycle = createLifecycle({
-    engine,
-    runtime,
-    overlay,
-    read,
-    input,
-    featureLifecycle: features.lifecycle
-  })
+  const commands = {
+    ...baseCommands,
+    clipboard: createClipboard({
+      editor: {
+        commands: baseCommands,
+        read,
+        state: runtime.public.state
+      }
+    })
+  } satisfies Editor['commands']
 
   const interactionState = createDerivedStore<EditorInteractionState>({
     get: (readStore) => {
@@ -166,20 +139,149 @@ export const createEditor = ({
       && left.space === right.space
     )
   })
+  const state = {
+    ...runtime.public.state,
+    interaction: interactionState
+  } satisfies Editor['state']
+
+  const interactionCtx: InteractionCtx = {
+    read,
+    state: runtime.state,
+    config: engine.config,
+    registry,
+    interaction: {
+      mode: interaction.mode,
+      state: interaction.state
+    },
+    commands,
+    overlay,
+    snap
+  }
+  const viewportInteraction = createViewportInteraction(interactionCtx)
+  const insertInteraction = createInsertInteraction(interactionCtx)
+  const drawInteraction = createDrawInteraction(interactionCtx)
+  const selectionInteraction = createSelectionInteraction(interactionCtx)
+  const edgeInteraction = createEdgeInteraction(interactionCtx)
+
+  owners = [
+    viewportInteraction,
+    insertInteraction,
+    drawInteraction.owner,
+    selectionInteraction.owner,
+    edgeInteraction.owner
+  ]
+
+  const clearInteractions = () => {
+    drawInteraction.clear()
+    selectionInteraction.clear()
+    edgeInteraction.clear()
+  }
+
+  const writePointer = (input: {
+    client: { x: number, y: number }
+    screen: { x: number, y: number }
+    world: { x: number, y: number }
+  }) => {
+    runtime.state.pointer.set({
+      client: input.client,
+      screen: input.screen,
+      world: input.world
+    })
+  }
+
+  const clearPointer = () => {
+    runtime.state.pointer.set(null)
+  }
+
+  const input: Editor['input'] = {
+    cancel: () => {
+      clearPointer()
+      interaction.cancel()
+    },
+    pointerDown: (input) => {
+      writePointer(input)
+
+      const handled = interaction.handlePointerDown(input)
+      return {
+        handled,
+        continuePointer: handled && interaction.busy.get()
+      }
+    },
+    pointerMove: (input) => {
+      writePointer(input)
+      return interaction.handlePointerMove(input)
+    },
+    pointerUp: (input) => {
+      writePointer(input)
+      return interaction.handlePointerUp(input)
+    },
+    pointerCancel: (input) => {
+      clearPointer()
+      return interaction.handlePointerCancel(input)
+    },
+    pointerLeave: () => {
+      clearPointer()
+      interaction.handlePointerLeave()
+    },
+    wheel: (input) => {
+      const policy = runtime.state.inputPolicy.get()
+      if (!policy.wheelEnabled) {
+        return false
+      }
+
+      writePointer(input)
+
+      if (interaction.handleWheel(input)) {
+        return true
+      }
+
+      runtime.public.viewport.input.wheel(
+        {
+          deltaX: input.deltaX,
+          deltaY: input.deltaY,
+          ctrlKey: input.modifiers.ctrl,
+          metaKey: input.modifiers.meta,
+          clientX: input.client.x,
+          clientY: input.client.y
+        },
+        policy.wheelSensitivity
+      )
+      return true
+    },
+    keyDown: (input) => interaction.handleKeyDown(input),
+    keyUp: (input) => interaction.handleKeyUp(input),
+    blur: () => {
+      clearPointer()
+      interaction.handleBlur()
+    }
+  }
+
+  const resetRuntimeState = () => {
+    input.cancel()
+    overlay.reset()
+    runtime.resetLocal()
+    clearInteractions()
+  }
+
+  const unsubscribeCommit = engine.commit.subscribe(() => {
+    const commit = engine.commit.get()
+    if (!commit) {
+      return
+    }
+
+    if (commit.kind === 'replace') {
+      resetRuntimeState()
+      return
+    }
+
+    runtime.reconcileAfterCommit(read)
+  })
 
   const editor = {
-    interaction: {
-      state: interactionState
-    },
-    registry,
-    config: engine.config,
     read,
-    state: runtime.public.state,
+    state,
     commands,
-    clipboard,
     input,
-    viewport: runtime.public.viewport,
-    feedback: features.feedback,
     configure: (config) => {
       commands.tool.set(config.tool)
 
@@ -194,7 +296,11 @@ export const createEditor = ({
         history: config.history
       })
     },
-    dispose: lifecycle.dispose
+    dispose: () => {
+      unsubscribeCommit()
+      resetRuntimeState()
+      engine.dispose()
+    }
   } satisfies Editor
 
   return editor

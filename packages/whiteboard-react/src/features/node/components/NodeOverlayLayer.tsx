@@ -167,7 +167,7 @@ const SelectionHandlesOverlay = ({
 
 export const NodeOverlayLayer = () => {
   const editor = useEditorRuntime()
-  const guides = useStoreValue(editor.feedback.snap)
+  const guides = useStoreValue(editor.read.overlay.feedback.snap)
   const presentation = useSelectionPresentation()
   const connectNodeIds = presentation.connectNodeIds.length > 0
     ? presentation.connectNodeIds

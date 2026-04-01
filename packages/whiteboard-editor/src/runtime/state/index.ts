@@ -1,9 +1,8 @@
 import { createValueStore, type ValueStore } from '@whiteboard/engine'
-import type { EngineInstance } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
 import type { Tool } from '../../types/tool'
-import type { Editor } from '../../types/editor'
-import type { PointerSnapshot } from '../input/pointer/snapshot'
+import type { EditorRead, EditorState } from '../../types/editor'
+import type { PointerSample } from '../../types/input'
 import type { EditorInputPolicy, EditorViewportRuntime } from '../editor/types'
 import { createEditState, type EditState } from './edit'
 import {
@@ -19,10 +18,9 @@ import {
   type ViewportRuntime
 } from '../viewport'
 import type { DrawPreferences } from '../../types/draw'
-import type { NodeRegistry } from '../../types/node'
 import type { ViewportLimits } from '@whiteboard/core/geometry'
 
-type ReadNodeEdge = Pick<Editor['read'], 'node' | 'edge'>
+type ReadNodeEdge = Pick<EditorRead, 'node' | 'edge'>
 
 const uniqueNodeIds = (
   nodeIds: readonly string[]
@@ -71,7 +69,7 @@ export type EditorRuntimeState = {
   selection: SelectionState
   edit: EditState
   viewport: ViewportRuntime
-  pointer: ValueStore<PointerSnapshot | null>
+  pointer: ValueStore<PointerSample | null>
   inputPolicy: ValueStore<EditorInputPolicy>
   drawPreferences: DrawPreferencesState
 }
@@ -79,7 +77,7 @@ export type EditorRuntimeState = {
 export type RuntimeStateController = {
   state: EditorRuntimeState
   public: {
-    state: Editor['state']
+    state: Pick<EditorState, 'tool' | 'edit' | 'selection' | 'viewport'>
     viewport: EditorViewportRuntime
   }
   resetLocal: () => void
@@ -87,16 +85,12 @@ export type RuntimeStateController = {
 }
 
 export const createRuntimeState = ({
-  engine: _engine,
-  registry: _registry,
   initialTool,
   initialViewport,
   viewportLimits,
   inputPolicy: initialInputPolicy,
   initialDrawPreferences
 }: {
-  engine: EngineInstance
-  registry: NodeRegistry
   initialTool: Tool
   initialViewport: Viewport
   viewportLimits: ViewportLimits
@@ -110,7 +104,7 @@ export const createRuntimeState = ({
     initialViewport,
     limits: viewportLimits
   })
-  const pointer = createValueStore<PointerSnapshot | null>(null)
+  const pointer = createValueStore<PointerSample | null>(null)
   const inputPolicy = createValueStore<EditorInputPolicy>({
     panEnabled: initialInputPolicy.panEnabled,
     wheelEnabled: initialInputPolicy.wheelEnabled,
@@ -118,10 +112,11 @@ export const createRuntimeState = ({
   })
   const drawPreferences = createDrawPreferencesState(initialDrawPreferences)
 
-  const publicState: Editor['state'] = {
+  const publicState: Pick<EditorState, 'tool' | 'edit' | 'selection' | 'viewport'> = {
     tool,
     edit: edit.source,
-    selection: selection.source
+    selection: selection.source,
+    viewport: viewport.read
   }
 
   const publicViewport: EditorViewportRuntime = {

@@ -1,9 +1,12 @@
 import type {
-  ActiveInteraction,
-  InteractionPointerInput,
-  InteractionRegistration
+  InteractionOwner,
+  InteractionSession
 } from '../runtime/interaction'
-import type { InteractionHost } from '../runtime/interaction/host'
+import type { InteractionCtx } from '../runtime/interaction/ctx'
+import type {
+  PointerMoveInput,
+  PointerUpInput
+} from '../types/input'
 
 type PanState = {
   lastClient: {
@@ -13,8 +16,8 @@ type PanState = {
 }
 
 type ViewportInteractionDeps = Pick<
-  InteractionHost,
-  'read' | 'interaction' | 'inputPolicy' | 'viewport'
+  InteractionCtx,
+  'read' | 'interaction' | 'state'
 >
 
 const allowsLeftDrag = (
@@ -27,7 +30,7 @@ const allowsLeftDrag = (
 const updatePan = (
   ctx: ViewportInteractionDeps,
   state: PanState,
-  input: InteractionPointerInput
+  input: PointerMoveInput | PointerUpInput
 ) => {
   const deltaX = input.client.x - state.lastClient.x
   const deltaY = input.client.y - state.lastClient.y
@@ -39,7 +42,7 @@ const updatePan = (
     x: input.client.x,
     y: input.client.y
   }
-  ctx.viewport.input.panScreenBy({
+  ctx.state.viewport.input.panScreenBy({
     x: -deltaX,
     y: -deltaY
   })
@@ -47,11 +50,11 @@ const updatePan = (
 
 export const createViewportInteraction = (
   ctx: ViewportInteractionDeps
-): InteractionRegistration => ({
+): InteractionOwner => ({
   key: 'viewport.pan',
   priority: 1000,
-  start: (input, control): ActiveInteraction | null => {
-    if (!ctx.inputPolicy.get().panEnabled) {
+  start: (input, control): InteractionSession | null => {
+    if (!ctx.state.inputPolicy.get().panEnabled) {
       return null
     }
 
@@ -70,8 +73,8 @@ export const createViewportInteraction = (
 
     const state: PanState = {
       lastClient: {
-        x: input.point.client.x,
-        y: input.point.client.y
+        x: input.client.x,
+        y: input.client.y
       }
     }
 

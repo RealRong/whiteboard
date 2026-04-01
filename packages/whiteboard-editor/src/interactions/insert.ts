@@ -1,19 +1,21 @@
-import type { PointerDown } from '../runtime/input/pointer'
-import type { ActiveInteraction, InteractionRegistration } from '../runtime/interaction'
+import type { InteractionOwner, InteractionSession } from '../runtime/interaction'
 import type { InteractionCtx } from '../runtime/interaction/ctx'
+import type { PointerDownInput } from '../types/input'
 import type { InsertPresetKey } from '../types/tool'
 import { selectTool } from '../tool/model'
 
 export const createInsertInteraction = (
   editor: Pick<InteractionCtx, 'read' | 'commands'>
-): InteractionRegistration => ({
+): InteractionOwner => ({
   key: 'insert.preset',
   priority: 700,
-  start: (start: PointerDown, control): ActiveInteraction | null => {
+  start: (start: PointerDownInput, control): InteractionSession | null => {
+    const tool = editor.read.tool.get()
+
     if (
-      start.tool.type !== 'insert'
+      tool.type !== 'insert'
       || start.pick.kind !== 'background'
-      || !start.tool.preset
+      || !tool.preset
       || start.editable
       || start.ignoreInput
       || start.ignoreSelection
@@ -21,9 +23,9 @@ export const createInsertInteraction = (
       return null
     }
 
-    const presetKey = start.tool.preset as InsertPresetKey
+    const presetKey = tool.preset as InsertPresetKey
     const result = editor.commands.insert.preset(presetKey, {
-      at: start.point.world
+      at: start.world
     })
     if (!result) {
       control.finish()

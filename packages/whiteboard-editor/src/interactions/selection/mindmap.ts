@@ -5,15 +5,11 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { Point } from '@whiteboard/core/types'
-import type { PointerDown } from '../runtime/input/pointer'
-import type { ActiveInteraction } from '../runtime/interaction'
-import type { InteractionHost } from '../runtime/interaction/host'
-import type { MindmapDragFeedback } from '../runtime/overlay'
-
-type MindmapDragPhaseDeps = Pick<
-  InteractionHost,
-  'read' | 'config' | 'commands' | 'viewport' | 'overlay'
->
+import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
+import type { MindmapDragFeedback } from '../../runtime/overlay'
+import type { PointerDownInput } from '../../types/input'
+import type { SelectionInteractionCtx } from './context'
+import { readViewport } from './context'
 
 const toMindmapDragFeedback = (
   session: MindmapDragSession
@@ -38,12 +34,14 @@ const toMindmapDragFeedback = (
   }
 }
 
-const resolveMindmapDragState = (
-  ctx: MindmapDragPhaseDeps,
-  input: PointerDown
+export const resolveMindmapDragSession = (
+  ctx: SelectionInteractionCtx,
+  input: PointerDownInput
 ): MindmapDragSession | null => {
+  const tool = ctx.read.tool.get()
+
   if (
-    input.tool.type !== 'select'
+    tool.type !== 'select'
     || input.pick.kind !== 'mindmap'
     || input.editable
     || input.ignoreInput
@@ -71,7 +69,7 @@ const resolveMindmapDragState = (
     ? createRootDrag({
         treeId: input.pick.treeId,
         pointerId: input.pointerId,
-        start: input.point.world,
+        start: input.world,
         origin: baseOffset
       })
     : createSubtreeDrag({
@@ -79,13 +77,13 @@ const resolveMindmapDragState = (
         treeView,
         nodeId: input.pick.nodeId,
         pointerId: input.pointerId,
-        world: input.point.world,
+        world: input.world,
         baseOffset
       }) ?? null
 }
 
 const clearMindmapDrag = (
-  ctx: MindmapDragPhaseDeps
+  ctx: SelectionInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
     current.select.mindmapDrag === undefined
@@ -101,7 +99,7 @@ const clearMindmapDrag = (
 }
 
 const projectMindmapState = (
-  ctx: MindmapDragPhaseDeps,
+  ctx: SelectionInteractionCtx,
   state: MindmapDragSession,
   world: Point
 ): MindmapDragSession => {
@@ -128,7 +126,7 @@ const projectMindmapState = (
 }
 
 const projectMindmapInto = (
-  ctx: MindmapDragPhaseDeps,
+  ctx: SelectionInteractionCtx,
   state: MindmapDragSession,
   world: Point
 ) => {
@@ -136,7 +134,7 @@ const projectMindmapInto = (
 }
 
 const startMindmapDrag = (
-  ctx: MindmapDragPhaseDeps,
+  ctx: SelectionInteractionCtx,
   state: MindmapDragSession
 ) => {
   ctx.overlay.set((current) => ({
@@ -149,7 +147,7 @@ const startMindmapDrag = (
 }
 
 const commitMindmapDrag = (
-  ctx: MindmapDragPhaseDeps,
+  ctx: SelectionInteractionCtx,
   state: MindmapDragSession
 ) => {
   if (state.kind === 'root') {
@@ -182,27 +180,23 @@ const commitMindmapDrag = (
   })
 }
 
-export const startMindmapDragPhase = (
-  ctx: MindmapDragPhaseDeps,
-  input: PointerDown
-): ActiveInteraction | null => {
-  const state = resolveMindmapDragState(ctx, input)
-  if (!state) {
-    return null
-  }
-
+export const createMindmapInteraction = (
+  ctx: SelectionInteractionCtx,
+  state: MindmapDragSession,
+  control: InteractionControl
+): InteractionSession => {
   startMindmapDrag(ctx, state)
 
   return {
     mode: 'mindmap-drag',
-    pointerId: input.pointerId,
+    pointerId: state.pointerId,
     chrome: false,
     autoPan: {
       frame: (pointer) => {
         projectMindmapInto(
           ctx,
           state,
-          ctx.viewport.pointer(pointer).world
+          readViewport(ctx).pointer(pointer).world
         )
       }
     },
@@ -211,6 +205,7 @@ export const startMindmapDragPhase = (
     },
     up: () => {
       commitMindmapDrag(ctx, state)
+      control.finish()
     },
     cleanup: () => {
       clearMindmapDrag(ctx)

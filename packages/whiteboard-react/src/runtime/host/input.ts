@@ -1,9 +1,10 @@
 import type {
-  EditorKeyboardInput,
-  EditorPointerInput,
-  EditorPointerSample,
-  EditorWheelInput,
-  EditorPick
+  KeyboardInput,
+  EditorPick,
+  PointerInput,
+  PointerPhase,
+  PointerSample,
+  WheelInput
 } from '@whiteboard/editor'
 import type { Point } from '@whiteboard/core/types'
 import type { WhiteboardRuntime } from '../../types/runtime'
@@ -24,11 +25,9 @@ const BackgroundPick: EditorPick = {
 
 export type HostResolvedPoint = {
   pick: EditorPick
-  point: {
-    client: Point
-    screen: Point
-    world: Point
-  }
+  client: Point
+  screen: Point
+  world: Point
   field?: ReturnType<typeof readEditableFieldTarget>
   editable: boolean
   ignoreInput: boolean
@@ -51,8 +50,8 @@ const toPointerSample = (
     clientX: number
     clientY: number
   }
-): EditorPointerSample => {
-  const point = editor.viewport.pointer(input)
+): PointerSample => {
+  const point = editor.read.viewport.pointer(input)
 
   return {
     client: {
@@ -76,18 +75,16 @@ export const resolveHostPoint = ({
   event: TargetEvent
 }): HostResolvedPoint => {
   const element = resolveElement(event.target, container)
-  const point = editor.viewport.pointer(event)
+  const point = editor.read.viewport.pointer(event)
 
   return {
     pick: pick.element(element, container) ?? BackgroundPick,
-    point: {
-      client: {
-        x: event.clientX,
-        y: event.clientY
-      },
-      screen: point.screen,
-      world: point.world
+    client: {
+      x: event.clientX,
+      y: event.clientY
     },
+    screen: point.screen,
+    world: point.world,
     field: readEditableFieldTarget(element),
     editable: isEditableTarget(element),
     ignoreInput: isInputIgnoredTarget(element),
@@ -96,17 +93,19 @@ export const resolveHostPoint = ({
   }
 }
 
-export const resolvePointerInput = ({
+export const resolvePointerInput = <Phase extends PointerPhase>({
+  phase,
   editor,
   pick,
   container,
   event
 }: {
+  phase: Phase
   editor: WhiteboardRuntime
   pick: PickRegistry
   container: Element
   event: PointerEvent
-}): EditorPointerInput => {
+}): PointerInput<Phase> => {
   const resolved = resolveHostPoint({
     editor,
     pick,
@@ -119,13 +118,14 @@ export const resolvePointerInput = ({
     : []
 
   return {
+    phase,
     pointerId: event.pointerId,
     button: event.button,
     buttons: event.buttons,
     detail: event.detail,
-    client: resolved.point.client,
-    screen: resolved.point.screen,
-    world: resolved.point.world,
+    client: resolved.client,
+    screen: resolved.screen,
+    world: resolved.world,
     modifiers: {
       alt: event.altKey,
       shift: event.shiftKey,
@@ -138,9 +138,13 @@ export const resolvePointerInput = ({
     ignoreInput: resolved.ignoreInput,
     ignoreSelection: resolved.ignoreSelection,
     ignoreContextMenu: resolved.ignoreContextMenu,
-    coalesced: coalesced.length > 0
+    samples: coalesced.length > 0
       ? coalesced.map((entry) => toPointerSample(editor, entry))
-      : undefined
+      : [{
+          client: resolved.client,
+          screen: resolved.screen,
+          world: resolved.world
+        }]
   }
 }
 
@@ -150,26 +154,30 @@ export const resolveWheelInput = ({
 }: {
   editor: WhiteboardRuntime
   event: WheelEvent
-}): EditorWheelInput => {
-  const point = editor.viewport.pointer(event)
+}): WheelInput => {
+  const point = editor.read.viewport.pointer(event)
 
   return {
     deltaX: event.deltaX,
     deltaY: event.deltaY,
-    ctrlKey: event.ctrlKey,
-    metaKey: event.metaKey,
     client: {
       x: event.clientX,
       y: event.clientY
     },
     screen: point.screen,
-    world: point.world
+    world: point.world,
+    modifiers: {
+      alt: event.altKey,
+      shift: event.shiftKey,
+      ctrl: event.ctrlKey,
+      meta: event.metaKey
+    }
   }
 }
 
 export const resolveKeyboardInput = (
   event: KeyboardEvent
-): EditorKeyboardInput => ({
+): KeyboardInput => ({
   key: event.key,
   code: event.code,
   repeat: event.repeat,
@@ -178,9 +186,5 @@ export const resolveKeyboardInput = (
     shift: event.shiftKey,
     ctrl: event.ctrlKey,
     meta: event.metaKey
-  },
-  altKey: event.altKey,
-  shiftKey: event.shiftKey,
-  ctrlKey: event.ctrlKey,
-  metaKey: event.metaKey
+  }
 })

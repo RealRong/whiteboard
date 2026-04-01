@@ -1,65 +1,196 @@
-import type { InteractionRegistration } from '../../runtime/interaction'
-import type { InteractionHost } from '../../runtime/interaction/host'
-import type { PassiveInputProcessor } from '../../runtime/input/passive'
-import {
-  startEdgeCreatePhase,
-  startEdgeReconnectPhase
-} from './connect'
-import {
-  startEdgeBodyPhase,
-  startEdgeRoutePhase
-} from './edit'
-import { createEdgeHoverProcessor } from './hover'
+import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
+import type { PointerDownInput } from '../../types/input'
+import { readEdgeType } from '../../edge/preset'
+import { createConnectInteraction, startEdgeCreateSession, startEdgeReconnectSession } from './connect'
+import { createEdgeObserve } from './observe'
+import { clearEdgeOverlay } from './overlay'
+import { createMoveBodyInteraction, createRouteInteraction, startEdgeRouteSession } from './route'
+import type {
+  BodyMoveState,
+  EdgeInteraction,
+  EdgeInteractionCtx,
+  EdgeSession
+} from './types'
+import { readPointer } from './types'
 
-type EdgeInteractionDeps = Pick<
-  InteractionHost,
-  'read' | 'config' | 'commands' | 'viewport' | 'overlay' | 'snap' | 'interaction'
->
+const startEdgeSession = (
+  ctx: EdgeInteractionCtx,
+  input: PointerDownInput
+): EdgeSession | null => {
+  const tool = ctx.read.tool.get()
 
-export type EdgeInteraction = {
-  interaction: InteractionRegistration
-  passive: readonly PassiveInputProcessor[]
-  clear: () => void
+  if (tool.type === 'edge') {
+    const canStartFromNodeHandle =
+      input.pick.kind === 'node'
+      && input.pick.part === 'connect'
+      && Boolean(input.pick.side)
+
+    if (
+      !canStartFromNodeHandle
+      && (input.editable || input.ignoreInput || input.ignoreSelection)
+    ) {
+      return null
+    }
+
+    return {
+      kind: 'connect',
+      state: startEdgeCreateSession(
+        ctx,
+        input,
+        readPointer({
+          pointerId: input.pointerId,
+          world: input.world
+        }),
+        readEdgeType(tool.preset)
+      )
+    }
+  }
+
+  if (
+    tool.type === 'select'
+    && input.pick.kind === 'edge'
+    && input.pick.part === 'end'
+    && input.pick.end
+  ) {
+    const state = startEdgeReconnectSession(
+      ctx,
+      input.pick.id,
+      input.pick.end,
+      readPointer({
+        pointerId: input.pointerId,
+        world: input.world
+      })
+    )
+    if (!state || state.kind !== 'reconnect') {
+      return null
+    }
+
+    ctx.commands.selection.replace({
+      edgeIds: [state.edgeId]
+    })
+    return {
+      kind: 'connect',
+      state
+    }
+  }
+
+  if (
+    tool.type === 'select'
+    && input.pick.kind === 'edge'
+    && input.pick.part === 'path'
+  ) {
+    const state = startEdgeRouteSession(ctx, input)
+    return state
+      ? {
+          kind: 'route',
+          state
+        }
+      : null
+  }
+
+  if (
+    tool.type === 'select'
+    && input.pick.kind === 'edge'
+    && input.pick.part === 'body'
+  ) {
+    const item = ctx.read.edge.item.get(input.pick.id)
+    const capability = item
+      ? ctx.read.edge.capability(item.edge)
+      : undefined
+    if (!capability) {
+      return null
+    }
+
+    if (input.modifiers.shift || input.detail >= 2) {
+      if (!capability.editRoute) {
+        return null
+      }
+
+      ctx.commands.selection.replace({
+        edgeIds: [input.pick.id]
+      })
+
+      return {
+        kind: 'insertBodyRoute',
+        edgeId: input.pick.id
+      }
+    }
+
+    if (!capability.move) {
+      return null
+    }
+
+    const state: BodyMoveState = {
+      edgeId: input.pick.id,
+      pointerId: input.pointerId,
+      start: input.world,
+      delta: { x: 0, y: 0 }
+    }
+
+    ctx.commands.selection.replace({
+      edgeIds: [state.edgeId]
+    })
+
+    return {
+      kind: 'moveBody',
+      state
+    }
+  }
+
+  return null
+}
+
+const createEdgeSession = (
+  ctx: EdgeInteractionCtx,
+  session: EdgeSession,
+  input: PointerDownInput,
+  control: InteractionControl
+): InteractionSession => {
+  if (session.kind === 'connect') {
+    return createConnectInteraction(ctx, session.state, control)
+  }
+
+  if (session.kind === 'moveBody') {
+    return createMoveBodyInteraction(ctx, session.state, control)
+  }
+
+  if (session.kind === 'insertBodyRoute') {
+    ctx.commands.edge.route.insert(session.edgeId, input.world)
+    control.finish()
+
+    return {
+      mode: 'edge-route',
+      cleanup: () => {
+        clearEdgeOverlay(ctx)
+      }
+    }
+  }
+
+  return createRouteInteraction(ctx, session.state, input, control)
 }
 
 export const createEdgeInteraction = (
-  ctx: EdgeInteractionDeps
+  ctx: EdgeInteractionCtx
 ): EdgeInteraction => {
-  const hover = createEdgeHoverProcessor(ctx)
-
-  const interaction: InteractionRegistration = {
-    key: 'edge',
-    priority: 500,
-    start: (input, control) => (
-      startEdgeCreatePhase(ctx, input, control)
-      ?? startEdgeReconnectPhase(ctx, input, control)
-      ?? startEdgeRoutePhase(ctx, input, control)
-      ?? startEdgeBodyPhase(ctx, input, control)
-    )
-  }
+  const observe = createEdgeObserve(ctx)
 
   return {
-    interaction,
-    passive: [hover],
+    owner: {
+      key: 'edge',
+      priority: 500,
+      start: (input, control) => {
+        const session = startEdgeSession(ctx, input)
+        return session
+          ? createEdgeSession(ctx, session, input, control)
+          : null
+      },
+      observe
+    },
     clear: () => {
-      hover.cancel?.()
-      ctx.overlay.set((current) => (
-        (
-          current.edge.patches.length === 0
-          && current.guides.edge === undefined
-        )
-          ? current
-          : {
-              ...current,
-              edge: {
-                patches: []
-              },
-              guides: {
-                ...current.guides,
-                edge: undefined
-              }
-            }
-      ))
+      observe.cancel?.()
+      clearEdgeOverlay(ctx)
     }
   }
 }
+
+export type { EdgeInteraction } from './types'

@@ -26,8 +26,8 @@ export const createEditorCommands = ({
   runtime: Pick<RuntimeStateController, 'state'>
   overlay: Pick<EditorOverlay, 'set'>
   insertPresetCatalog: InsertPresetCatalog
-}): Editor['commands'] => {
-  let commands!: Editor['commands']
+}): Omit<Editor['commands'], 'clipboard'> => {
+  let commands!: Omit<Editor['commands'], 'clipboard'>
   const commandHost: EditorCommandHost = {
     get commands() {
       return commands
@@ -67,6 +67,11 @@ export const createEditorCommands = ({
     commandHost,
     catalog: insertPresetCatalog
   })
+  const viewportCommands = {
+    ...runtime.state.viewport.commands,
+    setRect: runtime.state.viewport.setRect,
+    setLimits: runtime.state.viewport.setLimits
+  }
 
   commands = {
     ...engine.commands,
@@ -75,7 +80,7 @@ export const createEditorCommands = ({
     draw: drawCommands,
     edit: runtime.state.edit.mutate,
     selection: selectionCommands,
-    viewport: runtime.state.viewport.commands,
+    viewport: viewportCommands,
     edge: engine.commands.edge,
     node: nodeCommands,
     mindmap: mindmapCommands,

@@ -1,15 +1,11 @@
-import type { ValueStore } from '@whiteboard/engine'
 import type {
-  Editor
+  EditorCommands,
+  EditorRead
 } from '../../types/editor'
-import type { Tool } from '../../types/tool'
-import type { NodeRegistry } from '../../types/node'
 import type {
-  InteractionCoordinator,
-  InteractionRegistry
-} from '../../types/runtime/interaction'
-import type { PassiveInputRuntime } from '../input/passive'
-import type { ViewportRuntime } from '../viewport'
+  ViewportRead,
+  ViewportRuntime
+} from '../viewport'
 
 export type EditorInputPolicy = {
   panEnabled: boolean
@@ -17,13 +13,10 @@ export type EditorInputPolicy = {
   wheelSensitivity: number
 }
 
-export type EditorInputInternals = {
-  interactions: InteractionRegistry
-  passive: PassiveInputRuntime
-  policy: ValueStore<EditorInputPolicy>
-}
-
 export type EditorViewportRuntime =
-  Editor['viewport'] & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>
+  ViewportRead & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>
 
-export type EditorCommandHost = Pick<Editor, 'commands' | 'read'>
+export type EditorCommandHost = {
+  commands: Omit<EditorCommands, 'clipboard'>
+  read: EditorRead
+}

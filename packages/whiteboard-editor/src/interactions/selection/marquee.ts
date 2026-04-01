@@ -2,55 +2,88 @@ import {
   createMarqueeItemsKey,
   createMarqueeRect,
   hasMarqueeStarted,
-  type SelectionMarqueeItems
+  type SelectionDragAction,
+  type SelectionTarget
 } from '@whiteboard/core/selection'
+import {
+  applySelection,
+  type SelectionMode
+} from '@whiteboard/core/node'
 import type { EdgeId, NodeId, Point, Rect } from '@whiteboard/core/types'
 import { createRafTask } from '@whiteboard/engine'
-import {
-  GestureTuning,
-  type ActiveInteraction,
-  type InteractionPointerInput
-} from '../runtime/interaction'
-import type { InteractionHost } from '../runtime/interaction/host'
-import type { ViewportPointer } from '../runtime/viewport'
-import type { MarqueeMatch } from '../runtime/overlay'
+import { GestureTuning, type InteractionSession } from '../../runtime/interaction'
+import type { PointerDownInput } from '../../types/input'
+import type {
+  SelectionInteractionCtx,
+  SessionPointer
+} from './context'
+import { readViewport } from './context'
 
-export type MarqueeItems = SelectionMarqueeItems
+type MarqueeItems = {
+  nodeIds: readonly NodeId[]
+  edgeIds: readonly EdgeId[]
+}
 
-export type MarqueeEnd = {
+type MarqueeEnd = {
   moved: boolean
   nodeIds: readonly NodeId[]
   edgeIds: readonly EdgeId[]
 }
 
-export type MarqueeStartInput = {
+type MarqueeStartInput = {
   pointerId: number
-  start: ViewportPointer
-  match: MarqueeMatch
+  start: {
+    screen: Point
+    world: Point
+  }
+  match: import('../../runtime/overlay').MarqueeMatch
   onStart?: () => void
   onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
 }
 
-type ActiveMarquee = {
+type MarqueeState = {
   pointerId: number
-  start: ViewportPointer
-  match: MarqueeMatch
+  start: {
+    screen: Point
+    world: Point
+  }
+  match: import('../../runtime/overlay').MarqueeMatch
   latest?: MarqueeItems
   emittedKey: string
   onChange?: (items: MarqueeItems) => void
   onEnd?: (result: MarqueeEnd) => void
 }
 
-type MarqueePhaseDeps = Pick<
-  InteractionHost,
-  'read' | 'viewport' | 'overlay'
->
+const buildSelectionWriter = (
+  ctx: SelectionInteractionCtx,
+  base: SelectionTarget,
+  mode: SelectionMode
+) => {
+  return (matched: SelectionTarget) => {
+    ctx.commands.selection.replace({
+      nodeIds: [
+        ...applySelection(
+          new Set(base.nodeIds),
+          [...matched.nodeIds],
+          mode
+        )
+      ],
+      edgeIds: [
+        ...applySelection(
+          new Set(base.edgeIds),
+          [...matched.edgeIds],
+          mode
+        )
+      ]
+    })
+  }
+}
 
-const readMatchedItems = (
-  ctx: MarqueePhaseDeps,
+const readMatchedMarqueeItems = (
+  ctx: SelectionInteractionCtx,
   queryRect: Rect,
-  match: MarqueeMatch
+  match: import('../../runtime/overlay').MarqueeMatch
 ): MarqueeItems => ({
   nodeIds: ctx.read.node.idsInRect(queryRect, {
     match
@@ -60,9 +93,41 @@ const readMatchedItems = (
   })
 })
 
+export const createSelectionMarqueeInput = (
+  ctx: SelectionInteractionCtx,
+  start: PointerDownInput,
+  action: Extract<SelectionDragAction, { kind: 'marquee' }>,
+  extra?: {
+    onStart?: () => void
+  }
+): MarqueeStartInput => {
+  const applyMatched = buildSelectionWriter(ctx, action.base, action.mode)
+
+  return {
+    pointerId: start.pointerId,
+    start: {
+      screen: start.screen,
+      world: start.world
+    },
+    match: action.match,
+    onStart: extra?.onStart,
+    onChange: applyMatched,
+    onEnd: (result) => {
+      if (!result.moved) {
+        return
+      }
+
+      applyMatched({
+        nodeIds: result.nodeIds,
+        edgeIds: result.edgeIds
+      })
+    }
+  }
+}
+
 const createMarqueeState = (
   input: MarqueeStartInput
-): ActiveMarquee => ({
+): MarqueeState => ({
   pointerId: input.pointerId,
   start: input.start,
   match: input.match,
@@ -72,12 +137,12 @@ const createMarqueeState = (
 })
 
 const createMarqueeController = (
-  ctx: MarqueePhaseDeps
+  ctx: SelectionInteractionCtx
 ) => {
-  let pendingFlush: ActiveMarquee | null = null
+  let pendingFlush: MarqueeState | null = null
 
   const flushChange = (
-    state: ActiveMarquee
+    state: MarqueeState
   ) => {
     if (state.latest === undefined) {
       return
@@ -117,20 +182,20 @@ const createMarqueeController = (
   }
 
   const scheduleFlush = (
-    state: ActiveMarquee
+    state: MarqueeState
   ) => {
     pendingFlush = state
     flushTask.schedule()
   }
 
   const update = (
-    state: ActiveMarquee,
+    state: MarqueeState,
     pointer: {
       clientX: number
       clientY: number
     }
   ) => {
-    const current = ctx.viewport.pointer(pointer)
+    const current = readViewport(ctx).pointer(pointer)
     if (!hasMarqueeStarted({
       startScreen: state.start.screen,
       currentScreen: current.screen,
@@ -141,7 +206,7 @@ const createMarqueeController = (
     }
 
     const worldRect = createMarqueeRect(state.start.world, current.world)
-    state.latest = readMatchedItems(ctx, worldRect, state.match)
+    state.latest = readMatchedMarqueeItems(ctx, worldRect, state.match)
     ctx.overlay.set((currentOverlay) => ({
       ...currentOverlay,
       select: {
@@ -157,7 +222,7 @@ const createMarqueeController = (
   }
 
   const pan = (
-    state: ActiveMarquee,
+    state: MarqueeState,
     pointer: {
       clientX: number
       clientY: number
@@ -178,15 +243,15 @@ const createMarqueeController = (
   }
 
   const move = (
-    state: ActiveMarquee,
-    input: InteractionPointerInput
+    state: MarqueeState,
+    input: SessionPointer
   ) => update(state, {
       clientX: input.client.x,
       clientY: input.client.y
     })
 
   const finish = (
-    state: ActiveMarquee,
+    state: MarqueeState,
     world: Point
   ): MarqueeEnd => {
     if (state.latest === undefined) {
@@ -199,7 +264,7 @@ const createMarqueeController = (
       return result
     }
 
-    state.latest = readMatchedItems(
+    state.latest = readMatchedMarqueeItems(
       ctx,
       createMarqueeRect(state.start.world, world),
       state.match
@@ -223,13 +288,13 @@ const createMarqueeController = (
   }
 }
 
-export const startSelectionMarqueePhase = (
-  ctx: MarqueePhaseDeps,
+export const createMarqueeInteraction = (
+  ctx: SelectionInteractionCtx,
   input: MarqueeStartInput,
   options?: {
-    initialInput?: InteractionPointerInput
+    initialInput?: SessionPointer
   }
-): ActiveInteraction => {
+): InteractionSession => {
   const controller = createMarqueeController(ctx)
   const state = createMarqueeState(input)
 

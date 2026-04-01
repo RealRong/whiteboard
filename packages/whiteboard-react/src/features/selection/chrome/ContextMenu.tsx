@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { Point } from '@whiteboard/core/types'
 import type { SelectionStyleSnapshot } from '@whiteboard/editor'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+import { useNodeRegistry } from '../../../runtime/hooks/useEnvironment'
 import { useHostRuntime } from '../../../runtime/hooks/useHost'
 import { useElementSize } from '../../../runtime/hooks/useElementSize'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
@@ -193,6 +194,7 @@ const syncEdgeSelection = (
 
 const readSelectionContextView = (
   editor: ReturnType<typeof useEditorRuntime>,
+  registry: ReturnType<typeof useNodeRegistry>,
   screen: Point
 ): Extract<ContextMenuView, { kind: 'selection' }> | undefined => {
   const selection = editor.read.selection.get()
@@ -205,7 +207,7 @@ const readSelectionContextView = (
 
   const summary = readNodeSummary({
     selection,
-    registry: editor.registry
+    registry
   })
   const can = readNodeSelectionCan(selection.can)
 
@@ -227,9 +229,11 @@ const readSelectionContextView = (
 
 const readContextMenuView = ({
   editor,
+  registry,
   point
 }: {
   editor: ReturnType<typeof useEditorRuntime>
+  registry: ReturnType<typeof useNodeRegistry>
   point: HostResolvedPoint
 }): ContextMenuView | null => {
   switch (point.pick.kind) {
@@ -239,14 +243,14 @@ const readContextMenuView = ({
         selection.summary.target.nodeIds.length > 0
         && selection.summary.target.edgeIds.length === 0
       ) {
-        return readSelectionContextView(editor, point.point.screen) ?? null
+        return readSelectionContextView(editor, registry, point.screen) ?? null
       }
 
       return {
         kind: 'canvas',
-        screen: point.point.screen,
+        screen: point.screen,
         canvas: {
-          world: point.point.world
+          world: point.world
         }
       }
     }
@@ -260,13 +264,13 @@ const readContextMenuView = ({
         : [point.pick.id]
 
       syncNodeSelection(editor, nodeIds)
-      return readSelectionContextView(editor, point.point.screen) ?? null
+      return readSelectionContextView(editor, registry, point.screen) ?? null
     }
     case 'edge':
       syncEdgeSelection(editor, point.pick.id)
       return {
         kind: 'edge',
-        screen: point.point.screen,
+        screen: point.screen,
         edge: {
           id: point.pick.id
         }
@@ -275,9 +279,9 @@ const readContextMenuView = ({
     case 'mindmap':
       return {
         kind: 'canvas',
-        screen: point.point.screen,
+        screen: point.screen,
         canvas: {
-          world: point.point.world
+          world: point.world
         }
       }
   }
@@ -803,6 +807,7 @@ export const ContextMenu = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const editor = useEditorRuntime()
+  const registry = useNodeRegistry()
   const host = useHostRuntime()
   const clipboard = useClipboardActions()
   const surface = useElementSize(containerRef)
@@ -833,13 +838,14 @@ export const ContextMenu = ({
         container,
         event
       })
-      host.pointer.set(point.point.world)
+      host.pointer.set(point.world)
       if (point.ignoreContextMenu) {
         return false
       }
 
       const nextView = readContextMenuView({
         editor,
+        registry,
         point
       })
       if (!nextView) {
@@ -859,7 +865,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (editor.interaction.state.get().busy) return
+      if (editor.state.interaction.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -868,7 +874,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (editor.interaction.state.get().busy) return
+      if (editor.state.interaction.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -892,7 +898,7 @@ export const ContextMenu = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [clipboard, containerRef, dismiss, editor, host])
+  }, [clipboard, containerRef, dismiss, editor, host, registry])
 
   useOverlayDismiss({
     enabled: view !== null,
@@ -959,8 +965,8 @@ export const ContextMenu = ({
                     const selection = editor.read.selection.get()
                     const filteredNodeIds = selection.summary.items.nodes
                       .filter((node) => {
-                        const meta = editor.registry.get(node.type)?.describe?.(node)
-                          ?? editor.registry.get(node.type)?.meta
+                        const meta = registry.get(node.type)?.describe?.(node)
+                          ?? registry.get(node.type)?.meta
                         return (meta?.key ?? node.type) === key
                       })
                       .map((node) => node.id)

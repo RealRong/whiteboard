@@ -1,6 +1,7 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import { memo } from 'react'
 import { useEditor } from '../../../runtime/hooks/useEditor'
+import { useResolvedConfig } from '../../../runtime/hooks/useEnvironment'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useSelection } from '../../node/selection'
 import { useEdgeView } from '../hooks/useEdgeView'
@@ -34,9 +35,10 @@ const EdgeItemById = memo(
 
 export const EdgeLayer = () => {
   const editor = useEditor()
+  const config = useResolvedConfig()
   const edgeIds = useStoreValue(editor.read.edge.list)
   const selectedEdgeIds = useSelection().summary.target.edgeSet
-  const hitTestThresholdScreen = editor.config.edge.hitTestThresholdScreen
+  const hitTestThresholdScreen = config.edge.hitTestThresholdScreen
 
   return (
     <svg
