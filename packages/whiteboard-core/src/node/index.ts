@@ -78,6 +78,17 @@ export type {
   MoveNodePosition,
   MoveSet
 } from './move'
+export {
+  finishMoveSession,
+  startMoveSession,
+  stepMoveSession
+} from './moveSession'
+export type {
+  MoveIntent,
+  MoveSession,
+  MoveSnapResolver,
+  MoveStepResult
+} from './moveSession'
 export { deriveCanvasNodes, deriveVisibleNodes } from './visibility'
 export {
   deriveNodeReadSlices,

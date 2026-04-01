@@ -34,32 +34,11 @@ export type SelectionSummary = {
   }
   transform: SelectionTransform
   box?: Rect
-  boxInteractive: boolean
 }
 
 const EMPTY_TRANSFORM: SelectionTransform = {
   move: false,
   resize: 'none'
-}
-
-const readSelectionBoxInteractive = (
-  selection: Pick<SelectionSummary, 'box' | 'kind' | 'transform' | 'items'>
-) => {
-  if (!selection.box) {
-    return false
-  }
-
-  if (selection.items.count > 1) {
-    return true
-  }
-
-  return (
-    selection.transform.resize === 'scale'
-    && !(
-      selection.kind === 'node'
-      && selection.items.primaryNode?.type === 'group'
-    )
-  )
 }
 
 export const isSelectionSummaryEqual = (
@@ -75,7 +54,6 @@ export const isSelectionSummaryEqual = (
   && left.items.edgeCount === right.items.edgeCount
   && left.transform.move === right.transform.move
   && left.transform.resize === right.transform.resize
-  && left.boxInteractive === right.boxInteractive
   && isOrderedArrayEqual(left.target.nodeIds, right.target.nodeIds)
   && isOrderedArrayEqual(left.target.edgeIds, right.target.edgeIds)
   && isOrderedArrayEqual(left.items.nodes, right.items.nodes)
@@ -149,7 +127,7 @@ export const deriveSelectionSummary = ({
     nodeIds: target.nodeIds,
     edgeIds: target.edgeIds
   })
-  const summary = {
+  return {
     kind:
       nodeCount > 0 && edgeCount > 0
         ? 'mixed'
@@ -180,10 +158,5 @@ export const deriveSelectionSummary = ({
     },
     transform,
     box
-  } satisfies Omit<SelectionSummary, 'boxInteractive'>
-
-  return {
-    ...summary,
-    boxInteractive: readSelectionBoxInteractive(summary)
-  }
+  } satisfies SelectionSummary
 }

@@ -1,4 +1,3 @@
-import type { SelectionTarget } from '@whiteboard/core/selection'
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
 import type { NodeRegistry } from '../../types/node'
@@ -78,8 +77,7 @@ export const createRead = ({
     source: runtime.state.selection.source,
     node: nodeRead,
     edge: edgeRead,
-    targetBounds,
-    registry
+    targetBounds
   })
   const toolRead = createToolRead({
     tool: runtime.state.tool

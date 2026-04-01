@@ -17,9 +17,9 @@ export const createEdgeObserve = (
     const target = ctx.snap.edge.connect(hoverPoint)
     ctx.overlay.set((current) => ({
       ...current,
-      guides: {
-        ...current.guides,
-        edge: target
+      edge: {
+        ...current.edge,
+        guide: target
           ? { snap: target.pointWorld }
           : undefined
       }

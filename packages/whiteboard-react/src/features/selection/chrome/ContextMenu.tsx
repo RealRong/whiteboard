@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { Point } from '@whiteboard/core/types'
-import type { SelectionStyleSnapshot } from '@whiteboard/editor'
 import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
 import { useNodeRegistry } from '../../../runtime/hooks/useEnvironment'
 import { useHostRuntime } from '../../../runtime/hooks/useHost'
@@ -19,12 +18,14 @@ import {
 import { CREATE_PRESETS } from '../../toolbox/presets'
 import type {
   NodeSelectionCan,
+  NodeSelectionStyle,
   NodeSummary,
   NodeTypeSummary
 } from '../../node/summary'
 import {
   readNodeLockLabel,
   readNodeSelectionCan,
+  readNodeSelectionStyle,
   readNodeSummary
 } from '../../node/summary'
 import {
@@ -74,7 +75,7 @@ type ContextMenuView =
         summary: NodeSummary
         can: NodeSelectionCan
         filter?: ContextSelectionFilter
-        style?: SelectionStyleSnapshot
+        style?: NodeSelectionStyle
       }
     }
   | {
@@ -159,12 +160,12 @@ const syncNodeSelection = (
   editor: ReturnType<typeof useEditorRuntime>,
   nodeIds: readonly string[]
 ) => {
-  const current = editor.read.selection.get()
+  const current = editor.read.selection.target.get()
   const sameNodeIds =
-    current.summary.target.nodeIds.length === nodeIds.length
-    && current.summary.target.nodeIds.every((nodeId, index) => nodeId === nodeIds[index])
+    current.nodeIds.length === nodeIds.length
+    && current.nodeIds.every((nodeId, index) => nodeId === nodeIds[index])
 
-  if (sameNodeIds && current.summary.target.edgeIds.length === 0) {
+  if (sameNodeIds && current.edgeIds.length === 0) {
     return
   }
 
@@ -177,12 +178,12 @@ const syncEdgeSelection = (
   editor: ReturnType<typeof useEditorRuntime>,
   edgeId: string
 ) => {
-  const current = editor.read.selection.get()
+  const current = editor.read.selection.target.get()
 
   if (
-    current.summary.target.nodeIds.length === 0
-    && current.summary.target.edgeIds.length === 1
-    && current.summary.target.edgeIds[0] === edgeId
+    current.nodeIds.length === 0
+    && current.edgeIds.length === 1
+    && current.edgeIds[0] === edgeId
   ) {
     return
   }
@@ -197,19 +198,22 @@ const readSelectionContextView = (
   registry: ReturnType<typeof useNodeRegistry>,
   screen: Point
 ): Extract<ContextMenuView, { kind: 'selection' }> | undefined => {
-  const selection = editor.read.selection.get()
+  const selection = editor.read.selection.summary.get()
   if (
-    selection.summary.items.nodeCount === 0
-    || selection.summary.items.edgeCount > 0
+    selection.items.nodeCount === 0
+    || selection.items.edgeCount > 0
   ) {
     return undefined
   }
 
   const summary = readNodeSummary({
-    selection,
+    summary: selection,
     registry
   })
-  const can = readNodeSelectionCan(selection.can)
+  const can = readNodeSelectionCan({
+    summary: selection,
+    registry
+  })
 
   return {
     kind: 'selection',
@@ -222,7 +226,10 @@ const readSelectionContextView = (
             types: summary.types
           }
         : undefined,
-      style: selection.style ?? undefined
+      style: readNodeSelectionStyle({
+        summary: selection,
+        registry
+      }) ?? undefined
     }
   }
 }
@@ -238,10 +245,10 @@ const readContextMenuView = ({
 }): ContextMenuView | null => {
   switch (point.pick.kind) {
     case 'selection-box': {
-      const selection = editor.read.selection.get()
+      const selection = editor.read.selection.summary.get()
       if (
-        selection.summary.target.nodeIds.length > 0
-        && selection.summary.target.edgeIds.length === 0
+        selection.target.nodeIds.length > 0
+        && selection.target.edgeIds.length === 0
       ) {
         return readSelectionContextView(editor, registry, point.screen) ?? null
       }
@@ -255,12 +262,12 @@ const readContextMenuView = ({
       }
     }
     case 'node': {
-      const selection = editor.read.selection.get()
+      const selection = editor.read.selection.summary.get()
       const reuseCurrentSelection =
-        selection.summary.target.nodeSet.has(point.pick.id)
-        && selection.summary.target.edgeIds.length === 0
+        selection.target.nodeSet.has(point.pick.id)
+        && selection.target.edgeIds.length === 0
       const nodeIds = reuseCurrentSelection
-        ? selection.summary.target.nodeIds
+        ? selection.target.nodeIds
         : [point.pick.id]
 
       syncNodeSelection(editor, nodeIds)
@@ -294,7 +301,7 @@ const readSelectionStyleGroup = ({
   dismiss
 }: {
   editor: ReturnType<typeof useEditorRuntime>
-  style: SelectionStyleSnapshot | undefined
+  style: NodeSelectionStyle | undefined
   nodeIds: readonly string[]
   dismiss: () => void
 }): MenuGroup | undefined => {
@@ -588,7 +595,7 @@ const readSelectionGroups = ({
                 key: 'arrange.ungroup',
                 label: 'Ungroup',
                 onSelect: bindMenuAction(() => {
-                  const groupIds = editor.read.selection.get().summary.items.nodes
+                  const groupIds = editor.read.selection.summary.get().items.nodes
                     .filter((node) => node.type === 'group')
                     .map((node) => node.id)
                   if (!groupIds.length) {
@@ -962,8 +969,8 @@ export const ContextMenu = ({
                 <SelectionTypeFilterStrip
                   types={filterTypes}
                   onSelect={(key) => {
-                    const selection = editor.read.selection.get()
-                    const filteredNodeIds = selection.summary.items.nodes
+                    const selection = editor.read.selection.summary.get()
+                    const filteredNodeIds = selection.items.nodes
                       .filter((node) => {
                         const meta = registry.get(node.type)?.describe?.(node)
                           ?? registry.get(node.type)?.meta

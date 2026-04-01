@@ -5,11 +5,19 @@ import {
   type MindmapDragSession
 } from '@whiteboard/core/mindmap'
 import type { Point } from '@whiteboard/core/types'
-import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
-import type { MindmapDragFeedback } from '../../runtime/overlay'
-import type { PointerDownInput } from '../../types/input'
-import type { SelectionInteractionCtx } from './context'
-import { readViewport } from './context'
+import type {
+  InteractionControl,
+  InteractionOwner,
+  InteractionSession
+} from '../runtime/interaction'
+import type { InteractionCtx } from '../runtime/interaction'
+import type { MindmapDragFeedback } from '../runtime/overlay'
+import type { PointerDownInput } from '../types/input'
+
+type MindmapInteractionCtx = Pick<
+  InteractionCtx,
+  'read' | 'state' | 'config' | 'commands' | 'overlay'
+>
 
 const toMindmapDragFeedback = (
   session: MindmapDragSession
@@ -34,8 +42,8 @@ const toMindmapDragFeedback = (
   }
 }
 
-export const resolveMindmapDragSession = (
-  ctx: SelectionInteractionCtx,
+const resolveMindmapDragSession = (
+  ctx: MindmapInteractionCtx,
   input: PointerDownInput
 ): MindmapDragSession | null => {
   const tool = ctx.read.tool.get()
@@ -83,23 +91,22 @@ export const resolveMindmapDragSession = (
 }
 
 const clearMindmapDrag = (
-  ctx: SelectionInteractionCtx
+  ctx: MindmapInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
-    current.select.mindmapDrag === undefined
+    current.mindmap.drag === undefined
       ? current
       : {
           ...current,
-          select: {
-            ...current.select,
-            mindmapDrag: undefined
+          mindmap: {
+            drag: undefined
           }
         }
   ))
 }
 
 const projectMindmapState = (
-  ctx: SelectionInteractionCtx,
+  ctx: MindmapInteractionCtx,
   state: MindmapDragSession,
   world: Point
 ): MindmapDragSession => {
@@ -114,9 +121,8 @@ const projectMindmapState = (
 
   ctx.overlay.set((current) => ({
     ...current,
-    select: {
-      ...current.select,
-      mindmapDrag: toMindmapDragFeedback(next)
+    mindmap: {
+      drag: toMindmapDragFeedback(next)
     }
   }))
 
@@ -126,7 +132,7 @@ const projectMindmapState = (
 }
 
 const projectMindmapInto = (
-  ctx: SelectionInteractionCtx,
+  ctx: MindmapInteractionCtx,
   state: MindmapDragSession,
   world: Point
 ) => {
@@ -134,20 +140,19 @@ const projectMindmapInto = (
 }
 
 const startMindmapDrag = (
-  ctx: SelectionInteractionCtx,
+  ctx: MindmapInteractionCtx,
   state: MindmapDragSession
 ) => {
   ctx.overlay.set((current) => ({
     ...current,
-    select: {
-      ...current.select,
-      mindmapDrag: toMindmapDragFeedback(state)
+    mindmap: {
+      drag: toMindmapDragFeedback(state)
     }
   }))
 }
 
 const commitMindmapDrag = (
-  ctx: SelectionInteractionCtx,
+  ctx: MindmapInteractionCtx,
   state: MindmapDragSession
 ) => {
   if (state.kind === 'root') {
@@ -180,8 +185,8 @@ const commitMindmapDrag = (
   })
 }
 
-export const createMindmapInteraction = (
-  ctx: SelectionInteractionCtx,
+const createMindmapSession = (
+  ctx: MindmapInteractionCtx,
   state: MindmapDragSession,
   control: InteractionControl
 ): InteractionSession => {
@@ -196,7 +201,7 @@ export const createMindmapInteraction = (
         projectMindmapInto(
           ctx,
           state,
-          readViewport(ctx).pointer(pointer).world
+          ctx.state.viewport.read.pointer(pointer).world
         )
       }
     },
@@ -212,3 +217,24 @@ export const createMindmapInteraction = (
     }
   }
 }
+
+export const createMindmapInteraction = (
+  ctx: MindmapInteractionCtx
+): {
+  owner: InteractionOwner
+  clear: () => void
+} => ({
+  owner: {
+    key: 'mindmap',
+    priority: 110,
+    start: (input, control) => {
+      const state = resolveMindmapDragSession(ctx, input)
+      return state
+        ? createMindmapSession(ctx, state, control)
+        : null
+    }
+  },
+  clear: () => {
+    clearMindmapDrag(ctx)
+  }
+})

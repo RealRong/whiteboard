@@ -22,7 +22,9 @@ import type { InteractionOwner } from '../../types/runtime/interaction'
 import { createDrawInteraction } from '../../interactions/draw'
 import { createEdgeInteraction } from '../../interactions/edge'
 import { createInsertInteraction } from '../../interactions/insert'
+import { createMindmapInteraction } from '../../interactions/mindmap'
 import { createSelectionInteraction } from '../../interactions/selection'
+import { createTransformInteraction } from '../../interactions/transform'
 import { createViewportInteraction } from '../../interactions/viewport'
 import { createOverlay } from '../overlay'
 import { createRead } from '../read'
@@ -160,6 +162,8 @@ export const createEditor = ({
   const viewportInteraction = createViewportInteraction(interactionCtx)
   const insertInteraction = createInsertInteraction(interactionCtx)
   const drawInteraction = createDrawInteraction(interactionCtx)
+  const transformInteraction = createTransformInteraction(interactionCtx)
+  const mindmapInteraction = createMindmapInteraction(interactionCtx)
   const selectionInteraction = createSelectionInteraction(interactionCtx)
   const edgeInteraction = createEdgeInteraction(interactionCtx)
 
@@ -167,12 +171,16 @@ export const createEditor = ({
     viewportInteraction,
     insertInteraction,
     drawInteraction.owner,
+    transformInteraction.owner,
+    mindmapInteraction.owner,
     selectionInteraction.owner,
     edgeInteraction.owner
   ]
 
   const clearInteractions = () => {
     drawInteraction.clear()
+    transformInteraction.clear()
+    mindmapInteraction.clear()
     selectionInteraction.clear()
     edgeInteraction.clear()
   }

@@ -27,7 +27,10 @@ import type { NodeRegistry } from '../../types/node'
 import { useClipboardActions } from '../../runtime/host/useClipboardActions'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
-type BaseSelection = ReturnType<Editor['read']['selection']['get']>
+type BaseSelection = {
+  target: ReturnType<Editor['read']['selection']['target']['get']>
+  summary: ReturnType<Editor['read']['selection']['summary']['get']>
+}
 type Tool = ReturnType<Editor['state']['tool']['get']>
 
 export type SelectionFilterView = {
@@ -395,10 +398,20 @@ const resolveSelectionBoxState = (
 ): SelectionBoxState => {
   const box = selection.summary.box
   const canResize = selection.summary.transform.resize === 'scale'
+  const interactive = Boolean(box) && (
+    selection.summary.items.count > 1
+    || (
+      selection.summary.transform.resize === 'scale'
+      && !(
+        selection.summary.kind === 'node'
+        && selection.summary.items.primaryNode?.type === 'group'
+      )
+    )
+  )
 
   return {
     box,
-    interactive: selection.summary.boxInteractive,
+    interactive,
     frame: Boolean(box) && selection.summary.items.nodeCount > 0,
     handles: Boolean(box) && canResize,
     canResize
@@ -482,12 +495,15 @@ const resolveSelectionView = (
     && selection.summary.items.edgeCount === 0
   const nodeSummary = pureNodeSelection
     ? readNodeSummary({
-      selection,
+      summary: selection.summary,
         registry
       })
     : EMPTY_SUMMARY
   const nodeCan = pureNodeSelection
-    ? readNodeSelectionCan(selection.can)
+    ? readNodeSelectionCan({
+        summary: selection.summary,
+        registry
+      })
     : EMPTY_CAN
 
   return {
@@ -512,11 +528,15 @@ export const useSelection = () => {
   const editor = useEditor()
   const registry = useNodeRegistry()
   const clipboard = useClipboardActions()
-  const selection = useStoreValue(editor.read.selection)
+  const target = useStoreValue(editor.read.selection.target)
+  const summary = useStoreValue(editor.read.selection.summary)
 
   return useMemo(
-    () => resolveSelectionView(editor, selection, clipboard, registry),
-    [clipboard, editor, registry, selection]
+    () => resolveSelectionView(editor, {
+      target,
+      summary
+    }, clipboard, registry),
+    [clipboard, editor, registry, summary, target]
   )
 }
 

@@ -1,272 +1,142 @@
 import {
-  buildMoveCommit,
-  buildMoveSet,
-  type MoveSet,
-  projectMovePreview
+  finishMoveSession,
+  startMoveSession,
+  stepMoveSession
 } from '@whiteboard/core/node'
-import type { Edge, EdgeId, Node, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { InteractionSession } from '../../runtime/interaction'
-import type { PointerDownInput } from '../../types/input'
-import type { SelectionInteractionCtx, SessionPointer } from './context'
-import { readViewport } from './context'
+import type { SelectionTarget } from '@whiteboard/core/selection'
+import type { Edge } from '@whiteboard/core/types'
+import type {
+  InteractionCtx,
+  InteractionSession
+} from '../../runtime/interaction'
+import type {
+  PointerDownInput,
+  PointerMoveInput,
+  PointerUpInput
+} from '../../types/input'
 
-type NodeDragState = {
-  ids: readonly NodeId[]
-  nodes: readonly Node[]
-  moveSet: MoveSet
-  startWorld: Point
-  origin: Point
-  delta: Point
-  frameSize: {
-    width: number
-    height: number
-  }
-  allowCross: boolean
-  selectedEdges: readonly Edge[]
-  relatedEdges: readonly Edge[]
-}
+type SelectionInteractionCtx = Pick<
+  InteractionCtx,
+  'read' | 'state' | 'config' | 'commands' | 'overlay' | 'snap'
+>
 
-type NodeDragStart = {
-  startWorld: Point
-  frame: Rect
-  anchorId: NodeId
-  nodeIds: readonly NodeId[]
-  edgeIds?: readonly EdgeId[]
-  allowCross: boolean
-}
+type SessionPointer = PointerMoveInput | PointerUpInput
 
-type NodeDragInput = {
+type MoveInteractionInput = {
   start: PointerDownInput
-  input: SessionPointer
-  frame: Rect
-  anchorId: NodeId
-  target: import('@whiteboard/core/selection').SelectionTarget
-  nextSelection?: import('@whiteboard/core/selection').SelectionTarget
+  pointer: SessionPointer
+  target: SelectionTarget
+  prepareSelection?: SelectionTarget
 }
 
-const clearNodeDrag = (
+const clearMoveOverlay = (
   ctx: SelectionInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
     (
-      current.node.selection.patches.length === 0
-      && current.node.selection.hovered === undefined
-      && current.edge.selection.length === 0
-      && current.guides.snap.length === 0
+      current.selection.node.patches.length === 0
+      && current.selection.node.hovered === undefined
+      && current.selection.edge.length === 0
+      && current.selection.guides.length === 0
     )
       ? current
       : {
           ...current,
-          node: {
-            ...current.node,
-            selection: {
+          selection: {
+            ...current.selection,
+            node: {
               patches: [],
               hovered: undefined
-            }
-          },
-          edge: {
-            ...current.edge,
-            selection: []
-          },
-          guides: {
-            ...current.guides,
-            snap: []
+            },
+            edge: [],
+            guides: []
           }
         }
   ))
 }
 
-const gatherNodeDragState = (
+const projectMoveOverlay = (
   ctx: SelectionInteractionCtx,
-  input: NodeDragStart
-): NodeDragState | null => {
-  const nodes = ctx.read.index.node.all().map((entry) => entry.node)
-  const ids = input.nodeIds.includes(input.anchorId)
-    ? input.nodeIds
-    : [input.anchorId]
-  const moveSet = buildMoveSet({
-    nodes,
-    ids,
-    nodeSize: ctx.config.nodeSize
-  })
-  if (!moveSet.members.length) {
-    return null
-  }
-
-  return {
-    ids,
-    nodes,
-    moveSet,
-    startWorld: input.startWorld,
-    origin: {
-      x: input.frame.x,
-      y: input.frame.y
-    },
-    delta: {
-      x: 0,
-      y: 0
-    },
-    frameSize: {
-      width: input.frame.width,
-      height: input.frame.height
-    },
-    allowCross: input.allowCross,
-    selectedEdges: (input.edgeIds ?? []).flatMap((edgeId) => {
-      const edge = ctx.read.edge.item.get(edgeId)?.edge
-      return edge ? [edge] : []
-    }),
-    relatedEdges: ctx.read.edge.related(
-      moveSet.members.map((member) => member.id)
-    ).filter((edgeId) => !(input.edgeIds ?? []).includes(edgeId)).flatMap((edgeId) => {
-      const edge = ctx.read.edge.item.get(edgeId)?.edge
-      return edge ? [edge] : []
-    })
-  }
-}
-
-const computeNodeDragProjection = (
-  ctx: SelectionInteractionCtx,
-  state: NodeDragState,
-  input: {
-    clientX: number
-    clientY: number
-  }
+  input: ReturnType<typeof stepMoveSession>
 ) => {
-  const world = readViewport(ctx).pointer(input).world
-  const rawPosition = {
-    x: state.origin.x + (world.x - state.startWorld.x),
-    y: state.origin.y + (world.y - state.startWorld.y)
-  }
-  const snapped = ctx.snap.node.move({
-    rect: {
-      x: rawPosition.x,
-      y: rawPosition.y,
-      width: state.frameSize.width,
-      height: state.frameSize.height
-    },
-    excludeIds: state.moveSet.members.map((member) => member.id),
-    allowCross: state.allowCross,
-    disabled: !ctx.read.tool.is('select')
-  })
-  const delta = {
-    x: snapped.rect.x - state.origin.x,
-    y: snapped.rect.y - state.origin.y
-  }
-  const preview = projectMovePreview({
-    nodes: state.nodes as readonly Node[],
-    relatedEdges: state.relatedEdges as readonly Edge[],
-    selectedEdges: state.selectedEdges as readonly Edge[],
-    move: state.moveSet,
-    delta,
-    nodeSize: ctx.config.nodeSize
-  })
-
-  return {
-    delta,
-    preview,
-    guides: snapped.guides
-  }
-}
-
-const applyNodeDragProjection = (
-  ctx: SelectionInteractionCtx,
-  state: NodeDragState,
-  projection: ReturnType<typeof computeNodeDragProjection>
-) => {
-  state.delta = projection.delta
   ctx.overlay.set((current) => ({
     ...current,
-    node: {
-      ...current.node,
-      selection: {
-        patches: projection.preview.nodes.map(({ id, position }) => ({
+    selection: {
+      ...current.selection,
+      node: {
+        patches: input.preview.nodes.map(({ id, position }) => ({
           id,
           patch: {
             position
           }
         })),
-        hovered: projection.preview.hovered
-      }
-    },
-    edge: {
-      ...current.edge,
-      selection: projection.preview.edges.map(({ id, patch }) => ({
+        hovered: input.preview.hovered
+      },
+      edge: input.preview.edges.map(({ id, patch }) => ({
         id,
         patch: {
           route: patch.route,
           source: patch.source,
           target: patch.target
         }
-      }))
-    },
-    guides: {
-      ...current.guides,
-      snap: projection.guides
+      })),
+      guides: input.guides
     }
   }))
 }
 
-const projectNodeDragPreview = (
+export const createMoveInteraction = (
   ctx: SelectionInteractionCtx,
-  state: NodeDragState,
-  input: {
-    clientX: number
-    clientY: number
-  }
-) => {
-  applyNodeDragProjection(
-    ctx,
-    state,
-    computeNodeDragProjection(ctx, state, input)
-  )
-}
-
-const commitNodeDrag = (
-  ctx: SelectionInteractionCtx,
-  state: NodeDragState
-) => {
-  const result = buildMoveCommit({
-    delta: state.delta,
-    selectedEdges: state.selectedEdges
-  })
-
-  if (result.delta) {
-    ctx.commands.node.move({
-      ids: state.ids,
-      delta: result.delta
-    })
-  }
-
-  if (result.edges.length) {
-    ctx.commands.edge.updateMany(result.edges)
-  }
-}
-
-export const createDragInteraction = (
-  ctx: SelectionInteractionCtx,
-  input: NodeDragInput
+  input: MoveInteractionInput
 ): InteractionSession | null => {
-  const state = gatherNodeDragState(ctx, {
+  const initialSession = startMoveSession({
+    nodes: ctx.read.index.node.all().map((entry) => entry.node),
+    edges: ctx.read.edge.list.get()
+      .map((edgeId) => ctx.read.edge.item.get(edgeId)?.edge)
+      .filter((edge): edge is Edge => Boolean(edge)),
+    intent: {
+      target: input.target
+    },
     startWorld: input.start.world,
-    frame: input.frame,
-    anchorId: input.anchorId,
-    nodeIds: input.target.nodeIds,
-    edgeIds: input.target.edgeIds,
-    allowCross: input.input.modifiers.alt
+    nodeSize: ctx.config.nodeSize
   })
-  if (!state) {
+  if (!initialSession) {
     return null
   }
+  let session = initialSession
 
-  if (input.nextSelection) {
-    ctx.commands.selection.replace(input.nextSelection)
+  if (input.prepareSelection) {
+    ctx.commands.selection.replace(input.prepareSelection)
+  }
+  let allowCross = input.pointer.modifiers.alt
+
+  const project = (
+    world: {
+      x: number
+      y: number
+    },
+    nextAllowCross: boolean
+  ) => {
+    allowCross = nextAllowCross
+    const result = stepMoveSession({
+      session,
+      pointerWorld: world,
+      allowCross: nextAllowCross,
+      snap: ctx.read.tool.is('select')
+        ? ({ rect, excludeIds, allowCross: nextAllowCross }) => ctx.snap.node.move({
+            rect,
+            excludeIds,
+            allowCross: nextAllowCross
+          })
+        : undefined
+    })
+
+    session = result.session
+    projectMoveOverlay(ctx, result)
   }
 
-  clearNodeDrag(ctx)
-  projectNodeDragPreview(ctx, state, {
-    clientX: input.input.client.x,
-    clientY: input.input.client.y
-  })
+  clearMoveOverlay(ctx)
+  project(input.pointer.world, input.pointer.modifiers.alt)
 
   return {
     mode: 'node-drag',
@@ -274,21 +144,31 @@ export const createDragInteraction = (
     chrome: false,
     autoPan: {
       frame: (pointer) => {
-        projectNodeDragPreview(ctx, state, pointer)
+        project(
+          ctx.state.viewport.read.pointer(pointer).world,
+          allowCross
+        )
       }
     },
     move: (next) => {
-      state.allowCross = next.modifiers.alt
-      projectNodeDragPreview(ctx, state, {
-        clientX: next.client.x,
-        clientY: next.client.y
-      })
+      project(next.world, next.modifiers.alt)
     },
     up: () => {
-      commitNodeDrag(ctx, state)
+      const commit = finishMoveSession(session)
+
+      if (commit.delta) {
+        ctx.commands.node.move({
+          ids: session.move.rootIds,
+          delta: commit.delta
+        })
+      }
+
+      if (commit.edges.length > 0) {
+        ctx.commands.edge.updateMany(commit.edges)
+      }
     },
     cleanup: () => {
-      clearNodeDrag(ctx)
+      clearMoveOverlay(ctx)
     }
   }
 }

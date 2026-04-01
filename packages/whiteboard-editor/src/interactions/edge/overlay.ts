@@ -23,13 +23,13 @@ export const clearEdgeGuide = (
   ctx: EdgeInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
-    current.guides.edge === undefined
+    current.edge.guide === undefined
       ? current
       : {
           ...current,
-          guides: {
-            ...current.guides,
-            edge: undefined
+          edge: {
+            ...current.edge,
+            guide: undefined
           }
         }
   ))
@@ -41,18 +41,15 @@ export const clearEdgeOverlay = (
   ctx.overlay.set((current) => (
     (
       current.edge.interaction.length === 0
-      && current.guides.edge === undefined
+      && current.edge.guide === undefined
     )
       ? current
       : {
           ...current,
           edge: {
             ...current.edge,
-            interaction: []
-          },
-          guides: {
-            ...current.guides,
-            edge: undefined
+            interaction: [],
+            guide: undefined
           }
         }
   ))
@@ -74,11 +71,8 @@ export const writeConnectPreview = (
               id: state.edgeId,
               patch: preview.patch
             }]
-          : []
-    },
-    guides: {
-      ...current.guides,
-      edge:
+          : [],
+      guide:
         preview
           ? {
               line: preview.line,

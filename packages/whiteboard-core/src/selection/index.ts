@@ -20,17 +20,25 @@ export {
 export {
   createMarqueeItemsKey,
   createMarqueeRect,
+  finishMarqueeSession,
   hasMarqueeStarted,
+  startMarqueeSession,
+  stepMarqueeSession,
+  type MarqueeMatch,
+  type MarqueeSession,
+  type MarqueeStepResult,
   type SelectionMarqueeItems
 } from './marquee'
 export {
+  matchSelectionRelease,
   resolveSelectionPressMode,
-  resolveSelectionPressPlan,
+  resolveSelectionPressDecision,
   resolveSelectionPressTarget,
-  type SelectionDragAction,
-  type SelectionPressPlan,
+  type SelectionDragDecision,
+  type SelectionPressDecision,
   type SelectionPressPolicyDeps,
+  type SelectionPressResolution,
   type SelectionPressSubject,
   type SelectionPressTarget,
-  type SelectionTapAction
+  type SelectionReleaseDecision
 } from './press'

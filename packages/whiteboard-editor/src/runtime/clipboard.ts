@@ -43,12 +43,13 @@ const applyInsertedRoots = (
 const readSelectionTarget = (
   editor: ClipboardEditor
 ): Exclude<EditorClipboardTarget, 'selection'> | undefined => {
-  const selection = editor.read.selection.get()
+  const summary = editor.read.selection.summary.get()
+  const target = editor.read.selection.target.get()
 
-  if (selection.summary.items.count > 0) {
+  if (summary.items.count > 0) {
     return {
-      nodeIds: selection.summary.target.nodeIds,
-      edgeIds: selection.summary.target.edgeIds
+      nodeIds: target.nodeIds,
+      edgeIds: target.edgeIds
     }
   }
 

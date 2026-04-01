@@ -43,7 +43,6 @@ export type NodeTextOverlayState = {
 }
 
 export type NodeOverlayState = {
-  selection: NodeSelectionOverlayState
   text: NodeTextOverlayState
   hidden: readonly NodeId[]
 }
@@ -66,20 +65,18 @@ export type EdgeOverlayProjection = {
 }
 
 export type EdgeOverlayState = {
-  selection: readonly EdgeOverlayEntry[]
   interaction: readonly EdgeOverlayEntry[]
+  guide?: EdgeGuide
 }
-
-export type MarqueeMatch = 'touch' | 'contain'
 
 export type MarqueeOverlayState = {
   worldRect: Rect
-  match: MarqueeMatch
+  match: import('@whiteboard/core/selection').MarqueeMatch
 }
 
 export type MarqueeFeedback = {
   rect: Rect
-  match: MarqueeMatch
+  match: import('@whiteboard/core/selection').MarqueeMatch
 }
 
 type MindmapDragPreview = {
@@ -103,19 +100,22 @@ export type EdgeGuide = {
   snap?: Point
 }
 
+export type SelectionOverlayState = {
+  node: NodeSelectionOverlayState
+  edge: readonly EdgeOverlayEntry[]
+  marquee?: MarqueeOverlayState
+  guides: readonly Guide[]
+}
+
 export type EditorOverlayState = {
   node: NodeOverlayState
   edge: EdgeOverlayState
   draw: {
     preview: DrawPreview | null
   }
-  select: {
-    marquee?: MarqueeOverlayState
-    mindmapDrag?: MindmapDragFeedback
-  }
-  guides: {
-    edge?: EdgeGuide
-    snap: readonly Guide[]
+  selection: SelectionOverlayState
+  mindmap: {
+    drag?: MindmapDragFeedback
   }
 }
 
@@ -140,7 +140,7 @@ export type EditorOverlay = Pick<ReadStore<EditorOverlayState>, 'get' | 'subscri
 }
 
 type NodeOverlayStore =
-  Pick<StagedKeyedStore<NodeId, NodeOverlayProjection, NodeOverlayState>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
+  Pick<StagedKeyedStore<NodeId, NodeOverlayProjection, EditorOverlayState>, 'get' | 'subscribe' | 'write' | 'clear' | 'flush'>
 
 const EMPTY_NODE_PATCHES: readonly NodePatchEntry[] = []
 const EMPTY_NODE_HIDDEN: readonly NodeId[] = []
@@ -157,14 +157,18 @@ const EMPTY_NODE_TEXT_OVERLAY: NodeTextOverlayState = {
 }
 
 const EMPTY_NODE_OVERLAY: NodeOverlayState = {
-  selection: EMPTY_NODE_SELECTION_OVERLAY,
   text: EMPTY_NODE_TEXT_OVERLAY,
   hidden: EMPTY_NODE_HIDDEN
 }
 
 const EMPTY_EDGE_OVERLAY: EdgeOverlayState = {
-  selection: EMPTY_EDGE_PATCHES,
   interaction: EMPTY_EDGE_PATCHES
+}
+
+const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
+  node: EMPTY_NODE_SELECTION_OVERLAY,
+  edge: EMPTY_EDGE_PATCHES,
+  guides: EMPTY_GUIDES
 }
 
 const EMPTY_OVERLAY_STATE: EditorOverlayState = {
@@ -173,10 +177,8 @@ const EMPTY_OVERLAY_STATE: EditorOverlayState = {
   draw: {
     preview: null
   },
-  select: {},
-  guides: {
-    snap: EMPTY_GUIDES
-  }
+  selection: EMPTY_SELECTION_OVERLAY,
+  mindmap: {}
 }
 
 const EMPTY_NODE_OVERLAY_PROJECTION: NodeOverlayProjection = {
@@ -187,7 +189,6 @@ const EMPTY_NODE_OVERLAY_PROJECTION: NodeOverlayProjection = {
 const EMPTY_EDGE_OVERLAY_PROJECTION: EdgeOverlayProjection = {}
 const EMPTY_NODE_OVERLAY_MAP = new Map<NodeId, NodeOverlayProjection>()
 const EMPTY_EDGE_OVERLAY_MAP = new Map<EdgeId, EdgeOverlayProjection>()
-const NO_PENDING = Symbol('node-overlay-no-pending')
 
 const isSameSize = (
   left: { width: number, height: number } | undefined,
@@ -210,10 +211,19 @@ const isSameNodeOverlayState = (
   left: NodeOverlayState,
   right: NodeOverlayState
 ) => (
-  left.selection.patches === right.selection.patches
-  && left.selection.hovered === right.selection.hovered
-  && left.text.patches === right.text.patches
+  left.text.patches === right.text.patches
   && left.hidden === right.hidden
+)
+
+const isSameSelectionOverlayState = (
+  left: SelectionOverlayState,
+  right: SelectionOverlayState
+) => (
+  left.node.patches === right.node.patches
+  && left.node.hovered === right.node.hovered
+  && left.edge === right.edge
+  && isSameMarquee(left.marquee, right.marquee)
+  && left.guides === right.guides
 )
 
 const isSameNodeProjection = (
@@ -244,9 +254,6 @@ const isEdgeGuideEmpty = (
 const normalizeNodeOverlayState = (
   state: NodeOverlayState
 ): NodeOverlayState => {
-  const selectionPatches = state.selection.patches.length > 0
-    ? state.selection.patches
-    : EMPTY_NODE_PATCHES
   const textPatches = state.text.patches.length > 0
     ? state.text.patches
     : EMPTY_NODE_PATCHES
@@ -255,22 +262,13 @@ const normalizeNodeOverlayState = (
     : EMPTY_NODE_HIDDEN
 
   if (
-    selectionPatches === EMPTY_NODE_PATCHES
-    && textPatches === EMPTY_NODE_PATCHES
+    textPatches === EMPTY_NODE_PATCHES
     && hidden === EMPTY_NODE_HIDDEN
-    && state.selection.hovered === undefined
   ) {
     return EMPTY_NODE_OVERLAY
   }
 
   return {
-    selection:
-      selectionPatches === EMPTY_NODE_PATCHES && state.selection.hovered === undefined
-        ? EMPTY_NODE_SELECTION_OVERLAY
-        : {
-            patches: selectionPatches,
-            hovered: state.selection.hovered
-          },
     text:
       textPatches === EMPTY_NODE_PATCHES
         ? EMPTY_NODE_TEXT_OVERLAY
@@ -284,23 +282,61 @@ const normalizeNodeOverlayState = (
 const normalizeEdgeOverlayState = (
   state: EdgeOverlayState
 ): EdgeOverlayState => {
-  const selection = state.selection.length > 0
-    ? state.selection
-    : EMPTY_EDGE_PATCHES
   const interaction = state.interaction.length > 0
     ? state.interaction
     : EMPTY_EDGE_PATCHES
+  const guide = isEdgeGuideEmpty(state.guide)
+    ? undefined
+    : state.guide
 
   if (
-    selection === EMPTY_EDGE_PATCHES
-    && interaction === EMPTY_EDGE_PATCHES
+    interaction === EMPTY_EDGE_PATCHES
+    && guide === undefined
   ) {
     return EMPTY_EDGE_OVERLAY
   }
 
   return {
-    selection,
-    interaction
+    interaction,
+    guide
+  }
+}
+
+const normalizeSelectionOverlayState = (
+  state: SelectionOverlayState
+): SelectionOverlayState => {
+  const nodePatches = state.node.patches.length > 0
+    ? state.node.patches
+    : EMPTY_NODE_PATCHES
+  const edge = state.edge.length > 0
+    ? state.edge
+    : EMPTY_EDGE_PATCHES
+  const guides = state.guides.length > 0
+    ? state.guides
+    : EMPTY_GUIDES
+  const marquee = state.marquee
+
+  if (
+    nodePatches === EMPTY_NODE_PATCHES
+    && state.node.hovered === undefined
+    && edge === EMPTY_EDGE_PATCHES
+    && guides === EMPTY_GUIDES
+    && marquee === undefined
+  ) {
+    return EMPTY_SELECTION_OVERLAY
+  }
+
+  return {
+    node:
+      nodePatches === EMPTY_NODE_PATCHES && state.node.hovered === undefined
+        ? EMPTY_NODE_SELECTION_OVERLAY
+        : {
+            patches: nodePatches,
+            hovered: state.node.hovered
+          },
+    edge,
+    marquee,
+    guides
   }
 }
 
@@ -309,24 +345,16 @@ const normalizeOverlayState = (
 ): EditorOverlayState => {
   const node = normalizeNodeOverlayState(state.node)
   const edge = normalizeEdgeOverlayState(state.edge)
+  const selection = normalizeSelectionOverlayState(state.selection)
   const drawPreview = state.draw.preview ?? null
-  const marquee = state.select.marquee
-  const mindmapDrag = state.select.mindmapDrag
-  const edgeGuide = isEdgeGuideEmpty(state.guides.edge)
-    ? undefined
-    : state.guides.edge
-  const snapGuides = state.guides.snap.length > 0
-    ? state.guides.snap
-    : EMPTY_GUIDES
+  const mindmapDrag = state.mindmap.drag
 
   if (
     node === EMPTY_NODE_OVERLAY
     && edge === EMPTY_EDGE_OVERLAY
+    && selection === EMPTY_SELECTION_OVERLAY
     && drawPreview === null
-    && marquee === undefined
     && mindmapDrag === undefined
-    && edgeGuide === undefined
-    && snapGuides === EMPTY_GUIDES
   ) {
     return EMPTY_OVERLAY_STATE
   }
@@ -337,14 +365,10 @@ const normalizeOverlayState = (
     draw: {
       preview: drawPreview
     },
-    select: {
-      marquee,
-      mindmapDrag
+    selection,
+    mindmap: {
+      drag: mindmapDrag
     },
-    guides: {
-      edge: edgeGuide,
-      snap: snapGuides
-    }
   }
 }
 
@@ -367,32 +391,30 @@ const isSameOverlayState = (
   right: EditorOverlayState
 ) => (
   isSameNodeOverlayState(left.node, right.node)
-  && left.edge.selection === right.edge.selection
   && left.edge.interaction === right.edge.interaction
+  && isSameEdgeGuide(left.edge.guide ?? EMPTY_EDGE_GUIDE, right.edge.guide ?? EMPTY_EDGE_GUIDE)
   && left.draw.preview === right.draw.preview
-  && isSameMarquee(left.select.marquee, right.select.marquee)
-  && left.select.mindmapDrag === right.select.mindmapDrag
-  && isSameEdgeGuide(left.guides.edge ?? EMPTY_EDGE_GUIDE, right.guides.edge ?? EMPTY_EDGE_GUIDE)
-  && left.guides.snap === right.guides.snap
+  && isSameSelectionOverlayState(left.selection, right.selection)
+  && left.mindmap.drag === right.mindmap.drag
 )
 
 const toNodeOverlayMap = (
-  state: NodeOverlayState
+  state: EditorOverlayState
 ) => {
   if (
-    state.selection.patches.length === 0
-    && state.text.patches.length === 0
-    && state.hidden.length === 0
-    && state.selection.hovered === undefined
+    state.selection.node.patches.length === 0
+    && state.node.text.patches.length === 0
+    && state.node.hidden.length === 0
+    && state.selection.node.hovered === undefined
   ) {
     return EMPTY_NODE_OVERLAY_MAP
   }
 
   const next = new Map<NodeId, NodeOverlayProjection>()
-  const hiddenSet = new Set(state.hidden)
+  const hiddenSet = new Set(state.node.hidden)
 
-  for (let index = 0; index < state.text.patches.length; index += 1) {
-    const entry = state.text.patches[index]!
+  for (let index = 0; index < state.node.text.patches.length; index += 1) {
+    const entry = state.node.text.patches[index]!
     next.set(entry.id, {
       patch: entry.patch,
       hovered: false,
@@ -400,8 +422,8 @@ const toNodeOverlayMap = (
     })
   }
 
-  for (let index = 0; index < state.selection.patches.length; index += 1) {
-    const entry = state.selection.patches[index]!
+  for (let index = 0; index < state.selection.node.patches.length; index += 1) {
+    const entry = state.selection.node.patches[index]!
     const current = next.get(entry.id)
     next.set(entry.id, {
       patch: current?.patch
@@ -410,22 +432,22 @@ const toNodeOverlayMap = (
             ...entry.patch
           }
         : entry.patch,
-      hovered: state.selection.hovered === entry.id,
+      hovered: state.selection.node.hovered === entry.id,
       hidden: hiddenSet.has(entry.id)
     })
   }
 
-  if (state.selection.hovered !== undefined) {
-    const current = next.get(state.selection.hovered)
-    next.set(state.selection.hovered, {
+  if (state.selection.node.hovered !== undefined) {
+    const current = next.get(state.selection.node.hovered)
+    next.set(state.selection.node.hovered, {
       patch: current?.patch,
       hovered: true,
-      hidden: hiddenSet.has(state.selection.hovered)
+      hidden: hiddenSet.has(state.selection.node.hovered)
     })
   }
 
-  for (let index = 0; index < state.hidden.length; index += 1) {
-    const nodeId = state.hidden[index]!
+  for (let index = 0; index < state.node.hidden.length; index += 1) {
+    const nodeId = state.node.hidden[index]!
     if (next.has(nodeId)) {
       continue
     }
@@ -443,7 +465,7 @@ const createNodeOverlayStore = (): NodeOverlayStore => {
   let scheduled = false
   let token = 0
 
-  const store = createStagedKeyedStore<NodeId, NodeOverlayProjection, NodeOverlayState>({
+  const store = createStagedKeyedStore<NodeId, NodeOverlayProjection, EditorOverlayState>({
     schedule: () => {
       if (scheduled) {
         return
@@ -481,11 +503,11 @@ const createNodeOverlayStore = (): NodeOverlayStore => {
 }
 
 const toEdgeOverlayMap = (
-  state: EdgeOverlayState
+  state: EditorOverlayState
 ) => {
   if (
-    state.selection.length === 0
-    && state.interaction.length === 0
+    state.selection.edge.length === 0
+    && state.edge.interaction.length === 0
   ) {
     return EMPTY_EDGE_OVERLAY_MAP
   }
@@ -514,12 +536,12 @@ const toEdgeOverlayMap = (
     })
   }
 
-  for (let index = 0; index < state.selection.length; index += 1) {
-    writeEntry(state.selection[index]!)
+  for (let index = 0; index < state.selection.edge.length; index += 1) {
+    writeEntry(state.selection.edge[index]!)
   }
 
-  for (let index = 0; index < state.interaction.length; index += 1) {
-    writeEntry(state.interaction[index]!)
+  for (let index = 0; index < state.edge.interaction.length; index += 1) {
+    writeEntry(state.edge.interaction[index]!)
   }
 
   return next.size > 0
@@ -552,7 +574,7 @@ export const createOverlay = ({
     isEqual: isSameOverlayState
   })
   const nodeStore = createNodeOverlayStore()
-  const edgeStore = createRafKeyedStore<EdgeId, EdgeOverlayProjection, EdgeOverlayState>({
+  const edgeStore = createRafKeyedStore<EdgeId, EdgeOverlayProjection, EditorOverlayState>({
     emptyState: EMPTY_EDGE_OVERLAY_MAP,
     emptyValue: EMPTY_EDGE_OVERLAY_PROJECTION,
     build: toEdgeOverlayMap,
@@ -580,7 +602,7 @@ export const createOverlay = ({
 
   const marquee = createDerivedStore<MarqueeFeedback | undefined>({
     get: (read) => {
-      const next = read(state).select.marquee
+      const next = read(state).selection.marquee
       read(viewport)
       if (!next) {
         return undefined
@@ -608,17 +630,8 @@ export const createOverlay = ({
   const syncStores = (
     next: EditorOverlayState
   ) => {
-    if (next.node === EMPTY_NODE_OVERLAY) {
-      nodeStore.clear()
-    } else {
-      nodeStore.write(next.node)
-    }
-
-    if (next.edge === EMPTY_EDGE_OVERLAY) {
-      edgeStore.clear()
-    } else {
-      edgeStore.write(next.edge)
-    }
+    nodeStore.write(next)
+    edgeStore.write(next)
 
     if (next.draw.preview === null) {
       drawPreview.clear()
@@ -626,22 +639,22 @@ export const createOverlay = ({
       drawPreview.write(next.draw.preview)
     }
 
-    if (next.guides.edge === undefined) {
+    if (next.edge.guide === undefined) {
       edgeGuide.clear()
     } else {
-      edgeGuide.write(next.guides.edge)
+      edgeGuide.write(next.edge.guide)
     }
 
-    if (next.select.mindmapDrag === undefined) {
+    if (next.mindmap.drag === undefined) {
       mindmapDrag.clear()
     } else {
-      mindmapDrag.write(next.select.mindmapDrag)
+      mindmapDrag.write(next.mindmap.drag)
     }
 
-    if (next.guides.snap === EMPTY_GUIDES) {
+    if (next.selection.guides === EMPTY_GUIDES) {
       snapGuides.clear()
     } else {
-      snapGuides.write(next.guides.snap)
+      snapGuides.write(next.selection.guides)
     }
   }
 

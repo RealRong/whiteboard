@@ -1,25 +1,36 @@
 import {
-  EMPTY_SELECTION_TARGET,
-  resolveSelectionPressPlan,
-  type SelectionPressPlan,
+  matchSelectionRelease,
+  resolveSelectionPressDecision,
+  type SelectionPressDecision,
   type SelectionPressSubject,
-  type SelectionTapAction
+  type SelectionPressTarget,
+  type SelectionReleaseDecision
 } from '@whiteboard/core/selection'
 import { createTimeoutTask, type TimeoutTask } from '@whiteboard/engine'
 import {
   GestureTuning,
+  type InteractionCtx,
   type InteractionControl,
   type InteractionSession
 } from '../../runtime/interaction'
-import type { PointerDownInput } from '../../types/input'
-import { createMarqueeInteraction, createSelectionMarqueeInput } from './marquee'
-import { createDragInteraction } from './drag'
-import type { SelectionInteractionCtx, SessionPointer } from './context'
+import type {
+  PointerDownInput,
+  PointerMoveInput,
+  PointerUpInput
+} from '../../types/input'
+import { createMarqueeInteraction } from './marquee'
+import { createMoveInteraction } from './move'
 
 type SelectionPressField = NonNullable<PointerDownInput['field']>
+type SelectionPointer = PointerDownInput | PointerMoveInput | PointerUpInput
+type SelectionInteractionCtx = Pick<
+  InteractionCtx,
+  'read' | 'state' | 'config' | 'commands' | 'overlay' | 'snap'
+>
 
 export type SelectionPressState = {
-  plan: SelectionPressPlan<SelectionPressField> | undefined
+  target: SelectionPressTarget<SelectionPressField>
+  decision: SelectionPressDecision<SelectionPressField>
   start: {
     clientX: number
     clientY: number
@@ -28,25 +39,11 @@ export type SelectionPressState = {
 }
 
 const toPanPointer = (
-  input: SessionPointer
+  input: PointerMoveInput
 ) => ({
   clientX: input.client.x,
   clientY: input.client.y
 })
-
-const matchesTapTarget = (
-  verifyNodeIds: readonly string[] | undefined,
-  input: SessionPointer
-) => {
-  if (!verifyNodeIds?.length) {
-    return true
-  }
-
-  return (
-    input.pick.kind === 'node'
-    && verifyNodeIds.includes(input.pick.id)
-  )
-}
 
 const clearHoldTask = (
   state: SelectionPressState
@@ -61,7 +58,7 @@ const clearHoldTask = (
 
 const toSelectionPressSubject = (
   ctx: SelectionInteractionCtx,
-  input: PointerDownInput
+  input: SelectionPointer
 ): SelectionPressSubject<SelectionPressField> | undefined => {
   switch (input.pick.kind) {
     case 'background':
@@ -100,38 +97,28 @@ const toSelectionPressSubject = (
   }
 }
 
-const hasSelectionMovedEnough = (
+const hasMovedEnough = (
   state: SelectionPressState,
-  input: SessionPointer,
-  minDistance: number
+  input: PointerMoveInput
 ) => {
   const dx = Math.abs(input.client.x - state.start.clientX)
   const dy = Math.abs(input.client.y - state.start.clientY)
 
-  return dx >= minDistance || dy >= minDistance
+  return dx >= GestureTuning.dragMinDistance || dy >= GestureTuning.dragMinDistance
 }
 
-const runTapAction = (
+const runRelease = (
   ctx: SelectionInteractionCtx,
-  action: SelectionTapAction<SelectionPressField>,
-  input: SessionPointer
+  action: SelectionReleaseDecision<SelectionPressField>
 ) => {
   switch (action.kind) {
     case 'clear':
       ctx.commands.selection.clear()
       return
     case 'select':
-      if (!matchesTapTarget(action.verifyNodeIds, input)) {
-        return
-      }
-
       ctx.commands.selection.replace(action.target)
       return
     case 'edit':
-      if (!matchesTapTarget(action.verifyNodeIds, input)) {
-        return
-      }
-
       ctx.commands.edit.start(action.nodeId, action.field)
   }
 }
@@ -158,27 +145,58 @@ export const resolveSelectionPressState = (
     return null
   }
 
-  const plan = resolveSelectionPressPlan({
+  const resolved = resolveSelectionPressDecision({
     getNode: (nodeId) => ctx.read.node.item.get(nodeId)?.node,
-    getOwnerId: ctx.read.node.owner,
-    getNodeFrame: ctx.read.node.outline
+    getOwnerId: ctx.read.node.owner
   }, {
     modifiers: input.modifiers,
-    selection: ctx.read.selection.get().summary,
+    selection: ctx.read.selection.summary.get(),
     subject
   })
-  if (!plan) {
+  if (!resolved) {
     return null
   }
 
   return {
-    plan,
+    target: resolved.target,
+    decision: resolved.decision,
     start: {
       clientX: input.client.x,
       clientY: input.client.y
     },
     holdTask: null
   }
+}
+
+const startDecisionDrag = (
+  ctx: SelectionInteractionCtx,
+  start: PointerDownInput,
+  state: SelectionPressState,
+  pointer: PointerMoveInput | undefined
+) => {
+  const drag = pointer
+    ? state.decision.drag
+    : state.decision.hold
+  if (!drag) {
+    return null
+  }
+
+  if (drag.kind === 'move') {
+    return pointer
+      ? createMoveInteraction(ctx, {
+          start,
+          pointer,
+          target: drag.target,
+          prepareSelection: drag.prepareSelection
+        })
+      : null
+  }
+
+  return createMarqueeInteraction(ctx, {
+    start,
+    action: drag,
+    initialInput: pointer
+  })
 }
 
 export const createPressInteraction = (
@@ -212,66 +230,36 @@ export const createPressInteraction = (
   const pressPhase: InteractionSession = {
     mode: 'press',
     pointerId: start.pointerId,
-    chrome: Boolean(pressState.plan?.chrome),
+    chrome: pressState.decision.chrome,
     move: (input) => {
-      if (!pressState.plan) {
-        control.finish()
-        return
-      }
-
-      if (!hasSelectionMovedEnough(pressState, input, GestureTuning.dragMinDistance)) {
+      if (!hasMovedEnough(pressState, input)) {
         return
       }
 
       clearHoldTask(pressState)
-
-      if (!pressState.plan.drag) {
+      const next = startDecisionDrag(ctx, start, pressState, input)
+      if (!next) {
         control.finish()
         return
       }
 
-      if (pressState.plan.drag.kind === 'move') {
-        const next = createDragInteraction(ctx, {
-          start,
-          input,
-          frame: pressState.plan.drag.frame,
-          anchorId: pressState.plan.drag.anchorId,
-          target: pressState.plan.drag.target,
-          nextSelection: pressState.plan.drag.nextSelection
-        })
-        if (!next) {
-          control.finish()
-          return
-        }
-
-        transition(next, {
-          pan: toPanPointer(input)
-        })
-        return
-      }
-
-      transition(
-        createMarqueeInteraction(
-          ctx,
-          createSelectionMarqueeInput(
-            ctx,
-            start,
-            pressState.plan.drag
-          ),
-          {
-            initialInput: input
-          }
-        ),
-        {
-          pan: toPanPointer(input)
-        }
-      )
+      transition(next, {
+        pan: toPanPointer(input)
+      })
     },
     up: (input) => {
       clearHoldTask(pressState)
-      if (pressState.plan?.tap) {
-        runTapAction(ctx, pressState.plan.tap, input)
+      const release = pressState.decision.release
+      if (!release) {
+        return
       }
+
+      const subject = toSelectionPressSubject(ctx, input)
+      if (!matchSelectionRelease(pressState.target, subject)) {
+        return
+      }
+
+      runRelease(ctx, release)
     },
     cancel: () => {
       clearHoldTask(pressState)
@@ -283,7 +271,7 @@ export const createPressInteraction = (
 
   phase = pressPhase
 
-  if (pressState.plan?.allowHold) {
+  if (pressState.decision.hold) {
     pressState.holdTask = createTimeoutTask(() => {
       pressState.holdTask = null
 
@@ -291,57 +279,15 @@ export const createPressInteraction = (
         return
       }
 
-      transition(
-        createMarqueeInteraction(
-          ctx,
-          createSelectionMarqueeInput(
-            ctx,
-            start,
-            {
-              kind: 'marquee',
-              match: 'contain',
-              mode: 'replace',
-              base: EMPTY_SELECTION_TARGET
-            },
-            {
-              onStart: () => {
-                ctx.commands.selection.clear()
-              }
-            }
-          )
-        )
-      )
+      const next = startDecisionDrag(ctx, start, pressState, undefined)
+      if (!next) {
+        return
+      }
+
+      transition(next)
     })
     pressState.holdTask.schedule(GestureTuning.holdDelay)
   }
 
-  return {
-    mode: 'press',
-    pointerId: start.pointerId,
-    chrome: Boolean(pressState.plan?.chrome),
-    autoPan: {
-      frame: (pointer) => {
-        phase.autoPan?.frame?.(pointer)
-      }
-    },
-    move: (input) => {
-      const current = phase
-      current.move?.(input)
-
-      if (phase === current && current.autoPan) {
-        control.pan(toPanPointer(input))
-      }
-    },
-    up: (input) => {
-      phase.up?.(input)
-      control.finish()
-    },
-    cancel: () => {
-      phase.cancel?.()
-    },
-    cleanup: () => {
-      clearHoldTask(pressState)
-      phase.cleanup?.()
-    }
-  }
+  return pressPhase
 }

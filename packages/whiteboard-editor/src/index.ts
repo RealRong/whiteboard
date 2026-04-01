@@ -25,12 +25,8 @@ export type {
   WheelInput
 } from './types/input'
 export type {
-  SelectionCan,
-  SelectionSnapshot,
-  SelectionStyleSnapshot,
-  SelectionTypeStat
-} from './types/selection'
-export type { EditorPick } from './types/pick'
+  EditorPick
+} from './types/pick'
 export {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,

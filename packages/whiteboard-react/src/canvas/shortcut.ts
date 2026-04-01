@@ -23,14 +23,15 @@ type ShortcutState = ReturnType<typeof readShortcutState>
 const readShortcutState = (
   editor: Editor
 ) => {
-  const selection = editor.read.selection.get()
-  const can = selection.can
+  const selection = editor.read.selection.summary.get()
 
   return {
     selection,
-    can,
-    pureNode: selection.summary.items.edgeCount === 0,
-    hasSelection: selection.summary.items.count > 0
+    pureNode: selection.items.edgeCount === 0,
+    hasSelection: selection.items.count > 0,
+    canGroup: selection.items.edgeCount === 0 && selection.target.nodeIds.length >= 2,
+    canUngroup: selection.items.edgeCount === 0 && selection.items.nodes.some((node) => node.type === 'group'),
+    canDuplicate: selection.items.edgeCount === 0 && selection.items.nodeCount > 0
   }
 }
 
@@ -41,9 +42,9 @@ const canRunShortcut = (
 ) => {
   switch (action) {
     case 'group.create':
-      return state.pureNode && Boolean(state.can?.makeGroup)
+      return state.canGroup
     case 'group.ungroup':
-      return state.pureNode && Boolean(state.can?.ungroup)
+      return state.canUngroup
     case 'selection.selectAll':
       return true
     case 'selection.clear':
@@ -51,7 +52,7 @@ const canRunShortcut = (
     case 'selection.delete':
       return state.hasSelection
     case 'selection.duplicate':
-      return state.pureNode && Boolean(state.can?.duplicate)
+      return state.canDuplicate
     case 'history.undo':
     case 'history.redo':
       return true
@@ -82,15 +83,15 @@ export const runShortcut = (
       editor.commands.selection.clear()
       return true
     case 'selection.delete':
-      if (selection.summary.target.edgeIds.length > 0) {
-        const result = editor.commands.edge.delete([...selection.summary.target.edgeIds])
+      if (selection.target.edgeIds.length > 0) {
+        const result = editor.commands.edge.delete([...selection.target.edgeIds])
         if (!result.ok) {
           return false
         }
       }
 
-      if (selection.summary.target.nodeIds.length > 0) {
-        const result = editor.commands.node.deleteCascade([...selection.summary.target.nodeIds])
+      if (selection.target.nodeIds.length > 0) {
+        const result = editor.commands.node.deleteCascade([...selection.target.nodeIds])
         if (!result.ok) {
           return false
         }
@@ -98,7 +99,7 @@ export const runShortcut = (
 
       return true
     case 'selection.duplicate': {
-      const result = editor.commands.node.duplicate([...selection.summary.target.nodeIds])
+      const result = editor.commands.node.duplicate([...selection.target.nodeIds])
       if (!result.ok || result.data.nodeIds.length <= 0) {
         return false
       }
@@ -109,7 +110,7 @@ export const runShortcut = (
       return true
     }
     case 'group.create': {
-      const result = editor.commands.node.group.create([...selection.summary.target.nodeIds])
+      const result = editor.commands.node.group.create([...selection.target.nodeIds])
       if (!result.ok) {
         return false
       }
@@ -120,8 +121,8 @@ export const runShortcut = (
       return true
     }
     case 'group.ungroup': {
-      const groupIds = selection.summary.target.nodeIds.filter((nodeId) =>
-        selection.summary.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
+      const groupIds = selection.target.nodeIds.filter((nodeId) =>
+        selection.items.nodes.some((node) => node.id === nodeId && node.type === 'group')
       )
       const result = editor.commands.node.group.ungroupMany(groupIds)
       if (!result.ok) {

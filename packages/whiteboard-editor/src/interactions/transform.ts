@@ -14,10 +14,26 @@ import {
 } from '@whiteboard/core/node'
 import type { SelectionSummary } from '@whiteboard/core/selection'
 import type { Node, NodeId, Point, Rect } from '@whiteboard/core/types'
-import type { InteractionControl, InteractionSession } from '../../runtime/interaction'
-import type { PointerDownInput } from '../../types/input'
-import type { SelectionInteractionCtx, SessionPointer } from './context'
-import { readViewport } from './context'
+import type {
+  InteractionControl,
+  InteractionOwner,
+  InteractionSession
+} from '../runtime/interaction'
+import type {
+  InteractionCtx
+} from '../runtime/interaction'
+import type {
+  PointerDownInput,
+  PointerMoveInput,
+  PointerUpInput
+} from '../types/input'
+
+type TransformInteractionCtx = Pick<
+  InteractionCtx,
+  'read' | 'state' | 'config' | 'commands' | 'overlay' | 'snap'
+>
+
+type SessionPointer = PointerMoveInput | PointerUpInput
 
 const RESIZE_MIN_SIZE = {
   width: 20,
@@ -66,29 +82,29 @@ export type TransformState = {
 type TransformPickHandle = Pick<TransformHandle, 'kind' | 'direction'>
 
 const writeSnapGuides = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   guides: readonly Guide[]
 ) => {
   ctx.overlay.set((current) => ({
     ...current,
-    guides: {
-      ...current.guides,
-      snap: guides
+    selection: {
+      ...current.selection,
+      guides
     }
   }))
 }
 
 const clearSnapGuides = (
-  ctx: SelectionInteractionCtx
+  ctx: TransformInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
-    current.guides.snap.length === 0
+    current.selection.guides.length === 0
       ? current
       : {
           ...current,
-          guides: {
-            ...current.guides,
-            snap: []
+          selection: {
+            ...current.selection,
+            guides: []
           }
         }
   ))
@@ -102,7 +118,6 @@ const resolveSelectionBoxView = (
 
   return {
     box,
-    interactive: selection.boxInteractive,
     frame: Boolean(box) && selection.items.nodeCount > 0,
     handles: Boolean(box) && canResize,
     canResize
@@ -156,14 +171,14 @@ const getResizeStartRect = (
 })
 
 const writeTransformPreview = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   patches: readonly TransformPreviewPatch[]
 ) => {
   ctx.overlay.set((current) => ({
     ...current,
-    node: {
-      ...current.node,
-      selection: {
+    selection: {
+      ...current.selection,
+      node: {
         patches: patches.map(({ id, position, size, rotation }) => ({
           id,
           patch: {
@@ -179,7 +194,7 @@ const writeTransformPreview = (
 }
 
 const computeResizeUpdate = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   options: {
     drag: ResizeDragState
     currentScreen: Point
@@ -222,34 +237,31 @@ const computeResizeUpdate = (
 }
 
 const clearNodeTransform = (
-  ctx: SelectionInteractionCtx
+  ctx: TransformInteractionCtx
 ) => {
   ctx.overlay.set((current) => (
     (
-      current.node.selection.patches.length === 0
-      && current.node.selection.hovered === undefined
-      && current.guides.snap.length === 0
+      current.selection.node.patches.length === 0
+      && current.selection.node.hovered === undefined
+      && current.selection.guides.length === 0
     )
       ? current
       : {
           ...current,
-          node: {
-            ...current.node,
-            selection: {
+          selection: {
+            ...current.selection,
+            node: {
               patches: [],
               hovered: undefined
-            }
-          },
-          guides: {
-            ...current.guides,
-            snap: []
+            },
+            guides: []
           }
         }
   ))
 }
 
 const gatherNodeTransformTarget = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   nodeId: NodeId,
   handle: TransformPickHandle,
   input: PointerDownInput
@@ -303,7 +315,7 @@ const gatherNodeTransformTarget = (
 }
 
 const gatherSelectionScaleTargets = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   selectionNodeIds: readonly NodeId[]
 ) => {
   const resolved = ctx.read.node.transformTargets(selectionNodeIds)
@@ -318,11 +330,11 @@ const gatherSelectionScaleTargets = (
 }
 
 const gatherSelectionTransformTarget = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   handle: TransformPickHandle,
   input: PointerDownInput
 ): TransformState | undefined => {
-  const selection = ctx.read.selection.get().summary
+  const selection = ctx.read.selection.summary.get()
   const selectionBox = resolveSelectionBoxView(selection)
   if (
     !selectionBox.box
@@ -355,7 +367,7 @@ const gatherSelectionTransformTarget = (
 }
 
 export const gatherTransformState = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   input: PointerDownInput
 ): TransformState | null => {
   const tool = ctx.read.tool.get()
@@ -377,7 +389,7 @@ export const gatherTransformState = (
 }
 
 const computeResizeTransformProjection = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   state: TransformState,
   drag: ResizeDragState,
   input: SessionPointer
@@ -385,7 +397,7 @@ const computeResizeTransformProjection = (
   const { guides, update } = computeResizeUpdate(ctx, {
     drag,
     currentScreen: input.screen,
-    zoom: readViewport(ctx).get().zoom,
+    zoom: ctx.state.viewport.read.get().zoom,
     altKey: input.modifiers.alt,
     shiftKey: input.modifiers.shift,
     excludeNodeIds: state.targets.map((target) => target.id)
@@ -402,7 +414,7 @@ const computeResizeTransformProjection = (
 }
 
 const applyResizeTransformProjection = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   state: TransformState,
   projection: ReturnType<typeof computeResizeTransformProjection>
 ) => {
@@ -431,7 +443,7 @@ const computeRotateTransformProjection = (
 }
 
 const applyRotateTransformProjection = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   state: TransformState,
   patches: ReturnType<typeof computeRotateTransformProjection>
 ) => {
@@ -441,7 +453,7 @@ const applyRotateTransformProjection = (
 }
 
 const projectTransformPreview = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   state: TransformState,
   input: SessionPointer
 ) => {
@@ -462,7 +474,7 @@ const projectTransformPreview = (
 }
 
 const commitTransform = (
-  ctx: SelectionInteractionCtx,
+  ctx: TransformInteractionCtx,
   state: TransformState
 ) => {
   if (!state.patches?.length) {
@@ -482,8 +494,8 @@ const commitTransform = (
   ctx.commands.node.document.updateMany(updates)
 }
 
-export const createTransformInteraction = (
-  ctx: SelectionInteractionCtx,
+const createTransformSession = (
+  ctx: TransformInteractionCtx,
   state: TransformState,
   control: InteractionControl
 ): InteractionSession => {
@@ -505,3 +517,24 @@ export const createTransformInteraction = (
     }
   }
 }
+
+export const createTransformInteraction = (
+  ctx: TransformInteractionCtx
+): {
+  owner: InteractionOwner
+  clear: () => void
+} => ({
+  owner: {
+    key: 'transform',
+    priority: 120,
+    start: (input, control) => {
+      const state = gatherTransformState(ctx, input)
+      return state
+        ? createTransformSession(ctx, state, control)
+        : null
+    }
+  },
+  clear: () => {
+    clearNodeTransform(ctx)
+  }
+})
