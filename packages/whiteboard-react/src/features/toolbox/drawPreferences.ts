@@ -1,4 +1,4 @@
-import type { DrawPreferences } from '@whiteboard/editor/draw'
+import type { DrawPreferences } from '../../boardRuntime/draw'
 
 export const DEFAULT_DRAW_PREFERENCES: DrawPreferences = {
   pen: {

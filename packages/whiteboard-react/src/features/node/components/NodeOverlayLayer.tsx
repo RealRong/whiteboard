@@ -5,7 +5,7 @@ import type { Guide } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import {
   useEditorRuntime
-} from '../../../runtime/hooks/useEditor'
+} from '../../../board/context'
 import { usePickRef } from '../../../runtime/hooks/usePickRef'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useNodeOverlayView } from '../hooks/useNodeView'

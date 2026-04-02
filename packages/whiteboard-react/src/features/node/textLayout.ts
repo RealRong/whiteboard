@@ -11,6 +11,7 @@ import {
   type TextContentBox,
   type TextVariant
 } from '@whiteboard/core/node'
+import type { Editor } from '../../boardRuntime'
 import type {
   Node,
   NodeId,
@@ -18,7 +19,6 @@ import type {
   Size
 } from '@whiteboard/core/types'
 import { createRafTask } from '@whiteboard/engine'
-import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 
 type TextField = 'text' | 'title'
 

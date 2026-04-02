@@ -95,11 +95,11 @@ const toScreenRect = (
     height: number
   }
 ) => {
-  const topLeft = instance.viewport.worldToScreen({
+  const topLeft = instance.read.viewport.worldToScreen({
     x: rect.x,
     y: rect.y
   })
-  const bottomRight = instance.viewport.worldToScreen({
+  const bottomRight = instance.read.viewport.worldToScreen({
     x: rect.x + rect.width,
     y: rect.y + rect.height
   })
@@ -183,7 +183,7 @@ const RemotePresenceLayer = ({
         ].filter((entry): entry is ReactElement => Boolean(entry))
 
         const cursor = state.pointer
-          ? instance.viewport.worldToScreen(state.pointer.world)
+          ? instance.read.viewport.worldToScreen(state.pointer.world)
           : null
 
         return (
@@ -304,7 +304,7 @@ export const App = () => {
       return
     }
 
-    const unsubscribe = instance.viewport.subscribe(() => {
+    const unsubscribe = instance.read.viewport.subscribe(() => {
       setViewportVersion((value) => value + 1)
     })
 
@@ -423,7 +423,7 @@ export const App = () => {
       return
     }
     lastPointerPublishAtRef.current = now
-    const pointer = current.viewport.pointer({
+    const pointer = current.read.viewport.pointer({
       clientX,
       clientY
     })
@@ -474,7 +474,7 @@ export const App = () => {
       if (deltaX === 0 && deltaY === 0) return
       pan.lastX = event.clientX
       pan.lastY = event.clientY
-      const zoom = instance.viewport.get().zoom
+      const zoom = instance.read.viewport.get().zoom
       if (!Number.isFinite(zoom) || zoom <= 0) return
       instance.commands.viewport.panBy({
         x: -deltaX / zoom,
@@ -523,8 +523,8 @@ export const App = () => {
     const row = Math.floor(index / 3) % 3
     const offsetX = (column - 1) * 42
     const offsetY = (row - 1) * 34
-    const center = instance.viewport.get().center
-    const ownerId = instance.state.frame.get().id
+    const center = instance.read.viewport.get().center
+    const ownerId = instance.read.frame.at(center)
     const id = createId('demo-node')
     const payload: NodeInput = {
       id,

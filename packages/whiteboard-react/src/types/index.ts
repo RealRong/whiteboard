@@ -1,4 +1,4 @@
-export type { WhiteboardInstance, WhiteboardRuntime } from './runtime'
+export type { WhiteboardInstance } from './runtime'
 export type {
   ToolPaletteBrushState,
   ToolPaletteMenuKey,

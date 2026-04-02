@@ -9,7 +9,7 @@ import type {
   InteractionSession,
   InteractionStartResult
 } from '../runtime'
-import type { PointerDownInput } from '@whiteboard/editor'
+import type { PointerDownInput } from '../../boardRuntime'
 import {
   clearEdgeOverlay,
   clearEdgePatches,

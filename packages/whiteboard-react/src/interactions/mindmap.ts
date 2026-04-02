@@ -8,7 +8,7 @@ import type { Point } from '@whiteboard/core/types'
 import type {
   MindmapDragFeedback,
   PointerDownInput
-} from '@whiteboard/editor'
+} from '../boardRuntime'
 import type {
   InteractionFeature,
   InteractionControl,

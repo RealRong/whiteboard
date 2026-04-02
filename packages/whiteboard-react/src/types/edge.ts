@@ -1,18 +1,18 @@
 import type { EdgeHandle } from '@whiteboard/core/edge'
 import type { EdgeId } from '@whiteboard/core/types'
-import type { WhiteboardRuntime } from './runtime'
+import type { Editor } from '../boardRuntime'
 
 export type EdgeResolved = NonNullable<
-  ReturnType<WhiteboardRuntime['read']['edge']['resolved']['get']>
+  ReturnType<Editor['read']['edge']['resolved']['get']>
 >
 
 export type EdgeState = ReturnType<
-  WhiteboardRuntime['read']['edge']['state']['get']
+  Editor['read']['edge']['state']['get']
 >
 
 export type EdgeView = EdgeResolved & {
   edge: NonNullable<
-    ReturnType<WhiteboardRuntime['read']['edge']['item']['get']>
+    ReturnType<Editor['read']['edge']['item']['get']>
   >['edge']
 }
 

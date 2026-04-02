@@ -6,8 +6,6 @@
     "types": ["vite/client"],
     "paths": {
       "@whiteboard/collab": ["../../packages/whiteboard-collab/src/index.ts"],
-      "@whiteboard/editor": ["../../packages/whiteboard-editor/src/index.ts"],
-      "@whiteboard/editor/*": ["../../packages/whiteboard-editor/src/*.ts"],
       "@whiteboard/react": ["../../packages/whiteboard-react/src/index.ts"],
       "@whiteboard/engine": ["../../packages/whiteboard-engine/src/index.ts"],
       "@engine-types": ["../../packages/whiteboard-engine/src/types/index.ts"],
@@ -22,6 +20,7 @@
       "@whiteboard/core/kernel": ["../../packages/whiteboard-core/src/kernel/index.ts"],
       "@whiteboard/core/config": ["../../packages/whiteboard-core/src/config/index.ts"],
       "@whiteboard/core/document": ["../../packages/whiteboard-core/src/document/index.ts"],
+      "@whiteboard/core/selection": ["../../packages/whiteboard-core/src/selection/index.ts"],
       "@whiteboard/core/perf": ["../../packages/whiteboard-core/src/perf/index.ts"],
       "types/*": ["../../packages/whiteboard-react/src/types/*"]
     }

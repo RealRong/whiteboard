@@ -1,5 +1,5 @@
 import { DrawPreview } from './DrawPreview'
-import { useEditorRuntime } from '../../runtime/hooks/useEditor'
+import { useEditorRuntime } from '../../board/context'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 
 export const DrawLayer = () => {

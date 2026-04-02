@@ -16,7 +16,7 @@ import {
   type InteractionCtx,
   type InteractionSession
 } from '../runtime'
-import type { PointerDownInput } from '@whiteboard/editor'
+import type { PointerDownInput } from '../../boardRuntime'
 import {
   writeSelectionMarquee
 } from './overlay'

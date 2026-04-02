@@ -16,7 +16,7 @@ import type {
   PointerMoveInput,
   PointerUpInput,
   WheelInput
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import { createAutoPan } from './autoPan'
 
 type SessionMeta = Readonly<{

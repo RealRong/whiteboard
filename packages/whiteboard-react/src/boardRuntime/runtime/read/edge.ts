@@ -2,6 +2,7 @@ import { isPointEqual } from '@whiteboard/core/geometry'
 import {
   applyEdgePatch,
   type EdgeConnectCandidate,
+  getEdgePathBounds,
   matchEdgeRect,
   resolveEdgeView,
   type EdgeView as CoreEdgeView
@@ -75,6 +76,7 @@ export type EdgeRead = {
   item: KeyedReadStore<EdgeId, EdgeItem | undefined>
   state: KeyedReadStore<EdgeId, EdgeRuntimeState>
   resolved: KeyedReadStore<EdgeId, CoreEdgeView | undefined>
+  bounds: (edgeId: EdgeId) => Rect | undefined
   capability: (edge: EdgeItem['edge']) => EdgeCapability
   related: (nodeIds: Iterable<NodeId>) => readonly EdgeId[]
   idsInRect: (rect: Rect, options?: {
@@ -214,6 +216,12 @@ export const createEdgeRead = ({
     item,
     state,
     resolved,
+    bounds: (edgeId) => {
+      const nextResolved = readResolved(edgeId)
+      return nextResolved
+        ? getEdgePathBounds(nextResolved.path)
+        : undefined
+    },
     capability: resolveEdgeCan,
     related: read.edge.related,
     idsInRect: (rect, options) => read.edge.list.get().filter((edgeId) => {

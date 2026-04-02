@@ -1,15 +1,8 @@
-import { useMemo, type CSSProperties, type RefObject } from 'react'
-import {
-  useEditorRuntime,
-  useTool
-} from '../runtime/hooks/useEditor'
+import { useMemo, useRef, type CSSProperties } from 'react'
+import { useEditor, useResolvedConfig, useTool } from '../board/context'
 import { useStoreValue } from '../runtime/hooks/useStoreValue'
-import { useBindViewportInput } from '../runtime/viewport/useBindViewportInput'
-import { Background } from './Background'
-import { Chrome } from './Chrome'
-import { useClipboard } from './useClipboard'
-import { useKeyboard } from './useKeyboard'
-import { usePointer } from './usePointer'
+import { Background } from '../canvas/Background'
+import { Chrome } from '../canvas/Chrome'
 import { DrawLayer } from '../features/draw/DrawLayer'
 import { EdgeLayer } from '../features/edge/components/EdgeLayer'
 import { EdgeOverlayLayer } from '../features/edge/components/EdgeOverlayLayer'
@@ -20,26 +13,14 @@ import {
 } from '../features/node/components/FrameLayer'
 import { NodeOverlayLayer } from '../features/node/components/NodeOverlayLayer'
 import { NodeSceneLayer } from '../features/node/components/NodeSceneLayer'
-import type { ResolvedConfig } from '../types/common/config'
+import { SurfaceBindings } from './Bindings'
 
-export const Surface = ({
-  resolvedConfig,
-  containerRef,
-  containerStyle
-}: {
-  resolvedConfig: ResolvedConfig
-  containerRef: RefObject<HTMLDivElement | null>
-  containerStyle?: CSSProperties
-}) => {
-  const editor = useEditorRuntime()
+export const Surface = () => {
+  const editor = useEditor()
+  const resolvedConfig = useResolvedConfig()
   const viewport = useStoreValue(editor.state.viewport)
   const tool = useTool()
-  const viewportInput = useMemo(
-    () => ({
-      wheelEnabled: resolvedConfig.viewport.enableWheel
-    }),
-    [resolvedConfig.viewport.enableWheel]
-  )
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const transformStyle = useMemo(
     () => ({
       transform: `translate(50%, 50%) scale(${viewport.zoom}) translate(${-viewport.center.x}px, ${-viewport.center.y}px)`,
@@ -48,22 +29,6 @@ export const Surface = ({
     } as CSSProperties),
     [viewport]
   )
-
-  useClipboard({
-    containerRef
-  })
-  useKeyboard({
-    containerRef,
-    shortcuts: resolvedConfig.shortcuts
-  })
-  useBindViewportInput({
-    editor,
-    containerRef,
-    options: viewportInput
-  })
-  usePointer({
-    containerRef
-  })
 
   return (
     <div
@@ -77,9 +42,10 @@ export const Surface = ({
             ? tool.kind
             : undefined
       }
-      style={containerStyle}
+      style={resolvedConfig.style}
       tabIndex={0}
     >
+      <SurfaceBindings containerRef={containerRef} />
       <Background />
       <div className="wb-root-viewport" style={transformStyle}>
         <FrameLayer />

@@ -1,6 +1,6 @@
 import { getRectCenter } from '@whiteboard/core/geometry'
 import type { NodeId } from '@whiteboard/core/types'
-import type { PointerDownInput } from '@whiteboard/editor'
+import type { PointerDownInput } from '../../boardRuntime'
 import type {
   RotateDragState,
   ResizeDragState,

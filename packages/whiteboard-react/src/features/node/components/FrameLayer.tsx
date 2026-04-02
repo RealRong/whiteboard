@@ -7,7 +7,7 @@ import {
 import type {
   NodeId
 } from '@whiteboard/core/types'
-import { useEditor } from '../../../runtime/hooks/useEditor'
+import { useEditor } from '../../../board/context'
 import { usePickRef } from '../../../runtime/hooks/usePickRef'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useNodeView } from '../hooks/useNodeView'

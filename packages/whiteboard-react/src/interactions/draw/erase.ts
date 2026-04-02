@@ -7,7 +7,7 @@ import type {
 import type {
   PointerDownInput,
   PointerSample
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import type { InteractionCtx } from '../runtime/ctx'
 
 const ERASER_HIT_EPSILON_SCREEN = 2

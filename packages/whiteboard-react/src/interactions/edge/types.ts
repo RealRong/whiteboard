@@ -4,7 +4,7 @@ import type {
   NodeId,
   Point
 } from '@whiteboard/core/types'
-import type { PointerDownInput } from '@whiteboard/editor'
+import type { PointerDownInput } from '../../boardRuntime'
 import type { InteractionCtx } from '../runtime/ctx'
 
 export type EdgeInteractionCtx = Pick<

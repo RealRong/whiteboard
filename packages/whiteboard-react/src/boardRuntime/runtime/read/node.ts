@@ -52,6 +52,7 @@ export type NodeRead = {
   list: EngineRead['node']['list']
   item: KeyedReadStore<NodeId, NodeItem | undefined>
   state: KeyedReadStore<NodeId, NodeRuntimeState>
+  bounds: (nodeId: NodeId) => Rect | undefined
   owner: (nodeId: NodeId) => NodeId | undefined
   outline: (nodeId: NodeId) => Rect | undefined
   capability: (node: Pick<Node, 'type'> | NodeType) => NodeCapability
@@ -209,6 +210,12 @@ export const createNodeRead = ({
     list: read.node.list,
     item,
     state,
+    bounds: (nodeId) => {
+      const nextItem = item.get(nodeId)
+      return nextItem
+        ? getNodeItemBounds(nextItem)
+        : undefined
+    },
     owner: read.node.owner,
     outline: (nodeId) => {
       const nextItem = item.get(nodeId)

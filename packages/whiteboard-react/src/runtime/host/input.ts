@@ -1,13 +1,13 @@
 import type {
+  Editor,
   KeyboardInput,
   EditorPick,
   PointerInput,
   PointerPhase,
   PointerSample,
   WheelInput
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import type { Point } from '@whiteboard/core/types'
-import type { WhiteboardRuntime } from '../../types/runtime'
 import type { PickRegistry } from './pickRegistry'
 import {
   isContextMenuIgnoredTarget,
@@ -45,7 +45,7 @@ const resolveElement = (
 )
 
 const toPointerSample = (
-  editor: WhiteboardRuntime,
+  editor: Editor,
   input: {
     clientX: number
     clientY: number
@@ -69,7 +69,7 @@ export const resolveHostPoint = ({
   container,
   event
 }: {
-  editor: WhiteboardRuntime
+  editor: Editor
   pick: PickRegistry
   container: Element
   event: TargetEvent
@@ -101,7 +101,7 @@ export const resolvePointerInput = <Phase extends PointerPhase>({
   event
 }: {
   phase: Phase
-  editor: WhiteboardRuntime
+  editor: Editor
   pick: PickRegistry
   container: Element
   event: PointerEvent
@@ -152,7 +152,7 @@ export const resolveWheelInput = ({
   editor,
   event
 }: {
-  editor: WhiteboardRuntime
+  editor: Editor
   event: WheelEvent
 }): WheelInput => {
   const point = editor.read.viewport.pointer(event)

@@ -3,7 +3,7 @@ import {
   DEFAULT_EDGE_PRESET_KEY,
   type DrawKind,
   type EdgePresetKey
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import {
   useCallback,
   useEffect,
@@ -14,7 +14,7 @@ import {
 import {
   useEditor,
   useTool
-} from '../../runtime/hooks/useEditor'
+} from '../../board/context'
 import { useElementSize } from '../../runtime/hooks/useElementSize'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
 import { useOverlayDismiss } from '../../runtime/overlay/useOverlayDismiss'

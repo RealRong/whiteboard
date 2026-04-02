@@ -1,5 +1,5 @@
 import type { NodeId } from '@whiteboard/core/types'
-import { useEditor } from '../../../runtime/hooks/useEditor'
+import { useEditor } from '../../../board/context'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'

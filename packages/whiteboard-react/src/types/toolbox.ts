@@ -3,12 +3,12 @@ import type {
   DrawBrush,
   DrawSlot,
   ResolvedDrawStyle
-} from '@whiteboard/editor/draw'
+} from '../boardRuntime/draw'
 import type {
   DrawBrushKind,
   DrawKind,
   EdgePresetKey
-} from '@whiteboard/editor'
+} from '../boardRuntime'
 import type { InsertPresetGroup, StickyTone } from '../features/toolbox/presets'
 
 export type ToolPaletteMenuKey =

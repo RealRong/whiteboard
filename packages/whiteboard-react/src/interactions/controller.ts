@@ -1,15 +1,15 @@
 import {
   createDerivedStore,
   createValueStore,
-  type EngineInstance
+  type EngineInstance,
+  type ReadStore
 } from '@whiteboard/engine'
+import type { BoardConfig } from '@whiteboard/core/config'
 import type {
-  Editor as BaseEditorRuntime,
+  Editor,
   EditorInput,
   EditorInteractionState
-} from '@whiteboard/editor'
-import type { BoardConfig } from '@whiteboard/core/config'
-import type { WhiteboardRuntime } from '../types/runtime'
+} from '../boardRuntime'
 import {
   createInteractionRuntime,
   createSnapRuntime,
@@ -32,7 +32,7 @@ const createInteractionState = ({
   interaction: ReturnType<typeof createInteractionRuntime>
   space: {
     get: () => boolean
-    subscribe: BaseEditorRuntime['state']['tool']['subscribe']
+    subscribe: ReadStore<boolean>['subscribe']
   }
 }) => createDerivedStore<EditorInteractionState>({
   get: (readStore) => {
@@ -70,17 +70,24 @@ const createInteractionState = ({
   )
 })
 
-export const createWhiteboardRuntime = ({
+export type InteractionController = {
+  state: ReadStore<EditorInteractionState>
+  dispatch: EditorInput
+  configure: (policy: InteractionInputPolicy) => void
+  dispose: () => void
+}
+
+export const createInteractionController = ({
   editor,
   engine,
   boardConfig,
   inputPolicy: initialInputPolicy
 }: {
-  editor: BaseEditorRuntime
+  editor: Editor
   engine: EngineInstance
   boardConfig: BoardConfig
   inputPolicy: InteractionInputPolicy
-}): WhiteboardRuntime => {
+}): InteractionController => {
   const space = createValueStore(false)
   const inputPolicy = createValueStore<InteractionInputPolicy>({
     panEnabled: initialInputPolicy.panEnabled,
@@ -144,7 +151,7 @@ export const createWhiteboardRuntime = ({
     }
   }
 
-  const input: EditorInput = {
+  const dispatch: EditorInput = {
     cancel: () => {
       interaction.cancel()
     },
@@ -181,52 +188,36 @@ export const createWhiteboardRuntime = ({
     }
   }
 
-  const interactionState = createInteractionState({
+  const state = createInteractionState({
     interaction,
     space
   })
-  const state = {
-    ...editor.state,
-    interaction: interactionState
-  } satisfies WhiteboardRuntime['state']
 
-  const resetInteractionRuntime = () => {
-    input.cancel()
+  const reset = () => {
+    dispatch.cancel()
     clearInteractions()
   }
 
   const unsubscribeCommit = engine.commit.subscribe(() => {
     const commit = engine.commit.get()
     if (commit?.kind === 'replace') {
-      resetInteractionRuntime()
+      reset()
     }
   })
 
   return {
-    ...editor,
     state,
-    input,
-    configure: (config) => {
+    dispatch,
+    configure: (policy) => {
       inputPolicy.set({
-        panEnabled: config.viewport.enablePan,
-        wheelEnabled: config.viewport.enableWheel,
-        wheelSensitivity: config.viewport.wheelSensitivity
-      })
-
-      editor.configure({
-        tool: config.tool,
-        viewport: {
-          minZoom: config.viewport.minZoom,
-          maxZoom: config.viewport.maxZoom
-        },
-        mindmapLayout: config.mindmapLayout,
-        history: config.history
+        panEnabled: policy.panEnabled,
+        wheelEnabled: policy.wheelEnabled,
+        wheelSensitivity: policy.wheelSensitivity
       })
     },
     dispose: () => {
       unsubscribeCommit()
-      resetInteractionRuntime()
-      editor.dispose()
+      reset()
     }
   }
 }

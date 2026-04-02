@@ -1,4 +1,4 @@
-import type { KeyboardInput } from '@whiteboard/editor'
+import type { KeyboardInput } from '../../boardRuntime'
 import type {
   ShortcutAction,
   ShortcutBinding,

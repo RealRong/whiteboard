@@ -19,10 +19,10 @@ import {
   useEditor,
   useInteraction,
   useTool
-} from '../../runtime/hooks/useEditor'
-import { useNodeRegistry } from '../../runtime/hooks/useEnvironment'
+} from '../../board/context'
+import { useNodeRegistry } from '../../board/context'
 import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import type { WhiteboardRuntime as Editor } from '../../types/runtime'
+import type { Editor } from '../../boardRuntime'
 import type { NodeRegistry } from '../../types/node'
 import { useClipboardActions } from '../../runtime/host/useClipboardActions'
 

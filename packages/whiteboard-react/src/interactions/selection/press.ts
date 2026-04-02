@@ -19,7 +19,7 @@ import type {
   PointerDownInput,
   PointerMoveInput,
   PointerUpInput
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import { createMarqueeInteraction } from './marquee'
 import { createMoveInteraction } from './move'
 

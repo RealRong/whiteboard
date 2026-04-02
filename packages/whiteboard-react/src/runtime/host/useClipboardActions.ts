@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
 import type { Point } from '@whiteboard/core/types'
-import type { EditorClipboardTarget } from '@whiteboard/editor'
-import { useEditorRuntime } from '../hooks/useEditor'
-import { useHostRuntime } from '../hooks/useHost'
+import type { EditorClipboardTarget } from '../../boardRuntime'
+import { useEditorRuntime, useHostRuntime } from '../../board/context'
 
 const clonePoint = (
   point: Point

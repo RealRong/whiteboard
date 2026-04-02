@@ -1,7 +1,7 @@
 import {
   selectTool,
   type InsertPresetKey
-} from '@whiteboard/editor'
+} from '../boardRuntime'
 import type { InteractionFeature } from './runtime'
 import type { InteractionCtx } from './runtime/ctx'
 

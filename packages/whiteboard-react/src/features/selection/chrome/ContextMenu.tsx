@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { Point } from '@whiteboard/core/types'
-import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
-import { useNodeRegistry } from '../../../runtime/hooks/useEnvironment'
-import { useHostRuntime } from '../../../runtime/hooks/useHost'
+import {
+  useEditorRuntime,
+  useInteractionController
+} from '../../../board/context'
+import { useNodeRegistry } from '../../../board/context'
+import { useHostRuntime } from '../../../board/context'
 import { useElementSize } from '../../../runtime/hooks/useElementSize'
 import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
 import { isContextMenuIgnoredTarget } from '../../../runtime/host/domTargets'
@@ -814,6 +817,7 @@ export const ContextMenu = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const editor = useEditorRuntime()
+  const interaction = useInteractionController()
   const registry = useNodeRegistry()
   const host = useHostRuntime()
   const clipboard = useClipboardActions()
@@ -872,7 +876,7 @@ export const ContextMenu = ({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 2) return
-      if (editor.state.interaction.get().busy) return
+      if (interaction.state.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -881,7 +885,7 @@ export const ContextMenu = ({
     }
 
     const onContextMenu = (event: MouseEvent) => {
-      if (editor.state.interaction.get().busy) return
+      if (interaction.state.get().busy) return
       if (isContextMenuIgnoredTarget(event.target)) return
 
       event.preventDefault()
@@ -905,7 +909,7 @@ export const ContextMenu = ({
       container.removeEventListener('pointerdown', onPointerDown, true)
       container.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [clipboard, containerRef, dismiss, editor, host, registry])
+  }, [clipboard, containerRef, dismiss, editor, host, interaction, registry])
 
   useOverlayDismiss({
     enabled: view !== null,

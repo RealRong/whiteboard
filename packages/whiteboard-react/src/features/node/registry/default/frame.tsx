@@ -9,7 +9,7 @@ import {
   FRAME_DEFAULT_TITLE
 } from '@whiteboard/core/node'
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
-import { useEdit, useEditor } from '../../../../runtime/hooks/useEditor'
+import { useEdit, useEditor } from '../../../../board/context'
 import { usePickRef } from '../../../../runtime/hooks/usePickRef'
 import {
   createSchema,

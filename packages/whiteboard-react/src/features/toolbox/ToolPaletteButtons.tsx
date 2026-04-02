@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
   DEFAULT_DRAW_KIND,
+  type Editor,
   drawTool,
   edgeTool,
   handTool,
@@ -18,10 +19,9 @@ import {
   selectTool,
   type DrawKind,
   type Tool
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import { readShapePreviewFill } from '@whiteboard/core/node'
 import type { Dispatch, SetStateAction } from 'react'
-import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import type {
   ToolPaletteMenuKey,
   ToolPaletteView

@@ -6,7 +6,7 @@ import type {
   EdgeOverlayEntry,
   MarqueeOverlayState,
   NodePatchEntry
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import type { InteractionCtx } from '../runtime'
 import type { TransformProjection } from '../transform/types'
 

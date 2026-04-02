@@ -1,15 +1,10 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useMemo } from 'react'
 import type { WhiteboardProps } from './types/common/board'
-import { EditorProvider } from './runtime/hooks/useEditor'
-import { EnvironmentProvider } from './runtime/hooks/useEnvironment'
-import { HostProvider } from './runtime/hooks/useHost'
+import { BoardProvider } from './board/context'
 import type { WhiteboardInstance as Editor } from './types/runtime'
-import { Surface } from './canvas/Surface'
-import { DocumentSync } from './runtime/whiteboard/DocumentSync'
-import { CollabLifecycle } from './runtime/whiteboard/CollabLifecycle'
-import { EditorLifecycle } from './runtime/whiteboard/EditorLifecycle'
-import { useWhiteboardConfig } from './runtime/whiteboard/config'
-import { useWhiteboardRuntime } from './runtime/whiteboard/runtime'
+import { WhiteboardLifecycle } from './board/Lifecycle'
+import { useBoardRootController } from './board/controller'
+import { Surface } from './surface/Surface'
 
 const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function WhiteboardInner(
   {
@@ -22,65 +17,43 @@ const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function Whit
   },
   ref
 ) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
   const {
+    controller,
     resolvedConfig,
-    boardConfig,
-    runtimeConfig
-  } = useWhiteboardConfig(options)
-  const {
-    editor,
-    registry,
-    host,
-    engine,
+    runtimeConfig,
     inputDocument,
     lastOutboundDocumentRef,
     onDocumentChangeRef
-  } = useWhiteboardRuntime({
+  } = useBoardRootController({
     document,
     onDocumentChange,
     coreRegistries,
     nodeRegistry,
-    resolvedConfig,
-    boardConfig
+    options
   })
-  const environment = useMemo(
+  const board = useMemo(
     () => ({
-      registry,
-      config: resolvedConfig
+      controller,
+      resolvedConfig
     }),
-    [registry, resolvedConfig]
+    [controller, resolvedConfig]
   )
 
-  useImperativeHandle(ref, () => editor, [editor])
+  useImperativeHandle(ref, () => controller.editor, [controller])
 
   return (
-    <EnvironmentProvider value={environment}>
-      <EditorProvider value={editor}>
-        <HostProvider value={host}>
-          <DocumentSync
-            editor={editor}
-            document={document}
-            inputDocument={inputDocument}
-            lastOutboundDocumentRef={lastOutboundDocumentRef}
-            onDocumentChangeRef={onDocumentChangeRef}
-          />
-          <CollabLifecycle
-            collab={collab}
-            engine={engine}
-          />
-          <EditorLifecycle
-            editor={editor}
-            runtimeConfig={runtimeConfig}
-          />
-          <Surface
-            resolvedConfig={resolvedConfig}
-            containerRef={containerRef}
-            containerStyle={resolvedConfig.style}
-          />
-        </HostProvider>
-      </EditorProvider>
-    </EnvironmentProvider>
+    <BoardProvider value={board}>
+      <WhiteboardLifecycle
+        controller={controller}
+        runtimeConfig={runtimeConfig}
+        document={document}
+        inputDocument={inputDocument}
+        lastOutboundDocumentRef={lastOutboundDocumentRef}
+        onDocumentChangeRef={onDocumentChangeRef}
+        collab={collab}
+      />
+      <Surface />
+    </BoardProvider>
   )
 })
 

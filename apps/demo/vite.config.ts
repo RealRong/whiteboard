@@ -7,7 +7,6 @@ const resolveRoot = (relativePath: string) =>
 
 const coreSrc = resolveRoot('packages/whiteboard-core/src')
 const collabSrc = resolveRoot('packages/whiteboard-collab/src')
-const editorSrc = resolveRoot('packages/whiteboard-editor/src')
 const engineSrc = resolveRoot('packages/whiteboard-engine/src')
 const reactSrc = resolveRoot('packages/whiteboard-react/src')
 
@@ -22,14 +21,6 @@ export default defineConfig({
       {
         find: /^@whiteboard\/collab$/,
         replacement: path.join(collabSrc, 'index.ts')
-      },
-      {
-        find: /^@whiteboard\/editor$/,
-        replacement: path.join(editorSrc, 'index.ts')
-      },
-      {
-        find: /^@whiteboard\/editor\/(.+)$/,
-        replacement: `${editorSrc}/$1.ts`
       },
       {
         find: /^@whiteboard\/engine$/,

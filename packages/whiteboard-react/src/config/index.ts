@@ -5,7 +5,7 @@ import {
 } from '@whiteboard/core/config'
 import {
   selectTool
-} from '@whiteboard/editor'
+} from '../boardRuntime'
 import type { WhiteboardOptions } from '../types/common/board'
 import type { ResolvedConfig } from '../types/common/config'
 import { DEFAULT_VIEWPORT } from './defaultViewport'

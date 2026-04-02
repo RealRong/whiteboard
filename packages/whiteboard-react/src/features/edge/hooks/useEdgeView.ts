@@ -1,6 +1,6 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import { useMemo } from 'react'
-import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+import { useEditorRuntime } from '../../../board/context'
 import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type {
   EdgeState,

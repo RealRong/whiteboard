@@ -4,8 +4,8 @@ import type {
 import {
   useInteraction,
   useTool
-} from '../../../runtime/hooks/useEditor'
-import { useEditorRuntime } from '../../../runtime/hooks/useEditor'
+} from '../../../board/context'
+import { useEditorRuntime } from '../../../board/context'
 import { usePickRef } from '../../../runtime/hooks/usePickRef'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 import type {

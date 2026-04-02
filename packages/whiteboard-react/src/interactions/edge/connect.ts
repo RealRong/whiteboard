@@ -14,7 +14,7 @@ import type { EdgeAnchor, EdgeType, NodeId } from '@whiteboard/core/types'
 import {
   readEdgeType,
   type PointerDownInput
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import type {
   InteractionControl,
   InteractionSession,

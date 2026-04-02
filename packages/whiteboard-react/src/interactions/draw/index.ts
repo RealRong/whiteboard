@@ -4,7 +4,7 @@ import type {
   InteractionSession
 } from '../runtime'
 import type { InteractionCtx } from '../runtime/ctx'
-import type { PointerDownInput, PointerSample } from '@whiteboard/editor'
+import type { PointerDownInput, PointerSample } from '../../boardRuntime'
 import {
   clearStrokeOverlay,
   commitStrokeSession,

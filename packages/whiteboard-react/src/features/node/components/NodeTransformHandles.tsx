@@ -4,7 +4,7 @@ import type {
 import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/engine'
-import { useEditor } from '../../../runtime/hooks/useEditor'
+import { useEditor } from '../../../board/context'
 import { usePickRef } from '../../../runtime/hooks/usePickRef'
 import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
 

@@ -3,14 +3,31 @@ import {
   createYjsSession,
   type CollabSession
 } from '@whiteboard/collab'
-import type { WhiteboardCollabOptions } from '../../types/common/collab'
+import type { Document } from '@whiteboard/core/types'
+import type { WhiteboardCollabOptions } from '../types/common/collab'
+import type { BoardController, BoardRuntimeConfig } from './controller'
+import { isMirroredDocumentFromEngine } from './controller'
 
-export const CollabLifecycle = ({
-  collab,
-  engine
+export const WhiteboardLifecycle = ({
+  controller,
+  runtimeConfig,
+  document,
+  inputDocument,
+  lastOutboundDocumentRef,
+  onDocumentChangeRef,
+  collab
 }: {
+  controller: BoardController
+  runtimeConfig: BoardRuntimeConfig
+  document: Document
+  inputDocument: Document
+  lastOutboundDocumentRef: {
+    current: Document
+  }
+  onDocumentChangeRef: {
+    current: (document: Document) => void
+  }
   collab?: WhiteboardCollabOptions
-  engine: Parameters<typeof createYjsSession>[0]['engine']
 }) => {
   const collabSessionRef = useRef<CollabSession | null>(null)
   const onCollabSessionRef = useRef(collab?.onSession)
@@ -21,13 +38,39 @@ export const CollabLifecycle = ({
   onCollabSessionRef.current = collab?.onSession
   onCollabStatusChangeRef.current = collab?.onStatusChange
 
+  useEffect(() => () => {
+    controller.dispose()
+  }, [controller])
+
+  useEffect(() => {
+    controller.configure(runtimeConfig)
+  }, [controller, runtimeConfig])
+
+  useEffect(() => {
+    if (isMirroredDocumentFromEngine(document, inputDocument)) {
+      return
+    }
+    if (!isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, inputDocument)) {
+      return
+    }
+    onDocumentChangeRef.current(inputDocument)
+  }, [document, inputDocument, lastOutboundDocumentRef, onDocumentChangeRef])
+
+  useEffect(() => {
+    if (isMirroredDocumentFromEngine(lastOutboundDocumentRef.current, inputDocument)) {
+      return
+    }
+    lastOutboundDocumentRef.current = inputDocument
+    controller.editor.commands.document.replace(inputDocument)
+  }, [controller, inputDocument, lastOutboundDocumentRef])
+
   useEffect(() => {
     if (!collab) {
       return
     }
 
     const session = createYjsSession({
-      engine,
+      engine: controller.engine,
       doc: collab.doc,
       provider: collab.provider,
       bootstrap: collab.bootstrap
@@ -55,7 +98,7 @@ export const CollabLifecycle = ({
     collab?.bootstrap,
     collab?.doc,
     collab?.provider,
-    engine
+    controller
   ])
 
   useEffect(() => {

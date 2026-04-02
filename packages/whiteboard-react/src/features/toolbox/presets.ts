@@ -21,7 +21,7 @@ import type {
   MindmapTemplate,
   NodeInsertPreset,
   StickyTone
-} from '@whiteboard/editor/insert'
+} from '../../boardRuntime/insert'
 
 const firstPresetKey = <T extends {
   key: string

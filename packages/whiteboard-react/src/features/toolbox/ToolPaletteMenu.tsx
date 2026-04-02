@@ -1,11 +1,11 @@
 import {
+  type Editor,
   drawTool,
   edgeTool,
   insertTool,
   type EdgePresetKey
-} from '@whiteboard/editor'
+} from '../../boardRuntime'
 import type { Dispatch, SetStateAction } from 'react'
-import type { WhiteboardRuntime as Editor } from '../../types/runtime'
 import type {
   ToolPaletteMenuKey,
   ToolPaletteView
