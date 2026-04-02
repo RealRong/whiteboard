@@ -1,7 +1,7 @@
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/engine'
 import type { EdgeAnchor } from '@whiteboard/core/types'
-import { usePickRef } from '../../../runtime/hooks/usePickRef'
+import { usePickRef } from '../../../shared/hooks/usePickRef'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']

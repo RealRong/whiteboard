@@ -5,7 +5,9 @@ import type {
 import type {
   ClipboardPacket,
 } from '@whiteboard/core/document'
+import type { ShapeKind } from '@whiteboard/core/node'
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
+import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
 import type { SelectionInput, SelectionTarget } from '@whiteboard/core/selection'
 import type { CommandResult, ReadStore } from '@whiteboard/engine'
 import type {
@@ -18,31 +20,40 @@ import type {
   Size,
   Viewport
 } from '@whiteboard/core/types'
-import type { MindmapLayoutConfig } from './mindmap'
 import type {
   BrushStylePatch,
   DrawSlot
-} from './draw'
+} from '../features/draw/model'
 import type {
   KeyboardInput,
+  ModifierKeys,
   PointerDownInput,
+  PointerInput,
   PointerMoveInput,
+  PointerPhase,
+  PointerSample,
   PointerUpInput,
   WheelInput
-} from './input'
+} from '../surface'
 import type {
   InsertPresetKey,
   Tool
-} from './tool'
-import type { RuntimeRead } from '../runtime/read'
+} from '../tool'
+import type { RuntimeRead } from './engine/read'
 import type {
   ViewportCommands,
   ViewportInputRuntime,
   ViewportRead
-} from '../runtime/viewport'
-import type { EditField, EditTarget } from '../runtime/state/edit'
-import type { ShapeKind } from '@whiteboard/core/node'
-import type { EditorOverlay } from '../runtime/overlay'
+} from './local/viewport'
+import type { EditField, EditTarget } from './local/state/edit'
+import type {
+  EdgeGuide,
+  EdgeOverlayEntry,
+  EditorOverlay,
+  MarqueeOverlayState,
+  MindmapDragFeedback,
+  NodePatchEntry
+} from './transient'
 
 type EngineCommands = import('@whiteboard/engine').EngineInstance['commands']
 type EngineNodeCommands = EngineCommands['node']
@@ -282,14 +293,66 @@ export type Editor = {
   state: EditorState
   commands: EditorCommands
   transient: EditorTransient
+  interaction: {
+    state: ReadStore<EditorInteractionState>
+  }
+  dispatch: EditorInput
   configure: (config: {
     tool: Tool
     viewport: {
       minZoom: number
       maxZoom: number
+      enablePan: boolean
+      enableWheel: boolean
+      wheelSensitivity: number
     }
     mindmapLayout: MindmapLayoutConfig
     history?: KernelHistoryConfig
   }) => void
   dispose: () => void
+}
+
+export type BoardClipboardTarget = EditorClipboardTarget
+export type BoardClipboardOptions = EditorClipboardOptions
+export type BoardInsertResult = EditorInsertResult
+export type BoardDispatchResult = EditorPointerDispatchResult
+export type BoardInput = EditorInput
+export type BoardDispatch = EditorInput
+export type BoardInteractionState = EditorInteractionState
+export type BoardState = EditorState
+export type BoardRead = EditorRead
+export type BoardViewportRead = EditorViewportRead
+export type BoardViewportCommands = EditorViewportCommands
+export type BoardTransient = EditorTransient
+export type BoardNodeDocumentCommands = EditorNodeDocumentCommands
+export type BoardNodeLockCommands = EditorNodeLockCommands
+export type BoardNodeTextCommands = EditorNodeTextCommands
+export type BoardNodeAppearanceCommands = EditorNodeAppearanceCommands
+export type BoardNodeCommands = EditorNodeCommands
+export type BoardMindmapCommands = EditorMindmapCommands
+export type BoardClipboardCommands = EditorClipboardCommands
+export type BoardCommands = EditorCommands
+export type BoardRuntime = Pick<Editor, 'read' | 'commands' | 'dispatch' | 'configure' | 'dispose'>
+export type BoardRuntimeInternal = Editor
+
+export type {
+  EditField,
+  EditTarget,
+  KeyboardInput,
+  ModifierKeys,
+  PointerDownInput,
+  PointerInput,
+  PointerMoveInput,
+  PointerPhase,
+  PointerSample,
+  PointerUpInput,
+  WheelInput
+}
+
+export type {
+  EdgeGuide,
+  EdgeOverlayEntry,
+  MarqueeOverlayState,
+  MindmapDragFeedback,
+  NodePatchEntry
 }

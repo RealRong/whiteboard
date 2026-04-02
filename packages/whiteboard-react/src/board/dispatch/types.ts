@@ -5,7 +5,7 @@ import type {
   PointerMoveInput,
   PointerUpInput,
   WheelInput
-} from '../../boardRuntime'
+} from '../../board/types'
 
 export type InteractionMode =
   | 'idle'

@@ -2,7 +2,7 @@ import type { BoardConfig } from '@whiteboard/core/config'
 import type {
   Editor as EditorRuntime,
   EditorTransient
-} from '../../boardRuntime'
+} from '../../board/types'
 import type { ValueStore } from '@whiteboard/engine'
 import type { SnapRuntime } from './snap'
 

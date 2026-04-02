@@ -1,8 +1,7 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import { memo } from 'react'
-import { useEditor } from '../../../board/context'
-import { useResolvedConfig } from '../../../board/context'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime, useResolvedConfig } from '../../../board'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import { useSelection } from '../../node/selection'
 import { useEdgeView } from '../hooks/useEdgeView'
 import { EdgeItem } from './EdgeItem'
@@ -34,7 +33,7 @@ const EdgeItemById = memo(
 )
 
 export const EdgeLayer = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const config = useResolvedConfig()
   const edgeIds = useStoreValue(editor.read.edge.list)
   const selectedEdgeIds = useSelection().summary.target.edgeSet

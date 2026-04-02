@@ -6,9 +6,9 @@ import type {
   EdgeOverlayEntry,
   MarqueeOverlayState,
   NodePatchEntry
-} from '../../boardRuntime'
-import type { InteractionCtx } from '../runtime'
-import type { TransformProjection } from '../transform/types'
+} from '../../../board'
+import type { InteractionCtx } from '../../../board'
+import type { TransformProjection } from '../../node/interaction/transform/types'
 
 type SelectionOverlayCtx = Pick<InteractionCtx, 'overlay'>
 

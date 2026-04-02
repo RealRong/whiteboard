@@ -2,7 +2,7 @@ import type {
   InteractionFeature,
   InteractionSession,
   InteractionControl
-} from '../runtime'
+} from '../../../../board'
 import { commitTransform } from './commit'
 import { clearTransformOverlay, writeTransformProjection } from './overlay'
 import { projectTransform } from './project'

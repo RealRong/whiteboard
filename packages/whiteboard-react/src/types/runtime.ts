@@ -1,3 +1,3 @@
-import type { Editor } from '../boardRuntime'
+import type { BoardRuntime } from '../board'
 
-export type WhiteboardInstance = Editor
+export type WhiteboardInstance = BoardRuntime

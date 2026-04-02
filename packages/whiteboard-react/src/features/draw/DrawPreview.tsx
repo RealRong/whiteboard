@@ -1,4 +1,4 @@
-import type { DrawPreview as DrawPreviewValue } from '../../boardRuntime/draw'
+import type { DrawPreview as DrawPreviewValue } from './model'
 import { DrawStrokeShape } from './stroke'
 
 export const DrawPreview = ({

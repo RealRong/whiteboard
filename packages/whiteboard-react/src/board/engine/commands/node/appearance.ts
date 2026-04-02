@@ -3,7 +3,7 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type {
   EditorNodeAppearanceCommands,
   EditorNodeDocumentCommands
-} from '../../../types/editor'
+} from '../../../types'
 import { styleUpdate } from './document'
 
 export const createNodeAppearanceCommands = ({

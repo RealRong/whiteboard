@@ -3,7 +3,7 @@ import {
   DEFAULT_EDGE_PRESET_KEY,
   type DrawKind,
   type EdgePresetKey
-} from '../../boardRuntime'
+} from '../../tool'
 import {
   useCallback,
   useEffect,
@@ -11,13 +11,10 @@ import {
   useRef,
   useState
 } from 'react'
-import {
-  useEditor,
-  useTool
-} from '../../board/context'
-import { useElementSize } from '../../runtime/hooks/useElementSize'
-import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import { useOverlayDismiss } from '../../runtime/overlay/useOverlayDismiss'
+import { useBoardRuntime, useTool } from '../../board'
+import { useElementSize } from '../../shared/hooks/useElementSize'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
+import { useOverlayDismiss } from '../../shared/react/useOverlayDismiss'
 import { ToolPaletteButtons } from './ToolPaletteButtons'
 import { ToolPaletteMenu } from './ToolPaletteMenu'
 import {
@@ -118,7 +115,7 @@ export const ToolPalette = ({
     current: HTMLDivElement | null
   }
 }) => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const tool = useTool()
   const surface = useElementSize(containerRef)
   const rootRef = useRef<HTMLDivElement | null>(null)

@@ -1,11 +1,11 @@
 import type {
   EditorCommands,
   EditorRead
-} from '../../types/editor'
+} from '../types'
 import type {
   ViewportRead,
   ViewportRuntime
-} from '../viewport'
+} from '../local/viewport'
 
 export type EditorViewportRuntime =
   ViewportRead & Pick<ViewportRuntime, 'input' | 'setRect' | 'setLimits'>

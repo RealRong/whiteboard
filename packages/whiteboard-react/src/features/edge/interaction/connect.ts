@@ -11,15 +11,13 @@ import {
 } from '@whiteboard/core/edge'
 import { getNodeAnchorPoint } from '@whiteboard/core/node'
 import type { EdgeAnchor, EdgeType, NodeId } from '@whiteboard/core/types'
-import {
-  readEdgeType,
-  type PointerDownInput
-} from '../../boardRuntime'
+import type { PointerDownInput } from '../../../board'
+import { readEdgeType } from '../model'
 import type {
   InteractionControl,
   InteractionSession,
   InteractionStartResult
-} from '../runtime'
+} from '../../../board'
 import { clearEdgeOverlay, writeConnectPreview } from './overlay'
 import type { ConnectNodeEntry, EdgeInteractionCtx } from './types'
 

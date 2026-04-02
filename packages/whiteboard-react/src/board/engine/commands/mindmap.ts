@@ -16,8 +16,8 @@ import type {
   Point,
   Size
 } from '@whiteboard/core/types'
-import type { EditorCommands } from '../../types/editor'
-import type { EditorCommandHost } from '../editor/types'
+import type { EditorCommands } from '../../types'
+import type { EditorCommandHost } from '../types'
 
 type MindmapCommandEditor = EditorCommandHost
 

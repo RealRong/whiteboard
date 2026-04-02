@@ -1,13 +1,13 @@
 import type {
   Editor,
   KeyboardInput,
-  EditorPick,
   PointerInput,
   PointerPhase,
   PointerSample,
   WheelInput
-} from '../../boardRuntime'
+} from '../../board'
 import type { Point } from '@whiteboard/core/types'
+import type { EditorPick } from './pick'
 import type { PickRegistry } from './pickRegistry'
 import {
   isContextMenuIgnoredTarget,

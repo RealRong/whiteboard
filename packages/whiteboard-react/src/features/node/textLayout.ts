@@ -11,7 +11,7 @@ import {
   type TextContentBox,
   type TextVariant
 } from '@whiteboard/core/node'
-import type { Editor } from '../../boardRuntime'
+import type { Editor } from '../../board'
 import type {
   Node,
   NodeId,

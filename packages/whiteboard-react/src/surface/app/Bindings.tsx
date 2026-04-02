@@ -1,27 +1,27 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 import { createRafTask } from '@whiteboard/engine'
-import { useBoardController, useEditor, useResolvedConfig } from '../board/context'
+import { useBoardController, useBoardRuntime, useResolvedConfig } from '../../board'
 import {
   createShortcutMap,
   detectShortcutPlatform,
   readShortcut,
   resolveShortcutBindings
-} from '../runtime/host/shortcut'
+} from '../host/shortcut'
 import {
   isEditableTarget,
   isInputIgnoredTarget,
   isKeyboardIgnoredTarget
-} from '../runtime/host/domTargets'
+} from '../host/domTargets'
 import {
   resolveKeyboardInput,
   resolvePointerInput,
   resolveWheelInput
-} from '../runtime/host/input'
-import { useClipboardActions } from '../runtime/host/useClipboardActions'
+} from '../host/input'
+import { useClipboardActions } from './useClipboardActions'
 import {
   DefaultShortcutBindings,
   runShortcut
-} from '../canvas/shortcut'
+} from '../../canvas/shortcut'
 
 const isTextInputElement = (
   target: EventTarget | null
@@ -71,7 +71,7 @@ export const SurfaceBindings = ({
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
   const controller = useBoardController()
-  const editor = useEditor()
+  const runtime = useBoardRuntime()
   const resolvedConfig = useResolvedConfig()
   const clipboard = useClipboardActions()
   const bindings = useMemo(
@@ -89,16 +89,13 @@ export const SurfaceBindings = ({
       return
     }
 
-    const {
-      host,
-      interaction
-    } = controller
+    const { host } = controller
     let pendingWheelInput: ReturnType<typeof resolveWheelInput> | null = null
     let releasePointerSession: (() => void) | null = null
     let releaseSelectionLock: (() => void) | null = null
 
     const refreshContainerRect = () => {
-      editor.commands.viewport.setRect(readContainerRect(container))
+      runtime.commands.viewport.setRect(readContainerRect(container))
     }
 
     const stopBrowserEvent = (event: Event) => {
@@ -132,7 +129,7 @@ export const SurfaceBindings = ({
       }
 
       refreshContainerRect()
-      interaction.dispatch.wheel(input)
+      runtime.dispatch.wheel(input)
     }
 
     const wheelTask = createRafTask(flushWheel)
@@ -195,14 +192,14 @@ export const SurfaceBindings = ({
       refreshContainerRect()
       const input = resolvePointerInput({
         phase: 'down',
-        editor,
+        editor: runtime,
         pick: host.pick,
         container,
         event
       })
       host.pointer.set(input.world)
 
-      const result = interaction.dispatch.pointerDown(input)
+      const result = runtime.dispatch.pointerDown(input)
       if (result.handled) {
         stopBrowserEvent(event)
       }
@@ -220,13 +217,13 @@ export const SurfaceBindings = ({
           refreshContainerRect()
           const moveInput = resolvePointerInput({
             phase: 'move',
-            editor,
+            editor: runtime,
             pick: host.pick,
             container,
             event: nextEvent
           })
           host.pointer.set(moveInput.world)
-          if (interaction.dispatch.pointerMove(moveInput)) {
+          if (runtime.dispatch.pointerMove(moveInput)) {
             stopBrowserEvent(nextEvent)
           }
         },
@@ -234,20 +231,20 @@ export const SurfaceBindings = ({
           refreshContainerRect()
           const upInput = resolvePointerInput({
             phase: 'up',
-            editor,
+            editor: runtime,
             pick: host.pick,
             container,
             event: nextEvent
           })
           host.pointer.set(upInput.world)
-          if (interaction.dispatch.pointerUp(upInput)) {
+          if (runtime.dispatch.pointerUp(upInput)) {
             stopBrowserEvent(nextEvent)
           }
           clearPointerSession()
         },
         cancel: (nextEvent) => {
           host.pointer.clear()
-          if (interaction.dispatch.pointerCancel({
+          if (runtime.dispatch.pointerCancel({
             pointerId: nextEvent.pointerId
           })) {
             stopBrowserEvent(nextEvent)
@@ -265,13 +262,13 @@ export const SurfaceBindings = ({
       refreshContainerRect()
       const input = resolvePointerInput({
         phase: 'move',
-        editor,
+        editor: runtime,
         pick: host.pick,
         container,
         event
       })
       host.pointer.set(input.world)
-      interaction.dispatch.pointerMove(input)
+      runtime.dispatch.pointerMove(input)
     }
 
     const onPointerLeave = () => {
@@ -280,7 +277,7 @@ export const SurfaceBindings = ({
       }
 
       host.pointer.clear()
-      interaction.dispatch.pointerLeave()
+      runtime.dispatch.pointerLeave()
     }
 
     const onWheel = (event: WheelEvent) => {
@@ -293,7 +290,7 @@ export const SurfaceBindings = ({
 
       refreshContainerRect()
       scheduleWheel(resolveWheelInput({
-        editor,
+        editor: runtime,
         event
       }))
       stopBrowserEvent(event)
@@ -306,7 +303,7 @@ export const SurfaceBindings = ({
 
       const input = resolveKeyboardInput(event)
 
-      if (interaction.dispatch.keyDown(input)) {
+      if (runtime.dispatch.keyDown(input)) {
         stopBrowserEvent(event)
         return
       }
@@ -316,7 +313,7 @@ export const SurfaceBindings = ({
       }
 
       const action = readShortcut(input, shortcutMap)
-      if (!action || !runShortcut(editor, action)) {
+      if (!action || !runShortcut(runtime, action)) {
         return
       }
 
@@ -325,13 +322,13 @@ export const SurfaceBindings = ({
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isKeyboardIgnoredTarget(event.target)) {
-        if (event.code === 'Space' && interaction.state.get().space) {
-          interaction.dispatch.keyUp(resolveKeyboardInput(event))
+        if (event.code === 'Space' && runtime.interaction.state.get().space) {
+          runtime.dispatch.keyUp(resolveKeyboardInput(event))
         }
         return
       }
 
-      if (!interaction.dispatch.keyUp(resolveKeyboardInput(event))) {
+      if (!runtime.dispatch.keyUp(resolveKeyboardInput(event))) {
         return
       }
 
@@ -340,7 +337,7 @@ export const SurfaceBindings = ({
 
     const onWindowBlur = () => {
       clearWheelFrame()
-      interaction.dispatch.blur()
+      runtime.dispatch.blur()
     }
 
     const onCopy = (event: ClipboardEvent) => {
@@ -406,9 +403,9 @@ export const SurfaceBindings = ({
       clearWheelFrame()
       clearPointerSession()
       host.pointer.clear()
-      interaction.dispatch.cancel()
+      runtime.dispatch.cancel()
     }
-  }, [clipboard, containerRef, controller, editor, resolvedConfig.viewport.enableWheel, shortcutMap])
+  }, [clipboard, containerRef, controller, runtime, resolvedConfig.viewport.enableWheel, shortcutMap])
 
   return null
 }

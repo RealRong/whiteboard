@@ -1,18 +1,17 @@
 import { useCallback, useMemo } from 'react'
 import type { MindmapNodeId, NodeId } from '@whiteboard/core/types'
-import { useEditorRuntime } from '../../../board/context'
-import { useResolvedConfig } from '../../../board/context'
-import { useKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime, useResolvedConfig } from '../../../board'
+import { useKeyedStoreValue } from '../../../shared/hooks/useStoreValue'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import type { MindmapTreeViewData } from '../../../types/mindmap'
 
 export const useMindmapTreeView = (
   treeId: NodeId
 ): MindmapTreeViewData | undefined => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const config = useResolvedConfig()
   const treeView = useKeyedStoreValue(editor.read.mindmap.item, treeId)
-  const drag = useStoreValue(editor.read.overlay.feedback.mindmapDrag)
+  const drag = useStoreValue(editor.read.feedback.mindmapDrag)
   const tree = treeView?.tree
   const root = treeView?.node
   const layout = treeView?.layout

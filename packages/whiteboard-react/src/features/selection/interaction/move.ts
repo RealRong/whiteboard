@@ -8,8 +8,8 @@ import type { Edge } from '@whiteboard/core/types'
 import type {
   InteractionCtx,
   InteractionSession
-} from '../runtime'
-import type { PointerDownInput } from '../../boardRuntime'
+} from '../../../board'
+import type { PointerDownInput } from '../../../board'
 import {
   clearSelectionPreview,
   writeSelectionMovePreview

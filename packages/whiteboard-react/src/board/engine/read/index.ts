@@ -1,11 +1,10 @@
 import type { EngineRead, ReadStore } from '@whiteboard/engine'
 import type { HistoryState } from '@whiteboard/core/kernel'
-import type { NodeRegistry } from '../../types/node'
-import type { DrawPreferences } from '../../types/draw'
-import type { Tool } from '../../types/tool'
-import type { EditorOverlay } from '../overlay'
-import type { EditorViewportRuntime } from '../editor/types'
-import type { RuntimeStateController } from '../state'
+import type { NodeRegistry } from '../../../types/node'
+import type { DrawPreferences } from '../../../features/draw/model'
+import type { EditorOverlay } from '../../transient'
+import type { EditorViewportRuntime } from '../types'
+import type { RuntimeStateController } from '../../local/state'
 import {
   createNodeRead,
   type NodeRead
@@ -38,9 +37,7 @@ export type RuntimeRead = Omit<EngineRead, 'node' | 'edge'> & {
     screenPoint: EditorViewportRuntime['input']['screenPoint']
     size: EditorViewportRuntime['input']['size']
   }
-  overlay: {
-    feedback: EditorOverlay['selectors']['feedback']
-  }
+  feedback: EditorOverlay['selectors']['feedback']
 }
 
 export const createRead = ({
@@ -77,7 +74,8 @@ export const createRead = ({
     source: runtime.state.selection.source,
     node: nodeRead,
     edge: edgeRead,
-    targetBounds
+    targetBounds,
+    marquee: overlay.selectors.feedback.marquee
   })
   const toolRead = createToolRead({
     tool: runtime.state.tool
@@ -106,8 +104,6 @@ export const createRead = ({
       screenPoint: viewport.input.screenPoint,
       size: viewport.input.size
     },
-    overlay: {
-      feedback: overlay.selectors.feedback
-    }
+    feedback: overlay.selectors.feedback
   }
 }

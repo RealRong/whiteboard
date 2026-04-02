@@ -1,4 +1,4 @@
-import type { KeyboardInput } from '../../boardRuntime'
+import type { KeyboardInput } from './types'
 import type {
   ShortcutAction,
   ShortcutBinding,

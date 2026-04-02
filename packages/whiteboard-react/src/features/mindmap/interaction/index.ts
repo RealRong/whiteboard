@@ -8,13 +8,13 @@ import type { Point } from '@whiteboard/core/types'
 import type {
   MindmapDragFeedback,
   PointerDownInput
-} from '../boardRuntime'
+} from '../../../board'
 import type {
   InteractionFeature,
   InteractionControl,
   InteractionSession
-} from './runtime'
-import type { InteractionCtx } from './runtime'
+} from '../../../board'
+import type { InteractionCtx } from '../../../board'
 
 type MindmapInteractionCtx = Pick<
   InteractionCtx,

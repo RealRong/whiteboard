@@ -1,6 +1,6 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../../../types/editor'
-import type { EditorOverlay } from '../../overlay'
+import type { Editor } from '../../../types'
+import type { EditorOverlay } from '../../../transient'
 import { createNodeAppearanceCommands } from './appearance'
 import { createNodeDocumentCommands } from './document'
 import { createNodeLockCommands } from './lock'

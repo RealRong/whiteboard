@@ -7,9 +7,9 @@ import {
 import type {
   NodeId
 } from '@whiteboard/core/types'
-import { useEditor } from '../../../board/context'
-import { usePickRef } from '../../../runtime/hooks/usePickRef'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../../board'
+import { usePickRef } from '../../../shared/hooks/usePickRef'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import { useNodeView } from '../hooks/useNodeView'
 import { useSelection } from '../selection'
 import { FrameNodeChrome } from '../registry/default/frame'
@@ -220,7 +220,7 @@ const ContainerChromeItem = memo(({
 ContainerChromeItem.displayName = 'ContainerChromeItem'
 
 export const FrameLayer = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.summary.target.nodeSet
@@ -259,7 +259,7 @@ export const FrameLayer = () => {
 }
 
 export const ContainerChromeLayer = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const nodeIds = useStoreValue(editor.read.node.list)
   const frameIds = useMemo(() => editor.read.frame.list(), [editor, nodeIds])
 

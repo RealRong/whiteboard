@@ -13,6 +13,7 @@ import {
   type ReadStore
 } from '@whiteboard/engine'
 import type { Edge, Node } from '@whiteboard/core/types'
+import type { MarqueeFeedback } from '../../transient'
 import type { EdgeRead } from './edge'
 import type { NodeRead } from './node'
 import type { TargetBoundsQuery } from '../query/targetBounds'
@@ -21,6 +22,7 @@ export type SelectionRead = {
   target: ReadStore<SelectionTarget>
   summary: ReadStore<SelectionSummary>
   transformBox: ReadStore<SelectionTransformBox>
+  marquee: ReadStore<MarqueeFeedback | undefined>
 }
 
 const readRuntimeNodes = (
@@ -45,12 +47,14 @@ export const createSelectionRead = ({
   source,
   node,
   edge,
-  targetBounds
+  targetBounds,
+  marquee
 }: {
   source: ReadStore<SelectionTarget>
   node: NodeRead
   edge: EdgeRead
   targetBounds: TargetBoundsQuery
+  marquee: ReadStore<MarqueeFeedback | undefined>
 }): SelectionRead => {
   const summary = createDerivedStore<SelectionSummary>({
     get: (readStore) => {
@@ -97,6 +101,7 @@ export const createSelectionRead = ({
   return {
     target: source,
     summary,
-    transformBox
+    transformBox,
+    marquee
   }
 }

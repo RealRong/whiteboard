@@ -3,9 +3,7 @@ import {
   DEFAULT_BOARD_CONFIG,
   type BoardConfig as EngineBoardConfig
 } from '@whiteboard/core/config'
-import {
-  selectTool
-} from '../boardRuntime'
+import { selectTool } from '../tool'
 import type { WhiteboardOptions } from '../types/common/board'
 import type { ResolvedConfig } from '../types/common/config'
 import { DEFAULT_VIEWPORT } from './defaultViewport'

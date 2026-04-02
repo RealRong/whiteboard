@@ -2,14 +2,14 @@ import type { NodeId, Point, SpatialNodeInput } from '@whiteboard/core/types'
 import type {
   EditorCommands,
   EditorInsertResult
-} from '../../types/editor'
-import type { EditorCommandHost } from '../editor/types'
-import type { EditField } from '../state/edit'
+} from '../../types'
+import type { EditorCommandHost } from '../types'
+import type { EditField } from '../../local/state/edit'
 import type {
   InsertPlacement,
   InsertPreset,
   InsertPresetCatalog
-} from '../../types/insert'
+} from '../../../features/toolbox/model/insert'
 import { moveMindmapRoot } from './mindmap'
 
 type InsertCommandEditor = EditorCommandHost

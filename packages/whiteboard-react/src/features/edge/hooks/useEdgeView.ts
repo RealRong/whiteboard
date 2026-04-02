@@ -1,7 +1,7 @@
 import type { EdgeId } from '@whiteboard/core/types'
 import { useMemo } from 'react'
-import { useEditorRuntime } from '../../../board/context'
-import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../../board'
+import { useOptionalKeyedStoreValue } from '../../../shared/hooks/useStoreValue'
 import type {
   EdgeState,
   EdgeView,
@@ -18,7 +18,7 @@ const EMPTY_EDGE_STATE: EdgeState = {
 export const useEdgeView = (
   edgeId: EdgeId | undefined
 ): EdgeView | undefined => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const item = useOptionalKeyedStoreValue(
     editor.read.edge.item,
     edgeId,
@@ -48,7 +48,7 @@ export const useSelectedEdgeView = (): SelectedEdgeView | undefined => {
     ? selection.summary.target.edgeId
     : undefined
   const entry = useEdgeView(edgeId)
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const state = useOptionalKeyedStoreValue(
     editor.read.edge.state,
     edgeId,

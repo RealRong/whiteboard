@@ -1,4 +1,4 @@
-import type { EditorPick } from '../../boardRuntime'
+import type { EditorPick } from './pick'
 
 export type PickRegistry = {
   bind: (element: Element, pick: EditorPick) => () => void

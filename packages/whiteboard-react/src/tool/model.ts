@@ -9,7 +9,7 @@ import type {
   HandTool,
   SelectTool,
   Tool
-} from '../types/tool'
+} from './types'
 
 export const DEFAULT_EDGE_PRESET_KEY: EdgePresetKey = 'edge.straight'
 export const DEFAULT_DRAW_BRUSH_KIND: DrawBrushKind = 'pen'

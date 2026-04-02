@@ -11,7 +11,7 @@ import {
   type KeyboardEvent
 } from 'react'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
-import { useEdit, useEditor } from '../../../../board/context'
+import { useEdit, useBoardRuntime } from '../../../../board'
 import {
   ShapeGlyph
 } from '../../shape'
@@ -64,7 +64,7 @@ const ShapeLabel = ({
   color: string
   fontSize: number
 }) => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const edit = useEdit()
   const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = typeof node.data?.text === 'string' ? node.data.text : ''

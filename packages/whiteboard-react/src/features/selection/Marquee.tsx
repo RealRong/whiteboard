@@ -1,9 +1,9 @@
-import { useEditorRuntime } from '../../board/context'
-import { useStoreValue } from '../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../board'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
 
 export const Marquee = () => {
-  const editor = useEditorRuntime()
-  const marquee = useStoreValue(editor.read.overlay.feedback.marquee)
+  const editor = useBoardRuntime()
+  const marquee = useStoreValue(editor.read.selection.marquee)
 
   if (!marquee) return null
 

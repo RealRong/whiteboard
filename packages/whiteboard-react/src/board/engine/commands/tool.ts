@@ -1,8 +1,8 @@
-import type { Editor } from '../../types/editor'
-import type { Tool } from '../../types/tool'
+import type { Editor } from '../../types'
+import type { Tool } from '../../../tool/types'
 import {
   isSameTool
-} from '../../tool/model'
+} from '../../../tool/model'
 
 export const createToolCommands = ({
   tool,

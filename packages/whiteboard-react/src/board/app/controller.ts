@@ -1,38 +1,30 @@
 import { useMemo, useRef } from 'react'
 import type { Document } from '@whiteboard/core/types'
 import { createEngine, normalizeDocument, type EngineInstance } from '@whiteboard/engine'
-import {
-  createEditor,
-  type Editor,
-  type NodeRegistry as BoardRuntimeNodeRegistry
-} from '../boardRuntime'
-import { normalizeConfig, toBoardConfig } from '../config'
-import { createDefaultNodeRegistry } from '../features/node/registry'
-import { DEFAULT_DRAW_PREFERENCES } from '../features/toolbox/drawPreferences'
-import { INSERT_PRESET_CATALOG } from '../features/toolbox/presets'
-import {
-  createInteractionController,
-  type InteractionController
-} from '../interactions/controller'
-import { createHostRuntime, type WhiteboardHostRuntime } from '../runtime/host/runtime'
-import type { WhiteboardProps } from '../types/common/board'
-import type { ResolvedConfig } from '../types/common/config'
-import type { NodeRegistry } from '../types/node'
+import { createRuntime } from '../createRuntime'
+import { normalizeConfig, toBoardConfig } from '../../config'
+import { createDefaultNodeRegistry } from '../../features/node/registry'
+import { DEFAULT_DRAW_PREFERENCES } from '../../features/toolbox/drawPreferences'
+import { INSERT_PRESET_CATALOG } from '../../features/toolbox/presets'
+import { createHostRuntime, type WhiteboardHostRuntime } from '../../surface'
+import type { WhiteboardProps } from '../../types/common/board'
+import type { ResolvedConfig } from '../../types/common/config'
+import type { NodeRegistry } from '../../types/node'
+import type { BoardRuntimeInternal } from '../types'
 
 export type BoardRuntimeConfig = {
-  tool: Parameters<Editor['configure']>[0]['tool']
-  viewport: Parameters<Editor['configure']>[0]['viewport'] & {
+  tool: Parameters<BoardRuntimeInternal['configure']>[0]['tool']
+  viewport: Parameters<BoardRuntimeInternal['configure']>[0]['viewport'] & {
     enablePan: boolean
     enableWheel: boolean
     wheelSensitivity: number
   }
-  mindmapLayout: Parameters<Editor['configure']>[0]['mindmapLayout']
-  history?: Parameters<Editor['configure']>[0]['history']
+  mindmapLayout: Parameters<BoardRuntimeInternal['configure']>[0]['mindmapLayout']
+  history?: Parameters<BoardRuntimeInternal['configure']>[0]['history']
 }
 
 export type BoardController = {
-  editor: Editor
-  interaction: InteractionController
+  runtime: BoardRuntimeInternal
   host: WhiteboardHostRuntime
   registry: NodeRegistry
   engine: EngineInstance
@@ -122,29 +114,20 @@ export const useBoardRootController = ({
   }
   const engine = engineRef.current!
 
-  const editorRef = useRef<Editor | null>(null)
-  if (!editorRef.current) {
-    editorRef.current = createEditor({
+  const runtimeRef = useRef<BoardRuntimeInternal | null>(null)
+  if (!runtimeRef.current) {
+    runtimeRef.current = createRuntime({
       engine,
+      boardConfig,
       initialTool: resolvedConfig.tool,
       initialViewport: resolvedConfig.viewport.initial,
       viewportLimits: {
         minZoom: resolvedConfig.viewport.minZoom,
         maxZoom: resolvedConfig.viewport.maxZoom
       },
-      registry: registryRef.current as unknown as BoardRuntimeNodeRegistry,
+      registry: registryRef.current,
       insertPresetCatalog: INSERT_PRESET_CATALOG,
-      initialDrawPreferences: DEFAULT_DRAW_PREFERENCES
-    })
-  }
-  const editor = editorRef.current!
-
-  const interactionRef = useRef<InteractionController | null>(null)
-  if (!interactionRef.current) {
-    interactionRef.current = createInteractionController({
-      editor,
-      engine,
-      boardConfig,
+      initialDrawPreferences: DEFAULT_DRAW_PREFERENCES,
       inputPolicy: {
         panEnabled: resolvedConfig.viewport.enablePan,
         wheelEnabled: resolvedConfig.viewport.enableWheel,
@@ -152,7 +135,7 @@ export const useBoardRootController = ({
       }
     })
   }
-  const interaction = interactionRef.current!
+  const runtime = runtimeRef.current!
 
   const hostRef = useRef<WhiteboardHostRuntime | null>(null)
   if (!hostRef.current) {
@@ -163,31 +146,20 @@ export const useBoardRootController = ({
   const controllerRef = useRef<BoardController | null>(null)
   if (!controllerRef.current) {
     controllerRef.current = {
-      editor,
-      interaction,
+      runtime,
       host,
       registry: registryRef.current,
       engine,
       configure: (config) => {
-        interaction.configure({
-          panEnabled: config.viewport.enablePan,
-          wheelEnabled: config.viewport.enableWheel,
-          wheelSensitivity: config.viewport.wheelSensitivity
-        })
-
-        editor.configure({
+        runtime.configure({
           tool: config.tool,
-          viewport: {
-            minZoom: config.viewport.minZoom,
-            maxZoom: config.viewport.maxZoom
-          },
+          viewport: config.viewport,
           mindmapLayout: config.mindmapLayout,
           history: config.history
         })
       },
       dispose: () => {
-        interaction.dispose()
-        editor.dispose()
+        runtime.dispose()
       }
     }
   }

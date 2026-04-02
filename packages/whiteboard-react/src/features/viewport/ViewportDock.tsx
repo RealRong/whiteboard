@@ -6,8 +6,8 @@ import {
   Undo2,
   type LucideIcon
 } from 'lucide-react'
-import { useEditor } from '../../board/context'
-import { useStoreValue } from '../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../board'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
 
 const ZOOM_FACTOR = 1.2
 
@@ -26,7 +26,7 @@ const ToolIcon = ({
 const formatZoom = (zoom: number) => `${Math.round(zoom * 100)}%`
 
 export const ViewportDock = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const viewport = useStoreValue(editor.state.viewport)
   const history = useStoreValue(editor.read.history)
 

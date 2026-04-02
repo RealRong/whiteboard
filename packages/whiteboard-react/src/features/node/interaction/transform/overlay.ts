@@ -2,7 +2,7 @@ import type { TransformInteractionCtx, TransformProjection } from './types'
 import {
   clearSelectionPreview,
   writeSelectionTransformPreview
-} from '../selection/overlay'
+} from '../../../selection/interaction/overlay'
 
 export const clearTransformOverlay = (
   ctx: TransformInteractionCtx

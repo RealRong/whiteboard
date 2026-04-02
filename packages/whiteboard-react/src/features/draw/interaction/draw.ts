@@ -1,18 +1,18 @@
 import {
   type DrawBrushKind
-} from '../../boardRuntime'
+} from '../../../tool'
 import type {
   DrawPreview,
   ResolvedDrawStyle
-} from '../../boardRuntime/draw'
+} from '../model'
 import {
   readDrawStyle
-} from '../../boardRuntime/draw'
+} from '../model'
 import type {
   PointerDownInput,
   PointerSample
-} from '../../boardRuntime'
-import type { InteractionCtx } from '../runtime/ctx'
+} from '../../../board'
+import type { InteractionCtx } from '../../../board'
 import {
   resolveDrawPoints,
   resolveDrawStroke

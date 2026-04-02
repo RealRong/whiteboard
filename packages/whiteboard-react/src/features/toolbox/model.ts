@@ -2,7 +2,7 @@ import {
   readDrawSlot,
   readDrawStyle,
   type DrawPreferences as DrawState,
-} from '../../boardRuntime/draw'
+} from '../draw/model'
 import {
   DEFAULT_DRAW_BRUSH_KIND,
   DEFAULT_DRAW_KIND,
@@ -11,7 +11,7 @@ import {
   type DrawKind,
   type EdgePresetKey,
   type Tool
-} from '../../boardRuntime'
+} from '../../tool'
 import {
   DEFAULT_MINDMAP_PRESET_KEY,
   DEFAULT_SHAPE_PRESET_KEY,

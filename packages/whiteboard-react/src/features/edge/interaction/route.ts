@@ -8,8 +8,8 @@ import type {
   InteractionControl,
   InteractionSession,
   InteractionStartResult
-} from '../runtime'
-import type { PointerDownInput } from '../../boardRuntime'
+} from '../../../board'
+import type { PointerDownInput } from '../../../board'
 import {
   clearEdgeOverlay,
   clearEdgePatches,

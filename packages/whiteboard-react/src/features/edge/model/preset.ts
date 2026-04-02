@@ -1,5 +1,5 @@
 import type { EdgeType } from '@whiteboard/core/types'
-import type { EdgePresetKey } from '../types/tool'
+import type { EdgePresetKey } from '../../../tool/types'
 
 const EDGE_PRESET_TO_TYPE = {
   'edge.straight': 'linear',

@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
-import type { ResolvedConfig } from '../types/common/config'
-import { useStoreValue } from '../runtime/hooks/useStoreValue'
+import type { ResolvedConfig } from '../../types/common/config'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
 import type { BoardController } from './controller'
 
 type BoardContextValue = {
@@ -8,9 +8,9 @@ type BoardContextValue = {
   resolvedConfig: ResolvedConfig
 }
 
-type EditTarget = ReturnType<BoardController['editor']['state']['edit']['get']>
-type Tool = ReturnType<BoardController['editor']['state']['tool']['get']>
-type InteractionState = ReturnType<BoardController['interaction']['state']['get']>
+type EditTarget = ReturnType<BoardController['runtime']['state']['edit']['get']>
+type Tool = ReturnType<BoardController['runtime']['state']['tool']['get']>
+type InteractionState = ReturnType<BoardController['runtime']['interaction']['state']['get']>
 
 const BoardContext = createContext<BoardContextValue | null>(null)
 
@@ -28,28 +28,26 @@ export const useBoardController = (): BoardController => useBoardContext().contr
 
 export const useResolvedConfig = (): ResolvedConfig => useBoardContext().resolvedConfig
 
-export const useEditorRuntime = (): BoardController['editor'] => useBoardController().editor
-
-export const useEditor = (): BoardController['editor'] => useEditorRuntime()
+export const useBoardRuntime = (): BoardController['runtime'] => useBoardController().runtime
 
 export const useHostRuntime = (): BoardController['host'] => useBoardController().host
 
 export const useNodeRegistry = (): BoardController['registry'] => useBoardController().registry
 
-export const useInteractionController = (): BoardController['interaction'] =>
-  useBoardController().interaction
+export const useInteractionController = (): BoardController['runtime']['interaction'] =>
+  useBoardRuntime().interaction
 
 export const useEdit = (): EditTarget => {
-  const editor = useEditorRuntime()
-  return useStoreValue(editor.state.edit)
+  const runtime = useBoardRuntime()
+  return useStoreValue(runtime.state.edit)
 }
 
 export const useTool = (): Tool => {
-  const editor = useEditorRuntime()
-  return useStoreValue(editor.state.tool)
+  const runtime = useBoardRuntime()
+  return useStoreValue(runtime.state.tool)
 }
 
 export const useInteraction = (): InteractionState => {
-  const interaction = useInteractionController()
-  return useStoreValue(interaction.state)
+  const runtime = useBoardRuntime()
+  return useStoreValue(runtime.interaction.state)
 }

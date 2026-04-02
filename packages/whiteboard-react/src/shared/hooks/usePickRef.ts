@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { EditorPick } from '../../boardRuntime'
-import { useHostRuntime } from '../../board/context'
+import type { EditorPick } from '../../surface'
+import { useHostRuntime } from '../../board'
 
 const toPickKey = (
   pick: EditorPick

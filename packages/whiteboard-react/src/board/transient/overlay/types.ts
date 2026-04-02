@@ -9,7 +9,7 @@ import type {
   Rect
 } from '@whiteboard/core/types'
 import type { KeyedReadStore, ReadStore } from '@whiteboard/engine'
-import type { DrawPreview } from '../../types/draw'
+import type { DrawPreview } from '../../../features/draw/model'
 
 export type NodePatch = CoreNodeProjectionPatch
 

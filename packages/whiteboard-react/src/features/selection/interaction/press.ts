@@ -14,12 +14,12 @@ import {
   type InteractionCtx,
   type InteractionControl,
   type InteractionSession
-} from '../runtime'
+} from '../../../board'
 import type {
   PointerDownInput,
   PointerMoveInput,
   PointerUpInput
-} from '../../boardRuntime'
+} from '../../../board'
 import { createMarqueeInteraction } from './marquee'
 import { createMoveInteraction } from './move'
 

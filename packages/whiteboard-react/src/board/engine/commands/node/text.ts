@@ -1,19 +1,19 @@
 import { isTextContentEmpty } from '@whiteboard/core/node'
 import type { NodeId, Size } from '@whiteboard/core/types'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { NodePatch } from '../../overlay'
+import type { NodePatch } from '../../../transient'
 import type {
   Editor,
   EditorNodeAppearanceCommands,
   EditorNodeDocumentCommands,
   EditorNodeTextCommands
-} from '../../../types/editor'
-import type { EditorOverlay } from '../../overlay'
+} from '../../../types'
+import type { EditorOverlay } from '../../../transient'
 import {
   isNodePatchEqual,
   readNodePatchEntry,
   replaceNodePatchEntry
-} from '../../overlay'
+} from '../../../transient'
 import {
   dataUpdate,
   mergeNodeUpdates,

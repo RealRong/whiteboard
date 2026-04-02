@@ -2,7 +2,7 @@ import type { EngineInstance } from '@whiteboard/engine'
 import type {
   EditorNodeDocumentCommands,
   EditorNodeLockCommands
-} from '../../../types/editor'
+} from '../../../types'
 
 export const createNodeLockCommands = ({
   engine,

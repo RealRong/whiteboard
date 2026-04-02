@@ -4,7 +4,7 @@ import {
   createRafTask,
   type RafTask
 } from '@whiteboard/engine'
-import { useEditor } from '../../../board/context'
+import { useBoardRuntime } from '../../../board'
 
 type Size = {
   width: number
@@ -57,7 +57,7 @@ const readEntrySize = (entry: ResizeObserverEntry): Size => {
 }
 
 export const useNodeSizeObserver = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
 
   const state = useMemo(() => {
     let nextState!: NodeSizeObserverState

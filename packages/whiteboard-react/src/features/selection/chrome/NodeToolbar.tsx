@@ -7,12 +7,12 @@ import {
 } from 'react'
 import type { Point } from '@whiteboard/core/types'
 import {
-  useEditorRuntime
-} from '../../../board/context'
-import { useNodeRegistry } from '../../../board/context'
-import { useElementSize } from '../../../runtime/hooks/useElementSize'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
-import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
+  useBoardRuntime
+} from '../../../board'
+import { useNodeRegistry } from '../../../board'
+import { useElementSize } from '../../../shared/hooks/useElementSize'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
+import { useOverlayDismiss } from '../../../shared/react/useOverlayDismiss'
 import { useSelectionPresentation } from '../../node/selection'
 import {
   measureBoundTextNodeSize,
@@ -54,7 +54,7 @@ export const NodeToolbar = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const registry = useNodeRegistry()
   const surface = useElementSize(containerRef)
   const viewport = useStoreValue(editor.state.viewport)

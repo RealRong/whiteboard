@@ -1,7 +1,7 @@
 import { createDerivedStore, createRafKeyedStore, createRafValueStore, createValueStore, type ReadStore } from '@whiteboard/engine'
 import type { Guide } from '@whiteboard/core/node'
-import type { DrawPreview } from '../types/draw'
-import type { EditorViewportRuntime } from './editor/types'
+import type { DrawPreview } from '../../features/draw/model'
+import type { EditorViewportRuntime } from '../engine/types'
 import {
   EMPTY_EDGE_GUIDE,
   EMPTY_EDGE_OVERLAY,

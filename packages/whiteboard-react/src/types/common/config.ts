@@ -1,6 +1,6 @@
 import type { HistoryConfig as KernelHistoryConfig } from '@whiteboard/core/kernel'
 import type { MindmapLayoutConfig } from '@whiteboard/core/mindmap'
-import type { Tool } from '../../boardRuntime'
+import type { Tool } from '../../tool'
 import type { WhiteboardOptions } from './board'
 import type {
   EdgeConfig,

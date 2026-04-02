@@ -7,15 +7,15 @@ import type {
   BrushStyle,
   BrushStylePatch,
   DrawSlot
-} from '../../../boardRuntime/draw'
+} from '../../draw/model'
 import {
   DRAW_SLOTS
-} from '../../../boardRuntime/draw'
+} from '../../draw/model'
 import type {
   DrawBrushKind,
   DrawKind
-} from '../../../boardRuntime'
-import { isDrawBrushKind } from '../../../boardRuntime'
+} from '../../../tool'
+import { isDrawBrushKind } from '../../../tool'
 import {
   ColorSwatch,
   MenuSection

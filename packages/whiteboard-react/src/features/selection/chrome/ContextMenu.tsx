@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { Point } from '@whiteboard/core/types'
 import {
-  useEditorRuntime,
+  useBoardRuntime,
   useInteractionController
-} from '../../../board/context'
-import { useNodeRegistry } from '../../../board/context'
-import { useHostRuntime } from '../../../board/context'
-import { useElementSize } from '../../../runtime/hooks/useElementSize'
-import { useOverlayDismiss } from '../../../runtime/overlay/useOverlayDismiss'
-import { isContextMenuIgnoredTarget } from '../../../runtime/host/domTargets'
+} from '../../../board'
+import { useNodeRegistry } from '../../../board'
+import { useHostRuntime } from '../../../board'
+import { useElementSize } from '../../../shared/hooks/useElementSize'
+import { useOverlayDismiss } from '../../../shared/react/useOverlayDismiss'
 import {
+  isContextMenuIgnoredTarget,
   resolveHostPoint,
+  useClipboardActions,
   type HostResolvedPoint
-} from '../../../runtime/host/input'
-import { useClipboardActions } from '../../../runtime/host/useClipboardActions'
+} from '../../../surface'
 import {
   SelectionSummaryHeader,
   SelectionTypeFilterStrip
@@ -160,7 +160,7 @@ const bindMenuAction = (
 }
 
 const syncNodeSelection = (
-  editor: ReturnType<typeof useEditorRuntime>,
+  editor: ReturnType<typeof useBoardRuntime>,
   nodeIds: readonly string[]
 ) => {
   const current = editor.read.selection.target.get()
@@ -178,7 +178,7 @@ const syncNodeSelection = (
 }
 
 const syncEdgeSelection = (
-  editor: ReturnType<typeof useEditorRuntime>,
+  editor: ReturnType<typeof useBoardRuntime>,
   edgeId: string
 ) => {
   const current = editor.read.selection.target.get()
@@ -197,7 +197,7 @@ const syncEdgeSelection = (
 }
 
 const readSelectionContextView = (
-  editor: ReturnType<typeof useEditorRuntime>,
+  editor: ReturnType<typeof useBoardRuntime>,
   registry: ReturnType<typeof useNodeRegistry>,
   screen: Point
 ): Extract<ContextMenuView, { kind: 'selection' }> | undefined => {
@@ -242,7 +242,7 @@ const readContextMenuView = ({
   registry,
   point
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   registry: ReturnType<typeof useNodeRegistry>
   point: HostResolvedPoint
 }): ContextMenuView | null => {
@@ -303,7 +303,7 @@ const readSelectionStyleGroup = ({
   nodeIds,
   dismiss
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   style: NodeSelectionStyle | undefined
   nodeIds: readonly string[]
   dismiss: () => void
@@ -367,7 +367,7 @@ const readCanvasGroups = ({
   view,
   dismiss
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   clipboard: ReturnType<typeof useClipboardActions>
   view: Extract<ContextMenuView, { kind: 'canvas' }>
   dismiss: () => void
@@ -431,7 +431,7 @@ const readEdgeGroups = ({
   view,
   dismiss
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   clipboard: ReturnType<typeof useClipboardActions>
   view: Extract<ContextMenuView, { kind: 'edge' }>
   dismiss: () => void
@@ -469,7 +469,7 @@ const readSelectionGroups = ({
   view,
   dismiss
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   clipboard: ReturnType<typeof useClipboardActions>
   view: Extract<ContextMenuView, { kind: 'selection' }>
   dismiss: () => void
@@ -773,7 +773,7 @@ const readMenuGroups = ({
   view,
   dismiss
 }: {
-  editor: ReturnType<typeof useEditorRuntime>
+  editor: ReturnType<typeof useBoardRuntime>
   clipboard: ReturnType<typeof useClipboardActions>
   view: ContextMenuView
   dismiss: () => void
@@ -816,7 +816,7 @@ export const ContextMenu = ({
 }: {
   containerRef: RefObject<HTMLDivElement | null>
 }) => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const interaction = useInteractionController()
   const registry = useNodeRegistry()
   const host = useHostRuntime()

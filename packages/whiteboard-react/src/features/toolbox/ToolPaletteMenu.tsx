@@ -1,10 +1,10 @@
 import {
-  type Editor,
   drawTool,
   edgeTool,
   insertTool,
   type EdgePresetKey
-} from '../../boardRuntime'
+} from '../../tool'
+import type { Editor } from '../../board'
 import type { Dispatch, SetStateAction } from 'react'
 import type {
   ToolPaletteMenuKey,

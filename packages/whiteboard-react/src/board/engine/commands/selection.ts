@@ -5,9 +5,9 @@ import {
   type SelectionTarget
 } from '@whiteboard/core/selection'
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../../types/editor'
-import type { EditMutate } from '../state/edit'
-import type { SelectionState } from '../state/selection'
+import type { Editor } from '../../types'
+import type { EditMutate } from '../../local/state/edit'
+import type { SelectionState } from '../../local/state/selection'
 
 export const createSelectionCommands = ({
   engine,

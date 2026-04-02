@@ -1,10 +1,8 @@
 import { forwardRef, useImperativeHandle, useMemo } from 'react'
 import type { WhiteboardProps } from './types/common/board'
-import { BoardProvider } from './board/context'
+import { BoardProvider, WhiteboardLifecycle, useBoardRootController } from './board'
+import { Surface } from './surface'
 import type { WhiteboardInstance as Editor } from './types/runtime'
-import { WhiteboardLifecycle } from './board/Lifecycle'
-import { useBoardRootController } from './board/controller'
-import { Surface } from './surface/Surface'
 
 const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function WhiteboardInner(
   {
@@ -39,7 +37,7 @@ const WhiteboardInner = forwardRef<Editor | null, WhiteboardProps>(function Whit
     [controller, resolvedConfig]
   )
 
-  useImperativeHandle(ref, () => controller.editor, [controller])
+  useImperativeHandle(ref, () => controller.runtime, [controller])
 
   return (
     <BoardProvider value={board}>

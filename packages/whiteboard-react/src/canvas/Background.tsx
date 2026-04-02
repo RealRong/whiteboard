@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from 'react'
-import { useEditor } from '../board/context'
-import { useStoreValue } from '../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../board'
+import { useStoreValue } from '../shared/hooks/useStoreValue'
 
 const BASE_STEP = 24
 const MIN_STEP = 14
@@ -17,7 +17,7 @@ const resolveStep = (zoom: number) => {
 }
 
 export const Background = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const background = useStoreValue(editor.read.document.background)
   const viewport = useStoreValue(editor.state.viewport)
   const mode = background?.type ?? 'none'

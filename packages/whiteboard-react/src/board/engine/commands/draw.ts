@@ -1,12 +1,12 @@
-import type { Editor } from '../../types/editor'
-import type { Tool } from '../../types/tool'
-import type { DrawPreferencesState } from '../state/draw'
+import type { Editor } from '../../types'
+import type { Tool } from '../../../tool/types'
+import type { DrawPreferencesState } from '../../local/state/draw'
 import {
   isDrawBrushKind
-} from '../../tool/model'
+} from '../../../tool/model'
 import {
   readDrawSlot
-} from '../../draw/model'
+} from '../../../features/draw/model'
 
 export const createDrawCommands = ({
   tool,

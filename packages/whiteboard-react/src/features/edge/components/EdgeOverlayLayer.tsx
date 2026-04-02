@@ -4,10 +4,10 @@ import type {
 import {
   useInteraction,
   useTool
-} from '../../../board/context'
-import { useEditorRuntime } from '../../../board/context'
-import { usePickRef } from '../../../runtime/hooks/usePickRef'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+} from '../../../board'
+import { useBoardRuntime } from '../../../board'
+import { usePickRef } from '../../../shared/hooks/usePickRef'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import type {
   SelectedEdgeRoutePointView,
   SelectedEdgeView
@@ -15,8 +15,8 @@ import type {
 import { useSelectedEdgeView } from '../hooks/useEdgeView'
 
 const EdgeHintOverlay = () => {
-  const editor = useEditorRuntime()
-  const hint = useStoreValue(editor.read.overlay.feedback.edgeGuide)
+  const editor = useBoardRuntime()
+  const hint = useStoreValue(editor.read.feedback.edgeGuide)
   const zoom = useStoreValue(editor.state.viewport).zoom
   const { line, snap } = hint
   const pointRadius = 4 / Math.max(zoom, 0.0001)
@@ -115,7 +115,7 @@ const EdgeRoutePointHandle = ({
 }: {
   point: SelectedEdgeRoutePointView
 }) => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const ref = usePickRef(
     point.kind === 'anchor'
       ? {

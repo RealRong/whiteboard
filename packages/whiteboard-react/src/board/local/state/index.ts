@@ -1,8 +1,8 @@
 import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import type { Viewport } from '@whiteboard/core/types'
-import type { Tool } from '../../types/tool'
-import type { EditorRead, EditorState } from '../../types/editor'
-import type { EditorViewportRuntime } from '../editor/types'
+import type { Tool } from '../../../tool/types'
+import type { EditorRead, EditorState } from '../../types'
+import type { EditorViewportRuntime } from '../../engine/types'
 import { createEditState, type EditState } from './edit'
 import {
   createSelectionState,
@@ -16,7 +16,7 @@ import {
   createViewport,
   type ViewportRuntime
 } from '../viewport'
-import type { DrawPreferences } from '../../types/draw'
+import type { DrawPreferences } from '../../../features/draw/model'
 import type { ViewportLimits } from '@whiteboard/core/geometry'
 
 type ReadNodeEdge = Pick<EditorRead, 'node' | 'edge'>

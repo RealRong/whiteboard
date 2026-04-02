@@ -1,5 +1,5 @@
 import type { EngineInstance } from '@whiteboard/engine'
-import type { Editor } from '../../types/editor'
+import type { Editor } from '../../types'
 import { createDrawCommands } from './draw'
 import { createHistoryCommands } from './history'
 import { createInsertCommands } from './insert'
@@ -7,12 +7,12 @@ import { createMindmapCommands } from './mindmap'
 import { createNodeCommands } from './node'
 import type {
   EditorCommandHost
-} from '../editor/types'
-import type { EditorOverlay } from '../overlay'
-import type { RuntimeStateController } from '../state'
+} from '../types'
+import type { EditorOverlay } from '../../transient'
+import type { RuntimeStateController } from '../../local/state'
 import { createSelectionCommands } from './selection'
 import { createToolCommands } from './tool'
-import type { InsertPresetCatalog } from '../../types/insert'
+import type { InsertPresetCatalog } from '../../../features/toolbox/model/insert'
 
 export const createEditorCommands = ({
   engine,

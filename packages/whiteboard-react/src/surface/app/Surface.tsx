@@ -1,22 +1,22 @@
 import { useMemo, useRef, type CSSProperties } from 'react'
-import { useEditor, useResolvedConfig, useTool } from '../board/context'
-import { useStoreValue } from '../runtime/hooks/useStoreValue'
-import { Background } from '../canvas/Background'
-import { Chrome } from '../canvas/Chrome'
-import { DrawLayer } from '../features/draw/DrawLayer'
-import { EdgeLayer } from '../features/edge/components/EdgeLayer'
-import { EdgeOverlayLayer } from '../features/edge/components/EdgeOverlayLayer'
-import { MindmapSceneLayer } from '../features/mindmap/components/MindmapSceneLayer'
+import { useBoardRuntime, useResolvedConfig, useTool } from '../../board'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
+import { Background } from '../../canvas/Background'
+import { Chrome } from '../../canvas/Chrome'
+import { DrawLayer } from '../../features/draw/DrawLayer'
+import { EdgeLayer } from '../../features/edge/components/EdgeLayer'
+import { EdgeOverlayLayer } from '../../features/edge/components/EdgeOverlayLayer'
+import { MindmapSceneLayer } from '../../features/mindmap/components/MindmapSceneLayer'
 import {
   ContainerChromeLayer,
   FrameLayer
-} from '../features/node/components/FrameLayer'
-import { NodeOverlayLayer } from '../features/node/components/NodeOverlayLayer'
-import { NodeSceneLayer } from '../features/node/components/NodeSceneLayer'
+} from '../../features/node/components/FrameLayer'
+import { NodeOverlayLayer } from '../../features/node/components/NodeOverlayLayer'
+import { NodeSceneLayer } from '../../features/node/components/NodeSceneLayer'
 import { SurfaceBindings } from './Bindings'
 
 export const Surface = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const resolvedConfig = useResolvedConfig()
   const viewport = useStoreValue(editor.state.viewport)
   const tool = useTool()

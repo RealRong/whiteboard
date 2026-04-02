@@ -1,11 +1,11 @@
-import type { DrawBrushKind } from '../types/tool'
+import type { DrawBrushKind } from '../../../tool/types'
 import type {
   BrushStyle,
   DrawBrush,
   DrawPreferences,
   DrawSlot,
   ResolvedDrawStyle
-} from '../types/draw'
+} from './types'
 
 export const DRAW_SLOTS = ['1', '2', '3'] as const satisfies readonly DrawSlot[]
 

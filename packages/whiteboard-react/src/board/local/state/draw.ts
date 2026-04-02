@@ -2,13 +2,13 @@ import { createValueStore, type ValueStore } from '@whiteboard/engine'
 import {
   DRAW_SLOTS,
   normalizeDrawPreferences
-} from '../../draw/model'
+} from '../../../features/draw/model'
 import type {
   BrushStyle,
   DrawBrush,
   DrawCommands,
   DrawPreferences
-} from '../../types/draw'
+} from '../../../features/draw/model'
 
 export type DrawPreferencesState = {
   store: ValueStore<DrawPreferences>

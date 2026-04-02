@@ -21,14 +21,14 @@ import type {
   NodeType,
   Rect
 } from '@whiteboard/core/types'
-import type { NodeRegistry } from '../../types/node'
+import type { NodeRegistry } from '../../../types/node'
 import {
   getAABBFromPoints,
   getRotatedCorners
 } from '@whiteboard/core/geometry'
 import type {
   NodeOverlayProjection
-} from '../overlay'
+} from '../../transient'
 import {
   createOverlayStateStore,
   createPatchedItemStore

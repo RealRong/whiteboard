@@ -7,8 +7,8 @@ import type {
 import type {
   PointerDownInput,
   PointerSample
-} from '../../boardRuntime'
-import type { InteractionCtx } from '../runtime/ctx'
+} from '../../../board'
+import type { InteractionCtx } from '../../../board'
 
 const ERASER_HIT_EPSILON_SCREEN = 2
 const ZOOM_EPSILON = 0.0001

@@ -4,9 +4,9 @@ import type {
 import { RotateCw } from 'lucide-react'
 import { buildTransformHandles, type TransformHandle } from '@whiteboard/core/node'
 import type { NodeItem } from '@whiteboard/engine'
-import { useEditor } from '../../../board/context'
-import { usePickRef } from '../../../runtime/hooks/usePickRef'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../../board'
+import { usePickRef } from '../../../shared/hooks/usePickRef'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 
 type NodeViewNode = NodeItem['node']
 type NodeViewRect = NodeItem['rect']
@@ -119,7 +119,7 @@ export const TransformHandles = ({
   canResize,
   canRotate
 }: TransformHandlesProps) => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const zoom = useStoreValue(editor.state.viewport).zoom
 
   const handles = buildTransformHandles({

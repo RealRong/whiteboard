@@ -1,8 +1,8 @@
 import type {
   InteractionControl,
   InteractionStartResult
-} from '../runtime'
-import type { PointerDownInput } from '../../boardRuntime'
+} from '../../../board'
+import type { PointerDownInput } from '../../../board'
 import { startEdgeConnectInteraction } from './connect'
 import { startEdgeRouteInteraction } from './route'
 import type { EdgeInteractionCtx } from './types'

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import type { NodeDefinition, NodeRenderProps } from '../../../../types/node'
-import { useEdit, useEditor } from '../../../../board/context'
+import { useEdit, useBoardRuntime } from '../../../../board'
 import { useAutoFontSize } from '../../hooks/useAutoFontSize'
 import {
   bindNodeTextSource,
@@ -54,7 +54,7 @@ const TextNodeRenderer = ({
   selected,
   variant
 }: NodeRenderProps & { variant: 'text' | 'sticky' }) => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const edit = useEdit()
   const editing = edit?.nodeId === node.id && edit.field === 'text'
   const text = typeof node.data?.text === 'string' ? node.data.text : ''

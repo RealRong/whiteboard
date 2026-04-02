@@ -2,10 +2,9 @@ import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { NodeItem } from '@whiteboard/engine'
 import type { NodeId } from '@whiteboard/core/types'
-import type { Editor } from '../../../boardRuntime'
-import { useEditorRuntime } from '../../../board/context'
-import { useNodeRegistry } from '../../../board/context'
-import { useOptionalKeyedStoreValue } from '../../../runtime/hooks/useStoreValue'
+import type { Editor } from '../../../board'
+import { useBoardRuntime, useNodeRegistry } from '../../../board'
+import { useOptionalKeyedStoreValue } from '../../../shared/hooks/useStoreValue'
 import type { NodeDefinition, NodeRegistry, NodeRenderProps, NodeWrite } from '../../../types/node'
 
 const buildNodeTransformStyle = (
@@ -147,7 +146,7 @@ export const useNodeView = (
     selected?: boolean
   } = {}
 ): NodeView | undefined => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const registry = useNodeRegistry()
   const item = useOptionalKeyedStoreValue(
     editor.read.node.item,
@@ -175,7 +174,7 @@ export const useNodeView = (
 export const useNodeOverlayView = (
   nodeId: NodeId | undefined
 ): NodeOverlayView | undefined => {
-  const editor = useEditorRuntime()
+  const editor = useBoardRuntime()
   const item = useOptionalKeyedStoreValue(
     editor.read.node.item,
     nodeId,

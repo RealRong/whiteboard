@@ -4,7 +4,7 @@ import type {
   EdgePresetKey,
   InsertPresetKey,
   Tool
-} from '../../types/tool'
+} from '../../../tool/types'
 
 export type ToolRead = {
   get: () => Tool

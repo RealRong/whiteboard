@@ -4,7 +4,7 @@ import {
   type CollabSession
 } from '@whiteboard/collab'
 import type { Document } from '@whiteboard/core/types'
-import type { WhiteboardCollabOptions } from '../types/common/collab'
+import type { WhiteboardCollabOptions } from '../../types/common/collab'
 import type { BoardController, BoardRuntimeConfig } from './controller'
 import { isMirroredDocumentFromEngine } from './controller'
 
@@ -61,7 +61,7 @@ export const WhiteboardLifecycle = ({
       return
     }
     lastOutboundDocumentRef.current = inputDocument
-    controller.editor.commands.document.replace(inputDocument)
+    controller.runtime.commands.document.replace(inputDocument)
   }, [controller, inputDocument, lastOutboundDocumentRef])
 
   useEffect(() => {

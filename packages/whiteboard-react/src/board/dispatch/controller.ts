@@ -9,21 +9,20 @@ import type {
   Editor,
   EditorInput,
   EditorInteractionState
-} from '../boardRuntime'
+} from '../types'
 import {
-  createInteractionRuntime,
-  createSnapRuntime,
-  type InteractionCtx,
-  type InteractionFeature,
-  type InteractionInputPolicy
+  createInteractionRuntime
 } from './runtime'
-import { createDrawInteraction } from './draw'
-import { createEdgeInteraction } from './edge'
-import { createInsertInteraction } from './insert'
-import { createMindmapInteraction } from './mindmap'
-import { createSelectionInteraction } from './selection'
-import { createTransformInteraction } from './transform'
-import { createViewportInteraction } from './viewport'
+import { createSnapRuntime } from './snap'
+import type { InteractionCtx, InteractionInputPolicy } from './ctx'
+import type { InteractionFeature } from './types'
+import { createDrawInteraction } from '../../features/draw/interaction'
+import { createEdgeInteraction } from '../../features/edge/interaction'
+import { createInsertInteraction } from '../../features/toolbox/interaction/insert'
+import { createMindmapInteraction } from '../../features/mindmap/interaction'
+import { createSelectionInteraction } from '../../features/selection/interaction'
+import { createTransformInteraction } from '../../features/node/interaction/transform'
+import { createViewportInteraction } from '../../features/viewport/interaction'
 
 const createInteractionState = ({
   interaction,
@@ -83,7 +82,7 @@ export const createInteractionController = ({
   boardConfig,
   inputPolicy: initialInputPolicy
 }: {
-  editor: Editor
+  editor: Pick<Editor, 'read' | 'state' | 'commands' | 'transient'>
   engine: EngineInstance
   boardConfig: BoardConfig
   inputPolicy: InteractionInputPolicy

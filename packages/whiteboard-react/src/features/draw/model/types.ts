@@ -1,5 +1,5 @@
 import type { Point } from '@whiteboard/core/types'
-import type { DrawBrushKind } from './tool'
+import type { DrawBrushKind } from '../../../tool/types'
 
 export type DrawSlot =
   | '1'

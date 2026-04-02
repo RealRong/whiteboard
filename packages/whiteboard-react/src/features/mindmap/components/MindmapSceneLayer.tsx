@@ -1,6 +1,6 @@
 import type { NodeId } from '@whiteboard/core/types'
-import { useEditor } from '../../../board/context'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../../board'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import { useMindmapTreeView } from '../hooks/useMindmapTreeView'
 import { MindmapTreeView } from './MindmapTreeView'
 
@@ -17,7 +17,7 @@ const MindmapTreeById = ({
 }
 
 export const MindmapSceneLayer = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const treeIds = useStoreValue(editor.read.mindmap.list)
 
   if (!treeIds.length) return null

@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { useEditor } from '../../../board/context'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+import { useBoardRuntime } from '../../../board'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import { useNodeSizeObserver } from '../hooks/useNodeSizeObserver'
 import { useSelection } from '../selection'
 import { NodeItem } from './NodeItem'
 
 export const NodeSceneLayer = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const nodeIds = useStoreValue(editor.read.node.list)
   const selection = useSelection()
   const selectedSet = selection.summary.target.nodeSet

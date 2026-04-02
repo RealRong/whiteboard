@@ -7,4 +7,4 @@ export type {
   MindmapTemplate,
   NodeInsertPreset,
   StickyTone
-} from './types/insert'
+} from './types'

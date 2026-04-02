@@ -4,10 +4,10 @@ import {
 import type { Guide } from '@whiteboard/core/node'
 import type { NodeId } from '@whiteboard/core/types'
 import {
-  useEditorRuntime
-} from '../../../board/context'
-import { usePickRef } from '../../../runtime/hooks/usePickRef'
-import { useStoreValue } from '../../../runtime/hooks/useStoreValue'
+  useBoardRuntime
+} from '../../../board'
+import { usePickRef } from '../../../shared/hooks/usePickRef'
+import { useStoreValue } from '../../../shared/hooks/useStoreValue'
 import { useNodeOverlayView } from '../hooks/useNodeView'
 import { useSelectionPresentation } from '../selection'
 import { NodeConnectHandles } from './NodeConnectHandles'
@@ -166,8 +166,8 @@ const SelectionHandlesOverlay = ({
 }
 
 export const NodeOverlayLayer = () => {
-  const editor = useEditorRuntime()
-  const guides = useStoreValue(editor.read.overlay.feedback.snap)
+  const editor = useBoardRuntime()
+  const guides = useStoreValue(editor.read.feedback.snap)
   const presentation = useSelectionPresentation()
   const connectNodeIds = presentation.connectNodeIds.length > 0
     ? presentation.connectNodeIds

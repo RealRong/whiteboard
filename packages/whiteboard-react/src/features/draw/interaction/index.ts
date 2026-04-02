@@ -2,9 +2,8 @@ import type {
   InteractionFeature,
   InteractionControl,
   InteractionSession
-} from '../runtime'
-import type { InteractionCtx } from '../runtime/ctx'
-import type { PointerDownInput, PointerSample } from '../../boardRuntime'
+} from '../../../board'
+import type { InteractionCtx, PointerDownInput, PointerSample } from '../../../board'
 import {
   clearStrokeOverlay,
   commitStrokeSession,

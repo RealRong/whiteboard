@@ -9,8 +9,8 @@ import {
   FRAME_DEFAULT_TITLE
 } from '@whiteboard/core/node'
 import type { NodeDefinition, NodeWrite } from '../../../../types/node'
-import { useEdit, useEditor } from '../../../../board/context'
-import { usePickRef } from '../../../../runtime/hooks/usePickRef'
+import { useEdit, useBoardRuntime } from '../../../../board'
+import { usePickRef } from '../../../../shared/hooks/usePickRef'
 import {
   createSchema,
   createTextField,
@@ -47,7 +47,7 @@ export const FrameNodeChrome = ({
   node,
   write
 }: FrameNodeChromeProps) => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const edit = useEdit()
   const title = getDataString(node, 'title') || FRAME_DEFAULT_TITLE
   const editing = edit?.nodeId === node.id && edit.field === 'title'

@@ -1,4 +1,4 @@
-import type { DrawPreferences } from '../../boardRuntime/draw'
+import type { DrawPreferences } from '../draw/model'
 
 export const DEFAULT_DRAW_PREFERENCES: DrawPreferences = {
   pen: {

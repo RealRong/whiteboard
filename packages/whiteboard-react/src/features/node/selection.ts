@@ -16,15 +16,15 @@ import {
 } from './summary'
 import {
   useEdit,
-  useEditor,
+  useBoardRuntime,
   useInteraction,
   useTool
-} from '../../board/context'
-import { useNodeRegistry } from '../../board/context'
-import { useStoreValue } from '../../runtime/hooks/useStoreValue'
-import type { Editor } from '../../boardRuntime'
+} from '../../board'
+import { useNodeRegistry } from '../../board'
+import { useStoreValue } from '../../shared/hooks/useStoreValue'
+import type { Editor } from '../../board'
 import type { NodeRegistry } from '../../types/node'
-import { useClipboardActions } from '../../runtime/host/useClipboardActions'
+import { useClipboardActions } from '../../surface'
 
 type EditTarget = ReturnType<Editor['state']['edit']['get']>
 type BaseSelection = {
@@ -525,7 +525,7 @@ const resolveSelectionView = (
 }
 
 export const useSelection = () => {
-  const editor = useEditor()
+  const editor = useBoardRuntime()
   const registry = useNodeRegistry()
   const clipboard = useClipboardActions()
   const target = useStoreValue(editor.read.selection.target)

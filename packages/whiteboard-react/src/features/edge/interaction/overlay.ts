@@ -7,7 +7,7 @@ import type {
 } from '@whiteboard/core/types'
 import type {
   EdgeGuide
-} from '../../boardRuntime'
+} from '../../../board'
 import type { EdgeInteractionCtx } from './types'
 
 export const clearEdgePatches = (
